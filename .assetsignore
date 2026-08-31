@@ -1,0 +1,7 @@
+wrangler.jsonc
+.assetsignore
+**/.DS_Store
+**/.git
+ICP.md
+objections.md
+launch/

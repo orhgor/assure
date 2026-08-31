@@ -193,11 +193,14 @@ p {
   font-weight: 400;
 }
 
-.hero .cta-group {
+.cta-group {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: var(--spacing-3);
+}
+
+.hero .cta-group {
+  justify-content: center;
 }
 
 .btn-primary,
@@ -325,6 +328,82 @@ p {
 
 @media (hover: hover) {
   .feature-item:hover { background: var(--apple-gray); }
+}
+
+a.feature-item {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+a.feature-item:hover h4 { color: var(--trust-blue); }
+
+.industries {
+  padding: 0 0 var(--spacing-16);
+  text-align: center;
+}
+
+.industry-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-3);
+  margin: 0;
+  padding: 0;
+}
+
+.industry-list li {
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--apple-mid-gray);
+  border: 1px solid var(--apple-light-gray);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.9rem;
+}
+
+.use-flow {
+  list-style: none;
+  max-width: 40rem;
+  margin: 0 0 var(--spacing-10);
+  padding: 0;
+}
+
+.use-flow li {
+  margin-bottom: var(--spacing-8);
+}
+
+.use-flow h2 {
+  font-size: 1.1rem;
+  margin-bottom: var(--spacing-2);
+}
+
+.terms-prose {
+  max-width: 40rem;
+  margin: 0 0 var(--spacing-16);
+}
+
+.terms-prose h2 {
+  font-size: 1.1rem;
+  margin: var(--spacing-6) 0 var(--spacing-2);
+}
+
+.terms-prose p { margin-bottom: var(--spacing-4); }
+
+.terms-prose ul {
+  margin: 0 0 var(--spacing-4);
+  padding-left: 1.25rem;
+}
+
+.terms-prose li {
+  margin-bottom: var(--spacing-2);
+  color: var(--apple-mid-gray);
+}
+
+.pricing-three .price {
+  font-size: 1.5rem;
 }
 
 /* Privacy */
@@ -471,6 +550,33 @@ p {
 
 .install-section .text-small { margin-top: var(--spacing-2); }
 
+.quick-start {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-8);
+  text-align: left;
+  max-width: 36rem;
+  margin: 0 auto var(--spacing-6);
+  padding: 0;
+}
+
+.quick-start li h3 {
+  font-weight: 500;
+  margin-bottom: var(--spacing-2);
+}
+
+.quick-start code {
+  display: block;
+  width: 100%;
+  margin: var(--spacing-1) 0;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .quick-start { grid-template-columns: repeat(3, 1fr); max-width: none; }
+}
+
 /* 404 */
 .not-found {
   padding: var(--spacing-16) 0;
@@ -525,7 +631,9 @@ p {
 
 @media (min-width: 768px) {
   .features { grid-template-columns: repeat(2, 1fr); }
+  .use-cases { grid-template-columns: repeat(2, 1fr); }
   .pricing { grid-template-columns: repeat(2, 1fr); }
+  .pricing-three { grid-template-columns: repeat(3, 1fr); }
   .trust-grid { grid-template-columns: repeat(2, 1fr); }
   .trust-row { grid-template-columns: repeat(3, 1fr); }
 }

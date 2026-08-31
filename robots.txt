@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://assure.ai/sitemap.xml
-Host: https://assure.ai
+Sitemap: https://getassure.com/sitemap.xml
+Host: https://getassure.com
