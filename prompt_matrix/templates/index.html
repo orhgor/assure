@@ -493,6 +493,8 @@
       syncGo();
       syncIntentHint();
       fillClassSelects();
+      if (typeof paintTour === "function" && $("tour") && !$("tour").hidden) paintTour();
+      if (typeof syncAdvanced === "function") syncAdvanced();
     }
 
     function showPane(name) {
@@ -600,6 +602,13 @@
         link.href = "/pricing";
         link.removeAttribute("target");
       }
+      const preview = $("pro-preview");
+      if (preview) preview.hidden = edition.id !== "free";
+      const criticCta = $("pro-critic-cta");
+      if (criticCta) {
+        criticCta.hidden = !((state.personas || []).some((item) => item.locked));
+      }
+      paintLockedModels();
     }
 
     function syncIntentHint() {
@@ -741,7 +750,10 @@
       } else if (state.personas.length) {
         persona.value = "redhat";
       }
+      const criticCta = $("pro-critic-cta");
+      if (criticCta) criticCta.hidden = !state.personas.some((item) => item.locked);
       syncPersona();
+      paintLockedModels();
     }
 
     async function loadStatus() {
@@ -771,8 +783,7 @@
       const hint = $("route-hint");
       if (hint) hint.textContent = note;
       if (order.length) {
-        $("direct").checked = true;
-        syncGo();
+        setDirect(true);
       }
       const names = Object.values(state.providers)
         .filter((info) => info.connected && info.id !== "cursor")
@@ -890,7 +901,7 @@
       document.querySelectorAll('input[name="wf-choice"]').forEach((el) => {
         el.checked = el.value === state.workflow;
       });
-      if (state.workflow === "redhat") $("direct").checked = true;
+      if (state.workflow === "redhat") setDirect(true);
       if (state.workflow === "ensemble") renderThenList();
       syncGo();
     }
