@@ -19,6 +19,6 @@ Install, CLI, and MCP details: [prompt_matrix/README.md](prompt_matrix/README.md
 
 ## Cloudflare Pages
 
-This GitHub repo is the source for [assure.ai](https://assure.ai/). In Cloudflare Pages, connect `orhgor/assure`, set **Root directory** to `landing`, and leave the build command empty. The folder is already static HTML (`landing/wrangler.jsonc`). Then attach the custom domain `assure.ai`.
+GitHub [`orhgor/assure`](https://github.com/orhgor/assure) holds the **webpage only** (branch `webpage`, site at repo root). The workbench and PEM engine stay on this machine. Do not push `main` to that remote.
 
-The workbench stays on the machine (`assure --web`). After Pages is live, set `data-app-origin` on `landing/index.html` if Get started should point at a hosted app instead of `http://127.0.0.1:8765`.
+In Cloudflare Pages, connect the repo, production branch `webpage`, root directory `/`, no build command. Then attach `assure.ai`.
