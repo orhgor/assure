@@ -3,10 +3,14 @@
   "name": "assure",
   // Static marketing site. GitHub default branch is webpage (site at repo root).
   // Cloudflare Workers Builds runs: npx wrangler deploy
-  // Custom domain: Workers & Pages → assure → Settings → Domains → getassure.com
+  // Live now: https://assure.orhangorenn.workers.dev
+  // Attach getassure.com after the domain is a Cloudflare zone (not Namecheap parking).
   "compatibility_date": "2026-08-31",
+  "workers_dev": true,
+  "preview_urls": true,
   "assets": {
     "directory": ".",
+    "html_handling": "none",
     "not_found_handling": "404-page"
   }
 }
