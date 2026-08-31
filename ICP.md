@@ -2,19 +2,104 @@
 
 Assure is for one person on one machine who cannot paste client notes, unpublished research, or unpublished numbers into a random chat.
 
-Primary ICP: privacy-conscious professionals. Strategy consultants, researchers, and analysts first. Writers who handle source material sit next to that group.
+Hero copy uses three personas. The "Who Assure is for" section uses six job titles. Both sets are archetypes for copy, not customers. There is no public customer list yet.
 
-Personas below are archetypes for copy, not customers. There is no public customer list yet. Do not treat these names as testimonials.
+Copy stays on this computer. A Send goes only to the provider they connected. Do not say the data never leaves.
+
+Engine intent ids stay `research | design | comparison | debug | analysis`.
+
+## Hero (3)
+
+Each summary is one line, ten words or fewer.
+
+### The Sovereign Analyst
+
+- Summary: Needs answers but cannot send client data to public AI.
+- Pain: The client brief cannot go into a random chat.
+- Why Assure: Copy stays here. A Send goes only to the provider they chose. Check against my files drops unsourced percents.
+- Discover: NDA threads, a partner asking where a number came from, getassure.com.
+
+Long form: Lena.
+
+### The Privacy-First Researcher
+
+- Summary: Wants validated citations without exposing unpublished work.
+- Pain: Fluent reviews invent papers. The draft should not sit in a vendor chat.
+- Why Assure: Research intent asks for claim, method, and limits. Ground drops publication names that were not in the file. Closed to the internet keeps the question here.
+- Discover: A reviewer flags a citation. A funder forbids sending the corpus off-machine.
+
+Long form: Marek.
+
+### The Prompt Reluctant Professional
+
+- Summary: Uses AI but doesn't want to learn prompt engineering.
+- Pain: They can write the question. They will not learn dialects, XML, or eval harnesses.
+- Why Assure: Compose is who answers, what kind of answer, write the question. Example chips fill the box. The compiler writes the prompt.
+- Discover: They search for a checked answer, not a prompt course. Landing, a colleague, Product Hunt copy in `landing/launch/`.
+
+They sit next to Lena, Marek, and Priya. Same product. Less jargon.
+
+## Who Assure is for (6)
+
+### Strategy Consultant
+
+- Summary: Synthesizes client data without pasting the brief into four chats.
+- Pain: Four tabs, one NDA, a number with no file.
+- Why Assure: Compare & Validate plus Check against my files. Copy if the engagement forbids a Send.
+- Discover: LinkedIn, a peer who got asked "where did this 18% come from."
+
+Page: `use-cases/consultant.html`.
+
+### Academic Researcher
+
+- Summary: Verifies citations without pasting unpublished work into chat.
+- Pain: Invented journal names. The PDF is the corpus, not the live web.
+- Why Assure: Attach the paper. Ground strips names that were not in the file. Closed to the internet when that is the rule. Assure has no live search. Say it.
+- Discover: A bad citation in review. A lab that already runs Ollama.
+
+Page: `use-cases/researcher.html`.
+
+### Policy Analyst
+
+- Summary: Drafts papers. File-missing claims get dropped.
+- Pain: Gemini and DeepSeek disagree. The merge is a third document.
+- Why Assure: Compare & Validate. Analysis intent asks what the numbers do not prove. Team is unlimited Sends on this machine, not a shared workspace.
+- Discover: Ops Slack, a manager catching an unsourced round number.
+
+Page: `use-cases/analyst.html`.
+
+### Technical Writer
+
+- Summary: Checks documentation against the files you attach.
+- Pain: A model invents an API that is not in the repo notes.
+- Why Assure: Check against my files. Compare two outlines. Copy keeps the compiled prompt here.
+- Discover: Docs reviews, internal style guides.
+
+No dedicated use-case page yet.
+
+### Marketing Strategist
+
+- Summary: Tests campaign copy across models without four chat tabs.
+- Pain: The brand brief should not live in three consumer chats.
+- Why Assure: Same question, more than one model, overlap view. A Send still goes to who they connected. Copy if the brief cannot leave.
+- Discover: The campaign is due, the headline set disagrees with itself.
+
+### Compliance Officer
+
+- Summary: Reviews AI drafts for claims missing from the files.
+- Pain: Someone pasted regulated text into a public chat. They need a check, not a new chatbot.
+- Why Assure: Closed to the internet, Copy, and Check against my files. This is not a regulator, an audit-log product, or SSO.
+- Discover: After a scare, not from a sales form. There is no Contact Sales.
 
 ## What they share
 
 They already pay for at least one model. The job is not "get an AI." The job is "use AI on sensitive material without looking sloppy or leaking the brief."
 
-They have tried one-box chat. They have also tried running the same question through two products and merging the answers by hand.
-
 They buy when a leak, a fake citation, or a weekend of copy-paste becomes more expensive than $5 a month.
 
-They object when a landing page says the data never leaves, then the product Sends by default. Copy stays on this computer. A Send goes only to the provider they connected. That sentence has to stay in the pitch.
+## Long form
+
+The three names below match the hero personas. They are still not testimonials.
 
 ## Persona 1. Lena, independent strategy consultant
 
@@ -82,6 +167,7 @@ Messaging: "See the fight between models before you put a number in the note."
 - That Assure replaces Gemini, Claude, DeepSeek, or Kimi subscriptions. You still connect those keys.
 - That Team is shared workspaces. It is not in this repo.
 - That there are named customers or usage percentages. Data not available in current context.
+- That Assure is a compliance suite, SSO, or audit-log product.
 
 ## Intent map (engine ids stay)
 
