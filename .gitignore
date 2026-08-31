@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+.DS_Store
+prompt_matrix/library.json
+prompt_matrix/history.sqlite
+logs/

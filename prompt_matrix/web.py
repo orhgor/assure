@@ -1,0 +1,1036 @@
+"""Local web UI for Assure (PEM engine)."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import socket
+import sys
+import threading
+import time
+import webbrowser
+from pathlib import Path
+
+from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, session
+
+try:
+    from .engine import (
+        MatrixError,
+        copy_to_clipboard,
+        execute,
+        load_matrix,
+        render_prompt_detailed,
+    )
+    from .keys import load_keys, provider_status, save_provider_key
+    from .runtime import library_status, warm_libraries
+    from .library import (
+        class_version_diff,
+        create_class,
+        delete_class,
+        delete_prompt,
+        get_saved_prompt,
+        learn_structure,
+        library_payload,
+        load_library,
+        rollback_class,
+        save_prompt,
+        snapshot_class,
+        suggest_class,
+    )
+    from .personas import list_personas
+    from .pipelines import run_workflow
+    from .route import route_snapshot
+except ImportError:
+    from engine import (
+        MatrixError,
+        copy_to_clipboard,
+        execute,
+        load_matrix,
+        render_prompt_detailed,
+    )
+    from keys import load_keys, provider_status, save_provider_key
+    from runtime import library_status, warm_libraries
+    from library import (
+        class_version_diff,
+        create_class,
+        delete_class,
+        delete_prompt,
+        get_saved_prompt,
+        learn_structure,
+        library_payload,
+        load_library,
+        rollback_class,
+        save_prompt,
+        snapshot_class,
+        suggest_class,
+    )
+    from personas import list_personas
+    from pipelines import run_workflow
+    from route import route_snapshot
+
+PACKAGE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = PACKAGE_DIR / "static"
+TEMPLATES_DIR = PACKAGE_DIR / "templates"
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8765
+
+
+def create_app() -> Flask:
+    try:
+        from .pem_runner import ensure_preflight
+    except ImportError:
+        from pem_runner import ensure_preflight
+    ensure_preflight()
+    load_keys()
+    try:
+        from .cloud_billing import load_cloud_env
+    except ImportError:
+        from cloud_billing import load_cloud_env
+    load_cloud_env()
+    threading.Thread(target=warm_libraries, daemon=True, name="pem-libs").start()
+    app = Flask(
+        __name__,
+        static_folder=str(STATIC_DIR),
+        static_url_path="/static",
+        template_folder=str(TEMPLATES_DIR),
+    )
+    app.secret_key = os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
+    app.config["BABEL_DEFAULT_LOCALE"] = "en"
+    app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(PACKAGE_DIR / "translations")
+    try:
+        from flask_babel import Babel
+    except ImportError:
+        Babel = None
+    try:
+        from .i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+    except ImportError:
+        from i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+    try:
+        from .web_ui import protect_app
+    except ImportError:
+        from web_ui import protect_app
+    protect_app(app)
+
+    def _locale() -> str:
+        # Flask-Babel 4 uses locale_selector=, not @babel.localeselector.
+        # ?lang= wins so the header switcher can reload the Jinja catalog.
+        # Then session, cookie, then the browser Accept-Language header.
+        arg = request.args.get("lang")
+        if arg:
+            lang = normalize_locale(arg)
+            session["lang"] = lang
+            return lang
+        if session.get("lang"):
+            return normalize_locale(session.get("lang"))
+        cookie = request.cookies.get("assure_lang")
+        if cookie:
+            return normalize_locale(cookie)
+        match = request.accept_languages.best_match(list(LOCALES))
+        if match:
+            return normalize_locale(match)
+        return "en"
+
+    if Babel is not None:
+        Babel(app, locale_selector=_locale)
+    en_msgid_key = {}
+    for key, val in EN.items():
+        if isinstance(val, str) and val not in en_msgid_key:
+            en_msgid_key[val] = key
+
+    def _gettext(message):
+        key = en_msgid_key.get(message)
+        if key:
+            return string_catalog(_locale()).get(key, message)
+        if Babel is not None:
+            from flask_babel import gettext as babel_gettext
+            return babel_gettext(message)
+        return message
+
+    app.jinja_env.globals["gettext"] = _gettext
+
+    try:
+        from .cloud_auth import (
+            AuthError,
+            auth_required,
+            clear_user,
+            clerk_configured,
+            current_user_id,
+            is_self_hosted,
+            protect_request,
+            remember_user,
+            safe_next,
+            template_state,
+            verify_session_token,
+        )
+    except ImportError:
+        from cloud_auth import (
+            AuthError,
+            auth_required,
+            clear_user,
+            clerk_configured,
+            current_user_id,
+            is_self_hosted,
+            protect_request,
+            remember_user,
+            safe_next,
+            template_state,
+            verify_session_token,
+        )
+
+    @app.before_request
+    def _cloud_login():
+        return protect_request()
+
+    def _page(template: str, active: str, **extra):
+        lang = _locale()
+        session["lang"] = lang
+        include_pk = bool(extra.pop("include_pk", False))
+        try:
+            from .editions import snapshot as edition_snapshot
+        except ImportError:
+            from editions import snapshot as edition_snapshot
+        html = render_template(
+            template,
+            locale=lang,
+            languages=LOCALE_LABELS,
+            strings=string_catalog(lang),
+            active=active,
+            auth=template_state(include_pk=include_pk),
+            edition=edition_snapshot(),
+            **extra,
+        )
+        resp = make_response(html)
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return resp
+
+    @app.get("/")
+    def index():
+        # Live markup is templates/index.html so Jinja gettext can run.
+        # static/index.html is a pointer only. Do not serve it as /.
+        return _page("index.html", "compose", initial_pane="compose")
+
+    @app.get("/compose")
+    def compose_redirect():
+        qs = request.query_string.decode() if request.query_string else ""
+        return redirect("/" + (("?" + qs) if qs else ""))
+
+    @app.get("/history")
+    def history_page():
+        return _page("index.html", "history", initial_pane="history")
+
+    @app.get("/learn")
+    def learn_page():
+        return _page("index.html", "learn", initial_pane="learn")
+
+    @app.get("/library")
+    def library_page():
+        return _page("index.html", "library", initial_pane="library")
+
+    @app.get("/connect")
+    def connect():
+        return _page("connect.html", "connect")
+
+    @app.get("/signin")
+    def signin():
+        return _page(
+            "auth.html",
+            "signin",
+            include_pk=True,
+            auth_mode="signin",
+            next_url=safe_next(request.args.get("next")),
+        )
+
+    @app.get("/signup")
+    def signup():
+        return _page(
+            "auth.html",
+            "signup",
+            include_pk=True,
+            auth_mode="signup",
+            next_url=safe_next(request.args.get("next")),
+        )
+
+    @app.get("/signout")
+    def signout():
+        clear_user()
+        return redirect("/signin")
+
+    @app.get("/api/auth/config")
+    def auth_config():
+        return jsonify(
+            {
+                "required": auth_required(),
+                "configured": clerk_configured(),
+                "self_hosted": is_self_hosted(),
+                "signed_in": bool(current_user_id()),
+            }
+        )
+
+    @app.get("/api/auth/me")
+    def auth_me():
+        return jsonify(
+            {
+                "user_id": current_user_id() or "",
+                "email": session.get("clerk_email") or "",
+            }
+        )
+
+    @app.post("/api/auth/session")
+    def auth_session():
+        if is_self_hosted() or not clerk_configured():
+            return jsonify({"error": string_catalog(_locale()).get("auth.missing")}), 400
+        data = request.get_json(silent=True) or {}
+        token = str(data.get("token") or "")
+        try:
+            user = verify_session_token(token)
+        except AuthError:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        remember_user(user_id=user["id"], email=user.get("email") or "")
+        try:
+            from .cloud_billing import ensure_user
+        except ImportError:
+            from cloud_billing import ensure_user
+        try:
+            ensure_user(user["id"], user.get("email") or "")
+        except Exception:
+            return jsonify({"error": string_catalog(_locale()).get("billing.missing")}), 503
+        return jsonify({"ok": True, "user_id": user["id"], "email": user.get("email") or ""})
+
+    @app.post("/api/auth/logout")
+    def auth_logout():
+        clear_user()
+        return jsonify({"ok": True})
+
+    @app.get("/pricing")
+    def pricing():
+        try:
+            from .cloud_billing import stripe_configured
+        except ImportError:
+            from cloud_billing import stripe_configured
+        return _page("pricing.html", "pricing", stripe_ready=stripe_configured())
+
+    @app.get("/privacy")
+    def privacy():
+        return _page("privacy.html", "privacy")
+
+    @app.get("/about")
+    def about():
+        return _page("about.html", "about")
+
+    @app.get("/account")
+    def account():
+        try:
+            from .cloud_billing import subscription_payload, stripe_configured
+        except ImportError:
+            from cloud_billing import subscription_payload, stripe_configured
+        return _page(
+            "account.html",
+            "account",
+            billing=subscription_payload(),
+            stripe_ready=stripe_configured(),
+            upgraded=request.args.get("upgraded") == "1",
+        )
+
+    @app.get("/api/subscription")
+    def api_subscription():
+        try:
+            from .cloud_billing import subscription_payload
+        except ImportError:
+            from cloud_billing import subscription_payload
+        return jsonify(subscription_payload())
+
+    @app.post("/api/billing/checkout")
+    def billing_checkout():
+        try:
+            from .cloud_billing import BillingError, create_checkout_url
+        except ImportError:
+            from cloud_billing import BillingError, create_checkout_url
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        try:
+            url = create_checkout_url(
+                user_id=user_id,
+                email=session.get("clerk_email") or "",
+                origin=request.host_url.rstrip("/"),
+            )
+        except BillingError as exc:
+            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+        return jsonify({"url": url})
+
+    @app.post("/api/billing/portal")
+    def billing_portal():
+        try:
+            from .cloud_billing import BillingError, create_portal_url
+        except ImportError:
+            from cloud_billing import BillingError, create_portal_url
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        try:
+            url = create_portal_url(user_id=user_id, origin=request.host_url.rstrip("/"))
+        except BillingError as exc:
+            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+        return jsonify({"url": url})
+
+    @app.post("/api/webhook/stripe")
+    def stripe_webhook():
+        try:
+            from .cloud_billing import BillingError, apply_stripe_event, verify_stripe_payload
+        except ImportError:
+            from cloud_billing import BillingError, apply_stripe_event, verify_stripe_payload
+        payload = request.get_data()
+        header = request.headers.get("Stripe-Signature") or ""
+        try:
+            event = verify_stripe_payload(payload, header)
+            apply_stripe_event(event)
+        except BillingError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify({"ok": True})
+
+    @app.post("/api/account/delete")
+    def account_delete():
+        try:
+            from .cloud_billing import delete_user
+        except ImportError:
+            from cloud_billing import delete_user
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        try:
+            from .cloud_auth import delete_clerk_user
+        except ImportError:
+            from cloud_auth import delete_clerk_user
+        try:
+            delete_clerk_user(user_id)
+        except AuthError:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 503
+        delete_user(user_id)
+        clear_user()
+        return jsonify({"ok": True})
+
+    @app.get("/api/account/export")
+    def account_export():
+        try:
+            from .cloud_billing import export_user
+        except ImportError:
+            from cloud_billing import export_user
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        return jsonify(export_user(user_id))
+
+    @app.get("/api/i18n")
+    def i18n_view():
+        lang = _locale()
+        if request.args.get("lang"):
+            lang = normalize_locale(request.args.get("lang"))
+            session["lang"] = lang
+        payload = {
+            "locale": lang,
+            "locales": [{"id": item, "label": LOCALE_LABELS.get(item, item)} for item in LOCALES],
+            "strings": string_catalog(lang),
+        }
+        resp = jsonify(payload)
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return resp
+
+    @app.get("/api/health")
+    def health():
+        return jsonify(library_status())
+
+    @app.get("/api/status")
+    def status_view():
+        return jsonify(provider_status())
+
+    @app.post("/api/keys")
+    def save_key_view():
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = save_provider_key(
+                str(data.get("target") or ""),
+                str(data.get("key") or ""),
+            )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        return jsonify(payload)
+
+    @app.get("/api/catalog")
+    def catalog():
+        config = load_matrix()
+        targets = []
+        for key, target in config.targets.items():
+            targets.append(
+                {
+                    "id": key,
+                    "label": target.label or key,
+                    "wrapper": target.wrapper,
+                    "model": target.model,
+                }
+            )
+        try:
+            from .editions import snapshot
+            from .i18n import intent_plain
+        except ImportError:
+            from editions import snapshot
+            from i18n import intent_plain
+        lang = _locale()
+        edition = snapshot(config.runtime.edition)
+        plains = intent_plain(lang)
+        intents = []
+        for key, intent in config.intents.items():
+            intents.append(
+                {
+                    "id": key,
+                    "label": key,
+                    "role": intent.role,
+                    "output_format": intent.output_format,
+                    "plain": plains.get(key, ""),
+                }
+            )
+        return jsonify(
+            {
+                "product": "Assure",
+                "engine": "PEM",
+                "targets": targets,
+                "intents": intents,
+                "personas": list_personas(include_locked=True),
+                "route": route_snapshot(),
+                "edition": edition,
+                "locale": lang,
+            }
+        )
+
+    @app.post("/api/render")
+    def render_view():
+        data = request.get_json(silent=True) or {}
+        target = str(data.get("target_ai") or data.get("target") or "").strip()
+        intent = str(data.get("intent") or "").strip()
+        task = str(data.get("task") or "").strip()
+        context = str(data.get("context") or "")
+        direct = bool(data.get("direct"))
+        copy = data.get("copy", True)
+        class_id = (data.get("class_id") or "").strip() or None
+        workflow = str(data.get("workflow") or "single").strip().lower()
+        extra_targets = data.get("extra_targets") or []
+        if not isinstance(extra_targets, list):
+            extra_targets = []
+        extra_targets = [str(item) for item in extra_targets]
+        critic = str(data.get("critic") or "").strip() or None
+        persona = str(data.get("persona") or "").strip() or None
+        ground = bool(data.get("ground"))
+        local = bool(data.get("local"))
+        cheap = bool(data.get("cheap"))
+
+        if not target or not intent or not task:
+            return jsonify({"error": "Pick a target, an intent, and write a task."}), 400
+
+        try:
+            from .cloud_billing import is_cloud_mode
+            from .editions import current_edition
+        except ImportError:
+            from cloud_billing import is_cloud_mode
+            from editions import current_edition
+        if is_cloud_mode() and current_edition().id == "free" and workflow == "ensemble":
+            return jsonify({"error": string_catalog(_locale()).get("billing.pro_only")}), 403
+
+        try:
+            result = run_workflow(
+                target,
+                intent,
+                task,
+                context,
+                workflow=workflow,
+                extra_targets=extra_targets,
+                critic=critic,
+                persona=persona,
+                ground=ground,
+                direct=direct,
+                copy=bool(copy),
+                class_id=class_id,
+                local=local,
+                lint=direct,
+                cheap=cheap,
+            )
+            suggested = suggest_class(task, intent)
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        except RecursionError:
+            return jsonify({"error": friendly_error(
+                "Could not search those file paths. Remove * and ** from the question, "
+                "or put paths only in Extra context.",
+                _locale(),
+            )}), 400
+        except OSError:
+            return jsonify({"error": friendly_error(
+                "Could not search those file paths. Remove * and ** from the question, "
+                "or put paths only in Extra context.",
+                _locale(),
+            )}), 400
+
+        try:
+            from .linter import lint_prompt
+        except ImportError:
+            from linter import lint_prompt
+        report = lint_prompt(result.target_ai, result.prompt)
+
+        try:
+            from .editions import snapshot
+        except ImportError:
+            from editions import snapshot
+
+        return jsonify(
+            {
+                "prompt": result.prompt,
+                "target_ai": result.target_ai,
+                "intent": result.intent,
+                "wrapper": result.wrapper,
+                "files_read": result.files_read,
+                "class_id": result.class_id,
+                "suggested_class": suggested.model_dump() if suggested else None,
+                "reply": result.reply,
+                "note": result.note,
+                "copied": result.copied,
+                "workflow": result.workflow,
+                "steps": [step.model_dump() for step in result.steps],
+                "persona": result.persona,
+                "local": result.local,
+                "direct": result.direct,
+                "ground": ground,
+                "input_tokens": result.input_tokens,
+                "output_tokens": result.output_tokens,
+                "total_tokens": result.total_tokens,
+                "tokens": result.tokens,
+                "estimated_cost": result.estimated_cost,
+                "routed_model": result.routed_model,
+                "variation_id": result.variation_id,
+                "quality": result.quality,
+                "run_hash": result.run_hash,
+                "edition": snapshot(load_matrix().runtime.edition),
+                "lint": {
+                    "ok": report.ok,
+                    "errors": report.errors,
+                    "warnings": report.warnings,
+                },
+            }
+        )
+
+
+    @app.post("/api/feedback")
+    def handle_feedback():
+        data = request.get_json(silent=True) or {}
+        run_hash = str(data.get("run_hash") or "").strip()
+        rating_raw = data.get("rating")
+        variation_id = data.get("variation_id")
+        if not run_hash:
+            return jsonify({"error": "Missing run."}), 400
+        try:
+            rating = int(rating_raw)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Rating must be 0 or 1."}), 400
+        if rating not in (0, 1):
+            return jsonify({"error": "Rating must be 0 or 1."}), 400
+        vid = None
+        if variation_id not in (None, ""):
+            try:
+                vid = int(variation_id)
+            except (TypeError, ValueError):
+                vid = None
+        try:
+            from .template_library import apply_feedback
+        except ImportError:
+            from template_library import apply_feedback
+        out = apply_feedback(run_hash, rating, vid)
+        if not out.get("ok"):
+            return jsonify({"error": out.get("error") or "Could not save feedback."}), 400
+        return jsonify(out)
+
+    def _history_plan():
+        try:
+            from .editions import current_edition, snapshot
+        except ImportError:
+            from editions import current_edition, snapshot
+        config = load_matrix()
+        plan = current_edition(config.runtime.edition)
+        return plan, snapshot(config.runtime.edition)
+
+    @app.get("/api/history")
+    @app.get("/api/history/search")
+    def history_list():
+        try:
+            from .history import list_works
+        except ImportError:
+            from history import list_works
+        plan, edition = _history_plan()
+        q = str(request.args.get("q") or "")
+        try:
+            limit = int(request.args.get("limit") or 50)
+            offset = int(request.args.get("offset") or 0)
+        except ValueError:
+            limit, offset = 50, 0
+        payload = list_works(
+            days=plan.history_days,
+            full=plan.full_text_history,
+            q=q,
+            limit=limit,
+            offset=offset,
+        )
+        payload["edition"] = edition
+        payload["q"] = q
+        return jsonify(payload)
+
+    @app.get("/api/history/<int:item_id>")
+    def history_one(item_id: int):
+        try:
+            from .history import get_work
+        except ImportError:
+            from history import get_work
+        plan, edition = _history_plan()
+        item = get_work(item_id, full=plan.full_text_history, days=plan.history_days)
+        if not item:
+            return jsonify({"error": "That item is gone."}), 404
+        item["edition"] = edition
+        item["can_export"] = plan.full_text_history
+        item["can_refine_any"] = plan.full_text_history
+        item["can_copy"] = True
+        return jsonify(item)
+
+    @app.delete("/api/history/<int:item_id>")
+    def history_delete(item_id: int):
+        try:
+            from .history import delete_work
+        except ImportError:
+            from history import delete_work
+        if not delete_work(item_id):
+            return jsonify({"error": "That item is gone."}), 404
+        return jsonify({"ok": True, "id": item_id})
+
+    @app.delete("/api/history")
+    def history_clear():
+        try:
+            from .history import clear_works
+        except ImportError:
+            from history import clear_works
+        n = clear_works()
+        return jsonify({"ok": True, "deleted": n})
+
+    @app.get("/api/history/<int:item_id>/export")
+    def history_export(item_id: int):
+        try:
+            from .history import export_work, get_work
+        except ImportError:
+            from history import export_work, get_work
+        plan, _edition = _history_plan()
+        fmt = str(request.args.get("format") or "markdown").strip().lower()
+        item = get_work(item_id, full=plan.full_text_history, days=plan.history_days)
+        if not item:
+            return jsonify({"error": "That item is gone."}), 404
+        if fmt in {"pdf", "markdown", "html", "prompty", "md"} and not plan.full_text_history:
+            fmt = "plain"
+        try:
+            data, filename, mime = export_work(item, fmt)
+        except ValueError:
+            return jsonify({"error": "Unknown export format."}), 400
+        resp = Response(data, mimetype=mime)
+        resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return resp
+
+    @app.get("/api/library")
+    def library_view():
+        try:
+            return jsonify(library_payload())
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+
+    @app.post("/api/library/classes")
+    def create_class_view():
+        data = request.get_json(silent=True) or {}
+        try:
+            item = create_class(
+                str(data.get("name") or ""),
+                description=str(data.get("description") or ""),
+                role=str(data.get("role") or ""),
+                output_format=str(data.get("output_format") or ""),
+                structure=data.get("structure"),
+                wrapper=data.get("wrapper"),
+                target_hint=data.get("target_hint"),
+                source_excerpt=str(data.get("source_excerpt") or ""),
+            )
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify(item.model_dump()), 201
+
+    @app.post("/api/library/prompts")
+    def save_prompt_view():
+        data = request.get_json(silent=True) or {}
+        class_id = str(data.get("class_id") or "").strip()
+        prompt = str(data.get("prompt") or "")
+        if not class_id or not prompt.strip():
+            return jsonify({"error": "Need a class and a generated prompt."}), 400
+        try:
+            item = save_prompt(
+                class_id=class_id,
+                target_ai=str(data.get("target_ai") or ""),
+                intent=str(data.get("intent") or ""),
+                task=str(data.get("task") or ""),
+                prompt=prompt,
+            )
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify(item.model_dump()), 201
+
+    @app.delete("/api/library/classes/<class_id>")
+    def delete_class_view(class_id: str):
+        try:
+            delete_class(class_id)
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify({"deleted": class_id})
+
+    @app.delete("/api/library/prompts/<prompt_id>")
+    def delete_prompt_view(prompt_id: str):
+        try:
+            delete_prompt(prompt_id)
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify({"deleted": prompt_id})
+
+    @app.get("/api/prompts")
+    def prompts_list():
+        try:
+            return jsonify({"prompts": [item.model_dump() for item in load_library().prompts]})
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+
+    @app.get("/api/prompts/<prompt_id>")
+    def prompts_one(prompt_id: str):
+        try:
+            return jsonify(get_saved_prompt(prompt_id).model_dump())
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 404
+
+    @app.post("/api/library/classes/<class_id>/versions")
+    def class_snapshot_view(class_id: str):
+        data = request.get_json(silent=True) or {}
+        try:
+            item = snapshot_class(class_id, note=str(data.get("note") or ""))
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify(item.model_dump()), 201
+
+    @app.post("/api/library/classes/<class_id>/rollback")
+    def class_rollback_view(class_id: str):
+        data = request.get_json(silent=True) or {}
+        try:
+            item = rollback_class(class_id, int(data.get("n")))
+        except (MatrixError, TypeError, ValueError) as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify(item.model_dump())
+
+    @app.get("/api/library/classes/<class_id>/diff")
+    def class_diff_view(class_id: str):
+        try:
+            a = int(request.args.get("a") or 0)
+            b = int(request.args.get("b") or 0)
+            text = class_version_diff(class_id, a, b)
+        except (MatrixError, TypeError, ValueError) as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify({"diff": text, "a": a, "b": b})
+
+    @app.post("/api/learn")
+    def learn_view():
+        data = request.get_json(silent=True) or {}
+        try:
+            learned = learn_structure(str(data.get("prompt") or ""))
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify(learned.model_dump())
+
+    @app.post("/api/copy")
+    def copy_view():
+        data = request.get_json(silent=True) or {}
+        text = data.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return jsonify({"error": "Nothing to copy."}), 400
+        try:
+            copy_to_clipboard(text)
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify({"copied": True, "chars": len(text)})
+
+    @app.post("/api/export")
+    def export_view():
+        data = request.get_json(silent=True) or {}
+        try:
+            from .exporters import export_class
+        except ImportError:
+            from exporters import export_class
+        try:
+            text = export_class(str(data.get("class_id") or ""), str(data.get("format") or ""))
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+        return jsonify({"text": text, "format": str(data.get("format") or "")})
+
+    @app.errorhandler(MatrixError)
+    def matrix_error(exc: MatrixError):
+        return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+
+    @app.errorhandler(Exception)
+    def api_error(exc: Exception):
+        from werkzeug.exceptions import HTTPException
+
+        if isinstance(exc, HTTPException):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": exc.description or exc.name}), exc.code
+            return exc
+        if request.path.startswith("/api/"):
+            app.logger.exception(exc)
+            return jsonify({"error": string_catalog(_locale()).get(
+                "error.server",
+                "The server hit an error while answering. Try again.",
+            )}), 500
+        raise
+
+    return app
+
+
+def _serve_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="pem",
+        description="Open Assure in a browser (PEM engine).",
+    )
+    parser.add_argument("--host", default=DEFAULT_HOST, help="Bind address (default 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port (default 8765)")
+    parser.add_argument("--no-browser", action="store_true", help="Do not open a browser tab")
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Start the web UI (default when no compile task is given)",
+    )
+    parser.add_argument(
+        "--http-user",
+        "--auth-user",
+        dest="http_user",
+        help="Basic Auth user (or PEM_HTTP_USER, default admin)",
+    )
+    parser.add_argument(
+        "--http-pass",
+        "--auth-pass",
+        dest="http_pass",
+        help="Basic Auth password (or PEM_HTTP_PASS, default changeme)",
+    )
+    parser.add_argument(
+        "--store-prompts",
+        action="store_true",
+        help="Store compiled prompts and finals after Send (PEM_STORE_PROMPTS)",
+    )
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        metavar="N",
+        help="LiteLLM max_tokens (PEM_MAX_TOKENS, default 4096)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        metavar="SECONDS",
+        help="LiteLLM timeout in seconds (PEM_TIMEOUT_SECONDS, default 60)",
+    )
+    parser.add_argument(
+        "--critic",
+        help="Red-hat critic model, or 'rule' for a local no-API critic",
+    )
+    parser.add_argument(
+        "--cheap",
+        action="store_true",
+        help="Default Send to the cheapest live model that fits length and intent (PEM_COST_ROUTE)",
+    )
+    parser.add_argument(
+        "--edition",
+        choices=["free", "pro", "team", "self-hosted", "cloud"],
+        help="Assure edition (or ASSURE_EDITION). Default free.",
+    )
+    return parser
+
+
+def serve(argv: list[str] | None = None) -> int:
+    parser = _serve_parser()
+    args = parser.parse_args(argv)
+
+    port = _first_free_port(args.host, args.port)
+    try:
+        from .engine import apply_runtime_options, load_matrix
+    except ImportError:
+        from engine import apply_runtime_options, load_matrix
+    apply_runtime_options(
+        load_matrix(),
+        store_prompts=bool(getattr(args, "store_prompts", False)),
+        max_tokens=getattr(args, "max_tokens", None),
+        timeout=getattr(args, "timeout", None),
+        critic=getattr(args, "critic", None),
+        auth_user=args.http_user,
+        auth_pass=args.http_pass,
+        cheap=bool(getattr(args, "cheap", False)),
+        edition=getattr(args, "edition", None),
+    )
+    app = create_app()
+    url = f"http://{args.host}:{port}"
+    local = f"http://127.0.0.1:{port}"
+
+    from rich.console import Console
+    from rich.panel import Panel
+
+    console = Console()
+    lan = _lan_ip() if args.host in {"0.0.0.0", "::"} else None
+    lines = [f"[bold]Open this address[/bold]\n\n{local}"]
+    if args.host not in {"127.0.0.1", "localhost"}:
+        lines.append(url)
+    if lan:
+        lines.append(f"http://{lan}:{port}")
+    console.print(Panel("\n".join(lines), title="Assure", border_style="cyan"))
+
+    if not args.no_browser:
+        threading.Thread(target=_open_browser, args=(local,), daemon=True).start()
+
+    try:
+        app.run(host=args.host, port=port, debug=False, threaded=True, use_reloader=False)
+    except KeyboardInterrupt:
+        console.print("\nStopped.")
+        return 0
+    return 0
+
+
+def _open_browser(url: str) -> None:
+    time.sleep(0.5)
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+
+
+def _first_free_port(host: str, start: int) -> int:
+    bind_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    for port in range(start, start + 30):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind((bind_host, port))
+            except OSError:
+                continue
+            return port
+    raise RuntimeError(f"No free port in {start}-{start + 29}")
+
+
+def _lan_ip() -> str | None:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        sock.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(serve(sys.argv[1:]))

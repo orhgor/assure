@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Privacy') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="privacy.page.title">{{ gettext('Privacy') }}</h1>
+      <p class="lede" data-i18n="privacy.page.lead">{{ gettext('Cloud stores only email and subscription tier. Keys, questions, and answers stay on this computer.') }}</p>
+    </div>
+    <section class="card">
+      <h2 data-i18n="privacy.cloud">{{ gettext('In the cloud') }}</h2>
+      <p data-i18n="privacy.cloud.body">{{ gettext('If you sign in, we store your email, free or pro tier, and Stripe customer id. Nothing else.') }}</p>
+      <h2 data-i18n="privacy.local">{{ gettext('On this computer') }}</h2>
+      <p data-i18n="privacy.local.body">{{ gettext('API keys stay in prompt_matrix/.env. Questions, uploads, and previous work stay on this machine.') }}</p>
+      <h2 data-i18n="privacy.phi">{{ gettext('Sensitive text') }}</h2>
+      <p data-i18n="privacy.phi.body">{{ gettext('Do not send health or other sensitive text to a provider that is open to the internet unless you mean to. Closed to the internet keeps it here.') }}</p>
+    </section>
+  </div>
+{% endblock %}

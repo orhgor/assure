@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('About') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="about.title">{{ gettext('About') }}</h1>
+      <p class="lede" data-i18n="about.lead">{{ gettext('Assure turns your question into one verified answer from the AI you choose.') }}</p>
+    </div>
+    <section class="card">
+      <h2 data-i18n="about.what">{{ gettext('What it is') }}</h2>
+      <p data-i18n="about.what.body">{{ gettext('You write a question. Assure restructures it for the model you pick, checks the response, and gives you one result.') }}</p>
+      <h2 data-i18n="about.use">{{ gettext('How to use it') }}</h2>
+      <p data-i18n="about.use.body">{{ gettext('Compose is the workbench. Connect a provider. Choose closed to the internet or open to the internet. Then Get my answer.') }}</p>
+      <h2 data-i18n="about.engine">{{ gettext('The engine') }}</h2>
+      <p data-i18n="about.engine.body">{{ gettext('PEM runs inside Assure. Keys, questions, and previous work stay on this computer.') }}</p>
+    </section>
+  </div>
+{% endblock %}

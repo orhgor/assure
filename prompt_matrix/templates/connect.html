@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Connect') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="connect.title">{{ gettext('Connect a provider') }}</h1>
+      <p class="lede" data-i18n="connect.lead">{{ gettext('Paste a key for Claude, Gemini, DeepSeek, or Kimi. Closed to the internet uses a runner on this computer.') }}</p>
+    </div>
+    <section class="card connect-card">
+      <h2 data-i18n="connect.open_keys">{{ gettext('Open to the internet') }}</h2>
+      <div class="picks" id="api-status"></div>
+      <p class="hint" id="route-hint" data-i18n="api.checking">{{ gettext('Checking which models can answer…') }}</p>
+      <div id="key-box">
+        <p class="hint" id="key-hint" data-i18n="api.none">{{ gettext('No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or Kimi.') }}</p>
+        <select id="key-target" class="form-control select-control">
+          <option value="claude">Claude</option>
+          <option value="gemini">Gemini</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="kimi">Kimi</option>
+        </select>
+        <div class="row">
+          <input type="password" id="api-key" class="form-control" autocomplete="off" placeholder="{{ gettext('Paste API key') }}" data-i18n-placeholder="api.key">
+          <button class="btn btn-primary primary" type="button" id="save-key" data-i18n="api.connect">{{ gettext('Connect') }}</button>
+        </div>
+        <p class="hint" data-i18n="api.saved">{{ gettext("Your API key is only used for that connection. We don't store or share it.") }}</p>
+      </div>
+      <h2 data-i18n="connect.closed_head">{{ gettext('Closed to the internet') }}</h2>
+      <p class="hint" id="hint-local" data-i18n="hint.local">{{ gettext('Turn this on to answer on this computer. Nothing goes to the internet. Ollama is the usual runner. vLLM, SGLang, Llamafile, or LM Studio also work if they are already up.') }}</p>
+      <p class="hint" id="last-error"></p>
+      <div class="status" id="status"></div>
+    </section>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+  {% raw %}
+    const state = { locale: "en", strings: {}, providers: {} };
+    const $ = (id) => document.getElementById(id);
+    function apiUrl(path) { return new URL(path, location.origin).href; }
+    function apiFetch(path, opts) {
+      return fetch(apiUrl(path), Object.assign({ credentials: "same-origin" }, opts || {}));
+    }
+    function t(key, fallback) {
+      return (state.strings && state.strings[key]) || fallback || key;
+    }
+    function tf(key, fallback, vars) {
+      let text = t(key, fallback);
+      Object.keys(vars || {}).forEach((name) => {
+        text = text.split("{" + name + "}").join(String(vars[name]));
+      });
+      return text;
+    }
+    function applyI18n() {
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.textContent = t(el.dataset.i18n, el.textContent);
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+        el.placeholder = t(el.dataset.i18nPlaceholder, el.placeholder);
+      });
+      document.documentElement.lang = state.locale || "en";
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[ch]));
+    }
+    function setStatus(text, kind) {
+      const el = $("status");
+      el.textContent = text;
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    async function readJson(res) {
+      const raw = await res.text();
+      const trimmed = (raw || "").trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try { return JSON.parse(raw); }
+        catch (_) { throw new Error(t("error.request", "Request failed")); }
+      }
+      if (res.status === 401) {
+        throw new Error(t("error.auth", "The browser is asking you to sign in. Use the same user and password as before, then refresh."));
+      }
+      throw new Error(t("error.server", "The server hit an error while answering. Try again."));
+    }
+    async function jsonPost(url, body) {
+      const res = await apiFetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(data.error || t("error.request", "Request failed"));
+      return data;
+    }
+    async function loadI18n() {
+      const res = await apiFetch("/api/i18n");
+      if (!res.ok) return;
+      const data = await res.json();
+      state.locale = data.locale || "en";
+      state.strings = data.strings || {};
+      applyI18n();
+    }
+    function applyEdition(edition) {
+      const chip = $("edition-chip");
+      if (chip && edition && edition.label) chip.textContent = edition.label;
+    }
+    async function loadStatus() {
+      const res = await apiFetch("/api/status");
+      if (!res.ok) throw new Error(t("error.status", "Could not read API status"));
+      const data = await res.json();
+      if (data.edition) applyEdition(data.edition);
+      state.providers = data.providers || {};
+      const route = data.route || {};
+      const order = route.send_order || [];
+      const local = route.local;
+      let note;
+      if (local && local.label) {
+        note = tf("route.local", "Closed to the internet: {label} ({fit}). The model files are separate from the runner.", {
+          label: local.label,
+          fit: local.fit || "",
+        });
+      } else if (route.ollama_binary) {
+        note = t("route.ollama_idle", "Ollama is installed but not running. PEM will start it on Send. vLLM, SGLang, or Llamafile are used only if already up.");
+      } else {
+        note = t("route.ollama_missing", "Ollama is not installed. PEM uses vLLM, SGLang, Llamafile, or LM Studio if those servers are already up. Otherwise it uses a provider that is open to the internet.");
+      }
+      if (order.length) {
+        note = note + " " + t("route.live", "Live route:") + " " + order.join(" → ") + ".";
+      } else {
+        note = note + " " + t("route.none", "No model can answer yet.");
+      }
+      $("route-hint").textContent = note;
+      const box = $("api-status");
+      box.innerHTML = "";
+      const errors = [];
+      Object.values(state.providers).forEach((info) => {
+        const span = document.createElement("span");
+        span.className = "pill " + (info.connected ? "on" : "off");
+        if (info.id === "ollama") {
+          if (info.connected) {
+            span.textContent = local && local.label
+              ? tf("route.pill.named", "Closed to the internet: {label}", { label: local.label })
+              : t("route.pill.up", "Closed to the internet, runner is up");
+          } else if (route.ollama_binary) {
+            span.textContent = t("route.pill.idle", "Ollama is installed. It starts when you get your answer.");
+          } else {
+            span.textContent = t("route.pill.none", "No runner that is closed to the internet (Ollama, vLLM, SGLang, Llamafile).");
+          }
+        } else if (info.id === "cursor") {
+          span.textContent = t("route.cursor", "Cursor copy only");
+        } else {
+          span.textContent = info.label + " · " + (info.connected
+            ? t("connected", "connected")
+            : t("not_connected", "not connected"));
+        }
+        if (info.note) {
+          span.title = info.note;
+          if (!info.connected && info.note) errors.push(info.label + ": " + info.note);
+        }
+        box.appendChild(span);
+      });
+      const errBox = $("last-error");
+      errBox.textContent = errors.join(" ");
+      const withKeys = Object.values(state.providers).filter((info) => info.env);
+      const keySel = $("key-target");
+      const keepKey = keySel.value;
+      keySel.innerHTML = withKeys
+        .map((info) => `<option value="${escapeHtml(info.id)}">${escapeHtml(info.label)} (${escapeHtml(info.env)})</option>`)
+        .join("");
+      if (keepKey && withKeys.some((info) => info.id === keepKey)) keySel.value = keepKey;
+      const any = withKeys.some((info) => info.connected);
+      $("key-hint").textContent = any
+        ? t("api.saved", "Your API key is only used for that connection. We don't store or share it.")
+        : t("api.none", "No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or Kimi.");
+    }
+    $("save-key").addEventListener("click", async () => {
+      try {
+        await jsonPost("/api/keys", { target: $("key-target").value, key: $("api-key").value });
+        $("api-key").value = "";
+        await loadStatus();
+        setStatus(t("api.ok", "Key saved. Turn on Get my answer, then click the button."), "ok");
+      } catch (err) {
+        setStatus(err.message, "bad");
+      }
+    });
+    loadI18n().then(loadStatus).catch((err) => setStatus(err.message, "bad"));
+  {% endraw %}
+  </script>
+{% endblock %}

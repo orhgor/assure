@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://assure.ai/sitemap.xml
+Host: https://assure.ai

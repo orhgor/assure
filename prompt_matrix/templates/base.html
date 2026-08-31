@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ gettext('Assure') }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=assure-24">
+  <script>
+    /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
+    (function () {
+      var map = { history: "/history", learn: "/learn", library: "/library" };
+      var key = (location.hash || "").replace(/^#/, "");
+      if (map[key]) location.replace(map[key] + (location.search || ""));
+    })();
+  </script>
+</head>
+<body{% if initial_pane is defined %} data-pane="{{ initial_pane }}"{% endif %}>
+  {% set q = '?lang=' ~ locale %}
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand-home" href="/{{ q }}">
+        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+          <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
+          <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="brand-copy">
+          <span class="wordmark" data-i18n="hero">{{ gettext('Assure AI') }}</span>
+          <span class="brand-tagline" data-i18n-html="brand.tagline_html">{{ gettext('Answers you can <span class="trust">trust</span>.') | safe }}</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="{{ gettext('Main') }}">
+        <a href="/{{ q }}"{% if active == 'compose' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.compose">{{ gettext('Compose') }}</a>
+        <a href="/history{{ q }}"{% if active == 'history' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.history">{{ gettext('Previous work') }}</a>
+        <a href="/learn{{ q }}"{% if active == 'learn' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.learn">{{ gettext('Learn') }}</a>
+        <a href="/library{{ q }}"{% if active == 'library' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.classes">{{ gettext('Classes') }}</a>
+        <a href="/connect{{ q }}"{% if active == 'connect' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.connect">{{ gettext('Connect') }}</a>
+      </nav>
+      <div class="header-meta">
+        <label class="lang-wrap" for="lang">
+          <span data-i18n="lang">{{ gettext('Language') }}</span>
+          <select id="lang" class="form-control select-control" aria-label="{{ gettext('Language') }}">
+            {% for code, label in languages.items() %}
+            <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% if auth is defined and (auth.signed_in or auth.required) %}
+        <a href="/account{{ q }}" class="meta-link {% if active == 'account' %}is-on{% endif %}" {% if active == 'account' %}aria-current="page"{% endif %} data-i18n="nav.account">{{ gettext('Account') }}</a>
+        {% endif %}
+        {% if auth is defined and auth.required %}
+        {% if auth.signed_in %}
+        <a href="/signout" class="meta-link" data-i18n="nav.signout">{{ gettext('Sign out') }}</a>
+        {% else %}
+        <a href="/signin{{ q }}" class="meta-link {% if active == 'signin' %}is-on{% endif %}" {% if active == 'signin' %}aria-current="page"{% endif %} data-i18n="nav.signin">{{ gettext('Sign in') }}</a>
+        <a href="/signup{{ q }}" class="meta-link {% if active == 'signup' %}is-on{% endif %}" {% if active == 'signup' %}aria-current="page"{% endif %} data-i18n="nav.signup">{{ gettext('Sign up') }}</a>
+        {% endif %}
+        {% endif %}
+        {% if auth is defined and auth.signed_in and auth.email %}
+        <span class="auth-who">{{ auth.email }}</span>
+        {% endif %}
+        <span class="edition-chip" id="edition-chip">{{ gettext('Free') }}</span>
+      </div>
+    </header>
+    {% block hero %}{% endblock %}
+    {% block body %}{% endblock %}
+  </div>
+  <footer class="site-footer">
+    <p class="footer-lock privacy-badge"><span aria-hidden="true">🔒</span> <span data-i18n="footer.copy">{{ gettext('Your data stays on your machine. Send only to your chosen provider.') }}</span></p>
+    <p class="footer-meta">
+      <strong>{{ gettext('Assure') }}</strong>.
+      <span data-i18n="footer.engine">{{ gettext('PEM engine.') }}</span>
+      <span data-i18n="footer.rights">{{ gettext('© 2026 Assure. All rights reserved.') }}</span>
+      <a href="/about{{ q }}" data-i18n="nav.about">{{ gettext('About') }}</a>
+      <a href="/privacy{{ q }}" data-i18n="nav.privacy">{{ gettext('Privacy') }}</a>
+      <a href="/pricing{{ q }}" data-i18n="nav.pricing">{{ gettext('Pricing') }}</a>
+    </p>
+  </footer>
+  <script>
+    (function () {
+      var lang = document.getElementById("lang");
+      if (lang) {
+        lang.addEventListener("change", function () {
+          var u = new URL(location.href);
+          u.searchParams.set("lang", lang.value);
+          location.href = u.pathname + u.search;
+        });
+      }
+    })();
+  </script>
+  <script src="{{ url_for('static', filename='script.js') }}?v=assure-20"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

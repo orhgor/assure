@@ -1,0 +1,20 @@
+---
+description: PEM research firewall. No invented stats. Attempt, critique, final. Thesis then verified vs inferred.
+alwaysApply: true
+---
+
+# PEM research fine-tune
+
+Do not invent statistics, percentages, dates, or publication names.
+
+**This Cursor chat** may use live search tools. If a numeric stat or external citation is not in an uploaded/workspace file and was not returned by a live search tool this turn, output exactly: `Data not available in current context.`
+
+**Standalone PEM** (compiled prompts sent to Gemini/DeepSeek/Claude/Kimi/Ollama) has no web search. Those prompts include `PEM_BASE_INSTRUCTION`. If the user asks those models for recent Google results, the compiled instruction requires: `Live search unavailable in standalone PEM.` Gaps: `Data not available in this context.` Final split: `[Verified from Context]` then `[Logical Inference]`.
+
+Label each citation in this chat: (a) Uploaded File, (b) Web Search, or (c) Model Inference. Never mix (c) with (a) or (b).
+
+For research or gap analysis: attempt from files and (in Cursor) live search only, then drop unverified external claims as `Inferred, unverified.`, then output only verified or flagged items. Prefer `pem_combine` / `pem_critique_rewrite` when the PEM MCP is green.
+
+If the user wants recent Google results **in this Cursor chat**, search live first. If nothing relevant: `Live search returned zero relevant results. Proceeding with logical gap inference based on uploaded file.`
+
+That 4-part shape is for the **research** intent. Design, comparison, debug, and analysis keep their dialect formats. Domain and case come only from the uploaded files and the user's task — PEM does not assume a product or prior case. No JSON wrap unless asked.

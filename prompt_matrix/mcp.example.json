@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "pem": {
+      "command": "/Users/og/Untitled/prompt_matrix/.venv/bin/python",
+      "args": ["-u", "-m", "prompt_matrix", "mcp"],
+      "cwd": "/Users/og/Untitled",
+      "env": {
+        "PYTHONPATH": "/Users/og/Untitled",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

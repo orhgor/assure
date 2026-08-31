@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prompt-matrix"
+version = "0.1.0"
+description = "Assure: local multi-model answers with a PEM compile engine."
+readme = "prompt_matrix/README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "jinja2>=3.1.4",
+    "pyperclip>=1.9.0",
+    "pydantic>=2.9.0",
+    "instructor>=1.7.0",
+    "litellm>=1.50.0",
+    "rich>=13.9.0",
+    "flask>=3.0.0",
+    "python-dotenv>=1.0.0",
+    "tiktoken>=0.8.0",
+    "flask-httpauth>=4.8.0",
+    "flask-babel>=4.0.0",
+]
+
+[project.scripts]
+prompt-matrix = "prompt_matrix.cli:main"
+pem = "prompt_matrix.cli:main"
+assure = "prompt_matrix.cli:main"
+
+[project.urls]
+Homepage = "https://assure.ai/"
+
+
+[tool.setuptools.packages.find]
+include = ["prompt_matrix*"]
+
+[tool.setuptools.package-data]
+prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*"]

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Account') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="account.title">{{ gettext('Account') }}</h1>
+      <p class="lede" data-i18n="account.lead">{{ gettext('Email and tier only. Keys and questions are not here.') }}</p>
+    </div>
+    <section class="card">
+      {% if upgraded %}
+      <p class="hint" data-i18n="account.upgraded">{{ gettext('Payment recorded. Refresh Compose to use Pro.') }}</p>
+      {% endif %}
+      <p><strong data-i18n="account.tier">{{ gettext('Tier') }}</strong>: {{ (billing.tier if billing else 'free') }}</p>
+      {% if billing and billing.email %}<p>{{ billing.email }}</p>{% endif %}
+      {% if stripe_ready and billing and billing.tier != 'pro' %}
+      <p><button class="btn btn-primary" type="button" id="upgrade" data-i18n="account.upgrade">{{ gettext('Upgrade to Pro') }}</button></p>
+      {% endif %}
+      {% if stripe_ready and billing and billing.tier == 'pro' %}
+      <p><button class="btn btn-outline" type="button" id="portal" data-i18n="account.portal">{{ gettext('Manage subscription') }}</button></p>
+      {% endif %}
+      <p><button class="btn btn-outline" type="button" id="export-account" data-i18n="account.export">{{ gettext('Download my cloud data') }}</button></p>
+      <p><button class="btn btn-outline" type="button" id="delete-account" data-i18n="account.delete">{{ gettext('Delete my account') }}</button></p>
+      <p class="hint" id="account-status"></p>
+    </section>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    function post(path) {
+      return fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); });
+    }
+    function status(msg) {
+      var el = document.getElementById("account-status");
+      if (el) el.textContent = msg || "";
+    }
+    var up = document.getElementById("upgrade");
+    if (up) up.addEventListener("click", function () {
+      post("/api/billing/checkout").then(function (pack) {
+        if (pack.ok && pack.data.url) window.location.href = pack.data.url;
+        else status(pack.data.error || "");
+      });
+    });
+    var portal = document.getElementById("portal");
+    if (portal) portal.addEventListener("click", function () {
+      post("/api/billing/portal").then(function (pack) {
+        if (pack.ok && pack.data.url) window.location.href = pack.data.url;
+        else status(pack.data.error || "");
+      });
+    });
+    var exp = document.getElementById("export-account");
+    if (exp) exp.addEventListener("click", function () {
+      fetch("/api/account/export", { credentials: "same-origin" }).then(function (res) { return res.json(); }).then(function (data) {
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "assure-account.json";
+        a.click();
+      });
+    });
+    var del = document.getElementById("delete-account");
+    if (del) del.addEventListener("click", function () {
+      if (!window.confirm({{ gettext('Remove your email and tier from the cloud database? Keys on this computer are not deleted.') | tojson }})) return;
+      post("/api/account/delete").then(function (pack) {
+        if (pack.ok) window.location.href = "/signin";
+        else status(pack.data.error || "");
+      });
+    });
+  </script>
+{% endblock %}

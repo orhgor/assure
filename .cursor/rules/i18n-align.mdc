@@ -1,0 +1,17 @@
+---
+description: Keep all Assure locales and UI tabs in lockstep when copy changes.
+alwaysApply: true
+---
+
+# i18n alignment
+
+Locales: `en es zh fr de ja tr` in `prompt_matrix/i18n.py`. English is the source. Other catalogs are `**EN` plus overrides.
+
+When you change a user-facing string in English or Turkish:
+
+1. Update the same key in **every** locale in `i18n.py` in the same turn. Do not leave `**EN` English on History, Learn, Library, footer, errors, or mode copy.
+2. Update the matching `gettext('…')` English msgid in `templates/index.html` so first paint matches `EN`.
+3. Add `data-i18n` (or `data-i18n-placeholder` / `data-i18n-html`) on every visible string. A tab without `data-i18n` stays English after a language switch.
+4. Do not hardcode UI English in JavaScript (`"Local"`, `"Cursor copy only"`). Use a catalog key.
+5. Closed/open wording stays **closed to the internet / open to the internet** (and the locale pair). Not local, cloud, offline, or copy mode.
+6. Turkish: **soru** for a question. **sorun** only for a problem (`intent.debug`). Button is **Yanıtımı al**.

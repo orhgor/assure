@@ -1,0 +1,947 @@
+# Japanese translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-31 00:01+0300\n"
+"PO-Revision-Date: 2026-08-30 22:17+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: prompt_matrix/templates/index.html:6 prompt_matrix/templates/index.html:21
+msgid "Assure"
+msgstr "Assure"
+
+#: prompt_matrix/templates/index.html:22
+msgid ""
+"A <span class=\"trust\">trusted</span> answer starts with the right "
+"question."
+msgstr "<span class=\"trust\">信頼</span>できる答えは、正しい問いから始まる。"
+
+#: prompt_matrix/templates/index.html:23
+msgid "Write your question or topic."
+msgstr "質問またはテーマを書いてください。"
+
+#: prompt_matrix/templates/index.html:24
+msgid ""
+"Assure restructures it for the AI you choose, validates the response, and"
+" gives you one verified answer."
+msgstr "Assure は選んだ AI 向けに問いを組み直し、答えを確かめ、確認済みの結果を一つ返します。"
+
+#: prompt_matrix/templates/index.html:29 prompt_matrix/templates/index.html:30
+msgid "Language"
+msgstr "言語"
+
+#: prompt_matrix/templates/index.html:36 prompt_matrix/templates/index.html:42
+msgid "Your data never reaches us. It stays on your computer."
+msgstr "データはこちらには届きません。あなたのコンピュータに留まります。"
+
+#: prompt_matrix/templates/index.html:38
+msgid "Free"
+msgstr "無料"
+
+#: prompt_matrix/templates/index.html:44
+msgid "When Get my answer is off (copy mode), nothing leaves your machine."
+msgstr "「答えを表示」がオフ（コピーモード）のとき、データはこのマシンから出ません。"
+
+#: prompt_matrix/templates/index.html:45
+msgid ""
+"When Get my answer is on, your question goes directly to the provider you"
+" chose (Gemini, Claude, and the rest)."
+msgstr "「答えを表示」がオンのとき、質問は選んだ提供元（Gemini、Claude など）へ直接送られます。"
+
+#: prompt_matrix/templates/index.html:46 prompt_matrix/templates/index.html:112
+msgid "Your API key is only used for that connection. We don't store or share it."
+msgstr "API キーはその接続にだけ使います。保存も共有もしません。"
+
+#: prompt_matrix/templates/index.html:47
+msgid ""
+"We don't search the web or scrape pages. We only use what you write and "
+"upload."
+msgstr "ウェブ検索もページ取得もしません。書くものとアップロードしたものだけを使います。"
+
+#: prompt_matrix/templates/index.html:50
+msgid ""
+"Step 1: Which AI models do you want to use? Step 2: What kind of answer "
+"do you need? Step 3: Write your question or topic."
+msgstr "手順 1: 使う AI モデルは？ 手順 2: どんな答えが必要？ 手順 3: 質問またはテーマを書く。"
+
+#: prompt_matrix/templates/index.html:52
+msgid "Free allows 10 sends per day. Upgrade to Pro for 100."
+msgstr "無料版は1日10回まで。100回なら Pro へ。"
+
+#: prompt_matrix/templates/index.html:53
+msgid "See Pro pricing"
+msgstr "Pro の料金を見る"
+
+#: prompt_matrix/templates/index.html:54
+msgid ""
+"Pro is $5 per month on the Pricing page. On this machine, "
+"ASSURE_EDITION=pro raises the cap without Stripe."
+msgstr "Pro は料金ページで月 5 ドルです。このマシンでは ASSURE_EDITION=pro が Stripe なしで上限を上げます。"
+
+#: prompt_matrix/templates/index.html:58
+msgid "Compose"
+msgstr "作成"
+
+#: prompt_matrix/templates/index.html:59
+msgid "Previous work"
+msgstr "これまでの仕事"
+
+#: prompt_matrix/templates/index.html:60 prompt_matrix/templates/index.html:288
+msgid "Learn structure"
+msgstr "構造を学ぶ"
+
+#: prompt_matrix/templates/index.html:61
+msgid "Classes"
+msgstr "クラス"
+
+#: prompt_matrix/templates/index.html:76 prompt_matrix/templates/index.html:79
+msgid "Which AI models do you want to use?"
+msgstr "どの AI モデルを使いますか？"
+
+#: prompt_matrix/templates/index.html:78
+msgid ""
+"Pick who answers. \"Connected\" means you already have a key on this "
+"machine."
+msgstr "誰が答えるかを選びます。「接続済み」は、このマシンにそのモデルの鍵があるという意味です。"
+
+#: prompt_matrix/templates/index.html:81
+msgid "Also ask"
+msgstr "ほかにも聞く"
+
+#: prompt_matrix/templates/index.html:83
+msgid "Add another"
+msgstr "もう一つ追加"
+
+#: prompt_matrix/templates/index.html:84
+msgid ""
+"Free uses two models when both are live (Gemini + DeepSeek). Pro unlocks "
+"the rest."
+msgstr "無料版は両方生きていれば2モデル（Gemini と DeepSeek）です。Pro が残りを開けます。"
+
+#: prompt_matrix/templates/index.html:89
+msgid "Run offline (local)"
+msgstr "オフラインで実行（ローカル）"
+
+#: prompt_matrix/templates/index.html:93
+msgid "Save tokens (cheaper)"
+msgstr "トークンを節約（安く）"
+
+#: prompt_matrix/templates/index.html:96
+msgid ""
+"You can also run offline with local models. Offline uses a runner on this"
+" machine. Usually Ollama. vLLM, SGLang, Llamafile, or LM Studio also work"
+" if they are already up."
+msgstr ""
+"ローカルモデルでオフラインにもできます。オフラインはこのマシンの実行系を使います。多くは Ollama "
+"です。vLLM、SGLang、Llamafile、LM Studio が起動していればそれらも使えます。"
+
+#: prompt_matrix/templates/index.html:97
+msgid "Connect a provider"
+msgstr "提供元を接続"
+
+#: prompt_matrix/templates/index.html:99
+msgid "Checking which models can answer…"
+msgstr "Checking which models can answer…"
+
+#: prompt_matrix/templates/index.html:101
+msgid ""
+"No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or "
+"Kimi."
+msgstr ""
+"No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or "
+"Kimi."
+
+#: prompt_matrix/templates/index.html:109
+msgid "Paste API key"
+msgstr "API キーを貼る"
+
+#: prompt_matrix/templates/index.html:110
+msgid "Connect"
+msgstr "接続"
+
+#: prompt_matrix/templates/index.html:120
+msgid "What kind of answer do you need?"
+msgstr "どんな答えが必要ですか？"
+
+#: prompt_matrix/templates/index.html:124
+msgid "Quick Answer"
+msgstr "すぐ答える"
+
+#: prompt_matrix/templates/index.html:125
+msgid "Fastest. One model answers."
+msgstr "いちばん速い。1つのモデルが答えます。"
+
+#: prompt_matrix/templates/index.html:129
+msgid "Compare & Validate"
+msgstr "比較して確認"
+
+#: prompt_matrix/templates/index.html:130
+msgid "Multiple models check each other. We show agreement and disagreement."
+msgstr "複数のモデルが互いを確認します。一致と食い違いを示します。"
+
+#: prompt_matrix/templates/index.html:134
+msgid "Refine & Verify"
+msgstr "磨き上げて確認"
+
+#: prompt_matrix/templates/index.html:135
+msgid "We draft, critique, and rewrite your answer."
+msgstr "下書きし、批評し、答えを書き直します。"
+
+#: prompt_matrix/templates/index.html:137
+msgid "Tip: \"Compare & Validate\" works best for most questions."
+msgstr "ヒント：多くの質問には「比較して確認」が向きます。"
+
+#: prompt_matrix/templates/index.html:140
+msgid "Draft. One model writes a first pass."
+msgstr "Draft. One model writes a first pass."
+
+#: prompt_matrix/templates/index.html:141
+msgid "Critique. A critic only attacks that pass. It does not write a new essay."
+msgstr "Critique. A critic only attacks that pass. It does not write a new essay."
+
+#: prompt_matrix/templates/index.html:142
+msgid "Rewrite. The same model revises using the critique. That is what you keep."
+msgstr "Rewrite. The same model revises using the critique. That is what you keep."
+
+#: prompt_matrix/templates/index.html:144
+msgid ""
+"Turn on Get my answer. Click once. Wait through three calls. Read the "
+"final on the right."
+msgstr "「答えを表示」をオンにします。一度クリック。3回の呼び出しを待ち、右の最終稿を読みます。"
+
+#: prompt_matrix/templates/index.html:145
+msgid "What should the critique look for?"
+msgstr "What should the critique look for?"
+
+#: prompt_matrix/templates/index.html:147
+msgid "Unsupported claims, missing caveats, keep / revise / reject."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:148
+msgid "Who critiques?"
+msgstr "Who critiques?"
+
+#: prompt_matrix/templates/index.html:154
+msgid "Local"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:157
+msgid "What do you need?"
+msgstr "何が必要ですか？"
+
+#: prompt_matrix/templates/index.html:159
+msgid "Pick the shape that matches your goal. Unsure? Start with research."
+msgstr "目的に合う形を選んでください。迷ったら調査から。"
+
+#: prompt_matrix/templates/index.html:160
+msgid "Saved template (optional)"
+msgstr "保存したテンプレート（任意）"
+
+#: prompt_matrix/templates/index.html:162
+msgid "Use intent defaults"
+msgstr "既定を使う"
+
+#: prompt_matrix/templates/index.html:164
+msgid "A saved template can override the role and output shape."
+msgstr "保存したテンプレートは役割と出力の形を変えられます。"
+
+#: prompt_matrix/templates/index.html:167
+msgid "Check against my files"
+msgstr "自分のファイルと照合"
+
+#: prompt_matrix/templates/index.html:169
+msgid ""
+"When \"Get my answer\" is on, a second pass drops invented dates, "
+"percentages, and publication names not in your files."
+msgstr "「答えを表示」がオンのとき、二度目の処理でファイルにない日付・パーセント・刊行物名を落とします。"
+
+#: prompt_matrix/templates/index.html:176
+msgid "Write your question or topic"
+msgstr "質問またはテーマを書く"
+
+#: prompt_matrix/templates/index.html:178
+msgid ""
+"Type your question. Add extra context or upload a file if needed. Click "
+"Get my answer to see the verified result."
+msgstr "質問を書いてください。必要なら補足やファイルを追加します。「答えを表示」で確認済みの結果を見ます。"
+
+#: prompt_matrix/templates/index.html:179
+msgid "Write your question or topic..."
+msgstr "質問またはテーマを書く…"
+
+#: prompt_matrix/templates/index.html:180
+msgid "Extra context (optional)"
+msgstr "追加の文脈（任意）"
+
+#: prompt_matrix/templates/index.html:181
+msgid "Notes, or a file path like ./src/app.py"
+msgstr "Notes, or a file path like ./src/app.py"
+
+#: prompt_matrix/templates/index.html:183
+msgid "Attach a file (optional)"
+msgstr "ファイルを添付（任意）"
+
+#: prompt_matrix/templates/index.html:187
+msgid ""
+"A path on this machine is read automatically. A file attached here is "
+"inlined into the question."
+msgstr "このマシン上のパスは自動で読みます。ここで付けたファイルは質問に入ります。"
+
+#: prompt_matrix/templates/index.html:191
+#: prompt_matrix/templates/index.html:196
+msgid "Get my answer"
+msgstr "答えを表示"
+
+#: prompt_matrix/templates/index.html:194
+msgid ""
+"Off: builds the prompt for you to paste elsewhere. On: shows the verified"
+" result."
+msgstr "オフ：ほかへ貼る文を組み立てます。オン：確認済みの結果を表示します。"
+
+#: prompt_matrix/templates/index.html:197
+msgid "Cmd or Ctrl + Enter sends."
+msgstr "Cmd または Ctrl + Enter で送ります。"
+
+#: prompt_matrix/templates/index.html:200
+msgid "What runs this page"
+msgstr "このページを動かしているもの"
+
+#: prompt_matrix/templates/index.html:202
+msgid "These packages compile and send. LiteLLM is the hop to each provider."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:210
+#: prompt_matrix/templates/index.html:345
+msgid "Answer"
+msgstr "答え"
+
+#: prompt_matrix/templates/index.html:211
+msgid "Answer ready"
+msgstr "答えの準備完了"
+
+#: prompt_matrix/templates/index.html:212
+msgid "Copy answer"
+msgstr "答えをコピー"
+
+#: prompt_matrix/templates/index.html:214
+#: prompt_matrix/templates/index.html:220
+msgid ""
+"Ask your first question. The compiled prompt is restructured for each "
+"model. The verified answer appears here."
+msgstr "最初の質問をどうぞ。コンパイルした文はモデルごとに組み直されます。確認済みの答えはここに出ます。"
+
+#: prompt_matrix/templates/index.html:217
+msgid "Working…"
+msgstr "処理中…"
+
+#: prompt_matrix/templates/index.html:224
+msgid "Was this answer helpful?"
+msgstr "この答えは役に立ちましたか？"
+
+#: prompt_matrix/templates/index.html:225
+msgid "Yes"
+msgstr "はい"
+
+#: prompt_matrix/templates/index.html:226
+msgid "No"
+msgstr "いいえ"
+
+#: prompt_matrix/templates/index.html:227
+msgid "Thanks!"
+msgstr "ありがとうございます！"
+
+#: prompt_matrix/templates/index.html:228
+msgid "Ratings on this machine change which output format we try next."
+msgstr "このマシン上の評価が、次に試す出力形式を変えます。"
+
+#: prompt_matrix/templates/index.html:232
+msgid "Draft vs final"
+msgstr "Draft vs final"
+
+#: prompt_matrix/templates/index.html:237
+msgid "Attempt"
+msgstr "Attempt"
+
+#: prompt_matrix/templates/index.html:241
+msgid "Final"
+msgstr "Final"
+
+#: prompt_matrix/templates/index.html:246
+msgid "Critique notes that drove the rewrite"
+msgstr "Critique notes that drove the rewrite"
+
+#: prompt_matrix/templates/index.html:253
+msgid "Prompt"
+msgstr "Prompt"
+
+#: prompt_matrix/templates/index.html:254
+msgid "Copy prompt"
+msgstr "Copy prompt"
+
+#: prompt_matrix/templates/index.html:257
+msgid "What was sent to the model"
+msgstr "What was sent to the model"
+
+#: prompt_matrix/templates/index.html:258
+msgid "Pick a target and an intent, write the task, then generate."
+msgstr "Pick a target and an intent, write the task, then generate."
+
+#: prompt_matrix/templates/index.html:264
+msgid "Save this prompt into a class"
+msgstr "Save this prompt into a class"
+
+#: prompt_matrix/templates/index.html:267
+msgid "Or type a new class name"
+msgstr "Or type a new class name"
+
+#: prompt_matrix/templates/index.html:268
+msgid "Save"
+msgstr "Save"
+
+#: prompt_matrix/templates/index.html:272
+msgid "Working notes (draft, red-hat, merge)"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:276
+msgid "Tokens: 0 in + 0 out = 0 (~$0.00 est.)"
+msgstr "トークン: 0 入力 + 0 出力 = 0（約 $0.00）"
+
+#: prompt_matrix/templates/index.html:285
+msgid "Paste a prompt"
+msgstr "Paste a prompt"
+
+#: prompt_matrix/templates/index.html:286
+msgid ""
+"Paste any prompt you already like. The tool extracts role, output shape, "
+"and a reusable Jinja template."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:290
+msgid ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+msgstr ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+
+#: prompt_matrix/templates/index.html:294
+msgid "Extracted class"
+msgstr "Extracted class"
+
+#: prompt_matrix/templates/index.html:296
+msgid "Paste a prompt on the left."
+msgstr "Paste a prompt on the left."
+
+#: prompt_matrix/templates/index.html:299
+msgid "Class name"
+msgstr "Class name"
+
+#: prompt_matrix/templates/index.html:301
+msgid "Role"
+msgstr "Role"
+
+#: prompt_matrix/templates/index.html:303
+msgid "Output format"
+msgstr "Output format"
+
+#: prompt_matrix/templates/index.html:305
+msgid "Template"
+msgstr "Template"
+
+#: prompt_matrix/templates/index.html:308
+msgid "Save as class"
+msgstr "Save as class"
+
+#: prompt_matrix/templates/index.html:319
+msgid "Your previous work"
+msgstr "Your previous work"
+
+#: prompt_matrix/templates/index.html:321
+msgid "Search past questions..."
+msgstr "Search past questions..."
+
+#: prompt_matrix/templates/index.html:322
+msgid "Clear all"
+msgstr "Clear all"
+
+#: prompt_matrix/templates/index.html:325
+msgid "No previous work yet. Get an answer on Compose and it shows up here."
+msgstr "No previous work yet. Get an answer on Compose and it shows up here."
+
+#: prompt_matrix/templates/index.html:328
+msgid "Start a new question"
+msgstr "Start a new question"
+
+#: prompt_matrix/templates/index.html:339
+msgid "View"
+msgstr "View"
+
+#: prompt_matrix/templates/index.html:340
+msgid "Close"
+msgstr "Close"
+
+#: prompt_matrix/templates/index.html:343
+msgid "Question"
+msgstr "Question"
+
+#: prompt_matrix/templates/index.html:347
+msgid "Details"
+msgstr "Details"
+
+#: prompt_matrix/templates/index.html:350
+msgid "Refine"
+msgstr "Refine"
+
+#: prompt_matrix/templates/index.html:351
+#: prompt_matrix/templates/index.html:358
+#: prompt_matrix/templates/index.html:370
+msgid "Export"
+msgstr "書き出し"
+
+#: prompt_matrix/templates/index.html:352
+msgid "Copy"
+msgstr "Copy"
+
+#: prompt_matrix/templates/index.html:353
+msgid "Delete"
+msgstr "Delete"
+
+#: prompt_matrix/templates/index.html:359
+msgid "Cancel"
+msgstr "Cancel"
+
+#: prompt_matrix/templates/index.html:361
+msgid "Choose a format"
+msgstr "Choose a format"
+
+#: prompt_matrix/templates/index.html:363
+msgid "Markdown"
+msgstr "Markdown"
+
+#: prompt_matrix/templates/index.html:364
+msgid "HTML"
+msgstr "HTML"
+
+#: prompt_matrix/templates/index.html:365
+msgid "Prompty"
+msgstr "Prompty"
+
+#: prompt_matrix/templates/index.html:366
+msgid "PDF"
+msgstr "PDF"
+
+#: prompt_matrix/templates/index.html:368
+msgid "Copy as plain text"
+msgstr "Copy as plain text"
+
+#: prompt_matrix/templates/index.html:376
+msgid "PEM engine."
+msgstr "PEM エンジン。"
+
+#: prompt_matrix/templates/index.html:377
+msgid "Your data stays here. Send only to your chosen provider."
+msgstr "データはここに残ります。送信は選んだ提供元だけです。"
+
+#~ msgid "What makes it ideal?"
+#~ msgstr "What makes it ideal?"
+
+#~ msgid ""
+#~ "Assure builds the prompt. Combine merges"
+#~ " several models. Red-hat is the "
+#~ "critique loop: draft, critic, rewrite. "
+#~ "You pick that in Workflow. It is"
+#~ " one pass, not a loop until "
+#~ "perfect."
+#~ msgstr ""
+#~ "Assure builds the prompt. Combine merges"
+#~ " several models. Red-hat is the "
+#~ "critique loop: draft, critic, rewrite. "
+#~ "You pick that in Workflow. It is"
+#~ " one pass, not a loop until "
+#~ "perfect."
+
+#~ msgid "Write. Type the question. Assure compiles the prompt."
+#~ msgstr "Write. Type the question. Assure compiles the prompt."
+
+#~ msgid ""
+#~ "Send. Default is several models "
+#~ "(Combine). One merge keeps what they "
+#~ "share and flags fights."
+#~ msgstr ""
+#~ "Send. Default is several models "
+#~ "(Combine). One merge keeps what they "
+#~ "share and flags fights."
+
+#~ msgid "Critique (Red-hat). Optional. Attempt, then a critic, then one rewrite."
+#~ msgstr "Critique (Red-hat). Optional. Attempt, then a critic, then one rewrite."
+
+#~ msgid ""
+#~ "Keep. One answer on the right. "
+#~ "Ground drops claims that are not "
+#~ "in your files."
+#~ msgstr ""
+#~ "Keep. One answer on the right. "
+#~ "Ground drops claims that are not "
+#~ "in your files."
+
+#~ msgid "Workflow"
+#~ msgstr "ワークフロー"
+
+#~ msgid "Several models (Combine)"
+#~ msgstr "複数モデル"
+
+#~ msgid "One model"
+#~ msgstr "1つのモデル"
+
+#~ msgid "Draft, then critique"
+#~ msgstr "下書き、それから批評"
+
+#~ msgid ""
+#~ "Several models answer. One merge keeps"
+#~ " what they share and flags fights."
+#~ " Start here for most questions."
+#~ msgstr ""
+#~ "Several models answer. One merge keeps"
+#~ " what they share and flags fights."
+#~ " Start here for most questions."
+
+#~ msgid ""
+#~ "Turn on Send. Click once. Wait "
+#~ "through three model calls. Read Final."
+#~ " Do not copy-paste between chats."
+#~ msgstr ""
+
+#~ msgid "Critic persona"
+#~ msgstr "Critic persona"
+
+#~ msgid "Critic model"
+#~ msgstr "Critic model"
+
+#~ msgid "Local runner"
+#~ msgstr "ローカル runner"
+
+#~ msgid "Run on a local runner (offline)"
+#~ msgstr "Run on a local runner (offline)"
+
+#~ msgid "Cheap route (pick a cheaper live model)"
+#~ msgstr "Cheap route (pick a cheaper live model)"
+
+#~ msgid "Strip claims that are not in your files"
+#~ msgstr "Strip claims that are not in your files"
+
+#~ msgid ""
+#~ "Ollama is the personal-dev default "
+#~ "and Assure can start it. If vLLM,"
+#~ " SGLang, Llamafile, or LM Studio is"
+#~ " already up, that is used instead."
+#~ msgstr ""
+#~ "Ollama is the personal-dev default "
+#~ "and Assure can start it. If vLLM,"
+#~ " SGLang, Llamafile, or LM Studio is"
+#~ " already up, that is used instead."
+
+#~ msgid "Target"
+#~ msgstr "Target"
+
+#~ msgid "Then"
+#~ msgstr "Then"
+
+#~ msgid ""
+#~ "Prompts are built in this order. "
+#~ "If Send is on, the first model "
+#~ "also merges the replies."
+#~ msgstr ""
+#~ "Prompts are built in this order. "
+#~ "If Send is on, the first model "
+#~ "also merges the replies."
+
+#~ msgid "Intent"
+#~ msgstr "意図"
+
+#~ msgid "Class"
+#~ msgstr "Class"
+
+#~ msgid ""
+#~ "A class overrides role and output "
+#~ "shape. If it was learned from a"
+#~ " prompt, it can also replace the "
+#~ "template."
+#~ msgstr ""
+#~ "A class overrides role and output "
+#~ "shape. If it was learned from a"
+#~ " prompt, it can also replace the "
+#~ "template."
+
+#~ msgid "Task"
+#~ msgstr "タスク"
+
+#~ msgid "Compare AWS vs GCP"
+#~ msgstr "Compare AWS vs GCP"
+
+#~ msgid "API connection"
+#~ msgstr "API connection"
+
+#~ msgid "Send through the model API"
+#~ msgstr "モデル API 経由で送信"
+
+#~ msgid "Libraries behind this page"
+#~ msgstr "Libraries behind this page"
+
+#~ msgid ""
+#~ "These packages run the compile and "
+#~ "Send path. LiteLLM is the hop "
+#~ "between PEM and each model."
+#~ msgstr ""
+
+#~ msgid "Generate and copy"
+#~ msgstr "生成してコピー"
+
+#~ msgid "Answers you can"
+#~ msgstr "あなたが"
+
+#~ msgid "trust"
+#~ msgstr "信頼"
+
+#~ msgid "Write your question. Get the ideal answer."
+#~ msgstr "質問を書いてください。理想の答えを得ます。"
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "History is opt-in."
+#~ msgstr "ライブのウェブ検索なし。ブラウザ取得なし。鍵は prompt_matrix/.env に残ります。履歴は任意です。"
+
+#~ msgid ""
+#~ "Step 1: Pick your AI models. Step"
+#~ " 2: Pick what you need. Step 3:"
+#~ " Write your question. Get your "
+#~ "answer."
+#~ msgstr "手順 1: モデルを選ぶ。手順 2: 必要な答えを選ぶ。手順 3: 質問を書く。答えを得る。"
+
+#~ msgid "Your validated answer will appear here."
+#~ msgstr "Your validated answer will appear here."
+
+#~ msgid "Answers you can <span class=\"trust\">trust</span>."
+#~ msgstr ""
+
+#~ msgid "Write your question. Restructured for each AI. Validated. One answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assure rewrites your question for "
+#~ "Claude, Gemini, DeepSeek, and the rest."
+#~ " You do not learn each vendor "
+#~ "format."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question. Get your "
+#~ "answer."
+#~ msgstr ""
+
+#~ msgid "Pick who answers. Connected means a key is already on this machine."
+#~ msgstr "誰が答えるかを選びます。接続済みは、このマシンに鍵があるという意味です。"
+
+#~ msgid "Add next"
+#~ msgstr "次を追加"
+
+#~ msgid ""
+#~ "Free uses two models (Gemini and "
+#~ "DeepSeek when both are live). Pro "
+#~ "unlocks the rest."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "computer. Ollama is the usual one. "
+#~ "vLLM, SGLang, Llamafile, or LM Studio"
+#~ " work if they are already up."
+#~ msgstr ""
+
+#~ msgid "Paste key"
+#~ msgstr "Paste API key"
+
+#~ msgid ""
+#~ "Keys stay in prompt_matrix/.env on this"
+#~ " machine. They are never shown again."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Several models check each other. We "
+#~ "keep what they agree on and show"
+#~ " where they disagree."
+#~ msgstr "複数のモデルが互いを確認します。一致は残し、食い違いは示します。"
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critic, rewrite."
+#~ msgstr "下書きし、批評し、書き直します。1回：下書き、批評、改稿。"
+
+#~ msgid "Tip: Compare & Validate is best for most questions."
+#~ msgstr "ヒント：多くの質問には「比較して確認」が向きます。"
+
+#~ msgid "Saved format (optional)"
+#~ msgstr ""
+
+#~ msgid "Use the defaults above"
+#~ msgstr "Use intent defaults"
+
+#~ msgid "A saved format can change the role and the shape of the answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "If Get my answer is on, a "
+#~ "second pass drops invented dates, "
+#~ "percents, and publication names that "
+#~ "were not in your files."
+#~ msgstr ""
+#~ "Adds grounding rules. If Send is "
+#~ "on, a second pass drops invented "
+#~ "dates, percents, and publication names "
+#~ "that were not uploaded."
+
+#~ msgid "Write your question"
+#~ msgstr "質問を書く"
+
+#~ msgid "Write your question here..."
+#~ msgstr "Write your question here..."
+
+#~ msgid ""
+#~ "A path that exists on this "
+#~ "computer is read automatically. A file"
+#~ " you attach here is added to "
+#~ "the question."
+#~ msgstr ""
+#~ "A file path that exists on this"
+#~ " computer is read automatically. A "
+#~ "file you attach here is inlined "
+#~ "into context."
+
+#~ msgid ""
+#~ "Off: build text you can paste "
+#~ "elsewhere. On: show the answer in "
+#~ "the window on the right."
+#~ msgstr ""
+#~ "Off: build the prompt for you to"
+#~ " paste elsewhere. On: send it and "
+#~ "show the answer in the window on"
+#~ " the right."
+
+#~ msgid "What is running this page"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is rewritten for each model."
+#~ " The answer shows here."
+#~ msgstr ""
+
+#~ msgid "Helpful"
+#~ msgstr ""
+
+#~ msgid "Not helpful"
+#~ msgstr ""
+
+#~ msgid "Thanks."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "A <span class=\"trust\">trusted</span> answer "
+#~ "starts with a well-structured question."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assure restructures it for the AI "
+#~ "you choose, validates it, and delivers"
+#~ " the verified answer, all in one "
+#~ "go."
+#~ msgstr ""
+
+#~ msgid "Copy stays on this machine. Send uses the provider you connect."
+#~ msgstr "コピーはこのマシンに残ります。送信は接続したプロバイダを使います。"
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "Copy stays on this machine. Send "
+#~ "uses the provider you connect."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question or topic. "
+#~ "Get your answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "You've reached today's Free limit (10"
+#~ " Sends). Pro is 100 per day. "
+#~ "There is no checkout in this app."
+#~ " Set ASSURE_EDITION=pro, or open the "
+#~ "pricing page."
+#~ msgstr ""
+
+#~ msgid "Which AI models?"
+#~ msgstr "どの AI モデル？"
+
+#~ msgid ""
+#~ "Pick who answers. \"Connected\" means a"
+#~ " key already exists on this machine."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "machine. Usually Ollama. vLLM, SGLang, "
+#~ "Llamafile, or LM Studio also work "
+#~ "if they are already up."
+#~ msgstr ""
+
+#~ msgid "Keys stay in prompt_matrix/.env on this machine. Never shown again."
+#~ msgstr ""
+
+#~ msgid "Fastest. One model answers your question."
+#~ msgstr "いちばん速い。1つのモデルが質問に答えます。"
+
+#~ msgid ""
+#~ "Multiple models check each other. We "
+#~ "keep what they agree on and show"
+#~ " you where they disagree."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critique, rewrite."
+#~ msgstr ""
+
+#~ msgid "Write your question or topic here..."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Off: builds the prompt for you to"
+#~ " paste elsewhere. On: shows the "
+#~ "answer in the right panel."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is restructured for each "
+#~ "model. The answer appears here."
+#~ msgstr ""
+

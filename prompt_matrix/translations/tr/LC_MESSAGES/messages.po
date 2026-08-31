@@ -1,0 +1,843 @@
+# Turkish translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-31 00:01+0300\n"
+"PO-Revision-Date: 2026-08-30 22:53+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: tr\n"
+"Language-Team: tr <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: prompt_matrix/templates/index.html:6 prompt_matrix/templates/index.html:21
+msgid "Assure"
+msgstr "Assure"
+
+#: prompt_matrix/templates/index.html:22
+msgid ""
+"A <span class=\"trust\">trusted</span> answer starts with the right "
+"question."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:23
+msgid "Write your question or topic."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:24
+msgid ""
+"Assure restructures it for the AI you choose, validates the response, and"
+" gives you one verified answer."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:29 prompt_matrix/templates/index.html:30
+msgid "Language"
+msgstr "Dil"
+
+#: prompt_matrix/templates/index.html:36 prompt_matrix/templates/index.html:42
+msgid "Your data never reaches us. It stays on your computer."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:38
+msgid "Free"
+msgstr "Ücretsiz"
+
+#: prompt_matrix/templates/index.html:44
+msgid "When Get my answer is off (copy mode), nothing leaves your machine."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:45
+msgid ""
+"When Get my answer is on, your question goes directly to the provider you"
+" chose (Gemini, Claude, and the rest)."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:46 prompt_matrix/templates/index.html:112
+msgid "Your API key is only used for that connection. We don't store or share it."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:47
+msgid ""
+"We don't search the web or scrape pages. We only use what you write and "
+"upload."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:50
+msgid ""
+"Step 1: Which AI models do you want to use? Step 2: What kind of answer "
+"do you need? Step 3: Write your question or topic."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:52
+msgid "Free allows 10 sends per day. Upgrade to Pro for 100."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:53
+msgid "See Pro pricing"
+msgstr "100 gönderim için Pro'ya geç"
+
+#: prompt_matrix/templates/index.html:54
+msgid ""
+"Pro is $5 per month on the Pricing page. On this machine, "
+"ASSURE_EDITION=pro raises the cap without Stripe."
+msgstr ""
+"Pro aylık 5 USD, Fiyatlar sayfasında. Bu makinede ASSURE_EDITION=pro, "
+"Stripe olmadan limiti yükseltir."
+
+#: prompt_matrix/templates/index.html:58
+msgid "Compose"
+msgstr "Yaz"
+
+#: prompt_matrix/templates/index.html:59
+msgid "Previous work"
+msgstr "Önceki çalışmalar"
+
+#: prompt_matrix/templates/index.html:60 prompt_matrix/templates/index.html:288
+msgid "Learn structure"
+msgstr "Yapıyı öğren"
+
+#: prompt_matrix/templates/index.html:61
+msgid "Classes"
+msgstr "Sınıflar"
+
+#: prompt_matrix/templates/index.html:76 prompt_matrix/templates/index.html:79
+msgid "Which AI models do you want to use?"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:78
+msgid ""
+"Pick who answers. \"Connected\" means you already have a key on this "
+"machine."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:81
+msgid "Also ask"
+msgstr "Ayrıca sor"
+
+#: prompt_matrix/templates/index.html:83
+msgid "Add another"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:84
+msgid ""
+"Free uses two models when both are live (Gemini + DeepSeek). Pro unlocks "
+"the rest."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:89
+msgid "Run offline (local)"
+msgstr "Yerel çalıştır (çevrimdışı)"
+
+#: prompt_matrix/templates/index.html:93
+msgid "Save tokens (cheaper)"
+msgstr "Jeton tasarrufu (daha ucuz)"
+
+#: prompt_matrix/templates/index.html:96
+msgid ""
+"You can also run offline with local models. Offline uses a runner on this"
+" machine. Usually Ollama. vLLM, SGLang, Llamafile, or LM Studio also work"
+" if they are already up."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:97
+msgid "Connect a provider"
+msgstr "Bir sağlayıcı bağla"
+
+#: prompt_matrix/templates/index.html:99
+msgid "Checking which models can answer…"
+msgstr "Hangi modellerin yanıtlayabileceği kontrol ediliyor…"
+
+#: prompt_matrix/templates/index.html:101
+msgid ""
+"No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or "
+"Kimi."
+msgstr ""
+"Anahtar bulunamadı. Lütfen API anahtarını bağla. Claude, Gemini, DeepSeek"
+" veya Kimi için aşağıya yapıştır."
+
+#: prompt_matrix/templates/index.html:109
+msgid "Paste API key"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:110
+msgid "Connect"
+msgstr "Bağla"
+
+#: prompt_matrix/templates/index.html:120
+msgid "What kind of answer do you need?"
+msgstr "Ne tür bir yanıt istiyorsun?"
+
+#: prompt_matrix/templates/index.html:124
+msgid "Quick Answer"
+msgstr "Hızlı yanıt"
+
+#: prompt_matrix/templates/index.html:125
+msgid "Fastest. One model answers."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:129
+msgid "Compare & Validate"
+msgstr "Karşılaştır ve doğrula"
+
+#: prompt_matrix/templates/index.html:130
+msgid "Multiple models check each other. We show agreement and disagreement."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:134
+msgid "Refine & Verify"
+msgstr "Geliştir ve doğrula"
+
+#: prompt_matrix/templates/index.html:135
+msgid "We draft, critique, and rewrite your answer."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:137
+msgid "Tip: \"Compare & Validate\" works best for most questions."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:140
+msgid "Draft. One model writes a first pass."
+msgstr "Taslak. Bir model ilk geçişi yazar."
+
+#: prompt_matrix/templates/index.html:141
+msgid "Critique. A critic only attacks that pass. It does not write a new essay."
+msgstr "Eleştiri. Eleştirmen yalnızca o geçişe saldırır. Yeni bir deneme yazmaz."
+
+#: prompt_matrix/templates/index.html:142
+msgid "Rewrite. The same model revises using the critique. That is what you keep."
+msgstr ""
+"Yeniden yazım. Aynı model eleştiriyi kullanarak düzeltir. Elinde kalan "
+"budur."
+
+#: prompt_matrix/templates/index.html:144
+msgid ""
+"Turn on Get my answer. Click once. Wait through three calls. Read the "
+"final on the right."
+msgstr ""
+"Cevabımı al açık olsun. Bir kez tıkla. Üç çağrıyı bekle. Sağdaki son "
+"metni oku."
+
+#: prompt_matrix/templates/index.html:145
+msgid "What should the critique look for?"
+msgstr "Eleştiri nelere baksın?"
+
+#: prompt_matrix/templates/index.html:147
+msgid "Unsupported claims, missing caveats, keep / revise / reject."
+msgstr "Desteklenmeyen iddialar, eksik uyarılar, tut / düzelt / reddet."
+
+#: prompt_matrix/templates/index.html:148
+msgid "Who critiques?"
+msgstr "Kim eleştiriyor?"
+
+#: prompt_matrix/templates/index.html:154
+msgid "Local"
+msgstr "Yerel"
+
+#: prompt_matrix/templates/index.html:157
+msgid "What do you need?"
+msgstr "Neye ihtiyacın var?"
+
+#: prompt_matrix/templates/index.html:159
+msgid "Pick the shape that matches your goal. Unsure? Start with research."
+msgstr "Hedefine uyan şekli seç. Emin değilsen araştırmayla başla."
+
+#: prompt_matrix/templates/index.html:160
+msgid "Saved template (optional)"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:162
+msgid "Use intent defaults"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:164
+msgid "A saved template can override the role and output shape."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:167
+msgid "Check against my files"
+msgstr "Dosyalarıma göre kontrol et"
+
+#: prompt_matrix/templates/index.html:169
+msgid ""
+"When \"Get my answer\" is on, a second pass drops invented dates, "
+"percentages, and publication names not in your files."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:176
+msgid "Write your question or topic"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:178
+msgid ""
+"Type your question. Add extra context or upload a file if needed. Click "
+"Get my answer to see the verified result."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:179
+msgid "Write your question or topic..."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:180
+msgid "Extra context (optional)"
+msgstr "Ek bağlam (isteğe bağlı)"
+
+#: prompt_matrix/templates/index.html:181
+msgid "Notes, or a file path like ./src/app.py"
+msgstr "Notlar, veya ./src/app.py gibi bir dosya yolu"
+
+#: prompt_matrix/templates/index.html:183
+msgid "Attach a file (optional)"
+msgstr "Dosya ekle (isteğe bağlı)"
+
+#: prompt_matrix/templates/index.html:187
+msgid ""
+"A path on this machine is read automatically. A file attached here is "
+"inlined into the question."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:191
+#: prompt_matrix/templates/index.html:196
+msgid "Get my answer"
+msgstr "Cevabımı al"
+
+#: prompt_matrix/templates/index.html:194
+msgid ""
+"Off: builds the prompt for you to paste elsewhere. On: shows the verified"
+" result."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:197
+msgid "Cmd or Ctrl + Enter sends."
+msgstr "Cmd veya Ctrl + Enter gönderir."
+
+#: prompt_matrix/templates/index.html:200
+msgid "What runs this page"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:202
+msgid "These packages compile and send. LiteLLM is the hop to each provider."
+msgstr "Bu paketler derler ve gönderir. LiteLLM her sağlayıcıya giden köprüdür."
+
+#: prompt_matrix/templates/index.html:210
+#: prompt_matrix/templates/index.html:345
+msgid "Answer"
+msgstr "Yanıt"
+
+#: prompt_matrix/templates/index.html:211
+msgid "Answer ready"
+msgstr "Yanıt hazır"
+
+#: prompt_matrix/templates/index.html:212
+msgid "Copy answer"
+msgstr "Yanıtı kopyala"
+
+#: prompt_matrix/templates/index.html:214
+#: prompt_matrix/templates/index.html:220
+msgid ""
+"Ask your first question. The compiled prompt is restructured for each "
+"model. The verified answer appears here."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:217
+msgid "Working…"
+msgstr "Çalışıyor…"
+
+#: prompt_matrix/templates/index.html:224
+msgid "Was this answer helpful?"
+msgstr "Bu yanıt yardımcı oldu mu?"
+
+#: prompt_matrix/templates/index.html:225
+msgid "Yes"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:226
+msgid "No"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:227
+msgid "Thanks!"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:228
+msgid "Ratings on this machine change which output format we try next."
+msgstr "Bu makinedeki puanlar, bir sonraki çıktı biçimini değiştirir."
+
+#: prompt_matrix/templates/index.html:232
+msgid "Draft vs final"
+msgstr "Draft vs final"
+
+#: prompt_matrix/templates/index.html:237
+msgid "Attempt"
+msgstr "Attempt"
+
+#: prompt_matrix/templates/index.html:241
+msgid "Final"
+msgstr "Final"
+
+#: prompt_matrix/templates/index.html:246
+msgid "Critique notes that drove the rewrite"
+msgstr "Critique notes that drove the rewrite"
+
+#: prompt_matrix/templates/index.html:253
+msgid "Prompt"
+msgstr "Prompt"
+
+#: prompt_matrix/templates/index.html:254
+msgid "Copy prompt"
+msgstr "Promptu kopyala"
+
+#: prompt_matrix/templates/index.html:257
+msgid "What was sent to the model"
+msgstr "Modele gönderilen metin"
+
+#: prompt_matrix/templates/index.html:258
+msgid "Pick a target and an intent, write the task, then generate."
+msgstr "Hedef ve niyeti seç, soruyu yaz, sonra üret."
+
+#: prompt_matrix/templates/index.html:264
+msgid "Save this prompt into a class"
+msgstr "Save this prompt into a class"
+
+#: prompt_matrix/templates/index.html:267
+msgid "Or type a new class name"
+msgstr "Or type a new class name"
+
+#: prompt_matrix/templates/index.html:268
+msgid "Save"
+msgstr "Save"
+
+#: prompt_matrix/templates/index.html:272
+msgid "Working notes (draft, red-hat, merge)"
+msgstr "Çalışma notları (taslak, eleştiri, birleştirme)"
+
+#: prompt_matrix/templates/index.html:276
+msgid "Tokens: 0 in + 0 out = 0 (~$0.00 est.)"
+msgstr "Jeton: 0 giriş + 0 çıkış = 0 (~$0.00 tahmini)"
+
+#: prompt_matrix/templates/index.html:285
+msgid "Paste a prompt"
+msgstr "Paste a prompt"
+
+#: prompt_matrix/templates/index.html:286
+msgid ""
+"Paste any prompt you already like. The tool extracts role, output shape, "
+"and a reusable Jinja template."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:290
+msgid ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+msgstr ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+
+#: prompt_matrix/templates/index.html:294
+msgid "Extracted class"
+msgstr "Extracted class"
+
+#: prompt_matrix/templates/index.html:296
+msgid "Paste a prompt on the left."
+msgstr "Paste a prompt on the left."
+
+#: prompt_matrix/templates/index.html:299
+msgid "Class name"
+msgstr "Class name"
+
+#: prompt_matrix/templates/index.html:301
+msgid "Role"
+msgstr "Role"
+
+#: prompt_matrix/templates/index.html:303
+msgid "Output format"
+msgstr "Output format"
+
+#: prompt_matrix/templates/index.html:305
+msgid "Template"
+msgstr "Template"
+
+#: prompt_matrix/templates/index.html:308
+msgid "Save as class"
+msgstr "Save as class"
+
+#: prompt_matrix/templates/index.html:319
+msgid "Your previous work"
+msgstr "Önceki çalışmalar"
+
+#: prompt_matrix/templates/index.html:321
+msgid "Search past questions..."
+msgstr "Geçmiş soruları ara..."
+
+#: prompt_matrix/templates/index.html:322
+msgid "Clear all"
+msgstr "Tümünü temizle"
+
+#: prompt_matrix/templates/index.html:325
+msgid "No previous work yet. Get an answer on Compose and it shows up here."
+msgstr "Henüz önceki çalışma yok. Yaz sekmesinde bir yanıt al, burada görünür."
+
+#: prompt_matrix/templates/index.html:328
+msgid "Start a new question"
+msgstr "Yeni soru başlat"
+
+#: prompt_matrix/templates/index.html:339
+msgid "View"
+msgstr "Görüntüle"
+
+#: prompt_matrix/templates/index.html:340
+msgid "Close"
+msgstr "Kapat"
+
+#: prompt_matrix/templates/index.html:343
+msgid "Question"
+msgstr "Soru"
+
+#: prompt_matrix/templates/index.html:347
+msgid "Details"
+msgstr "Ayrıntılar"
+
+#: prompt_matrix/templates/index.html:350
+msgid "Refine"
+msgstr "Geliştir"
+
+#: prompt_matrix/templates/index.html:351
+#: prompt_matrix/templates/index.html:358
+#: prompt_matrix/templates/index.html:370
+msgid "Export"
+msgstr "Dışa aktar"
+
+#: prompt_matrix/templates/index.html:352
+msgid "Copy"
+msgstr "Kopyala"
+
+#: prompt_matrix/templates/index.html:353
+msgid "Delete"
+msgstr "Sil"
+
+#: prompt_matrix/templates/index.html:359
+msgid "Cancel"
+msgstr "Vazgeç"
+
+#: prompt_matrix/templates/index.html:361
+msgid "Choose a format"
+msgstr "Bir biçim seç"
+
+#: prompt_matrix/templates/index.html:363
+msgid "Markdown"
+msgstr "Markdown"
+
+#: prompt_matrix/templates/index.html:364
+msgid "HTML"
+msgstr "HTML"
+
+#: prompt_matrix/templates/index.html:365
+msgid "Prompty"
+msgstr "Prompty"
+
+#: prompt_matrix/templates/index.html:366
+msgid "PDF"
+msgstr "PDF"
+
+#: prompt_matrix/templates/index.html:368
+msgid "Copy as plain text"
+msgstr "Düz metin olarak kopyala"
+
+#: prompt_matrix/templates/index.html:376
+msgid "PEM engine."
+msgstr "PEM motoru."
+
+#: prompt_matrix/templates/index.html:377
+msgid "Your data stays here. Send only to your chosen provider."
+msgstr ""
+
+#~ msgid "Answers you can"
+#~ msgstr "Yanıtlara"
+
+#~ msgid "trust"
+#~ msgstr "güven"
+
+#~ msgid "Write your question. Get the ideal answer."
+#~ msgstr "Sorunu yaz. İdeal yanıtı al."
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "History is opt-in."
+#~ msgstr ""
+#~ "Canlı web araması yok. Tarayıcıdan sayfa"
+#~ " çekme yok. Anahtarlar prompt_matrix/.env "
+#~ "içinde kalır. Geçmiş isteğe bağlıdır."
+
+#~ msgid ""
+#~ "Step 1: Pick your AI models. Step"
+#~ " 2: Pick what you need. Step 3:"
+#~ " Write your question. Get your "
+#~ "answer."
+#~ msgstr ""
+#~ "1. adım: Yapay zeka modellerini seç. "
+#~ "2. adım: Ne istediğini seç. 3. "
+#~ "adım: Sorunu yaz. Cevabını al."
+
+#~ msgid "Your validated answer will appear here."
+#~ msgstr "Doğrulanmış yanıtın burada görünecek."
+
+#~ msgid "Answers you can <span class=\"trust\">trust</span>."
+#~ msgstr ""
+#~ "Güvenli yanıt, <span class=\"trust\">güvenli</span>"
+#~ " ve doğru soru ile alınır."
+
+#~ msgid "Write your question. Restructured for each AI. Validated. One answer."
+#~ msgstr ""
+#~ "Soruyu veya konuyu yaz. Assure senin "
+#~ "için seçtiğin yapay zekaya özel "
+#~ "yapılandırsın. Doğrulasın. Tek seferde gerçek"
+#~ " soruyu veya cevabı yazsın."
+
+#~ msgid ""
+#~ "Assure rewrites your question for "
+#~ "Claude, Gemini, DeepSeek, and the rest."
+#~ " You do not learn each vendor "
+#~ "format."
+#~ msgstr ""
+#~ "Assure, soruyu seçtiğin modele özel "
+#~ "biçime çevirir. Sen her sağlayıcının "
+#~ "formatını ezberlemezsin."
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question. Get your "
+#~ "answer."
+#~ msgstr ""
+#~ "1. adım: Yapay zeka modellerini seç. "
+#~ "2. adım: Ne istediğini seç. 3. "
+#~ "adım: Soruyu veya konuyu yaz. Cevabını"
+#~ " al."
+
+#~ msgid "Pick who answers. Connected means a key is already on this machine."
+#~ msgstr ""
+#~ "Kimin yanıtlayacağını seç. \"Bağlı\", bu "
+#~ "makinede zaten bir anahtar olduğu "
+#~ "anlamına gelir."
+
+#~ msgid "Add next"
+#~ msgstr "Model ekle"
+
+#~ msgid ""
+#~ "Free uses two models (Gemini and "
+#~ "DeepSeek when both are live). Pro "
+#~ "unlocks the rest."
+#~ msgstr ""
+#~ "Free, ikisi de canlıysa iki model "
+#~ "kullanır (Gemini ve DeepSeek). Pro "
+#~ "kalanını açar."
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "computer. Ollama is the usual one. "
+#~ "vLLM, SGLang, Llamafile, or LM Studio"
+#~ " work if they are already up."
+#~ msgstr ""
+#~ "Çevrimdışı, bu bilgisayardaki bir "
+#~ "çalıştırıcıyı kullanır. Genelde Ollama. vLLM,"
+#~ " SGLang, Llamafile veya LM Studio "
+#~ "açıksa onlar da olur."
+
+#~ msgid "Paste key"
+#~ msgstr "Anahtarı yapıştır"
+
+#~ msgid ""
+#~ "Keys stay in prompt_matrix/.env on this"
+#~ " machine. They are never shown again."
+#~ msgstr ""
+#~ "Anahtarlar bu makinede prompt_matrix/.env "
+#~ "içinde kalır. Bir daha gösterilmezler."
+
+#~ msgid ""
+#~ "Several models check each other. We "
+#~ "keep what they agree on and show"
+#~ " where they disagree."
+#~ msgstr ""
+#~ "Birkaç model birbirini kontrol eder. "
+#~ "Anlaştıkları yeri tutar, ayrıldıkları yeri "
+#~ "gösteririz."
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critic, rewrite."
+#~ msgstr ""
+#~ "Bir yanıt taslağı oluşturur, eleştirir, "
+#~ "sonra yeniden yazar. Bir tur: taslak,"
+#~ " eleştiri, yeniden yazım."
+
+#~ msgid "Tip: Compare & Validate is best for most questions."
+#~ msgstr "İpucu: Çoğu soru için \"Karşılaştır ve doğrula\" daha iyi uyum sağlar."
+
+#~ msgid "Saved format (optional)"
+#~ msgstr "Kayıtlı biçim (isteğe bağlı)"
+
+#~ msgid "Use the defaults above"
+#~ msgstr "Yukarıdaki varsayılanları kullan"
+
+#~ msgid "A saved format can change the role and the shape of the answer."
+#~ msgstr "Kayıtlı bir biçim, rolü ve yanıtın şeklini değiştirebilir."
+
+#~ msgid ""
+#~ "If Get my answer is on, a "
+#~ "second pass drops invented dates, "
+#~ "percents, and publication names that "
+#~ "were not in your files."
+#~ msgstr ""
+#~ "Cevabımı al açıksa ikinci bir geçiş, "
+#~ "dosyalarında olmayan uydurma tarih, yüzde "
+#~ "ve yayın adlarını düşürür."
+
+#~ msgid "Write your question"
+#~ msgstr "Soruyu veya konuyu yaz"
+
+#~ msgid "Write your question here..."
+#~ msgstr "Soruyu veya konuyu buraya yaz..."
+
+#~ msgid ""
+#~ "A path that exists on this "
+#~ "computer is read automatically. A file"
+#~ " you attach here is added to "
+#~ "the question."
+#~ msgstr ""
+#~ "Bu bilgisayarda duran bir yol "
+#~ "kendiliğinden okunur. Buradan eklediğin dosya"
+#~ " soruya katılır."
+
+#~ msgid ""
+#~ "Off: build text you can paste "
+#~ "elsewhere. On: show the answer in "
+#~ "the window on the right."
+#~ msgstr ""
+#~ "Kapalı: başka yere yapıştıracağın metni "
+#~ "kurar. Açık: yanıtı sağdaki pencerede "
+#~ "gösterir."
+
+#~ msgid "What is running this page"
+#~ msgstr "Bu sayfayı ne çalıştırıyor"
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is rewritten for each model."
+#~ " The answer shows here."
+#~ msgstr ""
+#~ "İlk soruyu sor. Derlenen metin her "
+#~ "model için yeniden yazılır. Yanıt burada"
+#~ " görünür."
+
+#~ msgid "Helpful"
+#~ msgstr "Evet"
+
+#~ msgid "Not helpful"
+#~ msgstr "Hayır"
+
+#~ msgid "Thanks."
+#~ msgstr "Teşekkürler!"
+
+#~ msgid ""
+#~ "A <span class=\"trust\">trusted</span> answer "
+#~ "starts with a well-structured question."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assure restructures it for the AI "
+#~ "you choose, validates it, and delivers"
+#~ " the verified answer, all in one "
+#~ "go."
+#~ msgstr ""
+
+#~ msgid "Copy stays on this machine. Send uses the provider you connect."
+#~ msgstr "Kopya bu makinede kalır. Gönderim bağladığın sağlayıcıyı kullanır."
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "Copy stays on this machine. Send "
+#~ "uses the provider you connect."
+#~ msgstr ""
+#~ "Canlı web araması yok. Tarayıcıdan sayfa"
+#~ " çekme yok. Anahtarlar prompt_matrix/.env "
+#~ "içinde kalır. Kopya bu makinede kalır."
+#~ " Gönderim bağladığın sağlayıcıyı kullanır."
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question or topic. "
+#~ "Get your answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "You've reached today's Free limit (10"
+#~ " Sends). Pro is 100 per day. "
+#~ "There is no checkout in this app."
+#~ " Set ASSURE_EDITION=pro, or open the "
+#~ "pricing page."
+#~ msgstr ""
+#~ "Ücretsiz sürüm günde 10 gönderime izin"
+#~ " verir. 100 gönderim için Pro'ya geç."
+#~ " Bu uygulamada ödeme yok. "
+#~ "ASSURE_EDITION=pro yaz veya fiyat sayfasını"
+#~ " aç."
+
+#~ msgid "Which AI models?"
+#~ msgstr "Hangi yapay zeka modelleri?"
+
+#~ msgid ""
+#~ "Pick who answers. \"Connected\" means a"
+#~ " key already exists on this machine."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "machine. Usually Ollama. vLLM, SGLang, "
+#~ "Llamafile, or LM Studio also work "
+#~ "if they are already up."
+#~ msgstr ""
+
+#~ msgid "Keys stay in prompt_matrix/.env on this machine. Never shown again."
+#~ msgstr ""
+
+#~ msgid "Fastest. One model answers your question."
+#~ msgstr "En hızlısı. Bir model soruyu yanıtlar."
+
+#~ msgid ""
+#~ "Multiple models check each other. We "
+#~ "keep what they agree on and show"
+#~ " you where they disagree."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critique, rewrite."
+#~ msgstr ""
+
+#~ msgid "Write your question or topic here..."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Off: builds the prompt for you to"
+#~ " paste elsewhere. On: shows the "
+#~ "answer in the right panel."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is restructured for each "
+#~ "model. The answer appears here."
+#~ msgstr ""
+

@@ -1,0 +1,999 @@
+# German translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-08-31 00:01+0300\n"
+"PO-Revision-Date: 2026-08-30 22:17+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: prompt_matrix/templates/index.html:6 prompt_matrix/templates/index.html:21
+msgid "Assure"
+msgstr "Assure"
+
+#: prompt_matrix/templates/index.html:22
+msgid ""
+"A <span class=\"trust\">trusted</span> answer starts with the right "
+"question."
+msgstr ""
+"Eine <span class=\"trust\">vertrauenswürdige</span> Antwort beginnt mit "
+"der richtigen Frage."
+
+#: prompt_matrix/templates/index.html:23
+msgid "Write your question or topic."
+msgstr "Schreiben Sie Ihre Frage oder Ihr Thema."
+
+#: prompt_matrix/templates/index.html:24
+msgid ""
+"Assure restructures it for the AI you choose, validates the response, and"
+" gives you one verified answer."
+msgstr ""
+"Assure strukturiert sie für die KI Ihrer Wahl um, prüft die Antwort und "
+"gibt Ihnen ein verifiziertes Ergebnis."
+
+#: prompt_matrix/templates/index.html:29 prompt_matrix/templates/index.html:30
+msgid "Language"
+msgstr "Sprache"
+
+#: prompt_matrix/templates/index.html:36 prompt_matrix/templates/index.html:42
+msgid "Your data never reaches us. It stays on your computer."
+msgstr "Ihre Daten erreichen uns nicht. Sie bleiben auf Ihrem Rechner."
+
+#: prompt_matrix/templates/index.html:38
+msgid "Free"
+msgstr "Gratis"
+
+#: prompt_matrix/templates/index.html:44
+msgid "When Get my answer is off (copy mode), nothing leaves your machine."
+msgstr "Ist Antwort anzeigen aus (Kopiermodus), verlässt nichts Ihren Rechner."
+
+#: prompt_matrix/templates/index.html:45
+msgid ""
+"When Get my answer is on, your question goes directly to the provider you"
+" chose (Gemini, Claude, and the rest)."
+msgstr ""
+"Ist Antwort anzeigen an, geht Ihre Frage direkt an den gewählten Anbieter"
+" (Gemini, Claude und die übrigen)."
+
+#: prompt_matrix/templates/index.html:46 prompt_matrix/templates/index.html:112
+msgid "Your API key is only used for that connection. We don't store or share it."
+msgstr ""
+"Ihr API-Schlüssel gilt nur für diese Verbindung. Wir speichern und teilen"
+" ihn nicht."
+
+#: prompt_matrix/templates/index.html:47
+msgid ""
+"We don't search the web or scrape pages. We only use what you write and "
+"upload."
+msgstr ""
+"Wir suchen nicht im Web und ziehen keine Seiten. Wir nutzen nur, was Sie "
+"schreiben und hochladen."
+
+#: prompt_matrix/templates/index.html:50
+msgid ""
+"Step 1: Which AI models do you want to use? Step 2: What kind of answer "
+"do you need? Step 3: Write your question or topic."
+msgstr ""
+"Schritt 1: Welche KI-Modelle wollen Sie? Schritt 2: Welche Art von "
+"Antwort? Schritt 3: Schreiben Sie Ihre Frage oder Ihr Thema."
+
+#: prompt_matrix/templates/index.html:52
+msgid "Free allows 10 sends per day. Upgrade to Pro for 100."
+msgstr "Die Free-Version erlaubt 10 Sends pro Tag. Für 100 auf Pro wechseln."
+
+#: prompt_matrix/templates/index.html:53
+msgid "See Pro pricing"
+msgstr "Pro-Preise ansehen"
+
+#: prompt_matrix/templates/index.html:54
+msgid ""
+"Pro is $5 per month on the Pricing page. On this machine, "
+"ASSURE_EDITION=pro raises the cap without Stripe."
+msgstr ""
+"Pro steht auf Preise mit 5 USD im Monat. Auf diesem Rechner hebt "
+"ASSURE_EDITION=pro das Limit ohne Stripe."
+
+#: prompt_matrix/templates/index.html:58
+msgid "Compose"
+msgstr "Verfassen"
+
+#: prompt_matrix/templates/index.html:59
+msgid "Previous work"
+msgstr "Frühere Arbeit"
+
+#: prompt_matrix/templates/index.html:60 prompt_matrix/templates/index.html:288
+msgid "Learn structure"
+msgstr "Struktur lernen"
+
+#: prompt_matrix/templates/index.html:61
+msgid "Classes"
+msgstr "Klassen"
+
+#: prompt_matrix/templates/index.html:76 prompt_matrix/templates/index.html:79
+msgid "Which AI models do you want to use?"
+msgstr "Welche KI-Modelle wollen Sie nutzen?"
+
+#: prompt_matrix/templates/index.html:78
+msgid ""
+"Pick who answers. \"Connected\" means you already have a key on this "
+"machine."
+msgstr ""
+"Wählen Sie, wer antwortet. „Verbunden“ heißt, auf diesem Rechner liegt "
+"schon ein Schlüssel."
+
+#: prompt_matrix/templates/index.html:81
+msgid "Also ask"
+msgstr "Auch fragen"
+
+#: prompt_matrix/templates/index.html:83
+msgid "Add another"
+msgstr "Weitere hinzufügen"
+
+#: prompt_matrix/templates/index.html:84
+msgid ""
+"Free uses two models when both are live (Gemini + DeepSeek). Pro unlocks "
+"the rest."
+msgstr ""
+"Free nutzt zwei Modelle, wenn beide live sind (Gemini und DeepSeek). Pro "
+"schaltet den Rest frei."
+
+#: prompt_matrix/templates/index.html:89
+msgid "Run offline (local)"
+msgstr "Offline ausführen (lokal)"
+
+#: prompt_matrix/templates/index.html:93
+msgid "Save tokens (cheaper)"
+msgstr "Tokens sparen (günstiger)"
+
+#: prompt_matrix/templates/index.html:96
+msgid ""
+"You can also run offline with local models. Offline uses a runner on this"
+" machine. Usually Ollama. vLLM, SGLang, Llamafile, or LM Studio also work"
+" if they are already up."
+msgstr ""
+"Sie können auch offline mit lokalen Modellen arbeiten. Offline nutzt "
+"einen Runner auf diesem Rechner. Meist Ollama. vLLM, SGLang, Llamafile "
+"oder LM Studio gehen, wenn sie schon laufen."
+
+#: prompt_matrix/templates/index.html:97
+msgid "Connect a provider"
+msgstr "Anbieter verbinden"
+
+#: prompt_matrix/templates/index.html:99
+msgid "Checking which models can answer…"
+msgstr "Checking which models can answer…"
+
+#: prompt_matrix/templates/index.html:101
+msgid ""
+"No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or "
+"Kimi."
+msgstr ""
+"No keys found. Paste one below to connect Claude, Gemini, DeepSeek, or "
+"Kimi."
+
+#: prompt_matrix/templates/index.html:109
+msgid "Paste API key"
+msgstr "API-Schlüssel einfügen"
+
+#: prompt_matrix/templates/index.html:110
+msgid "Connect"
+msgstr "Verbinden"
+
+#: prompt_matrix/templates/index.html:120
+msgid "What kind of answer do you need?"
+msgstr "Welche Art von Antwort brauchen Sie?"
+
+#: prompt_matrix/templates/index.html:124
+msgid "Quick Answer"
+msgstr "Schnelle Antwort"
+
+#: prompt_matrix/templates/index.html:125
+msgid "Fastest. One model answers."
+msgstr "Am schnellsten. Ein Modell antwortet."
+
+#: prompt_matrix/templates/index.html:129
+msgid "Compare & Validate"
+msgstr "Vergleichen und prüfen"
+
+#: prompt_matrix/templates/index.html:130
+msgid "Multiple models check each other. We show agreement and disagreement."
+msgstr ""
+"Mehrere Modelle prüfen einander. Wir zeigen Übereinstimmung und "
+"Abweichung."
+
+#: prompt_matrix/templates/index.html:134
+msgid "Refine & Verify"
+msgstr "Verfeinern und prüfen"
+
+#: prompt_matrix/templates/index.html:135
+msgid "We draft, critique, and rewrite your answer."
+msgstr "Wir entwerfen, kritisieren und schreiben Ihre Antwort um."
+
+#: prompt_matrix/templates/index.html:137
+msgid "Tip: \"Compare & Validate\" works best for most questions."
+msgstr "Tipp: „Vergleichen und prüfen“ passt für die meisten Fragen."
+
+#: prompt_matrix/templates/index.html:140
+msgid "Draft. One model writes a first pass."
+msgstr "Draft. One model writes a first pass."
+
+#: prompt_matrix/templates/index.html:141
+msgid "Critique. A critic only attacks that pass. It does not write a new essay."
+msgstr "Critique. A critic only attacks that pass. It does not write a new essay."
+
+#: prompt_matrix/templates/index.html:142
+msgid "Rewrite. The same model revises using the critique. That is what you keep."
+msgstr "Rewrite. The same model revises using the critique. That is what you keep."
+
+#: prompt_matrix/templates/index.html:144
+msgid ""
+"Turn on Get my answer. Click once. Wait through three calls. Read the "
+"final on the right."
+msgstr ""
+"Schalten Sie Antwort anzeigen ein. Ein Klick. Warten Sie die drei Aufrufe"
+" ab. Lesen Sie das Finale rechts."
+
+#: prompt_matrix/templates/index.html:145
+msgid "What should the critique look for?"
+msgstr "What should the critique look for?"
+
+#: prompt_matrix/templates/index.html:147
+msgid "Unsupported claims, missing caveats, keep / revise / reject."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:148
+msgid "Who critiques?"
+msgstr "Who critiques?"
+
+#: prompt_matrix/templates/index.html:154
+msgid "Local"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:157
+msgid "What do you need?"
+msgstr "Was brauchen Sie?"
+
+#: prompt_matrix/templates/index.html:159
+msgid "Pick the shape that matches your goal. Unsure? Start with research."
+msgstr ""
+"Wählen Sie die Form, die zu Ihrem Ziel passt. Unsicher? Beginnen Sie mit "
+"der Recherche."
+
+#: prompt_matrix/templates/index.html:160
+msgid "Saved template (optional)"
+msgstr "Gespeicherte Vorlage (optional)"
+
+#: prompt_matrix/templates/index.html:162
+msgid "Use intent defaults"
+msgstr "Vorgaben verwenden"
+
+#: prompt_matrix/templates/index.html:164
+msgid "A saved template can override the role and output shape."
+msgstr "Eine gespeicherte Vorlage kann Rolle und Form der Antwort ändern."
+
+#: prompt_matrix/templates/index.html:167
+msgid "Check against my files"
+msgstr "Gegen meine Dateien prüfen"
+
+#: prompt_matrix/templates/index.html:169
+msgid ""
+"When \"Get my answer\" is on, a second pass drops invented dates, "
+"percentages, and publication names not in your files."
+msgstr ""
+"Ist Antwort anzeigen an, streicht ein zweiter Durchgang erfundene Daten, "
+"Prozente und Publikationsnamen, die nicht in Ihren Dateien stehen."
+
+#: prompt_matrix/templates/index.html:176
+msgid "Write your question or topic"
+msgstr "Schreiben Sie Ihre Frage oder Ihr Thema"
+
+#: prompt_matrix/templates/index.html:178
+msgid ""
+"Type your question. Add extra context or upload a file if needed. Click "
+"Get my answer to see the verified result."
+msgstr ""
+"Tippen Sie die Frage. Fügen Sie Kontext oder eine Datei hinzu, wenn "
+"nötig. Klicken Sie auf Antwort anzeigen für das geprüfte Ergebnis."
+
+#: prompt_matrix/templates/index.html:179
+msgid "Write your question or topic..."
+msgstr "Schreiben Sie Ihre Frage oder Ihr Thema…"
+
+#: prompt_matrix/templates/index.html:180
+msgid "Extra context (optional)"
+msgstr "Zusätzlicher Kontext (optional)"
+
+#: prompt_matrix/templates/index.html:181
+msgid "Notes, or a file path like ./src/app.py"
+msgstr "Notes, or a file path like ./src/app.py"
+
+#: prompt_matrix/templates/index.html:183
+msgid "Attach a file (optional)"
+msgstr "Datei anhängen (optional)"
+
+#: prompt_matrix/templates/index.html:187
+msgid ""
+"A path on this machine is read automatically. A file attached here is "
+"inlined into the question."
+msgstr ""
+"Ein Pfad auf diesem Rechner wird von selbst gelesen. Eine hier angehängte"
+" Datei gehört zur Frage."
+
+#: prompt_matrix/templates/index.html:191
+#: prompt_matrix/templates/index.html:196
+msgid "Get my answer"
+msgstr "Antwort anzeigen"
+
+#: prompt_matrix/templates/index.html:194
+msgid ""
+"Off: builds the prompt for you to paste elsewhere. On: shows the verified"
+" result."
+msgstr ""
+"Aus: erstellt den Text zum Einfügen woanders. An: zeigt das geprüfte "
+"Ergebnis."
+
+#: prompt_matrix/templates/index.html:197
+msgid "Cmd or Ctrl + Enter sends."
+msgstr "Cmd oder Strg + Enter sendet."
+
+#: prompt_matrix/templates/index.html:200
+msgid "What runs this page"
+msgstr "Was diese Seite ausführt"
+
+#: prompt_matrix/templates/index.html:202
+msgid "These packages compile and send. LiteLLM is the hop to each provider."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:210
+#: prompt_matrix/templates/index.html:345
+msgid "Answer"
+msgstr "Antwort"
+
+#: prompt_matrix/templates/index.html:211
+msgid "Answer ready"
+msgstr "Antwort bereit"
+
+#: prompt_matrix/templates/index.html:212
+msgid "Copy answer"
+msgstr "Antwort kopieren"
+
+#: prompt_matrix/templates/index.html:214
+#: prompt_matrix/templates/index.html:220
+msgid ""
+"Ask your first question. The compiled prompt is restructured for each "
+"model. The verified answer appears here."
+msgstr ""
+"Stellen Sie Ihre erste Frage. Der kompilierte Prompt wird für jedes "
+"Modell umstrukturiert. Die geprüfte Antwort erscheint hier."
+
+#: prompt_matrix/templates/index.html:217
+msgid "Working…"
+msgstr "Arbeitet…"
+
+#: prompt_matrix/templates/index.html:224
+msgid "Was this answer helpful?"
+msgstr "Hat Ihnen diese Antwort geholfen?"
+
+#: prompt_matrix/templates/index.html:225
+msgid "Yes"
+msgstr "Ja"
+
+#: prompt_matrix/templates/index.html:226
+msgid "No"
+msgstr "Nein"
+
+#: prompt_matrix/templates/index.html:227
+msgid "Thanks!"
+msgstr "Danke!"
+
+#: prompt_matrix/templates/index.html:228
+msgid "Ratings on this machine change which output format we try next."
+msgstr "Bewertungen auf diesem Rechner ändern das nächste Ausgabeformat."
+
+#: prompt_matrix/templates/index.html:232
+msgid "Draft vs final"
+msgstr "Draft vs final"
+
+#: prompt_matrix/templates/index.html:237
+msgid "Attempt"
+msgstr "Attempt"
+
+#: prompt_matrix/templates/index.html:241
+msgid "Final"
+msgstr "Final"
+
+#: prompt_matrix/templates/index.html:246
+msgid "Critique notes that drove the rewrite"
+msgstr "Critique notes that drove the rewrite"
+
+#: prompt_matrix/templates/index.html:253
+msgid "Prompt"
+msgstr "Prompt"
+
+#: prompt_matrix/templates/index.html:254
+msgid "Copy prompt"
+msgstr "Copy prompt"
+
+#: prompt_matrix/templates/index.html:257
+msgid "What was sent to the model"
+msgstr "What was sent to the model"
+
+#: prompt_matrix/templates/index.html:258
+msgid "Pick a target and an intent, write the task, then generate."
+msgstr "Pick a target and an intent, write the task, then generate."
+
+#: prompt_matrix/templates/index.html:264
+msgid "Save this prompt into a class"
+msgstr "Save this prompt into a class"
+
+#: prompt_matrix/templates/index.html:267
+msgid "Or type a new class name"
+msgstr "Or type a new class name"
+
+#: prompt_matrix/templates/index.html:268
+msgid "Save"
+msgstr "Save"
+
+#: prompt_matrix/templates/index.html:272
+msgid "Working notes (draft, red-hat, merge)"
+msgstr ""
+
+#: prompt_matrix/templates/index.html:276
+msgid "Tokens: 0 in + 0 out = 0 (~$0.00 est.)"
+msgstr "Tokens: 0 ein + 0 aus = 0 (~ 0,00 $ geschätzt)"
+
+#: prompt_matrix/templates/index.html:285
+msgid "Paste a prompt"
+msgstr "Paste a prompt"
+
+#: prompt_matrix/templates/index.html:286
+msgid ""
+"Paste any prompt you already like. The tool extracts role, output shape, "
+"and a reusable Jinja template."
+msgstr ""
+
+#: prompt_matrix/templates/index.html:290
+msgid ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+msgstr ""
+"No API call. It reads headings, XML tags, and You-are lines, then turns "
+"the example into a class you can reuse."
+
+#: prompt_matrix/templates/index.html:294
+msgid "Extracted class"
+msgstr "Extracted class"
+
+#: prompt_matrix/templates/index.html:296
+msgid "Paste a prompt on the left."
+msgstr "Paste a prompt on the left."
+
+#: prompt_matrix/templates/index.html:299
+msgid "Class name"
+msgstr "Class name"
+
+#: prompt_matrix/templates/index.html:301
+msgid "Role"
+msgstr "Role"
+
+#: prompt_matrix/templates/index.html:303
+msgid "Output format"
+msgstr "Output format"
+
+#: prompt_matrix/templates/index.html:305
+msgid "Template"
+msgstr "Template"
+
+#: prompt_matrix/templates/index.html:308
+msgid "Save as class"
+msgstr "Save as class"
+
+#: prompt_matrix/templates/index.html:319
+msgid "Your previous work"
+msgstr "Your previous work"
+
+#: prompt_matrix/templates/index.html:321
+msgid "Search past questions..."
+msgstr "Search past questions..."
+
+#: prompt_matrix/templates/index.html:322
+msgid "Clear all"
+msgstr "Clear all"
+
+#: prompt_matrix/templates/index.html:325
+msgid "No previous work yet. Get an answer on Compose and it shows up here."
+msgstr "No previous work yet. Get an answer on Compose and it shows up here."
+
+#: prompt_matrix/templates/index.html:328
+msgid "Start a new question"
+msgstr "Start a new question"
+
+#: prompt_matrix/templates/index.html:339
+msgid "View"
+msgstr "View"
+
+#: prompt_matrix/templates/index.html:340
+msgid "Close"
+msgstr "Close"
+
+#: prompt_matrix/templates/index.html:343
+msgid "Question"
+msgstr "Question"
+
+#: prompt_matrix/templates/index.html:347
+msgid "Details"
+msgstr "Details"
+
+#: prompt_matrix/templates/index.html:350
+msgid "Refine"
+msgstr "Refine"
+
+#: prompt_matrix/templates/index.html:351
+#: prompt_matrix/templates/index.html:358
+#: prompt_matrix/templates/index.html:370
+msgid "Export"
+msgstr "Exportieren"
+
+#: prompt_matrix/templates/index.html:352
+msgid "Copy"
+msgstr "Copy"
+
+#: prompt_matrix/templates/index.html:353
+msgid "Delete"
+msgstr "Delete"
+
+#: prompt_matrix/templates/index.html:359
+msgid "Cancel"
+msgstr "Cancel"
+
+#: prompt_matrix/templates/index.html:361
+msgid "Choose a format"
+msgstr "Choose a format"
+
+#: prompt_matrix/templates/index.html:363
+msgid "Markdown"
+msgstr "Markdown"
+
+#: prompt_matrix/templates/index.html:364
+msgid "HTML"
+msgstr "HTML"
+
+#: prompt_matrix/templates/index.html:365
+msgid "Prompty"
+msgstr "Prompty"
+
+#: prompt_matrix/templates/index.html:366
+msgid "PDF"
+msgstr "PDF"
+
+#: prompt_matrix/templates/index.html:368
+msgid "Copy as plain text"
+msgstr "Copy as plain text"
+
+#: prompt_matrix/templates/index.html:376
+msgid "PEM engine."
+msgstr "PEM-Engine."
+
+#: prompt_matrix/templates/index.html:377
+msgid "Your data stays here. Send only to your chosen provider."
+msgstr "Ihre Daten bleiben hier. Senden geht nur an den gewählten Anbieter."
+
+#~ msgid "What makes it ideal?"
+#~ msgstr "What makes it ideal?"
+
+#~ msgid ""
+#~ "Assure builds the prompt. Combine merges"
+#~ " several models. Red-hat is the "
+#~ "critique loop: draft, critic, rewrite. "
+#~ "You pick that in Workflow. It is"
+#~ " one pass, not a loop until "
+#~ "perfect."
+#~ msgstr ""
+#~ "Assure builds the prompt. Combine merges"
+#~ " several models. Red-hat is the "
+#~ "critique loop: draft, critic, rewrite. "
+#~ "You pick that in Workflow. It is"
+#~ " one pass, not a loop until "
+#~ "perfect."
+
+#~ msgid "Write. Type the question. Assure compiles the prompt."
+#~ msgstr "Write. Type the question. Assure compiles the prompt."
+
+#~ msgid ""
+#~ "Send. Default is several models "
+#~ "(Combine). One merge keeps what they "
+#~ "share and flags fights."
+#~ msgstr ""
+#~ "Send. Default is several models "
+#~ "(Combine). One merge keeps what they "
+#~ "share and flags fights."
+
+#~ msgid "Critique (Red-hat). Optional. Attempt, then a critic, then one rewrite."
+#~ msgstr "Critique (Red-hat). Optional. Attempt, then a critic, then one rewrite."
+
+#~ msgid ""
+#~ "Keep. One answer on the right. "
+#~ "Ground drops claims that are not "
+#~ "in your files."
+#~ msgstr ""
+#~ "Keep. One answer on the right. "
+#~ "Ground drops claims that are not "
+#~ "in your files."
+
+#~ msgid "Workflow"
+#~ msgstr "Workflow"
+
+#~ msgid "Several models (Combine)"
+#~ msgstr "Mehrere Modelle"
+
+#~ msgid "One model"
+#~ msgstr "Ein Modell"
+
+#~ msgid "Draft, then critique"
+#~ msgstr "Entwurf, dann Kritik"
+
+#~ msgid ""
+#~ "Several models answer. One merge keeps"
+#~ " what they share and flags fights."
+#~ " Start here for most questions."
+#~ msgstr ""
+#~ "Several models answer. One merge keeps"
+#~ " what they share and flags fights."
+#~ " Start here for most questions."
+
+#~ msgid ""
+#~ "Turn on Send. Click once. Wait "
+#~ "through three model calls. Read Final."
+#~ " Do not copy-paste between chats."
+#~ msgstr ""
+
+#~ msgid "Critic persona"
+#~ msgstr "Critic persona"
+
+#~ msgid "Critic model"
+#~ msgstr "Critic model"
+
+#~ msgid "Local runner"
+#~ msgstr "Lokaler Runner"
+
+#~ msgid "Run on a local runner (offline)"
+#~ msgstr "Run on a local runner (offline)"
+
+#~ msgid "Cheap route (pick a cheaper live model)"
+#~ msgstr "Cheap route (pick a cheaper live model)"
+
+#~ msgid "Strip claims that are not in your files"
+#~ msgstr "Strip claims that are not in your files"
+
+#~ msgid ""
+#~ "Ollama is the personal-dev default "
+#~ "and Assure can start it. If vLLM,"
+#~ " SGLang, Llamafile, or LM Studio is"
+#~ " already up, that is used instead."
+#~ msgstr ""
+#~ "Ollama is the personal-dev default "
+#~ "and Assure can start it. If vLLM,"
+#~ " SGLang, Llamafile, or LM Studio is"
+#~ " already up, that is used instead."
+
+#~ msgid "Target"
+#~ msgstr "Target"
+
+#~ msgid "Then"
+#~ msgstr "Then"
+
+#~ msgid ""
+#~ "Prompts are built in this order. "
+#~ "If Send is on, the first model "
+#~ "also merges the replies."
+#~ msgstr ""
+#~ "Prompts are built in this order. "
+#~ "If Send is on, the first model "
+#~ "also merges the replies."
+
+#~ msgid "Intent"
+#~ msgstr "Absicht"
+
+#~ msgid "Class"
+#~ msgstr "Class"
+
+#~ msgid ""
+#~ "A class overrides role and output "
+#~ "shape. If it was learned from a"
+#~ " prompt, it can also replace the "
+#~ "template."
+#~ msgstr ""
+#~ "A class overrides role and output "
+#~ "shape. If it was learned from a"
+#~ " prompt, it can also replace the "
+#~ "template."
+
+#~ msgid "Task"
+#~ msgstr "Aufgabe"
+
+#~ msgid "Compare AWS vs GCP"
+#~ msgstr "Compare AWS vs GCP"
+
+#~ msgid "API connection"
+#~ msgstr "API connection"
+
+#~ msgid "Send through the model API"
+#~ msgstr "Über die Modell-API senden"
+
+#~ msgid "Libraries behind this page"
+#~ msgstr "Libraries behind this page"
+
+#~ msgid ""
+#~ "These packages run the compile and "
+#~ "Send path. LiteLLM is the hop "
+#~ "between PEM and each model."
+#~ msgstr ""
+
+#~ msgid "Generate and copy"
+#~ msgstr "Erzeugen und kopieren"
+
+#~ msgid "Answers you can"
+#~ msgstr "Antworten, denen Sie"
+
+#~ msgid "trust"
+#~ msgstr "vertrauen"
+
+#~ msgid "Write your question. Get the ideal answer."
+#~ msgstr "Schreiben Sie Ihre Frage. Erhalten Sie die ideale Antwort."
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "History is opt-in."
+#~ msgstr ""
+#~ "Keine Live-Websuche. Kein Browser-"
+#~ "Scrape. Schlüssel bleiben in "
+#~ "prompt_matrix/.env. Verlauf nur auf Wunsch."
+
+#~ msgid ""
+#~ "Step 1: Pick your AI models. Step"
+#~ " 2: Pick what you need. Step 3:"
+#~ " Write your question. Get your "
+#~ "answer."
+#~ msgstr ""
+#~ "Schritt 1: Modelle wählen. Schritt 2:"
+#~ " Wählen, was Sie brauchen. Schritt 3:"
+#~ " Frage schreiben. Antwort erhalten."
+
+#~ msgid "Your validated answer will appear here."
+#~ msgstr "Your validated answer will appear here."
+
+#~ msgid "Answers you can <span class=\"trust\">trust</span>."
+#~ msgstr ""
+
+#~ msgid "Write your question. Restructured for each AI. Validated. One answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assure rewrites your question for "
+#~ "Claude, Gemini, DeepSeek, and the rest."
+#~ " You do not learn each vendor "
+#~ "format."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question. Get your "
+#~ "answer."
+#~ msgstr ""
+
+#~ msgid "Pick who answers. Connected means a key is already on this machine."
+#~ msgstr ""
+#~ "Wählen Sie, wer antwortet. Verbunden "
+#~ "heißt, ein Schlüssel liegt schon auf "
+#~ "diesem Rechner."
+
+#~ msgid "Add next"
+#~ msgstr "Weiteres hinzufügen"
+
+#~ msgid ""
+#~ "Free uses two models (Gemini and "
+#~ "DeepSeek when both are live). Pro "
+#~ "unlocks the rest."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "computer. Ollama is the usual one. "
+#~ "vLLM, SGLang, Llamafile, or LM Studio"
+#~ " work if they are already up."
+#~ msgstr ""
+
+#~ msgid "Paste key"
+#~ msgstr "Paste API key"
+
+#~ msgid ""
+#~ "Keys stay in prompt_matrix/.env on this"
+#~ " machine. They are never shown again."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Several models check each other. We "
+#~ "keep what they agree on and show"
+#~ " where they disagree."
+#~ msgstr ""
+#~ "Mehrere Modelle prüfen einander. Wir "
+#~ "behalten, worin sie übereinstimmen, und "
+#~ "zeigen, wo sie divergieren."
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critic, rewrite."
+#~ msgstr ""
+#~ "Wir entwerfen, kritisieren, dann schreiben "
+#~ "wir um. Ein Durchgang: Entwurf, Kritik,"
+#~ " Umschrift."
+
+#~ msgid "Tip: Compare & Validate is best for most questions."
+#~ msgstr "Tipp: Vergleichen und prüfen passt für die meisten Fragen."
+
+#~ msgid "Saved format (optional)"
+#~ msgstr ""
+
+#~ msgid "Use the defaults above"
+#~ msgstr "Use intent defaults"
+
+#~ msgid "A saved format can change the role and the shape of the answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "If Get my answer is on, a "
+#~ "second pass drops invented dates, "
+#~ "percents, and publication names that "
+#~ "were not in your files."
+#~ msgstr ""
+#~ "Adds grounding rules. If Send is "
+#~ "on, a second pass drops invented "
+#~ "dates, percents, and publication names "
+#~ "that were not uploaded."
+
+#~ msgid "Write your question"
+#~ msgstr "Schreiben Sie Ihre Frage"
+
+#~ msgid "Write your question here..."
+#~ msgstr "Write your question here..."
+
+#~ msgid ""
+#~ "A path that exists on this "
+#~ "computer is read automatically. A file"
+#~ " you attach here is added to "
+#~ "the question."
+#~ msgstr ""
+#~ "A file path that exists on this"
+#~ " computer is read automatically. A "
+#~ "file you attach here is inlined "
+#~ "into context."
+
+#~ msgid ""
+#~ "Off: build text you can paste "
+#~ "elsewhere. On: show the answer in "
+#~ "the window on the right."
+#~ msgstr ""
+#~ "Off: build the prompt for you to"
+#~ " paste elsewhere. On: send it and "
+#~ "show the answer in the window on"
+#~ " the right."
+
+#~ msgid "What is running this page"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is rewritten for each model."
+#~ " The answer shows here."
+#~ msgstr ""
+
+#~ msgid "Helpful"
+#~ msgstr ""
+
+#~ msgid "Not helpful"
+#~ msgstr ""
+
+#~ msgid "Thanks."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "A <span class=\"trust\">trusted</span> answer "
+#~ "starts with a well-structured question."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assure restructures it for the AI "
+#~ "you choose, validates it, and delivers"
+#~ " the verified answer, all in one "
+#~ "go."
+#~ msgstr ""
+
+#~ msgid "Copy stays on this machine. Send uses the provider you connect."
+#~ msgstr ""
+#~ "Kopieren bleibt auf diesem Rechner. "
+#~ "Senden nutzt den verbundenen Anbieter."
+
+#~ msgid ""
+#~ "No live web search. No browser "
+#~ "scrape. Keys stay in prompt_matrix/.env. "
+#~ "Copy stays on this machine. Send "
+#~ "uses the provider you connect."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Step 1: Choose your AI models. "
+#~ "Step 2: Choose what you need. Step"
+#~ " 3: Write your question or topic. "
+#~ "Get your answer."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "You've reached today's Free limit (10"
+#~ " Sends). Pro is 100 per day. "
+#~ "There is no checkout in this app."
+#~ " Set ASSURE_EDITION=pro, or open the "
+#~ "pricing page."
+#~ msgstr ""
+
+#~ msgid "Which AI models?"
+#~ msgstr "Welche KI-Modelle?"
+
+#~ msgid ""
+#~ "Pick who answers. \"Connected\" means a"
+#~ " key already exists on this machine."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Offline uses a runner on this "
+#~ "machine. Usually Ollama. vLLM, SGLang, "
+#~ "Llamafile, or LM Studio also work "
+#~ "if they are already up."
+#~ msgstr ""
+
+#~ msgid "Keys stay in prompt_matrix/.env on this machine. Never shown again."
+#~ msgstr ""
+
+#~ msgid "Fastest. One model answers your question."
+#~ msgstr "Am schnellsten. Ein Modell beantwortet Ihre Frage."
+
+#~ msgid ""
+#~ "Multiple models check each other. We "
+#~ "keep what they agree on and show"
+#~ " you where they disagree."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "We draft an answer, critique it, "
+#~ "then rewrite it. One pass: draft, "
+#~ "critique, rewrite."
+#~ msgstr ""
+
+#~ msgid "Write your question or topic here..."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Off: builds the prompt for you to"
+#~ " paste elsewhere. On: shows the "
+#~ "answer in the right panel."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Ask your first question. The compiled"
+#~ " prompt is restructured for each "
+#~ "model. The answer appears here."
+#~ msgstr ""
+

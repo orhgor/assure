@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-app-origin="" data-local-origin="http://127.0.0.1:8765">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product audit · Assure AI</title>
+  <meta name="description" content="Revision status for Assure. Counts and statuses are taken from the product and landing in this tree.">
+  <link rel="canonical" href="https://assure.ai/audit.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://assure.ai/audit.html">
+  <meta property="og:title" content="Product audit · Assure AI">
+  <meta property="og:description" content="Revision status for Assure. Taken from the product and landing in this tree.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=8">
+</head>
+<body>
+  <div class="container">
+
+    <header class="header">
+      <a href="/" class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#1A4B8C" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Assure AI
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/#privacy">Privacy</a>
+        <a href="audit.html" class="active" aria-current="page">Audit</a>
+        <a href="http://127.0.0.1:8765" class="btn" data-cta="app">Get started</a>
+      </nav>
+    </header>
+
+    <h1 class="page-title">Product audit</h1>
+    <p class="page-lead">
+      Status is read from the workbench and the public landing in this tree.
+      These twelve items are in the product&nbsp;today.
+    </p>
+
+    <div class="audit-summary">
+      <div class="stat">
+        <div class="number">12</div>
+        <div class="label">Revisions</div>
+      </div>
+      <div class="stat">
+        <div class="number">12</div>
+        <div class="label">Completed</div>
+      </div>
+      <div class="stat">
+        <div class="number">0</div>
+        <div class="label">In progress</div>
+      </div>
+      <div class="stat">
+        <div class="number">0</div>
+        <div class="label">Planned</div>
+      </div>
+    </div>
+
+    <section class="audit-section">
+      <h2>Revisions</h2>
+
+      <div class="audit-item audit-cols" aria-hidden="true">
+        <span>Feature / revision</span>
+        <span>Priority</span>
+        <span>Status</span>
+        <span>Design decision</span>
+        <span>Details</span>
+      </div>
+
+      <div class="audit-item" id="rev-feedback">
+        <div class="feature">
+          Feedback buttons
+          <span class="sub">Yes / No under each answer after a Send</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Emoji labels plus aria-label. One rating per run.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-spinner">
+        <div class="feature">
+          Loading spinner
+          <span class="sub">Working state during Send</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note"><span class="mono">#run-busy</span> plus <span class="mono">AssureUI.setControlBusy</span></span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-upgrade">
+        <div class="feature">
+          Upgrade prompts
+          <span class="sub">Banner at the daily Send limit</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note"><span class="mono">#upgrade-banner</span> and See Pro pricing</span>
+        <span class="details"><a data-cta="app" data-cta-path="/pricing" href="http://127.0.0.1:8765/pricing">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-privacy">
+        <div class="feature">
+          Privacy lock copy
+          <span class="sub">Your data stays on your machine</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Product footer and landing footer. Send still goes to the chosen provider.</span>
+        <span class="details"><a href="/">Home</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-trust">
+        <div class="feature">
+          Trust signals
+          <span class="sub">Draft overlap and citation claims in the answer panel</span>
+        </div>
+        <span class="priority">P1</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Word overlap, not a judge. Flagged dates and percents not in your files.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-locked">
+        <div class="feature">
+          Locked Pro features
+          <span class="sub">Free sees Pro-only personas as locked</span>
+        </div>
+        <span class="priority">P1</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Disabled control plus tooltip. History re-run stays on Free settings.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-keys">
+        <div class="feature">
+          Keyboard shortcut
+          <span class="sub">Cmd+Enter / Ctrl+Enter to Send</span>
+        </div>
+        <span class="priority">P1</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Keydown on the Compose form.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-i18n">
+        <div class="feature">
+          Seven languages
+          <span class="sub">en, es, zh, fr, de, ja, tr</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note"><span class="mono">i18n.py</span> plus Flask-Babel catalogs</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-bandit">
+        <div class="feature">
+          Ratings on this machine
+          <span class="sub">Local epsilon-greedy over SQLite rows</span>
+        </div>
+        <span class="priority">P2</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Scores stay in this computer's history. Not shared across users.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-export">
+        <div class="feature">
+          History export
+          <span class="sub">Markdown, HTML, Prompty, PDF</span>
+        </div>
+        <span class="priority">P2</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note"><span class="mono">GET /api/history/&lt;id&gt;/export</span>. Full text is a Pro gate.</span>
+        <span class="details"><a data-cta="app" href="http://127.0.0.1:8765">Open</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-landing">
+        <div class="feature">
+          Landing page
+          <span class="sub">assure.ai. Centered layout. IBM Plex.</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">IBM Plex. Centered hero. Honest Privacy section. Pro is $5. No "never leaves."</span>
+        <span class="details"><a href="/">Home</a></span>
+      </div>
+
+      <div class="audit-item" id="rev-audit">
+        <div class="feature">
+          Audit page
+          <span class="sub">Public revision table</span>
+        </div>
+        <span class="priority">P0</span>
+        <span><span class="status-badge status-done">Done</span></span>
+        <span class="design-note">Shared <span class="mono">site.css</span>. Counts from this tree, not the mock.</span>
+        <span class="details"><a href="audit.html">Here</a></span>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="privacy">
+        <span>Your data stays on your machine</span>
+        <span>Send only to your chosen provider</span>
+        <span>Audit last updated 31 August&nbsp;2026</span>
+      </div>
+      <p>Assure. PEM engine. &copy; <span id="year">2026</span> Assure. All rights reserved.</p>
+    </footer>
+
+  </div>
+  <script src="assets/site.js?v=8"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Pricing') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="pricing.title">{{ gettext('Pricing') }}</h1>
+      <p class="lede" data-i18n="pricing.lead">{{ gettext('Free for daily work. Pro is $5 a month in Stripe test mode. Keys and questions stay on this computer.') }}</p>
+    </div>
+    <div class="price-grid">
+      <section class="card">
+        <h2 data-i18n="pricing.free">{{ gettext('Free') }}</h2>
+        <ul class="privacy-list">
+          <li data-i18n="pricing.free.1">{{ gettext('Quick Answer and Refine & Verify') }}</li>
+          <li data-i18n="pricing.free.2">{{ gettext('10 Sends per day. Keys stay in .env.') }}</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2 data-i18n="pricing.pro">{{ gettext('Pro') }}</h2>
+        <p class="lede" data-i18n="pricing.price">{{ gettext('$5 / month') }}</p>
+        <ul class="privacy-list">
+          <li data-i18n="pricing.pro.1">{{ gettext('Compare & Validate') }}</li>
+          <li data-i18n="pricing.pro.2">{{ gettext('100 Sends per day. Export formats.') }}</li>
+          <li data-i18n="pricing.pro.3">{{ gettext('Test card payments only until you switch Stripe to live keys.') }}</li>
+        </ul>
+        {% if stripe_ready %}
+        <p><button class="btn btn-primary" type="button" id="subscribe" data-i18n="pricing.subscribe">{{ gettext('Subscribe') }}</button></p>
+        {% else %}
+        <p class="hint" data-i18n="pricing.missing">{{ gettext('Stripe is not set up. Add STRIPE_SECRET_KEY to .env for test checkout.') }}</p>
+        {% endif %}
+        <p class="hint" id="price-status"></p>
+      </section>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    (function () {
+      var btn = document.getElementById("subscribe");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        fetch("/api/billing/checkout", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        }).then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (pack) {
+            if (pack.ok && pack.data.url) { window.location.href = pack.data.url; return; }
+            var el = document.getElementById("price-status");
+            if (el) el.textContent = pack.data.error || {{ gettext('Checkout did not start.') | tojson }};
+          });
+      });
+    })();
+  </script>
+{% endblock %}

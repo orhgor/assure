@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% set is_signup = auth_mode == 'signup' %}
+{% block title %}{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="{{ 'auth.signup.title' if is_signup else 'auth.signin.title' }}">{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %}</h1>
+      <p class="lede" data-i18n="{{ 'auth.signup.lead' if is_signup else 'auth.signin.lead' }}">{% if is_signup %}{{ gettext('Create an account. Keys and questions stay on this computer.') }}{% else %}{{ gettext('Sign in to use Compose. Keys and questions stay on this computer.') }}{% endif %}</p>
+    </div>
+    <section class="card auth-card">
+      {% if auth.self_hosted %}
+        <p class="hint" data-i18n="auth.self_hosted">{{ gettext('Self-hosted skips cloud login. Compose is open.') }}</p>
+        <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
+      {% elif not auth.configured %}
+        <p class="hint" data-i18n="auth.missing">{{ gettext('Cloud login is not set up. Add CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to prompt_matrix/.env. Compose stays open until then.') }}</p>
+        <p class="hint" data-i18n="auth.clerk_help">{{ gettext("Create a Clerk application at clerk.com. Add this site's origin as an allowed host. Put both keys in prompt_matrix/.env and restart Assure.") }}</p>
+        <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
+      {% else %}
+        <div id="clerk-mount"></div>
+        <p class="hint" id="auth-status"></p>
+        <p class="hint">
+          {% if is_signup %}
+            <a href="/signin" data-i18n="auth.have">{{ gettext('Already have an account?') }}</a>
+          {% else %}
+            <a href="/signup" data-i18n="auth.switch">{{ gettext('Need an account?') }}</a>
+          {% endif %}
+        </p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
+{% block scripts %}
+  {% if auth.publishable_key %}
+  <script>
+    window.ASSURE_CLERK = {
+      pk: {{ auth.publishable_key | tojson }},
+      mode: {{ auth_mode | tojson }},
+      next: {{ next_url | tojson }},
+      fail: {{ gettext('Could not verify that session. Sign in again.') | tojson }}
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"></script>
+  <script>
+    (function () {
+      var cfg = window.ASSURE_CLERK || {};
+      var mount = document.getElementById("clerk-mount");
+      var status = document.getElementById("auth-status");
+      function setErr(msg) { if (status) status.textContent = msg || ""; }
+      function goNext() {
+        var n = cfg.next || "/";
+        if (n.charAt(0) !== "/" || n.indexOf("//") === 0) n = "/";
+        window.location.href = n;
+      }
+      function syncThenGo(clerk) {
+        if (!clerk.session) { setErr(cfg.fail); return; }
+        clerk.session.getToken().then(function (token) {
+          return fetch("/api/auth/session", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token })
+          }).then(function (res) {
+            if (!res.ok) throw new Error("session");
+            goNext();
+          });
+        }).catch(function () { setErr(cfg.fail); });
+      }
+      if (!window.Clerk || !cfg.pk) return;
+      var clerk = new window.Clerk(cfg.pk);
+      clerk.load().then(function () {
+        if (clerk.session) { syncThenGo(clerk); return; }
+        var opts = { afterSignInUrl: window.location.href, afterSignUpUrl: window.location.href };
+        if (cfg.mode === "signup") clerk.mountSignUp(mount, opts);
+        else clerk.mountSignIn(mount, opts);
+        clerk.addListener(function (e) {
+          if (e && e.session) syncThenGo(clerk);
+        });
+      }).catch(function () { setErr(cfg.fail); });
+    })();
+  </script>
+  {% endif %}
+{% endblock %}

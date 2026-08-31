@@ -1,0 +1,12 @@
+---
+description: After a swarm or follow-up product task, append PEM.md.
+alwaysApply: true
+---
+
+# Swarm development log
+
+When a swarm run finishes, or you apply a patch from one, append a row to **Swarm development log** in `prompt_matrix/PEM.md`. Newest last.
+
+Include: date, task name, run hash, verdict / confidence, what actually landed (or that the patch was not applied). Update the **Not run as swarm yet** table if that task moves.
+
+Do not treat a Keep on code that was already in the tree as a new feature. Do not invent stats, prices, or dates. Do not paste API keys into the log.
