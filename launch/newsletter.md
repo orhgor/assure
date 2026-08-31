@@ -23,7 +23,7 @@ What it does not do:
 - Shared team workspaces.
 - Replace your Gemini or Claude subscription. You still connect those keys.
 
-Install from the repo, run `assure --web`, open http://127.0.0.1:8765. HTTP Basic is admin / changeme until you change it.
+Install from the repo, run `assure --web`. Your browser should open. First run: paste a provider key. There is no password on this computer unless you set one.
 
 Free: 10 Sends a day.
 Pro: $5 a month, 100 Sends, Compare & Validate, full history.

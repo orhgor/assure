@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=19">
+  <link rel="stylesheet" href="assets/site.css?v=20">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -49,6 +49,7 @@
       <nav class="nav" aria-label="Main">
         <a href="#install">Quick start</a>
         <a href="#prompt">How it works</a>
+        <a href="hallucination-detection.html">Check outputs</a>
         <a href="#use-cases">Use cases</a>
         <a href="#faq">FAQ</a>
         <a href="pricing.html">Pricing</a>
@@ -65,6 +66,8 @@
           <h1>You ask vaguely.<br>Assure <span class="text-grad">writes the prompt</span> for the AI you chose.<br><span class="hero-typed" data-type="Then it checks the answer.">Then it checks the&nbsp;answer.</span></h1>
           <p class="sub">
             The compiled prompt is the product. The reply is a first pass you keep working from.
+            Checked answers on this computer. No team required.
+            For consultants, researchers, analysts, and journalists who cannot paste sensitive data into public AI.
             Copy keeps that prompt on this computer. Send goes only to the provider you&nbsp;chose.
           </p>
           <div class="cta-group">
@@ -220,8 +223,8 @@
               <rect x="8" y="6" width="16" height="20" rx="2"/><path d="M12 14h8M12 18h6" stroke-linecap="round"/><path d="M12 22l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
-          <h4>Citations have to be in the&nbsp;file</h4>
-          <p>Check against my files drops dates, percents, and publication names that were not in the&nbsp;upload.</p>
+          <h4>Check against my files</h4>
+          <p>Drops dates, percents, and publication names that were not in the upload. <a href="hallucination-detection.html">How checking works</a>.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -247,8 +250,8 @@
               <path d="M8 18l4 4 4-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 14h6M18 18h6M18 22h4" stroke-linecap="round"/>
             </svg>
           </span>
-          <h4>Thumbs stay on this&nbsp;machine</h4>
-          <p>Ratings change which format we try next. Scores do not leave this&nbsp;computer.</p>
+          <h4>Prompt assistance</h4>
+          <p>You type a vague ask. Assure restructures it for the AI you chose. You do not have to learn prompt engineering.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -264,7 +267,7 @@
 
     <section id="use-cases" class="reveal">
       <h2 class="section-title">Who Assure is for</h2>
-      <p class="trust-lead">Six jobs. Same product. Archetypes for copy, not a customer list.</p>
+      <p class="trust-lead">Six jobs. Same product. Archetypes for copy, not a customer list. Consultants, researchers, analysts, and journalists who cannot paste the brief into a public chat.</p>
       <div class="features use-cases personas-six">
         <a class="feature-item persona-card" href="use-cases/consultant.html">
           <h3>Strategy Consultant</h3>
@@ -401,8 +404,8 @@
           <p class="text-small">macOS app: <code>./scripts/build-desktop.sh</code> then double-click <code>dist/Assure.app</code>. Windows: <code>scripts\build-desktop.ps1</code>. From source: <code>./scripts/install.sh</code> then <code>assure --web</code>. <code>pip install prompt-matrix</code> is not on PyPI yet. Do not clone <code>orhgor/assure</code> for the app. That GitHub repo is the&nbsp;webpage.</p>
         </li>
         <li>
-          <h3>Verify installation</h3>
-          <p class="text-small">Open <strong>http://127.0.0.1:8765</strong>. HTTP Basic is admin / changeme until you change it. First run opens Connect if no provider is pasted&nbsp;yet.</p>
+          <h3>The app opens</h3>
+          <p class="text-small">Your browser should open. First run: paste a provider key, then write a question. There is no password on this computer unless you set one. If the window does not open, go to <strong>http://127.0.0.1:8765</strong>.</p>
         </li>
         <li>
           <h3>Write a question</h3>
@@ -420,6 +423,6 @@
     </footer>
 
   </div>
-  <script src="assets/site.js?v=19"></script>
+  <script src="assets/site.js?v=20"></script>
 </body>
 </html>

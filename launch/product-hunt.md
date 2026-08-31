@@ -20,7 +20,7 @@ Copy never calls a provider. Send does. That is the trade you choose, not a clai
 
 If you write memos, papers, or comparisons and you cannot leak the source, this is for you.
 
-Install from the repo, then `assure --web`. Open http://127.0.0.1:8765. Free is 10 Sends a day. Pro is $5 a month for 100.
+Install from the repo, then `assure --web`. Your browser should open. First run: paste a provider key. Free is 10 Sends a day. Pro is $5 a month for 100.
 
 ## Differentiators
 
