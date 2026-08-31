@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=18">
+  <link rel="stylesheet" href="assets/site.css?v=19">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -389,19 +389,20 @@
     <section id="install" class="install-section reveal">
       <h2 class="section-title">Quick start</h2>
       <p class="trust-lead">The workbench runs on this computer. This website is not the&nbsp;app.</p>
+      <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. The buttons below do not start a download. When a file is hosted, they will fetch&nbsp;it.</p>
       <div class="download-row" id="desktop">
-        <a class="btn-primary" href="#desktop" data-download="macos">Download for macOS</a>
-        <a class="btn-outline" href="#desktop" data-download="windows">Download for Windows</a>
-        <a class="btn-outline" href="#desktop" data-download="linux">Linux package</a>
+        <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
+        <a class="btn-outline is-disabled" href="#download-note" data-download="windows" aria-disabled="true">Download for Windows</a>
+        <a class="btn-outline is-disabled" href="#download-note" data-download="linux" aria-disabled="true">Linux package</a>
       </div>
       <ol class="quick-start">
         <li>
-          <h3>Run it on this machine</h3>
-          <p class="text-small">There is no public download file yet. When there is, these buttons will fetch it. Until then, install from the product source on your&nbsp;computer.</p>
+          <h3>Build on this machine</h3>
+          <p class="text-small">macOS app: <code>./scripts/build-desktop.sh</code> then double-click <code>dist/Assure.app</code>. Windows: <code>scripts\build-desktop.ps1</code>. From source: <code>./scripts/install.sh</code> then <code>assure --web</code>. <code>pip install prompt-matrix</code> is not on PyPI yet. Do not clone <code>orhgor/assure</code> for the app. That GitHub repo is the&nbsp;webpage.</p>
         </li>
         <li>
-          <h3>Open the workbench</h3>
-          <p class="text-small">Then open <strong>http://127.0.0.1:8765</strong> in your&nbsp;browser.</p>
+          <h3>Verify installation</h3>
+          <p class="text-small">Open <strong>http://127.0.0.1:8765</strong>. HTTP Basic is admin / changeme until you change it. First run opens Connect if no provider is pasted&nbsp;yet.</p>
         </li>
         <li>
           <h3>Write a question</h3>
@@ -419,6 +420,6 @@
     </footer>
 
   </div>
-  <script src="assets/site.js?v=18"></script>
+  <script src="assets/site.js?v=19"></script>
 </body>
 </html>

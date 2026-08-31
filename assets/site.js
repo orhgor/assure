@@ -12,7 +12,18 @@
     if (url) {
       el.setAttribute("href", url);
       el.setAttribute("rel", "noopener");
+      el.removeAttribute("aria-disabled");
+      el.classList.remove("is-disabled");
+      return;
     }
+    el.classList.add("is-disabled");
+    el.setAttribute("aria-disabled", "true");
+    el.setAttribute("href", "#download-note");
+    el.addEventListener("click", function (e) {
+      e.preventDefault();
+      var note = document.getElementById("download-note");
+      if (note && typeof note.focus === "function") note.focus();
+    });
   });
 
   document.querySelectorAll("[data-cta='app']").forEach(function (el) {

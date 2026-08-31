@@ -822,12 +822,45 @@ a.feature-item:hover h4 { color: var(--trust-blue); }
 
 .install-section .text-small { margin-top: var(--spacing-2); }
 
+.download-note {
+  max-width: 40rem;
+  margin: 0 auto var(--spacing-4);
+  text-align: center;
+}
+
+.download-note:focus {
+  outline: 3px solid var(--trust-blue);
+  outline-offset: 3px;
+}
+
 .download-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--spacing-3);
   margin: 0 0 var(--spacing-8);
+}
+
+a.is-disabled,
+.btn-primary.is-disabled,
+.btn-outline.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+a.is-disabled:hover,
+.btn-primary.is-disabled:hover,
+.btn-outline.is-disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: var(--trust-blue);
+  color: #fff;
+}
+
+.btn-outline.is-disabled:hover {
+  background: transparent;
+  color: var(--apple-dark-gray);
 }
 
 .quick-start {
