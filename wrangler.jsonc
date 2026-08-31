@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  "name": "assure-ai",
+  // Static marketing site. Deploy from this folder:
+  //   npx wrangler pages deploy . --project-name=assure-ai
+  // Then in Cloudflare: Pages → assure-ai → Custom domains → assure.ai
+  // Point the app later with data-app-origin on <html> (see index.html), or a
+  // Pages env var once a Worker sits in front.
+  "pages_build_output_dir": ".",
+  "compatibility_date": "2026-08-31"
+}
