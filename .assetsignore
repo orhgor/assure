@@ -2,6 +2,7 @@ wrangler.jsonc
 .assetsignore
 **/.DS_Store
 **/.git
+**/.wrangler
 ICP.md
 objections.md
 launch/
