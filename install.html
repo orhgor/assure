@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install · Assure AI</title>
+  <meta name="description" content="Install Assure from source with ./scripts/install.sh then assure --web. Desktop build scripts are here. There is no public download file yet.">
+  <link rel="canonical" href="https://getassureai.com/install">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=26">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <a href="/" class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#1A4B8C" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Assure AI
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/">Home</a>
+        <a href="/install" class="active" aria-current="page">Install</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/#install" class="btn">Get started</a>
+      </nav>
+    </header>
+
+    <h1 class="page-title">Install</h1>
+    <p class="page-lead">The workbench runs on this computer. This website is not the app. There is no public download file yet. Updated 1 September 2026.</p>
+
+    <div class="terms-prose">
+      <h2>From source</h2>
+      <p>On the Assure source tree on this machine:</p>
+      <p><code>./scripts/install.sh</code> then <code>assure --web</code></p>
+      <p>Windows: <code>scripts\install.ps1</code> then <code>assure --web</code>.</p>
+      <p><code>pip install prompt-matrix</code> is not on PyPI yet. Do not clone <code>orhgor/assure</code> for the app. That GitHub repo is the webpage.</p>
+      <h2>Desktop builds</h2>
+      <p>These scripts produce an app on this computer. They are not a public store download.</p>
+      <p>macOS: <code>./scripts/build-desktop.sh</code> then double-click <code>dist/Assure.app</code>.</p>
+      <p>Windows: <code>scripts\build-desktop.ps1</code>.</p>
+      <p>Linux: see the same scripts folder in the source tree.</p>
+      <h2>The app opens</h2>
+      <p>Your browser should open. First run: paste a provider key, then write a question. There is no password on this computer unless you set one. If the window does not open, go to <strong>http://127.0.0.1:8765</strong>.</p>
+      <h2>Waitlist</h2>
+      <p>If you want a packaged installer when one exists, <a href="/#install">join the waitlist on the home page</a>.</p>
+    </div>
+
+    <footer class="footer">
+      <div class="privacy">
+        <span>Copy stays on this computer</span>
+        <span>A Send goes only to the provider you chose</span>
+      </div>
+      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+    </footer>
+  </div>
+  <script src="assets/site.js?v=26"></script>
+</body>
+</html>

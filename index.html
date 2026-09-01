@@ -54,8 +54,8 @@
         <a href="#use-cases">Use cases</a>
         <a href="#faq">FAQ</a>
         <a href="pricing.html">Pricing</a>
-        <a href="#privacy">Privacy</a>
-        <a href="terms.html">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
         <a href="audit.html">Audit</a>
         <a href="#install" class="btn">Run from&nbsp;source</a>
       </nav>
@@ -310,6 +310,7 @@
           <p>If you sign in later, the cloud stores email and subscription tier. Nothing&nbsp;else.</p>
         </div>
       </div>
+      <p class="text-small"><a href="/privacy">Full privacy page</a> — keys, Send, waitlist, and this website.</p>
     </section>
 
     <section id="pricing" class="reveal">
@@ -348,20 +349,8 @@
         <a class="btn-outline is-disabled" href="#download-note" data-download="windows" aria-disabled="true">Download for Windows</a>
         <a class="btn-outline is-disabled" href="#download-note" data-download="linux" aria-disabled="true">Linux package</a>
       </div>
-      <ol class="quick-start">
-        <li>
-          <h3>Build on this machine</h3>
-          <p class="text-small">macOS app: <code>./scripts/build-desktop.sh</code> then double-click <code>dist/Assure.app</code>. Windows: <code>scripts\build-desktop.ps1</code>. From source: <code>./scripts/install.sh</code> then <code>assure --web</code>. <code>pip install prompt-matrix</code> is not on PyPI yet. Do not clone <code>orhgor/assure</code> for the app. That GitHub repo is the&nbsp;webpage.</p>
-        </li>
-        <li>
-          <h3>The app opens</h3>
-          <p class="text-small">Your browser should open. First run: paste a provider key, then write a question. There is no password on this computer unless you set one. If the window does not open, go to <strong>http://127.0.0.1:8765</strong>.</p>
-        </li>
-        <li>
-          <h3>Write a question</h3>
-          <p class="text-small">Assure rewrites it for the AI you chose. Copy the prompt, or Send and check the reply.</p>
-        </li>
-      </ol>
+      <p class="trust-lead">From source: <code>./scripts/install.sh</code> then <code>assure --web</code>.</p>
+      <p class="text-small">Your browser should open at <strong>http://127.0.0.1:8765</strong>. Paste a provider key, then write a question. <a href="/install">Desktop builds and other install notes</a>.</p>
     </section>
 
     <div id="download-modal" class="waitlist-modal" hidden role="dialog" aria-modal="true" aria-labelledby="waitlist-title">
@@ -369,7 +358,7 @@
       <div class="waitlist-panel">
         <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
         <h2 id="waitlist-title">Get the installer when it is ready</h2>
-        <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install stays on this page.</p>
+        <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install is on the <a href="/install">Install</a> page.</p>
         <form id="waitlist-form" method="post" action="#">
           <label for="waitlist-name">Full Name</label>
           <input id="waitlist-name" class="waitlist-input" name="name" type="text" autocomplete="name" required>
@@ -386,7 +375,7 @@
         <span>Copy stays on this computer</span>
         <span>A Send goes only to the provider you chose</span>
       </div>
-      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="terms.html">Terms</a></p>
+      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
   </div>

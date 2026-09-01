@@ -3,7 +3,8 @@
 
 / /index.html 200
 /pricing /pricing.html 200
-/privacy /#privacy 302
-/about /#about 302
+/privacy /privacy.html 200
+/about /about.html 200
+/install /install.html 200
 /start /#install 302
 /terms /terms.html 200

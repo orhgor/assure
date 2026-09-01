@@ -67,6 +67,17 @@ async function waitlist(request, env) {
   );
 }
 
+const PAGE_ALIASES = {
+  "/privacy": "/privacy.html",
+  "/privacy/": "/privacy.html",
+  "/install": "/install.html",
+  "/install/": "/install.html",
+  "/about": "/about.html",
+  "/about/": "/about.html",
+  "/terms": "/terms.html",
+  "/terms/": "/terms.html",
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -81,6 +92,10 @@ export default {
         return json(405, { error: "Use POST." }, corsHeaders(request));
       }
       return waitlist(request, env);
+    }
+    const asset = PAGE_ALIASES[url.pathname];
+    if (asset) {
+      return env.ASSETS.fetch(new Request(new URL(asset, url.origin), request));
     }
     return env.ASSETS.fetch(request);
   },

@@ -2,7 +2,7 @@
 
 This GitHub repository is the public webpage only. The Assure workbench is not in this repo. It runs on the machine (`assure --web`).
 
-ICP and objections: `ICP.md`, `objections.md`. Use cases: `use-cases/`. Pricing: `pricing.html`. Terms: `terms.html`. Launch drafts: `launch/`.
+ICP and objections: `ICP.md`, `objections.md`. Use cases: `use-cases/`. Pricing: `pricing.html`. Privacy: `/privacy`. Install: `/install`. About: `/about`. Terms: `/terms`. Launch drafts: `launch/`.
 
 ## Cloudflare
 
