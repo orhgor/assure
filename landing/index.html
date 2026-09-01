@@ -1,33 +1,34 @@
 <!DOCTYPE html>
-<html lang="en" data-app-origin="" data-local-origin="http://127.0.0.1:8765">
+<html lang="en" data-app-origin="" data-local-origin="http://127.0.0.1:8765" data-download-macos="" data-download-windows="" data-download-linux="">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Assure AI. A trusted answer starts with the right question.</title>
-  <meta name="description" content="Write a question. Assure rewrites it for the model you pick, checks the reply, and returns one verified answer. Keys and questions stay on your computer.">
-  <link rel="canonical" href="https://assure.ai/">
+  <meta name="description" content="Ask vaguely. Assure rewrites the prompt for Claude, Gemini, or DeepSeek, then checks the reply against your files. The app runs on your machine. A Send goes only to the provider you chose.">
+  <link rel="canonical" href="https://getassureai.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://assure.ai/">
+  <meta property="og:url" content="https://getassureai.com/">
   <meta property="og:title" content="Assure AI. A trusted answer starts with the right question.">
-  <meta property="og:description" content="Write a question. Assure rewrites it for the model you pick, checks the reply, and returns one verified answer.">
+  <meta property="og:description" content="Ask vaguely. Assure rewrites the prompt, then checks the reply against your files. A Send goes only to the provider you chose.">
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Assure AI. A trusted answer starts with the right question.">
-  <meta name="twitter:description" content="Write a question. Get one verified answer from the models you connect.">
+  <meta name="twitter:description" content="Ask vaguely. Get an answer grounded in your files.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=24">
+  <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Assure AI",
-    "url": "https://assure.ai",
+    "url": "https://getassureai.com",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Windows, Linux",
-    "description": "Restructure a question for the AI you choose, check the reply, keep one verified answer. Keys and questions stay on this computer.",
+    "description": "Ask vaguely. Assure rewrites the prompt for the AI you chose, then checks the reply against your files.",
     "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
       { "@type": "Offer", "name": "Pro", "price": "5", "priceCurrency": "USD" }
@@ -46,44 +47,135 @@
         Assure AI
       </a>
       <nav class="nav" aria-label="Main">
+        <a href="#install">Quick start</a>
+        <a href="#prompt">How it works</a>
+        <a href="hallucination-detection.html">Check outputs</a>
+        <a href="#use-cases">Use cases</a>
+        <a href="#faq">FAQ</a>
+        <a href="pricing.html">Pricing</a>
         <a href="#privacy">Privacy</a>
-        <a href="#pricing">Pricing</a>
+        <a href="terms.html">Terms</a>
         <a href="audit.html">Audit</a>
-        <a href="http://127.0.0.1:8765" class="btn" data-cta="app">Get started</a>
+        <a href="#install" class="btn">Run from source</a>
       </nav>
     </header>
 
     <section class="hero">
-      <h1>A trusted answer starts<br>with the right&nbsp;question.</h1>
-      <p class="sub">
-        Write a question. Assure rewrites it for the model you pick,
-        checks the reply, and gives you one verified answer.
-        Keys stay on this computer. A Send goes only to the provider you&nbsp;chose.
-      </p>
-      <div class="cta-group">
-        <a href="http://127.0.0.1:8765" class="btn-primary" data-cta="app">Get started. It's&nbsp;free</a>
+      <div class="hero-stage">
+        <div class="hero-copy">
+          <h1>Ask vaguely. Get an answer grounded in your&nbsp;files.</h1>
+          <p class="sub">
+            Assure rewrites your question into a precise prompt for Claude, Gemini, or DeepSeek.
+            Checks the reply against your uploads. The app runs on your machine.
+            A Send goes only to the provider you&nbsp;chose.
+          </p>
+          <div class="cta-group hero-actions">
+            <button type="button" class="btn-primary" data-waitlist-open>Join the waitlist</button>
+            <a href="#install" class="btn-outline">Run from source</a>
+          </div>
+          <p class="hero-badge">$5/mo Pro · Free tier available</p>
+        </div>
+        <figure class="hero-graphic">
+          <svg class="orch-svg" viewBox="0 0 440 370" role="img" aria-label="One question routed to Gemini, DeepSeek, Claude, and Kimi, then checked.">
+            <g class="orch-lines" fill="none" stroke="#1A4B8C" stroke-width="1.5" stroke-opacity="0.35">
+              <path class="orch-line" d="M220 180 L220 80"/>
+              <path class="orch-line" d="M220 180 L340 180"/>
+              <path class="orch-line" d="M220 180 L220 280"/>
+              <path class="orch-line" d="M220 180 L100 180"/>
+            </g>
+            <g class="orch-sat orch-sat-1">
+              <circle cx="220" cy="52" r="28" fill="#fff" stroke="#1A4B8C" stroke-width="1.5"/>
+              <text x="220" y="56" text-anchor="middle" font-size="12" font-weight="600" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">G</text>
+              <circle cx="242" cy="72" r="9" fill="#FF6B35"/>
+              <path d="M238 72 l3 3 6-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="220" y="22" text-anchor="middle" font-size="11" font-weight="500" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">Gemini</text>
+            </g>
+            <g class="orch-sat orch-sat-2">
+              <circle cx="388" cy="180" r="28" fill="#fff" stroke="#1A4B8C" stroke-width="1.5"/>
+              <text x="388" y="184" text-anchor="middle" font-size="11" font-weight="600" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">DS</text>
+              <circle cx="410" cy="200" r="9" fill="#FF6B35"/>
+              <path d="M406 200 l3 3 6-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="388" y="228" text-anchor="middle" font-size="11" font-weight="500" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">DeepSeek</text>
+            </g>
+            <g class="orch-sat orch-sat-3">
+              <circle cx="220" cy="308" r="28" fill="#fff" stroke="#1A4B8C" stroke-width="1.5"/>
+              <text x="220" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">C</text>
+              <circle cx="242" cy="328" r="9" fill="#FF6B35"/>
+              <path d="M238 328 l3 3 6-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="220" y="352" text-anchor="middle" font-size="11" font-weight="500" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">Claude</text>
+            </g>
+            <g class="orch-sat orch-sat-4">
+              <circle cx="52" cy="180" r="28" fill="#fff" stroke="#1A4B8C" stroke-width="1.5"/>
+              <text x="52" y="184" text-anchor="middle" font-size="12" font-weight="600" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">K</text>
+              <circle cx="74" cy="200" r="9" fill="#FF6B35"/>
+              <path d="M70 200 l3 3 6-7" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <text x="52" y="228" text-anchor="middle" font-size="11" font-weight="500" fill="#1A4B8C" font-family="IBM Plex Sans, sans-serif">Kimi</text>
+            </g>
+            <g class="orch-hub">
+              <circle cx="220" cy="180" r="36" fill="#1A4B8C"/>
+              <path d="M208 180 l8 8 16-16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+        </figure>
       </div>
     </section>
 
-    <ol class="steps">
-      <li class="step">
-        <span class="num">1</span>
-        <h3>Choose who answers</h3>
-        <p>Gemini, DeepSeek, Claude, Kimi, or stay closed to the&nbsp;internet.</p>
-      </li>
-      <li class="step">
-        <span class="num">2</span>
-        <h3>Choose the kind of answer</h3>
-        <p>Quick Answer, Compare &amp; Validate, or Refine &amp;&nbsp;Verify.</p>
-      </li>
-      <li class="step">
-        <span class="num">3</span>
-        <h3>Write your question</h3>
-        <p>One verified&nbsp;answer.</p>
-      </li>
-    </ol>
+    <section id="prompt" class="how-it-works reveal">
+      <h2 class="section-title">Compile. Send. Verify.</h2>
+      <div class="steps-grid">
+        <div class="how-step">
+          <div class="step-number">1</div>
+          <h3>Compile</h3>
+          <p>Your vague question becomes a precise prompt, tuned to the AI you chose. No prompt engineering required.</p>
+        </div>
+        <div class="how-step">
+          <div class="step-number">2</div>
+          <h3>Send</h3>
+          <p>Get an answer from the model you connected. One click. No copy-paste.</p>
+        </div>
+        <div class="how-step">
+          <div class="step-number">3</div>
+          <h3>Verify</h3>
+          <p>The reply is checked against your uploaded files. No invented citations. No hallucinated dates.</p>
+          <span class="pro-badge">Pro: Compare across models</span>
+        </div>
+      </div>
+    </section>
 
-    <section class="trust-row" aria-label="Trust">
+    <div class="prompt-flow reveal" aria-label="Live preview of a compile">
+      <article class="prompt-card">
+        <p class="kicker">Question</p>
+        <p class="prompt-vague">Is this paper any good?</p>
+      </article>
+      <article class="prompt-card">
+        <p class="kicker">Live preview</p>
+        <p class="prompt-built">Research. Give the claim, the method, and the limits. Citations only from the attached file.</p>
+      </article>
+      <article class="prompt-card">
+        <p class="kicker">Get my answer</p>
+        <p>Send. Verified or Review needed. Then Refine this answer if you want another pass.</p>
+      </article>
+    </div>
+
+    <section class="why-matters reveal">
+      <h2 class="section-title">Why it matters</h2>
+      <p class="trust-lead">Most AI tools give you a single model's first draft. Assure grounds every answer in the files you provide, so you get output you can defend, not confident fiction.</p>
+    </section>
+
+    <section id="use-cases" class="audience reveal">
+      <h2 class="section-title">Built for people who cannot afford a hallucination</h2>
+      <div class="audience-grid">
+        <a class="audience-item" href="use-cases/consultant.html">Consultants</a>
+        <a class="audience-item" href="use-cases/researcher.html">Researchers</a>
+        <div class="audience-item">Journalists</div>
+        <a class="audience-item" href="use-cases/analyst.html">Policy analysts</a>
+        <div class="audience-item">Technical writers</div>
+        <div class="audience-item">Compliance officers</div>
+      </div>
+      <p class="audience-note">If you write reports, analyze data, or make recommendations that have to be defensible, Assure is the workbench.</p>
+    </section>
+
+    <section class="trust-row reveal" aria-label="Trust">
       <div class="trust-row-item">
         <h4>Local-first</h4>
         <p>Keys and copy stay on this computer.</p>
@@ -98,42 +190,114 @@
       </div>
     </section>
 
-    <section id="features">
+    <section id="features" class="reveal">
       <h2 class="section-title">What you get</h2>
       <div class="features">
         <div class="feature-item">
-          <h4>Send the same question to more than one&nbsp;model</h4>
-          <p>See where they agree and&nbsp;disagree.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="10" cy="10" r="3.5"/><circle cx="22" cy="10" r="3.5"/><circle cx="10" cy="22" r="3.5"/><circle cx="22" cy="22" r="3.5"/>
+            </svg>
+          </span>
+          <h4>Stop merging four chat&nbsp;tabs</h4>
+          <p>Send the same question to more than one model. See where they agree and&nbsp;disagree.</p>
         </div>
         <div class="feature-item">
-          <h4>Check against your&nbsp;files</h4>
-          <p>Drops invented dates and facts that are not in the files you&nbsp;attached.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <rect x="8" y="6" width="16" height="20" rx="2"/><path d="M12 14h8M12 18h6" stroke-linecap="round"/><path d="M12 22l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h4>Check against my files</h4>
+          <p>Drops dates, percents, and publication names that were not in the upload. <a href="hallucination-detection.html">How checking works</a>.</p>
         </div>
         <div class="feature-item">
-          <h4>Your ratings make it&nbsp;smarter</h4>
-          <p>Thumbs change which format we try next. Scores stay on this&nbsp;machine.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <rect x="9" y="14" width="14" height="10" rx="2"/><path d="M12 14v-3a4 4 0 0 1 8 0v3"/>
+            </svg>
+          </span>
+          <h4>The brief stays on this&nbsp;machine</h4>
+          <p>Keys live in <span class="mono">.env</span>. Copy never calls a provider. A Send goes only to who you&nbsp;picked.</p>
         </div>
         <div class="feature-item">
-          <h4>Seven languages</h4>
-          <p>English, Spanish, Chinese, French, German, Japanese, and&nbsp;Turkish.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="16" cy="16" r="10"/><path d="M16 16 L16 8" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="currentColor" stroke="none"/>
+            </svg>
+          </span>
+          <h4>Closed or open, you&nbsp;choose</h4>
+          <p>Closed to the internet keeps the question here. Open, it goes to Gemini, Claude, or whoever you&nbsp;connected.</p>
         </div>
         <div class="feature-item">
-          <h4>Your keys stay on your&nbsp;machine</h4>
-          <p>A Send goes only to the provider you&nbsp;chose.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M8 18l4 4 4-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 14h6M18 18h6M18 22h4" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <h4>Prompt assistance</h4>
+          <p>You type a vague ask. Assure restructures it for the AI you chose. You do not have to learn prompt engineering.</p>
         </div>
         <div class="feature-item">
-          <h4>Previous work</h4>
-          <p>History, search, refine, and&nbsp;export.</p>
+          <span class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="16" cy="16" r="10"/><path d="M16 10v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h4>Previous work stays&nbsp;here</h4>
+          <p>History, search, refine, and export on this computer. Seven&nbsp;languages.</p>
         </div>
       </div>
     </section>
 
-    <section id="privacy" class="trust-section">
-      <h2 class="section-title">On this computer</h2>
+    <section id="faq" class="reveal">
+      <h2 class="section-title">FAQ</h2>
+      <dl class="faq">
+        <div>
+          <dt>What does grounded in your files mean?</dt>
+          <dd>
+            We check every answer against the files you upload. If a date, percentage, or publication name does not appear in those files, we flag it and replace it with "Data not available in this context."
+            We do not claim to know the truth about the world. We stop the model from inventing facts about your data.
+          </dd>
+        </div>
+        <div>
+          <dt>Is Assure just another AI chatbot?</dt>
+          <dd>
+            No. Assure writes the prompt for you. You do not need to know prompt engineering.
+            It restructures your question for each AI, checks the reply against your files when you Send, and gives you one verified result.
+            Copy keeps the compiled prompt here so you can paste it into a tool you already use.
+            The reply is a starting point for the next ask, not the endpoint.
+          </dd>
+        </div>
+        <div>
+          <dt>Do I pick Quick, Validated, or Refined first?</dt>
+          <dd>
+            No. Compare &amp; Validate runs by default. Type a question and Get my answer.
+            Advanced options can change the workflow later.
+          </dd>
+        </div>
+        <div>
+          <dt>Do I have to Send?</dt>
+          <dd>
+            No. Copy keeps the compiled prompt on this computer. Send calls only the provider you connected.
+            Keys stay here.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section id="privacy" class="trust-section reveal">
+      <h2 class="section-title">Runs on your machine. Your data stays yours.</h2>
       <p class="trust-lead">
-        Keys, questions, and previous work stay here. Closed to the internet keeps the question on this computer.
-        Open to the internet, it goes to the provider you&nbsp;chose.
+        Questions, uploaded files, and previous work stay on this computer.
+        Only the compiled prompt goes to the provider you choose.
+        Closed to the internet keeps the question here. Open to the internet, it goes to who you&nbsp;picked.
       </p>
+      <div class="privacy-icons">
+        <span>Local-first</span>
+        <span>Your keys</span>
+        <span>Your files</span>
+      </div>
       <div class="trust-grid">
         <div class="trust-item">
           <h4>Your keys stay on this&nbsp;machine</h4>
@@ -154,8 +318,9 @@
       </div>
     </section>
 
-    <section id="pricing">
+    <section id="pricing" class="reveal">
       <h2 class="section-title">Choose your plan</h2>
+      <p class="trust-lead">One workbench for the models you already pay for. Pro is $5 a month.</p>
       <div class="pricing">
         <article class="plan">
           <div class="plan-name">Free</div>
@@ -165,7 +330,7 @@
             <li>Gemini and DeepSeek</li>
             <li>7-day history</li>
           </ul>
-          <a href="http://127.0.0.1:8765" class="btn-sm" data-cta="app">Start free</a>
+          <a href="#install" class="btn-sm">Start free</a>
         </article>
         <article class="plan featured">
           <div class="plan-name">Pro</div>
@@ -175,26 +340,62 @@
             <li>Compare &amp; Validate</li>
             <li>Full history</li>
           </ul>
-          <a href="http://127.0.0.1:8765" class="btn-sm" data-cta="app">Upgrade</a>
+          <a href="pricing.html" class="btn-sm">See all plans</a>
         </article>
       </div>
     </section>
 
-    <section id="install" class="install-section">
-      <h3>Install on your machine</h3>
-      <code>assure --web</code>
-      <p class="text-small">Then open <strong>http://127.0.0.1:8765</strong></p>
+    <section id="install" class="install-section reveal">
+      <h2 class="section-title">Quick start</h2>
+      <p class="trust-lead">The workbench runs on this computer. This website is not the&nbsp;app.</p>
+      <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist. Source install is unchanged.</p>
+      <div class="download-row" id="desktop">
+        <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
+        <a class="btn-outline is-disabled" href="#download-note" data-download="windows" aria-disabled="true">Download for Windows</a>
+        <a class="btn-outline is-disabled" href="#download-note" data-download="linux" aria-disabled="true">Linux package</a>
+      </div>
+      <ol class="quick-start">
+        <li>
+          <h3>Build on this machine</h3>
+          <p class="text-small">macOS app: <code>./scripts/build-desktop.sh</code> then double-click <code>dist/Assure.app</code>. Windows: <code>scripts\build-desktop.ps1</code>. From source: <code>./scripts/install.sh</code> then <code>assure --web</code>. <code>pip install prompt-matrix</code> is not on PyPI yet. Do not clone <code>orhgor/assure</code> for the app. That GitHub repo is the&nbsp;webpage.</p>
+        </li>
+        <li>
+          <h3>The app opens</h3>
+          <p class="text-small">Your browser should open. First run: paste a provider key, then write a question. There is no password on this computer unless you set one. If the window does not open, go to <strong>http://127.0.0.1:8765</strong>.</p>
+        </li>
+        <li>
+          <h3>Write a question</h3>
+          <p class="text-small">Assure rewrites it for the AI you chose. Copy the prompt, or Send and check the reply.</p>
+        </li>
+      </ol>
     </section>
 
+    <div id="download-modal" class="waitlist-modal" hidden role="dialog" aria-modal="true" aria-labelledby="waitlist-title">
+      <div class="waitlist-backdrop" data-waitlist-close></div>
+      <div class="waitlist-panel">
+        <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
+        <h2 id="waitlist-title">Get the installer when it is ready</h2>
+        <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install stays on this page.</p>
+        <form id="waitlist-form" method="post" action="#">
+          <label for="waitlist-name">Full Name</label>
+          <input id="waitlist-name" class="waitlist-input" name="name" type="text" autocomplete="name" required>
+          <label for="waitlist-email">Email</label>
+          <input id="waitlist-email" class="waitlist-input" name="email" type="email" autocomplete="email" required>
+          <button type="submit" class="waitlist-submit">Notify Me</button>
+          <p class="waitlist-error text-small" id="waitlist-error" hidden></p>
+        </form>
+        <p class="waitlist-success" id="waitlist-done" hidden>✅ You're on the list!</p>
+      </div>
+    </div>
     <footer class="footer">
       <div class="privacy">
         <span>Your data stays on your machine</span>
         <span>Send only to your chosen provider</span>
       </div>
-      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved.</p>
+      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="terms.html">Terms</a></p>
     </footer>
 
   </div>
-  <script src="assets/site.js?v=8"></script>
+  <script src="assets/site.js?v=24"></script>
 </body>
 </html>
