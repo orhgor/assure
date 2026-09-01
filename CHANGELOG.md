@@ -4,6 +4,7 @@ All notable product changes in this tree. Dates are calendar dates from the swar
 
 ## Unreleased
 
+- PEM MCP `apply_patch` applies a unified diff to the workspace (no live APIs). Swarm developer output cap is 16384 tokens; multi-file jobs run per path; truncated dumps continue or are dropped. Attempts are previewed in `logs/swarm_attempt.log`.
 - `pem eval --dataset` batch evaluation (compile-only by default; `--direct` Sends).
 - `--ci` JSON for GitHub Actions. `--redteam` local injection and PII-shaped checks.
 - Class version save / restore / diff. `GET /api/prompts` and `GET /api/prompts/<id>`.

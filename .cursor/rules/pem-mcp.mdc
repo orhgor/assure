@@ -1,5 +1,5 @@
 ---
-description: Call PEM over MCP instead of shelling Python. Combine, compile, red-hat, lint, export.
+description: Call PEM over MCP instead of shelling Python. Combine, compile, red-hat, lint, export, swarm.
 alwaysApply: true
 ---
 
@@ -14,9 +14,11 @@ This workspace runs Prompt Engineering Matrix as a Cursor MCP server (`pem`). An
 - `pem_critique_rewrite` — attempt → persona critique → final. Personas: `redhat`, `security`, `tokens`, `schema`, `code`.
 - `pem_dialect_lint` — static dialect check. No model call.
 - `pem_export` — saved class to `cursorrules` / `mdc` / `fabric` / `dspy`.
+- `swarm_develop` — development swarm (`run_swarm`). Live APIs. Truncated dumps are continued or dropped; do not paste a cut dump into templates.
+- `apply_patch` — unified diff onto the workspace root. No live APIs. Rejects path traversal and truncated dumps.
 
 Intents are `research`, `design`, `comparison`, `debug`, `analysis`. There is no `code` intent. PEM is domain-agnostic: the case is the uploaded file and the user's task, not a built-in product.
 
 Keys stay in `prompt_matrix/.env`. Never print them. Cursor has no PEM chat API; `target_ai: cursor` is compile-only.
 
-If the `pem` MCP namespace is missing from this session, tell the user to reload MCP (Cursor Settings → MCP) or start a new chat. Do not invent a workaround that pastes API keys into the shell.
+If the `pem` MCP namespace is missing from this session, tell the user to reload MCP (Cursor Settings → MCP) or start a new chat. Do not invent a workaround that pastes API keys into the shell. Do not `alwaysAllow` `swarm_develop`.
