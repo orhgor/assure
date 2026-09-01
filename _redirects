@@ -1,5 +1,5 @@
-# Path aliases. Attach getassure.com (and www) in the Worker custom-domain panel.
-# Add a Bulk Redirect there for https://www.getassure.com/* → https://getassure.com/:splat
+# Path aliases. Attach getassureai.com (and www) in the Worker custom-domain panel.
+# Add a Bulk Redirect there for https://www.getassureai.com/* → https://getassureai.com/:splat
 
 / /index.html 200
 /pricing /pricing.html 200

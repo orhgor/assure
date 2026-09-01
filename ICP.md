@@ -17,7 +17,7 @@ Each summary is one line, ten words or fewer.
 - Summary: Needs answers but cannot send client data to public AI.
 - Pain: The client brief cannot go into a random chat.
 - Why Assure: Copy stays here. A Send goes only to the provider they chose. Check against my files drops unsourced percents.
-- Discover: NDA threads, a partner asking where a number came from, getassure.com.
+- Discover: NDA threads, a partner asking where a number came from, getassureai.com.
 
 Long form: Lena.
 

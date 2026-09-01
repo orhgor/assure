@@ -4,7 +4,9 @@
   var root = document.documentElement;
   var appOrigin = (root.getAttribute("data-app-origin") || "").trim();
   var localOrigin = (root.getAttribute("data-local-origin") || "http://127.0.0.1:8765").trim();
-  var target = appOrigin || localOrigin;
+  var host = window.location.hostname;
+  var onThisMachine = host === "127.0.0.1" || host === "localhost";
+  var target = appOrigin || (onThisMachine ? localOrigin : "");
 
   document.querySelectorAll("[data-download]").forEach(function (el) {
     var os = el.getAttribute("data-download") || "";
@@ -18,15 +20,15 @@
     }
     el.classList.add("is-disabled");
     el.setAttribute("aria-disabled", "true");
-    el.setAttribute("href", "#download-note");
+    el.setAttribute("href", "#download-modal");
     el.addEventListener("click", function (e) {
       e.preventDefault();
-      var note = document.getElementById("download-note");
-      if (note && typeof note.focus === "function") note.focus();
+      openWaitlist();
     });
   });
 
   document.querySelectorAll("[data-cta='app']").forEach(function (el) {
+    if (!target) return;
     var path = el.getAttribute("data-cta-path") || "";
     var href = target.replace(/\/$/, "") + path;
     el.setAttribute("href", href);
@@ -90,6 +92,92 @@
     window.setTimeout(tick, 400);
   }
 
+  var waitlistLastFocus = null;
+
+  function openWaitlist() {
+    var modal = document.getElementById("download-modal");
+    if (!modal) return;
+    waitlistLastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add("waitlist-open");
+    var name = document.getElementById("waitlist-name");
+    if (name) name.focus();
+  }
+
+  function closeWaitlist() {
+    var modal = document.getElementById("download-modal");
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("waitlist-open");
+    if (waitlistLastFocus && typeof waitlistLastFocus.focus === "function") {
+      waitlistLastFocus.focus();
+    }
+  }
+
+  function bindWaitlist() {
+    var modal = document.getElementById("download-modal");
+    var form = document.getElementById("waitlist-form");
+    var done = document.getElementById("waitlist-done");
+    var err = document.getElementById("waitlist-error");
+    document.querySelectorAll("[data-waitlist-open]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        e.preventDefault();
+        openWaitlist();
+      });
+    });
+    if (!modal) return;
+    modal.querySelectorAll("[data-waitlist-close]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        closeWaitlist();
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !modal.hidden) closeWaitlist();
+    });
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (err) {
+        err.hidden = true;
+        err.textContent = "";
+      }
+      var nameEl = document.getElementById("waitlist-name");
+      var emailEl = document.getElementById("waitlist-email");
+      var name = nameEl ? String(nameEl.value || "").trim() : "";
+      var email = emailEl ? String(emailEl.value || "").trim() : "";
+      var waitlistUrl = target
+        ? target.replace(/\/$/, "") + "/api/waitlist"
+        : "/api/waitlist";
+      fetch(waitlistUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name, email: email }),
+      })
+        .then(function (res) {
+          return res.json().catch(function () {
+            return {};
+          }).then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) {
+            var msg = (result.data && result.data.error) || "Could not join the list. Try again.";
+            throw new Error(msg);
+          }
+          form.hidden = true;
+          if (done) done.hidden = false;
+        })
+        .catch(function (error) {
+          if (err) {
+            err.hidden = false;
+            err.textContent = (error && error.message) || "Could not join the list. Try again.";
+          }
+        });
+    });
+  }
+
   revealOnScroll();
   typeHeroLine();
+  bindWaitlist();
 })();

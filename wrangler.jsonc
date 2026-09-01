@@ -3,9 +3,11 @@
   "name": "assure",
   // Static marketing site. GitHub default branch is webpage (site at repo root).
   // Cloudflare Workers Builds runs: npx wrangler deploy
-  // Live now: https://assure.orhangorenn.workers.dev
-  // Attach getassure.com after the domain is a Cloudflare zone (not Namecheap parking).
-  "compatibility_date": "2026-08-31",
+  // Live now: https://getassureai.com/ (HTTPS 200 as of 2026-09-01)
+  // Also: https://assure.orhangorenn.workers.dev
+  // www.getassureai.com did not resolve in this lookup.
+  "compatibility_date": "2026-09-01",
+  "main": "worker/index.js",
   "workers_dev": true,
   "preview_urls": true,
   "observability": {
@@ -13,7 +15,9 @@
   },
   "assets": {
     "directory": ".",
+    "binding": "ASSETS",
     "html_handling": "none",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
   }
 }
