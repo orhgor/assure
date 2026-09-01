@@ -35,12 +35,17 @@ def load_cloud_env() -> None:
 
 
 def supabase_url() -> str:
-    return (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+    url = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
+    if url.endswith("/rest/v1"):
+        url = url[: -len("/rest/v1")].rstrip("/")
+    return url
 
 
 def supabase_key() -> str:
     return (
-        (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+        (os.environ.get("SUPABASE_SECRET_KEY") or "").strip()
+        or (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+        or (os.environ.get("SUPABASE_PUBLISHABLE_KEY") or "").strip()
         or (os.environ.get("SUPABASE_ANON_KEY") or "").strip()
     )
 
@@ -135,7 +140,17 @@ def set_tier(user_id: str, tier: str, *, stripe_customer_id: str | None = None) 
 
 def delete_user(user_id: str) -> None:
     if supabase_configured():
-        _supabase_delete(f"/rest/v1/users?id=eq.{urllib.parse.quote(user_id)}")
+        quoted = urllib.parse.quote(user_id)
+        for path in (
+            f"/rest/v1/credit_transactions?user_id=eq.{quoted}",
+            f"/rest/v1/credit_wallets?user_id=eq.{quoted}",
+            f"/rest/v1/user_settings?user_id=eq.{quoted}",
+            f"/rest/v1/users?id=eq.{quoted}",
+        ):
+            try:
+                _supabase_delete(path)
+            except Exception:
+                continue
     session.pop("assure_tier", None)
 
 
@@ -239,6 +254,14 @@ def apply_stripe_event(event: dict[str, Any]) -> None:
         customer = str(obj.get("customer") or "")
         if user_id:
             set_tier(user_id, "pro", stripe_customer_id=customer or None)
+            try:
+                from .credit_guard import apply_subscription
+            except ImportError:
+                from credit_guard import apply_subscription
+            try:
+                apply_subscription(user_id)
+            except Exception:
+                pass
         return
     if kind in {"customer.subscription.deleted", "customer.subscription.canceled"}:
         customer = str(obj.get("customer") or "")
@@ -333,6 +356,11 @@ def _supabase_get(path: str) -> list[dict[str, Any]]:
     if isinstance(data, list):
         return [row for row in data if isinstance(row, dict)]
     return []
+
+
+def supabase_request(method: str, path: str, body: dict | None = None, extra: dict | None = None) -> Any:
+    """Server-side REST. Callers must never send prompt text in `body`."""
+    return _supabase_json(method, path, body, extra)
 
 
 def _supabase_json(method: str, path: str, body: dict | None, extra: dict | None = None) -> Any:

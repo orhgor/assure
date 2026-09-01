@@ -149,6 +149,12 @@ def run_workflow(
     cheap: bool = False,
 ) -> PipelineResult:
     load_keys()
+    try:
+        from .user_settings import apply_cloud_keys
+
+        apply_cloud_keys()
+    except Exception:
+        pass
     workflow = (workflow or "single").strip().lower()
     if workflow not in WORKFLOWS:
         raise MatrixError(f"Unknown workflow '{workflow}'. Use single, ensemble, or redhat.")
@@ -173,6 +179,19 @@ def run_workflow(
     plan = current_edition(edition_id)
     # Copy mode (direct=False) skips the daily Send quota. Send is gated here.
     guard_send(direct=direct, config_edition=edition_id)
+    if direct:
+        try:
+            from .credit_guard import assert_has_credit
+
+            assert_has_credit()
+        except Exception as exc:
+            try:
+                from .credit_guard import CreditExhaustedError
+            except ImportError:
+                from credit_guard import CreditExhaustedError
+            if isinstance(exc, CreditExhaustedError):
+                raise
+            # Cloud wallet unreachable: source-install / CLI keep working.
     requested_persona = persona
     persona = clamp_persona(persona, edition_id)
     persona_note = note_for_clamped_persona(requested_persona, persona)
@@ -356,6 +375,16 @@ def run_workflow(
                 context=context if plan.full_text_history else "",
             )
         if direct and result.reply:
+            try:
+                from .credit_guard import CreditExhaustedError, check_and_deduct
+            except ImportError:
+                from credit_guard import CreditExhaustedError, check_and_deduct
+            try:
+                check_and_deduct()
+            except CreditExhaustedError:
+                raise
+            except Exception:
+                pass
             try:
                 from .history import record_send, prune_old_executions
             except ImportError:

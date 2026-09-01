@@ -16,7 +16,12 @@ try:
 except ImportError:
     from local_runners import local_is_up
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+PACKAGE_DIR = user_data_dir()
 ENV_PATH = PACKAGE_DIR / ".env"
 
 PROVIDER_ENV = {
@@ -41,15 +46,42 @@ def load_keys() -> None:
             load_dotenv(Path.cwd() / ".env", override=False)
 
 
+def _cloud_env(name: str) -> str | None:
+    """Request-local decrypted cloud keys. Never written to disk."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    blob = getattr(g, "cloud_api_keys", None)
+    if not isinstance(blob, dict):
+        return None
+    val = blob.get(name)
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return None
+
+
 def key_present(target: str) -> bool:
     if target == "gemini":
-        return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        return bool(
+            _cloud_env("GEMINI_API_KEY")
+            or _cloud_env("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
     if target == "kimi":
-        return bool(os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY"))
+        return bool(
+            _cloud_env("MOONSHOT_API_KEY")
+            or _cloud_env("KIMI_API_KEY")
+            or os.environ.get("MOONSHOT_API_KEY")
+            or os.environ.get("KIMI_API_KEY")
+        )
     if target == "ollama":
         return local_is_up(wake_ollama=False)
     env_name = PROVIDER_ENV.get(target)
-    return bool(env_name and os.environ.get(env_name))
+    return bool(env_name and (_cloud_env(env_name) or os.environ.get(env_name)))
 
 
 def ollama_up() -> bool:
@@ -66,11 +98,23 @@ def ollama_up() -> bool:
 
 def api_key_for(target: str) -> str | None:
     if target == "gemini":
-        return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        return (
+            _cloud_env("GEMINI_API_KEY")
+            or _cloud_env("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
     if target == "kimi":
-        return os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
+        return (
+            _cloud_env("MOONSHOT_API_KEY")
+            or _cloud_env("KIMI_API_KEY")
+            or os.environ.get("MOONSHOT_API_KEY")
+            or os.environ.get("KIMI_API_KEY")
+        )
     env_name = PROVIDER_ENV.get(target)
-    return os.environ.get(env_name) if env_name else None
+    if not env_name:
+        return None
+    return _cloud_env(env_name) or os.environ.get(env_name)
 
 
 def missing_key_message(target: str) -> str | None:
@@ -92,6 +136,17 @@ def missing_key_message(target: str) -> str | None:
         f"{label} is not connected. Paste your {env_name} on the Connect page, "
         "or export it in your shell and restart pem."
     )
+
+
+def send_ready() -> bool:
+    """True if a live Send can go to an API key or to Ollama. Cursor is copy-only."""
+    status = provider_status()
+    for item in status.get("providers", {}).values():
+        if item.get("id") == "cursor":
+            continue
+        if item.get("connected"):
+            return True
+    return False
 
 
 def provider_status() -> dict:

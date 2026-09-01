@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=assure-24">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
   <script>
     /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
     (function () {
@@ -34,12 +34,15 @@
       <nav class="site-nav" aria-label="{{ gettext('Main') }}">
         <a href="/{{ q }}"{% if active == 'compose' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.compose">{{ gettext('Compose') }}</a>
         <a href="/history{{ q }}"{% if active == 'history' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.history">{{ gettext('Previous work') }}</a>
-        <a href="/learn{{ q }}"{% if active == 'learn' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.learn">{{ gettext('Learn') }}</a>
-        <a href="/library{{ q }}"{% if active == 'library' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.classes">{{ gettext('Classes') }}</a>
+        {% if auth is defined and auth.signed_in %}
+        <a href="/account/usage{{ q }}"{% if active == 'usage' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.usage">{{ gettext('Usage') }}</a>
+        {% endif %}
+        <a href="/library{{ q }}"{% if active == 'library' or active == 'learn' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.library">{{ gettext('Prompt Library') }}</a>
         <a href="/connect{{ q }}"{% if active == 'connect' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.connect">{{ gettext('Connect') }}</a>
       </nav>
       <div class="header-meta">
-        <label class="lang-wrap" for="lang">
+        <span class="header-privacy" data-i18n="header.privacy">{{ gettext('Copy stays here. Send goes only to the provider you chose.') }}</span>
+        <label class="lang-wrap visually-hidden" for="lang">
           <span data-i18n="lang">{{ gettext('Language') }}</span>
           <select id="lang" class="form-control select-control" aria-label="{{ gettext('Language') }}">
             {% for code, label in languages.items() %}
@@ -61,6 +64,7 @@
         {% if auth is defined and auth.signed_in and auth.email %}
         <span class="auth-who">{{ auth.email }}</span>
         {% endif %}
+        <button type="button" class="privacy-chip" id="privacy-chip" data-i18n="privacy.chip.closed" title="{{ gettext('Copy stays here. The question stays on this computer.') }}">🔒 {{ gettext('Closed to the internet') }}</button>
         <span class="edition-chip" id="edition-chip">{{ gettext('Free') }}</span>
       </div>
     </header>
@@ -75,6 +79,7 @@
       <span data-i18n="footer.rights">{{ gettext('© 2026 Assure. All rights reserved.') }}</span>
       <a href="/about{{ q }}" data-i18n="nav.about">{{ gettext('About') }}</a>
       <a href="/privacy{{ q }}" data-i18n="nav.privacy">{{ gettext('Privacy') }}</a>
+      <a href="/terms{{ q }}" data-i18n="nav.terms">{{ gettext('Terms') }}</a>
       <a href="/pricing{{ q }}" data-i18n="nav.pricing">{{ gettext('Pricing') }}</a>
     </p>
   </footer>
@@ -90,7 +95,30 @@
       }
     })();
   </script>
-  <script src="{{ url_for('static', filename='script.js') }}?v=assure-20"></script>
+  <script src="{{ url_for('static', filename='script.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script>
+    (function () {
+      var chip = document.getElementById("privacy-chip");
+      if (!chip || document.getElementById("form")) return;
+      fetch("/api/status").then(function (res) { return res.ok ? res.json() : null; }).then(function (data) {
+        if (!data) return;
+        var order = (data.route && data.route.send_order) || [];
+        var local = data.route && data.route.local;
+        var first = order[0] || "";
+        var names = { gemini: "Gemini", deepseek: "DeepSeek", claude: "Claude", kimi: "Kimi" };
+        if (local || first === "ollama" || !first) {
+          chip.textContent = "🔒 Closed to the internet";
+          chip.title = "Copy stays here. The question stays on this computer.";
+          chip.classList.remove("is-open");
+        } else {
+          var name = names[first] || first;
+          chip.textContent = "🌐 Connected to " + name;
+          chip.title = "Copy stays here. Send goes only to " + name + ".";
+          chip.classList.add("is-open");
+        }
+      }).catch(function () {});
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

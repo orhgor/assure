@@ -228,6 +228,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             clerk_configured,
             current_user_id,
             is_self_hosted,
+            login_required,
             protect_request,
             remember_user,
             safe_next,
@@ -242,6 +243,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             clerk_configured,
             current_user_id,
             is_self_hosted,
+            login_required,
             protect_request,
             remember_user,
             safe_next,
@@ -276,6 +278,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return resp
 
     @app.get("/")
+    @login_required
     def index():
         # Live markup is templates/index.html so Jinja gettext can run.
         # static/index.html is a pointer only. Do not serve it as /.
@@ -287,6 +290,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return redirect("/" + (("?" + qs) if qs else ""))
 
     @app.get("/history")
+    @login_required
     def history_page():
         return _page("index.html", "history", initial_pane="history")
 
@@ -295,10 +299,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return _page("index.html", "learn", initial_pane="learn")
 
     @app.get("/library")
+    @login_required
     def library_page():
         return _page("index.html", "library", initial_pane="library")
 
     @app.get("/connect")
+    @login_required
     def connect():
         return _page("connect.html", "connect")
 
@@ -394,6 +400,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return _page("about.html", "about")
 
     @app.get("/account")
+    @login_required
     def account():
         try:
             from .cloud_billing import subscription_payload, stripe_configured
@@ -495,6 +502,69 @@ def create_app(*, require_auth: bool = True) -> Flask:
         if not user_id:
             return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
         return jsonify(export_user(user_id))
+
+    @app.get("/account/usage")
+    @login_required
+    def usage_page():
+        user_id = current_user_id()
+        try:
+            from .credit_guard import usage_payload
+        except ImportError:
+            from credit_guard import usage_payload
+        payload = usage_payload(user_id)
+        return _page("usage.html", "usage", usage=payload)
+
+    @app.get("/api/usage")
+    @login_required
+    def api_usage():
+        user_id = current_user_id()
+        try:
+            from .credit_guard import usage_payload
+        except ImportError:
+            from credit_guard import usage_payload
+        return jsonify(usage_payload(user_id))
+
+    @app.get("/api/settings")
+    @login_required
+    def get_settings_view():
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"api_keys": {}, "preferences": {}})
+        try:
+            from .credit_guard import ensure_wallet
+            from .user_settings import get_settings
+        except ImportError:
+            from credit_guard import ensure_wallet
+            from user_settings import get_settings
+        try:
+            ensure_wallet(user_id)
+            return jsonify(get_settings(user_id))
+        except Exception:
+            return jsonify({"api_keys": {}, "preferences": {}})
+
+    @app.post("/api/settings")
+    @login_required
+    def post_settings_view():
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        data = request.get_json(silent=True) or {}
+        try:
+            from .credit_guard import ensure_wallet
+            from .user_settings import save_settings
+        except ImportError:
+            from credit_guard import ensure_wallet
+            from user_settings import save_settings
+        try:
+            ensure_wallet(user_id)
+            save_settings(
+                user_id,
+                api_keys=data.get("api_keys") if "api_keys" in data else None,
+                preferences=data.get("preferences") if "preferences" in data else None,
+            )
+        except Exception:
+            return jsonify({"error": string_catalog(_locale()).get("billing.missing")}), 503
+        return jsonify({"ok": True})
 
     @app.get("/api/i18n")
     def i18n_view():
@@ -620,6 +690,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         )
 
     @app.post("/api/render")
+    @login_required
     def render_view():
         data = request.get_json(silent=True) or {}
         target = str(data.get("target_ai") or data.get("target") or "").strip()
@@ -748,6 +819,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
 
     @app.post("/api/feedback")
+    @login_required
     def handle_feedback():
         data = request.get_json(silent=True) or {}
         run_hash = str(data.get("run_hash") or "").strip()
@@ -787,6 +859,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.get("/api/history")
     @app.get("/api/history/search")
+    @login_required
     def history_list():
         try:
             from .history import list_works

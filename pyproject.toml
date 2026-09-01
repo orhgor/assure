@@ -20,6 +20,7 @@ dependencies = [
     "tiktoken>=0.8.0",
     "flask-httpauth>=4.8.0",
     "flask-babel>=4.0.0",
+    "cryptography>=43.0.0",
 ]
 
 [project.scripts]
@@ -28,11 +29,11 @@ pem = "prompt_matrix.cli:main"
 assure = "prompt_matrix.cli:main"
 
 [project.urls]
-Homepage = "https://assure.ai/"
+Homepage = "https://getassureai.com/"
 
 
 [tool.setuptools.packages.find]
 include = ["prompt_matrix*"]
 
 [tool.setuptools.package-data]
-prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*"]
+prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*", "examples/*"]

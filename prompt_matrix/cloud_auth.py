@@ -13,6 +13,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from functools import wraps
 from typing import Any
 
 from flask import jsonify, redirect, request, session
@@ -22,6 +23,7 @@ PROTECTED_HTML = frozenset({"/", "/compose", "/connect"})
 PUBLIC_API = frozenset(
     {
         "/api/health",
+        "/api/status",
         "/api/i18n",
         "/api/auth/config",
         "/api/auth/session",
@@ -30,7 +32,7 @@ PUBLIC_API = frozenset(
         "/api/webhook/stripe",
     }
 )
-PUBLIC_HTML = frozenset({"/signin", "/signup", "/signout", "/pricing", "/privacy", "/about"})
+PUBLIC_HTML = frozenset({"/signin", "/signup", "/signout", "/pricing", "/privacy", "/about", "/terms"})
 
 
 class AuthError(ValueError):
@@ -99,6 +101,14 @@ def remember_user(*, user_id: str, email: str = "") -> None:
     session["clerk_user_id"] = user_id
     if email:
         session["clerk_email"] = email
+    try:
+        from .credit_guard import ensure_wallet
+    except ImportError:
+        from credit_guard import ensure_wallet
+    try:
+        ensure_wallet(user_id)
+    except Exception:
+        pass
 
 
 def jwt_payload(token: str) -> dict[str, Any]:
@@ -210,3 +220,16 @@ def protect_request():
             nxt = path + "?" + request.query_string.decode()
         target = "/signin?" + urllib.parse.urlencode({"next": nxt})
     return redirect(target)
+
+
+def login_required(view):
+    """Gate HTML and JSON when Clerk is configured. No-op without a publishable key."""
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        blocked = protect_request()
+        if blocked is not None:
+            return blocked
+        return view(*args, **kwargs)
+
+    return wrapped

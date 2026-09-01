@@ -1,6 +1,6 @@
--- Canonical copy: supabase/migrations/20260901153000_create_users.sql
--- Run that file in the Supabase SQL editor, or let GitHub Integration apply
--- supabase/migrations/ from this workbench repo (not the webpage branch).
+-- Email and subscription tier only. No prompts, no API keys.
+-- Server uses the Supabase secret key (bypasses RLS).
+-- Anon/publishable must not read this table.
 
 CREATE TABLE IF NOT EXISTS public.users (
   id TEXT PRIMARY KEY,
