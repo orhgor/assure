@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=25">
+  <link rel="stylesheet" href="assets/site.css?v=26">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -72,6 +72,35 @@
         <span class="text-line">Checks the reply against your uploads. The app runs on your&nbsp;machine.</span>
         <span class="text-line">A Send goes only to the provider you&nbsp;chose.</span>
       </p>
+
+      <form class="compiler" id="demo-compiler" aria-label="Compile a question">
+        <label for="demo-input">Question</label>
+        <textarea id="demo-input" name="question" rows="3" maxlength="8000" autocomplete="off">Is this paper any good?</textarea>
+        <div class="compiler-controls">
+          <label for="demo-target">Target&nbsp;AI
+            <select id="demo-target">
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+              <option value="deepseek">DeepSeek</option>
+            </select>
+          </label>
+          <label for="demo-intent">Type of&nbsp;answer
+            <select id="demo-intent">
+              <option value="auto">Auto</option>
+              <option value="research">Research</option>
+              <option value="comparison">Comparison</option>
+              <option value="debug">Debug</option>
+              <option value="design">Design</option>
+              <option value="analysis">Analysis</option>
+            </select>
+          </label>
+        </div>
+        <p class="compiler-kicker">Compiled prompt <span id="demo-intent-badge">research</span></p>
+        <pre id="demo-output" class="compiler-output" aria-live="polite"></pre>
+        <p class="compiler-note">This preview compiles in your browser. It is not Send. The app on your machine attaches files and grounding. A Send goes only to the provider you&nbsp;chose.</p>
+        <div id="demo-history" class="compiler-history"></div>
+      </form>
+
       <div class="cta-group hero-actions">
         <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
         <a href="#install" class="btn-outline">Run from&nbsp;source</a>
@@ -92,11 +121,13 @@
           <div class="step-number">1</div>
           <h3>Compile</h3>
           <p>Your vague question becomes a precise prompt, tuned to the AI you chose. No prompt engineering&nbsp;required.</p>
+          <p class="how-note">You just did this in the preview&nbsp;above.</p>
         </div>
         <div class="how-step">
           <div class="step-number">2</div>
           <h3>Send</h3>
           <p>Get an answer from the model you connected. One click. No&nbsp;copy-paste.</p>
+          <p class="how-note">Runs in the app on your&nbsp;machine.</p>
         </div>
         <div class="how-step">
           <div class="step-number">3</div>
@@ -106,21 +137,6 @@
         </div>
       </div>
     </section>
-
-    <div class="prompt-flow reveal" aria-label="Live preview of a compile">
-      <div>
-        <p class="kicker">Question</p>
-        <p class="prompt-vague">Is this paper any&nbsp;good?</p>
-      </div>
-      <div>
-        <p class="kicker">Live preview</p>
-        <p class="prompt-built">Research. Give the claim, the method, and the limits. Citations only from the attached&nbsp;file.</p>
-      </div>
-      <div>
-        <p class="kicker">Get my answer</p>
-        <p>Send. Verified or Review needed. Then Refine this answer if you want another&nbsp;pass.</p>
-      </div>
-    </div>
 
     <section class="why-matters reveal">
       <h2 class="section-title">Why it&nbsp;matters</h2>
@@ -220,6 +236,14 @@
     <section id="faq" class="reveal">
       <h2 class="section-title">FAQ</h2>
       <dl class="faq">
+        <div>
+          <dt>Is the preview on this page the app?</dt>
+          <dd>
+            No. The preview compiles a dialect prompt in your browser. It does not Send.
+            The workbench on your machine attaches files, grounding, and Verify.
+            A Send goes only to the provider you connected.
+          </dd>
+        </div>
         <div>
           <dt>What does grounded in your files mean?</dt>
           <dd>
@@ -366,6 +390,7 @@
     </footer>
 
   </div>
-  <script src="assets/site.js?v=25"></script>
+  <script src="assets/compiler.js?v=26"></script>
+  <script src="assets/site.js?v=26"></script>
 </body>
 </html>

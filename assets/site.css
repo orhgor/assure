@@ -259,6 +259,139 @@ p {
 
 .hero .cta-group {
   justify-content: center;
+  margin-top: var(--spacing-8);
+}
+
+.compiler {
+  text-align: left;
+  max-width: 760px;
+  margin: var(--spacing-10) auto 0;
+  padding: var(--spacing-6);
+  background: #fff;
+  color: var(--apple-dark-gray);
+}
+
+.compiler label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: var(--spacing-2);
+}
+
+.compiler textarea,
+.compiler select {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--spacing-1);
+  padding: 0.65rem 0.75rem;
+  font-family: var(--font-family);
+  font-size: 1rem;
+  color: var(--apple-dark-gray);
+  background: var(--apple-white);
+  border: 1px solid var(--apple-light-gray);
+  border-radius: var(--radius-sm);
+}
+
+.compiler textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.compiler textarea:focus,
+.compiler select:focus {
+  outline: 3px solid var(--trust-blue);
+  outline-offset: 2px;
+}
+
+.compiler-controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-4);
+  margin: var(--spacing-4) 0;
+}
+
+.compiler-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 var(--spacing-2);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--apple-dark-gray);
+}
+
+#demo-intent-badge {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--trust-blue);
+  text-transform: none;
+}
+
+.compiler-output {
+  margin: 0;
+  padding: var(--spacing-4);
+  min-height: 8rem;
+  max-height: 18rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--apple-gray);
+  color: var(--apple-dark-gray);
+}
+
+.compiler-note {
+  margin: var(--spacing-4) 0 0;
+  font-size: 0.9rem;
+  color: var(--apple-mid-gray);
+}
+
+.compiler-history {
+  margin-top: var(--spacing-5);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--apple-light-gray);
+}
+
+.compiler-history-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--apple-mid-gray);
+}
+
+.compiler-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.compiler-history-btn {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  padding: 0.5rem 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--trust-blue);
+  cursor: pointer;
+}
+
+.compiler-history-btn:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  .compiler-controls {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .hero .btn-outline {
