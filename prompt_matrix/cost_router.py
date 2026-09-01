@@ -94,6 +94,8 @@ SEND_REWRITES = {
 }
 
 _model_override: ContextVar[tuple[str, str] | None] = ContextVar("pem_cost_model", default=None)
+_output_token_floor: ContextVar[int | None] = ContextVar("pem_output_token_floor", default=None)
+_timeout_floor: ContextVar[int | None] = ContextVar("pem_timeout_floor", default=None)
 
 
 def cost_route_enabled() -> bool:
@@ -128,6 +130,29 @@ def model_override(target: str | None, model_id: str | None = None) -> Iterator[
         yield
     finally:
         _model_override.reset(token)
+
+
+@contextmanager
+def role_output_limits(
+    *,
+    max_tokens: int | None = None,
+    timeout: int | None = None,
+) -> Iterator[None]:
+    """Raise the LiteLLM output cap for one role (swarm developer dumps)."""
+    if max_tokens is None and timeout is None:
+        yield
+        return
+    tok = _output_token_floor.set(int(max_tokens) if max_tokens else None)
+    sec = _timeout_floor.set(int(timeout) if timeout else None)
+    try:
+        yield
+    finally:
+        _output_token_floor.reset(tok)
+        _timeout_floor.reset(sec)
+
+
+def current_role_limits() -> tuple[int | None, int | None]:
+    return _output_token_floor.get(), _timeout_floor.get()
 
 
 def _pricing_key(model: str | None) -> str | None:
@@ -274,7 +299,12 @@ def cap_output_tokens(intent: str, model: str) -> int:
     # Gemini 2.5/3 count hidden thinking against max_tokens. Pricing aliases
     # like gemini-1.5-flash still send gemini/gemini-3.5-flash-lite.
     if any(tag in probe for tag in ("gemini-2.5", "gemini-3", "thinking")):
-        return max(base_cap, 8192)
-    if "flash" in name or "haiku" in name:
-        return min(base_cap, 1024)
-    return base_cap
+        capped = max(base_cap, 8192)
+    elif "flash" in name or "haiku" in name:
+        capped = min(base_cap, 1024)
+    else:
+        capped = base_cap
+    floor = _output_token_floor.get()
+    if floor:
+        return max(capped, floor)
+    return capped

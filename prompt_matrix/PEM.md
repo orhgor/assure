@@ -329,6 +329,7 @@ How to run the next task: repo root, `source prompt_matrix/.venv/bin/activate`, 
 | 2026-08-31 | Phase 4 monitor | manual | n/a | `pem monitor --show-cost --show-success-rate`. Latency is not stored. |
 | 2026-08-31 | Phase 4 `--redteam` | manual | n/a | Local injection, PII-shaped, and citation checks. No extra model call. |
 | 2026-08-31 | Team UI restart | n/a | n/a | `assure --web --edition team` on `127.0.0.1:8765`. Live Send with `--ci` returned `ok` and a Gemini reply. |
+| 2026-09-01 | Swarm dump truncation | n/a (hand-applied) | n/a | Developer `max_tokens` floor 16384. Per-file developer subtasks from architect `## Files to write`. Continue on cut dumps. MCP `apply_patch`. `logs/swarm_attempt.log` preview. Not a live `swarm_develop` run. |
 
 **Not run as swarm yet**
 
