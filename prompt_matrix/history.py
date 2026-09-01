@@ -6,6 +6,7 @@ Full compiled prompt and final reply: PEM_STORE_PROMPTS=1 (separate table).
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import html
 import json
@@ -14,8 +15,12 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-DB_PATH = PACKAGE_DIR / "history.sqlite"
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+DB_PATH = user_data_dir() / "history.sqlite"
 
 
 def history_enabled(flag: bool = False) -> bool:
@@ -370,6 +375,9 @@ def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, of
     q = (q or "").strip()
     cutoff = _cutoff_iso(days)
     conn = _connect()
+    rows = []
+    previews: dict[str, str] = {}
+    total = 0
     try:
         _ensure_executions(conn)
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -406,12 +414,26 @@ def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, of
             """,
             [*args, max(1, min(int(limit or 50), 100)), max(0, int(offset or 0))],
         ).fetchall()
+        previews: dict[str, str] = {}
+        if full and rows:
+            hashes = [row["prompt_hash"] for row in rows if row["prompt_hash"]]
+            if hashes and "prompt_versions" in (
+                {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            ):
+                qmarks = ",".join("?" * len(hashes))
+                for digest, text in conn.execute(
+                    f"SELECT run_hash, substr(IFNULL(final_response,''), 1, 160) "
+                    f"FROM prompt_versions WHERE run_hash IN ({qmarks})",
+                    hashes,
+                ).fetchall():
+                    previews[digest] = (text or "").strip()
     finally:
         conn.close()
     now = datetime.now(timezone.utc)
     buckets = {"today": [], "yesterday": [], "week": [], "older": []}
     for row in rows:
         item = _row_public(row, full=full)
+        item["preview"] = previews.get(row["prompt_hash"] or "", "") if full else ""
         buckets[_bucket(row["timestamp"], now)].append(item)
     groups = []
     for key in ("today", "yesterday", "week", "older"):
@@ -450,6 +472,73 @@ def get_work(item_id: int, *, full: bool, days: int | None = None) -> dict | Non
         return item
     finally:
         conn.close()
+
+
+def get_run_by_hash(run_hash: str) -> dict | None:
+    """Retrieve a single stored reply by its run_hash.
+
+    Replies live in ``prompt_versions`` (not ``executions``). There is no
+    ``get_db()`` in this module; this uses ``_connect()``.
+    """
+    digest = (run_hash or "").strip()
+    if not digest:
+        return None
+    conn = _connect()
+    try:
+        migrate_to_full_storage()
+        _ensure_executions(conn)
+        ver = conn.execute(
+            """
+            SELECT run_hash, compiled_prompt, final_response, model, intent, timestamp
+            FROM prompt_versions WHERE run_hash = ?
+            """,
+            (digest,),
+        ).fetchone()
+        if not ver:
+            return None
+        exe = conn.execute(
+            """
+            SELECT timestamp, target_ai, intent
+            FROM executions WHERE prompt_hash = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (digest,),
+        ).fetchone()
+        return {
+            "run_hash": ver["run_hash"],
+            "reply": ver["final_response"] or "",
+            "prompt": ver["compiled_prompt"] or "",
+            "model": ver["model"] or (exe["target_ai"] if exe else None),
+            "intent": ver["intent"] or (exe["intent"] if exe else ""),
+            "created_at": (exe["timestamp"] if exe else ver["timestamp"]),
+        }
+    finally:
+        conn.close()
+
+
+def diff_runs(left_hash: str, right_hash: str) -> str:
+    """Generate a unified diff between the reply fields of two run hashes.
+
+    Raises ValueError if either hash is not found.
+    """
+    left = get_run_by_hash(left_hash)
+    right = get_run_by_hash(right_hash)
+
+    if not left:
+        raise ValueError(f"Run hash '{left_hash}' not found in history.")
+    if not right:
+        raise ValueError(f"Run hash '{right_hash}' not found in history.")
+
+    left_lines = (left["reply"] or "").splitlines(keepends=True)
+    right_lines = (right["reply"] or "").splitlines(keepends=True)
+
+    diff = difflib.unified_diff(
+        left_lines,
+        right_lines,
+        fromfile=f"{left_hash} (reply)",
+        tofile=f"{right_hash} (reply)",
+    )
+    return "".join(diff)
 
 
 def delete_work(item_id: int) -> bool:

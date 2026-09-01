@@ -21,7 +21,7 @@ try:
         load_matrix,
         render_prompt_detailed,
     )
-    from .keys import load_keys, provider_status, save_provider_key
+    from .keys import load_keys, provider_status, save_provider_key, send_ready
     from .runtime import library_status, warm_libraries
     from .library import (
         class_version_diff,
@@ -48,7 +48,7 @@ except ImportError:
         load_matrix,
         render_prompt_detailed,
     )
-    from keys import load_keys, provider_status, save_provider_key
+    from keys import load_keys, provider_status, save_provider_key, send_ready
     from runtime import library_status, warm_libraries
     from library import (
         class_version_diff,
@@ -68,14 +68,77 @@ except ImportError:
     from pipelines import run_workflow
     from route import route_snapshot
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+try:
+    from .paths import resource_dir
+except ImportError:
+    from paths import resource_dir
+
+PACKAGE_DIR = resource_dir()
 STATIC_DIR = PACKAGE_DIR / "static"
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+DEFAULT_BASIC_USER = "admin"
+DEFAULT_BASIC_PASS = "changeme"
 
 
-def create_app() -> Flask:
+def http_basic_user() -> str:
+    return os.environ.get("PEM_HTTP_USER") or DEFAULT_BASIC_USER
+
+
+def http_basic_pass() -> str:
+    return os.environ.get("PEM_HTTP_PASS") or DEFAULT_BASIC_PASS
+
+
+def loopback_host(host: str) -> bool:
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def http_password_is_default() -> bool:
+    return http_basic_pass() == DEFAULT_BASIC_PASS
+
+
+def http_auth_required(host: str) -> bool:
+    """Sign-in is off on this machine unless you set a password. LAN always requires one."""
+    if not loopback_host(host):
+        return True
+    return not http_password_is_default()
+
+
+def lan_bind_with_default_password(host: str) -> bool:
+    return host in {"0.0.0.0", "::"} and http_password_is_default()
+
+
+def startup_lines(
+    *,
+    local: str,
+    host: str,
+    send_ready_now: bool,
+    auth_on: bool,
+    user: str,
+) -> list[str]:
+    lines = [
+        "Assure is running.",
+        "",
+        f"Your browser should open. If it does not, go to {local}",
+    ]
+    if not send_ready_now:
+        lines.append("First run: paste a provider key, then write a question.")
+    if auth_on:
+        lines.append(f"Sign-in is on. User is {user}.")
+    elif not loopback_host(host):
+        lines.append("Sign-in is on for this bind address.")
+    lines.append("Copy stays on this computer. A Send goes only to the provider you chose.")
+    return lines
+
+
+def first_open_url(local: str) -> str:
+    """First browser tab. Connect if no Send-ready provider is pasted yet."""
+    base = local.rstrip("/")
+    return base if send_ready() else f"{base}/connect"
+
+
+def create_app(*, require_auth: bool = True) -> Flask:
     try:
         from .pem_runner import ensure_preflight
     except ImportError:
@@ -109,7 +172,8 @@ def create_app() -> Flask:
         from .web_ui import protect_app
     except ImportError:
         from web_ui import protect_app
-    protect_app(app)
+    if require_auth:
+        protect_app(app)
 
     def _locale() -> str:
         # Flask-Babel 4 uses locale_selector=, not @babel.localeselector.
@@ -147,6 +211,14 @@ def create_app() -> Flask:
         return message
 
     app.jinja_env.globals["gettext"] = _gettext
+    try:
+        from .ui_cache import APP_CSS, APP_JS
+    except ImportError:
+        from ui_cache import APP_CSS, APP_JS
+
+    @app.context_processor
+    def _ui_versions():
+        return {"css_version": APP_CSS, "js_version": APP_JS}
 
     try:
         from .cloud_auth import (
@@ -312,6 +384,10 @@ def create_app() -> Flask:
     @app.get("/privacy")
     def privacy():
         return _page("privacy.html", "privacy")
+
+    @app.get("/terms")
+    def terms():
+        return _page("terms.html", "terms")
 
     @app.get("/about")
     def about():
@@ -501,6 +577,48 @@ def create_app() -> Flask:
             }
         )
 
+    @app.post("/api/intent")
+    def intent_view():
+        data = request.get_json(silent=True) or {}
+        task = str(data.get("task") or "")
+        try:
+            from .intent_detector import detect_intent_payload
+        except ImportError:
+            from intent_detector import detect_intent_payload
+        return jsonify(detect_intent_payload(task))
+
+    @app.post("/api/preview")
+    def preview_view():
+        data = request.get_json(silent=True) or {}
+        target = str(data.get("target_ai") or data.get("target") or "").strip()
+        task = str(data.get("task") or "").strip()
+        context = str(data.get("context") or "")
+        class_id = (data.get("class_id") or "").strip() or None
+        intent_raw = str(data.get("intent") or "").strip()
+        try:
+            from .intent_detector import FALLBACK, detect_intent
+        except ImportError:
+            from intent_detector import FALLBACK, detect_intent
+        intent = intent_raw if intent_raw and intent_raw != "auto" else detect_intent(task)
+        if not intent:
+            intent = FALLBACK
+        if not task or not target:
+            return jsonify({"prompt": "", "intent": intent, "target_ai": target})
+        try:
+            rendered = render_prompt_detailed(
+                target, intent, task, context, class_id=class_id
+            )
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale()), "intent": intent}), 400
+        return jsonify(
+            {
+                "prompt": rendered.prompt,
+                "intent": rendered.intent,
+                "target_ai": rendered.target_ai,
+                "files_read": rendered.files_read,
+            }
+        )
+
     @app.post("/api/render")
     def render_view():
         data = request.get_json(silent=True) or {}
@@ -578,6 +696,17 @@ def create_app() -> Flask:
             from .editions import snapshot
         except ImportError:
             from editions import snapshot
+        try:
+            from .quality import confidence_text, models_from_steps
+        except ImportError:
+            from quality import confidence_text, models_from_steps
+        models = models_from_steps(result.steps, result.target_ai)
+        qdict = result.quality if isinstance(result.quality, dict) else None
+        conf = confidence_text(
+            quality=qdict,
+            models=models,
+            workflow=result.workflow or "",
+        )
 
         return jsonify(
             {
@@ -605,6 +734,8 @@ def create_app() -> Flask:
                 "routed_model": result.routed_model,
                 "variation_id": result.variation_id,
                 "quality": result.quality,
+                "models": models,
+                "confidence_text": conf,
                 "run_hash": result.run_hash,
                 "edition": snapshot(load_matrix().runtime.edition),
                 "lint": {
@@ -678,6 +809,23 @@ def create_app() -> Flask:
         payload["edition"] = edition
         payload["q"] = q
         return jsonify(payload)
+
+    @app.get("/api/history/diff")
+    def history_diff():
+        """GET /api/history/diff?left=<hash>&right=<hash> — unified diff as text/plain."""
+        try:
+            from .history import diff_runs
+        except ImportError:
+            from history import diff_runs
+        left_hash = (request.args.get("left") or "").strip()
+        right_hash = (request.args.get("right") or "").strip()
+        if not left_hash or not right_hash:
+            return jsonify({"error": "Missing required query params: left, right"}), 400
+        try:
+            diff_text = diff_runs(left_hash, right_hash)
+            return Response(diff_text, mimetype="text/plain")
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 404
 
     @app.get("/api/history/<int:item_id>")
     def history_one(item_id: int):
@@ -911,13 +1059,13 @@ def _serve_parser() -> argparse.ArgumentParser:
         "--http-user",
         "--auth-user",
         dest="http_user",
-        help="Basic Auth user (or PEM_HTTP_USER, default admin)",
+        help="Sign-in user when a password is set (or PEM_HTTP_USER, default admin)",
     )
     parser.add_argument(
         "--http-pass",
         "--auth-pass",
         dest="http_pass",
-        help="Basic Auth password (or PEM_HTTP_PASS, default changeme)",
+        help="Sign-in password (or PEM_HTTP_PASS). Required on --host 0.0.0.0. Off on this machine by default.",
     )
     parser.add_argument(
         "--store-prompts",
@@ -973,24 +1121,37 @@ def serve(argv: list[str] | None = None) -> int:
         cheap=bool(getattr(args, "cheap", False)),
         edition=getattr(args, "edition", None),
     )
-    app = create_app()
-    url = f"http://{args.host}:{port}"
-    local = f"http://127.0.0.1:{port}"
-
     from rich.console import Console
     from rich.panel import Panel
 
     console = Console()
+    if lan_bind_with_default_password(args.host):
+        console.print(
+            "[bold red]Set --http-pass or PEM_HTTP_PASS before other machines can reach this.[/bold red]"
+        )
+        return 1
+    auth_on = http_auth_required(args.host)
+    app = create_app(require_auth=auth_on)
+    url = f"http://{args.host}:{port}"
+    local = f"http://127.0.0.1:{port}"
     lan = _lan_ip() if args.host in {"0.0.0.0", "::"} else None
-    lines = [f"[bold]Open this address[/bold]\n\n{local}"]
+    user = http_basic_user()
+    open_url = first_open_url(local)
+    lines = startup_lines(
+        local=local,
+        host=args.host,
+        send_ready_now=send_ready(),
+        auth_on=auth_on,
+        user=user,
+    )
     if args.host not in {"127.0.0.1", "localhost"}:
-        lines.append(url)
+        lines.insert(3, url)
     if lan:
-        lines.append(f"http://{lan}:{port}")
+        lines.insert(3, f"http://{lan}:{port}")
     console.print(Panel("\n".join(lines), title="Assure", border_style="cyan"))
 
     if not args.no_browser:
-        threading.Thread(target=_open_browser, args=(local,), daemon=True).start()
+        threading.Thread(target=_open_browser, args=(open_url,), daemon=True).start()
 
     try:
         app.run(host=args.host, port=port, debug=False, threaded=True, use_reloader=False)
