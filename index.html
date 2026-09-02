@@ -8,21 +8,25 @@
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      'analytics_storage': 'denied',
+      'ad_storage': 'denied'
+    });
     gtag('js', new Date());
     gtag('config', 'G-54F5NE9Y0P');
   </script>
-  <title>Assure AI — Talk to AI like a colleague. We handle the translation.</title>
-  <meta name="description" content="A private workbench for researchers, analysts, and consultants. No prompt engineering. Ask naturally — we turn it into the instructions the AI needs.">
+  <title>Assure AI — Verify AI Drafts Against Your Source Documents</title>
+  <meta name="description" content="Paste a draft and upload source PDFs or text. Assure highlights claims not backed by your files using sentence-level NLI. BYOK — keys stay in your browser.">
   <link rel="canonical" href="https://getassureai.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://getassureai.com/">
-  <meta property="og:title" content="Assure AI — Talk to AI like a colleague">
-  <meta property="og:description" content="No prompt engineering. Ask naturally. We translate your question into the instructions the model needs.">
+  <meta property="og:title" content="Assure AI — Verify AI Drafts Against Your Source Documents">
+  <meta property="og:description" content="Sentence-level NLI grounding against your uploaded files. Green = backed by source. Yellow = inferred.">
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Assure AI — Talk to AI like a colleague">
-  <meta name="twitter:description" content="No prompt engineering. Ask naturally. We handle the translation.">
+  <meta name="twitter:title" content="Assure AI — Verify AI Drafts Against Your Source Documents">
+  <meta name="twitter:description" content="Highlight claims not backed by your uploaded files. Multi-model consensus on Pro.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,10 +40,10 @@
     "url": "https://getassureai.com",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Windows, Linux",
-    "description": "Talk to AI like a colleague. Assure translates your question into the prompt the model needs, then checks the reply against your files.",
+    "description": "Verify AI drafts against uploaded source documents with sentence-level NLI. Green highlights = backed by your file. Yellow = inferred.",
     "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
-      { "@type": "Offer", "name": "Pro", "price": "5", "priceCurrency": "USD" }
+      { "@type": "Offer", "name": "Pro", "price": "19", "priceCurrency": "USD" }
     ]
   }
   </script>
@@ -65,36 +69,34 @@
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="audit.html">Audit</a>
-        <a href="#install" class="btn" data-waitlist-open>Join waitlist</a>
+        <a href="https://app.getassureai.com" class="btn">Launch App</a>
       </nav>
     </header>
 
     <section class="hero">
       <h1 class="text-lines">
-        <span class="text-line">Talk to AI like you talk to a&nbsp;colleague.</span>
-        <span class="text-line">We handle the&nbsp;translation.</span>
+        <span class="text-line">Verify AI Drafts Against Your Source&nbsp;Documents.</span>
       </h1>
       <p class="sub text-lines">
-        <span class="text-line">A private workbench for researchers, analysts, and&nbsp;consultants.</span>
-        <span class="text-line">No prompt engineering. No syntax. No wasted time. Just ask naturally, and we turn it into the exact instructions the AI&nbsp;needs.</span>
-        <span class="text-line">You bring your own API keys. We handle the workbench. No vendor&nbsp;lock-in.</span>
+        <span class="text-line">Paste your client brief, research paper, or report. Assure highlights claims not backed by your uploaded files using sentence-level&nbsp;NLI.</span>
+        <span class="text-line">You bring your own API keys. Keys stay client-side in browser localStorage — never persisted to our&nbsp;database.</span>
       </p>
 
       <div class="cta-group hero-actions">
-        <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
-        <a href="#translation-demo" class="btn-outline">See how it&nbsp;works</a>
+        <a href="https://app.getassureai.com" class="btn-primary">Launch App</a>
+        <a href="#features" class="btn-outline">See what ships&nbsp;today</a>
       </div>
 
-      <figure class="verified-mockup" aria-label="Example: a plain question, then a checked answer (mockup)">
+      <figure class="verified-mockup" aria-label="Example: draft text with green and yellow claim highlights (mockup)">
         <div class="verified-card">
-          <p class="asked-label">You asked</p>
-          <p class="asked-text">Compare the dropout rates in these two clinical trials.</p>
-          <p class="asked-label">We translated, then checked</p>
+          <p class="asked-label">You pasted</p>
+          <p class="asked-text">The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
+          <p class="asked-label">Assure checked against your files</p>
           <span class="verified-badge">Verified</span>
-          <p class="verified-summary"><strong>Summary:</strong> The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
-          <p class="verified-grounded"><strong>Grounded in:</strong> clinical_trial_A.pdf (p.4), clinical_trial_B.pdf (p.7)</p>
+          <p class="verified-summary"><strong>Green:</strong> 12% and 8% appear in clinical_trial_A.pdf (p.4) and clinical_trial_B.pdf (p.7).</p>
+          <p class="verified-grounded"><strong>Yellow:</strong> General comparison language inferred by the model — not a direct quote from your upload.</p>
         </div>
-        <figcaption class="mockup-note">Mockup. Translation is the product. The check is the proof.</figcaption>
+        <figcaption class="mockup-note">Mockup. Green = backed by your file. Yellow = inferred / unsupported.</figcaption>
       </figure>
     </section>
 
@@ -104,31 +106,31 @@
   <div class="container">
 
     <section id="prompt" class="how-it-works reveal">
-      <h2 class="section-title">Ask. Stay private. Get a grounded&nbsp;answer.</h2>
+      <h2 class="section-title">Upload sources. Paste a draft. See what is&nbsp;grounded.</h2>
       <div class="steps-grid pillars-grid">
         <div class="how-step">
           <span class="step-number" aria-hidden="true">1</span>
-          <h3>Ask naturally</h3>
-          <p>Write your question in plain English. We restructure it for the AI behind the&nbsp;scenes.</p>
+          <h3>Paste &amp; upload</h3>
+          <p>Paste generated draft text and attach source PDFs or text files from this&nbsp;computer.</p>
         </div>
         <div class="how-step">
           <span class="step-number" aria-hidden="true">2</span>
-          <h3>Work privately</h3>
-          <p>Keys and copy stay on this computer. Closed to the internet keeps the question here. A Send goes only to the provider you&nbsp;connected.</p>
+          <h3>Sentence-level NLI</h3>
+          <p>Fast NLI compares each claim to your upload. Unsupported lines are flagged before you&nbsp;ship.</p>
         </div>
         <div class="how-step">
           <span class="step-number" aria-hidden="true">3</span>
-          <h3>Get grounded answers</h3>
-          <p>Every claim is checked against your uploaded documents. No invented citations. No time wasted&nbsp;fact-checking.</p>
+          <h3>Visual trust signals</h3>
+          <p><strong>Green</strong> = backed by your file. <strong>Yellow</strong> = general knowledge or&nbsp;inferred.</p>
         </div>
       </div>
     </section>
 
     <section id="translation-demo" class="translation-demo reveal">
       <h2 class="section-title">See how we translate your&nbsp;question</h2>
-      <p class="trust-lead">Type anything — the more natural, the better. Watch as we restructure it into a precise prompt for Gemini, Claude, or DeepSeek. No prompt engineering required. Just your words, turned into their&nbsp;language.</p>
+      <p class="trust-lead">Interactive browser preview only — no live model calls from this page. Type anything natural; watch how Assure restructures it into a precise prompt for Gemini, Claude, or DeepSeek. Open the app to Send and verify against your&nbsp;files.</p>
 
-      <form class="compiler" id="demo-compiler" aria-label="Behind the scenes translation demo">
+      <form class="compiler" id="demo-compiler" aria-label="Interactive browser preview — dialect translation demo (no live Send)">
         <label for="demo-input">Question</label>
         <textarea id="demo-input" name="question" rows="3" maxlength="8000" autocomplete="off">Compare the dropout rates in these two clinical trials.</textarea>
 
@@ -164,7 +166,7 @@
           <summary>For the curious, see the full translation</summary>
           <pre id="demo-output" class="compiler-output compiler-output-collapsed" aria-live="polite"></pre>
         </details>
-        <p class="compiler-note">This preview translates in your browser. It is not Send. This is the skeleton. The desktop app adds file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
+        <p class="compiler-note">This is an interactive browser preview — it compiles a dialect prompt locally. It does not call any model API and is not Send. Open the app for file context, grounding, and verified&nbsp;answers.</p>
         <div id="demo-history" class="compiler-history"></div>
       </form>
     </section>
@@ -193,7 +195,7 @@
     <section class="trust-row reveal" aria-label="Trust">
       <div class="trust-row-item">
         <h4>Bring your own keys</h4>
-        <p>Paste Gemini, DeepSeek, Claude, or Kimi keys. They stay on this computer. You pay the provider for&nbsp;tokens.</p>
+        <p>Paste Gemini or Claude keys in Settings. They stay in browser localStorage — never in our&nbsp;database.</p>
       </div>
       <div class="trust-row-item">
         <h4>You pick the provider</h4>
@@ -206,43 +208,25 @@
     </section>
 
     <section id="features" class="reveal">
-      <h2 class="section-title">What you&nbsp;get</h2>
+      <h2 class="section-title">What ships&nbsp;today</h2>
       <div class="features">
-        <div class="feature-item">
-          <span class="feature-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="10" cy="10" r="3.5"/><circle cx="22" cy="10" r="3.5"/><circle cx="10" cy="22" r="3.5"/><circle cx="22" cy="22" r="3.5"/>
-            </svg>
-          </span>
-          <h4>Stop merging four chat&nbsp;tabs</h4>
-          <p>Send the same question to more than one model. See where they agree and&nbsp;disagree.</p>
-        </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
               <rect x="8" y="6" width="16" height="20" rx="2"/><path d="M12 14h8M12 18h6" stroke-linecap="round"/><path d="M12 22l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
-          <h4>Check against my files</h4>
-          <p>Drops dates, percents, and publication names that were not in the upload. <a href="hallucination-detection.html">How checking&nbsp;works</a>.</p>
+          <h4>Document grounding</h4>
+          <p>Fast NLI verification comparing generated text directly to source PDFs and text you&nbsp;upload.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <rect x="9" y="14" width="14" height="10" rx="2"/><path d="M12 14v-3a4 4 0 0 1 8 0v3"/>
+              <circle cx="10" cy="10" r="3.5"/><circle cx="22" cy="10" r="3.5"/><circle cx="10" cy="22" r="3.5"/><circle cx="22" cy="22" r="3.5"/>
             </svg>
           </span>
-          <h4>The brief stays on this&nbsp;machine</h4>
-          <p>Keys live in <span class="mono">.env</span>. Copy never calls a provider. A Send goes only to who you&nbsp;picked.</p>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="16" cy="16" r="10"/><path d="M16 16 L16 8" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="currentColor" stroke="none"/>
-            </svg>
-          </span>
-          <h4>Closed or open, you&nbsp;choose</h4>
-          <p>Closed to the internet keeps the question here. Open, it goes to Gemini, Claude, or whoever you&nbsp;connected.</p>
+          <h4>Multi-model consensus</h4>
+          <p>Cross-verify claims across Claude and Gemini simultaneously on&nbsp;Pro.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -250,17 +234,17 @@
               <path d="M8 18l4 4 4-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 14h6M18 18h6M18 22h4" stroke-linecap="round"/>
             </svg>
           </span>
-          <h4>Prompt assistance</h4>
-          <p>Write in plain English. We restructure it for Gemini, Claude, or DeepSeek. You do not learn prompt&nbsp;engineering.</p>
+          <h4>Visual trust signals</h4>
+          <p><strong>Green</strong> = backed by your file. <strong>Yellow</strong> = general knowledge /&nbsp;inferred.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="16" cy="16" r="10"/><path d="M16 10v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="9" y="14" width="14" height="10" rx="2"/><path d="M12 14v-3a4 4 0 0 1 8 0v3"/>
             </svg>
           </span>
-          <h4>Previous work stays&nbsp;here</h4>
-          <p>History, search, refine, and export on this computer. Seven&nbsp;languages.</p>
+          <h4>Privacy-first BYOK</h4>
+          <p>API keys stored client-side in browser <span class="mono">localStorage</span>. Never persisted to our&nbsp;database.</p>
         </div>
       </div>
     </section>
@@ -376,24 +360,24 @@
           <div class="plan-name">Free</div>
           <div class="price">$0 <small>/mo</small></div>
           <ul>
-            <li>10 Sends / day</li>
-            <li>Gemini and DeepSeek</li>
+            <li>5 checks / day</li>
+            <li>Gemini Flash grounding</li>
             <li>7-day history</li>
           </ul>
-          <a href="#install" class="btn-sm">Start free</a>
+          <a href="https://app.getassureai.com" class="btn-sm">Launch App</a>
         </article>
         <article class="plan featured">
           <div class="plan-name">Pro</div>
-          <div class="price">$5 <small>/mo</small></div>
+          <div class="price">$19 <small>/mo</small></div>
           <ul>
-            <li>100 Sends / day</li>
-            <li>Compare &amp; Validate</li>
-            <li>Full history and export</li>
+            <li>100 checks / day</li>
+            <li>Claude 3.5 + Gemini 1.5 Pro consensus</li>
+            <li>Full SQLite history persistence</li>
           </ul>
           <a href="pricing.html" class="btn-sm">See all&nbsp;plans</a>
         </article>
       </div>
-      <p class="text-small pricing-note">On the Free tier you still pay the provider for tokens used. Pro is $5 a month for the workbench — not for API calls.</p>
+      <p class="text-small pricing-note">BYOK: you pay Gemini, DeepSeek, Claude, or Kimi directly for API tokens. Assure plans ($0 Free / $19 Pro) cover workbench features and daily check quotas — not model&nbsp;usage.</p>
     </section>
 
     <section id="install" class="install-section reveal">
@@ -444,5 +428,27 @@
   </div>
   <script src="assets/compiler.js?v=29"></script>
   <script src="assets/site.js?v=29"></script>
+  <div id="cookie-consent" style="position:fixed;bottom:0;left:0;right:0;background:#111827;border-top:1px solid #374151;color:#f3f4f6;padding:14px 20px;text-align:center;z-index:99999;display:none;font-family:system-ui,-apple-system,sans-serif;font-size:0.875rem;">
+    <span>We use cookies to analyze traffic and improve user experience. Read our <a href="/privacy" style="color:#60a5fa;text-decoration:underline;">Privacy Policy</a>.</span>
+    <button id="accept-cookies-btn" style="margin-left:12px;padding:6px 18px;background:#2563eb;color:#ffffff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.875rem;">Accept</button>
+  </div>
+  <script>
+    (function() {
+      var banner = document.getElementById('cookie-consent');
+      var btn = document.getElementById('accept-cookies-btn');
+      if (localStorage.getItem('cookies_accepted') === 'true') {
+        gtag('consent', 'update', { 'analytics_storage': 'granted' });
+      } else if (banner) {
+        banner.style.display = 'block';
+      }
+      if (btn) {
+        btn.addEventListener('click', function() {
+          localStorage.setItem('cookies_accepted', 'true');
+          if (banner) banner.style.display = 'none';
+          gtag('consent', 'update', { 'analytics_storage': 'granted' });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
