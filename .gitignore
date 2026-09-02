@@ -11,4 +11,10 @@ build/
 .DS_Store
 prompt_matrix/library.json
 prompt_matrix/history.sqlite
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 logs/
+.swarm_history
+.worktrees/

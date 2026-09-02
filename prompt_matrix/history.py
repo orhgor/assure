@@ -20,7 +20,14 @@ try:
 except ImportError:
     from paths import user_data_dir
 
-DB_PATH = user_data_dir() / "history.sqlite"
+def _resolve_db_path() -> Path:
+    override = (os.environ.get("DATABASE_PATH") or "").strip()
+    if override:
+        return Path(override)
+    return user_data_dir() / "history.sqlite"
+
+
+DB_PATH = _resolve_db_path()
 
 
 def _apply_pragmas(conn: sqlite3.Connection) -> None:
