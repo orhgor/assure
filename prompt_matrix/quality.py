@@ -313,6 +313,25 @@ def models_from_steps(steps, primary: str | None = None) -> list[str]:
     return names
 
 
+def models_used_from_steps(steps) -> list[str]:
+    """Models that returned a successful reply (no error / ERROR prefix)."""
+    names: list[str] = []
+    for step in steps or []:
+        target = getattr(step, "target_ai", None)
+        if not target or target in {"pem", "combine"}:
+            continue
+        if getattr(step, "error", None):
+            continue
+        reply = getattr(step, "reply", None)
+        if not reply or str(reply).strip().startswith("ERROR:"):
+            continue
+        label = getattr(step, "name", "") or ""
+        if label.startswith("draft") or label in {"create", "attempt", "final", "draft"}:
+            if target not in names:
+                names.append(target)
+    return names
+
+
 def draft_replies(steps) -> list[str]:
     out: list[str] = []
     for step in steps or []:

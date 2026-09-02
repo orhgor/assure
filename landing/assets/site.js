@@ -4,7 +4,9 @@
   var root = document.documentElement;
   var appOrigin = (root.getAttribute("data-app-origin") || "").trim();
   var localOrigin = (root.getAttribute("data-local-origin") || "http://127.0.0.1:8765").trim();
-  var target = appOrigin || localOrigin;
+  var host = window.location.hostname;
+  var onThisMachine = host === "127.0.0.1" || host === "localhost";
+  var target = appOrigin || (onThisMachine ? localOrigin : "");
 
   document.querySelectorAll("[data-download]").forEach(function (el) {
     var os = el.getAttribute("data-download") || "";
@@ -26,6 +28,7 @@
   });
 
   document.querySelectorAll("[data-cta='app']").forEach(function (el) {
+    if (!target) return;
     var path = el.getAttribute("data-cta-path") || "";
     var href = target.replace(/\/$/, "") + path;
     el.setAttribute("href", href);
@@ -142,7 +145,10 @@
       var emailEl = document.getElementById("waitlist-email");
       var name = nameEl ? String(nameEl.value || "").trim() : "";
       var email = emailEl ? String(emailEl.value || "").trim() : "";
-      fetch(target.replace(/\/$/, "") + "/api/waitlist", {
+      var waitlistUrl = target
+        ? target.replace(/\/$/, "") + "/api/waitlist"
+        : "/api/waitlist";
+      fetch(waitlistUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name, email: email }),

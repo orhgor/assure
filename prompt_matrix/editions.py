@@ -30,7 +30,9 @@ INTENT_PLAIN = {
     "analysis": "Analysis: what the numbers mean, and what they do not prove.",
 }
 
-FREE_ENSEMBLE = ("gemini", "deepseek")
+FREE_ENSEMBLE = ("gemini",)
+PRO_CONSENSUS = ("claude", "gemini")
+FREE_DEFAULT_TARGET = "gemini"
 
 
 @dataclass(frozen=True)
@@ -58,8 +60,8 @@ PLANS: dict[str, EditionPlan] = {
     "free": EditionPlan(
         id="free",
         label="Free",
-        daily_sends=10,
-        max_ensemble=2,
+        daily_sends=5,
+        max_ensemble=1,
         full_text_history=False,
         history_days=7,
         export_formats=(),
@@ -180,7 +182,7 @@ def snapshot(config_edition: str | None = None) -> dict:
 def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
     """Block Send when the UTC-day quota is used up. Copy/compile does not count.
 
-    Caps (local flags, not a payment API): Free 10, Pro 100, Team and
+    Caps (local flags, not a payment API): Free 5, Pro 100, Team and
     Self-hosted unlimited. Raise with ASSURE_EDITION / PEM_EDITION / --edition.
     """
     if not direct:
@@ -197,8 +199,8 @@ def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
     used = count_sends_today()
     if used >= plan.daily_sends:
         raise MatrixError(
-            f"{plan.label} allows {plan.daily_sends} Sends per day. "
-            "You've reached today's limit. Pro is 100 Sends per day. "
+            f"{plan.label} allows {plan.daily_sends} checks per day. "
+            "You've reached today's limit. Pro is 100 checks per day. "
             "There is no checkout in this app. Set ASSURE_EDITION=pro "
             "(or team / self-hosted), or open https://getassureai.com/pricing.html."
         )
@@ -224,6 +226,12 @@ def clamp_ensemble_extras(
             if name != primary:
                 rest.append(name)
                 break
+    if plan.id == "pro" and not rest:
+        for name in PRO_CONSENSUS:
+            if name != primary:
+                rest.append(name)
+                if len(rest) >= max(0, plan.max_ensemble - 1):
+                    break
     cap = max(0, plan.max_ensemble - 1)
     return rest[:cap]
 

@@ -1,7 +1,10 @@
-# Path aliases. Attach assure.ai (and www) in the Cloudflare Pages custom-domain panel.
-# Add a Bulk Redirect there for https://www.assure.ai/* → https://assure.ai/:splat
+# Path aliases. Attach getassureai.com (and www) in the Worker custom-domain panel.
+# Add a Bulk Redirect there for https://www.getassureai.com/* → https://getassureai.com/:splat
 
-/pricing /#pricing 302
-/privacy /#privacy 302
-/about /#about 302
-/start /#start 302
+/ /index.html 200
+/pricing /pricing.html 200
+/privacy /privacy.html 200
+/about /about.html 200
+/install /install.html 200
+/start /#install 302
+/terms /terms.html 200

@@ -63,6 +63,23 @@ def _cloud_env(name: str) -> str | None:
     return None
 
 
+def _browser_env(name: str) -> str | None:
+    """In-browser BYOK keys from request headers. Never written to disk."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    blob = getattr(g, "browser_api_keys", None)
+    if not isinstance(blob, dict):
+        return None
+    val = blob.get(name)
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return None
+
+
 def key_present(target: str) -> bool:
     if target == "gemini":
         return bool(
@@ -106,21 +123,27 @@ def ollama_up() -> bool:
 def api_key_for(target: str) -> str | None:
     if target == "gemini":
         return (
-            _cloud_env("GEMINI_API_KEY")
+            _browser_env("GEMINI_API_KEY")
+            or _browser_env("GOOGLE_API_KEY")
+            or _cloud_env("GEMINI_API_KEY")
             or _cloud_env("GOOGLE_API_KEY")
             or os.environ.get("GEMINI_API_KEY")
             or os.environ.get("GOOGLE_API_KEY")
         )
     if target == "claude":
         return (
-            _cloud_env("ANTHROPIC_API_KEY")
+            _browser_env("ANTHROPIC_API_KEY")
+            or _browser_env("CLAUDE_API_KEY")
+            or _cloud_env("ANTHROPIC_API_KEY")
             or _cloud_env("CLAUDE_API_KEY")
             or os.environ.get("ANTHROPIC_API_KEY")
             or os.environ.get("CLAUDE_API_KEY")
         )
     if target == "kimi":
         return (
-            _cloud_env("MOONSHOT_API_KEY")
+            _browser_env("MOONSHOT_API_KEY")
+            or _browser_env("KIMI_API_KEY")
+            or _cloud_env("MOONSHOT_API_KEY")
             or _cloud_env("KIMI_API_KEY")
             or os.environ.get("MOONSHOT_API_KEY")
             or os.environ.get("KIMI_API_KEY")
@@ -128,7 +151,7 @@ def api_key_for(target: str) -> str | None:
     env_name = PROVIDER_ENV.get(target)
     if not env_name:
         return None
-    return _cloud_env(env_name) or os.environ.get(env_name)
+    return _browser_env(env_name) or _cloud_env(env_name) or os.environ.get(env_name)
 
 
 def anthropic_workspace_id() -> str:

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-app-origin="" data-local-origin="http://127.0.0.1:8765">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-54F5NE9Y0P"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-54F5NE9Y0P');
+  </script>
+  <title>Pricing · Assure AI</title>
+  <meta name="description" content="Free is 10 Sends a day. Pro is $5 a month. Unlimited Sends on this machine is an install flag, not a third plan.">
+  <link rel="canonical" href="https://getassureai.com/pricing.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=30">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <a href="/" class="brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#1A4B8C" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        Assure AI
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="/">Home</a>
+        <a href="hallucination-detection.html">Check outputs</a>
+        <a href="/#use-cases">Use cases</a>
+        <a href="pricing.html" class="active" aria-current="page">Pricing</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/install" class="btn">Get started</a>
+      </nav>
+    </header>
+
+    <h1 class="page-title">Pricing</h1>
+    <p class="page-lead">
+      You bring your own API keys. Assure charges for the workbench, not the models.
+      Your API usage is billed directly by Gemini, DeepSeek, Claude, or Kimi.
+      Self-serve. Pro is $5 a month. There is no sales form.
+    </p>
+
+    <div class="pricing pricing-two">
+      <article class="plan">
+        <div class="plan-name">Free</div>
+        <div class="price">$0 <small>/mo</small></div>
+        <ul>
+          <li>10 Sends / day</li>
+          <li>Gemini and DeepSeek</li>
+          <li>7-day history</li>
+        </ul>
+        <a href="/#install" class="btn-sm">Start free</a>
+      </article>
+      <article class="plan featured">
+        <div class="plan-name">Pro</div>
+        <div class="price">$5 <small>/mo</small></div>
+        <ul>
+          <li>100 Sends / day</li>
+          <li>Compare &amp; Validate</li>
+          <li>Full history and export</li>
+        </ul>
+        <a href="/#install" class="btn-sm">Use Pro on this machine</a>
+      </article>
+    </div>
+    <p class="text-small pricing-note">On the Free tier you still pay the provider for tokens used. Pro is $5 a month for the workbench — Compare &amp; Validate, full history, and export — not for API calls.</p>
+    <p class="text-small">Unlimited Sends on this machine is <span class="mono">ASSURE_EDITION=team</span> when you run <span class="mono">assure --web</span>. That is an install flag, not a third plan and not a shared workspace.</p>
+
+    <section class="pricing-faq">
+      <h2 class="section-title">Common questions</h2>
+      <dl class="faq">
+        <div>
+          <dt>Do I need my own API keys?</dt>
+          <dd>
+            Yes. Assure is BYOK. You paste keys into Connect on your machine.
+            Your usage is billed directly by the provider. Assure charges for the workbench, not the models.
+          </dd>
+        </div>
+        <div>
+          <dt>What does Pro include?</dt>
+          <dd>
+            Pro is $5 a month for the workbench: 100 Sends per day, Compare &amp; Validate, full history, and export (Markdown, HTML, PDF, Prompty).
+            It does not include API usage. You still pay Gemini, DeepSeek, Claude, or Kimi for tokens.
+          </dd>
+        </div>
+        <div>
+          <dt>Is Assure open-source?</dt>
+          <dd>
+            The engine (PEM) and <span class="mono">pem</span> CLI are open-source.
+            <a href="/install">Install from source</a> for the free CLI.
+            Assure is the desktop workbench — a paid product built on those foundations.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <p class="trust-lead">There is no sales form. Shared workspaces and SSO are not in this product. Already running? <a href="http://127.0.0.1:8765" data-cta="app">Open the workbench</a>.</p>
+
+    <footer class="footer">
+      <div class="privacy">
+        <span>Copy stays on this computer</span>
+        <span>A Send goes only to the provider you chose</span>
+      </div>
+      <p class="text-small footer-oss">Assure is built on open-source foundations: PEM, LiteLLM, Jinja2. The <span class="mono">pem</span> CLI is free with a <a href="/install">source install</a>. The workbench is a paid product.</p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+    </footer>
+  </div>
+  <script src="assets/site.js?v=29"></script>
+</body>
+</html>

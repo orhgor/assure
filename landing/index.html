@@ -3,22 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Assure AI — Frontier AI on confidential files, without prompt engineering</title>
-  <meta name="description" content="A private desktop workbench for researchers, analysts, and consultants. Type naturally, keep sensitive data on this machine, and get answers traced back to your documents.">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-54F5NE9Y0P"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-54F5NE9Y0P');
+  </script>
+  <title>Assure AI — Verify AI Drafts Against Your Source Documents</title>
+  <meta name="description" content="Paste a draft and upload source PDFs or text. Assure highlights claims not backed by your files using sentence-level NLI. BYOK — keys stay in your browser.">
   <link rel="canonical" href="https://getassureai.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://getassureai.com/">
-  <meta property="og:title" content="Assure AI — Frontier AI on confidential files">
-  <meta property="og:description" content="Type naturally. Keep sensitive data on this machine. Every claim traced back to your documents.">
+  <meta property="og:title" content="Assure AI — Verify AI Drafts Against Your Source Documents">
+  <meta property="og:description" content="Sentence-level NLI grounding against your uploaded files. Green = backed by source. Yellow = inferred.">
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Assure AI — Frontier AI on confidential files">
-  <meta name="twitter:description" content="A private desktop workbench. Verified answers grounded in your files.">
+  <meta name="twitter:title" content="Assure AI — Verify AI Drafts Against Your Source Documents">
+  <meta name="twitter:description" content="Highlight claims not backed by your uploaded files. Multi-model consensus on Pro.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=27">
+  <link rel="stylesheet" href="assets/site.css?v=30">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -28,10 +36,10 @@
     "url": "https://getassureai.com",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Windows, Linux",
-    "description": "Ask vaguely. Assure rewrites the prompt for the AI you chose, then checks the reply against your files.",
+    "description": "Verify AI drafts against uploaded source documents with sentence-level NLI. Green highlights = backed by your file. Yellow = inferred.",
     "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
-      { "@type": "Offer", "name": "Pro", "price": "5", "priceCurrency": "USD" }
+      { "@type": "Offer", "name": "Pro", "price": "19", "priceCurrency": "USD" }
     ]
   }
   </script>
@@ -57,36 +65,35 @@
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="audit.html">Audit</a>
-        <a href="#install" class="btn" data-waitlist-open>Join waitlist</a>
+        <a href="https://app.getassureai.com" class="btn">Launch App</a>
       </nav>
     </header>
 
     <section class="hero">
-      <p class="hero-brand">Assure</p>
       <h1 class="text-lines">
-        <span class="text-line">Use frontier AI on your confidential&nbsp;files</span>
-        <span class="text-line">without prompt engineering or&nbsp;hallucinations.</span>
+        <span class="text-line">Verify AI Drafts Against Your Source&nbsp;Documents.</span>
       </h1>
       <p class="sub text-lines">
-        <span class="text-line">A private desktop workbench for researchers, analysts, and&nbsp;consultants.</span>
-        <span class="text-line">Type naturally, keep sensitive data on this machine, and get answers where every claim is traced back to your&nbsp;documents.</span>
+        <span class="text-line">Paste your client brief, research paper, or report. Assure highlights claims not backed by your uploaded files using sentence-level&nbsp;NLI.</span>
+        <span class="text-line">You bring your own API keys. Keys stay client-side in browser localStorage — never persisted to our&nbsp;database.</span>
       </p>
 
-      <div class="hero-layout">
-        <figure class="verified-mockup" aria-label="Example verified answer (mockup)">
-          <div class="verified-card">
-            <span class="verified-badge">Verified</span>
-            <p class="verified-summary"><strong>Summary:</strong> The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
-            <p class="verified-grounded"><strong>Grounded in:</strong> clinical_trial_A.pdf (p.4), clinical_trial_B.pdf (p.7)</p>
-          </div>
-          <figcaption class="mockup-note">Mockup. The desktop app runs on your machine.</figcaption>
-        </figure>
-
-        <div class="cta-group hero-actions">
-          <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
-          <a href="#translation-demo" class="btn-outline">See how it&nbsp;works</a>
-        </div>
+      <div class="cta-group hero-actions">
+        <a href="https://app.getassureai.com" class="btn-primary">Launch App</a>
+        <a href="#features" class="btn-outline">See what ships&nbsp;today</a>
       </div>
+
+      <figure class="verified-mockup" aria-label="Example: draft text with green and yellow claim highlights (mockup)">
+        <div class="verified-card">
+          <p class="asked-label">You pasted</p>
+          <p class="asked-text">The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
+          <p class="asked-label">Assure checked against your files</p>
+          <span class="verified-badge">Verified</span>
+          <p class="verified-summary"><strong>Green:</strong> 12% and 8% appear in clinical_trial_A.pdf (p.4) and clinical_trial_B.pdf (p.7).</p>
+          <p class="verified-grounded"><strong>Yellow:</strong> General comparison language inferred by the model — not a direct quote from your upload.</p>
+        </div>
+        <figcaption class="mockup-note">Mockup. Green = backed by your file. Yellow = inferred / unsupported.</figcaption>
+      </figure>
     </section>
 
     </div>
@@ -95,28 +102,29 @@
   <div class="container">
 
     <section id="prompt" class="how-it-works reveal">
-      <h2 class="section-title text-lines">
-        <span class="text-line">Talk normally. Stay private. Trust the&nbsp;source.</span>
-      </h2>
+      <h2 class="section-title">Upload sources. Paste a draft. See what is&nbsp;grounded.</h2>
       <div class="steps-grid pillars-grid">
         <div class="how-step">
-          <h3>Talk normally</h3>
-          <p>No prompt engineering required. You type the question as you would to a colleague. Assure transforms it into precise instructions for the AI you&nbsp;choose.</p>
+          <span class="step-number" aria-hidden="true">1</span>
+          <h3>Paste &amp; upload</h3>
+          <p>Paste generated draft text and attach source PDFs or text files from this&nbsp;computer.</p>
         </div>
         <div class="how-step">
-          <h3>Stay private</h3>
-          <p>Runs on this computer. Keys and uploads stay here until you Send. A Send goes only to the provider you connected. Safe for NDAs, IRB reviews, and client&nbsp;confidentiality.</p>
+          <span class="step-number" aria-hidden="true">2</span>
+          <h3>Sentence-level NLI</h3>
+          <p>Fast NLI compares each claim to your upload. Unsupported lines are flagged before you&nbsp;ship.</p>
         </div>
         <div class="how-step">
-          <h3>Trust the source</h3>
-          <p>Every answer is checked against your uploaded files. Unverified claims are flagged before you paste anything into your report or&nbsp;paper.</p>
+          <span class="step-number" aria-hidden="true">3</span>
+          <h3>Visual trust signals</h3>
+          <p><strong>Green</strong> = backed by your file. <strong>Yellow</strong> = general knowledge or&nbsp;inferred.</p>
         </div>
       </div>
     </section>
 
     <section id="translation-demo" class="translation-demo reveal">
-      <h2 class="section-title">See the translation&nbsp;magic</h2>
-      <p class="trust-lead">See how we translate your question behind the scenes. Type anything, and watch us structure it for the&nbsp;AI.</p>
+      <h2 class="section-title">See how we translate your&nbsp;question</h2>
+      <p class="trust-lead">Type anything — the more natural, the better. Watch as we restructure it into a precise prompt for Gemini, Claude, or DeepSeek. No prompt engineering required. Just your words, turned into their&nbsp;language.</p>
 
       <form class="compiler" id="demo-compiler" aria-label="Behind the scenes translation demo">
         <label for="demo-input">Question</label>
@@ -154,19 +162,20 @@
           <summary>For the curious, see the full translation</summary>
           <pre id="demo-output" class="compiler-output compiler-output-collapsed" aria-live="polite"></pre>
         </details>
-        <p class="compiler-note">This preview compiles in your browser. It is not Send. This is the skeleton. The desktop app adds deep file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
+        <p class="compiler-note">This preview translates in your browser. It is not Send. This is the skeleton. The desktop app adds file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
         <div id="demo-history" class="compiler-history"></div>
       </form>
     </section>
 
     <section class="why-matters reveal">
       <h2 class="section-title">Why it&nbsp;matters</h2>
-      <p class="trust-lead">Most AI tools give you a single model's first draft. We ground every answer in the files you provide — so you get defensible output, not confident&nbsp;fiction.</p>
+      <p class="trust-lead">The hardest part of using AI is learning how to talk to it. We make that invisible. You ask in your own words. We translate that into the precise, model-specific instructions that get you a defensible answer. No prompt engineering. No guesswork. Just answers you can&nbsp;defend.</p>
     </section>
 
     <section id="use-cases" class="audience reveal">
       <h2 class="section-title text-lines">
-        <span class="text-line">Built for people who cannot afford a&nbsp;hallucination</span>
+        <span class="text-line">Built for people who don't have time</span>
+        <span class="text-line">to learn prompt&nbsp;engineering.</span>
       </h2>
       <p class="audience-list">
         <a href="use-cases/consultant.html">Consultants</a>
@@ -176,17 +185,17 @@
         <span>Technical writers</span>
         <span>Compliance officers</span>
       </p>
-      <p class="audience-note">If you write reports, analyze data, or make recommendations that have to be defensible, Assure is the&nbsp;workbench.</p>
+      <p class="audience-note">Researchers, analysts, consultants, and knowledge workers. If you need precise, defensible answers — and you don't want to spend hours learning how to ask — this is for&nbsp;you.</p>
     </section>
 
     <section class="trust-row reveal" aria-label="Trust">
       <div class="trust-row-item">
-        <h4>Keys stay here</h4>
-        <p>Keys and copy stay on this computer.</p>
+        <h4>Bring your own keys</h4>
+        <p>Paste Gemini or Claude keys in Settings. They stay in browser localStorage — never in our&nbsp;database.</p>
       </div>
       <div class="trust-row-item">
         <h4>You pick the provider</h4>
-        <p>A Send goes only to the API you connected.</p>
+        <p>A Send goes only to the API you connected. Assure does not bill you for model&nbsp;usage.</p>
       </div>
       <div class="trust-row-item">
         <h4>No vendor lock-in</h4>
@@ -195,43 +204,25 @@
     </section>
 
     <section id="features" class="reveal">
-      <h2 class="section-title">What you&nbsp;get</h2>
+      <h2 class="section-title">What ships&nbsp;today</h2>
       <div class="features">
-        <div class="feature-item">
-          <span class="feature-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="10" cy="10" r="3.5"/><circle cx="22" cy="10" r="3.5"/><circle cx="10" cy="22" r="3.5"/><circle cx="22" cy="22" r="3.5"/>
-            </svg>
-          </span>
-          <h4>Stop merging four chat&nbsp;tabs</h4>
-          <p>Send the same question to more than one model. See where they agree and&nbsp;disagree.</p>
-        </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
               <rect x="8" y="6" width="16" height="20" rx="2"/><path d="M12 14h8M12 18h6" stroke-linecap="round"/><path d="M12 22l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
-          <h4>Check against my files</h4>
-          <p>Drops dates, percents, and publication names that were not in the upload. <a href="hallucination-detection.html">How checking&nbsp;works</a>.</p>
+          <h4>Document grounding</h4>
+          <p>Fast NLI verification comparing generated text directly to source PDFs and text you&nbsp;upload.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <rect x="9" y="14" width="14" height="10" rx="2"/><path d="M12 14v-3a4 4 0 0 1 8 0v3"/>
+              <circle cx="10" cy="10" r="3.5"/><circle cx="22" cy="10" r="3.5"/><circle cx="10" cy="22" r="3.5"/><circle cx="22" cy="22" r="3.5"/>
             </svg>
           </span>
-          <h4>The brief stays on this&nbsp;machine</h4>
-          <p>Keys live in <span class="mono">.env</span>. Copy never calls a provider. A Send goes only to who you&nbsp;picked.</p>
-        </div>
-        <div class="feature-item">
-          <span class="feature-icon" aria-hidden="true">
-            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="16" cy="16" r="10"/><path d="M16 16 L16 8" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="currentColor" stroke="none"/>
-            </svg>
-          </span>
-          <h4>Closed or open, you&nbsp;choose</h4>
-          <p>Closed to the internet keeps the question here. Open, it goes to Gemini, Claude, or whoever you&nbsp;connected.</p>
+          <h4>Multi-model consensus</h4>
+          <p>Cross-verify claims across Claude and Gemini simultaneously on&nbsp;Pro.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -239,17 +230,17 @@
               <path d="M8 18l4 4 4-8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 14h6M18 18h6M18 22h4" stroke-linecap="round"/>
             </svg>
           </span>
-          <h4>Prompt assistance</h4>
-          <p>You type a vague ask. Assure restructures it for the AI you chose. You do not have to learn prompt engineering.</p>
+          <h4>Visual trust signals</h4>
+          <p><strong>Green</strong> = backed by your file. <strong>Yellow</strong> = general knowledge /&nbsp;inferred.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
             <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6">
-              <circle cx="16" cy="16" r="10"/><path d="M16 10v6l4 2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="9" y="14" width="14" height="10" rx="2"/><path d="M12 14v-3a4 4 0 0 1 8 0v3"/>
             </svg>
           </span>
-          <h4>Previous work stays&nbsp;here</h4>
-          <p>History, search, refine, and export on this computer. Seven&nbsp;languages.</p>
+          <h4>Privacy-first BYOK</h4>
+          <p>API keys stored client-side in browser <span class="mono">localStorage</span>. Never persisted to our&nbsp;database.</p>
         </div>
       </div>
     </section>
@@ -258,9 +249,35 @@
       <h2 class="section-title">FAQ</h2>
       <dl class="faq">
         <div>
+          <dt>Do I need my own API keys?</dt>
+          <dd>
+            Yes. Assure is a BYOK (bring your own key) workbench.
+            You paste Gemini, DeepSeek, Claude, or Kimi keys into Connect on your machine.
+            Your usage is billed directly by the provider. Assure charges for the workbench, not the models.
+            On the Free tier you still pay the provider for tokens used.
+          </dd>
+        </div>
+        <div>
+          <dt>Is Assure open-source?</dt>
+          <dd>
+            The engine (PEM) and the <span class="mono">pem</span> CLI are open-source.
+            Install from source with <a href="/install"><span class="mono">./scripts/install.sh</span></a>.
+            Assure is the desktop workbench — prompt assistance, validation, red-hat critique, and export in one app.
+            The workbench is a paid product. The engine is open-source.
+          </dd>
+        </div>
+        <div>
+          <dt>How is Assure different from open-source prompt tools?</dt>
+          <dd>
+            OSS tools give you the engine. Assure gives you the workbench.
+            You do not learn prompt engineering, manage keys across tabs, or write your own validation logic.
+            Compare &amp; Validate, Check against my files, Refine &amp; Verify, history, and export live in one place on this computer.
+          </dd>
+        </div>
+        <div>
           <dt>Is the preview on this page the app?</dt>
           <dd>
-            No. The preview compiles a dialect prompt in your browser. It does not Send.
+            No. The preview translates a dialect prompt in your browser. It does not Send.
             The workbench on your machine attaches files, grounding, and Verify.
             A Send goes only to the provider you connected.
           </dd>
@@ -299,14 +316,11 @@
     </section>
 
     <section id="privacy" class="trust-section reveal">
-      <h2 class="section-title text-lines">
-        <span class="text-line">Runs on your machine.</span>
-        <span class="text-line">You choose closed or&nbsp;open.</span>
-      </h2>
+      <h2 class="section-title">Private by&nbsp;design</h2>
       <p class="trust-lead">
-        Questions, uploaded files, and previous work stay on this computer.
-        Only the compiled prompt goes to the provider you choose.
-        Closed to the internet keeps the question here. Open to the internet, it goes to who you&nbsp;picked.
+        Copy and keys stay on this computer. Assure does not store, train on, or receive your questions.
+        Closed to the internet keeps the question here. Open to the internet, a Send goes only to the provider you picked.
+        That's how the app is built — not a&nbsp;slogan.
       </p>
       <div class="privacy-icons">
         <span>Closed or open</span>
@@ -336,34 +350,35 @@
 
     <section id="pricing" class="reveal">
       <h2 class="section-title">Choose your&nbsp;plan</h2>
-      <p class="trust-lead">One workbench for the models you already pay for. Pro is $5 a&nbsp;month.</p>
+      <p class="trust-lead">You bring your own API keys. Assure charges for the workbench, not the models. Your API usage is billed directly by Gemini, DeepSeek, Claude, or&nbsp;Kimi.</p>
       <div class="pricing">
         <article class="plan">
           <div class="plan-name">Free</div>
-          <div class="price">$0</div>
+          <div class="price">$0 <small>/mo</small></div>
           <ul>
-            <li>10 Sends / day</li>
-            <li>Gemini and DeepSeek</li>
+            <li>5 checks / day</li>
+            <li>Gemini Flash grounding</li>
             <li>7-day history</li>
           </ul>
-          <a href="#install" class="btn-sm">Start free</a>
+          <a href="https://app.getassureai.com" class="btn-sm">Launch App</a>
         </article>
         <article class="plan featured">
           <div class="plan-name">Pro</div>
-          <div class="price">$5 <small>/mo</small></div>
+          <div class="price">$19 <small>/mo</small></div>
           <ul>
-            <li>100 Sends / day</li>
-            <li>Compare &amp; Validate</li>
-            <li>Full history</li>
+            <li>100 checks / day</li>
+            <li>Claude 3.5 + Gemini 1.5 Pro consensus</li>
+            <li>Full SQLite history persistence</li>
           </ul>
           <a href="pricing.html" class="btn-sm">See all&nbsp;plans</a>
         </article>
       </div>
+      <p class="text-small pricing-note">You bring your own API keys. Assure charges for the workbench, not model tokens. Pro is $19/month — API usage is billed by your provider.</p>
     </section>
 
     <section id="install" class="install-section reveal">
       <h2 class="section-title">Quick start</h2>
-      <p class="trust-lead">The workbench runs on this computer. Join the waitlist for a one-click desktop installer when it ships. This website is not the&nbsp;app.</p>
+      <p class="trust-lead">The desktop app is coming. Join the waitlist. This website is not the&nbsp;app.</p>
       <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist.</p>
       <div class="download-row" id="desktop">
         <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
@@ -384,7 +399,7 @@
       <div class="waitlist-backdrop" data-waitlist-close></div>
       <div class="waitlist-panel">
         <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
-        <h2 id="waitlist-title">Get the installer when it is ready</h2>
+        <h2 id="waitlist-title">The desktop app is coming</h2>
         <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install is on the <a href="/install">Install</a> page.</p>
         <form id="waitlist-form" method="post" action="#">
           <label for="waitlist-name">Full Name</label>
@@ -402,11 +417,12 @@
         <span>Copy stays on this computer</span>
         <span>A Send goes only to the provider you chose</span>
       </div>
-      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+      <p class="text-small footer-oss">Assure is built on open-source foundations: PEM, LiteLLM, Jinja2. The <span class="mono">pem</span> CLI is free with a <a href="/install">source install</a>. The workbench is a paid product.</p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
   </div>
-  <script src="assets/compiler.js?v=27"></script>
-  <script src="assets/site.js?v=27"></script>
+  <script src="assets/compiler.js?v=29"></script>
+  <script src="assets/site.js?v=29"></script>
 </body>
 </html>

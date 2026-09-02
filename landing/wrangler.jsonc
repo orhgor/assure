@@ -1,11 +1,37 @@
 {
   "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
-  "name": "assure-ai",
-  // Static marketing site. Deploy from this folder:
-  //   npx wrangler pages deploy . --project-name=assure-ai
-  // Then in Cloudflare: Pages → assure-ai → Custom domains → assure.ai
-  // Point the app later with data-app-origin on <html> (see index.html), or a
-  // Pages env var once a Worker sits in front.
-  "pages_build_output_dir": ".",
-  "compatibility_date": "2026-08-31"
+  "name": "assure",
+  // Static marketing site. GitHub default branch is webpage (site at repo root).
+  // Cloudflare Workers Builds runs: npx wrangler deploy
+  // Live now: https://getassureai.com/ (HTTPS 200 as of 2026-09-01)
+  // Also: https://assure.orhangorenn.workers.dev
+  // www.getassureai.com did not resolve in this lookup.
+  "compatibility_date": "2026-09-01",
+  "main": "worker/index.js",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "getassureai.com", "custom_domain": true },
+    { "pattern": "www.getassureai.com", "custom_domain": true }
+  ],
+  "preview_urls": true,
+  "observability": {
+    "enabled": false
+  },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "404-page",
+    "run_worker_first": [
+      "/api/*",
+      "/privacy",
+      "/privacy/",
+      "/install",
+      "/install/",
+      "/about",
+      "/about/",
+      "/terms",
+      "/terms/"
+    ]
+  }
 }

@@ -103,6 +103,15 @@ class TesterPromptTests(unittest.TestCase):
         self.assertIn("discover -s tests", TEST_COMMAND)
         self.assertNotIn("prompt_matrix/tests", TEST_COMMAND)
 
+    def test_reviewer_prompt_forbids_live_verify(self):
+        from prompt_matrix.swarm import _reviewer_task
+        from prompt_matrix.swarm_lint import LintReport
+
+        text = _reviewer_task("Add waitlist", "spec", "print(1)", lint=LintReport(ok=True))
+        self.assertIn("Local lint: PASS", text)
+        self.assertIn("pem --direct", text)
+        self.assertIn("/api/render", text)
+
     def test_self_test_runs_unittest_not_pytest(self):
         body = (
             "from unittest import TestCase\n"
@@ -355,6 +364,25 @@ class RunSwarmTests(unittest.TestCase):
         self.assertEqual(result.documentation, "Skipped")
         self.assertEqual(len(mocked.call_args_list), 3)
 
+    def test_broken_python_forces_revise_without_reviewer_send(self):
+        broken = _pipe("### web.py\n```\ndef waitlist(\n```\n", "deepseek", "debug")
+        script = ScriptedWorkflow(
+            architect=[_pipe("## Files to write\n- web.py\n", "gemini", "design")],
+            developer=[broken, broken, broken, broken],
+            reviewer=[],
+            tester=[_pipe("tests", "gemini", "debug")],
+            documenter=[_pipe("docs", "claude", "research")],
+        )
+        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+            with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
+                with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
+                    result = run_swarm("Add waitlist")
+        self.assertEqual(result.review_verdict, "Revise")
+        self.assertIs(result.lint_ok, False)
+        self.assertIn("Local lint", result.quality_report)
+        self.assertIn("FAIL", result.quality_report)
+        self.assertFalse(any(intent == "analysis" for intent, _wf, _task in script.calls))
+
     def test_create_pr_false_still_has_diffs_and_patch(self):
         script = ScriptedWorkflow(
             architect=[_pipe("spec")],
@@ -473,6 +501,9 @@ class PerFileAndTruncationTests(unittest.TestCase):
                 _pipe("no close\n"),
                 _pipe("still no\n"),
                 _pipe("nope\n"),
+                _pipe("redhat 1\n"),
+                _pipe("redhat 2\n"),
+                _pipe("redhat 3\n"),
             ],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 0.9\n")],
             tester=[],
@@ -483,6 +514,8 @@ class PerFileAndTruncationTests(unittest.TestCase):
                 result = run_swarm("cut html", skip_tests=True, skip_docs=True)
         self.assertNotIn("templates/index.html", result.files)
         self.assertTrue(any("not applying" in note or "truncated" in note for note in result.notes))
+        self.assertEqual(result.review_verdict, "Revise")
+        self.assertIs(result.lint_ok, False)
 
     def test_accepted_files_drops_cut_html(self):
         blob = "### templates/index.html\n```\n<!DOCTYPE html>\n<html>\n<body>\n<div\n```\n"
@@ -631,6 +664,36 @@ class CliTests(unittest.TestCase):
         kwargs = mocked.call_args.kwargs
         self.assertTrue(kwargs["skip_tests"])
         self.assertTrue(kwargs["skip_docs"])
+
+    def test_apply_flag(self):
+        from prompt_matrix.swarm import SwarmResult, main
+
+        fake = SwarmResult(task="x", summary="ok\n")
+        buf = io.StringIO()
+        with patch("prompt_matrix.swarm.run_swarm", return_value=fake) as mocked:
+            with patch("sys.stdout", buf):
+                main(["--task", "x", "--apply"])
+        self.assertTrue(mocked.call_args.kwargs["apply_workspace"])
+
+
+class ContextAndApplyTests(unittest.TestCase):
+    def test_load_context_resolves_bare_name(self):
+        from prompt_matrix.swarm import load_context
+
+        blob, originals, notes = load_context(["web.py"])
+        self.assertTrue(any("prompt_matrix/web.py" in key for key in originals))
+        self.assertTrue(any("Resolved context" in note for note in notes) or "prompt_matrix/web.py" in originals)
+
+    def test_write_workspace_files_and_reject_traversal(self):
+        from prompt_matrix.patch_apply import PatchError, write_workspace_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            msg = write_workspace_files({"ok.py": "x = 1\n"}, root=root)
+            self.assertIn("ok.py", msg)
+            self.assertEqual((root / "ok.py").read_text(encoding="utf-8"), "x = 1\n")
+            with self.assertRaises(PatchError):
+                write_workspace_files({"../escape.py": "nope\n"}, root=root)
 
 
 if __name__ == "__main__":

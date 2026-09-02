@@ -1,6 +1,6 @@
-# Product Hunt launch copy
+# Product Hunt
 
-ICP: privacy-conscious consultants, researchers, and analysts. Canonical draft also lives in `launch/product-hunt.md`.
+ICP: privacy-conscious consultants, researchers, and analysts. Tagline stays the product line.
 
 Tagline: A trusted answer starts with the right question.
 
@@ -25,8 +25,9 @@ Install from the repo, then `assure --web`. Your browser should open. First run:
 ## Differentiators
 
 - Local-first compile. Keys and copy stay on this computer.
-- You pick the provider. A Send goes only to the API you connected. There is no second Assure cloud.
+- You pick the provider. A Send goes only to the API you connected.
 - No vendor lock-in. Gemini, DeepSeek, Claude, Kimi, or closed to the internet.
+- Overlap view plus a citation pass. Not a new model.
 
 ## What it is not
 

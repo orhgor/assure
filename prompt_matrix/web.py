@@ -337,6 +337,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def _cloud_login():
         return protect_request()
 
+    def _apply_browser_api_keys() -> None:
+        """Apply in-memory BYOK keys from request headers. Never logged or persisted."""
+        gemini = (request.headers.get("X-Gemini-Key") or "").strip()
+        claude = (request.headers.get("X-Claude-Key") or "").strip()
+        if not gemini and not claude:
+            return
+        blob: dict[str, str] = {}
+        if gemini:
+            blob["GEMINI_API_KEY"] = gemini
+            blob["GOOGLE_API_KEY"] = gemini
+        if claude:
+            blob["ANTHROPIC_API_KEY"] = claude
+            blob["CLAUDE_API_KEY"] = claude
+        from flask import g
+
+        g.browser_api_keys = blob
+
     def _page(template: str, active: str, **extra):
         lang = _locale()
         session["lang"] = lang
@@ -862,6 +879,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
         if not target or not intent or not task:
             return jsonify({"error": "Pick a target, an intent, and write a task."}), 400
 
+        _apply_browser_api_keys()
+
         try:
             from .cloud_billing import is_cloud_mode
             from .editions import current_edition
@@ -917,10 +936,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from editions import snapshot
         try:
-            from .quality import audit_spans, confidence_text, models_from_steps
+            from .quality import audit_spans, confidence_text, models_from_steps, models_used_from_steps
         except ImportError:
-            from quality import audit_spans, confidence_text, models_from_steps
+            from quality import audit_spans, confidence_text, models_from_steps, models_used_from_steps
         models = models_from_steps(result.steps, result.target_ai)
+        models_used = models_used_from_steps(result.steps)
         qdict = dict(result.quality) if isinstance(result.quality, dict) else {}
         if files_attached and file_context:
             spans = audit_spans(result.reply or "", file_context)
@@ -964,6 +984,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "inferred_spans": spans["inferred_spans"],
                 "files_attached": files_attached,
                 "models": models,
+                "models_used": models_used,
                 "confidence_text": conf,
                 "run_hash": result.run_hash,
                 "edition": snapshot(load_matrix().runtime.edition),
@@ -1004,7 +1025,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         out = apply_feedback(run_hash, rating, vid)
         if not out.get("ok"):
             return jsonify({"error": out.get("error") or "Could not save feedback."}), 400
-        return jsonify(out)
+        return jsonify({**out, "status": "ok"}), 200
 
     def _history_plan():
         try:

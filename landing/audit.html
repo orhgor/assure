@@ -3,18 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-54F5NE9Y0P"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-54F5NE9Y0P');
+  </script>
   <title>Product audit · Assure AI</title>
   <meta name="description" content="Revision status for Assure. Counts and statuses are taken from the product and landing in this tree.">
-  <link rel="canonical" href="https://assure.ai/audit.html">
+  <link rel="canonical" href="https://getassureai.com/audit.html">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://assure.ai/audit.html">
+  <meta property="og:url" content="https://getassureai.com/audit.html">
   <meta property="og:title" content="Product audit · Assure AI">
   <meta property="og:description" content="Revision status for Assure. Taken from the product and landing in this tree.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=30">
 </head>
 <body>
   <div class="container">
@@ -28,9 +36,10 @@
       </a>
       <nav class="nav" aria-label="Main">
         <a href="/">Home</a>
-        <a href="/#privacy">Privacy</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
         <a href="audit.html" class="active" aria-current="page">Audit</a>
-        <a href="http://127.0.0.1:8765" class="btn" data-cta="app">Get started</a>
+        <a href="/install" class="btn">Get started</a>
       </nav>
     </header>
 
@@ -106,7 +115,7 @@
       <div class="audit-item" id="rev-privacy">
         <div class="feature">
           Privacy lock copy
-          <span class="sub">Your data stays on your machine</span>
+          <span class="sub">Copy stays on this computer. A Send goes to the chosen provider.</span>
         </div>
         <span class="priority">P0</span>
         <span><span class="status-badge status-done">Done</span></span>
@@ -183,7 +192,7 @@
       <div class="audit-item" id="rev-landing">
         <div class="feature">
           Landing page
-          <span class="sub">assure.ai. Centered layout. IBM Plex.</span>
+          <span class="sub">getassureai.com. Centered layout. IBM Plex.</span>
         </div>
         <span class="priority">P0</span>
         <span><span class="status-badge status-done">Done</span></span>
@@ -205,14 +214,14 @@
 
     <footer class="footer">
       <div class="privacy">
-        <span>Your data stays on your machine</span>
-        <span>Send only to your chosen provider</span>
-        <span>Audit last updated 31 August&nbsp;2026</span>
+        <span>Copy stays on this computer</span>
+        <span>A Send goes only to the provider you chose</span>
+        <span>Audit last updated 1 September&nbsp;2026</span>
       </div>
-      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved.</p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
   </div>
-  <script src="assets/site.js?v=8"></script>
+  <script src="assets/site.js?v=29"></script>
 </body>
 </html>

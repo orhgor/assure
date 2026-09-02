@@ -30,7 +30,10 @@ class ToolRegistryTests(unittest.TestCase):
         self.assertIn("pem_compile", names)
         self.assertIn("pem_combine", names)
         self.assertIn("swarm_develop", names)
-        self.assertIn("apply_patch", names)
+        self.assertIn("swarm_start", names)
+        self.assertIn("swarm_status", names)
+        self.assertIn("pem_apply_diff", names)
+        self.assertNotIn("apply_patch", names)
         schema = next(item for item in TOOLS if item["name"] == "swarm_develop")
         self.assertIn("task", schema["inputSchema"]["required"])
         props = schema["inputSchema"]["properties"]
@@ -50,19 +53,21 @@ class ToolRegistryTests(unittest.TestCase):
         reply = _handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         names = [item["name"] for item in reply["result"]["tools"]]
         self.assertIn("swarm_develop", names)
+        self.assertIn("swarm_status", names)
+        self.assertIn("pem_apply_diff", names)
 
     def test_initialize_mentions_swarm(self):
         reply = _handle({"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {}})
         text = reply["result"]["instructions"]
-        self.assertIn("swarm_develop", text)
-        self.assertIn("apply_patch", text)
+        self.assertIn("swarm_status", text)
+        self.assertIn("pem_apply_diff", text)
         self.assertIn("stdio-only", text)
 
     def test_unknown_tool_lists_swarm(self):
         with self.assertRaises(MatrixError) as ctx:
             _call_tool("not_a_tool", {})
-        self.assertIn("swarm_develop", str(ctx.exception))
-        self.assertIn("apply_patch", str(ctx.exception))
+        self.assertIn("swarm_status", str(ctx.exception))
+        self.assertIn("pem_apply_diff", str(ctx.exception))
 
 
 class SwarmDevelopToolTests(unittest.TestCase):
@@ -98,6 +103,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
                     "skip_docs": False,
                     "create_pr": False,
                     "direct": True,
+                    "background": False,
                 },
             )
         mocked.assert_called_once()
@@ -112,6 +118,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
         self.assertTrue(kwargs["direct"])
         self.assertIn("Add a button", text)
         self.assertIn("self-test: Pass", text)
+        self.assertIn("local_lint: not run", text)
         self.assertIn("===== QUALITY REPORT =====", text)
         self.assertIn("Apply complete diffs", text)
         header = text.split("===== QUALITY REPORT =====")[0]
@@ -127,7 +134,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
         with patch("prompt_matrix.swarm.run_swarm", return_value=fake) as mocked:
             text = _call_tool(
                 "swarm_develop",
-                {"task": "x", "skip_tests": True, "skip_docs": True},
+                {"task": "x", "skip_tests": True, "skip_docs": True, "background": False},
             )
         kwargs = mocked.call_args.kwargs
         self.assertTrue(kwargs["skip_tests"])
@@ -142,7 +149,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
         with patch("prompt_matrix.swarm.run_swarm", return_value=fake) as mocked:
             _call_tool(
                 "swarm_develop",
-                {"task": "x", "target_models": ["reviewer=claude", "tester=gemini"]},
+                {"task": "x", "target_models": ["reviewer=claude", "tester=gemini"], "background": False},
             )
         self.assertEqual(
             mocked.call_args.kwargs["target_models"],
@@ -161,7 +168,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
         os.environ.pop("ASSURE_EDITION", None)
         try:
             with patch("prompt_matrix.swarm.run_swarm", side_effect=capture):
-                _call_tool("swarm_develop", {"task": "x", "edition": "pro"})
+                _call_tool("swarm_develop", {"task": "x", "edition": "pro", "background": False})
             self.assertEqual(seen["edition"], "pro")
             self.assertIsNone(os.environ.get("ASSURE_EDITION"))
         finally:
@@ -172,7 +179,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
 
     def test_bad_edition(self):
         with self.assertRaises(MatrixError):
-            _call_tool("swarm_develop", {"task": "x", "edition": "enterprise"})
+            _call_tool("swarm_develop", {"task": "x", "edition": "enterprise", "background": False})
 
     def test_tools_call_is_error_on_failure(self):
         with patch("prompt_matrix.swarm.run_swarm", side_effect=MatrixError("boom")):
@@ -181,7 +188,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
                     "jsonrpc": "2.0",
                     "id": 9,
                     "method": "tools/call",
-                    "params": {"name": "swarm_develop", "arguments": {"task": "x"}},
+                    "params": {"name": "swarm_develop", "arguments": {"task": "x", "background": False}},
                 }
             )
         self.assertTrue(reply["result"]["isError"])
@@ -249,6 +256,9 @@ class ApplyPatchToolTests(unittest.TestCase):
         with self.assertRaises(MatrixError) as ctx:
             _call_tool("apply_patch", {})
         self.assertIn("diff", str(ctx.exception))
+        with self.assertRaises(MatrixError) as ctx:
+            _call_tool("pem_apply_diff", {})
+        self.assertIn("diff", str(ctx.exception))
 
     def test_applies_fixture_diff(self):
         import difflib
@@ -265,7 +275,7 @@ class ApplyPatchToolTests(unittest.TestCase):
                 )
             )
             with patch("prompt_matrix.mcp_server.REPO_ROOT", root):
-                text = _call_tool("apply_patch", {"diff": diff})
+                text = _call_tool("pem_apply_diff", {"diff": diff})
             self.assertIn("hello.txt", text)
             self.assertEqual((root / "hello.txt").read_text(encoding="utf-8"), "hello world\n")
 
@@ -274,8 +284,34 @@ class ApplyPatchToolTests(unittest.TestCase):
             _call_tool("apply_patch", {"diff": "*** Begin Patch\n*** Update File: x.py\n"})
 
     def test_schema_lists_diff(self):
-        schema = next(item for item in TOOLS if item["name"] == "apply_patch")
+        schema = next(item for item in TOOLS if item["name"] == "pem_apply_diff")
         self.assertIn("diff", schema["inputSchema"]["required"])
+
+
+class BackgroundSwarmToolTests(unittest.TestCase):
+    def test_default_background_starts_a_job(self):
+        fake = {
+            "id": "abc123",
+            "status": "queued",
+            "phase": "queued",
+            "task": "x",
+            "error": "",
+            "applied": None,
+            "patch": "",
+            "verdict": "",
+            "report": "",
+            "started_at": 0,
+        }
+        with patch("prompt_matrix.swarm_job.start_job", return_value=fake) as mocked:
+            text = _call_tool("swarm_develop", {"task": "x"})
+        mocked.assert_called_once()
+        self.assertIn("status: queued", text)
+        self.assertIn("swarm_status", text)
+
+    def test_swarm_status_idle(self):
+        with patch("prompt_matrix.swarm_job.current_job", return_value=None):
+            text = _call_tool("swarm_status", {})
+        self.assertIn("status: idle", text)
 
 
 if __name__ == "__main__":

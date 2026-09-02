@@ -68,12 +68,19 @@ class HistoryDiffRouteTests(unittest.TestCase):
         self.db = Path(self.tmp.name) / "history.sqlite"
         self.patcher = patch.object(history, "DB_PATH", self.db)
         self.patcher.start()
+        self._clerk = patch.dict(
+            "os.environ",
+            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""},
+            clear=False,
+        )
+        self._clerk.start()
         from prompt_matrix.web import create_app
 
         self.app = create_app(require_auth=False)
         self.client = self.app.test_client()
 
     def tearDown(self):
+        self._clerk.stop()
         self.patcher.stop()
         self.tmp.cleanup()
 

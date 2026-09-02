@@ -20,8 +20,8 @@
       <h1 data-i18n="nav.library">{{ gettext('Prompt Library') }}</h1>
       <p class="lede" data-i18n="classes.lead">{{ gettext('Saved templates for Compose.') }}</p>
       {% else %}
-      <h1 data-i18n="hero.title">{{ gettext('A trusted answer starts with the right question.') }}</h1>
-      <p class="lede" data-i18n="lede">{{ gettext('Write your question or topic.') }}</p>
+      <h1 data-i18n="hero.title">{{ gettext('Verify drafts against your source documents.') }}</h1>
+      <p class="lede" data-i18n="lede">{{ gettext('Paste generated draft text and upload source files to verify claims.') }}</p>
       <p class="how-restructure" data-i18n="how.restructure">{{ gettext('You type a question. Assure rewrites it for the AI you chose. The panel below shows the prompt as you type. Get my answer sends it to that provider. Copy stays on this computer.') }}</p>
       {% endif %}
     </div>
@@ -40,9 +40,9 @@
         <a href="/connect" data-i18n="first.run">{{ gettext('Connect a provider to use Get my answer.') }}</a>
       </p>
       <div class="upgrade-banner" id="upgrade-banner" hidden>
-        <p id="upgrade-text" data-i18n="error.quota">{{ gettext('Free allows 10 sends per day. Upgrade to Pro for 100.') }}</p>
+        <p id="upgrade-text" data-i18n="error.quota">{{ gettext('Free allows 5 checks per day. Upgrade to Pro for 100.') }}</p>
         <a class="btn btn-primary" id="upgrade-link" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
-        <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $5 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
+        <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $19 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
       </div>
       <div class="layout">
         <form id="form">
@@ -78,7 +78,7 @@
               <option value="technical" data-i18n="audience.technical">{{ gettext('Technical') }}</option>
             </select>
             <p class="hint" id="audience-hint" data-i18n="audience.hint">{{ gettext('Shapes tone and length. Executive is short and plain. Technical goes deep.') }}</p>
-            <textarea id="task" class="form-control" required placeholder="{{ gettext('Write your question or topic...') }}" data-i18n-placeholder="task.placeholder"></textarea>
+            <textarea id="task" class="form-control" required placeholder="{{ gettext('Paste generated draft text and upload source files to verify claims.') }}" data-i18n-placeholder="task.placeholder"></textarea>
             <div class="intent-row" id="intent-row">
               <span class="intent-label" data-i18n="intent.auto">{{ gettext('Auto') }}</span>
               <div class="intent-chips" id="intent-chips" role="group" aria-label="{{ gettext('What do you need?') }}"></div>
@@ -236,7 +236,7 @@
               <span class="verified-badge idle" id="verified-badge" data-i18n="answer.badge.ready">{{ gettext('Answer ready') }}</span>
               <button class="btn btn-outline ghost" type="button" id="copy-answer" hidden data-i18n="answer.copy">{{ gettext('Copy answer') }}</button>
             </div>
-            <p class="hint" id="answer-hint" data-i18n="answer.placeholder">{{ gettext('Ask your first question. The compiled prompt is restructured for each model. The verified answer appears here.') }}</p>
+            <p class="hint" id="answer-hint" data-i18n="answer.placeholder">{{ gettext('Paste a draft, attach source files, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</p>
             <div class="run-busy" id="run-busy" hidden>
               <span class="spinner" aria-hidden="true"></span>
               <span id="run-busy-text" data-i18n="working">{{ gettext('Working…') }}</span>
@@ -248,7 +248,7 @@
                   <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
                   <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span data-i18n="answer.placeholder">{{ gettext('Ask your first question. The compiled prompt is restructured for each model. The verified answer appears here.') }}</span>
+                <span data-i18n="answer.placeholder">{{ gettext('Paste a draft, attach source files, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</span>
                 <div class="mock-answer" aria-hidden="true">
                   <p class="mock-kicker" data-i18n="answer.example.kicker">{{ gettext('What a verified answer looks like') }}</p>
                   <p class="mock-headline" data-i18n="answer.example.headline">{{ gettext('Where the models agree for this client') }}</p>
@@ -260,8 +260,8 @@
               </div>
             </div>
             <div id="audit-legend" class="audit-legend" hidden>
-              <span><span class="dot green" aria-hidden="true"></span><span data-i18n="audit.grounded">{{ gettext('Grounded: directly from your files') }}</span></span>
-              <span><span class="dot yellow" aria-hidden="true"></span><span data-i18n="audit.inferred">{{ gettext('Inferred: synthesised by the model') }}</span></span>
+              <span><span class="dot green" aria-hidden="true"></span><span data-i18n="audit.grounded">{{ gettext('Green — grounded in your source') }}</span></span>
+              <span><span class="dot yellow" aria-hidden="true"></span><span data-i18n="audit.inferred">{{ gettext('Yellow — inferred / unsupported') }}</span></span>
             </div>
             <ul class="trust-strip" id="trust-strip" hidden></ul>
             <p class="confidence-line" id="confidence-line" hidden></p>
@@ -269,8 +269,13 @@
               <div class="follow-chips" id="follow-chips"></div>
             </div>
             <div class="feedback-section" id="feedback-section" hidden>
+              <div class="feedback-thumbs" id="feedback-thumbs">
+                <span class="feedback-label" data-i18n="feedback.ask">{{ gettext('Was this answer helpful?') }}</span>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-up" aria-label="{{ gettext('Thumbs up, helpful') }}" data-i18n-aria="feedback.yes_aria">👍</button>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-down" aria-label="{{ gettext('Thumbs down, not helpful') }}" data-i18n-aria="feedback.no_aria">👎</button>
+              </div>
               <button type="button" class="btn btn-outline" id="refine-answer" data-i18n="refine">{{ gettext('Refine this answer') }}</button>
-              <span class="feedback-thanks" id="feedback-thanks" hidden data-i18n="feedback.thanks">{{ gettext('Thanks!') }}</span>
+              <span class="feedback-thanks" id="feedback-thanks" hidden data-i18n="feedback.thanks_full">{{ gettext('Thanks for your feedback!') }}</span>
             </div>
             <div class="diff-wrap" id="diff-wrap" hidden>
               <div class="output-head">
@@ -422,6 +427,20 @@
       <button class="btn btn-primary primary" type="button" id="export-go" data-i18n="history.export.go">{{ gettext('Export') }}</button>
     </div>
   </dialog>
+  <dialog class="work-dialog" id="settings-modal">
+    <div class="output-head">
+      <h2 data-i18n="settings.title">{{ gettext('API keys') }}</h2>
+      <button class="btn btn-outline ghost" type="button" id="settings-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+    </div>
+    <p class="hint settings-banner bad" id="settings-keys-banner" hidden data-i18n="settings.keys_required">{{ gettext('Please provide at least one provider API key to run verification.') }}</p>
+    <label class="section" for="settings-gemini-key" data-i18n="settings.gemini">{{ gettext('Gemini API Key') }}</label>
+    <input type="password" id="settings-gemini-key" class="form-control" autocomplete="off" placeholder="AIzaSy..." data-i18n-placeholder="settings.gemini_ph">
+    <label class="section" for="settings-claude-key" data-i18n="settings.claude">{{ gettext('Claude API Key') }}</label>
+    <input type="password" id="settings-claude-key" class="form-control" autocomplete="off" placeholder="sk-ant-..." data-i18n-placeholder="settings.claude_ph">
+    <div class="row">
+      <button class="btn btn-primary primary" type="button" id="settings-save" data-i18n="settings.save">{{ gettext('Save Keys') }}</button>
+    </div>
+  </dialog>
 {% endblock %}
 {% block scripts %}
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -463,7 +482,7 @@
       lastRunHash: "",
       lastVariationId: null,
       personas: [],
-      edition: { id: "free", max_ensemble: 2, allow_diff: false, daily_sends: 10, sends_today: 0, personas: ["redhat"], export_formats: [] },
+      edition: { id: "free", max_ensemble: 1, allow_diff: false, daily_sends: 5, sends_today: 0, personas: ["redhat"], export_formats: [] },
       locale: "en",
       strings: {},
       catalogTargets: [],
@@ -474,6 +493,7 @@
       intentAuto: true,
       userPickedNet: false,
     };
+    window.state = state;
 
     const $ = (id) => document.getElementById(id);
     if ($("addr")) $("addr").textContent = location.origin;
@@ -641,7 +661,7 @@
       }
       const hint = $("ensemble-box") && $("ensemble-box").querySelector(".hint");
       if (hint && edition.id === "free") {
-        hint.textContent = t("then.free", "Free uses two models (Gemini and DeepSeek when both are live). Pro unlocks the rest.");
+        hint.textContent = t("then.free", "Free uses Gemini Flash grounding. Pro unlocks Claude + Gemini consensus.");
       }
       const ensemble = $("wf-ensemble");
       if (ensemble) {
@@ -1115,8 +1135,8 @@
       const text = $("upgrade-text");
       if (show && text) {
         text.textContent = proLimit
-          ? t("error.quota.pro", "You've reached today's Pro limit (100 Sends). Team and Self-hosted are unlimited. Set ASSURE_EDITION=team or wait until tomorrow UTC.")
-          : t("error.quota", "Free allows 10 sends per day. Upgrade to Pro for 100.");
+          ? t("error.quota.pro", "You've reached today's Pro limit (100 checks). Team and Self-hosted are unlimited. Set ASSURE_EDITION=team or wait until tomorrow UTC.")
+          : t("error.quota", "Free allows 5 checks per day. Upgrade to Pro for 100.");
       }
     }
 
@@ -1178,6 +1198,12 @@
         line.textContent = (data.confidence_text && String(data.confidence_text).trim()) || pending;
         line.hidden = false;
       }
+      if (window.AssureUI && window.AssureUI.paintModelAttribution) {
+        window.AssureUI.paintModelAttribution(data);
+      }
+      if (window.AssureUI && window.AssureUI.updateGroundDisplay) {
+        window.AssureUI.updateGroundDisplay(data);
+      }
       paintFollowups(state.intent);
     }
 
@@ -1227,6 +1253,9 @@
       const task = $("task").value.trim();
       if (!task) {
         setStatus(t("error.task", "Write a question or topic first."), "bad");
+        return;
+      }
+      if (window.AssureKeys && !window.AssureKeys.requireBrowserKeysOrOpenSettings()) {
         return;
       }
       const context = [$("context").value.trim(), state.fileText].filter(Boolean).join("\n\n");
@@ -1573,6 +1602,8 @@
       sec.hidden = true;
       const thanks = $("feedback-thanks");
       if (thanks) thanks.hidden = true;
+      const thumbs = $("feedback-thumbs");
+      if (thumbs) thumbs.hidden = true;
       const refine = $("refine-answer");
       if (refine) refine.hidden = false;
       state.lastRunHash = "";
@@ -1592,6 +1623,8 @@
         state.lastVariationId = data.variation_id == null ? null : data.variation_id;
         $("answer").dataset.runHash = hash;
         sec.hidden = false;
+        const thumbs = $("feedback-thumbs");
+        if (thumbs) thumbs.hidden = false;
         if ($("refine-answer")) $("refine-answer").hidden = false;
         $("feedback-thanks").hidden = true;
         applyI18n();
@@ -2572,6 +2605,9 @@
       if (state.historyItem) deleteHistory(state.historyItem.id);
     });
     $("export-go").addEventListener("click", runExport);
+    if (window.AssureUI && window.AssureUI.bindFeedbackThumbs) {
+      window.AssureUI.bindFeedbackThumbs(sendFeedback);
+    }
 
     loadI18n().then(() => Promise.all([loadCatalog(), loadLibrary(), loadStatus(), loadHealth()])).then(() => {
       const start = document.body.getAttribute("data-pane") || "compose";
