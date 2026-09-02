@@ -42,6 +42,7 @@ def supabase_url() -> str:
 
 
 def supabase_key() -> str:
+    """Prefer the server write key. New Console names first, then the old ones."""
     return (
         (os.environ.get("SUPABASE_SECRET_KEY") or "").strip()
         or (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()

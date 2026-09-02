@@ -907,6 +907,23 @@ ES = {
     "follow.1.analysis": "¿Qué demuestra esto?",
     "follow.2.analysis": "¿Qué no demuestra esto?",
     "follow.3.analysis": "¿Intervalo de confianza?",
+    # diff panel
+    "diff": "Borrador vs final",
+    "diff.attempt": "Intento",
+    "diff.critique": "Notas de crítica que impulsaron la reescritura",
+    # prompt / save
+    "prompt.copy": "Copiar el prompt",
+    "save.class": "Guardar este prompt como clase",
+    "save.new": "O escribe un nombre de clase nuevo",
+    "save": "Guardar",
+    # model targeting
+    "target.first": "1. Primero",
+    "target.attempt": "Modelo de intento",
+    # answer panel
+    "answer.hint": "Esta es la salida del modelo. No la pegues de vuelta en esta página.",
+    # errors
+    "error.catalog": "No se pudo cargar el catálogo",
+    "error.classes": "No se pudieron cargar las clases",
 }
 
 ZH = {
@@ -1342,6 +1359,23 @@ ZH = {
     "follow.1.analysis": "这证明了什么？",
     "follow.2.analysis": "这不能证明什么？",
     "follow.3.analysis": "置信区间？",
+    # diff panel
+    "diff": "草稿 vs 最终",
+    "diff.attempt": "初稿",
+    "diff.critique": "推动重写的批评笔记",
+    # prompt / save
+    "prompt.copy": "复制提示词",
+    "save.class": "将此提示词保存为类",
+    "save.new": "或输入新类名",
+    "save": "保存",
+    # model targeting
+    "target.first": "1. 首选",
+    "target.attempt": "尝试模型",
+    # answer panel
+    "answer.hint": "这是模型输出。不要将其粘贴回此页面。",
+    # errors
+    "error.catalog": "无法加载目录",
+    "error.classes": "无法加载类",
 }
 
 FR = {
@@ -1777,6 +1811,23 @@ FR = {
     "follow.1.analysis": "Qu'est-ce que cela prouve ?",
     "follow.2.analysis": "Qu'est-ce que cela ne prouve pas ?",
     "follow.3.analysis": "Intervalle de confiance ?",
+    # diff panel
+    "diff": "Brouillon vs final",
+    "diff.attempt": "Tentative",
+    "diff.critique": "Notes de critique qui ont guidé la réécriture",
+    # prompt / save
+    "prompt.copy": "Copier le prompt",
+    "save.class": "Enregistrer ce prompt en classe",
+    "save.new": "Ou tapez un nouveau nom de classe",
+    "save": "Enregistrer",
+    # model targeting
+    "target.first": "1. Premier",
+    "target.attempt": "Modèle d'essai",
+    # answer panel
+    "answer.hint": "Ceci est la sortie du modèle. Ne la recollez pas dans cette page.",
+    # errors
+    "error.catalog": "Impossible de charger le catalogue",
+    "error.classes": "Impossible de charger les classes",
 }
 
 DE = {
@@ -2212,6 +2263,23 @@ DE = {
     "follow.1.analysis": "Was belegt das?",
     "follow.2.analysis": "Was belegt das nicht?",
     "follow.3.analysis": "Konfidenzintervall?",
+    # diff panel
+    "diff": "Entwurf vs. Final",
+    "diff.attempt": "Versuch",
+    "diff.critique": "Kritiknotizen, die das Umschreiben angetrieben haben",
+    # prompt / save
+    "prompt.copy": "Prompt kopieren",
+    "save.class": "Diesen Prompt als Klasse speichern",
+    "save.new": "Oder gib einen neuen Klassennamen ein",
+    "save": "Speichern",
+    # model targeting
+    "target.first": "1. Erster",
+    "target.attempt": "Versuchsmodell",
+    # answer panel
+    "answer.hint": "Das ist die Modellausgabe. Füge sie nicht zurück in diese Seite ein.",
+    # errors
+    "error.catalog": "Katalog konnte nicht geladen werden",
+    "error.classes": "Klassen konnten nicht geladen werden",
 }
 
 JA = {
@@ -2647,6 +2715,23 @@ JA = {
     "follow.1.analysis": "これは何を証明する？",
     "follow.2.analysis": "これは何を証明しない？",
     "follow.3.analysis": "信頼区間は？",
+    # diff panel
+    "diff": "下書き vs 最終",
+    "diff.attempt": "試み",
+    "diff.critique": "書き直しを促した批評メモ",
+    # prompt / save
+    "prompt.copy": "プロンプトをコピー",
+    "save.class": "このプロンプトをクラスとして保存",
+    "save.new": "または新しいクラス名を入力",
+    "save": "保存",
+    # model targeting
+    "target.first": "1. 最初",
+    "target.attempt": "試行モデル",
+    # answer panel
+    "answer.hint": "これはモデルの出力です。このページに貼り返さないでください。",
+    # errors
+    "error.catalog": "カタログを読み込めませんでした",
+    "error.classes": "クラスを読み込めませんでした",
 }
 
 TR = {
@@ -3088,6 +3173,23 @@ TR = {
     "follow.2.analysis": "Bu neyi kanıtlamaz?",
     "follow.3.analysis": "Güven aralığı?",
     "step.3.hint": "Assure, seçtiğin yapay zeka için soruyu yeniden yapılandırır. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtımı al gönderir. Kopya bu bilgisayarda kalır.",
+    # diff panel
+    "diff": "Taslak ile nihai",
+    "diff.attempt": "Deneme",
+    "diff.critique": "Yeniden yazmayı yönlendiren eleştiri notları",
+    # prompt / save
+    "prompt.copy": "Promptu kopyala",
+    "save.class": "Bu promptu sınıf olarak kaydet",
+    "save.new": "Ya da yeni bir sınıf adı yaz",
+    "save": "Kaydet",
+    # model targeting
+    "target.first": "1. Birinci",
+    "target.attempt": "Deneme modeli",
+    # answer panel
+    "answer.hint": "Bu model çıktısıdır. Bu sayfaya geri yapıştırmayın.",
+    # errors
+    "error.catalog": "Katalog yüklenemedi",
+    "error.classes": "Sınıflar yüklenemedi",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}

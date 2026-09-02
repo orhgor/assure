@@ -185,6 +185,31 @@ def safe_relpath(raw: str, root: Path) -> Path:
     return dest
 
 
+def write_workspace_files(
+    files: dict[str, str],
+    *,
+    root: Path | None = None,
+    dry_run: bool = False,
+) -> str:
+    """Write accepted path → body pairs under root. Rejects traversal and truncated dumps."""
+    root_r = (root or Path.cwd()).resolve()
+    written: list[str] = []
+    for raw, body in (files or {}).items():
+        report = dump_is_truncated(body or "", path=raw)
+        if report:
+            raise PatchError(f"not writing {raw}: {'; '.join(report.reasons)}")
+        dest = safe_relpath(str(raw), root_r)
+        text = body if (body or "").endswith("\n") else (body or "") + "\n"
+        if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(text, encoding="utf-8")
+        written.append(str(raw).replace("\\", "/"))
+    if not written:
+        raise PatchError("no files to write.")
+    mode = "dry-run" if dry_run else "wrote"
+    return f"{mode}: {', '.join(written)}"
+
+
 def diff_target_paths(diff: str) -> list[str]:
     """Relative paths a unified diff would write (b/ side)."""
     found: list[str] = []

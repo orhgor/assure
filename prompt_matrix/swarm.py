@@ -8,7 +8,9 @@ other. ``run_workflow`` is blocking, so those calls go through
 
 Each role uses a PEM intent. Live targets and edition persona clamps stay in
 the pipeline. Domain and case come only from the user's task and attached
-files.
+files. Before Keep, a local lint pass runs py_compile, SQL paren checks,
+import vs requirements, and patch integrity. It does not Send, hit
+``/api/render``, or call Supabase/Stripe.
 """
 
 from __future__ import annotations
@@ -24,6 +26,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextvars import ContextVar, Token
+from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -37,7 +41,10 @@ try:
         parse_planned_paths,
         stitch_continuation,
         truncation_reason_for_body,
+        write_workspace_files,
+        PatchError,
     )
+    from .swarm_lint import LintReport, local_lint
     from .pipelines import PipelineResult, run_workflow
     from .route import live_targets
 except ImportError:
@@ -49,9 +56,12 @@ except ImportError:
         parse_planned_paths,
         stitch_continuation,
         truncation_reason_for_body,
+        write_workspace_files,
+        PatchError,
     )
     from pipelines import PipelineResult, run_workflow
     from route import live_targets
+    from swarm_lint import LintReport, local_lint
 
 ROLES = ("architect", "developer", "reviewer", "tester", "documenter")
 
@@ -84,6 +94,9 @@ MAX_DEV_PARALLEL = 1
 TEST_COMMAND = "python -m unittest discover -s tests"
 LOG_NAME = "prompt_matrix.swarm"
 COVERAGE_UNAVAILABLE = "Data not available in current context."
+_PROGRESS_HOOK: ContextVar[Callable[[str], None] | None] = ContextVar(
+    "swarm_progress_hook", default=None
+)
 _TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]+\.py|[^/]+_test\.py)$")
 
 _VERDICT_LINE = re.compile(r"^\s*verdict\s*[:\-]\s*(keep|revise|reject)\b", re.IGNORECASE | re.MULTILINE)
@@ -130,6 +143,7 @@ class SwarmConfig(BaseModel):
     min_confidence: float = MIN_CONFIDENCE
     skip_tests: bool = False
     skip_docs: bool = False
+    apply_workspace: bool = False
 
 
 class TestResults(BaseModel):
@@ -166,6 +180,9 @@ class SwarmResult(BaseModel):
     confidence: float = 0.0
     run_hash: str = ""
     patch_path: str | None = None
+    lint_ok: bool | None = None
+    lint_errors: list[str] = Field(default_factory=list)
+    applied: bool = False
 
     @property
     def code(self) -> dict[str, str]:
@@ -204,6 +221,7 @@ def run_swarm(
     min_confidence: float = MIN_CONFIDENCE,
     skip_tests: bool = False,
     skip_docs: bool = False,
+    apply_workspace: bool = False,
 ) -> SwarmResult:
     """Synchronous wrapper. Phase 1-2 sequential. Phase 3: tester+unittest beside documenter."""
     rounds = max_redhat_rounds if max_redhat_iterations is None else max_redhat_iterations
@@ -225,6 +243,7 @@ def run_swarm(
                 min_confidence=min_confidence,
                 skip_tests=skip_tests,
                 skip_docs=skip_docs,
+                apply_workspace=apply_workspace,
             )
         )
     raise MatrixError("run_swarm() cannot nest inside a running event loop. Await run_swarm_async().")
@@ -246,6 +265,7 @@ async def run_swarm_async(
     min_confidence: float = MIN_CONFIDENCE,
     skip_tests: bool = False,
     skip_docs: bool = False,
+    apply_workspace: bool = False,
 ) -> SwarmResult:
     """Architect → developer → reviewer (then red-hat). Tester+unittest beside documenter."""
     if max_redhat_iterations is not None:
@@ -267,6 +287,7 @@ async def run_swarm_async(
         min_confidence=min_confidence,
         skip_tests=skip_tests,
         skip_docs=skip_docs,
+        apply_workspace=apply_workspace,
     )
     log = _logger()
     file_context, originals, file_notes = load_context(cfg.context_files)
@@ -443,9 +464,18 @@ def run_developer_jobs(
     return steps
 
 
-def run_reviewer(task: str, spec: str, code: str, context: str, bindings, cfg: SwarmConfig) -> SwarmStep:
+def run_reviewer(
+    task: str,
+    spec: str,
+    code: str,
+    context: str,
+    bindings,
+    cfg: SwarmConfig,
+    *,
+    lint: LintReport | None = None,
+) -> SwarmStep:
     _progress(f"reviewer on {bindings['reviewer'][0]}")
-    return _call("reviewer", _reviewer_task(task, spec, code), context, bindings, cfg=cfg)
+    return _call("reviewer", _reviewer_task(task, spec, code, lint=lint), context, bindings, cfg=cfg)
 
 
 def run_redhat_loop(
@@ -455,24 +485,52 @@ def run_redhat_loop(
     bindings,
     originals: dict[str, str] | None = None,
 ) -> SwarmResult:
-    """Review, then red-hat rewrite until Keep or max rounds."""
-    del originals
+    """Review, then red-hat rewrite until Keep or max rounds.
+
+    Local lint runs before the reviewer Send. A lint failure is Revise with no
+    reviewer model call.
+    """
+    originals = originals or {}
     cap = max(0, int(cfg.max_redhat_rounds))
     rounds = 0
     _progress("phase 2: review and red-hat if needed")
     while True:
-        rev = run_reviewer(cfg.task, result.spec, result.implementation, context, bindings, cfg)
-        _ingest(result, rev)
-        review_text = rev.reply or ""
-        verdict, confidence = parse_review(review_text)
-        result.review = review_text
-        result.review_verdict = verdict
-        result.review_confidence = confidence
-        _logger().info("review verdict=%s confidence=%s", verdict, confidence)
-        if verdict == "Keep" or rounds >= cap:
+        diffs = file_diffs(originals, result.files)
+        lint = local_lint(
+            result.files,
+            spec=result.spec,
+            implementation=result.implementation,
+            diffs=diffs,
+        )
+        result.lint_ok = lint.ok
+        result.lint_errors = list(lint.errors)
+        if lint.ok:
+            _progress("local lint pass")
+            rev = run_reviewer(
+                cfg.task, result.spec, result.implementation, context, bindings, cfg, lint=lint
+            )
+            _ingest(result, rev)
+            review_text = rev.reply or ""
+            verdict, confidence = parse_review(review_text)
+            result.review = review_text
+            result.review_verdict = verdict
+            result.review_confidence = confidence
+            if rev.error and not review_text:
+                result.notes.append(rev.error or "Reviewer did not reply.")
+        else:
+            _progress("local lint fail; skipping reviewer Send")
+            review_text = _lint_revise_review(lint)
+            verdict, confidence = parse_review(review_text)
+            result.review = review_text
+            result.review_verdict = "Revise"
+            result.review_confidence = 0.0
+            result.notes.append("local lint failed; Keep blocked")
+        _logger().info("review verdict=%s confidence=%s lint=%s", verdict, confidence, lint.ok)
+        if result.review_verdict == "Keep" and not lint.ok:
+            result.review_verdict = "Revise"
+        if result.review_verdict == "Keep" or rounds >= cap:
             break
-        if not review_text and rev.error:
-            result.notes.append(rev.error or "Reviewer did not reply.")
+        if lint.ok and not review_text:
             break
         rounds += 1
         result.redhat_rounds = rounds
@@ -552,25 +610,58 @@ def load_context(paths: list[str] | None) -> tuple[str, dict[str, str], list[str
     originals: dict[str, str] = {}
     notes: list[str] = []
     chunks: list[str] = []
+    root = Path(__file__).resolve().parent.parent
     for raw in paths or []:
         label = str(raw).strip()
         if not label:
             continue
-        path = Path(label).expanduser()
+        resolved = _resolve_context_path(label, root)
+        if resolved is None:
+            notes.append(f"Missing context file: {label}")
+            continue
         try:
-            if not path.is_file():
-                notes.append(f"Missing context file: {label}")
-                continue
-            data = path.read_bytes()
+            data = resolved.read_bytes()
             if len(data) > MAX_FILE_BYTES:
                 data = data[:MAX_FILE_BYTES] + b"\n... [truncated]\n"
             text = data.decode("utf-8", errors="replace")
         except OSError as exc:
             notes.append(f"Could not read {label}: {exc}")
             continue
-        originals[label] = text
-        chunks.append(f"===== {label} =====\n{text}")
+        try:
+            key = str(resolved.relative_to(root)).replace("\\", "/")
+        except ValueError:
+            key = label
+        if key != label:
+            notes.append(f"Resolved context {label} -> {key}")
+        originals[key] = text
+        chunks.append(f"===== {key} =====\n{text}")
     return "\n\n".join(chunks), originals, notes
+
+
+def _resolve_context_path(label: str, root: Path) -> Path | None:
+    raw = Path(label).expanduser()
+    candidates: list[Path] = []
+    if raw.is_absolute():
+        candidates.append(raw)
+    else:
+        candidates.extend((Path.cwd() / raw, root / raw))
+        posix = str(raw).replace("\\", "/")
+        if "/" not in posix:
+            candidates.append(root / "prompt_matrix" / posix)
+            candidates.append(root / "prompt_matrix" / "templates" / posix)
+    seen: set[str] = set()
+    for path in candidates:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        marker = str(resolved)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        if resolved.is_file():
+            return resolved
+    return None
 
 
 load_context_files = load_context
@@ -815,6 +906,20 @@ def generate_summary(result: SwarmResult, originals: dict[str, str] | None = Non
         parts.extend(["", "## Diffs"])
         for path, diff in result.diffs.items():
             parts.extend(["", f"### {path}", "```diff", diff.rstrip(), "```"])
+    lint_line = "not run"
+    if result.lint_ok is True:
+        lint_line = "PASS"
+    elif result.lint_ok is False:
+        lint_line = "FAIL"
+    parts.extend(
+        [
+            "",
+            "## Local lint",
+            lint_line,
+        ]
+    )
+    if result.lint_errors:
+        parts.extend(f"- {item.splitlines()[0]}" for item in result.lint_errors)
     rev_conf = "n/a" if result.review_confidence is None else f"{result.review_confidence:.2f}"
     approved_line = "approved (Keep)" if approved else f"not approved ({result.review_verdict or 'none'})"
     parts.extend(
@@ -863,6 +968,9 @@ def create_pull_request(result: SwarmResult, *, enabled: bool, min_confidence: f
     result.patch_path = str(patch_path)
     _logger().info("wrote patch %s (%s bytes)", patch_path, patch_path.stat().st_size)
     if not enabled:
+        return str(patch_path)
+    if result.lint_ok is False:
+        result.notes.append(f"Skipped gh: local lint failed. Patch is at {patch_path}.")
         return str(patch_path)
     if result.confidence < min_confidence:
         result.notes.append(
@@ -992,8 +1100,29 @@ def _finalize(result: SwarmResult, originals: dict[str, str], cfg: SwarmConfig, 
     )
     result.summary = generate_summary(result, originals)
     create_pull_request(result, enabled=cfg.create_pr, min_confidence=cfg.min_confidence)
+    _apply_workspace(result, cfg)
     result.summary = generate_summary(result, originals)
     _write_log_tail(log, result)
+
+
+def _apply_workspace(result: SwarmResult, cfg: SwarmConfig) -> None:
+    if not cfg.apply_workspace:
+        return
+    root = Path(__file__).resolve().parent.parent
+    if result.lint_ok is False:
+        result.notes.append("workspace not written: local lint failed. Patch is at logs/swarm.patch.")
+        result.applied = False
+        return
+    if not result.files:
+        result.applied = False
+        return
+    try:
+        note = write_workspace_files(result.files, root=root)
+        result.notes.append("workspace " + note)
+        result.applied = True
+    except PatchError as exc:
+        result.notes.append(f"workspace not written: {exc}")
+        result.applied = False
 
 
 def _call(
@@ -1029,6 +1158,10 @@ def _call(
         round=cycle,
     )
     reset_completion_meta()
+    hop = int(ROLE_TIMEOUT_SECONDS.get(role) or 60)
+    workflow_sec = hop * 3 + 45 if workflow == "redhat" else hop + 45
+    previous_wf = os.environ.get("PEM_WORKFLOW_TIMEOUT")
+    os.environ["PEM_WORKFLOW_TIMEOUT"] = str(max(workflow_sec, 90))
     try:
         with role_output_limits(
             max_tokens=ROLE_MAX_TOKENS.get(role),
@@ -1054,6 +1187,11 @@ def _call(
         step.error = str(exc)
         log.error("%s failed: %s", role, exc)
         return step
+    finally:
+        if previous_wf is None:
+            os.environ.pop("PEM_WORKFLOW_TIMEOUT", None)
+        else:
+            os.environ["PEM_WORKFLOW_TIMEOUT"] = previous_wf
 
     step.target_ai = pipe.target_ai
     step.model = pipe.routed_model or model
@@ -1270,10 +1408,32 @@ def _developer_prompt(
     )
 
 
-def _reviewer_task(task: str, spec: str, code: str) -> str:
+def _lint_revise_review(lint: LintReport) -> str:
+    return (
+        "Verdict: Revise\n"
+        "Confidence: 0.0\n"
+        "Local lint failed. The developer must fix these before Keep. "
+        "Do not run pem --direct, pem eval, /api/render, or live API calls.\n"
+        + lint.text()
+    )
+
+
+def _reviewer_task(task: str, spec: str, code: str, *, lint: LintReport | None = None) -> str:
+    lint_block = (
+        (lint.text() if lint is not None else "Local lint: not run.")
+        + "\nLocal lint is compile-time only. Do not run pem --direct, pem eval, "
+        "/api/render, or live Supabase/Stripe/LLM calls to verify this code.\n"
+        "Lint PASS is not a Keep. Review the design against the spec.\n"
+        "If a dump is truncated mid-function, verdict must be Revise.\n"
+    )
     return (
         "Review this implementation for bugs, security issues, style violations, "
         "and completeness against the spec.\n\n"
+        "Before you finalize Keep or Revise:\n"
+        "1. Use the local lint result below (already run on the patched files).\n"
+        "2. If lint failed, verdict is Revise and list the lint errors.\n"
+        "3. If lint passed, still do the architectural review.\n\n"
+        f"{lint_block}\n"
         "End with exactly these two lines:\n"
         "Verdict: Keep | Revise | Reject\n"
         "Confidence: <number between 0 and 1>\n"
@@ -1470,6 +1630,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Assure edition (or ASSURE_EDITION). Default from config / env.",
     )
     parser.add_argument("--skip-tests", action="store_true", help="Skip tester and unittest self-test")
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        dest="apply_workspace",
+        help="Write accepted files into the repo after lint. Default is patch-only (logs/swarm.patch).",
+    )
     parser.add_argument("--skip-docs", action="store_true", help="Skip documenter")
     return parser
 
@@ -1511,6 +1677,7 @@ def main(argv: list[str] | None = None) -> int:
             min_confidence=float(args.min_confidence),
             skip_tests=bool(args.skip_tests),
             skip_docs=bool(args.skip_docs),
+            apply_workspace=bool(args.apply_workspace),
         )
     except MatrixError as exc:
         print(str(exc), file=sys.stderr)
@@ -1524,8 +1691,24 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def set_progress_hook(fn: Callable[[str], None] | None) -> Token:
+    """Used by the background MCP job to surface phase text on swarm_status."""
+    return _PROGRESS_HOOK.set(fn)
+
+
+def reset_progress_hook(token: Token) -> None:
+    _PROGRESS_HOOK.reset(token)
+
+
 def _progress(message: str) -> None:
     print(f"[Swarm] {message}", file=sys.stderr)
+    hook = _PROGRESS_HOOK.get()
+    if hook is None:
+        return
+    try:
+        hook(message)
+    except Exception:
+        return
 
 
 def _normalize_confidence(value: float, unit: str | None) -> float:

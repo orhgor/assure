@@ -17,8 +17,12 @@ try:
 except ImportError:
     from engine import MatrixError, load_matrix
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-DEFAULT_LIBRARY_PATH = PACKAGE_DIR / "library.json"
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+DEFAULT_LIBRARY_PATH = user_data_dir() / "library.json"
 _LOCK = threading.Lock()
 
 _XML_BLOCK = re.compile(

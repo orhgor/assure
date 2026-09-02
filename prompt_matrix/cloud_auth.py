@@ -19,20 +19,34 @@ from typing import Any
 from flask import jsonify, redirect, request, session
 
 CLERK_API = "https://api.clerk.com/v1"
-PROTECTED_HTML = frozenset({"/", "/compose", "/connect"})
+PROTECTED_HTML = frozenset({"/", "/compose"})
 PUBLIC_API = frozenset(
     {
         "/api/health",
         "/api/status",
+        "/api/keys",
         "/api/i18n",
         "/api/auth/config",
         "/api/auth/session",
         "/api/auth/logout",
         "/api/auth/me",
         "/api/webhook/stripe",
+        "/api/webhooks/stripe",
+        "/api/waitlist",
     }
 )
-PUBLIC_HTML = frozenset({"/signin", "/signup", "/signout", "/pricing", "/privacy", "/about", "/terms"})
+PUBLIC_HTML = frozenset(
+    {
+        "/signin",
+        "/signup",
+        "/signout",
+        "/pricing",
+        "/privacy",
+        "/about",
+        "/terms",
+        "/connect",
+    }
+)
 
 
 class AuthError(ValueError):

@@ -41,19 +41,22 @@ python -m prompt_matrix.swarm \
 
 ## Cursor MCP
 
-`swarm_develop` is a tool on the existing PEM MCP server. So is `apply_patch` (unified diff, no live APIs). Cursor Settings → MCP, reload the `pem` server after a code change. There is no `pem mcp swarm_develop` CLI. MCP tools are stdio-only (`pem mcp` or `python -m prompt_matrix.mcp_server`).
+Call `swarm_start` (or `swarm_develop`) then poll `swarm_status` until `done` or `error`. Do not wait on one MCP call for architect through documenter — Cursor times that out (`-32001`).
+
+`pem_apply_diff` lands a leftover unified diff. Cursor hides the tool name `apply_patch`; use `pem_apply_diff`. Reload the `pem` server after a code change. There is no `pem mcp swarm_develop` CLI. MCP tools are stdio-only (`pem mcp` or `python -m prompt_matrix.mcp_server`).
 
 For a second repo, copy `prompt_matrix/mcp.example.json` and set `command`, `cwd`, and `PYTHONPATH` to that checkout. Keys load from `prompt_matrix/.env` (`GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, `MOONSHOT_API_KEY` or `KIMI_API_KEY`). Do not put key values in the JSON. Do not `alwaysAllow` this tool.
 
 Example agent call:
 
 ```
-tool: swarm_develop
+tool: swarm_start
 task: Add feedback buttons below each answer
-context_files: ["templates/index.html", "web.py", "history.py"]
-max_redhat_iterations: 3
-skip_tests: false
-skip_docs: false
+context_files: ["prompt_matrix/templates/index.html", "prompt_matrix/web.py", "prompt_matrix/history.py"]
+edition: team
+apply_workspace: true
+
+tool: swarm_status
 ```
 
 CLI remains:
@@ -62,7 +65,7 @@ CLI remains:
 python -m prompt_matrix.swarm --task "..." --context-files ...
 ```
 
-The MCP result starts with a short header (verdict, self-test, file sizes) then the quality report. Truncated dumps are continued or dropped. Apply complete diffs from the report, `logs/swarm.patch`, or MCP `apply_patch`. Do not paste a truncated dump into `index.html`. If tests were skipped, the header says `self-test: skipped` and must not be read as a pass.
+The MCP result starts with a short header (verdict, self-test, file sizes) then the quality report. Truncated dumps are continued or dropped. Apply complete diffs from the report, `logs/swarm.patch`, or MCP `pem_apply_diff`. Do not paste a truncated dump into `index.html`. If tests were skipped, the header says `self-test: skipped` and must not be read as a pass.
 
 From Python:
 
@@ -88,11 +91,13 @@ print(result.quality_report)
 5. If the verdict is not Keep, a red-hat rewrite runs, up to 3 times. After 3 Rejects, tests and docs still run. The report must not say the review was approved.
 6. Phase 3 runs two lanes at once (`asyncio.to_thread`, because `run_workflow` is blocking). One lane is tester then unittest. The other is documenter. `--skip-tests` and `--skip-docs` skip those agents.
 7. Self-test runs `python -m unittest discover -s tests` on extracted test files in a temp directory. It does not overwrite the live tree. On failure the developer gets the unittest output, up to 3 extra fixes. Those unittest rounds overlap with the documenter when both lanes run.
-8. Quality report and `logs/swarm.log` record the task, spec, code, diffs or new files, verdict, self-test, coverage (only if a TOTAL line was printed), and overall confidence.
-9. `--pr` writes `logs/swarm.patch`. If overall confidence is at least `--min-confidence`, the swarm may try `gh pr create`. It does not `git add`, commit, push, or change git config. If `gh` is missing or there is no branch with commits, you still have the patch. MCP `apply_patch` applies that unified diff to the workspace without live APIs. It rejects path traversal and truncated dumps.
+8. Before the reviewer Send, local lint runs on the patched files: `python -m py_compile` on `.py`, parenthesis check on `.sql`, third-party imports vs `requirements.txt` / `pyproject.toml`, and patch integrity (planned paths present, diffs non-empty, no truncated dump). A lint failure is **Revise** with no reviewer model call. It does not run `pem --direct`, `pem eval`, `/api/render`, or live Supabase/Stripe.
+9. Quality report and `logs/swarm.log` record the task, spec, code, diffs or new files, local lint, verdict, self-test, coverage (only if a TOTAL line was printed), and overall confidence.
+10. `--pr` writes `logs/swarm.patch`. If overall confidence is at least `--min-confidence` and lint passed, the swarm may try `gh pr create`. It does not `git add`, commit, push, or change git config. If `gh` is missing or there is no branch with commits, you still have the patch. MCP `pem_apply_diff` applies that unified diff to the workspace without live APIs. It rejects path traversal and truncated dumps.
 
 ## Quality gates
 
+- Local lint must pass before Keep. Syntax, SQL parens, undeclared imports, and empty/truncated patches force Revise. No live Sends.
 - Unittest must pass, or the report says it failed after 3 fix loops, or that tests were skipped.
 - Reviewer Keep (via red-hat) is approval. Reject after 3 is a failed gate.
 - Docs always run.
@@ -122,4 +127,5 @@ Coverage percentages are included only when a coverage TOTAL line was printed. O
 - All step outputs are appended to `logs/swarm.log`.
 - `--pr` writes a patch. It does not promise a GitHub PR.
 - Developer output cap is at least 16384 tokens. Architect lists `## Files to write`; the developer writes one path per completion.
-- Truncated dumps continue (up to 4) or are dropped. MCP `apply_patch` rejects traversal and cut diffs.
+- Truncated dumps continue (up to 4) or are dropped. MCP `pem_apply_diff` rejects traversal and cut diffs.
+- Local lint (`py_compile`, SQL parens, imports, patch integrity) runs before the reviewer Send. Lint failure is Revise and does not call the reviewer model.

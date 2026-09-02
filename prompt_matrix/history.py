@@ -23,6 +23,90 @@ except ImportError:
 DB_PATH = user_data_dir() / "history.sqlite"
 
 
+def _apply_pragmas(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+
+
+def _new_connection() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    _apply_pragmas(conn)
+    return conn
+
+
+def get_db() -> sqlite3.Connection:
+    """Request-scoped SQLite handle in Flask; standalone connection elsewhere."""
+    try:
+        from flask import g, has_app_context
+
+        if has_app_context():
+            db = g.get("db")
+            if db is None:
+                db = _new_connection()
+                g.db = db
+            return db
+    except ImportError:
+        pass
+    return _new_connection()
+
+
+def close_db(e=None) -> None:
+    try:
+        from flask import g, has_app_context
+
+        if has_app_context():
+            db = g.pop("db", None)
+            if db is not None:
+                db.close()
+    except ImportError:
+        pass
+
+
+def ensure_user_subscriptions_table(conn: sqlite3.Connection | None = None) -> None:
+    db = conn or get_db()
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_subscriptions (
+            clerk_user_id TEXT PRIMARY KEY,
+            tier TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def upsert_user_subscription(clerk_user_id: str, tier: str) -> None:
+    user_id = (clerk_user_id or "").strip()
+    if not user_id:
+        return
+    db = get_db()
+    standalone = True
+    try:
+        from flask import has_app_context
+
+        standalone = not has_app_context()
+    except ImportError:
+        pass
+    try:
+        ensure_user_subscriptions_table(db)
+        db.execute(
+            """
+            INSERT INTO user_subscriptions (clerk_user_id, tier, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(clerk_user_id) DO UPDATE SET
+                tier = excluded.tier,
+                updated_at = datetime('now')
+            """,
+            (user_id, tier),
+        )
+        db.commit()
+    finally:
+        if standalone:
+            db.close()
+
+
 def history_enabled(flag: bool = False) -> bool:
     if flag:
         return True
@@ -39,7 +123,7 @@ def run_hash(compiled_prompt: str) -> str:
 
 def migrate_to_full_storage() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         conn.execute(
             """
@@ -77,7 +161,7 @@ def store_full_run(
     if not force and not store_prompts_enabled():
         return
     migrate_to_full_storage()
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         conn.execute(
             """
@@ -124,8 +208,7 @@ def record_run(
     edition: str | None = None,
     context: str | None = None,
 ) -> int:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_executions(conn)
         prompt = prompt or ""
@@ -179,7 +262,7 @@ def prune_old_executions(days: int) -> None:
     if not DB_PATH.exists():
         return
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if "executions" not in tables:
@@ -202,8 +285,7 @@ def _ensure_sends_table(conn: sqlite3.Connection) -> None:
 
 
 def count_sends_today() -> int:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_sends_table(conn)
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -214,8 +296,7 @@ def count_sends_today() -> int:
 
 
 def record_send() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_sends_table(conn)
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -275,10 +356,7 @@ def _ensure_token_columns(conn: sqlite3.Connection) -> None:
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    return _new_connection()
 
 
 def _parse_ts(value: str | None) -> datetime | None:

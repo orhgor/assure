@@ -9,6 +9,7 @@ as a hidden Send (judge stays unused so quota and cost stay honest).
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import asdict, dataclass, field
 
@@ -119,22 +120,39 @@ def token_efficiency(core: float, total_tokens: int) -> float:
     return round(min(1.0, (core * 400.0) / tokens), 4)
 
 
+def audit_body(reply: str) -> str:
+    """Text the highlighter measures. Structured JSON uses the answer field."""
+    text = reply or ""
+    blob = text.strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", blob, re.S)
+    if fence:
+        blob = fence.group(1).strip()
+    try:
+        obj = json.loads(blob)
+    except (TypeError, ValueError):
+        return text
+    if isinstance(obj, dict):
+        answer = obj.get("answer")
+        if isinstance(answer, str) and answer.strip():
+            return answer
+    return text
+
+
 def audit_spans(reply: str, context: str) -> dict[str, list[dict[str, int]]]:
     """Character offsets for grounded (file-backed) vs inferred sentences.
 
-    Empty lists when there is no reply or no uploaded context so the UI hides
-    the legend. Headings from the FINAL layout pin a section; otherwise a line
-    is grounded when enough of its words appear in the files.
+    Empty lists when there is no reply or no file context so the UI hides the
+    legend. Section headings are skipped (neutral). A body line is grounded
+    only when enough of its words appear in the files — a VERIFIED heading
+    does not paint the rest of the section green.
     """
-    text = reply or ""
+    text = audit_body(reply)
     ctx = (context or "").strip()
     grounded: list[dict[str, int]] = []
     inferred: list[dict[str, int]] = []
     if not text.strip() or not ctx:
         return {"grounded_spans": grounded, "inferred_spans": inferred}
     allowed = ctx.casefold()
-    section = "findings"
-    pos = 0
 
     def line_grounded(line: str) -> bool:
         if _supported_by_context(line, allowed):
@@ -145,6 +163,7 @@ def audit_spans(reply: str, context: str) -> dict[str, list[dict[str, int]]]:
         hits = sum(1 for word in words if word in allowed)
         return hits / len(words) >= 0.5
 
+    pos = 0
     for raw in text.splitlines(keepends=True):
         start = pos
         end = pos + len(raw)
@@ -154,18 +173,12 @@ def audit_spans(reply: str, context: str) -> dict[str, list[dict[str, int]]]:
             continue
         if "data not available" in stripped.casefold():
             continue
-        key = _heading_key(stripped)
-        if key:
-            section = key
+        if _heading_key(stripped):
             continue
-        if section in {"verified"}:
-            kind = "grounded"
-        elif section in {"inferred", "questions"}:
-            kind = "inferred"
-        elif line_grounded(stripped):
-            kind = "grounded"
-        else:
-            kind = "inferred"
+        folded = re.sub(r"^[#*_\s]+", "", stripped).casefold()
+        if folded.startswith(("verified findings", "inferred", "thesis", "open questions")):
+            continue
+        kind = "grounded" if line_grounded(stripped) else "inferred"
         vis_end = end
         while vis_end > start and text[vis_end - 1] in "\r\n":
             vis_end -= 1

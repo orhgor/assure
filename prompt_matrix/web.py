@@ -208,6 +208,34 @@ def create_app(*, require_auth: bool = True) -> Flask:
         static_url_path="/static",
         template_folder=str(TEMPLATES_DIR),
     )
+    try:
+        from flask_cors import CORS
+
+        CORS(
+            app,
+            origins=[
+                "https://getassureai.com",
+                "https://www.getassureai.com",
+                "https://app.getassureai.com",
+                "http://127.0.0.1:8765",
+                "http://localhost:8765",
+            ],
+            allow_headers=[
+                "Content-Type",
+                "Authorization",
+                "X-Gemini-Key",
+                "X-Claude-Key",
+            ],
+            supports_credentials=True,
+        )
+    except ImportError:
+        pass
+    try:
+        from .history import close_db
+    except ImportError:
+        from history import close_db
+
+    app.teardown_appcontext(close_db)
     app.secret_key = os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
     app.config["BABEL_DEFAULT_LOCALE"] = "en"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(PACKAGE_DIR / "translations")
@@ -336,7 +364,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def index():
         # Live markup is templates/index.html so Jinja gettext can run.
         # static/index.html is a pointer only. Do not serve it as /.
-        return _page("index.html", "compose", initial_pane="compose")
+        return _page("index.html", "compose", initial_pane="compose", include_pk=True)
 
     @app.get("/compose")
     def compose_redirect():
@@ -510,6 +538,34 @@ def create_app(*, require_auth: bool = True) -> Flask:
             return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
         return jsonify({"url": url})
 
+    @app.post("/api/webhooks/stripe")
+    def stripe_webhooks():
+        try:
+            from .cloud_billing import BillingError, verify_stripe_payload
+            from .history import upsert_user_subscription
+        except ImportError:
+            from cloud_billing import BillingError, verify_stripe_payload
+            from history import upsert_user_subscription
+        payload = request.get_data(as_text=False)
+        header = request.headers.get("Stripe-Signature") or ""
+        try:
+            event = verify_stripe_payload(payload, header)
+        except BillingError as exc:
+            return jsonify({"error": str(exc)}), 400
+        if str(event.get("type") or "") == "checkout.session.completed":
+            obj = event.get("data", {}).get("object") or {}
+            if isinstance(obj, dict):
+                meta = obj.get("metadata") or {}
+                user_id = str(
+                    obj.get("client_reference_id")
+                    or meta.get("clerk_user_id")
+                    or meta.get("user_id")
+                    or ""
+                )
+                if user_id:
+                    upsert_user_subscription(user_id, "pro")
+        return jsonify({"ok": True}), 200
+
     @app.post("/api/webhook/stripe")
     def stripe_webhook():
         try:
@@ -637,7 +693,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.get("/api/health")
     def health():
-        return jsonify(library_status())
+        payload = {"status": "ok"}
+        try:
+            from .runtime import library_status
+        except ImportError:
+            from runtime import library_status
+        try:
+            payload.update(library_status())
+        except Exception:
+            pass
+        return jsonify(payload), 200
 
     @app.route("/api/waitlist", methods=["POST", "OPTIONS"])
     def waitlist():
@@ -791,6 +856,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
         local = bool(data.get("local"))
         cheap = bool(data.get("cheap"))
         audience = str(data.get("audience") or "general").strip().lower() or "general"
+        file_context = str(data.get("file_context") or "").strip()
+        files_attached = bool(data.get("files_attached")) or bool(file_context)
 
         if not target or not intent or not task:
             return jsonify({"error": "Pick a target, an intent, and write a task."}), 400
@@ -850,11 +917,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from editions import snapshot
         try:
-            from .quality import confidence_text, models_from_steps
+            from .quality import audit_spans, confidence_text, models_from_steps
         except ImportError:
-            from quality import confidence_text, models_from_steps
+            from quality import audit_spans, confidence_text, models_from_steps
         models = models_from_steps(result.steps, result.target_ai)
-        qdict = result.quality if isinstance(result.quality, dict) else None
+        qdict = dict(result.quality) if isinstance(result.quality, dict) else {}
+        if files_attached and file_context:
+            spans = audit_spans(result.reply or "", file_context)
+        else:
+            spans = {"grounded_spans": [], "inferred_spans": []}
+        qdict["grounded_spans"] = spans["grounded_spans"]
+        qdict["inferred_spans"] = spans["inferred_spans"]
         conf = confidence_text(
             quality=qdict,
             models=models,
@@ -886,9 +959,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "estimated_cost": result.estimated_cost,
                 "routed_model": result.routed_model,
                 "variation_id": result.variation_id,
-                "quality": result.quality,
-                "grounded_spans": (qdict or {}).get("grounded_spans") or [],
-                "inferred_spans": (qdict or {}).get("inferred_spans") or [],
+                "quality": qdict or None,
+                "grounded_spans": spans["grounded_spans"],
+                "inferred_spans": spans["inferred_spans"],
+                "files_attached": files_attached,
                 "models": models,
                 "confidence_text": conf,
                 "run_hash": result.run_hash,
@@ -1352,3 +1426,7 @@ def _lan_ip() -> str | None:
 
 if __name__ == "__main__":
     raise SystemExit(serve(sys.argv[1:]))
+
+
+# WSGI entry for gunicorn (`prompt_matrix.web:app`).
+app = create_app(require_auth=False)

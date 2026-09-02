@@ -1,7 +1,8 @@
-"""HTTP Basic Auth for the PEM Flask UI.
+"""Sign-in for the PEM Flask UI.
 
-Credentials: PEM_HTTP_USER / PEM_HTTP_PASS in prompt_matrix/.env, or --auth-user / --auth-pass.
-Defaults are admin / changeme. Change them before binding to a LAN address.
+On 127.0.0.1, sign-in is off unless PEM_HTTP_PASS (or --http-pass) is set to
+something other than the old default. Binding to 0.0.0.0 requires a password
+and refuses to start with the default.
 """
 
 from __future__ import annotations
@@ -16,7 +17,9 @@ auth = HTTPBasicAuth()
 
 _users: dict[str, str] = {}
 
-PUBLIC_PATHS = frozenset({"/api/health", "/api/webhook/stripe"})
+PUBLIC_PATHS = frozenset(
+    {"/api/health", "/api/status", "/api/webhook/stripe", "/api/webhooks/stripe", "/api/waitlist"}
+)
 
 
 def refresh_http_users(*, user: str | None = None, password: str | None = None) -> None:

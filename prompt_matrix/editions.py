@@ -23,11 +23,11 @@ EDITIONS = ("free", "pro", "team", "self-hosted")
 # yet, so _() would freeze the first locale that imported this module.
 # Translate at request time with i18n.intent_plain(lang) (en, es, zh, fr, de, ja, tr).
 INTENT_PLAIN = {
-    "research": "Get a structured analysis with evidence.",
-    "design": "Create a plan or blueprint.",
-    "comparison": "Decide between options.",
-    "debug": "Fix a problem.",
-    "analysis": "Understand the numbers.",
+    "research": "Research: structures your question so the AI returns a thesis, verified findings, inferred gaps, and open questions. You do not have to know how to prompt.",
+    "design": "Design: a plan or draft you can hand to someone.",
+    "comparison": "Comparison: two options, with agreement and fights.",
+    "debug": "Debug: Identify and fix a problem.",
+    "analysis": "Analysis: what the numbers mean, and what they do not prove.",
 }
 
 FREE_ENSEMBLE = ("gemini", "deepseek")
@@ -200,7 +200,7 @@ def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
             f"{plan.label} allows {plan.daily_sends} Sends per day. "
             "You've reached today's limit. Pro is 100 Sends per day. "
             "There is no checkout in this app. Set ASSURE_EDITION=pro "
-            "(or team / self-hosted), or open https://assure.ai/pricing (placeholder)."
+            "(or team / self-hosted), or open https://getassureai.com/pricing.html."
         )
 
 

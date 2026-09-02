@@ -181,13 +181,12 @@ TOOLS = [
     {
         "name": "swarm_develop",
         "description": (
-            "Run the development swarm on this repo: architect, developer, reviewer, "
-            "red-hat rewrite loop, then tester plus unittest beside documenter. "
-            "Calls live APIs through run_swarm(). Returns a quality report. "
-            "Developer max_tokens is 16384. Truncated dumps are continued or dropped; "
-            "do not paste a cut dump into index.html. "
-            "Writes logs/swarm.patch. create_pr only adds a gh attempt, not git add/commit/push. "
-            "Developer max_tokens is 16384; truncated dumps are continued or dropped, not applied."
+            "Start the development swarm. Default background=true: returns immediately. "
+            "Then call swarm_status until status is done or error. "
+            "Do not wait on one MCP call for the full pipeline — Cursor will time out. "
+            "Accepted files are written to the workspace after lint (apply_workspace). "
+            "Use pem_apply_diff if applied is false. Cursor hides the name apply_patch. "
+            "Pass background=false only for short compile-only (direct=false) runs."
         ),
         "inputSchema": {
             "type": "object",
@@ -255,17 +254,62 @@ TOOLS = [
                     "description": "Let PEM's cost router pick a cheaper live target.",
                     "default": False,
                 },
+                "background": {
+                    "type": "boolean",
+                    "description": "If true (default), start the swarm on a worker thread and return immediately. Poll swarm_status. If false, block until the pipeline finishes (Cursor will usually time out).",
+                    "default": True,
+                },
+                "apply_workspace": {
+                    "type": "boolean",
+                    "description": "Write accepted files into the repo after local lint. Default true on MCP so work is not left only in logs/swarm.patch.",
+                    "default": True,
+                },
             },
             "required": ["task"],
         },
     },
     {
-        "name": "apply_patch",
+        "name": "swarm_start",
         "description": (
-            "Apply a unified diff to the workspace root. No live APIs. "
-            "Rejects path traversal and truncated dumps (cut fences, PATCH without end, "
-            "finish-reason length leftovers). Do not use this to paste a cut HTML dump "
-            "into index.html."
+            "Start the Assure development swarm in the background. Returns run_id immediately. "
+            "Poll swarm_status until done or error. Same arguments as swarm_develop."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Natural-language feature to build."},
+                "context_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Repo-relative paths. Bare names like web.py resolve under prompt_matrix/.",
+                },
+                "edition": {
+                    "type": "string",
+                    "enum": ["free", "pro", "team", "self-hosted"],
+                },
+                "max_redhat_iterations": {"type": "integer", "default": 3},
+                "skip_tests": {"type": "boolean", "default": False},
+                "skip_docs": {"type": "boolean", "default": False},
+                "direct": {"type": "boolean", "default": True},
+                "apply_workspace": {"type": "boolean", "default": True},
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "swarm_status",
+        "description": (
+            "Read the current background swarm. No live APIs. "
+            "Call after swarm_start until status is done or error."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "pem_apply_diff",
+        "description": (
+            "Land a unified diff on the workspace root. This is the patch tool Cursor lists. "
+            "No live APIs. Rejects path traversal and truncated dumps. "
+            "The name apply_patch is an alias but Cursor hides it from the MCP tool list."
         ),
         "inputSchema": {
             "type": "object",
@@ -301,6 +345,11 @@ def serve_stdio() -> int:
         if message is None:
             return 0
         response = _handle(message)
+        if message.get("method") == "notifications/initialized":
+            _write_message(
+                stdout,
+                {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"},
+            )
         if response is not None:
             _write_message(stdout, response)
 
@@ -318,20 +367,19 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
             "result": {
                 "protocolVersion": client_version if str(client_version).startswith("202") else PROTOCOL,
                 "capabilities": {
-                    "tools": {"listChanged": False},
+                    "tools": {"listChanged": True},
                     "resources": {"listChanged": False},
                     "prompts": {"listChanged": False},
                 },
-                "serverInfo": {"name": "pem", "version": "0.1.0"},
+                "serverInfo": {"name": "pem", "version": "0.3.0"},
                 "instructions": (
                     "PEM compiles prompts and optionally calls Gemini/DeepSeek/Claude/Kimi/Ollama. "
                     "Standalone model calls have no live web search. "
-                    "Use pem_compile to shape a task for a target dialect (no model call). "
-                    "Use pem_combine for two-model draft plus merge. "
-                    "Use pem_critique_rewrite for attempt, persona critique, and final rewrite. "
-        "Use swarm_develop to run the architect/developer/reviewer swarm (live APIs). "
-        "Use apply_patch to apply a complete unified diff to the workspace (no live APIs). "
-        "MCP tools are stdio-only; there is no pem mcp swarm_develop CLI. "
+                    "Product swarm: call swarm_start (or swarm_develop) then poll swarm_status "
+                    "until status is done or error. Do not block on one tools/call for the full "
+                    "pipeline — Cursor times that out. "
+                    "Land leftover diffs with pem_apply_diff (Cursor hides the name apply_patch). "
+                    "MCP tools are stdio-only. "
                     "Intents: research, design, comparison, debug, analysis. "
                     "Personas: " + ", ".join(item["id"] for item in list_personas()) + "."
                 ),
@@ -400,11 +448,16 @@ def _call_tool(name: str, args: dict[str, Any]) -> str:
         return _export(args)
     if name == "swarm_develop":
         return _swarm_develop(args)
-    if name == "apply_patch":
+    if name == "swarm_start":
+        return _swarm_start(args)
+    if name == "swarm_status":
+        return _swarm_status(args)
+    if name in {"pem_apply_diff", "apply_patch"}:
         return _apply_patch(args)
     raise MatrixError(
         "Unknown tool. Use pem_compile, pem_combine, pem_critique_rewrite, "
-        "pem_dialect_lint, pem_export, swarm_develop, or apply_patch."
+        "pem_dialect_lint, pem_export, swarm_start, swarm_status, swarm_develop, "
+        "or pem_apply_diff."
     )
 
 
@@ -555,7 +608,7 @@ _EDITIONS = ("free", "pro", "team", "self-hosted")
 _TRUNC_MARK = "... [truncated]"
 _SWARM_DIFF_WARNING = (
     "Apply complete diffs from this report or from the Patch path below, "
-    "or call apply_patch with that unified diff. "
+    "or call pem_apply_diff with that unified diff. "
     "Truncated dumps are continued or dropped; do not paste a cut dump into index.html."
 )
 
@@ -567,7 +620,7 @@ def _apply_patch(args: dict[str, Any]) -> str:
         from patch_apply import PatchError, apply_unified_diff
     diff = str(args.get("diff") or "")
     if not diff.strip():
-        raise MatrixError("apply_patch needs a unified diff.")
+        raise MatrixError("pem_apply_diff needs a unified diff.")
     try:
         return apply_unified_diff(
             diff,
@@ -578,38 +631,78 @@ def _apply_patch(args: dict[str, Any]) -> str:
         raise MatrixError(str(exc)) from exc
 
 
-def _swarm_develop(args: dict[str, Any]) -> str:
+def _swarm_kwargs(args: dict[str, Any], *, apply_default: bool) -> dict[str, Any]:
     try:
-        from .swarm import MIN_CONFIDENCE, run_swarm
+        from .swarm import MIN_CONFIDENCE
     except ImportError:
-        from swarm import MIN_CONFIDENCE, run_swarm
+        from swarm import MIN_CONFIDENCE
     task = str(args.get("task") or "").strip()
     if not task:
         raise MatrixError("swarm_develop needs a task.")
-    edition = str(args.get("edition") or "").strip().lower()
-    previous_edition = os.environ.get("ASSURE_EDITION")
-    if edition:
-        if edition not in _EDITIONS:
-            raise MatrixError(
-                f"Unknown edition {edition!r}. Use one of: {', '.join(_EDITIONS)}."
-            )
-        os.environ["ASSURE_EDITION"] = edition
     max_rounds = _as_optional_int(args.get("max_redhat_iterations"))
     min_conf = _as_optional_float(args.get("min_confidence"))
-    try:
-        result = run_swarm(
-            task=task,
-            context_files=_as_str_list(args.get("context_files")),
-            target_models=_as_target_models(args.get("target_models")),
-            create_pr=_as_bool(args.get("create_pr"), False),
-            direct=_as_bool(args.get("direct"), True),
-            local=_as_bool(args.get("local"), False),
-            cheap=_as_bool(args.get("cheap"), False),
-            max_redhat_iterations=max_rounds,
-            min_confidence=MIN_CONFIDENCE if min_conf is None else min_conf,
-            skip_tests=_as_bool(args.get("skip_tests"), False),
-            skip_docs=_as_bool(args.get("skip_docs"), False),
+    return {
+        "task": task,
+        "context_files": _as_str_list(args.get("context_files")),
+        "target_models": _as_target_models(args.get("target_models")),
+        "create_pr": _as_bool(args.get("create_pr"), False),
+        "direct": _as_bool(args.get("direct"), True),
+        "local": _as_bool(args.get("local"), False),
+        "cheap": _as_bool(args.get("cheap"), False),
+        "max_redhat_iterations": max_rounds,
+        "min_confidence": MIN_CONFIDENCE if min_conf is None else min_conf,
+        "skip_tests": _as_bool(args.get("skip_tests"), False),
+        "skip_docs": _as_bool(args.get("skip_docs"), False),
+        "apply_workspace": _as_bool(args.get("apply_workspace"), apply_default),
+    }
+
+
+def _edition_arg(args: dict[str, Any]) -> str | None:
+    edition = str(args.get("edition") or "").strip().lower()
+    if not edition:
+        return None
+    if edition not in _EDITIONS:
+        raise MatrixError(
+            f"Unknown edition {edition!r}. Use one of: {', '.join(_EDITIONS)}."
         )
+    return edition
+
+
+def _swarm_start(args: dict[str, Any]) -> str:
+    try:
+        from .swarm_job import format_job, start_job
+    except ImportError:
+        from swarm_job import format_job, start_job
+    kwargs = _swarm_kwargs(args, apply_default=True)
+    try:
+        job = start_job(kwargs, edition=_edition_arg(args))
+    except RuntimeError as exc:
+        raise MatrixError(str(exc)) from exc
+    return format_job(job)
+
+
+def _swarm_status(_args: dict[str, Any]) -> str:
+    try:
+        from .swarm_job import current_job, format_job
+    except ImportError:
+        from swarm_job import current_job, format_job
+    return format_job(current_job())
+
+
+def _swarm_develop(args: dict[str, Any]) -> str:
+    if _as_bool(args.get("background"), True):
+        return _swarm_start(args)
+    try:
+        from .swarm import run_swarm
+    except ImportError:
+        from swarm import run_swarm
+    kwargs = _swarm_kwargs(args, apply_default=False)
+    edition = _edition_arg(args)
+    previous_edition = os.environ.get("ASSURE_EDITION")
+    if edition:
+        os.environ["ASSURE_EDITION"] = edition
+    try:
+        result = run_swarm(**kwargs)
     finally:
         if edition:
             if previous_edition is None:
@@ -632,6 +725,13 @@ def _format_swarm_result(result: Any) -> str:
         test_line = "Fail"
     else:
         test_line = "Not run"
+    lint_ok = getattr(result, "lint_ok", None)
+    if lint_ok is True:
+        lint_line = "PASS"
+    elif lint_ok is False:
+        lint_line = "FAIL"
+    else:
+        lint_line = "not run"
     docs = getattr(result, "documentation", None) or ""
     if docs.strip().lower() == "skipped":
         docs_line = "skipped"
@@ -671,6 +771,7 @@ def _format_swarm_result(result: Any) -> str:
             f"reviewer_confidence: {rev_conf_text}",
             f"overall_confidence: {overall_text}",
             f"self-test: {test_line}",
+            f"local_lint: {lint_line}",
             f"docs: {docs_line}",
             f"files: {', '.join(file_bits) if file_bits else '(none)'}",
             f"patch: {getattr(result, 'patch_path', None) or '(none)'}",

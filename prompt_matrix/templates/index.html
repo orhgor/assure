@@ -424,6 +424,28 @@
   </dialog>
 {% endblock %}
 {% block scripts %}
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  {% if auth is defined and auth.publishable_key %}
+  <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
+  <script>
+    async function initClerk() {
+      var pk = {{ auth.publishable_key|tojson }};
+      if (!pk || !window.Clerk) return;
+      var clerk = new window.Clerk(pk);
+      await clerk.load();
+      window.__assureClerk = clerk;
+      window.getClerkToken = async function () {
+        if (!clerk.session) return null;
+        return await clerk.session.getToken();
+      };
+      var host = location.hostname;
+      var isProd = host !== "localhost" && host !== "127.0.0.1";
+      if (isProd && !clerk.session) {
+        clerk.openSignIn();
+      }
+    }
+  </script>
+  {% endif %}
   <script>
     const state = {
       target: null,
@@ -1208,6 +1230,7 @@
         return;
       }
       const context = [$("context").value.trim(), state.fileText].filter(Boolean).join("\n\n");
+      const fileContext = (state.fileText || "").trim();
         $("go").disabled = true;
         if (window.AssureUI) window.AssureUI.setControlBusy($("go"), true);
       const busyMsg = state.workflow === "redhat" && $("direct").checked
@@ -1228,6 +1251,8 @@
             class_id: $("class-select").value || null,
             task,
             context,
+            file_context: fileContext,
+            files_attached: Boolean(fileContext),
             direct: $("direct").checked,
             copy: true,
             workflow: state.workflow,
@@ -1342,31 +1367,16 @@
     function paintAuditReply(root, text, data) {
       const legend = $("audit-legend");
       const raw = text || "";
-      const grounded = auditSpanList(data, "grounded_spans");
-      const inferred = auditSpanList(data, "inferred_spans");
+      const attached = Boolean(data && data.files_attached);
+      const grounded = attached ? auditSpanList(data, "grounded_spans") : [];
+      const inferred = attached ? auditSpanList(data, "inferred_spans") : [];
       const reply = String((data && data.reply) || "");
-      const sameText = raw === reply || raw === reply.trim();
-      if (!sameText || (!grounded.length && !inferred.length)) {
+      const marks = attached ? collectAuditMarks(raw, reply, grounded, inferred) : [];
+      if (!attached || !marks.length) {
         root.textContent = raw;
         if (legend) legend.hidden = true;
         return;
       }
-      const marks = [];
-      grounded.forEach((item) => {
-        const start = Number(item.start != null ? item.start : item[0]);
-        const end = Number(item.end != null ? item.end : item[1]);
-        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-          marks.push({ start, end, kind: "grounded" });
-        }
-      });
-      inferred.forEach((item) => {
-        const start = Number(item.start != null ? item.start : item[0]);
-        const end = Number(item.end != null ? item.end : item[1]);
-        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-          marks.push({ start, end, kind: "inferred" });
-        }
-      });
-      marks.sort((a, b) => a.start - b.start || (a.kind === "grounded" ? -1 : 1));
       root.textContent = "";
       let cursor = 0;
       const n = raw.length;
@@ -1383,6 +1393,75 @@
       });
       if (cursor < n) root.appendChild(document.createTextNode(raw.slice(cursor)));
       if (legend) legend.hidden = false;
+    }
+
+    function collectAuditMarks(raw, reply, grounded, inferred) {
+      const source = auditDisplaySource(raw, reply);
+      const items = [];
+      const push = (span, kind) => {
+        const start = Number(span.start != null ? span.start : span[0]);
+        const end = Number(span.end != null ? span.end : span[1]);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        items.push({ start, end, kind });
+      };
+      grounded.forEach((item) => push(item, "grounded"));
+      inferred.forEach((item) => push(item, "inferred"));
+      if (!items.length) return [];
+      items.sort((a, b) => a.start - b.start || (a.kind === "grounded" ? -1 : 1));
+      if (source.shift === 0 && (source.text === raw || source.aligned)) {
+        return items.filter((item) => item.end > 0 && item.start < raw.length).map((item) => ({
+          kind: item.kind,
+          start: Math.max(0, item.start),
+          end: Math.min(raw.length, item.end),
+        })).filter((item) => item.end > item.start);
+      }
+      if (source.shift > 0) {
+        const n = raw.length;
+        return items.map((item) => ({
+          kind: item.kind,
+          start: item.start - source.shift,
+          end: item.end - source.shift,
+        })).map((item) => ({
+          kind: item.kind,
+          start: Math.max(0, item.start),
+          end: Math.min(n, item.end),
+        })).filter((item) => item.end > item.start);
+      }
+      const out = [];
+      items.forEach((item) => {
+        const chunk = reply.slice(item.start, item.end);
+        if (!chunk) return;
+        let at = raw.indexOf(chunk);
+        let width = chunk.length;
+        if (at < 0) {
+          const unesc = chunk.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+          at = raw.indexOf(unesc);
+          width = unesc.length;
+        }
+        if (at >= 0) out.push({ start: at, end: at + width, kind: item.kind });
+      });
+      return out;
+    }
+
+    function auditDisplaySource(raw, reply) {
+      if (raw === reply || raw === reply.trim()) {
+        return { text: raw, shift: 0, aligned: true };
+      }
+      const direct = reply.indexOf(raw);
+      if (direct >= 0) return { text: raw, shift: direct, aligned: false };
+      try {
+        let blob = reply.trim();
+        const fence = blob.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+        if (fence) blob = fence[1].trim();
+        const obj = JSON.parse(blob);
+        if (obj && typeof obj.answer === "string") {
+          const answer = obj.answer;
+          if (raw === answer || raw === answer.trim()) {
+            return { text: raw, shift: 0, aligned: true };
+          }
+        }
+      } catch (_) {}
+      return { text: raw, shift: -1, aligned: false };
     }
 
     function paintBadge(grounded) {
