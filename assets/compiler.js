@@ -101,6 +101,7 @@
   var MAX_HISTORY = 6;
   var EMPTY = "Type a question to see the compiled prompt.";
   var TOO_LONG = "Keep this preview under 8,000 characters. Long files belong in the app on your machine.";
+  var DONE_LABEL = "Translation completed";
 
   function detectIntent(text) {
     var blob = " " + String(text || "").toLowerCase().replace(/\n/g, " ") + " ";
@@ -199,6 +200,8 @@
     var intentSelect = document.getElementById("demo-intent");
     var badge = document.getElementById("demo-intent-badge");
     var historyEl = document.getElementById("demo-history");
+    var doneEl = document.getElementById("demo-done");
+    var curiousEl = document.getElementById("demo-curious");
     var form = document.getElementById("demo-compiler");
     if (form) {
       form.addEventListener("submit", function (e) {
@@ -214,10 +217,21 @@
       var choice = intentSelect ? intentSelect.value : "auto";
       var result = compile(input.value, target, choice);
       output.textContent = result.prompt;
+      var ready = result.prompt !== EMPTY && result.prompt !== TOO_LONG;
+      if (doneEl) {
+        doneEl.hidden = !ready;
+        if (ready) {
+          var label = doneEl.querySelector("span:last-child");
+          if (label) label.textContent = DONE_LABEL;
+        }
+      }
+      if (curiousEl && !ready) {
+        curiousEl.open = false;
+      }
       if (badge) {
         badge.textContent = result.intent;
       }
-      if (result.prompt !== EMPTY && result.prompt !== TOO_LONG) {
+      if (ready) {
         saveHistory(input.value, target, result.intent);
         renderHistory(historyEl, restore);
       }
@@ -240,7 +254,7 @@
     if (targetSelect) targetSelect.addEventListener("change", paint);
     if (intentSelect) intentSelect.addEventListener("change", paint);
 
-    if (!input.value) input.value = "Is this paper any good?";
+    if (!input.value) input.value = "Compare the dropout rates in these two clinical trials.";
     paint();
     renderHistory(historyEl, restore);
   });

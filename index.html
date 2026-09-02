@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Assure AI — Frontier AI on confidential files, without prompt engineering</title>
-  <meta name="description" content="A private desktop workbench for researchers, analysts, and consultants. Type naturally, keep sensitive data on this machine, and get answers traced back to your documents.">
+  <title>Assure AI — Talk to AI like a colleague. We handle the translation.</title>
+  <meta name="description" content="A private workbench for researchers, analysts, and consultants. No prompt engineering. Ask naturally — we turn it into the instructions the AI needs.">
   <link rel="canonical" href="https://getassureai.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://getassureai.com/">
-  <meta property="og:title" content="Assure AI — Frontier AI on confidential files">
-  <meta property="og:description" content="Type naturally. Keep sensitive data on this machine. Every claim traced back to your documents.">
+  <meta property="og:title" content="Assure AI — Talk to AI like a colleague">
+  <meta property="og:description" content="No prompt engineering. Ask naturally. We translate your question into the instructions the model needs.">
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Assure AI — Frontier AI on confidential files">
-  <meta name="twitter:description" content="A private desktop workbench. Verified answers grounded in your files.">
+  <meta name="twitter:title" content="Assure AI — Talk to AI like a colleague">
+  <meta name="twitter:description" content="No prompt engineering. Ask naturally. We handle the translation.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=27">
+  <link rel="stylesheet" href="assets/site.css?v=29">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -28,7 +28,7 @@
     "url": "https://getassureai.com",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Windows, Linux",
-    "description": "Ask vaguely. Assure rewrites the prompt for the AI you chose, then checks the reply against your files.",
+    "description": "Talk to AI like a colleague. Assure translates your question into the prompt the model needs, then checks the reply against your files.",
     "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
       { "@type": "Offer", "name": "Pro", "price": "5", "priceCurrency": "USD" }
@@ -62,31 +62,31 @@
     </header>
 
     <section class="hero">
-      <p class="hero-brand">Assure</p>
       <h1 class="text-lines">
-        <span class="text-line">Use frontier AI on your confidential&nbsp;files</span>
-        <span class="text-line">without prompt engineering or&nbsp;hallucinations.</span>
+        <span class="text-line">Talk to AI like you talk to a&nbsp;colleague.</span>
+        <span class="text-line">We handle the&nbsp;translation.</span>
       </h1>
       <p class="sub text-lines">
-        <span class="text-line">A private desktop workbench for researchers, analysts, and&nbsp;consultants.</span>
-        <span class="text-line">Type naturally, keep sensitive data on this machine, and get answers where every claim is traced back to your&nbsp;documents.</span>
+        <span class="text-line">A private workbench for researchers, analysts, and&nbsp;consultants.</span>
+        <span class="text-line">No prompt engineering. No syntax. No wasted time. Just ask naturally, and we turn it into the exact instructions the AI&nbsp;needs.</span>
       </p>
 
-      <div class="hero-layout">
-        <figure class="verified-mockup" aria-label="Example verified answer (mockup)">
-          <div class="verified-card">
-            <span class="verified-badge">Verified</span>
-            <p class="verified-summary"><strong>Summary:</strong> The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
-            <p class="verified-grounded"><strong>Grounded in:</strong> clinical_trial_A.pdf (p.4), clinical_trial_B.pdf (p.7)</p>
-          </div>
-          <figcaption class="mockup-note">Mockup. The desktop app runs on your machine.</figcaption>
-        </figure>
-
-        <div class="cta-group hero-actions">
-          <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
-          <a href="#translation-demo" class="btn-outline">See how it&nbsp;works</a>
-        </div>
+      <div class="cta-group hero-actions">
+        <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
+        <a href="#translation-demo" class="btn-outline">See how it&nbsp;works</a>
       </div>
+
+      <figure class="verified-mockup" aria-label="Example: a plain question, then a checked answer (mockup)">
+        <div class="verified-card">
+          <p class="asked-label">You asked</p>
+          <p class="asked-text">Compare the dropout rates in these two clinical trials.</p>
+          <p class="asked-label">We translated, then checked</p>
+          <span class="verified-badge">Verified</span>
+          <p class="verified-summary"><strong>Summary:</strong> The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
+          <p class="verified-grounded"><strong>Grounded in:</strong> clinical_trial_A.pdf (p.4), clinical_trial_B.pdf (p.7)</p>
+        </div>
+        <figcaption class="mockup-note">Mockup. Translation is the product. The check is the proof.</figcaption>
+      </figure>
     </section>
 
     </div>
@@ -95,28 +95,29 @@
   <div class="container">
 
     <section id="prompt" class="how-it-works reveal">
-      <h2 class="section-title text-lines">
-        <span class="text-line">Talk normally. Stay private. Trust the&nbsp;source.</span>
-      </h2>
+      <h2 class="section-title">Ask. Stay private. Get a grounded&nbsp;answer.</h2>
       <div class="steps-grid pillars-grid">
         <div class="how-step">
-          <h3>Talk normally</h3>
-          <p>No prompt engineering required. You type the question as you would to a colleague. Assure transforms it into precise instructions for the AI you&nbsp;choose.</p>
+          <span class="step-number" aria-hidden="true">1</span>
+          <h3>Ask naturally</h3>
+          <p>Write your question in plain English. We restructure it for the AI behind the&nbsp;scenes.</p>
         </div>
         <div class="how-step">
-          <h3>Stay private</h3>
-          <p>Runs on this computer. Keys and uploads stay here until you Send. A Send goes only to the provider you connected. Safe for NDAs, IRB reviews, and client&nbsp;confidentiality.</p>
+          <span class="step-number" aria-hidden="true">2</span>
+          <h3>Work privately</h3>
+          <p>Keys and copy stay on this computer. Closed to the internet keeps the question here. A Send goes only to the provider you&nbsp;connected.</p>
         </div>
         <div class="how-step">
-          <h3>Trust the source</h3>
-          <p>Every answer is checked against your uploaded files. Unverified claims are flagged before you paste anything into your report or&nbsp;paper.</p>
+          <span class="step-number" aria-hidden="true">3</span>
+          <h3>Get grounded answers</h3>
+          <p>Every claim is checked against your uploaded documents. No invented citations. No time wasted&nbsp;fact-checking.</p>
         </div>
       </div>
     </section>
 
     <section id="translation-demo" class="translation-demo reveal">
-      <h2 class="section-title">See the translation&nbsp;magic</h2>
-      <p class="trust-lead">See how we translate your question behind the scenes. Type anything, and watch us structure it for the&nbsp;AI.</p>
+      <h2 class="section-title">See how we translate your&nbsp;question</h2>
+      <p class="trust-lead">Type anything — the more natural, the better. Watch as we restructure it into a precise prompt for Gemini, Claude, or DeepSeek. No prompt engineering required. Just your words, turned into their&nbsp;language.</p>
 
       <form class="compiler" id="demo-compiler" aria-label="Behind the scenes translation demo">
         <label for="demo-input">Question</label>
@@ -154,19 +155,20 @@
           <summary>For the curious, see the full translation</summary>
           <pre id="demo-output" class="compiler-output compiler-output-collapsed" aria-live="polite"></pre>
         </details>
-        <p class="compiler-note">This preview compiles in your browser. It is not Send. This is the skeleton. The desktop app adds deep file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
+        <p class="compiler-note">This preview translates in your browser. It is not Send. This is the skeleton. The desktop app adds file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
         <div id="demo-history" class="compiler-history"></div>
       </form>
     </section>
 
     <section class="why-matters reveal">
       <h2 class="section-title">Why it&nbsp;matters</h2>
-      <p class="trust-lead">Most AI tools give you a single model's first draft. We ground every answer in the files you provide — so you get defensible output, not confident&nbsp;fiction.</p>
+      <p class="trust-lead">The hardest part of using AI is learning how to talk to it. We make that invisible. You ask in your own words. We translate that into the precise, model-specific instructions that get you a defensible answer. No prompt engineering. No guesswork. Just answers you can&nbsp;defend.</p>
     </section>
 
     <section id="use-cases" class="audience reveal">
       <h2 class="section-title text-lines">
-        <span class="text-line">Built for people who cannot afford a&nbsp;hallucination</span>
+        <span class="text-line">Built for people who don't have time</span>
+        <span class="text-line">to learn prompt&nbsp;engineering.</span>
       </h2>
       <p class="audience-list">
         <a href="use-cases/consultant.html">Consultants</a>
@@ -176,7 +178,7 @@
         <span>Technical writers</span>
         <span>Compliance officers</span>
       </p>
-      <p class="audience-note">If you write reports, analyze data, or make recommendations that have to be defensible, Assure is the&nbsp;workbench.</p>
+      <p class="audience-note">Researchers, analysts, consultants, and knowledge workers. If you need precise, defensible answers — and you don't want to spend hours learning how to ask — this is for&nbsp;you.</p>
     </section>
 
     <section class="trust-row reveal" aria-label="Trust">
@@ -240,7 +242,7 @@
             </svg>
           </span>
           <h4>Prompt assistance</h4>
-          <p>You type a vague ask. Assure restructures it for the AI you chose. You do not have to learn prompt engineering.</p>
+          <p>Write in plain English. We restructure it for Gemini, Claude, or DeepSeek. You do not learn prompt&nbsp;engineering.</p>
         </div>
         <div class="feature-item">
           <span class="feature-icon" aria-hidden="true">
@@ -260,7 +262,7 @@
         <div>
           <dt>Is the preview on this page the app?</dt>
           <dd>
-            No. The preview compiles a dialect prompt in your browser. It does not Send.
+            No. The preview translates a dialect prompt in your browser. It does not Send.
             The workbench on your machine attaches files, grounding, and Verify.
             A Send goes only to the provider you connected.
           </dd>
@@ -299,14 +301,11 @@
     </section>
 
     <section id="privacy" class="trust-section reveal">
-      <h2 class="section-title text-lines">
-        <span class="text-line">Runs on your machine.</span>
-        <span class="text-line">You choose closed or&nbsp;open.</span>
-      </h2>
+      <h2 class="section-title">Private by&nbsp;design</h2>
       <p class="trust-lead">
-        Questions, uploaded files, and previous work stay on this computer.
-        Only the compiled prompt goes to the provider you choose.
-        Closed to the internet keeps the question here. Open to the internet, it goes to who you&nbsp;picked.
+        Copy and keys stay on this computer. Assure does not store, train on, or receive your questions.
+        Closed to the internet keeps the question here. Open to the internet, a Send goes only to the provider you picked.
+        That's how the app is built — not a&nbsp;slogan.
       </p>
       <div class="privacy-icons">
         <span>Closed or open</span>
@@ -363,7 +362,7 @@
 
     <section id="install" class="install-section reveal">
       <h2 class="section-title">Quick start</h2>
-      <p class="trust-lead">The workbench runs on this computer. Join the waitlist for a one-click desktop installer when it ships. This website is not the&nbsp;app.</p>
+      <p class="trust-lead">The desktop app is coming. Join the waitlist. This website is not the&nbsp;app.</p>
       <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist.</p>
       <div class="download-row" id="desktop">
         <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
@@ -384,7 +383,7 @@
       <div class="waitlist-backdrop" data-waitlist-close></div>
       <div class="waitlist-panel">
         <button type="button" class="waitlist-close" data-waitlist-close aria-label="Close">&times;</button>
-        <h2 id="waitlist-title">Get the installer when it is ready</h2>
+        <h2 id="waitlist-title">The desktop app is coming</h2>
         <p class="text-small">There is no public download file yet. Leave your name and email. We will notify you. Source install is on the <a href="/install">Install</a> page.</p>
         <form id="waitlist-form" method="post" action="#">
           <label for="waitlist-name">Full Name</label>
@@ -402,11 +401,11 @@
         <span>Copy stays on this computer</span>
         <span>A Send goes only to the provider you chose</span>
       </div>
-      <p>Assure. &copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
   </div>
-  <script src="assets/compiler.js?v=27"></script>
-  <script src="assets/site.js?v=27"></script>
+  <script src="assets/compiler.js?v=29"></script>
+  <script src="assets/site.js?v=29"></script>
 </body>
 </html>
