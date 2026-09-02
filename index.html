@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Assure AI. A trusted answer starts with the right question.</title>
-  <meta name="description" content="Ask vaguely. Assure rewrites the prompt for Claude, Gemini, or DeepSeek, then checks the reply against your files. The app runs on your machine. A Send goes only to the provider you chose.">
+  <title>Assure AI — Frontier AI on confidential files, without prompt engineering</title>
+  <meta name="description" content="A private desktop workbench for researchers, analysts, and consultants. Type naturally, keep sensitive data on this machine, and get answers traced back to your documents.">
   <link rel="canonical" href="https://getassureai.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://getassureai.com/">
-  <meta property="og:title" content="Assure AI. A trusted answer starts with the right question.">
-  <meta property="og:description" content="Ask vaguely. Assure rewrites the prompt, then checks the reply against your files. A Send goes only to the provider you chose.">
+  <meta property="og:title" content="Assure AI — Frontier AI on confidential files">
+  <meta property="og:description" content="Type naturally. Keep sensitive data on this machine. Every claim traced back to your documents.">
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Assure AI. A trusted answer starts with the right question.">
-  <meta name="twitter:description" content="Ask vaguely. Get an answer grounded in your files.">
+  <meta name="twitter:title" content="Assure AI — Frontier AI on confidential files">
+  <meta name="twitter:description" content="A private desktop workbench. Verified answers grounded in your files.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=26">
+  <link rel="stylesheet" href="assets/site.css?v=27">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -49,7 +49,7 @@
       </a>
       <nav class="nav" aria-label="Main">
         <a href="#install">Quick start</a>
-        <a href="#prompt">How it works</a>
+        <a href="#translation-demo">How it works</a>
         <a href="hallucination-detection.html">Check outputs</a>
         <a href="#use-cases">Use cases</a>
         <a href="#faq">FAQ</a>
@@ -57,53 +57,35 @@
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="audit.html">Audit</a>
-        <a href="#install" class="btn">Run from&nbsp;source</a>
+        <a href="#install" class="btn" data-waitlist-open>Join waitlist</a>
       </nav>
     </header>
 
     <section class="hero">
       <p class="hero-brand">Assure</p>
       <h1 class="text-lines">
-        <span class="text-line">Ask vaguely.</span>
-        <span class="text-line">Get an answer grounded in your&nbsp;files.</span>
+        <span class="text-line">Use frontier AI on your confidential&nbsp;files</span>
+        <span class="text-line">without prompt engineering or&nbsp;hallucinations.</span>
       </h1>
       <p class="sub text-lines">
-        <span class="text-line">Assure rewrites your question into a precise prompt for Claude, Gemini, or&nbsp;DeepSeek.</span>
-        <span class="text-line">Checks the reply against your uploads. The app runs on your&nbsp;machine.</span>
-        <span class="text-line">A Send goes only to the provider you&nbsp;chose.</span>
+        <span class="text-line">A private desktop workbench for researchers, analysts, and&nbsp;consultants.</span>
+        <span class="text-line">Type naturally, keep sensitive data on this machine, and get answers where every claim is traced back to your&nbsp;documents.</span>
       </p>
 
-      <form class="compiler" id="demo-compiler" aria-label="Compile a question">
-        <label for="demo-input">Question</label>
-        <textarea id="demo-input" name="question" rows="3" maxlength="8000" autocomplete="off">Is this paper any good?</textarea>
-        <div class="compiler-controls">
-          <label for="demo-target">Target&nbsp;AI
-            <select id="demo-target">
-              <option value="gemini">Gemini</option>
-              <option value="claude">Claude</option>
-              <option value="deepseek">DeepSeek</option>
-            </select>
-          </label>
-          <label for="demo-intent">Type of&nbsp;answer
-            <select id="demo-intent">
-              <option value="auto">Auto</option>
-              <option value="research">Research</option>
-              <option value="comparison">Comparison</option>
-              <option value="debug">Debug</option>
-              <option value="design">Design</option>
-              <option value="analysis">Analysis</option>
-            </select>
-          </label>
-        </div>
-        <p class="compiler-kicker">Compiled prompt <span id="demo-intent-badge">research</span></p>
-        <pre id="demo-output" class="compiler-output" aria-live="polite"></pre>
-        <p class="compiler-note">This preview compiles in your browser. It is not Send. The app on your machine attaches files and grounding. A Send goes only to the provider you&nbsp;chose.</p>
-        <div id="demo-history" class="compiler-history"></div>
-      </form>
+      <div class="hero-layout">
+        <figure class="verified-mockup" aria-label="Example verified answer (mockup)">
+          <div class="verified-card">
+            <span class="verified-badge">Verified</span>
+            <p class="verified-summary"><strong>Summary:</strong> The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
+            <p class="verified-grounded"><strong>Grounded in:</strong> clinical_trial_A.pdf (p.4), clinical_trial_B.pdf (p.7)</p>
+          </div>
+          <figcaption class="mockup-note">Mockup. The desktop app runs on your machine.</figcaption>
+        </figure>
 
-      <div class="cta-group hero-actions">
-        <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
-        <a href="#install" class="btn-outline">Run from&nbsp;source</a>
+        <div class="cta-group hero-actions">
+          <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
+          <a href="#translation-demo" class="btn-outline">See how it&nbsp;works</a>
+        </div>
       </div>
     </section>
 
@@ -114,33 +96,72 @@
 
     <section id="prompt" class="how-it-works reveal">
       <h2 class="section-title text-lines">
-        <span class="text-line">Compile. Send.&nbsp;Verify.</span>
+        <span class="text-line">Talk normally. Stay private. Trust the&nbsp;source.</span>
       </h2>
-      <div class="steps-grid">
+      <div class="steps-grid pillars-grid">
         <div class="how-step">
-          <div class="step-number">1</div>
-          <h3>Compile</h3>
-          <p>Your vague question becomes a precise prompt, tuned to the AI you chose. No prompt engineering&nbsp;required.</p>
-          <p class="how-note">You just did this in the preview&nbsp;above.</p>
+          <h3>Talk normally</h3>
+          <p>No prompt engineering required. You type the question as you would to a colleague. Assure transforms it into precise instructions for the AI you&nbsp;choose.</p>
         </div>
         <div class="how-step">
-          <div class="step-number">2</div>
-          <h3>Send</h3>
-          <p>Get an answer from the model you connected. One click. No&nbsp;copy-paste.</p>
-          <p class="how-note">Runs in the app on your&nbsp;machine.</p>
+          <h3>Stay private</h3>
+          <p>Runs on this computer. Keys and uploads stay here until you Send. A Send goes only to the provider you connected. Safe for NDAs, IRB reviews, and client&nbsp;confidentiality.</p>
         </div>
         <div class="how-step">
-          <div class="step-number">3</div>
-          <h3>Verify</h3>
-          <p>The reply is checked against your uploaded files. No invented citations. No hallucinated&nbsp;dates.</p>
-          <p class="how-note">Pro includes Compare across&nbsp;models.</p>
+          <h3>Trust the source</h3>
+          <p>Every answer is checked against your uploaded files. Unverified claims are flagged before you paste anything into your report or&nbsp;paper.</p>
         </div>
       </div>
     </section>
 
+    <section id="translation-demo" class="translation-demo reveal">
+      <h2 class="section-title">See the translation&nbsp;magic</h2>
+      <p class="trust-lead">See how we translate your question behind the scenes. Type anything, and watch us structure it for the&nbsp;AI.</p>
+
+      <form class="compiler" id="demo-compiler" aria-label="Behind the scenes translation demo">
+        <label for="demo-input">Question</label>
+        <textarea id="demo-input" name="question" rows="3" maxlength="8000" autocomplete="off">Compare the dropout rates in these two clinical trials.</textarea>
+
+        <details class="compiler-advanced">
+          <summary>Advanced</summary>
+          <div class="compiler-controls">
+            <label for="demo-target">Choose your&nbsp;AI
+              <select id="demo-target">
+                <option value="gemini">Gemini</option>
+                <option value="claude">Claude</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+            </label>
+            <label for="demo-intent">Type of&nbsp;answer
+              <select id="demo-intent">
+                <option value="auto">Auto</option>
+                <option value="research">Research</option>
+                <option value="comparison">Comparison</option>
+                <option value="debug">Debug</option>
+                <option value="design">Design</option>
+                <option value="analysis">Analysis</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <p class="compiler-kicker">Behind the scenes translation <span id="demo-intent-badge">research</span></p>
+        <div id="demo-done" class="translation-done" hidden aria-live="polite">
+          <span class="translation-done-mark" aria-hidden="true"></span>
+          <span>Translation completed</span>
+        </div>
+        <details class="compiler-curious" id="demo-curious">
+          <summary>For the curious, see the full translation</summary>
+          <pre id="demo-output" class="compiler-output compiler-output-collapsed" aria-live="polite"></pre>
+        </details>
+        <p class="compiler-note">This preview compiles in your browser. It is not Send. This is the skeleton. The desktop app adds deep file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
+        <div id="demo-history" class="compiler-history"></div>
+      </form>
+    </section>
+
     <section class="why-matters reveal">
       <h2 class="section-title">Why it&nbsp;matters</h2>
-      <p class="trust-lead">Most AI tools give you a single model's first draft. Assure grounds every answer in the files you provide, so you get output you can defend, not confident&nbsp;fiction.</p>
+      <p class="trust-lead">Most AI tools give you a single model's first draft. We ground every answer in the files you provide — so you get defensible output, not confident&nbsp;fiction.</p>
     </section>
 
     <section id="use-cases" class="audience reveal">
@@ -342,15 +363,21 @@
 
     <section id="install" class="install-section reveal">
       <h2 class="section-title">Quick start</h2>
-      <p class="trust-lead">The workbench runs on this computer. This website is not the&nbsp;app.</p>
-      <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist. Source install is unchanged.</p>
+      <p class="trust-lead">The workbench runs on this computer. Join the waitlist for a one-click desktop installer when it ships. This website is not the&nbsp;app.</p>
+      <p class="download-note text-small" id="download-note" tabindex="-1">There is no public download file yet. Click a button below to join the waitlist.</p>
       <div class="download-row" id="desktop">
         <a class="btn-primary is-disabled" href="#download-note" data-download="macos" aria-disabled="true">Download for macOS</a>
         <a class="btn-outline is-disabled" href="#download-note" data-download="windows" aria-disabled="true">Download for Windows</a>
         <a class="btn-outline is-disabled" href="#download-note" data-download="linux" aria-disabled="true">Linux package</a>
       </div>
-      <p class="trust-lead">From source: <code>./scripts/install.sh</code> then <code>assure --web</code>.</p>
-      <p class="text-small">Your browser should open at <strong>http://127.0.0.1:8765</strong>. Paste a provider key, then write a question. <a href="/install">Desktop builds and other install notes</a>.</p>
+      <div class="cta-group" style="margin-top: 1.5rem;">
+        <button type="button" class="btn-primary" data-waitlist-open>Join the&nbsp;waitlist</button>
+      </div>
+      <details class="developer-options">
+        <summary>Developer options</summary>
+        <p class="trust-lead">From source: <code>./scripts/install.sh</code> then <code>assure --web</code>.</p>
+        <p class="text-small">Your browser should open at <strong>http://127.0.0.1:8765</strong>. Paste a provider key, then write a question. <a href="/install">Desktop builds and other install notes</a>.</p>
+      </details>
     </section>
 
     <div id="download-modal" class="waitlist-modal" hidden role="dialog" aria-modal="true" aria-labelledby="waitlist-title">
@@ -379,7 +406,7 @@
     </footer>
 
   </div>
-  <script src="assets/compiler.js?v=26"></script>
-  <script src="assets/site.js?v=26"></script>
+  <script src="assets/compiler.js?v=27"></script>
+  <script src="assets/site.js?v=27"></script>
 </body>
 </html>
