@@ -64,6 +64,8 @@
   --line: var(--assure-light-gray);
   --text: var(--text-color);
   --muted: #5c6b7a;
+  --color-text-secondary: var(--muted);
+  --color-border: var(--line);
   --brass: var(--assure-accent-gold);
   --brass-dim: #b48a2e;
   --paper: #ffffff;
@@ -1854,5 +1856,55 @@ pre {
     max-height: 70vh;
     overflow: auto;
   }
+}
+
+/* --- Visual Auditing (Green/Yellow Highlights) --- */
+.grounded {
+  background-color: #E8F5E9;
+  padding: 0 2px;
+  border-radius: 2px;
+  border-bottom: 1px solid #A5D6A7;
+}
+
+.inferred {
+  background-color: #FFF9C4;
+  padding: 0 2px;
+  border-radius: 2px;
+  border-bottom: 1px solid #FDD835;
+}
+
+.audit-legend {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.audit-legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.audit-legend .dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.dot.green {
+  background: #E8F5E9;
+  border: 1px solid #A5D6A7;
+}
+
+.dot.yellow {
+  background: #FFF9C4;
+  border: 1px solid #FDD835;
 }
 

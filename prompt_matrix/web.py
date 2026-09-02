@@ -38,7 +38,7 @@ try:
         suggest_class,
     )
     from .personas import list_personas
-    from .pipelines import run_workflow
+    from .pipelines import compile_deep_prompt, run_workflow
     from .route import route_snapshot
 except ImportError:
     from engine import (
@@ -65,7 +65,7 @@ except ImportError:
         suggest_class,
     )
     from personas import list_personas
-    from pipelines import run_workflow
+    from pipelines import compile_deep_prompt, run_workflow
     from route import route_snapshot
 
 try:
@@ -80,6 +80,57 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_BASIC_USER = "admin"
 DEFAULT_BASIC_PASS = "changeme"
+
+try:
+    from .waitlist import (
+        DuplicateWaitlistError,
+        WaitlistUnavailableError,
+        insert_waitlist,
+        is_valid_email as _is_valid_email,
+    )
+except ImportError:
+    from waitlist import (
+        DuplicateWaitlistError,
+        WaitlistUnavailableError,
+        insert_waitlist,
+        is_valid_email as _is_valid_email,
+    )
+
+_WAITLIST_ORIGINS = frozenset(
+    {
+        "https://getassureai.com",
+        "https://assure.orhangorenn.workers.dev",
+    }
+)
+
+
+def _waitlist_allowed_origin(origin: str) -> str:
+    """Allow production landing hosts and http(s)://127.0.0.1:* / localhost:*."""
+    raw = (origin or "").strip()
+    if not raw:
+        return ""
+    if raw in _WAITLIST_ORIGINS:
+        return raw
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        return ""
+    host = (parts.hostname or "").lower()
+    if parts.scheme in {"http", "https"} and host in {"127.0.0.1", "localhost"}:
+        return raw
+    return ""
+
+
+def _apply_waitlist_cors(resp):
+    origin = _waitlist_allowed_origin(request.headers.get("Origin") or "")
+    if origin:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Vary"] = "Origin"
+    return resp
 
 
 def http_basic_user() -> str:
@@ -214,7 +265,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
     try:
         from .ui_cache import APP_CSS, APP_JS
     except ImportError:
-        from ui_cache import APP_CSS, APP_JS
+        try:
+            from ui_cache import APP_CSS, APP_JS
+        except ImportError:
+            APP_CSS, APP_JS = "1", "1"
 
     @app.context_processor
     def _ui_versions():
@@ -585,6 +639,26 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def health():
         return jsonify(library_status())
 
+    @app.route("/api/waitlist", methods=["POST", "OPTIONS"])
+    def waitlist():
+        if request.method == "OPTIONS":
+            return _apply_waitlist_cors(make_response("", 204))
+        data = request.get_json(silent=True) or {}
+        name = str(data.get("name") or "").strip()
+        email = str(data.get("email") or "").strip()
+        if not name:
+            return _apply_waitlist_cors(jsonify({"error": "Full name is required."})), 400
+        if not email or not _is_valid_email(email):
+            return _apply_waitlist_cors(jsonify({"error": "Enter a valid email address."})), 400
+        try:
+            insert_waitlist(name, email)
+        except DuplicateWaitlistError:
+            return _apply_waitlist_cors(jsonify({"status": "ok"}))
+        except WaitlistUnavailableError as exc:
+            msg = str(exc) or "The waitlist is not open yet. Try again later."
+            return _apply_waitlist_cors(jsonify({"error": msg})), 503
+        return _apply_waitlist_cors(jsonify({"status": "ok"}))
+
     @app.get("/api/status")
     def status_view():
         return jsonify(provider_status())
@@ -664,6 +738,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         task = str(data.get("task") or "").strip()
         context = str(data.get("context") or "")
         class_id = (data.get("class_id") or "").strip() or None
+        audience = str(data.get("audience") or "general").strip().lower() or "general"
         intent_raw = str(data.get("intent") or "").strip()
         try:
             from .intent_detector import FALLBACK, detect_intent
@@ -675,8 +750,13 @@ def create_app(*, require_auth: bool = True) -> Flask:
         if not task or not target:
             return jsonify({"prompt": "", "intent": intent, "target_ai": target})
         try:
-            rendered = render_prompt_detailed(
-                target, intent, task, context, class_id=class_id
+            rendered = compile_deep_prompt(
+                task,
+                intent,
+                context,
+                target_ai=target,
+                params={"audience": audience},
+                class_id=class_id,
             )
         except MatrixError as exc:
             return jsonify({"error": friendly_error(str(exc), _locale()), "intent": intent}), 400
@@ -710,6 +790,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         ground = bool(data.get("ground"))
         local = bool(data.get("local"))
         cheap = bool(data.get("cheap"))
+        audience = str(data.get("audience") or "general").strip().lower() or "general"
 
         if not target or not intent or not task:
             return jsonify({"error": "Pick a target, an intent, and write a task."}), 400
@@ -740,6 +821,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 local=local,
                 lint=direct,
                 cheap=cheap,
+                audience=audience,
             )
             suggested = suggest_class(task, intent)
         except MatrixError as exc:
@@ -805,6 +887,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "routed_model": result.routed_model,
                 "variation_id": result.variation_id,
                 "quality": result.quality,
+                "grounded_spans": (qdict or {}).get("grounded_spans") or [],
+                "inferred_spans": (qdict or {}).get("inferred_spans") or [],
                 "models": models,
                 "confidence_text": conf,
                 "run_hash": result.run_hash,
