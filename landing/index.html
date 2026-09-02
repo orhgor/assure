@@ -8,6 +8,10 @@
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      'analytics_storage': 'denied',
+      'ad_storage': 'denied'
+    });
     gtag('js', new Date());
     gtag('config', 'G-54F5NE9Y0P');
   </script>
@@ -124,9 +128,9 @@
 
     <section id="translation-demo" class="translation-demo reveal">
       <h2 class="section-title">See how we translate your&nbsp;question</h2>
-      <p class="trust-lead">Type anything — the more natural, the better. Watch as we restructure it into a precise prompt for Gemini, Claude, or DeepSeek. No prompt engineering required. Just your words, turned into their&nbsp;language.</p>
+      <p class="trust-lead">Interactive browser preview only — no live model calls from this page. Type anything natural; watch how Assure restructures it into a precise prompt for Gemini, Claude, or DeepSeek. Open the app to Send and verify against your&nbsp;files.</p>
 
-      <form class="compiler" id="demo-compiler" aria-label="Behind the scenes translation demo">
+      <form class="compiler" id="demo-compiler" aria-label="Interactive browser preview — dialect translation demo (no live Send)">
         <label for="demo-input">Question</label>
         <textarea id="demo-input" name="question" rows="3" maxlength="8000" autocomplete="off">Compare the dropout rates in these two clinical trials.</textarea>
 
@@ -162,7 +166,7 @@
           <summary>For the curious, see the full translation</summary>
           <pre id="demo-output" class="compiler-output compiler-output-collapsed" aria-live="polite"></pre>
         </details>
-        <p class="compiler-note">This preview translates in your browser. It is not Send. This is the skeleton. The desktop app adds file context, audience adaptation, and chain-of-thought&nbsp;reasoning.</p>
+        <p class="compiler-note">This is an interactive browser preview — it compiles a dialect prompt locally. It does not call any model API and is not Send. Open the app for file context, grounding, and verified&nbsp;answers.</p>
         <div id="demo-history" class="compiler-history"></div>
       </form>
     </section>
@@ -373,7 +377,7 @@
           <a href="pricing.html" class="btn-sm">See all&nbsp;plans</a>
         </article>
       </div>
-      <p class="text-small pricing-note">You bring your own API keys. Assure charges for the workbench, not model tokens. Pro is $19/month — API usage is billed by your provider.</p>
+      <p class="text-small pricing-note">BYOK: you pay Gemini, DeepSeek, Claude, or Kimi directly for API tokens. Assure plans ($0 Free / $19 Pro) cover workbench features and daily check quotas — not model&nbsp;usage.</p>
     </section>
 
     <section id="install" class="install-section reveal">
@@ -424,5 +428,27 @@
   </div>
   <script src="assets/compiler.js?v=29"></script>
   <script src="assets/site.js?v=29"></script>
+  <div id="cookie-consent" style="position:fixed;bottom:0;left:0;right:0;background:#111827;border-top:1px solid #374151;color:#f3f4f6;padding:14px 20px;text-align:center;z-index:99999;display:none;font-family:system-ui,-apple-system,sans-serif;font-size:0.875rem;">
+    <span>We use cookies to analyze traffic and improve user experience. Read our <a href="/privacy" style="color:#60a5fa;text-decoration:underline;">Privacy Policy</a>.</span>
+    <button id="accept-cookies-btn" style="margin-left:12px;padding:6px 18px;background:#2563eb;color:#ffffff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.875rem;">Accept</button>
+  </div>
+  <script>
+    (function() {
+      var banner = document.getElementById('cookie-consent');
+      var btn = document.getElementById('accept-cookies-btn');
+      if (localStorage.getItem('cookies_accepted') === 'true') {
+        gtag('consent', 'update', { 'analytics_storage': 'granted' });
+      } else if (banner) {
+        banner.style.display = 'block';
+      }
+      if (btn) {
+        btn.addEventListener('click', function() {
+          localStorage.setItem('cookies_accepted', 'true');
+          if (banner) banner.style.display = 'none';
+          gtag('consent', 'update', { 'analytics_storage': 'granted' });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
