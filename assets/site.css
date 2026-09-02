@@ -1136,6 +1136,20 @@ a.feature-item:hover h4 { color: var(--trust-blue); }
 .plan.featured .btn-sm { background: var(--accent); }
 .plan.featured .btn-sm:hover { background: var(--accent-hover); box-shadow: var(--shadow-accent); }
 
+.pricing-note {
+  margin-top: var(--spacing-3);
+  max-width: 42rem;
+}
+
+.pricing-faq {
+  margin-top: var(--spacing-6);
+}
+
+.footer-oss {
+  margin: var(--spacing-2) 0;
+  max-width: 42rem;
+}
+
 /* Install */
 .install-section {
   text-align: center;

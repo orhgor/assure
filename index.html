@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/site.css?v=29">
+  <link rel="stylesheet" href="assets/site.css?v=30">
   <script>document.documentElement.classList.add("js");</script>
   <script type="application/ld+json">
   {
@@ -77,6 +77,7 @@
       <p class="sub text-lines">
         <span class="text-line">A private workbench for researchers, analysts, and&nbsp;consultants.</span>
         <span class="text-line">No prompt engineering. No syntax. No wasted time. Just ask naturally, and we turn it into the exact instructions the AI&nbsp;needs.</span>
+        <span class="text-line">You bring your own API keys. We handle the workbench. No vendor&nbsp;lock-in.</span>
       </p>
 
       <div class="cta-group hero-actions">
@@ -191,12 +192,12 @@
 
     <section class="trust-row reveal" aria-label="Trust">
       <div class="trust-row-item">
-        <h4>Keys stay here</h4>
-        <p>Keys and copy stay on this computer.</p>
+        <h4>Bring your own keys</h4>
+        <p>Paste Gemini, DeepSeek, Claude, or Kimi keys. They stay on this computer. You pay the provider for&nbsp;tokens.</p>
       </div>
       <div class="trust-row-item">
         <h4>You pick the provider</h4>
-        <p>A Send goes only to the API you connected.</p>
+        <p>A Send goes only to the API you connected. Assure does not bill you for model&nbsp;usage.</p>
       </div>
       <div class="trust-row-item">
         <h4>No vendor lock-in</h4>
@@ -267,6 +268,32 @@
     <section id="faq" class="reveal">
       <h2 class="section-title">FAQ</h2>
       <dl class="faq">
+        <div>
+          <dt>Do I need my own API keys?</dt>
+          <dd>
+            Yes. Assure is a BYOK (bring your own key) workbench.
+            You paste Gemini, DeepSeek, Claude, or Kimi keys into Connect on your machine.
+            Your usage is billed directly by the provider. Assure charges for the workbench, not the models.
+            On the Free tier you still pay the provider for tokens used.
+          </dd>
+        </div>
+        <div>
+          <dt>Is Assure open-source?</dt>
+          <dd>
+            The engine (PEM) and the <span class="mono">pem</span> CLI are open-source.
+            Install from source with <a href="/install"><span class="mono">./scripts/install.sh</span></a>.
+            Assure is the desktop workbench — prompt assistance, validation, red-hat critique, and export in one app.
+            The workbench is a paid product. The engine is open-source.
+          </dd>
+        </div>
+        <div>
+          <dt>How is Assure different from open-source prompt tools?</dt>
+          <dd>
+            OSS tools give you the engine. Assure gives you the workbench.
+            You do not learn prompt engineering, manage keys across tabs, or write your own validation logic.
+            Compare &amp; Validate, Check against my files, Refine &amp; Verify, history, and export live in one place on this computer.
+          </dd>
+        </div>
         <div>
           <dt>Is the preview on this page the app?</dt>
           <dd>
@@ -343,11 +370,11 @@
 
     <section id="pricing" class="reveal">
       <h2 class="section-title">Choose your&nbsp;plan</h2>
-      <p class="trust-lead">One workbench for the models you already pay for. Pro is $5 a&nbsp;month.</p>
+      <p class="trust-lead">You bring your own API keys. Assure charges for the workbench, not the models. Your API usage is billed directly by Gemini, DeepSeek, Claude, or&nbsp;Kimi.</p>
       <div class="pricing">
         <article class="plan">
           <div class="plan-name">Free</div>
-          <div class="price">$0</div>
+          <div class="price">$0 <small>/mo</small></div>
           <ul>
             <li>10 Sends / day</li>
             <li>Gemini and DeepSeek</li>
@@ -361,11 +388,12 @@
           <ul>
             <li>100 Sends / day</li>
             <li>Compare &amp; Validate</li>
-            <li>Full history</li>
+            <li>Full history and export</li>
           </ul>
           <a href="pricing.html" class="btn-sm">See all&nbsp;plans</a>
         </article>
       </div>
+      <p class="text-small pricing-note">On the Free tier you still pay the provider for tokens used. Pro is $5 a month for the workbench — not for API calls.</p>
     </section>
 
     <section id="install" class="install-section reveal">
@@ -409,6 +437,7 @@
         <span>Copy stays on this computer</span>
         <span>A Send goes only to the provider you chose</span>
       </div>
+      <p class="text-small footer-oss">Assure is built on open-source foundations: PEM, LiteLLM, Jinja2. The <span class="mono">pem</span> CLI is free with a <a href="/install">source install</a>. The workbench is a paid product.</p>
       <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
