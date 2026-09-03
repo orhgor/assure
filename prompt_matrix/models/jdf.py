@@ -196,3 +196,18 @@ def insert_node_after_anchor(
 
     body[0].setdefault("children", []).append(copy.deepcopy(new_node))
     return mutated, True
+
+
+def upsert_block_node(
+    tree: dict[str, Any],
+    node_id: str,
+    node_data: dict[str, Any],
+    *,
+    insert_after_id: str | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """Update an existing block node by id, or insert it (append / after anchor)."""
+    mutated, found = splice_node(tree, node_id, node_data)
+    if found:
+        return mutated, True
+    mutated, _ = insert_node_after_anchor(tree, insert_after_id, node_data)
+    return mutated, False

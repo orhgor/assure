@@ -53,6 +53,25 @@ class CostGovernanceTests(unittest.TestCase):
         with self.assertRaises(BudgetExhaustedError):
             self.store.check_budget_available("proj-a", estimated_in=20)
 
+    def test_preflight_budget_before_hard_cap_message(self):
+        self.store.record_usage(
+            "proj-a",
+            task_type="surgical_edit",
+            model_id="haiku",
+            input_tokens=999,
+            output_tokens=0,
+        )
+        messages = [{"role": "user", "content": "short edit"}]
+        with self.assertRaises(BudgetExhaustedError) as ctx:
+            self.governor.preflight("proj-a", TaskType.SURGICAL_EDIT, messages)
+        self.assertIn("Insufficient project budget", str(ctx.exception))
+
+    def test_redhat_hard_cap_lower_than_synthesis(self):
+        from prompt_matrix.cost_governance import MAX_INPUT_TOKENS
+
+        self.assertEqual(MAX_INPUT_TOKENS[TaskType.REDHAT], 8000)
+        self.assertEqual(MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS], 30000)
+
     def test_governor_record_usage(self):
         self.governor.record_usage(
             "proj-a",

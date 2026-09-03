@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assure AI — Deterministic Document Execution</title>
+    <meta name="description" content="Assure AI turns your intent into publication-grade deliverables using a modular document structure and symbolic math verification.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('31') }}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container nav-container">
+            <div class="logo">Assure AI</div>
+            <a href="/app" class="btn-primary-small">Launch Workspace</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero-section">
+            <div class="container">
+                <span class="eyebrow">Deterministic Document Execution</span>
+                <h1>Stop chatting with your documents. Start executing them.</h1>
+                <p class="hero-sub">Traditional AI tools guess, drift, and lose context. Assure AI turns your intent into publication-grade deliverables using a modular document structure and symbolic math verification.</p>
+                <div class="hero-cta-group">
+                    <a href="/app" class="btn-primary">Launch Workspace</a>
+                </div>
+                <div class="visual-concept-card">
+                    <p><strong>The Transition:</strong> A chaotic LLM chat window on the left (crossed out) transitioning into the structured 50/50 Assure AI Canvas with green Z3 verification badges on the right.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="trust-bar">
+            <div class="container trust-grid">
+                <span>🔒 Self-Hosted &amp; Private</span>
+                <span>🛡️ Z3 Symbolically Verified</span>
+                <span>📄 JDF AST Architecture</span>
+                <span>🔍 Red-Hat Adversarial Audited</span>
+            </div>
+        </section>
+
+        <section class="manifesto-section">
+            <div class="container narrow">
+                <h2>The Problem With &ldquo;AI Writing&rdquo;</h2>
+                <p>Most software treats professional writing like a chat room. You type a prompt, the machine spits out a wall of text, and you spend the next hour scrolling up and down, cross-checking numbers, fixing logic gaps, and hoping the model remembered the data point from page 3.</p>
+                <p class="highlight-quote">That is not engineering. That is gambling.</p>
+                <p>Researchers, clinicians, and analysts don't need a chatbot. They need an execution engine — a system that respects the weight of your work, locks your data, and builds deliverables you can actually trust.</p>
+            </div>
+        </section>
+
+        <section class="pipeline-section">
+            <div class="container">
+                <h2>From Intent to Absolute Truth</h2>
+                <div class="pipeline-grid">
+                    <div class="pipeline-card">
+                        <span class="step-num">01</span>
+                        <h3>Bring Your Sources</h3>
+                        <p>You upload your source files, transcripts, and data into the vault. The system ingests and anchors every claim to its origin.</p>
+                    </div>
+                    <div class="pipeline-card">
+                        <span class="step-num">02</span>
+                        <h3>JDF — Modular Architecture</h3>
+                        <p>Instead of a messy text blob, Assure AI builds your work using <strong>JDF (JSON Document Framework)</strong> — a modular <strong>AST (Abstract Syntax Tree)</strong> architecture. Think of it like Lego bricks: every paragraph is an independent, version-controlled node you can edit, lock, or verify without touching the rest.</p>
+                    </div>
+                    <div class="pipeline-card">
+                        <span class="step-num">03</span>
+                        <h3>Z3 Truth Ledger + Red-Hat</h3>
+                        <p>Powered by formal symbolic logic, Assure AI mathematically anchors your key metrics and dates so they cannot drift or hallucinate. Our <strong>Red-Hat</strong> adversarial layer stress-tests your logic like an automated devil&rsquo;s advocate before publication.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="persona-section">
+            <div class="container">
+                <h2>Engineered for High-Stakes Work</h2>
+                <div class="persona-grid">
+                    <div class="persona-card">
+                        <h3>For Researchers</h3>
+                        <p><strong>Mathematically Grounded Data.</strong> Lock your numerical data points to source files and page anchors. Your abstract will never contradict your results on the numbers that matter.</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3>For Clinicians</h3>
+                        <p><strong>Audit-Ready Precision.</strong> Treat clinical documentation like source code. Every variable is symbolically verified; every edit leaves a permanent audit trail.</p>
+                    </div>
+                    <div class="persona-card">
+                        <h3>For Analysts &amp; Prosumers</h3>
+                        <p><strong>Banish Context Rot.</strong> Componentize your work, make micro-surgical edits, and export pristine, mathematically sound deliverables.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="value-summary-section">
+            <div class="container">
+                <div class="comparison-table-wrapper">
+                    <table class="value-table">
+                        <thead>
+                            <tr>
+                                <th>🔒 Locked Data</th>
+                                <th>🛡️ Verified Logic</th>
+                                <th>📄 Pristine Deliverables</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Every factual claim is anchored to its source file and page.</td>
+                                <td>Z3 symbolic math ensures your numbers never drift.</td>
+                                <td>Export Word or PDF with a full audit trail appendix.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <div class="container center">
+                <h2>The era of probabilistic guessing is over.</h2>
+                <p>Experience document engineering backed by mathematical certainty.</p>
+                <a href="/app" class="btn-primary">Launch Assure AI Workspace</a>
+            </div>
+        </section>
+
+        <section class="glossary-section">
+            <div class="container narrow">
+                <details>
+                    <summary>Under the Hood (Technical Glossary)</summary>
+                    <div class="glossary-content">
+                        <ul>
+                            <li><strong>JDF AST:</strong> JSON Document Framework — modular, version-controlled document nodes.</li>
+                            <li><strong>Z3 Truth Ledger:</strong> Formal symbolic verification (SMT solver) for numerical and factual consistency.</li>
+                            <li><strong>Red-Hat Adversary:</strong> Automated stress-test of your logic and assumptions.</li>
+                            <li><strong>Infrastructure:</strong> Self-hosted on AWS <code>t4g.small</code> with SQLite atomic JSON1 updates — lean, private, auditable.</li>
+                        </ul>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container center">
+            <p>&copy; 2026 Assure AI. Deterministic Document Execution Engine.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -168,8 +168,9 @@
                   </select>
                   <div class="row">
                     <label class="file"><span data-i18n="file">{{ gettext('Attach a file (optional)') }}</span>
-                      <input id="file" type="file">
+                      <input id="file" type="file" accept=".txt,.md,.csv,.json,.html,.pdf,.doc,.docx">
                     </label>
+                    <p class="hint" id="upload-limits-hint" data-i18n="upload.limits.hint">{{ gettext('Max file size: 10 MB · PDFs: up to 50 pages') }}</p>
                   </div>
                   <div id="adv-class">
                     <label class="section" for="class-select" data-i18n="class">{{ gettext('Saved template (optional)') }}</label>
@@ -511,6 +512,7 @@
       target: null,
       intent: null,
       fileText: "",
+      uploadMeta: null,
       last: null,
       learned: null,
       library: { classes: [], prompts: [] },
@@ -919,6 +921,8 @@
             intent: state.intent,
             task,
             context,
+            file_context: (state.fileText || "").trim(),
+            upload_meta: state.uploadMeta,
             class_id: $("class-select") && $("class-select").value || null,
             audience: $("audience") && $("audience").value || "general",
           }),
@@ -1167,15 +1171,67 @@
       fillClassSelects();
     }
 
+    const UPLOAD_MAX_FILE_SIZE_MB = 10;
+    const UPLOAD_MAX_FILE_SIZE_BYTES = UPLOAD_MAX_FILE_SIZE_MB * 1024 * 1024;
+    const UPLOAD_MAX_PAGE_COUNT = 50;
+
+    async function countPdfPages(file) {
+      const slice = file.slice(0, Math.min(file.size, 5 * 1024 * 1024));
+      const buffer = await slice.arrayBuffer();
+      const text = new TextDecoder("latin1").decode(buffer);
+      const matches = text.match(/\/Type\s*\/Page[^s]/g);
+      return matches && matches.length ? matches.length : 1;
+    }
+
     $("file").addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
       if (!file) {
         state.fileText = "";
+        state.uploadMeta = null;
         if ($("ground")) $("ground").checked = false;
         schedulePreview();
         return;
       }
-      state.fileText = "### File: " + file.name + "\n```\n" + await file.text() + "\n```\n";
+      if (file.size > UPLOAD_MAX_FILE_SIZE_BYTES) {
+        state.fileText = "";
+        state.uploadMeta = null;
+        event.target.value = "";
+        setStatus(
+          tf("upload.limits.size", "File exceeds {max_mb} MB limit. Please compress or split the document.", {
+            max_mb: UPLOAD_MAX_FILE_SIZE_MB,
+          }),
+          "bad"
+        );
+        schedulePreview();
+        return;
+      }
+      let pageCount = null;
+      if (/\.pdf$/i.test(file.name || "")) {
+        try {
+          pageCount = await countPdfPages(file);
+        } catch (_) {
+          pageCount = UPLOAD_MAX_PAGE_COUNT + 1;
+        }
+        if (pageCount > UPLOAD_MAX_PAGE_COUNT) {
+          state.fileText = "";
+          state.uploadMeta = null;
+          event.target.value = "";
+          setStatus(
+            tf("upload.limits.pages", "PDF exceeds {max_pages} page limit. Please upload a shorter extract.", {
+              max_pages: UPLOAD_MAX_PAGE_COUNT,
+            }),
+            "bad"
+          );
+          schedulePreview();
+          return;
+        }
+      }
+      state.fileText = "### File: " + file.name + "\n```\n" + (await file.text()) + "\n```\n";
+      state.uploadMeta = {
+        filename: file.name,
+        size_bytes: file.size,
+        page_count: pageCount,
+      };
       if ($("ground")) $("ground").checked = true;
       schedulePreview();
     });
@@ -1365,6 +1421,7 @@
             context,
             file_context: fileContext,
             files_attached: Boolean(fileContext),
+            upload_meta: state.uploadMeta,
             direct: $("direct").checked,
             copy: false,
             workflow: state.workflow,

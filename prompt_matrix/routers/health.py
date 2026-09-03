@@ -121,6 +121,11 @@ def health_check():
         "js_version": APP_JS,
         "jdf_workbench": True,
     }
+    try:
+        from ..upload_limits import limits_snapshot
+    except ImportError:
+        from upload_limits import limits_snapshot
+    status["limits"] = limits_snapshot()
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip()
     if build_sha:
         status["build_sha"] = build_sha

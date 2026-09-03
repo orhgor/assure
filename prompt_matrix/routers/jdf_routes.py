@@ -7,10 +7,10 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 try:
-    from ..db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
+    from ..db.jdf_repository import fetch_latest_jdf_or_empty, patch_jdf_node, save_jdf_revision
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
@@ -19,7 +19,7 @@ try:
         splice_node,
     )
 except ImportError:
-    from db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
+    from db.jdf_repository import fetch_latest_jdf_or_empty, patch_jdf_node, save_jdf_revision
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
@@ -36,6 +36,8 @@ class SaveJDFPayload(BaseModel):
     insert_after_id: str | None = None
     new_node: dict[str, Any] | None = None
     change_summary: str | None = None
+    id: str | None = None
+    node_data: dict[str, Any] | None = None
 
 
 def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
@@ -81,7 +83,38 @@ def register_jdf_routes(app) -> None:
             )
             return jsonify({"error": str(exc)}), 400
         try:
-            tree = _resolve_tree(payload, project_id)
+            node_id = payload.id or payload.target_node_id
+            if payload.node_data and node_id:
+                result = patch_jdf_node(
+                    project_id,
+                    node_id,
+                    payload.node_data,
+                    mutation_type=payload.mutation_type,
+                    insert_after_id=payload.insert_after_id,
+                    change_summary=payload.change_summary,
+                )
+            else:
+                tree = _resolve_tree(payload, project_id)
+                result = save_jdf_revision(
+                    project_id,
+                    tree,
+                    mutation_type=payload.mutation_type,
+                    target_node_id=payload.target_node_id,
+                    change_summary=payload.change_summary,
+                )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "JDF_PUT",
+                target_node_id=payload.target_node_id or payload.id,
+                success=True,
+                duration_ms=duration_ms,
+                details={"mutation_type": payload.mutation_type},
+            )
+            if node_id:
+                result["updated_node_id"] = node_id
+            return jsonify(result)
         except ValueError as exc:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_exception(
@@ -89,29 +122,10 @@ def register_jdf_routes(app) -> None:
                 project_id,
                 "JDF_PUT",
                 exc,
-                target_node_id=payload.target_node_id,
+                target_node_id=payload.target_node_id or payload.id,
                 duration_ms=duration_ms,
             )
             return jsonify({"error": str(exc)}), 400
-        try:
-            result = save_jdf_revision(
-                project_id,
-                tree,
-                mutation_type=payload.mutation_type,
-                target_node_id=payload.target_node_id,
-                change_summary=payload.change_summary,
-            )
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            audit.log_audit(
-                request_id,
-                project_id,
-                "JDF_PUT",
-                target_node_id=payload.target_node_id,
-                success=True,
-                duration_ms=duration_ms,
-                details={"mutation_type": payload.mutation_type},
-            )
-            return jsonify(result)
         except Exception as exc:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_exception(

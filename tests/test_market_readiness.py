@@ -289,7 +289,7 @@ class ComposePageTests(unittest.TestCase):
         app = create_app()
         client = app.test_client()
         token = base64.b64encode(b"admin:changeme").decode("ascii")
-        res = client.get("/", headers={"Authorization": f"Basic {token}"})
+        res = client.get("/app", headers={"Authorization": f"Basic {token}"})
         self.assertEqual(res.status_code, 200)
         body = res.get_data(as_text=True)
         self.assertIn("example-chip", body)
@@ -379,7 +379,7 @@ class FirstRunTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
 
         locked = create_app(require_auth=True)
-        denied = locked.test_client().get("/")
+        denied = locked.test_client().get("/app")
         self.assertEqual(denied.status_code, 401)
 
         text = "\n".join(

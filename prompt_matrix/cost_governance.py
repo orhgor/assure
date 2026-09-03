@@ -24,9 +24,21 @@ except ImportError:
 class TaskType(str, Enum):
     SURGICAL_EDIT = "surgical_edit"
     SUMMARIZE_NODE = "summarize_node"
+    SEMANTIC_VALIDATION = "semantic_validation"
     DEEP_SYNTHESIS = "deep_synthesis"
     MACRO_AUDIT = "macro_audit"
     REDHAT = "redhat"
+
+
+# Hard per-request input caps (tokens). Independent of remaining project budget.
+MAX_INPUT_TOKENS: dict[TaskType, int] = {
+    TaskType.SURGICAL_EDIT: 2000,
+    TaskType.SUMMARIZE_NODE: 2000,
+    TaskType.SEMANTIC_VALIDATION: 4000,
+    TaskType.REDHAT: 8000,
+    TaskType.DEEP_SYNTHESIS: 30000,
+    TaskType.MACRO_AUDIT: 30000,
+}
 
 
 @dataclass(frozen=True)
@@ -41,35 +53,42 @@ class ModelPolicy:
 TASK_POLICIES: dict[TaskType, ModelPolicy] = {
     TaskType.SURGICAL_EDIT: ModelPolicy(
         model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
-        max_input_tokens=2000,
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SURGICAL_EDIT],
         max_output_tokens=500,
         caching=False,
         litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
     ),
     TaskType.SUMMARIZE_NODE: ModelPolicy(
         model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
-        max_input_tokens=2000,
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SUMMARIZE_NODE],
+        max_output_tokens=500,
+        caching=False,
+        litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
+    ),
+    TaskType.SEMANTIC_VALIDATION: ModelPolicy(
+        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.SEMANTIC_VALIDATION],
         max_output_tokens=500,
         caching=False,
         litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
     ),
     TaskType.DEEP_SYNTHESIS: ModelPolicy(
         model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
-        max_input_tokens=30000,
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS],
         max_output_tokens=2048,
         caching=True,
         litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
     ),
     TaskType.MACRO_AUDIT: ModelPolicy(
         model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
-        max_input_tokens=30000,
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.MACRO_AUDIT],
         max_output_tokens=2048,
         caching=True,
         litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
     ),
     TaskType.REDHAT: ModelPolicy(
         model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
-        max_input_tokens=30000,
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
         max_output_tokens=2048,
         caching=True,
         litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
@@ -295,12 +314,23 @@ class CostGovernor:
     def policy_for(self, task_type: TaskType) -> ModelPolicy:
         return TASK_POLICIES[task_type]
 
+    def get_remaining_budget(self, project_id: str) -> int:
+        limit, used = self.budget_store.get_usage(project_id)
+        return max(0, limit - used)
+
     def preflight(self, project_id: str, task_type: TaskType, messages: list[dict[str, Any]]) -> ModelPolicy:
         policy = self.policy_for(task_type)
         estimated_in = self.accountant.count_messages(messages)
-        if estimated_in > policy.max_input_tokens:
+        hard_cap = MAX_INPUT_TOKENS.get(task_type, 30_000)
+        if estimated_in > hard_cap:
             raise TokenLimitExceededError(
-                f"Input {estimated_in} exceeds cap {policy.max_input_tokens} for {task_type.value}"
+                f"Request exceeds hard input cap of {hard_cap} tokens for {task_type.value} "
+                f"(got {estimated_in}). Please shorten your context."
+            )
+        remaining = self.get_remaining_budget(project_id)
+        if estimated_in > remaining:
+            raise BudgetExhaustedError(
+                f"Insufficient project budget. {estimated_in} tokens needed, {remaining} remaining."
             )
         self.budget_store.check_budget_available(project_id, estimated_in)
         return policy

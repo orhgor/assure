@@ -301,7 +301,14 @@
       ),
     })
       .then(function (r) {
-        return r.json();
+        return r.json().then(function (data) {
+          if (!r.ok) {
+            var err = new Error((data && (data.error || data.detail)) || "Save failed");
+            err.response = data;
+            throw err;
+          }
+          return data;
+        });
       })
       .then(function (data) {
         if (data.document) self.tree = data.document;
@@ -314,6 +321,90 @@
         self.setSavePill("error", "jdf.save.error");
         throw err;
       });
+  };
+
+  JDFCanvasManager.prototype.saveNodePatch = function (nodeId, nodeData, mutationType, extra) {
+    var self = this;
+    this.setSavePill("saving", "jdf.save.saving");
+    return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/jdf", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        Object.assign(
+          {
+            id: nodeId,
+            node_data: nodeData,
+            mutation_type: mutationType || "NODE_UPDATE",
+            insert_after_id: this.activeInsertAfterId || null,
+          },
+          extra || {}
+        )
+      ),
+    })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) {
+            var err = new Error((data && (data.error || data.detail)) || "Save failed");
+            err.response = data;
+            throw err;
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        if (data.document) self.tree = data.document;
+        if (data.version) self.setVersion(data.version);
+        self.isDirty = false;
+        self.setSavePill("saved", "jdf.save.saved");
+        return data;
+      })
+      .catch(function (err) {
+        self.setSavePill("error", "jdf.save.error");
+        throw err;
+      });
+  };
+
+  JDFCanvasManager.prototype._insertDockNode = function (node) {
+    if (!this.tree.body || !this.tree.body.length) {
+      this.tree.body = [
+        {
+          type: "section",
+          id: newNodeId("sec"),
+          title: jdfT("jdf.canvas.empty.title", "Start your document"),
+          children: [node],
+          meta: {},
+        },
+      ];
+      return;
+    }
+    if (this.activeInsertAfterId) {
+      var inserted = false;
+      var self = this;
+      (this.tree.body || []).forEach(function (section) {
+        if (inserted) return;
+        var children = section.children || [];
+        for (var i = 0; i < children.length; i += 1) {
+          if (children[i].id === self.activeInsertAfterId) {
+            children.splice(i + 1, 0, node);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted && section.id === self.activeInsertAfterId) {
+          children.unshift(node);
+          inserted = true;
+        }
+      });
+      if (!inserted) {
+        var last = this.tree.body[this.tree.body.length - 1];
+        last.children = last.children || [];
+        last.children.push(node);
+      }
+      return;
+    }
+    var targetSection = this.tree.body[this.tree.body.length - 1];
+    targetSection.children = targetSection.children || [];
+    targetSection.children.push(node);
   };
 
   JDFCanvasManager.prototype._nodeText = function (node) {
@@ -568,65 +659,46 @@
       id: newNodeId("para"),
       content: text,
       entities_referenced: [],
-      meta: { source: "compose_dock" },
+      meta: { source: "compose_dock", optimistic: true },
     };
+    var treeSnapshot = JSON.parse(JSON.stringify(this.tree || { body: [], meta: {}, truth_ledger: {} }));
 
-    if (!this.tree.body || !this.tree.body.length) {
-      this.tree.body = [
-        {
-          type: "section",
-          id: newNodeId("sec"),
-          title: jdfT("jdf.canvas.empty.title", "Start your document"),
-          children: [node],
-          meta: {},
-        },
-      ];
-    } else if (this.activeInsertAfterId) {
-      var inserted = false;
-      (this.tree.body || []).forEach(function (section) {
-        if (inserted) return;
-        var children = section.children || [];
-        for (var i = 0; i < children.length; i += 1) {
-          if (children[i].id === self.activeInsertAfterId) {
-            children.splice(i + 1, 0, node);
-            inserted = true;
-            break;
-          }
-        }
-        if (!inserted && section.id === self.activeInsertAfterId) {
-          children.unshift(node);
-          inserted = true;
-        }
-      });
-      if (!inserted) {
-        var last = this.tree.body[this.tree.body.length - 1];
-        last.children = last.children || [];
-        last.children.push(node);
-      }
-    } else {
-      var targetSection = this.tree.body[this.tree.body.length - 1];
-      targetSection.children = targetSection.children || [];
-      targetSection.children.push(node);
-    }
+    this._insertDockNode(node);
+    this.render();
+    this.setSavePill("saving", "jdf.save.saving");
 
-    return this.saveDocument("DOCK_DRAFT", {
-      target_node_id: node.id,
+    return this.saveNodePatch(node.id, node, "NODE_DOCK", {
       change_summary: "Docked compose draft",
-    }).then(function () {
-      self.livePreview = "";
-      self.render();
-      if (global.AssureInquire && global.AssureInquire.showDockButton) {
-        global.AssureInquire.showDockButton(false);
-      }
-      if (global.AssureToast) {
-        global.AssureToast.show(
-          jdfT("compose.draft_ready", "Draft docked to canvas."),
-          "success"
-        );
-      }
-      if (global.AssureMode) global.AssureMode.activate("surgical");
-      return node;
-    });
+    })
+      .then(function (data) {
+        if (node.meta) delete node.meta.optimistic;
+        self.livePreview = "";
+        if (data.document) self.tree = data.document;
+        else self.render();
+        if (global.AssureInquire && global.AssureInquire.showDockButton) {
+          global.AssureInquire.showDockButton(false);
+        }
+        if (global.AssureToast) {
+          global.AssureToast.show(
+            jdfT("compose.draft_ready", "Draft docked to canvas."),
+            "success"
+          );
+        }
+        if (global.AssureMode) global.AssureMode.activate("surgical");
+        return node;
+      })
+      .catch(function (err) {
+        self.tree = treeSnapshot;
+        self.render();
+        var detail = (err && err.message) || jdfT("jdf.save.error", "Save failed");
+        if (global.AssureToast) {
+          global.AssureToast.show(
+            jdfT("jdf.dock.rollback", "Change rolled back: {detail}", { detail: detail }),
+            "error"
+          );
+        }
+        throw err;
+      });
   };
 
   JDFCanvasManager.prototype.composeInquire = function (runRedhat) {

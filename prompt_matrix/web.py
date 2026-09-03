@@ -383,8 +383,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return resp
 
     @app.get("/")
-    @login_required
-    def index():
+    def marketing_landing():
+        try:
+            from .ui_cache import LANDING_CSS
+        except ImportError:
+            from ui_cache import LANDING_CSS
+        resp = make_response(
+            render_template("landing.html", landing_css_version=LANDING_CSS)
+        )
+        if os.environ.get("ENVIRONMENT") == "production":
+            resp.headers["Cache-Control"] = "public, max-age=300"
+        return resp
+
+    def _workspace_page():
         try:
             from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
         except ImportError:
@@ -399,10 +410,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
             project_id=DEFAULT_PROJECT_ID,
         )
 
+    @app.get("/app")
+    @login_required
+    def workspace():
+        return _workspace_page()
+
     @app.get("/compose")
     def compose_redirect():
         qs = request.query_string.decode() if request.query_string else ""
-        return redirect("/" + (("?" + qs) if qs else ""))
+        return redirect("/app" + (("?" + qs) if qs else ""))
 
     @app.get("/history")
     @login_required
@@ -737,6 +753,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
             pass
         return jsonify(payload), 200
 
+    @app.post("/api/upload/validate")
+    @login_required
+    def upload_validate_view():
+        """Validate Substrate Vault attachment size and PDF page count."""
+        try:
+            from .upload_limits import UploadRejectedError, validate_upload_bytes
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_upload_bytes
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            return jsonify({"error": "No file uploaded."}), 400
+        try:
+            meta = validate_upload_bytes(upload.filename, upload.read())
+        except UploadRejectedError as exc:
+            return jsonify({"error": str(exc)}), exc.http_status
+        return jsonify({"ok": True, **meta})
+
     @app.route("/api/waitlist", methods=["POST", "OPTIONS"])
     def waitlist():
         if request.method == "OPTIONS":
@@ -832,6 +865,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @app.post("/api/preview")
     def preview_view():
         data = request.get_json(silent=True) or {}
+        try:
+            from .upload_limits import UploadRejectedError, validate_file_context_payload
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_file_context_payload
+        file_context = str(data.get("file_context") or "").strip()
+        if file_context:
+            try:
+                validate_file_context_payload(file_context, data.get("upload_meta"))
+            except UploadRejectedError as exc:
+                return jsonify({"error": str(exc)}), exc.http_status
         target = str(data.get("target_ai") or data.get("target") or "").strip()
         task = str(data.get("task") or "").strip()
         context = str(data.get("context") or "")
@@ -871,6 +914,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @login_required
     def render_view():
         data = request.get_json(silent=True) or {}
+        try:
+            from .upload_limits import UploadRejectedError, validate_file_context_payload
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_file_context_payload
+        file_context = str(data.get("file_context") or "").strip()
+        if file_context:
+            try:
+                validate_file_context_payload(file_context, data.get("upload_meta"))
+            except UploadRejectedError as exc:
+                return jsonify({"error": friendly_error(str(exc), _locale())}), exc.http_status
         target = str(data.get("target_ai") or data.get("target") or "").strip()
         intent = str(data.get("intent") or "").strip()
         task = str(data.get("task") or "").strip()
@@ -890,7 +943,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
         local = bool(data.get("local"))
         cheap = bool(data.get("cheap"))
         audience = str(data.get("audience") or "general").strip().lower() or "general"
-        file_context = str(data.get("file_context") or "").strip()
         files_attached = bool(data.get("files_attached")) or bool(file_context)
 
         if not target or not intent or not task:

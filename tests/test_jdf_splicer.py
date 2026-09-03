@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from prompt_matrix.models.jdf import JDFDocumentTree, insert_node_after_anchor, splice_node
+from prompt_matrix.models.jdf import JDFDocumentTree, insert_node_after_anchor, splice_node, upsert_block_node
 
 
 def _sample_tree() -> dict:
@@ -77,6 +77,27 @@ class JDFSplicerTests(unittest.TestCase):
         self.assertTrue(ok)
         ids = [c["id"] for c in updated["body"][0]["children"]]
         self.assertEqual(ids[1], "p-3")
+
+    def test_upsert_updates_existing(self):
+        tree = _sample_tree()
+        replacement = {
+            "type": "paragraph",
+            "id": "p-2",
+            "content": "Updated via upsert.",
+            "entities_referenced": [],
+            "meta": {},
+        }
+        updated, found = upsert_block_node(tree, "p-2", replacement)
+        self.assertTrue(found)
+        self.assertEqual(updated["body"][0]["children"][1]["content"], "Updated via upsert.")
+
+    def test_upsert_inserts_new(self):
+        tree = _sample_tree()
+        new_node = {"type": "paragraph", "id": "p-new", "content": "Inserted.", "meta": {}}
+        updated, found = upsert_block_node(tree, "p-new", new_node, insert_after_id="p-1")
+        self.assertFalse(found)
+        ids = [c["id"] for c in updated["body"][0]["children"]]
+        self.assertIn("p-new", ids)
 
 
 if __name__ == "__main__":

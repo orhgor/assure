@@ -58,7 +58,7 @@ class ClaudeKeyTests(unittest.TestCase):
             self.assertIn("Claude", page.get_data(as_text=True))
             status = client.get("/api/status")
             self.assertEqual(status.status_code, 200)
-            compose = client.get("/")
+            compose = client.get("/app")
             self.assertEqual(compose.status_code, 302)
             self.assertIn("/signin", compose.headers.get("Location", ""))
 

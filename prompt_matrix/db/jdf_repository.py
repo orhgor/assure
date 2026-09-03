@@ -70,6 +70,73 @@ def fetch_latest_jdf_or_empty(project_id: str) -> dict[str, Any]:
     return fetch_latest_jdf(project_id) or empty_document(project_id)
 
 
+def _find_block_json_path(tree: dict[str, Any], node_id: str) -> str | None:
+    """Return a JSON path for an existing block node (section children only)."""
+    for si, section in enumerate(tree.get("body") or []):
+        if not isinstance(section, dict):
+            continue
+        for ci, child in enumerate(section.get("children") or []):
+            if isinstance(child, dict) and child.get("id") == node_id:
+                return f"$.body[{si}].children[{ci}]"
+    return None
+
+
+def patch_jdf_node(
+    project_id: str,
+    node_id: str,
+    node_data: dict[str, Any],
+    *,
+    mutation_type: str = "NODE_UPDATE",
+    insert_after_id: str | None = None,
+    change_summary: str | None = None,
+) -> dict[str, Any]:
+    """Surgically upsert one block node; uses JSON1 when updating an existing path."""
+    init_db()
+    ensure_project(project_id)
+    db = get_db()
+
+    row = db.execute(
+        """
+        SELECT jdf_tree FROM jdf_revisions
+        WHERE project_id = ?
+        ORDER BY version DESC
+        LIMIT 1
+        """,
+        (project_id,),
+    ).fetchone()
+    base_tree = json.loads(row[0]) if row else empty_document(project_id)
+
+    try:
+        from ..models.jdf import upsert_block_node
+    except ImportError:
+        from models.jdf import upsert_block_node
+
+    node_data = dict(node_data)
+    node_data["id"] = node_id
+    json_path = _find_block_json_path(base_tree, node_id)
+    if json_path:
+        patched_row = db.execute(
+            "SELECT json_set(?, ?, json(?))",
+            (json.dumps(base_tree), json_path, json.dumps(node_data)),
+        ).fetchone()
+        tree = json.loads(patched_row[0])
+    else:
+        tree, _ = upsert_block_node(
+            base_tree,
+            node_id,
+            node_data,
+            insert_after_id=insert_after_id,
+        )
+
+    return save_jdf_revision(
+        project_id,
+        tree,
+        mutation_type=mutation_type,
+        target_node_id=node_id,
+        change_summary=change_summary,
+    )
+
+
 def save_jdf_revision(
     project_id: str,
     document: JDFDocumentTree | dict[str, Any],

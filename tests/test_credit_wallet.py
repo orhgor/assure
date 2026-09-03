@@ -150,9 +150,23 @@ class WebUsageTests(unittest.TestCase):
         ):
             app = create_app(require_auth=False)
             with app.test_client() as client:
-                res = client.get("/")
+                res = client.get("/app")
         self.assertEqual(res.status_code, 200)
         self.assertNotIn("/signin", (res.headers.get("Location") or ""))
+
+    def test_landing_public_without_clerk(self):
+        from prompt_matrix.web import create_app
+
+        with patch.dict(
+            os.environ,
+            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": "", "PEM_HTTP_PASS": ""},
+            clear=False,
+        ):
+            app = create_app(require_auth=False)
+            with app.test_client() as client:
+                res = client.get("/")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b"Deterministic Document Execution", res.data)
 
     def test_compose_login_wall_with_clerk(self):
         from prompt_matrix.web import create_app
@@ -168,7 +182,7 @@ class WebUsageTests(unittest.TestCase):
         ):
             app = create_app(require_auth=False)
             with app.test_client() as client:
-                res = client.get("/", follow_redirects=False)
+                res = client.get("/app", follow_redirects=False)
         self.assertEqual(res.status_code, 302)
         self.assertIn("/signin", res.headers.get("Location") or "")
 
