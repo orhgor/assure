@@ -16,7 +16,6 @@ from flask import Flask, Response, jsonify, make_response, redirect, render_temp
 try:
     from .engine import (
         MatrixError,
-        copy_to_clipboard,
         execute,
         load_matrix,
         render_prompt_detailed,
@@ -43,7 +42,6 @@ try:
 except ImportError:
     from engine import (
         MatrixError,
-        copy_to_clipboard,
         execute,
         load_matrix,
         render_prompt_detailed,
@@ -196,6 +194,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from pem_runner import ensure_preflight
     ensure_preflight()
     load_keys()
+    try:
+        from .db.connection import init_db
+    except ImportError:
+        from db.connection import init_db
+    init_db()
     try:
         from .cloud_billing import load_cloud_env
     except ImportError:
@@ -379,9 +382,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @app.get("/")
     @login_required
     def index():
-        # Live markup is templates/index.html so Jinja gettext can run.
-        # static/index.html is a pointer only. Do not serve it as /.
-        return _page("index.html", "compose", initial_pane="compose", include_pk=True)
+        try:
+            from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+        except ImportError:
+            from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+        initial_jdf = fetch_latest_jdf_or_empty(DEFAULT_PROJECT_ID)
+        return _page(
+            "index.html",
+            "compose",
+            initial_pane="compose",
+            include_pk=True,
+            initial_jdf=initial_jdf,
+            project_id=DEFAULT_PROJECT_ID,
+        )
 
     @app.get("/compose")
     def compose_redirect():
@@ -860,7 +873,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
         task = str(data.get("task") or "").strip()
         context = str(data.get("context") or "")
         direct = bool(data.get("direct"))
-        copy = data.get("copy", True)
+        # Clipboard is client-side (navigator.clipboard). Never copy on the server.
+        copy = False
         class_id = (data.get("class_id") or "").strip() or None
         workflow = str(data.get("workflow") or "single").strip().lower()
         extra_targets = data.get("extra_targets") or []
@@ -1248,15 +1262,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.post("/api/copy")
     def copy_view():
+        """Legacy ack for clients that already copied in the browser."""
         data = request.get_json(silent=True) or {}
         text = data.get("text")
         if not isinstance(text, str) or not text.strip():
             return jsonify({"error": "Nothing to copy."}), 400
-        try:
-            copy_to_clipboard(text)
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
-        return jsonify({"copied": True, "chars": len(text)})
+        return jsonify({"copied": True, "client": True, "chars": len(text)})
 
     @app.post("/api/export")
     def export_view():
@@ -1270,6 +1281,30 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except MatrixError as exc:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         return jsonify({"text": text, "format": str(data.get("format") or "")})
+
+    try:
+        from .routers.inquire_stream import register_inquire_routes
+    except ImportError:
+        from routers.inquire_stream import register_inquire_routes
+    register_inquire_routes(app)
+
+    try:
+        from .routers.jdf_routes import register_jdf_routes
+    except ImportError:
+        from routers.jdf_routes import register_jdf_routes
+    register_jdf_routes(app)
+
+    try:
+        from .routers.export_routes import register_export_routes
+    except ImportError:
+        from routers.export_routes import register_export_routes
+    register_export_routes(app)
+
+    try:
+        from .routers.health import register_health_routes
+    except ImportError:
+        from routers.health import register_health_routes
+    register_health_routes(app)
 
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):

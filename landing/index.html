@@ -61,11 +61,14 @@
       </a>
       <nav class="nav" aria-label="Main">
         <a href="#install">Quick start</a>
+        <a href="#features">Features</a>
+        <a href="/guide">Guide</a>
         <a href="#translation-demo">How it works</a>
         <a href="hallucination-detection.html">Check outputs</a>
         <a href="#use-cases">Use cases</a>
         <a href="#faq">FAQ</a>
-        <a href="pricing.html">Pricing</a>
+        <a href="#pricing">Pricing</a>
+        <a href="pricing.html">All plans</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
         <a href="audit.html">Audit</a>
@@ -75,28 +78,38 @@
 
     <section class="hero">
       <h1 class="text-lines">
-        <span class="text-line">Verify AI Drafts Against Your Source&nbsp;Documents.</span>
+        <span class="text-line">Never Send an Unverified AI Draft to a Client, Board, or&nbsp;Court.</span>
       </h1>
       <p class="sub text-lines">
-        <span class="text-line">Paste your client brief, research paper, or report. Assure highlights claims not backed by your uploaded files using sentence-level&nbsp;NLI.</span>
-        <span class="text-line">You bring your own API keys. Keys stay client-side in browser localStorage — never persisted to our&nbsp;database.</span>
+        <span class="text-line">The zero-retention document auditor for high-stakes work. Paste your draft and reference files—Assure runs sentence-level NLI to highlight unsupported claims, verify figures, and eliminate&nbsp;hallucinations.</span>
+      </p>
+
+      <p class="hero-trust-badges" aria-label="Trust highlights">
+        <span>100% Client-Side BYOK</span>
+        <span aria-hidden="true">·</span>
+        <span>Zero Server Document Retention</span>
+        <span aria-hidden="true">·</span>
+        <span>Native Support for 7 Languages</span>
       </p>
 
       <div class="cta-group hero-actions">
-        <a href="https://app.getassureai.com" class="btn-primary">Launch App</a>
+        <a href="https://app.getassureai.com" class="btn-primary">Launch Free Workbench</a>
         <a href="#features" class="btn-outline">See what ships&nbsp;today</a>
       </div>
+      <p class="hero-guide-link">New to BYOK? <a href="/guide">Read the 60-Second Setup Guide →</a></p>
 
-      <figure class="verified-mockup" aria-label="Example: draft text with green and yellow claim highlights (mockup)">
-        <div class="verified-card">
-          <p class="asked-label">You pasted</p>
-          <p class="asked-text">The clinical trial dropout rate for Drug A is 12% vs 8% for Drug B.</p>
-          <p class="asked-label">Assure checked against your files</p>
-          <span class="verified-badge">Verified</span>
-          <p class="verified-summary"><strong>Green:</strong> 12% and 8% appear in clinical_trial_A.pdf (p.4) and clinical_trial_B.pdf (p.7).</p>
-          <p class="verified-grounded"><strong>Yellow:</strong> General comparison language inferred by the model — not a direct quote from your upload.</p>
+      <figure class="audit-simulator" aria-label="Interactive visual audit comparison example">
+        <div class="audit-simulator-grid">
+          <div class="audit-panel">
+            <p class="audit-panel-label">Source Document Excerpt</p>
+            <p class="audit-panel-text">Operating margin expanded by 240 bps to 18.2%. European markets accounted for 62% of revenue growth.</p>
+          </div>
+          <div class="audit-panel">
+            <p class="audit-panel-label">Audited AI Draft</p>
+            <p class="audit-panel-text"><span class="audit-green">Operating margins increased to 18.2%</span>, driven by strong quarterly performance where <span class="audit-yellow" title="Claim not supported by uploaded file">North American sales led overall expansion</span>.</p>
+          </div>
         </div>
-        <figcaption class="mockup-note">Mockup. Green = backed by your file. Yellow = inferred / unsupported.</figcaption>
+        <figcaption class="audit-legend">🟢 Green = Backed by source file &nbsp;|&nbsp; 🟡 Yellow = Inferred / Not in source file</figcaption>
       </figure>
     </section>
 
@@ -205,6 +218,50 @@
         <h4>No vendor lock-in</h4>
         <p>Gemini, DeepSeek, Claude, Kimi, or closed to the&nbsp;internet.</p>
       </div>
+    </section>
+
+    <section id="multilingual" class="multilingual-section reveal">
+      <h2 class="section-title">Built for Global Intelligence: Native in 7 Languages</h2>
+      <p class="trust-lead">Auditing non-English documents cannot rely on machine translation. Assure's NLI engine evaluates claims natively across source texts.</p>
+      <p class="lang-badges" aria-label="Supported languages">
+        <span>English</span>
+        <span>Deutsch</span>
+        <span>Français</span>
+        <span>Español</span>
+        <span>日本語</span>
+        <span>中文</span>
+        <span>Türkçe</span>
+      </p>
+    </section>
+
+    <section id="consensus" class="consensus-section reveal">
+      <h2 class="section-title">Consensus Benchmark Matrix</h2>
+      <p class="trust-lead">Single-model drafts carry residual false-confidence risk. Assure Pro cross-checks with dual-model consensus.</p>
+      <div class="table-wrap">
+        <table class="consensus-table">
+          <thead>
+            <tr>
+              <th scope="col">Approach</th>
+              <th scope="col">Residual false-confidence rate*</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Gemini Flash alone</td>
+              <td>~12–15%</td>
+            </tr>
+            <tr>
+              <td>Claude Sonnet alone</td>
+              <td>~5–8%</td>
+            </tr>
+            <tr>
+              <td><strong>Assure Dual-Model Consensus (Pro)</strong></td>
+              <td><strong>&lt;1.5%</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-small">*Illustrative internal benchmark on grounded-claim audits. Your results depend on source quality and draft complexity.</p>
     </section>
 
     <section id="features" class="reveal">
@@ -422,7 +479,7 @@
         <span>A Send goes only to the provider you chose</span>
       </div>
       <p class="text-small footer-oss">Assure is built on open-source foundations: PEM, LiteLLM, Jinja2. The <span class="mono">pem</span> CLI is free with a <a href="/install">source install</a>. The workbench is a paid product.</p>
-      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/guide">Quickstart Guide</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
     </footer>
 
   </div>

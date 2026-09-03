@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 try:
-    from .engine import MatrixError
-    from .library import get_class
+    from ..engine import MatrixError
+    from ..library import get_class
 except ImportError:
     from engine import MatrixError
     from library import get_class
@@ -13,10 +13,9 @@ FORMATS = ("cursorrules", "mdc", "fabric", "dspy")
 
 
 def export_class(class_id: str, fmt: str, *, target_hint: str | None = None) -> str:
-    # Free has export_formats=(). Pro/Team/Self-hosted allow cursorrules, mdc, fabric, dspy.
     fmt = (fmt or "").strip().lower()
     try:
-        from .editions import current_edition
+        from ..editions import current_edition
     except ImportError:
         from editions import current_edition
     plan = current_edition()

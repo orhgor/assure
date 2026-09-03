@@ -1,0 +1,47 @@
+---
+description: Keep Assure SQLite R2 backups within Cloudflare R2 free tier
+globs: scripts/aws/{backup,setup-*}.sh,.env.production*,docs/**/*backup*
+alwaysApply: false
+---
+
+# R2 backup — stay on free tier
+
+Bucket: **`assure-prod-backups`**. Prefix: **`backups/`**. Prod cron: **once daily at 02:00 UTC**.
+
+## Free-tier budget (do not exceed)
+
+| Meter | Free allowance | Assure cap (80% headroom) |
+|-------|----------------|---------------------------|
+| Storage | 10 GB-month | **≤ 8 GB** total in bucket |
+| Class A (PUT, POST, LIST, DELETE) | 1M / month | **≤ 60 / month** (~2/day max) |
+| Class B (GET, HEAD) | 10M / month | avoid bulk LIST/GET in loops |
+
+Egress from R2 is free; **storage and Class A** are what daily backups consume.
+
+## Required behavior
+
+1. **Pre-upload cap check is mandatory.** Before PUT, measure DB size, compressed backup size, and current prefix usage. Default cap **`R2_STORAGE_CAP_GB=8`**. If upload would exceed cap: prune by retention, then emergency-prune oldest (keep **`R2_BACKUP_MIN_KEEP=3`**). If still over cap, **skip upload** and exit non-zero — never blindly grow the bucket.
+2. **Retention.** Default **`R2_BACKUP_RETAIN_DAYS=30`**. Retention prune runs *before* upload when over cap.
+3. **One gzip SQLite file per run.** Only `history_*.db.gz` under `R2_BACKUP_PREFIX`. No raw `.sqlite`, no app uploads, no logs, no second bucket.
+4. **Keep compression.** Always gzip before upload.
+5. **Minimal API calls.** One LIST per run for sizing/prune; one PUT only if cap check passes; DELETE only for pruned objects.
+6. **Token scope.** Object Read & Write on **`assure-prod-backups` only** — never Admin Read & Write or all-buckets tokens for cron.
+7. **Estimate before changing cadence or retention.**  
+   `projected_gb = retain_count × avg_gz_size_mb / 1024` must stay **< 8**. If DB grows, **lower retain days** before raising cron frequency.
+
+## Do not
+
+- Increase cron above **1×/day** without explicit user approval and a written storage estimate.
+- Disable or bypass retention to “keep more history.”
+- Add lifecycle rules or scripts that LIST the whole bucket on every tick.
+- Store secrets or `.env` files in R2.
+
+## When editing backup scripts
+
+After changes, confirm:
+
+- Retention runs on every successful upload.
+- New env vars are documented in `.env.production.example` only (never commit secrets).
+- A dry-run size check or log line reports pruned count + approximate bucket usage when feasible.
+
+Credentials live in `.env.production` (local) and `/etc/assure/backup.env` (EC2). Never print keys in chat, commits, or docs.

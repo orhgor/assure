@@ -31,7 +31,9 @@
       "/about",
       "/about/",
       "/terms",
-      "/terms/"
+      "/terms/",
+      "/guide",
+      "/guide/"
     ]
   }
 }

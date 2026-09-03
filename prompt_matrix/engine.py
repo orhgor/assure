@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import platform
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -383,20 +387,67 @@ def execute(
     )
 
 
-def copy_to_clipboard(text: str) -> bool:
-    try:
-        import pyperclip
-    except ImportError as exc:
-        raise MatrixError("pyperclip is not installed. Run: pip install -r requirements.txt") from exc
+_CLIPBOARD_LOG = logging.getLogger(__name__)
 
+
+def _headless_clipboard_host() -> bool:
+    """True on Docker/EC2 and other hosts with no desktop clipboard."""
+    flag = os.getenv("PEM_NO_CLIPBOARD", "").strip().lower()
+    if flag in {"1", "true", "yes"}:
+        return True
+    if platform.system() == "Linux" and not os.getenv("DISPLAY") and not os.getenv("WAYLAND_DISPLAY"):
+        return True
+    return False
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Copy to the local desktop clipboard when a mechanism exists.
+
+    Web UI copy uses ``navigator.clipboard`` in the browser. This helper is for
+    local CLI/desktop only. It never raises on headless servers.
+    """
+    if not text:
+        return False
+    if _headless_clipboard_host():
+        _CLIPBOARD_LOG.debug("Skipping clipboard copy on headless host")
+        return False
     try:
-        pyperclip.copy(text)
-    except Exception as exc:
-        raise MatrixError(
-            "Could not write to the clipboard. On Linux you may need xclip or xsel. "
-            f"Original error: {exc}"
-        ) from exc
-    return True
+        system = platform.system()
+        if system == "Darwin":
+            proc = subprocess.run(
+                ["pbcopy"],
+                input=text.encode("utf-8"),
+                capture_output=True,
+                timeout=5,
+            )
+            return proc.returncode == 0
+        if system == "Linux":
+            for cmd in (
+                ["wl-copy"],
+                ["xclip", "-selection", "clipboard"],
+                ["xsel", "--clipboard", "--input"],
+            ):
+                if shutil.which(cmd[0]):
+                    proc = subprocess.run(
+                        cmd,
+                        input=text.encode("utf-8"),
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    return proc.returncode == 0
+            return False
+        if system == "Windows" and shutil.which("clip"):
+            proc = subprocess.run(
+                ["clip"],
+                input=text.encode("utf-16le"),
+                capture_output=True,
+                timeout=5,
+                shell=True,
+            )
+            return proc.returncode == 0
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _CLIPBOARD_LOG.warning("Clipboard copy failed: %s", exc)
+    return False
 
 
 def send_to_llm(

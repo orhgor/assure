@@ -20,9 +20,8 @@
       <h1 data-i18n="nav.library">{{ gettext('Prompt Library') }}</h1>
       <p class="lede" data-i18n="classes.lead">{{ gettext('Saved templates for Compose.') }}</p>
       {% else %}
-      <h1 data-i18n="hero.title">{{ gettext('Verify drafts against your source documents.') }}</h1>
-      <p class="lede" data-i18n="lede">{{ gettext('Paste generated draft text and upload source files to verify claims.') }}</p>
-      <p class="how-restructure" data-i18n="how.restructure">{{ gettext('You type a question. Assure rewrites it for the AI you chose. The panel below shows the prompt as you type. Get my answer sends it to that provider. Copy stays on this computer.') }}</p>
+      <h1 data-i18n="jdf.hero.title">{{ gettext('Document engineering workbench') }}</h1>
+      <p class="lede" data-i18n="jdf.hero.lead">{{ gettext('Edit JDF nodes surgically, stream model output, and export verified documents.') }}</p>
       {% endif %}
     </div>
 {% endblock %}
@@ -44,6 +43,59 @@
         <a class="btn btn-primary" id="upgrade-link" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
         <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $19 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
       </div>
+      <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
+        <div class="jdf-workbench-head">
+          <h2 class="jdf-workbench-title" data-i18n="jdf.workbench.title">{{ gettext('Document engineering') }}</h2>
+        </div>
+        <div class="app-container">
+          <aside class="left-pane" id="left-pane">
+            <h3 class="jdf-pane-title" data-i18n="jdf.pane.inquiry">{{ gettext('Inquiry workbench') }}</h3>
+            <p id="aperture-indicator" class="jdf-surgical-mode pill pill-neutral" hidden>
+              <span data-i18n="jdf.surgical.mode">{{ gettext('Surgical target') }}:</span>
+              <span id="active-target-id">—</span>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
+            </p>
+            <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
+            <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the surgical edit for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
+            <div class="inquiry-controls">
+              <label class="jdf-redhat-toggle">
+                <input type="checkbox" id="toggle-redhat" checked>
+                <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
+              </label>
+              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Inquire') }}</button>
+            </div>
+            <div id="streaming-preview" class="preview-box">
+              <p class="preview-label" data-i18n="jdf.preview.stream">{{ gettext('Model stream') }}</p>
+              <pre id="jdf-live-preview" class="jdf-live-preview"></pre>
+            </div>
+            <div id="redhat-findings-wrap" hidden>
+              <p class="preview-label" data-i18n="jdf.redhat.findings">{{ gettext('Red-hat findings') }}</p>
+              <div id="redhat-findings"></div>
+            </div>
+            <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
+          </aside>
+          <main class="right-pane" id="jdf-document-canvas">
+            <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Document canvas') }}</h3>
+            <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
+          </main>
+        </div>
+        <footer class="command-deck">
+          <div class="command-deck-left">
+            <span id="save-status" class="save-pill pill-idle">
+              <span id="save-status-label" data-i18n="jdf.save.ready">{{ gettext('Ready') }}</span>
+              (<span id="version-display">1</span>)
+            </span>
+            <span id="truth-ledger-badge" class="truth-pill truth-idle" data-i18n="jdf.truth.idle">● Z3 Truth Ledger</span>
+          </div>
+          <div class="command-deck-right">
+            <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" data-i18n="jdf.stop_stream">✕ Stop Stream</button>
+            <button type="button" class="btn btn-outline btn-sm" id="jdf-save" data-i18n="jdf.save">{{ gettext('Save document') }}</button>
+            <a class="btn btn-sm btn-primary" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export">{{ gettext('Export .docx') }}</a>
+          </div>
+        </footer>
+      </section>
+      <details class="classic-compose" id="classic-compose">
+        <summary data-i18n="compose.classic.summary">{{ gettext('Classic compose — verify drafts with Get my answer') }}</summary>
       <div class="layout">
         <form id="form">
           <select id="workflow" hidden>
@@ -92,7 +144,7 @@
             </div>
             <p class="hint" data-i18n="file.hint">{{ gettext('A path on this machine is read automatically. A file attached here is inlined into the question.') }}</p>
             <details class="live-preview" id="preview-box" open>
-              <summary data-i18n="preview.title">{{ gettext('What Assure will send') }}</summary>
+              <summary><span data-i18n="jdf.preview.prompt">{{ gettext('Compiled prompt preview') }}</span> — <span data-i18n="preview.title">{{ gettext('What Assure will send') }}</span></summary>
               <pre id="live-preview" data-i18n="preview.empty">{{ gettext('Start typing. This panel shows the prompt as it is rewritten.') }}</pre>
             </details>
             <input type="checkbox" id="direct" hidden checked>
@@ -327,6 +379,7 @@
           </div>
         </section>
       </div>
+      </details>
     </div>
 
     <div class="pane" id="pane-learn"{% if pane != 'learn' %} hidden{% endif %}>
@@ -432,6 +485,10 @@
       <h2 data-i18n="settings.title">{{ gettext('API keys') }}</h2>
       <button class="btn btn-outline ghost" type="button" id="settings-close" data-i18n="history.close">{{ gettext('Close') }}</button>
     </div>
+    <div class="settings-guide-banner">
+      <span>Need an API key?</span>
+      <a href="https://getassureai.com/guide" target="_blank" rel="noopener noreferrer">Follow the 60-Second Setup Guide →</a>
+    </div>
     <p class="hint settings-banner bad" id="settings-keys-banner" hidden data-i18n="settings.keys_required">{{ gettext('Please provide at least one provider API key to run verification.') }}</p>
     <label class="section" for="settings-gemini-key" data-i18n="settings.gemini">{{ gettext('Gemini API Key') }}</label>
     <input type="password" id="settings-gemini-key" class="form-control" autocomplete="off" placeholder="AIzaSy..." data-i18n-placeholder="settings.gemini_ph">
@@ -443,6 +500,11 @@
   </dialog>
 {% endblock %}
 {% block scripts %}
+  <script>
+    window.__INITIAL_JDF__ = {{ initial_jdf|tojson if initial_jdf is defined else 'null' }};
+    window.__ASSURE_PROJECT_ID__ = {{ project_id|tojson if project_id is defined else '"default"' }};
+  </script>
+  <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
   {% if auth is defined and auth.publishable_key %}
   <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
@@ -525,6 +587,7 @@
     function t(key, fallback) {
       return (state.strings && state.strings[key]) || fallback || key;
     }
+    window.__assureT = t;
 
     function tf(key, fallback, vars) {
       let text = t(key, fallback);
@@ -533,6 +596,7 @@
       });
       return text;
     }
+    window.__assureTf = tf;
 
     function applyI18n() {
       document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -568,6 +632,10 @@
         sel.value = state.locale;
       }
       applyI18n();
+      if (window.__assureJdf && typeof window.__assureJdf.setSavePill === "function") {
+        window.__assureJdf.setSavePill("saved", "jdf.save.ready");
+        window.__assureJdf.setTruthBadge("IDLE");
+      }
       syncGo();
       syncIntentHint();
       fillClassSelects();
@@ -1213,6 +1281,11 @@
       el.className = "status" + (kind ? " " + kind : "");
     }
 
+    async function copyToClipboard(text) {
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+    }
+
     const workflowHints = {
       single: "Fastest. One model answers.",
       ensemble: "Multiple models check each other. We show agreement and disagreement.",
@@ -1283,7 +1356,7 @@
             file_context: fileContext,
             files_attached: Boolean(fileContext),
             direct: $("direct").checked,
-            copy: true,
+            copy: false,
             workflow: state.workflow,
             extra_targets: extraTargetIds(),
             critic: $("critic").value,
@@ -1557,7 +1630,7 @@
           paintAuditReply(prose, parsed.copyText, data);
           box.appendChild(prose);
         }
-        try { navigator.clipboard.writeText(state.lastAnswer); } catch (_) {}
+        copyToClipboard(state.lastAnswer).catch(() => {});
       } else if (sent) {
         state.lastAnswer = "";
         $("copy-answer").hidden = true;
@@ -1578,7 +1651,7 @@
         hideAuditLegend();
         paintBadge($("ground").checked);
         if (data.workflow === "single") {
-          try { navigator.clipboard.writeText(data.prompt); } catch (_) {}
+          copyToClipboard(data.prompt).catch(() => {});
         }
       }
       renderSteps(steps);
@@ -1942,12 +2015,7 @@
       const text = state.lastAnswer;
       if (!text) return;
       try {
-        await navigator.clipboard.writeText(text);
-        await apiFetch("/api/copy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
+        await copyToClipboard(text);
         setStatus("Copied the answer.", "ok");
       } catch (err) {
         setStatus(err.message, "bad");
@@ -1957,12 +2025,7 @@
     $("copy").addEventListener("click", async () => {
       const text = $("prompt").textContent;
       try {
-        await navigator.clipboard.writeText(text);
-        await apiFetch("/api/copy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
+        await copyToClipboard(text);
         setStatus("Copied again.", "ok");
       } catch (err) {
         setStatus(err.message, "bad");
@@ -2110,12 +2173,7 @@
         btn.addEventListener("click", async () => {
           const item = state.library.prompts.find((p) => p.id === btn.dataset.copy);
           if (!item) return;
-          await navigator.clipboard.writeText(item.prompt);
-          await apiFetch("/api/copy", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: item.prompt }),
-          });
+          await copyToClipboard(item.prompt);
         });
       });
       root.querySelectorAll("[data-del-prompt]").forEach((btn) => {
@@ -2619,6 +2677,13 @@
       paintBadge($("ground") && $("ground").checked);
       loadRecent();
       schedulePreview();
+      if (window.JDFCanvasManager && $("jdf-workbench")) {
+        window.__assureJdf = new window.JDFCanvasManager({
+          projectId: window.__ASSURE_PROJECT_ID__ || "default",
+          document: window.__INITIAL_JDF__,
+        });
+        window.__assureJdf.bind();
+      }
       if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) {
         const box = $("preview-box");
         if (box) box.open = false;

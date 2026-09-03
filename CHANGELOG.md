@@ -5,7 +5,7 @@ All notable product changes in this tree. Dates are calendar dates from the swar
 ## Unreleased
 
 - P4 account wallet: Clerk TEXT user ids, Fernet settings sync, 100 signup credits, atomic `spend_credit` after a successful Send, `/account/usage`. Source-install without Clerk stays unlimited. No official `supabase` Python SDK.
-- PEM MCP `apply_patch` applies a unified diff to the workspace (no live APIs). Swarm developer output cap is 16384 tokens; multi-file jobs run per path; truncated dumps continue or are dropped instead of being pasted into templates. Attempts are previewed in `logs/swarm_attempt.log`.
+- Swarm for Cursor: `swarm_start` + `swarm_status` so the full pipeline is not one MCP round-trip (that was `-32001` timeout). `pem_apply_diff` is the listed patch tool; Cursor hides `apply_patch`. MCP writes accepted files after lint. Context files resolve under the repo root. Per-role workflow deadline matches developer 180s Sends.
 - Canonical public URL is https://getassureai.com/ (HTTPS 200 on 2026-09-01). Check outputs is live on that host. `www` did not resolve. Live HTML still lists canonical getassure.com until `webpage` is synced.
 - P0 launch follow-up: Check outputs page live on the Worker (`webpage` `9d48c07`). Team Compare & Validate Send returned `run_hash` and quality scores. Flask restart; seven-language Compose first paint. `getassure.com` still pending Namecheap → Cloudflare NS.
 - First-run usage: `assure --web` opens the browser. No password prompt on this computer unless you set one. LAN (`--host 0.0.0.0`) requires `--http-pass` and refuses the old default. Connect copy is “Choose who answers.”

@@ -18,7 +18,14 @@ auth = HTTPBasicAuth()
 _users: dict[str, str] = {}
 
 PUBLIC_PATHS = frozenset(
-    {"/api/health", "/api/status", "/api/webhook/stripe", "/api/webhooks/stripe", "/api/waitlist"}
+    {
+        "/health",
+        "/api/health",
+        "/api/status",
+        "/api/webhook/stripe",
+        "/api/webhooks/stripe",
+        "/api/waitlist",
+    }
 )
 
 

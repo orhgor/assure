@@ -3,6 +3,7 @@
 
   var STORAGE_GEMINI = "assure_gemini_key";
   var STORAGE_CLAUDE = "assure_claude_key";
+  var SETUP_GUIDE_URL = "https://getassureai.com/guide";
   var nativeFetch = window.fetch.bind(window);
 
   var MODEL_LABELS = {
@@ -84,7 +85,21 @@
     }
 
     return promise.then(function (pair) {
-      return nativeFetch(pair[0], pair[1]);
+      return nativeFetch(pair[0], pair[1]).then(function (res) {
+        if (url.indexOf("/api/") !== -1 && (res.status === 401 || res.status === 403)) {
+          var authPath = url.indexOf("/api/auth/") !== -1;
+          if (!authPath) {
+            res.clone().text().then(function (body) {
+              var lower = (body || "").toLowerCase();
+              var clerkBlock = lower.indexOf("sign in") !== -1;
+              if (!clerkBlock) {
+                showProviderAuthError();
+              }
+            }).catch(function () {});
+          }
+        }
+        return res;
+      });
     });
   };
 
@@ -105,6 +120,16 @@
     });
   }
 
+  function showProviderAuthError() {
+    var el = document.getElementById("status");
+    if (!el) return;
+    el.className = "status bad";
+    el.innerHTML =
+      'Invalid API key. Verify your credentials in the <a href="' +
+      SETUP_GUIDE_URL +
+      '" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">Setup Guide</a>.';
+  }
+
   function openSettingsModal(showBanner) {
     var modal = document.getElementById("settings-modal");
     if (!modal) return;
@@ -113,7 +138,17 @@
     if (gemini) gemini.value = getGeminiKey();
     if (claude) claude.value = getClaudeKey();
     var banner = document.getElementById("settings-keys-banner");
-    if (banner) banner.hidden = !showBanner;
+    if (banner) {
+      if (showBanner) {
+        banner.hidden = false;
+        banner.innerHTML =
+          'Please add a Gemini or Claude API key to run verification. Need a key? <a href="' +
+          SETUP_GUIDE_URL +
+          '" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">See the setup guide</a>.';
+      } else {
+        banner.hidden = true;
+      }
+    }
     if (typeof modal.showModal === "function") modal.showModal();
   }
 

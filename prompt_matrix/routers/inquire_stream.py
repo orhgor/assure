@@ -1,0 +1,474 @@
+"""SSE streaming endpoint for JDF document engineering inquire pipeline."""
+
+from __future__ import annotations
+
+import json
+import re
+import time
+import uuid
+from typing import Any, Generator, Iterator
+
+from flask import Response, request
+from pydantic import BaseModel, Field
+
+try:
+    from ..compiler.aperture import build_aperture_context
+    from ..cost_governance import (
+        BudgetExhaustedError,
+        CostGovernor,
+        QuotaExceededError,
+        TaskType,
+        TokenLimitExceededError,
+    )
+    from ..ledger.truth_engine import TruthLedgerEngine
+    from ..lib.logger import get_audit_logger
+    from ..models.jdf import (
+        JDFDocumentTree,
+        get_node_by_id,
+        new_node_id,
+        node_text,
+        parse_document,
+    )
+except ImportError:
+    from compiler.aperture import build_aperture_context
+    from cost_governance import (
+        BudgetExhaustedError,
+        CostGovernor,
+        QuotaExceededError,
+        TaskType,
+        TokenLimitExceededError,
+    )
+    from ledger.truth_engine import TruthLedgerEngine
+    from lib.logger import get_audit_logger
+    from models.jdf import (
+        JDFDocumentTree,
+        get_node_by_id,
+        new_node_id,
+        node_text,
+        parse_document,
+    )
+
+_METRIC_RE = re.compile(
+    r"(?P<key>[a-zA-Z_][\w.-]*)\s*(?:=|:)\s*\$?\s*(?P<val>\d+(?:\.\d+)?)\s*(?P<suffix>[MBKmbk])?",
+)
+
+
+class InquiryPayload(BaseModel):
+    user_intent: str
+    target_node_id: str | None = None
+    run_redhat: bool = True
+    document: JDFDocumentTree | None = None
+    incoming_metrics: list[list[Any]] = Field(default_factory=list)
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _parse_metrics(text: str) -> list[tuple[str, float]]:
+    found: list[tuple[str, float]] = []
+    for match in _METRIC_RE.finditer(text or ""):
+        key = match.group("key")
+        val = float(match.group("val"))
+        suffix = (match.group("suffix") or "").upper()
+        if suffix == "M":
+            val *= 1_000_000
+        elif suffix == "K":
+            val *= 1_000
+        elif suffix == "B":
+            val *= 1_000_000_000
+        found.append((key, val))
+    return found
+
+
+def _default_document(project_id: str) -> JDFDocumentTree:
+    return JDFDocumentTree(
+        document_id=f"doc-{project_id}",
+        meta={"project_id": project_id},
+        truth_ledger={},
+        body=[],
+    )
+
+
+def resolve_active_document(
+    project_id: str,
+    payload_doc: JDFDocumentTree | dict[str, Any] | None,
+) -> JDFDocumentTree:
+    """Prefer inline payload document; fall back to latest SQLite revision."""
+    if payload_doc is not None:
+        if isinstance(payload_doc, JDFDocumentTree):
+            return payload_doc
+        return parse_document(payload_doc)
+    try:
+        from ..db.jdf_repository import fetch_latest_jdf
+    except ImportError:
+        from db.jdf_repository import fetch_latest_jdf
+    stored = fetch_latest_jdf(project_id)
+    if stored:
+        return parse_document(stored)
+    return _default_document(project_id)
+
+
+def _build_messages(user_intent: str, aperture: dict[str, Any] | None) -> list[dict[str, str]]:
+    system = (
+        "You are Assure document engineering. Return only the revised paragraph content "
+        "for the target node. Preserve locked metrics from the truth ledger."
+    )
+    user_parts = [f"User intent:\n{user_intent}"]
+    if aperture:
+        user_parts.append(aperture.get("prompt_harness") or "")
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": "\n\n".join(p for p in user_parts if p)},
+    ]
+
+
+def _paragraph_node(node_id: str, content: str, *, status: str = "ok", z3_error: str | None = None) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    if z3_error:
+        meta["z3_error"] = z3_error
+    node = {
+        "type": "paragraph",
+        "id": node_id,
+        "content": content,
+        "entities_referenced": [],
+        "provenance": None,
+        "meta": meta,
+    }
+    if status != "ok":
+        node["status"] = status
+    return node
+
+
+def _redhat_callout(critique: str) -> dict[str, Any]:
+    return {
+        "type": "callout",
+        "id": new_node_id("redhat"),
+        "variant": "adversarial_redhat",
+        "title": "Red-hat review",
+        "content": critique,
+    }
+
+
+def _record_llm_usage(
+    governor: CostGovernor,
+    project_id: str,
+    *,
+    input_tokens: int,
+    output_tokens: int,
+    model_id: str,
+    task_type: TaskType,
+) -> dict[str, Any]:
+    governor.record_usage(
+        project_id=project_id,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        model_id=model_id,
+        task_type=task_type,
+    )
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "model_id": model_id,
+        "task_type": task_type.value,
+    }
+
+
+def run_inquire_pipeline(
+    project_id: str,
+    *,
+    user_intent: str,
+    target_node_id: str | None = None,
+    run_redhat: bool = True,
+    document: JDFDocumentTree | dict[str, Any] | None = None,
+    incoming_metrics: list[list[Any]] | None = None,
+    governor: CostGovernor | None = None,
+    request_id: str | None = None,
+) -> Iterator[str]:
+    """Yield SSE frames for the inquire pipeline. No blocking sleep."""
+    rid = request_id or str(uuid.uuid4())
+    start_time = time.perf_counter()
+    audit = get_audit_logger()
+    gov = governor or CostGovernor()
+
+    def _duration_ms() -> int:
+        return int((time.perf_counter() - start_time) * 1000)
+
+    def _fail_complete(**payload: Any) -> Iterator[str]:
+        audit.log_audit(
+            rid,
+            project_id,
+            "INQUIRE_STREAM",
+            target_node_id=target_node_id,
+            success=False,
+            duration_ms=_duration_ms(),
+            error_message=str(payload.get("error") or "failed"),
+            details={"http_status": payload.get("http_status")},
+        )
+        yield _sse("complete", {"ok": False, "request_id": rid, **payload})
+
+    yield _sse("status", {"stage": "load_document", "project_id": project_id, "request_id": rid})
+
+    tree = resolve_active_document(project_id, document)
+
+    truth = TruthLedgerEngine()
+    truth.load_from_document(tree)
+    for pair in incoming_metrics or []:
+        if len(pair) >= 2:
+            try:
+                truth.lock_metric(str(pair[0]), float(pair[1]), "==")
+            except (TypeError, ValueError):
+                continue
+
+    original_content = ""
+    is_mutation = bool(target_node_id)
+    if target_node_id:
+        hit = get_node_by_id(tree, target_node_id)
+        if hit:
+            original_content = node_text(hit)
+
+    aperture: dict[str, Any] | None = None
+    task_type = TaskType.DEEP_SYNTHESIS
+    node_id = target_node_id or new_node_id("para")
+
+    if target_node_id:
+        yield _sse("status", {"stage": "aperture", "target_node_id": target_node_id})
+        try:
+            aperture = build_aperture_context(tree, target_node_id)
+            task_type = TaskType.SURGICAL_EDIT
+        except KeyError as exc:
+            yield from _fail_complete(error=str(exc))
+            return
+
+    messages = _build_messages(user_intent, aperture)
+
+    yield _sse("status", {"stage": "preflight", "task_type": task_type.value})
+
+    try:
+        gov.preflight(project_id, task_type, messages)
+    except (BudgetExhaustedError, QuotaExceededError) as exc:
+        yield from _fail_complete(error=str(exc), http_status=429)
+        return
+    except TokenLimitExceededError as exc:
+        yield from _fail_complete(error=str(exc), http_status=400)
+        return
+
+    def _validate(text: str) -> tuple[bool, str | None]:
+        metrics = _parse_metrics(text)
+        if not metrics:
+            return True, None
+        ok, violations = truth.validate_entities(metrics)
+        if not ok:
+            return False, violations[0] if violations else "Z3 Conflict"
+        return True, None
+
+    yield _sse("status", {"stage": "model", "task_type": task_type.value})
+
+    result = gov.execute_with_retry_budget(
+        project_id,
+        task_type,
+        messages,
+        validate_fn=_validate,
+        build_node_fn=lambda text: _paragraph_node(node_id, text),
+        defer_budget_record=True,
+    )
+
+    text = result.text or ""
+    chunk_size = 48
+    for i in range(0, max(len(text), 1), chunk_size):
+        yield _sse("token", {"delta": text[i : i + chunk_size]})
+
+    if result.status == "VALIDATION_FAILED":
+        violations = [result.error or "validation failed"]
+        audit.log_audit(
+            rid,
+            project_id,
+            "Z3_VIOLATION",
+            target_node_id=target_node_id,
+            success=False,
+            duration_ms=_duration_ms(),
+            details={"violations": violations},
+        )
+        yield _sse(
+            "truth_check",
+            {"status": "VIOLATION", "violations": violations, "detail": "Z3 Conflict"},
+        )
+    else:
+        metrics = _parse_metrics(text)
+        ok, viol = truth.validate_entities(metrics) if metrics else (True, [])
+        if not ok:
+            audit.log_audit(
+                rid,
+                project_id,
+                "Z3_VIOLATION",
+                target_node_id=target_node_id,
+                success=False,
+                duration_ms=_duration_ms(),
+                details={"violations": viol},
+            )
+        yield _sse(
+            "truth_check",
+            {
+                "status": "PASS" if ok else "VIOLATION",
+                "violations": viol,
+                "detail": "Z3 Conflict" if viol else "Z3 Verified",
+            },
+        )
+
+    node = result.node or _paragraph_node(
+        node_id,
+        text,
+        status=result.status,
+        z3_error=result.error,
+    )
+
+    if run_redhat and result.ok:
+        yield _sse("status", {"stage": "redhat"})
+        red_messages = [
+            {
+                "role": "user",
+                "content": f"Red-hat critique this node:\n\n{node.get('content', '')}\n\nIntent: {user_intent}",
+            }
+        ]
+        red = gov.execute_with_retry_budget(
+            project_id,
+            TaskType.REDHAT,
+            red_messages,
+            build_node_fn=lambda t: _redhat_callout(t),
+            defer_budget_record=True,
+        )
+        if red.node:
+            yield _sse("redhat_callout", {"node": red.node})
+        _record_llm_usage(
+            gov,
+            project_id,
+            input_tokens=red.input_tokens,
+            output_tokens=red.output_tokens,
+            model_id=red.model_id,
+            task_type=TaskType.REDHAT,
+        )
+
+    yield _sse(
+        "jdf_node_ready",
+        {
+            "node": node,
+            "status": result.status,
+            "original_content": original_content,
+            "new_content": text,
+            "target_node_id": target_node_id,
+            "is_mutation": is_mutation,
+        },
+    )
+
+    usage_payload = _record_llm_usage(
+        gov,
+        project_id,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        model_id=result.model_id,
+        task_type=task_type,
+    )
+    yield _sse("usage", usage_payload)
+
+    audit.log_audit(
+        rid,
+        project_id,
+        "INQUIRE_STREAM",
+        target_node_id=target_node_id,
+        success=result.ok,
+        duration_ms=_duration_ms(),
+        details={"model": result.model_id, "task_type": task_type.value},
+    )
+    yield _sse(
+        "complete",
+        {
+            "ok": result.ok,
+            "retries": result.retries,
+            "model_id": result.model_id,
+            "request_id": rid,
+        },
+    )
+
+
+def register_inquire_routes(app) -> None:
+    """Register POST /api/projects/<project_id>/inquire/stream on the Flask app."""
+
+    @app.post("/api/projects/<project_id>/inquire/stream")
+    def inquire_stream(project_id: str):
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = InquiryPayload.model_validate(
+                {
+                    "user_intent": data.get("user_intent") or "",
+                    "target_node_id": data.get("target_node_id"),
+                    "run_redhat": data.get("run_redhat", True),
+                    "document": data.get("document"),
+                    "incoming_metrics": data.get("incoming_metrics") or [],
+                }
+            )
+        except Exception as exc:
+            return {"error": str(exc)}, 400
+
+        if not payload.user_intent.strip():
+            return {"error": "user_intent required"}, 400
+
+        def generate() -> Generator[str, None, None]:
+            request_id = str(uuid.uuid4())
+            start_time = time.perf_counter()
+            audit = get_audit_logger()
+            try:
+                yield from run_inquire_pipeline(
+                    project_id,
+                    user_intent=payload.user_intent.strip(),
+                    target_node_id=(payload.target_node_id or "").strip() or None,
+                    run_redhat=payload.run_redhat,
+                    document=payload.document,
+                    incoming_metrics=payload.incoming_metrics,
+                    request_id=request_id,
+                )
+            except (BudgetExhaustedError, QuotaExceededError) as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "INQUIRE_STREAM",
+                    exc,
+                    target_node_id=(payload.target_node_id or "").strip() or None,
+                    duration_ms=duration_ms,
+                )
+                yield _sse(
+                    "complete",
+                    {"ok": False, "error": str(exc), "http_status": 429, "request_id": request_id},
+                )
+            except TokenLimitExceededError as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "INQUIRE_STREAM",
+                    exc,
+                    target_node_id=(payload.target_node_id or "").strip() or None,
+                    duration_ms=duration_ms,
+                )
+                yield _sse(
+                    "complete",
+                    {"ok": False, "error": str(exc), "http_status": 400, "request_id": request_id},
+                )
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "INQUIRE_STREAM",
+                    exc,
+                    target_node_id=(payload.target_node_id or "").strip() or None,
+                    duration_ms=duration_ms,
+                )
+                yield _sse("complete", {"ok": False, "error": str(exc), "request_id": request_id})
+
+        headers = {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+        return Response(generate(), headers=headers)

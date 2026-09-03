@@ -1685,3 +1685,219 @@ body.waitlist-open {
   .orch-line,
   .hero-typed.is-typing::after { animation: none; }
 }
+
+/* Hero trust badges & guide link */
+.hero-trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--trust-blue);
+  margin: var(--spacing-4) 0 var(--spacing-6);
+}
+
+.hero-guide-link {
+  margin-top: 10px;
+  font-size: 0.875rem;
+  opacity: 0.85;
+  text-align: center;
+}
+
+.hero-guide-link a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Visual audit simulator */
+.audit-simulator {
+  margin-top: var(--spacing-8);
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.audit-simulator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-4);
+}
+
+.audit-panel {
+  background: var(--apple-white);
+  border: 1px solid var(--apple-light-gray);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.audit-panel-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--apple-mid-gray);
+  margin-bottom: var(--spacing-3);
+}
+
+.audit-panel-text {
+  font-size: 0.95rem;
+  color: var(--apple-dark-gray);
+  line-height: 1.55;
+}
+
+.audit-green {
+  background: rgba(34, 197, 94, 0.2);
+  color: #15803d;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.audit-yellow {
+  background: rgba(234, 179, 8, 0.2);
+  color: #a16207;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.audit-legend {
+  margin-top: var(--spacing-4);
+  font-size: 0.875rem;
+  color: var(--apple-mid-gray);
+  text-align: center;
+}
+
+/* Multilingual moat */
+.multilingual-section,
+.consensus-section {
+  padding: var(--spacing-12) 0;
+}
+
+.lang-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  justify-content: center;
+  margin-top: var(--spacing-6);
+}
+
+.lang-badges span {
+  display: inline-block;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-full);
+  background: var(--apple-gray);
+  border: 1px solid var(--apple-light-gray);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--apple-dark-gray);
+}
+
+/* Consensus table */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: var(--spacing-6);
+}
+
+.consensus-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.consensus-table th,
+.consensus-table td {
+  padding: var(--spacing-4);
+  text-align: left;
+  border-bottom: 1px solid var(--apple-light-gray);
+}
+
+.consensus-table th {
+  font-weight: 600;
+  color: var(--apple-dark-gray);
+  background: var(--apple-gray);
+}
+
+.consensus-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Guide page */
+.masthead-compact {
+  padding-bottom: var(--spacing-4);
+}
+
+.guide-hero {
+  padding: var(--spacing-8) 0 var(--spacing-4);
+  text-align: center;
+}
+
+.guide-body {
+  padding-bottom: var(--spacing-12);
+}
+
+.guide-section {
+  padding: var(--spacing-10) 0;
+  border-top: 1px solid var(--apple-light-gray);
+}
+
+.guide-section:first-of-type {
+  border-top: none;
+}
+
+.guide-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-6);
+  margin-top: var(--spacing-6);
+}
+
+.guide-card {
+  background: var(--apple-gray);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-6);
+  border: 1px solid var(--apple-light-gray);
+}
+
+.guide-steps {
+  margin: var(--spacing-4) 0 0 1.25rem;
+  color: var(--apple-mid-gray);
+}
+
+.guide-steps li {
+  margin-bottom: var(--spacing-2);
+}
+
+.guide-note {
+  margin-top: var(--spacing-4);
+}
+
+.guide-signals {
+  list-style: none;
+  margin-top: var(--spacing-6);
+}
+
+.guide-signals li {
+  margin-bottom: var(--spacing-4);
+  padding-left: 0;
+}
+
+.signal-pill {
+  margin-right: 0.35rem;
+}
+
+.cta-inline {
+  margin-top: var(--spacing-8);
+  text-align: center;
+}
+
+.nav a.active {
+  color: var(--trust-blue);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .audit-simulator-grid {
+    grid-template-columns: 1fr;
+  }
+}

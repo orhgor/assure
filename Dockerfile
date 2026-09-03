@@ -9,7 +9,7 @@ ENV PORT=8765
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -r requirements.txt gunicorn flask-cors
+    && pip install --no-cache-dir --prefer-binary -r requirements.txt gunicorn flask-cors httpx pytest-asyncio asgiref
 
 COPY . .
 

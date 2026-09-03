@@ -76,6 +76,8 @@ const PAGE_ALIASES = {
   "/about/": "/about.html",
   "/terms": "/terms.html",
   "/terms/": "/terms.html",
+  "/guide": "/guide.html",
+  "/guide/": "/guide.html",
 };
 
 export default {

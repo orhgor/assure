@@ -316,14 +316,12 @@ def run_workflow(
 
         if copy:
             if result.reply:
-                copy_to_clipboard(result.reply)
-                result.copied = True
+                result.copied = copy_to_clipboard(result.reply)
             elif not direct:
                 if result.workflow == "single":
-                    copy_to_clipboard(result.prompt)
+                    result.copied = copy_to_clipboard(result.prompt)
                 elif result.steps:
-                    copy_to_clipboard(result.steps[0].prompt)
-                result.copied = True
+                    result.copied = copy_to_clipboard(result.steps[0].prompt)
         result.local = local
         result.direct = direct
         if workflow == "redhat":
