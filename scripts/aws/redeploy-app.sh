@@ -71,3 +71,4 @@ fi
 echo ""
 echo "Done. Hard refresh https://app.getassureai.com (Cmd+Shift+R / Ctrl+Shift+R)."
 echo "Verify: curl -s http://127.0.0.1:8765/health | python3 -m json.tool"
+echo "From your Mac: bash scripts/aws/redeploy-via-ssm.sh"
