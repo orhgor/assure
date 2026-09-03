@@ -1,0 +1,8 @@
+# Installed on EC2 at /etc/cloudflared/config.yml
+tunnel: 3c71a11e-e98b-4f11-802e-8674b8bca524
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: app.getassureai.com
+    service: http://localhost:8765
+  - service: http_status:404
