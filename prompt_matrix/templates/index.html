@@ -56,6 +56,10 @@
             <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
             </span>
+            <button type="button" id="theme-toggle" class="theme-toggle" aria-label="{{ gettext('Switch to dark mode') }}">
+              <span class="theme-icon theme-icon-moon" aria-hidden="true">🌙</span>
+              <span class="theme-icon theme-icon-sun" aria-hidden="true">☀️</span>
+            </button>
             <label class="visually-hidden" for="locale-select">
               <span data-i18n="lang">{{ gettext('Language') }}</span>
             </label>
@@ -111,7 +115,7 @@
               <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile JDF nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile Document') }}</button>
               <div id="generate-stream-wrap" class="preview-box">
                 <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Compilation Progress') }}</p>
-                <pre id="generate-stream-preview" class="jdf-live-preview"></pre>
+                <pre id="generate-stream-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
               </div>
               <div id="generate-compiling" class="generate-compiling" hidden>
                 <span class="spinner" aria-hidden="true"></span>
@@ -269,9 +273,9 @@
               <button type="button" class="btn btn-primary dock-btn" id="btn-dock-draft" hidden data-i18n="compose.dock_button">{{ gettext('📤 Dock to Canvas') }}</button>
             </div>
             <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
-            <div id="streaming-preview" class="preview-box">
+            <div id="streaming-preview" class="preview-box" aria-live="polite" role="status">
               <p class="preview-label" data-i18n="jdf.preview.stream">{{ gettext('Model stream') }}</p>
-              <pre id="jdf-live-preview" class="jdf-live-preview"></pre>
+              <pre id="jdf-live-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
             </div>
             <div id="redhat-findings-wrap" hidden>
               <p class="preview-label" data-i18n="jdf.redhat.findings">{{ gettext('Red-hat findings') }}</p>

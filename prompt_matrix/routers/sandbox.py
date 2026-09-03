@@ -19,6 +19,7 @@ try:
         parse_document,
     )
     from ..routers.draft import run_lock_inference, run_redhat_audit, verify_locks
+    from ..services.audit_summary import build_audit_summary
 except ImportError:
     from cost_governance import CostGovernor, TaskType
     from models.jdf import (
@@ -30,6 +31,7 @@ except ImportError:
         parse_document,
     )
     from routers.draft import run_lock_inference, run_redhat_audit, verify_locks
+    from services.audit_summary import build_audit_summary
 
 SANDBOX_PROJECT_ID = "sandbox"
 
@@ -94,18 +96,16 @@ def run_sandbox_verify(
     parse_document(annotated)
 
     nodes = flatten_nodes(annotated)
-    ok = z3_results.get("status") == "PASS"
 
-    return {
-        "ok": ok,
-        "nodes": nodes,
-        "node_count": len(nodes),
-        "locks": locks,
-        "lock_count": len(locks),
-        "z3_results": z3_results,
-        "redhat_results": redhat_critiques,
-        "document": annotated,
-    }
+    return build_audit_summary(
+        z3_results=z3_results,
+        redhat_critiques=redhat_critiques,
+        nodes=nodes,
+        locks=locks,
+        document=annotated,
+        node_count=len(nodes),
+        lock_count=len(locks),
+    )
 
 
 def register_sandbox_routes(app) -> None:

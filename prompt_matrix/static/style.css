@@ -99,9 +99,81 @@
 
   /* Trust Blue tooltip / onboarding tokens */
   --bg-deep: var(--deep-navy);
-  --text-main: #e8edf5;
+  --text-main: var(--text-color);
+  --text-muted: var(--color-text-muted);
   --border-color: var(--color-border);
 }
+
+[data-theme="dark"] {
+  --bg-deep: #121418;
+  --background: #121418;
+  --bg: #121418;
+  --color-bg: #121418;
+  --color-surface: #1A1C22;
+  --panel: #1A1C22;
+  --paper: #1A1C22;
+  --border-color: #2A2D35;
+  --color-border: #2A2D35;
+  --line: #2A2D35;
+  --text-main: #F0F2F5;
+  --text-color: #F0F2F5;
+  --text: #F0F2F5;
+  --color-text: #F0F2F5;
+  --text-muted: #9BA1B0;
+  --color-text-muted: #9BA1B0;
+  --muted: #9BA1B0;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --select-tint: #1e2430;
+  --color-primary-light: #1e3a5f;
+}
+
+[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] .command-deck {
+  background: rgba(26, 28, 34, 0.94);
+  border-top-color: var(--border-color);
+}
+
+[data-theme="dark"] .is-streaming-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+.skeleton-block {
+  height: 3rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--border-color);
+}
+.skeleton-block:last-child { width: 70%; }
+.skeleton-block:nth-child(2) { width: 90%; }
+.skeleton-block:nth-child(3) { width: 80%; }
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.theme-toggle:hover {
+  background: var(--color-bg);
+}
+.theme-toggle .theme-icon-sun { display: none; }
+[data-theme="dark"] .theme-toggle .theme-icon-moon { display: none; }
+[data-theme="dark"] .theme-toggle .theme-icon-sun { display: inline; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
@@ -2554,6 +2626,40 @@ body.onboarding-active .sidebar-backdrop {
 .truth-idle { color: var(--color-text-secondary); background: var(--color-bg); border: 1px solid var(--color-border); }
 .truth-pass { background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-bg); }
 .truth-fail { background: var(--color-danger-bg); color: var(--color-danger); border: 1px solid var(--color-danger-bg); }
+
+@keyframes nodePopIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.jdf-node.animated {
+  animation: nodePopIn 0.45s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes lockClick {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  55% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.lock-animate {
+  animation: lockClick 0.55s ease-out;
+}
+
+.verify-timeout-retry {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .truth-pill:hover {
   cursor: help;
 }
@@ -2617,6 +2723,24 @@ body.onboarding-active .sidebar-backdrop {
   color: var(--color-primary, #1a4b8c);
   font-size: 13px;
   font-weight: 600;
+}
+
+.preflight-gate-banner.gate-pass {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green, #10b981);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.preflight-gate-banner.gate-fail {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.preflight-gate-banner.gate-review {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.35);
 }
 
 .settings-toggle-row {
@@ -3811,6 +3935,12 @@ body.onboarding-active .sidebar-backdrop {
 @media (prefers-reduced-motion: reduce) {
   .is-streaming-skeleton::after {
     animation: none;
+  }
+  .jdf-node.animated,
+  .lock-animate,
+  .hero-transform-container {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

@@ -14,4 +14,4 @@ When you change a user-facing string in English or Turkish:
 3. Add `data-i18n` (or `data-i18n-placeholder` / `data-i18n-html`) on every visible string. A tab without `data-i18n` stays English after a language switch.
 4. Do not hardcode UI English in JavaScript (`"Local"`, `"Cursor copy only"`). Use a catalog key.
 5. Closed/open wording stays **closed to the internet / open to the internet** (and the locale pair). Not local, cloud, offline, or copy mode.
-6. Turkish: **soru** for a question. **sorun** only for a problem (`intent.debug`). Button is **Yanıtımı al**.
+6. Turkish: **soru** for a question. **sorun** only for a problem (`intent.debug`). Button is **Yanıtla**.

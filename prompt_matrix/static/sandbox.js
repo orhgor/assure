@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  var PROGRESS_STEPS = [
+  var gate = window.AssureAuditGate;
+  var PROGRESS_STEPS = gate ? gate.progressSteps() : [
     "Compiling JDF AST…",
     "Inferring truth-ledger locks…",
     "Running Z3 verification…",
@@ -10,6 +11,16 @@
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function t(key, fallback, vars) {
+    if (typeof window.__assureTf === "function") {
+      return window.__assureTf(key, fallback, vars || {});
+    }
+    if (typeof window.__assureT === "function") {
+      return window.__assureT(key, fallback);
+    }
+    return fallback || key;
   }
 
   function escapeHtml(text) {
@@ -87,59 +98,14 @@
   }
 
   function updateBadges(data) {
-    var z3Badge = $("sandbox-z3-badge");
-    var redhatBadge = $("sandbox-redhat-badge");
-    var lockCount = data.lock_count || 0;
-    var z3 = data.z3_results || {};
-    var redhat = data.redhat_results || [];
-
-    if (z3Badge) {
-      var z3Status = z3.status === "PASS" ? "Locked" : z3.status || "Checked";
-      z3Badge.textContent =
-        "🛡️ Z3 Ledger: " +
-        lockCount +
-        " Variable" +
-        (lockCount === 1 ? "" : "s") +
-        " " +
-        z3Status;
-      z3Badge.classList.toggle("z3-pass", z3.status === "PASS");
-      z3Badge.classList.toggle("z3-fail", z3.status === "VIOLATION");
-    }
-
-    if (redhatBadge) {
-      var gaps = redhat.length;
-      redhatBadge.textContent = "🔍 Red-Hat: " + gaps + " Logic Gap" + (gaps === 1 ? "" : "s");
-    }
+    if (!gate) return;
+    gate.updateZ3Badge($("sandbox-z3-badge"), data);
+    gate.updateRedhatBadge($("sandbox-redhat-badge"), data);
   }
 
   function updateGateSummary(data) {
-    var gate = $("sandbox-gate-summary");
-    var gateText = $("sandbox-gate-text");
-    if (!gate || !gateText) return;
-
-    var z3 = data.z3_results || {};
-    var redCount = (data.redhat_results || []).length;
-    var passed = data.ok === true;
-
-    if (passed && redCount === 0) {
-      gateText.textContent = "Pre-Flight Gate — PASS. All locks verified, no logic gaps.";
-      gate.classList.add("gate-pass");
-      gate.classList.remove("gate-fail");
-    } else if (z3.status === "VIOLATION") {
-      gateText.textContent =
-        "Pre-Flight Gate — BLOCKED. Z3 detected " +
-        (z3.violations || []).length +
-        " violation(s) before export.";
-      gate.classList.add("gate-fail");
-      gate.classList.remove("gate-pass");
-    } else {
-      gateText.textContent =
-        "Pre-Flight Gate — " +
-        (redCount ? redCount + " Red-Hat finding(s) require review." : "Audit complete with warnings.");
-      gate.classList.toggle("gate-pass", passed);
-      gate.classList.toggle("gate-fail", !passed);
-    }
-    gate.classList.remove("hidden");
+    if (!gate) return;
+    gate.updateGateBanner($("sandbox-gate-summary"), $("sandbox-gate-text"), data);
   }
 
   function runSandboxTest() {
@@ -158,8 +124,8 @@
     if (runBtn) runBtn.disabled = true;
     var timer = animateProgress();
     if (output) output.classList.add("hidden");
-    var gate = $("sandbox-gate-summary");
-    if (gate) gate.classList.add("hidden");
+    var gateEl = $("sandbox-gate-summary");
+    if (gateEl) gateEl.classList.add("hidden");
 
     fetch("/api/sandbox/verify", {
       method: "POST",
@@ -235,5 +201,12 @@
     if (advToggle) advToggle.addEventListener("click", toggleAdvancedSettings);
     var sendBtn = $("sandbox-send-workbench");
     if (sendBtn) sendBtn.addEventListener("click", sendToWorkbench);
+    var gateText = $("sandbox-gate-text");
+    if (gateText && !gateText.textContent.trim()) {
+      gateText.textContent = t(
+        "audit.gate.banner_pending",
+        "Pre-Flight Gate — audit must pass before export."
+      );
+    }
   });
 })();

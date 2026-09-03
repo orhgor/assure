@@ -77,6 +77,64 @@
     compiledDocument: null,
     draftText: "",
     auditComplete: false,
+    verifyTimeout: null,
+
+    clearVerifyTimeout: function () {
+      if (this.verifyTimeout) {
+        this.verifyTimeout.clear();
+        this.verifyTimeout = null;
+      }
+    },
+
+    showVerifyTimeout: function () {
+      var self = this;
+      var msg =
+        global.AssureAuditGate && typeof global.AssureAuditGate.timeoutRetryMessage === "function"
+          ? global.AssureAuditGate.timeoutRetryMessage()
+          : t("audit.timeout", "Verification timeout — click to retry");
+      self.setGateLoading(false);
+      var statusText = $("gate-status-text");
+      var loader = $("gate-loader");
+      if (loader) loader.hidden = false;
+      if (statusText) {
+        statusText.textContent = msg;
+        statusText.classList.add("verify-timeout-retry");
+        statusText.setAttribute("role", "button");
+        statusText.setAttribute("tabindex", "0");
+        statusText.onclick = function () {
+          statusText.classList.remove("verify-timeout-retry");
+          statusText.removeAttribute("role");
+          statusText.removeAttribute("tabindex");
+          statusText.onclick = null;
+          self.startDraftStream();
+        };
+        statusText.onkeydown = function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            statusText.onclick();
+          }
+        };
+      }
+    },
+
+    startVerifyTimeout: function () {
+      var self = this;
+      this.clearVerifyTimeout();
+      if (global.AssureAuditGate && typeof global.AssureAuditGate.createVerificationTimeout === "function") {
+        this.verifyTimeout = global.AssureAuditGate.createVerificationTimeout(function () {
+          if (!self.auditComplete) self.showVerifyTimeout();
+        });
+      } else {
+        var timer = setTimeout(function () {
+          if (!self.auditComplete) self.showVerifyTimeout();
+        }, 12000);
+        this.verifyTimeout = {
+          clear: function () {
+            clearTimeout(timer);
+          },
+        };
+      }
+    },
 
     init: function () {
       var self = this;
@@ -109,6 +167,7 @@
     },
 
     abort: function () {
+      this.clearVerifyTimeout();
       if (this.controller) {
         this.controller.abort();
         this.controller = null;
@@ -142,12 +201,24 @@
       }
     },
 
+    setPreviewSkeleton: function (on) {
+      var preview = $("generate-stream-preview");
+      if (!preview) return;
+      if (on && !this.draftText) {
+        preview.classList.add("is-streaming-skeleton");
+        preview.textContent = "";
+      } else {
+        preview.classList.remove("is-streaming-skeleton");
+      }
+    },
+
     setSummaryVisible: function (on) {
       var el = $("compilation-summary");
       if (el) el.hidden = !on;
     },
 
     resetUi: function () {
+      this.clearVerifyTimeout();
       this.compiledNodes = [];
       this.compiledLocks = [];
       this.draftText = "";
@@ -158,7 +229,10 @@
       global.compiledDocument = null;
 
       var preview = $("generate-stream-preview");
-      if (preview) preview.textContent = "";
+      if (preview) {
+        preview.textContent = "";
+        preview.classList.remove("is-streaming-skeleton");
+      }
       var nodesPreview = $("generate-nodes-preview");
       if (nodesPreview) nodesPreview.hidden = true;
       var nodesBody = $("generate-nodes-body");
@@ -204,6 +278,8 @@
 
       this.abort();
       this.resetUi();
+      this.setCompiling(true);
+      this.setPreviewSkeleton(true);
       this.controller = new AbortController();
       if (global.AssureStreamRegistry) {
         global.AssureStreamRegistry.register(this.controller);
@@ -240,7 +316,10 @@
 
             if (type === "token" && data.delta) {
               self.draftText += data.delta;
-              if (preview) preview.textContent = self.draftText;
+              if (preview) {
+                preview.classList.remove("is-streaming-skeleton");
+                preview.textContent = self.draftText;
+              }
               return;
             }
 
@@ -254,6 +333,7 @@
 
             if (type === "compiled") {
               self.setCompiling(false);
+              self.setPreviewSkeleton(false);
               self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
               self.compiledLocks = data.locks || [];
               self.compiledDocument = data.document || null;
@@ -271,17 +351,17 @@
                 true,
                 t("generate.gate.auditing", "Running Z3 Verification and DeepSeek-R1 Adversary…")
               );
+              self.startVerifyTimeout();
               return;
             }
 
             if (type === "audit_complete") {
+              self.clearVerifyTimeout();
               self.auditComplete = true;
               if (data.document) {
                 self.compiledDocument = data.document;
                 global.compiledDocument = data.document;
               }
-              var gateBanner = $("preflight-gate-banner");
-              if (gateBanner) gateBanner.hidden = true;
               self.setGateLoading(false);
               self.renderAuditGate(data);
               var dockBtn = $("generate-accept-dock");
@@ -291,6 +371,7 @@
 
             if (type === "error" || (type === "complete" && data.ok === false)) {
               self.setCompiling(false);
+              self.setPreviewSkeleton(false);
               self.setGateLoading(false);
               if (global.AssureToast) {
                 global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
@@ -300,6 +381,7 @@
 
             if (type === "done" || type === "complete") {
               self.setCompiling(false);
+              self.setPreviewSkeleton(false);
               if (!self.auditComplete) {
                 self.setGateLoading(false);
                 var dock = $("generate-accept-dock");
@@ -322,6 +404,7 @@
         })
         .catch(function (err) {
           self.setCompiling(false);
+          self.setPreviewSkeleton(false);
           self.setGateLoading(false);
           if (err && err.name === "AbortError") return;
           if (global.AssureToast) {
@@ -399,6 +482,15 @@
     },
 
     renderAuditGate: function (data) {
+      if (global.AssureAuditGate) {
+        global.AssureAuditGate.renderWorkbenchAudit(data, {
+          z3El: $("z3-status"),
+          redhatEl: $("redhat-preview"),
+          gateBanner: $("preflight-gate-banner"),
+          gateText: $("preflight-gate-text"),
+        });
+        return;
+      }
       var z3 = data.z3_results || {};
       var z3El = $("z3-status");
       var jdf = global.__assureJdf;
@@ -410,6 +502,10 @@
           z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
             (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
           if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("PASS");
+          if (global.AssureAuditGate && typeof global.AssureAuditGate.triggerLockAnimation === "function") {
+            global.AssureAuditGate.triggerLockAnimation(z3El);
+            global.AssureAuditGate.triggerLockAnimation(document.getElementById("truth-ledger-badge"));
+          }
         } else if (status === "VIOLATION") {
           var viol = (z3.violations || []).join(" ");
           z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");

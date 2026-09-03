@@ -2,6 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "assure_view";
+  var THEME_KEY = "assure-theme";
   var DEFAULT_VIEW = "generate";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
   var FULL_VIEWS = ["library", "settings"];
@@ -174,6 +175,56 @@
       .replace(/>/g, "&gt;");
   }
 
+  function getTheme() {
+    return document.documentElement.getAttribute("data-theme") || "light";
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch (_) {}
+    updateToggleIcon(theme);
+  }
+
+  function updateToggleIcon(theme) {
+    var btn = $("theme-toggle");
+    if (!btn) return;
+    var isDark = theme === "dark";
+    btn.setAttribute(
+      "aria-label",
+      translate(
+        isDark ? "theme.toggle.light" : "theme.toggle.dark",
+        isDark ? "Switch to light mode" : "Switch to dark mode"
+      )
+    );
+  }
+
+  function toggleTheme() {
+    applyTheme(getTheme() === "dark" ? "light" : "dark");
+  }
+
+  function initTheme() {
+    updateToggleIcon(getTheme());
+    var btn = $("theme-toggle");
+    if (btn) {
+      btn.addEventListener("click", toggleTheme);
+    }
+    document.addEventListener("assure:i18n", function () {
+      updateToggleIcon(getTheme());
+    });
+    try {
+      var mq = window.matchMedia("(prefers-color-scheme: dark)");
+      if (mq.addEventListener) {
+        mq.addEventListener("change", function (e) {
+          if (!localStorage.getItem(THEME_KEY)) {
+            applyTheme(e.matches ? "dark" : "light");
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
   var AssureLandingBridge = {
     init: function () {
       var layout = $("assure-app");
@@ -310,6 +361,7 @@
       });
 
       AssureStatus.init();
+      initTheme();
 
       if (isMobileNav()) {
         setSidebarOpen(layout, false);
@@ -479,6 +531,9 @@
   global.AssureStatus = AssureStatus;
   global.AssureStreamRegistry = AssureStreamRegistry;
   global.AssureProjects = AssureProjects;
+  global.initTheme = initTheme;
+  global.toggleTheme = toggleTheme;
+  global.updateToggleIcon = updateToggleIcon;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {

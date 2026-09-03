@@ -73,6 +73,9 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
     assert "z3_results" in audit
     assert audit["redhat_count"] == 1
+    assert audit["gate_status"] == "review"
+    assert audit["z3_status"] == "PASS"
+    assert audit["redhat_critiques"]
 
     assert any(f.strip() == "data: [DONE]" for f in frames)
 

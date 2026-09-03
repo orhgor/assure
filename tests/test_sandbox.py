@@ -65,6 +65,11 @@ def test_sandbox_verify_success(monkeypatch, client):
     assert data["ok"] is True
     assert data["node_count"] >= 1
     assert data["lock_count"] == 1
+    assert data["gate_status"] == "review"
+    assert data["z3_status"] == "PASS"
+    assert data["redhat_count"] == 1
+    assert "redhat_critiques" in data
+    assert data["redhat_results"] == data["redhat_critiques"]
     assert "document" in data
     assert data["z3_results"]["status"] == "PASS"
     assert len(data["redhat_results"]) == 1
@@ -83,5 +88,6 @@ def test_run_sandbox_verify_unit(monkeypatch):
 
     result = run_sandbox_verify("Plain paragraph text.", governor=_FakeGovernor())
     assert result["ok"] is True
+    assert result["gate_status"] == "pass"
     assert result["node_count"] >= 1
     assert result["document"]["meta"]["project_id"] == "sandbox"

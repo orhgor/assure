@@ -188,6 +188,8 @@
     this.livePreview = "";
     this.documentVersion = 1;
     this.showCitations = true;
+    this._animateNextRender = false;
+    this.verifyTimeout = null;
   }
 
   JDFCanvasManager.prototype.loadProjectSettings = function () {
@@ -310,6 +312,60 @@
     return wrap;
   };
 
+  JDFCanvasManager.prototype.renderSkeleton = function (count) {
+    if (!this.rootEl) return;
+    this.rootEl.innerHTML = "";
+    var n = count || 4;
+    for (var i = 0; i < n; i += 1) {
+      var block = document.createElement("div");
+      block.className = "skeleton-block is-streaming-skeleton";
+      block.setAttribute("aria-hidden", "true");
+      this.rootEl.appendChild(block);
+    }
+  };
+
+  JDFCanvasManager.prototype.setPreviewSkeleton = function (on) {
+    if (!this.previewEl) return;
+    if (on && !this.livePreview) {
+      this.previewEl.classList.add("is-streaming-skeleton");
+      this.previewEl.textContent = "";
+    } else {
+      this.previewEl.classList.remove("is-streaming-skeleton");
+    }
+  };
+
+  JDFCanvasManager.prototype.loadProject = function () {
+    var self = this;
+    this.renderSkeleton(4);
+    return this.loadProjectSettings().then(function () {
+      return fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/jdf")
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          if (data.document) self.tree = data.document;
+          if (data.version) self.setVersion(data.version);
+          self._animateNextRender = true;
+          self.render();
+        });
+    });
+  };
+
+  JDFCanvasManager.prototype.refreshCanvas = function () {
+    var self = this;
+    this.renderSkeleton(4);
+    return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/jdf")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.document) self.tree = data.document;
+        if (data.version) self.setVersion(data.version);
+        self._animateNextRender = true;
+        self.render();
+      });
+  };
+
   JDFCanvasManager.prototype.setSavePill = function (state, messageKey, vars) {
     if (!this.statusEl) return;
     this.statusEl.className = "save-pill pill-" + state;
@@ -350,11 +406,66 @@
     );
   };
 
+  JDFCanvasManager.prototype.clearVerifyTimeout = function () {
+    if (this.verifyTimeout) {
+      this.verifyTimeout.clear();
+      this.verifyTimeout = null;
+    }
+  };
+
+  JDFCanvasManager.prototype.startVerifyTimeout = function (retryFn) {
+    var self = this;
+    this.clearVerifyTimeout();
+    var onTimeout = function () {
+      var msg =
+        global.AssureAuditGate && typeof global.AssureAuditGate.timeoutRetryMessage === "function"
+          ? global.AssureAuditGate.timeoutRetryMessage()
+          : jdfT("audit.timeout", "Verification timeout — click to retry");
+      self.setStreamStatus(2, "audit.timeout", msg, msg);
+      if (self.streamStatusEl) {
+        self.streamStatusEl.classList.add("verify-timeout-retry");
+        self.streamStatusEl.setAttribute("role", "button");
+        self.streamStatusEl.setAttribute("tabindex", "0");
+        self.streamStatusEl.onclick = function () {
+          self.streamStatusEl.classList.remove("verify-timeout-retry");
+          self.streamStatusEl.removeAttribute("role");
+          self.streamStatusEl.removeAttribute("tabindex");
+          self.streamStatusEl.onclick = null;
+          self.streamStatusEl.onkeydown = null;
+          if (typeof retryFn === "function") retryFn();
+        };
+        self.streamStatusEl.onkeydown = function (e) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            self.streamStatusEl.onclick();
+          }
+        };
+      }
+    };
+    if (global.AssureAuditGate && typeof global.AssureAuditGate.createVerificationTimeout === "function") {
+      this.verifyTimeout = global.AssureAuditGate.createVerificationTimeout(onTimeout);
+    } else {
+      var timer = setTimeout(onTimeout, 12000);
+      this.verifyTimeout = { clear: function () { clearTimeout(timer); } };
+    }
+  };
+
+  JDFCanvasManager.prototype._triggerLockAnimation = function () {
+    if (global.AssureAuditGate && typeof global.AssureAuditGate.triggerLockAnimation === "function") {
+      global.AssureAuditGate.triggerLockAnimation(this.truthEl);
+    } else if (this.truthEl) {
+      this.truthEl.classList.remove("lock-animate");
+      void this.truthEl.offsetWidth;
+      this.truthEl.classList.add("lock-animate");
+    }
+  };
+
   JDFCanvasManager.prototype.setTruthBadge = function (status, violationCount) {
     if (!this.truthEl) return;
     if (status === "PASS") {
       this.truthEl.className = "truth-pill truth-pass";
       this.truthEl.textContent = jdfT("jdf.truth.pass", "✅ Proof Passing");
+      this._triggerLockAnimation();
     } else if (status === "FAIL") {
       this.truthEl.className = "truth-pill truth-fail";
       this.truthEl.textContent = jdfT("jdf.truth.fail", "❌ Build Failing");
@@ -722,9 +833,13 @@
     return bar;
   };
 
-  JDFCanvasManager.prototype.render = function () {
+  JDFCanvasManager.prototype.render = function (options) {
     if (!this.rootEl) return;
     var self = this;
+    options = options || {};
+    var animate = !!options.animate || this._animateNextRender;
+    this._animateNextRender = false;
+    var nodeIndex = 0;
     this.rootEl.classList.toggle("hide-citations", !this.showCitations);
     this.rootEl.innerHTML = "";
     var title = document.createElement("h2");
@@ -793,6 +908,11 @@
         article.appendChild(body);
         if (self.showCitations) {
           self._renderCitationBadge(node, article);
+        }
+        if (animate) {
+          article.classList.add("animated");
+          article.style.animationDelay = nodeIndex * 80 + "ms";
+          nodeIndex += 1;
         }
         wrap.appendChild(article);
       });
@@ -926,7 +1046,7 @@
         if (node.meta) delete node.meta.optimistic;
         self.livePreview = "";
         if (data.document) self.tree = data.document;
-        else self.render();
+        self.render({ animate: true });
         if (global.AssureInquire && global.AssureInquire.showDockButton) {
           global.AssureInquire.showDockButton(false);
         }
@@ -966,6 +1086,8 @@
 
     this.isStreaming = true;
     this.livePreview = "";
+    this.clearVerifyTimeout();
+    this.setPreviewSkeleton(true);
     this.clearTruthError();
     if (global.AssureInquire && global.AssureInquire.showDockButton) {
       global.AssureInquire.showDockButton(false);
@@ -990,15 +1112,29 @@
           self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
         } else if (step === 2 || (data && data.stage === "verify")) {
           self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…", message);
+          self.startVerifyTimeout(function () {
+            self.composeInquire(runRedhat);
+          });
         } else {
           self.setStreamStatus(1, "compose.generating", "Generating draft…", message);
         }
       },
       ontoken: function (data) {
         self.livePreview += data.delta || "";
-        if (self.previewEl) self.previewEl.textContent = self.livePreview;
+        if (self.previewEl) {
+          self.previewEl.classList.remove("is-streaming-skeleton");
+          self.previewEl.textContent = self.livePreview;
+        }
       },
       ontruthcheck: function (data) {
+        self.clearVerifyTimeout();
+        if (self.streamStatusEl) {
+          self.streamStatusEl.classList.remove("verify-timeout-retry");
+          self.streamStatusEl.removeAttribute("role");
+          self.streamStatusEl.removeAttribute("tabindex");
+          self.streamStatusEl.onclick = null;
+          self.streamStatusEl.onkeydown = null;
+        }
         if (data.status === "PASS") {
           self.setTruthBadge("PASS");
           self.clearTruthError();
@@ -1018,7 +1154,9 @@
         }
       },
       oncomplete: function (data) {
+        self.clearVerifyTimeout();
         self.isStreaming = false;
+        self.setPreviewSkeleton(false);
         if (self.stopBtn) self.stopBtn.style.display = "none";
         self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
         self.setSavePill("saved", "jdf.save.stream_complete");
@@ -1031,6 +1169,7 @@
       onEvent: function (ev, data) {
         if (ev === "complete") {
           self.isStreaming = false;
+          self.setPreviewSkeleton(false);
           if (!data || data.ok !== false) {
             self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
             if (global.AssureInquire && global.AssureInquire.showDockButton) {
@@ -1052,6 +1191,8 @@
     var self = this;
     this.isStreaming = true;
     this.livePreview = "";
+    this.clearVerifyTimeout();
+    this.setPreviewSkeleton(true);
     this.clearTruthError();
     this.setStreamStatus(1, "jdf.stream.thinking", "Thinking…");
     if (this.redhatFindingsEl) this.redhatFindingsEl.innerHTML = "";
@@ -1077,6 +1218,11 @@
           self.setStreamStatus(1, "jdf.stream.thinking", "Thinking…", message);
         } else if (step === 2 || (data && data.stage === "verify")) {
           self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…", message);
+          self.startVerifyTimeout(function () {
+            var intentEl = pickEl("inquiry-input", "jdf-intent");
+            var redhatEl = pickEl("toggle-redhat", "jdf-redhat");
+            self.inquire((intentEl && intentEl.value) || "Revise document", redhatEl && redhatEl.checked);
+          });
         } else if (step === 3 || (data && data.stage === "redhat")) {
           self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
         } else if (step === 4 || (data && data.stage === "ready")) {
@@ -1087,9 +1233,20 @@
       },
       ontoken: function (data) {
         self.livePreview += data.delta || "";
-        if (self.previewEl) self.previewEl.textContent = self.livePreview;
+        if (self.previewEl) {
+          self.previewEl.classList.remove("is-streaming-skeleton");
+          self.previewEl.textContent = self.livePreview;
+        }
       },
       ontruthcheck: function (data) {
+        self.clearVerifyTimeout();
+        if (self.streamStatusEl) {
+          self.streamStatusEl.classList.remove("verify-timeout-retry");
+          self.streamStatusEl.removeAttribute("role");
+          self.streamStatusEl.removeAttribute("tabindex");
+          self.streamStatusEl.onclick = null;
+          self.streamStatusEl.onkeydown = null;
+        }
         self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…");
         if (data.status === "PASS") {
           self.setTruthBadge("PASS");
@@ -1125,7 +1282,9 @@
         }
       },
       oncomplete: function () {
+        self.clearVerifyTimeout();
         self.isStreaming = false;
+        self.setPreviewSkeleton(false);
         if (self.stopBtn) self.stopBtn.style.display = "none";
         self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
         self.setSavePill("saved", "jdf.save.stream_complete");
@@ -1133,6 +1292,7 @@
       onEvent: function (ev, data) {
         if (ev === "complete") {
           self.isStreaming = false;
+          self.setPreviewSkeleton(false);
           if (!data || data.ok !== false) {
             self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
           }
@@ -1204,17 +1364,7 @@
     });
 
     if (!global.__INITIAL_JDF__ || !(global.__INITIAL_JDF__.body || []).length) {
-      this.loadProjectSettings().then(function () {
-        fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/jdf")
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function (data) {
-            if (data.document) self.tree = data.document;
-            if (data.version) self.setVersion(data.version);
-            self.render();
-          });
-      });
+      this.loadProject();
     } else {
       this.loadProjectSettings().then(function () {
         self.render();

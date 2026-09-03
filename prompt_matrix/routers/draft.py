@@ -29,6 +29,7 @@ try:
         parse_document,
     )
     from ..routers.inquire_stream import _parse_metrics
+    from ..services.audit_summary import build_audit_summary
     from ..services.lock_inference import infer_lock_candidates
 except ImportError:
     from cost_governance import (
@@ -49,6 +50,7 @@ except ImportError:
         parse_document,
     )
     from routers.inquire_stream import _parse_metrics
+    from services.audit_summary import build_audit_summary
     from services.lock_inference import infer_lock_candidates
 
 DRAFT_MODEL = "anthropic/claude-3-5-sonnet-20241022"
@@ -404,16 +406,12 @@ def run_draft_pipeline(
         annotated = apply_redhat_critiques_to_tree(annotated, redhat_critiques)
     parse_document(annotated)
 
-    yield _typed_sse(
-        "audit_complete",
-        {
-            "z3_results": z3_results,
-            "redhat_critiques": redhat_critiques,
-            "redhat_count": len(redhat_critiques),
-            "z3_status": z3_results.get("status"),
-            "document": annotated,
-        },
+    audit_payload = build_audit_summary(
+        z3_results=z3_results,
+        redhat_critiques=redhat_critiques,
+        document=annotated,
     )
+    yield _typed_sse("audit_complete", audit_payload)
 
     duration_ms = int((time.perf_counter() - start) * 1000)
     audit.log_audit(

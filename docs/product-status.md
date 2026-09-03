@@ -1,17 +1,71 @@
 # Assure — full product status
 
-**Date:** 2026-09-02  
-**Decision:** **CONDITIONAL GO** — soft launch ready; monitor traffic with `scripts/monitor_launch.py`  
-**Tests:** 169 passing (`uv run --python 3.11 python -m unittest discover -s tests`)  
-**Container:** `docker compose up -d assure-app` — healthy on `:8765`  
-**Git:** `307949b` on `p4-account-wallet` — `feat: complete day 2 launch readiness`  
+**Date:** 2026-09-04  
+**Decision:** **GO** — Intellectual Compiler branding live on `p4-account-wallet`; EC2 deploy verified (`https://getassureai.com/health` → `build_sha` `192eba3`)  
+**Tests:** 242 passing (`uv run pytest -q`)  
+**Container:** `docker compose up -d assure-app` — healthy on `:8765` (poppler-utils + Textract deps in Dockerfile)  
+**Git:** `192eba3` on `p4-account-wallet` — `feat: align product with Intellectual Compiler positioning` (+ local: persona strip, unified audit gate, i18n refresh pending push)  
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md)
 
 ---
 
 ## One-line summary
 
-Assure is a local AI workbench that translates plain questions into model-specific prompts, runs Compare & Validate / Refine & Verify workflows, and checks answers against uploaded files. The public site is live at **getassureai.com**. The workbench installs from source today; there is no public binary or PyPI package yet.
+Assure is **The Intellectual Compiler** — *Compile intent. Verify logic. Ship truth.* Upload a source document, compile a structured JDF draft with provenance and Z3 checks, refine surgically, and export a build artifact (DOCX with optional References). Marketing at **getassureai.com** (`/` landing, `/app` workspace). Zero-Risk Paste Test runs the real pipeline via `POST /api/sandbox/verify` with no persistence.
+
+---
+
+## Phase 3 — Document Compiler cycle (2026-09-04)
+
+Latest commit `6c225ae` on branch **`p4-account-wallet`**. EC2 redeploy via SSM (`scripts/aws/redeploy-via-ssm.sh`) confirmed: production health returns `status: healthy`, `build_sha: 6c225ae`, UI `assure-45` / `assure-37`. GHCR image for this SHA was missing; instance built locally as fallback.
+
+### Landing & marketing
+
+| Item | Status |
+| :--- | :--- |
+| Document Compiler manifesto landing (hero, 3-Act Engine, competitor section) | ✅ In tree (`prompt_matrix/templates/landing.html`) |
+| `/architecture` subpage (JDF AST, 6-step pipeline, Z3 explanation) | ✅ `prompt_matrix/templates/architecture.html` |
+| Zero-Risk Paste Test — `POST /api/sandbox/verify` (real pipeline, no persistence) | ✅ `prompt_matrix/routers/sandbox.py` + `static/sandbox.js` on landing |
+| Nav: Docs, Architecture, Sandbox, **Launch Workspace** → `/app` | ✅ Landing nav wired |
+
+### Workbench (Document Compiler UI)
+
+| Item | Status |
+| :--- | :--- |
+| Sidebar **Compile** / **Refine** (i18n; view IDs unchanged: `view-generate`, `view-surgical`) | ✅ |
+| Command deck pills: Ready, Compiling, Proof Passing, Build Failing, Stress Test, Committed | ✅ |
+| Build Artifact export + **Compile Document** button | ✅ |
+| Click-to-Refine with interactive element exclusion | ✅ |
+| Onboarding 3-step tour (`onboarding.js`, `waitForElement`) | ✅ |
+| Tooltips with mobile overflow fix | ✅ |
+| Mobile: hamburger, icon sidebar (tablet), floating command deck | ✅ |
+
+### JDF engine
+
+| Item | Status |
+| :--- | :--- |
+| Pydantic JDF models; `annotations.redhat` / `annotations.z3` on nodes (not callout siblings) | ✅ `prompt_matrix/models/jdf.py` |
+| Progressive SSE draft pipeline (`compiled` → `audit_complete`) | ✅ `prompt_matrix/routers/draft.py`, `routers/inquire_stream.py` |
+| Provenance list schema, cite parsing, citation badges, `workspace_settings` | ✅ |
+| DOCX References section (`include_citations` param) | ✅ `prompt_matrix/exporters/docx_ast.py` |
+| Version history + comments API | ✅ `jdf_repository.py`, `comment_routes.py` |
+
+### Backend / infra
+
+| Item | Status |
+| :--- | :--- |
+| AWS Textract Substrate Vault (single-page guard, image vs PDF routing) | ✅ `lib/textract.py`, `routers/substrate.py` |
+| Textract throttling retry | ✅ |
+| `poppler-utils` in Dockerfile | ✅ |
+| SQLite WAL + `busy_timeout` | ✅ `prompt_matrix/db/connection.py` |
+| IAM Textract permissions | ✅ `scripts/aws/iam-policy-assure-deploy.json` |
+
+### Tests
+
+| Item | Result |
+| :--- | :--- |
+| Full suite | ✅ **237 passed** (`uv run pytest -q`, 2026-09-04) |
+| New coverage areas | `test_sandbox.py`, `test_draft.py`, `test_textract.py`, `test_jdf_annotations.py`, `test_provenance_export.py`, `test_adoption.py` |
 
 ---
 
@@ -19,8 +73,8 @@ Assure is a local AI workbench that translates plain questions into model-specif
 
 | Layer | Name | Role |
 | :--- | :--- | :--- |
-| **Product** | Assure | Desktop workbench (`assure --web`). Paid tiers for limits and export. |
-| **Engine** | PEM (Prompt Engineering Matrix) | Open-source compiler in `prompt_matrix/`. Powers dialect prompts, merge, critique, grounding. |
+| **Product** | Assure | Document Compiler workbench (`assure --web`). Compile → refine → export build artifacts. |
+| **Engine** | PEM (Prompt Engineering Matrix) | JDF AST, progressive SSE draft, Z3/redhat annotations, provenance, DOCX export. |
 | **CLI** | `pem` / `assure` | Same entry point. `pem --ci`, `pem eval`, `pem monitor`, MCP server. |
 | **Public site** | getassureai.com | Marketing, compiler preview, waitlist. Not the app. |
 | **GitHub `orhgor/assure`** | Webpage branch only | Do not clone for the app. Deploy via `./scripts/sync-webpage.sh`. |
@@ -138,21 +192,22 @@ cloudflared tunnel --url http://localhost:8765
 
 ### Public website
 
-- **URL:** https://getassureai.com/ (apex and www)
-- **Worker:** Cloudflare `assure`, custom domains attached
-- **Pages:** Home, pricing, install, privacy, terms, about, audit, hallucination-detection, three use-case pages (consultant, researcher, analyst), 404
-- **Compiler preview:** Runs in browser only; does not Send
-- **Analytics:** GA4 (`G-54F5NE9Y0P`) on all 12 HTML pages; disclosed on `/privacy`
-- **Waitlist:** Modal on home; backend via Supabase migration in tree
+- **URL:** https://getassureai.com/ (apex; EC2 serves `/` landing + `/app` workspace on **`p4-account-wallet`**)
+- **Pages:** Document Compiler manifesto landing, `/architecture` (JDF AST + pipeline), Zero-Risk Paste Test (sandbox), pricing, install, privacy, terms, about, use-case pages
+- **Sandbox:** `POST /api/sandbox/verify` — real compile pipeline, no persistence (`sandbox.js` on landing)
+- **Nav:** Docs, Architecture, Sandbox, Launch Workspace → `/app`
+- **Compiler preview:** Live paste test on landing; full compile in `/app`
+- **Analytics:** GA4 on HTML pages; disclosed on `/privacy`
 - **Download buttons:** Disabled — no public binary URL
-- **Cache:** Landing CSS `?v=30` (local tree; redeploy with `./scripts/sync-webpage.sh` to push BYOK copy live)
 
 ### Workbench (local app)
 
-- **Start:** `assure --web` → http://127.0.0.1:8765
-- **Sign-in:** Off by default on loopback. LAN requires `--http-pass`
-- **Clerk:** If both `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are in `.env`, Compose requires cloud sign-in (P1 — see blockers)
-- **Providers tested:** Gemini, DeepSeek, Claude (live Sends). Kimi key rejected 401 on all endpoints. Ollama not connected on test machine.
+- **Start:** `assure --web` → http://127.0.0.1:8765/app (workspace); `/` serves marketing when bundled
+- **Sidebar:** Compile (`view-generate`) and Refine (`view-surgical`) with i18n labels
+- **Command deck:** Ready → Compiling → Proof Passing → Build Failing → Stress Test → Committed
+- **Export:** Build Artifact (DOCX with optional References via `include_citations`)
+- **Onboarding:** 3-step tour (`onboarding.js`); mobile hamburger + floating command deck
+- **Substrate vault:** AWS Textract for PDF/image upload (single-page guard, throttling retry)
 
 ---
 
@@ -268,23 +323,22 @@ Full browser walk across all 7 locales (`en es zh fr de ja tr`):
 ## Architecture (short)
 
 ```
-User question
+Source document (PDF/image via Textract substrate)
     ↓
-PEM compiler (intent + dialect + audience)
+JDF AST compile (Pydantic models, node annotations: redhat / z3)
     ↓
-Workflow: single | ensemble | refine
+Progressive SSE draft (compiled → audit_complete)
     ↓
-LiteLLM → Gemini / DeepSeek / Claude / Kimi / Ollama
+Provenance + citation badges; workspace_settings
     ↓
-Quality pass (audit_spans, citation scrubber)
-    ↓
-Answer panel + history.sqlite on local machine
+Refine (click-to-refine, surgical view) → Build Artifact export (DOCX + References)
 ```
 
+- **Sandbox:** `POST /api/sandbox/verify` — same pipeline, zero persistence (landing paste test)
 - **Keys:** `prompt_matrix/.env`, gitignored
-- **History:** Local SQLite; `PEM_ENABLE_HISTORY` and `PEM_STORE_PROMPTS` off by default
+- **History:** SQLite WAL + busy_timeout; JDF version history + comments API
 - **MCP:** `pem` server for Cursor (`pem_compile`, `pem_combine`, `swarm_start`, etc.)
-- **Landing Worker:** Static assets + routes for `/privacy`, `/install`, `/terms`, `/about`
+- **Deploy:** EC2 on `p4-account-wallet`; IAM includes Textract (`iam-policy-assure-deploy.json`)
 
 ---
 
@@ -319,12 +373,12 @@ Launch copy drafts ready in `landing/launch/` (Product Hunt, LinkedIn, Twitter, 
 
 ## Recommended next actions
 
-### Immediate (post Day 2)
+### Immediate (post Document Compiler cycle)
 
-1. Deploy honest-copy landing: `./scripts/sync-webpage.sh` + `wrangler deploy`
-2. Push branch / open PR; confirm GitHub Actions green
-3. Run launch monitor during first traffic: `uv run --python 3.11 python scripts/monitor_launch.py --watch`
-4. Decide **B3** (Clerk loopback bypass or document sign-in requirement)
+1. ~~Verify EC2 redeploy~~ **Done** — `getassureai.com/health` matches `6c225ae` (2026-09-04)
+2. Smoke-test landing: `/architecture`, sandbox paste test, Launch Workspace → `/app`
+3. Run full suite before merge: `uv run pytest -q` (237 ok on 2026-09-04)
+4. Push branch / open PR; confirm GitHub Actions green
 
 ### Launch sequence
 
@@ -354,4 +408,4 @@ Launch copy drafts ready in `landing/launch/` (Product Hunt, LinkedIn, Twitter, 
 
 ---
 
-*This document reflects the tree and verification passes through 2026-09-02 (Day 2 afternoon). Update after deploys, PyPI publish, or production traffic.*
+*This document reflects the tree and verification passes through 2026-09-04 (Document Compiler cycle). Update after EC2 redeploy confirms `6c225ae`, PyPI publish, or production traffic.*
