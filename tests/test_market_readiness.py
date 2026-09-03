@@ -401,7 +401,7 @@ class CacheAndDocsTests(unittest.TestCase):
     def test_cache_versions_unified(self):
         from prompt_matrix.ui_cache import APP_CSS, LANDING_CSS, LANDING_JS
 
-        self.assertEqual(APP_CSS, "assure-39")
+        self.assertEqual(APP_CSS, "assure-41")
         self.assertEqual(LANDING_CSS, "30")
         self.assertEqual(LANDING_JS, "29")
         base = (ROOT / "prompt_matrix" / "templates" / "base.html").read_text(encoding="utf-8")

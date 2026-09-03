@@ -43,10 +43,59 @@
         <a class="btn btn-primary" id="upgrade-link" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
         <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $19 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
       </div>
+      <div class="app-layout" id="assure-app">
+        <header class="app-header">
+          <div class="app-header-left">
+            <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" title="{{ gettext('Toggle tools menu') }}" data-i18n-title="app.sidebar.toggle">☰</button>
+            <div class="app-logo">
+              <span class="app-logo-mark" aria-hidden="true">📄</span>
+              <span data-i18n="hero">{{ gettext('Assure AI') }}</span>
+            </div>
+          </div>
+          <div class="app-header-right">
+            <span class="engine-status" id="engine-status" title="{{ gettext('Z3 engine online') }}" data-i18n-title="app.status.online">
+              <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
+            </span>
+            <label class="visually-hidden" for="locale-select">
+              <span data-i18n="lang">{{ gettext('Language') }}</span>
+            </label>
+            <select id="locale-select" class="app-locale-select" aria-label="{{ gettext('Language') }}" data-i18n-aria="lang">
+              {% for code, label in languages.items() %}
+              <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </header>
+        <div class="app-body">
+          <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
+            <button type="button" class="app-sidebar-link" data-tool="compose">
+              <span class="app-sidebar-icon" aria-hidden="true">🖊️</span>
+              <span class="app-sidebar-label" data-i18n="tab.compose">{{ gettext('Compose') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link is-active" data-tool="workbench" aria-current="page">
+              <span class="app-sidebar-icon" aria-hidden="true">📄</span>
+              <span class="app-sidebar-label" data-i18n="jdf.workbench.title">{{ gettext('Document engineering') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link" data-tool="library">
+              <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
+              <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Prompt Library') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link" data-tool="history">
+              <span class="app-sidebar-icon" aria-hidden="true">🕘</span>
+              <span class="app-sidebar-label" data-i18n="tab.history">{{ gettext('Previous work') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link" data-tool="settings">
+              <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
+              <span class="app-sidebar-label" data-i18n="nav.settings">{{ gettext('Settings') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link" data-tool="connect">
+              <span class="app-sidebar-icon" aria-hidden="true">🔗</span>
+              <span class="app-sidebar-label" data-i18n="nav.connect">{{ gettext('Connect') }}</span>
+            </button>
+          </nav>
+          <div class="app-content">
+            <section id="tool-workbench" class="tool-panel active" data-tool="workbench">
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
-        <div class="jdf-workbench-head">
-          <h2 class="jdf-workbench-title" data-i18n="jdf.workbench.title">{{ gettext('Document engineering') }}</h2>
-        </div>
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
             <h3 class="jdf-pane-title" data-i18n="jdf.pane.inquiry">{{ gettext('Inquiry workbench') }}</h3>
@@ -57,6 +106,7 @@
             </p>
             <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
             <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the surgical edit for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
+            <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to inquire') }}</p>
             <div class="inquiry-controls">
               <label class="jdf-redhat-toggle">
                 <input type="checkbox" id="toggle-redhat" checked>
@@ -96,9 +146,10 @@
           </div>
         </footer>
       </section>
-      <details class="classic-compose" id="classic-compose">
-        <summary data-i18n="compose.classic.summary">{{ gettext('Classic compose — verify drafts with Get my answer') }}</summary>
-      <div class="layout">
+            </section>
+
+            <section id="tool-compose" class="tool-panel" data-tool="compose" hidden>
+              <div class="layout compose-tool-layout">
         <form id="form">
           <select id="workflow" hidden>
             {% if edition is defined and edition.gate_ensemble %}
@@ -381,7 +432,34 @@
           </div>
         </section>
       </div>
-      </details>
+            </section>
+
+            <section id="tool-library" class="tool-panel" data-tool="library" hidden>
+              <div class="tool-panel-inner library-tool-layout">
+                <p class="hint"><a href="/learn{{ q if q is defined else '' }}" data-i18n="classes.learn.link">{{ gettext('Learn a class from a pasted prompt') }}</a></p>
+                <div id="library-list" class="library-list"></div>
+              </div>
+            </section>
+
+            <section id="tool-settings" class="tool-panel" data-tool="settings" hidden>
+              <div class="tool-panel-inner settings-tool-layout card">
+                <h2 class="tool-panel-title" data-i18n="settings.title">{{ gettext('API keys') }}</h2>
+                <p class="hint" data-i18n="app.settings.lead">{{ gettext('Manage provider keys and preferences for Get my answer.') }}</p>
+                <button type="button" class="btn btn-primary" id="open-settings-from-nav" data-i18n="app.open.settings">{{ gettext('Open settings') }}</button>
+              </div>
+            </section>
+
+            <section id="tool-connect" class="tool-panel" data-tool="connect" hidden>
+              <div class="tool-panel-inner connect-tool-layout card">
+                <h2 class="tool-panel-title" data-i18n="nav.connect">{{ gettext('Connect') }}</h2>
+                <p class="hint" data-i18n="app.connect.lead">{{ gettext('Connect an API provider to run verification and Get my answer.') }}</p>
+                <a class="btn btn-primary" href="/connect{{ q if q is defined else '' }}" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+      </div>
     </div>
 
     <div class="pane" id="pane-learn"{% if pane != 'learn' %} hidden{% endif %}>
@@ -437,7 +515,7 @@
 
     <div class="pane" id="pane-library"{% if pane != 'library' %} hidden{% endif %}>
       <p class="hint"><a href="/learn{{ q }}" data-i18n="classes.learn.link">{{ gettext('Learn a class from a pasted prompt') }}</a></p>
-      <div id="library-list" class="library-list"></div>
+      <div id="library-list-standalone" class="library-list"></div>
     </div>
   <dialog class="work-dialog" id="history-view">
     <div class="output-head">
@@ -506,7 +584,25 @@
     window.__INITIAL_JDF__ = {{ initial_jdf|tojson if initial_jdf is defined else 'null' }};
     window.__ASSURE_PROJECT_ID__ = {{ project_id|tojson if project_id is defined else '"default"' }};
   </script>
+  <script>
+    (function () {
+      try {
+        var u = new URL(location.href);
+        var urlLang = u.searchParams.get("lang");
+        if (urlLang) {
+          localStorage.setItem("assure_locale", urlLang);
+          return;
+        }
+        var stored = localStorage.getItem("assure_locale");
+        if (stored) {
+          u.searchParams.set("lang", stored);
+          location.replace(u.pathname + u.search + u.hash);
+        }
+      } catch (_) {}
+    })();
+  </script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
   {% if auth is defined and auth.publishable_key %}
   <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
@@ -591,6 +687,20 @@
     }
     window.__assureT = t;
 
+    function setAssureLocale(newLocale) {
+      localStorage.setItem("assure_locale", newLocale);
+      const u = new URL(location.href);
+      u.searchParams.set("lang", newLocale);
+      location.href = u.pathname + u.search + u.hash;
+    }
+
+    const localeSelect = $("locale-select");
+    if (localeSelect) {
+      localeSelect.addEventListener("change", (e) => {
+        setAssureLocale(e.target.value);
+      });
+    }
+
     function tf(key, fallback, vars) {
       let text = t(key, fallback);
       Object.keys(vars || {}).forEach((name) => {
@@ -632,6 +742,13 @@
           `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`
         ).join("");
         sel.value = state.locale;
+      }
+      const localeSelect = $("locale-select");
+      if (localeSelect && data.locales) {
+        localeSelect.innerHTML = data.locales.map((item) =>
+          `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`
+        ).join("");
+        localeSelect.value = state.locale;
       }
       applyI18n();
       if (window.__assureJdf && typeof window.__assureJdf.setSavePill === "function") {
@@ -1281,6 +1398,11 @@
       const el = $(id || "status");
       el.textContent = text;
       el.className = "status" + (kind ? " " + kind : "");
+      if (!id || id === "status") {
+        if (typeof AssureToast !== "undefined" && text && kind) {
+          AssureToast.show(text, kind === "bad" ? "error" : kind === "ok" ? "success" : "info");
+        }
+      }
     }
 
     async function copyToClipboard(text) {
@@ -2106,7 +2228,8 @@
     });
 
     function renderLibrary() {
-      const root = $("library-list");
+      const root = $("library-list") || $("library-list-standalone");
+      if (!root) return;
       if (!state.library.classes.length) {
         root.innerHTML = '<section class="card"><p class="hint">' + escapeHtml(t("classes.empty", "No classes yet. Generate a prompt and save it, or learn one from a pasted example.")) + "</p></section>";
         return;
@@ -2670,6 +2793,9 @@
     }
 
     loadI18n().then(() => Promise.all([loadCatalog(), loadLibrary(), loadStatus(), loadHealth()])).then(() => {
+      document.addEventListener("assure:tool", (e) => {
+        if (e.detail && e.detail.tool === "library") renderLibrary();
+      });
       const start = document.body.getAttribute("data-pane") || "compose";
       if (["history", "learn", "library"].includes(start)) showPane(start);
       syncWorkflow();
