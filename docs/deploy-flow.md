@@ -54,8 +54,9 @@ In **Settings → Secrets and variables → Actions**, add:
 | `AWS_ACCESS_KEY_ID` | IAM user with SSM send-command (see `scripts/aws/iam-policy-assure-deploy.json`) |
 | `AWS_SECRET_ACCESS_KEY` | Pair for above |
 | `ASSURE_INSTANCE_ID` | Optional; defaults to `i-09d0ad0b561113abe` |
+| `GHCR_DEPLOY_TOKEN` | Optional; PAT with `read:packages` for fast EC2 pull (see `setup-ghcr-ec2.sh`) |
 
-`GITHUB_TOKEN` is provided automatically (git fetch + GHCR pull on EC2 during SSM).
+`GITHUB_TOKEN` is provided automatically (git fetch on EC2 during SSM).
 
 Until these secrets exist, **build still runs on every push**; deploy the image manually with `redeploy-via-ssm.sh` from your Mac.
 
@@ -66,6 +67,14 @@ Until these secrets exist, **build still runs on every push**; deploy the image 
 3. Add `GHCR_DEPLOY_TOKEN` as a GitHub Actions secret for auto-deploy.
 
 Create a classic PAT at GitHub → Settings → Developer settings → PAT with **`read:packages`** (and **`repo`** for private git fetch if needed).
+
+Or run the helper (after `gh auth refresh -h github.com -s read:packages`):
+
+```bash
+bash scripts/aws/setup-ghcr-ec2.sh
+```
+
+That writes `GHCR_TOKEN` to EC2 `.env.production` and sets the `GHCR_DEPLOY_TOKEN` Actions secret.
 
 ---
 

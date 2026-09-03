@@ -59,7 +59,7 @@ jobs:
       - name: Deploy to EC2 (pull GHCR image)
         env:
           DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_DEPLOY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_DEPLOY_TOKEN: ${{ secrets.GHCR_DEPLOY_TOKEN }}
           ASSURE_INSTANCE_ID: ${{ secrets.ASSURE_INSTANCE_ID }}
           ASSURE_GIT_REF: p4-account-wallet
           AWS_REGION: us-east-1
