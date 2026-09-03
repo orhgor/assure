@@ -29,7 +29,6 @@ fi
 
 USER_NAME="${GHCR_USER:-orhgor}"
 
-# Also store in GitHub Actions for deploy job (optional, not printed).
 if command -v gh >/dev/null 2>&1; then
   gh secret set GHCR_DEPLOY_TOKEN --body "$TOKEN" 2>/dev/null || true
 fi
@@ -39,22 +38,56 @@ B64_USER="$(printf '%s' "$USER_NAME" | base64 | tr -d '\n')"
 
 echo "Updating GHCR credentials on EC2 ($INSTANCE_ID)..."
 
+REMOTE_PY="$(cat <<PY
+import base64
+import pathlib
+import re
+
+token = base64.b64decode("${B64_TOKEN}").decode("utf-8")
+user = base64.b64decode("${B64_USER}").decode("utf-8")
+env_path = pathlib.Path("/home/ubuntu/assure/.env.production")
+lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+
+def upsert(key, value):
+    global lines
+    pattern = re.compile(rf"^{re.escape(key)}=")
+    out = [ln for ln in lines if not pattern.match(ln)]
+    out.append(f'{key}="{value}"')
+    lines = out
+
+upsert("GHCR_TOKEN", token)
+upsert("GHCR_USER", user)
+env_path.parent.mkdir(parents=True, exist_ok=True)
+env_path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+env_path.chmod(0o600)
+print("OK: GHCR lines updated")
+PY
+)"
+
+REMOTE_B64="$(printf '%s' "$REMOTE_PY" | base64 | tr -d '\n')"
+
 CMD_ID="$(aws ssm send-command \
   --region "$REGION" \
   --instance-ids "$INSTANCE_ID" \
   --document-name AWS-RunShellScript \
   --comment "Assure setup GHCR token on EC2" \
-  --parameters "commands=[\"TOKEN=\\\$(echo ${B64_TOKEN} | base64 -d); USER=\\\$(echo ${B64_USER} | base64 -d); ENV=/home/ubuntu/assure/.env.production; touch \\\$ENV; grep -q '^GHCR_TOKEN=' \\\$ENV && sed -i 's|^GHCR_TOKEN=.*|GHCR_TOKEN='\\\"\\\$TOKEN\\\"'|' \\\$ENV || echo GHCR_TOKEN=\\\"\\\$TOKEN\\\" >> \\\$ENV; grep -q '^GHCR_USER=' \\\$ENV && sed -i 's|^GHCR_USER=.*|GHCR_USER='\\\"\\\$USER\\\"'|' \\\$ENV || echo GHCR_USER=\\\"\\\$USER\\\" >> \\\$ENV; chown ubuntu:ubuntu \\\$ENV; chmod 600 \\\$ENV; echo OK: GHCR lines updated\"]" \
+  --parameters "commands=[\"echo ${REMOTE_B64} | base64 -d | python3 -\"]" \
   --query 'Command.CommandId' \
   --output text)"
 
 sleep 5
-aws ssm get-command-invocation \
+OUT="$(aws ssm get-command-invocation \
   --region "$REGION" \
   --command-id "$CMD_ID" \
   --instance-id "$INSTANCE_ID" \
   --query '[Status,StandardOutputContent,StandardErrorContent]' \
-  --output text
+  --output text)"
+echo "$OUT"
+
+if ! echo "$OUT" | grep -q "^Success"; then
+  echo "SSM setup failed." >&2
+  exit 1
+fi
 
 echo ""
 echo "Done. Test fast deploy: bash scripts/aws/redeploy-via-ssm.sh"
