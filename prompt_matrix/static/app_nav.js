@@ -1,54 +1,14 @@
 (function (global) {
   "use strict";
 
-  var STORAGE_KEY = "assure_tool";
-  var MODE_STORAGE_KEY = "assure_mode";
-  var DEFAULT_TOOL = "projects";
-  var DEFAULT_MODE = "compose";
-  var ROUTE_TOOLS = {};
+  var STORAGE_KEY = "assure_view";
+  var DEFAULT_VIEW = "projects";
+  var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
+  var FULL_VIEWS = ["library", "settings"];
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(FULL_VIEWS);
 
   function $(id) {
     return document.getElementById(id);
-  }
-
-  function readToolFromHash() {
-    var hash = (location.hash || "").replace(/^#/, "");
-    if (!hash) return null;
-    if (hash.indexOf("tool=") === 0) return hash.slice(5);
-    var legacy = { compose: "projects", workbench: "projects" };
-    if (legacy[hash]) return legacy[hash];
-    if (["projects", "library"].indexOf(hash) >= 0) return hash;
-    return null;
-  }
-
-  function persistTool(tool) {
-    try {
-      localStorage.setItem(STORAGE_KEY, tool);
-    } catch (_) {}
-  }
-
-  function readStoredTool() {
-    try {
-      var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "compose" || stored === "workbench") return "projects";
-      return stored;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function persistMode(mode) {
-    try {
-      localStorage.setItem(MODE_STORAGE_KEY, mode);
-    } catch (_) {}
-  }
-
-  function readStoredMode() {
-    try {
-      return localStorage.getItem(MODE_STORAGE_KEY);
-    } catch (_) {
-      return null;
-    }
   }
 
   function translate(key, fallback) {
@@ -57,6 +17,72 @@
     }
     return fallback || key;
   }
+
+  function readViewFromHash() {
+    var hash = (location.hash || "").replace(/^#/, "");
+    if (!hash) return null;
+    if (hash.indexOf("tool=") === 0) return hash.slice(5);
+    if (hash.indexOf("view=") === 0) return hash.slice(5);
+    var legacy = {
+      compose: "generate",
+      workbench: "surgical",
+      projects: "projects",
+      library: "library",
+      audit: "settings",
+      generate: "generate",
+      surgical: "surgical",
+      settings: "settings",
+    };
+    if (legacy[hash]) return legacy[hash];
+    if (ALL_VIEWS.indexOf(hash) >= 0) return hash;
+    return null;
+  }
+
+  function persistView(view) {
+    try {
+      localStorage.setItem(STORAGE_KEY, view);
+      localStorage.setItem("assure_tool", view);
+    } catch (_) {}
+  }
+
+  function readStoredView() {
+    try {
+      var stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("assure_tool");
+      if (stored === "compose" || stored === "workbench") {
+        return stored === "compose" ? "generate" : "surgical";
+      }
+      if (stored === "audit") return "settings";
+      return stored;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Abort all in-flight streams when navigating away. */
+  var AssureStreamRegistry = {
+    controller: null,
+    register: function (ctrl) {
+      this.abort();
+      this.controller = ctrl;
+    },
+    abort: function () {
+      if (this.controller) {
+        try {
+          this.controller.abort();
+        } catch (_) {}
+        this.controller = null;
+      }
+      if (global.__assureJdf && global.__assureJdf.streamClient) {
+        try {
+          global.__assureJdf.streamClient.abort();
+        } catch (_) {}
+      }
+      if (global.AssureGenerate && typeof global.AssureGenerate.abort === "function") {
+        global.AssureGenerate.abort();
+      }
+      document.dispatchEvent(new CustomEvent("assure:abort-streams"));
+    },
+  };
 
   var AssureToast = {
     show: function (message, kind) {
@@ -79,57 +105,73 @@
     },
   };
 
-  var AssureMode = {
-    activeMode: DEFAULT_MODE,
+  var AssureProjects = {
+    load: function () {
+      var list = $("projects-list");
+      var activeEl = $("projects-active-label");
+      if (!list) return;
+      list.innerHTML =
+        "<li class=\"hint\">" + escapeHtml(translate("projects.loading", "Loading projects…")) + "</li>";
 
-    init: function () {
-      var layout = $("assure-app");
-      if (!layout) return;
-
-      var initial = readStoredMode() || DEFAULT_MODE;
-      this.activate(initial, { persist: false });
-
-      layout.querySelectorAll(".mode-btn").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          AssureMode.activate(btn.getAttribute("data-mode"));
+      fetch("/api/projects", { credentials: "same-origin" })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) throw new Error("Failed to load projects");
+          var projects = (result.data && result.data.projects) || [];
+          var current = global.__ASSURE_PROJECT_ID__ || "default";
+          if (activeEl) {
+            activeEl.textContent = translate("projects.active", "Active project") + ": " + current;
+          }
+          if (!projects.length) {
+            list.innerHTML =
+              "<li class=\"hint\">" + escapeHtml(translate("projects.empty", "No projects yet.")) + "</li>";
+            return;
+          }
+          list.innerHTML = "";
+          projects.forEach(function (p) {
+            var li = document.createElement("li");
+            li.className = "projects-list-item" + (p.id === current ? " is-active" : "");
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "projects-list-btn";
+            btn.textContent = (p.title || p.id) + " (v" + (p.current_version || 1) + ")";
+            btn.dataset.projectId = p.id;
+            if (p.id === current) {
+              btn.setAttribute("aria-current", "true");
+            }
+            btn.addEventListener("click", function () {
+              if (p.id === current) {
+                AssureNav.switchView("generate");
+                return;
+              }
+              if (global.AssureToast) {
+                global.AssureToast.show(
+                  translate("projects.switch_soon", "Multi-project switch coming soon. Using ") + p.id,
+                  "info"
+                );
+              }
+            });
+            li.appendChild(btn);
+            list.appendChild(li);
+          });
+        })
+        .catch(function () {
+          list.innerHTML =
+            "<li class=\"hint bad\">" + escapeHtml(translate("projects.failed", "Could not load projects.")) + "</li>";
         });
-      });
-    },
-
-    getMode: function () {
-      return this.activeMode;
-    },
-
-    activate: function (mode, opts) {
-      opts = opts || {};
-      if (!mode) mode = DEFAULT_MODE;
-      this.activeMode = mode;
-      if (opts.persist !== false) persistMode(mode);
-
-      var layout = $("assure-app");
-      if (layout) {
-        layout.querySelectorAll(".mode-btn").forEach(function (btn) {
-          var on = btn.getAttribute("data-mode") === mode;
-          btn.classList.toggle("active", on);
-          btn.setAttribute("aria-pressed", on ? "true" : "false");
-        });
-        layout.querySelectorAll("[data-mode-panel]").forEach(function (panel) {
-          var on = panel.getAttribute("data-mode-panel") === mode;
-          panel.classList.toggle("active", on);
-          panel.hidden = !on;
-        });
-      }
-
-      var dockBtn = $("btn-dock-draft");
-      if (dockBtn && mode !== "compose") dockBtn.hidden = true;
-
-      var shortcutHint = $("inquiry-shortcut-hint");
-      if (shortcutHint) shortcutHint.hidden = mode !== "surgical";
-
-      document.body.setAttribute("data-assure-mode", mode);
-      document.dispatchEvent(new CustomEvent("assure:mode", { detail: { mode: mode } }));
     },
   };
+
+  function escapeHtml(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
 
   var AssureLandingBridge = {
     init: function () {
@@ -154,6 +196,8 @@
       } catch (_) {}
 
       if (draft) {
+        var genIntent = $("generate-intent");
+        if (genIntent) genIntent.value = draft;
         var task = $("task");
         if (task) task.value = draft;
       }
@@ -163,8 +207,7 @@
         } catch (_) {}
       }
 
-      AssureNav.activate("projects", { replaceHash: false, persist: true });
-      AssureMode.activate("compose", { persist: true });
+      AssureNav.switchView("generate", { replaceHash: false, persist: true });
 
       var cleaned = new URL(location.href);
       cleaned.searchParams.delete("import");
@@ -177,20 +220,10 @@
             global.__assureJdf
               .dockDraftToCanvas(draft)
               .then(function () {
-                if (global.AssureToast) {
-                  global.AssureToast.show(
-                    translate("landing.import.docked", "Landing draft docked to canvas."),
-                    "success"
-                  );
-                }
+                AssureToast.show(translate("landing.import.docked", "Landing draft docked to canvas."), "success");
               })
               .catch(function () {
-                if (global.AssureToast) {
-                  global.AssureToast.show(
-                    translate("landing.import.ready", "Draft loaded into workspace."),
-                    "info"
-                  );
-                }
+                AssureToast.show(translate("landing.import.ready", "Draft loaded into workspace."), "info");
               });
             return;
           }
@@ -205,105 +238,216 @@
     },
   };
 
+  function isMobileNav() {
+    return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+  }
+
+  function setSidebarOpen(layout, open) {
+    if (!layout) return;
+    layout.classList.toggle("sidebar-collapsed", !open);
+    var toggle = $("sidebar-toggle");
+    if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    var backdrop = $("sidebar-backdrop");
+    if (backdrop && isMobileNav()) {
+      backdrop.hidden = !open;
+      backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+    }
+  }
+
+  function closeMobileSidebar() {
+    var layout = $("assure-app");
+    if (layout && isMobileNav()) {
+      setSidebarOpen(layout, false);
+    }
+  }
+
   var AssureNav = {
-    activeTool: DEFAULT_TOOL,
+    activeView: DEFAULT_VIEW,
 
     init: function () {
       var layout = $("assure-app");
       if (!layout) return;
 
-      AssureMode.init();
+      var initial = readViewFromHash() || readStoredView() || DEFAULT_VIEW;
+      this.switchView(initial, { replaceHash: false, persist: false });
 
-      var initial = readToolFromHash() || readStoredTool() || DEFAULT_TOOL;
-      this.activate(initial, { replaceHash: false, persist: false });
-
-      layout.querySelectorAll("[data-tool]").forEach(function (node) {
-        if (node.classList.contains("app-sidebar-link")) {
-          node.addEventListener("click", function (event) {
-            event.preventDefault();
-            AssureNav.activate(node.getAttribute("data-tool"));
-          });
-        }
+      layout.querySelectorAll(".app-sidebar-link[data-tool]").forEach(function (node) {
+        node.addEventListener("click", function (event) {
+          event.preventDefault();
+          AssureNav.switchView(node.getAttribute("data-tool"));
+          closeMobileSidebar();
+        });
       });
 
       var toggle = $("sidebar-toggle");
       if (toggle) {
         toggle.addEventListener("click", function () {
-          layout.classList.toggle("sidebar-collapsed");
           var collapsed = layout.classList.contains("sidebar-collapsed");
-          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          setSidebarOpen(layout, collapsed);
+        });
+      }
+
+      var backdrop = $("sidebar-backdrop");
+      if (backdrop) {
+        backdrop.addEventListener("click", function () {
+          closeMobileSidebar();
+        });
+      }
+
+      var refreshBtn = $("projects-refresh-btn");
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", function () {
+          AssureProjects.load();
         });
       }
 
       window.addEventListener("hashchange", function () {
-        var tool = readToolFromHash();
-        if (tool && tool !== AssureNav.activeTool) {
-          AssureNav.activate(tool, { replaceHash: false, persist: true });
+        var view = readViewFromHash();
+        if (view && view !== AssureNav.activeView) {
+          AssureNav.switchView(view, { replaceHash: false, persist: true });
         }
       });
 
       AssureStatus.init();
 
-      if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) {
-        layout.classList.add("sidebar-collapsed");
-        if (toggle) toggle.setAttribute("aria-expanded", "false");
+      if (isMobileNav()) {
+        setSidebarOpen(layout, false);
       }
 
       AssureLandingBridge.init();
+      AssureNav.initSettings();
     },
 
-    activate: function (tool, opts) {
-      opts = opts || {};
-      if (!tool) tool = DEFAULT_TOOL;
-      if (tool === "compose" || tool === "workbench") tool = "projects";
+    initSettings: function () {
+      var toggle = $("settings-show-citations");
+      if (!toggle) return;
+      var projectId = global.__ASSURE_PROJECT_ID__ || "default";
 
-      if (ROUTE_TOOLS[tool]) {
-        var u = new URL(ROUTE_TOOLS[tool], location.origin);
-        var lang = new URL(location.href).searchParams.get("lang");
-        if (lang) u.searchParams.set("lang", lang);
-        location.href = u.pathname + u.search;
-        return;
+      fetch("/api/projects/" + encodeURIComponent(projectId) + "/settings", {
+        credentials: "same-origin",
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.settings && typeof data.settings.show_citations === "boolean") {
+            toggle.checked = data.settings.show_citations;
+            if (global.__assureJdf) {
+              global.__assureJdf.showCitations = data.settings.show_citations;
+              if (typeof global.__assureJdf.render === "function") {
+                global.__assureJdf.render();
+              }
+            }
+          }
+        })
+        .catch(function () {});
+
+      toggle.addEventListener("change", function () {
+        var show = !!toggle.checked;
+        fetch("/api/projects/" + encodeURIComponent(projectId) + "/settings", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ show_citations: show }),
+        })
+          .then(function (res) {
+            return res.json();
+          })
+          .then(function () {
+            if (global.__assureJdf) {
+              global.__assureJdf.showCitations = show;
+              if (typeof global.__assureJdf.render === "function") {
+                global.__assureJdf.render();
+              }
+            }
+          })
+          .catch(function () {});
+      });
+    },
+
+    /** Primary navigation — aborts streams and toggles view containers. */
+    switchView: function (view, opts) {
+      opts = opts || {};
+      if (!view) view = DEFAULT_VIEW;
+      if (view === "compose") view = "generate";
+      if (view === "workbench") view = "surgical";
+      if (view === "audit") view = "settings";
+      if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
+
+      if (view !== this.activeView) {
+        AssureStreamRegistry.abort();
       }
 
-      this.activeTool = tool;
-      if (opts.persist !== false) persistTool(tool);
+      this.activeView = view;
+      if (opts.persist !== false) persistView(view);
 
       var layout = $("assure-app");
       if (layout) {
         layout.querySelectorAll(".app-sidebar-link").forEach(function (link) {
-          var on = link.getAttribute("data-tool") === tool;
+          var on = link.getAttribute("data-tool") === view;
           link.classList.toggle("is-active", on);
           link.setAttribute("aria-current", on ? "page" : "false");
         });
-        layout.querySelectorAll(".tool-panel").forEach(function (panel) {
-          var on = panel.getAttribute("data-tool") === tool || panel.id === "tool-" + tool;
-          panel.classList.toggle("active", on);
-          panel.hidden = !on;
-        });
+      }
+
+      var workbench = $("jdf-workbench");
+      var inWorkspace = WORKSPACE_VIEWS.indexOf(view) >= 0;
+      if (workbench) workbench.hidden = !inWorkspace;
+
+      ALL_VIEWS.forEach(function (name) {
+        var el = $("view-" + name);
+        if (!el) return;
+        var on = name === view;
+        el.classList.toggle("active", on);
+        el.hidden = !on;
+      });
+
+      if (view === "projects") {
+        AssureProjects.load();
       }
 
       if (opts.replaceHash !== false) {
-        var next = location.pathname + location.search + "#tool=" + encodeURIComponent(tool);
+        var next = location.pathname + location.search + "#view=" + encodeURIComponent(view);
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
         }
       }
 
-      document.body.setAttribute("data-assure-tool", tool);
-      document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: tool } }));
+      document.body.setAttribute("data-assure-view", view);
+      document.body.setAttribute("data-assure-tool", view);
+      document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: view } }));
+      document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: view } }));
     },
+
+    /** @deprecated use switchView */
+    activate: function (tool, opts) {
+      this.switchView(tool, opts);
+    },
+  };
+
+  /** Backward compat for jdf_canvas.js */
+  var AssureMode = {
+    getMode: function () {
+      var v = AssureNav.activeView;
+      if (v === "generate") return "compose";
+      if (v === "surgical") return "surgical";
+      return "surgical";
+    },
+    activate: function (mode) {
+      if (mode === "compose") AssureNav.switchView("generate");
+      else if (mode === "surgical") AssureNav.switchView("surgical");
+    },
+    init: function () {},
   };
 
   var AssureStatus = {
     timer: null,
-
     init: function () {
       var dot = $("engine-status-dot");
       if (!dot) return;
       this.poll();
       this.timer = window.setInterval(this.poll.bind(this), 45000);
     },
-
     poll: function () {
       var dot = $("engine-status-dot");
       if (!dot) return;
@@ -320,17 +464,10 @@
           dot.title = online
             ? translate("app.status.online", "Z3 engine online")
             : translate("app.status.offline", "Backend unavailable");
-          dot.setAttribute(
-            "aria-label",
-            online
-              ? translate("app.status.online", "Z3 engine online")
-              : translate("app.status.offline", "Backend unavailable")
-          );
         })
         .catch(function () {
           dot.classList.remove("is-online");
           dot.classList.add("is-offline");
-          dot.title = translate("app.status.offline", "Backend unavailable");
         });
     },
   };
@@ -339,6 +476,8 @@
   global.AssureMode = AssureMode;
   global.AssureToast = AssureToast;
   global.AssureStatus = AssureStatus;
+  global.AssureStreamRegistry = AssureStreamRegistry;
+  global.AssureProjects = AssureProjects;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {

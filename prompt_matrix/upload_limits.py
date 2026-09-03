@@ -125,3 +125,31 @@ def limits_snapshot() -> dict[str, int]:
         "max_file_size_mb": MAX_FILE_SIZE_MB,
         "max_pages": MAX_PAGE_COUNT,
     }
+
+
+def pdf_has_visual_content(data: bytes) -> bool:
+    """True when PDF pages embed images or form XObjects (charts/diagrams)."""
+    if not data:
+        return False
+    try:
+        from pypdf import PdfReader
+    except ImportError:  # pragma: no cover
+        return False
+    try:
+        reader = PdfReader(BytesIO(data))
+    except Exception:
+        return False
+    for page in reader.pages:
+        resources = page.get("/Resources") or {}
+        xobjects = resources.get("/XObject") or {}
+        if not xobjects:
+            continue
+        for ref in xobjects.values():
+            try:
+                obj = ref.get_object()
+            except Exception:
+                continue
+            subtype = str(obj.get("/Subtype") or "")
+            if subtype in {"/Image", "/Form"}:
+                return True
+    return False

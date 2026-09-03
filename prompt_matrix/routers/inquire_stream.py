@@ -24,6 +24,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
+        empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
@@ -42,6 +43,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
+        empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
@@ -136,6 +138,14 @@ def _build_messages(user_intent: str, aperture: dict[str, Any] | None) -> list[d
     ]
 
 
+def _ensure_node_annotations(node: dict[str, Any]) -> dict[str, Any]:
+    node.setdefault("annotations", empty_annotations())
+    ann = node["annotations"]
+    ann.setdefault("redhat", [])
+    ann.setdefault("z3", [])
+    return node
+
+
 def _paragraph_node(node_id: str, content: str, *, status: str = "ok", z3_error: str | None = None) -> dict[str, Any]:
     meta: dict[str, Any] = {}
     if z3_error:
@@ -145,22 +155,23 @@ def _paragraph_node(node_id: str, content: str, *, status: str = "ok", z3_error:
         "id": node_id,
         "content": content,
         "entities_referenced": [],
-        "provenance": None,
+        "provenance": [],
         "meta": meta,
+        "annotations": empty_annotations(),
     }
     if status != "ok":
         node["status"] = status
+    if z3_error:
+        node = _ensure_node_annotations(node)
+        node["annotations"]["z3"].append(
+            {
+                "id": new_node_id("z3"),
+                "message": z3_error,
+                "status": "violation",
+                "canonical_key": "",
+            }
+        )
     return node
-
-
-def _redhat_callout(critique: str) -> dict[str, Any]:
-    return {
-        "type": "callout",
-        "id": new_node_id("redhat"),
-        "variant": "adversarial_redhat",
-        "title": "Red-hat review",
-        "content": critique,
-    }
 
 
 def _record_llm_usage(
@@ -349,11 +360,21 @@ def run_inquire_pipeline(
             project_id,
             TaskType.REDHAT,
             red_messages,
-            build_node_fn=lambda t: _redhat_callout(t),
             defer_budget_record=True,
         )
-        if red.node:
-            yield _sse("redhat_callout", {"node": red.node})
+        critique_text = (red.text or "").strip()
+        if critique_text and not critique_text.startswith("ERROR:"):
+            node = _ensure_node_annotations(dict(node))
+            annotation = {
+                "id": new_node_id("crit"),
+                "text": critique_text,
+                "status": "open",
+            }
+            node["annotations"]["redhat"].append(annotation)
+            yield _sse(
+                "redhat_annotation",
+                {"node_id": node_id, "annotation": annotation},
+            )
         _record_llm_usage(
             gov,
             project_id,

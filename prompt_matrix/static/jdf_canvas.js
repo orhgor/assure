@@ -116,6 +116,9 @@
   InquireStreamClient.prototype.start = function (payload) {
     var self = this;
     this.controller = new AbortController();
+    if (global.AssureStreamRegistry) {
+      global.AssureStreamRegistry.register(this.controller);
+    }
     var url = "/api/projects/" + encodeURIComponent(this.projectId) + "/inquire/stream";
     return fetch(url, {
       method: "POST",
@@ -184,7 +187,50 @@
     this.streamClient = null;
     this.livePreview = "";
     this.documentVersion = 1;
+    this.showCitations = true;
   }
+
+  JDFCanvasManager.prototype.loadProjectSettings = function () {
+    var self = this;
+    return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/settings")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.settings && typeof data.settings.show_citations === "boolean") {
+          self.showCitations = data.settings.show_citations;
+        }
+        if (self.rootEl) {
+          self.rootEl.classList.toggle("hide-citations", !self.showCitations);
+        }
+      })
+      .catch(function () {
+        /* default show */
+      });
+  };
+
+  JDFCanvasManager.prototype._normalizeProvenanceList = function (node) {
+    var prov = (node && node.provenance) || [];
+    if (!Array.isArray(prov)) {
+      if (prov && typeof prov === "object") {
+        prov = [prov];
+      } else {
+        prov = [];
+      }
+    }
+    return prov.map(function (p) {
+      if (!p || typeof p !== "object") return {};
+      return {
+        source_type: p.source_type || "internal_doc",
+        source_name: p.source_name || p.source_file || "",
+        url_or_doi: p.url_or_doi || "",
+        source_id: p.source_id || "",
+        page_number: p.page_number || p.page_or_timestamp || "",
+        extracted_quote: p.extracted_quote || p.exact_quote || "",
+        accessed_date: p.accessed_date || "",
+      };
+    });
+  };
 
   JDFCanvasManager.prototype.setVersion = function (version) {
     this.documentVersion = version || 1;
@@ -210,6 +256,17 @@
     if (!this.truthErrorEl) return;
     this.truthErrorEl.hidden = true;
     this.truthErrorEl.innerHTML = "";
+  };
+
+  JDFCanvasManager.prototype._showRedhatFinding = function (text) {
+    if (!this.redhatFindingsEl || !text) return;
+    var wrap = document.getElementById("redhat-findings-wrap");
+    if (wrap) wrap.hidden = false;
+    var block = document.createElement("div");
+    block.className = "jdf-callout callout-redhat";
+    block.textContent = text;
+    this.redhatFindingsEl.appendChild(block);
+    this.setStressTestStatus(this.redhatFindingsEl.children.length);
   };
 
   JDFCanvasManager.prototype.showTruthError = function (violations) {
@@ -238,46 +295,69 @@
       '<div class="jdf-canvas-empty-arrow" aria-hidden="true">←</div>' +
       '<div class="jdf-canvas-empty-body">' +
       "<h3>" +
-      jdfT("jdf.canvas.empty.title", "Start your document") +
+      jdfT("jdf.canvas.empty.title", "Your Document Workspace") +
       "</h3>" +
       "<p>" +
       jdfT(
         "jdf.canvas.empty.lead",
-        "Type a prompt in the left pane and click Inquire."
+        "Ingest a PDF, write an intent, or open an existing project. The compiler will structure every paragraph into a version-controlled node."
       ) +
       "</p>" +
-      '<p class="jdf-canvas-empty-hint">' +
-      jdfT(
-        "jdf.canvas.empty.hint",
-        "Your AI-generated sections will appear here, ready to dock and export."
-      ) +
-      "</p>" +
+      (jdfT("jdf.canvas.empty.hint", "")
+        ? '<p class="jdf-canvas-empty-hint">' + jdfT("jdf.canvas.empty.hint", "") + "</p>"
+        : "") +
       "</div>";
     return wrap;
   };
 
-  JDFCanvasManager.prototype.setSavePill = function (state, messageKey) {
+  JDFCanvasManager.prototype.setSavePill = function (state, messageKey, vars) {
     if (!this.statusEl) return;
     this.statusEl.className = "save-pill pill-" + state;
     var labelEl = document.getElementById("save-status-label");
-    var text = jdfT(messageKey, messageKey);
+    var versionWrap = document.getElementById("save-status-version-wrap");
+    var fallbacks = {
+      "jdf.save.ready": "● Ready",
+      "jdf.status.compiling": "⬡ Compiling...",
+      "jdf.status.committed": "● Committed (v{version})",
+      "jdf.save.saving": "Saving…",
+      "jdf.save.saved": "Saved",
+      "jdf.save.error": "Save failed",
+      "jdf.save.streaming": "Streaming…",
+      "jdf.save.stream_complete": "Stream complete",
+    };
+    var text = jdfT(messageKey, fallbacks[messageKey] || messageKey, vars || {});
     if (labelEl) {
       labelEl.textContent = text;
     }
+    if (versionWrap) {
+      versionWrap.hidden = messageKey === "jdf.status.committed";
+    }
+  };
+
+  JDFCanvasManager.prototype.setStressTestStatus = function (issueCount) {
+    if (!this.streamStatusEl) return;
+    var n = issueCount || 0;
+    if (!n) {
+      this.streamStatusEl.hidden = true;
+      return;
+    }
+    this.streamStatusEl.hidden = false;
+    this.streamStatusEl.className = "stream-status-pill stream-step-3 stream-stress";
+    this.streamStatusEl.textContent = jdfT(
+      "jdf.status.redhat",
+      "⚠️ Stress Test: {n} Issues",
+      { n: n }
+    );
   };
 
   JDFCanvasManager.prototype.setTruthBadge = function (status, violationCount) {
     if (!this.truthEl) return;
     if (status === "PASS") {
       this.truthEl.className = "truth-pill truth-pass";
-      this.truthEl.textContent = jdfT("jdf.truth.pass", "● Z3 Truth Verified");
+      this.truthEl.textContent = jdfT("jdf.truth.pass", "✅ Proof Passing");
     } else if (status === "FAIL") {
       this.truthEl.className = "truth-pill truth-fail";
-      this.truthEl.textContent = jdfT(
-        "jdf.truth.fail",
-        "● Z3 Violations ({n})",
-        { n: violationCount || 0 }
-      );
+      this.truthEl.textContent = jdfT("jdf.truth.fail", "❌ Build Failing");
     } else {
       this.truthEl.className = "truth-pill truth-idle";
       this.truthEl.textContent = jdfT("jdf.truth.idle", "● Z3 Truth Ledger");
@@ -314,7 +394,9 @@
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
         self.isDirty = false;
-        self.setSavePill("saved", "jdf.save.saved");
+        self.setSavePill("saved", "jdf.status.committed", {
+          version: data.version || self.documentVersion,
+        });
         return data;
       })
       .catch(function (err) {
@@ -355,7 +437,9 @@
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
         self.isDirty = false;
-        self.setSavePill("saved", "jdf.save.saved");
+        self.setSavePill("saved", "jdf.status.committed", {
+          version: data.version || self.documentVersion,
+        });
         return data;
       })
       .catch(function (err) {
@@ -370,7 +454,7 @@
         {
           type: "section",
           id: newNodeId("sec"),
-          title: jdfT("jdf.canvas.empty.title", "Start your document"),
+          title: jdfT("jdf.canvas.empty.title", "Your Document Workspace"),
           children: [node],
           meta: {},
         },
@@ -414,6 +498,176 @@
     return node.content || node.caption || "";
   };
 
+  JDFCanvasManager.prototype._escapeHtml = function (text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  };
+
+  JDFCanvasManager.prototype.getNodeById = function (nodeId) {
+    var found = null;
+    (this.tree.body || []).forEach(function (section) {
+      if (found) return;
+      (section.children || []).forEach(function (child) {
+        if (child.id === nodeId) found = child;
+      });
+    });
+    return found;
+  };
+
+  JDFCanvasManager.prototype._isInteractiveNodeClick = function (e) {
+    var t = e.target;
+    return !!(
+      t.closest("button") ||
+      t.closest('[role="button"]') ||
+      t.closest("input") ||
+      t.closest("select") ||
+      t.closest("textarea") ||
+      t.closest(".interactive-element") ||
+      t.closest(".jdf-node-toolbar") ||
+      t.closest(".node-toolbar")
+    );
+  };
+
+  JDFCanvasManager.prototype.selectNodeForRefine = function (nodeId, opts) {
+    opts = opts || {};
+    var node = this.getNodeById(nodeId);
+    if (!node) return;
+    this.surgicalTargetId = nodeId;
+    if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+      global.AssureNav.switchView("surgical");
+    } else if (global.AssureMode && typeof global.AssureMode.activate === "function") {
+      global.AssureMode.activate("surgical");
+    }
+    if (this.surgicalEl) this.surgicalEl.hidden = false;
+    var targetEl = document.getElementById("active-target-id");
+    if (targetEl) targetEl.textContent = nodeId;
+    var intentEl = pickEl("inquiry-input", "jdf-intent");
+    if (intentEl) {
+      intentEl.focus();
+      if (typeof intentEl.select === "function") intentEl.select();
+    }
+    this.render();
+    if (opts.toast !== false && global.AssureToast) {
+      global.AssureToast.show(
+        jdfT("jdf.refine.selected", "Node selected for context-locked refine."),
+        "info"
+      );
+    }
+  };
+
+  JDFCanvasManager.prototype._renderNodeBodyWithCitations = function (node, bodyEl) {
+    var text = this._nodeText(node);
+    var provList = this._normalizeProvenanceList(node);
+    var provAttr = this._escapeHtml(JSON.stringify(provList.length ? provList[0] : {})).replace(/'/g, "&#39;");
+    var html = this._escapeHtml(text);
+    if (this.showCitations) {
+      var ledger = this.tree.truth_ledger || {};
+      var values = Object.keys(ledger).map(function (k) {
+        return String(ledger[k]);
+      });
+      values.sort(function (a, b) {
+        return b.length - a.length;
+      });
+      values.forEach(function (val) {
+        if (!val) return;
+        var re = new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+        html = html.replace(re, function (match) {
+          return (
+            '<span class="truth-pill inline-citation interactive-element truth-pass" data-provenance="' +
+            provAttr +
+            '" title="View source">' +
+            match +
+            "</span>"
+          );
+        });
+      });
+      if (html === this._escapeHtml(text)) {
+        html = html.replace(/\$[\d,.]+[KMB]?|\b\d+(?:\.\d+)?%/gi, function (match) {
+          return (
+            '<span class="truth-pill inline-citation interactive-element truth-idle" data-provenance="' +
+            provAttr +
+            '" title="View source">' +
+            match +
+            "</span>"
+          );
+        });
+      }
+    }
+    bodyEl.innerHTML = html;
+  };
+
+  JDFCanvasManager.prototype._renderCitationBadge = function (node, article) {
+    var self = this;
+    var provList = this._normalizeProvenanceList(node);
+    if (!provList.length) return;
+    var badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "citation-badge";
+    badge.setAttribute(
+      "aria-label",
+      jdfT("jdf.citation.badge", "Citations") + " " + provList.length
+    );
+    badge.innerHTML =
+      "📎 " +
+      jdfT("jdf.citation.count", "{count} source(s)", { count: String(provList.length) });
+    var details = document.createElement("div");
+    details.className = "citation-details";
+    details.hidden = true;
+    provList.forEach(function (p) {
+      var row = document.createElement("div");
+      row.className = "citation-detail-row";
+      var typeLabel = jdfT(
+        "jdf.citation.source_type." + (p.source_type || "internal_doc"),
+        p.source_type || "internal_doc"
+      );
+      row.innerHTML =
+        "<strong>" +
+        self._escapeHtml(typeLabel) +
+        "</strong>" +
+        (p.source_name
+          ? "<div>" +
+            self._escapeHtml(jdfT("jdf.citation.source_name", "Source")) +
+            ": " +
+            self._escapeHtml(p.source_name) +
+            "</div>"
+          : "") +
+        (p.page_number
+          ? "<div>" +
+            self._escapeHtml(jdfT("jdf.citation.page", "Page")) +
+            ": " +
+            self._escapeHtml(p.page_number) +
+            "</div>"
+          : "") +
+        (p.url_or_doi
+          ? "<div>" +
+            self._escapeHtml(jdfT("jdf.citation.url", "URL / DOI")) +
+            ": " +
+            self._escapeHtml(p.url_or_doi) +
+            "</div>"
+          : "") +
+        (p.extracted_quote
+          ? "<blockquote>" + self._escapeHtml(p.extracted_quote) + "</blockquote>"
+          : "") +
+        (p.accessed_date
+          ? "<div class=\"hint\">" +
+            self._escapeHtml(jdfT("jdf.citation.accessed", "Accessed")) +
+            ": " +
+            self._escapeHtml(p.accessed_date) +
+            "</div>"
+          : "");
+      details.appendChild(row);
+    });
+    badge.addEventListener("click", function () {
+      details.hidden = !details.hidden;
+      badge.classList.toggle("is-open", !details.hidden);
+    });
+    article.appendChild(badge);
+    article.appendChild(details);
+  };
+
   JDFCanvasManager.prototype._makeDockAnchor = function (afterId) {
     var self = this;
     var el = document.createElement("div");
@@ -432,14 +686,14 @@
   JDFCanvasManager.prototype._toolbar = function (node, sectionIdx, childIdx) {
     var self = this;
     var bar = document.createElement("div");
-    bar.className = "node-toolbar";
+    bar.className = "node-toolbar jdf-node-toolbar";
     bar.innerHTML =
       '<button type="button" data-act="edit">⚡ Edit</button>' +
       '<button type="button" data-act="up">▲</button>' +
       '<button type="button" data-act="down">▼</button>' +
       '<button type="button" data-act="del">🗑️ Delete</button>';
     bar.querySelector('[data-act="edit"]').addEventListener("click", function () {
-      self.enterSurgicalMode(node.id);
+      self.selectNodeForRefine(node.id, { toast: false });
     });
     bar.querySelector('[data-act="del"]').addEventListener("click", function () {
       var section = self.tree.body[sectionIdx];
@@ -471,6 +725,7 @@
   JDFCanvasManager.prototype.render = function () {
     if (!this.rootEl) return;
     var self = this;
+    this.rootEl.classList.toggle("hide-citations", !this.showCitations);
     this.rootEl.innerHTML = "";
     var title = document.createElement("h2");
     title.className = "jdf-doc-title";
@@ -500,7 +755,14 @@
         var article = document.createElement("article");
         article.className = "jdf-node jdf-node-" + (node.type || "paragraph");
         article.dataset.nodeId = node.id;
-        if (self.surgicalTargetId === node.id) article.classList.add("node-target");
+        if (self.surgicalTargetId === node.id) {
+          article.classList.add("node-target", "selected");
+        }
+        article.addEventListener("click", function (e) {
+          if (self._isInteractiveNodeClick(e)) return;
+          var id = article.dataset.nodeId;
+          if (id) self.selectNodeForRefine(id, { toast: true });
+        });
         if (self.surgicalTargetId) {
           var siblings = section.children || [];
           var tIdx = siblings.findIndex(function (n) {
@@ -513,7 +775,7 @@
         }
         var body = document.createElement("div");
         body.className = "jdf-node-body";
-        body.textContent = self._nodeText(node);
+        self._renderNodeBodyWithCitations(node, body);
         if (node.type === "paragraph") {
           body.addEventListener("dblclick", function () {
             body.contentEditable = "true";
@@ -524,10 +786,14 @@
             node.content = body.textContent;
             self.isDirty = true;
             self.saveDocument("MANUAL_TOUCHUP", { target_node_id: node.id });
+            self._renderNodeBodyWithCitations(node, body);
           });
         }
         article.appendChild(self._toolbar(node, sIdx, cIdx));
         article.appendChild(body);
+        if (self.showCitations) {
+          self._renderCitationBadge(node, article);
+        }
         wrap.appendChild(article);
       });
       self.rootEl.appendChild(wrap);
@@ -552,21 +818,7 @@
   };
 
   JDFCanvasManager.prototype.enterSurgicalMode = function (nodeId) {
-    this.surgicalTargetId = nodeId;
-    if (global.AssureMode) global.AssureMode.activate("surgical");
-    if (this.surgicalEl) {
-      this.surgicalEl.hidden = false;
-      var targetEl = document.getElementById("active-target-id");
-      if (targetEl) {
-        targetEl.textContent = nodeId;
-      } else {
-        var label = this.surgicalEl.querySelector(".jdf-surgical-label");
-        if (label) {
-          label.textContent = "Surgical target: " + nodeId;
-        }
-      }
-    }
-    this.render();
+    this.selectNodeForRefine(nodeId, { toast: false });
   };
 
   JDFCanvasManager.prototype.exitSurgicalMode = function () {
@@ -685,6 +937,7 @@
           );
         }
         if (global.AssureMode) global.AssureMode.activate("surgical");
+        if (global.AssureNav) global.AssureNav.switchView("surgical");
         return node;
       })
       .catch(function (err) {
@@ -756,13 +1009,12 @@
       },
       onredhatcallout: function (data) {
         if (self.redhatFindingsEl && data.node) {
-          var wrap = document.getElementById("redhat-findings-wrap");
-          if (wrap) wrap.hidden = false;
-          var block = document.createElement("div");
-          block.className = "jdf-callout callout-redhat";
-          block.textContent = data.node.content || "";
-          self.redhatFindingsEl.innerHTML = "";
-          self.redhatFindingsEl.appendChild(block);
+          self._showRedhatFinding(data.node.content || "");
+        }
+      },
+      onredhatannotation: function (data) {
+        if (data.annotation && data.annotation.text) {
+          self._showRedhatFinding(data.annotation.text);
         }
       },
       oncomplete: function (data) {
@@ -803,6 +1055,7 @@
     this.clearTruthError();
     this.setStreamStatus(1, "jdf.stream.thinking", "Thinking…");
     if (this.redhatFindingsEl) this.redhatFindingsEl.innerHTML = "";
+    this.setStressTestStatus(0);
     if (this.stopBtn) {
       this.stopBtn.style.display = "inline-flex";
       this.stopBtn.textContent = jdfT("jdf.stop_stream", "Stop stream");
@@ -863,13 +1116,12 @@
       },
       onredhatcallout: function (data) {
         if (self.redhatFindingsEl && data.node) {
-          var wrap = document.getElementById("redhat-findings-wrap");
-          if (wrap) wrap.hidden = false;
-          var block = document.createElement("div");
-          block.className = "jdf-callout callout-redhat";
-          block.textContent = data.node.content || "";
-          self.redhatFindingsEl.innerHTML = "";
-          self.redhatFindingsEl.appendChild(block);
+          self._showRedhatFinding(data.node.content || "");
+        }
+      },
+      onredhatannotation: function (data) {
+        if (data.annotation && data.annotation.text) {
+          self._showRedhatFinding(data.annotation.text);
         }
       },
       oncomplete: function () {
@@ -905,13 +1157,15 @@
 
     if (inquireBtn) {
       inquireBtn.addEventListener("click", function () {
-        var mode = global.AssureMode ? global.AssureMode.getMode() : "surgical";
+        var view = global.AssureNav ? global.AssureNav.activeView : "surgical";
         var redhatOn = redhatEl && redhatEl.checked;
-        if (mode === "compose") {
-          self.composeInquire(redhatOn);
-        } else {
-          self.inquire((intentEl && intentEl.value) || "Revise document", redhatOn);
+        if (view === "generate") {
+          if (global.AssureGenerate && typeof global.AssureGenerate.compileFromIntent === "function") {
+            global.AssureGenerate.compileFromIntent();
+          }
+          return;
         }
+        self.inquire((intentEl && intentEl.value) || "Revise document", redhatOn);
       });
     }
     var dockBtn = document.getElementById("btn-dock-draft");
@@ -950,19 +1204,23 @@
     });
 
     if (!global.__INITIAL_JDF__ || !(global.__INITIAL_JDF__.body || []).length) {
-      fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/jdf")
-        .then(function (r) {
-          return r.json();
-        })
-        .then(function (data) {
-          if (data.document) self.tree = data.document;
-          if (data.version) self.setVersion(data.version);
-          self.render();
-        });
+      this.loadProjectSettings().then(function () {
+        fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/jdf")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.document) self.tree = data.document;
+            if (data.version) self.setVersion(data.version);
+            self.render();
+          });
+      });
     } else {
-      this.render();
+      this.loadProjectSettings().then(function () {
+        self.render();
+      });
     }
-    this.setSavePill("saved", "jdf.save.ready");
+    this.setSavePill("idle", "jdf.save.ready");
   };
 
   global.JDFCanvasManager = JDFCanvasManager;
@@ -971,5 +1229,10 @@
   global.dockDraftToCanvas = function (text) {
     if (global.__assureJdf) return global.__assureJdf.dockDraftToCanvas(text);
     return Promise.reject(new Error("JDF manager not ready"));
+  };
+  global.selectNodeForRefine = function (nodeId, opts) {
+    if (global.__assureJdf && typeof global.__assureJdf.selectNodeForRefine === "function") {
+      return global.__assureJdf.selectNodeForRefine(nodeId, opts);
+    }
   };
 })(window);

@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assure AI — Deterministic Document Execution</title>
-    <meta name="description" content="Assure AI turns your intent into publication-grade deliverables using a modular document structure and symbolic math verification.">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('33') }}">
+    <meta name="description" content="Assure AI compiles human documents into mathematically verified deliverables. Ingest messy scans, lock variables with Z3 proofs, edit modular JDF nodes in isolation.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('36') }}">
 </head>
 <body>
     <header class="site-header">
         <div class="container nav-container">
-            <div class="logo">Assure AI</div>
+            <a href="/" class="logo">Assure AI</a>
             <nav class="nav-links" aria-label="Primary">
-                <a href="#pipeline">Architecture</a>
-                <a href="#personas">Personas</a>
-                <a href="#paste-test">Sandbox</a>
-                <a href="/app" class="btn-primary-small">Workspace</a>
+                <a href="#glossary">Docs</a>
+                <a href="/architecture">Architecture</a>
+                <a href="#sandbox">Sandbox</a>
+                <a href="/app" class="btn-primary-small">Launch Workspace &rarr;</a>
             </nav>
         </div>
     </header>
@@ -24,13 +24,52 @@
         <section class="hero-section">
             <div class="container">
                 <span class="eyebrow">Deterministic Document Execution</span>
-                <h1>Stop chatting with your documents. Start executing them.</h1>
-                <p class="hero-sub">Traditional AI tools guess, drift, and lose context. Assure AI turns your intent into publication-grade deliverables using a modular document structure and symbolic math verification.</p>
+                <h1>The Compiler for Human Documents.</h1>
+                <p class="hero-tagline">We don&rsquo;t write documents. We compile truth.</p>
+                <p class="hero-sub">Ingest messy scans, CIMs, or datasets. Lock variables with mathematical proofs. Edit modular nodes with context-locked isolation. Stop guessing &mdash; start compiling.</p>
                 <div class="hero-cta-group">
-                    <a href="/app" class="btn-primary">Launch Workspace</a>
+                    <a href="#sandbox" class="btn-primary">Try the Free Paste Test</a>
+                    <a href="/architecture" class="btn-secondary">Read the Architecture &rarr;</a>
                 </div>
-                <div class="visual-concept-card">
-                    <p><strong>The Transition:</strong> A chaotic LLM chat window on the left (crossed out) transitioning into the structured 50/50 Assure AI Canvas with green Z3 verification badges on the right.</p>
+
+                <div class="hero-visual" aria-hidden="true">
+                    <div class="hero-visual-grid">
+                        <div class="hero-visual-messy">
+                            <div class="messy-line messy-faded"></div>
+                            <div class="messy-line messy-faded wide"></div>
+                            <div class="messy-line"></div>
+                            <div class="messy-line messy-faded"></div>
+                            <div class="messy-line short"></div>
+                            <div class="messy-line messy-faded wide"></div>
+                            <div class="messy-line"></div>
+                            <div class="messy-scan-label">Unstructured scan / flat text</div>
+                        </div>
+                        <div class="hero-visual-arrow" aria-hidden="true">&rarr;</div>
+                        <div class="hero-visual-tree">
+                            <div class="ast-root">
+                                <span class="ast-label">JDF Document</span>
+                                <div class="ast-node ast-node--section">
+                                    <span class="ast-type">Section</span>
+                                    <span class="ast-id">node_01</span>
+                                </div>
+                                <div class="ast-node ast-node--claim">
+                                    <span class="ast-type">Claim</span>
+                                    <span class="ast-id">$4.2M</span>
+                                    <span class="ast-badge">Z3 ✓</span>
+                                </div>
+                                <div class="ast-node ast-node--paragraph">
+                                    <span class="ast-type">Paragraph</span>
+                                    <span class="ast-id">node_03</span>
+                                </div>
+                                <div class="ast-node ast-node--table">
+                                    <span class="ast-type">Table</span>
+                                    <span class="ast-id">node_04</span>
+                                    <span class="ast-badge">Locked</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="hero-visual-caption">From flat text to compiled truth &mdash; in seconds.</p>
                 </div>
             </div>
         </section>
@@ -46,43 +85,58 @@
 
         <section class="manifesto-section">
             <div class="container narrow">
-                <h2>The Problem With &ldquo;AI Writing&rdquo;</h2>
-                <p>Most software treats professional writing like a chat room. You type a prompt, the machine spits out a wall of text, and you spend the next hour scrolling up and down, cross-checking numbers, fixing logic gaps, and hoping the model remembered the data point from page 3.</p>
+                <h2>The Problem Statement</h2>
+                <p>Documents are the most important data structure ever invented. Yet, we treat them like flat text files. We paste, copy, scan, and hope.</p>
                 <p class="highlight-quote">That is not engineering. That is gambling.</p>
-                <p>Researchers, clinicians, and analysts don't need a chatbot. They need an execution engine — a system that respects the weight of your work, locks your data, and builds deliverables you can actually trust.</p>
             </div>
         </section>
 
         <section id="pipeline" class="pipeline-section">
             <div class="container">
-                <h2>From Intent to Absolute Truth</h2>
+                <h2>The 3-Act Engine</h2>
                 <div class="pipeline-grid">
                     <div class="pipeline-card">
                         <span class="step-num">01</span>
-                        <h3>Bring Your Sources</h3>
-                        <p>You upload your source files, transcripts, and data into the vault. The system ingests and anchors every claim to its origin.</p>
+                        <h3>Ingest &amp; Structure</h3>
+                        <p>Turn any messy PDF, table, or scan into a version-controlled AST.</p>
                     </div>
                     <div class="pipeline-card">
                         <span class="step-num">02</span>
-                        <h3>JDF — Modular Architecture</h3>
-                        <p>Instead of a messy text blob, Assure AI builds your work using <strong>JDF (JSON Document Framework)</strong> — a modular <strong>AST (Abstract Syntax Tree)</strong> architecture. Think of it like Lego bricks: every paragraph is an independent, version-controlled node you can edit, lock, or verify without touching the rest.</p>
+                        <h3>Verify &amp; Prove</h3>
+                        <p>Lock metrics with the Z3 SMT solver. Break the build if logic fails.</p>
                     </div>
                     <div class="pipeline-card">
                         <span class="step-num">03</span>
-                        <h3>Z3 Truth Ledger + Red-Hat</h3>
-                        <p>Powered by formal symbolic logic, Assure AI mathematically anchors your key metrics and dates so they cannot drift or hallucinate. Our <strong>Red-Hat</strong> adversarial layer stress-tests your logic like an automated devil&rsquo;s advocate before publication.</p>
+                        <h3>Deliver &amp; Refine</h3>
+                        <p>Edit individual nodes in isolation with Aperture context-locking. Export a verified deliverable.</p>
                     </div>
                 </div>
+                <p class="architecture-bridge">Curious how our JDF AST and Z3 solver provide mathematical certainty? <a href="/architecture">Read the Architecture Deep-Dive &rarr;</a></p>
             </div>
         </section>
 
-        <section id="paste-test" class="paste-test-section">
+        <section class="competitor-section">
+            <div class="container narrow center">
+                <h2>Competitor Reality Check</h2>
+                <p class="competitor-quote">Spellbook helps you write faster. Harvey helps you find context. Assure AI ensures the final document is mathematically true. Guess which one the auditor checks?</p>
+            </div>
+        </section>
+
+        <section id="sandbox" class="paste-test-section">
             <div class="container narrow">
-                <h2>Test Deterministic Execution</h2>
+                <h2>Zero-Risk Paste Test</h2>
                 <p class="section-sub">Paste a paragraph containing financial metrics or factual claims below. Watch the engine isolate nodes, lock variables, and flag logic gaps instantly.</p>
                 <div class="sandbox-box">
                     <textarea id="sandbox-input" placeholder="e.g., Q3 revenue reached $4.2M, representing a 15% increase year-over-year. Consequently, operating margins expanded to 32% across all regional divisions..."></textarea>
                     <button type="button" id="sandbox-run-btn" class="btn-primary">Run Deterministic Audit</button>
+                    <div id="sandbox-progress" class="sandbox-progress hidden" aria-live="polite">
+                        <div class="sandbox-progress-bar"><div id="sandbox-progress-fill" class="sandbox-progress-fill"></div></div>
+                        <p id="sandbox-progress-label" class="sandbox-progress-label">Compiling JDF AST…</p>
+                    </div>
+                    <div id="sandbox-gate-summary" class="sandbox-gate-summary hidden">
+                        <span class="sandbox-gate-icon" aria-hidden="true">🛡️</span>
+                        <span id="sandbox-gate-text">Pre-Flight Gate — audit must pass before export.</span>
+                    </div>
                     <div id="sandbox-output" class="sandbox-output hidden">
                         <div class="output-header">
                             <span id="sandbox-z3-badge" class="badge z3-badge">🛡️ Z3 Ledger: 0 Variables Locked</span>
@@ -178,7 +232,7 @@
             </div>
         </section>
 
-        <section class="glossary-section">
+        <section id="glossary" class="glossary-section">
             <div class="container narrow">
                 <details>
                     <summary>Under the Hood (Technical Glossary)</summary>
@@ -187,6 +241,7 @@
                             <li><strong>JDF AST:</strong> JSON Document Framework — modular, version-controlled document nodes.</li>
                             <li><strong>Z3 Truth Ledger:</strong> Formal symbolic verification (SMT solver) for numerical and factual consistency.</li>
                             <li><strong>Red-Hat Adversary:</strong> Automated stress-test of your logic and assumptions.</li>
+                            <li><strong>Aperture:</strong> Context-locking layer that isolates node edits without cross-contamination.</li>
                             <li><strong>Infrastructure:</strong> Self-hosted on AWS <code>t4g.small</code> with SQLite atomic JSON1 updates — lean, private, auditable.</li>
                         </ul>
                     </div>
@@ -200,76 +255,6 @@
             <p>&copy; 2026 Assure AI. Deterministic Document Execution Engine.</p>
         </div>
     </footer>
-    <script>
-      function runSandboxTest() {
-        var inputEl = document.getElementById("sandbox-input");
-        var output = document.getElementById("sandbox-output");
-        var tree = document.getElementById("sandbox-node-tree");
-        var z3Badge = document.getElementById("sandbox-z3-badge");
-        var redhatBadge = document.getElementById("sandbox-redhat-badge");
-        var text = (inputEl && inputEl.value || "").trim();
-        if (!text) {
-          window.alert("Please enter some text to test.");
-          return;
-        }
-
-        var metrics = text.match(/\$[\d,.]+[KMB]?|\b\d+(?:\.\d+)?%/gi) || [];
-        var sentences = text.split(/(?<=[.!?])\s+/).filter(function (s) { return s.trim(); });
-        if (!sentences.length) sentences = [text];
-
-        z3Badge.textContent =
-          "🛡️ Z3 Ledger: " + metrics.length + " Variable" + (metrics.length === 1 ? "" : "s") + " Locked";
-        redhatBadge.textContent = "🔍 Red-Hat: 0 Logic Gaps";
-
-        tree.innerHTML = sentences
-          .map(function (sentence, idx) {
-            var num = String(idx + 1).padStart(2, "0");
-            var label = metrics.length && sentence.match(/\$|\d+%/) ? "Claim" : "Paragraph";
-            var detail = sentence.length > 120 ? sentence.slice(0, 117) + "…" : sentence;
-            return (
-              '<div class="jdf-node"><strong>[Node #' + num + " - " + label + "]</strong> " +
-              detail +
-              (label === "Claim" ? " Symbolically validated. No drift detected." : " Isolated into JDF AST.") +
-              "</div>"
-            );
-          })
-          .join("");
-
-        output.classList.remove("hidden");
-        output.style.opacity = "0";
-        window.setTimeout(function () {
-          output.style.opacity = "1";
-        }, 50);
-
-        var bridge = document.getElementById("workspace-bridge");
-        if (bridge) bridge.classList.remove("hidden");
-      }
-
-      function toggleAdvancedSettings() {
-        var drawer = document.getElementById("advanced-model-drawer");
-        if (drawer) drawer.classList.toggle("hidden");
-      }
-
-      function sendToWorkbench() {
-        var text = (document.getElementById("sandbox-input").value || "").trim();
-        if (!text) {
-          window.alert("Please enter some text to test.");
-          return;
-        }
-        var modelEl = document.getElementById("model-select");
-        var model = modelEl ? modelEl.value : "claude";
-        try {
-          sessionStorage.setItem("assure_landing_draft", text);
-          sessionStorage.setItem("assure_landing_model", model);
-        } catch (_) {}
-        window.location.href = "/app?mode=workbench&import=latest";
-      }
-
-      document.getElementById("sandbox-run-btn").addEventListener("click", runSandboxTest);
-      var advToggle = document.getElementById("sandbox-advanced-toggle");
-      if (advToggle) advToggle.addEventListener("click", toggleAdvancedSettings);
-      var sendBtn = document.getElementById("sandbox-send-workbench");
-      if (sendBtn) sendBtn.addEventListener("click", sendToWorkbench);
-    </script>
+    <script src="{{ url_for('static', filename='sandbox.js') }}?v={{ landing_js_version|default('30') }}"></script>
 </body>
 </html>

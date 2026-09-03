@@ -287,6 +287,13 @@
   window.AssureUI.updateGroundDisplay = updateGroundDisplay;
   window.AssureUI.bindFeedbackThumbs = bindFeedbackThumbs;
 
+  /** Progressive Generate pipeline — delegates to generate.js */
+  window.startDraftStream = function () {
+    if (window.AssureGenerate && typeof window.AssureGenerate.startDraftStream === "function") {
+      window.AssureGenerate.startDraftStream();
+    }
+  };
+
   document.addEventListener("DOMContentLoaded", function () {
     ensureSettingsButton();
     bindSettingsModal();

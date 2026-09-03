@@ -40,6 +40,21 @@ def register_export_routes(app) -> None:
         start_time = time.perf_counter()
         audit = get_audit_logger()
         fmt = (request.args.get("format") or "docx").strip().lower()
+        include_citations_raw = (request.args.get("include_citations") or "true").strip().lower()
+        include_citations = include_citations_raw not in ("0", "false", "no")
+        if fmt == "json":
+            tree = fetch_latest_jdf_or_empty(project_id)
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_JSON",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": fmt},
+            )
+            return jsonify({"ok": True, "document": tree})
+
         if fmt != "docx":
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -51,11 +66,11 @@ def register_export_routes(app) -> None:
                 error_message="Unsupported format",
                 details={"format": fmt},
             )
-            return jsonify({"error": "Unsupported format", "supported": ["docx"]}), 400
+            return jsonify({"error": "Unsupported format", "supported": ["docx", "json"]}), 400
 
         try:
             tree = fetch_latest_jdf_or_empty(project_id)
-            buffer = export_jdf_to_docx(tree)
+            buffer = export_jdf_to_docx(tree, include_citations=include_citations)
             filename = f"{_doc_title(tree)}.docx"
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -64,7 +79,7 @@ def register_export_routes(app) -> None:
                 "EXPORT_DOCX",
                 success=True,
                 duration_ms=duration_ms,
-                details={"format": fmt, "filename": filename},
+                details={"format": fmt, "filename": filename, "include_citations": include_citations},
             )
             return Response(
                 buffer.getvalue(),

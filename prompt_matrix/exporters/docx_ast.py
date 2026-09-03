@@ -12,6 +12,11 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
+try:
+    from ..models.jdf import collect_unique_provenance
+except ImportError:
+    from models.jdf import collect_unique_provenance
+
 TRUST_BLUE = RGBColor(0x1A, 0x4B, 0x8C)
 SECTION_COLOR = RGBColor(0x0D, 0x2B, 0x45)
 HEADER_FILL = "1A4B8C"
@@ -21,6 +26,7 @@ CALLOUT_COLORS = {
     "insight": "EFF6FF",
 }
 _NUMERIC_RE = re.compile(r"^-?\d+(?:\.\d+)?%?$")
+_CITE_TAG_RE = re.compile(r"<cite[^>]*>.*?</cite>", re.IGNORECASE | re.DOTALL)
 
 
 def _set_cell_shading(cell, fill_hex: str) -> None:
@@ -34,8 +40,72 @@ def _is_numeric(value: str) -> bool:
     return bool(_NUMERIC_RE.match((value or "").strip()))
 
 
+def _strip_cite_tags(text: str) -> str:
+    return _CITE_TAG_RE.sub(lambda m: re.sub(r"<[^>]+>", "", m.group(0)), text or "")
+
+
+def _format_reference(prov: dict[str, Any], index: int) -> str:
+    source_type = str(prov.get("source_type") or "internal_doc")
+    name = str(prov.get("source_name") or "Unknown source")
+    page = str(prov.get("page_number") or "").strip()
+    quote = str(prov.get("extracted_quote") or "").strip()
+    url = str(prov.get("url_or_doi") or "").strip()
+    accessed = str(prov.get("accessed_date") or "").strip()
+    prefix = f"[{index}] "
+
+    if source_type == "internal_doc":
+        parts = [name]
+        if page:
+            parts.append(f"p. {page}")
+        line = ", ".join(parts)
+        if quote:
+            line += f'. "{quote}"'
+        return prefix + line
+
+    if source_type == "academic_paper":
+        line = name
+        if url:
+            line += f". {url}"
+        if accessed:
+            line += f" (accessed {accessed})"
+        return prefix + line
+
+    if source_type == "news_article":
+        line = name
+        if url:
+            line += f". {url}"
+        if accessed:
+            line += f" (accessed {accessed})"
+        return prefix + line
+
+    # web_url and fallback
+    line = url or name
+    if accessed:
+        line += f" (accessed {accessed})"
+    return prefix + line
+
+
+def _add_references_section(doc: Document, references: list[dict[str, Any]]) -> None:
+    if not references:
+        return
+    doc.add_page_break()
+    heading = doc.add_heading("References", level=1)
+    for run in heading.runs:
+        run.font.name = "Georgia"
+        run.font.color.rgb = TRUST_BLUE
+    for idx, prov in enumerate(references, start=1):
+        para = doc.add_paragraph(_format_reference(prov, idx))
+        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+        para.paragraph_format.line_spacing = 1.15
+        para.paragraph_format.space_after = Pt(6)
+        for run in para.runs:
+            run.font.name = "Calibri"
+            run.font.size = Pt(10)
+            run.font.color.rgb = SECTION_COLOR
+
+
 def _add_paragraph(doc: Document, text: str) -> None:
-    para = doc.add_paragraph(text or "")
+    para = doc.add_paragraph(_strip_cite_tags(text or ""))
     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
     para.paragraph_format.line_spacing = 1.15
     para.paragraph_format.space_after = Pt(8)
@@ -132,7 +202,7 @@ def _add_truth_appendix(doc: Document, ledger: dict[str, Any]) -> None:
         row[2].text = "LOCKED"
 
 
-def export_jdf_to_docx(jdf_tree: dict[str, Any]) -> io.BytesIO:
+def export_jdf_to_docx(jdf_tree: dict[str, Any], *, include_citations: bool = True) -> io.BytesIO:
     """Compile a JDF AST dict into a styled Word document buffer."""
     doc = Document()
     for section in doc.sections:
@@ -168,13 +238,22 @@ def export_jdf_to_docx(jdf_tree: dict[str, Any]) -> io.BytesIO:
             if ntype == "paragraph":
                 _add_paragraph(doc, str(child.get("content") or ""))
             elif ntype == "callout":
+                variant = str(child.get("variant") or "")
+                # Red-Hat critiques live in annotations.redhat — skip legacy callout nodes
+                if variant == "adversarial_redhat":
+                    continue
                 _add_callout(doc, child)
             elif ntype == "table":
                 _add_table(doc, child)
+            # annotations block is intentionally excluded from export
 
     ledger = jdf_tree.get("truth_ledger") or {}
     if ledger:
         _add_truth_appendix(doc, ledger)
+
+    if include_citations:
+        references = collect_unique_provenance(jdf_tree)
+        _add_references_section(doc, references)
 
     buffer = io.BytesIO()
     doc.save(buffer)

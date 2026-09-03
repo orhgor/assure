@@ -9,12 +9,68 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 4
+_SCHEMA_VERSION = 7
+
+
+def _migrate_v5(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS workspace_settings (
+            project_id TEXT PRIMARY KEY,
+            show_citations INTEGER NOT NULL DEFAULT 1,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
 
 
 def _column_exists(db: sqlite3.Connection, table: str, column: str) -> bool:
     rows = db.execute(f"PRAGMA table_info({table})").fetchall()
     return any(row[1] == column for row in rows)
+
+
+def _migrate_v6(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS substrate_vault (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            page_count INTEGER NOT NULL DEFAULT 1,
+            extracted_text TEXT NOT NULL,
+            tables_json TEXT NOT NULL DEFAULT '[]',
+            forms_json TEXT NOT NULL DEFAULT '[]',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_substrate_proj ON substrate_vault(project_id, created_at DESC)"
+    )
+
+
+def _migrate_v4(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS project_comments (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            node_id TEXT NOT NULL,
+            author TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_comments_proj ON project_comments(project_id, created_at DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_comments_node ON project_comments(project_id, node_id)"
+    )
 
 
 def _migrate_v3(db: sqlite3.Connection) -> None:
@@ -168,6 +224,14 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
     )
 
     _migrate_v3(db)
+    if current < 4:
+        pass
+    if current < 5:
+        _migrate_v4(db)
+    if current < 6:
+        _migrate_v5(db)
+    if current < 7:
+        _migrate_v6(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

@@ -24,6 +24,7 @@ def _sample_tree() -> dict:
                         "content": "Intro paragraph.",
                         "entities_referenced": [],
                         "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
                     },
                     {
                         "type": "paragraph",
@@ -31,6 +32,7 @@ def _sample_tree() -> dict:
                         "content": "Target paragraph.",
                         "entities_referenced": ["revenue"],
                         "meta": {"locked": True},
+                        "annotations": {"redhat": [], "z3": []},
                     },
                     {
                         "type": "callout",
@@ -38,9 +40,11 @@ def _sample_tree() -> dict:
                         "variant": "insight",
                         "title": "Note",
                         "content": "Trailing callout.",
+                        "annotations": {"redhat": [], "z3": []},
                     },
                 ],
                 "meta": {},
+                "annotations": {"redhat": [], "z3": []},
             }
         ],
     ).model_dump(mode="json")

@@ -1,0 +1,603 @@
+(function (global) {
+  "use strict";
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function t(key, fallback, vars) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, vars || {});
+    }
+    if (typeof global.__assureT === "function") {
+      return global.__assureT(key, fallback);
+    }
+    return fallback || key;
+  }
+
+  function projectId() {
+    return global.__ASSURE_PROJECT_ID__ || "default";
+  }
+
+  function escapeHtml(text) {
+    return String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  /** Robust SSE parser — buffer until full frames; safe JSON.parse. */
+  function parseSseBuffer(buffer) {
+    var events = [];
+    var remainder = buffer;
+    var sep;
+    while ((sep = remainder.indexOf("\n\n")) >= 0) {
+      var block = remainder.slice(0, sep);
+      remainder = remainder.slice(sep + 2);
+      if (!block.trim()) continue;
+      if (block.trim() === "data: [DONE]") {
+        events.push({ event: "done", data: { type: "done" } });
+        continue;
+      }
+      var eventName = "message";
+      var dataParts = [];
+      block.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) {
+          eventName = line.slice(6).trim();
+        } else if (line.indexOf("data:") === 0) {
+          dataParts.push(line.slice(5).trim());
+        }
+      });
+      var dataLine = dataParts.join("\n");
+      if (!dataLine || dataLine === "[DONE]") {
+        if (dataLine === "[DONE]") {
+          events.push({ event: "done", data: { type: "done" } });
+        }
+        continue;
+      }
+      try {
+        events.push({ event: eventName, data: JSON.parse(dataLine) });
+      } catch (_) {
+        events.push({ event: eventName, data: { raw: dataLine, parse_error: true } });
+      }
+    }
+    return { events: events, remainder: remainder };
+  }
+
+  function eventType(frame) {
+    var data = frame.data || {};
+    return data.type || frame.event || "message";
+  }
+
+  var AssureGenerate = {
+    controller: null,
+    compiledNodes: [],
+    compiledLocks: [],
+    compiledDocument: null,
+    draftText: "",
+    auditComplete: false,
+
+    init: function () {
+      var self = this;
+      var btn = $("generate-compile-btn");
+      var intentEl = $("generate-intent");
+      var dockBtn = $("generate-accept-dock");
+
+      if (btn) {
+        btn.addEventListener("click", function () {
+          self.startDraftStream();
+        });
+      }
+      if (intentEl) {
+        intentEl.addEventListener("keydown", function (e) {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            self.startDraftStream();
+          }
+        });
+      }
+      if (dockBtn) {
+        dockBtn.addEventListener("click", function () {
+          self.acceptAndDock();
+        });
+      }
+
+      document.addEventListener("assure:abort-streams", function () {
+        self.abort();
+      });
+    },
+
+    abort: function () {
+      if (this.controller) {
+        this.controller.abort();
+        this.controller = null;
+      }
+    },
+
+    setGateLoading: function (on, message) {
+      var loader = $("gate-loader");
+      var statusText = $("gate-status-text");
+      var dockBtn = $("generate-accept-dock");
+      if (loader) loader.hidden = !on;
+      if (statusText && message) statusText.textContent = message;
+      if (dockBtn && on) {
+        dockBtn.disabled = true;
+        dockBtn.hidden = false;
+      }
+    },
+
+    setCompiling: function (on) {
+      var el = $("generate-compiling");
+      if (el) el.hidden = !on;
+      var btn = $("generate-compile-btn");
+      if (btn) btn.disabled = !!on;
+      var jdf = global.__assureJdf;
+      if (jdf && typeof jdf.setSavePill === "function") {
+        if (on) {
+          jdf.setSavePill("compiling", "jdf.status.compiling");
+        } else if (!this.auditComplete) {
+          jdf.setSavePill("idle", "jdf.save.ready");
+        }
+      }
+    },
+
+    setSummaryVisible: function (on) {
+      var el = $("compilation-summary");
+      if (el) el.hidden = !on;
+    },
+
+    resetUi: function () {
+      this.compiledNodes = [];
+      this.compiledLocks = [];
+      this.draftText = "";
+      this.auditComplete = false;
+      this.compiledDocument = null;
+      global.compiledDraftNodes = [];
+      global.compiledLocks = [];
+      global.compiledDocument = null;
+
+      var preview = $("generate-stream-preview");
+      if (preview) preview.textContent = "";
+      var nodesPreview = $("generate-nodes-preview");
+      if (nodesPreview) nodesPreview.hidden = true;
+      var nodesBody = $("generate-nodes-body");
+      if (nodesBody) nodesBody.innerHTML = "";
+
+      this.setCompiling(false);
+      this.setSummaryVisible(false);
+      this.setGateLoading(false);
+
+      var gateBanner = $("preflight-gate-banner");
+      if (gateBanner) gateBanner.hidden = true;
+
+      var z3 = $("z3-status");
+      if (z3) {
+        z3.hidden = true;
+        z3.textContent = "";
+        z3.className = "gate-z3-status";
+      }
+      var redhat = $("redhat-preview");
+      if (redhat) {
+        redhat.hidden = true;
+        redhat.innerHTML = "";
+      }
+      var list = $("generate-lock-checklist");
+      if (list) list.innerHTML = "";
+      var dockBtn = $("generate-accept-dock");
+      if (dockBtn) {
+        dockBtn.disabled = true;
+        dockBtn.hidden = false;
+      }
+    },
+
+    startDraftStream: function () {
+      var self = this;
+      var intentEl = $("generate-intent");
+      var intent = intentEl && intentEl.value.trim();
+      if (!intent) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("generate.intent_required", "Describe what to compile first."), "error");
+        }
+        return;
+      }
+
+      this.abort();
+      this.resetUi();
+      this.controller = new AbortController();
+      if (global.AssureStreamRegistry) {
+        global.AssureStreamRegistry.register(this.controller);
+      }
+      if (global.__assureJdf && typeof global.__assureJdf.setSavePill === "function") {
+        global.__assureJdf.setSavePill("compiling", "jdf.status.compiling");
+      }
+      if (global.__assureJdf && typeof global.__assureJdf.setTruthBadge === "function") {
+        global.__assureJdf.setTruthBadge("IDLE");
+      }
+      if (global.__assureJdf && typeof global.__assureJdf.setStressTestStatus === "function") {
+        global.__assureJdf.setStressTestStatus(0);
+      }
+
+      var preview = $("generate-stream-preview");
+      var url = "/api/projects/" + encodeURIComponent(projectId()) + "/draft/stream";
+
+      fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent: intent }),
+        signal: this.controller.signal,
+      })
+        .then(function (res) {
+          if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+
+          function handleFrame(frame) {
+            var type = eventType(frame);
+            var data = frame.data || {};
+
+            if (type === "token" && data.delta) {
+              self.draftText += data.delta;
+              if (preview) preview.textContent = self.draftText;
+              return;
+            }
+
+            if (type === "status") {
+              if (data.stage === "model" || data.stage === "preflight") return;
+              if (data.message && !self.auditComplete) {
+                self.setGateLoading(true, data.message);
+              }
+              return;
+            }
+
+            if (type === "compiled") {
+              self.setCompiling(false);
+              self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
+              self.compiledLocks = data.locks || [];
+              self.compiledDocument = data.document || null;
+              self.draftText = data.draft_text || self.draftText;
+              global.compiledDraftNodes = self.compiledNodes;
+              global.compiledLocks = self.compiledLocks;
+              global.compiledDocument = self.compiledDocument;
+              self.renderDraftNodes(self.compiledNodes);
+              self.renderLockChecklist();
+              self.renderSummaryCounts(data);
+              self.setSummaryVisible(true);
+              var gateBanner = $("preflight-gate-banner");
+              if (gateBanner) gateBanner.hidden = false;
+              self.setGateLoading(
+                true,
+                t("generate.gate.auditing", "Running Z3 Verification and DeepSeek-R1 Adversary…")
+              );
+              return;
+            }
+
+            if (type === "audit_complete") {
+              self.auditComplete = true;
+              if (data.document) {
+                self.compiledDocument = data.document;
+                global.compiledDocument = data.document;
+              }
+              var gateBanner = $("preflight-gate-banner");
+              if (gateBanner) gateBanner.hidden = true;
+              self.setGateLoading(false);
+              self.renderAuditGate(data);
+              var dockBtn = $("generate-accept-dock");
+              if (dockBtn) dockBtn.disabled = false;
+              return;
+            }
+
+            if (type === "error" || (type === "complete" && data.ok === false)) {
+              self.setCompiling(false);
+              self.setGateLoading(false);
+              if (global.AssureToast) {
+                global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
+              }
+              return;
+            }
+
+            if (type === "done" || type === "complete") {
+              self.setCompiling(false);
+              if (!self.auditComplete) {
+                self.setGateLoading(false);
+                var dock = $("generate-accept-dock");
+                if (dock && self.compiledNodes.length) dock.disabled = false;
+              }
+            }
+          }
+
+          function pump() {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var parsed = parseSseBuffer(buffer);
+              buffer = parsed.remainder;
+              parsed.events.forEach(handleFrame);
+              return pump();
+            });
+          }
+          return pump();
+        })
+        .catch(function (err) {
+          self.setCompiling(false);
+          self.setGateLoading(false);
+          if (err && err.name === "AbortError") return;
+          if (global.AssureToast) {
+            global.AssureToast.show(String(err.message || err), "error");
+          }
+        });
+    },
+
+    compileFromIntent: function () {
+      this.startDraftStream();
+    },
+
+    renderDraftNodes: function (nodes) {
+      var wrap = $("generate-nodes-preview");
+      var body = $("generate-nodes-body");
+      if (!wrap || !body) return;
+      body.innerHTML = "";
+      (nodes || []).forEach(function (section) {
+        if (section.title) {
+          var h = document.createElement("h4");
+          h.textContent = section.title;
+          body.appendChild(h);
+        }
+        (section.children || []).forEach(function (child) {
+          if (child.type === "paragraph" && child.content) {
+            var p = document.createElement("p");
+            p.textContent = child.content;
+            body.appendChild(p);
+          }
+        });
+      });
+      wrap.hidden = !body.childNodes.length;
+    },
+
+    renderSummaryCounts: function (data) {
+      var nodeCount = data.node_count != null ? data.node_count : (this.compiledNodes || []).length;
+      var lockCount = data.lock_count != null ? data.lock_count : (this.compiledLocks || []).length;
+      var nc = $("generate-node-count");
+      var lc = $("generate-lock-count");
+      if (nc) nc.textContent = String(nodeCount);
+      if (lc) lc.textContent = String(lockCount);
+    },
+
+    renderLockChecklist: function () {
+      var list = $("generate-lock-checklist");
+      if (!list) return;
+      list.innerHTML = "";
+      if (!this.compiledLocks.length) {
+        list.innerHTML =
+          "<p class=\"hint\">" + escapeHtml(t("generate.locks_none", "No high-confidence locks inferred.")) + "</p>";
+        return;
+      }
+      this.compiledLocks.forEach(function (item, idx) {
+        var row = document.createElement("label");
+        row.className = "lock-check-row";
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = true;
+        cb.dataset.lockIdx = String(idx);
+        var label = document.createElement("span");
+        label.textContent =
+          (item.entity || "Metric") +
+          " · " +
+          (item.metric || "") +
+          " = " +
+          (item.value != null ? item.value : "") +
+          (item.unit ? " " + item.unit : "") +
+          " (" +
+          Math.round((item.confidence || 0) * 100) +
+          "%)";
+        row.appendChild(cb);
+        row.appendChild(label);
+        list.appendChild(row);
+      });
+    },
+
+    renderAuditGate: function (data) {
+      var z3 = data.z3_results || {};
+      var z3El = $("z3-status");
+      var jdf = global.__assureJdf;
+      if (z3El) {
+        var status = z3.z3_status || z3.status || "UNKNOWN";
+        z3El.hidden = false;
+        z3El.className = "gate-z3-status " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
+        if (status === "PASS") {
+          z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
+            (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
+          if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("PASS");
+        } else if (status === "VIOLATION") {
+          var viol = (z3.violations || []).join(" ");
+          z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
+          if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("FAIL");
+        } else {
+          z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
+        }
+      }
+
+      var critiques = data.redhat_critiques || [];
+      var redhatEl = $("redhat-preview");
+      if (redhatEl) {
+        redhatEl.innerHTML = "";
+        if (critiques.length) {
+          redhatEl.hidden = false;
+          if (jdf && typeof jdf.setStressTestStatus === "function") {
+            jdf.setStressTestStatus(critiques.length);
+          }
+          critiques.forEach(function (c) {
+            var li = document.createElement("li");
+            var title = document.createElement("div");
+            title.className = "redhat-preview-title";
+            title.textContent = c.title || t("jdf.redhat.findings", "Red-hat findings");
+            var body = document.createElement("div");
+            body.textContent = c.content || "";
+            li.appendChild(title);
+            li.appendChild(body);
+            redhatEl.appendChild(li);
+          });
+        } else {
+          redhatEl.hidden = true;
+          if (jdf && typeof jdf.setStressTestStatus === "function") {
+            jdf.setStressTestStatus(0);
+          }
+        }
+      }
+    },
+
+    acceptAndDock: function () {
+      var self = this;
+      if (!this.auditComplete) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("generate.gate.wait", "Wait for audit to complete before docking."), "info");
+        }
+        return;
+      }
+      if (!this.compiledNodes.length) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("generate.no_nodes", "Nothing to dock yet."), "error");
+        }
+        return;
+      }
+
+      var acceptedLocks = [];
+      var list = $("generate-lock-checklist");
+      if (list) {
+        list.querySelectorAll("input[type=checkbox]").forEach(function (cb) {
+          if (!cb.checked) return;
+          var idx = parseInt(cb.dataset.lockIdx || "-1", 10);
+          if (idx >= 0 && self.compiledLocks[idx]) acceptedLocks.push(self.compiledLocks[idx]);
+        });
+      }
+
+      var jdf = global.__assureJdf;
+      if (!jdf || !jdf.tree) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("generate.jdf_missing", "Canvas not ready."), "error");
+        }
+        return;
+      }
+
+      var dockBtn = $("generate-accept-dock");
+      if (dockBtn) dockBtn.disabled = true;
+
+      if (self.compiledDocument && self.compiledDocument.body) {
+        var base = JSON.parse(JSON.stringify(jdf.tree));
+        base.body = (base.body || []).concat(self.compiledDocument.body || []);
+        base.truth_ledger = Object.assign(
+          {},
+          base.truth_ledger || {},
+          self.compiledDocument.truth_ledger || {}
+        );
+        fetch("/api/projects/" + encodeURIComponent(projectId()) + "/jdf", {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            document: base,
+            mutation_type: "GENERATE_DOCK",
+            change_summary: "Generate: docked document tree",
+          }),
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
+            if (result.data.document) jdf.tree = result.data.document;
+            if (typeof jdf.render === "function") jdf.render();
+            if (result.data.version && typeof jdf.setVersion === "function") {
+              jdf.setVersion(result.data.version);
+            }
+            if (global.AssureToast) {
+              global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
+            }
+            if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+              global.AssureNav.switchView("surgical");
+            }
+          })
+          .catch(function (err) {
+            if (global.AssureToast) {
+              global.AssureToast.show(String(err.message || err), "error");
+            }
+          })
+          .finally(function () {
+            if (dockBtn) dockBtn.disabled = false;
+          });
+        return;
+      }
+
+      var doc = JSON.parse(JSON.stringify(jdf.tree));
+      doc.body = (doc.body || []).concat(this.compiledNodes);
+      var ledger = doc.truth_ledger || {};
+      acceptedLocks.forEach(function (lock) {
+        var key = lock.canonical_key || lock.metric;
+        if (key && lock.value != null) ledger[key] = Number(lock.value);
+      });
+      doc.truth_ledger = ledger;
+
+      var dockBtn = $("generate-accept-dock");
+      if (dockBtn) dockBtn.disabled = true;
+
+      fetch("/api/projects/" + encodeURIComponent(projectId()) + "/jdf", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document: doc,
+          mutation_type: "GENERATE_DOCK",
+          change_summary: "Generate: docked " + self.compiledNodes.length + " section(s)",
+        }),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
+          if (result.data.document) jdf.tree = result.data.document;
+          if (typeof jdf.render === "function") jdf.render();
+          if (result.data.version && typeof jdf.setVersion === "function") {
+            jdf.setVersion(result.data.version);
+          }
+          if (global.AssureToast) {
+            global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
+          }
+          if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+            global.AssureNav.switchView("surgical");
+          }
+        })
+        .catch(function (err) {
+          if (global.AssureToast) {
+            global.AssureToast.show(String(err.message || err), "error");
+          }
+        })
+        .finally(function () {
+          if (dockBtn) dockBtn.disabled = false;
+        });
+    },
+  };
+
+  global.AssureGenerate = AssureGenerate;
+  global.parseSseBuffer = parseSseBuffer;
+  global.compiledDraftNodes = [];
+  global.compiledLocks = [];
+
+  global.startDraftStream = function () {
+    if (global.AssureGenerate) global.AssureGenerate.startDraftStream();
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      AssureGenerate.init();
+    });
+  } else {
+    AssureGenerate.init();
+  }
+})(window);

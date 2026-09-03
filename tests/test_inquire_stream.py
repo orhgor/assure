@@ -32,9 +32,11 @@ def _sample_tree(project_id: str = "test-proj") -> dict:
                         "content": "Revenue is $12M this quarter.",
                         "entities_referenced": ["revenue"],
                         "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
                     }
                 ],
                 "meta": {},
+                "annotations": {"redhat": [], "z3": []},
             }
         ],
     }
@@ -50,6 +52,7 @@ def _mock_result(**overrides):
             "content": "Revenue is $12M this quarter, verified.",
             "entities_referenced": [],
             "meta": {},
+            "annotations": {"redhat": [], "z3": []},
         },
         "status": "ok",
         "error": None,
@@ -159,7 +162,7 @@ async def test_full_stream_lifecycle(client):
             "status",
             "token",
             "truth_check",
-            "redhat_callout",
+            "redhat_annotation",
             "jdf_node_ready",
             "usage",
             "complete",

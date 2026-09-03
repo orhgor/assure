@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture Deep-Dive · Assure AI</title>
+    <meta name="description" content="Why flat text fails and how Assure AI uses JDF AST modular execution trees, Z3 SMT verification, and a six-stage pipeline for mathematical certainty.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('36') }}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container nav-container">
+            <a href="/" class="logo logo-link">Assure AI</a>
+            <nav class="nav-links" aria-label="Primary">
+                <a href="/#glossary">Docs</a>
+                <a href="/architecture" aria-current="page">Architecture</a>
+                <a href="/#sandbox">Sandbox</a>
+                <a href="/app" class="btn-primary-small">Launch Workspace &rarr;</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero-section arch-hero">
+            <div class="container">
+                <a href="/" class="back-link">&larr; Back to Assure AI</a>
+                <span class="eyebrow">Architecture Deep-Dive</span>
+                <h1>Under the Hood: Why Flat Text Fails.</h1>
+                <p class="hero-sub">Chat models emit undifferentiated prose&mdash;a single string with no structure, no locks, and no proof obligations. Assure AI compiles your intent into a <strong>modular execution tree</strong>: typed JDF nodes you can edit, lock, verify, and export independently&mdash;without re-prompting the entire document.</p>
+            </div>
+        </section>
+
+        <section class="ast-section">
+            <div class="container">
+                <h2>Flat Text vs. JDF Execution Tree</h2>
+                <p class="section-sub">Every deliverable is an AST&mdash;not a blob. Sections nest blocks; blocks carry provenance, entity bindings, and verification annotations.</p>
+
+                <div class="ast-compare">
+                    <div class="ast-panel ast-flat">
+                        <h3>Flat LLM Output</h3>
+                        <pre class="ast-mock" aria-hidden="true">"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."</pre>
+                        <ul class="ast-fail-list">
+                            <li>No node boundaries</li>
+                            <li>Metrics drift on edit</li>
+                            <li>Verification is manual</li>
+                        </ul>
+                    </div>
+                    <div class="ast-panel ast-tree">
+                        <h3>JDF AST (Static Preview)</h3>
+                        <div class="ast-grid" aria-label="JDF node type preview">
+                            <article class="ast-node ast-node-section">
+                                <div class="ast-node-header">
+                                    <span class="ast-node-icon" aria-hidden="true">§</span>
+                                    <code>JDFSectionNode</code>
+                                </div>
+                                <p class="ast-node-field"><span>id</span> sec_financials</p>
+                                <p class="ast-node-field"><span>title</span> Financial Summary</p>
+                                <p class="ast-node-field"><span>children</span> [paragraph, table]</p>
+                                <div class="ast-node-children">
+                                    <article class="ast-node ast-node-paragraph">
+                                        <div class="ast-node-header">
+                                            <span class="ast-node-icon" aria-hidden="true">¶</span>
+                                            <code>JDFParagraphNode</code>
+                                        </div>
+                                        <p class="ast-node-field"><span>content</span> Q3 revenue reached $4.2M…</p>
+                                        <p class="ast-node-field"><span>entities</span> revenue_q3</p>
+                                        <span class="ast-badge ast-badge-lock">🔒 Locked</span>
+                                    </article>
+                                    <article class="ast-node ast-node-table">
+                                        <div class="ast-node-header">
+                                            <span class="ast-node-icon" aria-hidden="true">⊞</span>
+                                            <code>JDFTableNode</code>
+                                        </div>
+                                        <p class="ast-node-field"><span>headers</span> Region, Growth</p>
+                                        <p class="ast-node-field"><span>bound_entities</span> margin_pct</p>
+                                        <span class="ast-badge ast-badge-z3">🛡️ Z3 pass</span>
+                                    </article>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="exec-pipeline-section">
+            <div class="container">
+                <h2>Six-Stage Execution Pipeline</h2>
+                <p class="section-sub">From raw intent to publication-ready output&mdash;each stage produces auditable artifacts, not probabilistic guesses.</p>
+                <ol class="exec-pipeline">
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">✏️</span>
+                        <div class="exec-body">
+                            <h3>Draft</h3>
+                            <p>Intent and source files enter the vault. The engine proposes structured JDF nodes anchored to provenance.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">⚙️</span>
+                        <div class="exec-body">
+                            <h3>Compile</h3>
+                            <p>PEM dialect prompts compile to deterministic node operations&mdash;paragraphs, tables, and sections with stable IDs.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🔒</span>
+                        <div class="exec-body">
+                            <h3>Lock</h3>
+                            <p>Critical variables and entity bindings freeze in the Truth Ledger. Locked nodes resist silent drift on downstream edits.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🛡️</span>
+                        <div class="exec-body">
+                            <h3>Z3 Verify</h3>
+                            <p>The Z3 SMT solver checks numeric constraints and cross-node consistency&mdash;SAT means mathematically consistent.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🔍</span>
+                        <div class="exec-body">
+                            <h3>Red-Hat Audit</h3>
+                            <p>An adversarial persona stress-tests assumptions, flags logic gaps, and attaches critiques to specific nodes.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">✅</span>
+                        <div class="exec-body">
+                            <h3>Pre-Flight Gate</h3>
+                            <p>Export blocked until Z3 passes and open Red-Hat items are resolved. Deliverables ship with a full audit trail.</p>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="z3-section">
+            <div class="container narrow">
+                <h2>Z3 SMT: Mathematical Certainty</h2>
+                <p><strong>Satisfiability Modulo Theories (SMT)</strong> lets Assure AI treat your document like a formal specification. Key metrics become symbolic variables; constraints encode relationships between them.</p>
+                <div class="z3-example">
+                    <p class="z3-label">Example constraint set</p>
+                    <pre class="z3-code"><code>(assert (= revenue_q3 4200000))
+(assert (= margin_pct 32))
+(assert (&gt; revenue_q3 0))
+(check-sat)  ; → sat  ✓ consistent</code></pre>
+                </div>
+                <p>When Z3 returns <strong>sat</strong>, your locked numbers cannot contradict each other across the tree. When it returns <strong>unsat</strong>, Assure surfaces the conflicting nodes before you export&mdash;no manual cross-checking across fifty pages.</p>
+                <ul class="z3-points">
+                    <li><strong>Truth Ledger:</strong> canonical keys map entities to values the solver can reference.</li>
+                    <li><strong>Node annotations:</strong> <code>annotations.z3</code> records pass/violation per block without polluting export.</li>
+                    <li><strong>Pre-Flight Gate:</strong> unsat or open violations block .docx / PDF export until resolved.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <div class="container center">
+                <h2>See the pipeline in action.</h2>
+                <p>Paste a paragraph on the landing sandbox or launch the full workspace.</p>
+                <div class="hero-cta-group">
+                    <a href="/#sandbox" class="btn-primary">Try the Sandbox</a>
+                    <a href="/app" class="btn-primary-small arch-cta-secondary">Launch Workspace</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container center">
+            <p>&copy; 2026 Assure AI. Deterministic Document Execution Engine.</p>
+        </div>
+    </footer>
+</body>
+</html>

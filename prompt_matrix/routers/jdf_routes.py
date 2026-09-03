@@ -10,21 +10,35 @@ from flask import jsonify, request
 from pydantic import BaseModel
 
 try:
-    from ..db.jdf_repository import fetch_latest_jdf_or_empty, patch_jdf_node, save_jdf_revision
+    from ..db.jdf_repository import (
+        fetch_jdf_at_version,
+        fetch_latest_jdf_or_empty,
+        list_jdf_revisions,
+        patch_jdf_node,
+        save_jdf_revision,
+    )
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
         document_to_dict,
         insert_node_after_anchor,
+        parse_document,
         splice_node,
     )
 except ImportError:
-    from db.jdf_repository import fetch_latest_jdf_or_empty, patch_jdf_node, save_jdf_revision
+    from db.jdf_repository import (
+        fetch_jdf_at_version,
+        fetch_latest_jdf_or_empty,
+        list_jdf_revisions,
+        patch_jdf_node,
+        save_jdf_revision,
+    )
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
         document_to_dict,
         insert_node_after_anchor,
+        parse_document,
         splice_node,
     )
 
@@ -57,8 +71,24 @@ def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
 
 
 def register_jdf_routes(app) -> None:
+    @app.get("/api/projects/<project_id>/history")
+    def get_project_history(project_id: str):
+        revisions = list_jdf_revisions(project_id)
+        return jsonify({"ok": True, "revisions": revisions, "count": len(revisions)})
+
     @app.get("/api/projects/<project_id>/jdf")
     def get_project_jdf(project_id: str):
+        version_raw = request.args.get("version")
+        if version_raw is not None:
+            try:
+                version = int(version_raw)
+            except ValueError:
+                return jsonify({"error": "version must be an integer"}), 400
+            doc = fetch_jdf_at_version(project_id, version)
+            if doc is None:
+                return jsonify({"error": f"version {version} not found"}), 404
+            return jsonify({"ok": True, "document": doc, "version": version})
+
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
@@ -95,6 +125,8 @@ def register_jdf_routes(app) -> None:
                 )
             else:
                 tree = _resolve_tree(payload, project_id)
+                # Strict validation before SQLite write
+                parse_document(tree)
                 result = save_jdf_revision(
                     project_id,
                     tree,

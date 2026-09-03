@@ -102,6 +102,15 @@
         "ssm:GetParameters"
       ],
       "Resource": "arn:aws:ssm:us-east-1::parameter/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id"
+    },
+    {
+      "Sid": "AssureTextractSubstrate",
+      "Effect": "Allow",
+      "Action": [
+        "textract:AnalyzeDocument",
+        "textract:DetectDocumentText"
+      ],
+      "Resource": "*"
     }
   ]
 }

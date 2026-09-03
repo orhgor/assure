@@ -51,47 +51,51 @@ class ModelPolicy:
 
 
 TASK_POLICIES: dict[TaskType, ModelPolicy] = {
+    # Surgical edits → DeepSeek-V3 (cheap, fast, strict JSON)
     TaskType.SURGICAL_EDIT: ModelPolicy(
-        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="deepseek/deepseek-chat",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SURGICAL_EDIT],
         max_output_tokens=500,
         caching=False,
-        litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
+        litellm_model="deepseek/deepseek-chat",
     ),
+    # Quick draft / node summarize → DeepSeek-V3
     TaskType.SUMMARIZE_NODE: ModelPolicy(
-        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="deepseek/deepseek-chat",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SUMMARIZE_NODE],
         max_output_tokens=500,
         caching=False,
-        litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
+        litellm_model="deepseek/deepseek-chat",
     ),
     TaskType.SEMANTIC_VALIDATION: ModelPolicy(
-        model_id="anthropic.claude-3-5-haiku-20241022-v1:0",
+        model_id="deepseek/deepseek-chat",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SEMANTIC_VALIDATION],
         max_output_tokens=500,
         caching=False,
-        litellm_model="bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
+        litellm_model="deepseek/deepseek-chat",
     ),
+    # Deep synthesis → Claude 3.5 Sonnet (premium narrative flow)
     TaskType.DEEP_SYNTHESIS: ModelPolicy(
-        model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+        model_id="anthropic/claude-3-5-sonnet-20241022",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS],
         max_output_tokens=2048,
-        caching=True,
-        litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
+        caching=False,
+        litellm_model="anthropic/claude-3-5-sonnet-20241022",
     ),
     TaskType.MACRO_AUDIT: ModelPolicy(
-        model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+        model_id="anthropic/claude-3-5-sonnet-20241022",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.MACRO_AUDIT],
         max_output_tokens=2048,
-        caching=True,
-        litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
+        caching=False,
+        litellm_model="anthropic/claude-3-5-sonnet-20241022",
     ),
+    # Red-Hat adversary → DeepSeek-R1 (CoT reasoning; headroom for hidden reasoning tokens)
     TaskType.REDHAT: ModelPolicy(
-        model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+        model_id="deepseek/deepseek-reasoner",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
-        max_output_tokens=2048,
-        caching=True,
-        litellm_model="bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
+        max_output_tokens=4096,
+        caching=False,
+        litellm_model="deepseek/deepseek-reasoner",
     ),
 }
 

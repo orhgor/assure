@@ -46,14 +46,14 @@
       <div class="app-layout" id="assure-app">
         <header class="app-header">
           <div class="app-header-left">
-            <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" title="{{ gettext('Toggle tools menu') }}" data-i18n-title="app.sidebar.toggle">☰</button>
+            <button type="button" class="sidebar-toggle tooltip-trigger" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" aria-label="{{ gettext('Toggle tools menu') }}" data-i18n-aria="app.sidebar.toggle" data-tooltip="{{ gettext('Toggle tools menu') }}" data-i18n-tooltip="app.sidebar.toggle">☰</button>
             <div class="app-logo">
               <span class="app-logo-mark" aria-hidden="true">📄</span>
               <span data-i18n="hero">{{ gettext('Assure AI') }}</span>
             </div>
           </div>
           <div class="app-header-right">
-            <span class="engine-status" id="engine-status" title="{{ gettext('Z3 engine online') }}" data-i18n-title="app.status.online">
+            <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
             </span>
             <label class="visually-hidden" for="locale-select">
@@ -67,31 +67,90 @@
           </div>
         </header>
         <div class="app-body">
+          <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link is-active" data-tool="projects" aria-current="page">
-              <span class="app-sidebar-icon" aria-hidden="true">📄</span>
+            <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="projects" aria-current="page" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
+              <span class="app-sidebar-icon" aria-hidden="true">📁</span>
               <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link" data-tool="library">
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="generate" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
+              <span class="app-sidebar-icon" aria-hidden="true">✨</span>
+              <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Edit nodes surgically and inquire with models') }}" data-i18n-tooltip="tooltip.nav.surgical">
+              <span class="app-sidebar-icon" aria-hidden="true">🧠</span>
+              <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Refine') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Saved prompts and reusable templates') }}" data-i18n-tooltip="tooltip.nav.library">
               <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
-              <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Prompt Library') }}</span>
+              <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Library') }}</span>
+            </button>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings">
+              <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
+              <span class="app-sidebar-label" data-i18n="nav.settings">{{ gettext('Settings') }}</span>
             </button>
           </nav>
           <div class="app-content">
-            <section id="tool-projects" class="tool-panel active" data-tool="projects">
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
-            <div class="mode-toggle" role="group" aria-label="{{ gettext('Work mode') }}" data-i18n-aria="mode.toggle_label">
-              <button type="button" class="mode-btn active" data-mode="compose" data-i18n="mode.compose">{{ gettext('💬 Compose') }}</button>
-              <button type="button" class="mode-btn" data-mode="surgical" data-i18n="mode.surgical">{{ gettext('🧠 Surgical Edit') }}</button>
+
+            <div id="view-projects" class="assure-view active">
+              <h3 class="jdf-pane-title" data-i18n="nav.projects">{{ gettext('Projects') }}</h3>
+              <p class="hint" id="projects-active-label" data-i18n="projects.active">{{ gettext('Active project') }}: {{ project_id|default('default') }}</p>
+              <button type="button" class="btn btn-outline btn-sm" id="projects-refresh-btn" data-i18n="projects.refresh">{{ gettext('Refresh') }}</button>
+              <ul id="projects-list" class="projects-list" role="list"></ul>
+              <p class="hint" data-i18n="projects.hint">{{ gettext('Select a project or open Compile to ingest new content.') }}</p>
             </div>
+
+            <div id="view-generate" class="assure-view" hidden>
+              <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile from Intent') }}</h3>
+              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a messy draft, upload a document, or describe your deliverable. The compiler will parse, structure, and verify it.') }}</p>
+              <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
+              <textarea id="generate-intent" class="form-control compose-task-input" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="generate.intent_placeholder"></textarea>
+              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile JDF nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile Document') }}</button>
+              <div id="generate-stream-wrap" class="preview-box">
+                <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Compilation Progress') }}</p>
+                <pre id="generate-stream-preview" class="jdf-live-preview"></pre>
+              </div>
+              <div id="generate-compiling" class="generate-compiling" hidden>
+                <span class="spinner" aria-hidden="true"></span>
+                <span data-i18n="generate.compiling">{{ gettext('Compiling AST & Inferring Locks…') }}</span>
+              </div>
+              <div id="generate-nodes-preview" class="generate-nodes-preview preview-box" hidden>
+                <p class="preview-label" data-i18n="generate.nodes_preview">{{ gettext('Compiled draft') }}</p>
+                <div id="generate-nodes-body" class="generate-nodes-body"></div>
+              </div>
+              <div id="compilation-summary" class="generate-summary card" hidden>
+                <p class="generate-summary-stats">
+                  <span data-i18n="generate.summary_nodes">{{ gettext('Nodes') }}:</span> <strong id="generate-node-count">0</strong>
+                  · <span data-i18n="generate.summary_locks">{{ gettext('Locks') }}:</span> <strong id="generate-lock-count">0</strong>
+                </p>
+                <div id="gate-loader" class="gate-loader" hidden>
+                  <span class="pulse-loader" aria-hidden="true"></span>
+                  <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Z3 Verification and DeepSeek-R1 Adversary…') }}</span>
+                </div>
+                <p id="z3-status" class="gate-z3-status" hidden></p>
+                <details id="generate-locks-panel" class="generate-locks-panel" open>
+                  <summary data-i18n="generate.locks_summary">{{ gettext('Inferred locks') }}</summary>
+                  <div id="generate-lock-checklist" class="lock-checklist"></div>
+                </details>
+                <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
+                <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
+                  <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
+                  <span data-i18n="generate.gate.banner">{{ gettext('Pre-Flight Gate — audit must pass before docking.') }}</span>
+                </div>
+                <button type="button" class="btn btn-primary" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
+              </div>
+            </div>
+
+            <div id="view-surgical" class="assure-view" hidden>
             <label class="jdf-redhat-toggle universal-redhat">
               <input type="checkbox" id="toggle-redhat" checked>
               <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
             </label>
 
-            <div id="compose-mode" class="work-mode-panel active" data-mode-panel="compose">
+            <div id="compose-mode" class="work-mode-panel visually-hidden" aria-hidden="true" hidden data-mode-panel="compose">
               <form id="form" class="compose-mode-form">
                 <select id="workflow" hidden>
                   {% if edition is defined and edition.gate_ensemble %}
@@ -168,6 +227,14 @@
                     </label>
                     <p class="hint" id="upload-limits-hint" data-i18n="upload.limits.hint">{{ gettext('Max file size: 10 MB · PDFs: up to 50 pages') }}</p>
                   </div>
+                  <div id="lock-inference-banner" class="lock-inference-banner" hidden>
+                    <p><span data-i18n="adoption.locks.banner_prefix">{{ gettext('Found') }}</span> <span id="lock-count">0</span> <span data-i18n="adoption.locks.banner_suffix">{{ gettext('key metrics in your source.') }}</span></p>
+                    <div id="lock-checklist" class="lock-checklist"></div>
+                    <div class="lock-inference-actions">
+                      <button type="button" class="btn btn-outline btn-sm" id="infer-locks-btn" data-i18n="adoption.locks.rescan">{{ gettext('Rescan') }}</button>
+                      <button type="button" class="btn btn-primary btn-sm" id="accept-all-locks" data-i18n="adoption.locks.accept_all">{{ gettext('Accept All') }}</button>
+                    </div>
+                  </div>
                   <div id="adv-class">
                     <label class="section" for="class-select" data-i18n="class">{{ gettext('Saved template (optional)') }}</label>
                     <select id="class-select" class="form-control select-control">
@@ -184,20 +251,21 @@
               </form>
             </div>
 
-            <div id="surgical-mode" class="work-mode-panel" data-mode-panel="surgical" hidden>
-              <h3 class="jdf-pane-title" data-i18n="jdf.pane.inquiry">{{ gettext('Inquiry workbench') }}</h3>
+            <div id="surgical-mode" class="work-mode-panel active" data-mode-panel="surgical">
+              <h3 class="jdf-pane-title" data-i18n="refine.title">{{ gettext('Refine Node (Context-Locked)') }}</h3>
+              <p class="hint" data-i18n="refine.lead">{{ gettext('Select a node on the canvas. Edits apply only to that node_id with locked ledger context.') }}</p>
               <p id="aperture-indicator" class="jdf-surgical-mode pill pill-neutral" hidden>
-                <span data-i18n="jdf.surgical.mode">{{ gettext('Surgical target') }}:</span>
+                <span data-i18n="jdf.surgical.mode">{{ gettext('Refine target') }}:</span>
                 <span id="active-target-id">—</span>
                 <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
               </p>
               <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
-              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the surgical edit for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
-              <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to inquire') }}</p>
+              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
+              <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refactor') }}</p>
             </div>
 
             <div class="inquiry-controls">
-              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Inquire') }}</button>
+              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Refactor Node') }}</button>
               <button type="button" class="btn btn-primary dock-btn" id="btn-dock-draft" hidden data-i18n="compose.dock_button">{{ gettext('📤 Dock to Canvas') }}</button>
             </div>
             <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
@@ -210,6 +278,7 @@
               <div id="redhat-findings"></div>
             </div>
             <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
+            </div><!-- #view-surgical -->
           </aside>
           <main class="right-pane" id="jdf-document-canvas">
             <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Document canvas') }}</h3>
@@ -219,16 +288,16 @@
         <footer class="command-deck">
           <div class="command-deck-left">
             <span id="save-status" class="save-pill pill-idle">
-              <span id="save-status-label" data-i18n="jdf.save.ready">{{ gettext('Ready') }}</span>
-              (<span id="version-display">1</span>)
+              <span id="save-status-label" data-i18n="jdf.save.ready">{{ gettext('● Ready') }}</span>
+              <span id="save-status-version-wrap">(<span id="version-display">1</span>)</span>
             </span>
             <span id="truth-ledger-badge" class="truth-pill truth-idle" data-i18n="jdf.truth.idle">● Z3 Truth Ledger</span>
             <span id="stream-status" class="stream-status-pill stream-step-0" hidden aria-live="polite"></span>
           </div>
           <div class="command-deck-right">
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
-            <button type="button" class="btn btn-outline btn-sm" id="jdf-save" data-i18n="jdf.save">{{ gettext('Save document') }}</button>
-            <a class="btn btn-sm btn-primary" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export">{{ gettext('Export .docx') }}</a>
+            <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="jdf-save" data-i18n="jdf.save" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('Save document') }}</button>
+            <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Build Artifact') }}</a>
           </div>
         </footer>
       </section>
@@ -317,12 +386,26 @@
           <span id="token-info" data-i18n="tokens.idle">{{ gettext('Tokens: 0 in + 0 out = 0 (~$0.00 est.)') }}</span>
         </section>
       </div>
-            </section>
 
-            <section id="tool-library" class="tool-panel" data-tool="library" hidden>
-              <div class="tool-panel-inner library-tool-layout">
+            <section id="view-library" class="assure-view assure-full-view" hidden>
+              <div class="tool-panel-inner library-tool-layout card">
+                <h2 class="tool-panel-title" data-i18n="nav.library">{{ gettext('Library') }}</h2>
+                <p class="hint" data-i18n="library.placeholder">{{ gettext('Saved prompts and templates will appear here.') }}</p>
                 <p class="hint"><a href="/learn{{ q if q is defined else '' }}" data-i18n="classes.learn.link">{{ gettext('Learn a class from a pasted prompt') }}</a></p>
                 <div id="library-list" class="library-list"></div>
+              </div>
+            </section>
+
+            <section id="view-settings" class="assure-view assure-full-view" hidden>
+              <div class="tool-panel-inner audit-console-layout card">
+                <h2 class="tool-panel-title" data-i18n="nav.settings">{{ gettext('Settings') }}</h2>
+                <p class="hint" data-i18n="settings.placeholder">{{ gettext('User preferences and provider keys.') }}</p>
+                <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
+                <hr class="settings-divider">
+                <h3 class="tool-panel-title" data-i18n="adoption.audit.title">{{ gettext('Audit Console') }}</h3>
+                <p class="hint" data-i18n="adoption.audit.lead">{{ gettext('Export a verifiable JSON manifest for compliance review.') }}</p>
+                <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Manifest') }}</button>
+                <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
               </div>
             </section>
 
@@ -430,6 +513,14 @@
       <button class="btn btn-primary primary" type="button" id="export-go" data-i18n="history.export.go">{{ gettext('Export') }}</button>
     </div>
   </dialog>
+  <div id="citation-drawer-backdrop" class="citation-drawer-backdrop" hidden aria-hidden="true"></div>
+  <aside id="citation-drawer" class="citation-drawer" aria-hidden="true" aria-label="{{ gettext('Source citation') }}" data-i18n-aria="adoption.citation.title">
+    <div class="citation-drawer-head">
+      <h3 data-i18n="adoption.citation.title">{{ gettext('Source') }}</h3>
+      <button type="button" class="btn btn-outline ghost btn-sm" id="citation-drawer-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+    </div>
+    <div id="citation-drawer-body" class="citation-drawer-body"></div>
+  </aside>
   <dialog class="work-dialog" id="settings-modal">
     <div class="output-head">
       <h2 data-i18n="settings.title">{{ gettext('API keys') }}</h2>
@@ -474,6 +565,9 @@
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
   {% if auth is defined and auth.publishable_key %}
   <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
@@ -502,6 +596,7 @@
       intent: null,
       fileText: "",
       uploadMeta: null,
+      uploadPdfBase64: null,
       last: null,
       learned: null,
       library: { classes: [], prompts: [] },
@@ -598,7 +693,11 @@
       document.querySelectorAll("[data-i18n-title]").forEach((el) => {
         el.setAttribute("title", t(el.dataset.i18nTitle, el.getAttribute("title") || ""));
       });
+      document.querySelectorAll("[data-i18n-tooltip]").forEach((el) => {
+        el.dataset.tooltip = t(el.dataset.i18nTooltip, el.dataset.tooltip || "");
+      });
       document.documentElement.lang = state.locale || "en";
+      document.dispatchEvent(new CustomEvent("assure:i18n"));
     }
 
     async function loadI18n(lang) {
@@ -624,7 +723,7 @@
       }
       applyI18n();
       if (window.__assureJdf && typeof window.__assureJdf.setSavePill === "function") {
-        window.__assureJdf.setSavePill("saved", "jdf.save.ready");
+        window.__assureJdf.setSavePill("idle", "jdf.save.ready");
         window.__assureJdf.setTruthBadge("IDLE");
       }
       syncGo();
@@ -1179,11 +1278,38 @@
       return matches && matches.length ? matches.length : 1;
     }
 
+    async function fileToBase64(file) {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    const SUBSTRATE_IMAGE_RE = /\.(png|jpe?g|tiff?)$/i;
+    const SUBSTRATE_DOC_RE = /\.(pdf|png|jpe?g|tiff?)$/i;
+
+    async function uploadSubstrateVault(file) {
+      const projectId = window.__ASSURE_PROJECT_ID__ || "default";
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(
+        "/api/projects/" + encodeURIComponent(projectId) + "/substrate/upload",
+        { method: "POST", credentials: "same-origin", body: form }
+      );
+      const data = await res.json();
+      return { ok: res.ok, data: data };
+    }
+
     $("file").addEventListener("change", async (event) => {
       const file = event.target.files && event.target.files[0];
       if (!file) {
         state.fileText = "";
         state.uploadMeta = null;
+        state.uploadPdfBase64 = null;
         if ($("ground")) $("ground").checked = false;
         schedulePreview();
         return;
@@ -1191,6 +1317,7 @@
       if (file.size > UPLOAD_MAX_FILE_SIZE_BYTES) {
         state.fileText = "";
         state.uploadMeta = null;
+        state.uploadPdfBase64 = null;
         event.target.value = "";
         setStatus(
           tf("upload.limits.size", "File exceeds {max_mb} MB limit. Please compress or split the document.", {
@@ -1211,6 +1338,7 @@
         if (pageCount > UPLOAD_MAX_PAGE_COUNT) {
           state.fileText = "";
           state.uploadMeta = null;
+          state.uploadPdfBase64 = null;
           event.target.value = "";
           setStatus(
             tf("upload.limits.pages", "PDF exceeds {max_pages} page limit. Please upload a shorter extract.", {
@@ -1222,7 +1350,75 @@
           return;
         }
       }
-      state.fileText = "### File: " + file.name + "\n```\n" + (await file.text()) + "\n```\n";
+      state.uploadPdfBase64 = null;
+      if (SUBSTRATE_DOC_RE.test(file.name || "")) {
+        try {
+          const substrate = await uploadSubstrateVault(file);
+          if (!substrate.ok) {
+            state.fileText = "";
+            state.uploadMeta = null;
+            state.uploadPdfBase64 = null;
+            event.target.value = "";
+            const pageCountErr = substrate.data && substrate.data.page_count;
+            const msg =
+              pageCountErr && pageCountErr > 1
+                ? tf(
+                    "upload.substrate.multipage",
+                    "This document has {page_count} pages. Substrate Vault accepts single-page PDFs or images only. Split or export one page and try again.",
+                    { page_count: pageCountErr }
+                  )
+                : (substrate.data && substrate.data.error) ||
+                  tf("error.server", "Something went wrong. Try again.");
+            if (window.AssureToast) {
+              window.AssureToast.show(msg, "error");
+            } else {
+              setStatus(msg, "bad");
+            }
+            schedulePreview();
+            return;
+          }
+          const extracted = (substrate.data && substrate.data.text) || "";
+          state.fileText = "### File: " + file.name + "\n```\n" + extracted + "\n```\n";
+          state.substrateTables = (substrate.data && substrate.data.tables) || [];
+          if (/\.pdf$/i.test(file.name || "")) {
+            try {
+              state.uploadPdfBase64 = await fileToBase64(file);
+            } catch (_) {
+              state.uploadPdfBase64 = null;
+            }
+          }
+          if (window.AssureToast) {
+            window.AssureToast.show(
+              SUBSTRATE_IMAGE_RE.test(file.name || "")
+                ? tf("upload.substrate.image_ok", "Image ingested into Substrate Vault via Textract.")
+                : tf("upload.substrate.extracted", "Document text extracted into Substrate Vault."),
+              "success"
+            );
+          }
+        } catch (_) {
+          state.fileText = "";
+          state.uploadMeta = null;
+          state.uploadPdfBase64 = null;
+          event.target.value = "";
+          const failMsg = tf("error.server", "Something went wrong. Try again.");
+          if (window.AssureToast) {
+            window.AssureToast.show(failMsg, "error");
+          } else {
+            setStatus(failMsg, "bad");
+          }
+          schedulePreview();
+          return;
+        }
+      } else if (/\.pdf$/i.test(file.name || "")) {
+        try {
+          state.uploadPdfBase64 = await fileToBase64(file);
+        } catch (_) {
+          state.uploadPdfBase64 = null;
+        }
+        state.fileText = "### File: " + file.name + "\n```\n(PDF attached — metrics may appear in charts.)\n```\n";
+      } else {
+        state.fileText = "### File: " + file.name + "\n```\n" + (await file.text()) + "\n```\n";
+      }
       state.uploadMeta = {
         filename: file.name,
         size_bytes: file.size,

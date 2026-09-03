@@ -42,6 +42,48 @@ def ensure_project(project_id: str, title: str | None = None) -> None:
     db.commit()
 
 
+def fetch_jdf_at_version(project_id: str, version: int) -> dict[str, Any] | None:
+    init_db()
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT jdf_tree FROM jdf_revisions
+        WHERE project_id = ? AND version = ?
+        """,
+        (project_id, int(version)),
+    ).fetchone()
+    if not row:
+        return None
+    return json.loads(row[0])
+
+
+def list_jdf_revisions(project_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
+    init_db()
+    ensure_project(project_id)
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT id, version, mutation_type, target_node_id, change_summary, created_at
+        FROM jdf_revisions
+        WHERE project_id = ?
+        ORDER BY version DESC
+        LIMIT ?
+        """,
+        (project_id, int(limit)),
+    ).fetchall()
+    return [
+        {
+            "revision_id": r[0],
+            "version": int(r[1]),
+            "mutation_type": r[2],
+            "target_node_id": r[3],
+            "change_summary": r[4],
+            "created_at": r[5],
+        }
+        for r in rows
+    ]
+
+
 def fetch_latest_jdf(project_id: str) -> dict[str, Any] | None:
     init_db()
     db = get_db()

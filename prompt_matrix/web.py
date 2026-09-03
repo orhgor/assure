@@ -398,18 +398,29 @@ def create_app(*, require_auth: bool = True) -> Flask:
             resp.headers["Pragma"] = "no-cache"
         return resp
 
-    @app.get("/")
-    def marketing_landing():
+    def _landing_page(template: str):
         try:
-            from .ui_cache import LANDING_CSS
+            from .ui_cache import LANDING_CSS, LANDING_JS
         except ImportError:
-            from ui_cache import LANDING_CSS
+            from ui_cache import LANDING_CSS, LANDING_JS
         resp = make_response(
-            render_template("landing.html", landing_css_version=LANDING_CSS)
+            render_template(
+                template,
+                landing_css_version=LANDING_CSS,
+                landing_js_version=LANDING_JS,
+            )
         )
         if os.environ.get("ENVIRONMENT") == "production":
             resp.headers["Cache-Control"] = "public, max-age=300"
         return resp
+
+    @app.get("/")
+    def marketing_landing():
+        return _landing_page("landing.html")
+
+    @app.get("/architecture")
+    def architecture_page():
+        return _landing_page("architecture.html")
 
     def _workspace_page():
         try:
@@ -1376,6 +1387,42 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.health import register_health_routes
     register_health_routes(app)
+
+    try:
+        from .routers.adoption_routes import register_adoption_routes
+    except ImportError:
+        from routers.adoption_routes import register_adoption_routes
+    register_adoption_routes(app)
+
+    try:
+        from .routers.draft import register_draft_routes
+    except ImportError:
+        from routers.draft import register_draft_routes
+    register_draft_routes(app)
+
+    try:
+        from .routers.project_routes import register_project_routes
+    except ImportError:
+        from routers.project_routes import register_project_routes
+    register_project_routes(app)
+
+    try:
+        from .routers.comment_routes import register_comment_routes
+    except ImportError:
+        from routers.comment_routes import register_comment_routes
+    register_comment_routes(app)
+
+    try:
+        from .routers.substrate import register_substrate_routes
+    except ImportError:
+        from routers.substrate import register_substrate_routes
+    register_substrate_routes(app)
+
+    try:
+        from .routers.sandbox import register_sandbox_routes
+    except ImportError:
+        from routers.sandbox import register_sandbox_routes
+    register_sandbox_routes(app)
 
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):

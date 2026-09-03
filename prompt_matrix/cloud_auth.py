@@ -34,10 +34,13 @@ PUBLIC_API = frozenset(
         "/api/webhook/stripe",
         "/api/webhooks/stripe",
         "/api/waitlist",
+        "/api/sandbox/verify",
     }
 )
 PUBLIC_HTML = frozenset(
     {
+        "/",
+        "/architecture",
         "/signin",
         "/signup",
         "/signout",
