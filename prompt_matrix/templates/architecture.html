@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Architecture Deep-Dive · Assure AI</title>
-    <meta name="description" content="Why flat text fails and how Assure AI uses JDF AST modular execution trees, Z3 SMT verification, and a six-stage pipeline for mathematical certainty.">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('36') }}">
+    <title>{{ brand.architecture_title }}</title>
+    <meta name="description" content="{{ brand.architecture_meta_description }}">
+    <meta property="og:title" content="{{ brand.architecture_title }}">
+    <meta property="og:description" content="{{ brand.architecture_meta_description }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('37') }}">
 </head>
 <body>
     <header class="site-header">
         <div class="container nav-container">
-            <a href="/" class="logo logo-link">Assure AI</a>
+            <a href="/" class="logo logo-link">{{ brand.name }}</a>
             <nav class="nav-links" aria-label="Primary">
                 <a href="/#glossary">Docs</a>
                 <a href="/architecture" aria-current="page">Architecture</a>
@@ -23,10 +25,10 @@
     <main>
         <section class="hero-section arch-hero">
             <div class="container">
-                <a href="/" class="back-link">&larr; Back to Assure AI</a>
+                <a href="/" class="back-link">&larr; Back to {{ brand.name }}</a>
                 <span class="eyebrow">Architecture Deep-Dive</span>
                 <h1>Under the Hood: Why Flat Text Fails.</h1>
-                <p class="hero-sub">Chat models emit undifferentiated prose&mdash;a single string with no structure, no locks, and no proof obligations. Assure AI compiles your intent into a <strong>modular execution tree</strong>: typed JDF nodes you can edit, lock, verify, and export independently&mdash;without re-prompting the entire document.</p>
+                <p class="hero-sub">Chat models emit undifferentiated prose&mdash;a single string with no structure, no locks, and no proof obligations. Assure compiles your intent into a <strong>modular execution tree</strong>: typed JDF nodes you can edit, lock, verify, and export independently&mdash;without re-prompting the entire document.</p>
             </div>
         </section>
 
@@ -99,7 +101,7 @@
                         <span class="exec-icon" aria-hidden="true">⚙️</span>
                         <div class="exec-body">
                             <h3>Compile</h3>
-                            <p>PEM dialect prompts compile to deterministic node operations&mdash;paragraphs, tables, and sections with stable IDs.</p>
+                            <p>Compiler Core dialect prompts compile to deterministic node operations&mdash;paragraphs, tables, and sections with stable IDs.</p>
                         </div>
                     </li>
                     <li class="exec-step">
@@ -137,7 +139,7 @@
         <section class="z3-section">
             <div class="container narrow">
                 <h2>Z3 SMT: Mathematical Certainty</h2>
-                <p><strong>Satisfiability Modulo Theories (SMT)</strong> lets Assure AI treat your document like a formal specification. Key metrics become symbolic variables; constraints encode relationships between them.</p>
+                <p><strong>Satisfiability Modulo Theories (SMT)</strong> lets Assure treat your document like a formal specification. Key metrics become symbolic variables; constraints encode relationships between them.</p>
                 <div class="z3-example">
                     <p class="z3-label">Example constraint set</p>
                     <pre class="z3-code"><code>(assert (= revenue_q3 4200000))
@@ -168,7 +170,7 @@
 
     <footer class="site-footer">
         <div class="container center">
-            <p>&copy; 2026 Assure AI. Deterministic Document Execution Engine.</p>
+            <p>&copy; 2026 {{ brand.name }}. {{ brand.category }}.</p>
         </div>
     </footer>
 </body>

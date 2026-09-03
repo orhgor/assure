@@ -3,7 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ gettext('Assure') }}{% endblock %}</title>
+  <meta name="description" content="{{ brand.meta_description }}">
+  <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
+  <meta property="og:description" content="{{ brand.meta_description }}">
+  <title>{% block title %}{{ brand.page_title }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -27,12 +30,12 @@
           <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span class="brand-copy">
-          <span class="wordmark" data-i18n="hero">{{ gettext('Assure AI') }}</span>
-          <span class="brand-tagline" data-i18n-html="brand.tagline_html">{{ gettext('Answers you can <span class="trust">trust</span>.') | safe }}</span>
+          <span class="wordmark" data-i18n="hero">{{ gettext('Assure') }}</span>
+          <span class="brand-tagline" data-i18n="brand.tagline_html">{{ gettext('The Intellectual Compiler.') }}</span>
         </span>
       </a>
       <nav class="site-nav" aria-label="{{ gettext('Main') }}">
-        <a href="/{{ q }}"{% if active == 'compose' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.compose">{{ gettext('Compose') }}</a>
+        <a href="/app{{ q }}"{% if active == 'compose' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.compose">{{ gettext('Workbench') }}</a>
         <a href="/history{{ q }}"{% if active == 'history' %} class="is-on" aria-current="page"{% endif %} data-i18n="tab.history">{{ gettext('Previous work') }}</a>
         {% if auth is defined and auth.signed_in %}
         <a href="/account/usage{{ q }}"{% if active == 'usage' %} class="is-on" aria-current="page"{% endif %} data-i18n="nav.usage">{{ gettext('Usage') }}</a>

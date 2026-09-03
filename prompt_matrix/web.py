@@ -96,6 +96,22 @@ except ImportError:
 
 CANONICAL_PUBLIC_HOST = os.environ.get("CANONICAL_HOST", "getassureai.com").strip().lower()
 _LEGACY_PUBLIC_HOSTS = frozenset({"app.getassureai.com", "www.getassureai.com"})
+
+BRAND = {
+    "name": "Assure",
+    "category": "The Intellectual Compiler",
+    "tagline": "Compile intent. Verify logic. Ship truth.",
+    "page_title": "Assure — The Intellectual Compiler",
+    "meta_description": (
+        "Assure is the first Intellectual Compiler — turning raw intent, messy documents, "
+        "and unstructured data into mathematically verified, auditable deliverables."
+    ),
+    "architecture_title": "Architecture Deep-Dive · Assure — The Intellectual Compiler",
+    "architecture_meta_description": (
+        "Why flat text fails and how Assure uses JDF AST modular execution trees, "
+        "Z3 SMT verification, and a six-stage pipeline for mathematical certainty."
+    ),
+}
 _WAITLIST_ORIGINS = frozenset(
     {
         "https://getassureai.com",
@@ -214,6 +230,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
         static_url_path="/static",
         template_folder=str(TEMPLATES_DIR),
     )
+
+    @app.context_processor
+    def _inject_brand():
+        return {"brand": BRAND}
     try:
         from flask_cors import CORS
 

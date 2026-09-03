@@ -4,8 +4,8 @@
 {%- if pane == 'history' -%}{{ gettext('Previous work') }}
 {%- elif pane == 'learn' -%}{{ gettext('Learn') }}
 {%- elif pane == 'library' -%}{{ gettext('Classes') }}
-{%- else -%}{{ gettext('Compose') }}
-{%- endif %} · {{ gettext('Assure') }}
+{%- else -%}{{ gettext('Assure') }} — {{ gettext('The Intellectual Compiler') }}
+{%- endif %}
 {% endblock %}
 {% block hero %}
     {% set pane = initial_pane|default('compose') %}
@@ -49,7 +49,7 @@
             <button type="button" class="sidebar-toggle tooltip-trigger" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" aria-label="{{ gettext('Toggle tools menu') }}" data-i18n-aria="app.sidebar.toggle" data-tooltip="{{ gettext('Toggle tools menu') }}" data-i18n-tooltip="app.sidebar.toggle">☰</button>
             <div class="app-logo">
               <span class="app-logo-mark" aria-hidden="true">📄</span>
-              <span data-i18n="hero">{{ gettext('Assure AI') }}</span>
+              <span data-i18n="hero">{{ gettext('Assure') }}</span>
             </div>
           </div>
           <div class="app-header-right">
@@ -138,7 +138,7 @@
                 <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
                 <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
-                  <span data-i18n="generate.gate.banner">{{ gettext('Pre-Flight Gate — audit must pass before docking.') }}</span>
+                  <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Pre-Flight Gate — audit must pass before docking.') }}</span>
                 </div>
                 <button type="button" class="btn btn-primary" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
               </div>
@@ -566,6 +566,7 @@
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>

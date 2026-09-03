@@ -2,7 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "assure_view";
-  var DEFAULT_VIEW = "projects";
+  var DEFAULT_VIEW = "generate";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
   var FULL_VIEWS = ["library", "settings"];
   var ALL_VIEWS = WORKSPACE_VIEWS.concat(FULL_VIEWS);
@@ -129,6 +129,7 @@
           if (!projects.length) {
             list.innerHTML =
               "<li class=\"hint\">" + escapeHtml(translate("projects.empty", "No projects yet.")) + "</li>";
+            AssureNav.switchView("generate", { replaceHash: false, persist: true });
             return;
           }
           list.innerHTML = "";

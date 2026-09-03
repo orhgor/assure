@@ -166,7 +166,7 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"Deterministic Document Execution", res.data)
+        self.assertIn(b"Intellectual Compiler", res.data)
 
     def test_compose_login_wall_with_clerk(self):
         from prompt_matrix.web import create_app

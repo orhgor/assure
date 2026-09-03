@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assure AI — Deterministic Document Execution</title>
-    <meta name="description" content="Assure AI compiles human documents into mathematically verified deliverables. Ingest messy scans, lock variables with Z3 proofs, edit modular JDF nodes in isolation.">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('36') }}">
+    <title>{{ brand.page_title }}</title>
+    <meta name="description" content="{{ brand.meta_description }}">
+    <meta property="og:title" content="{{ brand.page_title }}">
+    <meta property="og:description" content="{{ brand.meta_description }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('37') }}">
 </head>
 <body>
     <header class="site-header">
         <div class="container nav-container">
-            <a href="/" class="logo">Assure AI</a>
+            <a href="/" class="logo">{{ brand.name }}</a>
             <nav class="nav-links" aria-label="Primary">
                 <a href="#glossary">Docs</a>
                 <a href="/architecture">Architecture</a>
@@ -23,9 +25,9 @@
     <main>
         <section class="hero-section">
             <div class="container">
-                <span class="eyebrow">Deterministic Document Execution</span>
-                <h1>The Compiler for Human Documents.</h1>
-                <p class="hero-tagline">We don&rsquo;t write documents. We compile truth.</p>
+                <span class="eyebrow">{{ brand.name }}</span>
+                <h1>{{ brand.category }}.</h1>
+                <p class="hero-tagline">{{ brand.tagline }}</p>
                 <p class="hero-sub">Ingest messy scans, CIMs, or datasets. Lock variables with mathematical proofs. Edit modular nodes with context-locked isolation. Stop guessing &mdash; start compiling.</p>
                 <div class="hero-cta-group">
                     <a href="#sandbox" class="btn-primary">Try the Free Paste Test</a>
@@ -118,7 +120,7 @@
         <section class="competitor-section">
             <div class="container narrow center">
                 <h2>Competitor Reality Check</h2>
-                <p class="competitor-quote">Spellbook helps you write faster. Harvey helps you find context. Assure AI ensures the final document is mathematically true. Guess which one the auditor checks?</p>
+                <p class="competitor-quote">Spellbook helps you write faster. Harvey helps you find context. Assure ensures the final document is mathematically true. Guess which one the auditor checks?</p>
             </div>
         </section>
 
@@ -228,7 +230,7 @@
             <div class="container center">
                 <h2>The era of probabilistic guessing is over.</h2>
                 <p>Experience document engineering backed by mathematical certainty.</p>
-                <a href="/app" class="btn-primary">Launch Assure AI Workspace</a>
+                <a href="/app" class="btn-primary">Launch Assure Workspace</a>
             </div>
         </section>
 
@@ -252,9 +254,10 @@
 
     <footer class="site-footer">
         <div class="container center">
-            <p>&copy; 2026 Assure AI. Deterministic Document Execution Engine.</p>
+            <p>&copy; 2026 {{ brand.name }}. {{ brand.category }}.</p>
         </div>
     </footer>
+  <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ landing_js_version|default('30') }}"></script>
     <script src="{{ url_for('static', filename='sandbox.js') }}?v={{ landing_js_version|default('30') }}"></script>
 </body>
 </html>
