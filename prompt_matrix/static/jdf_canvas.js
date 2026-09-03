@@ -74,6 +74,35 @@
     return { events: events, remainder: remainder };
   }
 
+  function formatMetricValue(raw) {
+    var n = Number(raw);
+    if (!isFinite(n)) return String(raw);
+    if (Math.abs(n) >= 1e9) return "$" + (n / 1e9).toFixed(1).replace(/\.0$/, "") + "B";
+    if (Math.abs(n) >= 1e6) return "$" + (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+    if (Math.abs(n) >= 1e3) return "$" + (n / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+    return String(n);
+  }
+
+  function describeViolations(violations) {
+    return (violations || [])
+      .map(function (v) {
+        var m = /Metric '([^']+)'=([0-9.]+) contradicts locked == ([0-9.]+)/.exec(v || "");
+        if (m) {
+          return jdfT(
+            "jdf.truth.violation.metric",
+            "Locked {key} is {locked}; your text claimed {claimed}.",
+            {
+              key: m[1],
+              locked: formatMetricValue(m[3]),
+              claimed: formatMetricValue(m[2]),
+            }
+          );
+        }
+        return v;
+      })
+      .join(" ");
+  }
+
   function InquireStreamClient(projectId, handlers) {
     this.projectId = projectId;
     this.handlers = handlers || {};
@@ -146,6 +175,8 @@
     this.truthEl = (opts && opts.truthEl) || pickEl("truth-ledger-badge", "jdf-truth-pill");
     this.stopBtn = pickEl("btn-stop-stream");
     this.redhatFindingsEl = document.getElementById("redhat-findings");
+    this.streamStatusEl = document.getElementById("stream-status");
+    this.truthErrorEl = document.getElementById("truth-error-detail");
     this.isDirty = false;
     this.isStreaming = false;
     this.surgicalTargetId = null;
@@ -159,6 +190,70 @@
     this.documentVersion = version || 1;
     var verEl = document.getElementById("version-display");
     if (verEl) verEl.textContent = String(this.documentVersion);
+  };
+
+  JDFCanvasManager.prototype.setStreamStatus = function (step, messageKey, fallback, messageOverride) {
+    if (!this.streamStatusEl) return;
+    var text =
+      messageOverride ||
+      jdfT(messageKey, fallback || "", {});
+    if (!text && !step) {
+      this.streamStatusEl.hidden = true;
+      return;
+    }
+    this.streamStatusEl.hidden = false;
+    this.streamStatusEl.className = "stream-status-pill stream-step-" + (step || 0);
+    this.streamStatusEl.textContent = text;
+  };
+
+  JDFCanvasManager.prototype.clearTruthError = function () {
+    if (!this.truthErrorEl) return;
+    this.truthErrorEl.hidden = true;
+    this.truthErrorEl.innerHTML = "";
+  };
+
+  JDFCanvasManager.prototype.showTruthError = function (violations) {
+    if (!this.truthErrorEl) return;
+    var detail = describeViolations(violations);
+    this.truthErrorEl.hidden = false;
+    this.truthErrorEl.innerHTML =
+      "<strong>" +
+      jdfT("jdf.truth.violation.what", "What happened:") +
+      "</strong> " +
+      detail +
+      "<br><strong>" +
+      jdfT("jdf.truth.violation.fix_label", "How to fix:") +
+      "</strong> " +
+      jdfT(
+        "jdf.truth.violation.fix",
+        "Adjust your prompt to match the locked values in the Truth Ledger, or update the ledger if the source data changed."
+      );
+  };
+
+  JDFCanvasManager.prototype.renderEmptyCanvas = function () {
+    var wrap = document.createElement("div");
+    wrap.className = "jdf-canvas-empty";
+    wrap.setAttribute("role", "status");
+    wrap.innerHTML =
+      '<div class="jdf-canvas-empty-arrow" aria-hidden="true">←</div>' +
+      '<div class="jdf-canvas-empty-body">' +
+      "<h3>" +
+      jdfT("jdf.canvas.empty.title", "Start your document") +
+      "</h3>" +
+      "<p>" +
+      jdfT(
+        "jdf.canvas.empty.lead",
+        "Type a prompt in the left pane and click Inquire."
+      ) +
+      "</p>" +
+      '<p class="jdf-canvas-empty-hint">' +
+      jdfT(
+        "jdf.canvas.empty.hint",
+        "Your AI-generated sections will appear here, ready to dock and export."
+      ) +
+      "</p>" +
+      "</div>";
+    return wrap;
   };
 
   JDFCanvasManager.prototype.setSavePill = function (state, messageKey) {
@@ -298,13 +393,7 @@
     this.rootEl.appendChild(title);
 
     if (!(this.tree.body || []).length) {
-      var empty = document.createElement("p");
-      empty.className = "jdf-canvas-empty";
-      empty.textContent = jdfT(
-        "jdf.canvas.empty",
-        "No sections yet. Click ⚡ Edit on a node, run Inquire, or open classic compose below."
-      );
-      this.rootEl.appendChild(empty);
+      this.rootEl.appendChild(this.renderEmptyCanvas());
     }
 
     (this.tree.body || []).forEach(function (section, sIdx) {
@@ -405,12 +494,25 @@
     var card = document.createElement("div");
     card.className = "diff-container";
     card.innerHTML =
+      '<div class="diff-header">' +
+      jdfT("jdf.diff.title", "Proposed changes") +
+      "</div>" +
       '<div class="diff-body">' +
       renderDiffHtml(computeWordDiff(originalText, newText)) +
       "</div>" +
+      '<p class="diff-help">' +
+      jdfT(
+        "jdf.diff.help",
+        "Review the changes above. Click Accept to apply, or Discard to cancel."
+      ) +
+      "</p>" +
       '<div class="diff-actions">' +
-      '<button type="button" class="btn btn-primary diff-accept">✓ Accept Mutation</button>' +
-      '<button type="button" class="btn btn-outline diff-discard">✕ Discard</button>' +
+      '<button type="button" class="btn btn-primary diff-accept">' +
+      jdfT("jdf.diff.accept", "Accept mutation") +
+      "</button>" +
+      '<button type="button" class="btn btn-outline diff-discard">' +
+      jdfT("jdf.diff.discard", "Discard") +
+      "</button>" +
       "</div>";
     card.querySelector(".diff-accept").addEventListener("click", function () {
       if (typeof onAccept === "function") onAccept();
@@ -443,10 +545,16 @@
     var self = this;
     this.isStreaming = true;
     this.livePreview = "";
+    this.clearTruthError();
+    this.setStreamStatus(1, "jdf.stream.thinking", "Thinking…");
     if (this.redhatFindingsEl) this.redhatFindingsEl.innerHTML = "";
     if (this.stopBtn) {
       this.stopBtn.style.display = "inline-flex";
-      this.stopBtn.textContent = jdfT("jdf.stop_stream", "✕ Stop Stream");
+      this.stopBtn.textContent = jdfT("jdf.stop_stream", "Stop stream");
+      this.stopBtn.title = jdfT(
+        "jdf.stop_stream.hint",
+        "Cancel the live stream if it seems stuck."
+      );
       this.stopBtn.onclick = function () {
         if (self.streamClient) self.streamClient.abort();
       };
@@ -454,16 +562,33 @@
     this.setSavePill("saving", "jdf.save.streaming");
     if (this.streamClient) this.streamClient.abort();
     this.streamClient = new InquireStreamClient(this.projectId, {
-      onstatus: function () {},
+      onstatus: function (data) {
+        var step = data && data.step;
+        var message = data && data.message;
+        if (step === 1 || (data && data.stage === "preflight") || (data && data.stage === "model")) {
+          self.setStreamStatus(1, "jdf.stream.thinking", "Thinking…", message);
+        } else if (step === 2 || (data && data.stage === "verify")) {
+          self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…", message);
+        } else if (step === 3 || (data && data.stage === "redhat")) {
+          self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
+        } else if (step === 4 || (data && data.stage === "ready")) {
+          self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock", message);
+        } else if (message) {
+          self.setStreamStatus(step || 0, "", message, message);
+        }
+      },
       ontoken: function (data) {
         self.livePreview += data.delta || "";
         if (self.previewEl) self.previewEl.textContent = self.livePreview;
       },
       ontruthcheck: function (data) {
+        self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…");
         if (data.status === "PASS") {
           self.setTruthBadge("PASS");
+          self.clearTruthError();
         } else {
           self.setTruthBadge("FAIL", (data.violations || []).length);
+          self.showTruthError(data.violations || []);
         }
       },
       onjdfnodeready: function (data) {
@@ -495,11 +620,15 @@
       oncomplete: function () {
         self.isStreaming = false;
         if (self.stopBtn) self.stopBtn.style.display = "none";
+        self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
         self.setSavePill("saved", "jdf.save.stream_complete");
       },
-      onEvent: function (ev) {
+      onEvent: function (ev, data) {
         if (ev === "complete") {
           self.isStreaming = false;
+          if (!data || data.ok !== false) {
+            self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
+          }
         }
       },
     });

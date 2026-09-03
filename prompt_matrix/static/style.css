@@ -2649,13 +2649,112 @@ pre {
 }
 
 .jdf-canvas-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  min-height: 280px;
   margin: var(--space-md) 0;
-  padding: var(--space-md);
+  padding: var(--space-xl);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  text-align: center;
   background: var(--color-bg);
+}
+
+.jdf-canvas-empty-arrow {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.jdf-canvas-empty-body h3 {
+  margin: 0 0 var(--space-sm);
+  font-size: 20px;
+  color: var(--color-text);
+}
+
+.jdf-canvas-empty-body p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+.jdf-canvas-empty-hint {
+  margin-top: var(--space-sm) !important;
+  font-size: 12px !important;
+  color: var(--color-text-muted, var(--color-text-secondary));
+}
+
+.truth-error-detail {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid #f5c6cb;
+  background: #fff5f5;
+  color: #7f1d1d;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.truth-error-detail strong {
+  display: inline;
+  font-weight: 700;
+}
+
+.stream-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.stream-status-pill.stream-step-1,
+.stream-status-pill.stream-step-2 {
+  border-color: var(--color-primary-light, #90caf9);
+  color: var(--color-primary);
+}
+
+.stream-status-pill.stream-step-3 {
+  border-color: #ffe082;
+  color: #8d6e00;
+}
+
+.stream-status-pill.stream-step-4 {
+  border-color: #a5d6a7;
+  color: #2e7d32;
+}
+
+.diff-container .diff-header {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text);
+}
+
+.diff-container .diff-help {
+  margin: var(--space-sm) 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+@media (max-width: 840px) {
+  .jdf-canvas-empty {
+    flex-direction: column;
+  }
+  .jdf-canvas-empty-arrow {
+    transform: rotate(90deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

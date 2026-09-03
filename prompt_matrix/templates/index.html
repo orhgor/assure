@@ -64,6 +64,7 @@
               </label>
               <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Inquire') }}</button>
             </div>
+            <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
             <div id="streaming-preview" class="preview-box">
               <p class="preview-label" data-i18n="jdf.preview.stream">{{ gettext('Model stream') }}</p>
               <pre id="jdf-live-preview" class="jdf-live-preview"></pre>
@@ -86,9 +87,10 @@
               (<span id="version-display">1</span>)
             </span>
             <span id="truth-ledger-badge" class="truth-pill truth-idle" data-i18n="jdf.truth.idle">● Z3 Truth Ledger</span>
+            <span id="stream-status" class="stream-status-pill stream-step-0" hidden aria-live="polite"></span>
           </div>
           <div class="command-deck-right">
-            <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" data-i18n="jdf.stop_stream">✕ Stop Stream</button>
+            <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" class="btn btn-outline btn-sm" id="jdf-save" data-i18n="jdf.save">{{ gettext('Save document') }}</button>
             <a class="btn btn-sm btn-primary" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export">{{ gettext('Export .docx') }}</a>
           </div>

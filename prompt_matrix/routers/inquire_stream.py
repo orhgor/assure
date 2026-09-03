@@ -65,6 +65,19 @@ def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _status_payload(stage: str, **extra: Any) -> dict[str, Any]:
+    """Human-readable stream step for the command-deck progress pill."""
+    steps: dict[str, tuple[int, str]] = {
+        "preflight": (1, "Thinking…"),
+        "model": (1, "Thinking…"),
+        "verify": (2, "Verifying numbers…"),
+        "redhat": (3, "Running Red-Hat audit…"),
+        "ready": (4, "Ready to dock"),
+    }
+    step, message = steps.get(stage, (1, "Working…"))
+    return {"stage": stage, "step": step, "message": message, **extra}
+
+
 def _parse_metrics(text: str) -> list[tuple[str, float]]:
     found: list[tuple[str, float]] = []
     for match in _METRIC_RE.finditer(text or ""):
@@ -242,7 +255,7 @@ def run_inquire_pipeline(
 
     messages = _build_messages(user_intent, aperture)
 
-    yield _sse("status", {"stage": "preflight", "task_type": task_type.value})
+    yield _sse("status", _status_payload("preflight", task_type=task_type.value))
 
     try:
         gov.preflight(project_id, task_type, messages)
@@ -262,7 +275,7 @@ def run_inquire_pipeline(
             return False, violations[0] if violations else "Z3 Conflict"
         return True, None
 
-    yield _sse("status", {"stage": "model", "task_type": task_type.value})
+    yield _sse("status", _status_payload("model", task_type=task_type.value))
 
     result = gov.execute_with_retry_budget(
         project_id,
@@ -277,6 +290,8 @@ def run_inquire_pipeline(
     chunk_size = 48
     for i in range(0, max(len(text), 1), chunk_size):
         yield _sse("token", {"delta": text[i : i + chunk_size]})
+
+    yield _sse("status", _status_payload("verify", task_type=task_type.value))
 
     if result.status == "VALIDATION_FAILED":
         violations = [result.error or "validation failed"]
@@ -323,7 +338,7 @@ def run_inquire_pipeline(
     )
 
     if run_redhat and result.ok:
-        yield _sse("status", {"stage": "redhat"})
+        yield _sse("status", _status_payload("redhat"))
         red_messages = [
             {
                 "role": "user",
@@ -347,6 +362,8 @@ def run_inquire_pipeline(
             model_id=red.model_id,
             task_type=TaskType.REDHAT,
         )
+
+    yield _sse("status", _status_payload("ready"))
 
     yield _sse(
         "jdf_node_ready",
