@@ -282,6 +282,18 @@
     };
   }
 
+  function showDockButton(show, draftText) {
+    var btn = document.getElementById("btn-dock-draft");
+    if (!btn) return;
+    btn.hidden = !show;
+    if (show && draftText) btn.dataset.draft = draftText;
+    else delete btn.dataset.draft;
+  }
+
+  function hideDockButton() {
+    showDockButton(false);
+  }
+
   global.AssureInquire = {
     streamInquire: streamInquire,
     renderTree: renderTree,
@@ -289,5 +301,7 @@
     loadDocument: loadDocument,
     saveDocument: saveDocument,
     initWorkbench: initWorkbench,
+    showDockButton: showDockButton,
+    hideDockButton: hideDockButton,
   };
 })(window);

@@ -2,8 +2,10 @@
   "use strict";
 
   var STORAGE_KEY = "assure_tool";
-  var DEFAULT_TOOL = "workbench";
-  var ROUTE_TOOLS = { history: "/history" };
+  var MODE_STORAGE_KEY = "assure_mode";
+  var DEFAULT_TOOL = "projects";
+  var DEFAULT_MODE = "compose";
+  var ROUTE_TOOLS = {};
 
   function $(id) {
     return document.getElementById(id);
@@ -13,9 +15,9 @@
     var hash = (location.hash || "").replace(/^#/, "");
     if (!hash) return null;
     if (hash.indexOf("tool=") === 0) return hash.slice(5);
-    if (["compose", "workbench", "library", "settings", "connect", "history"].indexOf(hash) >= 0) {
-      return hash;
-    }
+    var legacy = { compose: "projects", workbench: "projects" };
+    if (legacy[hash]) return legacy[hash];
+    if (["projects", "library", "settings"].indexOf(hash) >= 0) return hash;
     return null;
   }
 
@@ -27,7 +29,23 @@
 
   function readStoredTool() {
     try {
-      return localStorage.getItem(STORAGE_KEY);
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "compose" || stored === "workbench") return "projects";
+      return stored;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function persistMode(mode) {
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, mode);
+    } catch (_) {}
+  }
+
+  function readStoredMode() {
+    try {
+      return localStorage.getItem(MODE_STORAGE_KEY);
     } catch (_) {
       return null;
     }
@@ -61,12 +79,66 @@
     },
   };
 
+  var AssureMode = {
+    activeMode: DEFAULT_MODE,
+
+    init: function () {
+      var layout = $("assure-app");
+      if (!layout) return;
+
+      var initial = readStoredMode() || DEFAULT_MODE;
+      this.activate(initial, { persist: false });
+
+      layout.querySelectorAll(".mode-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          AssureMode.activate(btn.getAttribute("data-mode"));
+        });
+      });
+    },
+
+    getMode: function () {
+      return this.activeMode;
+    },
+
+    activate: function (mode, opts) {
+      opts = opts || {};
+      if (!mode) mode = DEFAULT_MODE;
+      this.activeMode = mode;
+      if (opts.persist !== false) persistMode(mode);
+
+      var layout = $("assure-app");
+      if (layout) {
+        layout.querySelectorAll(".mode-btn").forEach(function (btn) {
+          var on = btn.getAttribute("data-mode") === mode;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        layout.querySelectorAll("[data-mode-panel]").forEach(function (panel) {
+          var on = panel.getAttribute("data-mode-panel") === mode;
+          panel.classList.toggle("active", on);
+          panel.hidden = !on;
+        });
+      }
+
+      var dockBtn = $("btn-dock-draft");
+      if (dockBtn && mode !== "compose") dockBtn.hidden = true;
+
+      var shortcutHint = $("inquiry-shortcut-hint");
+      if (shortcutHint) shortcutHint.hidden = mode !== "surgical";
+
+      document.body.setAttribute("data-assure-mode", mode);
+      document.dispatchEvent(new CustomEvent("assure:mode", { detail: { mode: mode } }));
+    },
+  };
+
   var AssureNav = {
     activeTool: DEFAULT_TOOL,
 
     init: function () {
       var layout = $("assure-app");
       if (!layout) return;
+
+      AssureMode.init();
 
       var initial = readToolFromHash() || readStoredTool() || DEFAULT_TOOL;
       this.activate(initial, { replaceHash: false, persist: false });
@@ -84,6 +156,8 @@
       if (toggle) {
         toggle.addEventListener("click", function () {
           layout.classList.toggle("sidebar-collapsed");
+          var collapsed = layout.classList.contains("sidebar-collapsed");
+          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
         });
       }
 
@@ -114,6 +188,7 @@
     activate: function (tool, opts) {
       opts = opts || {};
       if (!tool) tool = DEFAULT_TOOL;
+      if (tool === "compose" || tool === "workbench") tool = "projects";
 
       if (ROUTE_TOOLS[tool]) {
         var u = new URL(ROUTE_TOOLS[tool], location.origin);
@@ -194,6 +269,7 @@
   };
 
   global.AssureNav = AssureNav;
+  global.AssureMode = AssureMode;
   global.AssureToast = AssureToast;
   global.AssureStatus = AssureStatus;
 

@@ -68,51 +68,140 @@
         </header>
         <div class="app-body">
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link" data-tool="compose">
-              <span class="app-sidebar-icon" aria-hidden="true">🖊️</span>
-              <span class="app-sidebar-label" data-i18n="tab.compose">{{ gettext('Compose') }}</span>
-            </button>
-            <button type="button" class="app-sidebar-link is-active" data-tool="workbench" aria-current="page">
+            <button type="button" class="app-sidebar-link is-active" data-tool="projects" aria-current="page">
               <span class="app-sidebar-icon" aria-hidden="true">📄</span>
-              <span class="app-sidebar-label" data-i18n="jdf.workbench.title">{{ gettext('Document engineering') }}</span>
+              <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
             </button>
             <button type="button" class="app-sidebar-link" data-tool="library">
               <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
               <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Prompt Library') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link" data-tool="history">
-              <span class="app-sidebar-icon" aria-hidden="true">🕘</span>
-              <span class="app-sidebar-label" data-i18n="tab.history">{{ gettext('Previous work') }}</span>
-            </button>
             <button type="button" class="app-sidebar-link" data-tool="settings">
               <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
               <span class="app-sidebar-label" data-i18n="nav.settings">{{ gettext('Settings') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link" data-tool="connect">
-              <span class="app-sidebar-icon" aria-hidden="true">🔗</span>
-              <span class="app-sidebar-label" data-i18n="nav.connect">{{ gettext('Connect') }}</span>
-            </button>
           </nav>
           <div class="app-content">
-            <section id="tool-workbench" class="tool-panel active" data-tool="workbench">
+            <section id="tool-projects" class="tool-panel active" data-tool="projects">
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
-            <h3 class="jdf-pane-title" data-i18n="jdf.pane.inquiry">{{ gettext('Inquiry workbench') }}</h3>
-            <p id="aperture-indicator" class="jdf-surgical-mode pill pill-neutral" hidden>
-              <span data-i18n="jdf.surgical.mode">{{ gettext('Surgical target') }}:</span>
-              <span id="active-target-id">—</span>
-              <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
-            </p>
-            <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
-            <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the surgical edit for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
-            <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to inquire') }}</p>
+            <div class="mode-toggle" role="group" aria-label="{{ gettext('Work mode') }}" data-i18n-aria="mode.toggle_label">
+              <button type="button" class="mode-btn active" data-mode="compose" data-i18n="mode.compose">{{ gettext('💬 Compose') }}</button>
+              <button type="button" class="mode-btn" data-mode="surgical" data-i18n="mode.surgical">{{ gettext('🧠 Surgical Edit') }}</button>
+            </div>
+            <label class="jdf-redhat-toggle universal-redhat">
+              <input type="checkbox" id="toggle-redhat" checked>
+              <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
+            </label>
+
+            <div id="compose-mode" class="work-mode-panel active" data-mode-panel="compose">
+              <form id="form" class="compose-mode-form">
+                <select id="workflow" hidden>
+                  {% if edition is defined and edition.gate_ensemble %}
+                  <option value="single" selected>single</option>
+                  <option value="ensemble">ensemble</option>
+                  {% else %}
+                  <option value="ensemble" selected>ensemble</option>
+                  <option value="single">single</option>
+                  {% endif %}
+                  <option value="redhat">redhat</option>
+                </select>
+                <input type="checkbox" id="direct" hidden checked>
+                <input type="checkbox" id="ground" hidden>
+                <input type="checkbox" id="local" hidden>
+                <select id="intent" class="form-control select-control" hidden></select>
+                <div class="compose-field">
+                  <label class="section" for="task" data-i18n="step.3">{{ gettext('Write your question') }}</label>
+                  <textarea id="task" class="form-control compose-task-input" required placeholder="{{ gettext('Paste generated draft text and upload source files to verify claims.') }}" data-i18n-placeholder="task.placeholder"></textarea>
+                </div>
+                <div class="intent-row compose-field" id="intent-row">
+                  <span class="intent-label" data-i18n="intent.auto">{{ gettext('Auto') }}</span>
+                  <div class="intent-chips" id="intent-chips" role="group" aria-label="{{ gettext('What do you need?') }}"></div>
+                </div>
+                <div class="compose-field">
+                  <label class="section" for="context" data-i18n="context">{{ gettext('Extra context (optional)') }}</label>
+                  <textarea id="context" class="form-control compose-context-input" placeholder="{{ gettext('Notes, or a file path like ./src/app.py') }}" data-i18n-placeholder="context.placeholder"></textarea>
+                </div>
+                <div class="compose-field">
+                  <label class="section" data-i18n="step.1">{{ gettext('Choose your AI') }}</label>
+                  <div class="picks compose-targets" id="targets" role="group" aria-label="{{ gettext('Choose your AI') }}"></div>
+                </div>
+                <details class="compose-advanced" id="compose-advanced">
+                  <summary data-i18n="advanced">{{ gettext('Advanced options') }}</summary>
+                  <div id="ensemble-box" hidden>
+                    <label class="section" data-i18n="then">{{ gettext('Also ask') }}</label>
+                    <div id="then-list"></div>
+                    <button class="btn btn-outline btn-sm tiny adv-slot" type="button" id="add-then" data-i18n="then.add">{{ gettext('Add another') }}</button>
+                  </div>
+                  <div class="adv-slot" id="adv-workflow">
+                    <label class="choice">
+                      <input type="radio" name="wf-choice" value="single" {% if edition is defined and edition.gate_ensemble %}checked{% endif %}>
+                      <span class="choice-title" data-i18n="workflow.single">{{ gettext('Quick Answer') }}</span>
+                    </label>
+                    <label class="choice" id="wf-ensemble" {% if edition is defined and edition.gate_ensemble %}hidden{% endif %}>
+                      <input type="radio" name="wf-choice" value="ensemble" {% if edition is not defined or not edition.gate_ensemble %}checked{% endif %} {% if edition is defined and edition.gate_ensemble %}disabled{% endif %}>
+                      <span class="choice-title" data-i18n="workflow.ensemble">{{ gettext('Compare & Validate') }}</span>
+                    </label>
+                    <label class="choice">
+                      <input type="radio" name="wf-choice" value="redhat">
+                      <span class="choice-title" data-i18n="workflow.redhat">{{ gettext('Refine & Verify') }}</span>
+                    </label>
+                    <div id="critic-box" hidden>
+                      <label class="section" for="persona" data-i18n="persona">{{ gettext('What should the critique look for?') }}</label>
+                      <select id="persona" class="form-control select-control"></select>
+                      <label class="section" for="critic" data-i18n="critic">{{ gettext('Who critiques?') }}</label>
+                      <select id="critic" class="form-control select-control">
+                        <option value="gemini">Gemini</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="kimi">Kimi</option>
+                        <option value="claude">Claude</option>
+                        <option value="ollama" data-i18n="mode.closed.title">{{ gettext('Closed to the internet') }}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label class="section" for="audience" data-i18n="audience">{{ gettext('For whom?') }}</label>
+                  <select id="audience" class="form-control select-control">
+                    <option value="general" data-i18n="audience.general">{{ gettext('General') }}</option>
+                    <option value="executive" data-i18n="audience.executive">{{ gettext('Executive') }}</option>
+                    <option value="technical" data-i18n="audience.technical">{{ gettext('Technical') }}</option>
+                  </select>
+                  <div class="row">
+                    <label class="file"><span data-i18n="file">{{ gettext('Attach a file (optional)') }}</span>
+                      <input id="file" type="file">
+                    </label>
+                  </div>
+                  <div id="adv-class">
+                    <label class="section" for="class-select" data-i18n="class">{{ gettext('Saved template (optional)') }}</label>
+                    <select id="class-select" class="form-control select-control">
+                      <option value="" data-i18n="class.defaults">{{ gettext('Use intent defaults') }}</option>
+                    </select>
+                  </div>
+                  <label class="check"><input type="checkbox" id="cheap" checked> <span data-i18n="toggle.cheap">{{ gettext('Save tokens (cheaper)') }}</span></label>
+                </details>
+                <details class="live-preview compose-preview" id="preview-box" open>
+                  <summary><span data-i18n="jdf.preview.prompt">{{ gettext('Compiled prompt preview') }}</span></summary>
+                  <pre id="live-preview" data-i18n="preview.empty">{{ gettext('Start typing. This panel shows the prompt as it is rewritten.') }}</pre>
+                </details>
+                <button class="btn btn-primary primary send visually-hidden" type="submit" id="go" data-i18n="go.send">{{ gettext('Get my answer') }}</button>
+              </form>
+            </div>
+
+            <div id="surgical-mode" class="work-mode-panel" data-mode-panel="surgical" hidden>
+              <h3 class="jdf-pane-title" data-i18n="jdf.pane.inquiry">{{ gettext('Inquiry workbench') }}</h3>
+              <p id="aperture-indicator" class="jdf-surgical-mode pill pill-neutral" hidden>
+                <span data-i18n="jdf.surgical.mode">{{ gettext('Surgical target') }}:</span>
+                <span id="active-target-id">—</span>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
+              </p>
+              <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
+              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the surgical edit for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
+              <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to inquire') }}</p>
+            </div>
+
             <div class="inquiry-controls">
-              <label class="jdf-redhat-toggle">
-                <input type="checkbox" id="toggle-redhat" checked>
-                <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
-              </label>
               <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Inquire') }}</button>
+              <button type="button" class="btn btn-primary dock-btn" id="btn-dock-draft" hidden data-i18n="compose.dock_button">{{ gettext('📤 Dock to Canvas') }}</button>
             </div>
             <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
             <div id="streaming-preview" class="preview-box">
@@ -146,194 +235,37 @@
           </div>
         </footer>
       </section>
-            </section>
 
-            <section id="tool-compose" class="tool-panel" data-tool="compose" hidden>
-              <div class="layout compose-tool-layout">
-        <form id="form">
-          <select id="workflow" hidden>
-            {% if edition is defined and edition.gate_ensemble %}
-            <option value="single" selected>single</option>
-            <option value="ensemble">ensemble</option>
-            {% else %}
-            <option value="ensemble" selected>ensemble</option>
-            <option value="single">single</option>
-            {% endif %}
-            <option value="redhat">redhat</option>
-          </select>
-
-          <section class="journey-step compose-question" aria-labelledby="step3-title">
-            <div class="recent-row" id="recent-row" hidden>
-              <span class="recent-label" data-i18n="recent.title">{{ gettext('Recent') }}</span>
-              <div class="recent-chips" id="recent-chips"></div>
-              <a href="/history{{ q if q is defined else '' }}" class="recent-all" data-i18n="recent.all">{{ gettext('View all') }}</a>
-            </div>
-            <h2 id="step3-title" class="compose-h" data-i18n="step.3">{{ gettext('Write your question') }}</h2>
-            <p class="hint" data-i18n="step.3.hint">{{ gettext('Assure restructures it for the AI you chose. The panel below shows the prompt as you type. Get my answer sends it. Copy stays on this computer.') }}</p>
-            <p class="hint" id="examples-label" data-i18n="examples.hint">{{ gettext('Or start from an example') }}</p>
-            <div class="example-chips" role="group" aria-labelledby="examples-label">
-              <button type="button" class="example-chip" data-example="compare" data-i18n="examples.compare.label">{{ gettext('Compare AWS vs GCP') }}</button>
-              <button type="button" class="example-chip" data-example="paper" data-i18n="examples.paper.label">{{ gettext('Summarize a paper') }}</button>
-              <button type="button" class="example-chip" data-example="email" data-i18n="examples.email.label">{{ gettext('Write a marketing email') }}</button>
-            </div>
-            <label class="section" for="audience" data-i18n="audience">{{ gettext('For whom?') }}</label>
-            <select id="audience" class="form-control select-control" aria-describedby="audience-hint">
-              <option value="general" data-i18n="audience.general">{{ gettext('General') }}</option>
-              <option value="executive" data-i18n="audience.executive">{{ gettext('Executive') }}</option>
-              <option value="technical" data-i18n="audience.technical">{{ gettext('Technical') }}</option>
-            </select>
-            <p class="hint" id="audience-hint" data-i18n="audience.hint">{{ gettext('Shapes tone and length. Executive is short and plain. Technical goes deep.') }}</p>
-            <textarea id="task" class="form-control" required placeholder="{{ gettext('Paste generated draft text and upload source files to verify claims.') }}" data-i18n-placeholder="task.placeholder"></textarea>
-            <div class="intent-row" id="intent-row">
-              <span class="intent-label" data-i18n="intent.auto">{{ gettext('Auto') }}</span>
-              <div class="intent-chips" id="intent-chips" role="group" aria-label="{{ gettext('What do you need?') }}"></div>
-            </div>
-            <label class="section" for="context" data-i18n="context">{{ gettext('Extra context (optional)') }}</label>
-            <textarea id="context" class="form-control" placeholder="{{ gettext('Notes, or a file path like ./src/app.py') }}" data-i18n-placeholder="context.placeholder"></textarea>
-            <div class="row">
-              <label class="file"><span data-i18n="file">{{ gettext('Attach a file (optional)') }}</span>
-                <input id="file" type="file">
-              </label>
-            </div>
-            <p class="hint" data-i18n="file.hint">{{ gettext('A path on this machine is read automatically. A file attached here is inlined into the question.') }}</p>
-            <details class="live-preview" id="preview-box" open>
-              <summary><span data-i18n="jdf.preview.prompt">{{ gettext('Compiled prompt preview') }}</span> — <span data-i18n="preview.title">{{ gettext('What Assure will send') }}</span></summary>
-              <pre id="live-preview" data-i18n="preview.empty">{{ gettext('Start typing. This panel shows the prompt as it is rewritten.') }}</pre>
-            </details>
-            <input type="checkbox" id="direct" hidden checked>
-            <input type="checkbox" id="ground" hidden>
-            <div class="visually-hidden" id="send-mode-wrap">
-              <p class="mode-heading" id="send-summary" data-i18n="send.summary">{{ gettext('How do you want to use your question?') }}</p>
-              <div class="mode-pick" role="radiogroup" aria-labelledby="send-summary">
-                <label class="choice">
-                  <input type="radio" name="send-mode" id="send-answer" value="send" checked>
-                  <span class="choice-title" data-i18n="send.answer.title">{{ gettext('Send and get my answer') }}</span>
-                  <span class="choice-desc" data-i18n="send.answer.what">{{ gettext('Your question goes to the models you chose. The verified answer appears here.') }}</span>
-                </label>
-                <label class="choice">
-                  <input type="radio" name="send-mode" id="send-copy" value="copy">
-                  <span class="choice-title" data-i18n="send.copy.title">{{ gettext('Copy the prompt') }}</span>
-                  <span class="choice-desc" data-i18n="send.copy.what">{{ gettext('The compiled text stays on this computer. You paste it into the model you choose.') }}</span>
-                </label>
-              </div>
-            </div>
-            <div class="row go-row">
-              <button class="btn btn-primary btn-lg primary send" type="submit" id="go" data-i18n="go.send" title="">{{ gettext('Get my answer') }}</button>
-              <span class="hint" data-i18n="go.shortcut">{{ gettext('Cmd or Ctrl + Enter sends.') }}</span>
-            </div>
-            <p class="hint" data-i18n="go.copy.hint">{{ gettext('Option-click or Cmd or Ctrl + Shift + Enter copies the prompt.') }}</p>
-          </section>
-
-          <section class="journey-step" aria-labelledby="step1-title">
-            <div class="journey-head">
-              <h2 id="step1-title" data-i18n="step.1">{{ gettext('Choose your AI') }}</h2>
-            </div>
-            <p class="hint" data-i18n="step.1.hint">{{ gettext('Pick Gemini, DeepSeek, Claude, Kimi, or closed to the internet. "Connected" means a key is already on this machine.') }}</p>
-            <div class="picks" id="targets" role="group" aria-label="{{ gettext('Choose your AI') }}"></div>
-            <div id="ensemble-box" hidden>
-              <label class="section" data-i18n="then">{{ gettext('Also ask') }}</label>
-              <div id="then-list"></div>
-              <button class="btn btn-outline btn-sm tiny adv-slot" type="button" id="add-then" data-i18n="then.add">{{ gettext('Add another') }}</button>
-              <p class="hint adv-slot" data-i18n="then.hint">{{ gettext('Free uses two models when both are live (Gemini + DeepSeek). Pro unlocks the rest.') }}</p>
-              <div class="locked-models" id="locked-models" hidden></div>
-            </div>
-            <input type="checkbox" id="local" hidden>
-            <button type="button" class="btn btn-outline btn-sm" id="adv-toggle" aria-expanded="false" data-i18n="advanced">{{ gettext('Advanced options') }}</button>
-            <div class="adv-slot" id="adv-mode">
-              <p class="mode-heading" id="mode-summary" data-i18n="mode.summary">{{ gettext('Closed to the internet and open to the internet') }}</p>
-              <div class="mode-pick" role="radiogroup" aria-labelledby="mode-summary">
-                <label class="choice mode-choice is-closed">
-                  <input type="radio" name="net-mode" id="mode-closed" value="closed">
-                  <span class="choice-title" data-i18n="mode.closed.title">{{ gettext('Closed to the internet') }}</span>
-                  <span class="choice-desc" data-i18n="mode.closed.what">{{ gettext('The model runs on this computer. The question and answer do not leave.') }}</span>
-                </label>
-                <label class="choice mode-choice is-open">
-                  <input type="radio" name="net-mode" id="mode-open" value="open" checked>
-                  <span class="choice-title" data-i18n="mode.open.title">{{ gettext('Open to the internet') }}</span>
-                  <span class="choice-desc" data-i18n="mode.open.what">{{ gettext("The model runs on the provider's servers. The question and answer go there.") }}</span>
-                </label>
-              </div>
-              <p class="hint" id="hint-local" hidden data-i18n="hint.local">{{ gettext('Turn this on to answer on this computer. Nothing goes to the internet. Ollama is the usual runner. vLLM, SGLang, Llamafile, or LM Studio also work if they are already up.') }}</p>
-            </div>
-            <div class="toggle-row adv-slot" id="adv-cheap">
-              <label class="check">
-                <input type="checkbox" id="cheap" checked>
-                <span data-i18n="toggle.cheap">{{ gettext('Save tokens (cheaper)') }}</span>
-              </label>
-            </div>
-            <div class="adv-slot" id="adv-route">
-              <p class="provider-strip" id="provider-strip"></p>
-              <p class="hint" id="route-hint" data-i18n="api.checking">{{ gettext('Checking which models can answer…') }}</p>
-            </div>
-            <div class="pro-preview" id="pro-preview" hidden>
-              <p><span aria-hidden="true">🔒</span> <span data-i18n="pro.preview">{{ gettext('Pro unlocks eight models, full export formats, and extra critics.') }}</span></p>
-              <a class="btn btn-outline btn-sm" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
-            </div>
-          </section>
-
-          <section class="journey-step adv-slot" id="adv-workflow" aria-labelledby="step2-title">
-            <div class="journey-head">
-              <h2 id="step2-title" data-i18n="step.2">{{ gettext('Quick, validated, or refined?') }}</h2>
-            </div>
-            <label class="choice">
-              <input type="radio" name="wf-choice" value="single" {% if edition is defined and edition.gate_ensemble %}checked{% endif %}>
-              <span class="choice-title" data-i18n="workflow.single">{{ gettext('Quick Answer') }}</span>
-              <span class="choice-desc" data-i18n="workflow.hint.single">{{ gettext('Fastest. One model answers.') }}</span>
-            </label>
-            <label class="choice" id="wf-ensemble" {% if edition is defined and edition.gate_ensemble %}hidden{% endif %}>
-              <input type="radio" name="wf-choice" value="ensemble" {% if edition is not defined or not edition.gate_ensemble %}checked{% endif %} {% if edition is defined and edition.gate_ensemble %}disabled{% endif %}>
-              <span class="choice-title" data-i18n="workflow.ensemble">{{ gettext('Compare & Validate') }}</span>
-              <span class="choice-desc" data-i18n="workflow.hint.ensemble">{{ gettext('Multiple models check each other. We show agreement and disagreement.') }}</span>
-            </label>
-            <label class="choice">
-              <input type="radio" name="wf-choice" value="redhat">
-              <span class="choice-title" data-i18n="workflow.redhat">{{ gettext('Refine & Verify') }}</span>
-              <span class="choice-desc" data-i18n="workflow.hint.redhat">{{ gettext('We draft, critique, and rewrite your answer.') }}</span>
-            </label>
-            <p class="hint" id="workflow-hint" data-i18n="workflow.tip">{{ gettext('Tip: "Compare & Validate" works best for most questions.') }}</p>
-            <div id="critic-box" hidden>
-              <ol class="recipe" id="recipe">
-                <li data-i18n="recipe.1">{{ gettext('Draft. One model writes a first pass.') }}</li>
-                <li id="recipe-critic" data-i18n="recipe.2">{{ gettext('Critique. A critic only attacks that pass. It does not write a new essay.') }}</li>
-                <li data-i18n="recipe.3">{{ gettext('Rewrite. The same model revises using the critique. That is what you keep.') }}</li>
-              </ol>
-              <p class="hint" id="recipe-hint" data-i18n="recipe.hint.on">{{ gettext('Turn on Get my answer. Click once. Wait through three calls. Read the final on the right.') }}</p>
-              <label class="section" for="persona" data-i18n="persona">{{ gettext('What should the critique look for?') }}</label>
-              <select id="persona" class="form-control select-control"></select>
-              <p class="hint locked-cta" id="pro-critic-cta" hidden>
-                <span aria-hidden="true">🔒</span>
-                <span data-i18n="upgrade.unlock">{{ gettext('Upgrade to Pro to unlock this feature.') }}</span>
-                <a href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
-              </p>
-              <div class="choice locked" id="locked-security" hidden>
-                <span class="choice-title"><span aria-hidden="true">🔒</span> <span data-i18n="persona.security.lock">{{ gettext('Security critic') }}</span></span>
-                <span class="choice-desc" data-i18n="persona.security.lock.desc">{{ gettext('Pro. Looks for injection phrasing, edge cases, and invented APIs.') }}</span>
-                <span class="lock-tooltip" data-i18n="upgrade.unlock">{{ gettext('Upgrade to Pro to unlock this feature.') }}</span>
-              </div>
-              <p class="hint" id="persona-hint" data-i18n="persona.hint">{{ gettext('Unsupported claims, missing caveats, keep / revise / reject.') }}</p>
-              <label class="section" for="critic" data-i18n="critic">{{ gettext('Who critiques?') }}</label>
-              <select id="critic" class="form-control select-control">
-                <option value="gemini">Gemini</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="kimi">Kimi</option>
-                <option value="claude">Claude</option>
-                <option value="ollama" data-i18n="mode.closed.title">{{ gettext('Closed to the internet') }}</option>
-              </select>
-            </div>
-            <select id="intent" class="form-control select-control" hidden></select>
-            <p class="hint" id="intent-hint" hidden data-i18n="intent.hint">{{ gettext('Pick the shape that matches your goal. Unsure? Start with research.') }}</p>
-            <div id="adv-class">
-              <label class="section" for="class-select" data-i18n="class">{{ gettext('Saved template (optional)') }}</label>
-              <select id="class-select" class="form-control select-control">
-                <option value="" data-i18n="class.defaults">{{ gettext('Use intent defaults') }}</option>
-              </select>
-              <p class="hint" data-i18n="class.hint">{{ gettext('A saved template can override the role and output shape.') }}</p>
-            </div>
-          </section>
-        </form>
-
-        <hr class="workbench-split">
-
+      <div class="compose-compat visually-hidden" aria-hidden="true" id="compose-compat">
+        <div class="recent-row" id="recent-row" hidden>
+          <span class="recent-label" data-i18n="recent.title">{{ gettext('Recent') }}</span>
+          <div class="recent-chips" id="recent-chips"></div>
+        </div>
+        <div class="visually-hidden" id="send-mode-wrap">
+          <input type="radio" name="send-mode" id="send-answer" value="send" checked>
+          <input type="radio" name="send-mode" id="send-copy" value="copy">
+        </div>
+        <div class="adv-slot" id="adv-mode">
+          <input type="radio" name="net-mode" id="mode-closed" value="closed">
+          <input type="radio" name="net-mode" id="mode-open" value="open" checked>
+        </div>
+        <div class="adv-slot" id="adv-route">
+          <p class="provider-strip" id="provider-strip"></p>
+          <p class="hint" id="route-hint" data-i18n="api.checking">{{ gettext('Checking which models can answer…') }}</p>
+        </div>
+        <div class="pro-preview" id="pro-preview" hidden></div>
+        <div class="locked-models" id="locked-models" hidden></div>
+        <button type="button" class="btn btn-outline btn-sm" id="adv-toggle" aria-expanded="false" hidden></button>
+        <p class="hint" id="intent-hint" hidden data-i18n="intent.hint">{{ gettext('Pick the shape that matches your goal. Unsure? Start with research.') }}</p>
+        <p class="hint" id="workflow-hint" hidden data-i18n="workflow.tip">{{ gettext('Tip: "Compare & Validate" works best for most questions.') }}</p>
+        <p class="hint" id="persona-hint" hidden></p>
+        <p class="hint" id="recipe-hint" hidden></p>
+        <p class="hint" id="hint-local" hidden data-i18n="hint.local">{{ gettext('Turn this on to answer on this computer. Nothing goes to the internet. Ollama is the usual runner. vLLM, SGLang, Llamafile, or LM Studio also work if they are already up.') }}</p>
+        <p class="hint locked-cta" id="pro-critic-cta" hidden></p>
+        <div class="choice locked" id="locked-security" hidden></div>
+        <ol id="recipe" hidden><li id="recipe-critic"></li></ol>
+        <span id="token-delta" hidden></span>
+        <h2 id="prompt-heading" hidden data-i18n="prompt">{{ gettext('Prompt') }}</h2>
         <section class="card output">
           <div class="reply" id="answer-wrap">
             <div class="output-head">
@@ -349,87 +281,43 @@
             <div id="answer" class="answer-body">
               <div id="reply-content" class="answer-prose" hidden></div>
               <div class="placeholder empty-state" id="answer-placeholder">
-                <svg class="empty-mark" viewBox="0 0 36 36" aria-hidden="true">
-                  <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
-                  <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
                 <span data-i18n="answer.placeholder">{{ gettext('Paste a draft, attach source files, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</span>
-                <div class="mock-answer" aria-hidden="true">
-                  <p class="mock-kicker" data-i18n="answer.example.kicker">{{ gettext('What a verified answer looks like') }}</p>
-                  <p class="mock-headline" data-i18n="answer.example.headline">{{ gettext('Where the models agree for this client') }}</p>
-                  <p class="mock-line" data-i18n="answer.example.consensus">{{ gettext('Agreement. Where the models line up.') }}</p>
-                  <p class="mock-line" data-i18n="answer.example.disagree">{{ gettext('Disagreement. Where they differ, so you can judge.') }}</p>
-                  <p class="mock-line" data-i18n="answer.example.files">{{ gettext('Checked against your files. Claims that appear in what you attached.') }}</p>
-                  <span class="verified-badge mock-badge" data-i18n="trust.verified">{{ gettext('Verified') }}</span>
-                </div>
               </div>
             </div>
-            <div id="audit-legend" class="audit-legend" hidden>
-              <span><span class="dot green" aria-hidden="true"></span><span data-i18n="audit.grounded">{{ gettext('Green — grounded in your source') }}</span></span>
-              <span><span class="dot yellow" aria-hidden="true"></span><span data-i18n="audit.inferred">{{ gettext('Yellow — inferred / unsupported') }}</span></span>
-            </div>
+            <div id="audit-legend" class="audit-legend" hidden></div>
             <ul class="trust-strip" id="trust-strip" hidden></ul>
             <p class="confidence-line" id="confidence-line" hidden></p>
-            <div class="follow-row" id="follow-row" hidden>
-              <div class="follow-chips" id="follow-chips"></div>
-            </div>
+            <div class="follow-row" id="follow-row" hidden><div class="follow-chips" id="follow-chips"></div></div>
             <div class="feedback-section" id="feedback-section" hidden>
               <div class="feedback-thumbs" id="feedback-thumbs">
-                <span class="feedback-label" data-i18n="feedback.ask">{{ gettext('Was this answer helpful?') }}</span>
-                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-up" aria-label="{{ gettext('Thumbs up, helpful') }}" data-i18n-aria="feedback.yes_aria">👍</button>
-                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-down" aria-label="{{ gettext('Thumbs down, not helpful') }}" data-i18n-aria="feedback.no_aria">👎</button>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-up" aria-label="{{ gettext('Thumbs up, helpful') }}">👍</button>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-down" aria-label="{{ gettext('Thumbs down, not helpful') }}">👎</button>
               </div>
               <button type="button" class="btn btn-outline" id="refine-answer" data-i18n="refine">{{ gettext('Refine this answer') }}</button>
               <span class="feedback-thanks" id="feedback-thanks" hidden data-i18n="feedback.thanks_full">{{ gettext('Thanks for your feedback!') }}</span>
             </div>
             <div class="diff-wrap" id="diff-wrap" hidden>
-              <div class="output-head">
-                <h2 data-i18n="diff">{{ gettext('Draft vs final') }}</h2>
-                <span class="token-delta" id="token-delta"></span>
-              </div>
               <div class="diff-grid">
-                <div class="diff-col">
-                  <h3 data-i18n="diff.attempt">{{ gettext('Attempt') }}</h3>
-                  <div class="diff-lines" id="diff-draft"></div>
-                </div>
-                <div class="diff-col">
-                  <h3 data-i18n="diff.final">{{ gettext('Final') }}</h3>
-                  <div class="diff-lines" id="diff-final"></div>
-                </div>
+                <div class="diff-col"><div class="diff-lines" id="diff-draft"></div></div>
+                <div class="diff-col"><div class="diff-lines" id="diff-final"></div></div>
               </div>
-              <details class="step" id="diff-critique-box">
-                <summary data-i18n="diff.critique">{{ gettext('Critique notes that drove the rewrite') }}</summary>
-                <pre id="diff-critique"></pre>
-              </details>
+              <details class="step" id="diff-critique-box"><pre id="diff-critique"></pre></details>
             </div>
           </div>
           <div class="work" id="prompt-work">
-            <div class="output-head">
-              <h2 id="prompt-heading" data-i18n="prompt">{{ gettext('Prompt') }}</h2>
-              <button class="btn btn-outline ghost" type="button" id="copy" hidden data-i18n="prompt.copy">{{ gettext('Copy prompt') }}</button>
-            </div>
-            <details id="prompt-details" open>
-              <summary id="prompt-summary" data-i18n="prompt.summary">{{ gettext('What was sent to the model') }}</summary>
-              <pre id="prompt">{{ gettext('Pick a target and an intent, write the task, then generate.') }}</pre>
-            </details>
+            <pre id="prompt">{{ gettext('Pick a target and an intent, write the task, then generate.') }}</pre>
+            <button class="btn btn-outline ghost" type="button" id="copy" hidden data-i18n="prompt.copy">{{ gettext('Copy prompt') }}</button>
+            <details id="prompt-details" hidden><summary id="prompt-summary"></summary></details>
           </div>
           <div class="files" id="files"></div>
           <div class="status" id="status"></div>
           <div class="save-box" id="save-box" hidden>
-            <label class="section" for="save-class" data-i18n="save.class">{{ gettext('Save this prompt into a class') }}</label>
             <select id="save-class" class="form-control select-control"></select>
-            <div class="row">
-              <input type="text" id="new-class-name" class="form-control" placeholder="{{ gettext('Or type a new class name') }}" data-i18n-placeholder="save.new">
-              <button class="btn btn-primary primary" type="button" id="save-prompt" data-i18n="save">{{ gettext('Save') }}</button>
-            </div>
+            <input type="text" id="new-class-name" class="form-control" placeholder="{{ gettext('Or type a new class name') }}" data-i18n-placeholder="save.new">
+            <button class="btn btn-primary primary" type="button" id="save-prompt" data-i18n="save">{{ gettext('Save') }}</button>
           </div>
-          <details class="work" id="steps-details" hidden>
-            <summary data-i18n="steps.notes">{{ gettext('Working notes (draft, red-hat, merge)') }}</summary>
-            <div id="steps"></div>
-          </details>
-          <div class="answer-footer visually-hidden">
-            <span id="token-info" data-i18n="tokens.idle">{{ gettext('Tokens: 0 in + 0 out = 0 (~$0.00 est.)') }}</span>
-          </div>
+          <details class="work" id="steps-details" hidden><div id="steps"></div></details>
+          <span id="token-info" data-i18n="tokens.idle">{{ gettext('Tokens: 0 in + 0 out = 0 (~$0.00 est.)') }}</span>
         </section>
       </div>
             </section>
@@ -446,14 +334,6 @@
                 <h2 class="tool-panel-title" data-i18n="settings.title">{{ gettext('API keys') }}</h2>
                 <p class="hint" data-i18n="app.settings.lead">{{ gettext('Manage provider keys and preferences for Get my answer.') }}</p>
                 <button type="button" class="btn btn-primary" id="open-settings-from-nav" data-i18n="app.open.settings">{{ gettext('Open settings') }}</button>
-              </div>
-            </section>
-
-            <section id="tool-connect" class="tool-panel" data-tool="connect" hidden>
-              <div class="tool-panel-inner connect-tool-layout card">
-                <h2 class="tool-panel-title" data-i18n="nav.connect">{{ gettext('Connect') }}</h2>
-                <p class="hint" data-i18n="app.connect.lead">{{ gettext('Connect an API provider to run verification and Get my answer.') }}</p>
-                <a class="btn btn-primary" href="/connect{{ q if q is defined else '' }}" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a>
               </div>
             </section>
           </div>
@@ -601,6 +481,7 @@
       } catch (_) {}
     })();
   </script>
+  <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -1440,6 +1321,11 @@
     $("form").addEventListener("keydown", (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
+        if (window.AssureMode && window.AssureMode.getMode() === "compose") {
+          const btn = $("btn-inquire");
+          if (btn) btn.click();
+          return;
+        }
         setDirect(!event.shiftKey);
         $("form").requestSubmit();
       }
@@ -1718,7 +1604,7 @@
       $("prompt-summary").textContent = sent
         ? (hasReply ? "What PEM sent (you can ignore this)" : "PEM tried to call the models. This is not a paste kit.")
         : "What to paste into the other chat";
-      $("prompt-heading").textContent = sent ? "Working notes" : "Prompt";
+      $("prompt-heading") && ($("prompt-heading").textContent = sent ? "Working notes" : "Prompt");
       if (hasReply) {
         const parsed = unwrapReply(data.reply);
         state.lastAnswer = parsed.copyText;
@@ -1936,11 +1822,14 @@
       }
       wrap.hidden = false;
       const counts = data.tokens || {};
-      $("token-delta").textContent = formatTokenLine({
-        input: counts.input != null ? counts.input : data.input_tokens,
-        output: counts.output != null ? counts.output : data.output_tokens,
-        total: counts.total != null ? counts.total : data.total_tokens,
-      }, data.estimated_cost);
+      const tokenDelta = $("token-delta");
+      if (tokenDelta) {
+        tokenDelta.textContent = formatTokenLine({
+          input: counts.input != null ? counts.input : data.input_tokens,
+          output: counts.output != null ? counts.output : data.output_tokens,
+          total: counts.total != null ? counts.total : data.total_tokens,
+        }, data.estimated_cost);
+      }
       const parts = lineDiff(draft, finalText);
       fillDiff($("diff-draft"), parts.left);
       fillDiff($("diff-final"), parts.right);
@@ -1953,7 +1842,8 @@
 
     function syncPersona() {
       const item = currentPersona();
-      $("persona-hint").textContent = item ? item.hint : "";
+      const hint = $("persona-hint");
+      if (hint) hint.textContent = item ? item.hint : "";
       const line = $("recipe-critic");
       if (line && item) {
         line.textContent = item.label + ". " + item.hint;

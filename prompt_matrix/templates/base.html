@@ -88,6 +88,7 @@
       var lang = document.getElementById("lang");
       if (lang) {
         lang.addEventListener("change", function () {
+          try { localStorage.setItem("assure_locale", lang.value); } catch (_) {}
           var u = new URL(location.href);
           u.searchParams.set("lang", lang.value);
           location.href = u.pathname + u.search;

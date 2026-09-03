@@ -462,6 +462,7 @@
 
   JDFCanvasManager.prototype.enterSurgicalMode = function (nodeId) {
     this.surgicalTargetId = nodeId;
+    if (global.AssureMode) global.AssureMode.activate("surgical");
     if (this.surgicalEl) {
       this.surgicalEl.hidden = false;
       var targetEl = document.getElementById("active-target-id");
@@ -538,6 +539,188 @@
     }).then(function () {
       self.exitSurgicalMode();
       self.render();
+    });
+  };
+
+  function newNodeId(prefix) {
+    return (prefix || "para") + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function buildComposeIntent() {
+    var taskEl = document.getElementById("task");
+    var contextEl = document.getElementById("context");
+    var intent = global.state && global.state.intent;
+    var parts = [];
+    if (intent) parts.push("[intent: " + intent + "]");
+    if (taskEl && taskEl.value.trim()) parts.push(taskEl.value.trim());
+    var ctx = contextEl && contextEl.value.trim();
+    if (ctx) parts.push("Context:\n" + ctx);
+    if (global.state && global.state.fileText) parts.push(global.state.fileText.trim());
+    return parts.join("\n\n") || jdfT("compose.generating", "Draft a document section");
+  }
+
+  JDFCanvasManager.prototype.dockDraftToCanvas = function (draftText) {
+    var self = this;
+    var text = (draftText || this.livePreview || "").trim();
+    if (!text) return Promise.reject(new Error("No draft text"));
+    var node = {
+      type: "paragraph",
+      id: newNodeId("para"),
+      content: text,
+      entities_referenced: [],
+      meta: { source: "compose_dock" },
+    };
+
+    if (!this.tree.body || !this.tree.body.length) {
+      this.tree.body = [
+        {
+          type: "section",
+          id: newNodeId("sec"),
+          title: jdfT("jdf.canvas.empty.title", "Start your document"),
+          children: [node],
+          meta: {},
+        },
+      ];
+    } else if (this.activeInsertAfterId) {
+      var inserted = false;
+      (this.tree.body || []).forEach(function (section) {
+        if (inserted) return;
+        var children = section.children || [];
+        for (var i = 0; i < children.length; i += 1) {
+          if (children[i].id === self.activeInsertAfterId) {
+            children.splice(i + 1, 0, node);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted && section.id === self.activeInsertAfterId) {
+          children.unshift(node);
+          inserted = true;
+        }
+      });
+      if (!inserted) {
+        var last = this.tree.body[this.tree.body.length - 1];
+        last.children = last.children || [];
+        last.children.push(node);
+      }
+    } else {
+      var targetSection = this.tree.body[this.tree.body.length - 1];
+      targetSection.children = targetSection.children || [];
+      targetSection.children.push(node);
+    }
+
+    return this.saveDocument("DOCK_DRAFT", {
+      target_node_id: node.id,
+      change_summary: "Docked compose draft",
+    }).then(function () {
+      self.livePreview = "";
+      self.render();
+      if (global.AssureInquire && global.AssureInquire.showDockButton) {
+        global.AssureInquire.showDockButton(false);
+      }
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          jdfT("compose.draft_ready", "Draft docked to canvas."),
+          "success"
+        );
+      }
+      if (global.AssureMode) global.AssureMode.activate("surgical");
+      return node;
+    });
+  };
+
+  JDFCanvasManager.prototype.composeInquire = function (runRedhat) {
+    var self = this;
+    var intent = buildComposeIntent();
+    if (!intent || !(document.getElementById("task") || {}).value.trim()) {
+      if (global.AssureToast) {
+        global.AssureToast.show(jdfT("error.task", "Write a question or topic first."), "error");
+      }
+      return Promise.reject(new Error("empty task"));
+    }
+
+    this.isStreaming = true;
+    this.livePreview = "";
+    this.clearTruthError();
+    if (global.AssureInquire && global.AssureInquire.showDockButton) {
+      global.AssureInquire.showDockButton(false);
+    }
+    this.setStreamStatus(1, "compose.generating", "Generating draft…");
+    if (this.redhatFindingsEl) this.redhatFindingsEl.innerHTML = "";
+    var redhatWrap = document.getElementById("redhat-findings-wrap");
+    if (redhatWrap) redhatWrap.hidden = true;
+    if (this.stopBtn) {
+      this.stopBtn.style.display = "inline-flex";
+      this.stopBtn.onclick = function () {
+        if (self.streamClient) self.streamClient.abort();
+      };
+    }
+    this.setSavePill("saving", "jdf.save.streaming");
+    if (this.streamClient) this.streamClient.abort();
+    this.streamClient = new InquireStreamClient(this.projectId, {
+      onstatus: function (data) {
+        var step = data && data.step;
+        var message = data && data.message;
+        if (step === 3 || (data && data.stage === "redhat")) {
+          self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
+        } else if (step === 2 || (data && data.stage === "verify")) {
+          self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…", message);
+        } else {
+          self.setStreamStatus(1, "compose.generating", "Generating draft…", message);
+        }
+      },
+      ontoken: function (data) {
+        self.livePreview += data.delta || "";
+        if (self.previewEl) self.previewEl.textContent = self.livePreview;
+      },
+      ontruthcheck: function (data) {
+        if (data.status === "PASS") {
+          self.setTruthBadge("PASS");
+          self.clearTruthError();
+        } else {
+          self.setTruthBadge("FAIL", (data.violations || []).length);
+          self.showTruthError(data.violations || []);
+        }
+      },
+      onredhatcallout: function (data) {
+        if (self.redhatFindingsEl && data.node) {
+          var wrap = document.getElementById("redhat-findings-wrap");
+          if (wrap) wrap.hidden = false;
+          var block = document.createElement("div");
+          block.className = "jdf-callout callout-redhat";
+          block.textContent = data.node.content || "";
+          self.redhatFindingsEl.innerHTML = "";
+          self.redhatFindingsEl.appendChild(block);
+        }
+      },
+      oncomplete: function (data) {
+        self.isStreaming = false;
+        if (self.stopBtn) self.stopBtn.style.display = "none";
+        self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
+        self.setSavePill("saved", "jdf.save.stream_complete");
+        if (!data || data.ok !== false) {
+          if (global.AssureInquire && global.AssureInquire.showDockButton) {
+            global.AssureInquire.showDockButton(true, self.livePreview);
+          }
+        }
+      },
+      onEvent: function (ev, data) {
+        if (ev === "complete") {
+          self.isStreaming = false;
+          if (!data || data.ok !== false) {
+            self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
+            if (global.AssureInquire && global.AssureInquire.showDockButton) {
+              global.AssureInquire.showDockButton(true, self.livePreview);
+            }
+          }
+        }
+      },
+    });
+    return this.streamClient.start({
+      user_intent: intent,
+      target_node_id: null,
+      run_redhat: runRedhat !== false,
+      document: this.tree,
     });
   };
 
@@ -650,7 +833,21 @@
 
     if (inquireBtn) {
       inquireBtn.addEventListener("click", function () {
-        self.inquire((intentEl && intentEl.value) || "Revise document", redhatEl && redhatEl.checked);
+        var mode = global.AssureMode ? global.AssureMode.getMode() : "surgical";
+        var redhatOn = redhatEl && redhatEl.checked;
+        if (mode === "compose") {
+          self.composeInquire(redhatOn);
+        } else {
+          self.inquire((intentEl && intentEl.value) || "Revise document", redhatOn);
+        }
+      });
+    }
+    var dockBtn = document.getElementById("btn-dock-draft");
+    if (dockBtn) {
+      dockBtn.addEventListener("click", function () {
+        self.dockDraftToCanvas(self.livePreview).catch(function (err) {
+          if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");
+        });
       });
     }
     if (saveBtn) {
@@ -699,4 +896,8 @@
   global.JDFCanvasManager = JDFCanvasManager;
   global.InquireStreamClient = InquireStreamClient;
   global.computeWordDiff = computeWordDiff;
+  global.dockDraftToCanvas = function (text) {
+    if (global.__assureJdf) return global.__assureJdf.dockDraftToCanvas(text);
+    return Promise.reject(new Error("JDF manager not ready"));
+  };
 })(window);

@@ -1376,6 +1376,135 @@ body:has(#assure-app) .shell {
   max-width: 1200px;
 }
 
+/* Mode toggle (Compose / Surgical) */
+.mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--space-sm, 8px);
+  background: var(--color-bg, #f1f5f9);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text, #334155);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.mode-btn:hover {
+  background: rgba(26, 75, 140, 0.08);
+}
+
+.mode-btn.active {
+  background: var(--color-primary, #1A4B8C);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
+}
+
+.universal-redhat {
+  margin-bottom: var(--space-sm, 8px);
+  flex-shrink: 0;
+}
+
+.work-mode-panel {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.work-mode-panel.active {
+  display: flex;
+}
+
+.compose-mode-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}
+
+.compose-field .form-control {
+  min-height: 72px;
+}
+
+.compose-targets.picks {
+  flex-wrap: wrap;
+}
+
+.compose-advanced {
+  font-size: 13px;
+}
+
+.compose-advanced summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--color-primary, #1A4B8C);
+  margin-bottom: var(--space-xs, 4px);
+}
+
+.compose-preview {
+  font-size: 12px;
+}
+
+.compose-preview pre {
+  max-height: 120px;
+  overflow: auto;
+  font-size: 11px;
+}
+
+.inquiry-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm, 8px);
+  align-items: center;
+  margin: var(--space-sm, 8px) 0;
+  flex-shrink: 0;
+}
+
+.dock-btn {
+  background: var(--color-primary, #1A4B8C);
+  border-color: var(--color-primary, #1A4B8C);
+}
+
+.left-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-sm, 8px);
+}
+
+.left-pane .preview-box,
+.left-pane #streaming-preview {
+  flex: 1;
+  min-height: 80px;
+  overflow: auto;
+}
+
+@media (max-width: 768px) {
+  .mode-toggle {
+    flex-direction: column;
+    border-radius: var(--radius-md, 6px);
+  }
+
+  .mode-btn {
+    border-radius: var(--radius-sm, 4px);
+  }
+}
+
 .inquiry-shortcut-hint {
   margin: 4px 0 8px;
   font-size: 12px;
