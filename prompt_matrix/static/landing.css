@@ -250,6 +250,88 @@ body {
     margin-bottom: 2rem;
 }
 
+.paste-test-section {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-sub {
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.sandbox-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 2rem;
+    border-radius: 12px;
+    margin-top: 2rem;
+}
+
+.sandbox-box textarea {
+    width: 100%;
+    height: 120px;
+    background: var(--bg-deep);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    resize: vertical;
+    margin-bottom: 1rem;
+}
+
+.sandbox-output {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    transition: opacity 0.3s ease;
+}
+
+.sandbox-output.hidden {
+    display: none;
+}
+
+.output-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+}
+
+.z3-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-green);
+}
+
+.redhat-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-blue);
+}
+
+.node-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.jdf-node {
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid var(--accent-blue);
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
 .glossary-section details {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
