@@ -76,10 +76,6 @@
               <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
               <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Prompt Library') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link" data-tool="settings">
-              <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
-              <span class="app-sidebar-label" data-i18n="nav.settings">{{ gettext('Settings') }}</span>
-            </button>
           </nav>
           <div class="app-content">
             <section id="tool-projects" class="tool-panel active" data-tool="projects">
@@ -119,11 +115,11 @@
                   <span class="intent-label" data-i18n="intent.auto">{{ gettext('Auto') }}</span>
                   <div class="intent-chips" id="intent-chips" role="group" aria-label="{{ gettext('What do you need?') }}"></div>
                 </div>
-                <div class="compose-field">
+                <div class="compose-field visually-hidden" aria-hidden="true">
                   <label class="section" for="context" data-i18n="context">{{ gettext('Extra context (optional)') }}</label>
                   <textarea id="context" class="form-control compose-context-input" placeholder="{{ gettext('Notes, or a file path like ./src/app.py') }}" data-i18n-placeholder="context.placeholder"></textarea>
                 </div>
-                <div class="compose-field">
+                <div class="compose-field visually-hidden" aria-hidden="true">
                   <label class="section" data-i18n="step.1">{{ gettext('Choose your AI') }}</label>
                   <div class="picks compose-targets" id="targets" role="group" aria-label="{{ gettext('Choose your AI') }}"></div>
                 </div>
@@ -330,13 +326,6 @@
               </div>
             </section>
 
-            <section id="tool-settings" class="tool-panel" data-tool="settings" hidden>
-              <div class="tool-panel-inner settings-tool-layout card">
-                <h2 class="tool-panel-title" data-i18n="settings.title">{{ gettext('API keys') }}</h2>
-                <p class="hint" data-i18n="app.settings.lead">{{ gettext('Manage provider keys and preferences for Get my answer.') }}</p>
-                <button type="button" class="btn btn-primary" id="open-settings-from-nav" data-i18n="app.open.settings">{{ gettext('Open settings') }}</button>
-              </div>
-            </section>
           </div>
         </div>
         <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
@@ -448,7 +437,7 @@
     </div>
     <div class="settings-guide-banner">
       <span>Need an API key?</span>
-      <a href="https://getassureai.com/guide" target="_blank" rel="noopener noreferrer">Follow the 60-Second Setup Guide →</a>
+      <a href="https://getassureai.com/app" rel="noopener noreferrer">Launch Assure Workspace →</a>
     </div>
     <p class="hint settings-banner bad" id="settings-keys-banner" hidden data-i18n="settings.keys_required">{{ gettext('Please provide at least one provider API key to run verification.') }}</p>
     <label class="section" for="settings-gemini-key" data-i18n="settings.gemini">{{ gettext('Gemini API Key') }}</label>
@@ -1056,7 +1045,14 @@
       state.catalogTargets = data.targets || [];
       fillIntentSelect(data.intents);
       const ids = state.catalogTargets.map((item) => item.id);
-      if (!state.target || !ids.includes(state.target)) {
+      var preferredTarget = null;
+      try {
+        preferredTarget = localStorage.getItem("assure_preferred_target");
+        if (preferredTarget) localStorage.removeItem("assure_preferred_target");
+      } catch (_) {}
+      if (preferredTarget && ids.includes(preferredTarget)) {
+        state.target = preferredTarget;
+      } else if (!state.target || !ids.includes(state.target)) {
         state.target = ids.includes("gemini") ? "gemini" : ids[0] || null;
       }
       paintTargets();

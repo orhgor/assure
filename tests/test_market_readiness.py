@@ -102,7 +102,7 @@ class LandingTests(unittest.TestCase):
         self.assertIn("Linux package", html)
         self.assertIn("Verify AI Drafts Against Your Source", html)
         self.assertIn("Launch App", html)
-        self.assertIn("https://app.getassureai.com", html)
+        self.assertIn("https://getassureai.com", html)
         self.assertNotIn("Talk to AI like you talk to a", html)
         self.assertNotIn("hero-brand", html)
         self.assertNotIn("OpenAlex", html)

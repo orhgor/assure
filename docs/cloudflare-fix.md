@@ -6,8 +6,8 @@ PR #1 shows a red **Workers Builds: assure** check while GitHub Actions **CI** i
 
 | Branch | Purpose | Public URL |
 |--------|---------|------------|
-| `p4-account-wallet` | EC2 JDF Workstation (Docker on AWS) | [app.getassureai.com](https://app.getassureai.com) |
-| `webpage` | Marketing / landing site (Worker + static assets) | [getassureai.com](https://getassureai.com) |
+| `p4-account-wallet` | EC2 JDF Workstation (Docker on AWS) | [getassureai.com](https://getassureai.com) **(canonical public URL)** |
+| `webpage` | Cloudflare Worker `assure` — workers.dev redirect only | [assure.orhangorenn.workers.dev](https://assure.orhangorenn.workers.dev) → apex |
 
 Workers Builds for Worker **`assure`** must watch **`webpage` only**. Failures on `p4-account-wallet` do not affect the live app.
 

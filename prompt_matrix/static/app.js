@@ -3,7 +3,7 @@
 
   var STORAGE_GEMINI = "assure_gemini_key";
   var STORAGE_CLAUDE = "assure_claude_key";
-  var SETUP_GUIDE_URL = "https://getassureai.com/guide";
+  var SETUP_GUIDE_URL = "https://getassureai.com/app";
   var nativeFetch = window.fetch.bind(window);
 
   var MODEL_LABELS = {

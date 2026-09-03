@@ -1,16 +1,23 @@
-# getassureai.com
+# getassureai.com (canonical)
 
-This GitHub repository is the public webpage only. The Assure workbench is not in this repo. It runs on the machine (`assure --web`).
+Public Assure AI is served **directly from EC2** through Cloudflare Tunnel:
 
-ICP and objections: `ICP.md`, `objections.md`. Use cases: `use-cases/`. Pricing: `pricing.html`. Privacy: `/privacy`. Install: `/install`. About: `/about`. Terms: `/terms`. Launch drafts: `launch/`.
+- **https://getassureai.com/** — landing + paste sandbox  
+- **https://getassureai.com/app** — JDF / Z3 workspace  
 
-## Cloudflare
+Legacy **app.getassureai.com** and **www** 301 to the apex (Flask + tunnel).
 
-GitHub default branch is `webpage`. Cloudflare Worker `assure` deploys with `npx wrangler deploy`. Static files plus `POST /api/waitlist` (`worker/index.js`). First connect failed because `wrangler.jsonc` still looked like a Pages project.
+## DNS / tunnel (one-time)
 
-- Production branch: `webpage`
-- Root directory: `/`
-- Build command: empty
-- Deploy command: `npx wrangler deploy`
-- Waitlist secrets: `SUPABASE_URL` and `SUPABASE_SECRET_KEY` via `wrangler secret put` (never in git)
-- Custom domain: `getassureai.com` (HTTPS 200 as of 2026-09-01)
+```bash
+bash scripts/aws/route-apex-dns.sh          # Mac: cloudflared login required
+bash scripts/aws/apply-tunnel-config.sh     # SSM: push ingress + restart cloudflared on EC2
+```
+
+Remove Worker custom domains for `getassureai.com` in Cloudflare if they still point at the old static site.
+
+Deploy this folder to Workers **only** for `assure.orhangorenn.workers.dev` (optional redirect):
+
+```bash
+npx wrangler deploy
+```

@@ -11,7 +11,12 @@
     <header class="site-header">
         <div class="container nav-container">
             <div class="logo">Assure AI</div>
-            <a href="/app" class="btn-primary-small">Launch Workspace</a>
+            <nav class="nav-links" aria-label="Primary">
+                <a href="#pipeline">Architecture</a>
+                <a href="#personas">Personas</a>
+                <a href="#paste-test">Sandbox</a>
+                <a href="/app" class="btn-primary-small">Workspace</a>
+            </nav>
         </div>
     </header>
 
@@ -48,7 +53,7 @@
             </div>
         </section>
 
-        <section class="pipeline-section">
+        <section id="pipeline" class="pipeline-section">
             <div class="container">
                 <h2>From Intent to Absolute Truth</h2>
                 <div class="pipeline-grid">
@@ -71,7 +76,40 @@
             </div>
         </section>
 
-        <section class="persona-section">
+        <section id="paste-test" class="paste-test-section">
+            <div class="container narrow">
+                <h2>Test Deterministic Execution</h2>
+                <p class="section-sub">Paste a paragraph containing financial metrics or factual claims below. Watch the engine isolate nodes, lock variables, and flag logic gaps instantly.</p>
+                <div class="sandbox-box">
+                    <textarea id="sandbox-input" placeholder="e.g., Q3 revenue reached $4.2M, representing a 15% increase year-over-year. Consequently, operating margins expanded to 32% across all regional divisions..."></textarea>
+                    <button type="button" id="sandbox-run-btn" class="btn-primary">Run Deterministic Audit</button>
+                    <div id="sandbox-output" class="sandbox-output hidden">
+                        <div class="output-header">
+                            <span id="sandbox-z3-badge" class="badge z3-badge">🛡️ Z3 Ledger: 0 Variables Locked</span>
+                            <span id="sandbox-redhat-badge" class="badge redhat-badge">🔍 Red-Hat: 0 Logic Gaps</span>
+                        </div>
+                        <div id="sandbox-node-tree" class="node-tree"></div>
+                    </div>
+                    <div id="workspace-bridge" class="workspace-transition-banner hidden">
+                        <span class="engine-status">Assure Engine Active</span>
+                        <div class="transition-actions">
+                            <button type="button" id="sandbox-advanced-toggle" class="btn-text">Advanced Models</button>
+                            <button type="button" id="sandbox-send-workbench" class="btn-primary-small">Send to Workbench &rarr;</button>
+                        </div>
+                    </div>
+                    <div id="advanced-model-drawer" class="advanced-drawer hidden">
+                        <label for="model-select">LLM Provider / Backend</label>
+                        <select id="model-select" class="dropdown-styled">
+                            <option value="claude" selected>Claude 3.7 Sonnet (Recommended)</option>
+                            <option value="gemini">Gemini 2.5 Pro</option>
+                            <option value="deepseek">DeepSeek V3</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="personas" class="persona-section">
             <div class="container">
                 <h2>Engineered for High-Stakes Work</h2>
                 <div class="persona-grid">
@@ -126,21 +164,9 @@
             </div>
         </section>
 
-        <section id="paste-test" class="paste-test-section">
-            <div class="container narrow">
-                <h2>Test Deterministic Execution</h2>
-                <p class="section-sub">Paste a paragraph containing financial metrics or factual claims below. Watch the engine isolate nodes, lock variables, and flag logic gaps instantly.</p>
-                <div class="sandbox-box">
-                    <textarea id="sandbox-input" placeholder="e.g., Q3 revenue reached $4.2M, representing a 15% increase year-over-year. Consequently, operating margins expanded to 32% across all regional divisions..."></textarea>
-                    <button type="button" id="sandbox-run-btn" class="btn-primary">Run Deterministic Audit</button>
-                    <div id="sandbox-output" class="sandbox-output hidden">
-                        <div class="output-header">
-                            <span id="sandbox-z3-badge" class="badge z3-badge">🛡️ Z3 Ledger: 0 Variables Locked</span>
-                            <span id="sandbox-redhat-badge" class="badge redhat-badge">🔍 Red-Hat: 0 Logic Gaps</span>
-                        </div>
-                        <div id="sandbox-node-tree" class="node-tree"></div>
-                    </div>
-                </div>
+        <section class="social-proof-section">
+            <div class="container center">
+                <p class="trust-signal-text">Used by analysts, researchers, and engineers at high-consequence institutions.</p>
             </div>
         </section>
 
@@ -214,9 +240,36 @@
         window.setTimeout(function () {
           output.style.opacity = "1";
         }, 50);
+
+        var bridge = document.getElementById("workspace-bridge");
+        if (bridge) bridge.classList.remove("hidden");
+      }
+
+      function toggleAdvancedSettings() {
+        var drawer = document.getElementById("advanced-model-drawer");
+        if (drawer) drawer.classList.toggle("hidden");
+      }
+
+      function sendToWorkbench() {
+        var text = (document.getElementById("sandbox-input").value || "").trim();
+        if (!text) {
+          window.alert("Please enter some text to test.");
+          return;
+        }
+        var modelEl = document.getElementById("model-select");
+        var model = modelEl ? modelEl.value : "claude";
+        try {
+          sessionStorage.setItem("assure_landing_draft", text);
+          sessionStorage.setItem("assure_landing_model", model);
+        } catch (_) {}
+        window.location.href = "/app?mode=workbench&import=latest";
       }
 
       document.getElementById("sandbox-run-btn").addEventListener("click", runSandboxTest);
+      var advToggle = document.getElementById("sandbox-advanced-toggle");
+      if (advToggle) advToggle.addEventListener("click", toggleAdvancedSettings);
+      var sendBtn = document.getElementById("sandbox-send-workbench");
+      if (sendBtn) sendBtn.addEventListener("click", sendToWorkbench);
     </script>
 </body>
 </html>

@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 TUNNEL_NAME="${TUNNEL_NAME:-assure-prod}"
-APP_HOST="${APP_HOST:-app.getassureai.com}"
+APP_HOST="${APP_HOST:-getassureai.com}"
 APP_ORIGIN="${APP_ORIGIN:-http://localhost:8765}"
 ENV_FILE="$ROOT/.env.production"
 CREDS_DIR="$ROOT/scripts/aws/credentials"

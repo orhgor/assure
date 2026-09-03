@@ -37,7 +37,8 @@ jobs:
         run: npx wrangler@4 deploy
         working-directory: .
 
-      - name: Smoke check homepage
+      - name: Smoke check apex redirect
         run: |
-          code="$(curl -sS -o /dev/null -w '%{http_code}' https://getassureai.com/)"
-          test "$code" = "200" || (echo "getassureai.com returned HTTP $code" >&2; exit 1)
+          headers="$(curl -sS -D - -o /dev/null https://getassureai.com/)"
+          echo "$headers" | grep -qi '200' || (echo "Expected 200 from getassureai.com (EC2 via tunnel)" >&2; exit 1)
+          echo "$headers" | grep -qi 'app.getassureai.com' && (echo "Apex must not redirect to app subdomain" >&2; exit 1) || true

@@ -23,7 +23,7 @@ fi
 # shellcheck disable=SC1091
 source /tmp/assure.env.production
 TUNNEL_ID="${TUNNEL_ID:-}"
-APP_HOST="${APP_HOST:-app.getassureai.com}"
+APP_HOST="${APP_HOST:-getassureai.com}"
 
 if [ -z "$TUNNEL_ID" ]; then
   echo "TUNNEL_ID not set in /tmp/assure.env.production" >&2

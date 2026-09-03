@@ -124,10 +124,10 @@ if p.get("Status") != "Success":
 PY
 
 if [[ "${SSM_STRICT_HEALTH:-}" == "1" ]]; then
-  curl -sf "https://app.getassureai.com/health" >/dev/null || exit 1
+  curl -sf "https://getassureai.com/health" >/dev/null || exit 1
 fi
 
-if curl -sf "https://app.getassureai.com/health" | python3 -c "
+if curl -sf "https://getassureai.com/health" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 ui = d.get('ui') or {}
@@ -137,7 +137,7 @@ print('css_version:', ui.get('css_version'))
 print('js_version:', ui.get('js_version'))
 print('status:', d.get('status'))
 " 2>/dev/null; then
-  echo "Hard refresh https://app.getassureai.com (Cmd+Shift+R)."
+  echo "Hard refresh https://getassureai.com (Cmd+Shift+R)."
 else
   echo "Public /health not reachable yet (tunnel may be warming up)." >&2
 fi

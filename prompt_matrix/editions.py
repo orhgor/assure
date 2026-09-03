@@ -202,7 +202,7 @@ def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
             f"{plan.label} allows {plan.daily_sends} checks per day. "
             "You've reached today's limit. Pro is 100 checks per day. "
             "There is no checkout in this app. Set ASSURE_EDITION=pro "
-            "(or team / self-hosted), or open https://getassureai.com/pricing.html."
+            "(or team / self-hosted), or open https://getassureai.com/app."
         )
 
 

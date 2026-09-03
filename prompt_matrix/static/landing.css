@@ -56,6 +56,34 @@ body {
     letter-spacing: -0.025em;
 }
 
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.nav-links a {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.nav-links a:hover {
+    color: var(--text-main);
+}
+
+.nav-links .btn-primary-small {
+    margin-left: 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .nav-links a:not(.btn-primary-small) {
+        display: none;
+    }
+}
+
 .btn-primary-small, .btn-primary {
     background-color: var(--text-main);
     color: var(--bg-deep);
@@ -360,6 +388,101 @@ body {
 
 .glossary-content li {
     margin-bottom: 0.5rem;
+}
+
+.social-proof-section {
+    padding: 2.5rem 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.trust-signal-text {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-style: italic;
+}
+
+.workspace-transition-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    margin-top: 1.25rem;
+}
+
+.workspace-transition-banner.hidden {
+    display: none;
+}
+
+.engine-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-green);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.engine-status::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-green);
+    border-radius: 50%;
+}
+
+.transition-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0;
+}
+
+.btn-text:hover {
+    color: var(--text-main);
+}
+
+.advanced-drawer {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.advanced-drawer.hidden {
+    display: none;
+}
+
+.advanced-drawer label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.dropdown-styled {
+    width: 100%;
+    background: var(--bg-deep);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
 }
 
 .site-footer {

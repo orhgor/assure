@@ -94,9 +94,12 @@ except ImportError:
         is_valid_email as _is_valid_email,
     )
 
+CANONICAL_PUBLIC_HOST = os.environ.get("CANONICAL_HOST", "getassureai.com").strip().lower()
+_LEGACY_PUBLIC_HOSTS = frozenset({"app.getassureai.com", "www.getassureai.com"})
 _WAITLIST_ORIGINS = frozenset(
     {
         "https://getassureai.com",
+        "https://www.getassureai.com",
         "https://assure.orhangorenn.workers.dev",
     }
 )
@@ -335,6 +338,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
             template_state,
             verify_session_token,
         )
+
+    @app.before_request
+    def _canonical_host_redirect():
+        from urllib.parse import urlsplit, urlunsplit
+
+        host = (request.host or "").split(":")[0].lower()
+        if host in _LEGACY_PUBLIC_HOSTS and CANONICAL_PUBLIC_HOST:
+            parts = urlsplit(request.url)
+            return redirect(
+                urlunsplit(("https", CANONICAL_PUBLIC_HOST, parts.path, parts.query, "")),
+                code=301,
+            )
+        return None
 
     @app.before_request
     def _cloud_login():

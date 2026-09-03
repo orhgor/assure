@@ -12,7 +12,7 @@ OUTPUT="$ROOT/scripts/aws/cloud_init.sh"
 CREDS_DIR="$ROOT/scripts/aws/credentials"
 
 TUNNEL_NAME="${TUNNEL_NAME:-assure-prod}"
-APP_HOST="${APP_HOST:-app.getassureai.com}"
+APP_HOST="${APP_HOST:-getassureai.com}"
 GIT_CLONE_URL="${GIT_CLONE_URL:-https://github.com/orhgor/assure.git}"
 GIT_BRANCH="${GIT_BRANCH:-${ASSURE_GIT_REF:-p4-account-wallet}}"
 

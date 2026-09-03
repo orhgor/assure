@@ -1,10 +1,2 @@
-# Path aliases. Attach getassureai.com (and www) in the Worker custom-domain panel.
-# Add a Bulk Redirect there for https://www.getassureai.com/* → https://getassureai.com/:splat
-
-/ /index.html 200
-/pricing /pricing.html 200
-/privacy /privacy.html 200
-/about /about.html 200
-/install /install.html 200
-/start /#install 302
-/terms /terms.html 200
+# Redirects are enforced by worker/index.js (workers.dev → getassureai.com).
+# Cloudflare _redirects only supports relative targets; do not add apex URLs here.

@@ -17,7 +17,7 @@
     if (hash.indexOf("tool=") === 0) return hash.slice(5);
     var legacy = { compose: "projects", workbench: "projects" };
     if (legacy[hash]) return legacy[hash];
-    if (["projects", "library", "settings"].indexOf(hash) >= 0) return hash;
+    if (["projects", "library"].indexOf(hash) >= 0) return hash;
     return null;
   }
 
@@ -131,6 +131,80 @@
     },
   };
 
+  var AssureLandingBridge = {
+    init: function () {
+      var layout = $("assure-app");
+      if (!layout) return;
+
+      var params;
+      try {
+        params = new URL(location.href).searchParams;
+      } catch (_) {
+        return;
+      }
+      if (params.get("import") !== "latest") return;
+
+      var draft = "";
+      var model = "";
+      try {
+        draft = sessionStorage.getItem("assure_landing_draft") || "";
+        model = sessionStorage.getItem("assure_landing_model") || "";
+        sessionStorage.removeItem("assure_landing_draft");
+        sessionStorage.removeItem("assure_landing_model");
+      } catch (_) {}
+
+      if (draft) {
+        var task = $("task");
+        if (task) task.value = draft;
+      }
+      if (model) {
+        try {
+          localStorage.setItem("assure_preferred_target", model);
+        } catch (_) {}
+      }
+
+      AssureNav.activate("projects", { replaceHash: false, persist: true });
+      AssureMode.activate("compose", { persist: true });
+
+      var cleaned = new URL(location.href);
+      cleaned.searchParams.delete("import");
+      cleaned.searchParams.delete("mode");
+      history.replaceState(null, "", cleaned.pathname + cleaned.search + cleaned.hash);
+
+      if (draft) {
+        var tryDock = function (attempts) {
+          if (global.__assureJdf && typeof global.__assureJdf.dockDraftToCanvas === "function") {
+            global.__assureJdf
+              .dockDraftToCanvas(draft)
+              .then(function () {
+                if (global.AssureToast) {
+                  global.AssureToast.show(
+                    translate("landing.import.docked", "Landing draft docked to canvas."),
+                    "success"
+                  );
+                }
+              })
+              .catch(function () {
+                if (global.AssureToast) {
+                  global.AssureToast.show(
+                    translate("landing.import.ready", "Draft loaded into workspace."),
+                    "info"
+                  );
+                }
+              });
+            return;
+          }
+          if (attempts > 0) {
+            window.setTimeout(function () {
+              tryDock(attempts - 1);
+            }, 200);
+          }
+        };
+        tryDock(25);
+      }
+    },
+  };
+
   var AssureNav = {
     activeTool: DEFAULT_TOOL,
 
@@ -175,14 +249,7 @@
         if (toggle) toggle.setAttribute("aria-expanded", "false");
       }
 
-      var openSettings = $("open-settings-from-nav");
-      if (openSettings) {
-        openSettings.addEventListener("click", function () {
-          if (global.AssureKeys && global.AssureKeys.openSettingsModal) {
-            global.AssureKeys.openSettingsModal(false);
-          }
-        });
-      }
+      AssureLandingBridge.init();
     },
 
     activate: function (tool, opts) {

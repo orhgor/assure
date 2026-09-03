@@ -1,6 +1,6 @@
 # Deploy flow — app (EC2 + GHCR)
 
-Fast, reliable deploys for **app.getassureai.com** (`p4-account-wallet`).
+Fast, reliable deploys for **getassureai.com** (`p4-account-wallet`).
 
 ## Architecture
 
@@ -38,7 +38,7 @@ Marketing site stays on branch **`webpage`** → Cloudflare Worker (not this flo
 6. Verify:
 
    ```bash
-   curl -s https://app.getassureai.com/health | python3 -m json.tool
+   curl -s https://getassureai.com/health | python3 -m json.tool
    ```
 
    `build_sha` must match your commit (short prefix of full SHA).
