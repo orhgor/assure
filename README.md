@@ -47,12 +47,21 @@ Install, CLI, and MCP details: [prompt_matrix/README.md](prompt_matrix/README.md
 
 ## Cloudflare
 
-GitHub [`orhgor/assure`](https://github.com/orhgor/assure) holds the **webpage only** (branch `webpage`, site at repo root). The workbench and PEM engine stay on this machine. Do not push `main` to that remote.
+Two branches, two surfaces:
 
-The connected Worker is `assure`. Deploy command is `npx wrangler deploy`. `wrangler.jsonc` must list `assets.directory` (not a Pages `pages_build_output_dir`). Public site: [https://getassureai.com/](https://getassureai.com/) (HTTPS 200 as of 2026-09-01).
+| Branch | Deploy target | URL |
+|--------|---------------|-----|
+| `p4-account-wallet` | EC2 Docker (`scripts/aws/redeploy-via-ssm.sh`) | [app.getassureai.com](https://app.getassureai.com) |
+| `webpage` | Cloudflare Worker `assure` | [getassureai.com](https://getassureai.com) |
 
-Copy the site files, then push the webpage branch yourself:
+GitHub [`orhgor/assure`](https://github.com/orhgor/assure) default branch is **`webpage`** (marketing site at repo root). The JDF Workstation and PEM engine live on **`p4-account-wallet`** and deploy to EC2 — not through Cloudflare Workers Builds.
+
+Cloudflare Workers Builds for Worker **`assure`** must connect to **`webpage` only**. A red **Workers Builds: assure** check on an app PR is irrelevant (wrong branch / missing root `wrangler.jsonc`). Fix: [docs/cloudflare-fix.md](docs/cloudflare-fix.md) or `bash scripts/cloudflare/set_workers_branch.sh`.
+
+Marketing deploy: copy `landing/` to a webpage checkout, then push `webpage`:
 
 ```bash
 ./scripts/sync-webpage.sh /path/to/webpage-checkout
 ```
+
+Worker deploy command: `npx wrangler deploy`. `wrangler.jsonc` must list `assets.directory` (not a Pages `pages_build_output_dir`).

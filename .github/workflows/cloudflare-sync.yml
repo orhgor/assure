@@ -1,0 +1,43 @@
+# Deploy marketing site (Worker assure) when the webpage branch is pushed.
+#
+# Primary deploy path is Cloudflare Workers Builds (Git → webpage). This workflow
+# is a backup if you prefer GitHub Actions + wrangler, or while reconfiguring Builds.
+#
+# Required GitHub secrets (repo settings → Secrets):
+#   CLOUDFLARE_API_TOKEN  — Workers Scripts Edit (+ Account read)
+#
+# On the webpage branch, wrangler.jsonc lives at repo root (synced from landing/).
+# This workflow does not run on p4-account-wallet.
+
+name: Cloudflare landing sync
+
+on:
+  push:
+    branches:
+      - webpage
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-assure-landing
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Deploy Worker (webpage branch)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler@4 deploy
+        working-directory: .
+
+      - name: Smoke check homepage
+        run: |
+          code="$(curl -sS -o /dev/null -w '%{http_code}' https://getassureai.com/)"
+          test "$code" = "200" || (echo "getassureai.com returned HTTP $code" >&2; exit 1)
