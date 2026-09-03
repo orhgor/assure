@@ -51,7 +51,7 @@ Two branches, two surfaces:
 
 | Branch | Deploy target | URL |
 |--------|---------------|-----|
-| `p4-account-wallet` | EC2 Docker (`scripts/aws/redeploy-via-ssm.sh`) | [app.getassureai.com](https://app.getassureai.com) |
+| `p4-account-wallet` | EC2 Docker — image built in **GitHub Actions**, pulled on EC2 ([deploy flow](docs/deploy-flow.md)) | [app.getassureai.com](https://app.getassureai.com) |
 | `webpage` | Cloudflare Worker `assure` | [getassureai.com](https://getassureai.com) |
 
 GitHub [`orhgor/assure`](https://github.com/orhgor/assure) default branch is **`webpage`** (marketing site at repo root). The JDF Workstation and PEM engine live on **`p4-account-wallet`** and deploy to EC2 — not through Cloudflare Workers Builds.

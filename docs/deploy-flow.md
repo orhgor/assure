@@ -1,0 +1,104 @@
+# Deploy flow — app (EC2 + GHCR)
+
+Fast, reliable deploys for **app.getassureai.com** (`p4-account-wallet`).
+
+## Architecture
+
+```
+Cursor/Mac → git push → GitHub
+                          ├─ CI (tests)
+                          └─ App Docker workflow
+                               ├─ build image → ghcr.io/orhgor/assure-app:<sha>
+                               └─ SSM → EC2 pull + restart
+```
+
+| Layer | Role |
+|-------|------|
+| **GitHub** | Source of truth, CI, **Docker build** |
+| **GHCR** | Pre-built images (`ghcr.io/orhgor/assure-app`) |
+| **EC2** | Pull image, run container, persist `data/` |
+| **Cloudflare** | Public URL → tunnel → EC2 |
+
+Marketing site stays on branch **`webpage`** → Cloudflare Worker (not this flow).
+
+---
+
+## Day-to-day (developer)
+
+1. Edit on any machine; work on branch **`p4-account-wallet`**
+2. `git commit && git push`
+3. GitHub Actions **App Docker** builds and pushes the image
+4. If auto-deploy is configured, EC2 updates automatically
+5. Otherwise (or to redeploy manually):
+
+   ```bash
+   bash scripts/aws/redeploy-via-ssm.sh
+   ```
+
+6. Verify:
+
+   ```bash
+   curl -s https://app.getassureai.com/health | python3 -m json.tool
+   ```
+
+   `build_sha` must match your commit (short prefix of full SHA).
+
+---
+
+## GitHub secrets (for auto-deploy)
+
+In **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Purpose |
+|--------|---------|
+| `AWS_ACCESS_KEY_ID` | IAM user with SSM send-command (see `scripts/aws/iam-policy-assure-deploy.json`) |
+| `AWS_SECRET_ACCESS_KEY` | Pair for above |
+| `ASSURE_INSTANCE_ID` | Optional; defaults to `i-09d0ad0b561113abe` |
+
+`GITHUB_TOKEN` is provided automatically (git fetch + GHCR pull on EC2 during SSM).
+
+Until these secrets exist, **build still runs on every push**; deploy the image manually with `redeploy-via-ssm.sh` from your Mac.
+
+---
+
+## EC2 one-time setup
+
+On the instance, `.env.production` should include (optional if SSM passes token from deploy script):
+
+```bash
+GHCR_USER=orhgor
+GHCR_TOKEN=ghp_...   # fine-grained PAT: read:packages (and repo if needed)
+```
+
+If omitted, redeploy via SSM passes the same GitHub token used for `git fetch`.
+
+---
+
+## Manual redeploy (Mac)
+
+Requires `gh auth login` (or `GITHUB_TOKEN`) and AWS CLI with SSM permissions:
+
+```bash
+bash scripts/aws/redeploy-via-ssm.sh
+```
+
+This syncs git on EC2, logs into GHCR, pulls `ghcr.io/orhgor/assure-app:<commit-sha>`, and restarts — **no Docker build on EC2**.
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `manifest unknown` on pull | Wait for **App Docker** workflow to finish building the image for that commit |
+| GHCR auth failed on EC2 | Set `GHCR_TOKEN` in `/home/ubuntu/assure/.env.production` |
+| SSM deploy job failed in Actions | Add AWS secrets; or deploy from Mac with `redeploy-via-ssm.sh` |
+| Stale UI | Hard refresh; check `/health` → `css_version` / `js_version` |
+
+---
+
+## What not to do
+
+- Do not `docker build` on EC2 for routine deploys
+- Do not edit production code only on EC2
+- Do not commit `.env.production` or API keys
