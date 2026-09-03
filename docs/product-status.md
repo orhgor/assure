@@ -23,9 +23,10 @@ Latest commit `6c225ae` on branch **`p4-account-wallet`**. EC2 redeploy via SSM 
 
 | Item | Status |
 | :--- | :--- |
-| Document Compiler manifesto landing (hero, 3-Act Engine, competitor section) | ✅ In tree (`prompt_matrix/templates/landing.html`) |
+| Intellectual Compiler manifesto landing (hero, tagline, 3-Act Engine, competitor section) | ✅ Deployed (`192eba3`) |
+| Persona strip — 6 at-a-glance roles below hero | ✅ In tree (pending deploy) |
 | `/architecture` subpage (JDF AST, 6-step pipeline, Z3 explanation) | ✅ `prompt_matrix/templates/architecture.html` |
-| Zero-Risk Paste Test — `POST /api/sandbox/verify` (real pipeline, no persistence) | ✅ `prompt_matrix/routers/sandbox.py` + `static/sandbox.js` on landing |
+| Zero-Risk Paste Test — `POST /api/sandbox/verify` + unified Pre-Flight Gate (`audit_gate.js`) | ✅ `sandbox.py` + `audit_summary.py` |
 | Nav: Docs, Architecture, Sandbox, **Launch Workspace** → `/app` | ✅ Landing nav wired |
 
 ### Workbench (Document Compiler UI)
