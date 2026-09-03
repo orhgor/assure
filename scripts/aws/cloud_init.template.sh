@@ -26,30 +26,7 @@ curl -L --output /tmp/cloudflared.deb \
 dpkg -i /tmp/cloudflared.deb
 rm -f /tmp/cloudflared.deb
 
-# 4. Clone repository into ubuntu user home directory
-install -d -o ubuntu -g ubuntu /home/ubuntu/assure/data
-if [ ! -d /home/ubuntu/assure/.git ]; then
-  sudo -u ubuntu git clone --branch __GIT_BRANCH__ --depth 1 __GIT_CLONE_URL__ /home/ubuntu/assure
-fi
-cd /home/ubuntu/assure
-
-# 5. Build and launch container in background (production compose, localhost only)
-sudo -u ubuntu docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build assure-app
-
-# 6. Auto-heal cron: restart container every 5m if it ever stops
-( crontab -l 2>/dev/null | grep -v 'docker compose up -d assure-app' || true
-  echo '*/5 * * * * if ! docker ps | grep -q assure-app; then cd /home/ubuntu/assure && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d assure-app; fi'
-) | crontab -
-
-# 7. Unattended security updates with scheduled 03:00 UTC reboots
-apt-get install -y unattended-upgrades
-systemctl enable --now unattended-upgrades
-grep -q 'Automatic-Reboot "true"' /etc/apt/apt.conf.d/50unattended-upgrades || \
-  echo 'Unattended-Upgrade::Automatic-Reboot "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
-grep -q 'Automatic-Reboot-Time "03:00"' /etc/apt/apt.conf.d/50unattended-upgrades || \
-  echo 'Unattended-Upgrade::Automatic-Reboot-Time "03:00";' >> /etc/apt/apt.conf.d/50unattended-upgrades
-
-# 8. Configure Cloudflare Tunnel credentials and Ingress routing to port 8765
+# 4. Configure and start tunnel before Docker build (avoids 530 while image builds)
 mkdir -p /etc/cloudflared
 cat << 'EOF_CREDS' > /etc/cloudflared/__TUNNEL_ID__.json
 __TUNNEL_CREDENTIALS_JSON_CONTENT__
@@ -66,9 +43,35 @@ ingress:
   - service: http_status:404
 EOF_CF
 
-# 9. Install and activate cloudflared systemd service
 cloudflared --config /etc/cloudflared/config.yml service install
 systemctl daemon-reload
 systemctl enable --now cloudflared
+
+# 5. Clone repository into ubuntu user home directory
+install -d -o ubuntu -g ubuntu /home/ubuntu/assure/data
+if [ ! -d /home/ubuntu/assure/.git ]; then
+  sudo -u ubuntu git clone --branch __GIT_BRANCH__ --depth 1 __GIT_CLONE_URL__ /home/ubuntu/assure
+fi
+cd /home/ubuntu/assure
+
+if [ -f /tmp/assure.env.production ]; then
+  install -o ubuntu -g ubuntu -m 600 /tmp/assure.env.production /home/ubuntu/assure/.env.production
+fi
+
+# 6. Build and launch container (production compose, localhost only)
+sudo -u ubuntu docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build assure-app
+
+# 7. Auto-heal cron: restart container every 5m if it ever stops
+( crontab -l 2>/dev/null | grep -v 'docker compose up -d assure-app' || true
+  echo '*/5 * * * * if ! docker ps | grep -q assure-app; then cd /home/ubuntu/assure && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d assure-app; fi'
+) | crontab -
+
+# 8. Unattended security updates with scheduled 03:00 UTC reboots
+apt-get install -y unattended-upgrades
+systemctl enable --now unattended-upgrades
+grep -q 'Automatic-Reboot "true"' /etc/apt/apt.conf.d/50unattended-upgrades || \
+  echo 'Unattended-Upgrade::Automatic-Reboot "true";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+grep -q 'Automatic-Reboot-Time "03:00"' /etc/apt/apt.conf.d/50unattended-upgrades || \
+  echo 'Unattended-Upgrade::Automatic-Reboot-Time "03:00";' >> /etc/apt/apt.conf.d/50unattended-upgrades
 
 echo "Assure bootstrap complete at $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> /var/log/assure-bootstrap.log

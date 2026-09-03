@@ -6,6 +6,7 @@ venv/
 .env
 .env.production
 scripts/aws/credentials/
+scripts/aws/cloud_init.sh
 scripts/aws/.tunnel-credentials.json
 .pytest_cache/
 .mypy_cache/

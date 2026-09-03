@@ -38,7 +38,19 @@ AMI_ID="$(aws ssm get-parameters \
   --names /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id \
   --region "$AWS_REGION" \
   --query 'Parameters[0].Value' \
-  --output text)"
+  --output text 2>/dev/null || true)"
+if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "None" ]; then
+  AMI_ID="$(aws ec2 describe-images \
+    --region "$AWS_REGION" \
+    --owners 099720109477 \
+    --filters "Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*" "Name=state,Values=available" \
+    --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+    --output text)"
+fi
+if [ -z "$AMI_ID" ] || [ "$AMI_ID" = "None" ]; then
+  echo "Could not resolve Ubuntu 24.04 ARM64 AMI in $AWS_REGION." >&2
+  exit 1
+fi
 
 echo "Using Ubuntu 24.04 ARM64 AMI: $AMI_ID"
 
@@ -92,7 +104,7 @@ SG_ID="$(aws ec2 describe-security-groups \
 if [ "$SG_ID" = "None" ] || [ -z "$SG_ID" ]; then
   SG_ID="$(aws ec2 create-security-group \
     --group-name "$SG_NAME" \
-    --description "Assure prod — egress only, Cloudflare Tunnel inbound" \
+    --description "Assure prod - egress only, Cloudflare Tunnel inbound" \
     --vpc-id "$VPC_ID" \
     --region "$AWS_REGION" \
     --query 'GroupId' \
@@ -101,25 +113,15 @@ if [ "$SG_ID" = "None" ] || [ -z "$SG_ID" ]; then
 fi
 
 # --- Build user-data payload ---
+# cloud_init.sh already embeds tunnel credentials; only inject .env.production here.
 USERDATA="$(mktemp)"
 {
   echo "#!/bin/bash"
-  echo "export ASSURE_GIT_REF='${ASSURE_GIT_REF}'"
-  echo "read -r TUNNEL_TOKEN <<'TOKENS_EOF'"
-  echo "${CLOUDFLARE_TUNNEL_TOKEN}"
-  echo "TOKENS_EOF"
-  echo "export TUNNEL_TOKEN"
+  echo "set -euxo pipefail"
   echo "cat > /tmp/assure.env.production <<'ENVEOF'"
   cat "$ENV_FILE"
+  echo ""
   echo "ENVEOF"
-  if [ -f "$CREDS_FILE" ] && [ -f "$CF_CONFIG" ]; then
-    echo "cat > /tmp/cloudflared-credentials.json <<'CREDEOF'"
-    cat "$CREDS_FILE"
-    echo "CREDEOF"
-    echo "cat > /tmp/cloudflared-config.yml <<'CFEOF'"
-    cat "$CF_CONFIG"
-    echo "CFEOF"
-  fi
   cat "$ROOT/scripts/aws/cloud_init.sh"
 } > "$USERDATA"
 

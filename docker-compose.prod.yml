@@ -1,7 +1,7 @@
 # Production overrides for EC2 deployment (Cloudflare Tunnel — no public ports).
 services:
   assure-app:
-    ports:
+    ports: !override
       - "127.0.0.1:8765:8765"
     environment:
       ENVIRONMENT: production
