@@ -6,6 +6,9 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8765
 
+ARG ASSURE_BUILD_SHA=unknown
+ENV ASSURE_BUILD_SHA=${ASSURE_BUILD_SHA}
+
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \

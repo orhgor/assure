@@ -377,6 +377,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
         )
         resp = make_response(html)
         resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        if os.environ.get("ENVIRONMENT") == "production":
+            resp.headers["Cache-Control"] = "no-store, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
         return resp
 
     @app.get("/")

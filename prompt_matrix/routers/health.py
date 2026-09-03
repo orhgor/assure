@@ -112,6 +112,19 @@ def health_check():
     if not status["ok"]:
         status["status"] = "unhealthy"
 
+    try:
+        from ..ui_cache import APP_CSS, APP_JS
+    except ImportError:
+        from ui_cache import APP_CSS, APP_JS
+    status["ui"] = {
+        "css_version": APP_CSS,
+        "js_version": APP_JS,
+        "jdf_workbench": True,
+    }
+    build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip()
+    if build_sha:
+        status["build_sha"] = build_sha
+
     code = 200 if status["ok"] else 503
     return jsonify(status), code
 

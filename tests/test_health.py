@@ -52,3 +52,6 @@ def test_health_returns_ok(health_client):
     assert "disk_free_gb" in payload["checks"]
     assert payload["checks"]["disk"] == "ok"
     assert "backup" in payload["checks"]
+    assert payload["ui"]["jdf_workbench"] is True
+    assert "css_version" in payload["ui"]
+    assert "js_version" in payload["ui"]
