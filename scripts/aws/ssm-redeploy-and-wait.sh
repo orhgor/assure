@@ -31,8 +31,14 @@ if [[ -z "$TOKEN" ]]; then
   exit 1
 fi
 
-GHCR_TOKEN="${GHCR_DEPLOY_TOKEN:-$TOKEN}"
+GHCR_TOKEN="${GHCR_DEPLOY_TOKEN:-${GHCR_TOKEN:-$TOKEN}}"
 GHCR_USER="${GHCR_USER:-orhgor}"
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  GHCR_TOKEN="${GHCR_DEPLOY_TOKEN:-${GHCR_TOKEN:-$TOKEN}}"
+  GHCR_USER="${GHCR_USER:-orhgor}"
+fi
 
 BODY="$(mktemp)"
 trap 'rm -f "$BODY"' EXIT
@@ -43,13 +49,14 @@ set -euo pipefail
 export GIT_TERMINAL_PROMPT=0
 export GHCR_TOKEN='${GHCR_TOKEN}'
 export GHCR_USER='${GHCR_USER}'
+sudo -u ubuntu git config --global --add safe.directory /home/ubuntu/assure 2>/dev/null || true
 cd /home/ubuntu/assure
-git remote set-url origin "https://x-access-token:${TOKEN}@github.com/orhgor/assure.git"
-git fetch origin ${GIT_BRANCH}
-git checkout ${GIT_BRANCH}
-git reset --hard origin/${GIT_BRANCH}
-git log -1 --oneline
-bash scripts/aws/redeploy-app.sh
+sudo -u ubuntu git remote set-url origin "https://x-access-token:${TOKEN}@github.com/orhgor/assure.git"
+sudo -u ubuntu git fetch origin ${GIT_BRANCH}
+sudo -u ubuntu git checkout ${GIT_BRANCH}
+sudo -u ubuntu git reset --hard origin/${GIT_BRANCH}
+sudo -u ubuntu git log -1 --oneline
+sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' bash scripts/aws/redeploy-app.sh
 echo ---HEALTH---
 curl -sf http://127.0.0.1:8765/health || true
 SCRIPT

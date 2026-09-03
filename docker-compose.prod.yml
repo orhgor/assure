@@ -1,9 +1,6 @@
 # Production overrides for EC2 deployment (Cloudflare Tunnel — no public ports).
-# Image is built in GitHub Actions and pushed to GHCR; EC2 pulls only.
 services:
   assure-app:
-    image: ghcr.io/orhgor/assure-app:${ASSURE_IMAGE_TAG:?ASSURE_IMAGE_TAG required}
-    pull_policy: never
     ports: !override
       - "127.0.0.1:8765:8765"
     environment:

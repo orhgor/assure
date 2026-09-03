@@ -7,6 +7,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
+COMPOSE_GHCR=(docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ghcr.yml)
 BRANCH="${ASSURE_DEPLOY_BRANCH:-p4-account-wallet}"
 IMAGE_REPO="${ASSURE_IMAGE_REPO:-ghcr.io/orhgor/assure-app}"
 
@@ -26,14 +27,23 @@ echo "==> GHCR login"
 # shellcheck disable=SC1091
 source "$ROOT/scripts/aws/ghcr-login.sh"
 
-echo "==> Pull ${ASSURE_IMAGE}"
-docker pull "$ASSURE_IMAGE"
-
 echo "==> Stop assure-app (keep volumes)"
 "${COMPOSE[@]}" stop assure-app || true
 
-echo "==> Start assure-app (pull-only, no build)"
-"${COMPOSE[@]}" up -d --no-build --pull never assure-app
+echo "==> Pull ${ASSURE_IMAGE}"
+if docker pull "$ASSURE_IMAGE"; then
+  echo "==> Start assure-app (pull-only, no build)"
+  "${COMPOSE_GHCR[@]}" up -d --no-build --pull never assure-app
+else
+  echo "WARN: GHCR pull failed (add GHCR_TOKEN with read:packages to .env.production)."
+  if [[ "${ASSURE_DEPLOY_PULL_ONLY:-}" == "1" ]]; then
+    echo "ASSURE_DEPLOY_PULL_ONLY=1 — aborting." >&2
+    exit 1
+  fi
+  echo "==> Fallback: build on EC2 (slow)"
+  DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
+  "${COMPOSE[@]}" up -d assure-app
+fi
 
 echo "==> Wait for health"
 for i in $(seq 1 30); do

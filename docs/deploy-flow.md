@@ -59,6 +59,14 @@ In **Settings → Secrets and variables → Actions**, add:
 
 Until these secrets exist, **build still runs on every push**; deploy the image manually with `redeploy-via-ssm.sh` from your Mac.
 
+**GHCR pull on EC2** needs a token with **`read:packages`**. Options:
+
+1. Add `GHCR_TOKEN` to your Mac `.env.production` (used by SSM redeploy), or  
+2. Add the same to EC2 `/home/ubuntu/assure/.env.production`, or  
+3. Add `GHCR_DEPLOY_TOKEN` as a GitHub Actions secret for auto-deploy.
+
+Create a classic PAT at GitHub → Settings → Developer settings → PAT with **`read:packages`** (and **`repo`** for private git fetch if needed).
+
 ---
 
 ## EC2 one-time setup

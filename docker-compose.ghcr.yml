@@ -1,0 +1,5 @@
+# GHCR pull-only overlay (used when ASSURE_IMAGE_TAG is set).
+services:
+  assure-app:
+    image: ghcr.io/orhgor/assure-app:${ASSURE_IMAGE_TAG:?ASSURE_IMAGE_TAG required}
+    pull_policy: never
