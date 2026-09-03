@@ -46,15 +46,16 @@ else
 fi
 
 echo "==> Wait for health"
-for i in $(seq 1 30); do
-  if curl -sf "http://127.0.0.1:8765/health" >/tmp/assure-health.json 2>/dev/null; then
+for i in $(seq 1 45); do
+  if curl -sf "http://127.0.0.1:8765/health" >/tmp/assure-health.json 2>/dev/null \
+    && [[ -s /tmp/assure-health.json ]]; then
     break
   fi
   sleep 2
 done
 
 echo "==> Health / UI manifest"
-if [[ -f /tmp/assure-health.json ]]; then
+if [[ -s /tmp/assure-health.json ]]; then
   python3 -c "
 import json
 data = json.load(open('/tmp/assure-health.json'))
@@ -64,13 +65,14 @@ print('build_sha:', data.get('build_sha', '(not set)'))
 print('css_version:', ui.get('css_version'))
 print('js_version:', ui.get('js_version'))
 print('jdf_workbench:', ui.get('jdf_workbench'))
-"
+" || echo "health JSON parse failed (container may still be starting)"
 else
   echo "health check failed — container may still be starting"
 fi
 
 echo "==> Template check (workspace-shell in container)"
-if "${COMPOSE[@]}" exec -T assure-app grep -q 'workspace-shell' /app/prompt_matrix/templates/index.html; then
+if "${COMPOSE_GHCR[@]}" exec -T assure-app grep -q 'workspace-shell' /app/prompt_matrix/templates/index.html 2>/dev/null \
+  || "${COMPOSE[@]}" exec -T assure-app grep -q 'workspace-shell' /app/prompt_matrix/templates/index.html 2>/dev/null; then
   echo "    OK: JDF workspace-shell present in index.html"
 else
   echo "    FAIL: workspace-shell missing — wrong image or old checkout"

@@ -123,6 +123,10 @@ if p.get("Status") != "Success":
     raise SystemExit(1)
 PY
 
+if [[ "${SSM_STRICT_HEALTH:-}" == "1" ]]; then
+  curl -sf "https://app.getassureai.com/health" >/dev/null || exit 1
+fi
+
 if curl -sf "https://app.getassureai.com/health" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
