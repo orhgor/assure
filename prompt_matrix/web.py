@@ -12,7 +12,7 @@ import uuid
 import webbrowser
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, session
+from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, send_from_directory, session
 
 try:
     from .engine import (
@@ -529,6 +529,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @app.get("/")
     def marketing_landing():
         return _landing_page("landing.html")
+
+    @app.get("/favicon.ico")
+    @app.get("/favicon.svg")
+    def favicon():
+        return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
 
     @app.get("/architecture")
     def architecture_page():
