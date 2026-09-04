@@ -12,10 +12,10 @@
 | :--- | :--- | :--- |
 | System health monitoring | ✅ Live | Cron every 5 min on EC2 (`scripts/aws/install-auto-heal-cron.sh`) |
 | Audit log queries | ✅ Live | Schema matches queries below |
-| Plausible Analytics | ✅ Live on Flask `/`, `/architecture`, workbench (prod default domain) |
+| Plausible Analytics | ✅ Live on Flask `/`, `/architecture`, workbench (custom embed, prod-gated) |
 | Tester feedback button | ✅ Live — `POST /api/tester-feedback` → `audit_log` |
 | Discord/Slack channel | ⬜ Manual | No code change |
-| Sentry (optional) | ✅ Wired — activates when `SENTRY_DSN` set |
+| Sentry (optional) | ✅ Wired — browser loader (prod-gated) + server SDK when `SENTRY_DSN` set |
 
 ---
 
@@ -79,31 +79,29 @@ cd /home/ubuntu/assure && \
 
 ---
 
-## 4. Plausible Analytics (optional)
+## 4. Plausible Analytics
 
-**Context:** Static HTML under `landing/` already ships **Google Analytics 4** (`G-54F5NE9Y0P`) with privacy copy on `/privacy`. Flask-served pages (`prompt_matrix/templates/landing.html`, workbench) do **not** include GA4 today.
+**Context:** Static HTML under `landing/` already ships **Google Analytics 4** (`G-54F5NE9Y0P`) with privacy copy on `/privacy`. Flask-served pages (`prompt_matrix/templates/landing.html`, workbench) use Plausible via `includes/plausible.html` — **not** GA4.
 
-If you add Plausible for cookie-free analytics on the Flask app:
+**Embed:** Custom Plausible script (domain baked into `pa-we0rKAtBU-r8df6whoZbn.js`). Included from `base.html`, `landing.html`, and `architecture.html`.
 
-1. Sign up at [plausible.io](https://plausible.io) and add `getassureai.com`.
-2. Prefer env-driven injection so dev stays clean:
+**Gating (local dev stays clean):**
 
-   ```bash
-   # .env.production
-   PLAUSIBLE_DOMAIN=getassureai.com
-   ```
+| Condition | Plausible loads? |
+| :--- | :--- |
+| `ENVIRONMENT=production` | Yes (default on EC2) |
+| `PLAUSIBLE_ENABLED=1` | Yes (explicit override) |
+| Local / dev (neither above) | No |
 
-3. In `<head>` of `landing.html` and `base.html` (workbench):
+To test locally:
 
-   ```html
-   {% if plausible_domain %}
-   <script defer data-domain="{{ plausible_domain }}" src="https://plausible.io/js/script.js"></script>
-   {% endif %}
-   ```
+```bash
+PLAUSIBLE_ENABLED=1 python -m prompt_matrix.web
+```
 
-4. Deploy: push → GitHub Actions App Docker → `bash scripts/aws/redeploy-app.sh`.
+**Deploy:** push → GitHub Actions App Docker → `bash scripts/aws/redeploy-app.sh`.
 
-Update `/privacy` if Plausible replaces or supplements GA4.
+Update `/privacy` if Plausible replaces or supplements GA4 on static pages.
 
 ---
 
@@ -138,22 +136,30 @@ Do **not** post `{ text, user: 'tester' }` to `/api/feedback` — it will return
 
 ## 7. Sentry (optional)
 
-Not wired in the repo. To add:
+Two layers — both prod-gated for local dev:
 
-1. `uv add sentry-sdk[flask]` (or pin in `pyproject.toml`).
-2. Set `SENTRY_DSN` in production env only.
-3. Init early in `create_app()` / `web.py`:
+| Layer | What | When it loads |
+| :--- | :--- | :--- |
+| Browser | `includes/sentry.html` — Sentry CDN loader | `ENVIRONMENT=production` or `SENTRY_ENABLED=1` |
+| Server | `sentry-sdk[flask]` via `_init_sentry()` in `web.py` | When `SENTRY_DSN` is set (independent of browser gating) |
 
-   ```python
-   dsn = os.environ.get("SENTRY_DSN", "").strip()
-   if dsn:
-       import sentry_sdk
-       from sentry_sdk.integrations.flask import FlaskIntegration
-       sentry_sdk.init(dsn=dsn, environment=os.environ.get("ENVIRONMENT", "production"),
-                       integrations=[FlaskIntegration()], traces_sample_rate=0.1)
-   ```
+**Browser embed:** Included from `base.html`, `landing.html`, and `architecture.html` (same gating as Plausible).
 
-4. Redeploy. Keep DSN out of git.
+**Gating (browser loader only):**
+
+| Condition | Sentry browser loader loads? |
+| :--- | :--- |
+| `ENVIRONMENT=production` | Yes (default on EC2) |
+| `SENTRY_ENABLED=1` | Yes (explicit override) |
+| Local / dev (neither above) | No |
+
+To test the browser loader locally:
+
+```bash
+SENTRY_ENABLED=1 python -m prompt_matrix.web
+```
+
+**Server-side backend errors:** set `SENTRY_DSN` in production env (`.env.production` / compose secrets). Keep DSN out of git. Redeploy after changing env.
 
 ---
 

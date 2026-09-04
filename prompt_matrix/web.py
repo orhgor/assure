@@ -92,19 +92,22 @@ def _init_sentry() -> None:
         return
     sentry_sdk.init(
         dsn=dsn,
-        environment=os.environ.get("ENVIRONMENT", "development"),
+        environment="production",
         integrations=[FlaskIntegration()],
         traces_sample_rate=0.1,
     )
 
 
-def _plausible_domain() -> str:
-    domain = (os.environ.get("PLAUSIBLE_DOMAIN") or "").strip()
-    if domain:
-        return domain
-    if os.environ.get("ENVIRONMENT") == "production":
-        return "getassureai.com"
-    return ""
+def _plausible_enabled() -> bool:
+    if os.environ.get("PLAUSIBLE_ENABLED", "").strip() == "1":
+        return True
+    return os.environ.get("ENVIRONMENT") == "production"
+
+
+def _sentry_enabled() -> bool:
+    if os.environ.get("SENTRY_ENABLED", "").strip() == "1":
+        return True
+    return os.environ.get("ENVIRONMENT") == "production"
 
 try:
     from .waitlist import (
@@ -354,7 +357,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.context_processor
     def _ui_versions():
-        return {"css_version": APP_CSS, "js_version": APP_JS, "plausible_domain": _plausible_domain()}
+        return {
+            "css_version": APP_CSS,
+            "js_version": APP_JS,
+            "plausible_enabled": _plausible_enabled(),
+            "sentry_enabled": _sentry_enabled(),
+        }
 
     try:
         from .cloud_auth import (

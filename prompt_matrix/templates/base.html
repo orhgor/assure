@@ -12,6 +12,8 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
   {% include 'includes/plausible.html' %}
+  {% include 'includes/sentry.html' %}
+  {% include 'includes/sentry.html' %}
   <script>
     /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
     (function () {
