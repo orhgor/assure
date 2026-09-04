@@ -48,9 +48,22 @@
           <div class="app-header-left">
             <button type="button" class="sidebar-toggle tooltip-trigger" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" aria-label="{{ gettext('Toggle tools menu') }}" data-i18n-aria="app.sidebar.toggle" data-tooltip="{{ gettext('Toggle tools menu') }}" data-i18n-tooltip="app.sidebar.toggle">☰</button>
             <div class="app-logo">
-              <span class="app-logo-mark" aria-hidden="true">📄</span>
-              <span data-i18n="hero">{{ gettext('Assure') }}</span>
+              <svg class="app-logo-mark brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="24" height="24">
+                <rect width="36" height="36" rx="8" fill="#ffffff"/>
+                <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#1A4B8C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="app-logo-text">
+                <span data-i18n="hero">{{ gettext('Assure') }}</span>
+                <span class="app-logo-tagline" data-i18n="brand.tagline_html">{{ gettext('The Intellectual Compiler.') }}</span>
+              </span>
             </div>
+          </div>
+          <div class="app-header-center app-trust-strip" aria-label="{{ gettext('Trust signals') }}">
+            <span data-i18n="landing.trust.z3">Z3 Symbolically Verified</span>
+            <span aria-hidden="true">·</span>
+            <span data-i18n="landing.trust.redhat">Red-Hat Adversarial Audited</span>
+            <span aria-hidden="true">·</span>
+            <span data-i18n="header.privacy">{{ gettext('Copy stays here. Send goes only to the provider you chose.') }}</span>
           </div>
           <div class="app-header-right">
             <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
@@ -69,11 +82,11 @@
         <div class="app-body">
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="projects" aria-current="page" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
+            <button type="button" class="app-sidebar-link tooltip-trigger sidebar-link-stub" data-tool="projects" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
               <span class="app-sidebar-icon" aria-hidden="true">📁</span>
               <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="generate" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
+            <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
               <span class="app-sidebar-icon" aria-hidden="true">✨</span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
             </button>
@@ -95,7 +108,7 @@
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
 
-            <div id="view-projects" class="assure-view active">
+            <div id="view-projects" class="assure-view" hidden>
               <h3 class="jdf-pane-title" data-i18n="nav.projects">{{ gettext('Projects') }}</h3>
               <p class="hint" id="projects-active-label" data-i18n="projects.active">{{ gettext('Active project') }}: {{ project_id|default('default') }}</p>
               <button type="button" class="btn btn-outline btn-sm" id="projects-refresh-btn" data-i18n="projects.refresh">{{ gettext('Refresh') }}</button>
@@ -103,7 +116,7 @@
               <p class="hint" data-i18n="projects.hint">{{ gettext('Select a project or open Compile to ingest new content.') }}</p>
             </div>
 
-            <div id="view-generate" class="assure-view" hidden>
+            <div id="view-generate" class="assure-view active">
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile from Intent') }}</h3>
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a messy draft, upload a document, or describe your deliverable. The compiler will parse, structure, and verify it.') }}</p>
               <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
@@ -136,7 +149,7 @@
                   <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Z3 Verification and DeepSeek-R1 Adversary…') }}</span>
                 </div>
                 <p id="z3-status" class="gate-z3-status" hidden></p>
-                <details id="generate-locks-panel" class="generate-locks-panel" open>
+                <details id="generate-locks-panel" class="generate-locks-panel">
                   <summary data-i18n="generate.locks_summary">{{ gettext('Inferred locks') }}</summary>
                   <div id="generate-lock-checklist" class="lock-checklist"></div>
                 </details>
@@ -408,6 +421,10 @@
               <div class="tool-panel-inner audit-console-layout card">
                 <h2 class="tool-panel-title" data-i18n="nav.settings">{{ gettext('Settings') }}</h2>
                 <p class="hint" data-i18n="settings.placeholder">{{ gettext('User preferences and provider keys.') }}</p>
+                <label class="jdf-redhat-toggle">
+                  <input type="checkbox" id="settings-show-citations" checked>
+                  <span data-i18n="settings.show_citations">{{ gettext('Include References section in DOCX export') }}</span>
+                </label>
                 <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
                 <hr class="settings-divider">
                 <h3 class="tool-panel-title" data-i18n="adoption.audit.title">{{ gettext('Audit Console') }}</h3>
@@ -2579,9 +2596,6 @@
     $("direct").addEventListener("change", () => setDirect($("direct").checked));
     document.querySelectorAll("input[name='send-mode']").forEach((el) => {
       el.addEventListener("change", () => setDirect($("send-answer").checked));
-    });
-    document.querySelectorAll(".example-chip").forEach((btn) => {
-      btn.addEventListener("click", () => applyExample(btn.dataset.example));
     });
     if ($("go")) {
       $("go").addEventListener("click", (event) => {

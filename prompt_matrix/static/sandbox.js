@@ -108,6 +108,18 @@
     gate.updateGateBanner($("sandbox-gate-summary"), $("sandbox-gate-text"), data);
   }
 
+  function showSandboxError(message) {
+    var el = $("sandbox-error");
+    if (!el) return;
+    if (!message) {
+      el.textContent = "";
+      el.classList.add("hidden");
+      return;
+    }
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
   function runSandboxTest() {
     var inputEl = $("sandbox-input");
     var output = $("sandbox-output");
@@ -117,10 +129,11 @@
     text = text.trim();
 
     if (!text) {
-      window.alert("Please enter some text to test.");
+      showSandboxError(t("landing.sandbox.error.empty", "Enter some text to test."));
       return;
     }
 
+    showSandboxError("");
     if (runBtn) runBtn.disabled = true;
     var timer = animateProgress();
     if (output) output.classList.add("hidden");
@@ -142,7 +155,7 @@
         setProgress(false, 0, "");
 
         if (!result.ok) {
-          window.alert(result.body.error || "Sandbox verification failed.");
+          showSandboxError(result.body.error || t("landing.sandbox.error.failed", "Sandbox verification failed."));
           return;
         }
 
@@ -166,7 +179,9 @@
       .catch(function (err) {
         window.clearInterval(timer);
         setProgress(false, 0, "");
-        window.alert(err && err.message ? err.message : "Network error during sandbox audit.");
+        showSandboxError(
+          (err && err.message) || t("landing.sandbox.error.network", "Network error during sandbox audit.")
+        );
       })
       .finally(function () {
         if (runBtn) runBtn.disabled = false;

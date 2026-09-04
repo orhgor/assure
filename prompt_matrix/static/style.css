@@ -1194,10 +1194,11 @@ body:has(#assure-app) .shell {
 .app-header {
   background: var(--color-primary, #1A4B8C);
   color: #ffffff;
-  height: 52px;
-  display: flex;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-sm, 8px) var(--space-md, 16px);
   padding: var(--space-sm, 8px) var(--space-md, 16px);
   box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
   z-index: 100;
@@ -1215,6 +1216,25 @@ body:has(#assure-app) .shell {
   display: flex;
   align-items: center;
   gap: var(--space-sm, 8px);
+  flex-shrink: 0;
+}
+
+.app-header-center.app-trust-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.35;
+  opacity: 0.92;
+  text-align: center;
+  min-width: 0;
+}
+
+.app-trust-strip span:not([aria-hidden="true"]) {
+  text-wrap: balance;
 }
 
 .app-logo {
@@ -1224,6 +1244,60 @@ body:has(#assure-app) .shell {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  min-width: 0;
+}
+
+.app-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.app-logo-tagline {
+  font-size: 0.62rem;
+  font-weight: 500;
+  opacity: 0.88;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 11rem;
+}
+
+.app-logo .brand-mark {
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .app-header,
+  .jdf-workbench.workspace-shell .app-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .app-header-center.app-trust-strip {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header-left {
+    justify-self: start;
+  }
+
+  .app-header-right {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-logo-tagline {
+    display: none;
+  }
+
+  .app-logo {
+    font-size: 16px;
+  }
 }
 
 .app-logo-mark {
@@ -2033,10 +2107,11 @@ body.onboarding-active .sidebar-backdrop {
 .jdf-workbench.workspace-shell .app-header {
   background: var(--color-primary, #1A4B8C);
   color: #ffffff;
-  height: 52px;
-  display: flex;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-sm, 8px) var(--space-md, 16px);
   padding: var(--space-sm, 8px) var(--space-md, 16px);
   box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.1));
   z-index: 100;

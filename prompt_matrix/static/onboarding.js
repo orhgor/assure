@@ -19,9 +19,9 @@
       fallback: "Compile streams a draft and builds JDF nodes with inferred locks.",
     },
     {
-      selector: "#truth-ledger-badge",
+      selector: "#compiler-status",
       i18n: "onboarding.step3",
-      fallback: "The Z3 Truth Ledger shows verification status for locked claims.",
+      fallback: "Watch verification status here — Idle, Processing, Verified, or Issues Found.",
     },
     {
       selector: "#toggle-redhat",

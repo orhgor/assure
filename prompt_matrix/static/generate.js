@@ -326,6 +326,14 @@
         if (type === "compiled") {
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
+          var streamWrap = $("generate-stream-wrap");
+          var preview = $("generate-stream-preview");
+          if (streamWrap) streamWrap.hidden = true;
+          if (preview) preview.setAttribute("aria-live", "off");
+          var locksPanel = $("generate-locks-panel");
+          if (locksPanel && locksPanel.hasAttribute("open")) {
+            locksPanel.removeAttribute("open");
+          }
           self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
           self.compiledLocks = data.locks || [];
           self.compiledDocument = data.document || null;

@@ -427,6 +427,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return resp
 
     def _landing_page(template: str):
+        lang = _locale()
+        session["lang"] = lang
         try:
             from .ui_cache import LANDING_CSS, LANDING_JS
         except ImportError:
@@ -434,10 +436,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
         resp = make_response(
             render_template(
                 template,
+                locale=lang,
+                languages=LOCALE_LABELS,
+                strings=string_catalog(lang),
                 landing_css_version=LANDING_CSS,
                 landing_js_version=LANDING_JS,
             )
         )
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
         if os.environ.get("ENVIRONMENT") == "production":
             resp.headers["Cache-Control"] = "public, max-age=300"
         return resp

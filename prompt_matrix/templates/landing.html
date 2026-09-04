@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale|default('en') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,34 +7,31 @@
     <meta name="description" content="{{ brand.meta_description }}">
     <meta property="og:title" content="{{ brand.page_title }}">
     <meta property="og:description" content="{{ brand.meta_description }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('37') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('44') }}">
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
 </head>
 <body>
-    <header class="site-header">
-        <div class="container nav-container">
-            <a href="/" class="logo">{{ brand.name }}</a>
-            <nav class="nav-links" aria-label="Primary">
-                <a href="#glossary">Docs</a>
-                <a href="/architecture">Architecture</a>
-                <a href="#sandbox">Sandbox</a>
-                <a href="/app" class="btn-primary-small">Launch Workspace &rarr;</a>
-            </nav>
-        </div>
-    </header>
+    {% set nav_current = 'landing' %}
+    {% include 'includes/landing_header.html' %}
 
-    <main>
+    <main id="main-content">
         <section class="hero-section">
             <div class="container">
-                <span class="eyebrow">{{ brand.name }}</span>
+                <span class="eyebrow" data-i18n="brand.category">{{ brand.category }}</span>
                 <h1>{{ brand.category }}.</h1>
                 <p class="hero-tagline">{{ brand.tagline }}</p>
-                <p class="hero-sub">Ingest messy scans, CIMs, or datasets. Lock variables with mathematical proofs. Edit modular nodes with context-locked isolation. Stop guessing &mdash; start compiling.</p>
+                <p class="hero-sub" data-i18n="landing.hero.sub">Ingest messy scans, CIMs, or datasets. Lock variables with mathematical proofs. Edit modular nodes with context-locked isolation. Stop guessing &mdash; start compiling.</p>
                 <div class="hero-cta-group">
-                    <a href="#sandbox" class="btn-primary">Try the Free Paste Test</a>
-                    <a href="/architecture" class="btn-secondary">Read the Architecture &rarr;</a>
+                    <a href="#sandbox" class="btn-primary" data-i18n="landing.hero.cta.paste">Try the Free Paste Test</a>
+                    <a href="/architecture" class="btn-secondary" data-i18n="landing.hero.cta.architecture">Read the Architecture &rarr;</a>
                 </div>
 
-                <div class="hero-visual hero-comparison" aria-hidden="true">
+                <div class="hero-visual hero-comparison" role="img" aria-label="Before and after: unstructured scan becomes a JDF document tree with verified claims">
                     <div class="hero-visual-grid">
                         <div class="hero-visual-messy hero-before">
                             <div class="hero-panel-label">Before</div>
@@ -71,7 +68,7 @@
                             </div>
                         </div>
                     </div>
-                    <p class="hero-visual-caption">From flat text to compiled truth &mdash; in seconds.</p>
+                    <p class="hero-visual-caption" data-i18n="landing.hero.caption">From flat text to compiled truth &mdash; in seconds.</p>
                 </div>
             </div>
         </section>
@@ -79,22 +76,22 @@
         <!-- Persona Strip — At-a-Glance -->
         <section class="persona-strip">
             <div class="container">
-                <p class="persona-strip-label">Built for professionals who cannot afford to be wrong:</p>
+                <p class="persona-strip-label" data-i18n="landing.persona.strip_label">Built for professionals who cannot afford to be wrong:</p>
                 <div class="persona-grid">
-                    <div class="persona-item"><span class="persona-icon">🏦</span><span class="persona-title">Investment Bankers</span></div>
-                    <div class="persona-item"><span class="persona-icon">🔬</span><span class="persona-title">Researchers</span></div>
-                    <div class="persona-item"><span class="persona-icon">⚖️</span><span class="persona-title">Legal Counsel</span></div>
-                    <a href="#personas" class="persona-more">and more &rarr;</a>
+                    <div class="persona-item"><span class="persona-icon" aria-hidden="true">🏦</span><span class="persona-title" data-i18n="landing.persona.bankers">Investment Bankers</span></div>
+                    <div class="persona-item"><span class="persona-icon" aria-hidden="true">🔬</span><span class="persona-title" data-i18n="landing.persona.researchers">Researchers</span></div>
+                    <div class="persona-item"><span class="persona-icon" aria-hidden="true">⚖️</span><span class="persona-title" data-i18n="landing.persona.legal">Legal Counsel</span></div>
+                    <a href="#personas" class="persona-more" data-i18n="landing.persona.more">and more &rarr;</a>
                 </div>
             </div>
         </section>
 
         <section class="trust-bar">
             <div class="container trust-grid">
-                <span>🔒 Self-Hosted &amp; Private</span>
-                <span>🛡️ Z3 Symbolically Verified</span>
-                <span>📄 JDF AST Architecture</span>
-                <span>🔍 Red-Hat Adversarial Audited</span>
+                <span data-i18n="landing.trust.self_hosted">Self-Hosted &amp; Private</span>
+                <span data-i18n="landing.trust.z3">Z3 Symbolically Verified</span>
+                <span data-i18n="landing.trust.jdf">JDF AST Architecture</span>
+                <span data-i18n="landing.trust.redhat">Red-Hat Adversarial Audited</span>
             </div>
         </section>
 
@@ -132,18 +129,20 @@
 
         <section class="competitor-section">
             <div class="container narrow center">
-                <h2>Competitor Reality Check</h2>
-                <p class="competitor-quote">Spellbook helps you write faster. Harvey helps you find context. Assure ensures the final document is mathematically true. Guess which one the auditor checks?</p>
+                <h2 data-i18n="landing.competitor.title">Competitor Reality Check</h2>
+                <p class="competitor-quote" data-i18n="landing.competitor.quote">Spellbook helps you write faster. Harvey helps you find context. Assure ensures the final document is mathematically true. Guess which one the auditor checks?</p>
             </div>
         </section>
 
         <section id="sandbox" class="paste-test-section">
             <div class="container narrow">
-                <h2>Zero-Risk Paste Test</h2>
-                <p class="section-sub">Paste a paragraph containing financial metrics or factual claims below. Watch the engine isolate nodes, lock variables, and flag logic gaps instantly.</p>
+                <h2 data-i18n="landing.sandbox.title">Zero-Risk Paste Test</h2>
+                <p class="section-sub" data-i18n="landing.sandbox.sub">Paste a paragraph containing financial metrics or factual claims below. Watch the engine isolate nodes, lock variables, and flag logic gaps instantly.</p>
                 <div class="sandbox-box">
-                    <textarea id="sandbox-input" placeholder="e.g., Q3 revenue reached $4.2M, representing a 15% increase year-over-year. Operating margins expanded to 32% across all regional divisions…"></textarea>
-                    <button type="button" id="sandbox-run-btn" class="btn-primary">Run Deterministic Audit</button>
+                    <label for="sandbox-input" class="visually-hidden" data-i18n="landing.sandbox.title">Zero-Risk Paste Test</label>
+                    <textarea id="sandbox-input" data-i18n-placeholder="sandbox.placeholder" placeholder="e.g., Q3 revenue reached $4.2M…"></textarea>
+                    <div id="sandbox-error" class="sandbox-error hidden" role="alert"></div>
+                    <button type="button" id="sandbox-run-btn" class="btn-primary" data-i18n="landing.sandbox.run">Run Deterministic Audit</button>
                     <div id="sandbox-progress" class="sandbox-progress hidden" aria-live="polite">
                         <div class="sandbox-progress-bar"><div id="sandbox-progress-fill" class="sandbox-progress-fill"></div></div>
                         <p id="sandbox-progress-label" class="sandbox-progress-label">Compiling JDF AST…</p>
@@ -162,12 +161,13 @@
                     <div id="workspace-bridge" class="workspace-transition-banner hidden">
                         <span class="engine-status">Assure Engine Active</span>
                         <div class="transition-actions">
-                            <button type="button" id="sandbox-advanced-toggle" class="btn-text">Advanced Models</button>
+                            <button type="button" id="sandbox-advanced-toggle" class="btn-text" aria-expanded="false" aria-controls="advanced-model-drawer" data-i18n="landing.sandbox.advanced">Advanced Models</button>
                             <button type="button" id="sandbox-send-workbench" class="btn-primary-small">Send to Workbench &rarr;</button>
                         </div>
                     </div>
                     <div id="advanced-model-drawer" class="advanced-drawer hidden">
                         <label for="model-select">LLM Provider / Backend</label>
+                        <p class="sandbox-advanced-hint" data-i18n="landing.sandbox.advanced_hint">Applies when you send results to the workbench — does not change the sandbox audit.</p>
                         <select id="model-select" class="dropdown-styled">
                             <option value="claude" selected>Claude 3.7 Sonnet (Recommended)</option>
                             <option value="gemini">Gemini 2.5 Pro</option>
@@ -180,7 +180,7 @@
 
         <section id="personas" class="persona-section">
             <div class="container">
-                <h2>Engineered for High-Stakes Work</h2>
+                <h2 data-i18n="landing.personas.title">Engineered for High-Stakes Work</h2>
                 <div class="persona-grid">
                     <div class="persona-card">
                         <h3>For Investment Bankers &amp; Analysts</h3>
@@ -223,9 +223,9 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Every factual claim is anchored to its source file and page.</td>
-                                <td>Z3 symbolic math ensures your numbers never drift.</td>
-                                <td>Export Word or PDF with a full audit trail appendix.</td>
+                                <td data-label="Locked Data">Every factual claim is anchored to its source file and page.</td>
+                                <td data-label="Verified Logic">Z3 symbolic math ensures your numbers never drift.</td>
+                                <td data-label="Pristine Deliverables">Export Word or PDF with a full audit trail appendix.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -235,15 +235,15 @@
 
         <section class="social-proof-section">
             <div class="container center">
-                <p class="trust-signal-text">Used by analysts, researchers, and engineers at high-consequence institutions.</p>
+                <p class="trust-signal-text" data-i18n="landing.social_proof">Used by analysts, researchers, and engineers at high-consequence institutions.</p>
             </div>
         </section>
 
         <section class="cta-section">
             <div class="container center">
-                <h2>The era of probabilistic guessing is over.</h2>
-                <p>Experience document engineering backed by mathematical certainty.</p>
-                <a href="/app" class="btn-primary">Launch Assure Workspace</a>
+                <h2 data-i18n="landing.cta.title">The era of probabilistic guessing is over.</h2>
+                <p data-i18n="landing.cta.sub">Experience document engineering backed by mathematical certainty.</p>
+                <a href="/app?lang={{ locale|default('en') }}" class="btn-primary" data-i18n="landing.cta.btn">Launch Assure Workspace</a>
             </div>
         </section>
 
@@ -265,12 +265,8 @@
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="container center">
-            <p>&copy; 2026 {{ brand.name }}. {{ brand.category }}.</p>
-        </div>
-    </footer>
-  <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ landing_js_version|default('30') }}"></script>
-    <script src="{{ url_for('static', filename='sandbox.js') }}?v={{ landing_js_version|default('30') }}"></script>
+    {% include 'includes/landing_footer.html' %}
+  <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ landing_js_version|default('31') }}"></script>
+    <script src="{{ url_for('static', filename='sandbox.js') }}?v={{ landing_js_version|default('31') }}"></script>
 </body>
 </html>

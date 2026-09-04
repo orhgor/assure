@@ -1,0 +1,31 @@
+{# nav_current: "landing" | "architecture" #}
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header">
+    <div class="container nav-container">
+        <a href="/" class="logo logo-brand">
+            <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="28" height="28">
+                <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
+                <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="logo-copy">
+                <span class="logo-name">{{ brand.name }}</span>
+                <span class="logo-tagline" data-i18n="brand.tagline_html">{{ strings.get('brand.tagline_html', brand.category) }}</span>
+            </span>
+        </a>
+        <nav class="nav-links is-collapsed" id="landing-nav-links" aria-label="Primary">
+            <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">Menu</button>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#glossary{% else %}/#glossary{% endif %}" data-i18n="landing.nav.docs">Docs</a>
+            <a href="/architecture"{% if nav_current|default('landing') == 'architecture' %} aria-current="page"{% endif %} data-i18n="landing.nav.architecture">Architecture</a>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#sandbox{% else %}/#sandbox{% endif %}" data-i18n="landing.nav.sandbox">Sandbox</a>
+            <label class="landing-lang-wrap" for="landing-lang">
+                <span class="visually-hidden">Language</span>
+                <select id="landing-lang" class="landing-lang-select" aria-label="Language">
+                    {% for code, label in languages.items() %}
+                    <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">Launch Workspace &rarr;</a>
+        </nav>
+    </div>
+</header>
