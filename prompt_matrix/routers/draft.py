@@ -53,7 +53,7 @@ except ImportError:
     from services.audit_summary import build_audit_summary
     from services.lock_inference import infer_lock_candidates
 
-DRAFT_MODEL = "anthropic/claude-3-5-sonnet-20241022"
+DRAFT_MODEL = "anthropic/claude-sonnet-4-5"
 LOCK_MODEL = "deepseek/deepseek-chat"
 
 _DRAFT_SYSTEM = (

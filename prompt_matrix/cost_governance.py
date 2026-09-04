@@ -90,20 +90,20 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="deepseek/deepseek-chat",
     ),
-    # Deep synthesis → Claude 3.5 Sonnet (premium narrative flow)
+    # Deep synthesis → Claude Sonnet 4.5 (premium narrative flow)
     TaskType.DEEP_SYNTHESIS: ModelPolicy(
-        model_id="anthropic/claude-3-5-sonnet-20241022",
+        model_id="anthropic/claude-sonnet-4-5",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS],
         max_output_tokens=2048,
         caching=False,
-        litellm_model="anthropic/claude-3-5-sonnet-20241022",
+        litellm_model="anthropic/claude-sonnet-4-5",
     ),
     TaskType.MACRO_AUDIT: ModelPolicy(
-        model_id="anthropic/claude-3-5-sonnet-20241022",
+        model_id="anthropic/claude-sonnet-4-5",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.MACRO_AUDIT],
         max_output_tokens=2048,
         caching=False,
-        litellm_model="anthropic/claude-3-5-sonnet-20241022",
+        litellm_model="anthropic/claude-sonnet-4-5",
     ),
     # Red-Hat adversary → DeepSeek-R1 (CoT reasoning; headroom for hidden reasoning tokens)
     TaskType.REDHAT: ModelPolicy(
