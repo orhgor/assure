@@ -40,8 +40,9 @@ else
     echo "ASSURE_DEPLOY_PULL_ONLY=1 — aborting." >&2
     exit 1
   fi
-  echo "==> Fallback: build on EC2 (slow)"
-  DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --platform linux/arm64 --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
+  echo "==> Fallback: build on EC2 (slow, ARM64)"
+  export DOCKER_DEFAULT_PLATFORM=linux/arm64
+  DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
   "${COMPOSE[@]}" up -d assure-app
 fi
 
