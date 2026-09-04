@@ -83,7 +83,9 @@ cd /home/ubuntu/assure && \
 
 **Context:** Static HTML under `landing/` already ships **Google Analytics 4** (`G-54F5NE9Y0P`) with privacy copy on `/privacy`. Flask-served pages (`prompt_matrix/templates/landing.html`, workbench) use Plausible via `includes/plausible.html` — **not** GA4.
 
-**Embed:** Custom Plausible script (domain baked into `pa-we0rKAtBU-r8df6whoZbn.js`). Included from `base.html`, `landing.html`, and `architecture.html`.
+**Dashboard domain:** Plausible site settings use **`app.getassureai.com`** (2026-09-04). Public hosts **`getassureai.com`** and **`app.getassureai.com`** both serve the same Flask app and the same embed — no HTML change required for script tag + `plausible.init()`.
+
+**Embed:** Custom Plausible script (site domain baked into `pa-we0rKAtBU-r8df6whoZbn.js`; no `data-domain` attribute). Included from `base.html`, `landing.html`, and `architecture.html`.
 
 **Gating (local dev stays clean):**
 
