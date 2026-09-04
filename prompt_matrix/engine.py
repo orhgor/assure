@@ -493,7 +493,15 @@ def send_to_llm(
         raise DirectCallError(missing)
 
     litellm.drop_params = True
-    messages = [{"role": "user", "content": rendered.prompt}]
+    try:
+        from .services.language_guard import guard_messages, resolve_request_locale
+    except ImportError:
+        from services.language_guard import guard_messages, resolve_request_locale
+
+    messages = guard_messages(
+        [{"role": "user", "content": rendered.prompt}],
+        locale=resolve_request_locale(),
+    )
     extra = litellm_kwargs_for(target_name)
 
     if structured:

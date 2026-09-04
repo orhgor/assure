@@ -373,7 +373,13 @@ class CostGovernor:
         max_output: int,
         use_cache: bool,
     ) -> tuple[str, int, int]:
-        payload = list(messages)
+        try:
+            from .services.language_guard import ensure_response_language, guard_messages, resolve_request_locale
+        except ImportError:
+            from services.language_guard import ensure_response_language, guard_messages, resolve_request_locale
+
+        locale = resolve_request_locale()
+        payload = guard_messages(messages, locale=locale)
         if use_cache:
             payload = inject_bedrock_cache_control(payload)
 
@@ -403,6 +409,7 @@ class CostGovernor:
                 out = resp.get("output", {}).get("message", {}).get("content", [])
                 text = "".join(part.get("text", "") for part in out if isinstance(part, dict))
                 usage = resp.get("usage") or {}
+                text = ensure_response_language(text, locale)
                 return (
                     text,
                     int(usage.get("inputTokens") or self.accountant.count_messages(messages)),
@@ -414,13 +421,21 @@ class CostGovernor:
         try:
             import litellm
 
-            resp = litellm.completion(
-                model=model if not model.startswith("anthropic.") else f"bedrock/{model}",
-                messages=payload,
-                max_tokens=max_output,
-                stream=False,
-            )
-            text = str(resp.choices[0].message.content or "")
+            def _complete():
+                return litellm.completion(
+                    model=model if not model.startswith("anthropic.") else f"bedrock/{model}",
+                    messages=payload,
+                    max_tokens=max_output,
+                    stream=False,
+                )
+
+            try:
+                from .litellm_runner import call_with_retry
+            except ImportError:
+                from litellm_runner import call_with_retry
+
+            resp = call_with_retry(_complete)
+            text = ensure_response_language(str(resp.choices[0].message.content or ""), locale)
             usage = getattr(resp, "usage", None)
             in_tok = int(getattr(usage, "prompt_tokens", 0) or self.accountant.count_messages(messages))
             out_tok = int(getattr(usage, "completion_tokens", 0) or self.accountant.count(text))

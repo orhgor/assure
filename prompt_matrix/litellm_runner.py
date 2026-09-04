@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
+import time
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 import litellm
 
@@ -33,6 +34,10 @@ _LENGTH_REASONS = frozenset(
     }
 )
 
+T = TypeVar("T")
+RATE_LIMIT_MAX_RETRIES = 5
+RATE_LIMIT_BASE_BACKOFF_S = 1.0
+
 
 @dataclass(frozen=True)
 class CompletionMeta:
@@ -50,6 +55,35 @@ def last_completion_meta() -> CompletionMeta:
 
 def reset_completion_meta() -> None:
     _last_meta.set(None)
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    name = exc.__class__.__name__.lower()
+    if "ratelimit" in name or name == "serviceunavailableerror":
+        return True
+    text = str(exc).lower()
+    return "429" in text or "rate limit" in text or "too many requests" in text
+
+
+def call_with_retry(
+    fn: Callable[[], T],
+    *,
+    max_retries: int = RATE_LIMIT_MAX_RETRIES,
+    base_backoff_s: float = RATE_LIMIT_BASE_BACKOFF_S,
+) -> T:
+    """Retry callable on HTTP 429 / rate-limit errors with exponential backoff."""
+    last_exc: BaseException | None = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if not _is_rate_limit_error(exc) or attempt >= max_retries - 1:
+                raise
+            time.sleep(base_backoff_s * (2**attempt))
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("call_with_retry exhausted without result")
 
 
 def completion_limits(
@@ -84,26 +118,43 @@ def call_model(
     max_tokens: int | None = None,
     timeout: int | None = None,
     intent: str | None = None,
+    locale: str | None = None,
+    skip_language_guard: bool = False,
     **kwargs: Any,
 ) -> str:
     _max_tokens, _timeout = completion_limits(max_tokens, timeout, intent=intent, model=model)
     extra = {key: value for key, value in kwargs.items() if key != "stream"}
     try:
-        response = litellm.completion(
-            model=model,
-            messages=messages,
-            max_tokens=_max_tokens,
-            timeout=_timeout,
-            stream=False,
-            **extra,
-        )
+        try:
+            from .services.language_guard import ensure_response_language, guard_messages, is_json_response_mode, resolve_request_locale
+        except ImportError:
+            from services.language_guard import ensure_response_language, guard_messages, is_json_response_mode, resolve_request_locale
+
+        skip_guard = skip_language_guard or is_json_response_mode(extra)
+        payload = guard_messages(messages, locale=locale, skip=skip_guard)
+
+        def _complete() -> Any:
+            return litellm.completion(
+                model=model,
+                messages=payload,
+                max_tokens=_max_tokens,
+                timeout=_timeout,
+                stream=False,
+                **extra,
+            )
+
+        response = call_with_retry(_complete)
         choice = response.choices[0]
         content = choice.message.content
         finish = getattr(choice, "finish_reason", None)
         finish_s = str(finish).strip() if finish is not None else None
         hit = (finish_s or "").lower().replace(" ", "_") in _LENGTH_REASONS
         _last_meta.set(CompletionMeta(finish_reason=finish_s, max_tokens=_max_tokens, hit_length=hit))
-        return str(content) if content is not None else ""
+        text = str(content) if content is not None else ""
+        if not skip_guard:
+            effective = locale if locale is not None else resolve_request_locale()
+            text = ensure_response_language(text, effective)
+        return text
     except Timeout:
         return (
             f"ERROR: Run aborted due to timeout ({_timeout}s). "

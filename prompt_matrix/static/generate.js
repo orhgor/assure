@@ -287,99 +287,113 @@
 
       var preview = $("generate-stream-preview");
       var url = "/api/projects/" + encodeURIComponent(projectId()) + "/draft/stream";
+      var postStream =
+        global.AssureSse && typeof global.AssureSse.postStream === "function"
+          ? global.AssureSse.postStream
+          : null;
 
-      fetch(url, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent: intent }),
-        signal: this.controller.signal,
-      })
-        .then(function (res) {
+      function handleFrame(frame) {
+        var type = eventType(frame);
+        var data = frame.data || {};
+
+        if (type === "token" && data.delta) {
+          self.draftText += data.delta;
+          if (preview) {
+            preview.classList.remove("is-streaming-skeleton");
+            preview.textContent = self.draftText;
+          }
+          return;
+        }
+
+        if (type === "status") {
+          if (data.stage === "model" || data.stage === "preflight") return;
+          if (data.message && !self.auditComplete) {
+            self.setGateLoading(true, data.message);
+          }
+          return;
+        }
+
+        if (type === "compiled") {
+          self.setCompiling(false);
+          self.setPreviewSkeleton(false);
+          self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
+          self.compiledLocks = data.locks || [];
+          self.compiledDocument = data.document || null;
+          self.draftText = data.draft_text || self.draftText;
+          global.compiledDraftNodes = self.compiledNodes;
+          global.compiledLocks = self.compiledLocks;
+          global.compiledDocument = self.compiledDocument;
+          self.renderDraftNodes(self.compiledNodes);
+          self.renderLockChecklist();
+          self.renderSummaryCounts(data);
+          self.setSummaryVisible(true);
+          var gateBanner = $("preflight-gate-banner");
+          if (gateBanner) gateBanner.hidden = false;
+          self.setGateLoading(
+            true,
+            t("generate.gate.auditing", "Running Z3 Verification and DeepSeek-R1 Adversary…")
+          );
+          self.startVerifyTimeout();
+          return;
+        }
+
+        if (type === "audit_complete") {
+          self.clearVerifyTimeout();
+          self.auditComplete = true;
+          if (data.document) {
+            self.compiledDocument = data.document;
+            global.compiledDocument = data.document;
+          }
+          self.setGateLoading(false);
+          self.renderAuditGate(data);
+          var dockBtn = $("generate-accept-dock");
+          if (dockBtn) dockBtn.disabled = false;
+          return;
+        }
+
+        if (type === "error" || (type === "complete" && data.ok === false)) {
+          self.setCompiling(false);
+          self.setPreviewSkeleton(false);
+          self.setGateLoading(false);
+          if (global.AssureToast) {
+            global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
+          }
+          return;
+        }
+
+        if (type === "done" || type === "complete") {
+          self.setCompiling(false);
+          self.setPreviewSkeleton(false);
+          if (!self.auditComplete) {
+            self.setGateLoading(false);
+            var dock = $("generate-accept-dock");
+            if (dock && self.compiledNodes.length) dock.disabled = false;
+          }
+        }
+      }
+
+      var streamPromise;
+      if (postStream) {
+        streamPromise = postStream({
+          url: url,
+          body: { intent: intent },
+          credentials: "same-origin",
+          signal: self.controller.signal,
+          parseBuffer: global.parseSseBuffer || parseSseBuffer,
+          onFrame: handleFrame,
+        });
+      } else {
+        streamPromise = fetch(url, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ intent: intent }),
+          signal: self.controller.signal,
+        }).then(function (res) {
           if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
           var reader = res.body.getReader();
           var decoder = new TextDecoder();
           var buffer = "";
-
-          function handleFrame(frame) {
-            var type = eventType(frame);
-            var data = frame.data || {};
-
-            if (type === "token" && data.delta) {
-              self.draftText += data.delta;
-              if (preview) {
-                preview.classList.remove("is-streaming-skeleton");
-                preview.textContent = self.draftText;
-              }
-              return;
-            }
-
-            if (type === "status") {
-              if (data.stage === "model" || data.stage === "preflight") return;
-              if (data.message && !self.auditComplete) {
-                self.setGateLoading(true, data.message);
-              }
-              return;
-            }
-
-            if (type === "compiled") {
-              self.setCompiling(false);
-              self.setPreviewSkeleton(false);
-              self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
-              self.compiledLocks = data.locks || [];
-              self.compiledDocument = data.document || null;
-              self.draftText = data.draft_text || self.draftText;
-              global.compiledDraftNodes = self.compiledNodes;
-              global.compiledLocks = self.compiledLocks;
-              global.compiledDocument = self.compiledDocument;
-              self.renderDraftNodes(self.compiledNodes);
-              self.renderLockChecklist();
-              self.renderSummaryCounts(data);
-              self.setSummaryVisible(true);
-              var gateBanner = $("preflight-gate-banner");
-              if (gateBanner) gateBanner.hidden = false;
-              self.setGateLoading(
-                true,
-                t("generate.gate.auditing", "Running Z3 Verification and DeepSeek-R1 Adversary…")
-              );
-              self.startVerifyTimeout();
-              return;
-            }
-
-            if (type === "audit_complete") {
-              self.clearVerifyTimeout();
-              self.auditComplete = true;
-              if (data.document) {
-                self.compiledDocument = data.document;
-                global.compiledDocument = data.document;
-              }
-              self.setGateLoading(false);
-              self.renderAuditGate(data);
-              var dockBtn = $("generate-accept-dock");
-              if (dockBtn) dockBtn.disabled = false;
-              return;
-            }
-
-            if (type === "error" || (type === "complete" && data.ok === false)) {
-              self.setCompiling(false);
-              self.setPreviewSkeleton(false);
-              self.setGateLoading(false);
-              if (global.AssureToast) {
-                global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
-              }
-              return;
-            }
-
-            if (type === "done" || type === "complete") {
-              self.setCompiling(false);
-              self.setPreviewSkeleton(false);
-              if (!self.auditComplete) {
-                self.setGateLoading(false);
-                var dock = $("generate-accept-dock");
-                if (dock && self.compiledNodes.length) dock.disabled = false;
-              }
-            }
-          }
 
           function pump() {
             return reader.read().then(function (result) {
@@ -392,7 +406,10 @@
             });
           }
           return pump();
-        })
+        });
+      }
+
+      streamPromise
         .catch(function (err) {
           self.setCompiling(false);
           self.setPreviewSkeleton(false);

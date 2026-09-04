@@ -4,7 +4,7 @@
 **Decision:** **GO** — Intellectual Compiler branding live on `p4-account-wallet`; EC2 deploy verified (`https://getassureai.com/health` → `build_sha` `192eba3`)  
 **Tests:** 242 passing (`uv run pytest -q`)  
 **Container:** `docker compose up -d assure-app` — healthy on `:8765` (poppler-utils + Textract deps in Dockerfile)  
-**Git:** `192eba3` on `p4-account-wallet` — `feat: align product with Intellectual Compiler positioning` (+ local: persona strip, unified audit gate, i18n refresh pending push)  
+**Git:** `6b3f4af` on `p4-account-wallet` — persona strip, unified audit gate, visual polish (production redeploy pending; live SHA still `192eba3`)  
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md)
 
 ---
@@ -24,7 +24,7 @@ Latest commit `6c225ae` on branch **`p4-account-wallet`**. EC2 redeploy via SSM 
 | Item | Status |
 | :--- | :--- |
 | Intellectual Compiler manifesto landing (hero, tagline, 3-Act Engine, competitor section) | ✅ Deployed (`192eba3`) |
-| Persona strip — 6 at-a-glance roles below hero | ✅ In tree (pending deploy) |
+| Persona strip — 6 at-a-glance roles below hero | ✅ In `6b3f4af` (redeploy pending) |
 | `/architecture` subpage (JDF AST, 6-step pipeline, Z3 explanation) | ✅ `prompt_matrix/templates/architecture.html` |
 | Zero-Risk Paste Test — `POST /api/sandbox/verify` + unified Pre-Flight Gate (`audit_gate.js`) | ✅ `sandbox.py` + `audit_summary.py` |
 | Nav: Docs, Architecture, Sandbox, **Launch Workspace** → `/app` | ✅ Landing nav wired |

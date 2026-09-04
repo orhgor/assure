@@ -41,7 +41,7 @@ else
     exit 1
   fi
   echo "==> Fallback: build on EC2 (slow)"
-  DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
+  DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --platform linux/arm64 --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
   "${COMPOSE[@]}" up -d assure-app
 fi
 

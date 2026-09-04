@@ -23,53 +23,145 @@
     return { events: events, remainder: remainder };
   }
 
-  function streamInquire(projectId, payload, handlers) {
-    var controller = new AbortController();
-    var url = "/api/projects/" + encodeURIComponent(projectId) + "/inquire/stream";
-    var finished = false;
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, ms);
+    });
+  }
 
-    fetch(url, {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, (handlers && handlers.headers) || {}),
-      body: JSON.stringify(payload || {}),
-      signal: controller.signal,
-    })
-      .then(function (res) {
+  /** POST SSE with 12s idle timeout; auto-reconnect up to 3 attempts (2s base backoff). */
+  function postSseStream(config) {
+    var idleTimeoutMs = config.idleTimeoutMs || 12000;
+    var maxAttempts = config.maxAttempts || 3;
+    var baseBackoffMs = config.baseBackoffMs || 2000;
+    var parseBuffer = config.parseBuffer || parseSseChunk;
+    var attempt = 0;
+    var outerSignal = config.signal;
+
+    function runAttempt() {
+      attempt += 1;
+      var controller = new AbortController();
+      if (outerSignal) {
+        if (outerSignal.aborted) {
+          return Promise.reject(new DOMException("Aborted", "AbortError"));
+        }
+        outerSignal.addEventListener(
+          "abort",
+          function () {
+            controller.abort();
+          },
+          { once: true }
+        );
+      }
+
+      return fetch(config.url, {
+        method: "POST",
+        credentials: config.credentials || "same-origin",
+        headers: Object.assign({ "Content-Type": "application/json" }, config.headers || {}),
+        body: JSON.stringify(config.body || {}),
+        signal: controller.signal,
+      }).then(function (res) {
         if (!res.ok || !res.body) {
           throw new Error("Stream failed (" + res.status + ")");
         }
         var reader = res.body.getReader();
         var decoder = new TextDecoder();
         var buffer = "";
+        var idleTimer = null;
+        var streamDone = false;
+
+        function clearIdle() {
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+          }
+        }
+
+        function armIdle() {
+          clearIdle();
+          idleTimer = window.setTimeout(function () {
+            streamDone = true;
+            try {
+              reader.cancel();
+            } catch (_) {}
+            controller.abort();
+          }, idleTimeoutMs);
+        }
 
         function pump() {
+          armIdle();
           return reader.read().then(function (result) {
             if (result.done) {
-              if (!finished && handlers && handlers.onComplete) handlers.onComplete({ ok: true });
+              clearIdle();
+              if (typeof config.onDone === "function") config.onDone();
               return;
             }
             buffer += decoder.decode(result.value, { stream: true });
-            var parsed = parseSseChunk(buffer);
+            var parsed = parseBuffer(buffer);
             buffer = parsed.remainder;
-            parsed.events.forEach(function (frame) {
-              if (handlers && typeof handlers["on" + frame.event.replace(/_/g, "")] === "function") {
-                handlers["on" + frame.event.replace(/_/g, "")](frame.data);
-              } else if (handlers && typeof handlers.onEvent === "function") {
-                handlers.onEvent(frame.event, frame.data);
-              }
-              if (frame.event === "complete") {
-                finished = true;
-                if (handlers && handlers.onComplete) handlers.onComplete(frame.data);
-              }
+            (parsed.events || []).forEach(function (frame) {
+              if (typeof config.onFrame === "function") config.onFrame(frame);
             });
             return pump();
           });
         }
-        return pump();
-      })
-      .catch(function (err) {
-        if (handlers && handlers.onError) handlers.onError(err);
+
+        return pump().catch(function (err) {
+          clearIdle();
+          if (outerSignal && outerSignal.aborted) throw err;
+          if (streamDone) {
+            throw new Error("Stream idle timeout (" + idleTimeoutMs + "ms)");
+          }
+          throw err;
+        });
+      }).catch(function (err) {
+        if (outerSignal && outerSignal.aborted) throw err;
+        if (attempt >= maxAttempts) throw err;
+        var delay = baseBackoffMs * Math.pow(2, attempt - 1);
+        return sleep(delay).then(runAttempt);
       });
+    }
+
+    return runAttempt();
+  }
+
+  function streamInquire(projectId, payload, handlers) {
+    var controller = new AbortController();
+    var url = "/api/projects/" + encodeURIComponent(projectId) + "/inquire/stream";
+    var finished = false;
+
+    if (handlers && handlers.signal) {
+      handlers.signal.addEventListener(
+        "abort",
+        function () {
+          controller.abort();
+        },
+        { once: true }
+      );
+    }
+
+    postSseStream({
+      url: url,
+      body: payload || {},
+      headers: (handlers && handlers.headers) || {},
+      signal: controller.signal,
+      onFrame: function (frame) {
+        if (handlers && typeof handlers["on" + frame.event.replace(/_/g, "")] === "function") {
+          handlers["on" + frame.event.replace(/_/g, "")](frame.data);
+        } else if (handlers && typeof handlers.onEvent === "function") {
+          handlers.onEvent(frame.event, frame.data);
+        }
+        if (frame.event === "complete") {
+          finished = true;
+          if (handlers && handlers.onComplete) handlers.onComplete(frame.data);
+        }
+      },
+      onDone: function () {
+        if (!finished && handlers && handlers.onComplete) handlers.onComplete({ ok: true });
+      },
+    }).catch(function (err) {
+      if (handlers && handlers.onError) handlers.onError(err);
+    });
 
     return {
       abort: function () {
@@ -296,6 +388,8 @@
 
   global.AssureInquire = {
     streamInquire: streamInquire,
+    postSseStream: postSseStream,
+    parseSseChunk: parseSseChunk,
     renderTree: renderTree,
     renderPreview: renderPreview,
     loadDocument: loadDocument,
@@ -303,5 +397,9 @@
     initWorkbench: initWorkbench,
     showDockButton: showDockButton,
     hideDockButton: hideDockButton,
+  };
+  global.AssureSse = {
+    postStream: postSseStream,
+    parseBuffer: parseSseChunk,
   };
 })(window);

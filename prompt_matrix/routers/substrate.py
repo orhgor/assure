@@ -83,12 +83,37 @@ def register_substrate_routes(app) -> None:
             )
             return jsonify({"ok": False, "error": str(exc)}), 503
 
+        extracted_text = str(extracted.get("text") or "").strip()
+        if len(extracted_text) <= 10:
+            audit.log_audit(
+                request_id,
+                project_id,
+                "SUBSTRATE_UPLOAD",
+                success=False,
+                error_message="extracted_text_too_short",
+                details={"text_chars": len(extracted_text)},
+            )
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": (
+                            "Could not extract enough readable text from this file "
+                            f"({len(extracted_text)} characters). Upload a clearer scan or "
+                            "a file with more visible text."
+                        ),
+                        "text_chars": len(extracted_text),
+                    }
+                ),
+                400,
+            )
+
         ensure_project(project_id)
         entry = save_substrate_entry(
             project_id,
             filename=filename,
             page_count=extracted.get("page_count") or page_count,
-            extracted_text=str(extracted.get("text") or ""),
+            extracted_text=extracted_text,
             tables=extracted.get("tables") or [],
             forms=extracted.get("forms") or [],
         )

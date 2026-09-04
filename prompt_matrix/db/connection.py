@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
+import time
+from typing import Callable, TypeVar
+
+T = TypeVar("T")
+
+DB_LOCKED_MAX_RETRIES = 3
+DB_LOCKED_BACKOFF_S = 0.5
 
 try:
     from ..history import _apply_pragmas, _new_connection, get_db
@@ -240,10 +247,55 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
                 (version,),
             )
 
-    db.commit()
+    run_with_db_retry(db.commit)
+
+
+def _connect_with_retry() -> sqlite3.Connection:
+    """Open SQLite with retry on database locked."""
+    last_exc: sqlite3.OperationalError | None = None
+    for attempt in range(DB_LOCKED_MAX_RETRIES):
+        conn: sqlite3.Connection | None = None
+        try:
+            conn = _new_connection()
+            _apply_pragmas(conn)
+            conn.execute("SELECT 1")
+            return conn
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            if "locked" not in str(exc).lower() or attempt >= DB_LOCKED_MAX_RETRIES - 1:
+                raise
+            time.sleep(DB_LOCKED_BACKOFF_S * (attempt + 1))
+    if last_exc is not None:
+        raise last_exc
+    raise sqlite3.OperationalError("database is locked")
+
+
+def run_with_db_retry(
+    fn: Callable[..., T],
+    *args,
+    max_retries: int = DB_LOCKED_MAX_RETRIES,
+    backoff_s: float = DB_LOCKED_BACKOFF_S,
+    **kwargs,
+) -> T:
+    """Retry a SQLite operation when the database is locked."""
+    last_exc: sqlite3.OperationalError | None = None
+    for attempt in range(max_retries):
+        try:
+            return fn(*args, **kwargs)
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            if "locked" not in str(exc).lower() or attempt >= max_retries - 1:
+                raise
+            time.sleep(backoff_s * (attempt + 1))
+    if last_exc is not None:
+        raise last_exc
+    raise sqlite3.OperationalError("database is locked")
 
 
 def open_connection() -> sqlite3.Connection:
-    conn = _new_connection()
-    _apply_pragmas(conn)
-    return conn
+    return _connect_with_retry()

@@ -203,9 +203,15 @@ def _stream_claude(
     try:
         import litellm
 
+        try:
+            from ..services.language_guard import guard_messages, resolve_request_locale
+        except ImportError:
+            from services.language_guard import guard_messages, resolve_request_locale
+
+        guarded = guard_messages(messages, locale=resolve_request_locale())
         stream = litellm.completion(
             model=model,
-            messages=messages,
+            messages=guarded,
             max_tokens=max_out,
             temperature=0.4,
             stream=True,
@@ -222,7 +228,7 @@ def _stream_claude(
             if delta:
                 full += delta
                 yield _typed_sse("token", {"delta": delta})
-        in_tok = gov.accountant.count_messages(messages)
+        in_tok = gov.accountant.count_messages(guarded)
         out_tok = gov.accountant.count(full)
         yield (full, in_tok, out_tok, model)
     except DraftCancelledError:

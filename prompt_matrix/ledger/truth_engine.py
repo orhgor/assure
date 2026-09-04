@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import OrderedDict
+from threading import Lock
 from typing import Any, Iterable
 
 from pydantic import BaseModel, ValidationError
@@ -19,6 +20,30 @@ except ImportError:
 class EntityMetric(BaseModel):
     canonical_key: str
     value: float
+
+
+_Z3_POOL_MAX = 5
+_z3_pool: list[Solver] = []
+_z3_pool_lock = Lock()
+
+
+def _borrow_z3_solver() -> Solver:
+    with _z3_pool_lock:
+        if _z3_pool:
+            solver = _z3_pool.pop()
+            solver.reset()
+            return solver
+    return Solver()
+
+
+def _return_z3_solver(solver: Solver) -> None:
+    with _z3_pool_lock:
+        try:
+            solver.reset()
+        except Exception:
+            return
+        if len(_z3_pool) < _Z3_POOL_MAX:
+            _z3_pool.append(solver)
 
 
 class TruthLedgerEngine:
@@ -36,7 +61,8 @@ class TruthLedgerEngine:
     _MAX_METRIC_CACHE = 200
 
     def __init__(self) -> None:
-        self._solver = Solver()
+        self._solver = _borrow_z3_solver()
+        self._released = False
         self._symbols: dict[str, Any] = {}
         self._locks: dict[str, tuple[float, str]] = {}
         self._ledger_epoch = 0
@@ -181,3 +207,15 @@ class TruthLedgerEngine:
 
     def snapshot(self) -> dict[str, tuple[float, str]]:
         return dict(self._locks)
+
+    def close(self) -> None:
+        if self._released:
+            return
+        _return_z3_solver(self._solver)
+        self._released = True
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass

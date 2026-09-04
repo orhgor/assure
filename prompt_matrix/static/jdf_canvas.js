@@ -120,6 +120,27 @@
       global.AssureStreamRegistry.register(this.controller);
     }
     var url = "/api/projects/" + encodeURIComponent(this.projectId) + "/inquire/stream";
+    var postStream =
+      global.AssureSse && typeof global.AssureSse.postStream === "function"
+        ? global.AssureSse.postStream
+        : null;
+
+    function dispatch(frame) {
+      var key = "on" + frame.event.replace(/_/g, "");
+      if (typeof self.handlers[key] === "function") self.handlers[key](frame.data);
+      if (typeof self.handlers.onEvent === "function") self.handlers.onEvent(frame.event, frame.data);
+    }
+
+    if (postStream) {
+      return postStream({
+        url: url,
+        body: payload || {},
+        signal: this.controller.signal,
+        parseBuffer: parseSseChunk,
+        onFrame: dispatch,
+      });
+    }
+
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -136,11 +157,7 @@
           buffer += decoder.decode(result.value, { stream: true });
           var parsed = parseSseChunk(buffer);
           buffer = parsed.remainder;
-          parsed.events.forEach(function (frame) {
-            var key = "on" + frame.event.replace(/_/g, "");
-            if (typeof self.handlers[key] === "function") self.handlers[key](frame.data);
-            if (typeof self.handlers.onEvent === "function") self.handlers.onEvent(frame.event, frame.data);
-          });
+          parsed.events.forEach(dispatch);
           return pump();
         });
       }
@@ -947,7 +964,7 @@
         }
         if (animate) {
           article.classList.add("animated");
-          article.style.animationDelay = (self.isFirstLoad ? nodeIndex * 30 : 0) + "ms";
+          article.style.animationDelay = (nodeIndex * 30) + "ms";
           nodeIndex += 1;
         }
         wrap.appendChild(article);

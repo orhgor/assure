@@ -183,6 +183,31 @@ def test_substrate_upload_single_page_success(app_client):
     assert stored["text"] == "Net income grew 12%."
 
 
+def test_substrate_upload_rejects_short_extracted_text(app_client):
+    with patch("prompt_matrix.routers.substrate.TextractClient") as mock_cls:
+        instance = mock_cls.return_value
+        instance._get_page_count.return_value = 1
+        instance.extract_text.return_value = {
+            "text": "too short",
+            "tables": [],
+            "forms": [],
+            "page_count": 1,
+            "filename": "blank.pdf",
+        }
+        data = {"file": (io.BytesIO(_single_page_pdf()), "blank.pdf")}
+        response = app_client.post(
+            "/api/projects/default/substrate/upload",
+            data=data,
+            content_type="multipart/form-data",
+        )
+
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["ok"] is False
+    assert payload["text_chars"] == len("too short")
+    assert "Could not extract enough readable text" in payload["error"]
+
+
 def test_substrate_upload_image_success(app_client):
     with patch("prompt_matrix.routers.substrate.TextractClient") as mock_cls:
         instance = mock_cls.return_value

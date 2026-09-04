@@ -360,6 +360,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
         )
 
     @app.before_request
+    def _set_language_guard_locale():
+        try:
+            from .services.language_guard import resolve_request_locale, set_request_locale
+        except ImportError:
+            from services.language_guard import resolve_request_locale, set_request_locale
+        set_request_locale(resolve_request_locale())
+
+    @app.before_request
     def _canonical_host_redirect():
         from urllib.parse import urlsplit, urlunsplit
 
