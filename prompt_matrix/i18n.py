@@ -28,6 +28,16 @@ EN = {
     "brand.tagline": "Compile intent. Verify logic. Ship truth.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
+    "brand.page_title": "Assure — The Intellectual Compiler",
+    "brand.meta_description": (
+        "Assure is the first Intellectual Compiler — turning raw intent, messy documents, "
+        "and unstructured data into mathematically verified, auditable deliverables."
+    ),
+    "brand.architecture_title": "Architecture Deep-Dive · Assure — The Intellectual Compiler",
+    "brand.architecture_meta_description": (
+        "Why flat text fails and how Assure uses JDF AST modular execution trees, "
+        "Z3 SMT verification, and a six-stage pipeline for mathematical certainty."
+    ),
     "hero.title": "Verify drafts against your source documents.",
     "lede": "Paste generated draft text and upload source files to verify claims.",
     "how.restructure": "You type a question. Assure rewrites it for the AI you chose. The panel below shows the prompt as you type. Get my answer sends it to that provider. Copy stays on this computer.",
@@ -774,6 +784,16 @@ ES = {
     "brand.tagline": "Compila intención. Verifica lógica. Entrega verdad.",
     "tagline_html": 'La pregunta correcta produce una respuesta de <span class="trust">confianza</span>.',
     "brand.tagline_html": "El Compilador Intelectual",
+    "brand.page_title": "Assure — El Compilador Intelectual",
+    "brand.meta_description": (
+        "Assure es el primer Compilador Intelectual: convierte la intención en bruto, "
+        "documentos desordenados y datos no estructurados en entregables verificables y auditables."
+    ),
+    "brand.architecture_title": "Inmersión en arquitectura · Assure — El Compilador Intelectual",
+    "brand.architecture_meta_description": (
+        "Por qué falla el texto plano y cómo Assure usa árboles de ejecución modulares JDF AST, "
+        "verificación Z3 SMT y un pipeline de seis etapas para certeza matemática."
+    ),
     "hero.title": "Verifica borradores contra tus documentos fuente.",
     "lede": "Pega el borrador generado y sube archivos fuente para verificar afirmaciones.",
     "how.restructure": "Escribes una pregunta. Assure reescribe el prompt para la IA que elegiste. El panel de abajo muestra el prompt mientras escribes. Ver mi respuesta lo envía a ese proveedor. Copiar se queda en esta computadora.",
@@ -1531,6 +1551,16 @@ ZH = {
     "brand.tagline": "编译意图。验证逻辑。交付真相。",
     "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
     "brand.tagline_html": "智能编译器",
+    "brand.page_title": "Assure — 智能编译器",
+    "brand.meta_description": (
+        "Assure 是首个智能编译器——将原始意图、杂乱的文档和非结构化数据"
+        "转化为经数学验证、可审计的交付成果。"
+    ),
+    "brand.architecture_title": "架构深度解析 · Assure — 智能编译器",
+    "brand.architecture_meta_description": (
+        "扁平文本为何失败，以及 Assure 如何借助 JDF AST 模块化执行树、"
+        "Z3 SMT 验证和六阶段流水线实现数学确定性。"
+    ),
     "hero.title": "对照源文档验证 AI 草稿。",
     "lede": "粘贴生成的草稿文本并上传源文件以验证主张。",
     "how.restructure": "你写下问题。Assure 为你选的 AI 改写提示词。下方面板在你输入时显示提示。点「给我答案」会发给该提供商。复制留在这台电脑。",
@@ -2288,6 +2318,16 @@ FR = {
     "brand.tagline": "Compilez l'intention. Vérifiez la logique. Livrez la vérité.",
     "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
     "brand.tagline_html": "Le Compilateur Intellectuel",
+    "brand.page_title": "Assure — Le Compilateur Intellectuel",
+    "brand.meta_description": (
+        "Assure est le premier Compilateur Intellectuel — transformant l'intention brute, "
+        "les documents désordonnés et les données non structurées en livrables vérifiables et auditables."
+    ),
+    "brand.architecture_title": "Plongée architecture · Assure — Le Compilateur Intellectuel",
+    "brand.architecture_meta_description": (
+        "Pourquoi le texte plat échoue et comment Assure utilise des arbres d'exécution modulaires JDF AST, "
+        "la vérification Z3 SMT et un pipeline en six étapes pour une certitude mathématique."
+    ),
     "hero.title": "Vérifiez les brouillons IA contre vos documents sources.",
     "lede": "Collez le brouillon généré et téléversez les fichiers sources pour vérifier les affirmations.",
     "how.restructure": "Vous tapez une question. Assure réécrit le prompt pour l'IA que vous avez choisie. Le panneau ci-dessous montre le prompt pendant que vous tapez. Voir ma réponse l'envoie à ce fournisseur. Copier reste sur cet ordinateur.",
@@ -3032,6 +3072,16 @@ DE = {
     "brand.tagline": "Absicht kompilieren. Logik prüfen. Wahrheit liefern.",
     "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
     "brand.tagline_html": "Der Intellektuelle Compiler",
+    "brand.page_title": "Assure — Der Intellektuelle Compiler",
+    "brand.meta_description": (
+        "Assure ist der erste Intellektuelle Compiler — er verwandelt rohe Absicht, "
+        "unordentliche Dokumente und unstrukturierte Daten in mathematisch verifizierte, auditierbare Lieferungen."
+    ),
+    "brand.architecture_title": "Architektur-Deep-Dive · Assure — Der Intellektuelle Compiler",
+    "brand.architecture_meta_description": (
+        "Warum Flachtext scheitert und wie Assure modulare JDF-AST-Ausführungsbäume, "
+        "Z3-SMT-Verifikation und eine sechsstufige Pipeline für mathematische Sicherheit nutzt."
+    ),
     "hero.title": "KI-Entwürfe gegen Ihre Quelldokumente prüfen.",
     "lede": "Fügen Sie generierten Entwurfstext ein und laden Sie Quelldateien hoch, um Behauptungen zu prüfen.",
     "how.restructure": "Sie tippen eine Frage. Assure schreibt den Prompt für die KI Ihrer Wahl um. Das Feld darunter zeigt den Prompt während Sie tippen. Antwort anzeigen sendet ihn an diesen Anbieter. Kopieren bleibt auf diesem Rechner.",
@@ -3789,6 +3839,16 @@ JA = {
     "brand.tagline": "意図をコンパイル。論理を検証。真実を届ける。",
     "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
     "brand.tagline_html": "インテレクチュアル・コンパイラー",
+    "brand.page_title": "Assure — インテレクチュアル・コンパイラー",
+    "brand.meta_description": (
+        "Assure は最初のインテレクチュアル・コンパイラーです。生の意図、乱雑な文書、"
+        "非構造化データを数学的に検証可能で監査可能な成果物に変換します。"
+    ),
+    "brand.architecture_title": "アーキテクチャ詳解 · Assure — インテレクチュアル・コンパイラー",
+    "brand.architecture_meta_description": (
+        "フラットテキストが失敗する理由と、Assure が JDF AST モジュラー実行ツリー、"
+        "Z3 SMT 検証、6 段階パイプラインで数学的確実性を実現する方法。"
+    ),
     "hero.title": "AI 草稿をソース文書と照合して検証。",
     "lede": "生成された草稿を貼り付け、ソースファイルをアップロードして主張を検証します。",
     "how.restructure": "質問を書きます。Assure は選んだ AI 向けにプロンプトを書き直します。下のパネルは入力中にプロンプトを示します。「答えを表示」は選んだ提供元に送ります。コピーはこのパソコンに残ります。",
@@ -4547,6 +4607,16 @@ TR = {
     "how.restructure": "Bir soru yazarsın. Assure, seçtiğin yapay zeka için promptu yeniden yazar. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtla onu o sağlayıcıya gönderir. Kopya bu bilgisayarda kalır.",
     "tagline_html": 'Doğru soru <span class="trust">güvenilir</span> yanıt üretir.',
     "brand.tagline_html": "Zihinsel Derleyici",
+    "brand.page_title": "Assure — Zihinsel Derleyici",
+    "brand.meta_description": (
+        "Assure, ham niyet, dağınık belgeler ve yapılandırılmamış verileri "
+        "matematiksel olarak doğrulanmış, denetlenebilir teslimatlara dönüştüren ilk Zihinsel Derleyicidir."
+    ),
+    "brand.architecture_title": "Mimari Derin Dalış · Assure — Zihinsel Derleyici",
+    "brand.architecture_meta_description": (
+        "Düz metnin neden başarısız olduğu ve Assure'un JDF AST modüler yürütme ağaçları, "
+        "Z3 SMT doğrulaması ve altı aşamalı bir boru hattıyla matematiksel kesinlik sağladığı."
+    ),
     "hero.title": "AI taslaklarını kaynak belgelerine göre doğrula.",
     "lede": "Üretilmiş taslak metni yapıştır ve iddiaları doğrulamak için kaynak dosyaları yükle.",
     "privacy": "Verilerin asla bize ulaşmaz. Tamamen senin bilgisayarında kalır.",

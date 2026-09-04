@@ -372,7 +372,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def _inject_brand():
         strings = string_catalog(_locale())
         brand = dict(BRAND)
-        for key in ("brand.category", "brand.tagline", "brand.eyebrow", "brand.hero_title"):
+        for key in (
+            "brand.category",
+            "brand.tagline",
+            "brand.eyebrow",
+            "brand.hero_title",
+            "brand.page_title",
+            "brand.meta_description",
+            "brand.architecture_title",
+            "brand.architecture_meta_description",
+        ):
             short = key.split(".", 1)[1]
             if strings.get(key):
                 brand[short] = strings[key]
