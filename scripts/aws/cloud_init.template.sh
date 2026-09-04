@@ -61,9 +61,9 @@ fi
 # 6. Build and launch container (production compose, localhost only)
 sudo -u ubuntu docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build assure-app
 
-# 7. Auto-heal cron: restart container every 5m if it ever stops
-( crontab -l 2>/dev/null | grep -v 'docker compose up -d assure-app' || true
-  echo '*/5 * * * * if ! docker ps | grep -q assure-app; then cd /home/ubuntu/assure && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d assure-app; fi'
+# 7. Auto-heal cron: restart via compose if loopback health fails (not docker ps grep)
+( crontab -l 2>/dev/null | grep -v '127.0.0.1:8765/health' | grep -v 'docker compose up -d assure-app' || true
+  echo '*/5 * * * * curl -sf http://127.0.0.1:8765/health >/dev/null || (cd /home/ubuntu/assure && docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -f -s assure-app 2>/dev/null; docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d assure-app)'
 ) | crontab -
 
 # 8. Unattended security updates with scheduled 03:00 UTC reboots
