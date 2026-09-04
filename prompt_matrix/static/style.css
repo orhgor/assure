@@ -2022,7 +2022,7 @@ body:has(#assure-app) .shell {
   visibility: hidden;
   transition: opacity 0.15s ease, visibility 0.15s ease;
   background: var(--bg-deep);
-  color: var(--text-main);
+  color: #ffffff;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-md);
   border-radius: var(--radius-md);
@@ -2076,7 +2076,7 @@ body:has(#assure-app) .shell {
   max-width: 280px;
   padding: 12px 14px;
   background: var(--bg-deep);
-  color: var(--text-main);
+  color: #ffffff;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-md);
   border-radius: var(--radius-md);
@@ -2339,6 +2339,9 @@ body.onboarding-active .sidebar-backdrop {
   min-width: 0;
 }
 
+.jdf-workbench textarea,
+.jdf-workbench input[type="text"],
+.jdf-workbench select,
 .jdf-workbench #generate-intent,
 .jdf-workbench #prompt-input,
 .jdf-workbench #inquiry-input,
@@ -2354,6 +2357,10 @@ body.onboarding-active .sidebar-backdrop {
   padding: var(--space-md) var(--space-lg) !important;
   box-sizing: border-box;
   border-color: var(--color-border, var(--assure-light-gray));
+}
+
+.jdf-workbench select {
+  padding-right: calc(var(--space-lg) + 14px);
 }
 
 .jdf-workbench textarea.form-control::placeholder,
@@ -4131,7 +4138,7 @@ input.auto-resize {
   margin: var(--space-md) 0;
   padding: var(--space-xl);
   background: var(--color-surface);
-  color: var(--color-text-secondary);
+  color: var(--text-muted);
   border: 1px dashed var(--border-color);
   border-radius: var(--radius-lg);
   text-align: center;
