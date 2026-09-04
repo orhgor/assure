@@ -54,16 +54,16 @@ if [ ! -d /home/ubuntu/assure/.git ]; then
 fi
 cd /home/ubuntu/assure
 
-if [ -f /tmp/assure.env.production ]; then
-  install -o ubuntu -g ubuntu -m 600 /tmp/assure.env.production /home/ubuntu/assure/.env.production
+if [ -f /tmp/assure.env.bootstrap ]; then
+  install -o ubuntu -g ubuntu -m 600 /tmp/assure.env.bootstrap /home/ubuntu/assure/__ENV_FILE__
 fi
 
-# 6. Build and launch container (production compose, localhost only)
-sudo -u ubuntu docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build assure-app
+# 6. Build and launch container (localhost only)
+sudo -u ubuntu docker compose __COMPOSE_FILES__ up -d --build assure-app
 
 # 7. Auto-heal cron: restart via compose if loopback health fails (not docker ps grep)
 ( crontab -l 2>/dev/null | grep -v '127.0.0.1:8765/health' | grep -v 'docker compose up -d assure-app' || true
-  echo '*/5 * * * * curl -sf http://127.0.0.1:8765/health >/dev/null || (cd /home/ubuntu/assure && docker compose -f docker-compose.yml -f docker-compose.prod.yml rm -f -s assure-app 2>/dev/null; docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d assure-app)'
+  echo '*/5 * * * * curl -sf http://127.0.0.1:8765/health >/dev/null || (cd /home/ubuntu/assure && docker compose __COMPOSE_FILES__ rm -f -s assure-app 2>/dev/null; docker compose __COMPOSE_FILES__ up -d assure-app)'
 ) | crontab -
 
 # 8. Unattended security updates with scheduled 03:00 UTC reboots

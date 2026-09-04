@@ -13,7 +13,11 @@ VOLUME_TYPE="${VOLUME_TYPE:-gp3}"
 INSTANCE_NAME="${INSTANCE_NAME:-assure-prod}"
 KEY_NAME="${KEY_NAME:-}"  # optional; prefer SSM Session Manager (no SSH port)
 ASSURE_GIT_REF="${ASSURE_GIT_REF:-p4-account-wallet}"
-ENV_FILE="$ROOT/.env.production"
+ENV_FILE="${ENV_FILE:-$ROOT/.env.production}"
+ENV_TARGET="${ENV_TARGET:-.env.production}"
+COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml -f docker-compose.prod.yml}"
+TUNNEL_NAME="${TUNNEL_NAME:-assure-prod}"
+APP_HOST="${APP_HOST:-getassureai.com}"
 
 bash "$ROOT/scripts/aws/preflight.sh"
 
@@ -113,16 +117,21 @@ if [ "$SG_ID" = "None" ] || [ -z "$SG_ID" ]; then
 fi
 
 # --- Build user-data payload ---
-# cloud_init.sh already embeds tunnel credentials; only inject .env.production here.
+GIT_BRANCH="${GIT_BRANCH:-$ASSURE_GIT_REF}"
+OUTPUT="${CLOUD_INIT_OUTPUT:-$ROOT/scripts/aws/cloud_init.sh}"
+TUNNEL_NAME="$TUNNEL_NAME" APP_HOST="$APP_HOST" ENV_FILE="$ENV_FILE" \
+  GIT_BRANCH="$GIT_BRANCH" ENV_TARGET="$ENV_TARGET" COMPOSE_FILES="$COMPOSE_FILES" \
+  OUTPUT="$OUTPUT" bash "$ROOT/scripts/aws/generate-cloud-init.sh"
+
 USERDATA="$(mktemp)"
 {
   echo "#!/bin/bash"
   echo "set -euxo pipefail"
-  echo "cat > /tmp/assure.env.production <<'ENVEOF'"
+  echo "cat > /tmp/assure.env.bootstrap <<'ENVEOF'"
   cat "$ENV_FILE"
   echo ""
   echo "ENVEOF"
-  cat "$ROOT/scripts/aws/cloud_init.sh"
+  cat "$OUTPUT"
 } > "$USERDATA"
 
 # --- Launch instance ---

@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .env
 .env.production
+.env.staging
 scripts/aws/credentials/
 scripts/aws/cloud_init.sh
 scripts/aws/.tunnel-credentials.json

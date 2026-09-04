@@ -8,13 +8,15 @@ cd "$ROOT"
 
 ENV_FILE="${ENV_FILE:-$ROOT/.env.production}"
 TEMPLATE="$ROOT/scripts/aws/cloud_init.template.sh"
-OUTPUT="$ROOT/scripts/aws/cloud_init.sh"
+OUTPUT="${OUTPUT:-$ROOT/scripts/aws/cloud_init.sh}"
 CREDS_DIR="$ROOT/scripts/aws/credentials"
 
 TUNNEL_NAME="${TUNNEL_NAME:-assure-prod}"
 APP_HOST="${APP_HOST:-getassureai.com}"
 GIT_CLONE_URL="${GIT_CLONE_URL:-https://github.com/orhgor/assure.git}"
 GIT_BRANCH="${GIT_BRANCH:-${ASSURE_GIT_REF:-p4-account-wallet}}"
+ENV_TARGET="${ENV_TARGET:-.env.production}"
+COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml -f docker-compose.prod.yml}"
 
 if [ -f "$ENV_FILE" ]; then
   # shellcheck disable=SC1090
@@ -45,9 +47,19 @@ if [ ! -f "$TEMPLATE" ]; then
   exit 1
 fi
 
-python3 - "$TEMPLATE" "$OUTPUT" "$TUNNEL_ID" "$CREDS_FILE" "$GIT_CLONE_URL" "$GIT_BRANCH" "$APP_HOST" <<'PY'
+python3 - "$TEMPLATE" "$OUTPUT" "$TUNNEL_ID" "$CREDS_FILE" "$GIT_CLONE_URL" "$GIT_BRANCH" "$APP_HOST" "$ENV_TARGET" "$COMPOSE_FILES" <<'PY'
 import json, pathlib, sys
-template_path, output_path, tunnel_id, creds_path, git_url, git_branch, app_host = sys.argv[1:8]
+(
+    template_path,
+    output_path,
+    tunnel_id,
+    creds_path,
+    git_url,
+    git_branch,
+    app_host,
+    env_target,
+    compose_files,
+) = sys.argv[1:10]
 creds = pathlib.Path(creds_path).read_text(encoding="utf-8").strip()
 text = pathlib.Path(template_path).read_text(encoding="utf-8")
 replacements = {
@@ -56,11 +68,13 @@ replacements = {
     "__GIT_CLONE_URL__": git_url,
     "__GIT_BRANCH__": git_branch,
     "__APP_HOST__": app_host,
+    "__ENV_FILE__": env_target,
+    "__COMPOSE_FILES__": compose_files,
 }
 for key, val in replacements.items():
     text = text.replace(key, val)
 pathlib.Path(output_path).write_text(text, encoding="utf-8")
-print(f"Wrote {output_path} (tunnel={tunnel_id}, git={git_url})")
+print(f"Wrote {output_path} (tunnel={tunnel_id}, git={git_branch}, env={env_target})")
 PY
 
 chmod +x "$OUTPUT"
