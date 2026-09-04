@@ -3,7 +3,7 @@
 
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "generate";
-  var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
+  var WORKSPACE_VIEWS = ["generate", "surgical"];
   var FULL_VIEWS = ["library", "settings"];
   var ALL_VIEWS = WORKSPACE_VIEWS.concat(FULL_VIEWS);
 
@@ -35,7 +35,6 @@
     var legacy = {
       compose: "generate",
       workbench: "surgical",
-      projects: "projects",
       library: "library",
       audit: "settings",
       generate: "generate",
@@ -118,68 +117,6 @@
           toast.remove();
         }, 220);
       }, 3200);
-    },
-  };
-
-  var AssureProjects = {
-    load: function () {
-      var list = $("projects-list");
-      var activeEl = $("projects-active-label");
-      if (!list) return;
-      list.innerHTML =
-        "<li class=\"hint\">" + escapeHtml(translate("projects.loading", "Loading projects…")) + "</li>";
-
-      fetch("/api/projects", { credentials: "same-origin" })
-        .then(function (res) {
-          return res.json().then(function (data) {
-            return { ok: res.ok, data: data };
-          });
-        })
-        .then(function (result) {
-          if (!result.ok) throw new Error("Failed to load projects");
-          var projects = (result.data && result.data.projects) || [];
-          var current = global.__ASSURE_PROJECT_ID__ || "default";
-          if (activeEl) {
-            activeEl.textContent = translate("projects.active", "Active project") + ": " + current;
-          }
-          if (!projects.length) {
-            list.innerHTML =
-              "<li class=\"hint\">" + escapeHtml(translate("projects.empty", "No projects yet.")) + "</li>";
-            AssureNav.switchView("generate", { replaceHash: false, persist: true });
-            return;
-          }
-          list.innerHTML = "";
-          projects.forEach(function (p) {
-            var li = document.createElement("li");
-            li.className = "projects-list-item" + (p.id === current ? " is-active" : "");
-            var btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "projects-list-btn";
-            btn.textContent = (p.title || p.id) + " (v" + (p.current_version || 1) + ")";
-            btn.dataset.projectId = p.id;
-            if (p.id === current) {
-              btn.setAttribute("aria-current", "true");
-            }
-            btn.addEventListener("click", function () {
-              if (p.id === current) {
-                AssureNav.switchView("generate");
-                return;
-              }
-              if (global.AssureToast) {
-                global.AssureToast.show(
-                  translate("projects.switch_soon", "Multi-project switch coming soon. Using ") + p.id,
-                  "info"
-                );
-              }
-            });
-            li.appendChild(btn);
-            list.appendChild(li);
-          });
-        })
-        .catch(function () {
-          list.innerHTML =
-            "<li class=\"hint bad\">" + escapeHtml(translate("projects.failed", "Could not load projects.")) + "</li>";
-        });
     },
   };
 
@@ -372,13 +309,6 @@
         });
       }
 
-      var refreshBtn = $("projects-refresh-btn");
-      if (refreshBtn) {
-        refreshBtn.addEventListener("click", function () {
-          AssureProjects.load();
-        });
-      }
-
       window.addEventListener("hashchange", function () {
         var view = readViewFromHash();
         if (view && view !== AssureNav.activeView) {
@@ -493,10 +423,6 @@
         el.hidden = !on;
       });
 
-      if (view === "projects") {
-        AssureProjects.load();
-      }
-
       if (opts.replaceHash !== false) {
         var next = location.pathname + location.search + "#view=" + encodeURIComponent(view);
         if (location.pathname + location.search + location.hash !== next) {
@@ -568,7 +494,6 @@
   global.AssureToast = AssureToast;
   global.AssureStatus = AssureStatus;
   global.AssureStreamRegistry = AssureStreamRegistry;
-  global.AssureProjects = AssureProjects;
   global.AssureCompilerStatus = AssureCompilerStatus;
   global.updateCompilerStatus = updateCompilerStatus;
 

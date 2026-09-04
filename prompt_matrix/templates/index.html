@@ -92,10 +92,6 @@
         <div class="app-body">
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link tooltip-trigger sidebar-link-stub" data-tool="projects" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
-              <span class="app-sidebar-icon" aria-hidden="true">📁</span>
-              <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
-            </button>
             <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
               <span class="app-sidebar-icon" aria-hidden="true">✨</span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
@@ -117,14 +113,6 @@
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
-
-            <div id="view-projects" class="assure-view" hidden>
-              <h3 class="jdf-pane-title" data-i18n="nav.projects">{{ gettext('Projects') }}</h3>
-              <p class="hint" id="projects-active-label" data-i18n="projects.active">{{ gettext('Active project') }}: {{ project_id|default('default') }}</p>
-              <button type="button" class="btn btn-outline btn-sm" id="projects-refresh-btn" data-i18n="projects.refresh">{{ gettext('Refresh') }}</button>
-              <ul id="projects-list" class="projects-list" role="list"></ul>
-              <p class="hint" data-i18n="projects.hint">{{ gettext('Select a project or open Compile to ingest new content.') }}</p>
-            </div>
 
             <div id="view-generate" class="assure-view active">
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
