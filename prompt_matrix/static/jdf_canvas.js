@@ -340,35 +340,17 @@
   };
 
   JDFCanvasManager.prototype.renderEmptyCanvas = function () {
+    var projectId = global.__ASSURE_PROJECT_ID__ || "default";
     var wrap = document.createElement("div");
     wrap.className = "jdf-canvas-empty";
     wrap.setAttribute("role", "status");
     wrap.innerHTML =
-      '<div class="jdf-canvas-empty-arrow" aria-hidden="true">←</div>' +
       '<div class="jdf-canvas-empty-body">' +
-      "<h3>" +
-      jdfT("jdf.canvas.empty.title", "Start with an idea.") +
-      "</h3>" +
-      "<p>" +
-      jdfT(
-        "jdf.canvas.empty.lead",
-        "Paste a draft, upload a file, or describe what you need. Assure structures and verifies every section."
-      ) +
-      "</p>" +
-      (jdfHasText("jdf.canvas.empty.hint", "Open Compile in the left panel to begin.")
-        ? '<p class="jdf-canvas-empty-hint" data-i18n="jdf.canvas.empty.hint">' +
-          jdfT(
-            "jdf.canvas.empty.hint",
-            "Open Compile in the left panel to begin."
-          ) +
-          "</p>"
-        : "") +
-      (jdfHasText("jdf.canvas.empty_instruction", "Open Compile, paste your intent, or upload a source file.")
-        ? '<p class="jdf-canvas-empty-instruction" data-i18n="jdf.canvas.empty_instruction">' +
-          jdfT("jdf.canvas.empty_instruction", "Open Compile, paste your intent, or upload a source file.") +
-          "</p>"
-        : "") +
-      "</div>";
+      '<h2 class="jdf-empty-project-title">' + escapeHtml(projectId) + '</h2>' +
+      '<p class="jdf-empty-sub">' +
+      jdfT("jdf.canvas.empty.lead", "Open Compile to generate your first draft.") +
+      '</p>' +
+      '</div>';
     return wrap;
   };
 

@@ -4135,42 +4135,27 @@ input.auto-resize {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-lg);
-  min-height: 280px;
+  min-height: 400px;
   margin: var(--space-md) 0;
   padding: var(--space-xl);
-  background: var(--color-surface);
+  background: transparent;
   color: var(--text-muted);
-  border: 1px dashed var(--border-color);
-  border-radius: var(--radius-lg);
   text-align: center;
 }
 
-.jdf-canvas-empty-arrow {
+.jdf-empty-project-title {
   font-size: 28px;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.jdf-canvas-empty-body h3 {
-  margin: 0 0 var(--space-sm);
-  font-size: 20px;
+  font-weight: 500;
   color: var(--color-text);
+  margin: 0 0 var(--space-sm);
+  letter-spacing: -0.01em;
+  text-transform: capitalize;
 }
 
-.jdf-canvas-empty-body p {
+.jdf-empty-sub {
   margin: 0;
-  font-size: var(--font-size-sm);
-  max-width: 420px;
-  line-height: 1.6;
-}
-
-.jdf-canvas-empty-hint {
-  margin-top: var(--space-sm) !important;
-  font-size: 12px !important;
-  color: var(--color-text-muted, var(--color-text-secondary));
+  font-size: var(--font-size-md);
+  color: var(--text-muted);
 }
 
 .truth-error-detail {
