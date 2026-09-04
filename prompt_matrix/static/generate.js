@@ -170,6 +170,19 @@
           self.acceptAndDock();
         });
       }
+      var recompileBtn = $("generate-recompile-btn");
+      if (recompileBtn) {
+        recompileBtn.addEventListener("click", function () {
+          self.startDraftStream();
+        });
+      }
+      var discardBtn = $("generate-discard-btn");
+      if (discardBtn) {
+        discardBtn.addEventListener("click", function () {
+          self.setDraftFullscreen(false);
+          self.resetUi();
+        });
+      }
       var redhatRunBtn = $("redhat-run-btn");
       if (redhatRunBtn) {
         redhatRunBtn.addEventListener("click", function () {
@@ -372,7 +385,7 @@
       if (z3) {
         z3.hidden = true;
         z3.textContent = "";
-        z3.className = "gate-z3-status";
+        z3.className = "gate-z3-status verification-badge";
       }
       var redhat = $("redhat-preview");
       if (redhat) {
@@ -692,7 +705,7 @@
       if (z3El) {
         var status = z3.z3_status || z3.status || "UNKNOWN";
         z3El.hidden = false;
-        z3El.className = "gate-z3-status " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
+        z3El.className = "gate-z3-status verification-badge " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
         if (status === "PASS") {
           z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
             (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
