@@ -148,13 +148,12 @@
         z3El.textContent =
           t("generate.z3.pass", "Z3 verification passed.") +
           (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
-        if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("PASS");
-        triggerLockAnimation(z3El);
-        triggerLockAnimation(document.getElementById("truth-ledger-badge"));
+        syncCompilerStatus("verified");
+        triggerLockAnimation(document.getElementById("compiler-status"));
       } else if (status === "VIOLATION") {
         var viol = (z3.violations || []).join(" ");
         z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
-        if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("FAIL");
+        syncCompilerStatus("issues");
       } else {
         z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
       }
@@ -165,9 +164,7 @@
       var critiques = audit.redhat_critiques;
       if (critiques.length) {
         redhatEl.hidden = false;
-        if (jdf && typeof jdf.setStressTestStatus === "function") {
-          jdf.setStressTestStatus(critiques.length);
-        }
+        syncCompilerStatus("issues");
         critiques.forEach(function (c) {
           var li = document.createElement("li");
           var title = document.createElement("div");
@@ -181,9 +178,6 @@
         });
       } else {
         redhatEl.hidden = true;
-        if (jdf && typeof jdf.setStressTestStatus === "function") {
-          jdf.setStressTestStatus(0);
-        }
       }
     }
   }
@@ -195,11 +189,20 @@
     ["audit.progress.redhat", "Red-Hat adversarial audit…"],
   ];
 
+  var isFirstVerification = true;
+
   function triggerLockAnimation(el) {
-    if (!el) return;
+    if (!el || !isFirstVerification) return;
+    isFirstVerification = false;
     el.classList.remove("lock-animate");
     void el.offsetWidth;
     el.classList.add("lock-animate");
+  }
+
+  function syncCompilerStatus(state, detail) {
+    if (typeof global.updateCompilerStatus === "function") {
+      global.updateCompilerStatus(state, detail);
+    }
   }
 
   function createVerificationTimeout(onTimeout, ms) {

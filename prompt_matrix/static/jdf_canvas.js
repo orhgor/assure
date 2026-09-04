@@ -189,6 +189,10 @@
     this.documentVersion = 1;
     this.showCitations = true;
     this._animateNextRender = false;
+    this.isFirstLoad = true;
+    this.isFirstVerification = true;
+    this._compilerIssueCount = 0;
+    this.currentVerificationState = null;
     this.verifyTimeout = null;
   }
 
@@ -238,20 +242,33 @@
     this.documentVersion = version || 1;
     var verEl = document.getElementById("version-display");
     if (verEl) verEl.textContent = String(this.documentVersion);
+    if (global.AssureCompilerStatus && typeof global.AssureCompilerStatus.setVersion === "function") {
+      global.AssureCompilerStatus.setVersion(this.documentVersion);
+    }
+  };
+
+  JDFCanvasManager.prototype._clearVerifyRetryUi = function () {
+    var statusEl = document.getElementById("compiler-status");
+    if (!statusEl) return;
+    statusEl.classList.remove("verify-timeout-retry");
+    statusEl.removeAttribute("role");
+    statusEl.removeAttribute("tabindex");
+    statusEl.onclick = null;
+    statusEl.onkeydown = null;
+  };
+
+  JDFCanvasManager.prototype._syncCompilerStatus = function (state, detail) {
+    if (typeof global.updateCompilerStatus === "function") {
+      global.updateCompilerStatus(state, detail);
+      if (global.AssureCompilerStatus && typeof global.AssureCompilerStatus.setIssueCount === "function") {
+        global.AssureCompilerStatus.setIssueCount(this._compilerIssueCount);
+      }
+    }
   };
 
   JDFCanvasManager.prototype.setStreamStatus = function (step, messageKey, fallback, messageOverride) {
-    if (!this.streamStatusEl) return;
-    var text =
-      messageOverride ||
-      jdfT(messageKey, fallback || "", {});
-    if (!text && !step) {
-      this.streamStatusEl.hidden = true;
-      return;
-    }
-    this.streamStatusEl.hidden = false;
-    this.streamStatusEl.className = "stream-status-pill stream-step-" + (step || 0);
-    this.streamStatusEl.textContent = text;
+    if (step === 0) return;
+    this._syncCompilerStatus("processing", messageOverride || jdfT(messageKey, fallback || "", {}));
   };
 
   JDFCanvasManager.prototype.clearTruthError = function () {
@@ -336,7 +353,9 @@
 
   JDFCanvasManager.prototype.loadProject = function () {
     var self = this;
-    this.renderSkeleton(4);
+    if (this.isFirstLoad) {
+      this.renderSkeleton(4);
+    }
     return this.loadProjectSettings().then(function () {
       return fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/jdf")
         .then(function (r) {
@@ -345,15 +364,15 @@
         .then(function (data) {
           if (data.document) self.tree = data.document;
           if (data.version) self.setVersion(data.version);
-          self._animateNextRender = true;
+          self._animateNextRender = self.isFirstLoad;
           self.render();
+          self.isFirstLoad = false;
         });
     });
   };
 
   JDFCanvasManager.prototype.refreshCanvas = function () {
     var self = this;
-    this.renderSkeleton(4);
     return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/jdf")
       .then(function (r) {
         return r.json();
@@ -361,20 +380,15 @@
       .then(function (data) {
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
-        self._animateNextRender = true;
         self.render();
       });
   };
 
   JDFCanvasManager.prototype.setSavePill = function (state, messageKey, vars) {
-    if (!this.statusEl) return;
-    this.statusEl.className = "save-pill pill-" + state;
-    var labelEl = document.getElementById("save-status-label");
-    var versionWrap = document.getElementById("save-status-version-wrap");
     var fallbacks = {
-      "jdf.save.ready": "● Ready",
-      "jdf.status.compiling": "⬡ Compiling...",
-      "jdf.status.committed": "● Committed (v{version})",
+      "jdf.save.ready": "● Idle",
+      "jdf.status.compiling": "⬡ Processing…",
+      "jdf.status.committed": "● Idle",
       "jdf.save.saving": "Saving…",
       "jdf.save.saved": "Saved",
       "jdf.save.error": "Save failed",
@@ -382,28 +396,43 @@
       "jdf.save.stream_complete": "Stream complete",
     };
     var text = jdfT(messageKey, fallbacks[messageKey] || messageKey, vars || {});
-    if (labelEl) {
-      labelEl.textContent = text;
+    if (state === "compiling" || state === "saving") {
+      this._syncCompilerStatus("processing", text);
+      return;
     }
-    if (versionWrap) {
-      versionWrap.hidden = messageKey === "jdf.status.committed";
+    if (state === "error") {
+      this._compilerIssueCount = 1;
+      this._syncCompilerStatus("issues", text);
+      return;
+    }
+    if (messageKey === "jdf.status.committed" && vars && vars.version) {
+      if (global.AssureCompilerStatus) global.AssureCompilerStatus.setVersion(vars.version);
+    }
+    if (this._compilerIssueCount > 0) {
+      this._syncCompilerStatus("issues");
+    } else if (this.currentVerificationState === "verified") {
+      this._syncCompilerStatus("verified");
+    } else {
+      this._syncCompilerStatus("idle", text);
     }
   };
 
   JDFCanvasManager.prototype.setStressTestStatus = function (issueCount) {
-    if (!this.streamStatusEl) return;
-    var n = issueCount || 0;
-    if (!n) {
-      this.streamStatusEl.hidden = true;
-      return;
+    this._compilerIssueCount = issueCount || 0;
+    if (global.AssureCompilerStatus) {
+      global.AssureCompilerStatus.setIssueCount(this._compilerIssueCount);
     }
-    this.streamStatusEl.hidden = false;
-    this.streamStatusEl.className = "stream-status-pill stream-step-3 stream-stress";
-    this.streamStatusEl.textContent = jdfT(
-      "jdf.status.redhat",
-      "⚠️ Stress Test: {n} Issues",
-      { n: n }
-    );
+    if (this._compilerIssueCount > 0) {
+      this.currentVerificationState = "issues";
+      this._syncCompilerStatus(
+        "issues",
+        jdfT("jdf.status.redhat", "⚠️ Stress Test: {n} Issues", { n: this._compilerIssueCount })
+      );
+    } else if (this.currentVerificationState === "verified") {
+      this._syncCompilerStatus("verified");
+    } else {
+      this._syncCompilerStatus("idle");
+    }
   };
 
   JDFCanvasManager.prototype.clearVerifyTimeout = function () {
@@ -422,22 +451,23 @@
           ? global.AssureAuditGate.timeoutRetryMessage()
           : jdfT("audit.timeout", "Verification timeout — click to retry");
       self.setStreamStatus(2, "audit.timeout", msg, msg);
-      if (self.streamStatusEl) {
-        self.streamStatusEl.classList.add("verify-timeout-retry");
-        self.streamStatusEl.setAttribute("role", "button");
-        self.streamStatusEl.setAttribute("tabindex", "0");
-        self.streamStatusEl.onclick = function () {
-          self.streamStatusEl.classList.remove("verify-timeout-retry");
-          self.streamStatusEl.removeAttribute("role");
-          self.streamStatusEl.removeAttribute("tabindex");
-          self.streamStatusEl.onclick = null;
-          self.streamStatusEl.onkeydown = null;
+      var statusEl = document.getElementById("compiler-status");
+      if (statusEl) {
+        statusEl.classList.add("verify-timeout-retry");
+        statusEl.setAttribute("role", "button");
+        statusEl.setAttribute("tabindex", "0");
+        statusEl.onclick = function () {
+          statusEl.classList.remove("verify-timeout-retry");
+          statusEl.removeAttribute("role");
+          statusEl.removeAttribute("tabindex");
+          statusEl.onclick = null;
+          statusEl.onkeydown = null;
           if (typeof retryFn === "function") retryFn();
         };
-        self.streamStatusEl.onkeydown = function (e) {
+        statusEl.onkeydown = function (e) {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            self.streamStatusEl.onclick();
+            statusEl.onclick();
           }
         };
       }
@@ -451,27 +481,33 @@
   };
 
   JDFCanvasManager.prototype._triggerLockAnimation = function () {
+    if (!this.isFirstVerification) return;
+    this.isFirstVerification = false;
+    var el = document.getElementById("compiler-status");
     if (global.AssureAuditGate && typeof global.AssureAuditGate.triggerLockAnimation === "function") {
-      global.AssureAuditGate.triggerLockAnimation(this.truthEl);
-    } else if (this.truthEl) {
-      this.truthEl.classList.remove("lock-animate");
-      void this.truthEl.offsetWidth;
-      this.truthEl.classList.add("lock-animate");
+      global.AssureAuditGate.triggerLockAnimation(el);
+    } else if (el) {
+      el.classList.remove("lock-animate");
+      void el.offsetWidth;
+      el.classList.add("lock-animate");
     }
   };
 
   JDFCanvasManager.prototype.setTruthBadge = function (status, violationCount) {
-    if (!this.truthEl) return;
     if (status === "PASS") {
-      this.truthEl.className = "truth-pill truth-pass";
-      this.truthEl.textContent = jdfT("jdf.truth.pass", "✅ Proof Passing");
+      this.currentVerificationState = "verified";
+      this._compilerIssueCount = 0;
+      this._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
       this._triggerLockAnimation();
     } else if (status === "FAIL") {
-      this.truthEl.className = "truth-pill truth-fail";
-      this.truthEl.textContent = jdfT("jdf.truth.fail", "❌ Build Failing");
+      this.currentVerificationState = "issues";
+      this._compilerIssueCount = violationCount || 1;
+      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "⚠️ Issues Found"));
     } else {
-      this.truthEl.className = "truth-pill truth-idle";
-      this.truthEl.textContent = jdfT("jdf.truth.idle", "● Z3 Truth Ledger");
+      this.currentVerificationState = null;
+      if (!this.isStreaming) {
+        this._syncCompilerStatus("idle");
+      }
     }
   };
 
@@ -911,7 +947,7 @@
         }
         if (animate) {
           article.classList.add("animated");
-          article.style.animationDelay = nodeIndex * 80 + "ms";
+          article.style.animationDelay = (self.isFirstLoad ? nodeIndex * 30 : 0) + "ms";
           nodeIndex += 1;
         }
         wrap.appendChild(article);
@@ -1128,13 +1164,7 @@
       },
       ontruthcheck: function (data) {
         self.clearVerifyTimeout();
-        if (self.streamStatusEl) {
-          self.streamStatusEl.classList.remove("verify-timeout-retry");
-          self.streamStatusEl.removeAttribute("role");
-          self.streamStatusEl.removeAttribute("tabindex");
-          self.streamStatusEl.onclick = null;
-          self.streamStatusEl.onkeydown = null;
-        }
+        self._clearVerifyRetryUi();
         if (data.status === "PASS") {
           self.setTruthBadge("PASS");
           self.clearTruthError();
@@ -1240,13 +1270,7 @@
       },
       ontruthcheck: function (data) {
         self.clearVerifyTimeout();
-        if (self.streamStatusEl) {
-          self.streamStatusEl.classList.remove("verify-timeout-retry");
-          self.streamStatusEl.removeAttribute("role");
-          self.streamStatusEl.removeAttribute("tabindex");
-          self.streamStatusEl.onclick = null;
-          self.streamStatusEl.onkeydown = null;
-        }
+        self._clearVerifyRetryUi();
         self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…");
         if (data.status === "PASS") {
           self.setTruthBadge("PASS");

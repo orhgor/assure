@@ -56,10 +56,6 @@
             <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
             </span>
-            <button type="button" id="theme-toggle" class="theme-toggle" aria-label="{{ gettext('Switch to dark mode') }}">
-              <span class="theme-icon theme-icon-moon" aria-hidden="true">🌙</span>
-              <span class="theme-icon theme-icon-sun" aria-hidden="true">☀️</span>
-            </button>
             <label class="visually-hidden" for="locale-select">
               <span data-i18n="lang">{{ gettext('Language') }}</span>
             </label>
@@ -291,12 +287,11 @@
         </div>
         <footer class="command-deck">
           <div class="command-deck-left">
-            <span id="save-status" class="save-pill pill-idle">
-              <span id="save-status-label" data-i18n="jdf.save.ready">{{ gettext('● Ready') }}</span>
-              <span id="save-status-version-wrap">(<span id="version-display">1</span>)</span>
+            <span id="compiler-status" class="compiler-status compiler-idle" aria-live="polite" role="status">
+              <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('● Idle') }}</span>
+              <span id="compiler-status-detail" hidden></span>
             </span>
-            <span id="truth-ledger-badge" class="truth-pill truth-idle" data-i18n="jdf.truth.idle">● Z3 Truth Ledger</span>
-            <span id="stream-status" class="stream-status-pill stream-step-0" hidden aria-live="polite"></span>
+            <span id="version-display" class="visually-hidden" aria-hidden="true">1</span>
           </div>
           <div class="command-deck-right">
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
@@ -729,7 +724,8 @@
       applyI18n();
       if (window.__assureJdf && typeof window.__assureJdf.setSavePill === "function") {
         window.__assureJdf.setSavePill("idle", "jdf.save.ready");
-        window.__assureJdf.setTruthBadge("IDLE");
+      } else if (typeof updateCompilerStatus === "function") {
+        updateCompilerStatus("idle");
       }
       syncGo();
       syncIntentHint();

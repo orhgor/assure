@@ -2,7 +2,6 @@
   "use strict";
 
   var STORAGE_KEY = "assure_view";
-  var THEME_KEY = "assure-theme";
   var DEFAULT_VIEW = "generate";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
   var FULL_VIEWS = ["library", "settings"];
@@ -12,11 +11,20 @@
     return document.getElementById(id);
   }
 
-  function translate(key, fallback) {
+  function translate(key, fallback, vars) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, vars || {});
+    }
     if (typeof global.__assureT === "function") {
       return global.__assureT(key, fallback);
     }
-    return fallback || key;
+    var s = fallback || key;
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.replace(new RegExp("\\{" + k + "\\}", "g"), String(vars[k]));
+      });
+    }
+    return s;
   }
 
   function readViewFromHash() {
@@ -175,54 +183,64 @@
       .replace(/>/g, "&gt;");
   }
 
-  function getTheme() {
-    return document.documentElement.getAttribute("data-theme") || "light";
-  }
+  var AssureCompilerStatus = {
+    issueCount: 0,
+    documentVersion: 1,
+    currentState: "idle",
 
-  function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch (_) {}
-    updateToggleIcon(theme);
-  }
+    update: function (state, detail) {
+      var el = $("compiler-status");
+      var label = $("compiler-status-label");
+      var detailEl = $("compiler-status-detail");
+      if (!el || !label) return;
 
-  function updateToggleIcon(theme) {
-    var btn = $("theme-toggle");
-    if (!btn) return;
-    var isDark = theme === "dark";
-    btn.setAttribute(
-      "aria-label",
-      translate(
-        isDark ? "theme.toggle.light" : "theme.toggle.dark",
-        isDark ? "Switch to light mode" : "Switch to dark mode"
-      )
-    );
-  }
+      this.currentState = state || "idle";
+      el.className = "compiler-status compiler-" + this.currentState;
 
-  function toggleTheme() {
-    applyTheme(getTheme() === "dark" ? "light" : "dark");
-  }
+      var defaults = {
+        idle: ["compiler.status.idle", "● Idle"],
+        processing: ["compiler.status.processing", "⬡ Processing…"],
+        verified: ["compiler.status.verified", "✅ Verified"],
+        issues: ["compiler.status.issues", "⚠️ Issues Found"],
+      };
+      var pair = defaults[this.currentState] || defaults.idle;
+      label.textContent = detail != null && detail !== "" ? detail : translate(pair[0], pair[1]);
 
-  function initTheme() {
-    updateToggleIcon(getTheme());
-    var btn = $("theme-toggle");
-    if (btn) {
-      btn.addEventListener("click", toggleTheme);
-    }
-    document.addEventListener("assure:i18n", function () {
-      updateToggleIcon(getTheme());
-    });
-    try {
-      var mq = window.matchMedia("(prefers-color-scheme: dark)");
-      if (mq.addEventListener) {
-        mq.addEventListener("change", function (e) {
-          if (!localStorage.getItem(THEME_KEY)) {
-            applyTheme(e.matches ? "dark" : "light");
-          }
-        });
+      if (detailEl) {
+        if (this.currentState === "idle" && this.documentVersion > 1) {
+          detailEl.hidden = false;
+          detailEl.textContent = "(v" + this.documentVersion + ")";
+        } else if (this.currentState === "issues" && this.issueCount > 0) {
+          detailEl.hidden = false;
+          detailEl.textContent = translate(
+            "compiler.status.issues_detail",
+            "{n} issue(s)",
+            { n: this.issueCount }
+          );
+        } else {
+          detailEl.hidden = true;
+          detailEl.textContent = "";
+        }
       }
-    } catch (_) {}
+    },
+
+    setVersion: function (version) {
+      this.documentVersion = version || 1;
+      if (this.currentState === "idle") {
+        this.update("idle");
+      }
+    },
+
+    setIssueCount: function (count) {
+      this.issueCount = count || 0;
+      if (this.currentState === "issues") {
+        this.update("issues");
+      }
+    },
+  };
+
+  function updateCompilerStatus(state, detail) {
+    AssureCompilerStatus.update(state, detail);
   }
 
   var AssureLandingBridge = {
@@ -361,7 +379,7 @@
       });
 
       AssureStatus.init();
-      initTheme();
+      updateCompilerStatus("idle");
 
       if (isMobileNav()) {
         setSidebarOpen(layout, false);
@@ -531,9 +549,8 @@
   global.AssureStatus = AssureStatus;
   global.AssureStreamRegistry = AssureStreamRegistry;
   global.AssureProjects = AssureProjects;
-  global.initTheme = initTheme;
-  global.toggleTheme = toggleTheme;
-  global.updateToggleIcon = updateToggleIcon;
+  global.AssureCompilerStatus = AssureCompilerStatus;
+  global.updateCompilerStatus = updateCompilerStatus;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {

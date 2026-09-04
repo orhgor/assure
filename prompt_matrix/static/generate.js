@@ -191,25 +191,19 @@
       if (el) el.hidden = !on;
       var btn = $("generate-compile-btn");
       if (btn) btn.disabled = !!on;
-      var jdf = global.__assureJdf;
-      if (jdf && typeof jdf.setSavePill === "function") {
-        if (on) {
-          jdf.setSavePill("compiling", "jdf.status.compiling");
-        } else if (!this.auditComplete) {
-          jdf.setSavePill("idle", "jdf.save.ready");
+      if (on) {
+        if (typeof global.updateCompilerStatus === "function") {
+          global.updateCompilerStatus("processing");
+        }
+      } else if (!this.auditComplete) {
+        if (typeof global.updateCompilerStatus === "function") {
+          global.updateCompilerStatus("idle");
         }
       }
     },
 
-    setPreviewSkeleton: function (on) {
-      var preview = $("generate-stream-preview");
-      if (!preview) return;
-      if (on && !this.draftText) {
-        preview.classList.add("is-streaming-skeleton");
-        preview.textContent = "";
-      } else {
-        preview.classList.remove("is-streaming-skeleton");
-      }
+    setPreviewSkeleton: function () {
+      /* Left-pane skeleton removed — canvas skeleton only on first load */
     },
 
     setSummaryVisible: function (on) {
@@ -284,11 +278,8 @@
       if (global.AssureStreamRegistry) {
         global.AssureStreamRegistry.register(this.controller);
       }
-      if (global.__assureJdf && typeof global.__assureJdf.setSavePill === "function") {
-        global.__assureJdf.setSavePill("compiling", "jdf.status.compiling");
-      }
-      if (global.__assureJdf && typeof global.__assureJdf.setTruthBadge === "function") {
-        global.__assureJdf.setTruthBadge("IDLE");
+      if (typeof global.updateCompilerStatus === "function") {
+        global.updateCompilerStatus("processing");
       }
       if (global.__assureJdf && typeof global.__assureJdf.setStressTestStatus === "function") {
         global.__assureJdf.setStressTestStatus(0);
@@ -501,15 +492,19 @@
         if (status === "PASS") {
           z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
             (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
-          if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("PASS");
-          if (global.AssureAuditGate && typeof global.AssureAuditGate.triggerLockAnimation === "function") {
-            global.AssureAuditGate.triggerLockAnimation(z3El);
-            global.AssureAuditGate.triggerLockAnimation(document.getElementById("truth-ledger-badge"));
+          if (typeof global.updateCompilerStatus === "function") {
+            global.updateCompilerStatus("verified");
+          } else if (jdf && typeof jdf.setTruthBadge === "function") {
+            jdf.setTruthBadge("PASS");
           }
         } else if (status === "VIOLATION") {
           var viol = (z3.violations || []).join(" ");
           z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
-          if (jdf && typeof jdf.setTruthBadge === "function") jdf.setTruthBadge("FAIL");
+          if (typeof global.updateCompilerStatus === "function") {
+            global.updateCompilerStatus("issues");
+          } else if (jdf && typeof jdf.setTruthBadge === "function") {
+            jdf.setTruthBadge("FAIL");
+          }
         } else {
           z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
         }
@@ -521,7 +516,9 @@
         redhatEl.innerHTML = "";
         if (critiques.length) {
           redhatEl.hidden = false;
-          if (jdf && typeof jdf.setStressTestStatus === "function") {
+          if (typeof global.updateCompilerStatus === "function") {
+            global.updateCompilerStatus("issues");
+          } else if (jdf && typeof jdf.setStressTestStatus === "function") {
             jdf.setStressTestStatus(critiques.length);
           }
           critiques.forEach(function (c) {
