@@ -71,7 +71,14 @@
   var AssureStreamRegistry = {
     controller: null,
     register: function (ctrl) {
-      this.abort();
+      // Only abort a previous stream. Full abort() also calls AssureGenerate.abort(),
+      // which nulls the controller we are registering and crashes startDraftStream
+      // on `self.controller.signal`.
+      if (this.controller && this.controller !== ctrl) {
+        try {
+          this.controller.abort();
+        } catch (_) {}
+      }
       this.controller = ctrl;
     },
     abort: function () {
