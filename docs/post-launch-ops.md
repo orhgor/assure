@@ -231,6 +231,58 @@ SENTRY_DSN=https://YOUR_KEY@oYOUR_ORG.ingest.us.sentry.io/YOUR_PROJECT
 
 ---
 
+## Observability readiness
+
+Quick verification before handing testers the app or after a deploy.
+
+### Plausible
+
+| Check | How |
+| :--- | :--- |
+| Script on page | View source on `https://getassureai.com/` and `/app` — expect `pa-we0rKAtBU-r8df6whoZbn.js` + `plausible.init()`, **not** the generic `script.js` defer tag |
+| Dashboard | Plausible → site **`app.getassureai.com`** → Realtime / Pages (same embed on `getassureai.com` and `app.getassureai.com`) |
+| API key (server) | EC2 `.env.production`: `PLAUSIBLE_API_KEY` set (64-char; never in git or templates) |
+
+```bash
+curl -s https://getassureai.com/ | grep -o 'pa-we0rKAtBU[^\"]*'
+curl -s https://app.getassureai.com/app | grep -o 'plausible.init'
+```
+
+### Sentry
+
+| Check | How |
+| :--- | :--- |
+| Browser bundle | Page source includes `sentry.bundle.js` (local static), **not** `browser.sentry-cdn.com` or `js.sentry-cdn.com` |
+| Browser test | DevTools console: `myUndefinedFunction();` → new issue in Sentry Issues within ~1 min |
+| Server SDK | Flask errors with `SENTRY_DSN` set appear in the same Sentry project |
+
+```bash
+curl -s https://getassureai.com/app | grep -o 'sentry.bundle.js'
+curl -s https://getassureai.com/app | grep -c 'sentry-cdn'   # expect 0
+```
+
+### EC2 env checklist (`.env.production`)
+
+| Variable | Required | Purpose |
+| :--- | :--- | :--- |
+| `PLAUSIBLE_API_KEY` | Yes (stats/scripts) | Plausible Stats API — not used in HTML |
+| `SENTRY_DSN` | Recommended | Server `sentry-sdk[flask]` via `_init_sentry()` |
+| `SENTRY_BROWSER_DSN` | Optional | Browser override; defaults to `SENTRY_DSN` or built-in prod DSN |
+| `SENTRY_ENABLED` | Optional | Force browser loader on non-production (`1`) |
+| `ENVIRONMENT=production` | Via compose | Set in `docker-compose.prod.yml`; gates Plausible + browser Sentry |
+
+After changing env: `bash scripts/aws/redeploy-app.sh` or `bash scripts/aws/ssm-redeploy-and-wait.sh` (restart picks up `.env.production`).
+
+### When to rotate keys
+
+| Secret | Rotate when |
+| :--- | :--- |
+| `PLAUSIBLE_API_KEY` | Shared in chat, leaked in logs, or team member offboarding |
+| `SENTRY_DSN` | Only if project is deleted/recreated (DSN is project-scoped, low sensitivity) |
+| `SENTRY_AUTH_TOKEN` (`sntrys_…`) | Any exposure — CLI/CI only, never in browser |
+
+---
+
 ## Deploy reminder
 
 ```bash
