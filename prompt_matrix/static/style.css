@@ -428,13 +428,14 @@ input[type="password"],
 input[type="search"],
 select {
   width: 100%;
-  padding: var(--spacing-2) var(--spacing-3);
+  padding: var(--space-md) var(--space-lg);
   border: 1px solid var(--assure-light-gray);
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-base);
   font-family: var(--font-family);
-  background: var(--paper);
-  color: var(--text);
+  background: var(--color-surface);
+  color: var(--text-main);
+  box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .form-control:focus,
@@ -464,11 +465,18 @@ textarea { resize: vertical; }
 select:disabled { opacity: 0.55; }
 
 .card {
-  background: #fff;
+  background: var(--color-surface);
+  color: var(--text-main);
   border-radius: var(--border-radius-lg);
   padding: var(--spacing-6);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--assure-light-gray);
+}
+
+.panel,
+.sidebar-item {
+  background: var(--color-surface);
+  color: var(--text-main);
 }
 .card-header {
   border-bottom: 1px solid var(--assure-light-gray);
@@ -2089,7 +2097,7 @@ body:has(#assure-app) .shell {
 
 .onboarding-callout .btn-outline {
   background: transparent;
-  color: var(--text-main);
+  color: #ffffff;
   border-color: var(--border-color);
 }
 
@@ -2154,7 +2162,7 @@ body.onboarding-active .sidebar-backdrop {
     margin: 0;
     border-top: 1px solid var(--border-color);
     box-shadow: var(--shadow-md);
-    background: rgba(255, 255, 255, 0.97);
+    background: var(--color-surface);
   }
 }
 
@@ -2202,6 +2210,7 @@ body.onboarding-active .sidebar-backdrop {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
+  color-scheme: light;
   overflow: hidden;
   min-height: min(720px, calc(100dvh - 220px));
   max-height: calc(100dvh - 160px);
@@ -2340,10 +2349,10 @@ body.onboarding-active .sidebar-backdrop {
 .jdf-workbench .draft-textarea,
 .jdf-workbench textarea.form-control,
 .jdf-workbench input.form-control {
-  padding-left: var(--spacing-3);
-  padding-right: var(--spacing-3);
-  background: var(--color-surface, var(--paper));
-  color: var(--color-text, var(--text));
+  background: var(--color-surface) !important;
+  color: var(--text-main) !important;
+  padding: var(--space-md) var(--space-lg) !important;
+  box-sizing: border-box;
   border-color: var(--color-border, var(--assure-light-gray));
 }
 
@@ -2469,8 +2478,10 @@ body.onboarding-active .sidebar-backdrop {
   font-size: 14px;
   line-height: 1.7;
   margin: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-surface);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface) !important;
+  color: var(--text-main) !important;
+  box-sizing: border-box;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   transition: border-color 0.15s ease;
@@ -3070,9 +3081,8 @@ button.save-pill {
 
 .command-deck {
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(6px);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-surface) !important;
+  border-top: 1px solid var(--border-color);
   padding: var(--space-sm) var(--space-md);
   display: flex;
   align-items: center;
@@ -3627,11 +3637,12 @@ button.save-pill {
   font: inherit;
   font-size: var(--font-size-sm);
   line-height: 1.3;
-  color: var(--color-text);
-  background: var(--color-surface);
+  background: var(--color-surface) !important;
+  color: var(--text-main) !important;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: var(--spacing-1) var(--spacing-3);
+  padding: var(--space-md) var(--space-lg) !important;
+  box-sizing: border-box;
   cursor: pointer;
 }
 button.example-chip {
@@ -4119,11 +4130,11 @@ input.auto-resize {
   min-height: 280px;
   margin: var(--space-md) 0;
   padding: var(--space-xl);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: var(--color-text-secondary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
   text-align: center;
-  background: var(--color-bg);
 }
 
 .jdf-canvas-empty-arrow {
@@ -4252,5 +4263,9 @@ input.auto-resize {
   .page-hero.compose-hero h1 {
     white-space: normal;
   }
+}
+
+#next-btn {
+  display: none !important;
 }
 
