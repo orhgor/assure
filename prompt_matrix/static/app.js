@@ -274,6 +274,33 @@
     down.addEventListener("click", function () { onVote(0); });
   }
 
+  function bindTesterFeedback() {
+    var btn = document.getElementById("tester-feedback-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var text = window.prompt(
+        t("tester.feedback.prompt", "What's working? What's confusing?")
+      );
+      if (!text || !String(text).trim()) return;
+      btn.disabled = true;
+      nativeFetch("/api/tester-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: String(text).trim(), page: location.pathname }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("bad status");
+          window.alert(t("tester.feedback.thanks", "Thank you! Your feedback was sent."));
+        })
+        .catch(function () {
+          window.alert(t("tester.feedback.error", "Could not send feedback. Please try again."));
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
+
   window.AssureKeys = {
     getGeminiKey: getGeminiKey,
     getClaudeKey: getClaudeKey,
@@ -297,5 +324,6 @@
   document.addEventListener("DOMContentLoaded", function () {
     ensureSettingsButton();
     bindSettingsModal();
+    bindTesterFeedback();
   });
 })();

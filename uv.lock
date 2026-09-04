@@ -1958,6 +1958,7 @@ dependencies = [
     { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "rich" },
+    { name = "sentry-sdk", extra = ["flask"] },
     { name = "tiktoken" },
     { name = "z3-solver" },
 ]
@@ -1993,6 +1994,7 @@ requires-dist = [
     { name = "python-docx", specifier = ">=1.1.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.9.0" },
+    { name = "sentry-sdk", extras = ["flask"], specifier = ">=2.0.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "z3-solver", specifier = ">=4.12.0" },
 ]
@@ -2881,6 +2883,26 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/76/43/35e4d8aa320bffe8287fe8f65f578fa2d2db0a64212f0e710dce58267854/s3transfer-0.19.2.tar.gz", hash = "sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993", size = 165592, upload-time = "2026-07-22T19:30:44.432Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/e7/5c595c75e9f41a44f30e526eda465ea0b4eec93470e074e4a111b253f13a/s3transfer-0.19.2-py3-none-any.whl", hash = "sha256:d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25", size = 90216, upload-time = "2026-07-22T19:30:43.251Z" },
+]
+
+[[package]]
+name = "sentry-sdk"
+version = "2.68.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "certifi" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9a/e7/c504a4bd2d95df2e0ab73714a9161ff1cf6ff1486922685e5f46dfd9eba8/sentry_sdk-2.68.1.tar.gz", hash = "sha256:6a97895230b04bc35d4d8d2e51e3b9e21902dfb0086ccf1f131a80c15c7b997a", size = 1019262, upload-time = "2026-08-24T13:09:38.108Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/28/465ad9382be98f2172e691f5836cf87f936773913ad7ab85ba1ba1d6706e/sentry_sdk-2.68.1-py3-none-any.whl", hash = "sha256:775b78871783a0ffd758276ad01b3bb2b1ebcdad8f9d2f0a7723f76b73c99b65", size = 520851, upload-time = "2026-08-24T13:09:36.186Z" },
+]
+
+[package.optional-dependencies]
+flask = [
+    { name = "blinker" },
+    { name = "flask" },
+    { name = "markupsafe" },
 ]
 
 [[package]]

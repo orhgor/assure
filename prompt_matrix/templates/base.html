@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
+  {% include 'includes/plausible.html' %}
   <script>
     /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
     (function () {
@@ -86,6 +87,7 @@
       <a href="/pricing{{ q }}" data-i18n="nav.pricing">{{ gettext('Pricing') }}</a>
     </p>
   </footer>
+  <button type="button" id="tester-feedback-btn" class="tester-feedback-btn" data-i18n="tester.feedback.btn" data-i18n-aria="tester.feedback.btn_aria" aria-label="{{ gettext('Send feedback about Assure') }}">{{ gettext('💬 Feedback') }}</button>
   <script>
     (function () {
       var lang = document.getElementById("lang");

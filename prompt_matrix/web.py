@@ -8,6 +8,7 @@ import socket
 import sys
 import threading
 import time
+import uuid
 import webbrowser
 from pathlib import Path
 
@@ -78,6 +79,32 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_BASIC_USER = "admin"
 DEFAULT_BASIC_PASS = "changeme"
+
+
+def _init_sentry() -> None:
+    dsn = (os.environ.get("SENTRY_DSN") or "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+    except ImportError:
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=os.environ.get("ENVIRONMENT", "development"),
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=0.1,
+    )
+
+
+def _plausible_domain() -> str:
+    domain = (os.environ.get("PLAUSIBLE_DOMAIN") or "").strip()
+    if domain:
+        return domain
+    if os.environ.get("ENVIRONMENT") == "production":
+        return "getassureai.com"
+    return ""
 
 try:
     from .waitlist import (
@@ -207,6 +234,7 @@ def first_open_url(local: str) -> str:
 
 
 def create_app(*, require_auth: bool = True) -> Flask:
+    _init_sentry()
     try:
         from .pem_runner import ensure_preflight
     except ImportError:
@@ -326,7 +354,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.context_processor
     def _ui_versions():
-        return {"css_version": APP_CSS, "js_version": APP_JS}
+        return {"css_version": APP_CSS, "js_version": APP_JS, "plausible_domain": _plausible_domain()}
 
     try:
         from .cloud_auth import (
@@ -1126,6 +1154,38 @@ def create_app(*, require_auth: bool = True) -> Flask:
             }
         )
 
+
+    @app.post("/api/tester-feedback")
+    def handle_tester_feedback():
+        data = request.get_json(silent=True) or {}
+        text = str(data.get("text") or "").strip()
+        if not text:
+            return jsonify({"error": "Feedback text required."}), 400
+        if len(text) > 4000:
+            return jsonify({"error": "Feedback text too long (max 4000 chars)."}), 400
+        page = str(data.get("page") or request.referrer or "")[:500]
+        request_id = str(uuid.uuid4())
+        user_hint = str(data.get("user") or "").strip()[:120] or None
+        try:
+            from flask import g
+
+            user_id = getattr(g, "user_id", None)
+            if user_id:
+                user_hint = str(user_id)
+        except RuntimeError:
+            pass
+        try:
+            from .lib.logger import get_audit_logger
+        except ImportError:
+            from lib.logger import get_audit_logger
+        get_audit_logger().log_audit(
+            request_id,
+            None,
+            "TESTER_FEEDBACK",
+            success=True,
+            details={"text": text, "page": page, "user": user_hint},
+        )
+        return jsonify({"status": "ok"}), 200
 
     @app.post("/api/feedback")
     @login_required

@@ -1,12 +1,12 @@
 # Assure — full product status
 
 **Date:** 2026-09-04  
-**Decision:** **GO** — launch bundle + deploy hardening live on `p4-account-wallet`  
-**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: 955ef45`, UI `assure-50` / `assure-41`, ~13 GB disk free  
-**Tests:** **258 passing** (`uv run pytest tests/ -q`)  
+**Decision:** **GO** — mobile layout + landing i18n live on `p4-account-wallet`  
+**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: 7a1cbef`, UI `assure-52` / `assure-41`, landing CSS/JS `44` / `32`, ~7 GB disk free  
+**Tests:** **260 passing** (`uv run pytest tests/ -q`)  
 **Container:** `assure-assure-app-1` on EC2 — GHCR pull + hardened redeploy script (`scripts/aws/redeploy-app.sh`)  
-**Git:** `955ef45` on `p4-account-wallet` — deploy mutex, GHCR pull retries, stale-container cleanup, health-based auto-heal cron  
-**Detail checklist:** [launch-checklist.md](./launch-checklist.md)
+**Git:** `7a1cbef` on `p4-account-wallet` — mobile landing/workbench layout, shared marketing header, TR brand **Zihinsel Derleyici**  
+**Detail checklist:** [launch-checklist.md](./launch-checklist.md) · **Post-launch ops:** [post-launch-ops.md](./post-launch-ops.md)
 
 ---
 
@@ -18,7 +18,7 @@ Assure is **The Intellectual Compiler** — *Compile intent. Verify logic. Ship 
 
 ## Phase 3 — Document Compiler cycle (2026-09-04)
 
-Latest commit **`955ef45`** on branch **`p4-account-wallet`**. GitHub Actions App Docker (ARM64) + EC2 SSM redeploy confirmed. Ancestry includes launch bundle (`307cdaf`), production hardening (`71b7024`), example chips + SSE reconnect (`272be96`), Red-Hat/Refine onboarding (`d2f0019`), docs snapshot (`6efd85e`), and deploy hardening (`955ef45`).
+Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions App Docker (ARM64) + EC2 SSM redeploy confirmed. Recent ancestry: mobile layout + landing i18n (`fe247c8`), deploy hardening (`955ef45`), launch bundle (`d2f0019`…`6efd85e`).
 
 ### Landing & marketing
 
@@ -26,10 +26,13 @@ Latest commit **`955ef45`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 | :--- | :--- |
 | Intellectual Compiler manifesto landing (hero, tagline, 3-Act Engine, competitor section) | ✅ Live |
 | Persona strip — 3 roles + “and more” link to `#personas` | ✅ Live (`f69b8cb`) |
-| Static hero before/after (no auto-play animation) | ✅ Live |
-| `/architecture` subpage (JDF AST, 6-step pipeline, Z3 explanation) | ✅ Live |
-| Zero-Risk Paste Test — `POST /api/sandbox/verify` + unified Pre-Flight Gate (`audit_gate.js`) | ✅ Live |
+| Static hero before/after (no auto-play animation); AST badges flex-wrap on mobile | ✅ Live (`fe247c8`) |
+| `/architecture` subpage — shared header/footer with landing (logo, lang, mobile menu) | ✅ Live (`fe247c8`) |
+| Landing i18n — `landing-i18n.js`, locale select, `data-i18n` on hero/nav/footer | ✅ Live (`fe247c8`) |
+| Mobile nav — Menu toggle, full-width Launch CTA; value table card stack (≤768px, no h-scroll) | ✅ Live (`fe247c8`) |
+| Zero-Risk Paste Test — `POST /api/sandbox/verify` + inline errors (no `alert`) | ✅ Live |
 | Nav: Docs, Architecture, Sandbox, **Launch Workspace** → `/app` | ✅ Live |
+| Turkish brand — **Zihinsel Derleyici**; tagline *Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.* | ✅ Live (`7a1cbef`) |
 
 ### Workbench (Document Compiler UI)
 
@@ -46,6 +49,8 @@ Latest commit **`955ef45`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 | Tooltips with mobile overflow fix; context-locking Refine copy | ✅ |
 | Canvas skeleton (first load only), 30 ms node pop-in, Z3 lock animation (first verify) | ✅ |
 | Mobile: hamburger, icon sidebar (tablet), floating command deck | ✅ |
+| Mobile header grid — logo left, locale right; trust strip hidden <1024px | ✅ Live (`fe247c8`) |
+| Default view **Compile** (not Projects); stream collapses after compile | ✅ Live (`fe247c8`) |
 | Dark mode toggle | ❌ Removed from MVP |
 
 ### JDF engine
@@ -86,6 +91,8 @@ Latest commit **`955ef45`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 | Health-based auto-heal cron (every 5 min, loopback `:8765/health`) | ✅ Live on EC2 |
 | `scripts/aws/install-auto-heal-cron.sh` | ✅ |
 | Redeploy script tests | ✅ `tests/test_redeploy_hardening.py` (3 tests) |
+| Audit log + system_metrics SQL runbook | ✅ [post-launch-ops.md](./post-launch-ops.md) |
+| Plausible / tester free-text feedback / Sentry | ✅ Live — Plausible on prod Flask pages; `POST /api/tester-feedback`; Sentry when `SENTRY_DSN` set |
 
 ### Tests
 
@@ -116,9 +123,9 @@ All hard gates for a soft launch are satisfied:
 | :--- | :--- |
 | `getassureai.com` + `www` → Cloudflare | ✅ 200 |
 | Landing, `/app`, `/architecture` | ✅ 200 |
-| Production health | ✅ `healthy` @ `955ef45` |
+| Production health | ✅ `healthy` @ `7a1cbef` |
 | Zero-Risk Paste Test (sandbox API) | ✅ Wired |
-| 7 languages on workbench | ✅ i18n in all locales |
+| 7 languages on workbench + landing marketing strings | ✅ i18n in all locales |
 | Landing page + GA4 + privacy disclosure | ✅ Live |
 
 **Not ready for:** promising a download button, implying Assure pays API costs, or wide promotion before P1 fixes below.
@@ -150,8 +157,9 @@ Assure is **bring your own key (BYOK)**. Key facts:
 
 - **URL:** https://getassureai.com/ (EC2 on `p4-account-wallet`, Cloudflare tunnel)
 - **Pages:** IC manifesto landing, `/architecture`, Zero-Risk Paste Test, pricing, install, privacy, terms, about
-- **Sandbox:** `POST /api/sandbox/verify` — real compile pipeline, no persistence
-- **Nav:** Docs, Architecture, Sandbox, Launch Workspace → `/app`
+- **Sandbox:** `POST /api/sandbox/verify` — real compile pipeline, no persistence; inline error banner on mobile
+- **Nav:** Shared header (SVG logo, lang select, mobile Menu); Docs, Architecture, Sandbox, Launch Workspace → `/app`
+- **Locales:** Landing + workbench in en, es, zh, fr, de, ja, tr (TR brand: Zihinsel Derleyici)
 - **Analytics:** GA4 on HTML pages; disclosed on `/privacy`
 - **Download buttons:** Disabled — no public binary URL
 
@@ -232,6 +240,8 @@ Refine (click-to-refine, surgical view) → Build Artifact export (DOCX + Refere
 | `d2f0019` | Red-Hat/Refine onboarding, demo chip, tooltips |
 | `6efd85e` | Docs: verify production deploy |
 | **`955ef45`** | **Deploy hardening — mutex, pull retries, stale cleanup, auto-heal** |
+| **`fe247c8`** | **Mobile layout — landing nav/table, architecture header, workbench header grid, landing i18n** |
+| **`7a1cbef`** | **TR brand tagline — Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.** |
 
 ---
 
@@ -239,23 +249,25 @@ Refine (click-to-refine, surgical view) → Build Artifact export (DOCX + Refere
 
 ### Immediate
 
-1. ~~Verify EC2 redeploy~~ **Done** — `build_sha: 955ef45`, healthy
+1. ~~Verify EC2 redeploy~~ **Done** — `build_sha: 7a1cbef`, healthy
 2. ~~Deploy hardening~~ **Done** — `955ef45` live
-3. Smoke-test: landing personas, sandbox paste test, Compile → example chips → Red-Hat demo → Refine → export
-4. Schedule SQLite backup (`backup: never_run` in health)
+3. ~~Mobile layout + landing i18n~~ **Done** — `fe247c8` live
+4. ~~Turkish brand copy~~ **Done** — Zihinsel Derleyici (`7a1cbef`)
+5. Smoke-test on mobile (390px): landing nav, value table, workbench header, `/architecture` header
+6. Schedule SQLite backup (`backup: never_run` in health)
 
 ### Launch sequence
 
-5. Product Hunt, LinkedIn, X, Reddit — use UTM links in [launch-checklist.md](./launch-checklist.md)
-6. Keep download buttons disabled until a real binary URL exists
+7. Product Hunt, LinkedIn, X, Reddit — use UTM links in [launch-checklist.md](./launch-checklist.md)
+8. Keep download buttons disabled until a real binary URL exists
 
 ### Post-launch
 
-7. Landing page i18n (workbench already 7-locale)
-8. PyPI publish when ready
-9. Desktop build and signed release
-10. EU consent decision for GA4
-11. Free-tier live UI verification under real quota (5/day)
+9. ~~Landing page i18n~~ **Done** (`fe247c8`); extend architecture body copy i18n if needed
+10. PyPI publish when ready
+11. Desktop build and signed release
+12. EU consent decision for GA4
+13. Free-tier live UI verification under real quota (5/day)
 
 ---
 
@@ -271,4 +283,4 @@ Refine (click-to-refine, surgical view) → Build Artifact export (DOCX + Refere
 
 ---
 
-*Updated 2026-09-04 after deploy hardening (`955ef45`) verified on production.*
+*Updated 2026-09-04 after mobile layout + TR tagline deploy (`7a1cbef`) verified on production.*

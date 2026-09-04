@@ -313,6 +313,31 @@ button.tiny:disabled { cursor: default; }
   cursor: wait;
 }
 
+.tester-feedback-btn {
+  position: fixed;
+  bottom: 5rem;
+  right: 1rem;
+  z-index: 999;
+  appearance: none;
+  background: var(--primary, var(--assure-trust-blue));
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  padding: 0.625rem 1rem;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(26, 75, 140, 0.25);
+}
+.tester-feedback-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.tester-feedback-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
