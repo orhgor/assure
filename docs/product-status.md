@@ -1,10 +1,10 @@
 # Assure — full product status
 
 **Date:** 2026-09-04  
-**Decision:** **GO** — Intellectual Compiler branding live on `p4-account-wallet`; EC2 deploy verified (`https://getassureai.com/health` → `build_sha` `192eba3`)  
-**Tests:** 242 passing (`uv run pytest -q`)  
-**Container:** `docker compose up -d assure-app` — healthy on `:8765` (poppler-utils + Textract deps in Dockerfile)  
-**Git:** `6b3f4af` on `p4-account-wallet` — persona strip, unified audit gate, visual polish (production redeploy pending; live SHA still `192eba3`)  
+**Decision:** **GO** — final launch bundle live on `p4-account-wallet`; EC2 deploy verified (`https://getassureai.com/health` → `build_sha` `d2f0019`)  
+**Tests:** 255 passing (`uv run pytest tests/ -q`)  
+**Container:** `docker compose up -d assure-app` — healthy on `:8765` (GHCR pull-only; poppler-utils + Textract deps in Dockerfile)  
+**Git:** `d2f0019` on `p4-account-wallet` — example chips, language guards, SSE reconnect, production hardening, Red-Hat/Refine onboarding  
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md)
 
 ---
@@ -17,7 +17,7 @@ Assure is **The Intellectual Compiler** — *Compile intent. Verify logic. Ship 
 
 ## Phase 3 — Document Compiler cycle (2026-09-04)
 
-Latest commit `6c225ae` on branch **`p4-account-wallet`**. EC2 redeploy via SSM (`scripts/aws/redeploy-via-ssm.sh`) confirmed: production health returns `status: healthy`, `build_sha: 6c225ae`, UI `assure-45` / `assure-37`. GHCR image for this SHA was missing; instance built locally as fallback.
+Latest commit `d2f0019` on branch **`p4-account-wallet`**. GitHub Actions App Docker build + EC2 pull confirmed: production health returns `status: healthy`, `build_sha: d2f0019`, UI `assure-50` / `assure-41`. Launch bundle commits: `71b7024` (hardening), `307cdaf` (example chips + language guards), `272be96` (i18n/auto-resize), `d2f0019` (onboarding/tooltips).
 
 ### Landing & marketing
 
@@ -65,7 +65,7 @@ Latest commit `6c225ae` on branch **`p4-account-wallet`**. EC2 redeploy via SSM 
 
 | Item | Result |
 | :--- | :--- |
-| Full suite | ✅ **237 passed** (`uv run pytest -q`, 2026-09-04) |
+| Full suite | ✅ **255 passed** (`uv run pytest tests/ -q`, 2026-09-04) |
 | New coverage areas | `test_sandbox.py`, `test_draft.py`, `test_textract.py`, `test_jdf_annotations.py`, `test_provenance_export.py`, `test_adoption.py` |
 
 ---
