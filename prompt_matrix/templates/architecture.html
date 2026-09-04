@@ -13,7 +13,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('44') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
-    {% include 'includes/sentry.html' %}
     <script>
       window.__assureLandingStrings = {{ strings|tojson }};
     </script>

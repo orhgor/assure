@@ -2,10 +2,10 @@
 
 **Date:** 2026-09-04  
 **Decision:** **GO** — mobile layout + landing i18n live on `p4-account-wallet`  
-**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: 7a1cbef`, UI `assure-52` / `assure-41`, landing CSS/JS `44` / `32`, ~7 GB disk free  
-**Tests:** **260 passing** (`uv run pytest tests/ -q`)  
+**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: cc34589`, UI `assure-53` / `assure-42`, landing CSS/JS `44` / `32`, ~7 GB disk free  
+**Tests:** **266 passing** (`uv run pytest tests/ -q`)  
 **Container:** `assure-assure-app-1` on EC2 — GHCR pull + hardened redeploy script (`scripts/aws/redeploy-app.sh`)  
-**Git:** `7a1cbef` on `p4-account-wallet` — mobile landing/workbench layout, shared marketing header, TR brand **Zihinsel Derleyici**  
+**Git:** `cc34589` on `p4-account-wallet` — post-launch ops (Plausible, tester feedback, optional Sentry)  
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md) · **Post-launch ops:** [post-launch-ops.md](./post-launch-ops.md)
 
 ---
@@ -98,7 +98,7 @@ Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 
 | Item | Result |
 | :--- | :--- |
-| Full suite | ✅ **260 passed** (`uv run pytest tests/ -q`, 2026-09-04) |
+| Full suite | ✅ **266 passed** (`uv run pytest tests/ -q`, 2026-09-04) |
 | Coverage areas | sandbox, draft, textract, jdf annotations, provenance export, language guard, connection retry, redeploy hardening |
 
 ---
