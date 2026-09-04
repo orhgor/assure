@@ -1,6 +1,7 @@
 FROM node:22-slim AS sentry
 WORKDIR /build
-COPY package.json package-lock.json scripts/bundle-sentry.mjs ./
+COPY package.json package-lock.json ./
+COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
 COPY prompt_matrix/static/src/sentry-init.js prompt_matrix/static/src/sentry-init.js
 RUN npm ci && npm run bundle:sentry
 
