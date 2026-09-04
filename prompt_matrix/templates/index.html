@@ -116,7 +116,7 @@
 
             <div id="view-generate" class="assure-view active">
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
-              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft, upload a file, or describe what you need.') }}</p>
+              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
               <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
               <div class="example-chips" role="group" aria-label="{{ gettext('Example intents') }}" data-i18n-aria="example.chips">
                 <button type="button" class="example-chip" data-prompt-key="example.executive_summary" data-i18n="example.executive_summary.label">{{ gettext('Executive Summary') }}</button>
@@ -358,7 +358,7 @@
               <span class="verified-badge idle" id="verified-badge" data-i18n="answer.badge.ready">{{ gettext('Answer ready') }}</span>
               <button class="btn btn-outline ghost" type="button" id="copy-answer" hidden data-i18n="answer.copy">{{ gettext('Copy answer') }}</button>
             </div>
-            <p class="hint" id="answer-hint" data-i18n="answer.placeholder">{{ gettext('Paste a draft, attach source files, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</p>
+            <p class="hint" id="answer-hint" data-i18n="answer.placeholder">{{ gettext('Paste a draft or describe what you need, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</p>
             <div class="run-busy" id="run-busy" hidden>
               <span class="spinner" aria-hidden="true"></span>
               <span id="run-busy-text" data-i18n="working">{{ gettext('Working…') }}</span>
@@ -366,7 +366,7 @@
             <div id="answer" class="answer-body">
               <div id="reply-content" class="answer-prose" hidden></div>
               <div class="placeholder empty-state" id="answer-placeholder">
-                <span data-i18n="answer.placeholder">{{ gettext('Paste a draft, attach source files, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</span>
+                <span data-i18n="answer.placeholder">{{ gettext('Paste a draft or describe what you need, then Send. Green = grounded in source. Yellow = inferred or unsupported.') }}</span>
               </div>
             </div>
             <div id="audit-legend" class="audit-legend" hidden></div>
