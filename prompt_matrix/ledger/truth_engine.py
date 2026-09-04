@@ -69,7 +69,9 @@ class TruthLedgerEngine:
         # node_id -> (node_hash, ledger_epoch, (ok, msg))
         self._node_cache: OrderedDict[str, tuple[str, int, tuple[bool, str | None]]] = OrderedDict()
         # (canonical_key, incoming_value, ledger_epoch) -> (ok, msg)
-        self._metric_cache: OrderedDict[tuple[str, float, int], tuple[bool, str | None]] = OrderedDict()
+        self._metric_cache: OrderedDict[tuple[str, float, int], tuple[bool, str | None]] = (
+            OrderedDict()
+        )
 
     def _bump_ledger_epoch(self) -> None:
         self._ledger_epoch += 1
@@ -172,7 +174,9 @@ class TruthLedgerEngine:
 
         return self._cache_node_result(node_id, node_hash, (True, None))
 
-    def validate_entities(self, entities: Iterable[tuple[str, float] | EntityMetric]) -> tuple[bool, list[str]]:
+    def validate_entities(
+        self, entities: Iterable[tuple[str, float] | EntityMetric]
+    ) -> tuple[bool, list[str]]:
         """Fail fast on the first contradictory entity tuple."""
         violations: list[str] = []
         for item in entities:
@@ -191,7 +195,11 @@ class TruthLedgerEngine:
         return True, violations
 
     def load_from_document(self, tree: JDFDocumentTree | dict[str, Any]) -> None:
-        ledger = tree.truth_ledger if isinstance(tree, JDFDocumentTree) else (tree.get("truth_ledger") or {})
+        ledger = (
+            tree.truth_ledger
+            if isinstance(tree, JDFDocumentTree)
+            else (tree.get("truth_ledger") or {})
+        )
         if not ledger:
             return
         for key, raw in ledger.items():

@@ -158,7 +158,11 @@ def inject_bedrock_cache_control(
             elif isinstance(content, list):
                 blocks = []
                 for block in content:
-                    b = dict(block) if isinstance(block, dict) else {"type": "text", "text": str(block)}
+                    b = (
+                        dict(block)
+                        if isinstance(block, dict)
+                        else {"type": "text", "text": str(block)}
+                    )
                     b["cache_control"] = {"type": "ephemeral"}
                     blocks.append(b)
                 item["content"] = blocks
@@ -322,7 +326,9 @@ class CostGovernor:
         limit, used = self.budget_store.get_usage(project_id)
         return max(0, limit - used)
 
-    def preflight(self, project_id: str, task_type: TaskType, messages: list[dict[str, Any]]) -> ModelPolicy:
+    def preflight(
+        self, project_id: str, task_type: TaskType, messages: list[dict[str, Any]]
+    ) -> ModelPolicy:
         policy = self.policy_for(task_type)
         estimated_in = self.accountant.count_messages(messages)
         hard_cap = MAX_INPUT_TOKENS.get(task_type, 30_000)
@@ -374,9 +380,17 @@ class CostGovernor:
         use_cache: bool,
     ) -> tuple[str, int, int]:
         try:
-            from .services.language_guard import ensure_response_language, guard_messages, resolve_request_locale
+            from .services.language_guard import (
+                ensure_response_language,
+                guard_messages,
+                resolve_request_locale,
+            )
         except ImportError:
-            from services.language_guard import ensure_response_language, guard_messages, resolve_request_locale
+            from services.language_guard import (
+                ensure_response_language,
+                guard_messages,
+                resolve_request_locale,
+            )
 
         locale = resolve_request_locale()
         payload = guard_messages(messages, locale=locale)
@@ -397,10 +411,14 @@ class CostGovernor:
                     if isinstance(content, list):
                         blocks = []
                         for block in content:
-                            blocks.append({"text": str(block.get("text") or block.get("content") or "")})
+                            blocks.append(
+                                {"text": str(block.get("text") or block.get("content") or "")}
+                            )
                         converse_messages.append({"role": role, "content": blocks})
                     else:
-                        converse_messages.append({"role": role, "content": [{"text": str(content or "")}]})
+                        converse_messages.append(
+                            {"role": role, "content": [{"text": str(content or "")}]}
+                        )
                 resp = client.converse(
                     modelId=bedrock_model,
                     messages=converse_messages,
@@ -437,7 +455,9 @@ class CostGovernor:
             resp = call_with_retry(_complete)
             text = ensure_response_language(str(resp.choices[0].message.content or ""), locale)
             usage = getattr(resp, "usage", None)
-            in_tok = int(getattr(usage, "prompt_tokens", 0) or self.accountant.count_messages(messages))
+            in_tok = int(
+                getattr(usage, "prompt_tokens", 0) or self.accountant.count_messages(messages)
+            )
             out_tok = int(getattr(usage, "completion_tokens", 0) or self.accountant.count(text))
             return text, in_tok, out_tok
         except Exception as exc:
@@ -482,7 +502,11 @@ class CostGovernor:
                         continue
                     node = build_node_fn(text) if build_node_fn else None
                     if isinstance(node, dict):
-                        node = {**node, "status": "VALIDATION_FAILED", "meta": {**(node.get("meta") or {}), "z3_error": last_error}}
+                        node = {
+                            **node,
+                            "status": "VALIDATION_FAILED",
+                            "meta": {**(node.get("meta") or {}), "z3_error": last_error},
+                        }
                     return ExecutionResult(
                         ok=False,
                         text=text,

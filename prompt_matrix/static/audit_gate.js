@@ -53,23 +53,23 @@
     var z3 = audit.z3_results || {};
     var violCount = (z3.violations || []).length;
     if (audit.gate_status === "pass") {
-      return t("audit.gate.pass", "Pre-Flight Gate — PASS. All locks verified, no logic gaps.");
+      return t("audit.gate.pass", "✅ Verified — ready to export.");
     }
     if (audit.gate_status === "blocked") {
       return t(
         "audit.gate.blocked",
-        "Pre-Flight Gate — BLOCKED. Z3 detected {n} violation(s) before export.",
+        "❌ Export blocked — Math Check found {n} issue(s).",
         { n: violCount }
       );
     }
     if (audit.redhat_count > 0) {
       return t(
         "audit.gate.review",
-        "Pre-Flight Gate — {n} stress test finding(s) require review.",
+        "⚠️ {n} stress test finding(s) need review before export.",
         { n: audit.redhat_count }
       );
     }
-    return t("audit.gate.warnings", "Pre-Flight Gate — Audit complete with warnings.");
+    return t("audit.gate.warnings", "Export allowed with warnings.");
   }
 
   function applyGateClasses(el, audit) {

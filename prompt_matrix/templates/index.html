@@ -76,7 +76,7 @@
           </div>
           <div class="app-header-right">
             <span class="session-compile-limit tooltip-trigger" id="session-compile-limit" hidden aria-live="polite"></span>
-            <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
+            <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
             </span>
             <label class="visually-hidden" for="locale-select">
@@ -166,7 +166,7 @@
                 <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
                 <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
-                  <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Pre-Flight Gate — audit must pass before docking.') }}</span>
+                  <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
                 <button type="button" class="btn btn-primary" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
               </div>

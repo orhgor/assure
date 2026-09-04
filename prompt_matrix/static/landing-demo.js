@@ -64,7 +64,7 @@
       if (ok) {
         var badge = document.createElement("span");
         badge.className = "lw-badge ok";
-        badge.textContent = t("landing.demo.badge.locked", "Z3 ✓ Locked");
+        badge.textContent = t("landing.demo.badge.locked", "✅ Verified");
         card.appendChild(badge);
       }
       astCards.appendChild(card);
@@ -93,7 +93,7 @@
         );
         pop.querySelector(".lw-refine-btn").textContent = t(
           "landing.demo.refine",
-          "Auto-Refine Node"
+          "Refine"
         );
         pop.querySelector(".lw-refine-btn").addEventListener("click", function () {
           var sandbox = document.getElementById("sandbox");

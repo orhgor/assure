@@ -64,11 +64,11 @@
         if (node.annotations && node.annotations.redhat && node.annotations.redhat.text) {
           suffix = t("landing.sandbox.suffix.redhat", " Stress Test flagged.");
         } else if (node.annotations && node.annotations.z3 && node.annotations.z3.status === "violation") {
-          suffix = t("landing.sandbox.suffix.z3", " Z3 violation detected.");
+          suffix = t("landing.sandbox.suffix.z3", " Math check found an issue.");
         } else if (label === t("landing.sandbox.node.claim", "Claim")) {
-          suffix = t("landing.sandbox.suffix.claim", " Symbolically validated.");
+          suffix = t("landing.sandbox.suffix.claim", " Verified against source.");
         } else {
-          suffix = t("landing.sandbox.suffix.ast", " Isolated into JDF AST.");
+          suffix = t("landing.sandbox.suffix.ast", " Structured into document nodes.");
         }
         return (
           '<div class="jdf-node"><strong>[Node #' +
@@ -229,7 +229,7 @@
     if (gateText && !gateText.textContent.trim()) {
       gateText.textContent = t(
         "audit.gate.banner_pending",
-        "Pre-Flight Gate — audit must pass before export."
+        "Complete Math Check and Stress Test before export."
       );
     }
   });
