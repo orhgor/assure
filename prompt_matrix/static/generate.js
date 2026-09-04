@@ -183,6 +183,8 @@
         });
       }
 
+      this.bindDraftPanel();
+
       document.addEventListener("assure:abort-streams", function () {
         self.abort();
       });
@@ -195,6 +197,68 @@
         this.controller = null;
       }
       if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
+    },
+
+    bindDraftPanel: function () {
+      var self = this;
+      var expandBtn = $("expand-draft-btn");
+      var fullBtn = $("fullscreen-draft-btn");
+      if (expandBtn) {
+        expandBtn.addEventListener("click", function () {
+          var panel = $("generate-nodes-preview");
+          self.setDraftExpanded(!(panel && panel.classList.contains("is-expanded")));
+        });
+      }
+      if (fullBtn) {
+        fullBtn.addEventListener("click", function () {
+          var panel = $("generate-nodes-preview");
+          self.setDraftFullscreen(!(panel && panel.classList.contains("is-fullscreen")));
+        });
+      }
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        var panel = $("generate-nodes-preview");
+        if (panel && panel.classList.contains("is-fullscreen")) {
+          self.setDraftFullscreen(false);
+        }
+      });
+      try {
+        if (global.localStorage && global.localStorage.getItem("assure_draft_expanded") === "1") {
+          this.setDraftExpanded(true);
+        }
+      } catch (_) {}
+    },
+
+    setDraftExpanded: function (on) {
+      var panel = $("generate-nodes-preview");
+      var btn = $("expand-draft-btn");
+      if (panel) panel.classList.toggle("is-expanded", !!on);
+      if (btn) {
+        var key = on ? "generate.collapse" : "generate.expand";
+        var fallback = on ? "Collapse draft" : "Expand draft";
+        btn.setAttribute("data-i18n", key);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        btn.textContent = t(key, fallback);
+      }
+      try {
+        if (global.localStorage) {
+          global.localStorage.setItem("assure_draft_expanded", on ? "1" : "0");
+        }
+      } catch (_) {}
+    },
+
+    setDraftFullscreen: function (on) {
+      var panel = $("generate-nodes-preview");
+      var btn = $("fullscreen-draft-btn");
+      if (panel) panel.classList.toggle("is-fullscreen", !!on);
+      if (btn) {
+        var key = on ? "generate.fullscreen_exit" : "generate.fullscreen";
+        var fallback = on ? "Exit full screen" : "Full screen";
+        btn.setAttribute("data-i18n", key);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        btn.textContent = t(key, fallback);
+      }
+      document.body.classList.toggle("draft-fullscreen-open", !!on);
     },
 
     setGateLoading: function (on, message) {
