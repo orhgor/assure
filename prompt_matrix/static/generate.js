@@ -658,6 +658,11 @@
             if (result.data.version && typeof jdf.setVersion === "function") {
               jdf.setVersion(result.data.version);
             }
+            if (typeof jdf.setSavePill === "function") {
+              jdf.setSavePill("saved", "jdf.status.committed", {
+                version: result.data.version || jdf.documentVersion,
+              });
+            }
             if (global.AssureToast) {
               global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
             }

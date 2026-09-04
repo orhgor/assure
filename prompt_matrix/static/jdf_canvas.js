@@ -176,7 +176,12 @@
     if (typeof global.__assureT === "function") {
       return global.__assureT(key, fallback);
     }
-    return fallback || key;
+    return fallback !== undefined && fallback !== "" ? fallback : key;
+  }
+
+  function jdfHasText(key, fallback) {
+    var text = jdfT(key, fallback);
+    return Boolean(text && text !== key);
   }
 
   function JDFCanvasManager(opts) {
@@ -211,6 +216,7 @@
     this._compilerIssueCount = 0;
     this.currentVerificationState = null;
     this.verifyTimeout = null;
+    this._savePillState = { state: "idle", key: "jdf.save.unsaved", vars: null };
   }
 
   JDFCanvasManager.prototype.loadProjectSettings = function () {
@@ -339,11 +345,18 @@
         "Ingest a PDF, write an intent, or open an existing project. The compiler will structure every paragraph into a version-controlled node."
       ) +
       "</p>" +
-      (jdfT("jdf.canvas.empty.hint", "")
-        ? '<p class="jdf-canvas-empty-hint">' + jdfT("jdf.canvas.empty.hint", "") + "</p>"
+      (jdfHasText("jdf.canvas.empty.hint", "Start in the left panel — open Compile, paste an intent, or upload a source document.")
+        ? '<p class="jdf-canvas-empty-hint" data-i18n="jdf.canvas.empty.hint">' +
+          jdfT(
+            "jdf.canvas.empty.hint",
+            "Start in the left panel — open Compile, paste an intent, or upload a source document."
+          ) +
+          "</p>"
         : "") +
-      (jdfT("jdf.canvas.empty_instruction", "")
-        ? '<p class="jdf-canvas-empty-instruction">' + jdfT("jdf.canvas.empty_instruction", "") + "</p>"
+      (jdfHasText("jdf.canvas.empty_instruction", "Open Compile, paste an intent, or upload a source document to begin.")
+        ? '<p class="jdf-canvas-empty-instruction" data-i18n="jdf.canvas.empty_instruction">' +
+          jdfT("jdf.canvas.empty_instruction", "Open Compile, paste an intent, or upload a source document to begin.") +
+          "</p>"
         : "") +
       "</div>";
     return wrap;
@@ -405,10 +418,16 @@
   };
 
   JDFCanvasManager.prototype.setSavePill = function (state, messageKey, vars) {
+    this._savePillState = {
+      state: state || "idle",
+      key: messageKey || "jdf.save.unsaved",
+      vars: vars || null,
+    };
     var fallbacks = {
-      "jdf.save.ready": "● Idle",
-      "jdf.status.compiling": "⬡ Processing…",
-      "jdf.status.committed": "● Idle",
+      "jdf.save.unsaved": "● Unsaved",
+      "jdf.save.ready": "● Unsaved",
+      "jdf.status.compiling": "⬡ Compiling...",
+      "jdf.status.committed": "● Committed (v{version})",
       "jdf.save.saving": "Saving…",
       "jdf.save.saved": "Saved",
       "jdf.save.error": "Save failed",
@@ -416,25 +435,19 @@
       "jdf.save.stream_complete": "Stream complete",
     };
     var text = jdfT(messageKey, fallbacks[messageKey] || messageKey, vars || {});
-    if (state === "compiling" || state === "saving") {
-      this._syncCompilerStatus("processing", text);
-      return;
-    }
-    if (state === "error") {
-      this._compilerIssueCount = 1;
-      this._syncCompilerStatus("issues", text);
-      return;
-    }
+    var el = this.statusEl;
+    if (!el) return;
+    el.className = "save-pill pill-" + (state || "idle") + " tooltip-trigger";
+    if (messageKey) el.setAttribute("data-i18n", messageKey);
+    el.textContent = text;
     if (messageKey === "jdf.status.committed" && vars && vars.version) {
       if (global.AssureCompilerStatus) global.AssureCompilerStatus.setVersion(vars.version);
     }
-    if (this._compilerIssueCount > 0) {
-      this._syncCompilerStatus("issues");
-    } else if (this.currentVerificationState === "verified") {
-      this._syncCompilerStatus("verified");
-    } else {
-      this._syncCompilerStatus("idle", text);
-    }
+  };
+
+  JDFCanvasManager.prototype.refreshSavePill = function () {
+    var s = this._savePillState || { state: "idle", key: "jdf.save.unsaved", vars: null };
+    this.setSavePill(s.state, s.key, s.vars);
   };
 
   JDFCanvasManager.prototype.setStressTestStatus = function (issueCount) {
@@ -1356,7 +1369,7 @@
     var inquireBtn = pickEl("btn-inquire", "jdf-inquire");
     var intentEl = pickEl("inquiry-input", "jdf-intent");
     var redhatEl = pickEl("toggle-redhat", "jdf-redhat");
-    var saveBtn = document.getElementById("jdf-save");
+    var saveBtn = document.getElementById("save-status") || document.getElementById("jdf-save");
     var cancelBtn = pickEl("btn-cancel-edit", "jdf-surgical-cancel");
 
     if (inquireBtn) {
@@ -1414,7 +1427,7 @@
         self.render();
       });
     }
-    this.setSavePill("idle", "jdf.save.ready");
+    this.setSavePill("idle", "jdf.save.unsaved");
   };
 
   global.JDFCanvasManager = JDFCanvasManager;

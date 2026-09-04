@@ -121,11 +121,11 @@
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a messy draft, upload a document, or describe your deliverable. The compiler will parse, structure, and verify it.') }}</p>
               <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
               <div class="example-chips" role="group" aria-label="{{ gettext('Example intents') }}" data-i18n-aria="example.chips">
-                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.executive_summary" data-i18n="example.executive_summary.label">{{ gettext('Executive Summary') }}</span>
-                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.market_analysis" data-i18n="example.market_analysis.label">{{ gettext('Market Analysis') }}</span>
-                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.risk_assessment" data-i18n="example.risk_assessment.label">{{ gettext('Risk Assessment') }}</span>
+                <button type="button" class="example-chip" data-prompt-key="example.executive_summary" data-i18n="example.executive_summary.label">{{ gettext('Executive Summary') }}</button>
+                <button type="button" class="example-chip" data-prompt-key="example.market_analysis" data-i18n="example.market_analysis.label">{{ gettext('Market Analysis') }}</button>
+                <button type="button" class="example-chip" data-prompt-key="example.risk_assessment" data-i18n="example.risk_assessment.label">{{ gettext('Risk Assessment') }}</button>
               </div>
-              <textarea id="generate-intent" class="form-control compose-task-input auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder"></textarea>
+              <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder"></textarea>
               <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile JDF nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile Document') }}</button>
               <div id="generate-stream-wrap" class="preview-box">
                 <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Compilation Progress') }}</p>
@@ -282,7 +282,7 @@
                 <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
               </p>
               <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
-              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input auto-resize" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="refine.placeholder">
+              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input refine-input draft-textarea auto-resize" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="refine.placeholder">
               <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refactor') }}</p>
             </div>
 
@@ -317,7 +317,7 @@
           </div>
           <div class="command-deck-right">
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
-            <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="jdf-save" data-i18n="jdf.save" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('Save document') }}</button>
+            <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('● Unsaved') }}</button>
             <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Build Artifact') }}</a>
           </div>
         </footer>
@@ -676,7 +676,11 @@
     }
 
     function t(key, fallback) {
-      return (state.strings && state.strings[key]) || fallback || key;
+      if (state.strings && Object.prototype.hasOwnProperty.call(state.strings, key)) {
+        var val = state.strings[key];
+        if (val !== "") return val;
+      }
+      return fallback !== undefined && fallback !== "" ? fallback : key;
     }
     window.__assureT = t;
 
@@ -748,10 +752,11 @@
         localeSelect.value = state.locale;
       }
       applyI18n();
-      if (window.__assureJdf && typeof window.__assureJdf.setSavePill === "function") {
-        window.__assureJdf.setSavePill("idle", "jdf.save.ready");
-      } else if (typeof updateCompilerStatus === "function") {
-        updateCompilerStatus("idle");
+      if (window.__assureJdf && typeof window.__assureJdf.refreshSavePill === "function") {
+        window.__assureJdf.refreshSavePill();
+      }
+      if (typeof updateCompilerStatus === "function" && window.AssureCompilerStatus) {
+        updateCompilerStatus(window.AssureCompilerStatus.currentState);
       }
       syncGo();
       syncIntentHint();

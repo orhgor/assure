@@ -344,7 +344,7 @@
       });
     }
 
-    var saveBtn = document.getElementById("jdf-save");
+    var saveBtn = document.getElementById("save-status") || document.getElementById("jdf-save");
     if (saveBtn) {
       saveBtn.addEventListener("click", function () {
         saveDocument(projectId, tree, { mutation_type: "manual_save", target_node_id: selectedId }).then(function () {

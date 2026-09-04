@@ -1596,10 +1596,10 @@ body:has(#assure-app) .shell {
   width: 100%;
   text-align: left;
   padding: 10px 12px;
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--color-border, var(--assure-light-gray));
   border-radius: 8px;
-  background: var(--bg-elevated, rgba(255, 255, 255, 0.03));
-  color: var(--text-main, #e8edf5);
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, var(--text));
   cursor: pointer;
   font: inherit;
 }
@@ -1627,13 +1627,15 @@ body:has(#assure-app) .shell {
 .generate-summary {
   margin-top: var(--space-sm, 8px);
   padding: var(--space-sm, 8px) var(--space-md, 16px);
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--color-border, var(--assure-light-gray));
   border-radius: 8px;
-  background: var(--bg-deep, #0f1419);
+  background: var(--color-surface, #ffffff);
+  color: var(--color-text, var(--text));
 }
 
 .generate-summary-stats {
   margin: 0 0 var(--space-sm, 8px);
+  color: var(--color-text, var(--text));
 }
 
 .generate-locks-panel summary {
@@ -1649,8 +1651,8 @@ body:has(#assure-app) .shell {
   padding: 10px 12px;
   margin: var(--space-sm, 8px) 0;
   border-radius: 8px;
-  background: rgba(59, 130, 246, 0.08);
-  color: var(--text-main, #e8edf5);
+  background: var(--color-primary-light, #E8F0FE);
+  color: var(--color-text, var(--text));
   font-size: 0.9rem;
 }
 
@@ -1707,7 +1709,7 @@ body:has(#assure-app) .shell {
 
 .generate-nodes-body p {
   margin: 0 0 0.5rem;
-  color: var(--text-main, #e8edf5);
+  color: var(--color-text, var(--text));
 }
 
 .redhat-preview-list {
@@ -2323,6 +2325,29 @@ body.onboarding-active .sidebar-backdrop {
   min-width: 0;
 }
 
+.jdf-workbench #generate-intent,
+.jdf-workbench #prompt-input,
+.jdf-workbench #inquiry-input,
+.jdf-workbench #refine-input,
+.jdf-workbench .prompt-input,
+.jdf-workbench .refine-input,
+.jdf-workbench .compose-task-input,
+.jdf-workbench .draft-textarea,
+.jdf-workbench textarea.form-control,
+.jdf-workbench input.form-control {
+  padding-left: var(--spacing-3);
+  padding-right: var(--spacing-3);
+  background: var(--color-surface, var(--paper));
+  color: var(--color-text, var(--text));
+  border-color: var(--color-border, var(--assure-light-gray));
+}
+
+.jdf-workbench textarea.form-control::placeholder,
+.jdf-workbench input.form-control::placeholder {
+  color: var(--color-text-muted, var(--muted));
+  opacity: 1;
+}
+
 .preview-box {
   flex: 1;
   min-height: 120px;
@@ -2750,6 +2775,13 @@ body.onboarding-active .sidebar-backdrop {
   align-items: center;
   gap: 4px;
   border: 1px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.4;
+}
+button.save-pill {
+  appearance: none;
+  margin: 0;
 }
 .pill-compiling {
   background: #fff8e1;
@@ -3575,6 +3607,10 @@ body.onboarding-active .sidebar-backdrop {
   border-radius: 999px;
   padding: var(--spacing-1) var(--spacing-3);
   cursor: pointer;
+}
+button.example-chip {
+  appearance: none;
+  margin: 0;
 }
 .example-chip:hover {
   border-color: var(--trust-blue);
