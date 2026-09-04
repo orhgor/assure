@@ -26,7 +26,7 @@ Egress from R2 is free; **storage and Class A** are what daily backups consume.
 4. **Keep compression.** Always gzip before upload.
 5. **Minimal API calls.** One LIST per run for sizing/prune; one PUT only if cap check passes; DELETE only for pruned objects.
 6. **Token scope.** Object Read & Write on **`assure-prod-backups` only** — never Admin Read & Write or all-buckets tokens for cron.
-7. **Estimate before changing cadence or retention.**  
+7. **Estimate before changing cadence or retention.**
    `projected_gb = retain_count × avg_gz_size_mb / 1024` must stay **< 8**. If DB grows, **lower retain days** before raising cron frequency.
 
 ## Do not

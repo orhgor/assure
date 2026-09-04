@@ -109,9 +109,24 @@ def test_extract_text_falls_back_to_detect_document_text():
 
 def test_extract_tables_fallback_on_broken_grid():
     blocks = [
-        {"BlockType": "LINE", "Text": "Col A", "Id": "1", "Geometry": {"BoundingBox": {"Top": 0.1}}},
-        {"BlockType": "LINE", "Text": "Col B", "Id": "2", "Geometry": {"BoundingBox": {"Top": 0.1}}},
-        {"BlockType": "LINE", "Text": "Row 2", "Id": "3", "Geometry": {"BoundingBox": {"Top": 0.3}}},
+        {
+            "BlockType": "LINE",
+            "Text": "Col A",
+            "Id": "1",
+            "Geometry": {"BoundingBox": {"Top": 0.1}},
+        },
+        {
+            "BlockType": "LINE",
+            "Text": "Col B",
+            "Id": "2",
+            "Geometry": {"BoundingBox": {"Top": 0.1}},
+        },
+        {
+            "BlockType": "LINE",
+            "Text": "Row 2",
+            "Id": "3",
+            "Geometry": {"BoundingBox": {"Top": 0.3}},
+        },
     ]
     textract = TextractClient(client=MagicMock())
     tables = textract._extract_tables(blocks)

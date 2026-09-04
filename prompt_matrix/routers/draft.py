@@ -253,20 +253,28 @@ def run_draft_pipeline(
     gov = governor or CostGovernor()
     messages = _draft_messages(intent, context)
 
-    yield _typed_sse("status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid})
+    yield _typed_sse(
+        "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
+    )
 
     try:
         gov.preflight(project_id, TaskType.DEEP_SYNTHESIS, messages)
     except (BudgetExhaustedError, QuotaExceededError) as exc:
-        yield _typed_sse("error", {"ok": False, "error": str(exc), "http_status": 429, "request_id": rid})
+        yield _typed_sse(
+            "error", {"ok": False, "error": str(exc), "http_status": 429, "request_id": rid}
+        )
         yield _done_sse()
         return
     except TokenLimitExceededError as exc:
-        yield _typed_sse("error", {"ok": False, "error": str(exc), "http_status": 400, "request_id": rid})
+        yield _typed_sse(
+            "error", {"ok": False, "error": str(exc), "http_status": 400, "request_id": rid}
+        )
         yield _done_sse()
         return
 
-    yield _typed_sse("status", {"stage": "model", "message": "Drafting with Claude…", "model": DRAFT_MODEL})
+    yield _typed_sse(
+        "status", {"stage": "model", "message": "Drafting with Claude…", "model": DRAFT_MODEL}
+    )
 
     full_text = ""
     in_tok = 0
@@ -288,7 +296,9 @@ def run_draft_pipeline(
         return
 
     if not full_text.strip():
-        yield _typed_sse("error", {"ok": False, "error": "Empty draft from model.", "request_id": rid})
+        yield _typed_sse(
+            "error", {"ok": False, "error": "Empty draft from model.", "request_id": rid}
+        )
         yield _done_sse()
         return
 
@@ -469,7 +479,10 @@ def register_draft_routes(app) -> None:
         data = request.get_json(silent=True) or {}
         try:
             payload = DraftPayload.model_validate(
-                {"intent": data.get("intent") or data.get("user_intent") or "", "context": data.get("context")}
+                {
+                    "intent": data.get("intent") or data.get("user_intent") or "",
+                    "context": data.get("context"),
+                }
             )
         except Exception as exc:
             return {"error": str(exc)}, 400
@@ -491,7 +504,9 @@ def register_draft_routes(app) -> None:
             except DraftCancelledError:
                 return
             except Exception as exc:
-                yield _typed_sse("error", {"ok": False, "error": str(exc), "request_id": request_id})
+                yield _typed_sse(
+                    "error", {"ok": False, "error": str(exc), "request_id": request_id}
+                )
                 yield _done_sse()
 
         headers = {

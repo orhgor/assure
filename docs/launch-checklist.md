@@ -1,10 +1,10 @@
 # Assure — launch checklist & product assessment
 
-**Purpose:** Single document for launch readiness, market assessment, positioning, feature inventory, and development history.  
-**Product:** Assure (workbench) · **Engine:** PEM (`prompt_matrix`)  
-**Last updated:** 2026-09-02  
-**Decision:** **CONDITIONAL GO** — soft launch ready; fix P1 items before wide promotion  
-**Tests:** 169 passing locally (`python -m unittest discover -s tests`)  
+**Purpose:** Single document for launch readiness, market assessment, positioning, feature inventory, and development history.
+**Product:** Assure (workbench) · **Engine:** PEM (`prompt_matrix`)
+**Last updated:** 2026-09-02
+**Decision:** **CONDITIONAL GO** — soft launch ready; fix P1 items before wide promotion
+**Tests:** 169 passing locally (`python -m unittest discover -s tests`)
 **Live site:** https://getassureai.com/ · Worker commit `c0a7739` · CSS `?v=30`
 
 ---

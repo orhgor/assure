@@ -58,10 +58,9 @@ class AuthError(ValueError):
 
 
 def clerk_publishable_key() -> str:
-    return (
-        (os.environ.get("CLERK_PUBLISHABLE_KEY") or "").strip()
-        or (os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or "").strip()
-    )
+    return (os.environ.get("CLERK_PUBLISHABLE_KEY") or "").strip() or (
+        os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or ""
+    ).strip()
 
 
 def clerk_secret_key() -> str:

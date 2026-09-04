@@ -1,7 +1,7 @@
 # Post-launch ops — tester monitoring & feedback
 
-**Date:** 2026-09-04  
-**Branch:** `p4-account-wallet`  
+**Date:** 2026-09-04
+**Branch:** `p4-account-wallet`
 **Production health:** `https://getassureai.com/health` (also `https://app.getassureai.com/health` if that host is routed to the same app)
 
 ---
@@ -45,7 +45,7 @@ Auto-heal cron (restarts container if health fails):
 
 ## 2. Query audit logs for errors (corrected)
 
-SQLite path on EC2: `/home/ubuntu/assure/data/history.sqlite`  
+SQLite path on EC2: `/home/ubuntu/assure/data/history.sqlite`
 (Container env: `DATABASE_PATH=/app/data/history.sqlite`)
 
 Use `&&` so `cd` and `sqlite3` are separate commands:
@@ -60,7 +60,7 @@ cd /home/ubuntu/assure && sqlite3 data/history.sqlite "SELECT created_at, action
 cd /home/ubuntu/assure && sqlite3 data/history.sqlite "SELECT action, COUNT(*) FROM audit_log GROUP BY action ORDER BY COUNT(*) DESC;"
 ```
 
-**Schema reference** (`prompt_matrix/db/connection.py`): `audit_log` columns include `action`, `success` (0/1), `error_type`, `error_message`, `created_at`.  
+**Schema reference** (`prompt_matrix/db/connection.py`): `audit_log` columns include `action`, `success` (0/1), `error_type`, `error_message`, `created_at`.
 `system_metrics` columns: `cpu_percent`, `memory_used_mb`, `memory_total_mb`, `disk_free_gb`, `created_at`.
 
 ---

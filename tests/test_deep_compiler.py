@@ -55,7 +55,9 @@ class DeepCompilerTests(unittest.TestCase):
             target_ai="gemini",
             files=["./notes.txt"],
         )
-        self.assertTrue(rendered.context_injected or rendered.files_read or "analyst" in rendered.prompt.lower())
+        self.assertTrue(
+            rendered.context_injected or rendered.files_read or "analyst" in rendered.prompt.lower()
+        )
 
 
 if __name__ == "__main__":

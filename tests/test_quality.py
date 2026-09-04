@@ -65,26 +65,22 @@ class AuditSpanTests(unittest.TestCase):
         )
         context = "Clinical trial A dropout rate is 12% versus 8% for B."
         spans = audit_spans(reply, context)
-        grounded_text = [reply[s["start"]:s["end"]] for s in spans["grounded_spans"]]
-        inferred_text = [reply[s["start"]:s["end"]] for s in spans["inferred_spans"]]
+        grounded_text = [reply[s["start"] : s["end"]] for s in spans["grounded_spans"]]
+        inferred_text = [reply[s["start"] : s["end"]] for s in spans["inferred_spans"]]
         self.assertTrue(any("12%" in line for line in grounded_text))
         self.assertTrue(any("larger sample" in line for line in inferred_text))
         heading_hits = [
-            reply[s["start"]:s["end"]]
-            for s in spans["grounded_spans"] + spans["inferred_spans"]
+            reply[s["start"] : s["end"]] for s in spans["grounded_spans"] + spans["inferred_spans"]
         ]
         self.assertFalse(any("VERIFIED FINDINGS" in line for line in heading_hits))
         self.assertFalse(any("INFERRED GAPS" in line for line in heading_hits))
 
     def test_verified_heading_does_not_force_unrelated(self):
-        reply = (
-            "**VERIFIED FINDINGS:**\n"
-            "- Quantum widgets will triple next quarter.\n"
-        )
+        reply = "**VERIFIED FINDINGS:**\n" "- Quantum widgets will triple next quarter.\n"
         context = "Clinical trial A dropout rate is 12% versus 8% for B."
         spans = audit_spans(reply, context)
-        grounded_text = [reply[s["start"]:s["end"]] for s in spans["grounded_spans"]]
-        inferred_text = [reply[s["start"]:s["end"]] for s in spans["inferred_spans"]]
+        grounded_text = [reply[s["start"] : s["end"]] for s in spans["grounded_spans"]]
+        inferred_text = [reply[s["start"] : s["end"]] for s in spans["inferred_spans"]]
         self.assertFalse(any("Quantum" in line for line in grounded_text))
         self.assertTrue(any("Quantum" in line for line in inferred_text))
 
@@ -93,8 +89,8 @@ class AuditSpanTests(unittest.TestCase):
         context = "The dropout rate is 12% in trial A."
         spans = audit_spans(reply, context)
         body = "The dropout rate is 12%.\nThis is a guess about next year."
-        grounded_text = [body[s["start"]:s["end"]] for s in spans["grounded_spans"]]
-        inferred_text = [body[s["start"]:s["end"]] for s in spans["inferred_spans"]]
+        grounded_text = [body[s["start"] : s["end"]] for s in spans["grounded_spans"]]
+        inferred_text = [body[s["start"] : s["end"]] for s in spans["inferred_spans"]]
         self.assertTrue(any("12%" in line for line in grounded_text))
         self.assertTrue(any("guess" in line for line in inferred_text))
 
@@ -102,7 +98,7 @@ class AuditSpanTests(unittest.TestCase):
         reply = "The dropout rate is 12%.\nThis is a guess about next year."
         context = "The dropout rate is 12% in trial A."
         spans = audit_spans(reply, context)
-        grounded_text = [reply[s["start"]:s["end"]] for s in spans["grounded_spans"]]
+        grounded_text = [reply[s["start"] : s["end"]] for s in spans["grounded_spans"]]
         self.assertTrue(any("12%" in line for line in grounded_text))
 
 

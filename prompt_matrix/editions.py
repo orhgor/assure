@@ -15,6 +15,7 @@ _request_plan_id: ContextVar[str | None] = ContextVar("assure_request_plan", def
 def set_request_plan(plan_id: str | None) -> None:
     _request_plan_id.set(plan_id)
 
+
 EDITIONS = ("free", "pro", "team", "self-hosted")
 
 # User-facing Compose labels (UI only). Engine ids stay single | ensemble | redhat.

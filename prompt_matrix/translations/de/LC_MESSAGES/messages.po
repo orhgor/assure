@@ -996,4 +996,3 @@ msgstr "Ihre Daten bleiben hier. Senden geht nur an den gewählten Anbieter."
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

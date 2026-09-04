@@ -80,10 +80,22 @@ def test_plausible_and_sentry_helpers():
 
     saved = {
         k: os.environ.get(k)
-        for k in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT", "SENTRY_DSN", "SENTRY_BROWSER_DSN")
+        for k in (
+            "PLAUSIBLE_ENABLED",
+            "SENTRY_ENABLED",
+            "ENVIRONMENT",
+            "SENTRY_DSN",
+            "SENTRY_BROWSER_DSN",
+        )
     }
     try:
-        for key in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT", "SENTRY_DSN", "SENTRY_BROWSER_DSN"):
+        for key in (
+            "PLAUSIBLE_ENABLED",
+            "SENTRY_ENABLED",
+            "ENVIRONMENT",
+            "SENTRY_DSN",
+            "SENTRY_BROWSER_DSN",
+        ):
             os.environ.pop(key, None)
         assert _plausible_enabled() is False
         assert _sentry_enabled() is False

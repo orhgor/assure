@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Insert landing.* keys after sandbox.placeholder in each locale dict."""
+
 from __future__ import annotations
 
 import re

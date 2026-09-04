@@ -15,8 +15,8 @@ Workers Builds for Worker **`assure`** must watch **`webpage` only**. Failures o
 
 Requires a **user-scoped** Cloudflare API token with:
 
-- **Workers Builds Configuration** → Edit  
-- **Workers Scripts** → Read  
+- **Workers Builds Configuration** → Edit
+- **Workers Scripts** → Read
 
 Create at [Cloudflare API tokens](https://dash.cloudflare.com/profile/api-tokens).
 

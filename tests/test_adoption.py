@@ -97,7 +97,9 @@ def test_export_audit_manifest(audit_db, monkeypatch):
     client = create_app(require_auth=False).test_client()
     audit = AuditLogger(audit_db)
     audit.log_audit("req-z3", "default", "Z3_VIOLATION", success=False, details={"metric": "ARR"})
-    audit.log_audit("req-rh", "default", "INQUIRE_STREAM", success=True, details={"task_type": "redhat"})
+    audit.log_audit(
+        "req-rh", "default", "INQUIRE_STREAM", success=True, details={"task_type": "redhat"}
+    )
 
     from prompt_matrix.db.jdf_repository import save_jdf_revision
 

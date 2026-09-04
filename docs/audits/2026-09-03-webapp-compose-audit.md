@@ -105,9 +105,9 @@ Code/CSS review against profile viewports (no live browser CDP this pass):
 
 ## Suggested next PR (minimal)
 
-1. `jdf_canvas.js` — save pill + version display + i18n runtime strings  
-2. `index.html` — `<details class="classic-compose">` wrapping `#form`, closed by default  
-3. `index.html` + `i18n.py` — compose hero variant for JDF-led copy  
-4. `style.css` — `prefers-reduced-motion` for shimmer  
+1. `jdf_canvas.js` — save pill + version display + i18n runtime strings
+2. `index.html` — `<details class="classic-compose">` wrapping `#form`, closed by default
+3. `index.html` + `i18n.py` — compose hero variant for JDF-led copy
+4. `style.css` — `prefers-reduced-motion` for shimmer
 
 Estimated scope: **~150 lines**, no backend changes.

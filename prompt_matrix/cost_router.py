@@ -101,7 +101,13 @@ _timeout_floor: ContextVar[int | None] = ContextVar("pem_timeout_floor", default
 
 
 def cost_route_enabled() -> bool:
-    return os.environ.get("PEM_COST_ROUTE", "").strip().lower() in {"1", "true", "yes", "on", "cheap"}
+    return os.environ.get("PEM_COST_ROUTE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "cheap",
+    }
 
 
 def should_auto_route(*, local: bool = False, cheap: bool = False) -> bool:
@@ -184,7 +190,9 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
         return 0.0
     key = _pricing_key(model)
     pricing = MODEL_PRICING.get(key or "", {"input": 1.00, "output": 1.00})  # fallback
-    return (input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing["output"]
+    return (input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing[
+        "output"
+    ]
 
 
 def rewrite_send_id(model_id: str | None) -> str | None:
@@ -253,10 +261,12 @@ def suggest_live_target(
 
 SHORT_PROMPT_TOKENS = 1000
 # High list-price rows plus any *opus* id. Used only to drop ensemble extras on short prompts.
-EXPENSIVE_ON_SHORT = frozenset({
-    "claude-3-5-sonnet-20240620",
-    "gemini-1.5-pro",
-})
+EXPENSIVE_ON_SHORT = frozenset(
+    {
+        "claude-3-5-sonnet-20240620",
+        "gemini-1.5-pro",
+    }
+)
 
 
 def is_cost_inefficient_for_short(model: str, prompt_text: str) -> bool:
@@ -270,7 +280,9 @@ def is_cost_inefficient_for_short(model: str, prompt_text: str) -> bool:
     return key in EXPENSIVE_ON_SHORT
 
 
-def filter_ensemble_extras(primary: str, extras: list[str], prompt_text: str) -> tuple[list[str], list[str]]:
+def filter_ensemble_extras(
+    primary: str, extras: list[str], prompt_text: str
+) -> tuple[list[str], list[str]]:
     """Keep the ensemble. Drop extras that are a bad fit for a short prompt."""
     kept: list[str] = []
     skipped: list[str] = []

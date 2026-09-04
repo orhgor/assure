@@ -16,9 +16,7 @@ import urllib.request
 from pathlib import Path
 
 BASE_URL = os.environ.get("ASSURE_BASE_URL", "http://127.0.0.1:8765").rstrip("/")
-WEBHOOK_SECRET = os.environ.get(
-    "STRIPE_WEBHOOK_SECRET", "whsec_test_secret_for_local_validation"
-)
+WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "whsec_test_secret_for_local_validation")
 DB_PATH = Path(os.environ.get("DATABASE_PATH", "./data/history.sqlite"))
 TEST_USER = "clerk_test_user_001"
 COMPOSE_SERVICE = os.environ.get("COMPOSE_SERVICE", "assure-app")

@@ -33,7 +33,13 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 try:
-    from .cost_router import MODEL_ALIASES, TARGET_FOR, model_override, role_output_limits, send_model_id
+    from .cost_router import (
+        MODEL_ALIASES,
+        TARGET_FOR,
+        model_override,
+        role_output_limits,
+        send_model_id,
+    )
     from .engine import MAX_FILE_BYTES, MatrixError, TARGET_ALIASES
     from .litellm_runner import last_completion_meta, reset_completion_meta
     from .patch_apply import (
@@ -48,7 +54,13 @@ try:
     from .pipelines import PipelineResult, run_workflow
     from .route import live_targets
 except ImportError:
-    from cost_router import MODEL_ALIASES, TARGET_FOR, model_override, role_output_limits, send_model_id
+    from cost_router import (
+        MODEL_ALIASES,
+        TARGET_FOR,
+        model_override,
+        role_output_limits,
+        send_model_id,
+    )
     from engine import MAX_FILE_BYTES, MatrixError, TARGET_ALIASES
     from litellm_runner import last_completion_meta, reset_completion_meta
     from patch_apply import (
@@ -99,7 +111,9 @@ _PROGRESS_HOOK: ContextVar[Callable[[str], None] | None] = ContextVar(
 )
 _TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]+\.py|[^/]+_test\.py)$")
 
-_VERDICT_LINE = re.compile(r"^\s*verdict\s*[:\-]\s*(keep|revise|reject)\b", re.IGNORECASE | re.MULTILINE)
+_VERDICT_LINE = re.compile(
+    r"^\s*verdict\s*[:\-]\s*(keep|revise|reject)\b", re.IGNORECASE | re.MULTILINE
+)
 _CONFIDENCE_LINE = re.compile(
     r"confidence\s*[:\-]\s*(\d+(?:\.\d+)?)\s*(%|/\s*5|/\s*10)?",
     re.IGNORECASE,
@@ -246,7 +260,9 @@ def run_swarm(
                 apply_workspace=apply_workspace,
             )
         )
-    raise MatrixError("run_swarm() cannot nest inside a running event loop. Await run_swarm_async().")
+    raise MatrixError(
+        "run_swarm() cannot nest inside a running event loop. Await run_swarm_async()."
+    )
 
 
 async def run_swarm_async(
@@ -320,9 +336,7 @@ async def run_swarm_async(
     if planned:
         result.notes.append("developer subtasks: " + ", ".join(planned))
         log.info("developer subtasks=%s", planned)
-    for step in run_developer_jobs(
-        cfg.task, result.spec, context, bindings, cfg, paths=planned
-    ):
+    for step in run_developer_jobs(cfg.task, result.spec, context, bindings, cfg, paths=planned):
         _ingest(result, step)
         if step.reply:
             result.implementation = _join_impl(result.implementation, step.reply)
@@ -414,7 +428,9 @@ def run_developer_jobs(
     planned = list(paths if paths is not None else parse_planned_paths(spec))
     target = bindings["developer"][0]
     if len(planned) > MAX_DEV_PARALLEL:
-        _progress(f"developer on {target}: {len(planned)} files, sequential (cap {MAX_DEV_PARALLEL})")
+        _progress(
+            f"developer on {target}: {len(planned)} files, sequential (cap {MAX_DEV_PARALLEL})"
+        )
     else:
         _progress(f"developer on {target}")
     if not planned:
@@ -475,7 +491,9 @@ def run_reviewer(
     lint: LintReport | None = None,
 ) -> SwarmStep:
     _progress(f"reviewer on {bindings['reviewer'][0]}")
-    return _call("reviewer", _reviewer_task(task, spec, code, lint=lint), context, bindings, cfg=cfg)
+    return _call(
+        "reviewer", _reviewer_task(task, spec, code, lint=lint), context, bindings, cfg=cfg
+    )
 
 
 def run_redhat_loop(
@@ -686,7 +704,9 @@ extract_files = parse_code
 
 def log_developer_attempt(filepath: str, content: str, *, log_dir: Path | None = None) -> None:
     """Append a short dump preview to logs/swarm_attempt.log. logs/ is gitignored."""
-    target = Path(log_dir) if log_dir is not None else Path(__file__).resolve().parent.parent / "logs"
+    target = (
+        Path(log_dir) if log_dir is not None else Path(__file__).resolve().parent.parent / "logs"
+    )
     try:
         target.mkdir(parents=True, exist_ok=True)
         preview = (content or "")[:500]
@@ -742,7 +762,9 @@ def _files_to_impl(files: dict[str, str]) -> str:
 
 def _empty_developer_step(bindings) -> SwarmStep:
     target, model, _note = bindings["developer"]
-    return SwarmStep(role="developer", intent=ROLE_INTENTS["developer"], target_ai=target, model=model)
+    return SwarmStep(
+        role="developer", intent=ROLE_INTENTS["developer"], target_ai=target, model=model
+    )
 
 
 def file_diffs(originals: dict[str, str], files: dict[str, str]) -> dict[str, str]:
@@ -795,9 +817,15 @@ def parse_review(text: str) -> tuple[str, float | None]:
 
 def run_pytest(files: dict[str, str]) -> TestResults:
     """Run generated unittest modules in a temp directory. Does not write the live tree."""
-    tests = {path: body for path, body in (files or {}).items() if _TEST_FILE.search(path.replace("\\", "/"))}
+    tests = {
+        path: body
+        for path, body in (files or {}).items()
+        if _TEST_FILE.search(path.replace("\\", "/"))
+    }
     if not tests:
-        return TestResults(skipped=True, skip_reason="No unittest modules extracted from the tester output.")
+        return TestResults(
+            skipped=True, skip_reason="No unittest modules extracted from the tester output."
+        )
     tmp: str | None = None
     try:
         tmp = tempfile.mkdtemp(prefix="pem-swarm-")
@@ -881,7 +909,11 @@ def generate_summary(result: SwarmResult, originals: dict[str, str] | None = Non
         test_line = "Fail"
     else:
         test_line = "Not run"
-    gate = "meets" if result.confidence >= MIN_CONFIDENCE and approved and tests.passed is True else "does not meet"
+    gate = (
+        "meets"
+        if result.confidence >= MIN_CONFIDENCE and approved and tests.passed is True
+        else "does not meet"
+    )
     parts = [
         "# Swarm quality report",
         "",
@@ -921,7 +953,9 @@ def generate_summary(result: SwarmResult, originals: dict[str, str] | None = Non
     if result.lint_errors:
         parts.extend(f"- {item.splitlines()[0]}" for item in result.lint_errors)
     rev_conf = "n/a" if result.review_confidence is None else f"{result.review_confidence:.2f}"
-    approved_line = "approved (Keep)" if approved else f"not approved ({result.review_verdict or 'none'})"
+    approved_line = (
+        "approved (Keep)" if approved else f"not approved ({result.review_verdict or 'none'})"
+    )
     parts.extend(
         [
             "",
@@ -981,7 +1015,15 @@ def create_pull_request(result: SwarmResult, *, enabled: bool, min_confidence: f
     title = (result.task or "swarm").strip().split("\n", 1)[0][:72]
     try:
         proc = subprocess.run(
-            ["gh", "pr", "create", "--title", title, "--body", (result.quality_report or "")[:4000]],
+            [
+                "gh",
+                "pr",
+                "create",
+                "--title",
+                title,
+                "--body",
+                (result.quality_report or "")[:4000],
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -1075,8 +1117,10 @@ def _self_test_loop(cfg: SwarmConfig, result: SwarmResult, context: str, binding
             for note in skipped:
                 result.notes.append(note)
             result.files.update(files)
-            result.implementation = _files_to_impl(result.files) if result.files else _join_impl(
-                result.implementation, fixed.reply
+            result.implementation = (
+                _files_to_impl(result.files)
+                if result.files
+                else _join_impl(result.implementation, fixed.reply)
             )
         pytest_result = run_pytest(result.files)
         pytest_result.fix_rounds = rounds
@@ -1090,7 +1134,9 @@ def _self_test_loop(cfg: SwarmConfig, result: SwarmResult, context: str, binding
     return result
 
 
-def _finalize(result: SwarmResult, originals: dict[str, str], cfg: SwarmConfig, log: logging.Logger) -> None:
+def _finalize(
+    result: SwarmResult, originals: dict[str, str], cfg: SwarmConfig, log: logging.Logger
+) -> None:
     result.diffs = file_diffs(originals, result.files)
     result.confidence = compute_confidence_score(
         result.review_verdict,
@@ -1110,7 +1156,9 @@ def _apply_workspace(result: SwarmResult, cfg: SwarmConfig) -> None:
         return
     root = Path(__file__).resolve().parent.parent
     if result.lint_ok is False:
-        result.notes.append("workspace not written: local lint failed. Patch is at logs/swarm.patch.")
+        result.notes.append(
+            "workspace not written: local lint failed. Patch is at logs/swarm.patch."
+        )
         result.applied = False
         return
     if not result.files:
@@ -1243,7 +1291,9 @@ def _complete_developer(
     continues = 0
     while _developer_needs_continue(step, path) and continues < MAX_CONTINUES:
         continues += 1
-        _progress(f"developer continue {continues}/{MAX_CONTINUES}" + (f" ({path})" if path else ""))
+        _progress(
+            f"developer continue {continues}/{MAX_CONTINUES}" + (f" ({path})" if path else "")
+        )
         more = _call(
             "developer",
             _continue_task(step.reply or "", path=path),
@@ -1401,11 +1451,7 @@ def _developer_prompt(
             f"Spec:\n{spec}\n\n"
             f"Unittest output:\n{unittest_output}\n"
         )
-    return (
-        f"{header}\n"
-        f"Original task:\n{task}\n\n"
-        f"Architect spec:\n{spec}\n"
-    )
+    return f"{header}\n" f"Original task:\n{task}\n\n" f"Architect spec:\n{spec}\n"
 
 
 def _lint_revise_review(lint: LintReport) -> str:
@@ -1413,8 +1459,7 @@ def _lint_revise_review(lint: LintReport) -> str:
         "Verdict: Revise\n"
         "Confidence: 0.0\n"
         "Local lint failed. The developer must fix these before Keep. "
-        "Do not run pem --direct, pem eval, /api/render, or live API calls.\n"
-        + lint.text()
+        "Do not run pem --direct, pem eval, /api/render, or live API calls.\n" + lint.text()
     )
 
 
@@ -1629,7 +1674,9 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["free", "pro", "team", "self-hosted"],
         help="Assure edition (or ASSURE_EDITION). Default from config / env.",
     )
-    parser.add_argument("--skip-tests", action="store_true", help="Skip tester and unittest self-test")
+    parser.add_argument(
+        "--skip-tests", action="store_true", help="Skip tester and unittest self-test"
+    )
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -1647,7 +1694,9 @@ def _parse_role_models(items: list[str] | None) -> dict[str, str]:
         if not raw:
             continue
         if "=" not in raw:
-            raise MatrixError(f"Expected ROLE=MODEL, got {raw!r}. Example: --model developer=deepseek-chat")
+            raise MatrixError(
+                f"Expected ROLE=MODEL, got {raw!r}. Example: --model developer=deepseek-chat"
+            )
         role, model = raw.split("=", 1)
         role = role.strip().lower()
         model = model.strip()

@@ -26,11 +26,13 @@ def health_client():
         f_frsize = 4096
         f_bavail = 2_000_000
 
-    with patch("prompt_matrix.history.DB_PATH", db_path), patch(
-        "prompt_matrix.lib.logger.DB_PATH", db_path
-    ), patch("prompt_matrix.lib.logger.resolve_db_path", return_value=str(db_path)), patch(
-        "prompt_matrix.db.connection.get_db", side_effect=_getter
-    ), patch("prompt_matrix.routers.health.os.statvfs", return_value=_StatVfs()):
+    with (
+        patch("prompt_matrix.history.DB_PATH", db_path),
+        patch("prompt_matrix.lib.logger.DB_PATH", db_path),
+        patch("prompt_matrix.lib.logger.resolve_db_path", return_value=str(db_path)),
+        patch("prompt_matrix.db.connection.get_db", side_effect=_getter),
+        patch("prompt_matrix.routers.health.os.statvfs", return_value=_StatVfs()),
+    ):
         conn = _getter()
         init_db(conn)
         from prompt_matrix.web import create_app

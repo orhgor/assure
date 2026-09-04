@@ -211,12 +211,7 @@ def score_run(
     if consensus is None:
         overall = 0.45 * coherence + 0.40 * (1.0 - hall) + 0.15 * efficiency
     else:
-        overall = (
-            0.35 * consensus
-            + 0.30 * coherence
-            + 0.25 * (1.0 - hall)
-            + 0.10 * efficiency
-        )
+        overall = 0.35 * consensus + 0.30 * coherence + 0.25 * (1.0 - hall) + 0.10 * efficiency
     spans = audit_spans(reply, context)
     return QualityScore(
         consensus_score=consensus,
@@ -285,9 +280,7 @@ def confidence_text(
     if score is not None:
         pct = int(round(float(score) * 100))
         who = joined if len(names) >= 2 else "Models"
-        return (
-            f"{who} agree on {pct}%. {n_flag} claims were flagged as unsupported."
-        )
+        return f"{who} agree on {pct}%. {n_flag} claims were flagged as unsupported."
     if names:
         return (
             f"Answer from {joined or _model_label(names[0])}. "

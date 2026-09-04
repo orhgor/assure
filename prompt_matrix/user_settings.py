@@ -93,7 +93,9 @@ def get_settings(user_id: str) -> dict[str, Any]:
     }
 
 
-def save_settings(user_id: str, *, api_keys: dict | None = None, preferences: dict | None = None) -> None:
+def save_settings(
+    user_id: str, *, api_keys: dict | None = None, preferences: dict | None = None
+) -> None:
     uid = (user_id or "").strip()
     sb = _client()
     if not uid or sb is None:

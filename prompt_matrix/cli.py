@@ -49,14 +49,22 @@ THEME = Theme(
 
 
 def build_parser(config: MatrixConfig | None = None) -> argparse.ArgumentParser:
-    targets = sorted(config.targets) if config else ["claude", "gemini", "deepseek", "kimi", "ollama", "cursor"]
-    intents = sorted(config.intents) if config else [
-        "research",
-        "design",
-        "comparison",
-        "debug",
-        "analysis",
-    ]
+    targets = (
+        sorted(config.targets)
+        if config
+        else ["claude", "gemini", "deepseek", "kimi", "ollama", "cursor"]
+    )
+    intents = (
+        sorted(config.intents)
+        if config
+        else [
+            "research",
+            "design",
+            "comparison",
+            "debug",
+            "analysis",
+        ]
+    )
     parser = argparse.ArgumentParser(
         prog="assure",
         description=(
@@ -305,9 +313,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if interactive:
             _print_banner(console)
-            target, intent, task, context = _interactive_collect(
-                console, config, args
-            )
+            target, intent, task, context = _interactive_collect(console, config, args)
         else:
             target = normalize_target(args.target, config)
             intent = args.intent.strip().lower()
@@ -331,14 +337,17 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.quiet:
             preview = render_prompt_detailed(
-                target, intent, task, context, config=config, config_path=args.config_path,
+                target,
+                intent,
+                task,
+                context,
+                config=config,
+                config_path=args.config_path,
                 class_id=args.class_id,
             )
             _print_preview(console, preview)
             if preview.files_read:
-                console.print(
-                    f"[muted]Injected file(s): {', '.join(preview.files_read)}[/muted]"
-                )
+                console.print(f"[muted]Injected file(s): {', '.join(preview.files_read)}[/muted]")
             try:
                 from .linter import lint_prompt
             except ImportError:
@@ -353,7 +362,12 @@ def main(argv: list[str] | None = None) -> int:
                 console.print(f"[muted]{report.as_text()}[/muted]")
         elif args.direct or args.lint:
             preview = render_prompt_detailed(
-                target, intent, task, context, config=config, config_path=args.config_path,
+                target,
+                intent,
+                task,
+                context,
+                config=config,
+                config_path=args.config_path,
                 class_id=args.class_id,
             )
             try:
@@ -628,9 +642,7 @@ def _pick_numbered(console: Console, title: str, rows: list[tuple[str, str]]) ->
 
 
 def _print_preview(console: Console, preview) -> None:
-    lexer = {"xml": "xml", "markdown": "markdown", "plain": "text"}.get(
-        preview.wrapper, "text"
-    )
+    lexer = {"xml": "xml", "markdown": "markdown", "plain": "text"}.get(preview.wrapper, "text")
     syntax = Syntax(
         preview.prompt.rstrip() + "\n",
         lexer,
@@ -694,7 +706,14 @@ def _should_serve(argv: list[str]) -> bool:
     first = argv[0]
     if first in flags:
         return True
-    prefixes = ("--host=", "--port=", "--auth-user=", "--auth-pass=", "--http-user=", "--http-pass=")
+    prefixes = (
+        "--host=",
+        "--port=",
+        "--auth-user=",
+        "--auth-pass=",
+        "--http-user=",
+        "--http-pass=",
+    )
     return first.startswith(prefixes)
 
 

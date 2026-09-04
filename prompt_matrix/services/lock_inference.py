@@ -23,7 +23,7 @@ VISION_MODEL = "gemini/gemini-1.5-pro"
 
 _SYSTEM = (
     "You extract numerical and factual assertions for a truth ledger. "
-    "Respond with JSON only: {\"candidates\": [...]}."
+    'Respond with JSON only: {"candidates": [...]}.'
 )
 
 _USER_TEMPLATE = """Extract all numerical and factual assertions from the text below.
@@ -174,7 +174,11 @@ def infer_lock_candidates(
 ) -> LockInferenceResult:
     """Extract high-confidence lock candidates; route to Gemini when PDF has charts/images."""
     substrate = (text or "").strip()
-    visual = bool(has_visual_content) if has_visual_content is not None else pdf_has_visual_content(pdf_bytes or b"")
+    visual = (
+        bool(has_visual_content)
+        if has_visual_content is not None
+        else pdf_has_visual_content(pdf_bytes or b"")
+    )
     chosen = model or resolve_lock_inference_model(visual)
 
     if not pdf_bytes and len(substrate) < 20:
@@ -184,7 +188,9 @@ def infer_lock_candidates(
     _ensure_provider_key(chosen)
 
     if visual and pdf_bytes:
-        prompt = _VISION_USER_TEMPLATE.format(text=substrate[:8000] if substrate else "(see attached PDF)")
+        prompt = _VISION_USER_TEMPLATE.format(
+            text=substrate[:8000] if substrate else "(see attached PDF)"
+        )
         raw = _call_vision_model(chosen, prompt, pdf_bytes)
     else:
         if len(substrate) < 20:

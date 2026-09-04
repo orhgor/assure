@@ -92,8 +92,12 @@ def completion_limits(
     intent: str | None = None,
     model: str | None = None,
 ) -> tuple[int, int]:
-    tokens = max_tokens if max_tokens is not None else _int_env("PEM_MAX_TOKENS", DEFAULT_MAX_TOKENS)
-    seconds = timeout if timeout is not None else _int_env("PEM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
+    tokens = (
+        max_tokens if max_tokens is not None else _int_env("PEM_MAX_TOKENS", DEFAULT_MAX_TOKENS)
+    )
+    seconds = (
+        timeout if timeout is not None else _int_env("PEM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
+    )
     if intent:
         try:
             from .cost_router import cap_output_tokens
@@ -126,9 +130,19 @@ def call_model(
     extra = {key: value for key, value in kwargs.items() if key != "stream"}
     try:
         try:
-            from .services.language_guard import ensure_response_language, guard_messages, is_json_response_mode, resolve_request_locale
+            from .services.language_guard import (
+                ensure_response_language,
+                guard_messages,
+                is_json_response_mode,
+                resolve_request_locale,
+            )
         except ImportError:
-            from services.language_guard import ensure_response_language, guard_messages, is_json_response_mode, resolve_request_locale
+            from services.language_guard import (
+                ensure_response_language,
+                guard_messages,
+                is_json_response_mode,
+                resolve_request_locale,
+            )
 
         skip_guard = skip_language_guard or is_json_response_mode(extra)
         payload = guard_messages(messages, locale=locale, skip=skip_guard)
@@ -149,7 +163,9 @@ def call_model(
         finish = getattr(choice, "finish_reason", None)
         finish_s = str(finish).strip() if finish is not None else None
         hit = (finish_s or "").lower().replace(" ", "_") in _LENGTH_REASONS
-        _last_meta.set(CompletionMeta(finish_reason=finish_s, max_tokens=_max_tokens, hit_length=hit))
+        _last_meta.set(
+            CompletionMeta(finish_reason=finish_s, max_tokens=_max_tokens, hit_length=hit)
+        )
         text = str(content) if content is not None else ""
         if not skip_guard:
             effective = locale if locale is not None else resolve_request_locale()

@@ -212,10 +212,12 @@ def settings_client():
         conn.row_factory = sqlite3.Row
         return conn
 
-    with patch("prompt_matrix.history.DB_PATH", db_path), patch(
-        "prompt_matrix.db.connection.get_db", side_effect=_getter
-    ), patch("prompt_matrix.db.jdf_repository.get_db", side_effect=_getter
-    ), patch("prompt_matrix.db.settings_repository.get_db", side_effect=_getter):
+    with (
+        patch("prompt_matrix.history.DB_PATH", db_path),
+        patch("prompt_matrix.db.connection.get_db", side_effect=_getter),
+        patch("prompt_matrix.db.jdf_repository.get_db", side_effect=_getter),
+        patch("prompt_matrix.db.settings_repository.get_db", side_effect=_getter),
+    ):
         from prompt_matrix.db.connection import init_db
         from prompt_matrix.web import create_app
 

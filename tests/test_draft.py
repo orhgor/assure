@@ -11,7 +11,9 @@ from prompt_matrix.routers.draft import run_draft_pipeline, verify_locks
 
 
 def test_draft_text_to_sections_headings():
-    body = draft_text_to_sections("## Revenue\n\nQ3 ARR reached $12M.\n\n## Growth\n\nYoY growth was 45%.")
+    body = draft_text_to_sections(
+        "## Revenue\n\nQ3 ARR reached $12M.\n\n## Growth\n\nYoY growth was 45%."
+    )
     assert len(body) == 2
     assert body[0]["title"] == "Revenue"
     assert body[0]["children"][0]["content"].startswith("Q3 ARR")
@@ -37,10 +39,18 @@ def test_run_draft_pipeline_progressive(monkeypatch):
         yield ("Hello world with Revenue=100", 10, 5, "anthropic/claude-3-5-sonnet-20241022")
 
     def fake_locks(_text):
-        return [{"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}], "deepseek/deepseek-chat"
+        return [
+            {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
+        ], "deepseek/deepseek-chat"
 
     def fake_redhat(*_a, **_k):
-        return [{"title": "Red-hat review", "content": "Looks good.", "model": "deepseek/deepseek-reasoner"}], {
+        return [
+            {
+                "title": "Red-hat review",
+                "content": "Looks good.",
+                "model": "deepseek/deepseek-reasoner",
+            }
+        ], {
             "input_tokens": 50,
             "output_tokens": 20,
             "model_id": "deepseek/deepseek-reasoner",

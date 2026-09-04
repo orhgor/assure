@@ -81,7 +81,9 @@ def _ledger_subset(truth_ledger: dict[str, Any], keys: set[str]) -> dict[str, An
     return {k: truth_ledger[k] for k in keys if k in truth_ledger}
 
 
-def build_aperture_context(tree: JDFDocumentTree | dict[str, Any], target_node_id: str) -> dict[str, Any]:
+def build_aperture_context(
+    tree: JDFDocumentTree | dict[str, Any], target_node_id: str
+) -> dict[str, Any]:
     """Extract N-1, N, N+1 and bound truth-ledger keys under the surgical token cap."""
     doc = document_to_dict(tree)
     nodes = flatten_nodes(doc)
@@ -131,9 +133,13 @@ def build_aperture_context(tree: JDFDocumentTree | dict[str, Any], target_node_i
     if tokens > SURGICAL_TOKEN_CAP:
         # Shrink neighbor summaries first, never raw-split target content.
         if aperture["preceding"]:
-            aperture["preceding"]["summary"] = _trim_sentences(aperture["preceding"]["summary"], head=1)
+            aperture["preceding"]["summary"] = _trim_sentences(
+                aperture["preceding"]["summary"], head=1
+            )
         if aperture["succeeding"]:
-            aperture["succeeding"]["summary"] = _trim_sentences(aperture["succeeding"]["summary"], head=1)
+            aperture["succeeding"]["summary"] = _trim_sentences(
+                aperture["succeeding"]["summary"], head=1
+            )
         harness = _render_harness(aperture)
         tokens = accountant.count(harness)
 

@@ -266,12 +266,16 @@ def run_workflow(
                 target_ai = preferred
                 local = target_ai == "ollama"
             if workflow == "ensemble":
-                extra_targets = [name for name in (extra_targets or []) if name in live and name != target_ai]
+                extra_targets = [
+                    name for name in (extra_targets or []) if name in live and name != target_ai
+                ]
                 if not extra_targets:
                     rest = [name for name in live if name != target_ai]
                     extra_targets = rest[:1]
                     if extra_targets:
-                        route_note = _join_notes(route_note, f"Added {extra_targets[0]} so Combine has two live models.")
+                        route_note = _join_notes(
+                            route_note, f"Added {extra_targets[0]} so Combine has two live models."
+                        )
                     else:
                         workflow = "single"
                         route_note = _join_notes(
@@ -291,19 +295,43 @@ def run_workflow(
     with model_override(cost_target, cost_model):
         if workflow == "ensemble":
             result = _ensemble(
-                target_ai, intent, task, context, extra_targets, class_id, direct, ground, lint,
+                target_ai,
+                intent,
+                task,
+                context,
+                extra_targets,
+                class_id,
+                direct,
+                ground,
+                lint,
                 format_override=format_override,
                 audience=audience,
             )
         elif workflow == "redhat":
             result = _redhat(
-                target_ai, critic, intent, task, context, class_id, direct, ground, persona, lint,
+                target_ai,
+                critic,
+                intent,
+                task,
+                context,
+                class_id,
+                direct,
+                ground,
+                persona,
+                lint,
                 format_override=format_override,
                 audience=audience,
             )
         else:
             result = _single(
-                target_ai, intent, task, context, class_id, direct, ground, lint,
+                target_ai,
+                intent,
+                task,
+                context,
+                class_id,
+                direct,
+                ground,
+                lint,
                 format_override=format_override,
                 audience=audience,
             )
@@ -515,7 +543,9 @@ def _single(
                 max_tokens=max_out,
                 timeout=timeout,
             )
-            step_g = PipelineStep(name="grounding", target_ai=gtarget, prompt=gprompt, reply=grounded, error=gerr)
+            step_g = PipelineStep(
+                name="grounding", target_ai=gtarget, prompt=gprompt, reply=grounded, error=gerr
+            )
             if grounded:
                 reply = grounded
             note = _join_notes(note, gnote)
@@ -662,10 +692,18 @@ def _ensemble(
         blob = "\n\n".join(f"### {name}\n{text}" for name, text in replies)
         combiner = COMBINE_PROMPT.format(task=task, replies=blob)
         combiner_target = primary if key_present(primary) else replies[0][0]
-        combined, err, combine_note, combiner_target = _ask(combiner_target, combiner, intent=intent)
+        combined, err, combine_note, combiner_target = _ask(
+            combiner_target, combiner, intent=intent
+        )
         note = _join_notes(skip_note, combine_note)
         steps.append(
-            PipelineStep(name="combine", target_ai=combiner_target, prompt=combiner, reply=combined, error=err)
+            PipelineStep(
+                name="combine",
+                target_ai=combiner_target,
+                prompt=combiner,
+                reply=combined,
+                error=err,
+            )
         )
         final = combined
         packet = packet + "\n===== combine =====\n" + combiner
@@ -674,7 +712,10 @@ def _ensemble(
         note = _join_notes(skip_note, "Only one model replied, so there was nothing to merge.")
     elif not direct:
         order = ", then ".join(targets)
-        note = _join_notes(skip_note, f"Copied prompts in this order: {order}. Connect APIs and check Send to merge replies.")
+        note = _join_notes(
+            skip_note,
+            f"Copied prompts in this order: {order}. Connect APIs and check Send to merge replies.",
+        )
 
     if final:
         final, note = _enforce_citations(final, context, steps, note, intent=intent)
@@ -737,7 +778,9 @@ def _redhat(
     if direct:
         try:
             with workflow_deadline() as cap:
-                draft, create_err, note, used = _ask(creator, create_prompt, failover=False, intent=intent)
+                draft, create_err, note, used = _ask(
+                    creator, create_prompt, failover=False, intent=intent
+                )
                 cap.check()
                 if draft:
                     creator = used
@@ -757,7 +800,9 @@ def _redhat(
                         )
                         create_prompt = _maybe_ground_prompt(created.prompt, ground)
                         _guard_dialect(alt, create_prompt, strict=direct or lint)
-                        draft, create_err, note, used = _ask(alt, create_prompt, failover=False, intent=intent)
+                        draft, create_err, note, used = _ask(
+                            alt, create_prompt, failover=False, intent=intent
+                        )
                         if draft:
                             creator = used
                             note = _join_notes(f"Attempt moved to {used}.", note)
@@ -785,7 +830,9 @@ def _redhat(
                         critique = critique_prompt(create_prompt, draft)
                         critique_err, cnote = None, "Rule critic ran locally. No API call."
                     else:
-                        critique, critique_err, cnote, critic = _ask(critic, critic_prompt, failover=True, intent=intent)
+                        critique, critique_err, cnote, critic = _ask(
+                            critic, critic_prompt, failover=True, intent=intent
+                        )
                 revise_prompt = persona["revise"].format(
                     task=task,
                     draft=draft or "[PASTE ATTEMPT HERE]",
@@ -794,7 +841,9 @@ def _redhat(
                 )
                 if draft and critique:
                     cap.check()
-                    revised, revise_err, rnote, creator = _ask(creator, revise_prompt, failover=True, intent=intent)
+                    revised, revise_err, rnote, creator = _ask(
+                        creator, revise_prompt, failover=True, intent=intent
+                    )
         except WorkflowTimeout:
             timed_out = True
             abort = "ERROR: Full workflow timeout. Increase PEM_WORKFLOW_TIMEOUT."
@@ -825,7 +874,10 @@ def _redhat(
         )
         if draft:
             _, code_verdict = enforce_citations(draft, context)
-            if code_verdict.get("status") == "REJECTED" and "Deterministic citation critique" not in critic_prompt:
+            if (
+                code_verdict.get("status") == "REJECTED"
+                and "Deterministic citation critique" not in critic_prompt
+            ):
                 critic_prompt = (
                     critic_prompt.rstrip()
                     + "\n\nDeterministic citation critique (code, not a model):\n"
@@ -876,14 +928,19 @@ def _redhat(
         )
     elif draft and critique:
         final = f"## Attempt ({creator})\n{draft}\n\n## Critique ({critic})\n{critique}\n"
-        run_note = "Attempt and critique finished, but the final rewrite failed. Read the working notes."
+        run_note = (
+            "Attempt and critique finished, but the final rewrite failed. Read the working notes."
+        )
     elif draft:
         final = draft
         run_note = "Only the attempt came back. The critic did not run."
     else:
         final = None
         if direct:
-            run_note = create_err or "The attempt model did not reply. Nothing was copied. Fix the connection and click again."
+            run_note = (
+                create_err
+                or "The attempt model did not reply. Nothing was copied. Fix the connection and click again."
+            )
         else:
             run_note = (
                 "Copied step 1 (Attempt). After that reply, copy step 2, then step 3. "
@@ -891,9 +948,19 @@ def _redhat(
             )
 
     steps = [
-        PipelineStep(name="create", target_ai=creator, prompt=create_prompt, reply=draft, error=create_err),
-        PipelineStep(name="red-hat", target_ai=critic, prompt=critic_prompt, reply=critique, error=critique_err),
-        PipelineStep(name="final", target_ai=creator, prompt=revise_prompt, reply=revised, error=revise_err),
+        PipelineStep(
+            name="create", target_ai=creator, prompt=create_prompt, reply=draft, error=create_err
+        ),
+        PipelineStep(
+            name="red-hat",
+            target_ai=critic,
+            prompt=critic_prompt,
+            reply=critique,
+            error=critique_err,
+        ),
+        PipelineStep(
+            name="final", target_ai=creator, prompt=revise_prompt, reply=revised, error=revise_err
+        ),
     ]
     if final and not timed_out:
         final, run_note = _enforce_citations(final, context, steps, run_note, intent=intent)
@@ -942,7 +1009,9 @@ def _enforce_citations(
     if verdict.get("status") == "REJECTED":
         extra = "Citation critique rejected hallucinated sources and replaced those lines."
     if research:
-        extra = _join_notes(extra, "Research output forced into Thesis / Verified / Inferred / Open questions.")
+        extra = _join_notes(
+            extra, "Research output forced into Thesis / Verified / Inferred / Open questions."
+        )
     return shaped, _join_notes(note, extra)
 
 
@@ -950,8 +1019,7 @@ def _guard_dialect(target: str, prompt: str, *, strict: bool) -> None:
     report = lint_prompt(target, prompt)
     if report.errors and strict:
         raise MatrixError(
-            "ERROR: Lint failed. Fix structural issues before sending.\n"
-            f"{report.as_text()}"
+            "ERROR: Lint failed. Fix structural issues before sending.\n" f"{report.as_text()}"
         )
 
 
@@ -1125,7 +1193,9 @@ def compile_deep_prompt(
                 merged_context = f"{merged_context}\n{context}".strip()
 
     audience_prefix = _audience_block(audience)
-    enriched_context = f"{audience_prefix}\n\n{merged_context}".strip() if merged_context else audience_prefix
+    enriched_context = (
+        f"{audience_prefix}\n\n{merged_context}".strip() if merged_context else audience_prefix
+    )
 
     cot_format = format_override
     if cot_format is None:

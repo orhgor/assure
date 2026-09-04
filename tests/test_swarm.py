@@ -205,13 +205,21 @@ class RunSwarmTests(unittest.TestCase):
             architect=[_pipe("goals and a spec", "gemini", "design")],
             developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "deepseek", "debug")],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 0.9\n", "claude", "analysis")],
-            tester=[_pipe("### tests/test_app.py\n```\ndef test_ok():\n    assert True\n```\n", "gemini", "debug")],
+            tester=[
+                _pipe(
+                    "### tests/test_app.py\n```\ndef test_ok():\n    assert True\n```\n",
+                    "gemini",
+                    "debug",
+                )
+            ],
             documenter=[_pipe("### docs/feature.md\n```\n# Feature\n```\n", "claude", "research")],
         )
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "app.py"
             src.write_text("print(0)\n", encoding="utf-8")
-            with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+            with patch(
+                "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            ):
                 with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                     with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
                         result = run_swarm(
@@ -241,13 +249,17 @@ class RunSwarmTests(unittest.TestCase):
             tester=[_pipe("tests", "gemini", "debug")],
             documenter=[_pipe("docs", "claude", "research")],
         )
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
                     result = run_swarm("Implement x")
         self.assertEqual(result.redhat_rounds, 3)
         self.assertEqual(result.review_verdict, "Keep")
-        redhat_calls = [call for call in mocked.call_args_list if call.kwargs.get("workflow") == "redhat"]
+        redhat_calls = [
+            call for call in mocked.call_args_list if call.kwargs.get("workflow") == "redhat"
+        ]
         self.assertEqual(len(redhat_calls), 3)
         self.assertEqual(redhat_calls[0].kwargs.get("persona"), "security")
 
@@ -261,7 +273,9 @@ class RunSwarmTests(unittest.TestCase):
             tester=[_pipe("### tests/test_a.py\n```\ndef test_ok():\n    assert True\n```\n")],
             documenter=[_pipe("### docs/a.md\n```\n# A\n```\n")],
         )
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
                     result = run_swarm("Implement x")
@@ -276,10 +290,18 @@ class RunSwarmTests(unittest.TestCase):
             architect=[_pipe("spec", "gemini", "design")],
             developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "deepseek", "debug")],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 1\n", "claude", "analysis")],
-            tester=[_pipe("### tests/test_app.py\n```\ndef test_ok():\n    assert True\n```\n", "gemini", "debug")],
+            tester=[
+                _pipe(
+                    "### tests/test_app.py\n```\ndef test_ok():\n    assert True\n```\n",
+                    "gemini",
+                    "debug",
+                )
+            ],
             documenter=[_pipe("### docs/feature.md\n```\n# Feature\n```\n", "claude", "research")],
         )
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
                     result = run_swarm("Add a button")
@@ -304,9 +326,13 @@ class RunSwarmTests(unittest.TestCase):
             ],
         )
         fail = TestResults(passed=False, stdout="FAILED", stderr="boom")
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
-                with patch("prompt_matrix.swarm.run_pytest", side_effect=[fail, fail, fail, fail]) as pytest_mock:
+                with patch(
+                    "prompt_matrix.swarm.run_pytest", side_effect=[fail, fail, fail, fail]
+                ) as pytest_mock:
                     result = run_swarm("Implement x")
         self.assertEqual(result.test_results.passed, False)
         self.assertEqual(result.test_results.fix_rounds, 3)
@@ -341,7 +367,9 @@ class RunSwarmTests(unittest.TestCase):
             pytest_started.set()
             return TestResults(skipped=True, skip_reason="mocked")
 
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=pytest_mark):
                     result = run_swarm("Implement x")
@@ -373,7 +401,9 @@ class RunSwarmTests(unittest.TestCase):
             tester=[_pipe("tests", "gemini", "debug")],
             documenter=[_pipe("docs", "claude", "research")],
         )
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
                     result = run_swarm("Add waitlist")
@@ -410,11 +440,17 @@ class RunSwarmTests(unittest.TestCase):
         gh = MagicMock(returncode=0, stdout="https://example.invalid/pr/1\n", stderr="")
         with patch("prompt_matrix.swarm.live_targets", return_value=["gemini"]):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
-                with patch("prompt_matrix.swarm.run_pytest", return_value=TestResults(passed=True, stdout="ok")):
+                with patch(
+                    "prompt_matrix.swarm.run_pytest",
+                    return_value=TestResults(passed=True, stdout="ok"),
+                ):
                     with patch("prompt_matrix.swarm.subprocess.run", return_value=gh) as proc:
                         result = run_swarm("Add a button", create_pr=True, min_confidence=0.0)
         self.assertTrue(
-            any(call.args and call.args[0] and call.args[0][0] == "gh" for call in proc.call_args_list)
+            any(
+                call.args and call.args[0] and call.args[0][0] == "gh"
+                for call in proc.call_args_list
+            )
         )
         self.assertTrue(result.patch_path)
 
@@ -439,7 +475,9 @@ class DeveloperLimitsTests(unittest.TestCase):
         )
         with patch("prompt_matrix.swarm.live_targets", return_value=["gemini"]):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
-                with patch("prompt_matrix.swarm.role_output_limits", wraps=role_output_limits) as mocked:
+                with patch(
+                    "prompt_matrix.swarm.role_output_limits", wraps=role_output_limits
+                ) as mocked:
                     run_swarm("x", skip_tests=True, skip_docs=True)
         self.assertTrue(
             any((call.kwargs.get("max_tokens") or 0) >= 16384 for call in mocked.call_args_list)
@@ -448,7 +486,9 @@ class DeveloperLimitsTests(unittest.TestCase):
 
 class PerFileAndTruncationTests(unittest.TestCase):
     def test_parse_planned_paths(self):
-        spec = "# Spec\n\n## Files to write\n- a.py\n- templates/index.html\n\n## Notes\nskip me.py\n"
+        spec = (
+            "# Spec\n\n## Files to write\n- a.py\n- templates/index.html\n\n## Notes\nskip me.py\n"
+        )
         self.assertEqual(parse_planned_paths(spec), ["a.py", "templates/index.html"])
 
     def test_multi_file_developer_is_per_path(self):
@@ -463,7 +503,9 @@ class PerFileAndTruncationTests(unittest.TestCase):
             tester=[],
             documenter=[],
         )
-        with patch("prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]):
+        with patch(
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+        ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
                 result = run_swarm("two files", skip_tests=True, skip_docs=True)
         self.assertEqual(result.files["a.py"].strip(), "a=1")
@@ -496,7 +538,9 @@ class PerFileAndTruncationTests(unittest.TestCase):
         script = ScriptedWorkflow(
             architect=[_pipe("spec")],
             developer=[
-                _pipe("### templates/index.html\n```\n<!DOCTYPE html>\n<html>\n<body>\n<div\n```\n"),
+                _pipe(
+                    "### templates/index.html\n```\n<!DOCTYPE html>\n<html>\n<body>\n<div\n```\n"
+                ),
                 _pipe("<span>still cut\n"),
                 _pipe("no close\n"),
                 _pipe("still no\n"),
@@ -554,13 +598,7 @@ class ApplyPatchHelperTests(unittest.TestCase):
             self.assertEqual((root / "hello.txt").read_text(encoding="utf-8"), "hello world\n")
 
     def test_rejects_traversal(self):
-        diff = (
-            "--- a/../../etc/passwd\n"
-            "+++ b/../../etc/passwd\n"
-            "@@ -1 +1 @@\n"
-            "-a\n"
-            "+b\n"
-        )
+        diff = "--- a/../../etc/passwd\n" "+++ b/../../etc/passwd\n" "@@ -1 +1 @@\n" "-a\n" "+b\n"
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(PatchError):
                 apply_unified_diff(diff, root=Path(tmp))
@@ -682,7 +720,9 @@ class ContextAndApplyTests(unittest.TestCase):
 
         blob, originals, notes = load_context(["web.py"])
         self.assertTrue(any("prompt_matrix/web.py" in key for key in originals))
-        self.assertTrue(any("Resolved context" in note for note in notes) or "prompt_matrix/web.py" in originals)
+        self.assertTrue(
+            any("Resolved context" in note for note in notes) or "prompt_matrix/web.py" in originals
+        )
 
     def test_write_workspace_files_and_reject_traversal(self):
         from prompt_matrix.patch_apply import PatchError, write_workspace_files

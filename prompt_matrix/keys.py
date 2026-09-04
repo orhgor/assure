@@ -109,7 +109,11 @@ def key_present(target: str) -> bool:
 
 
 def ollama_up() -> bool:
-    host = os.environ.get("OLLAMA_HOST") or os.environ.get("OLLAMA_API_BASE") or "http://127.0.0.1:11434"
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("OLLAMA_API_BASE")
+        or "http://127.0.0.1:11434"
+    )
     url = host.rstrip("/") + "/api/tags"
     try:
         from urllib.request import urlopen
@@ -155,10 +159,9 @@ def api_key_for(target: str) -> str | None:
 
 
 def anthropic_workspace_id() -> str:
-    return (
-        (os.environ.get("ANTHROPIC_WORKSPACE_ID") or "").strip()
-        or (os.environ.get("ANTHROPIC_WORKSPACE") or "").strip()
-    )
+    return (os.environ.get("ANTHROPIC_WORKSPACE_ID") or "").strip() or (
+        os.environ.get("ANTHROPIC_WORKSPACE") or ""
+    ).strip()
 
 
 def save_anthropic_workspace_id(workspace_id: str) -> None:

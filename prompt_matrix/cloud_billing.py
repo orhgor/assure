@@ -251,7 +251,9 @@ def apply_stripe_event(event: dict[str, Any]) -> None:
     if not isinstance(obj, dict):
         return
     if kind == "checkout.session.completed":
-        user_id = str(obj.get("client_reference_id") or (obj.get("metadata") or {}).get("user_id") or "")
+        user_id = str(
+            obj.get("client_reference_id") or (obj.get("metadata") or {}).get("user_id") or ""
+        )
         customer = str(obj.get("customer") or "")
         if user_id:
             set_tier(user_id, "pro", stripe_customer_id=customer or None)
@@ -327,7 +329,12 @@ def _supabase_headers() -> dict[str, str]:
 
 
 def _supabase_insert(payload: dict[str, Any]) -> dict[str, Any]:
-    rows = _supabase_json("POST", "/rest/v1/users", payload, extra={"Prefer": "return=representation,resolution=merge-duplicates"})
+    rows = _supabase_json(
+        "POST",
+        "/rest/v1/users",
+        payload,
+        extra={"Prefer": "return=representation,resolution=merge-duplicates"},
+    )
     if isinstance(rows, list) and rows:
         return rows[0]
     if isinstance(rows, dict):
@@ -359,7 +366,9 @@ def _supabase_get(path: str) -> list[dict[str, Any]]:
     return []
 
 
-def supabase_request(method: str, path: str, body: dict | None = None, extra: dict | None = None) -> Any:
+def supabase_request(
+    method: str, path: str, body: dict | None = None, extra: dict | None = None
+) -> Any:
     """Server-side REST. Callers must never send prompt text in `body`."""
     return _supabase_json(method, path, body, extra)
 

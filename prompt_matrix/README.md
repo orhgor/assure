@@ -221,4 +221,3 @@ prompt_matrix/
 ```
 
 Call `load_matrix()`, `render_prompt()`, `execute()`, `run_workflow()`, and `run_swarm()` from other Python code without going through the CLI.
-

@@ -18,7 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 class JDFProvenance(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    source_type: Literal["internal_doc", "academic_paper", "news_article", "web_url"] = "internal_doc"
+    source_type: Literal["internal_doc", "academic_paper", "news_article", "web_url"] = (
+        "internal_doc"
+    )
     source_name: str = ""
     url_or_doi: str = ""
     source_id: str = ""
@@ -197,7 +199,10 @@ def extract_citations_from_content(content: str) -> tuple[str, list[dict[str, An
                 "url_or_doi": attrs.get("url_or_doi") or "",
                 "source_id": source_id,
                 "page_number": attrs.get("page_number") or attrs.get("page_or_timestamp") or "",
-                "extracted_quote": inner or attrs.get("extracted_quote") or attrs.get("exact_quote") or "",
+                "extracted_quote": inner
+                or attrs.get("extracted_quote")
+                or attrs.get("exact_quote")
+                or "",
                 "accessed_date": attrs.get("accessed_date") or "",
             }
         )
@@ -281,7 +286,9 @@ def flatten_nodes(tree: JDFDocumentTree | dict[str, Any]) -> list[dict[str, Any]
     return ordered
 
 
-def find_node_index(tree: JDFDocumentTree | dict[str, Any], target_id: str) -> tuple[int, dict[str, Any]] | None:
+def find_node_index(
+    tree: JDFDocumentTree | dict[str, Any], target_id: str
+) -> tuple[int, dict[str, Any]] | None:
     for idx, node in enumerate(flatten_nodes(tree)):
         if node.get("id") == target_id:
             return idx, node
@@ -299,7 +306,9 @@ def get_node_by_id(tree: JDFDocumentTree | dict[str, Any], node_id: str) -> dict
     return None
 
 
-def splice_node(tree: dict[str, Any], target_id: str, new_node: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+def splice_node(
+    tree: dict[str, Any], target_id: str, new_node: dict[str, Any]
+) -> tuple[dict[str, Any], bool]:
     """Recursively replace a node by id. Returns (mutated_tree, found)."""
     mutated = copy.deepcopy(tree)
 

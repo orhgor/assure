@@ -22,7 +22,9 @@ _SAFE_NAME = re.compile(r"[^\w\-]+")
 
 def _doc_title(tree: dict) -> str:
     meta = tree.get("meta") or {}
-    raw = str(meta.get("title") or meta.get("project_id") or tree.get("document_id") or "assure-document")
+    raw = str(
+        meta.get("title") or meta.get("project_id") or tree.get("document_id") or "assure-document"
+    )
     cleaned = _SAFE_NAME.sub("-", raw.strip()).strip("-") or "assure-document"
     return cleaned[:80]
 
@@ -79,7 +81,11 @@ def register_export_routes(app) -> None:
                 "EXPORT_DOCX",
                 success=True,
                 duration_ms=duration_ms,
-                details={"format": fmt, "filename": filename, "include_citations": include_citations},
+                details={
+                    "format": fmt,
+                    "filename": filename,
+                    "include_citations": include_citations,
+                },
             )
             return Response(
                 buffer.getvalue(),

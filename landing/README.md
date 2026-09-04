@@ -2,8 +2,8 @@
 
 Public Assure AI is served **directly from EC2** through Cloudflare Tunnel:
 
-- **https://getassureai.com/** — landing + paste sandbox  
-- **https://getassureai.com/app** — JDF / Z3 workspace  
+- **https://getassureai.com/** — landing + paste sandbox
+- **https://getassureai.com/app** — JDF / Z3 workspace
 
 Legacy **app.getassureai.com** and **www** 301 to the apex (Flask + tunnel).
 

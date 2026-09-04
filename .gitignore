@@ -23,5 +23,6 @@ logs/
 .swarm_history
 .worktrees/
 node_modules/
+worker/node_modules/
 .cursor/settings.json
 scripts/apply_jobs_copy.py

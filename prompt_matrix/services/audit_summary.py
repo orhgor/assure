@@ -63,12 +63,16 @@ def normalize_audit_payload(data: dict[str, Any]) -> dict[str, Any]:
         critiques = out.get("redhat_results") or []
     out["redhat_critiques"] = critiques
     out["redhat_results"] = critiques
-    out["redhat_count"] = int(out.get("redhat_count") if out.get("redhat_count") is not None else len(critiques))
+    out["redhat_count"] = int(
+        out.get("redhat_count") if out.get("redhat_count") is not None else len(critiques)
+    )
     z3 = out.get("z3_results") or {}
     z3_status = out.get("z3_status") or z3.get("status")
     out["z3_status"] = z3_status
     if "gate_status" not in out:
-        out["gate_status"] = compute_gate_status(str(z3_status) if z3_status else None, out["redhat_count"])
+        out["gate_status"] = compute_gate_status(
+            str(z3_status) if z3_status else None, out["redhat_count"]
+        )
     if "ok" not in out:
         out["ok"] = str(z3_status or "").upper() == "PASS"
     return out

@@ -149,7 +149,11 @@ class SwarmDevelopToolTests(unittest.TestCase):
         with patch("prompt_matrix.swarm.run_swarm", return_value=fake) as mocked:
             _call_tool(
                 "swarm_develop",
-                {"task": "x", "target_models": ["reviewer=claude", "tester=gemini"], "background": False},
+                {
+                    "task": "x",
+                    "target_models": ["reviewer=claude", "tester=gemini"],
+                    "background": False,
+                },
             )
         self.assertEqual(
             mocked.call_args.kwargs["target_models"],
@@ -188,7 +192,10 @@ class SwarmDevelopToolTests(unittest.TestCase):
                     "jsonrpc": "2.0",
                     "id": 9,
                     "method": "tools/call",
-                    "params": {"name": "swarm_develop", "arguments": {"task": "x", "background": False}},
+                    "params": {
+                        "name": "swarm_develop",
+                        "arguments": {"task": "x", "background": False},
+                    },
                 }
             )
         self.assertTrue(reply["result"]["isError"])

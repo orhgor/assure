@@ -17,9 +17,29 @@ Cursor/Mac → git push → GitHub
 | **GitHub** | Source of truth, CI, **Docker build** |
 | **GHCR** | Pre-built images (`ghcr.io/orhgor/assure-app`) |
 | **EC2** | Pull image, run container, persist `data/` |
-| **Cloudflare** | Public URL → tunnel → EC2 |
+| **Cloudflare** | Public URL → tunnel → EC2; **PDF edge Worker + R2** for uploads |
 
 Marketing site stays on branch **`webpage`** → Cloudflare Worker (not this flow).
+
+### Edge PDF processing
+
+```
+Browser → Cloudflare Worker (signed R2 URL)
+       → R2 (temporary PDF)
+       → Worker: unpdf (+ Textract fallback)
+       → POST /api/substrate on EC2 (text only)
+       → R2 delete PDF
+```
+
+| Resource | Staging | Production |
+|----------|---------|------------|
+| Branch | `staging` | `p4-account-wallet` |
+| Worker | `assure-worker-staging` | `assure-worker-prod` |
+| R2 bucket | `assure-pdf-uploads-staging` | `assure-pdf-uploads-prod` |
+| EC2 | `STAGING_INSTANCE_ID` secret | `ASSURE_INSTANCE_ID` secret |
+| GitHub Environment | `staging` | `production` |
+
+See `worker/README.md` for deploy and secrets.
 
 ---
 
@@ -62,8 +82,8 @@ Until these secrets exist, **build still runs on every push**; deploy the image 
 
 **GHCR pull on EC2** needs a token with **`read:packages`**. Options:
 
-1. Add `GHCR_TOKEN` to your Mac `.env.production` (used by SSM redeploy), or  
-2. Add the same to EC2 `/home/ubuntu/assure/.env.production`, or  
+1. Add `GHCR_TOKEN` to your Mac `.env.production` (used by SSM redeploy), or
+2. Add the same to EC2 `/home/ubuntu/assure/.env.production`, or
 3. Add `GHCR_DEPLOY_TOKEN` as a GitHub Actions secret for auto-deploy.
 
 Create a classic PAT at GitHub → Settings → Developer settings → PAT with **`read:packages`** (and **`repo`** for private git fetch if needed).

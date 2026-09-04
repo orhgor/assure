@@ -47,7 +47,10 @@ TOOLS = [
                     "description": "research, design, comparison, debug, or analysis.",
                     "default": "analysis",
                 },
-                "context": {"type": "string", "description": "Notes or local file paths to inject."},
+                "context": {
+                    "type": "string",
+                    "description": "Notes or local file paths to inject.",
+                },
                 "class_id": {"type": "string", "description": "Optional saved class id."},
             },
             "required": ["task"],
@@ -72,7 +75,7 @@ TOOLS = [
                 "extra_targets": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Other models to draft. Default: [\"deepseek\"].",
+                    "description": 'Other models to draft. Default: ["deepseek"].',
                 },
                 "intent": {
                     "type": "string",
@@ -204,7 +207,7 @@ TOOLS = [
                     "type": "object",
                     "additionalProperties": {"type": "string"},
                     "description": (
-                        "Role to model override, e.g. {\"developer\": \"deepseek-chat\"}. "
+                        'Role to model override, e.g. {"developer": "deepseek-chat"}. '
                         "Roles: architect, developer, reviewer, tester, documenter. "
                         "Also accepts a list of ROLE=MODEL strings."
                     ),
@@ -365,7 +368,9 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
             "jsonrpc": "2.0",
             "id": msg_id,
             "result": {
-                "protocolVersion": client_version if str(client_version).startswith("202") else PROTOCOL,
+                "protocolVersion": client_version
+                if str(client_version).startswith("202")
+                else PROTOCOL,
                 "capabilities": {
                     "tools": {"listChanged": True},
                     "resources": {"listChanged": False},
@@ -662,9 +667,7 @@ def _edition_arg(args: dict[str, Any]) -> str | None:
     if not edition:
         return None
     if edition not in _EDITIONS:
-        raise MatrixError(
-            f"Unknown edition {edition!r}. Use one of: {', '.join(_EDITIONS)}."
-        )
+        raise MatrixError(f"Unknown edition {edition!r}. Use one of: {', '.join(_EDITIONS)}.")
     return edition
 
 
@@ -754,7 +757,11 @@ def _format_swarm_result(result: Any) -> str:
     if warnings:
         chunks.extend(["WARNING: " + item for item in warnings])
         chunks.append("")
-    verdict = getattr(result, "review_verdict", None) or getattr(result, "reviewer_verdict", None) or "(none)"
+    verdict = (
+        getattr(result, "review_verdict", None)
+        or getattr(result, "reviewer_verdict", None)
+        or "(none)"
+    )
     rev_conf = getattr(result, "review_confidence", None)
     if rev_conf is None:
         rev_conf = getattr(result, "reviewer_confidence", None)
@@ -841,7 +848,9 @@ def _as_target_models(value: Any) -> dict[str, str] | None:
     except ImportError:
         from swarm import _parse_role_models
     if isinstance(value, dict):
-        items = [f"{key}={val}" for key, val in value.items() if str(key).strip() and str(val).strip()]
+        items = [
+            f"{key}={val}" for key, val in value.items() if str(key).strip() and str(val).strip()
+        ]
         return _parse_role_models(items) or None
     if isinstance(value, str):
         parts = [part.strip() for part in value.replace(",", " ").split() if part.strip()]

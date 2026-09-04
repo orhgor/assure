@@ -20,6 +20,7 @@ try:
 except ImportError:
     from paths import user_data_dir
 
+
 def _resolve_db_path() -> Path:
     override = (os.environ.get("DATABASE_PATH") or "").strip()
     if override:
@@ -272,7 +273,9 @@ def prune_old_executions(days: int) -> None:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     conn = _new_connection()
     try:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "executions" not in tables:
             return
         conn.execute("DELETE FROM executions WHERE timestamp < ?", (cutoff,))
@@ -455,7 +458,9 @@ def _row_public(row: sqlite3.Row, *, full: bool) -> dict:
     return item
 
 
-def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, offset: int = 0) -> dict:
+def list_works(
+    *, days: int | None, full: bool, q: str = "", limit: int = 50, offset: int = 0
+) -> dict:
     if not DB_PATH.exists():
         return {"groups": [], "total": 0}
     q = (q or "").strip()
@@ -466,7 +471,9 @@ def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, of
     total = 0
     try:
         _ensure_executions(conn)
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "executions" not in tables:
             return {"groups": [], "total": 0}
         where = ["1=1"]
@@ -642,7 +649,9 @@ def delete_work(item_id: int) -> bool:
             "SELECT COUNT(*) FROM executions WHERE prompt_hash = ?", (digest,)
         ).fetchone()[0]
         if leftover == 0:
-            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            tables = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "prompt_versions" in tables:
                 conn.execute("DELETE FROM prompt_versions WHERE run_hash = ?", (digest,))
         conn.commit()
@@ -733,6 +742,7 @@ def export_work(item: dict, fmt: str) -> tuple[bytes, str, str]:
 
 def _simple_pdf(title: str, body: str) -> bytes:
     """Minimal PDF 1.4. No WeasyPrint. ASCII Helvetica only."""
+
     def pdf_str(value: str) -> str:
         cleaned = "".join(ch if 32 <= ord(ch) < 127 else "?" for ch in (value or ""))
         return cleaned.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
@@ -758,7 +768,11 @@ def _simple_pdf(title: str, body: str) -> bytes:
         b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
         b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
         b"/Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n",
-        b"4 0 obj << /Length " + str(len(stream)).encode() + b" >> stream\n" + stream + b"\nendstream endobj\n",
+        b"4 0 obj << /Length "
+        + str(len(stream)).encode()
+        + b" >> stream\n"
+        + stream
+        + b"\nendstream endobj\n",
         b"5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
     ]
     out = bytearray(b"%PDF-1.4\n")
@@ -845,4 +859,3 @@ def usage_summary(*, days: int = 30) -> dict:
         }
     finally:
         conn.close()
-

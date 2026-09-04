@@ -72,7 +72,10 @@ Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 
 | Item | Status |
 | :--- | :--- |
-| AWS Textract Substrate Vault (single-page guard, image vs PDF routing) | ✅ |
+| **Edge PDF processing** — Cloudflare Worker + R2 (`worker/`), unpdf fast path, Textract fallback, auto-delete | ✅ Implemented (deploy + secrets manual) |
+| **POST /api/substrate** — edge ingest into `substrates` + `substrate_vault` | ✅ |
+| **Staging / production separation** — GitHub Environments, `cd-staging.yml`, `docker-compose.staging.yml` | ✅ |
+| AWS Textract Substrate Vault (single-page guard, image vs PDF routing) | ✅ (legacy direct EC2 upload) |
 | Textract throttling retry; reject extracted text ≤ 10 chars | ✅ |
 | `poppler-utils` in Dockerfile | ✅ |
 | SQLite WAL + `busy_timeout` + locked retry (max 3) | ✅ `connection.py` |

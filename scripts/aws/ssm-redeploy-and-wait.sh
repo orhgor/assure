@@ -33,6 +33,12 @@ fi
 
 GHCR_TOKEN="${GHCR_DEPLOY_TOKEN:-${GHCR_TOKEN:-$TOKEN}}"
 GHCR_USER="${GHCR_USER:-orhgor}"
+ASSURE_IMAGE_TAG="${ASSURE_IMAGE_TAG:-}"
+ASSURE_ENVIRONMENT="${ASSURE_ENVIRONMENT:-}"
+REDEPLOY_ARGS=""
+if [[ -n "$ASSURE_IMAGE_TAG" ]]; then
+  REDEPLOY_ARGS="--tag ${ASSURE_IMAGE_TAG}"
+fi
 if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
@@ -56,7 +62,7 @@ sudo -u ubuntu git fetch origin ${GIT_BRANCH}
 sudo -u ubuntu git checkout ${GIT_BRANCH}
 sudo -u ubuntu git reset --hard origin/${GIT_BRANCH}
 sudo -u ubuntu git log -1 --oneline
-sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' bash scripts/aws/redeploy-app.sh
+sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
 echo ---HEALTH---
 curl -sf http://127.0.0.1:8765/health || true
 SCRIPT

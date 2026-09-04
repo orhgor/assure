@@ -25,7 +25,9 @@ RUNNERS: list[dict[str, Any]] = [
         "label": "Ollama",
         "fit": "local dev / personal",
         "probe": os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/") + "/api/tags",
-        "api_base": os.environ.get("OLLAMA_HOST", os.environ.get("OLLAMA_API_BASE", "http://127.0.0.1:11434")),
+        "api_base": os.environ.get(
+            "OLLAMA_HOST", os.environ.get("OLLAMA_API_BASE", "http://127.0.0.1:11434")
+        ),
         "startable": True,
     },
     {
@@ -33,7 +35,8 @@ RUNNERS: list[dict[str, Any]] = [
         "kind": "openai",
         "label": "vLLM",
         "fit": "production / high concurrency",
-        "probe": os.environ.get("PEM_VLLM_BASE", "http://127.0.0.1:8000/v1").rstrip("/") + "/models",
+        "probe": os.environ.get("PEM_VLLM_BASE", "http://127.0.0.1:8000/v1").rstrip("/")
+        + "/models",
         "api_base": os.environ.get("PEM_VLLM_BASE", "http://127.0.0.1:8000/v1"),
         "startable": False,
     },
@@ -42,7 +45,8 @@ RUNNERS: list[dict[str, Any]] = [
         "kind": "openai",
         "label": "SGLang",
         "fit": "production / high concurrency",
-        "probe": os.environ.get("PEM_SGLANG_BASE", "http://127.0.0.1:30000/v1").rstrip("/") + "/models",
+        "probe": os.environ.get("PEM_SGLANG_BASE", "http://127.0.0.1:30000/v1").rstrip("/")
+        + "/models",
         "api_base": os.environ.get("PEM_SGLANG_BASE", "http://127.0.0.1:30000/v1"),
         "startable": False,
     },
@@ -51,7 +55,8 @@ RUNNERS: list[dict[str, Any]] = [
         "kind": "openai",
         "label": "Llamafile",
         "fit": "resource-constrained / single binary",
-        "probe": os.environ.get("PEM_LLAMAFILE_BASE", "http://127.0.0.1:8080/v1").rstrip("/") + "/models",
+        "probe": os.environ.get("PEM_LLAMAFILE_BASE", "http://127.0.0.1:8080/v1").rstrip("/")
+        + "/models",
         "api_base": os.environ.get("PEM_LLAMAFILE_BASE", "http://127.0.0.1:8080/v1"),
         "startable": False,
     },
@@ -60,7 +65,8 @@ RUNNERS: list[dict[str, Any]] = [
         "kind": "openai",
         "label": "LM Studio",
         "fit": "local desktop",
-        "probe": os.environ.get("PEM_LMSTUDIO_BASE", "http://127.0.0.1:1234/v1").rstrip("/") + "/models",
+        "probe": os.environ.get("PEM_LMSTUDIO_BASE", "http://127.0.0.1:1234/v1").rstrip("/")
+        + "/models",
         "api_base": os.environ.get("PEM_LMSTUDIO_BASE", "http://127.0.0.1:1234/v1"),
         "startable": False,
     },
@@ -113,7 +119,13 @@ def ensure_ollama(wait_s: float = 8.0) -> dict[str, Any]:
     while time.time() < deadline:
         if ollama_up():
             _ALIVE_CACHE["t"] = 0
-            return {"ok": True, "up": True, "action": "started", "binary": binary, "note": "Started Ollama."}
+            return {
+                "ok": True,
+                "up": True,
+                "action": "started",
+                "binary": binary,
+                "note": "Started Ollama.",
+            }
         time.sleep(0.25)
     return {
         "ok": False,
@@ -186,5 +198,8 @@ def litellm_kwargs(runner: dict[str, Any]) -> tuple[str, dict[str, str]]:
         extra = {"api_base": runner["api_base"], "api_key": "ollama"}
         return model, extra
     model_name = runner.get("model") or "local"
-    extra = {"api_base": runner["api_base"], "api_key": os.environ.get("PEM_LOCAL_API_KEY", "sk-local")}
+    extra = {
+        "api_base": runner["api_base"],
+        "api_key": os.environ.get("PEM_LOCAL_API_KEY", "sk-local"),
+    }
     return f"openai/{model_name}", extra

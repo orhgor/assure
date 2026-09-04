@@ -31,9 +31,7 @@ _IMPORT_ALIASES = {
     "attr": "attrs",
     "rest_framework": "djangorestframework",
 }
-_STDLIB = set(getattr(sys, "stdlib_module_names", ())) | set(
-    sys.builtin_module_names
-)
+_STDLIB = set(getattr(sys, "stdlib_module_names", ())) | set(sys.builtin_module_names)
 _FIRST_PARTY = frozenset({"prompt_matrix"})
 
 
@@ -73,9 +71,7 @@ def local_lint(
     files = {str(path).replace("\\", "/"): body for path, body in (files or {}).items()}
     base = root or repo_root()
     if dump_is_truncated(implementation or ""):
-        errors.append(
-            "implementation dump looks truncated. Re-request the patch; do not Keep."
-        )
+        errors.append("implementation dump looks truncated. Re-request the patch; do not Keep.")
     for path, body in files.items():
         cut = dump_is_truncated(body, path=path)
         if cut:
@@ -98,9 +94,7 @@ def _patch_integrity(
     if planned:
         missing = [path for path in planned if not _has_path(files, path)]
         if missing:
-            errors.append(
-                "empty patch: planned files not in the dump: " + ", ".join(missing)
-            )
+            errors.append("empty patch: planned files not in the dump: " + ", ".join(missing))
     if files and diffs is not None and not diffs:
         errors.append("empty patch: extracted files did not change any lines")
     return errors

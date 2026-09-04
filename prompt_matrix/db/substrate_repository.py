@@ -14,6 +14,35 @@ except ImportError:
     from history import get_db
 
 
+def save_substrate_text(
+    project_id: str,
+    raw_text: str,
+    *,
+    page_count: int = 1,
+    source: str = "edge",
+    entry_id: str | None = None,
+) -> dict[str, Any]:
+    """Persist edge-ingested substrate text."""
+    init_db()
+    db = get_db()
+    row_id = entry_id or f"edge-{uuid.uuid4().hex[:16]}"
+    db.execute(
+        """
+        INSERT INTO substrates (id, project_id, raw_text, page_count, source)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (row_id, project_id, raw_text or "", int(page_count), source),
+    )
+    db.commit()
+    return {
+        "id": row_id,
+        "project_id": project_id,
+        "raw_text": raw_text or "",
+        "page_count": int(page_count),
+        "source": source,
+    }
+
+
 def save_substrate_entry(
     project_id: str,
     *,

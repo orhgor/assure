@@ -47,7 +47,13 @@ def test_sandbox_verify_success(monkeypatch, client):
         ], "deepseek/deepseek-chat"
 
     def fake_redhat(*_a, **_k):
-        return [{"title": "Red-hat review", "content": "No major gaps.", "model": "deepseek/deepseek-reasoner"}], {
+        return [
+            {
+                "title": "Red-hat review",
+                "content": "No major gaps.",
+                "model": "deepseek/deepseek-reasoner",
+            }
+        ], {
             "input_tokens": 20,
             "output_tokens": 10,
             "model_id": "deepseek/deepseek-reasoner",

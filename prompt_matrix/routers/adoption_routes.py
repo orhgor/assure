@@ -67,7 +67,9 @@ def register_adoption_routes(app) -> None:
             has_visual = pdf_has_visual_content(pdf_bytes)
 
         if not substrate.strip() and not pdf_bytes:
-            return jsonify({"ok": True, "candidates": [], "message": "No substrate text available."})
+            return jsonify(
+                {"ok": True, "candidates": [], "message": "No substrate text available."}
+            )
 
         try:
             result = infer_lock_candidates(
@@ -77,7 +79,9 @@ def register_adoption_routes(app) -> None:
             )
             candidates = result.candidates
             if payload.min_confidence > 0:
-                candidates = [c for c in candidates if c.get("confidence", 0) >= payload.min_confidence]
+                candidates = [
+                    c for c in candidates if c.get("confidence", 0) >= payload.min_confidence
+                ]
         except RuntimeError as exc:
             audit.log_audit(
                 request_id,

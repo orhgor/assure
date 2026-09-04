@@ -43,11 +43,7 @@ def _cursorrules(item) -> str:
         f"You are {role}.\n\n{{{{ task }}}}\n\nOutput:\n{fmt}\n"
         "{% if context %}\n{{ context }}\n{% endif %}\n"
     )
-    return (
-        f"# {item.name}\n"
-        f"{item.description}\n\n"
-        f"{body.strip()}\n"
-    ).strip() + "\n"
+    return (f"# {item.name}\n" f"{item.description}\n\n" f"{body.strip()}\n").strip() + "\n"
 
 
 def _mdc(item) -> str:
@@ -88,7 +84,7 @@ def _dspy(item, target_hint: str | None) -> str:
     hint = target_hint or item.target_hint or "the compiled prompt"
     return (
         "import dspy\n\n"
-        f'class {ident}Signature(dspy.Signature):\n'
+        f"class {ident}Signature(dspy.Signature):\n"
         f'    """{doc}"""\n'
         f'    task = dspy.InputField(desc="the user task")\n'
         f'    context = dspy.InputField(desc="optional local context", default="")\n'

@@ -12,7 +12,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError, TemplateSyntaxError
+from jinja2 import (
+    Environment,
+    FileSystemLoader,
+    StrictUndefined,
+    TemplateError,
+    TemplateSyntaxError,
+)
 from pydantic import ValidationError
 
 try:
@@ -177,7 +183,7 @@ def apply_runtime_options(
     edition: str | None = None,
 ) -> None:
     """Push CLI flags into env so LiteLLM, history, auth, and the rule critic see them."""
-    rt = (config.runtime if config is not None else RuntimeSettings())
+    rt = config.runtime if config is not None else RuntimeSettings()
     if store_prompts or rt.store_prompts:
         os.environ["PEM_STORE_PROMPTS"] = "1"
     if cheap:
@@ -395,7 +401,11 @@ def _headless_clipboard_host() -> bool:
     flag = os.getenv("PEM_NO_CLIPBOARD", "").strip().lower()
     if flag in {"1", "true", "yes"}:
         return True
-    if platform.system() == "Linux" and not os.getenv("DISPLAY") and not os.getenv("WAYLAND_DISPLAY"):
+    if (
+        platform.system() == "Linux"
+        and not os.getenv("DISPLAY")
+        and not os.getenv("WAYLAND_DISPLAY")
+    ):
         return True
     return False
 

@@ -5,7 +5,12 @@ from __future__ import annotations
 import copy
 import unittest
 
-from prompt_matrix.models.jdf import JDFDocumentTree, insert_node_after_anchor, splice_node, upsert_block_node
+from prompt_matrix.models.jdf import (
+    JDFDocumentTree,
+    insert_node_after_anchor,
+    splice_node,
+    upsert_block_node,
+)
 
 
 def _sample_tree() -> dict:
@@ -70,7 +75,9 @@ class JDFSplicerTests(unittest.TestCase):
 
     def test_splice_missing_id(self):
         tree = _sample_tree()
-        updated, found = splice_node(tree, "missing", {"type": "paragraph", "id": "missing", "content": "x"})
+        updated, found = splice_node(
+            tree, "missing", {"type": "paragraph", "id": "missing", "content": "x"}
+        )
         self.assertFalse(found)
         self.assertEqual(updated, tree)
 

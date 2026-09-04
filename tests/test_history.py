@@ -85,9 +85,7 @@ class HistoryDiffRouteTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def _store(self, digest: str, reply: str) -> None:
-        history.store_full_run(
-            digest, "q", reply, "gemini", "analysis", "single", 1, 2, force=True
-        )
+        history.store_full_run(digest, "q", reply, "gemini", "analysis", "single", 1, 2, force=True)
 
     def test_missing_params_are_400(self):
         res = self.client.get("/api/history/diff")

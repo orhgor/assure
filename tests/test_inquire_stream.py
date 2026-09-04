@@ -104,10 +104,11 @@ def temp_db():
         conn.row_factory = sqlite3.Row
         return conn
 
-    with patch("prompt_matrix.history.DB_PATH", db_path), patch(
-        "prompt_matrix.db.connection.get_db", side_effect=_getter
-    ), patch("prompt_matrix.cost_governance.get_db", side_effect=_getter), patch(
-        "prompt_matrix.db.jdf_repository.get_db", side_effect=_getter
+    with (
+        patch("prompt_matrix.history.DB_PATH", db_path),
+        patch("prompt_matrix.db.connection.get_db", side_effect=_getter),
+        patch("prompt_matrix.cost_governance.get_db", side_effect=_getter),
+        patch("prompt_matrix.db.jdf_repository.get_db", side_effect=_getter),
     ):
         conn = _getter()
         yield conn
@@ -168,7 +169,10 @@ async def test_full_stream_lifecycle(client):
             "complete",
         ):
             assert expected in names
-        order = [names.index(e) for e in ("status", "token", "truth_check", "jdf_node_ready", "usage", "complete")]
+        order = [
+            names.index(e)
+            for e in ("status", "token", "truth_check", "jdf_node_ready", "usage", "complete")
+        ]
         assert order == sorted(order)
 
 
@@ -241,7 +245,9 @@ async def test_quota_429(client):
 @pytest.mark.asyncio
 async def test_jdf_get_put_roundtrip(client):
     tree = _sample_tree("roundtrip")
-    put = await client.put("/api/projects/roundtrip/jdf", json={"document": tree, "mutation_type": "seed"})
+    put = await client.put(
+        "/api/projects/roundtrip/jdf", json={"document": tree, "mutation_type": "seed"}
+    )
     assert put.status_code == 200
     body = put.json()
     assert body.get("ok") is True
@@ -256,7 +262,9 @@ async def test_jdf_get_put_roundtrip(client):
 @pytest.mark.asyncio
 async def test_export_docx(client):
     tree = _sample_tree("export-me")
-    await client.put("/api/projects/export-me/jdf", json={"document": tree, "mutation_type": "seed"})
+    await client.put(
+        "/api/projects/export-me/jdf", json={"document": tree, "mutation_type": "seed"}
+    )
     resp = await client.get("/api/projects/export-me/export?format=docx")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith(

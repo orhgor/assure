@@ -586,6 +586,7 @@
   <script>
     window.__INITIAL_JDF__ = {{ initial_jdf|tojson if initial_jdf is defined else 'null' }};
     window.__ASSURE_PROJECT_ID__ = {{ project_id|tojson if project_id is defined else '"default"' }};
+    window.__ASSURE_EDGE_WORKER_URL__ = {{ edge_worker_url|tojson if edge_worker_url is defined else '""' }};
   </script>
   <script>
     (function () {
@@ -614,6 +615,7 @@
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
   {% if auth is defined and auth.publishable_key %}
   <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
@@ -1403,7 +1405,60 @@
         }
       }
       state.uploadPdfBase64 = null;
-      if (SUBSTRATE_DOC_RE.test(file.name || "")) {
+      const edgeWorkerUrl = (window.__ASSURE_EDGE_WORKER_URL__ || "").trim();
+      const useEdgePdf =
+        edgeWorkerUrl &&
+        /\.pdf$/i.test(file.name || "") &&
+        window.AssureEdgeUpload &&
+        typeof window.AssureEdgeUpload.uploadPdfViaEdge === "function";
+      if (useEdgePdf) {
+        try {
+          const projectId = window.__ASSURE_PROJECT_ID__ || "default";
+          const edge = await window.AssureEdgeUpload.uploadPdfViaEdge(
+            file,
+            projectId,
+            edgeWorkerUrl,
+            function (msg, level) {
+              if (window.AssureToast && level !== "info") {
+                window.AssureToast.show(msg, level === "success" ? "success" : "info");
+              } else {
+                setStatus(msg, level === "success" ? "ok" : "");
+              }
+            }
+          );
+          if (!edge.ok) {
+            throw new Error(tf("upload.edge.failed", "Edge extraction failed. Try again or upload a text-native PDF."));
+          }
+          const extracted = edge.text || "";
+          state.fileText = "### File: " + file.name + "\n```\n" + extracted + "\n```\n";
+          state.substrateTables = [];
+          try {
+            state.uploadPdfBase64 = await fileToBase64(file);
+          } catch (_) {
+            state.uploadPdfBase64 = null;
+          }
+          if (window.AssureToast) {
+            window.AssureToast.show(
+              tf("upload.edge.done", "Document text extracted at the edge."),
+              "success"
+            );
+          }
+        } catch (err) {
+          state.fileText = "";
+          state.uploadMeta = null;
+          state.uploadPdfBase64 = null;
+          event.target.value = "";
+          const failMsg =
+            (err && err.message) || tf("upload.edge.failed", "Edge extraction failed. Try again or upload a text-native PDF.");
+          if (window.AssureToast) {
+            window.AssureToast.show(failMsg, "error");
+          } else {
+            setStatus(failMsg, "bad");
+          }
+          schedulePreview();
+          return;
+        }
+      } else if (SUBSTRATE_DOC_RE.test(file.name || "")) {
         try {
           const substrate = await uploadSubstrateVault(file);
           if (!substrate.ok) {

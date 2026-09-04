@@ -39,7 +39,9 @@ def rule_based_critique(prompt_text: str) -> Dict[str, List[str]]:
         limit_num = int(limit_match.group(1))
         example_sentences = re.findall(r"Example:?\s*([^.\n]+[.\n])", text, re.I)
         if example_sentences:
-            avg_example_len = sum(len(s.split()) for s in example_sentences) / len(example_sentences)
+            avg_example_len = sum(len(s.split()) for s in example_sentences) / len(
+                example_sentences
+            )
             if avg_example_len > limit_num * 0.8:
                 findings["errors"].append(
                     f"Word limit {limit_num} is too tight for examples averaging {avg_example_len:.0f} words."
@@ -52,7 +54,9 @@ def rule_based_critique(prompt_text: str) -> Dict[str, List[str]]:
     if used and not declared:
         findings["errors"].append(f"Variables used but never declared: {used}")
 
-    if re.search(r"formal|professional", text, re.I) and re.search(r"slang|casual|colloquial", text, re.I):
+    if re.search(r"formal|professional", text, re.I) and re.search(
+        r"slang|casual|colloquial", text, re.I
+    ):
         findings["errors"].append("Contradictory tone constraints: Formal vs Casual.")
 
     return findings

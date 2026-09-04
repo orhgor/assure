@@ -12,7 +12,9 @@ from prompt_matrix.web import create_app
 
 class ClaudeKeyTests(unittest.TestCase):
     def test_claude_alias_is_enough(self):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "", "CLAUDE_API_KEY": "sk-ant-test"}, clear=False):
+        with patch.dict(
+            os.environ, {"ANTHROPIC_API_KEY": "", "CLAUDE_API_KEY": "sk-ant-test"}, clear=False
+        ):
             self.assertTrue(key_present("claude"))
 
     def test_workspace_header_on_claude_kwargs(self):
@@ -35,7 +37,11 @@ class ClaudeKeyTests(unittest.TestCase):
     def test_workspace_header_omitted_when_unset(self):
         with patch.dict(
             os.environ,
-            {"ANTHROPIC_API_KEY": "sk-ant-test", "ANTHROPIC_WORKSPACE_ID": "", "ANTHROPIC_WORKSPACE": ""},
+            {
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+                "ANTHROPIC_WORKSPACE_ID": "",
+                "ANTHROPIC_WORKSPACE": "",
+            },
             clear=False,
         ):
             extra = litellm_kwargs_for("claude")

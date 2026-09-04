@@ -114,7 +114,11 @@ def patch_looks_truncated(diff: str) -> str | None:
     stripped = blob.strip()
     if not stripped:
         return "empty diff"
-    if re.search(r"(?m)^diff --git ", stripped) and "@@" not in stripped and "/dev/null" not in stripped:
+    if (
+        re.search(r"(?m)^diff --git ", stripped)
+        and "@@" not in stripped
+        and "/dev/null" not in stripped
+    ):
         return "diff header without hunks"
     if re.search(r"(?m)^(?:--- |\+\+\+ )", stripped) and "@@" not in stripped:
         return "file header without hunks"
@@ -342,7 +346,11 @@ def _parse_unified_files(diff: str) -> list[tuple[str, str, list[_Hunk]]]:
                 if match:
                     a_path, b_path = match.group(1), match.group(2)
                 i += 1
-                while i < len(lines) and not lines[i].startswith("--- ") and not lines[i].startswith("diff --git "):
+                while (
+                    i < len(lines)
+                    and not lines[i].startswith("--- ")
+                    and not lines[i].startswith("diff --git ")
+                ):
                     i += 1
             if i < len(lines) and lines[i].startswith("--- "):
                 a_path = lines[i][4:].strip()
@@ -367,7 +375,11 @@ def _parse_unified_files(diff: str) -> list[tuple[str, str, list[_Hunk]]]:
                 body: list[str] = []
                 while i < len(lines):
                     row = lines[i]
-                    if row.startswith("@@ ") or row.startswith("diff --git ") or row.startswith("--- "):
+                    if (
+                        row.startswith("@@ ")
+                        or row.startswith("diff --git ")
+                        or row.startswith("--- ")
+                    ):
                         break
                     if row.startswith("\\"):
                         i += 1
@@ -377,9 +389,7 @@ def _parse_unified_files(diff: str) -> list[tuple[str, str, list[_Hunk]]]:
                         i += 1
                         continue
                     break
-                hunks.append(
-                    _Hunk(old_start, old_count, new_start, new_count, body)
-                )
+                hunks.append(_Hunk(old_start, old_count, new_start, new_count, body))
             rel = b_path if b_path and b_path != "/dev/null" else a_path
             if rel and rel != "/dev/null" and hunks:
                 files.append((rel, a_path, hunks))

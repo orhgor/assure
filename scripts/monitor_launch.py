@@ -42,9 +42,7 @@ def _collect(conn: sqlite3.Connection) -> dict:
     out["tables"] = [row[0] for row in rows]
 
     if _table_exists(conn, "executions"):
-        out["total_runs"] = int(
-            conn.execute("SELECT COUNT(*) FROM executions").fetchone()[0]
-        )
+        out["total_runs"] = int(conn.execute("SELECT COUNT(*) FROM executions").fetchone()[0])
         for row in conn.execute(
             """
             SELECT COALESCE(NULLIF(TRIM(target_ai), ''), 'unknown') AS model, COUNT(*) AS n
@@ -56,12 +54,10 @@ def _collect(conn: sqlite3.Connection) -> dict:
             out["models"][str(row[0])] = int(row[1])
 
     if _table_exists(conn, "prompt_performance"):
-        up = conn.execute(
-            "SELECT COUNT(*) FROM prompt_performance WHERE rating = 1"
-        ).fetchone()[0]
-        down = conn.execute(
-            "SELECT COUNT(*) FROM prompt_performance WHERE rating = 0"
-        ).fetchone()[0]
+        up = conn.execute("SELECT COUNT(*) FROM prompt_performance WHERE rating = 1").fetchone()[0]
+        down = conn.execute("SELECT COUNT(*) FROM prompt_performance WHERE rating = 0").fetchone()[
+            0
+        ]
         out["feedback_up"] = int(up)
         out["feedback_down"] = int(down)
         out["feedback_total"] = out["feedback_up"] + out["feedback_down"]

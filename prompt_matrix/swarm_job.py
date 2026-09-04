@@ -75,8 +75,7 @@ def format_job(job: dict[str, Any] | None) -> str:
         lines.append(f"elapsed_s: {int(max(0, _now() - float(elapsed)))}")
     if status in {"queued", "running"}:
         lines.append(
-            "Call swarm_status again until status is done or error. "
-            "Do not start a second swarm."
+            "Call swarm_status again until status is done or error. " "Do not start a second swarm."
         )
     report = job.get("report") or ""
     if report and status in {"done", "error"}:

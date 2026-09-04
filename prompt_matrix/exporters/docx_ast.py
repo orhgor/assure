@@ -211,7 +211,12 @@ def export_jdf_to_docx(jdf_tree: dict[str, Any], *, include_citations: bool = Tr
         section.left_margin = Inches(1)
         section.right_margin = Inches(1)
     meta = jdf_tree.get("meta") or {}
-    title = str(meta.get("title") or meta.get("project_id") or jdf_tree.get("document_id") or "Assure Document")
+    title = str(
+        meta.get("title")
+        or meta.get("project_id")
+        or jdf_tree.get("document_id")
+        or "Assure Document"
+    )
 
     title_para = doc.add_paragraph()
     title_run = title_para.add_run(title)

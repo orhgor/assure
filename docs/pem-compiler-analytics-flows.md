@@ -1,6 +1,6 @@
 # PEM compiler, data analytics, and workflow models
 
-Reference for Assure’s **Prompt Engineering Matrix (PEM)** engine in `prompt_matrix/`.  
+Reference for Assure’s **Prompt Engineering Matrix (PEM)** engine in `prompt_matrix/`.
 “Compiler” here means **prompt compiler** (Jinja dialect renderer), not a programming-language compiler.
 
 ---
@@ -67,7 +67,7 @@ From `config.json`: **Claude**, **Gemini**, **DeepSeek**, **Kimi**, **Ollama**, 
 
 ## 3. Workflow models
 
-Central entry: **`run_workflow()`** in `pipelines.py`.  
+Central entry: **`run_workflow()`** in `pipelines.py`.
 IDs: **`single`**, **`ensemble`**, **`redhat`**.
 
 UI labels (i18n): Quick Answer / Compare & Validate / Refine & Verify.

@@ -1060,4 +1060,3 @@ msgstr "Tus datos se quedan aquí. El envío va solo al proveedor que elegiste."
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

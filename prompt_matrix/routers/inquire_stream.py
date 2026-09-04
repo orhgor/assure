@@ -146,7 +146,9 @@ def _ensure_node_annotations(node: dict[str, Any]) -> dict[str, Any]:
     return node
 
 
-def _paragraph_node(node_id: str, content: str, *, status: str = "ok", z3_error: str | None = None) -> dict[str, Any]:
+def _paragraph_node(
+    node_id: str, content: str, *, status: str = "ok", z3_error: str | None = None
+) -> dict[str, Any]:
     meta: dict[str, Any] = {}
     if z3_error:
         meta["z3_error"] = z3_error

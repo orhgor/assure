@@ -30,7 +30,11 @@ class EvalTests(unittest.TestCase):
             "target": "cursor",
             "intent": "analysis",
             "cases": [
-                {"id": "hit", "task": "Keep the API key on this machine.", "expect_contains": ["key"]},
+                {
+                    "id": "hit",
+                    "task": "Keep the API key on this machine.",
+                    "expect_contains": ["key"],
+                },
             ],
         }
         report = run_eval(dataset, target="cursor", intent="analysis", direct=False)

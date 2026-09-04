@@ -562,4 +562,3 @@ msgstr ""
 #: prompt_matrix/templates/index.html:377
 msgid "Your data stays here. Send only to your chosen provider."
 msgstr ""
-

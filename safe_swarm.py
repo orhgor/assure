@@ -27,8 +27,13 @@ from pathlib import Path
 # ----- Configuration -----
 REPO_ROOT = Path(__file__).resolve().parent
 VERIFICATION_KEYWORDS = [
-    "verify", "check", "validate", "inspect",
-    "against landed", "already landed", "review existing"
+    "verify",
+    "check",
+    "validate",
+    "inspect",
+    "against landed",
+    "already landed",
+    "review existing",
 ]
 HISTORY_FILE = REPO_ROOT / ".swarm_history"
 LOG_PATCH = REPO_ROOT / "logs" / "swarm.patch"
@@ -38,9 +43,7 @@ MIN_PATCH_SIZE = 100  # bytes – anything smaller is considered empty
 def git_working_tree_clean() -> bool:
     """Return True if no uncommitted changes."""
     result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=REPO_ROOT,
-        capture_output=True, text=True
+        ["git", "status", "--porcelain"], cwd=REPO_ROOT, capture_output=True, text=True
     )
     return result.stdout.strip() == ""
 
@@ -50,7 +53,9 @@ def get_current_commit() -> str:
     result = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=REPO_ROOT,
-        capture_output=True, text=True, check=True
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -74,18 +79,12 @@ def is_mcp_running() -> bool:
     # Otherwise, try to find any process with "pem mcp" in command line
     try:
         # Unix-like systems
-        result = subprocess.run(
-            ["pgrep", "-f", "pem mcp"],
-            capture_output=True, text=True
-        )
+        result = subprocess.run(["pgrep", "-f", "pem mcp"], capture_output=True, text=True)
         return result.returncode == 0
     except FileNotFoundError:
         # Windows or no pgrep – fallback: try a quick 'pem mcp --help'
         try:
-            subprocess.run(
-                ["pem", "mcp", "--help"],
-                capture_output=True, timeout=2, check=False
-            )
+            subprocess.run(["pem", "mcp", "--help"], capture_output=True, timeout=2, check=False)
             # If the command runs without error, assume MCP is available
             return True
         except Exception:
@@ -117,9 +116,7 @@ def is_patch_empty() -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run the swarm safely with cost/duplicate guards."
-    )
+    parser = argparse.ArgumentParser(description="Run the swarm safely with cost/duplicate guards.")
     parser.add_argument("--task", required=True, help="Description of what the swarm should do.")
     parser.add_argument("--force", action="store_true", help="Override all checks and run anyway.")
     parser.add_argument("args", nargs=argparse.REMAINDER, help="Extra arguments to pass to swarm.")
@@ -167,10 +164,15 @@ def main():
 
     # ----- Build the swarm command -----
     swarm_cmd = [
-        sys.executable, "-m", "prompt_matrix.swarm",
-        "--edition", "team",   # unlimited, but we'll rely on cost cap
-        "--max-iterations", "1",
-        "--task", args.task,
+        sys.executable,
+        "-m",
+        "prompt_matrix.swarm",
+        "--edition",
+        "team",  # unlimited, but we'll rely on cost cap
+        "--max-iterations",
+        "1",
+        "--task",
+        args.task,
     ]
     # Append any extra args passed by the user
     if extra:

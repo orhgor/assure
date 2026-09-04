@@ -8,12 +8,44 @@ cd "$ROOT"
 
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.prod.yml)
 COMPOSE_GHCR=(docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ghcr.yml)
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
 BRANCH="${ASSURE_DEPLOY_BRANCH:-p4-account-wallet}"
 IMAGE_REPO="${ASSURE_IMAGE_REPO:-ghcr.io/orhgor/assure-app}"
 LOCK_FILE="${ASSURE_REDEPLOY_LOCK:-/tmp/assure-redeploy.lock}"
 MIN_DISK_GB_FOR_BUILD="${ASSURE_MIN_DISK_GB_FOR_BUILD:-3}"
 GHCR_PULL_RETRIES="${ASSURE_GHCR_PULL_RETRIES:-5}"
 GHCR_PULL_WAIT_SEC="${ASSURE_GHCR_PULL_WAIT_SEC:-30}"
+DEPLOY_TAG=""
+
+usage() {
+  echo "Usage: $0 [--tag TAG]" >&2
+  echo "  --tag TAG   Pull ghcr.io/orhgor/assure-app:TAG instead of commit SHA (e.g. staging)" >&2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tag)
+      DEPLOY_TAG="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ "${ASSURE_ENVIRONMENT:-}" == "staging" ]]; then
+  COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.staging.yml)
+  COMPOSE_GHCR=(docker compose -f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.ghcr.yml)
+  COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.staging.yml)
+  BRANCH="${ASSURE_DEPLOY_BRANCH:-staging}"
+fi
 
 remove_stale_app_container() {
   echo "==> Remove stale assure-app containers (keep volumes)"
@@ -66,9 +98,10 @@ FULL_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 echo "    HEAD: ${SHORT_SHA} $(git log -1 --oneline)"
 
+IMAGE_TAG="${DEPLOY_TAG:-${ASSURE_IMAGE_TAG:-$FULL_SHA}}"
 export ASSURE_BUILD_SHA="$SHORT_SHA"
-export ASSURE_IMAGE_TAG="$FULL_SHA"
-export ASSURE_IMAGE="${IMAGE_REPO}:${FULL_SHA}"
+export ASSURE_IMAGE_TAG="$IMAGE_TAG"
+export ASSURE_IMAGE="${IMAGE_REPO}:${IMAGE_TAG}"
 
 echo "==> GHCR login"
 # shellcheck disable=SC1091
