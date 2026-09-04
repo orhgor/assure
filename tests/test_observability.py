@@ -17,6 +17,7 @@ def web_client(monkeypatch):
     monkeypatch.delenv("SENTRY_ENABLED", raising=False)
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("SENTRY_BROWSER_DSN", raising=False)
     from prompt_matrix.web import create_app
 
     return create_app(require_auth=False).test_client()
@@ -26,7 +27,8 @@ def test_observability_snippets_off_by_default(web_client):
     res = web_client.get("/")
     html = res.get_data(as_text=True)
     assert "plausible.io/js/pa-we0rKAtBU" not in html
-    assert "js.sentry-cdn.com/464429cd135c3ce0fbbcb5b78e46e639" not in html
+    assert "sentry.bundle.js" not in html
+    assert "window.__SENTRY_DSN" not in html
 
 
 def test_plausible_enabled_override(web_client, monkeypatch):
@@ -38,9 +40,11 @@ def test_plausible_enabled_override(web_client, monkeypatch):
 
 def test_sentry_browser_enabled_override(web_client, monkeypatch):
     monkeypatch.setenv("SENTRY_ENABLED", "1")
+    monkeypatch.setenv("SENTRY_BROWSER_DSN", "https://example@sentry.io/1")
     res = web_client.get("/")
     html = res.get_data(as_text=True)
-    assert "js.sentry-cdn.com/464429cd135c3ce0fbbcb5b78e46e639" in html
+    assert "sentry.bundle.js" in html
+    assert 'window.__SENTRY_DSN="https://example@sentry.io/1"' in html
 
 
 def test_production_enables_both_snippets(web_client, monkeypatch):
@@ -48,7 +52,17 @@ def test_production_enables_both_snippets(web_client, monkeypatch):
     res = web_client.get("/")
     html = res.get_data(as_text=True)
     assert "plausible.io/js/pa-we0rKAtBU" in html
-    assert "js.sentry-cdn.com/464429cd135c3ce0fbbcb5b78e46e639" in html
+    assert "sentry.bundle.js" in html
+    assert "window.__SENTRY_DSN" in html
+
+
+def test_sentry_browser_dsn_prefers_browser_env(web_client, monkeypatch):
+    monkeypatch.setenv("SENTRY_ENABLED", "1")
+    monkeypatch.setenv("SENTRY_DSN", "https://server@sentry.io/1")
+    monkeypatch.setenv("SENTRY_BROWSER_DSN", "https://browser@sentry.io/1")
+    res = web_client.get("/")
+    html = res.get_data(as_text=True)
+    assert 'window.__SENTRY_DSN="https://browser@sentry.io/1"' in html
 
 
 def test_template_includes_exist():
@@ -62,14 +76,18 @@ def test_template_includes_exist():
 
 
 def test_plausible_and_sentry_helpers():
-    from prompt_matrix.web import _plausible_enabled, _sentry_enabled
+    from prompt_matrix.web import _plausible_enabled, _sentry_browser_dsn, _sentry_enabled
 
-    saved = {k: os.environ.get(k) for k in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT")}
+    saved = {
+        k: os.environ.get(k)
+        for k in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT", "SENTRY_DSN", "SENTRY_BROWSER_DSN")
+    }
     try:
-        for key in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT"):
+        for key in ("PLAUSIBLE_ENABLED", "SENTRY_ENABLED", "ENVIRONMENT", "SENTRY_DSN", "SENTRY_BROWSER_DSN"):
             os.environ.pop(key, None)
         assert _plausible_enabled() is False
         assert _sentry_enabled() is False
+        assert _sentry_browser_dsn() == ""
 
         os.environ["PLAUSIBLE_ENABLED"] = "1"
         assert _plausible_enabled() is True
@@ -82,6 +100,13 @@ def test_plausible_and_sentry_helpers():
         os.environ["ENVIRONMENT"] = "production"
         assert _plausible_enabled() is True
         assert _sentry_enabled() is True
+        assert _sentry_browser_dsn().endswith("/4512026963869696")
+
+        os.environ["SENTRY_DSN"] = "https://server@sentry.io/1"
+        assert _sentry_browser_dsn() == "https://server@sentry.io/1"
+
+        os.environ["SENTRY_BROWSER_DSN"] = "https://browser@sentry.io/1"
+        assert _sentry_browser_dsn() == "https://browser@sentry.io/1"
     finally:
         for key, value in saved.items():
             if value is None:

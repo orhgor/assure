@@ -1,3 +1,9 @@
+FROM node:22-slim AS sentry
+WORKDIR /build
+COPY package.json package-lock.json scripts/bundle-sentry.mjs ./
+COPY prompt_matrix/static/src/sentry-init.js prompt_matrix/static/src/sentry-init.js
+RUN npm ci && npm run bundle:sentry
+
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -17,6 +23,7 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
     && pip install --no-cache-dir --prefer-binary -r requirements.txt gunicorn flask-cors httpx pytest-asyncio asgiref
 
 COPY . .
+COPY --from=sentry /build/prompt_matrix/static/sentry.bundle.js prompt_matrix/static/sentry.bundle.js
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8765') + '/api/health', timeout=3)"
