@@ -107,7 +107,12 @@
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile from Intent') }}</h3>
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a messy draft, upload a document, or describe your deliverable. The compiler will parse, structure, and verify it.') }}</p>
               <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
-              <textarea id="generate-intent" class="form-control compose-task-input" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="generate.intent_placeholder"></textarea>
+              <div class="example-chips" role="group" aria-label="{{ gettext('Example intents') }}" data-i18n-aria="example.chips">
+                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.executive_summary" data-i18n="example.executive_summary.label">{{ gettext('Executive Summary') }}</span>
+                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.market_analysis" data-i18n="example.market_analysis.label">{{ gettext('Market Analysis') }}</span>
+                <span class="example-chip" role="button" tabindex="0" data-prompt-key="example.risk_assessment" data-i18n="example.risk_assessment.label">{{ gettext('Risk Assessment') }}</span>
+              </div>
+              <textarea id="generate-intent" class="form-control compose-task-input auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder"></textarea>
               <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile JDF nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile Document') }}</button>
               <div id="generate-stream-wrap" class="preview-box">
                 <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Compilation Progress') }}</p>
@@ -260,7 +265,7 @@
                 <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
               </p>
               <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
-              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="jdf.intent.placeholder">
+              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input auto-resize" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="refine.placeholder">
               <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refactor') }}</p>
             </div>
 

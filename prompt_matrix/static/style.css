@@ -3373,6 +3373,12 @@ body.onboarding-active .sidebar-backdrop {
   outline: 2px solid var(--trust-blue);
   outline-offset: 2px;
 }
+textarea.auto-resize,
+input.auto-resize {
+  overflow-y: hidden;
+  resize: none;
+  min-height: 2.5rem;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .journey-step, .choice, .pick-tile, .card, .btn,

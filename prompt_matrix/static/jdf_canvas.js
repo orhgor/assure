@@ -342,6 +342,9 @@
       (jdfT("jdf.canvas.empty.hint", "")
         ? '<p class="jdf-canvas-empty-hint">' + jdfT("jdf.canvas.empty.hint", "") + "</p>"
         : "") +
+      (jdfT("jdf.canvas.empty_instruction", "")
+        ? '<p class="jdf-canvas-empty-instruction">' + jdfT("jdf.canvas.empty_instruction", "") + "</p>"
+        : "") +
       "</div>";
     return wrap;
   };
