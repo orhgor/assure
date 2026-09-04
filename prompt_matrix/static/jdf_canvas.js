@@ -844,22 +844,25 @@
     var html = this._escapeHtml(text);
     if (this.showCitations) {
       var ledger = this.tree.truth_ledger || {};
-      var values = Object.keys(ledger).map(function (k) {
-        return String(ledger[k]);
+      var ledgerKeys = Object.keys(ledger);
+      // Sort by value length descending so longer numbers match before shorter substrings
+      ledgerKeys.sort(function (a, b) {
+        return String(ledger[b]).length - String(ledger[a]).length;
       });
-      values.sort(function (a, b) {
-        return b.length - a.length;
-      });
-      values.forEach(function (val) {
+      ledgerKeys.forEach(function (key) {
+        var val = String(ledger[key]);
         if (!val) return;
         var re = new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+        var escapedKey = key.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         html = html.replace(re, function (match) {
           return (
-            '<span class="truth-pill inline-citation interactive-element truth-pass" data-provenance="' +
-            provAttr +
-            '" title="View source">' +
+            '<span class="truth-pill inline-citation interactive-element truth-pass lock-glyph-host" ' +
+            'data-provenance="' + provAttr + '" ' +
+            'data-lock-key="' + escapedKey + '" ' +
+            'title="\uD83D\uDD12 ' + escapedKey + ' = ' + match + '">' +
             match +
-            "</span>"
+            '<span class="lock-glyph" aria-hidden="true">\uD83D\uDD12</span>' +
+            '</span>'
           );
         });
       });
@@ -1009,6 +1012,103 @@
     return bar;
   };
 
+  JDFCanvasManager.prototype.setDraftPreview = function (previewTree) {
+    if (!this.rootEl) return;
+    if (this._previewSavedTree === undefined) {
+      this._previewSavedTree = this.tree;
+    }
+    this.tree = previewTree;
+    this.rootEl.classList.add("is-draft-preview");
+    this.render();
+  };
+
+  JDFCanvasManager.prototype.clearDraftPreview = function () {
+    if (!this.rootEl) return;
+    if (this._previewSavedTree !== undefined) {
+      this.tree = this._previewSavedTree;
+      this._previewSavedTree = undefined;
+    }
+    this.rootEl.classList.remove("is-draft-preview");
+    this.render();
+  };
+
+  /** Canvas → left-pane cross-highlight.
+   * Uses event delegation on rootEl so it survives render() rebuilds.
+   * Bound once from bind(); idempotent. */
+  JDFCanvasManager.prototype._bindCrossPaneLinks = function () {
+    var rootEl = this.rootEl;
+    if (!rootEl || this._crossPaneBound) return;
+    this._crossPaneBound = true;
+
+    var lastNode = null;
+
+    function collectKeys(node) {
+      var keys = [];
+      node.querySelectorAll("[data-lock-key]").forEach(function (el) {
+        var k = el.dataset.lockKey;
+        if (k && keys.indexOf(k) < 0) keys.push(k);
+      });
+      return keys;
+    }
+
+    function clearChecklistHighlights() {
+      var cl = document.getElementById("generate-lock-checklist");
+      if (cl) cl.querySelectorAll(".cross-highlight").forEach(function (r) { r.classList.remove("cross-highlight"); });
+    }
+
+    function applyChecklistHighlights(keys) {
+      var cl = document.getElementById("generate-lock-checklist");
+      if (!cl || !keys.length) return;
+      cl.querySelectorAll(".lock-check-row[data-lock-key]").forEach(function (row) {
+        if (keys.indexOf(row.dataset.lockKey) >= 0) row.classList.add("cross-highlight");
+      });
+    }
+
+    rootEl.addEventListener("mouseover", function (e) {
+      var node = e.target.closest && e.target.closest(".jdf-node");
+      if (node === lastNode) return;
+      clearChecklistHighlights();
+      lastNode = node;
+      if (node) applyChecklistHighlights(collectKeys(node));
+    });
+
+    rootEl.addEventListener("mouseleave", function () {
+      clearChecklistHighlights();
+      lastNode = null;
+    });
+
+    /* Touch: tap a node → highlight its checklist rows; tap anywhere else → clear. */
+    rootEl.addEventListener("touchstart", function (e) {
+      var node = e.target.closest && e.target.closest(".jdf-node");
+      clearChecklistHighlights();
+      lastNode = node || null;
+      if (node) applyChecklistHighlights(collectKeys(node));
+    }, { passive: true });
+
+    document.addEventListener("touchstart", function (e) {
+      if (!rootEl.contains(e.target)) {
+        clearChecklistHighlights();
+        lastNode = null;
+      }
+    }, { passive: true });
+  };
+
+  JDFCanvasManager.prototype.setAllGutterState = function (state) {
+    var gutters = (this.rootEl || document).querySelectorAll(".verification-gutter");
+    gutters.forEach(function (g) {
+      g.className = "verification-gutter " + (state || "");
+    });
+  };
+
+  JDFCanvasManager.prototype.patchGutterFromRedhat = function (critiques) {
+    (critiques || []).forEach(function (c) {
+      var nodeId = c.target_node_id || c.node_id;
+      if (!nodeId) return;
+      var g = document.querySelector('.verification-gutter[data-node-id="' + nodeId + '"]');
+      if (g) g.className = "verification-gutter warning";
+    });
+  };
+
   JDFCanvasManager.prototype.render = function (options) {
     if (!this.rootEl) return;
     var self = this;
@@ -1016,17 +1116,20 @@
     var animate = !!options.animate || this._animateNextRender;
     this._animateNextRender = false;
     var nodeIndex = 0;
+    var isPreview = this.rootEl.classList.contains("is-draft-preview");
     this.rootEl.classList.toggle("hide-citations", !this.showCitations);
     this.rootEl.innerHTML = "";
     var title = document.createElement("h2");
     title.className = "jdf-doc-title";
-    title.contentEditable = "true";
     title.textContent = (this.tree.meta && this.tree.meta.title) || "Untitled";
-    title.addEventListener("blur", function () {
-      self.tree.meta = self.tree.meta || {};
-      self.tree.meta.title = title.textContent.trim();
-      self._setDirty(true);
-    });
+    if (!isPreview) {
+      title.contentEditable = "true";
+      title.addEventListener("blur", function () {
+        self.tree.meta = self.tree.meta || {};
+        self.tree.meta.title = title.textContent.trim();
+        self._setDirty(true);
+      });
+    }
     this.rootEl.appendChild(title);
 
     if (!(this.tree.body || []).length) {
@@ -1050,11 +1153,13 @@
           article.classList.add("node-target", "selected");
         }
         article.addEventListener("click", function (e) {
+          if (self.rootEl && self.rootEl.classList.contains("is-draft-preview")) return;
           if (self._isInteractiveNodeClick(e)) return;
           var id = article.dataset.nodeId;
           if (id) self.selectNodeForRefine(id, { toast: true });
         });
         article.addEventListener("contextmenu", function (e) {
+          if (self.rootEl && self.rootEl.classList.contains("is-draft-preview")) return;
           if (self._isInteractiveNodeClick(e)) return;
           e.preventDefault();
           e.stopPropagation();
@@ -1076,10 +1181,12 @@
         self._renderNodeBodyWithCitations(node, body);
         if (node.type === "paragraph") {
           body.addEventListener("dblclick", function () {
+            if (self.rootEl && self.rootEl.classList.contains("is-draft-preview")) return;
             body.contentEditable = "true";
             body.focus();
           });
           body.addEventListener("blur", function () {
+            if (self.rootEl && self.rootEl.classList.contains("is-draft-preview")) return;
             body.contentEditable = "false";
             node.content = body.textContent;
             self._setDirty(true);
@@ -1092,6 +1199,24 @@
         if (self.showCitations) {
           self._renderCitationBadge(node, article);
         }
+        // Verification gutter — 4px left bar communicating node state
+        var gutter = document.createElement("div");
+        gutter.className = "verification-gutter";
+        gutter.setAttribute("data-node-id", node.id);
+        if (isPreview) {
+          gutter.classList.add("unverified");
+        } else {
+          var hasRedhat = node.annotations && Array.isArray(node.annotations.redhat) && node.annotations.redhat.length > 0;
+          var hasZ3Fail = node.annotations && Array.isArray(node.annotations.z3) && node.annotations.z3.some(function (z) { return z.status === "FAIL"; });
+          if (hasZ3Fail) {
+            gutter.classList.add("error");
+          } else if (hasRedhat) {
+            gutter.classList.add("warning");
+          } else {
+            gutter.classList.add("verified");
+          }
+        }
+        article.appendChild(gutter);
         if (animate) {
           article.classList.add("animated");
           article.style.animationDelay = (nodeIndex * 30) + "ms";
@@ -1667,6 +1792,7 @@
       });
     }
     this._bindNodeMenu();
+    this._bindCrossPaneLinks();
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         var menu = document.getElementById("jdf-node-menu");

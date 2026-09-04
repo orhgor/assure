@@ -179,7 +179,18 @@
       var discardBtn = $("generate-discard-btn");
       if (discardBtn) {
         discardBtn.addEventListener("click", function () {
-          self.setDraftFullscreen(false);
+          self.resetUi();
+        });
+      }
+      var previewDockBtn = $("draft-preview-dock-btn");
+      if (previewDockBtn) {
+        previewDockBtn.addEventListener("click", function () {
+          self.acceptAndDock();
+        });
+      }
+      var previewDiscardBtn = $("draft-preview-discard-btn");
+      if (previewDiscardBtn) {
+        previewDiscardBtn.addEventListener("click", function () {
           self.resetUi();
         });
       }
@@ -196,11 +207,47 @@
         });
       }
 
-      this.bindDraftPanel();
-
       document.addEventListener("assure:abort-streams", function () {
         self.abort();
       });
+
+      // ── Cross-pane linkage: checklist ↔ canvas ─────────────────────────
+      var lockChecklist = $("generate-lock-checklist");
+      if (lockChecklist) {
+        lockChecklist.addEventListener("mouseover", function (e) {
+          var row = e.target.closest && e.target.closest(".lock-check-row");
+          var key = row && row.dataset.lockKey;
+          if (key) self._highlightCanvasNodesByKey(key);
+        });
+        lockChecklist.addEventListener("mouseleave", function () {
+          self._clearCanvasHighlights();
+        });
+        lockChecklist.addEventListener("click", function (e) {
+          var row = e.target.closest && e.target.closest(".lock-check-row");
+          var key = row && row.dataset.lockKey;
+          if (key) self._scrollCanvasToNodeByKey(key);
+        });
+        /* Touch: tap row → highlight + scroll canvas (mouseover does not fire on touch) */
+        lockChecklist.addEventListener("touchstart", function (e) {
+          var row = e.target.closest && e.target.closest(".lock-check-row");
+          var key = row && row.dataset.lockKey;
+          if (key) {
+            self._highlightCanvasNodesByKey(key);
+            self._scrollCanvasToNodeByKey(key);
+          }
+        }, { passive: true });
+      }
+
+      // Click the "Locks: N" counter → open the panel and flash locked nodes
+      var lockCount = $("generate-lock-count");
+      if (lockCount) {
+        lockCount.style.cursor = "pointer";
+        lockCount.addEventListener("click", function () {
+          var panel = $("generate-locks-panel");
+          if (panel && !panel.open) panel.open = true;
+          self._flashAllLockedNodes();
+        });
+      }
     },
 
     abort: function () {
@@ -212,93 +259,10 @@
       if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
     },
 
-    bindDraftPanel: function () {
-      var self = this;
-      if (this._draftPanelBound) return;
-      this._draftPanelBound = true;
-      document.addEventListener("click", function (e) {
-        var expandBtn = e.target.closest && e.target.closest("#expand-draft-btn");
-        var fullBtn = e.target.closest && e.target.closest("#fullscreen-draft-btn");
-        if (!expandBtn && !fullBtn) return;
-        e.preventDefault();
-        var panel = $("generate-nodes-preview");
-        if (expandBtn) {
-          self.setDraftExpanded(!(panel && panel.classList.contains("is-expanded")));
-        }
-        if (fullBtn) {
-          self.setDraftFullscreen(!(panel && panel.classList.contains("is-fullscreen")));
-        }
-      });
-      document.addEventListener("keydown", function (e) {
-        if (e.key !== "Escape") return;
-        var panel = $("generate-nodes-preview");
-        if (panel && panel.classList.contains("is-fullscreen")) {
-          self.setDraftFullscreen(false);
-        }
-      });
-      try {
-        if (global.localStorage && global.localStorage.getItem("assure_draft_expanded") === "1") {
-          this.setDraftExpanded(true);
-        }
-      } catch (_) {}
-    },
-
-    setDraftExpanded: function (on) {
-      var panel = $("generate-nodes-preview");
-      var body = $("generate-nodes-body");
-      var btn = $("expand-draft-btn");
-      if (panel) {
-        panel.hidden = false;
-        panel.classList.toggle("is-expanded", !!on);
-      }
-      if (body && on) body.style.height = "";
-      if (btn) {
-        var key = on ? "generate.collapse" : "generate.expand";
-        var fallback = on ? "Collapse draft" : "Expand draft";
-        btn.setAttribute("data-i18n", key);
-        btn.setAttribute("aria-pressed", on ? "true" : "false");
-        btn.textContent = t(key, fallback);
-      }
-      try {
-        if (global.localStorage) {
-          global.localStorage.setItem("assure_draft_expanded", on ? "1" : "0");
-        }
-      } catch (_) {}
-    },
-
-    setDraftFullscreen: function (on) {
-      var panel = $("generate-nodes-preview");
-      var btn = $("fullscreen-draft-btn");
-      if (!panel) return;
-      panel.hidden = false;
-      if (on) {
-        if (!this._draftPanelParent) {
-          this._draftPanelParent = panel.parentNode;
-          this._draftPanelNext = panel.nextSibling;
-        }
-        if (panel.parentNode !== document.body) {
-          document.body.appendChild(panel);
-        }
-        panel.classList.add("is-fullscreen");
-      } else {
-        panel.classList.remove("is-fullscreen");
-        if (this._draftPanelParent && panel.parentNode !== this._draftPanelParent) {
-          if (this._draftPanelNext && this._draftPanelNext.parentNode === this._draftPanelParent) {
-            this._draftPanelParent.insertBefore(panel, this._draftPanelNext);
-          } else {
-            this._draftPanelParent.appendChild(panel);
-          }
-        }
-      }
-      if (btn) {
-        var key = on ? "generate.fullscreen_exit" : "generate.fullscreen";
-        var fallback = on ? "Exit full screen" : "Full screen";
-        btn.setAttribute("data-i18n", key);
-        btn.setAttribute("aria-pressed", on ? "true" : "false");
-        btn.textContent = t(key, fallback);
-      }
-      document.body.classList.toggle("draft-fullscreen-open", !!on);
-    },
+    /** Retired — draft now renders in the canvas; no left-pane panel to expand. */
+    bindDraftPanel: function () {},
+    setDraftExpanded: function () {},
+    setDraftFullscreen: function () {},
 
     setGateLoading: function (on, message) {
       var loader = $("gate-loader");
@@ -371,10 +335,14 @@
         preview.textContent = "";
         preview.classList.remove("is-streaming-skeleton");
       }
-      var nodesPreview = $("generate-nodes-preview");
-      if (nodesPreview) nodesPreview.hidden = true;
-      var nodesBody = $("generate-nodes-body");
-      if (nodesBody) nodesBody.innerHTML = "";
+      var strip = $("draft-preview-strip");
+      if (strip) strip.hidden = true;
+      var previewDockBtn = $("draft-preview-dock-btn");
+      if (previewDockBtn) previewDockBtn.disabled = true;
+      var jdfCanvas = global.__assureJdf;
+      if (jdfCanvas && typeof jdfCanvas.clearDraftPreview === "function") {
+        jdfCanvas.clearDraftPreview();
+      }
 
       this.setCompiling(false);
       this.setSummaryVisible(false);
@@ -527,6 +495,13 @@
             verifiedDockBtn.disabled = false;
             verifiedDockBtn.hidden = false;
           }
+          var previewDockBtn = $("draft-preview-dock-btn");
+          if (previewDockBtn) previewDockBtn.disabled = false;
+          var z3s = ((data.z3_results || {}).z3_status || "UNKNOWN");
+          var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";
+          if (global.__assureJdf && typeof global.__assureJdf.setAllGutterState === "function") {
+            global.__assureJdf.setAllGutterState(gutterVerified);
+          }
           self.setGateLoading(false);
           self._redhatCtx = {
             draftText: self.draftText,
@@ -628,25 +603,20 @@
     },
 
     renderDraftNodes: function (nodes) {
-      var wrap = $("generate-nodes-preview");
-      var body = $("generate-nodes-body");
-      if (!wrap || !body) return;
-      body.innerHTML = "";
-      (nodes || []).forEach(function (section) {
-        if (section.title) {
-          var h = document.createElement("h4");
-          h.textContent = section.title;
-          body.appendChild(h);
-        }
-        (section.children || []).forEach(function (child) {
-          if (child.type === "paragraph" && child.content) {
-            var p = document.createElement("p");
-            p.textContent = child.content;
-            body.appendChild(p);
-          }
-        });
-      });
-      wrap.hidden = !body.childNodes.length;
+      var jdf = global.__assureJdf;
+      if (!jdf || typeof jdf.setDraftPreview !== "function") return;
+      var previewDoc = {
+        document_id: "draft-preview",
+        meta: { title: t("generate.draft_preview_title", "Draft Preview") },
+        truth_ledger: (this.compiledDocument && this.compiledDocument.truth_ledger) || {},
+        body: nodes || [],
+      };
+      jdf.setDraftPreview(previewDoc);
+      if (typeof jdf.setAllGutterState === "function") jdf.setAllGutterState("verifying");
+      var strip = $("draft-preview-strip");
+      if (strip) strip.hidden = false;
+      var previewDockBtn = $("draft-preview-dock-btn");
+      if (previewDockBtn) previewDockBtn.disabled = true;
     },
 
     renderSummaryCounts: function (data) {
@@ -670,6 +640,8 @@
       this.compiledLocks.forEach(function (item, idx) {
         var row = document.createElement("label");
         row.className = "lock-check-row";
+        var key = item.canonical_key || item.metric || "";
+        if (key) row.dataset.lockKey = key;
         var cb = document.createElement("input");
         cb.type = "checkbox";
         cb.checked = true;
@@ -795,6 +767,11 @@
 
       var dockBtn = $("generate-accept-dock");
       if (dockBtn) dockBtn.disabled = true;
+      var previewDockBtn = $("draft-preview-dock-btn");
+      if (previewDockBtn) previewDockBtn.disabled = true;
+      var strip = $("draft-preview-strip");
+      if (strip) strip.hidden = true;
+      if (typeof jdf.clearDraftPreview === "function") jdf.clearDraftPreview();
 
       if (self.compiledDocument && self.compiledDocument.body) {
         var base = JSON.parse(JSON.stringify(jdf.tree));
@@ -909,6 +886,55 @@
         });
     },
 
+    /** Highlight all canvas .jdf-node elements that contain a lock glyph
+     * matching the given ledger key. */
+    _highlightCanvasNodesByKey: function (key) {
+      this._clearCanvasHighlights();
+      if (!key) return;
+      var canvas = document.getElementById("jdf-render-target");
+      if (!canvas) return;
+      canvas.querySelectorAll('[data-lock-key="' + key + '"]').forEach(function (el) {
+        var node = el.closest(".jdf-node");
+        if (node) node.classList.add("cross-highlight");
+      });
+    },
+
+    _clearCanvasHighlights: function () {
+      document.querySelectorAll(".jdf-node.cross-highlight").forEach(function (el) {
+        el.classList.remove("cross-highlight");
+      });
+    },
+
+    /** Scroll the canvas to the first node containing the given lock key
+     * and briefly flash it. */
+    _scrollCanvasToNodeByKey: function (key) {
+      if (!key) return;
+      var canvas = document.getElementById("jdf-render-target");
+      if (!canvas) return;
+      var el = canvas.querySelector('[data-lock-key="' + key + '"]');
+      if (!el) return;
+      var node = el.closest(".jdf-node");
+      if (!node) return;
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      node.classList.add("cross-flash");
+      setTimeout(function () { node.classList.remove("cross-flash"); }, 800);
+    },
+
+    /** Flash all canvas nodes that carry any lock glyph. */
+    _flashAllLockedNodes: function () {
+      var canvas = document.getElementById("jdf-render-target");
+      if (!canvas) return;
+      var seen = [];
+      canvas.querySelectorAll("[data-lock-key]").forEach(function (el) {
+        var node = el.closest(".jdf-node");
+        if (node && seen.indexOf(node) < 0) {
+          seen.push(node);
+          node.classList.add("cross-flash");
+          setTimeout(function () { node.classList.remove("cross-flash"); }, 700);
+        }
+      });
+    },
+
     showRedhatPrompt: function () {
       var el = $("redhat-prompt");
       var textEl = $("redhat-prompt-text");
@@ -944,6 +970,10 @@
       self.renderAuditGate(data);
       var dockBtn = $("generate-accept-dock");
       if (dockBtn) dockBtn.disabled = false;
+      var critiques = data.redhat_critiques || [];
+      if (critiques.length && global.__assureJdf && typeof global.__assureJdf.patchGutterFromRedhat === "function") {
+        global.__assureJdf.patchGutterFromRedhat(critiques);
+      }
       if (self._docked) {
         self.patchDockedRedhat(data.document);
       }

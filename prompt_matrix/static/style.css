@@ -2326,6 +2326,53 @@ body.onboarding-active .sidebar-backdrop {
   }
 }
 
+/* ─── Mobile canvas safety margin ───────────────────────────────────────── */
+/* Ensure the right pane and canvas have enough inset for the gutter bar and
+   safe-area on notched devices.  The gutter lives at left: 0 inside the
+   10 px node padding, so these container adjustments prevent content from
+   touching the screen edge. */
+@media (max-width: 768px) {
+  .right-pane {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  #jdf-render-target {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  /* Slightly wider gutter on touch screens so it is easier to see */
+  .verification-gutter {
+    width: 5px;
+  }
+
+  /* Lock-check rows: increase touch target height */
+  .lock-check-row {
+    padding: 6px 4px;
+    margin: -6px -4px;
+    min-height: 40px;
+    align-items: center;
+  }
+
+  /* Cross-highlight uses outline rather than box-shadow on mobile to avoid
+     rendering cost on composited layers */
+  .jdf-node.cross-highlight {
+    box-shadow: none;
+    outline-width: 2px;
+  }
+}
+
+@media (max-width: 390px) {
+  .jdf-node {
+    padding-left: 8px; /* tighter on very small screens */
+  }
+
+  .verification-gutter {
+    width: 4px;
+  }
+}
+
 .app-layout .jdf-workbench.workspace-shell {
   flex: 1;
   min-height: 0;
@@ -2445,8 +2492,237 @@ body.onboarding-active .sidebar-backdrop {
   flex: 1;
   background: var(--color-bg);
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Right pane scrollable content wrapper so the strip stays sticky */
+.jdf-workbench .right-pane #jdf-render-target {
+  flex: 1;
+  padding: var(--space-md);
+}
+
+/* ─── Draft preview strip ────────────────────────────────────────────────── */
+.draft-preview-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm, 8px);
+  padding: 8px 16px;
+  background: #fffbeb;
+  border-bottom: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.draft-preview-strip[hidden] {
+  display: none;
+}
+
+.draft-preview-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.draft-preview-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.draft-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 4px);
+}
+
+/* ─── Canvas preview mode (draft not yet docked) ─────────────────────────── */
+.jdf-tree.is-draft-preview {
+  opacity: 0.92;
+}
+
+.jdf-tree.is-draft-preview .jdf-doc-title {
+  cursor: default;
+  pointer-events: none;
+  color: #92400e;
+}
+
+.jdf-tree.is-draft-preview .jdf-node {
+  cursor: default;
+}
+
+.jdf-tree.is-draft-preview .jdf-node-toolbar,
+.jdf-tree.is-draft-preview .dock-anchor,
+.jdf-tree.is-draft-preview .dock-btn {
+  display: none !important;
+}
+
+.jdf-tree.is-draft-preview .jdf-node:hover .jdf-p-text {
+  background: transparent;
+}
+
+/* ─── Verification gutter ────────────────────────────────────────────────── */
+.verification-gutter {
+  position: absolute;
+  /* Left edge of .jdf-node's padding area — always inside layout flow,
+     never clips at the viewport edge on narrow screens. */
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.4s ease, box-shadow 0.4s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.verification-gutter.unverified {
+  background: #9CA3AF;
+  opacity: 0.45;
+}
+
+.verification-gutter.verifying {
+  background: #58A6FF;
+  animation: gutter-pulse 0.9s ease-in-out infinite;
+}
+
+.verification-gutter.verified {
+  background: #3FB950;
+}
+
+.verification-gutter.warning {
+  background: #D29922;
+}
+
+.verification-gutter.error {
+  background: #F85149;
+}
+
+@keyframes gutter-pulse {
+  0%, 100% { opacity: 0.55; box-shadow: none; }
+  50%       { opacity: 1;    box-shadow: 0 0 7px #58A6FF88; }
+}
+
+/* ─── Inline lock glyphs ─────────────────────────────────────────────────── */
+.lock-glyph-host {
+  position: relative;
+}
+
+.lock-glyph {
+  font-size: 0.6em;
+  vertical-align: super;
+  line-height: 1;
+  margin-left: 1px;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.lock-glyph-host:hover .lock-glyph {
+  opacity: 1;
+}
+
+/* ─── Cross-pane linkage highlights ─────────────────────────────────────── */
+.jdf-node.cross-highlight {
+  outline: 2px solid rgba(47, 129, 247, 0.55);
+  box-shadow: 0 0 0 5px rgba(47, 129, 247, 0.1);
+}
+
+@keyframes cross-flash-anim {
+  0%   { outline: 2px solid rgba(47, 129, 247, 0.85); box-shadow: 0 0 0 7px rgba(47, 129, 247, 0.22); }
+  100% { outline: 2px solid transparent; box-shadow: none; }
+}
+
+.jdf-node.cross-flash {
+  animation: cross-flash-anim 0.75s ease forwards;
+}
+
+.lock-check-row {
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.15s ease;
+}
+
+.lock-check-row:hover {
+  background: rgba(47, 129, 247, 0.07);
+}
+
+.lock-check-row.cross-highlight {
+  background: rgba(47, 129, 247, 0.13);
+}
+
+#generate-lock-count {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+#generate-lock-count:hover {
+  color: var(--color-primary, #2F81F7);
+}
+
+/* ─── Stress Test prompt inline in the amber strip ───────────────────────── */
+.redhat-prompt.strip-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  font-size: 0.85rem;
+  color: #92400e;
+}
+
+.redhat-prompt.strip-inline[hidden] {
+  display: none;
+}
+
+.redhat-prompt.strip-inline .redhat-prompt-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.strip-divider {
+  opacity: 0.5;
+  margin: 0 4px;
+}
+
+.draft-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm, 4px);
+  transition: opacity 0.15s;
+}
+
+.btn-ghost:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .jdf-pane-title {
@@ -2575,7 +2851,7 @@ body.onboarding-active .sidebar-backdrop {
 
 .jdf-section-block,
 .jdf-section {
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-md, 16px);
 }
 
 .jdf-section-header {
@@ -2646,10 +2922,13 @@ body.onboarding-active .sidebar-backdrop {
   margin-bottom: var(--space-sm);
   border-radius: var(--radius-sm);
   transition: outline 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-  padding: 0;
+  /* Left padding creates the slot for the verification gutter (left: 0 inside
+     this padding area) so the gutter never clips at the viewport edge. */
+  padding: 0 0 0 10px;
   border: none;
   background: transparent;
   cursor: pointer;
+  overflow: visible;
 }
 
 .jdf-node.selected {
@@ -2660,9 +2939,9 @@ body.onboarding-active .sidebar-backdrop {
 .jdf-node-body,
 .jdf-p-text {
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.65;
   margin: 0;
-  padding: var(--space-md) var(--space-lg);
+  padding: 12px var(--space-md, 16px);
   background: var(--color-surface) !important;
   color: var(--text-main) !important;
   box-sizing: border-box;
@@ -2866,15 +3145,24 @@ body.onboarding-active .sidebar-backdrop {
 }
 
 .dock-anchor {
-  height: 18px;
+  height: 4px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: var(--space-xs) 0;
-  transition: all 0.2s ease;
+  margin: 2px 0;
+  transition: all 0.15s ease;
   cursor: pointer;
   border-top: none;
+  overflow: visible;
+}
+
+.jdf-section-block:hover .dock-anchor,
+.jdf-node:hover + .dock-anchor,
+.dock-anchor:hover,
+.dock-anchor.is-active {
+  height: 18px;
+  margin: var(--space-xs) 0;
 }
 .dock-anchor::before {
   content: "";

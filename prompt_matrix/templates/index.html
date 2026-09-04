@@ -146,10 +146,6 @@
                 <span class="spinner" aria-hidden="true"></span>
                 <span data-i18n="generate.compiling">{{ gettext('Working…') }}</span>
               </div>
-              <div id="generate-draft-controls" class="draft-controls" hidden>
-                <button type="button" class="btn btn-outline btn-sm" id="expand-draft-btn" data-i18n="generate.expand" aria-pressed="false">{{ gettext('Expand draft') }}</button>
-                <button type="button" class="btn btn-outline btn-sm" id="fullscreen-draft-btn" data-i18n="generate.fullscreen" aria-pressed="false">{{ gettext('Full screen') }}</button>
-              </div>
               <div id="compilation-summary" class="generate-summary compile-status-bar" hidden>
                 <div class="compile-status-row">
                   <div class="compile-summary">
@@ -176,17 +172,6 @@
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
-                <div id="redhat-prompt" class="redhat-prompt" hidden>
-                  <span id="redhat-prompt-text" data-i18n="generate.redhat_prompt">{{ gettext('Math Check passed. Run Stress Test (adversarial review)?') }}</span>
-                  <div class="redhat-prompt-actions">
-                    <button type="button" class="btn btn-primary btn-sm" id="redhat-run-btn" data-i18n="generate.redhat_run">{{ gettext('Run Stress Test') }}</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="redhat-skip-btn" data-i18n="generate.redhat_skip">{{ gettext('Skip') }}</button>
-                  </div>
-                </div>
-              </div>
-              <div id="generate-nodes-preview" class="generate-nodes-preview preview-box" hidden>
-                <p class="preview-label" data-i18n="generate.nodes_preview">{{ gettext('Compiled draft') }}</p>
-                <div id="generate-nodes-body" class="generate-nodes-body"></div>
               </div>
             </div>
 
@@ -332,8 +317,26 @@
             </div><!-- #view-surgical -->
           </aside>
           <main class="right-pane" id="jdf-document-canvas">
-            <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Verified Document') }}</h3>
-            <p class="hint jdf-canvas-menu-hint" data-i18n="jdf.menu.hint">{{ gettext('Right-click a paragraph to edit, revise, re-prompt, or send for revision.') }}</p>
+            <div id="draft-preview-strip" class="draft-preview-strip" hidden aria-live="polite">
+              <div class="draft-strip-left">
+                <span class="draft-preview-label">
+                  <span class="draft-preview-icon" aria-hidden="true">✏️</span>
+                  <span data-i18n="generate.draft_strip_label">{{ gettext('Draft — not yet docked') }}</span>
+                </span>
+                <div id="redhat-prompt" class="redhat-prompt strip-inline" hidden>
+                  <span class="strip-divider" aria-hidden="true">·</span>
+                  <span id="redhat-prompt-text" data-i18n="generate.redhat_prompt">{{ gettext('Run Stress Test?') }}</span>
+                  <div class="redhat-prompt-actions">
+                    <button type="button" class="btn btn-outline btn-sm" id="redhat-run-btn" data-i18n="generate.redhat_run">{{ gettext('Run') }}</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="redhat-skip-btn" data-i18n="generate.redhat_skip">{{ gettext('Skip') }}</button>
+                  </div>
+                </div>
+              </div>
+              <div class="draft-preview-actions">
+                <button type="button" class="btn btn-sm btn-primary" id="draft-preview-dock-btn" disabled data-i18n="generate.accept_dock">{{ gettext('Accept &amp; Dock') }}</button>
+                <button type="button" class="btn btn-sm btn-outline" id="draft-preview-discard-btn" data-i18n="generate.discard">{{ gettext('Discard') }}</button>
+              </div>
+            </div>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
           </main>
         </div>
