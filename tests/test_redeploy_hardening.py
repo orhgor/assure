@@ -21,6 +21,7 @@ def test_redeploy_app_hardening_markers() -> None:
         "remove_stale_app_container",
         "pull_image_with_retry",
         "image_is_cached",
+        "image_tag_is_immutable_sha",
         "MIN_DISK_GB_FOR_BUILD",
         "--force-recreate",
         "health ok=false",

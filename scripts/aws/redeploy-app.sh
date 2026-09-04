@@ -64,6 +64,12 @@ image_is_cached() {
   docker image inspect "$1" >/dev/null 2>&1
 }
 
+# Only skip pull for immutable 40-char SHA tags. Moving tags like "staging" must always pull.
+image_tag_is_immutable_sha() {
+  local tag="${1##*:}"
+  [[ "$tag" =~ ^[0-9a-f]{40}$ ]]
+}
+
 running_app_image() {
   docker inspect --format '{{.Config.Image}}' assure-assure-app-1 2>/dev/null || true
 }
@@ -72,7 +78,7 @@ pull_image_with_retry() {
   local image="$1"
   local attempt=1
   local wait_sec="$GHCR_PULL_WAIT_SEC"
-  if image_is_cached "$image"; then
+  if image_tag_is_immutable_sha "$image" && image_is_cached "$image"; then
     echo "    cached: ${image} (skip pull)"
     return 0
   fi
