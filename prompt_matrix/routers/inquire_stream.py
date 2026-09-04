@@ -432,8 +432,23 @@ def run_inquire_pipeline(
 
 def register_inquire_routes(app) -> None:
     """Register POST /api/projects/<project_id>/inquire/stream on the Flask app."""
+    try:
+        from ..rate_limits import (
+            DailyCompileLimitError,
+            check_daily_compile_limit,
+            increment_daily_compile_limit,
+            limiter,
+        )
+    except ImportError:
+        from rate_limits import (
+            DailyCompileLimitError,
+            check_daily_compile_limit,
+            increment_daily_compile_limit,
+            limiter,
+        )
 
     @app.post("/api/projects/<project_id>/inquire/stream")
+    @limiter.limit("30 per minute")
     def inquire_stream(project_id: str):
         data = request.get_json(silent=True) or {}
         try:
@@ -451,6 +466,12 @@ def register_inquire_routes(app) -> None:
 
         if not payload.user_intent.strip():
             return {"error": "user_intent required"}, 400
+
+        try:
+            check_daily_compile_limit(project_id)
+        except DailyCompileLimitError as exc:
+            return {"error": str(exc)}, 429
+        increment_daily_compile_limit(project_id)
 
         def generate() -> Generator[str, None, None]:
             request_id = str(uuid.uuid4())

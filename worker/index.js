@@ -3,8 +3,38 @@
  */
 import { AwsClient } from "aws4fetch";
 import { extractText, getDocumentProxy } from "unpdf";
+import { checkRateLimit, clientIp, rateLimitResponse } from "./rate-limiter.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
+
+const MAX_UPLOADS_PROJECT_DAY = 20;
+const IP_RATE_LIMIT = 20;
+const IP_RATE_WINDOW_SEC = 60;
+
+async function enforceIpRateLimit(request, env, route) {
+  const ip = clientIp(request);
+  const ok = await checkRateLimit(env, `ip:${route}:${ip}`, IP_RATE_LIMIT, IP_RATE_WINDOW_SEC);
+  if (!ok) {
+    return rateLimitResponse(IP_RATE_WINDOW_SEC);
+  }
+  return null;
+}
+
+async function enforceProjectUploadLimit(env, projectId) {
+  const usage = await readUsage(env, projectId);
+  const uploads = usage.projectObj.uploads || 0;
+  if (uploads >= MAX_UPLOADS_PROJECT_DAY) {
+    return json(
+      {
+        ok: false,
+        error: `Daily upload limit reached (${MAX_UPLOADS_PROJECT_DAY} per project).`,
+      },
+      429,
+      null,
+    );
+  }
+  return null;
+}
 
 function intEnv(env, key, fallback) {
   const raw = env[key];
@@ -20,8 +50,8 @@ function todayKey() {
 async function readUsage(env, projectId) {
   const dayKey = `_usage/daily/${todayKey()}.json`;
   const projectKey = `_usage/projects/${projectId}.json`;
-  const dayObj = (await readJson(env, dayKey)) || { pages: 0, textract_pages: 0 };
-  const projectObj = (await readJson(env, projectKey)) || { pages: 0 };
+  const dayObj = (await readJson(env, dayKey)) || { pages: 0, textract_pages: 0, uploads: 0 };
+  const projectObj = (await readJson(env, projectKey)) || { pages: 0, uploads: 0 };
   return { dayObj, projectObj, dayKey, projectKey };
 }
 
@@ -122,6 +152,8 @@ function corsHeaders(origin) {
 }
 
 async function handleUploadUrl(request, env) {
+  const limited = await enforceIpRateLimit(request, env, "upload-url");
+  if (limited) return limited;
   const url = new URL(request.url);
   const projectId = (url.searchParams.get("projectId") || "").trim();
   const filename = (url.searchParams.get("filename") || "upload.pdf").trim();
@@ -159,12 +191,16 @@ async function handleUploadPut(request, env, key) {
 }
 
 async function handleProcess(request, env) {
+  const limited = await enforceIpRateLimit(request, env, "process");
+  if (limited) return limited;
   const body = await request.json();
   const key = String(body.key || "").trim();
   const projectId = String(body.projectId || "").trim();
   if (!key || !projectId) {
     return json({ ok: false, error: "key and projectId are required." }, 400, request);
   }
+  const uploadLimited = await enforceProjectUploadLimit(env, projectId);
+  if (uploadLimited) return uploadLimited;
   if (!key.startsWith(`${projectId}/`)) {
     return json({ ok: false, error: "key does not match projectId." }, 403, request);
   }
@@ -257,6 +293,7 @@ async function handleProcess(request, env) {
 
   await env.PDF_BUCKET.delete(key);
   usage.projectObj.pages = nextProjectPages;
+  usage.projectObj.uploads = (usage.projectObj.uploads || 0) + 1;
   usage.dayObj.pages = nextDayPages;
   if (usedTextract) {
     usage.dayObj.textract_pages = (usage.dayObj.textract_pages || 0) + pageCount;

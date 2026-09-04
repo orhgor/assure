@@ -296,6 +296,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     )
 
     try:
+        from .rate_limits import init_app_limiter
+    except ImportError:
+        from rate_limits import init_app_limiter
+    init_app_limiter(app)
+
+    try:
         from flask_cors import CORS
 
         CORS(

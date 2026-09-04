@@ -51,7 +51,13 @@ def _authorize_worker_ingest() -> bool:
 
 
 def register_substrate_routes(app) -> None:
+    try:
+        from ..rate_limits import limiter, worker_ingest_request
+    except ImportError:
+        from rate_limits import limiter, worker_ingest_request
+
     @app.post("/api/substrate")
+    @limiter.limit("60 per minute", exempt_when=worker_ingest_request)
     def substrate_ingest():
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()

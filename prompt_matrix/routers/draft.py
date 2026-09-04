@@ -474,7 +474,23 @@ def _make_cancel_check() -> CancelCheck:
 
 
 def register_draft_routes(app) -> None:
+    try:
+        from ..rate_limits import (
+            DailyCompileLimitError,
+            check_daily_compile_limit,
+            increment_daily_compile_limit,
+            limiter,
+        )
+    except ImportError:
+        from rate_limits import (
+            DailyCompileLimitError,
+            check_daily_compile_limit,
+            increment_daily_compile_limit,
+            limiter,
+        )
+
     @app.post("/api/projects/<project_id>/draft/stream")
+    @limiter.limit("30 per minute")
     def draft_stream(project_id: str):
         data = request.get_json(silent=True) or {}
         try:
@@ -486,6 +502,12 @@ def register_draft_routes(app) -> None:
             )
         except Exception as exc:
             return {"error": str(exc)}, 400
+
+        try:
+            check_daily_compile_limit(project_id)
+        except DailyCompileLimitError as exc:
+            return {"error": str(exc)}, 429
+        increment_daily_compile_limit(project_id)
 
         @stream_with_context
         def generate() -> Generator[str, None, None]:

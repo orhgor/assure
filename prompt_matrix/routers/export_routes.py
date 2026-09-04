@@ -30,7 +30,13 @@ def _doc_title(tree: dict) -> str:
 
 
 def register_export_routes(app) -> None:
+    try:
+        from ..rate_limits import limiter
+    except ImportError:
+        from rate_limits import limiter
+
     @app.get("/api/projects/<project_id>/export")
+    @limiter.limit("10 per minute")
     def export_project_document(project_id: str):
         """
         Sync endpoint: Gunicorn/Flask executes this in a worker thread.

@@ -1,10 +1,10 @@
 # Assure — full product status
 
 **Date:** 2026-09-04
-**Code check & test report:** [2026-09-04-codecheck-and-test-report.md](./audits/2026-09-04-codecheck-and-test-report.md) (local test snapshot + full audit plan)
-**Decision:** **GO** — mobile layout + landing i18n live on `p4-account-wallet`
-**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: cc34589`, UI `assure-53` / `assure-42`, landing CSS/JS `44` / `32`, ~7 GB disk free
-**Tests:** **266 passing** (`uv run pytest tests/ -q`)
+**Code check & test report:** [2026-09-04-edge-restructure-codecheck.md](./audits/2026-09-04-edge-restructure-codecheck.md)
+**Decision:** **GO (production)** — edge worker live; staging EC2 pending
+**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: b395c7a`, UI `assure-62` / `assure-52`, ~20 GB disk free
+**Tests:** **289 pytest** + **205 unittest** locally (494 total)
 **Container:** `assure-assure-app-1` on EC2 — GHCR pull + hardened redeploy script (`scripts/aws/redeploy-app.sh`)
 **Git:** `cc34589` on `p4-account-wallet` — post-launch ops (Plausible, tester feedback, optional Sentry)
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md) · **Post-launch ops:** [post-launch-ops.md](./post-launch-ops.md)
@@ -74,7 +74,8 @@ Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 | :--- | :--- |
 | **Edge PDF processing** — Cloudflare Worker + R2 (`worker/`), unpdf fast path, Textract fallback, auto-delete | ✅ Implemented (deploy + secrets manual) |
 | **POST /api/substrate** — edge ingest into `substrates` + `substrate_vault` | ✅ |
-| **Staging / production separation** — GitHub Environments, `cd-staging.yml`, `docker-compose.staging.yml` | ✅ |
+| **Staging / production separation** — GitHub Environments, `cd-staging.yml`, `docker-compose.staging.yml` | ⚠️ Prod only — staging EC2/branch pending |
+| **Rate limiting** — Worker KV (20/IP/min), Flask-Limiter, `daily_compile_limits` (100/project/day) | ✅ Deploy pending |
 | AWS Textract Substrate Vault (single-page guard, image vs PDF routing) | ✅ (legacy direct EC2 upload) |
 | Textract throttling retry; reject extracted text ≤ 10 chars | ✅ |
 | `poppler-utils` in Dockerfile | ✅ |

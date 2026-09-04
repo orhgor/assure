@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 8
+_SCHEMA_VERSION = 9
 
 
 def _migrate_v5(db: sqlite3.Connection) -> None:
@@ -35,6 +35,20 @@ def _migrate_v5(db: sqlite3.Connection) -> None:
 def _column_exists(db: sqlite3.Connection, table: str, column: str) -> bool:
     rows = db.execute(f"PRAGMA table_info({table})").fetchall()
     return any(row[1] == column for row in rows)
+
+
+def _migrate_v9(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS daily_compile_limits (
+            project_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (project_id, date),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
 
 
 def _migrate_v8(db: sqlite3.Connection) -> None:
@@ -258,6 +272,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v6(db)
     if current < 8:
         _migrate_v8(db)
+    if current < 9:
+        _migrate_v9(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
