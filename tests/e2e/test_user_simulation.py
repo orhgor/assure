@@ -161,7 +161,12 @@ def _sse(event: str, payload: dict) -> str:
 
 
 def draft_stream_success(*, content: str = "Q3 revenue reached $12M.") -> str:
-    """Full compile + audit SSE sequence for POST .../draft/stream."""
+    """Full compile + Math-Check SSE sequence for POST .../draft/stream.
+
+    Mirrors the hybrid gate: the pipeline ends at "verified" (fast, local
+    Z3 check) — docking unblocks here. Red-Hat is opt-in and lives on the
+    separate .../draft/redhat/stream endpoint (see redhat_stream_success).
+    """
     doc = sample_document(content=content)
     section_nodes = doc["body"]
     return (
@@ -179,6 +184,28 @@ def draft_stream_success(*, content: str = "Q3 revenue reached $12M.") -> str:
             },
         )
         + _sse(
+            "verified",
+            {
+                "type": "verified",
+                "document": doc,
+                "z3_results": {"z3_status": "PASS", "status": "PASS", "locks_verified": 1},
+                "redhat_critiques": [],
+                "redhat_count": 0,
+                "gate_status": "pass",
+                "z3_status": "PASS",
+            },
+        )
+        + _sse("complete", {"type": "complete", "ok": True, "node_count": 1, "lock_count": 0})
+        + "data: [DONE]\n\n"
+    )
+
+
+def redhat_stream_success(*, content: str = "Q3 revenue reached $12M.") -> str:
+    """Opt-in Stress Test SSE sequence for POST .../draft/redhat/stream."""
+    doc = sample_document(content=content)
+    return (
+        _sse("status", {"type": "status", "message": "Running Stress Test…"})
+        + _sse(
             "audit_complete",
             {
                 "type": "audit_complete",
@@ -190,6 +217,7 @@ def draft_stream_success(*, content: str = "Q3 revenue reached $12M.") -> str:
                 "z3_status": "PASS",
             },
         )
+        + _sse("complete", {"type": "complete", "ok": True, "redhat_count": 0})
         + "data: [DONE]\n\n"
     )
 

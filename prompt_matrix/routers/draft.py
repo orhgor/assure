@@ -384,23 +384,118 @@ def run_draft_pipeline(
         },
     )
 
-    # Stage 3: status — heavy audits run in background from UI perspective
-    yield _typed_sse(
-        "status",
-        {"message": "Running Z3 Verification and DeepSeek-R1 Adversary…"},
-    )
+    # Stage 3: Math Check (Z3) — fast, local, no external call. This is the
+    # hybrid compile gate: docking unblocks here instead of waiting on the
+    # much slower Stress Test below.
+    yield _typed_sse("status", {"message": "Running Math Check…"})
 
-    # Stage 4: heavy audits (decoupled from compiled emission)
     z3_results: dict[str, Any] = {"status": "SKIPPED", "violations": [], "lock_results": []}
-    redhat_critiques: list[dict[str, Any]] = []
-
     try:
         _check_cancel(cancel_check)
         z3_results = verify_locks(locks, full_text)
+    except DraftCancelledError:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message="cancelled during z3 verify",
+        )
+        return
+
+    verified_doc = doc_dict
+    if z3_results.get("violations"):
+        verified_doc = apply_z3_violations_to_tree(verified_doc, z3_results["violations"])
+    parse_document(verified_doc)
+
+    verified_payload = build_audit_summary(
+        z3_results=z3_results,
+        redhat_critiques=[],
+        document=verified_doc,
+    )
+    yield _typed_sse("verified", verified_payload)
+
+    # Hybrid compile gate: the pipeline ends here. Docking is unblocked now
+    # that Math Check has passed. The Stress Test (Red-Hat, DeepSeek-Reasoner)
+    # is opt-in and slow — it only runs if the user explicitly asks for it,
+    # via a separate call to run_redhat_pipeline / /draft/redhat/stream.
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    audit.log_audit(
+        rid,
+        project_id,
+        "DRAFT_STREAM",
+        success=True,
+        duration_ms=duration_ms,
+        details={
+            "node_count": len(doc_dict.get("body") or []),
+            "lock_count": len(locks),
+            "model": model_id,
+            "z3_status": z3_results.get("status"),
+        },
+    )
+    yield _typed_sse(
+        "complete",
+        {
+            "ok": True,
+            "request_id": rid,
+            "node_count": len(doc_dict.get("body") or []),
+            "lock_count": len(locks),
+        },
+    )
+    yield _done_sse()
+
+
+class RedhatPayload(BaseModel):
+    draft_text: str = Field(min_length=1)
+    document: dict[str, Any]
+    z3_results: dict[str, Any] | None = None
+    target_node_id: str | None = None
+
+
+def run_redhat_pipeline(
+    project_id: str,
+    *,
+    draft_text: str,
+    document: dict[str, Any],
+    z3_results: dict[str, Any] | None = None,
+    target_node_id: str | None = None,
+    governor: CostGovernor | None = None,
+    request_id: str | None = None,
+    cancel_check: CancelCheck | None = None,
+) -> Iterator[str]:
+    """Opt-in Stage 4: DeepSeek-Reasoner adversarial critique.
+
+    Two callers share this pipeline:
+    - the hybrid compile gate (whole freshly-drafted document, no
+      ``target_node_id``) — see the Generate view's "Run Stress Test" prompt.
+    - the surgical canvas, on demand, scoped to either the full docked
+      document or a single node via ``target_node_id`` — see the node
+      context menu / "Run Red-Hat on Full Document" button.
+    """
+    rid = request_id or str(uuid.uuid4())
+    start = time.perf_counter()
+    audit = get_audit_logger()
+    gov = governor or CostGovernor()
+    z3_results = z3_results or {"status": "SKIPPED", "violations": [], "lock_results": []}
+
+    try:
+        parse_document(document)
+    except Exception as exc:
+        yield _typed_sse(
+            "error", {"ok": False, "error": f"Invalid document: {exc}", "request_id": rid}
+        )
+        yield _done_sse()
+        return
+
+    yield _typed_sse("status", {"message": "Running Stress Test…"})
+
+    redhat_critiques: list[dict[str, Any]] = []
+    try:
         _check_cancel(cancel_check)
         redhat_critiques, red_usage = run_redhat_audit(
             project_id,
-            full_text,
+            draft_text,
             gov=gov,
             cancel_check=cancel_check,
         )
@@ -418,19 +513,18 @@ def run_draft_pipeline(
         audit.log_audit(
             rid,
             project_id,
-            "DRAFT_STREAM",
+            "DRAFT_STREAM_REDHAT",
             success=False,
             duration_ms=int((time.perf_counter() - start) * 1000),
-            error_message="cancelled during audit",
+            error_message="cancelled during redhat audit",
         )
         return
 
-    # Stage 5: annotate tree (metadata on nodes — not sibling callouts)
-    annotated = doc_dict
-    if z3_results.get("violations"):
-        annotated = apply_z3_violations_to_tree(annotated, z3_results["violations"])
+    annotated = document
     if redhat_critiques:
-        annotated = apply_redhat_critiques_to_tree(annotated, redhat_critiques)
+        annotated = apply_redhat_critiques_to_tree(
+            annotated, redhat_critiques, target_node_id=target_node_id
+        )
     parse_document(annotated)
 
     audit_payload = build_audit_summary(
@@ -444,25 +538,14 @@ def run_draft_pipeline(
     audit.log_audit(
         rid,
         project_id,
-        "DRAFT_STREAM",
+        "DRAFT_STREAM_REDHAT",
         success=True,
         duration_ms=duration_ms,
-        details={
-            "node_count": len(doc_dict.get("body") or []),
-            "lock_count": len(locks),
-            "model": model_id,
-            "z3_status": z3_results.get("status"),
-            "redhat_count": len(redhat_critiques),
-        },
+        details={"redhat_count": len(redhat_critiques)},
     )
     yield _typed_sse(
         "complete",
-        {
-            "ok": True,
-            "request_id": rid,
-            "node_count": len(doc_dict.get("body") or []),
-            "lock_count": len(locks),
-        },
+        {"ok": True, "request_id": rid, "redhat_count": len(redhat_critiques)},
     )
     yield _done_sse()
 
@@ -529,6 +612,55 @@ def register_draft_routes(app) -> None:
                     project_id,
                     intent=payload.intent.strip(),
                     context=payload.context,
+                    request_id=request_id,
+                    cancel_check=cancel_check,
+                )
+            except GeneratorExit:
+                return
+            except DraftCancelledError:
+                return
+            except Exception as exc:
+                yield _typed_sse(
+                    "error", {"ok": False, "error": str(exc), "request_id": request_id}
+                )
+                yield _done_sse()
+
+        headers = {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+        return Response(generate(), headers=headers)
+
+    @app.post("/api/projects/<project_id>/draft/redhat/stream")
+    @limiter.limit("30 per minute")
+    def draft_redhat_stream(project_id: str):
+        """Opt-in Stress Test — continuing an already-verified compile, not
+        a new one, so this does not consume the daily compile limit."""
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = RedhatPayload.model_validate(
+                {
+                    "draft_text": data.get("draft_text") or "",
+                    "document": data.get("document") or {},
+                    "z3_results": data.get("z3_results"),
+                    "target_node_id": data.get("target_node_id"),
+                }
+            )
+        except Exception as exc:
+            return {"error": str(exc)}, 400
+
+        @stream_with_context
+        def generate() -> Generator[str, None, None]:
+            request_id = str(uuid.uuid4())
+            cancel_check = _make_cancel_check()
+            try:
+                yield from run_redhat_pipeline(
+                    project_id,
+                    draft_text=payload.draft_text.strip(),
+                    document=payload.document,
+                    z3_results=payload.z3_results,
+                    target_node_id=payload.target_node_id,
                     request_id=request_id,
                     cancel_check=cancel_check,
                 )

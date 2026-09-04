@@ -175,6 +175,13 @@
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
+                <div id="redhat-prompt" class="redhat-prompt" hidden>
+                  <span id="redhat-prompt-text" data-i18n="generate.redhat_prompt">{{ gettext('Math Check passed. Run Stress Test (adversarial review)?') }}</span>
+                  <div class="redhat-prompt-actions">
+                    <button type="button" class="btn btn-primary btn-sm" id="redhat-run-btn" data-i18n="generate.redhat_run">{{ gettext('Run Stress Test') }}</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="redhat-skip-btn" data-i18n="generate.redhat_skip">{{ gettext('Skip') }}</button>
+                  </div>
+                </div>
                 <button type="button" class="btn btn-primary" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
               </div>
             </div>
@@ -188,6 +195,7 @@
               <button type="button" id="demo-redhat-btn" class="demo-chip" role="button" tabindex="0" data-i18n="demo.redhat.label">{{ gettext('🔴 See Stress Test in Action') }}</button>
               <span class="demo-chip-hint" data-i18n="demo.redhat.hint">{{ gettext('Try it on a sample paragraph') }}</span>
             </div>
+            <button type="button" class="btn btn-outline btn-sm" id="redhat-analyze-full-btn" data-i18n="jdf.redhat.analyze_full">{{ gettext('🛡️ Run Red-Hat on Full Document') }}</button>
 
             <div id="compose-mode" class="work-mode-panel visually-hidden" aria-hidden="true" hidden data-mode-panel="compose">
               <form id="form" class="compose-mode-form">
@@ -460,6 +468,7 @@
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revise" data-i18n="jdf.menu.revise">{{ gettext('Revise') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="reprompt" data-i18n="jdf.menu.reprompt">{{ gettext('Re-prompt') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revision" data-i18n="jdf.menu.revision">{{ gettext('Send for Revision') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="redhat" data-i18n="jdf.menu.redhat">{{ gettext('🛡️ Run Red-Hat on Node') }}</button>
         </div>
         <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
       </div>

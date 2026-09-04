@@ -7,7 +7,7 @@ import json
 import pytest
 
 from prompt_matrix.models.jdf import draft_text_to_sections
-from prompt_matrix.routers.draft import run_draft_pipeline, verify_locks
+from prompt_matrix.routers.draft import run_draft_pipeline, run_redhat_pipeline, verify_locks
 
 
 def test_draft_text_to_sections_headings():
@@ -34,6 +34,9 @@ def test_verify_locks_pass():
 
 
 def test_run_draft_pipeline_progressive(monkeypatch):
+    """Draft pipeline ends at "verified" (Math Check gate). Red-Hat is
+    opt-in and never runs automatically — see test_run_redhat_pipeline."""
+
     def fake_stream(_gov, _messages, *, cancel_check=None):
         yield 'event: token\ndata: {"type": "token", "delta": "Hello"}\n\n'
         yield ("Hello world with Revenue=100", 10, 5, "anthropic/claude-3-5-sonnet-20241022")
@@ -42,6 +45,52 @@ def test_run_draft_pipeline_progressive(monkeypatch):
         return [
             {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
         ], "deepseek/deepseek-chat"
+
+    def fail_if_called_redhat(*_a, **_k):
+        raise AssertionError("run_redhat_audit must not be called by run_draft_pipeline")
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", fail_if_called_redhat)
+
+    frames = list(
+        run_draft_pipeline(
+            "default",
+            intent="Draft a one-line summary.",
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    types = [e[1].get("type") or e[0] for e in events if isinstance(e[1], dict)]
+
+    compiled_idx = types.index("compiled")
+    verified_idx = types.index("verified")
+    assert compiled_idx < verified_idx, "compiled must arrive before verified"
+    assert (
+        "audit_complete" not in types
+    ), "audit_complete is opt-in — not part of run_draft_pipeline"
+
+    compiled = next(data for _ev, data in events if data.get("type") == "compiled")
+    assert "document" in compiled
+    assert compiled["node_count"] >= 1
+    assert "locks" in compiled
+
+    # "verified" is the hybrid dock gate: Z3 has run, Red-Hat has not (and
+    # will not, unless the user opts in via run_redhat_pipeline).
+    verified = next(data for _ev, data in events if data.get("type") == "verified")
+    assert verified["z3_status"] == "PASS"
+    assert verified["redhat_count"] == 0
+    assert verified["redhat_critiques"] == []
+    assert verified["gate_status"] == "pass"
+    assert "document" in verified
+
+    assert any(f.strip() == "data: [DONE]" for f in frames)
+
+
+def test_run_redhat_pipeline_opt_in(monkeypatch):
+    """Opt-in Stage 4: only runs when explicitly invoked, over an
+    already-verified document, and attaches findings without recomputing
+    Z3."""
 
     def fake_redhat(*_a, **_k):
         return [
@@ -57,37 +106,104 @@ def test_run_draft_pipeline_progressive(monkeypatch):
             "task_type": "redhat",
         }
 
-    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fake_stream)
-    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", fake_redhat)
 
+    verified_document = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {"Revenue": 100},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {
+                        "type": "paragraph",
+                        "id": "para-1",
+                        "content": "Hello world with Revenue=100",
+                    }
+                ],
+            }
+        ],
+    }
+
     frames = list(
-        run_draft_pipeline(
+        run_redhat_pipeline(
             "default",
-            intent="Draft a one-line summary.",
+            draft_text="Hello world with Revenue=100",
+            document=verified_document,
+            z3_results={"status": "PASS", "violations": [], "lock_results": []},
             governor=_FakeGovernor(),
         )
     )
     events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
-    types = [e[1].get("type") or e[0] for e in events if isinstance(e[1], dict)]
-
-    compiled_idx = types.index("compiled")
-    audit_idx = types.index("audit_complete")
-    assert compiled_idx < audit_idx, "compiled must arrive before audit_complete"
-
-    compiled = next(data for _ev, data in events if data.get("type") == "compiled")
-    assert "document" in compiled
-    assert compiled["node_count"] >= 1
-    assert "locks" in compiled
 
     audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
-    assert "z3_results" in audit
+    assert audit["z3_status"] == "PASS"
     assert audit["redhat_count"] == 1
     assert audit["gate_status"] == "review"
-    assert audit["z3_status"] == "PASS"
     assert audit["redhat_critiques"]
+    assert audit["document"]["body"][0]["children"][0]["annotations"]["redhat"]
 
     assert any(f.strip() == "data: [DONE]" for f in frames)
+
+
+def test_run_redhat_pipeline_target_node_id(monkeypatch):
+    """On-demand surgical-canvas audit: scoped to one node via
+    target_node_id, so the finding must attach to that node, not the
+    first node in document order."""
+
+    def fake_redhat(*_a, **_k):
+        return [
+            {
+                "title": "Red-hat review",
+                "content": "Unsupported claim.",
+                "model": "deepseek/deepseek-reasoner",
+            }
+        ], {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "model_id": "deepseek/deepseek-reasoner",
+            "task_type": "redhat",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", fake_redhat)
+
+    doc = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {"type": "paragraph", "id": "para-1", "content": "First paragraph."},
+                    {"type": "paragraph", "id": "para-2", "content": "Second paragraph."},
+                ],
+            }
+        ],
+    }
+
+    frames = list(
+        run_redhat_pipeline(
+            "default",
+            draft_text="Second paragraph.",
+            document=doc,
+            target_node_id="para-2",
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
+
+    children = audit["document"]["body"][0]["children"]
+    para1 = next(c for c in children if c["id"] == "para-1")
+    para2 = next(c for c in children if c["id"] == "para-2")
+    assert not (para1.get("annotations") or {}).get("redhat")
+    assert (para2.get("annotations") or {}).get("redhat")
 
 
 def _parse_sse(frame: str) -> tuple[str, dict]:
@@ -158,4 +274,12 @@ def test_list_projects(client):
 
 def test_draft_stream_requires_intent(client):
     res = client.post("/api/projects/default/draft/stream", json={"intent": ""})
+    assert res.status_code == 400
+
+
+def test_draft_redhat_stream_requires_draft_text(client):
+    res = client.post(
+        "/api/projects/default/draft/redhat/stream",
+        json={"draft_text": "", "document": {}},
+    )
     assert res.status_code == 400

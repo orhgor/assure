@@ -777,6 +777,10 @@
         );
       }
       this.inquire(intent, true);
+      return;
+    }
+    if (act === "redhat") {
+      this.runRedhatAnalysis("node", nodeId);
     }
   };
 
@@ -1114,6 +1118,139 @@
       }, this);
     }, this);
     return lines.join("\n\n");
+  };
+
+  /** On-demand Red-Hat analysis over the docked canvas — the surgical-view
+   * counterpart to Generate's opt-in "Run Stress Test" prompt. scope is
+   * "node" (a single selected node, via the context menu) or "full" (the
+   * whole docked document, via the toolbar button). Reuses the same
+   * /draft/redhat/stream pipeline; findings are shown in #redhat-findings
+   * and persisted onto the canvas by node id. */
+  JDFCanvasManager.prototype.runRedhatAnalysis = function (scope, nodeId) {
+    var self = this;
+    if (this.isStreaming) {
+      if (global.AssureToast) {
+        global.AssureToast.show(jdfT("jdf.menu.busy", "Wait for the current compile or refine to finish."), "info");
+      }
+      return;
+    }
+
+    var targetNodeId = null;
+    var text;
+    if (scope === "node") {
+      var node = this.getNodeById(nodeId);
+      if (!node) return;
+      targetNodeId = nodeId;
+      text = this._nodeText(node);
+    } else {
+      text = this._flattenPreview();
+    }
+    if (!text || !text.trim()) {
+      if (global.AssureToast) {
+        global.AssureToast.show(jdfT("jdf.redhat.empty", "Nothing to analyze yet."), "error");
+      }
+      return;
+    }
+
+    var fullBtn = document.getElementById("redhat-analyze-full-btn");
+    if (scope === "full" && fullBtn) fullBtn.disabled = true;
+    this._syncCompilerStatus("processing", jdfT("audit.progress.redhat", "Running stress test…"));
+    if (global.AssureToast) {
+      global.AssureToast.show(jdfT("audit.progress.redhat", "Running stress test…"), "info");
+    }
+
+    var url = "/api/projects/" + encodeURIComponent(this.projectId) + "/draft/redhat/stream";
+    var body = { draft_text: text, document: this.tree, target_node_id: targetNodeId };
+    var postStream =
+      global.AssureSse && typeof global.AssureSse.postStream === "function"
+        ? global.AssureSse.postStream
+        : null;
+
+    function finish() {
+      if (scope === "full" && fullBtn) fullBtn.disabled = false;
+    }
+
+    function handleFrame(frame) {
+      var data = frame.data || {};
+      var type = data.type || frame.event || "message";
+
+      if (type === "audit_complete") {
+        finish();
+        var critiques = data.redhat_critiques || [];
+        if (!critiques.length) {
+          self._syncCompilerStatus("verified");
+          if (global.AssureToast) {
+            global.AssureToast.show(jdfT("jdf.redhat.none", "No issues found."), "success");
+          }
+          return;
+        }
+        critiques.forEach(function (c) {
+          self._showRedhatFinding((c.title ? c.title + ": " : "") + (c.content || ""));
+        });
+        self._syncCompilerStatus("issues");
+        if (data.document) self.tree = data.document;
+        self.saveDocument("REDHAT_ANALYSIS", targetNodeId ? { target_node_id: targetNodeId } : {})
+          .then(function () {
+            self.render();
+          })
+          .catch(function () {
+            self.render();
+          });
+        return;
+      }
+      if (type === "error" || (type === "complete" && data.ok === false)) {
+        finish();
+        self._syncCompilerStatus("idle");
+        if (global.AssureToast) {
+          global.AssureToast.show(
+            String(data.error || jdfT("generate.failed", "Stress Test failed.")),
+            "error"
+          );
+        }
+      }
+    }
+
+    var streamPromise;
+    if (postStream) {
+      streamPromise = postStream({
+        url: url,
+        body: body,
+        credentials: "same-origin",
+        parseBuffer: parseSseChunk,
+        onFrame: handleFrame,
+      });
+    } else {
+      streamPromise = fetch(url, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(function (res) {
+        if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+        function pump() {
+          return reader.read().then(function (result) {
+            if (result.done) return;
+            buffer += decoder.decode(result.value, { stream: true });
+            var parsed = parseSseChunk(buffer);
+            buffer = parsed.remainder;
+            parsed.events.forEach(handleFrame);
+            return pump();
+          });
+        }
+        return pump();
+      });
+    }
+
+    streamPromise.catch(function (err) {
+      finish();
+      self._syncCompilerStatus("idle");
+      if (global.AssureToast) {
+        global.AssureToast.show(String((err && err.message) || err), "error");
+      }
+    });
   };
 
   JDFCanvasManager.prototype.enterSurgicalMode = function (nodeId) {
@@ -1521,6 +1658,12 @@
     if (cancelBtn) {
       cancelBtn.addEventListener("click", function () {
         self.exitSurgicalMode();
+      });
+    }
+    var redhatFullBtn = document.getElementById("redhat-analyze-full-btn");
+    if (redhatFullBtn) {
+      redhatFullBtn.addEventListener("click", function () {
+        self.runRedhatAnalysis("full", null);
       });
     }
     this._bindNodeMenu();

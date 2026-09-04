@@ -79,6 +79,9 @@
     auditComplete: false,
     verifyTimeout: null,
     _streamRetryCount: 0,
+    _docked: false,
+    _redhatPending: false,
+    _redhatCtx: null,
 
     clearVerifyTimeout: function () {
       if (this.verifyTimeout) {
@@ -124,14 +127,17 @@
     startVerifyTimeout: function () {
       var self = this;
       this.clearVerifyTimeout();
+      // Hybrid compile: this only has to cover lock inference + the fast,
+      // local Z3 check (the "verified" event), not the slow Stress Test
+      // that now runs in the background after docking is already unblocked.
       if (global.AssureAuditGate && typeof global.AssureAuditGate.createVerificationTimeout === "function") {
         this.verifyTimeout = global.AssureAuditGate.createVerificationTimeout(function () {
           if (!self.auditComplete) self.showVerifyTimeout();
-        });
+        }, 20000);
       } else {
         var timer = setTimeout(function () {
           if (!self.auditComplete) self.showVerifyTimeout();
-        }, 12000);
+        }, 20000);
         this.verifyTimeout = {
           clear: function () {
             clearTimeout(timer);
@@ -164,6 +170,18 @@
           self.acceptAndDock();
         });
       }
+      var redhatRunBtn = $("redhat-run-btn");
+      if (redhatRunBtn) {
+        redhatRunBtn.addEventListener("click", function () {
+          self.runRedhatStress();
+        });
+      }
+      var redhatSkipBtn = $("redhat-skip-btn");
+      if (redhatSkipBtn) {
+        redhatSkipBtn.addEventListener("click", function () {
+          self.skipRedhatStress();
+        });
+      }
 
       document.addEventListener("assure:abort-streams", function () {
         self.abort();
@@ -189,6 +207,16 @@
         dockBtn.disabled = true;
         dockBtn.hidden = false;
       }
+    },
+
+    /** Background progress indicator that does NOT touch dock enablement —
+     * used once "verified" has already unblocked docking, so the still-
+     * running Stress Test cannot silently re-disable the dock button. */
+    setBackgroundStatus: function (on, message) {
+      var loader = $("gate-loader");
+      var statusText = $("gate-status-text");
+      if (loader) loader.hidden = !on;
+      if (statusText && message) statusText.textContent = message;
     },
 
     setCompiling: function (on) {
@@ -225,6 +253,10 @@
       this.draftText = "";
       this.auditComplete = false;
       this.compiledDocument = null;
+      this._docked = false;
+      this._redhatPending = false;
+      this._redhatCtx = null;
+      this.hideRedhatPrompt();
       global.compiledDraftNodes = [];
       global.compiledLocks = [];
       global.compiledDocument = null;
@@ -368,26 +400,35 @@
           if (gateBanner) gateBanner.hidden = false;
           self.setGateLoading(
             true,
-            t("generate.gate.auditing", "Running Math Check and Stress Test…")
+            t("audit.progress.z3", "Running math check…")
           );
           self.startVerifyTimeout();
           return;
         }
 
-        if (type === "audit_complete") {
+        if (type === "verified") {
+          // Hybrid compile gate: Z3 passed (or was skipped) — unblock
+          // docking now. The Stress Test (Red-Hat) is opt-in: ask the user
+          // whether to continue with it rather than auto-running it.
           self.clearVerifyTimeout();
           self.auditComplete = true;
           if (data.document) {
             self.compiledDocument = data.document;
             global.compiledDocument = data.document;
           }
-          self.setGateLoading(false);
           self.renderAuditGate(data);
-          var dockBtn = $("generate-accept-dock");
-          if (dockBtn) dockBtn.disabled = false;
-          if (global.__assureDemoRedhatPending) {
-            document.dispatchEvent(new CustomEvent("assure:demo-redhat-audit"));
+          var verifiedDockBtn = $("generate-accept-dock");
+          if (verifiedDockBtn) {
+            verifiedDockBtn.disabled = false;
+            verifiedDockBtn.hidden = false;
           }
+          self.setGateLoading(false);
+          self._redhatCtx = {
+            draftText: self.draftText,
+            document: data.document || self.compiledDocument,
+            z3Results: data.z3_results || null,
+          };
+          self.showRedhatPrompt();
           return;
         }
 
@@ -673,34 +714,35 @@
               return { ok: res.ok, data: data };
             });
           })
-          .then(function (result) {
-            if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
-            if (result.data.document) jdf.tree = result.data.document;
-            if (typeof jdf.render === "function") jdf.render();
-            if (result.data.version && typeof jdf.setVersion === "function") {
-              jdf.setVersion(result.data.version);
-            }
-            if (typeof jdf.setSavePill === "function") {
-              jdf.setSavePill("saved", "jdf.status.committed", {
-                version: result.data.version || jdf.documentVersion,
-              });
-            }
-            if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
-            if (global.AssureToast) {
-              global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
-            }
-            if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
-              global.AssureNav.switchView("surgical");
-            }
-          })
-          .catch(function (err) {
-            if (global.AssureToast) {
-              global.AssureToast.show(String(err.message || err), "error");
-            }
-          })
-          .finally(function () {
-            if (dockBtn) dockBtn.disabled = false;
-          });
+        .then(function (result) {
+          if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
+          if (result.data.document) jdf.tree = result.data.document;
+          self._docked = true;
+          if (typeof jdf.render === "function") jdf.render();
+          if (result.data.version && typeof jdf.setVersion === "function") {
+            jdf.setVersion(result.data.version);
+          }
+          if (typeof jdf.setSavePill === "function") {
+            jdf.setSavePill("saved", "jdf.status.committed", {
+              version: result.data.version || jdf.documentVersion,
+            });
+          }
+          if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
+          if (global.AssureToast) {
+            global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
+          }
+          if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+            global.AssureNav.switchView("surgical");
+          }
+        })
+        .catch(function (err) {
+          if (global.AssureToast) {
+            global.AssureToast.show(String(err.message || err), "error");
+          }
+        })
+        .finally(function () {
+          if (dockBtn) dockBtn.disabled = false;
+        });
         return;
       }
 
@@ -734,6 +776,7 @@
         .then(function (result) {
           if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
           if (result.data.document) jdf.tree = result.data.document;
+          self._docked = true;
           if (typeof jdf.render === "function") jdf.render();
           if (result.data.version && typeof jdf.setVersion === "function") {
             jdf.setVersion(result.data.version);
@@ -758,6 +801,242 @@
         })
         .finally(function () {
           if (dockBtn) dockBtn.disabled = false;
+        });
+    },
+
+    showRedhatPrompt: function () {
+      var el = $("redhat-prompt");
+      var textEl = $("redhat-prompt-text");
+      var skipBtn = $("redhat-skip-btn");
+      if (textEl) {
+        textEl.textContent = t(
+          "generate.redhat_prompt",
+          "Math Check passed. Run Stress Test (adversarial review)?"
+        );
+      }
+      if (skipBtn) skipBtn.hidden = false;
+      if (el) el.hidden = false;
+    },
+
+    hideRedhatPrompt: function () {
+      var el = $("redhat-prompt");
+      if (el) el.hidden = true;
+    },
+
+    /** Shared handling for the "audit_complete" frame, whether it comes
+     * from the (legacy) single-stream pipeline or the opt-in Stress Test
+     * call — updates the gate, re-enables docking, and patches an
+     * already-docked canvas by node id if docking already happened. */
+    _handleAuditComplete: function (data) {
+      var self = this;
+      self._redhatPending = false;
+      self.auditComplete = true;
+      if (data.document) {
+        self.compiledDocument = data.document;
+        global.compiledDocument = data.document;
+      }
+      self.setBackgroundStatus(false);
+      self.renderAuditGate(data);
+      var dockBtn = $("generate-accept-dock");
+      if (dockBtn) dockBtn.disabled = false;
+      if (self._docked) {
+        self.patchDockedRedhat(data.document);
+      }
+      if (global.__assureDemoRedhatPending) {
+        document.dispatchEvent(new CustomEvent("assure:demo-redhat-audit"));
+      }
+    },
+
+    /** Opt-in Stage 4: only called when the user clicks "Run Stress Test"
+     * on the hybrid gate prompt. Runs over the already Math-Check-verified
+     * document from the "verified" event — never automatic. */
+    runRedhatStress: function () {
+      var self = this;
+      var ctx = this._redhatCtx;
+      this.hideRedhatPrompt();
+      if (!ctx || !ctx.document) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("generate.jdf_missing", "Canvas not ready."), "error");
+        }
+        return;
+      }
+
+      this.setBackgroundStatus(true, t("audit.progress.redhat", "Running stress test…"));
+      this._redhatPending = true;
+
+      var url = "/api/projects/" + encodeURIComponent(projectId()) + "/draft/redhat/stream";
+      var body = {
+        draft_text: ctx.draftText || self.draftText,
+        document: ctx.document,
+        z3_results: ctx.z3Results,
+      };
+      var postStream =
+        global.AssureSse && typeof global.AssureSse.postStream === "function"
+          ? global.AssureSse.postStream
+          : null;
+
+      function handleFrame(frame) {
+        var type = eventType(frame);
+        var data = frame.data || {};
+
+        if (type === "status") {
+          if (data.message) self.setBackgroundStatus(true, data.message);
+          return;
+        }
+        if (type === "audit_complete") {
+          self._handleAuditComplete(data);
+          return;
+        }
+        if (type === "error" || (type === "complete" && data.ok === false)) {
+          self._redhatPending = false;
+          self.setBackgroundStatus(false);
+          if (global.AssureToast) {
+            global.AssureToast.show(
+              String(data.error || t("generate.failed", "Stress Test failed.")),
+              "error"
+            );
+          }
+        }
+      }
+
+      var streamPromise;
+      if (postStream) {
+        streamPromise = postStream({
+          url: url,
+          body: body,
+          credentials: "same-origin",
+          parseBuffer: global.parseSseBuffer || parseSseBuffer,
+          onFrame: handleFrame,
+        });
+      } else {
+        streamPromise = fetch(url, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then(function (res) {
+          if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+
+          function pump() {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var parsed = parseSseBuffer(buffer);
+              buffer = parsed.remainder;
+              parsed.events.forEach(handleFrame);
+              return pump();
+            });
+          }
+          return pump();
+        });
+      }
+
+      streamPromise.catch(function (err) {
+        self._redhatPending = false;
+        self.setBackgroundStatus(false);
+        if (global.AssureToast) {
+          global.AssureToast.show(String((err && err.message) || err), "error");
+        }
+      });
+    },
+
+    /** User declined the Stress Test — leave the Math-Check-only document
+     * as-is, but keep the "Run Stress Test" button live (just collapse the
+     * Skip option) so it can genuinely still be triggered later, including
+     * after docking — patchDockedRedhat() will attach findings in place. */
+    skipRedhatStress: function () {
+      var textEl = $("redhat-prompt-text");
+      var skipBtn = $("redhat-skip-btn");
+      if (textEl) {
+        textEl.textContent = t(
+          "generate.redhat_skipped_note",
+          "Stress Test skipped. You can still run it later from the workbench."
+        );
+      }
+      if (skipBtn) skipBtn.hidden = true;
+    },
+
+    /** Collect {nodeId: annotations} for every node/section carrying a
+     * Red-Hat finding in a compiled (small) document tree. */
+    _collectRedhatAnnotations: function (doc) {
+      var map = {};
+      (doc && doc.body ? doc.body : []).forEach(function (section) {
+        if (section && section.id && section.annotations && (section.annotations.redhat || []).length) {
+          map[section.id] = section.annotations;
+        }
+        (section && section.children ? section.children : []).forEach(function (node) {
+          if (node && node.id && node.annotations && (node.annotations.redhat || []).length) {
+            map[node.id] = node.annotations;
+          }
+        });
+      });
+      return map;
+    },
+
+    /** Stress Test findings can land after the document was already docked
+     * (hybrid compile: dock happens on "verified", Red-Hat keeps running).
+     * Patch the matching nodes already saved on the canvas in place, by id,
+     * instead of dropping the late findings on the floor. */
+    patchDockedRedhat: function (annotatedDocument) {
+      var self = this;
+      var jdf = global.__assureJdf;
+      if (!jdf || !jdf.tree || !annotatedDocument) return;
+
+      var redhatById = this._collectRedhatAnnotations(annotatedDocument);
+      if (!Object.keys(redhatById).length) return;
+
+      var patched = JSON.parse(JSON.stringify(jdf.tree));
+      var touched = false;
+      (patched.body || []).forEach(function (section) {
+        if (redhatById[section.id]) {
+          section.annotations = redhatById[section.id];
+          touched = true;
+        }
+        (section.children || []).forEach(function (node) {
+          if (redhatById[node.id]) {
+            node.annotations = redhatById[node.id];
+            touched = true;
+          }
+        });
+      });
+      if (!touched) return;
+
+      fetch("/api/projects/" + encodeURIComponent(projectId()) + "/jdf", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document: patched,
+          mutation_type: "GENERATE_REDHAT_ATTACH",
+          change_summary: "Stress Test findings attached after docking",
+        }),
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (!result.ok) throw new Error((result.data && result.data.error) || "Save failed");
+          if (result.data.document) jdf.tree = result.data.document;
+          if (typeof jdf.render === "function") jdf.render();
+          if (result.data.version && typeof jdf.setVersion === "function") {
+            jdf.setVersion(result.data.version);
+          }
+          if (global.AssureToast) {
+            global.AssureToast.show(
+              t("generate.redhat_attached", "Stress Test findings added to the document."),
+              "info"
+            );
+          }
+        })
+        .catch(function (err) {
+          if (global.AssureToast) {
+            global.AssureToast.show(String(err.message || err), "error");
+          }
         });
     },
   };
