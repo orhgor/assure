@@ -3,7 +3,7 @@
 
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "generate";
-  var WORKSPACE_VIEWS = ["generate", "surgical"];
+  var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
   var FULL_VIEWS = ["library", "settings"];
   var ALL_VIEWS = WORKSPACE_VIEWS.concat(FULL_VIEWS);
 
@@ -35,6 +35,7 @@
     var legacy = {
       compose: "generate",
       workbench: "surgical",
+      projects: "projects",
       library: "library",
       audit: "settings",
       generate: "generate",
@@ -434,6 +435,10 @@
       document.body.setAttribute("data-assure-tool", view);
       document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: view } }));
       document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: view } }));
+
+      if (view === "projects" && global.AssureProjects) {
+        global.AssureProjects.load();
+      }
     },
 
     /** @deprecated use switchView */

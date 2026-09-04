@@ -92,6 +92,10 @@
         <div class="app-body">
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="projects" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
+              <span class="app-sidebar-icon" aria-hidden="true">📁</span>
+              <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
+            </button>
             <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
               <span class="app-sidebar-icon" aria-hidden="true">✨</span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
@@ -113,6 +117,21 @@
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
+
+            <div id="view-projects" class="assure-view" hidden>
+              <div class="projects-header">
+                <h3 class="jdf-pane-title" data-i18n="nav.projects">{{ gettext('Projects') }}</h3>
+                <button type="button" class="btn btn-primary btn-sm" id="projects-new-btn" data-i18n="projects.new">{{ gettext('+ New') }}</button>
+              </div>
+              <div id="projects-new-form" class="projects-new-form" hidden>
+                <input type="text" id="projects-new-input" class="form-control" placeholder="{{ gettext('Project name…') }}" data-i18n-placeholder="projects.name_placeholder" maxlength="80">
+                <div class="projects-new-actions">
+                  <button type="button" class="btn btn-primary btn-sm" id="projects-new-confirm" data-i18n="projects.create">{{ gettext('Create') }}</button>
+                  <button type="button" class="btn btn-outline btn-sm" id="projects-new-cancel" data-i18n="cancel">{{ gettext('Cancel') }}</button>
+                </div>
+              </div>
+              <ul id="projects-list" class="projects-list" role="list"></ul>
+            </div>
 
             <div id="view-generate" class="assure-view active">
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
@@ -599,6 +618,7 @@
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -3036,13 +3056,14 @@
       paintBadge($("ground") && $("ground").checked);
       loadRecent();
       schedulePreview();
-      if (window.JDFCanvasManager && $("jdf-workbench")) {
+        if (window.JDFCanvasManager && $("jdf-workbench")) {
         window.__assureJdf = new window.JDFCanvasManager({
           projectId: window.__ASSURE_PROJECT_ID__ || "default",
           document: window.__INITIAL_JDF__,
         });
         window.__assureJdf.bind();
       }
+      if (window.AssureProjects) window.AssureProjects.init();
       if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) {
         const box = $("preview-box");
         if (box) box.open = false;
