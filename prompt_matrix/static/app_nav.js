@@ -552,11 +552,54 @@
   global.AssureCompilerStatus = AssureCompilerStatus;
   global.updateCompilerStatus = updateCompilerStatus;
 
+  function autoResizeTextarea(el) {
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 480) + "px";
+  }
+
+  function initAutoResize() {
+    document.querySelectorAll("textarea.auto-resize, input.auto-resize").forEach(function (el) {
+      autoResizeTextarea(el);
+      el.addEventListener("input", function () {
+        autoResizeTextarea(el);
+      });
+    });
+  }
+
+  function initCompileExampleChips() {
+    document.querySelectorAll(".example-chip[data-prompt-key]").forEach(function (chip) {
+      function applyPrompt() {
+        var key = chip.getAttribute("data-prompt-key");
+        if (!key) return;
+        var text = translate(key, "");
+        var target = $("generate-intent");
+        if (!target || !text) return;
+        target.value = text;
+        target.focus();
+        autoResizeTextarea(target);
+      }
+      chip.addEventListener("click", applyPrompt);
+      chip.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          applyPrompt();
+        }
+      });
+    });
+  }
+
+  global.AssureAutoResize = { resize: autoResizeTextarea, init: initAutoResize };
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       AssureNav.init();
+      initAutoResize();
+      initCompileExampleChips();
     });
   } else {
     AssureNav.init();
+    initAutoResize();
+    initCompileExampleChips();
   }
 })(window);

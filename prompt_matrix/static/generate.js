@@ -78,6 +78,7 @@
     draftText: "",
     auditComplete: false,
     verifyTimeout: null,
+    _streamRetryCount: 0,
 
     clearVerifyTimeout: function () {
       if (this.verifyTimeout) {
@@ -259,7 +260,7 @@
       }
     },
 
-    startDraftStream: function () {
+    startDraftStream: function (isRetry) {
       var self = this;
       var intentEl = $("generate-intent");
       var intent = intentEl && intentEl.value.trim();
@@ -270,8 +271,14 @@
         return;
       }
 
+      if (!isRetry) {
+        this._streamRetryCount = 0;
+      }
+
       this.abort();
-      this.resetUi();
+      if (!isRetry) {
+        this.resetUi();
+      }
       this.setCompiling(true);
       this.setPreviewSkeleton(true);
       this.controller = new AbortController();
@@ -415,6 +422,19 @@
           self.setPreviewSkeleton(false);
           self.setGateLoading(false);
           if (err && err.name === "AbortError") return;
+          if (!self.auditComplete && self._streamRetryCount < 1) {
+            self._streamRetryCount += 1;
+            if (global.AssureToast) {
+              global.AssureToast.show(
+                t("stream.reconnect", "Connection dropped — retrying…"),
+                "info"
+              );
+            }
+            window.setTimeout(function () {
+              self.startDraftStream(true);
+            }, 800);
+            return;
+          }
           if (global.AssureToast) {
             global.AssureToast.show(String(err.message || err), "error");
           }
