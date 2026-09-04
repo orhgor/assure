@@ -219,6 +219,16 @@
     this._savePillState = { state: "idle", key: "jdf.save.unsaved", vars: null };
   }
 
+  JDFCanvasManager.prototype._setDirty = function (dirty) {
+    this.isDirty = !!dirty;
+    if (global.AssureUnsaved) global.AssureUnsaved.setDocumentDirty(this.isDirty);
+  };
+
+  JDFCanvasManager.prototype._setStreaming = function (streaming) {
+    this.isStreaming = !!streaming;
+    if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(this.isStreaming);
+  };
+
   JDFCanvasManager.prototype.loadProjectSettings = function () {
     var self = this;
     return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/settings")
@@ -424,8 +434,8 @@
       vars: vars || null,
     };
     var fallbacks = {
-      "jdf.save.unsaved": "● Unsaved",
-      "jdf.save.ready": "● Unsaved",
+      "jdf.save.unsaved": "◌ Unsaved",
+      "jdf.save.ready": "◌ Unsaved",
       "jdf.status.compiling": "⬡ Compiling...",
       "jdf.status.committed": "● Committed (v{version})",
       "jdf.save.saving": "Saving…",
@@ -573,7 +583,8 @@
       .then(function (data) {
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
-        self.isDirty = false;
+        self._setDirty(false);
+        if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
         self.setSavePill("saved", "jdf.status.committed", {
           version: data.version || self.documentVersion,
         });
@@ -616,7 +627,8 @@
       .then(function (data) {
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
-        self.isDirty = false;
+        self._setDirty(false);
+        if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
         self.setSavePill("saved", "jdf.status.committed", {
           version: data.version || self.documentVersion,
         });
@@ -878,7 +890,7 @@
     bar.querySelector('[data-act="del"]').addEventListener("click", function () {
       var section = self.tree.body[sectionIdx];
       section.children.splice(childIdx, 1);
-      self.isDirty = true;
+      self._setDirty(true);
       self.render();
     });
     bar.querySelector('[data-act="up"]').addEventListener("click", function () {
@@ -887,7 +899,7 @@
       var tmp = section.children[childIdx - 1];
       section.children[childIdx - 1] = section.children[childIdx];
       section.children[childIdx] = tmp;
-      self.isDirty = true;
+      self._setDirty(true);
       self.render();
     });
     bar.querySelector('[data-act="down"]').addEventListener("click", function () {
@@ -896,7 +908,7 @@
       var tmp = section.children[childIdx + 1];
       section.children[childIdx + 1] = section.children[childIdx];
       section.children[childIdx] = tmp;
-      self.isDirty = true;
+      self._setDirty(true);
       self.render();
     });
     return bar;
@@ -918,7 +930,7 @@
     title.addEventListener("blur", function () {
       self.tree.meta = self.tree.meta || {};
       self.tree.meta.title = title.textContent.trim();
-      self.isDirty = true;
+      self._setDirty(true);
     });
     this.rootEl.appendChild(title);
 
@@ -968,7 +980,7 @@
           body.addEventListener("blur", function () {
             body.contentEditable = "false";
             node.content = body.textContent;
-            self.isDirty = true;
+            self._setDirty(true);
             self.saveDocument("MANUAL_TOUCHUP", { target_node_id: node.id });
             self._renderNodeBodyWithCitations(node, body);
           });
@@ -1153,7 +1165,7 @@
       return Promise.reject(new Error("empty task"));
     }
 
-    this.isStreaming = true;
+    this._setStreaming(true);
     this.livePreview = "";
     this.clearVerifyTimeout();
     this.setPreviewSkeleton(true);
@@ -1218,7 +1230,7 @@
       },
       oncomplete: function (data) {
         self.clearVerifyTimeout();
-        self.isStreaming = false;
+        self._setStreaming(false);
         self.setPreviewSkeleton(false);
         if (self.stopBtn) self.stopBtn.style.display = "none";
         self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
@@ -1231,7 +1243,7 @@
       },
       onEvent: function (ev, data) {
         if (ev === "complete") {
-          self.isStreaming = false;
+          self._setStreaming(false);
           self.setPreviewSkeleton(false);
           if (!data || data.ok !== false) {
             self.setStreamStatus(4, "compose.draft_ready", "Draft ready");
@@ -1252,7 +1264,7 @@
 
   JDFCanvasManager.prototype.inquire = function (intent, runRedhat) {
     var self = this;
-    this.isStreaming = true;
+    this._setStreaming(true);
     this.livePreview = "";
     this.clearVerifyTimeout();
     this.setPreviewSkeleton(true);
@@ -1340,7 +1352,7 @@
       },
       oncomplete: function () {
         self.clearVerifyTimeout();
-        self.isStreaming = false;
+        self._setStreaming(false);
         self.setPreviewSkeleton(false);
         if (self.stopBtn) self.stopBtn.style.display = "none";
         self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
@@ -1348,7 +1360,7 @@
       },
       onEvent: function (ev, data) {
         if (ev === "complete") {
-          self.isStreaming = false;
+          self._setStreaming(false);
           self.setPreviewSkeleton(false);
           if (!data || data.ok !== false) {
             self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock");
@@ -1382,6 +1394,7 @@
           }
           return;
         }
+        if (global.AssureUnsaved) global.AssureUnsaved.clearDraft();
         self.inquire((intentEl && intentEl.value) || "Revise document", redhatOn);
       });
     }
@@ -1403,12 +1416,6 @@
         self.exitSurgicalMode();
       });
     }
-    window.addEventListener("beforeunload", function (e) {
-      if (self.isDirty || self.isStreaming) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    });
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") self.exitSurgicalMode();
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {

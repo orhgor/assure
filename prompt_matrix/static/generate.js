@@ -176,6 +176,7 @@
         this.controller.abort();
         this.controller = null;
       }
+      if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
     },
 
     setGateLoading: function (on, message) {
@@ -274,6 +275,11 @@
         return;
       }
 
+      if (global.AssureUnsaved) {
+        global.AssureUnsaved.clearDraft();
+        global.AssureUnsaved.setInputDirty(false);
+      }
+
       if (!isRetry) {
         this._streamRetryCount = 0;
       }
@@ -285,6 +291,7 @@
       this.setCompiling(true);
       this.setPreviewSkeleton(true);
       this.controller = new AbortController();
+      if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(true);
       if (global.AssureStreamRegistry) {
         global.AssureStreamRegistry.register(this.controller);
       }
@@ -376,6 +383,7 @@
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
           self.setGateLoading(false);
+          if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (global.AssureToast) {
             global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
           }
@@ -385,6 +393,7 @@
         if (type === "done" || type === "complete") {
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
+          if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (!self.auditComplete) {
             self.setGateLoading(false);
             var dock = $("generate-accept-dock");
@@ -435,6 +444,7 @@
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
           self.setGateLoading(false);
+          if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (err && err.name === "AbortError") return;
           if (!self.auditComplete && self._streamRetryCount < 1) {
             self._streamRetryCount += 1;
@@ -663,6 +673,7 @@
                 version: result.data.version || jdf.documentVersion,
               });
             }
+            if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
             if (global.AssureToast) {
               global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
             }
@@ -715,6 +726,12 @@
           if (result.data.version && typeof jdf.setVersion === "function") {
             jdf.setVersion(result.data.version);
           }
+          if (typeof jdf.setSavePill === "function") {
+            jdf.setSavePill("saved", "jdf.status.committed", {
+              version: result.data.version || jdf.documentVersion,
+            });
+          }
+          if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
           if (global.AssureToast) {
             global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
           }
