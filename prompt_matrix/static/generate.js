@@ -201,20 +201,21 @@
 
     bindDraftPanel: function () {
       var self = this;
-      var expandBtn = $("expand-draft-btn");
-      var fullBtn = $("fullscreen-draft-btn");
-      if (expandBtn) {
-        expandBtn.addEventListener("click", function () {
-          var panel = $("generate-nodes-preview");
+      if (this._draftPanelBound) return;
+      this._draftPanelBound = true;
+      document.addEventListener("click", function (e) {
+        var expandBtn = e.target.closest && e.target.closest("#expand-draft-btn");
+        var fullBtn = e.target.closest && e.target.closest("#fullscreen-draft-btn");
+        if (!expandBtn && !fullBtn) return;
+        e.preventDefault();
+        var panel = $("generate-nodes-preview");
+        if (expandBtn) {
           self.setDraftExpanded(!(panel && panel.classList.contains("is-expanded")));
-        });
-      }
-      if (fullBtn) {
-        fullBtn.addEventListener("click", function () {
-          var panel = $("generate-nodes-preview");
+        }
+        if (fullBtn) {
           self.setDraftFullscreen(!(panel && panel.classList.contains("is-fullscreen")));
-        });
-      }
+        }
+      });
       document.addEventListener("keydown", function (e) {
         if (e.key !== "Escape") return;
         var panel = $("generate-nodes-preview");
@@ -231,8 +232,13 @@
 
     setDraftExpanded: function (on) {
       var panel = $("generate-nodes-preview");
+      var body = $("generate-nodes-body");
       var btn = $("expand-draft-btn");
-      if (panel) panel.classList.toggle("is-expanded", !!on);
+      if (panel) {
+        panel.hidden = false;
+        panel.classList.toggle("is-expanded", !!on);
+      }
+      if (body && on) body.style.height = "";
       if (btn) {
         var key = on ? "generate.collapse" : "generate.expand";
         var fallback = on ? "Collapse draft" : "Expand draft";
@@ -250,7 +256,27 @@
     setDraftFullscreen: function (on) {
       var panel = $("generate-nodes-preview");
       var btn = $("fullscreen-draft-btn");
-      if (panel) panel.classList.toggle("is-fullscreen", !!on);
+      if (!panel) return;
+      panel.hidden = false;
+      if (on) {
+        if (!this._draftPanelParent) {
+          this._draftPanelParent = panel.parentNode;
+          this._draftPanelNext = panel.nextSibling;
+        }
+        if (panel.parentNode !== document.body) {
+          document.body.appendChild(panel);
+        }
+        panel.classList.add("is-fullscreen");
+      } else {
+        panel.classList.remove("is-fullscreen");
+        if (this._draftPanelParent && panel.parentNode !== this._draftPanelParent) {
+          if (this._draftPanelNext && this._draftPanelNext.parentNode === this._draftPanelParent) {
+            this._draftPanelParent.insertBefore(panel, this._draftPanelNext);
+          } else {
+            this._draftPanelParent.appendChild(panel);
+          }
+        }
+      }
       if (btn) {
         var key = on ? "generate.fullscreen_exit" : "generate.fullscreen";
         var fallback = on ? "Exit full screen" : "Full screen";
