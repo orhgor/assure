@@ -28,6 +28,18 @@ LOCALE_LANGUAGE_NAMES: dict[str, str] = {
     "tr": "Turkish",
 }
 
+# Native-language one-liners — models follow the target language more reliably
+# when the instruction itself is in that language.
+LOCALE_NATIVE_INSTRUCTION: dict[str, str] = {
+    "en": "Always respond in English.",
+    "tr": "Her zaman Türkçe yanıt ver.",
+    "es": "Responde siempre en español.",
+    "fr": "Réponds toujours en français.",
+    "de": "Antworte immer auf Deutsch.",
+    "ja": "常に日本語で応答してください。",
+    "zh": "请始终用中文回复。",
+}
+
 _JSON_MODE = frozenset({"json_object", "json_schema"})
 
 _request_locale: ContextVar[str | None] = ContextVar("assure_request_locale", default=None)
@@ -46,14 +58,24 @@ def locale_to_language_name(locale: str | None) -> str:
     return LOCALE_LANGUAGE_NAMES.get(code, "English")
 
 
+def get_language_instruction(locale: str | None = None) -> str:
+    """Return a native-language system instruction for the UI locale."""
+    code = normalize_locale(locale) if locale else "en"
+    return LOCALE_NATIVE_INSTRUCTION.get(code, LOCALE_NATIVE_INSTRUCTION["en"])
+
+
 def append_language_instruction(system_content: str, locale: str | None = None) -> str:
-    """Append the hard language rule to system content."""
-    language = locale_to_language_name(locale)
-    rule = LANGUAGE_SYSTEM_INSTRUCTION.format(language=language)
+    """Append native + English hard language rules to system content."""
+    loc = normalize_locale(locale) if locale else "en"
+    native = get_language_instruction(loc)
+    rule = LANGUAGE_SYSTEM_INSTRUCTION.format(language=locale_to_language_name(loc))
+    block = f"{native}\n{rule}"
     base = (system_content or "").strip()
+    if "HARD LANGUAGE RULE" in base:
+        return base
     if not base:
-        return rule
-    return f"{base}\n\n{rule}"
+        return block
+    return f"{base}\n\n{block}"
 
 
 def build_messages_with_language_guard(
