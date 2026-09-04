@@ -1,11 +1,12 @@
 # Assure — full product status
 
-**Date:** 2026-09-04  
-**Decision:** **GO** — mobile layout + landing i18n live on `p4-account-wallet`  
-**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: cc34589`, UI `assure-53` / `assure-42`, landing CSS/JS `44` / `32`, ~7 GB disk free  
-**Tests:** **266 passing** (`uv run pytest tests/ -q`)  
-**Container:** `assure-assure-app-1` on EC2 — GHCR pull + hardened redeploy script (`scripts/aws/redeploy-app.sh`)  
-**Git:** `cc34589` on `p4-account-wallet` — post-launch ops (Plausible, tester feedback, optional Sentry)  
+**Date:** 2026-09-04
+**Code check & test report:** [2026-09-04-codecheck-and-test-report.md](./audits/2026-09-04-codecheck-and-test-report.md) (local test snapshot + full audit plan)
+**Decision:** **GO** — mobile layout + landing i18n live on `p4-account-wallet`
+**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: cc34589`, UI `assure-53` / `assure-42`, landing CSS/JS `44` / `32`, ~7 GB disk free
+**Tests:** **266 passing** (`uv run pytest tests/ -q`)
+**Container:** `assure-assure-app-1` on EC2 — GHCR pull + hardened redeploy script (`scripts/aws/redeploy-app.sh`)
+**Git:** `cc34589` on `p4-account-wallet` — post-launch ops (Plausible, tester feedback, optional Sentry)
 **Detail checklist:** [launch-checklist.md](./launch-checklist.md) · **Post-launch ops:** [post-launch-ops.md](./post-launch-ops.md)
 
 ---

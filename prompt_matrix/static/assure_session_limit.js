@@ -81,7 +81,7 @@
     btn.disabled = false;
     btn.removeAttribute("data-session-limited");
     btn.classList.remove("is-session-limited");
-    btn.textContent = t("generate.compile", "Compile Document");
+    btn.textContent = t("generate.compile", "Compile");
     btn.setAttribute("data-i18n", "generate.compile");
     btn.setAttribute(
       "data-tooltip",
@@ -95,7 +95,7 @@
     btn.disabled = false;
     btn.removeAttribute("data-session-limited");
     btn.classList.remove("is-session-limited");
-    btn.textContent = t("jdf.inquire", "Refactor Node");
+    btn.textContent = t("jdf.inquire", "Refine");
     btn.setAttribute("data-i18n", "jdf.inquire");
     btn.removeAttribute("data-tooltip");
     btn.removeAttribute("data-i18n-tooltip");

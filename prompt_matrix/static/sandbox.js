@@ -2,12 +2,20 @@
   "use strict";
 
   var gate = window.AssureAuditGate;
-  var PROGRESS_STEPS = gate ? gate.progressSteps() : [
-    "Compiling JDF AST…",
-    "Inferring truth-ledger locks…",
-    "Running Z3 verification…",
-    "Red-Hat adversarial audit…",
-  ];
+  var PROGRESS_STEPS = [];
+
+  function refreshProgressSteps() {
+    if (gate && typeof gate.progressSteps === "function") {
+      PROGRESS_STEPS = gate.progressSteps();
+      return;
+    }
+    PROGRESS_STEPS = [
+      t("audit.progress.compile", "Working…"),
+      t("audit.progress.locks", "Inferring truth-ledger locks…"),
+      t("audit.progress.z3", "Running math check…"),
+      t("audit.progress.redhat", "Running stress test…"),
+    ];
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -30,11 +38,11 @@
   }
 
   function nodeLabel(node) {
-    if (!node) return "Node";
-    if (node.type === "section") return "Section";
+    if (!node) return t("landing.sandbox.node.node", "Node");
+    if (node.type === "section") return t("landing.sandbox.node.section", "Section");
     var content = String(node.content || node.title || "");
-    if (/\$|\d+%/.test(content)) return "Claim";
-    return "Paragraph";
+    if (/\$|\d+%/.test(content)) return t("landing.sandbox.node.claim", "Claim");
+    return t("landing.sandbox.node.paragraph", "Paragraph");
   }
 
   function nodeDetail(node) {
@@ -45,7 +53,7 @@
 
   function renderNodeTree(nodes) {
     if (!nodes || !nodes.length) {
-      return '<div class="jdf-node"><strong>[Node #01]</strong> No nodes compiled.</div>';
+      return '<div class="jdf-node"><strong>[Node #01]</strong> ' + escapeHtml(t("landing.sandbox.node.empty", "No nodes compiled.")) + "</div>";
     }
     return nodes
       .map(function (node, idx) {
@@ -54,13 +62,13 @@
         var detail = escapeHtml(nodeDetail(node));
         var suffix = "";
         if (node.annotations && node.annotations.redhat && node.annotations.redhat.text) {
-          suffix = " Red-Hat flagged.";
+          suffix = t("landing.sandbox.suffix.redhat", " Stress Test flagged.");
         } else if (node.annotations && node.annotations.z3 && node.annotations.z3.status === "violation") {
-          suffix = " Z3 violation detected.";
-        } else if (label === "Claim") {
-          suffix = " Symbolically validated.";
+          suffix = t("landing.sandbox.suffix.z3", " Z3 violation detected.");
+        } else if (label === t("landing.sandbox.node.claim", "Claim")) {
+          suffix = t("landing.sandbox.suffix.claim", " Symbolically validated.");
         } else {
-          suffix = " Isolated into JDF AST.";
+          suffix = t("landing.sandbox.suffix.ast", " Isolated into JDF AST.");
         }
         return (
           '<div class="jdf-node"><strong>[Node #' +
@@ -197,7 +205,7 @@
     var text = ($("sandbox-input") && $("sandbox-input").value) || "";
     text = text.trim();
     if (!text) {
-      window.alert("Please enter some text to test.");
+      window.alert(t("landing.sandbox.alert.empty", "Please enter some text to test."));
       return;
     }
     var modelEl = $("model-select");
@@ -210,6 +218,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    refreshProgressSteps();
     var runBtn = $("sandbox-run-btn");
     if (runBtn) runBtn.addEventListener("click", runSandboxTest);
     var advToggle = $("sandbox-advanced-toggle");

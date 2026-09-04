@@ -226,9 +226,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         )
         """
     )
-    db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_metrics_created ON system_metrics(created_at DESC)"
-    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_metrics_created ON system_metrics(created_at DESC)")
 
     _migrate_v3(db)
     if current < 4:

@@ -26,53 +26,47 @@
     <main id="main-content">
         <section class="hero-section">
             <div class="container">
-                <span class="eyebrow" data-i18n="brand.eyebrow">{{ strings.get('brand.eyebrow', 'Deterministic Document Execution') }}</span>
-                <h1 data-i18n="brand.hero_title">{{ strings.get('brand.hero_title', 'The Intellectual Compiler') }}</h1>
+                <span class="eyebrow" data-i18n="brand.eyebrow">{{ strings.get('brand.eyebrow', 'Assure — The Intellectual Compiler') }}</span>
+                <h1 data-i18n="brand.hero_title">{{ strings.get('brand.hero_title', 'AI guesses. Assure proves.') }}</h1>
                 <p class="hero-tagline" data-i18n="brand.tagline">{{ brand.tagline }}</p>
-                <p class="hero-sub" data-i18n="landing.hero.sub">Ingest messy scans, CIMs, or datasets. Lock variables with mathematical proofs. Edit modular nodes with context-locked isolation. Stop guessing &mdash; start compiling.</p>
+                <p class="hero-sub" data-i18n="landing.hero.sub">{{ strings.get('landing.hero.sub', 'Traditional AI is a black box that makes things up. Assure uses formal logic, modular document parsing, and adversarial cross-examination to turn raw chaos into a mathematically airtight deliverable.') }}</p>
+                <p class="hero-promise" data-i18n="landing.hero.promise">{{ strings.get('landing.hero.promise', 'You don\'t have to check the math. The math checks itself.') }}</p>
                 <div class="hero-cta-group">
                     <a href="#sandbox" class="btn-primary" data-i18n="landing.hero.cta.paste">Try the Free Paste Test</a>
                     <a href="/architecture" class="btn-secondary" data-i18n="landing.hero.cta.architecture">Read the Architecture &rarr;</a>
                 </div>
 
-                <div class="hero-visual hero-comparison" role="img" aria-label="Before and after: unstructured scan becomes a JDF document tree with verified claims">
-                    <div class="hero-visual-grid">
-                        <div class="hero-visual-messy hero-before">
-                            <div class="hero-panel-label">Before</div>
-                            <div class="messy-line messy-faded"></div>
-                            <div class="messy-line messy-faded wide"></div>
-                            <div class="messy-line"></div>
-                            <div class="messy-line messy-faded"></div>
-                            <div class="messy-line short"></div>
-                            <div class="messy-scan-label">Unstructured scan / flat text</div>
+                <div class="lw-demo" data-i18n-aria="landing.demo.aria" aria-label="{{ strings.get('landing.demo.aria', 'Interactive workbench preview') }}">
+                    <div class="lw-tabs" role="tablist" data-i18n-aria="landing.demo.tablist" aria-label="{{ strings.get('landing.demo.tablist', 'Choose a profession') }}">
+                        <button type="button" class="lw-tab-btn" role="tab" aria-selected="false" data-set="journalism" data-i18n="landing.demo.tab.journalism">{{ strings.get('landing.demo.tab.journalism', 'Investigative Journalist') }}</button>
+                        <button type="button" class="lw-tab-btn" role="tab" aria-selected="false" data-set="academic" data-i18n="landing.demo.tab.academic">{{ strings.get('landing.demo.tab.academic', 'Academic Researcher') }}</button>
+                        <button type="button" class="lw-tab-btn active" role="tab" aria-selected="true" data-set="legal" data-i18n="landing.demo.tab.legal">{{ strings.get('landing.demo.tab.legal', 'Legal & M&A') }}</button>
+                    </div>
+                    <div class="lw-workbench">
+                        <div class="lw-titlebar">
+                            <div class="lw-traffic" aria-hidden="true"><span class="lw-dot red"></span><span class="lw-dot yellow"></span><span class="lw-dot green"></span></div>
+                            <div class="lw-titlebar-label"><span class="lw-lock-dot" aria-hidden="true"></span><span data-i18n="landing.demo.titlebar">{{ strings.get('landing.demo.titlebar', 'Assure Workbench — Session Lock: Active') }}</span></div>
                         </div>
-                        <div class="hero-visual-arrow" aria-hidden="true">&rarr;</div>
-                        <div class="hero-visual-tree hero-after">
-                            <div class="hero-panel-label">After</div>
-                            <div class="ast-root">
-                                <span class="ast-label">JDF Document</span>
-                                <div class="ast-node ast-node--section">
-                                    <span class="ast-type">Section</span>
-                                    <span class="ast-id">node_01</span>
-                                </div>
-                                <div class="ast-node ast-node--claim">
-                                    <span class="ast-type">Claim</span>
-                                    <span class="ast-id">$4.2M</span>
-                                    <span class="ast-badge">Z3 ✓</span>
-                                </div>
-                                <div class="ast-node ast-node--paragraph">
-                                    <span class="ast-type">Paragraph</span>
-                                    <span class="ast-id">node_03</span>
-                                </div>
-                                <div class="ast-node ast-node--table">
-                                    <span class="ast-type">Table</span>
-                                    <span class="ast-id">node_04</span>
-                                    <span class="ast-badge">Locked</span>
-                                </div>
+                        <div class="lw-panes">
+                            <div class="lw-pane lw-pane-left">
+                                <div class="lw-pane-header" data-i18n="landing.demo.pane.raw">{{ strings.get('landing.demo.pane.raw', 'RAW INPUT') }}</div>
+                                <div class="lw-doc-body" id="lw-doc-body"></div>
+                            </div>
+                            <div class="lw-pane lw-pane-right">
+                                <div class="lw-sweep" id="lw-sweep"></div>
+                                <div class="lw-pane-header" data-i18n="landing.demo.pane.ast">{{ strings.get('landing.demo.pane.ast', 'Verified Document') }}</div>
+                                <div id="lw-ast-cards" class="lw-ast-cards"></div>
                             </div>
                         </div>
+                        <div class="lw-command-deck">
+                            <div class="lw-prompt-box">
+                                <span class="lw-prompt-caret" aria-hidden="true">&gt;</span>
+                                <span class="lw-prompt-text" id="lw-command-prompt"></span>
+                            </div>
+                            <button type="button" class="lw-compile-btn" id="lw-compile-btn" data-i18n="landing.demo.compile">{{ strings.get('landing.demo.compile', 'Compile') }}</button>
+                        </div>
                     </div>
-                    <p class="hero-visual-caption" data-i18n="landing.hero.caption">From flat text to compiled truth &mdash; in seconds.</p>
+                    <p class="hero-visual-caption" data-i18n="landing.hero.caption">{{ strings.get('landing.hero.caption', 'You compile. It verifies. You ship.') }}</p>
                 </div>
             </div>
         </section>
@@ -85,6 +79,7 @@
                     <div class="persona-item"><span class="persona-icon" aria-hidden="true">🏦</span><span class="persona-title" data-i18n="landing.persona.bankers">Investment Bankers</span></div>
                     <div class="persona-item"><span class="persona-icon" aria-hidden="true">🔬</span><span class="persona-title" data-i18n="landing.persona.researchers">Researchers</span></div>
                     <div class="persona-item"><span class="persona-icon" aria-hidden="true">⚖️</span><span class="persona-title" data-i18n="landing.persona.legal">Legal Counsel</span></div>
+                    <div class="persona-item"><span class="persona-icon" aria-hidden="true">📰</span><span class="persona-title" data-i18n="landing.persona.journalists">Journalists</span></div>
                     <a href="#personas" class="persona-more" data-i18n="landing.persona.more">and more &rarr;</a>
                 </div>
             </div>
@@ -93,48 +88,97 @@
         <section class="trust-bar">
             <div class="container trust-grid">
                 <span data-i18n="landing.trust.self_hosted">Self-Hosted &amp; Private</span>
-                <span data-i18n="landing.trust.z3">Z3 Symbolically Verified</span>
-                <span data-i18n="landing.trust.jdf">JDF AST Architecture</span>
-                <span data-i18n="landing.trust.redhat">Red-Hat Adversarial Audited</span>
+                <span data-i18n="landing.trust.z3">{{ strings.get('landing.trust.z3', 'Math Check') }}</span>
+                <span data-i18n="landing.trust.jdf">{{ strings.get('landing.trust.jdf', 'JDF AST Architecture') }}</span>
+                <span data-i18n="landing.trust.redhat">{{ strings.get('landing.trust.redhat', 'Stress Tested') }}</span>
+            </div>
+        </section>
+
+        <section class="features-section">
+            <div class="container">
+                <div class="features-grid">
+                    <article class="feature-card">
+                        <h3 data-i18n="landing.features.1.title">{{ strings.get('landing.features.1.title', 'Lock Your Numbers') }}</h3>
+                        <p data-i18n="landing.features.1.body">{{ strings.get('landing.features.1.body', 'Every number in your document is mathematically verified. No drift. No contradictions. No guessing. When Assure says it\'s right, it\'s right.') }}</p>
+                    </article>
+                    <article class="feature-card">
+                        <h3 data-i18n="landing.features.2.title">{{ strings.get('landing.features.2.title', 'Catch Logical Gaps') }}</h3>
+                        <p data-i18n="landing.features.2.body">{{ strings.get('landing.features.2.body', 'An adversarial engine tries to destroy your argument before your client does. If it survives, you ship. If it doesn\'t, you fix it.') }}</p>
+                    </article>
+                    <article class="feature-card">
+                        <h3 data-i18n="landing.features.3.title">{{ strings.get('landing.features.3.title', 'Your Data, Your Control') }}</h3>
+                        <p data-i18n="landing.features.3.body">{{ strings.get('landing.features.3.body', 'Your documents never leave your infrastructure. No vendor lock-in. No black boxes. Total sovereignty.') }}</p>
+                    </article>
+                </div>
             </div>
         </section>
 
         <section class="manifesto-section">
             <div class="container narrow">
-                <h2>The Problem Statement</h2>
-                <p>Documents are the most important data structure ever invented. Yet, we treat them like flat text files. We paste, copy, scan, and hope.</p>
-                <p class="highlight-quote">That is not engineering. That is gambling.</p>
+                <h2 data-i18n="landing.manifesto.title">{{ strings.get('landing.manifesto.title', 'The Problem Statement') }}</h2>
+                <p data-i18n="landing.manifesto.body">{{ strings.get('landing.manifesto.body', 'Documents are the most important data structure ever invented. Yet, we treat them like flat text files. We paste, copy, scan, and hope.') }}</p>
+                <p class="highlight-quote" data-i18n="landing.manifesto.quote">{{ strings.get('landing.manifesto.quote', 'That is not engineering. That is gambling.') }}</p>
             </div>
         </section>
 
         <section id="pipeline" class="pipeline-section">
             <div class="container">
-                <h2>The 3-Act Engine</h2>
+                <h2 data-i18n="landing.pipeline.title">{{ strings.get('landing.pipeline.title', 'The 3-Act Engine') }}</h2>
                 <div class="pipeline-grid">
                     <div class="pipeline-card">
                         <span class="step-num">01</span>
-                        <h3>Ingest &amp; Structure</h3>
-                        <p>Turn any messy PDF, table, or scan into a version-controlled AST.</p>
+                        <h3 data-i18n="landing.pipeline.1.title">{{ strings.get('landing.pipeline.1.title', 'Ingest') }}</h3>
+                        <p data-i18n="landing.pipeline.1.body">{{ strings.get('landing.pipeline.1.body', 'Upload any document — messy scans, old contracts, financial models. Assure reads it, structures it, and understands it.') }}</p>
                     </div>
                     <div class="pipeline-card">
                         <span class="step-num">02</span>
-                        <h3>Verify &amp; Prove</h3>
-                        <p>Lock metrics with the Z3 SMT solver. Break the build if logic fails.</p>
+                        <h3 data-i18n="landing.pipeline.2.title">{{ strings.get('landing.pipeline.2.title', 'Verify') }}</h3>
+                        <p data-i18n="landing.pipeline.2.body">{{ strings.get('landing.pipeline.2.body', 'Lock every number with mathematical certainty. Run an adversarial audit that tries to break your logic. If it breaks, you fix it. If it survives, you ship.') }}</p>
                     </div>
                     <div class="pipeline-card">
                         <span class="step-num">03</span>
-                        <h3>Deliver &amp; Refine</h3>
-                        <p>Edit individual nodes in isolation with Aperture context-locking. Export a verified deliverable.</p>
+                        <h3 data-i18n="landing.pipeline.3.title">{{ strings.get('landing.pipeline.3.title', 'Deliver') }}</h3>
+                        <p data-i18n="landing.pipeline.3.body">{{ strings.get('landing.pipeline.3.body', 'Export a pristine, mathematically verified deliverable. With or without the audit trail. Clean enough for the boardroom. Rigorous enough for the auditor.') }}</p>
                     </div>
                 </div>
-                <p class="architecture-bridge">Curious how our JDF AST and Z3 solver provide mathematical certainty? <a href="/architecture">Read the Architecture Deep-Dive &rarr;</a></p>
+                <p class="architecture-bridge">
+                    <span data-i18n="landing.pipeline.bridge">{{ strings.get('landing.pipeline.bridge', 'Curious how our JDF AST and Z3 solver provide mathematical certainty?') }}</span>
+                    <a href="/architecture" data-i18n="landing.pipeline.bridge_link">{{ strings.get('landing.pipeline.bridge_link', 'Read the Architecture Deep-Dive →') }}</a>
+                </p>
             </div>
         </section>
 
         <section class="competitor-section">
-            <div class="container narrow center">
-                <h2 data-i18n="landing.competitor.title">Competitor Reality Check</h2>
-                <p class="competitor-quote" data-i18n="landing.competitor.quote">Spellbook helps you write faster. Harvey helps you find context. Assure ensures the final document is mathematically true. Guess which one the auditor checks?</p>
+            <div class="container narrow">
+                <h2 data-i18n="landing.compare.title">{{ strings.get('landing.compare.title', 'Traditional AI vs. Assure') }}</h2>
+                <div class="comparison-table-wrapper">
+                    <table class="compare-table">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-i18n="landing.compare.col.traditional">{{ strings.get('landing.compare.col.traditional', 'Traditional AI') }}</th>
+                                <th scope="col" data-i18n="landing.compare.col.assure">{{ strings.get('landing.compare.col.assure', 'Assure') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td data-i18n="landing.compare.trad.1">{{ strings.get('landing.compare.trad.1', 'You guess. You check. You hope.') }}</td>
+                                <td data-i18n="landing.compare.assure.1">{{ strings.get('landing.compare.assure.1', 'You compile. It verifies. You ship.') }}</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="landing.compare.trad.2">{{ strings.get('landing.compare.trad.2', 'Black box. No proof.') }}</td>
+                                <td data-i18n="landing.compare.assure.2">{{ strings.get('landing.compare.assure.2', 'Mathematical certainty. Full audit trail.') }}</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="landing.compare.trad.3">{{ strings.get('landing.compare.trad.3', 'Your data leaves your walls.') }}</td>
+                                <td data-i18n="landing.compare.assure.3">{{ strings.get('landing.compare.assure.3', 'Your data never leaves your infrastructure.') }}</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="landing.compare.trad.4">{{ strings.get('landing.compare.trad.4', 'Generates text.') }}</td>
+                                <td data-i18n="landing.compare.assure.4">{{ strings.get('landing.compare.assure.4', 'Compiles truth.') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -149,11 +193,11 @@
                     <button type="button" id="sandbox-run-btn" class="btn-primary" data-i18n="landing.sandbox.run">Run Deterministic Audit</button>
                     <div id="sandbox-progress" class="sandbox-progress hidden" aria-live="polite">
                         <div class="sandbox-progress-bar"><div id="sandbox-progress-fill" class="sandbox-progress-fill"></div></div>
-                        <p id="sandbox-progress-label" class="sandbox-progress-label">Compiling JDF AST…</p>
+                        <p id="sandbox-progress-label" class="sandbox-progress-label" data-i18n="landing.sandbox.progress">{{ strings.get('landing.sandbox.progress', 'Compiling JDF AST…') }}</p>
                     </div>
                     <div id="sandbox-gate-summary" class="sandbox-gate-summary hidden">
                         <span class="sandbox-gate-icon" aria-hidden="true">🛡️</span>
-                        <span id="sandbox-gate-text">Pre-Flight Gate — audit must pass before export.</span>
+                        <span id="sandbox-gate-text" data-i18n="landing.sandbox.gate">{{ strings.get('landing.sandbox.gate', 'Pre-Flight Gate — audit must pass before export.') }}</span>
                     </div>
                     <div id="sandbox-output" class="sandbox-output hidden">
                         <div class="output-header">
@@ -163,14 +207,14 @@
                         <div id="sandbox-node-tree" class="node-tree"></div>
                     </div>
                     <div id="workspace-bridge" class="workspace-transition-banner hidden">
-                        <span class="engine-status">Assure Engine Active</span>
+                        <span class="engine-status" data-i18n="landing.sandbox.engine">{{ strings.get('landing.sandbox.engine', 'Assure Engine Active') }}</span>
                         <div class="transition-actions">
                             <button type="button" id="sandbox-advanced-toggle" class="btn-text" aria-expanded="false" aria-controls="advanced-model-drawer" data-i18n="landing.sandbox.advanced">Advanced Models</button>
-                            <button type="button" id="sandbox-send-workbench" class="btn-primary-small">Send to Workbench &rarr;</button>
+                            <button type="button" id="sandbox-send-workbench" class="btn-primary-small" data-i18n="landing.sandbox.send">{{ strings.get('landing.sandbox.send', 'Send to Workbench →') }}</button>
                         </div>
                     </div>
                     <div id="advanced-model-drawer" class="advanced-drawer hidden">
-                        <label for="model-select">LLM Provider / Backend</label>
+                        <label for="model-select" data-i18n="landing.sandbox.provider">{{ strings.get('landing.sandbox.provider', 'LLM Provider / Backend') }}</label>
                         <p class="sandbox-advanced-hint" data-i18n="landing.sandbox.advanced_hint">Applies when you send results to the workbench — does not change the sandbox audit.</p>
                         <select id="model-select" class="dropdown-styled">
                             <option value="claude" selected>Claude 3.7 Sonnet (Recommended)</option>
@@ -184,31 +228,31 @@
 
         <section id="personas" class="persona-section">
             <div class="container">
-                <h2 data-i18n="landing.personas.title">Engineered for High-Stakes Work</h2>
+                <h2 data-i18n="landing.personas.title">{{ strings.get('landing.personas.title', 'Engineered for High-Stakes Work') }}</h2>
                 <div class="persona-grid">
                     <div class="persona-card">
-                        <h3>For Investment Bankers &amp; Analysts</h3>
-                        <p><strong>Numerical Precision.</strong> Eliminate data drift across 50-page CIMs. The Z3 Truth Ledger locks your financial variables from model to final narrative.</p>
+                        <h3 data-i18n="landing.personas.bankers.title">{{ strings.get('landing.personas.bankers.title', 'For Investment Bankers & Analysts') }}</h3>
+                        <p data-i18n-html="landing.personas.bankers.body">{{ strings.get('landing.personas.bankers.body', '<strong>Numerical Precision.</strong> Eliminate data drift across 50-page CIMs. The Z3 Truth Ledger locks your financial variables from model to final narrative.') | safe }}</p>
                     </div>
                     <div class="persona-card">
-                        <h3>For Clinical &amp; Grant Researchers</h3>
-                        <p><strong>Mathematically Grounded Data.</strong> Lock your data points to source files and page anchors. Prevent contradictions between abstracts and raw tables.</p>
+                        <h3 data-i18n="landing.personas.researchers.title">{{ strings.get('landing.personas.researchers.title', 'For Clinical & Grant Researchers') }}</h3>
+                        <p data-i18n-html="landing.personas.researchers.body">{{ strings.get('landing.personas.researchers.body', '<strong>Mathematically Grounded Data.</strong> Lock your data points to source files and page anchors. Prevent contradictions between abstracts and raw tables.') | safe }}</p>
                     </div>
                     <div class="persona-card">
-                        <h3>For Legal Counsel &amp; Compliance</h3>
-                        <p><strong>Audit-Ready Precision.</strong> Treat complex documentation like source code. Every variable is symbolically verified, leaving a permanent audit trail.</p>
+                        <h3 data-i18n="landing.personas.legal.title">{{ strings.get('landing.personas.legal.title', 'For Legal Counsel & Compliance') }}</h3>
+                        <p data-i18n-html="landing.personas.legal.body">{{ strings.get('landing.personas.legal.body', '<strong>Audit-Ready Precision.</strong> Treat complex documentation like source code. Every variable is symbolically verified, leaving a permanent audit trail.') | safe }}</p>
                     </div>
                     <div class="persona-card">
-                        <h3>For Technical Architects</h3>
-                        <p><strong>Banish Documentation Rot.</strong> Componentize specs and architecture proposals into version-controlled, node-based nodes that stay synchronized.</p>
+                        <h3 data-i18n="landing.personas.architects.title">{{ strings.get('landing.personas.architects.title', 'For Technical Architects') }}</h3>
+                        <p data-i18n-html="landing.personas.architects.body">{{ strings.get('landing.personas.architects.body', '<strong>Banish Documentation Rot.</strong> Componentize specs and architecture proposals into version-controlled nodes that stay synchronized.') | safe }}</p>
                     </div>
                     <div class="persona-card">
-                        <h3>For Journalists &amp; Fact-Checkers</h3>
-                        <p><strong>Source-Grounded Truth.</strong> Lock every quote, date, and statistic to its original transcript or court record to eliminate defamation risk.</p>
+                        <h3 data-i18n="landing.personas.journalists.title">{{ strings.get('landing.personas.journalists.title', 'For Journalists & Fact-Checkers') }}</h3>
+                        <p data-i18n-html="landing.personas.journalists.body">{{ strings.get('landing.personas.journalists.body', '<strong>Source-Grounded Truth.</strong> Lock every quote, date, and statistic to its original transcript or court record to eliminate defamation risk.') | safe }}</p>
                     </div>
                     <div class="persona-card">
-                        <h3>For Solo High-Stakes Creators</h3>
-                        <p><strong>Automated Peer Review.</strong> Use componentized JDF nodes and the Red-Hat adversary as a tireless devil&rsquo;s advocate before publishing white papers or books.</p>
+                        <h3 data-i18n="landing.personas.creators.title">{{ strings.get('landing.personas.creators.title', 'For Solo High-Stakes Creators') }}</h3>
+                        <p data-i18n-html="landing.personas.creators.body">{{ strings.get('landing.personas.creators.body') | safe }}</p>
                     </div>
                 </div>
             </div>
@@ -220,16 +264,16 @@
                     <table class="value-table">
                         <thead>
                             <tr>
-                                <th>🔒 Locked Data</th>
-                                <th>🛡️ Verified Logic</th>
-                                <th>📄 Pristine Deliverables</th>
+                                <th data-i18n="landing.value.locked">{{ strings.get('landing.value.locked', 'Locked Data') }}</th>
+                                <th data-i18n="landing.value.logic">{{ strings.get('landing.value.logic', 'Verified Logic') }}</th>
+                                <th data-i18n="landing.value.deliverables">{{ strings.get('landing.value.deliverables', 'Pristine Deliverables') }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td data-label="Locked Data">Every factual claim is anchored to its source file and page.</td>
-                                <td data-label="Verified Logic">Z3 symbolic math ensures your numbers never drift.</td>
-                                <td data-label="Pristine Deliverables">Export Word or PDF with a full audit trail appendix.</td>
+                                <td data-i18n="landing.value.locked.body" data-i18n-label="landing.value.locked" data-label="{{ strings.get('landing.value.locked', 'Locked Data') }}">{{ strings.get('landing.value.locked.body', 'Every factual claim is anchored to its source file and page.') }}</td>
+                                <td data-i18n="landing.value.logic.body" data-i18n-label="landing.value.logic" data-label="{{ strings.get('landing.value.logic', 'Verified Logic') }}">{{ strings.get('landing.value.logic.body', 'Z3 symbolic math ensures your numbers never drift.') }}</td>
+                                <td data-i18n="landing.value.deliverables.body" data-i18n-label="landing.value.deliverables" data-label="{{ strings.get('landing.value.deliverables', 'Pristine Deliverables') }}">{{ strings.get('landing.value.deliverables.body', 'Export Word or PDF with a full audit trail appendix.') }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -254,14 +298,14 @@
         <section id="glossary" class="glossary-section">
             <div class="container narrow">
                 <details>
-                    <summary>Under the Hood (Technical Glossary)</summary>
+                    <summary data-i18n="landing.glossary.summary">{{ strings.get('landing.glossary.summary', 'Under the Hood (Technical Glossary)') }}</summary>
                     <div class="glossary-content">
                         <ul>
-                            <li><strong>JDF AST:</strong> JSON Document Framework — modular, version-controlled document nodes.</li>
-                            <li><strong>Z3 Truth Ledger:</strong> Formal symbolic verification (SMT solver) for numerical and factual consistency.</li>
-                            <li><strong>Red-Hat Adversary:</strong> Automated stress-test of your logic and assumptions.</li>
-                            <li><strong>Aperture:</strong> Context-locking layer that isolates node edits without cross-contamination.</li>
-                            <li><strong>Infrastructure:</strong> Self-hosted on AWS <code>t4g.small</code> with SQLite atomic JSON1 updates — lean, private, auditable.</li>
+                            <li data-i18n-html="landing.glossary.jdf">{{ strings.get('landing.glossary.jdf', '<strong>JDF AST:</strong> JSON Document Framework — modular, version-controlled document nodes.') | safe }}</li>
+                            <li data-i18n-html="landing.glossary.z3">{{ strings.get('landing.glossary.z3', '<strong>Z3 Truth Ledger:</strong> Formal symbolic verification (SMT solver) for numerical and factual consistency.') | safe }}</li>
+                            <li data-i18n-html="landing.glossary.redhat">{{ strings.get('landing.glossary.redhat', '<strong>Red-Hat Adversary:</strong> Automated stress-test of your logic and assumptions.') | safe }}</li>
+                            <li data-i18n-html="landing.glossary.aperture">{{ strings.get('landing.glossary.aperture', '<strong>Aperture:</strong> Context-locking layer that isolates node edits without cross-contamination.') | safe }}</li>
+                            <li data-i18n-html="landing.glossary.infra">{{ strings.get('landing.glossary.infra', '<strong>Infrastructure:</strong> Self-hosted with SQLite atomic JSON1 updates — lean, private, auditable.') | safe }}</li>
                         </ul>
                     </div>
                 </details>
@@ -272,5 +316,6 @@
     {% include 'includes/landing_footer.html' %}
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ landing_js_version|default('31') }}"></script>
     <script src="{{ url_for('static', filename='sandbox.js') }}?v={{ landing_js_version|default('31') }}"></script>
+    <script src="{{ url_for('static', filename='landing-demo.js') }}?v={{ landing_js_version|default('31') }}"></script>
 </body>
 </html>

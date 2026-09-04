@@ -4,7 +4,7 @@
 {%- if pane == 'history' -%}{{ gettext('Previous work') }}
 {%- elif pane == 'learn' -%}{{ gettext('Learn') }}
 {%- elif pane == 'library' -%}{{ gettext('Classes') }}
-{%- else -%}{{ gettext('Assure') }} — {{ gettext('The Intellectual Compiler') }}
+{%- else -%}{{ gettext('Assure') }} — {{ gettext('AI guesses. Assure proves.') }}
 {%- endif %}
 {% endblock %}
 {% block hero %}
@@ -20,8 +20,8 @@
       <h1 data-i18n="nav.library">{{ gettext('Prompt Library') }}</h1>
       <p class="lede" data-i18n="classes.lead">{{ gettext('Saved templates for Compose.') }}</p>
       {% else %}
-      <h1 data-i18n="jdf.hero.title">{{ gettext('Document engineering workbench') }}</h1>
-      <p class="lede" data-i18n="jdf.hero.lead">{{ gettext('Edit JDF nodes surgically, stream model output, and export verified documents.') }}</p>
+      <h1 data-i18n="jdf.hero.title">{{ gettext('Compile. Verify. Ship.') }}</h1>
+      <p class="lede" data-i18n="jdf.hero.lead">{{ gettext('Refine nodes, lock your numbers, and export verified documents.') }}</p>
       {% endif %}
     </div>
 {% endblock %}
@@ -68,9 +68,9 @@
             </div>
           </div>
           <div class="app-header-center app-trust-strip" aria-label="{{ gettext('Trust signals') }}">
-            <span data-i18n="landing.trust.z3">Z3 Symbolically Verified</span>
+            <span data-i18n="landing.trust.z3">{{ gettext('Math Check') }}</span>
             <span aria-hidden="true">·</span>
-            <span data-i18n="landing.trust.redhat">Red-Hat Adversarial Audited</span>
+            <span data-i18n="landing.trust.redhat">{{ gettext('Stress Tested') }}</span>
             <span aria-hidden="true">·</span>
             <span data-i18n="header.privacy">{{ gettext('Copy stays here. Send goes only to the provider you chose.') }}</span>
           </div>
@@ -127,8 +127,8 @@
             </div>
 
             <div id="view-generate" class="assure-view active">
-              <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile from Intent') }}</h3>
-              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a messy draft, upload a document, or describe your deliverable. The compiler will parse, structure, and verify it.') }}</p>
+              <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
+              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft, upload a file, or describe what you need.') }}</p>
               <label class="section" for="generate-intent" data-i18n="generate.intent_label">{{ gettext('What should this document cover?') }}</label>
               <div class="example-chips" role="group" aria-label="{{ gettext('Example intents') }}" data-i18n-aria="example.chips">
                 <button type="button" class="example-chip" data-prompt-key="example.executive_summary" data-i18n="example.executive_summary.label">{{ gettext('Executive Summary') }}</button>
@@ -136,14 +136,14 @@
                 <button type="button" class="example-chip" data-prompt-key="example.risk_assessment" data-i18n="example.risk_assessment.label">{{ gettext('Risk Assessment') }}</button>
               </div>
               <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder"></textarea>
-              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile JDF nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile Document') }}</button>
+              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile') }}</button>
               <div id="generate-stream-wrap" class="preview-box">
-                <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Compilation Progress') }}</p>
+                <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Working…') }}</p>
                 <pre id="generate-stream-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
               </div>
               <div id="generate-compiling" class="generate-compiling" hidden>
                 <span class="spinner" aria-hidden="true"></span>
-                <span data-i18n="generate.compiling">{{ gettext('Compiling AST & Inferring Locks…') }}</span>
+                <span data-i18n="generate.compiling">{{ gettext('Working…') }}</span>
               </div>
               <div id="generate-nodes-preview" class="generate-nodes-preview preview-box" hidden>
                 <p class="preview-label" data-i18n="generate.nodes_preview">{{ gettext('Compiled draft') }}</p>
@@ -156,7 +156,7 @@
                 </p>
                 <div id="gate-loader" class="gate-loader" hidden>
                   <span class="pulse-loader" aria-hidden="true"></span>
-                  <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Z3 Verification and DeepSeek-R1 Adversary…') }}</span>
+                  <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Math Check and Stress Test…') }}</span>
                 </div>
                 <p id="z3-status" class="gate-z3-status" hidden></p>
                 <details id="generate-locks-panel" class="generate-locks-panel">
@@ -175,10 +175,10 @@
             <div id="view-surgical" class="assure-view" hidden>
             <label class="jdf-redhat-toggle universal-redhat">
               <input type="checkbox" id="toggle-redhat" checked>
-              <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
+              <span data-i18n="jdf.redhat">{{ gettext('Stress Test') }}</span>
             </label>
             <div class="demo-chip-container">
-              <button type="button" id="demo-redhat-btn" class="demo-chip" role="button" tabindex="0" data-i18n="demo.redhat.label">{{ gettext('🔴 See Red-Hat in Action') }}</button>
+              <button type="button" id="demo-redhat-btn" class="demo-chip" role="button" tabindex="0" data-i18n="demo.redhat.label">{{ gettext('🔴 See Stress Test in Action') }}</button>
               <span class="demo-chip-hint" data-i18n="demo.redhat.hint">{{ gettext('Try it on a sample paragraph') }}</span>
             </div>
 
@@ -284,8 +284,8 @@
             </div>
 
             <div id="surgical-mode" class="work-mode-panel active" data-mode-panel="surgical">
-              <h3 class="jdf-pane-title" data-i18n="refine.title">{{ gettext('Refine Node (Context-Locked)') }}</h3>
-              <p class="hint" data-i18n="refine.lead">{{ gettext('Select a node on the canvas. Edits apply only to that node_id with locked ledger context.') }}</p>
+              <h3 class="jdf-pane-title" data-i18n="refine.title">{{ gettext('Refine a Node') }}</h3>
+              <p class="hint" data-i18n="refine.lead">{{ gettext('Select a node on the canvas. Your edit stays locked to that section — nothing else drifts.') }}</p>
               <p id="aperture-indicator" class="jdf-surgical-mode pill pill-neutral" hidden>
                 <span data-i18n="jdf.surgical.mode">{{ gettext('Refine target') }}:</span>
                 <span id="active-target-id">—</span>
@@ -293,11 +293,11 @@
               </p>
               <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
               <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input refine-input draft-textarea auto-resize" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="refine.placeholder">
-              <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refactor') }}</p>
+              <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refine') }}</p>
             </div>
 
             <div class="inquiry-controls">
-              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Refactor Node') }}</button>
+              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Refine') }}</button>
               <button type="button" class="btn btn-primary dock-btn" id="btn-dock-draft" hidden data-i18n="compose.dock_button">{{ gettext('📤 Dock to Canvas') }}</button>
             </div>
             <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
@@ -306,21 +306,21 @@
               <pre id="jdf-live-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
             </div>
             <div id="redhat-findings-wrap" hidden>
-              <p class="preview-label" data-i18n="jdf.redhat.findings">{{ gettext('Red-hat findings') }}</p>
+              <p class="preview-label" data-i18n="jdf.redhat.findings">{{ gettext('Stress Test Alert') }}</p>
               <div id="redhat-findings"></div>
             </div>
             <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
             </div><!-- #view-surgical -->
           </aside>
           <main class="right-pane" id="jdf-document-canvas">
-            <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Document canvas') }}</h3>
+            <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Verified Document') }}</h3>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
           </main>
         </div>
         <footer class="command-deck">
           <div class="command-deck-left">
             <span id="compiler-status" class="compiler-status compiler-idle" aria-live="polite" role="status">
-              <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('● Idle') }}</span>
+              <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('● Ready') }}</span>
               <span id="compiler-status-detail" hidden></span>
             </span>
             <span id="version-display" class="visually-hidden" aria-hidden="true">1</span>
@@ -328,7 +328,7 @@
           <div class="command-deck-right">
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
-            <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Build Artifact') }}</a>
+            <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Export') }}</a>
           </div>
         </footer>
       </section>

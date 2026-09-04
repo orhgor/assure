@@ -40,10 +40,15 @@ assure = "prompt_matrix.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "asgiref>=3.7.0",
     "pytest-playwright>=0.5.0",
     "playwright>=1.49.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "bandit>=1.7.0",
+    "pre-commit>=3.8.0",
 ]
 textract = [
     "pdf2image>=1.16.0",
@@ -58,3 +63,40 @@ include = ["prompt_matrix*"]
 
 [tool.setuptools.package-data]
 prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*", "examples/*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+    ".venv",
+    "prompt_matrix/static/sentry.bundle.js",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["I"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_ignores = false
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+exclude = ["tests/", "prompt_matrix/swarm.py"]
+
+[[tool.mypy.overrides]]
+module = [
+    "prompt_matrix.db.*",
+    "prompt_matrix.ledger.*",
+    "prompt_matrix.cost_governance",
+    "prompt_matrix.lib.logger",
+]
+check_untyped_defs = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]

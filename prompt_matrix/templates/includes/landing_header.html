@@ -1,5 +1,5 @@
 {# nav_current: "landing" | "architecture" #}
-<a class="skip-link" href="#main-content">Skip to content</a>
+<a class="skip-link" href="#main-content" data-i18n="landing.skip">Skip to content</a>
 <header class="site-header">
     <div class="container nav-container">
         <a href="/" class="logo logo-brand">
@@ -11,14 +11,14 @@
                 <span class="logo-name">{{ brand.name }}</span>
             </span>
         </a>
-        <nav class="nav-links is-collapsed" id="landing-nav-links" aria-label="Primary">
+        <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">Menu</button>
             <a href="{% if nav_current|default('landing') == 'landing' %}#glossary{% else %}/#glossary{% endif %}" data-i18n="landing.nav.docs">Docs</a>
             <a href="/architecture"{% if nav_current|default('landing') == 'architecture' %} aria-current="page"{% endif %} data-i18n="landing.nav.architecture">Architecture</a>
             <a href="{% if nav_current|default('landing') == 'landing' %}#sandbox{% else %}/#sandbox{% endif %}" data-i18n="landing.nav.sandbox">Sandbox</a>
             <label class="landing-lang-wrap" for="landing-lang">
-                <span class="visually-hidden">Language</span>
-                <select id="landing-lang" class="landing-lang-select" aria-label="Language">
+                <span class="visually-hidden" data-i18n="landing.lang">Language</span>
+                <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="Language">
                     {% for code, label in languages.items() %}
                     <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}

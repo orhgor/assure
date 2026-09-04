@@ -3,6 +3,14 @@
 
   var strings = window.__assureLandingStrings || {};
 
+  function interpolate(s, vars) {
+    if (!s || !vars) return s;
+    Object.keys(vars).forEach(function (k) {
+      s = String(s).replace(new RegExp("\\{" + k + "\\}", "g"), String(vars[k]));
+    });
+    return s;
+  }
+
   function t(key, fallback) {
     return (strings && strings[key]) || fallback || key;
   }
@@ -19,6 +27,9 @@
     });
     document.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
       el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria"), el.getAttribute("aria-label") || ""));
+    });
+    document.querySelectorAll("[data-i18n-label]").forEach(function (el) {
+      el.setAttribute("data-label", t(el.getAttribute("data-i18n-label"), el.getAttribute("data-label") || ""));
     });
   }
 
@@ -64,7 +75,7 @@
   });
 
   window.__assureT = t;
-  window.__assureTf = function (key, fallback) {
-    return t(key, fallback);
+  window.__assureTf = function (key, fallback, vars) {
+    return interpolate(t(key, fallback), vars);
   };
 })();

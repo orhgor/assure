@@ -65,7 +65,7 @@
     if (audit.redhat_count > 0) {
       return t(
         "audit.gate.review",
-        "Pre-Flight Gate — {n} Red-Hat finding(s) require review.",
+        "Pre-Flight Gate — {n} stress test finding(s) require review.",
         { n: audit.redhat_count }
       );
     }
@@ -89,10 +89,10 @@
 
   function z3StatusLabel(z3Status) {
     if (z3Status === "PASS") {
-      return t("jdf.truth.pass", "✅ Proof Passing").replace(/^[^\w]+/, "").trim() || "Proof Passing";
+      return t("jdf.truth.pass", "✅ Verified").replace(/^[^\w]+/, "").trim() || "Verified";
     }
     if (z3Status === "VIOLATION") {
-      return t("jdf.truth.fail", "❌ Build Failing").replace(/^[^\w]+/, "").trim() || "Build Failing";
+      return t("jdf.truth.fail", "❌ Issues Found").replace(/^[^\w]+/, "").trim() || "Issues Found";
     }
     return z3Status || "Checked";
   }
@@ -101,14 +101,14 @@
     var lockCount = audit.lock_count != null ? audit.lock_count : (audit.locks || []).length;
     return t(
       "audit.z3.badge",
-      "🛡️ Z3 Ledger: {locks} Variable{plural} {status}",
+      "🛡️ Math Check: {locks} number{plural} {status}",
       { locks: lockCount, plural: plural(lockCount), status: z3StatusLabel(audit.z3_status) }
     );
   }
 
   function redhatBadgeText(audit) {
     var n = audit.redhat_count || 0;
-    return t("audit.redhat.badge", "🔍 Red-Hat: {n} Logic Gap{plural}", { n: n, plural: plural(n) });
+    return t("audit.redhat.badge", "🔍 Stress Test: {n} gap{plural}", { n: n, plural: plural(n) });
   }
 
   function updateZ3Badge(el, data) {
@@ -145,17 +145,16 @@
       z3El.hidden = false;
       z3El.className = "gate-z3-status " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
       if (status === "PASS") {
-        z3El.textContent =
-          t("generate.z3.pass", "Z3 verification passed.") +
+        z3El.textContent = t("generate.z3.pass", "✅ Verified") +
           (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
         syncCompilerStatus("verified");
         triggerLockAnimation(document.getElementById("compiler-status"));
       } else if (status === "VIOLATION") {
         var viol = (z3.violations || []).join(" ");
-        z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
+        z3El.textContent = t("generate.z3.fail", "❌ Issues Found") + (viol ? " " + viol : "");
         syncCompilerStatus("issues");
       } else {
-        z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
+        z3El.textContent = t("generate.z3.skipped", "Math check skipped.");
       }
     }
 
@@ -169,7 +168,7 @@
           var li = document.createElement("li");
           var title = document.createElement("div");
           title.className = "redhat-preview-title";
-          title.textContent = c.title || t("jdf.redhat.findings", "Red-hat findings");
+          title.textContent = c.title || t("jdf.redhat.findings", "Stress Test Alert");
           var body = document.createElement("div");
           body.textContent = c.content || "";
           li.appendChild(title);
@@ -183,10 +182,10 @@
   }
 
   var PROGRESS_KEYS = [
-    ["audit.progress.compile", "Compiling JDF AST…"],
+    ["audit.progress.compile", "Working…"],
     ["audit.progress.locks", "Inferring truth-ledger locks…"],
-    ["audit.progress.z3", "Running Z3 verification…"],
-    ["audit.progress.redhat", "Red-Hat adversarial audit…"],
+    ["audit.progress.z3", "Running math check…"],
+    ["audit.progress.redhat", "Running stress test…"],
   ];
 
   var isFirstVerification = true;

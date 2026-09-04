@@ -347,25 +347,25 @@
       '<div class="jdf-canvas-empty-arrow" aria-hidden="true">←</div>' +
       '<div class="jdf-canvas-empty-body">' +
       "<h3>" +
-      jdfT("jdf.canvas.empty.title", "Your Document Workspace") +
+      jdfT("jdf.canvas.empty.title", "Start with an idea.") +
       "</h3>" +
       "<p>" +
       jdfT(
         "jdf.canvas.empty.lead",
-        "Ingest a PDF, write an intent, or open an existing project. The compiler will structure every paragraph into a version-controlled node."
+        "Paste a draft, upload a file, or describe what you need. Assure structures and verifies every section."
       ) +
       "</p>" +
-      (jdfHasText("jdf.canvas.empty.hint", "Start in the left panel — open Compile, paste an intent, or upload a source document.")
+      (jdfHasText("jdf.canvas.empty.hint", "Open Compile in the left panel to begin.")
         ? '<p class="jdf-canvas-empty-hint" data-i18n="jdf.canvas.empty.hint">' +
           jdfT(
             "jdf.canvas.empty.hint",
-            "Start in the left panel — open Compile, paste an intent, or upload a source document."
+            "Open Compile in the left panel to begin."
           ) +
           "</p>"
         : "") +
-      (jdfHasText("jdf.canvas.empty_instruction", "Open Compile, paste an intent, or upload a source document to begin.")
+      (jdfHasText("jdf.canvas.empty_instruction", "Open Compile, paste your intent, or upload a source file.")
         ? '<p class="jdf-canvas-empty-instruction" data-i18n="jdf.canvas.empty_instruction">' +
-          jdfT("jdf.canvas.empty_instruction", "Open Compile, paste an intent, or upload a source document to begin.") +
+          jdfT("jdf.canvas.empty_instruction", "Open Compile, paste your intent, or upload a source file.") +
           "</p>"
         : "") +
       "</div>";
@@ -436,7 +436,7 @@
     var fallbacks = {
       "jdf.save.unsaved": "◌ Unsaved",
       "jdf.save.ready": "◌ Unsaved",
-      "jdf.status.compiling": "⬡ Compiling...",
+      "jdf.status.compiling": "⬡ Working…",
       "jdf.status.committed": "● Committed (v{version})",
       "jdf.save.saving": "Saving…",
       "jdf.save.saved": "Saved",
@@ -545,7 +545,7 @@
     } else if (status === "FAIL") {
       this.currentVerificationState = "issues";
       this._compilerIssueCount = violationCount || 1;
-      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "⚠️ Issues Found"));
+      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "❌ Issues Found"));
     } else {
       this.currentVerificationState = null;
       if (!this.isStreaming) {
@@ -744,7 +744,7 @@
     this.render();
     if (opts.toast !== false && global.AssureToast) {
       global.AssureToast.show(
-        jdfT("jdf.refine.selected", "Node selected for context-locked refine."),
+        jdfT("jdf.refine.selected", "Node selected for refine."),
         "info"
       );
     }
@@ -1190,7 +1190,7 @@
         var step = data && data.step;
         var message = data && data.message;
         if (step === 3 || (data && data.stage === "redhat")) {
-          self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
+          self.setStreamStatus(3, "jdf.stream.redhat", "Running stress test…", message);
         } else if (step === 2 || (data && data.stage === "verify")) {
           self.setStreamStatus(2, "jdf.stream.verifying", "Verifying numbers…", message);
           self.startVerifyTimeout(function () {
@@ -1308,7 +1308,7 @@
             self.inquire((intentEl && intentEl.value) || "Revise document", redhatEl && redhatEl.checked);
           });
         } else if (step === 3 || (data && data.stage === "redhat")) {
-          self.setStreamStatus(3, "jdf.stream.redhat", "Red-Hat audit…", message);
+          self.setStreamStatus(3, "jdf.stream.redhat", "Running stress test…", message);
         } else if (step === 4 || (data && data.stage === "ready")) {
           self.setStreamStatus(4, "jdf.stream.ready", "Ready to dock", message);
         } else if (message) {

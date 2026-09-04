@@ -12,7 +12,17 @@ import uuid
 import webbrowser
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, send_from_directory, session
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+)
 
 try:
     from .engine import (
@@ -132,6 +142,7 @@ def _sentry_browser_dsn() -> str:
         return _DEFAULT_SENTRY_BROWSER_DSN
     return ""
 
+
 try:
     from .waitlist import (
         DuplicateWaitlistError,
@@ -154,12 +165,12 @@ BRAND = {
     "name": "Assure",
     "category": "The Intellectual Compiler",
     "tagline": "Compile intent. Verify logic. Ship truth.",
-    "page_title": "Assure — The Intellectual Compiler",
+    "page_title": "Assure — AI guesses. Assure proves.",
     "meta_description": (
-        "Assure is the first Intellectual Compiler — turning raw intent, messy documents, "
-        "and unstructured data into mathematically verified, auditable deliverables."
+        "Traditional AI is a black box that makes things up. Assure uses formal logic "
+        "to turn raw chaos into mathematically airtight deliverables."
     ),
-    "architecture_title": "Architecture Deep-Dive · Assure — The Intellectual Compiler",
+    "architecture_title": "Architecture · Assure — The Intellectual Compiler",
     "architecture_meta_description": (
         "Why flat text fails and how Assure uses JDF AST modular execution trees, "
         "Z3 SMT verification, and a six-stage pipeline for mathematical certainty."
@@ -313,7 +324,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from history import close_db
 
     app.teardown_appcontext(close_db)
-    app.secret_key = os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
+    app.secret_key = (
+        os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
+    )
     app.config["BABEL_DEFAULT_LOCALE"] = "en"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(PACKAGE_DIR / "translations")
     try:
@@ -321,9 +334,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         Babel = None
     try:
-        from .i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+        from .i18n import (
+            EN,
+            LOCALES,
+            LOCALE_LABELS,
+            catalog as string_catalog,
+            friendly_error,
+            normalize_locale,
+        )
     except ImportError:
-        from i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+        from i18n import (
+            EN,
+            LOCALES,
+            LOCALE_LABELS,
+            catalog as string_catalog,
+            friendly_error,
+            normalize_locale,
+        )
     try:
         from .web_ui import protect_app
     except ImportError:
@@ -363,6 +390,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             return string_catalog(_locale()).get(key, message)
         if Babel is not None:
             from flask_babel import gettext as babel_gettext
+
             return babel_gettext(message)
         return message
 
@@ -713,7 +741,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 origin=request.host_url.rstrip("/"),
             )
         except BillingError as exc:
-            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+            return jsonify(
+                {"error": string_catalog(_locale()).get("billing.missing") or str(exc)}
+            ), 400
         return jsonify({"url": url})
 
     @app.post("/api/billing/portal")
@@ -728,7 +758,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
         try:
             url = create_portal_url(user_id=user_id, origin=request.host_url.rstrip("/"))
         except BillingError as exc:
-            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+            return jsonify(
+                {"error": string_catalog(_locale()).get("billing.missing") or str(exc)}
+            ), 400
         return jsonify({"url": url})
 
     @app.post("/api/webhooks/stripe")
@@ -1126,17 +1158,25 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except MatrixError as exc:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         except RecursionError:
-            return jsonify({"error": friendly_error(
-                "Could not search those file paths. Remove * and ** from the question, "
-                "or put paths only in Extra context.",
-                _locale(),
-            )}), 400
+            return jsonify(
+                {
+                    "error": friendly_error(
+                        "Could not search those file paths. Remove * and ** from the question, "
+                        "or put paths only in Extra context.",
+                        _locale(),
+                    )
+                }
+            ), 400
         except OSError:
-            return jsonify({"error": friendly_error(
-                "Could not search those file paths. Remove * and ** from the question, "
-                "or put paths only in Extra context.",
-                _locale(),
-            )}), 400
+            return jsonify(
+                {
+                    "error": friendly_error(
+                        "Could not search those file paths. Remove * and ** from the question, "
+                        "or put paths only in Extra context.",
+                        _locale(),
+                    )
+                }
+            ), 400
 
         try:
             from .linter import lint_prompt
@@ -1149,9 +1189,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from editions import snapshot
         try:
-            from .quality import audit_spans, confidence_text, models_from_steps, models_used_from_steps
+            from .quality import (
+                audit_spans,
+                confidence_text,
+                models_from_steps,
+                models_used_from_steps,
+            )
         except ImportError:
-            from quality import audit_spans, confidence_text, models_from_steps, models_used_from_steps
+            from quality import (
+                audit_spans,
+                confidence_text,
+                models_from_steps,
+                models_used_from_steps,
+            )
         models = models_from_steps(result.steps, result.target_ai)
         models_used = models_used_from_steps(result.steps)
         qdict = dict(result.quality) if isinstance(result.quality, dict) else {}
@@ -1208,7 +1258,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 },
             }
         )
-
 
     @app.post("/api/tester-feedback")
     def handle_tester_feedback():

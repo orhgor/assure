@@ -147,6 +147,7 @@ class AuditLogger:
 
 def get_audit_logger() -> AuditLogger:
     global _audit_singleton
-    if _audit_singleton is None:
-        _audit_singleton = AuditLogger()
+    path = resolve_db_path()
+    if _audit_singleton is None or _audit_singleton.db_path != path:
+        _audit_singleton = AuditLogger(db_path=path)
     return _audit_singleton

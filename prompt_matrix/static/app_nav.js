@@ -205,10 +205,11 @@
       el.className = "compiler-status compiler-" + this.currentState;
 
       var defaults = {
-        idle: ["compiler.status.idle", "● Idle"],
-        processing: ["compiler.status.processing", "⬡ Processing…"],
+        idle: ["compiler.status.idle", "● Ready"],
+        processing: ["compiler.status.processing", "⬡ Working…"],
         verified: ["compiler.status.verified", "✅ Verified"],
-        issues: ["compiler.status.issues", "⚠️ Issues Found"],
+        issues: ["compiler.status.issues", "❌ Issues Found"],
+        exporting: ["compiler.status.exporting", "⬡ Exporting…"],
       };
       var pair = defaults[this.currentState] || defaults.idle;
       label.textContent = detail != null && detail !== "" ? detail : translate(pair[0], pair[1]);
@@ -387,6 +388,18 @@
 
       AssureStatus.init();
       updateCompilerStatus("idle");
+
+      var exportBtn = $("btn-export-docx");
+      if (exportBtn) {
+        exportBtn.addEventListener("click", function () {
+          AssureCompilerStatus.update("exporting");
+          window.setTimeout(function () {
+            if (AssureCompilerStatus.currentState === "exporting") {
+              AssureCompilerStatus.update("idle");
+            }
+          }, 4000);
+        });
+      }
 
       if (isMobileNav()) {
         setSidebarOpen(layout, false);
@@ -594,7 +607,7 @@
       AssureToast.show(
         translate(
           "demo.redhat.toast",
-          'Red-Hat flagged a logical gap: "Growth rate benchmark is unverified — no industry average provided." Try it with your own documents.'
+          'Stress Test flagged a logical gap: "Growth rate benchmark is unverified — no industry average provided." Try it with your own documents.'
         ),
         "info"
       );

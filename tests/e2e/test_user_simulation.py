@@ -11,7 +11,7 @@ model API keys and without Clerk (Flask ``require_auth=False``).
 Run locally:
   uv sync --extra dev
   uv run playwright install chromium   # skip if ENOSPC; conftest uses system Chrome
-  uv run pytest tests/test_user_simulation.py -v --tb=short --tb=short
+  uv run pytest tests/e2e/test_user_simulation.py -v --tb=short
 
 Optional: ASSURE_BASE_URL=http://127.0.0.1:8765 pytest ...  (skip embedded server)
 """
@@ -106,9 +106,7 @@ def _goto_workbench(page, base_url: str, *, wait_canvas: bool = True):
         page.wait_for_function(
             "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'"
         )
-        page.wait_for_function(
-            "() => !document.body.classList.contains('onboarding-active')"
-        )
+        page.wait_for_function("() => !document.body.classList.contains('onboarding-active')")
         page.evaluate(
             "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
         )

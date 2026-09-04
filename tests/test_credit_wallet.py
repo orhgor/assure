@@ -70,7 +70,9 @@ class CreditGuardTests(unittest.TestCase):
     def test_skip_without_clerk(self):
         from prompt_matrix.credit_guard import assert_has_credit, check_and_deduct
 
-        with patch.dict(os.environ, {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""}, clear=False):
+        with patch.dict(
+            os.environ, {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""}, clear=False
+        ):
             assert_has_credit("user_abc")
             check_and_deduct("user_abc")
 
@@ -166,8 +168,8 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"Intellectual Compiler", res.data)
-        self.assertIn(b"Deterministic Document Execution", res.data)
+        self.assertIn(b"AI guesses. Assure proves.", res.data)
+        self.assertIn(b"Assure \xe2\x80\x94 The Intellectual Compiler", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
 
     def test_landing_turkish_brand_option2(self):
@@ -182,10 +184,33 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/?lang=tr")
         self.assertEqual(res.status_code, 200)
+        self.assertIn("Yapay zeka tahmin eder".encode(), res.data)
         self.assertIn("Zihinsel Derleyici".encode(), res.data)
-        self.assertIn("Deterministik Belge Yürütme".encode(), res.data)
         self.assertNotIn(b"The Intellectual Compiler", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
+        self.assertNotIn(b"The Problem Statement", res.data)
+        self.assertIn("Araştırmacı gazeteci".encode(), res.data)
+        self.assertIn("Akademisyen".encode(), res.data)
+        self.assertIn(b"Hukuk ve M&amp;A", res.data)
+        self.assertIn(b"lw-workbench", res.data)
+
+    def test_landing_persona_demo_markup(self):
+        from prompt_matrix.ui_cache import LANDING_JS
+        from prompt_matrix.web import create_app
+
+        with patch.dict(
+            os.environ,
+            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": "", "PEM_HTTP_PASS": ""},
+            clear=False,
+        ):
+            app = create_app(require_auth=False)
+            with app.test_client() as client:
+                res = client.get("/")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'class="lw-workbench"', res.data)
+        self.assertIn(b"landing-demo.js?v=" + LANDING_JS.encode(), res.data)
+        self.assertIn(b'data-set="legal"', res.data)
+        self.assertNotIn(b"hero-comparison", res.data)
 
     def test_workbench_header_assure_only(self):
         from prompt_matrix.web import create_app
@@ -232,7 +257,7 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/account/usage")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"data-i18n=\"usage.title\"", res.data)
+        self.assertIn(b'data-i18n="usage.title"', res.data)
 
     def test_settings_get_without_clerk(self):
         from prompt_matrix.web import create_app

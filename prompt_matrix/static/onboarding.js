@@ -21,13 +21,13 @@
     {
       selector: "#compiler-status",
       i18n: "onboarding.step3",
-      fallback: "Watch verification status here — Idle, Processing, Verified, or Issues Found.",
+      fallback: "Watch verification status here — Ready, Working, Verified, or Issues Found.",
     },
     {
       selector: "#toggle-redhat",
       i18n: "onboarding.step4",
       fallback:
-        "Red-Hat is an automated devil's advocate. Enable it to catch logical gaps before your client does.",
+        "Stress Test is an automated devil's advocate. Enable it to catch logical gaps before your client does.",
       prepare: function () {
         if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
           global.AssureNav.switchView("surgical", { replaceHash: false, persist: true });

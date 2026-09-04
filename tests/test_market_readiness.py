@@ -83,7 +83,7 @@ class ComposeMarkupTests(unittest.TestCase):
         self.assertIn('id="view-generate"', html)
         self.assertIn('id="generate-compile-btn"', html)
         self.assertIn('data-tool="generate"', html)
-        self.assertIn('data-tooltip=', html)
+        self.assertIn("data-tooltip=", html)
         self.assertIn('id="task"', html)
         self.assertIn('id="live-preview"', html)
         self.assertIn('id="intent-chips"', html)
@@ -236,7 +236,9 @@ class LandingTests(unittest.TestCase):
         self.assertIn("Do not say", obj)
 
     def test_terms_and_domain(self):
-        self.assertEqual((ROOT / "landing" / "CNAME").read_text(encoding="utf-8").strip(), "getassureai.com")
+        self.assertEqual(
+            (ROOT / "landing" / "CNAME").read_text(encoding="utf-8").strip(), "getassureai.com"
+        )
         self.assertIn("getassureai.com", (ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         terms = (ROOT / "landing" / "terms.html").read_text(encoding="utf-8")
         self.assertIn("Answers can be wrong", terms)
@@ -257,7 +259,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("pem --ci", text)
         self.assertIn("pem eval", text)
         self.assertIn("python -m unittest", text)
-        self.assertNotIn("pytest", text)
+        self.assertIn("pytest", text)
+        self.assertIn("ruff check", text)
 
 
 class ExecuteCopyTests(unittest.TestCase):
@@ -320,7 +323,6 @@ class ComposePageTests(unittest.TestCase):
         self.assertEqual(data["intent"], "comparison")
         self.assertTrue(data["prompt"])
 
-
     def test_terms_page_renders(self):
         from prompt_matrix.web import create_app
 
@@ -347,7 +349,9 @@ class FirstRunTests(unittest.TestCase):
         from prompt_matrix.web import first_open_url, lan_bind_with_default_password
 
         with patch("prompt_matrix.web.send_ready", return_value=False):
-            self.assertEqual(first_open_url("http://127.0.0.1:8765"), "http://127.0.0.1:8765/connect")
+            self.assertEqual(
+                first_open_url("http://127.0.0.1:8765"), "http://127.0.0.1:8765/connect"
+            )
         with patch("prompt_matrix.web.send_ready", return_value=True):
             self.assertEqual(first_open_url("http://127.0.0.1:8765"), "http://127.0.0.1:8765")
 
@@ -374,7 +378,9 @@ class FirstRunTests(unittest.TestCase):
             self.assertTrue(http_auth_required("127.0.0.1"))
 
         app = create_app(require_auth=False)
-        with patch.dict(os.environ, {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""}, clear=False):
+        with patch.dict(
+            os.environ, {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""}, clear=False
+        ):
             res = app.test_client().get("/")
         self.assertEqual(res.status_code, 200)
 

@@ -366,7 +366,7 @@
           if (gateBanner) gateBanner.hidden = false;
           self.setGateLoading(
             true,
-            t("generate.gate.auditing", "Running Z3 Verification and DeepSeek-R1 Adversary…")
+            t("generate.gate.auditing", "Running Math Check and Stress Test…")
           );
           self.startVerifyTimeout();
           return;
@@ -596,7 +596,7 @@
             var li = document.createElement("li");
             var title = document.createElement("div");
             title.className = "redhat-preview-title";
-            title.textContent = c.title || t("jdf.redhat.findings", "Red-hat findings");
+            title.textContent = c.title || t("jdf.redhat.findings", "Stress Test Alert");
             var body = document.createElement("div");
             body.textContent = c.content || "";
             li.appendChild(title);
