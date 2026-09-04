@@ -9,6 +9,7 @@ from prompt_matrix.services.language_guard import (
     append_language_instruction,
     build_messages_with_language_guard,
     ensure_response_language,
+    get_language_instruction,
     guard_messages,
     is_json_response_mode,
     locale_to_language_name,
@@ -35,10 +36,28 @@ class LanguageGuardTests(unittest.TestCase):
         self.assertTrue(out.startswith("You are Assure."))
         self.assertIn("Turkish", out)
         self.assertIn("HARD LANGUAGE RULE", out)
+        self.assertIn("Her zaman Türkçe yanıt ver.", out)
 
     def test_append_language_instruction_empty_system(self):
         out = append_language_instruction("", "fr")
-        self.assertEqual(out, LANGUAGE_SYSTEM_INSTRUCTION.format(language="French"))
+        self.assertIn("Réponds toujours en français.", out)
+        self.assertIn(LANGUAGE_SYSTEM_INSTRUCTION.format(language="French"), out)
+
+    def test_get_language_instruction_all_seven(self):
+        self.assertEqual(get_language_instruction("en"), "Always respond in English.")
+        self.assertEqual(get_language_instruction("tr"), "Her zaman Türkçe yanıt ver.")
+        self.assertEqual(get_language_instruction("es"), "Responde siempre en español.")
+        self.assertEqual(get_language_instruction("fr"), "Réponds toujours en français.")
+        self.assertEqual(get_language_instruction("de"), "Antworte immer auf Deutsch.")
+        self.assertEqual(get_language_instruction("ja"), "常に日本語で応答してください。")
+        self.assertEqual(get_language_instruction("zh"), "请始终用中文回复。")
+        self.assertEqual(get_language_instruction("unknown"), "Always respond in English.")
+
+    def test_append_language_instruction_idempotent(self):
+        once = append_language_instruction("You are Assure.", "tr")
+        twice = append_language_instruction(once, "tr")
+        self.assertEqual(once, twice)
+        self.assertEqual(once.count("HARD LANGUAGE RULE"), 1)
 
     def test_build_messages_with_language_guard(self):
         msgs = build_messages_with_language_guard("System base.", "User question.", locale="de")
