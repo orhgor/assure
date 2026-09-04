@@ -347,6 +347,8 @@
     setSummaryVisible: function (on) {
       var el = $("compilation-summary");
       if (el) el.hidden = !on;
+      var controls = $("generate-draft-controls");
+      if (controls) controls.hidden = !on;
     },
 
     resetUi: function () {

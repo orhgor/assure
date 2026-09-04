@@ -1619,10 +1619,24 @@ body:has(#assure-app) .shell {
   color: var(--color-text, var(--text));
 }
 
-.compile-status-bar {
+.draft-controls {
+  display: flex;
+  gap: var(--space-sm, 8px);
+  margin: var(--space-sm, 8px) 0;
+}
+
+.draft-controls[hidden] {
+  display: none;
+}
+
+#compilation-summary.compile-status-bar {
+  display: block;
   flex-shrink: 0;
-  margin-top: var(--space-xs, 4px);
-  margin-bottom: var(--space-sm, 8px);
+  margin-top: 0;
+}
+
+#compilation-summary.compile-status-bar[hidden] {
+  display: none;
 }
 
 .compile-status-row {
