@@ -131,12 +131,12 @@ class BindModelTests(unittest.TestCase):
     def test_pricing_key(self):
         target, model = bind_model("gemini-1.5-pro")
         self.assertEqual(target, "gemini")
-        self.assertEqual(model, "gemini/gemini-3.5-flash")
+        self.assertEqual(model, "gemini/gemini-3.6-flash")
 
     def test_flash_send_id(self):
         target, model = bind_model("gemini-1.5-flash")
         self.assertEqual(target, "gemini")
-        self.assertEqual(model, "gemini/gemini-3.5-flash-lite")
+        self.assertEqual(model, "gemini/gemini-3.6-flash")
 
     def test_litellm_id(self):
         target, model = bind_model("anthropic/claude-3-haiku-20240307")

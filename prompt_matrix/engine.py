@@ -86,7 +86,7 @@ TARGET_ALIASES = {
 
 DEFAULT_MODELS = {
     "claude": "anthropic/claude-sonnet-4-5",
-    "gemini": "gemini/gemini-3.5-flash",
+    "gemini": "gemini/gemini-3.6-flash",
     "deepseek": "deepseek/deepseek-chat",
     "kimi": "moonshot/kimi-k2.5",
     "ollama": "ollama/llama3.2",

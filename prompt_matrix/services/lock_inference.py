@@ -19,7 +19,7 @@ except ImportError:
 
 MIN_CONFIDENCE = 0.7
 TEXT_MODEL = "deepseek/deepseek-chat"
-VISION_MODEL = "gemini/gemini-1.5-pro"
+VISION_MODEL = "gemini/gemini-3.6-flash"
 
 _SYSTEM = (
     "You extract numerical and factual assertions for a truth ledger. "

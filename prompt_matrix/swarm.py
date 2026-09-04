@@ -78,11 +78,11 @@ except ImportError:
 ROLES = ("architect", "developer", "reviewer", "tester", "documenter")
 
 DEFAULT_ROLE_MODELS = {
-    "architect": "gemini-1.5-pro",
-    "developer": "deepseek-chat",
-    "reviewer": "claude-3-5-sonnet-20240620",
-    "tester": "gemini-1.5-flash",
-    "documenter": "claude-3-haiku-20240307",
+    "architect": "gemini/gemini-3.6-flash",
+    "developer": "deepseek/deepseek-chat",
+    "reviewer": "anthropic/claude-sonnet-4-5",
+    "tester": "gemini/gemini-3.6-flash",
+    "documenter": "anthropic/claude-sonnet-4-5",
 }
 
 ROLE_INTENTS = {

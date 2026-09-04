@@ -74,25 +74,29 @@ TARGET_FOR = {
 }
 
 LITELLM_FOR = {
-    "gemini-1.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini-1.5-pro": "gemini/gemini-3.5-flash",
+    "gemini-1.5-flash": "gemini/gemini-3.6-flash",
+    "gemini-1.5-pro": "gemini/gemini-3.6-flash",
     "deepseek-chat": "deepseek/deepseek-chat",
     "claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
     "claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
     "kimi-moonshot-v1": "moonshot/kimi-k2.5",
 }
 
-# Gemini 1.5 is retired on v1beta. gemini-3.6-flash is a separate quota pool that
-# 429s after the free generateContent cap. These ids still Send on this key.
-# claude-3-haiku-20240307 404s on current Anthropic workspaces; documenter Sends Haiku 4.5.
+# Retired model rewrites — map any stale model id to a live one before the API call.
+# claude-3-haiku-20240307 and claude-3-5-sonnet-20241022 404 on current Anthropic workspaces.
+# All pre-3.6 Gemini models are retired on the v1beta generateContent endpoint.
 SEND_REWRITES = {
-    "gemini/gemini-1.5-pro": "gemini/gemini-3.5-flash",
-    "gemini/gemini-1.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini/gemini-2.0-flash": "gemini/gemini-3.5-flash",
-    "gemini/gemini-2.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini/gemini-2.5-pro": "gemini/gemini-3.5-flash",
-    "gemini/gemini-3.6-flash": "gemini/gemini-3.5-flash",
+    "gemini/gemini-1.5-pro": "gemini/gemini-3.6-flash",
+    "gemini/gemini-1.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.0-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.5-pro": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.5-flash-lite": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.7-flash": "gemini/gemini-3.6-flash",
     "anthropic/claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
+    "anthropic/claude-3-5-sonnet-20241022": "anthropic/claude-sonnet-4-5",
+    "anthropic/claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
 }
 
 _model_override: ContextVar[tuple[str, str] | None] = ContextVar("pem_cost_model", default=None)
