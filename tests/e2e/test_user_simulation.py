@@ -379,6 +379,39 @@ def test_beforeunload_fires_when_prompt_unsaved(workbench_page):
     _expect_beforeunload(page)
 
 
+def test_project_switch_confirms_when_prompt_unsaved(workbench_page):
+    """Switching projects with a dirty compile prompt must confirm first."""
+    page = workbench_page
+    dialogs: list[str] = []
+
+    def _on_dialog(dialog) -> None:
+        dialogs.append(dialog.message)
+        dialog.dismiss()
+
+    page.on("dialog", _on_dialog)
+    page.locator(COMPILE_INPUT).fill(COMPLEX_PROMPT)
+    page.wait_for_function("() => window.hasUnsavedChanges === true", timeout=10_000)
+    created = page.evaluate(
+        """async () => {
+          const r = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ title: 'Unsaved Guard' }),
+          });
+          return r.json();
+        }"""
+    )
+    assert created.get("ok") and created.get("id")
+    page.evaluate(
+        "(id) => window.AssureProjects.switchTo(id)",
+        created["id"],
+    )
+    page.wait_for_function("() => window.__ASSURE_PROJECT_ID__ === 'default'", timeout=5_000)
+    assert dialogs, "expected unsaved-changes confirm on project switch"
+    assert page.locator(COMPILE_INPUT).input_value() == COMPLEX_PROMPT
+
+
 # ---------------------------------------------------------------------------
 # 3. Red-Hat audit & refine loop (mocked SSE + real JDF save)
 # ---------------------------------------------------------------------------

@@ -5,9 +5,18 @@
     return document.getElementById(id);
   }
 
-  function t(key, fallback) {
+  function t(key, fallback, vars) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, vars || {});
+    }
     if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
-    return fallback || key;
+    var s = fallback || key;
+    if (vars) {
+      Object.keys(vars).forEach(function (k) {
+        s = s.replace(new RegExp("\\{" + k + "\\}", "g"), String(vars[k]));
+      });
+    }
+    return s;
   }
 
   function projectId() {
@@ -256,11 +265,38 @@
     },
 
     bindAuditConsole: function () {
-      var btn = $("export-audit-btn");
-      if (!btn) return;
-      btn.addEventListener("click", function () {
-        AssureAdoption.exportAuditManifest();
-      });
+      var self = this;
+      var settingsBtn = $("export-audit-btn");
+      var deckBtn = $("btn-audit-manifest");
+      var modal = $("audit-manifest-modal");
+      var exportNow = $("audit-manifest-export");
+      var cancelBtn = $("audit-manifest-cancel");
+      var closeBtn = $("audit-manifest-close");
+
+      function openModal() {
+        if (modal && typeof modal.showModal === "function") {
+          if (!modal.open) modal.showModal();
+          return;
+        }
+        self.exportAuditManifest();
+      }
+
+      function closeModal() {
+        if (modal && modal.open && typeof modal.close === "function") modal.close();
+      }
+
+      if (settingsBtn) settingsBtn.addEventListener("click", openModal);
+      if (deckBtn) deckBtn.addEventListener("click", openModal);
+      if (exportNow) {
+        exportNow.addEventListener("click", function () {
+          self.exportAuditManifest().then(function (ok) {
+            if (ok) closeModal();
+          });
+        });
+      }
+      if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+      if (closeBtn) closeBtn.addEventListener("click", closeModal);
+
       document.addEventListener("assure:tool", function (ev) {
         if (ev.detail && (ev.detail.tool === "settings" || ev.detail.tool === "audit")) {
           AssureAdoption.previewAuditManifest();
@@ -295,12 +331,22 @@
         });
     },
 
+    auditFilename: function () {
+      var stamp = new Date().toISOString().slice(0, 10);
+      var slug = String(projectId() || "default").replace(/[^a-zA-Z0-9_-]+/g, "-");
+      return "audit_manifest_" + slug + "_" + stamp + ".json";
+    },
+
     exportAuditManifest: function () {
-      fetch("/api/projects/" + encodeURIComponent(projectId()) + "/export-audit", {
+      var filename = this.auditFilename();
+      return fetch("/api/projects/" + encodeURIComponent(projectId()) + "/export-audit", {
         credentials: "same-origin",
       })
         .then(function (res) {
-          return res.json();
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error((data && data.error) || t("adoption.audit.failed", "Could not load audit manifest."));
+            return data;
+          });
         })
         .then(function (data) {
           var manifest = (data && data.manifest) || {};
@@ -308,17 +354,24 @@
           var url = URL.createObjectURL(blob);
           var a = document.createElement("a");
           a.href = url;
-          a.download = "assure-audit-" + projectId() + ".json";
+          a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
           var pre = $("audit-preview");
           if (pre) pre.textContent = JSON.stringify(manifest, null, 2);
           if (global.AssureToast) {
-            global.AssureToast.show(t("adoption.audit.exported", "Audit manifest downloaded."), "success");
+            global.AssureToast.show(
+              t("audit.toast_exported", "Audit Manifest exported: {filename}", { filename: filename }) +
+                " " +
+                t("audit.toast_share", "Share this file with your compliance team or auditor."),
+              "success"
+            );
           }
+          return true;
         })
         .catch(function (err) {
           if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");
+          return false;
         });
     },
   };

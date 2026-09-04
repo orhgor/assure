@@ -397,6 +397,22 @@
       if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
 
       if (view !== this.activeView) {
+        if (!opts.skipUnsaved && global.AssureUnsaved) {
+          var leavingWorkspace = FULL_VIEWS.indexOf(view) >= 0;
+          if (
+            global.AssureUnsaved.isGenerating ||
+            (global.AssureUnsaved.hasUnsavedChanges && leavingWorkspace)
+          ) {
+            if (
+              !global.AssureUnsaved.confirmLeave(
+                "unsaved.switch_view",
+                "You have unsaved changes. Switch anyway?"
+              )
+            ) {
+              return;
+            }
+          }
+        }
         AssureStreamRegistry.abort();
       }
 

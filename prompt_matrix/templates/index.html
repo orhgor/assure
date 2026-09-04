@@ -144,7 +144,7 @@
               </div>
               <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder"></textarea>
               <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile') }}</button>
-              <div id="generate-stream-wrap" class="preview-box">
+              <div id="generate-stream-wrap" class="preview-box" hidden>
                 <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Working…') }}</p>
                 <pre id="generate-stream-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
               </div>
@@ -336,6 +336,7 @@
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
             <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Export') }}</a>
+            <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Manifest') }}</button>
           </div>
         </footer>
       </section>
@@ -444,8 +445,8 @@
                 </label>
                 <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
                 <hr class="settings-divider">
-                <h3 class="tool-panel-title" data-i18n="adoption.audit.title">{{ gettext('Audit Console') }}</h3>
-                <p class="hint" data-i18n="adoption.audit.lead">{{ gettext('Export a verifiable JSON manifest for compliance review.') }}</p>
+                <h3 class="tool-panel-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h3>
+                <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>
                 <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Manifest') }}</button>
                 <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
               </div>
@@ -563,6 +564,38 @@
     </div>
     <div id="citation-drawer-body" class="citation-drawer-body"></div>
   </aside>
+  <dialog class="work-dialog audit-manifest-dialog" id="audit-manifest-modal" aria-labelledby="audit-manifest-title">
+    <div class="output-head">
+      <h2 id="audit-manifest-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h2>
+      <button class="btn btn-outline ghost" type="button" id="audit-manifest-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+    </div>
+    <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>
+    <h3 class="audit-manifest-sub" data-i18n="audit.includes">{{ gettext("What's included") }}</h3>
+    <ul class="audit-manifest-list">
+      <li data-i18n="audit.includes.source">{{ gettext('Source file hashes (SHA-256) — proves files were not tampered with') }}</li>
+      <li data-i18n="audit.includes.z3">{{ gettext('Z3 verification logs — mathematical proof that every locked number is consistent') }}</li>
+      <li data-i18n="audit.includes.redhat">{{ gettext('Red-Hat audit records — adversarial critiques and your decisions (accept/ignore)') }}</li>
+      <li data-i18n="audit.includes.models">{{ gettext('Model signatures — which AI model generated each section') }}</li>
+      <li data-i18n="audit.includes.history">{{ gettext('Version history — every change made to the document') }}</li>
+    </ul>
+    <h3 class="audit-manifest-sub" data-i18n="audit.who">{{ gettext('Who uses this') }}</h3>
+    <ul class="audit-manifest-list">
+      <li data-i18n="audit.who.auditors">{{ gettext('Auditors — to verify the integrity of your financial or legal documents') }}</li>
+      <li data-i18n="audit.who.compliance">{{ gettext('Compliance teams — to meet regulatory requirements (e.g., FDA, SEC, GDPR)') }}</li>
+      <li data-i18n="audit.who.reviewers">{{ gettext('Internal reviewers — to see exactly what was verified and what was flagged') }}</li>
+      <li data-i18n="audit.who.committees">{{ gettext('Investment committees — to confirm numbers are mathematically locked') }}</li>
+    </ul>
+    <h3 class="audit-manifest-sub" data-i18n="audit.how">{{ gettext('How to use') }}</h3>
+    <ol class="audit-manifest-list">
+      <li data-i18n="audit.how.1">{{ gettext('Export the JSON file.') }}</li>
+      <li data-i18n="audit.how.2">{{ gettext('Share it with your auditor, compliance officer, or regulator.') }}</li>
+      <li data-i18n="audit.how.3">{{ gettext('They can inspect the Z3 proof, Red-Hat decisions, and source integrity.') }}</li>
+    </ol>
+    <div class="row audit-manifest-actions">
+      <button class="btn btn-primary" type="button" id="audit-manifest-export" data-i18n="audit.export_now">{{ gettext('Export Now') }}</button>
+      <button class="btn btn-outline" type="button" id="audit-manifest-cancel" data-i18n="history.export.cancel">{{ gettext('Cancel') }}</button>
+    </div>
+  </dialog>
   <dialog class="work-dialog" id="settings-modal">
     <div class="output-head">
       <h2 data-i18n="settings.title">{{ gettext('API keys') }}</h2>

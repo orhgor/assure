@@ -32,8 +32,26 @@
 
   // ─── Project switch ───────────────────────────────────────────────────────
 
-  function switchToProject(projectId, projectTitle) {
+  function switchToProject(projectId, projectTitle, opts) {
+    opts = opts || {};
     if (!global.__assureJdf) return;
+    if (projectId === (global.__ASSURE_PROJECT_ID__ || "default")) {
+      if (global.AssureNav) {
+        global.AssureNav.switchView("generate", { replaceHash: false, skipUnsaved: true });
+      }
+      return;
+    }
+
+    if (
+      !opts.skipUnsaved &&
+      global.AssureUnsaved &&
+      !global.AssureUnsaved.confirmLeave(
+        "unsaved.switch_project",
+        "You have unsaved changes. Switching projects will lose them. Continue?"
+      )
+    ) {
+      return;
+    }
 
     // Update global state
     global.__ASSURE_PROJECT_ID__ = projectId;
@@ -61,7 +79,7 @@
 
     // Switch the left pane to generate view
     if (global.AssureNav) {
-      global.AssureNav.switchView("generate", { replaceHash: false });
+      global.AssureNav.switchView("generate", { replaceHash: false, skipUnsaved: true });
     }
   }
 
@@ -86,7 +104,7 @@
       li.dataset.projectId = p.id;
 
       var lockText = p.lock_count
-        ? ("🔒 " + p.lock_count + " " + t("projects.locks", "locks"))
+        ? ("🔒 " + p.lock_count + " " + (p.lock_count === 1 ? t("projects.lock", "lock") : t("projects.locks", "locks")))
         : t("projects.no_locks", "No locks yet");
 
       li.innerHTML =
@@ -205,7 +223,7 @@
         }
         // If we deleted the active project, fall back to default
         if (project.id === (global.__ASSURE_PROJECT_ID__ || "default")) {
-          switchToProject("default", "Default project");
+          switchToProject("default", "Default project", { skipUnsaved: true });
         }
         loadProjects();
       })
@@ -260,6 +278,16 @@
       var title = input.value.trim();
       if (!title) { input.focus(); return; }
 
+      if (
+        global.AssureUnsaved &&
+        !global.AssureUnsaved.confirmLeave(
+          "unsaved.switch_project",
+          "You have unsaved changes. Switching projects will lose them. Continue?"
+        )
+      ) {
+        return;
+      }
+
       confirm.disabled = true;
       fetch("/api/projects", {
         method: "POST",
@@ -277,7 +305,7 @@
           form.hidden = true;
           newBtn.hidden = false;
           confirm.disabled = false;
-          switchToProject(data.id, data.title);
+          switchToProject(data.id, data.title, { skipUnsaved: true });
         })
         .catch(function () {
           confirm.disabled = false;
@@ -301,7 +329,7 @@
       var url = new URL(global.location.href);
       var pid = url.searchParams.get("project");
       if (pid && pid !== (global.__ASSURE_PROJECT_ID__ || "default")) {
-        switchToProject(pid, pid);
+        switchToProject(pid, pid, { skipUnsaved: true });
       }
     } catch (_) {}
   }

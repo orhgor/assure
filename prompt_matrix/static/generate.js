@@ -194,6 +194,8 @@
     setCompiling: function (on) {
       var el = $("generate-compiling");
       if (el) el.hidden = !on;
+      var streamWrap = $("generate-stream-wrap");
+      if (streamWrap) streamWrap.hidden = !on;
       var btn = $("generate-compile-btn");
       if (btn) btn.disabled = !!on;
       if (on) {

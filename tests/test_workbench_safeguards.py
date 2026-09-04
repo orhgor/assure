@@ -17,6 +17,16 @@ SAFEGUARD_KEYS = (
     "safeguard.session.remaining",
     "safeguard.session.limit_reached",
     "safeguard.session.tooltip",
+    "unsaved.switch_project",
+    "unsaved.switch_view",
+    "unsaved.switch_generating",
+    "audit.title",
+    "audit.deck",
+    "audit.description",
+    "audit.tooltip",
+    "audit.export_now",
+    "audit.toast_exported",
+    "audit.toast_share",
 )
 
 
@@ -61,5 +71,28 @@ def test_style_has_mobile_lockout_media_query() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-62"
-    assert APP_JS == "assure-52"
+    assert APP_CSS == "assure-64"
+    assert APP_JS == "assure-55"
+
+
+def test_audit_manifest_workbench_entry() -> None:
+    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
+    assert 'id="btn-audit-manifest"' in html
+    assert 'id="audit-manifest-modal"' in html
+    assert 'data-i18n="audit.title"' in html
+    assert 'data-i18n-tooltip="audit.tooltip"' in html
+    js = (ROOT / "prompt_matrix" / "static" / "adoption.js").read_text(encoding="utf-8")
+    assert "openModal" in js
+    assert "auditFilename" in js
+    assert "audit_manifest_" in js
+
+
+def test_unsaved_confirm_leave_wired() -> None:
+    unsaved = (ROOT / "prompt_matrix" / "static" / "assure_unsaved.js").read_text(encoding="utf-8")
+    assert "confirmLeave:" in unsaved
+    projects = (ROOT / "prompt_matrix" / "static" / "projects.js").read_text(encoding="utf-8")
+    assert "confirmLeave" in projects
+    assert "skipUnsaved" in projects
+    nav = (ROOT / "prompt_matrix" / "static" / "app_nav.js").read_text(encoding="utf-8")
+    assert "skipUnsaved" in nav
+    assert "confirmLeave" in nav

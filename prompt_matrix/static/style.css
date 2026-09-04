@@ -324,6 +324,10 @@ button.tiny:disabled { cursor: default; }
   gap: 0.5rem;
 }
 
+body:has(#assure-app) .tester-support-cluster {
+  bottom: 4.25rem;
+}
+
 .tester-help-link {
   appearance: none;
   background: #fff;
@@ -1595,37 +1599,6 @@ body:has(#assure-app) .shell {
   display: block;
 }
 
-.projects-list {
-  list-style: none;
-  margin: var(--space-sm, 8px) 0;
-  padding: 0;
-}
-
-.projects-list-item {
-  margin-bottom: 6px;
-}
-
-.projects-list-btn {
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border, var(--assure-light-gray));
-  border-radius: 8px;
-  background: var(--color-surface, #ffffff);
-  color: var(--color-text, var(--text));
-  cursor: pointer;
-  font: inherit;
-}
-
-.projects-list-btn:hover {
-  border-color: var(--accent-blue, #3b82f6);
-}
-
-.projects-list-item.is-active .projects-list-btn {
-  border-color: var(--accent-blue, #3b82f6);
-  background: rgba(59, 130, 246, 0.12);
-}
-
 .generate-compiling {
   display: flex;
   align-items: center;
@@ -1977,6 +1950,12 @@ body:has(#assure-app) .shell {
 
 .app-layout.sidebar-collapsed .app-sidebar {
   width: 56px;
+  padding: var(--space-sm, 8px) 4px;
+}
+
+.app-layout.sidebar-collapsed .app-sidebar-link {
+  justify-content: center;
+  padding: 12px 8px;
 }
 
 .app-layout.sidebar-collapsed .app-sidebar-label {
@@ -2047,6 +2026,14 @@ body:has(#assure-app) .shell {
     transform: translateX(-50%);
     max-width: 280px;
     width: max-content;
+  }
+
+  .app-sidebar .tooltip-trigger::after {
+    top: 50%;
+    left: calc(100% + 8px);
+    bottom: auto;
+    transform: translateY(-50%);
+    max-width: 240px;
   }
 }
 
@@ -2314,7 +2301,7 @@ body.onboarding-active .sidebar-backdrop {
   flex: 1;
   background: var(--color-bg);
   overflow-y: auto;
-  padding: var(--space-lg);
+  padding: var(--space-md);
   min-width: 0;
 }
 
@@ -2327,11 +2314,11 @@ body.onboarding-active .sidebar-backdrop {
   font-weight: 600;
 }
 
-.inquiry-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
+.jdf-workbench #generate-compile-btn,
+.jdf-workbench #btn-inquire {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
 }
 
 .inquiry-input,
@@ -2803,17 +2790,19 @@ body.onboarding-active .sidebar-backdrop {
 }
 
 .save-pill {
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 8px;
+  padding: 4px 8px;
+  min-height: 25px;
   border-radius: 9999px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   border: 1px solid transparent;
   cursor: pointer;
-  font: inherit;
   line-height: 1.4;
+  box-sizing: border-box;
 }
 button.save-pill {
   appearance: none;
@@ -3107,6 +3096,10 @@ button.save-pill {
   flex-wrap: wrap;
 }
 
+.command-deck .tooltip-trigger::after {
+  max-width: min(360px, calc(100vw - 32px));
+}
+
 .is-streaming-skeleton {
   position: relative;
   overflow: hidden;
@@ -3314,6 +3307,36 @@ button.save-pill {
   color: var(--text);
 }
 .work-dialog::backdrop { background: rgba(13, 43, 69, 0.35); }
+
+.audit-manifest-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(85dvh, 720px);
+  overflow-y: auto;
+}
+.audit-manifest-sub {
+  margin: var(--space-md) 0 var(--space-xs);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.audit-manifest-list {
+  margin: 0 0 var(--space-sm);
+  padding-left: 1.2rem;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text);
+}
+.audit-manifest-list li {
+  margin-bottom: 0.35rem;
+}
+.audit-manifest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
 .settings-guide-banner {
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.3);
@@ -3650,7 +3673,7 @@ button.save-pill {
   color: var(--text-main) !important;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: var(--space-md) var(--space-lg) !important;
+  padding: 6px 12px !important;
   box-sizing: border-box;
   cursor: pointer;
 }
@@ -4163,7 +4186,9 @@ input.auto-resize {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-md);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  min-height: 28px;
 }
 .projects-header .jdf-pane-title { margin: 0; }
 
@@ -4190,8 +4215,8 @@ input.auto-resize {
 .projects-list-loading {
   color: var(--text-muted);
   font-size: var(--font-size-sm);
-  padding: var(--space-md) 0;
-  text-align: center;
+  padding: var(--space-sm) 0;
+  text-align: left;
 }
 .projects-list-item {
   display: flex;

@@ -138,6 +138,27 @@
       recomputeGlobals();
     },
 
+    /** Returns false if the user cancels. Clears dirty flags on confirm. */
+    confirmLeave: function (messageKey, fallback) {
+      if (!_inputDirty && !_documentDirty && !_isGenerating) return true;
+      var msg;
+      if (_isGenerating) {
+        msg = t(
+          "unsaved.switch_generating",
+          "A compile is still running. Leaving now will stop it. Continue?"
+        );
+      } else {
+        msg = t(
+          messageKey || "unsaved.switch_view",
+          fallback || "You have unsaved changes. Switch anyway?"
+        );
+      }
+      if (!global.confirm(msg)) return false;
+      this.clearUnsaved();
+      this.setGenerating(false);
+      return true;
+    },
+
     setGenerating: function (on) {
       _isGenerating = !!on;
       recomputeGlobals();
