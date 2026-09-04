@@ -98,7 +98,7 @@ Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 
 | Item | Result |
 | :--- | :--- |
-| Full suite | ✅ **258 passed** (`uv run pytest tests/ -q`, 2026-09-04) |
+| Full suite | ✅ **260 passed** (`uv run pytest tests/ -q`, 2026-09-04) |
 | Coverage areas | sandbox, draft, textract, jdf annotations, provenance export, language guard, connection retry, redeploy hardening |
 
 ---
