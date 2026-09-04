@@ -1,3 +1,7 @@
+# syntax=docker/dockerfile:1
+# Multi-stage: sentry bundle → Python deps → slim runtime.
+# Keep CPU ML wheels out of this image; runtime deps are requirements.txt plus gunicorn.
+
 FROM node:22-slim AS sentry
 WORKDIR /build
 COPY package.json package-lock.json ./
@@ -5,24 +9,35 @@ COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
 COPY prompt_matrix/static/src/sentry-init.js prompt_matrix/static/src/sentry-init.js
 RUN npm ci && npm run bundle:sentry
 
-FROM python:3.11-slim
-
+FROM python:3.11-slim AS builder
 WORKDIR /app
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+COPY requirements.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && pip install --upgrade pip \
+    && pip install --prefer-binary -r requirements.txt gunicorn flask-cors httpx asgiref \
+    && apt-get purge -y gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8765
+FROM python:3.11-slim AS runtime
+WORKDIR /app
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PORT=8765 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 ARG ASSURE_BUILD_SHA=unknown
 ENV ASSURE_BUILD_SHA=${ASSURE_BUILD_SHA}
 
-COPY requirements.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y poppler-utils && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir --prefer-binary -r requirements.txt gunicorn flask-cors httpx pytest-asyncio asgiref
-
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 COPY --from=sentry /build/prompt_matrix/static/sentry.bundle.js prompt_matrix/static/sentry.bundle.js
 

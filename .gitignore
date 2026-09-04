@@ -16,6 +16,7 @@ build/
 prompt_matrix/library.json
 prompt_matrix/history.sqlite
 data/
+data-staging/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

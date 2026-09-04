@@ -15,6 +15,8 @@ LOCK_FILE="${ASSURE_REDEPLOY_LOCK:-/tmp/assure-redeploy.lock}"
 MIN_DISK_GB_FOR_BUILD="${ASSURE_MIN_DISK_GB_FOR_BUILD:-3}"
 GHCR_PULL_RETRIES="${ASSURE_GHCR_PULL_RETRIES:-5}"
 GHCR_PULL_WAIT_SEC="${ASSURE_GHCR_PULL_WAIT_SEC:-30}"
+STATE_FILE="${ASSURE_DEPLOY_STATE:-/tmp/assure-last-deploy.txt}"
+HEALTH_URL="${ASSURE_HEALTH_URL:-http://127.0.0.1:8765/health}"
 DEPLOY_TAG=""
 
 usage() {
@@ -58,12 +60,29 @@ remove_stale_app_container() {
   done < <(docker ps -aq --filter "name=assure-assure-app" 2>/dev/null || true)
 }
 
+image_is_cached() {
+  docker image inspect "$1" >/dev/null 2>&1
+}
+
+running_app_image() {
+  docker inspect --format '{{.Config.Image}}' assure-assure-app-1 2>/dev/null || true
+}
+
 pull_image_with_retry() {
   local image="$1"
   local attempt=1
   local wait_sec="$GHCR_PULL_WAIT_SEC"
+  if image_is_cached "$image"; then
+    echo "    cached: ${image} (skip pull)"
+    return 0
+  fi
   while [[ "$attempt" -le "$GHCR_PULL_RETRIES" ]]; do
     if docker pull "$image"; then
+      return 0
+    fi
+    if docker compose version >/dev/null 2>&1 \
+      && docker compose pull --help 2>/dev/null | grep -q -- '--parallel' \
+      && ASSURE_IMAGE_TAG="$IMAGE_TAG" "${COMPOSE_GHCR[@]}" pull --parallel assure-app; then
       return 0
     fi
     if [[ "$attempt" -ge "$GHCR_PULL_RETRIES" ]]; then
@@ -75,6 +94,31 @@ pull_image_with_retry() {
     attempt=$((attempt + 1))
   done
   return 1
+}
+
+write_deploy_state() {
+  local previous="$1"
+  local current="$2"
+  {
+    echo "PREVIOUS=${previous}"
+    echo "CURRENT=${current}"
+  } > "$STATE_FILE"
+  echo "    deploy state → ${STATE_FILE}"
+}
+
+rollback_on_failure() {
+  if [[ "${ASSURE_SKIP_ROLLBACK:-}" == "1" ]]; then
+    echo "ASSURE_SKIP_ROLLBACK=1 — not rolling back." >&2
+    return 1
+  fi
+  if [[ ! -f "$ROOT/scripts/aws/rollback.sh" ]]; then
+    echo "ERROR: rollback.sh missing" >&2
+    return 1
+  fi
+  echo "Health check failed — rolling back..."
+  ASSURE_SKIP_ROLLBACK=1 ASSURE_ENVIRONMENT="${ASSURE_ENVIRONMENT:-}" \
+    ASSURE_DEPLOY_STATE="$STATE_FILE" ASSURE_HEALTH_URL="$HEALTH_URL" \
+    bash "$ROOT/scripts/aws/rollback.sh"
 }
 
 disk_free_gb() {
@@ -102,6 +146,13 @@ IMAGE_TAG="${DEPLOY_TAG:-${ASSURE_IMAGE_TAG:-$FULL_SHA}}"
 export ASSURE_BUILD_SHA="$SHORT_SHA"
 export ASSURE_IMAGE_TAG="$IMAGE_TAG"
 export ASSURE_IMAGE="${IMAGE_REPO}:${IMAGE_TAG}"
+PREVIOUS_IMAGE="$(running_app_image)"
+if [[ -z "$PREVIOUS_IMAGE" && -f "$STATE_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$STATE_FILE"
+  PREVIOUS_IMAGE="${CURRENT:-}"
+fi
+write_deploy_state "${PREVIOUS_IMAGE:-unknown}" "$ASSURE_IMAGE"
 
 echo "==> GHCR login"
 # shellcheck disable=SC1091
@@ -136,7 +187,7 @@ fi
 
 echo "==> Wait for health"
 for i in $(seq 1 45); do
-  if curl -sf "http://127.0.0.1:8765/health" >/tmp/assure-health.json 2>/dev/null \
+  if curl -sf "$HEALTH_URL" >/tmp/assure-health.json 2>/dev/null \
     && [[ -s /tmp/assure-health.json ]]; then
     break
   fi
@@ -145,7 +196,8 @@ done
 
 echo "==> Health / UI manifest"
 if [[ ! -s /tmp/assure-health.json ]]; then
-  echo "ERROR: health check failed — container did not respond on :8765/health" >&2
+  echo "ERROR: health check failed — container did not respond on ${HEALTH_URL}" >&2
+  rollback_on_failure || true
   exit 1
 fi
 python3 -c "
@@ -162,6 +214,7 @@ if not data.get('ok'):
     sys.exit(1)
 " || {
   echo "ERROR: health JSON invalid or ok=false" >&2
+  rollback_on_failure || true
   exit 1
 }
 
@@ -171,8 +224,11 @@ if "${COMPOSE_GHCR[@]}" exec -T assure-app grep -q 'workspace-shell' /app/prompt
   echo "    OK: JDF workspace-shell present in index.html"
 else
   echo "    FAIL: workspace-shell missing — wrong image or old checkout"
+  rollback_on_failure || true
   exit 1
 fi
+
+write_deploy_state "${PREVIOUS_IMAGE:-unknown}" "$ASSURE_IMAGE"
 
 echo ""
 echo "Done. Image: ${ASSURE_IMAGE}"

@@ -1,10 +1,14 @@
-# Staging overrides — isolated from production EC2/R2/Worker.
+# Staging overrides — isolated SQLite from production.
+# Staging runs on its own EC2; keep host port 8765 so SSM health, auto-heal,
+# and the Cloudflare tunnel stay on the same loopback URL as production.
+# Do not share ./data with production. Image tag is ghcr.io/orhgor/assure-app:staging.
 services:
   assure-app:
     ports: !override
       - "127.0.0.1:8765:8765"
     environment:
       ENVIRONMENT: staging
+      ASSURE_ENV: staging
       DATABASE_PATH: /app/data/history.sqlite
       PORT: "8765"
       PYTHONUNBUFFERED: "1"
@@ -12,7 +16,7 @@ services:
       - path: .env.staging
         required: false
     volumes:
-      - ./data:/app/data
+      - ./data-staging:/app/data
     restart: unless-stopped
     deploy:
       resources:

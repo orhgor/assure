@@ -119,7 +119,9 @@ Requires `gh auth login` (or `GITHUB_TOKEN`) and AWS CLI with SSM permissions:
 bash scripts/aws/redeploy-via-ssm.sh
 ```
 
-This syncs git on EC2, logs into GHCR, pulls `ghcr.io/orhgor/assure-app:<commit-sha>`, and restarts — **no Docker build on EC2**.
+This syncs git on EC2, logs into GHCR, pulls `ghcr.io/orhgor/assure-app:<commit-sha>`, and restarts — **no Docker build on EC2**. If `/health` is unhealthy, `scripts/aws/rollback.sh` restores the previous image from `/tmp/assure-last-deploy.txt`. Cached images skip `docker pull`.
+
+App Docker and staging CD use Buildx + GitHub Actions layer cache (`cache-from/to: type=gha`). Staging: push `staging` → `cd-staging.yml` (image `:staging`, `STAGING_INSTANCE_ID`) and `worker-staging.yml` (`wrangler deploy --env staging`). Staging SQLite is `./data-staging` on that host, not production `./data`.
 
 ---
 

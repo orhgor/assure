@@ -11,8 +11,9 @@ MIN_FREE_GB="${ASSURE_MIN_FREE_GB:-2}"
 echo "==> Disk before"
 df -h / | awk 'NR<=2'
 
-echo "==> Docker prune (unused images, build cache, stopped containers)"
-docker system prune -af --filter "until=24h" 2>/dev/null || docker system prune -af
+echo "==> Docker prune (unused images of any age; keep the running container image)"
+docker image prune -af
+docker system prune -f
 docker volume prune -f 2>/dev/null || true
 docker builder prune -af 2>/dev/null || true
 
