@@ -43,6 +43,16 @@
         <a class="btn btn-primary" id="upgrade-link" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
         <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $19 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
       </div>
+      <div id="mobile-lockout" class="mobile-lockout" aria-live="polite">
+        <div class="mobile-lockout-panel card">
+          <svg class="mobile-lockout-mark brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="48" height="48">
+            <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
+            <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <h2 data-i18n="safeguard.mobile.title">{{ gettext('Desktop required') }}</h2>
+          <p data-i18n="safeguard.mobile.body">{{ gettext('Kurumsal Deterministik Derleyici (Enterprise Deterministic Compiler) requires a desktop environment for AST visualization and logic auditing. Please open this link on your computer.') }}</p>
+        </div>
+      </div>
       <div class="app-layout" id="assure-app">
         <header class="app-header">
           <div class="app-header-left">
@@ -65,6 +75,7 @@
             <span data-i18n="header.privacy">{{ gettext('Copy stays here. Send goes only to the provider you chose.') }}</span>
           </div>
           <div class="app-header-right">
+            <span class="session-compile-limit tooltip-trigger" id="session-compile-limit" hidden aria-live="polite"></span>
             <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Z3 engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
             </span>
@@ -563,6 +574,13 @@
       <button class="btn btn-primary primary" type="button" id="settings-save" data-i18n="settings.save">{{ gettext('Save Keys') }}</button>
     </div>
   </dialog>
+  <div id="tab-lockout-modal" class="tab-lockout-modal" hidden role="dialog" aria-modal="true" aria-labelledby="tab-lockout-title">
+    <div class="tab-lockout-backdrop"></div>
+    <div class="tab-lockout-panel card">
+      <h2 id="tab-lockout-title" data-i18n="safeguard.tab.title">{{ gettext('Workbench already open') }}</h2>
+      <p data-i18n="safeguard.tab.body">{{ gettext('Workbench is already active in another tab. Close this tab to prevent state corruption.') }}</p>
+    </div>
+  </div>
 {% endblock %}
 {% block scripts %}
   <script>
@@ -587,6 +605,8 @@
     })();
   </script>
   <script src="{{ url_for('static', filename='assure_unsaved.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='assure_tab_guard.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='assure_session_limit.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>

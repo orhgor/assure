@@ -275,6 +275,16 @@
         return;
       }
 
+      if (!isRetry && global.AssureSessionLimit && !global.AssureSessionLimit.tryConsume()) {
+        if (global.AssureToast) {
+          global.AssureToast.show(
+            t("safeguard.session.limit_reached", "Session Limit Reached"),
+            "info"
+          );
+        }
+        return;
+      }
+
       if (global.AssureUnsaved) {
         global.AssureUnsaved.clearDraft();
         global.AssureUnsaved.setInputDirty(false);

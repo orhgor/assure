@@ -1264,6 +1264,15 @@
 
   JDFCanvasManager.prototype.inquire = function (intent, runRedhat) {
     var self = this;
+    if (runRedhat !== false && global.AssureSessionLimit && !global.AssureSessionLimit.tryConsume()) {
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          jdfT("safeguard.session.limit_reached", "Session Limit Reached"),
+          "info"
+        );
+      }
+      return;
+    }
     this._setStreaming(true);
     this.livePreview = "";
     this.clearVerifyTimeout();

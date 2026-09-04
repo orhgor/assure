@@ -4278,3 +4278,113 @@ input.auto-resize {
   display: none !important;
 }
 
+/* Workbench production safeguards */
+#mobile-lockout {
+  display: none;
+}
+
+.mobile-lockout {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-6);
+  background: linear-gradient(160deg, var(--assure-deep-navy) 0%, var(--assure-trust-blue) 100%);
+  color: var(--white);
+}
+
+.mobile-lockout-panel {
+  max-width: 34rem;
+  text-align: center;
+  padding: var(--spacing-8) var(--spacing-6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--assure-dark-gray);
+}
+
+.mobile-lockout-panel h2 {
+  margin: var(--spacing-4) 0 var(--spacing-3);
+  color: var(--assure-trust-blue);
+  font-size: var(--font-size-xl);
+}
+
+.mobile-lockout-panel p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.mobile-lockout-mark {
+  margin: 0 auto;
+}
+
+.tab-lockout-modal[hidden] {
+  display: none !important;
+}
+
+.tab-lockout-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-6);
+}
+
+body.tab-lockout-active {
+  overflow: hidden;
+}
+
+.tab-lockout-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 43, 69, 0.72);
+}
+
+.tab-lockout-panel {
+  position: relative;
+  z-index: 1;
+  max-width: 28rem;
+  width: 100%;
+  padding: var(--spacing-6);
+  border: 1px solid var(--color-border);
+}
+
+.tab-lockout-panel h2 {
+  margin: 0 0 var(--spacing-3);
+  color: var(--assure-trust-blue);
+}
+
+.tab-lockout-panel p {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.session-compile-limit {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--assure-trust-blue);
+  background: var(--color-primary-light);
+  border: 1px solid rgba(26, 75, 140, 0.18);
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.btn.is-session-limited {
+  opacity: 0.72;
+}
+
+@media (max-width: 1024px) {
+  #mobile-lockout {
+    display: flex;
+  }
+
+  #assure-app {
+    display: none !important;
+  }
+}
+
