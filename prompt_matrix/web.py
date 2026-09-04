@@ -285,9 +285,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
         template_folder=str(TEMPLATES_DIR),
     )
 
-    @app.context_processor
-    def _inject_brand():
-        return {"brand": BRAND}
     try:
         from flask_cors import CORS
 
@@ -370,6 +367,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return message
 
     app.jinja_env.globals["gettext"] = _gettext
+
+    @app.context_processor
+    def _inject_brand():
+        strings = string_catalog(_locale())
+        brand = dict(BRAND)
+        for key in ("brand.category", "brand.tagline", "brand.eyebrow", "brand.hero_title"):
+            short = key.split(".", 1)[1]
+            if strings.get(key):
+                brand[short] = strings[key]
+        return {"brand": brand}
+
     try:
         from .ui_cache import APP_CSS, APP_JS
     except ImportError:

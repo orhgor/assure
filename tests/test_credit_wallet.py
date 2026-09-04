@@ -167,6 +167,40 @@ class WebUsageTests(unittest.TestCase):
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"Intellectual Compiler", res.data)
+        self.assertIn(b"Deterministic Document Execution", res.data)
+        self.assertNotIn(b"logo-tagline", res.data)
+
+    def test_landing_turkish_brand_option2(self):
+        from prompt_matrix.web import create_app
+
+        with patch.dict(
+            os.environ,
+            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": "", "PEM_HTTP_PASS": ""},
+            clear=False,
+        ):
+            app = create_app(require_auth=False)
+            with app.test_client() as client:
+                res = client.get("/?lang=tr")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Zihinsel Derleyici".encode(), res.data)
+        self.assertIn("Deterministik Belge Yürütme".encode(), res.data)
+        self.assertNotIn(b"The Intellectual Compiler", res.data)
+        self.assertNotIn(b"logo-tagline", res.data)
+
+    def test_workbench_header_assure_only(self):
+        from prompt_matrix.web import create_app
+
+        with patch.dict(
+            os.environ,
+            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": "", "PEM_HTTP_PASS": ""},
+            clear=False,
+        ):
+            app = create_app(require_auth=False)
+            with app.test_client() as client:
+                res = client.get("/app?lang=tr")
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(b"app-logo-tagline", res.data)
+        self.assertNotIn(b"brand-tagline", res.data)
 
     def test_compose_login_wall_with_clerk(self):
         from prompt_matrix.web import create_app

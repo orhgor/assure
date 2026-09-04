@@ -243,7 +243,7 @@ TRANSLATIONS = {
         "landing.cta.sub": "Matematiksel kesinlikle desteklenen belge mühendisliği.",
         "landing.cta.btn": "Assure çalışma alanını aç",
         "landing.social_proof": "Yüksek sonuçlu kurumlarda analist, araştırmacı ve mühendisler tarafından kullanılır.",
-        "landing.footer.copy": "Assure — Zihinsel Derleyici. Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.",
+        "landing.footer.copy": "Assure — Zihinsel Derleyici — Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.",
         "settings.show_citations": "DOCX dışa aktarmada Kaynaklar bölümünü ekle",
     },
 }
