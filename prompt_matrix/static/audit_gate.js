@@ -143,7 +143,7 @@
       var z3 = audit.z3_results;
       var status = audit.z3_status;
       z3El.hidden = false;
-      z3El.className = "gate-z3-status " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
+      z3El.className = "gate-z3-status verification-badge " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
       if (status === "PASS") {
         z3El.textContent = t("generate.z3.pass", "✅ Verified") +
           (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");

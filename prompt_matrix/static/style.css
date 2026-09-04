@@ -1619,6 +1619,59 @@ body:has(#assure-app) .shell {
   color: var(--color-text, var(--text));
 }
 
+.compile-status-bar {
+  flex-shrink: 0;
+  margin-top: var(--space-xs, 4px);
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.compile-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm, 8px);
+}
+
+.compile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs, 4px);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.compile-summary > span {
+  background: var(--color-bg, #f8fafc);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, var(--assure-light-gray));
+}
+
+.compile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs, 4px);
+  margin-left: auto;
+}
+
+#z3-status.verification-badge {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 9999px;
+}
+
+#z3-status.verification-badge.is-pass {
+  background: var(--color-success-bg, rgba(46, 125, 50, 0.12));
+  color: var(--color-success, #2e7d32);
+}
+
+#z3-status.verification-badge.is-fail {
+  background: var(--color-danger-bg, rgba(185, 28, 28, 0.12));
+  color: var(--color-danger, #b91c1c);
+}
+
 .generate-summary-stats {
   margin: 0 0 var(--space-sm, 8px);
   color: var(--color-text, var(--text));

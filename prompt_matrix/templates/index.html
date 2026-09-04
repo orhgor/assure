@@ -160,35 +160,41 @@
                     <button type="button" class="btn btn-outline btn-sm" id="fullscreen-draft-btn" data-i18n="generate.fullscreen" aria-pressed="false">{{ gettext('Full screen') }}</button>
                   </div>
                 </div>
-                <div id="generate-nodes-body" class="generate-nodes-body"></div>
-              </div>
-              <div id="compilation-summary" class="generate-summary card" hidden>
-                <p class="generate-summary-stats">
-                  <span data-i18n="generate.summary_nodes">{{ gettext('Nodes') }}:</span> <strong id="generate-node-count">0</strong>
-                  · <span data-i18n="generate.summary_locks">{{ gettext('Locks') }}:</span> <strong id="generate-lock-count">0</strong>
-                </p>
-                <div id="gate-loader" class="gate-loader" hidden>
-                  <span class="pulse-loader" aria-hidden="true"></span>
-                  <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Math Check and Stress Test…') }}</span>
-                </div>
-                <p id="z3-status" class="gate-z3-status" hidden></p>
-                <details id="generate-locks-panel" class="generate-locks-panel">
-                  <summary data-i18n="generate.locks_summary">{{ gettext('Inferred locks') }}</summary>
-                  <div id="generate-lock-checklist" class="lock-checklist"></div>
-                </details>
-                <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
-                <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
-                  <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
-                  <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
-                </div>
-                <div id="redhat-prompt" class="redhat-prompt" hidden>
-                  <span id="redhat-prompt-text" data-i18n="generate.redhat_prompt">{{ gettext('Math Check passed. Run Stress Test (adversarial review)?') }}</span>
-                  <div class="redhat-prompt-actions">
-                    <button type="button" class="btn btn-primary btn-sm" id="redhat-run-btn" data-i18n="generate.redhat_run">{{ gettext('Run Stress Test') }}</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="redhat-skip-btn" data-i18n="generate.redhat_skip">{{ gettext('Skip') }}</button>
+                <div id="compilation-summary" class="generate-summary compile-status-bar" hidden>
+                  <div class="compile-status-row">
+                    <div class="compile-summary">
+                      <span><span data-i18n="generate.summary_nodes">{{ gettext('Nodes') }}</span>: <strong id="generate-node-count">0</strong></span>
+                      <span><span data-i18n="generate.summary_locks">{{ gettext('Locks') }}</span>: <strong id="generate-lock-count">0</strong></span>
+                    </div>
+                    <p id="z3-status" class="gate-z3-status verification-badge" hidden></p>
+                    <div class="compile-actions">
+                      <button type="button" class="btn btn-primary btn-sm" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
+                      <button type="button" class="btn btn-outline btn-sm" id="generate-recompile-btn" data-i18n="generate.recompile">{{ gettext('Re-compile') }}</button>
+                      <button type="button" class="btn btn-outline btn-sm" id="generate-discard-btn" data-i18n="generate.discard">{{ gettext('Discard') }}</button>
+                    </div>
+                  </div>
+                  <div id="gate-loader" class="gate-loader" hidden>
+                    <span class="pulse-loader" aria-hidden="true"></span>
+                    <span id="gate-status-text" data-i18n="generate.gate.auditing">{{ gettext('Running Math Check and Stress Test…') }}</span>
+                  </div>
+                  <details id="generate-locks-panel" class="generate-locks-panel">
+                    <summary data-i18n="generate.locks_summary">{{ gettext('Inferred locks') }}</summary>
+                    <div id="generate-lock-checklist" class="lock-checklist"></div>
+                  </details>
+                  <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
+                  <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
+                    <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
+                    <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
+                  </div>
+                  <div id="redhat-prompt" class="redhat-prompt" hidden>
+                    <span id="redhat-prompt-text" data-i18n="generate.redhat_prompt">{{ gettext('Math Check passed. Run Stress Test (adversarial review)?') }}</span>
+                    <div class="redhat-prompt-actions">
+                      <button type="button" class="btn btn-primary btn-sm" id="redhat-run-btn" data-i18n="generate.redhat_run">{{ gettext('Run Stress Test') }}</button>
+                      <button type="button" class="btn btn-outline btn-sm" id="redhat-skip-btn" data-i18n="generate.redhat_skip">{{ gettext('Skip') }}</button>
+                    </div>
                   </div>
                 </div>
-                <button type="button" class="btn btn-primary" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
+                <div id="generate-nodes-body" class="generate-nodes-body"></div>
               </div>
             </div>
 
