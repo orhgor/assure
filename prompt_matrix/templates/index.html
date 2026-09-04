@@ -321,6 +321,7 @@
           </aside>
           <main class="right-pane" id="jdf-document-canvas">
             <h3 class="jdf-pane-title" data-i18n="jdf.pane.canvas">{{ gettext('Verified Document') }}</h3>
+            <p class="hint jdf-canvas-menu-hint" data-i18n="jdf.menu.hint">{{ gettext('Right-click a paragraph to edit, revise, re-prompt, or send for revision.') }}</p>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
           </main>
         </div>
@@ -453,6 +454,12 @@
             </section>
 
           </div>
+        </div>
+        <div id="jdf-node-menu" class="jdf-node-menu" hidden role="menu" aria-hidden="true">
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="edit" data-i18n="jdf.menu.edit">{{ gettext('Edit') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revise" data-i18n="jdf.menu.revise">{{ gettext('Revise') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="reprompt" data-i18n="jdf.menu.reprompt">{{ gettext('Re-prompt') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revision" data-i18n="jdf.menu.revision">{{ gettext('Send for Revision') }}</button>
         </div>
         <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
       </div>

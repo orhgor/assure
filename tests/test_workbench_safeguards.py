@@ -27,6 +27,14 @@ SAFEGUARD_KEYS = (
     "audit.export_now",
     "audit.toast_exported",
     "audit.toast_share",
+    "jdf.menu.hint",
+    "jdf.menu.edit",
+    "jdf.menu.revise",
+    "jdf.menu.reprompt",
+    "jdf.menu.revision",
+    "jdf.menu.revise_intent",
+    "jdf.menu.reprompt_intent",
+    "jdf.menu.revision_intent",
 )
 
 
@@ -71,8 +79,8 @@ def test_style_has_mobile_lockout_media_query() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-64"
-    assert APP_JS == "assure-55"
+    assert APP_CSS == "assure-65"
+    assert APP_JS == "assure-56"
 
 
 def test_audit_manifest_workbench_entry() -> None:
@@ -85,6 +93,21 @@ def test_audit_manifest_workbench_entry() -> None:
     assert "openModal" in js
     assert "auditFilename" in js
     assert "audit_manifest_" in js
+
+
+def test_node_context_menu_workbench_entry() -> None:
+    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
+    assert 'id="jdf-node-menu"' in html
+    assert 'data-i18n="jdf.menu.edit"' in html
+    assert 'data-i18n="jdf.menu.revise"' in html
+    assert 'data-i18n="jdf.menu.reprompt"' in html
+    assert 'data-i18n="jdf.menu.revision"' in html
+    js = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
+    assert "openNodeMenu" in js
+    assert "_runNodeMenuAction" in js
+    assert "target_node_id: this.surgicalTargetId" in js
+    css = (ROOT / "prompt_matrix" / "static" / "style.css").read_text(encoding="utf-8")
+    assert ".jdf-node-menu" in css
 
 
 def test_unsaved_confirm_leave_wired() -> None:

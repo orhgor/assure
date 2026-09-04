@@ -701,8 +701,109 @@
       t.closest("textarea") ||
       t.closest(".interactive-element") ||
       t.closest(".jdf-node-toolbar") ||
-      t.closest(".node-toolbar")
+      t.closest(".node-toolbar") ||
+      t.closest("#jdf-node-menu")
     );
+  };
+
+  JDFCanvasManager.prototype.closeNodeMenu = function () {
+    var menu = document.getElementById("jdf-node-menu");
+    if (!menu) return;
+    menu.hidden = true;
+    menu.setAttribute("aria-hidden", "true");
+    this._menuNodeId = null;
+  };
+
+  JDFCanvasManager.prototype.openNodeMenu = function (nodeId, clientX, clientY) {
+    var menu = document.getElementById("jdf-node-menu");
+    if (!menu || !nodeId) return;
+    this._menuNodeId = nodeId;
+    menu.hidden = false;
+    menu.setAttribute("aria-hidden", "false");
+    var pad = 8;
+    var w = menu.offsetWidth || 220;
+    var h = menu.offsetHeight || 160;
+    var x = Math.min(Math.max(pad, clientX), window.innerWidth - w - pad);
+    var y = Math.min(Math.max(pad, clientY), window.innerHeight - h - pad);
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+    this._menuOpenedAt = Date.now();
+  };
+
+  JDFCanvasManager.prototype._setInquiryIntent = function (text) {
+    var intentEl = pickEl("inquiry-input", "jdf-intent");
+    if (intentEl) intentEl.value = text || "";
+  };
+
+  JDFCanvasManager.prototype._runNodeMenuAction = function (act, nodeId) {
+    var node = this.getNodeById(nodeId);
+    if (!node || !act) return;
+    if (act !== "edit" && this.isStreaming) {
+      if (global.AssureToast) {
+        global.AssureToast.show(jdfT("jdf.menu.busy", "Wait for the current compile or refine to finish."), "info");
+      }
+      return;
+    }
+    this.selectNodeForRefine(nodeId, { toast: act === "edit" });
+    if (act === "edit") return;
+    var intent;
+    if (act === "revise") {
+      intent = jdfT(
+        "jdf.menu.revise_intent",
+        "Revise this node. Keep locked numbers and neighboring sections consistent."
+      );
+      this._setInquiryIntent(intent);
+      this.inquire(intent, true);
+      return;
+    }
+    if (act === "reprompt") {
+      intent = jdfT("jdf.menu.reprompt_intent", "Rewrite this node:\n{content}", {
+        content: this._nodeText(node),
+      });
+      this._setInquiryIntent(intent);
+      this.inquire(intent, true);
+      return;
+    }
+    if (act === "revision") {
+      intent = jdfT(
+        "jdf.menu.revision_intent",
+        "Propose a revised version of this node for comparison. Do not change locked facts."
+      );
+      this._setInquiryIntent(intent);
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          jdfT("jdf.menu.revision_toast", "Revision proposed — accept or discard the diff on the canvas."),
+          "info"
+        );
+      }
+      this.inquire(intent, true);
+    }
+  };
+
+  JDFCanvasManager.prototype._bindNodeMenu = function () {
+    var self = this;
+    if (this._nodeMenuBound) return;
+    this._nodeMenuBound = true;
+    var menu = document.getElementById("jdf-node-menu");
+    if (menu) {
+      menu.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-act]");
+        if (!btn) return;
+        var act = btn.getAttribute("data-act");
+        var nodeId = self._menuNodeId;
+        self.closeNodeMenu();
+        self._runNodeMenuAction(act, nodeId);
+      });
+    }
+    document.addEventListener("click", function (e) {
+      if (e.button === 2) return;
+      if (self._menuOpenedAt && Date.now() - self._menuOpenedAt < 250) return;
+      if (e.target.closest && e.target.closest("#jdf-node-menu")) return;
+      self.closeNodeMenu();
+    });
+    document.addEventListener("scroll", function () {
+      self.closeNodeMenu();
+    }, true);
   };
 
   JDFCanvasManager.prototype.selectNodeForRefine = function (nodeId, opts) {
@@ -862,10 +963,18 @@
     var bar = document.createElement("div");
     bar.className = "node-toolbar jdf-node-toolbar";
     bar.innerHTML =
-      '<button type="button" data-act="edit">⚡ Edit</button>' +
-      '<button type="button" data-act="up">▲</button>' +
-      '<button type="button" data-act="down">▼</button>' +
-      '<button type="button" data-act="del">🗑️ Delete</button>';
+      '<button type="button" data-act="edit">' +
+      jdfT("jdf.toolbar.edit", "Edit") +
+      "</button>" +
+      '<button type="button" data-act="up" aria-label="' +
+      jdfT("jdf.toolbar.up", "Move up") +
+      '">▲</button>' +
+      '<button type="button" data-act="down" aria-label="' +
+      jdfT("jdf.toolbar.down", "Move down") +
+      '">▼</button>' +
+      '<button type="button" data-act="del">' +
+      jdfT("jdf.toolbar.delete", "Delete") +
+      "</button>";
     bar.querySelector('[data-act="edit"]').addEventListener("click", function () {
       self.selectNodeForRefine(node.id, { toast: false });
     });
@@ -940,6 +1049,13 @@
           if (self._isInteractiveNodeClick(e)) return;
           var id = article.dataset.nodeId;
           if (id) self.selectNodeForRefine(id, { toast: true });
+        });
+        article.addEventListener("contextmenu", function (e) {
+          if (self._isInteractiveNodeClick(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          var id = article.dataset.nodeId;
+          if (id) self.openNodeMenu(id, e.clientX, e.clientY);
         });
         if (self.surgicalTargetId) {
           var siblings = section.children || [];
@@ -1407,8 +1523,17 @@
         self.exitSurgicalMode();
       });
     }
+    this._bindNodeMenu();
     window.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") self.exitSurgicalMode();
+      if (e.key === "Escape") {
+        var menu = document.getElementById("jdf-node-menu");
+        if (menu && !menu.hidden) {
+          self.closeNodeMenu();
+          e.preventDefault();
+          return;
+        }
+        self.exitSurgicalMode();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         if (document.activeElement && document.activeElement.contentEditable === "true") {
           document.activeElement.blur();

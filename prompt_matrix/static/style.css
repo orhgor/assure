@@ -2453,6 +2453,50 @@ body.onboarding-active .sidebar-backdrop {
   box-shadow: 0 0 0 2px var(--color-primary-light);
 }
 
+.jdf-canvas-menu-hint {
+  margin: 0 0 var(--space-sm);
+  font-size: 12px;
+}
+
+.jdf-node-menu {
+  position: fixed;
+  z-index: 500;
+  min-width: 220px;
+  padding: 6px;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.jdf-node-menu[hidden] {
+  display: none !important;
+}
+
+.jdf-node-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.jdf-node-menu-item:hover,
+.jdf-node-menu-item:focus-visible {
+  background: var(--color-bg);
+  outline: none;
+}
+
 .jdf-node {
   position: relative;
   margin-bottom: var(--space-sm);

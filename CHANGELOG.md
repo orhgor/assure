@@ -4,6 +4,9 @@ All notable product changes in this tree. Dates are calendar dates from the swar
 
 ## Unreleased
 
+- 2026-09-04 production `1b21f8b`: Projects CRUD, unsaved-change confirms, Audit Manifest on the command deck (tooltip, modal, JSON download). UI `assure-64` / `assure-55`.
+- 2026-09-04 local (uncommitted): canvas right-click menu — Edit, Revise, Re-prompt, Send for Revision — on existing `/inquire/stream`. UI `assure-65` / `assure-56`.
+- Compiler routing: `anthropic/claude-sonnet-4-5`, `gemini/gemini-3.6-flash`; BYOK keys on the workbench draft path.
 - P4 account wallet: Clerk TEXT user ids, Fernet settings sync, 100 signup credits, atomic `spend_credit` after a successful Send, `/account/usage`. Source-install without Clerk stays unlimited. No official `supabase` Python SDK.
 - Swarm for Cursor: `swarm_start` + `swarm_status` so the full pipeline is not one MCP round-trip (that was `-32001` timeout). `pem_apply_diff` is the listed patch tool; Cursor hides `apply_patch`. MCP writes accepted files after lint. Context files resolve under the repo root. Per-role workflow deadline matches developer 180s Sends.
 - Canonical public URL is https://getassureai.com/ (HTTPS 200 on 2026-09-01). Check outputs is live on that host. `www` did not resolve. Live HTML still lists canonical getassure.com until `webpage` is synced.

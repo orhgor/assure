@@ -2,10 +2,10 @@
 
 **Purpose:** Single document for launch readiness, market assessment, positioning, feature inventory, and development history.
 **Product:** Assure (workbench) · **Engine:** PEM (`prompt_matrix`)
-**Last updated:** 2026-09-02
-**Decision:** **CONDITIONAL GO** — soft launch ready; fix P1 items before wide promotion
-**Tests:** 169 passing locally (`python -m unittest discover -s tests`)
-**Live site:** https://getassureai.com/ · Worker commit `c0a7739` · CSS `?v=30`
+**Last updated:** 2026-09-04
+**Decision:** **GO (production)** — `getassureai.com` healthy at `1b21f8b`; fix remaining P1 (Clerk gate) before wide promotion
+**Tests:** 291 pytest passed, 1 failed (`test_resolve_lock_inference_model`); App Docker green
+**Live site:** https://getassureai.com/ · app branch `p4-account-wallet` · UI `assure-64` / `assure-55`
 
 ---
 
@@ -37,10 +37,10 @@ Assure is a **local AI workbench** that translates plain questions into model-sp
 | Area | Status |
 | :--- | :--- |
 | **Public website** | Live at `getassureai.com` + `www` (200). BYOK pricing copy deployed. GA4 live and disclosed. |
-| **Core product** | End-to-end Send works: three workflows, grounding highlights, history, four export formats. |
-| **i18n** | All 7 locales verified on Compose (`en es zh fr de ja tr`). |
+| **Core product** | Compile → Z3 / Red-Hat → JDF canvas → Refine (and local node menu) → Export DOCX + Audit Manifest. |
+| **i18n** | All 7 locales on workbench and landing marketing strings (`en es zh fr de ja tr`). |
 | **Distribution** | Source install only. No PyPI. No public desktop download. Waitlist on site. |
-| **Launch** | Conditional GO. Fix thumbs UI, model attribution, Clerk gate before Product Hunt. |
+| **Launch** | Production GO at `1b21f8b`. Clerk gate and backup cron still open. |
 
 **One line:** Talk to AI like a colleague — we handle the translation and the check. You bring your own API keys; Assure charges for the workbench, not the models.
 
