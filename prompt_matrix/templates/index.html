@@ -77,7 +77,7 @@
               <span class="app-sidebar-icon" aria-hidden="true">✨</span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Edit nodes surgically and inquire with models') }}" data-i18n-tooltip="tooltip.nav.surgical">
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Edit a specific node with context-locking to prevent narrative drift.') }}" data-i18n-tooltip="tooltip.nav.surgical">
               <span class="app-sidebar-icon" aria-hidden="true">🧠</span>
               <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Refine') }}</span>
             </button>
@@ -154,6 +154,10 @@
               <input type="checkbox" id="toggle-redhat" checked>
               <span data-i18n="jdf.redhat">{{ gettext('Run red-hat after edit') }}</span>
             </label>
+            <div class="demo-chip-container">
+              <button type="button" id="demo-redhat-btn" class="demo-chip" role="button" tabindex="0" data-i18n="demo.redhat.label">{{ gettext('🔴 See Red-Hat in Action') }}</button>
+              <span class="demo-chip-hint" data-i18n="demo.redhat.hint">{{ gettext('Try it on a sample paragraph') }}</span>
+            </div>
 
             <div id="compose-mode" class="work-mode-panel visually-hidden" aria-hidden="true" hidden data-mode-panel="compose">
               <form id="form" class="compose-mode-form">

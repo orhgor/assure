@@ -567,6 +567,68 @@
     });
   }
 
+  function initDemoRedhatChip() {
+    var btn = $("demo-redhat-btn");
+    if (!btn) return;
+
+    var demoToastTimer = null;
+
+    function clearDemoToastTimer() {
+      if (demoToastTimer) {
+        window.clearTimeout(demoToastTimer);
+        demoToastTimer = null;
+      }
+    }
+
+    function showDemoToast() {
+      if (!global.__assureDemoRedhatPending) return;
+      global.__assureDemoRedhatPending = false;
+      clearDemoToastTimer();
+      AssureToast.show(
+        translate(
+          "demo.redhat.toast",
+          'Red-Hat flagged a logical gap: "Growth rate benchmark is unverified — no industry average provided." Try it with your own documents.'
+        ),
+        "info"
+      );
+    }
+
+    document.addEventListener("assure:demo-redhat-audit", showDemoToast);
+
+    function runDemo() {
+      var intent = $("generate-intent");
+      var compileBtn = $("generate-compile-btn");
+      var redhatToggle = $("toggle-redhat");
+      if (!intent || !compileBtn) return;
+
+      intent.value = translate(
+        "demo.redhat.sample",
+        "Our revenue grew 50% this quarter, which is the highest growth rate in the industry."
+      );
+      autoResizeTextarea(intent);
+
+      if (redhatToggle && !redhatToggle.checked) {
+        redhatToggle.checked = true;
+      }
+
+      AssureNav.switchView("generate", { replaceHash: false, persist: true });
+
+      global.__assureDemoRedhatPending = true;
+      clearDemoToastTimer();
+      demoToastTimer = window.setTimeout(showDemoToast, 12000);
+
+      compileBtn.click();
+    }
+
+    btn.addEventListener("click", runDemo);
+    btn.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        runDemo();
+      }
+    });
+  }
+
   function initCompileExampleChips() {
     document.querySelectorAll(".example-chip[data-prompt-key]").forEach(function (chip) {
       function applyPrompt() {
@@ -596,10 +658,12 @@
       AssureNav.init();
       initAutoResize();
       initCompileExampleChips();
+      initDemoRedhatChip();
     });
   } else {
     AssureNav.init();
     initAutoResize();
     initCompileExampleChips();
+    initDemoRedhatChip();
   }
 })(window);

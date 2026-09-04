@@ -1614,6 +1614,45 @@ body:has(#assure-app) .shell {
   flex-shrink: 0;
 }
 
+.demo-chip-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: var(--space-sm, 8px);
+  flex-wrap: wrap;
+}
+
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 1rem;
+  background: var(--color-primary-light, #E8F0FE);
+  border: 1px solid var(--color-primary);
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.demo-chip:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.demo-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.demo-chip-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .work-mode-panel {
   display: none;
   flex-direction: column;

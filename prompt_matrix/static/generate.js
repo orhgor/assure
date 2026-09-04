@@ -93,6 +93,9 @@
         global.AssureAuditGate && typeof global.AssureAuditGate.timeoutRetryMessage === "function"
           ? global.AssureAuditGate.timeoutRetryMessage()
           : t("audit.timeout", "Verification timeout — click to retry");
+      if (global.__assureDemoRedhatPending) {
+        document.dispatchEvent(new CustomEvent("assure:demo-redhat-audit"));
+      }
       self.setGateLoading(false);
       var statusText = $("gate-status-text");
       var loader = $("gate-loader");
@@ -355,6 +358,9 @@
           self.renderAuditGate(data);
           var dockBtn = $("generate-accept-dock");
           if (dockBtn) dockBtn.disabled = false;
+          if (global.__assureDemoRedhatPending) {
+            document.dispatchEvent(new CustomEvent("assure:demo-redhat-audit"));
+          }
           return;
         }
 

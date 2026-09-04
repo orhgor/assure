@@ -23,6 +23,23 @@
       i18n: "onboarding.step3",
       fallback: "The Z3 Truth Ledger shows verification status for locked claims.",
     },
+    {
+      selector: "#toggle-redhat",
+      i18n: "onboarding.step4",
+      fallback:
+        "Red-Hat is an automated devil's advocate. Enable it to catch logical gaps before your client does.",
+      prepare: function () {
+        if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+          global.AssureNav.switchView("surgical", { replaceHash: false, persist: true });
+        }
+      },
+    },
+    {
+      selector: '[data-tool="surgical"]',
+      i18n: "onboarding.step5",
+      fallback:
+        "Refine edits one node with context-locking. Your change affects only this node — the surrounding text stays locked.",
+    },
   ];
 
   var state = {
