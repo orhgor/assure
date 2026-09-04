@@ -27,56 +27,53 @@
         <section class="hero-section arch-hero">
             <div class="container">
                 <a href="/" class="back-link"><span data-i18n="arch.back">&larr; Back to</span> {{ brand.name }}</a>
-                <span class="eyebrow" data-i18n="arch.hero.eyebrow">Architecture Deep-Dive</span>
-                <h1 data-i18n="arch.hero.title">Under the Hood: Why Flat Text Fails.</h1>
-                <p class="hero-sub" data-i18n-html="arch.hero.sub">Chat models emit undifferentiated prose&mdash;a single string with no structure, no locks, and no proof obligations. Assure compiles your intent into a <strong>modular execution tree</strong>: typed JDF nodes you can edit, lock, verify, and export independently&mdash;without re-prompting the entire document.</p>
+                <span class="eyebrow" data-i18n="arch.hero.eyebrow">How it works</span>
+                <h1 data-i18n="arch.hero.title">Why a wall of AI text isn't enough.</h1>
+                <p class="hero-sub" data-i18n-html="arch.hero.sub">Most AI gives you one long paragraph&mdash;polished words, no proof. Assure breaks your document into <strong>sections you can edit, lock, and verify</strong>&mdash;so numbers stay consistent and export means you can stand behind every page.</p>
             </div>
         </section>
 
         <section class="ast-section">
             <div class="container">
-                <h2 data-i18n="arch.ast.title">Flat Text vs. JDF Execution Tree</h2>
-                <p class="section-sub" data-i18n="arch.ast.sub">Every deliverable is an AST&mdash;not a blob. Sections nest blocks; blocks carry provenance, entity bindings, and verification annotations.</p>
+                <h2 data-i18n="arch.ast.title">Flat text vs. a document you can trust</h2>
+                <p class="section-sub" data-i18n="arch.ast.sub">Assure structures your deliverable section by section. Every claim ties back to a source. Every number can be locked.</p>
 
                 <div class="ast-compare">
                     <div class="ast-panel ast-flat">
-                        <h3 data-i18n="arch.ast.flat.title">Flat LLM Output</h3>
+                        <h3 data-i18n="arch.ast.flat.title">What ChatGPT gives you</h3>
                         <pre class="ast-mock" aria-hidden="true">"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."</pre>
                         <ul class="ast-fail-list">
-                            <li data-i18n="arch.ast.flat.fail1">No node boundaries</li>
-                            <li data-i18n="arch.ast.flat.fail2">Metrics drift on edit</li>
-                            <li data-i18n="arch.ast.flat.fail3">Verification is manual</li>
+                            <li data-i18n="arch.ast.flat.fail1">One blob&mdash;hard to fix one claim without breaking others</li>
+                            <li data-i18n="arch.ast.flat.fail2">Numbers change when you rewrite nearby text</li>
+                            <li data-i18n="arch.ast.flat.fail3">You re-read fifty pages by hand</li>
                         </ul>
                     </div>
                     <div class="ast-panel ast-tree">
-                        <h3 data-i18n="arch.ast.tree.title">JDF AST (Static Preview)</h3>
-                        <div class="ast-grid" aria-label="JDF node type preview">
+                        <h3 data-i18n="arch.ast.tree.title">What Assure builds</h3>
+                        <div class="ast-grid" aria-label="Document structure preview">
                             <article class="ast-node ast-node-section">
                                 <div class="ast-node-header">
                                     <span class="ast-node-icon" aria-hidden="true">§</span>
-                                    <code>JDFSectionNode</code>
+                                    <span class="ast-node-label">Section</span>
                                 </div>
-                                <p class="ast-node-field"><span>id</span> sec_financials</p>
                                 <p class="ast-node-field"><span>title</span> Financial Summary</p>
-                                <p class="ast-node-field"><span>children</span> [paragraph, table]</p>
+                                <p class="ast-node-field"><span>contains</span> paragraph, table</p>
                                 <div class="ast-node-children">
                                     <article class="ast-node ast-node-paragraph">
                                         <div class="ast-node-header">
                                             <span class="ast-node-icon" aria-hidden="true">¶</span>
-                                            <code>JDFParagraphNode</code>
+                                            <span class="ast-node-label">Paragraph</span>
                                         </div>
-                                        <p class="ast-node-field"><span>content</span> Q3 revenue reached $4.2M…</p>
-                                        <p class="ast-node-field"><span>entities</span> revenue_q3</p>
+                                        <p class="ast-node-field"><span>content</span> Q3 revenue reached $4.2M&hellip;</p>
                                         <span class="ast-badge ast-badge-lock">🔒 Locked</span>
                                     </article>
                                     <article class="ast-node ast-node-table">
                                         <div class="ast-node-header">
                                             <span class="ast-node-icon" aria-hidden="true">⊞</span>
-                                            <code>JDFTableNode</code>
+                                            <span class="ast-node-label">Table</span>
                                         </div>
                                         <p class="ast-node-field"><span>headers</span> Region, Growth</p>
-                                        <p class="ast-node-field"><span>bound_entities</span> margin_pct</p>
-                                        <span class="ast-badge ast-badge-z3">🛡️ Z3 pass</span>
+                                        <span class="ast-badge ast-badge-z3">✅ Verified</span>
                                     </article>
                                 </div>
                             </article>
@@ -88,49 +85,49 @@
 
         <section class="exec-pipeline-section">
             <div class="container">
-                <h2 data-i18n="arch.pipeline.title">Six-Stage Execution Pipeline</h2>
-                <p class="section-sub" data-i18n="arch.pipeline.sub">From raw intent to publication-ready output&mdash;each stage produces auditable artifacts, not probabilistic guesses.</p>
+                <h2 data-i18n="arch.pipeline.title">Six steps from idea to deliverable</h2>
+                <p class="section-sub" data-i18n="arch.pipeline.sub">Each step leaves a trail. Nothing ships on vibes alone.</p>
                 <ol class="exec-pipeline">
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">✏️</span>
                         <div class="exec-body">
                             <h3 data-i18n="arch.pipeline.draft.title">Draft</h3>
-                            <p data-i18n="arch.pipeline.draft.body">Intent and source files enter the vault. The engine proposes structured JDF nodes anchored to provenance.</p>
+                            <p data-i18n="arch.pipeline.draft.body">You describe what you need. Assure reads your sources and proposes a structured first pass.</p>
                         </div>
                     </li>
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">⚙️</span>
                         <div class="exec-body">
                             <h3 data-i18n="arch.pipeline.compile.title">Compile</h3>
-                            <p data-i18n="arch.pipeline.compile.body">Compiler Core dialect prompts compile to deterministic node operations&mdash;paragraphs, tables, and sections with stable IDs.</p>
+                            <p data-i18n="arch.pipeline.compile.body">The draft becomes sections, paragraphs, and tables&mdash;each with a stable place in the document.</p>
                         </div>
                     </li>
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">🔒</span>
                         <div class="exec-body">
                             <h3 data-i18n="arch.pipeline.lock.title">Lock</h3>
-                            <p data-i18n="arch.pipeline.lock.body">Critical variables and entity bindings freeze in the Truth Ledger. Locked nodes resist silent drift on downstream edits.</p>
+                            <p data-i18n="arch.pipeline.lock.body">Critical numbers freeze. Edit the narrative without silently changing the math.</p>
                         </div>
                     </li>
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">🛡️</span>
                         <div class="exec-body">
-                            <h3 data-i18n="arch.pipeline.z3.title">Z3 Verify</h3>
-                            <p data-i18n="arch.pipeline.z3.body">The Z3 SMT solver checks numeric constraints and cross-node consistency&mdash;SAT means mathematically consistent.</p>
+                            <h3 data-i18n="arch.pipeline.z3.title">Math Check</h3>
+                            <p data-i18n="arch.pipeline.z3.body">Assure checks that locked numbers agree across the whole document&mdash;before you export.</p>
                         </div>
                     </li>
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">🔍</span>
                         <div class="exec-body">
-                            <h3 data-i18n="arch.pipeline.redhat.title">Red-Hat Audit</h3>
-                            <p data-i18n="arch.pipeline.redhat.body">An adversarial persona stress-tests assumptions, flags logic gaps, and attaches critiques to specific nodes.</p>
+                            <h3 data-i18n="arch.pipeline.redhat.title">Stress Test</h3>
+                            <p data-i18n="arch.pipeline.redhat.body">An adversarial review hunts for logic gaps, weak claims, and missing evidence&mdash;pinned to the exact section.</p>
                         </div>
                     </li>
                     <li class="exec-step">
                         <span class="exec-icon" aria-hidden="true">✅</span>
                         <div class="exec-body">
-                            <h3 data-i18n="arch.pipeline.gate.title">Pre-Flight Gate</h3>
-                            <p data-i18n="arch.pipeline.gate.body">Export blocked until Z3 passes and open Red-Hat items are resolved. Deliverables ship with a full audit trail.</p>
+                            <h3 data-i18n="arch.pipeline.gate.title">Export</h3>
+                            <p data-i18n="arch.pipeline.gate.body">You can't ship until Math Check passes and open Stress Test findings are resolved. What downloads is defensible.</p>
                         </div>
                     </li>
                 </ol>
@@ -139,31 +136,28 @@
 
         <section class="z3-section">
             <div class="container narrow">
-                <h2 data-i18n="arch.z3.title">Z3 SMT: Mathematical Certainty</h2>
-                <p data-i18n-html="arch.z3.lead"><strong>Satisfiability Modulo Theories (SMT)</strong> lets Assure treat your document like a formal specification. Key metrics become symbolic variables; constraints encode relationships between them.</p>
+                <h2 data-i18n="arch.z3.title">Math Check: numbers that stay true</h2>
+                <p data-i18n-html="arch.z3.lead">Assure treats your key metrics like promises. <strong>Revenue, margins, runway</strong>&mdash;once locked, they must stay consistent everywhere they appear.</p>
                 <div class="z3-example">
-                    <p class="z3-label" data-i18n="arch.z3.example.label">Example constraint set</p>
-                    <pre class="z3-code"><code>(assert (= revenue_q3 4200000))
-(assert (= margin_pct 32))
-(assert (&gt; revenue_q3 0))
-(check-sat)  ; → sat  ✓ consistent</code></pre>
+                    <p class="z3-label" data-i18n="arch.z3.example.label">Example</p>
+                    <p class="z3-human-example" data-i18n-html="arch.z3.example.body"><strong>Locked:</strong> Q3 revenue $4.2M &middot; Margin 32%<br><strong>Math Check:</strong> ✅ Consistent across all sections</p>
                 </div>
-                <p data-i18n-html="arch.z3.body">When Z3 returns <strong>sat</strong>, your locked numbers cannot contradict each other across the tree. When it returns <strong>unsat</strong>, Assure surfaces the conflicting nodes before you export&mdash;no manual cross-checking across fifty pages.</p>
+                <p data-i18n-html="arch.z3.body">When everything adds up, you see <strong>Verified</strong>. When two sections disagree, Assure shows you exactly where&mdash;before your client or auditor does.</p>
                 <ul class="z3-points">
-                    <li data-i18n-html="arch.z3.point1"><strong>Truth Ledger:</strong> canonical keys map entities to values the solver can reference.</li>
-                    <li data-i18n-html="arch.z3.point2"><strong>Node annotations:</strong> <code>annotations.z3</code> records pass/violation per block without polluting export.</li>
-                    <li data-i18n-html="arch.z3.point3"><strong>Pre-Flight Gate:</strong> unsat or open violations block .docx / PDF export until resolved.</li>
+                    <li data-i18n-html="arch.z3.point1"><strong>Locked numbers:</strong> one source of truth for every metric in the document.</li>
+                    <li data-i18n-html="arch.z3.point2"><strong>Per-section status:</strong> pass or issue&mdash;without cluttering the Word export.</li>
+                    <li data-i18n-html="arch.z3.point3"><strong>Export gate:</strong> Word and PDF only download when the document is clean&mdash;or you fix it first.</li>
                 </ul>
             </div>
         </section>
 
         <section class="cta-section">
             <div class="container center">
-                <h2 data-i18n="arch.cta.title">See the pipeline in action.</h2>
-                <p data-i18n="arch.cta.sub">Paste a paragraph on the landing sandbox or launch the full workspace.</p>
+                <h2 data-i18n="arch.cta.title">Try it yourself.</h2>
+                <p data-i18n="arch.cta.sub">Paste a paragraph on the landing page, or open the full workbench.</p>
                 <div class="hero-cta-group">
-                    <a href="/#sandbox" class="btn-primary" data-i18n="arch.cta.sandbox">Try the Sandbox</a>
-                    <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small arch-cta-secondary" data-i18n="arch.cta.workspace">Launch Workspace</a>
+                    <a href="/#sandbox" class="btn-primary" data-i18n="arch.cta.sandbox">Try the Paste Test</a>
+                    <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small arch-cta-secondary" data-i18n="arch.cta.workspace">Launch Workbench</a>
                 </div>
             </div>
         </section>

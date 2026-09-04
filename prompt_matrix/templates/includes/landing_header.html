@@ -14,7 +14,7 @@
         <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
             <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">Menu</button>
             <a href="{% if nav_current|default('landing') == 'landing' %}#glossary{% else %}/#glossary{% endif %}" data-i18n="landing.nav.docs">Docs</a>
-            <a href="/architecture"{% if nav_current|default('landing') == 'architecture' %} aria-current="page"{% endif %} data-i18n="landing.nav.architecture">Architecture</a>
+            <a href="/architecture"{% if nav_current|default('landing') == 'architecture' %} aria-current="page"{% endif %} data-i18n="landing.nav.architecture">How it works</a>
             <a href="{% if nav_current|default('landing') == 'landing' %}#sandbox{% else %}/#sandbox{% endif %}" data-i18n="landing.nav.sandbox">Sandbox</a>
             <label class="landing-lang-wrap" for="landing-lang">
                 <span class="visually-hidden" data-i18n="landing.lang">Language</span>

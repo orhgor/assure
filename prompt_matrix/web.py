@@ -170,10 +170,9 @@ BRAND = {
         "Traditional AI is a black box that makes things up. Assure uses formal logic "
         "to turn raw chaos into mathematically airtight deliverables."
     ),
-    "architecture_title": "Architecture · Assure — The Intellectual Compiler",
+    "architecture_title": "How It Works · Assure — The Intellectual Compiler",
     "architecture_meta_description": (
-        "Why flat text fails and how Assure uses JDF AST modular execution trees, "
-        "Z3 SMT verification, and a six-stage pipeline for mathematical certainty."
+        "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
     ),
 }
 _WAITLIST_ORIGINS = frozenset(
