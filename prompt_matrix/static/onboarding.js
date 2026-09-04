@@ -132,33 +132,53 @@
     document.body.classList.remove("onboarding-active");
   }
 
+  function clampCalloutToViewport(callout) {
+    if (!callout) return;
+    var margin = 8;
+    var height = callout.offsetHeight || callout.getBoundingClientRect().height;
+    var width = callout.offsetWidth || callout.getBoundingClientRect().width;
+    var maxTop = Math.max(margin, window.innerHeight - height - margin);
+    var maxLeft = Math.max(margin, window.innerWidth - width - margin);
+    var top = parseFloat(callout.style.top);
+    var left = parseFloat(callout.style.left);
+    if (!isFinite(top)) top = margin;
+    if (!isFinite(left)) left = margin;
+    callout.style.top = Math.min(Math.max(margin, top), maxTop) + "px";
+    callout.style.left = Math.min(Math.max(margin, left), maxLeft) + "px";
+  }
+
   function positionCallout(target, callout) {
     if (!target || !callout) return;
     var rect = target.getBoundingClientRect();
     var mobile = window.matchMedia("(max-width: 768px)").matches;
     var gap = 10;
+    var margin = 8;
     var left;
     var top;
 
     callout.style.maxWidth = mobile ? "260px" : "280px";
 
     if (mobile) {
-      left = Math.max(8, rect.left);
+      left = Math.max(margin, rect.left);
       top = rect.bottom + gap;
-      if (top + callout.offsetHeight > window.innerHeight - 8) {
-        top = Math.max(8, rect.top - callout.offsetHeight - gap);
+      if (top + callout.offsetHeight > window.innerHeight - margin) {
+        top = Math.max(margin, rect.top - callout.offsetHeight - gap);
       }
     } else {
       left = rect.left + rect.width / 2 - callout.offsetWidth / 2;
       top = rect.top - callout.offsetHeight - gap;
-      if (top < 8) {
+      if (top < margin) {
         top = rect.bottom + gap;
       }
-      left = Math.max(8, Math.min(left, window.innerWidth - callout.offsetWidth - 8));
+      left = Math.max(margin, Math.min(left, window.innerWidth - callout.offsetWidth - margin));
+      if (top + callout.offsetHeight > window.innerHeight - margin) {
+        top = Math.max(margin, window.innerHeight - callout.offsetHeight - margin);
+      }
     }
 
     callout.style.left = left + "px";
     callout.style.top = top + "px";
+    clampCalloutToViewport(callout);
   }
 
   function buildCallout(stepIndex, total) {
@@ -272,9 +292,9 @@
     if (isComplete()) return;
     maybeStart();
     document.addEventListener("assure:view", function () {
-      if (isComplete() || !state.callout) return;
+      if (isComplete() || !state.callout || !state.activeEl) return;
       window.requestAnimationFrame(function () {
-        showStep(state.index);
+        positionCallout(state.activeEl, state.callout);
       });
     });
     document.addEventListener("assure:i18n", function () {

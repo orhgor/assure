@@ -2074,6 +2074,8 @@ body:has(#assure-app) .shell {
   position: fixed;
   z-index: 300;
   max-width: 280px;
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
   padding: 12px 14px;
   background: var(--bg-deep);
   color: #ffffff;
