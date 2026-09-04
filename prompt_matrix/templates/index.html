@@ -153,7 +153,13 @@
                 <span data-i18n="generate.compiling">{{ gettext('Working…') }}</span>
               </div>
               <div id="generate-nodes-preview" class="generate-nodes-preview preview-box" hidden>
-                <p class="preview-label" data-i18n="generate.nodes_preview">{{ gettext('Compiled draft') }}</p>
+                <div class="generate-nodes-head">
+                  <p class="preview-label" data-i18n="generate.nodes_preview">{{ gettext('Compiled draft') }}</p>
+                  <div class="generate-nodes-actions">
+                    <button type="button" class="btn btn-outline btn-sm" id="expand-draft-btn" data-i18n="generate.expand" aria-pressed="false">{{ gettext('Expand draft') }}</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="fullscreen-draft-btn" data-i18n="generate.fullscreen" aria-pressed="false">{{ gettext('Full screen') }}</button>
+                  </div>
+                </div>
                 <div id="generate-nodes-body" class="generate-nodes-body"></div>
               </div>
               <div id="compilation-summary" class="generate-summary card" hidden>

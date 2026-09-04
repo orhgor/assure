@@ -1680,11 +1680,72 @@ body:has(#assure-app) .shell {
   margin-top: var(--space-sm, 8px);
 }
 
+.generate-nodes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm, 8px);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-xs, 4px);
+}
+
+.generate-nodes-head .preview-label {
+  margin: 0;
+}
+
+.generate-nodes-actions {
+  display: flex;
+  gap: var(--space-xs, 4px);
+  flex-shrink: 0;
+}
+
 .generate-nodes-body {
   font-size: 0.92rem;
   line-height: 1.5;
+  min-height: 100px;
   max-height: 220px;
   overflow-y: auto;
+  resize: vertical;
+  padding: var(--space-sm, 8px);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.12));
+  transition: max-height 0.3s ease;
+}
+
+.generate-nodes-preview.is-expanded .generate-nodes-body {
+  max-height: 80vh;
+}
+
+.generate-nodes-preview.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  margin: 0;
+  max-height: none;
+  height: 100vh;
+  border-radius: 0;
+  padding: var(--space-md, 16px);
+  background: var(--color-bg, var(--bg, #0f172a));
+  display: flex;
+  flex-direction: column;
+}
+
+.generate-nodes-preview.is-fullscreen .generate-nodes-body {
+  flex: 1;
+  max-height: none;
+  height: auto;
+  resize: none;
+}
+
+body.draft-fullscreen-open {
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .generate-nodes-preview.is-expanded .generate-nodes-body {
+    max-height: 80vh;
+  }
 }
 
 .generate-nodes-body h4 {
