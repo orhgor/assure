@@ -59,31 +59,39 @@ fi
 echo "Using Ubuntu 24.04 ARM64 AMI: $AMI_ID"
 
 # --- IAM role for SSM (no inbound SSH required) ---
+IAM_INSTANCE_PROFILE="${IAM_INSTANCE_PROFILE:-}"
 ROLE_NAME="${INSTANCE_NAME}-ssm-role"
-PROFILE_NAME="${INSTANCE_NAME}-ssm-profile"
+PROFILE_NAME="${IAM_INSTANCE_PROFILE:-${INSTANCE_NAME}-ssm-profile}"
 
-if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
-  aws iam create-role \
-    --role-name "$ROLE_NAME" \
-    --assume-role-policy-document '{
-      "Version": "2012-10-17",
-      "Statement": [{
-        "Effect": "Allow",
-        "Principal": {"Service": "ec2.amazonaws.com"},
-        "Action": "sts:AssumeRole"
-      }]
-    }'
-  aws iam attach-role-policy \
-    --role-name "$ROLE_NAME" \
-    --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-fi
+if [ -n "$IAM_INSTANCE_PROFILE" ]; then
+  if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
+    echo "IAM instance profile not found: $PROFILE_NAME" >&2
+    exit 1
+  fi
+else
+  if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
+    aws iam create-role \
+      --role-name "$ROLE_NAME" \
+      --assume-role-policy-document '{
+        "Version": "2012-10-17",
+        "Statement": [{
+          "Effect": "Allow",
+          "Principal": {"Service": "ec2.amazonaws.com"},
+          "Action": "sts:AssumeRole"
+        }]
+      }'
+    aws iam attach-role-policy \
+      --role-name "$ROLE_NAME" \
+      --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  fi
 
-if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
-  aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME"
-  aws iam add-role-to-instance-profile \
-    --instance-profile-name "$PROFILE_NAME" \
-    --role-name "$ROLE_NAME"
-  sleep 10
+  if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" >/dev/null 2>&1; then
+    aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME"
+    aws iam add-role-to-instance-profile \
+      --instance-profile-name "$PROFILE_NAME" \
+      --role-name "$ROLE_NAME"
+    sleep 10
+  fi
 fi
 
 PROFILE_ARN="$(aws iam get-instance-profile \

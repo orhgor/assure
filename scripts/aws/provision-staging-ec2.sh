@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 export INSTANCE_NAME="${INSTANCE_NAME:-assure-staging}"
+export IAM_INSTANCE_PROFILE="${IAM_INSTANCE_PROFILE:-assure-prod-ssm-profile}"
 export ENV_FILE="${ENV_FILE:-$ROOT/.env.staging}"
 export ENV_TARGET="${ENV_TARGET:-.env.staging}"
 export COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.yml -f docker-compose.staging.yml}"
