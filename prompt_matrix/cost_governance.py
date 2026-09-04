@@ -21,6 +21,22 @@ except ImportError:
     from token_counter import count_tokens
 
 
+def _litellm_api_kwargs(model: str) -> dict:
+    """Return {api_key: ...} for the model's provider, reading BYOK from Flask g if available."""
+    prefix = model.split("/")[0] if "/" in model else model
+    provider = {"anthropic": "claude", "deepseek": "deepseek", "gemini": "gemini"}.get(
+        prefix, prefix
+    )
+    try:
+        try:
+            from .keys import litellm_kwargs_for
+        except ImportError:
+            from keys import litellm_kwargs_for
+        return litellm_kwargs_for(provider)
+    except Exception:
+        return {}
+
+
 class TaskType(str, Enum):
     SURGICAL_EDIT = "surgical_edit"
     SUMMARIZE_NODE = "summarize_node"
@@ -439,12 +455,15 @@ class CostGovernor:
         try:
             import litellm
 
+            _api_kwargs = _litellm_api_kwargs(model)
+
             def _complete():
                 return litellm.completion(
                     model=model if not model.startswith("anthropic.") else f"bedrock/{model}",
                     messages=payload,
                     max_tokens=max_output,
                     stream=False,
+                    **_api_kwargs,
                 )
 
             try:

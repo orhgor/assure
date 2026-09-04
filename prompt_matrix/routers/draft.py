@@ -208,13 +208,24 @@ def _stream_claude(
         except ImportError:
             from services.language_guard import guard_messages, resolve_request_locale
 
+        try:
+            from ..keys import litellm_kwargs_for
+        except ImportError:
+            from keys import litellm_kwargs_for
+
         guarded = guard_messages(messages, locale=resolve_request_locale())
+        _api_kwargs: dict = {}
+        try:
+            _api_kwargs = litellm_kwargs_for("claude")
+        except Exception:
+            pass
         stream = litellm.completion(
             model=model,
             messages=guarded,
             max_tokens=max_out,
             temperature=0.4,
             stream=True,
+            **_api_kwargs,
         )
         full = ""
         for chunk in stream:
