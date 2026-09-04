@@ -92,7 +92,9 @@ Latest commit **`7a1cbef`** on branch **`p4-account-wallet`**. GitHub Actions Ap
 | `scripts/aws/install-auto-heal-cron.sh` | ✅ |
 | Redeploy script tests | ✅ `tests/test_redeploy_hardening.py` (3 tests) |
 | Audit log + system_metrics SQL runbook | ✅ [post-launch-ops.md](./post-launch-ops.md) |
-| Plausible / tester free-text feedback / Sentry | ✅ Live — Plausible on prod Flask pages; `POST /api/tester-feedback`; Sentry when `SENTRY_DSN` set |
+| Plausible / tester free-text feedback / Sentry | ✅ Live — Plausible on prod Flask pages; feedback modal + `POST /api/tester-feedback`; Sentry when `SENTRY_DSN` set |
+| Friendly error handlers (404/429/500) | ✅ JSON for `/api/*`, HTML `error.html` elsewhere |
+| Tester Help link (`ASSURE_HELP_URL`) | ✅ Wired — defaults to `mailto:feedback@getassureai.com` |
 
 ### Tests
 

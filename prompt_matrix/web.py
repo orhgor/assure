@@ -109,6 +109,29 @@ def _sentry_enabled() -> bool:
         return True
     return os.environ.get("ENVIRONMENT") == "production"
 
+
+def _help_url() -> str:
+    raw = (os.environ.get("ASSURE_HELP_URL") or "").strip()
+    if raw:
+        return raw
+    return "mailto:feedback@getassureai.com"
+
+
+_DEFAULT_SENTRY_BROWSER_DSN = (
+    "https://464429cd135c3ce0fbbcb5b78e46e639@"
+    "o4512026954694656.ingest.us.sentry.io/4512026963869696"
+)
+
+
+def _sentry_browser_dsn() -> str:
+    for key in ("SENTRY_BROWSER_DSN", "SENTRY_DSN"):
+        dsn = (os.environ.get(key) or "").strip()
+        if dsn:
+            return dsn
+    if os.environ.get("ENVIRONMENT") == "production":
+        return _DEFAULT_SENTRY_BROWSER_DSN
+    return ""
+
 try:
     from .waitlist import (
         DuplicateWaitlistError,
@@ -362,6 +385,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "js_version": APP_JS,
             "plausible_enabled": _plausible_enabled(),
             "sentry_enabled": _sentry_enabled(),
+            "sentry_browser_dsn": _sentry_browser_dsn(),
+            "help_url": _help_url(),
         }
 
     try:
@@ -1530,21 +1555,115 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def matrix_error(exc: MatrixError):
         return jsonify({"error": friendly_error(str(exc), _locale())}), 400
 
+    def _wants_json() -> bool:
+        if request.path.startswith("/api/"):
+            return True
+        accept = (request.headers.get("Accept") or "").lower()
+        if "application/json" in accept:
+            first = accept.split(",")[0].strip()
+            return "text/html" not in first
+        return False
+
+    def _localized_error(key: str, fallback: str) -> str:
+        return string_catalog(_locale()).get(key, fallback)
+
+    def _error_json(key: str, fallback: str, status: int):
+        return jsonify({"error": _localized_error(key, fallback)}), status
+
+    def _error_page(key: str, fallback: str, status: int, title_key: str, title_fallback: str):
+        lang = _locale()
+        session["lang"] = lang
+        html = render_template(
+            "error.html",
+            locale=lang,
+            languages=LOCALE_LABELS,
+            active="",
+            auth=template_state(),
+            error_code=status,
+            error_message=_localized_error(key, fallback),
+            error_title=_localized_error(title_key, title_fallback),
+        )
+        resp = make_response(html, status)
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return resp
+
+    @app.errorhandler(404)
+    def not_found(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.not_found",
+                "We couldn't find that page.",
+                404,
+            )
+        return _error_page(
+            "error.not_found",
+            "We couldn't find that page.",
+            404,
+            "error.not_found_title",
+            "Page not found",
+        )
+
+    @app.errorhandler(429)
+    def rate_limited(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.rate_limit",
+                "Too many requests. Please wait a moment and try again.",
+                429,
+            )
+        return _error_page(
+            "error.rate_limit",
+            "Too many requests. Please wait a moment and try again.",
+            429,
+            "error.rate_limit",
+            "Too many requests",
+        )
+
+    @app.errorhandler(500)
+    def internal_error(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.internal",
+                "Something went wrong on our side. We've been notified and are looking into it.",
+                500,
+            )
+        return _error_page(
+            "error.internal",
+            "Something went wrong on our side. We've been notified and are looking into it.",
+            500,
+            "error.internal",
+            "Something went wrong",
+        )
+
     @app.errorhandler(Exception)
     def api_error(exc: Exception):
         from werkzeug.exceptions import HTTPException
 
         if isinstance(exc, HTTPException):
-            if request.path.startswith("/api/"):
+            if exc.code in (404, 429, 500):
+                if exc.code == 404:
+                    return not_found(exc)
+                if exc.code == 429:
+                    return rate_limited(exc)
+                return internal_error(exc)
+            if _wants_json():
                 return jsonify({"error": exc.description or exc.name}), exc.code
             return exc
-        if request.path.startswith("/api/"):
+        if _wants_json():
             app.logger.exception(exc)
-            return jsonify({"error": string_catalog(_locale()).get(
-                "error.server",
-                "The server hit an error while answering. Try again.",
-            )}), 500
-        raise
+            return _error_json(
+                "error.internal",
+                "Something went wrong on our side. We've been notified and are looking into it.",
+                500,
+            )
+        app.logger.exception(exc)
+        return _error_page(
+            "error.internal",
+            "Something went wrong on our side. We've been notified and are looking into it.",
+            500,
+            "error.internal",
+            "Something went wrong",
+        )
 
     return app
 
