@@ -34,6 +34,15 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Reset OpenUser project budget on staging
+        run: bash scripts/aws/reset-openuser-project-budget.sh
+
       - name: OpenUser UX specs (staging)
         env:
           ASSURE_BASE_URL: https://staging.getassureai.com
