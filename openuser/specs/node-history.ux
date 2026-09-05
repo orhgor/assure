@@ -1,0 +1,75 @@
+name: Node Revision History Modal
+persona: Knowledge Worker
+description: Node context menu opens revision history modal with entries.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: script
+    expression: |
+      (async () => {
+        const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
+        const ann = { redhat: [], z3: [] };
+        const nodeId = "p-ou-history";
+        const baseDoc = {
+          document_id: "doc-openuser-history",
+          meta: { title: "History test" },
+          truth_ledger: {},
+          body: [{
+            type: "section",
+            id: "sec-ou-history",
+            title: "History",
+            children: [{
+              type: "paragraph",
+              id: nodeId,
+              content: "Original history content.",
+              entities_referenced: [],
+              provenance: [],
+              meta: {},
+              annotations: ann
+            }],
+            meta: {},
+            annotations: ann
+          }]
+        };
+        await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document: baseDoc, mutation_type: "OPENUSER_HISTORY_BASE" })
+        });
+        const revised = JSON.parse(JSON.stringify(baseDoc));
+        revised.body[0].children[0].content = "Revised history content.";
+        const put = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            document: revised,
+            mutation_type: "OPENUSER_HISTORY_REV",
+            target_node_id: nodeId
+          })
+        });
+        const data = await put.json();
+        if (window.__assureJdf && data.document) {
+          window.__assureJdf.tree = data.document;
+          window.__assureJdf.render();
+        }
+        return { ok: put.ok, nodeId };
+      })()
+  - action: assert
+    condition: lastScriptResult.ok === true
+  - action: contextmenu
+    selector: "#jdf-render-target article.jdf-node[data-node-id='p-ou-history']"
+  - action: wait
+    selector: "#jdf-node-menu:not([hidden])"
+    timeout: 5000
+  - action: click
+    selector: '#jdf-node-menu [data-act="history"]'
+  - action: wait
+    selector: "#node-revision-modal:not([hidden])"
+    timeout: 10000
+  - action: assert
+    selector: "#node-revision-list .node-revision-item"
+    visible: true

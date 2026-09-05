@@ -24,6 +24,10 @@ def _node_text(node: dict[str, Any]) -> str:
     if ntype == "table":
         caption = str(node.get("caption") or node.get("content") or "").strip()
         return caption or "Table"
+    if ntype == "image":
+        alt = str(node.get("alt") or "").strip()
+        caption = str(node.get("caption") or "").strip()
+        return caption or alt or "Image"
     return str(node.get("content") or "").strip()
 
 
@@ -39,6 +43,15 @@ def jdf_to_markdown(tree: dict[str, Any]) -> str:
             if not isinstance(child, dict):
                 continue
             ntype = str(child.get("type") or "paragraph")
+            if ntype == "image" and child.get("src"):
+                alt = str(child.get("alt") or "Image").strip()
+                cap = str(child.get("caption") or "").strip()
+                line = f"![{alt}]({child.get('src')})"
+                if cap:
+                    line += f"\n*{cap}*"
+                lines.append(line)
+                lines.append("")
+                continue
             text = _node_text(child)
             if not text:
                 continue
@@ -74,6 +87,16 @@ def jdf_to_html(tree: dict[str, Any]) -> str:
             if not isinstance(child, dict):
                 continue
             ntype = str(child.get("type") or "paragraph")
+            if ntype == "image" and child.get("src"):
+                alt = html.escape(str(child.get("alt") or "Image"))
+                src = str(child.get("src") or "")
+                if src.startswith("data:") or src.startswith("/"):
+                    parts.append(f'<figure><img src="{src}" alt="{alt}" style="max-width:100%"/>')
+                    cap = str(child.get("caption") or "").strip()
+                    if cap:
+                        parts.append(f"<figcaption>{html.escape(cap)}</figcaption>")
+                    parts.append("</figure>")
+                continue
             text = _node_text(child)
             if not text:
                 continue

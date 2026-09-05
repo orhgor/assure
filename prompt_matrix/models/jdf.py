@@ -96,8 +96,22 @@ class JDFTableNode(BaseModel):
     annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
 
 
+class JDFImageNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["image"] = "image"
+    id: str
+    src: str
+    alt: str = ""
+    caption: str = ""
+    width: int | None = None
+    height: int | None = None
+    meta: dict[str, Any] = Field(default_factory=dict)
+    annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
+
+
 JDFBlockNode = Annotated[
-    Union[JDFParagraphNode, JDFCalloutNode, JDFTableNode],
+    Union[JDFParagraphNode, JDFCalloutNode, JDFTableNode, JDFImageNode],
     Field(discriminator="type"),
 ]
 
@@ -108,7 +122,9 @@ class JDFSectionNode(BaseModel):
     type: Literal["section"] = "section"
     id: str
     title: str
-    children: list[JDFParagraphNode | JDFCalloutNode | JDFTableNode] = Field(default_factory=list)
+    children: list[JDFParagraphNode | JDFCalloutNode | JDFTableNode | JDFImageNode] = Field(
+        default_factory=list
+    )
     meta: dict[str, Any] = Field(default_factory=dict)
     annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
 

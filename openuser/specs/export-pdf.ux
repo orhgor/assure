@@ -1,0 +1,46 @@
+name: Export PDF
+persona: Knowledge Worker
+description: PDF export returns valid bytes for a docked document.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: script
+    expression: |
+      (async () => {
+        const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
+        const ann = { redhat: [], z3: [] };
+        const doc = {
+          document_id: "doc-openuser-export-pdf",
+          meta: { title: "Export PDF test" },
+          truth_ledger: {},
+          body: [{
+            type: "section",
+            id: "sec-export",
+            title: "Export",
+            children: [{
+              type: "paragraph",
+              id: "p-export",
+              content: "Paragraph for PDF export smoke test.",
+              entities_referenced: [],
+              provenance: [],
+              meta: {},
+              annotations: ann
+            }],
+            meta: {},
+            annotations: ann
+          }]
+        };
+        const res = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document: doc, mutation_type: "OPENUSER_EXPORT_PDF" })
+        });
+        return res.ok;
+      })()
+  - action: assert
+    condition: lastScriptResult === true
+  - action: fetch_pdf
+    url: "/api/projects/{{projectId}}/export?format=pdf"

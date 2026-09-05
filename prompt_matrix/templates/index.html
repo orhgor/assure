@@ -488,8 +488,11 @@
                 <a id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export.word">{{ gettext('Word (.docx)') }}</a>
                 <a id="btn-export-md" href="/api/projects/{{ project_id|default('default') }}/export?format=md" data-i18n="jdf.export.md">{{ gettext('Markdown') }}</a>
                 <a id="btn-export-html" href="/api/projects/{{ project_id|default('default') }}/export?format=html" data-i18n="jdf.export.html">{{ gettext('HTML') }}</a>
+                <a id="btn-export-pdf" href="/api/projects/{{ project_id|default('default') }}/export?format=pdf" data-i18n="jdf.export.pdf">{{ gettext('PDF') }}</a>
               </div>
             </details>
+            <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-pdf-btn" data-i18n="jdf.import.pdf_btn" data-tooltip="{{ gettext('Import a PDF into the JDF canvas') }}" data-i18n-tooltip="jdf.import.pdf_tooltip">{{ gettext('Import PDF') }}</button>
+            <input type="file" id="jdf-import-pdf-input" accept=".pdf,application/pdf" hidden>
             <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Manifest') }}</button>
           </div>
         </footer>
@@ -690,7 +693,21 @@
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revise" data-i18n="jdf.menu.revise">{{ gettext('Revise') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="reprompt" data-i18n="jdf.menu.reprompt">{{ gettext('Re-prompt') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revision" data-i18n="jdf.menu.revision">{{ gettext('Send for Revision') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="history" data-i18n="jdf.menu.history">{{ gettext('Node history') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="redhat" data-i18n="jdf.menu.redhat">{{ gettext('🛡️ Run Red-Hat on Node') }}</button>
+        </div>
+        <div id="node-revision-modal" class="node-revision-modal" hidden role="dialog" aria-modal="true" aria-labelledby="node-revision-title">
+          <div class="node-revision-backdrop"></div>
+          <div class="node-revision-panel">
+            <div class="node-revision-head">
+              <h2 id="node-revision-title" data-i18n="jdf.node.history.title">{{ gettext('Node revision history') }}</h2>
+              <button type="button" class="btn btn-sm btn-outline" id="node-revision-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+            </div>
+            <ul id="node-revision-list" class="node-revision-list" role="list"></ul>
+            <div class="node-revision-actions">
+              <button type="button" class="btn btn-sm btn-primary" id="node-revision-restore-btn" disabled data-i18n="jdf.node.history.restore">{{ gettext('Restore selected') }}</button>
+            </div>
+          </div>
         </div>
         <div id="spine-node-menu" class="jdf-node-menu spine-node-menu" hidden role="menu" aria-hidden="true">
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="scroll" data-i18n="spine.scroll_to">{{ gettext('Scroll to') }}</button>
