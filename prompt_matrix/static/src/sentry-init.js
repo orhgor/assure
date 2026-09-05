@@ -4,6 +4,6 @@ const dsn = window.__SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    dataCollection: {},
+    tracesSampleRate: 0.1,
   });
 }
