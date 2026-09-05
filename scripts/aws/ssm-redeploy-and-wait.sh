@@ -59,10 +59,9 @@ sudo -u ubuntu git config --global --add safe.directory /home/ubuntu/assure 2>/d
 cd /home/ubuntu/assure
 sudo -u ubuntu git remote set-url origin "https://x-access-token:${TOKEN}@github.com/orhgor/assure.git"
 sudo -u ubuntu git fetch origin ${GIT_BRANCH}
-sudo -u ubuntu git checkout ${GIT_BRANCH}
-sudo -u ubuntu git reset --hard origin/${GIT_BRANCH}
+sudo -u ubuntu git checkout -B ${GIT_BRANCH} origin/${GIT_BRANCH}
 sudo -u ubuntu git log -1 --oneline
-sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
+sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' ASSURE_DEPLOY_BRANCH='${GIT_BRANCH}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
 echo ---HEALTH---
 curl -sf http://127.0.0.1:8765/health || true
 SCRIPT

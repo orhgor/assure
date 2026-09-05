@@ -142,8 +142,7 @@ acquire_redeploy_lock() {
 echo "==> Git sync (${BRANCH})"
 acquire_redeploy_lock
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull origin "$BRANCH"
+git checkout -B "$BRANCH" "origin/$BRANCH"
 FULL_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 echo "    HEAD: ${SHORT_SHA} $(git log -1 --oneline)"

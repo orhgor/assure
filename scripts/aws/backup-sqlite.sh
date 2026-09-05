@@ -40,16 +40,18 @@ log_backup_audit() {
     return 0
   fi
   if [ "$success" -eq 1 ]; then
-    sqlite3 "$DB_PATH" \
-      "INSERT INTO audit_log (id, request_id, action, success, duration_ms, details) \
-       VALUES (lower(hex(randomblob(16))), '${request_id}', 'BACKUP', 1, ${duration_ms}, '{\"target\":\"r2_backup\"}');" \
-      2>/dev/null || echo "Audit log write failed (success)" >&2
+    sqlite3 "$DB_PATH" <<SQL || echo "Audit log write failed (success)" >&2
+PRAGMA busy_timeout=10000;
+INSERT INTO audit_log (id, request_id, action, success, duration_ms, details)
+VALUES (lower(hex(randomblob(16))), '${request_id}', 'BACKUP', 1, ${duration_ms}, '{"target":"r2_backup"}');
+SQL
   else
     local safe_err="${error_message//\'/''}"
-    sqlite3 "$DB_PATH" \
-      "INSERT INTO audit_log (id, request_id, action, success, duration_ms, error_message, details) \
-       VALUES (lower(hex(randomblob(16))), '${request_id}', 'BACKUP', 0, ${duration_ms}, '${safe_err}', '{\"target\":\"r2_backup\"}');" \
-      2>/dev/null || echo "Audit log write failed (failure)" >&2
+    sqlite3 "$DB_PATH" <<SQL || echo "Audit log write failed (failure)" >&2
+PRAGMA busy_timeout=10000;
+INSERT INTO audit_log (id, request_id, action, success, duration_ms, error_message, details)
+VALUES (lower(hex(randomblob(16))), '${request_id}', 'BACKUP', 0, ${duration_ms}, '${safe_err}', '{"target":"r2_backup"}');
+SQL
   fi
 }
 
