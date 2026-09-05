@@ -159,14 +159,18 @@ def call_model(
 
         response = call_with_retry(_complete)
         choice = response.choices[0]
-        content = choice.message.content
+        try:
+            from .services.model_utils import extract_litellm_response_text
+        except ImportError:
+            from services.model_utils import extract_litellm_response_text
+
         finish = getattr(choice, "finish_reason", None)
         finish_s = str(finish).strip() if finish is not None else None
         hit = (finish_s or "").lower().replace(" ", "_") in _LENGTH_REASONS
         _last_meta.set(
             CompletionMeta(finish_reason=finish_s, max_tokens=_max_tokens, hit_length=hit)
         )
-        text = str(content) if content is not None else ""
+        text = extract_litellm_response_text(response)
         if not skip_guard:
             effective = locale if locale is not None else resolve_request_locale()
             text = ensure_response_language(text, effective)

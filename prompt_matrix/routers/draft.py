@@ -237,6 +237,27 @@ def run_redhat_audit(
                 "model": red.model_id,
             }
         )
+    elif text.startswith("ERROR:"):
+        critiques.append(
+            {
+                "title": "Red-hat review",
+                "content": text,
+                "model": red.model_id or "",
+                "status": "error",
+            }
+        )
+    elif red.output_tokens > 0:
+        critiques.append(
+            {
+                "title": "Red-hat review",
+                "content": (
+                    "Red-hat model returned no readable text despite completing "
+                    f"({red.output_tokens} output tokens)."
+                ),
+                "model": red.model_id or "",
+                "status": "error",
+            }
+        )
 
     usage = {
         "input_tokens": red.input_tokens,

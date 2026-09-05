@@ -109,7 +109,7 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
     TaskType.REDHAT: ModelPolicy(
         model_id="deepseek/deepseek-reasoner",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
-        max_output_tokens=4096,
+        max_output_tokens=8192,
         caching=False,
         litellm_model="deepseek/deepseek-reasoner",
     ),
@@ -472,7 +472,12 @@ class CostGovernor:
                 from litellm_runner import call_with_retry
 
             resp = call_with_retry(_complete)
-            text = ensure_response_language(str(resp.choices[0].message.content or ""), locale)
+            try:
+                from .services.model_utils import extract_litellm_response_text
+            except ImportError:
+                from services.model_utils import extract_litellm_response_text
+
+            text = ensure_response_language(extract_litellm_response_text(resp), locale)
             usage = getattr(resp, "usage", None)
             in_tok = int(
                 getattr(usage, "prompt_tokens", 0) or self.accountant.count_messages(messages)
