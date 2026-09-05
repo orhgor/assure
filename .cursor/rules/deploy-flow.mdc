@@ -31,7 +31,9 @@ Push to `staging` and `main`; do not rely on local servers for verification or d
 - `deploy-staging.yml` — push to `staging` (SSH + `git pull` on EC2).
 - `deploy-production.yml` — push to `main`.
 
-Requires GitHub environment secrets: `EC2_SSH_PRIVATE_KEY`, `EC2_HOST_STAGING`, `EC2_HOST_PRODUCTION`.
+Requires GitHub environment secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GHCR_DEPLOY_TOKEN`, `ASSURE_INSTANCE_ID` (production), `STAGING_INSTANCE_ID` (staging).
+
+Legacy SSH deploy secrets (`EC2_SSH_PRIVATE_KEY`, `EC2_HOST_*`) are no longer used.
 
 **Manual (Actions → workflow_dispatch):**
 - **App Docker (Staging)** — GHCR build + SSM redeploy to staging EC2.
