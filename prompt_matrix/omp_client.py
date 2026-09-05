@@ -97,28 +97,113 @@ def _request(
         return {"error": str(exc)}
 
 
+def sanitize_omp_tag(value: str, *, max_len: int = 50) -> str:
+    """OMP tags must match ``^[a-z0-9_:-]+$`` and are at most 50 characters."""
+    cleaned = _TAG_RE.sub("-", str(value or "").lower()).strip("-")
+    return (cleaned or "x")[:max_len]
+
+
+def _sanitize_tags(tags: list | None, key: str = "") -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in list(tags or []) + ([key] if key else []):
+        tag = sanitize_omp_tag(str(raw))
+        if tag and tag not in seen:
+            seen.add(tag)
+            out.append(tag)
+        if len(out) >= 20:
+            break
+    return out
+
+
 def omp_remember(key: str, content: str, tags: list | None = None) -> dict[str, Any]:
     """Store a memory. ``key`` is kept as a tag; OMP identifies rows by ``id``."""
-    tag_list = [str(t) for t in (tags or []) if t]
-    if key and key not in tag_list:
-        tag_list.append(str(key))
+    text = str(content or "")
+    if len(text) > OMP_CONTENT_MAX:
+        text = text[: OMP_CONTENT_MAX - 1] + "…"
     payload = {
-        "content": content,
+        "content": text,
         "type": "semantic",
-        "tags": tag_list,
+        "tags": _sanitize_tags(tags, key),
         "namespace": DEFAULT_NAMESPACE,
         "source": {"tool": "assure", "timestamp": _now()},
     }
-    return _request("POST", "/v1/memories", body=payload)
+    return _request("POST", "/v1/memories", body=payload, timeout=SAFE_OMP_TIMEOUT)
 
 
 def omp_recall(key: str) -> dict[str, Any]:
     """Search memories for ``key`` (keyword recall, not a REST path key)."""
+    query = str(key or "").strip()
+    if not query:
+        return {"memories": [], "total": 0}
     return _request(
         "POST",
         "/v1/memories/search",
-        body={"q": key, "limit": 10, "mode": "keyword"},
+        body={"q": query, "limit": 10, "mode": "keyword"},
+        timeout=SAFE_OMP_TIMEOUT,
     )
+
+
+def _best_memory_content(raw: dict[str, Any] | None, key: str) -> str | None:
+    if not raw or not isinstance(raw, dict):
+        return None
+    memories = raw.get("memories") or raw.get("results") or []
+    if raw.get("error") and not memories:
+        return None
+    if not isinstance(memories, list) or not memories:
+        return None
+    key_l = str(key or "").lower()
+    for mem in memories:
+        if not isinstance(mem, dict):
+            continue
+        content = str(mem.get("content") or "").strip()
+        if not content:
+            continue
+        tags = [str(t).lower() for t in (mem.get("tags") or [])]
+        if key_l and (key_l in tags or key_l in content.lower() or any(key_l in t for t in tags)):
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return content
+    first = memories[0]
+    if not isinstance(first, dict):
+        return None
+    content = str(first.get("content") or "").strip()
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return content
+
+
+def safe_omp_remember(key: str, content: Any, tags: list | None = None) -> dict[str, Any] | None:
+    """Best-effort store. Never raises; returns None if OMP is down or rejects."""
+    if not key:
+        return None
+    try:
+        text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+        result = omp_remember(key, text, tags=tags)
+        if result.get("id"):
+            return result
+        if result.get("error") or int(result.get("status") or 0) >= 400:
+            return None
+        return result
+    except Exception as exc:
+        _log.debug("safe_omp_remember(%s) skipped: %s", key, exc)
+        return None
+
+
+def safe_omp_recall(key: str) -> Any | None:
+    """Best-effort recall. Returns memory text, or None on miss / downtime."""
+    if not key:
+        return None
+    try:
+        raw = omp_recall(key)
+        return _best_memory_content(raw, key)
+    except Exception as exc:
+        _log.debug("safe_omp_recall(%s) skipped: %s", key, exc)
+        return None
 
 
 def omp_list_memories(tags: list | None = None) -> dict[str, Any]:
@@ -140,73 +225,3 @@ def omp_health() -> dict[str, Any]:
             return parsed if isinstance(parsed, dict) else {"status": "ok"}
     except Exception as exc:
         return {"status": "down", "error": str(exc)}
-
-
-def _parse_recall_payload(raw: dict[str, Any] | None, key: str) -> Any | None:
-    """Extract stored content from an OMP search response."""
-    if not raw or raw.get("error"):
-        return None
-    memories = raw.get("memories") or raw.get("results") or []
-    if not isinstance(memories, list) or not memories:
-        return None
-    key_str = str(key)
-    for mem in memories:
-        if not isinstance(mem, dict):
-            continue
-        tags = mem.get("tags") or []
-        content = str(mem.get("content") or "").strip()
-        if not content:
-            continue
-        if key_str in tags or key_str in content:
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                return content
-    first = memories[0]
-    if not isinstance(first, dict):
-        return None
-    content = str(first.get("content") or "").strip()
-    if not content:
-        return None
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        return content
-
-
-def safe_omp_recall(key: str) -> Any | None:
-    """Best-effort recall with a short timeout. Returns None if OMP is down or slow."""
-    if not key:
-        return None
-    try:
-        raw = _request(
-            "POST",
-            "/v1/memories/search",
-            body={"q": key, "limit": 10, "mode": "keyword"},
-            timeout=SAFE_OMP_TIMEOUT,
-        )
-        return _parse_recall_payload(raw, key)
-    except Exception as exc:
-        _log.debug("safe_omp_recall(%s) skipped: %s", key, exc)
-        return None
-
-
-def safe_omp_remember(key: str, content: Any, tags: list | None = None) -> None:
-    """Best-effort store; never raises and never blocks compile on failure."""
-    if not key:
-        return
-    try:
-        text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
-        tag_list = [str(t) for t in (tags or []) if t]
-        if key not in tag_list:
-            tag_list.append(str(key))
-        payload = {
-            "content": text,
-            "type": "semantic",
-            "tags": tag_list,
-            "namespace": DEFAULT_NAMESPACE,
-            "source": {"tool": "assure", "timestamp": _now()},
-        }
-        _request("POST", "/v1/memories", body=payload, timeout=SAFE_OMP_TIMEOUT)
-    except Exception as exc:
-        _log.debug("safe_omp_remember(%s) skipped: %s", key, exc)

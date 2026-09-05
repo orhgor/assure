@@ -10,6 +10,14 @@ from prompt_matrix.models.jdf import draft_text_to_sections
 from prompt_matrix.routers.draft import run_draft_pipeline, run_redhat_pipeline, verify_locks
 
 
+@pytest.fixture(autouse=True)
+def _disable_omp_cache_for_draft_tests(monkeypatch, request):
+    if request.node.name == "test_run_draft_pipeline_omp_cache_hit":
+        monkeypatch.setenv("PEM_OMP_CACHE", "1")
+        return
+    monkeypatch.setenv("PEM_OMP_CACHE", "0")
+
+
 def test_draft_text_to_sections_headings():
     body = draft_text_to_sections(
         "## Revenue\n\nQ3 ARR reached $12M.\n\n## Growth\n\nYoY growth was 45%."
@@ -128,11 +136,22 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     }
 
     monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fail_stream)
-    monkeypatch.setattr("prompt_matrix.routers.draft.safe_omp_recall", lambda _key: cached)
+    wrapped = {
+        "compiled": {
+            "document": cached["document"],
+            "nodes": cached["document"]["body"],
+            "locks": cached["locks"],
+            "node_count": 1,
+            "lock_count": 0,
+            "draft_text": cached["draft_text"],
+        },
+        "verified": cached["verified"],
+    }
+    monkeypatch.setattr("prompt_matrix.routers.draft.load_ast_cache", lambda _key: wrapped)
     remember_calls: list[tuple] = []
     monkeypatch.setattr(
-        "prompt_matrix.routers.draft.safe_omp_remember",
-        lambda key, payload, tags=None: remember_calls.append((key, payload, tags)),
+        "prompt_matrix.routers.draft.save_ast_cache",
+        lambda *args, **kwargs: remember_calls.append((args, kwargs)),
     )
 
     frames = list(

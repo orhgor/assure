@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import sys
@@ -12,13 +11,6 @@ from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, Field
-
-try:
-    from ..omp_client import safe_omp_recall, safe_omp_remember
-except ImportError:
-    from omp_client import safe_omp_recall, safe_omp_remember
-
-_log = logging.getLogger(__name__)
 
 try:
     from ..cost_governance import (
@@ -43,6 +35,13 @@ try:
     from ..routers.inquire_stream import _parse_metrics
     from ..services.audit_summary import build_audit_summary
     from ..services.lock_inference import infer_lock_candidates
+    from ..services.omp_memory import (
+        compile_cache_key,
+        load_ast_cache,
+        load_redhat_critique,
+        save_ast_cache,
+        save_redhat_critique,
+    )
 except ImportError:
     from cost_governance import (
         BudgetExhaustedError,
@@ -66,6 +65,15 @@ except ImportError:
     from routers.inquire_stream import _parse_metrics
     from services.audit_summary import build_audit_summary
     from services.lock_inference import infer_lock_candidates
+    from services.omp_memory import (
+        compile_cache_key,
+        load_ast_cache,
+        load_redhat_critique,
+        save_ast_cache,
+        save_redhat_critique,
+    )
+
+_log = logging.getLogger(__name__)
 
 DRAFT_MODEL = "anthropic/claude-sonnet-4-5"
 LOCK_MODEL = "deepseek/deepseek-chat"
@@ -84,59 +92,6 @@ class DraftCancelledError(Exception):
 
 SUBSTRATE_CONTEXT_CHARS_PER_FILE = 4000
 SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
-
-
-def _compile_source_fingerprint(intent: str, substrate_file_ids: list[str] | None) -> str:
-    parts = [(intent or "").strip()]
-    if substrate_file_ids:
-        parts.append(",".join(sorted(str(item) for item in substrate_file_ids)))
-    digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
-    return digest[:16]
-
-
-def _ast_cache_key(project_id: str, source_md: str, substrate_file_ids: list[str] | None) -> str:
-    fingerprint = _compile_source_fingerprint(source_md, substrate_file_ids)
-    return f"ast:{project_id}:{fingerprint}"
-
-
-def _yield_cached_compile(
-    cached: dict[str, Any],
-    *,
-    rid: str,
-    project_id: str,
-) -> Iterator[str]:
-    document = cached.get("document") or {}
-    locks = cached.get("locks") or []
-    draft_text = cached.get("draft_text") or ""
-    verified = cached.get("verified") or {}
-    yield _typed_sse(
-        "status",
-        {"stage": "cache", "message": "Loaded compile from memory cache.", "request_id": rid},
-    )
-    yield _typed_sse(
-        "compiled",
-        {
-            "document": document,
-            "nodes": document.get("body") or cached.get("nodes") or [],
-            "locks": locks,
-            "node_count": len(document.get("body") or cached.get("nodes") or []),
-            "lock_count": len(locks),
-            "draft_text": draft_text,
-            "cache_hit": True,
-        },
-    )
-    yield _typed_sse("verified", verified)
-    yield _typed_sse(
-        "complete",
-        {
-            "ok": True,
-            "request_id": rid,
-            "node_count": len(document.get("body") or []),
-            "lock_count": len(locks),
-            "cache_hit": True,
-        },
-    )
-    yield _done_sse()
 
 
 class DraftPayload(BaseModel):
@@ -292,6 +247,53 @@ def run_redhat_audit(
     return critiques, usage
 
 
+def _compile_source_text(
+    intent: str,
+    context: str | None,
+    substrate_context: str,
+) -> str:
+    return "\n".join(
+        [
+            (intent or "").strip(),
+            (context or "").strip(),
+            (substrate_context or "").strip(),
+        ]
+    )
+
+
+def _replay_cached_compile(
+    project_id: str,
+    cache_key: str,
+    cached: dict[str, Any],
+    rid: str,
+) -> Iterator[str]:
+    compiled = cached.get("compiled") or {}
+    verified = cached.get("verified") or {}
+    yield _typed_sse(
+        "status",
+        {
+            "stage": "cache",
+            "message": "Loaded from memory…",
+            "request_id": rid,
+            "omp_cached": True,
+            "cache_key": cache_key,
+        },
+    )
+    yield _typed_sse("compiled", {**compiled, "omp_cached": True, "cache_hit": True})
+    yield _typed_sse("verified", {**verified, "omp_cached": True, "cache_hit": True})
+    yield _typed_sse(
+        "complete",
+        {
+            "ok": True,
+            "request_id": rid,
+            "node_count": compiled.get("node_count") or 0,
+            "lock_count": compiled.get("lock_count") or 0,
+            "omp_cached": True,
+        },
+    )
+    yield _done_sse()
+
+
 def _stream_claude(
     gov: CostGovernor,
     messages: list[dict[str, str]],
@@ -373,6 +375,25 @@ def run_draft_pipeline(
     substrate_context = _build_substrate_context(substrate_rows)
     combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
     messages = _draft_messages(intent, combined_context)
+    cache_key = compile_cache_key(
+        project_id, _compile_source_text(intent, context, substrate_context)
+    )
+    cached: dict[str, Any] | None = None
+    try:
+        cached = load_ast_cache(cache_key)
+    except Exception:
+        cached = None
+    if isinstance(cached, dict) and cached.get("compiled"):
+        yield from _replay_cached_compile(project_id, cache_key, cached, rid)
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=True,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            details={"cache_hit": True, "cache_key": cache_key},
+        )
+        return
 
     yield _typed_sse(
         "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
@@ -391,20 +412,6 @@ def run_draft_pipeline(
             "error", {"ok": False, "error": str(exc), "http_status": 400, "request_id": rid}
         )
         yield _done_sse()
-        return
-
-    cache_key = _ast_cache_key(project_id, intent, substrate_file_ids)
-    cached = safe_omp_recall(cache_key)
-    if isinstance(cached, dict) and cached.get("document") and cached.get("verified"):
-        yield from _yield_cached_compile(cached, rid=rid, project_id=project_id)
-        audit.log_audit(
-            rid,
-            project_id,
-            "DRAFT_STREAM",
-            success=True,
-            duration_ms=int((time.perf_counter() - start) * 1000),
-            details={"cache_hit": True, "cache_key": cache_key},
-        )
         return
 
     yield _typed_sse(
@@ -544,17 +551,22 @@ def run_draft_pipeline(
     )
     yield _typed_sse("verified", verified_payload)
 
-    safe_omp_remember(
-        cache_key,
-        {
-            "draft_text": full_text,
-            "document": verified_doc,
-            "locks": locks,
-            "z3_results": z3_results,
-            "verified": verified_payload,
-        },
-        tags=["ast", project_id, cache_key],
-    )
+    compiled_payload = {
+        "document": doc_dict,
+        "nodes": doc_dict.get("body") or [],
+        "locks": locks,
+        "node_count": len(doc_dict.get("body") or []),
+        "lock_count": len(locks),
+        "draft_text": full_text,
+    }
+    try:
+        save_ast_cache(
+            cache_key,
+            project_id,
+            {"compiled": compiled_payload, "verified": verified_payload},
+        )
+    except Exception:
+        pass
 
     # Hybrid compile gate: the pipeline ends here. Docking is unblocked now
     # that Math Check has passed. The Stress Test (Red-Hat, DeepSeek-Reasoner)
@@ -630,16 +642,11 @@ def run_redhat_pipeline(
 
     yield _typed_sse("status", {"message": "Running Stress Test…"})
 
-    redhat_key = f"redhat:{project_id}"
-    previous_context = safe_omp_recall(redhat_key)
-    if isinstance(previous_context, dict):
-        previous_context = (
-            previous_context.get("content")
-            or previous_context.get("critique")
-            or json.dumps(previous_context, ensure_ascii=False)
-        )
-    elif previous_context is not None:
-        previous_context = str(previous_context)
+    previous_context: str | None = None
+    try:
+        previous_context = load_redhat_critique(project_id)
+    except Exception:
+        previous_context = None
 
     redhat_critiques: list[dict[str, Any]] = []
     try:
@@ -683,14 +690,13 @@ def run_redhat_pipeline(
             }
         ]
 
-    if redhat_critiques:
+    if redhat_critiques and not target_node_id:
         critique_text = str(redhat_critiques[0].get("content") or "").strip()
-        if critique_text:
-            safe_omp_remember(
-                redhat_key,
-                critique_text,
-                tags=["redhat", project_id, redhat_key],
-            )
+        if critique_text and redhat_critiques[0].get("status") != "error":
+            try:
+                save_redhat_critique(project_id, critique_text)
+            except Exception:
+                pass
 
     annotated = document
     if redhat_critiques:
@@ -785,11 +791,28 @@ def register_draft_routes(app) -> None:
         elif not intent:
             return {"error": "intent required"}, 400
 
+        cached_hit = False
         try:
-            check_daily_compile_limit(project_id)
-        except DailyCompileLimitError as exc:
-            return {"error": str(exc)}, 429
-        increment_daily_compile_limit(project_id)
+            rows = (
+                fetch_substrate_entries_by_ids(project_id, payload.substrate_file_ids)
+                if payload.substrate_file_ids
+                else []
+            )
+            peek_key = compile_cache_key(
+                project_id,
+                _compile_source_text(intent, payload.context, _build_substrate_context(rows)),
+            )
+            peek = load_ast_cache(peek_key)
+            cached_hit = bool(isinstance(peek, dict) and peek.get("compiled"))
+        except Exception:
+            cached_hit = False
+
+        if not cached_hit:
+            try:
+                check_daily_compile_limit(project_id)
+            except DailyCompileLimitError as exc:
+                return {"error": str(exc)}, 429
+            increment_daily_compile_limit(project_id)
 
         @stream_with_context
         def generate() -> Generator[str, None, None]:

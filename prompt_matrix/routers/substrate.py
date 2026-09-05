@@ -21,6 +21,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from ..models.jdf import flatten_nodes
+    from ..services.omp_memory import remember_vault_file
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
@@ -34,9 +35,22 @@ except ImportError:
     from lib.logger import get_audit_logger
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from models.jdf import flatten_nodes
+    from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 1
+
+
+def _index_vault_file(project_id: str, entry: dict) -> None:
+    try:
+        remember_vault_file(
+            project_id,
+            str(entry.get("id") or ""),
+            filename=str(entry.get("filename") or ""),
+            text=str(entry.get("extracted_text") or ""),
+        )
+    except Exception:
+        pass
 
 
 class SubstrateIngestPayload(BaseModel):
@@ -119,6 +133,8 @@ def register_substrate_routes(app) -> None:
                 error_message=str(exc),
             )
             return jsonify({"ok": False, "error": "Database write failed."}), 500
+
+        _index_vault_file(project_id, {**edge_row, "filename": filename, "extracted_text": text})
 
         audit.log_audit(
             request_id,
@@ -227,6 +243,7 @@ def register_substrate_routes(app) -> None:
             forms=extracted.get("forms") or [],
             file_size_bytes=len(file_bytes),
         )
+        _index_vault_file(project_id, entry)
 
         audit.log_audit(
             request_id,

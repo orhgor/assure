@@ -239,4 +239,17 @@ def run_refine_node(
         "preceding": aperture.get("preceding"),
         "succeeding": aperture.get("succeeding"),
     }
+    try:
+        from ..services.omp_memory import remember_refine_diff
+    except ImportError:
+        from services.omp_memory import remember_refine_diff
+    try:
+        remember_refine_diff(
+            project_id,
+            node_id,
+            before=str(original.get("content") or original.get("title") or ""),
+            after=text,
+        )
+    except Exception:
+        pass
     return applied
