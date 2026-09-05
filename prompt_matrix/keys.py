@@ -16,7 +16,12 @@ try:
 except ImportError:
     from local_runners import local_is_up
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+PACKAGE_DIR = user_data_dir()
 ENV_PATH = PACKAGE_DIR / ".env"
 
 PROVIDER_ENV = {
@@ -41,19 +46,74 @@ def load_keys() -> None:
             load_dotenv(Path.cwd() / ".env", override=False)
 
 
+def _cloud_env(name: str) -> str | None:
+    """Request-local decrypted cloud keys. Never written to disk."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    blob = getattr(g, "cloud_api_keys", None)
+    if not isinstance(blob, dict):
+        return None
+    val = blob.get(name)
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return None
+
+
+def _browser_env(name: str) -> str | None:
+    """In-browser BYOK keys from request headers. Never written to disk."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    blob = getattr(g, "browser_api_keys", None)
+    if not isinstance(blob, dict):
+        return None
+    val = blob.get(name)
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return None
+
+
 def key_present(target: str) -> bool:
     if target == "gemini":
-        return bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        return bool(
+            _cloud_env("GEMINI_API_KEY")
+            or _cloud_env("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
+    if target == "claude":
+        return bool(
+            _cloud_env("ANTHROPIC_API_KEY")
+            or _cloud_env("CLAUDE_API_KEY")
+            or os.environ.get("ANTHROPIC_API_KEY")
+            or os.environ.get("CLAUDE_API_KEY")
+        )
     if target == "kimi":
-        return bool(os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY"))
+        return bool(
+            _cloud_env("MOONSHOT_API_KEY")
+            or _cloud_env("KIMI_API_KEY")
+            or os.environ.get("MOONSHOT_API_KEY")
+            or os.environ.get("KIMI_API_KEY")
+        )
     if target == "ollama":
         return local_is_up(wake_ollama=False)
     env_name = PROVIDER_ENV.get(target)
-    return bool(env_name and os.environ.get(env_name))
+    return bool(env_name and (_cloud_env(env_name) or os.environ.get(env_name)))
 
 
 def ollama_up() -> bool:
-    host = os.environ.get("OLLAMA_HOST") or os.environ.get("OLLAMA_API_BASE") or "http://127.0.0.1:11434"
+    host = (
+        os.environ.get("OLLAMA_HOST")
+        or os.environ.get("OLLAMA_API_BASE")
+        or "http://127.0.0.1:11434"
+    )
     url = host.rstrip("/") + "/api/tags"
     try:
         from urllib.request import urlopen
@@ -66,11 +126,69 @@ def ollama_up() -> bool:
 
 def api_key_for(target: str) -> str | None:
     if target == "gemini":
-        return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        return (
+            _browser_env("GEMINI_API_KEY")
+            or _browser_env("GOOGLE_API_KEY")
+            or _cloud_env("GEMINI_API_KEY")
+            or _cloud_env("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
+    if target == "claude":
+        return (
+            _browser_env("ANTHROPIC_API_KEY")
+            or _browser_env("CLAUDE_API_KEY")
+            or _cloud_env("ANTHROPIC_API_KEY")
+            or _cloud_env("CLAUDE_API_KEY")
+            or os.environ.get("ANTHROPIC_API_KEY")
+            or os.environ.get("CLAUDE_API_KEY")
+        )
     if target == "kimi":
-        return os.environ.get("MOONSHOT_API_KEY") or os.environ.get("KIMI_API_KEY")
+        return (
+            _browser_env("MOONSHOT_API_KEY")
+            or _browser_env("KIMI_API_KEY")
+            or _cloud_env("MOONSHOT_API_KEY")
+            or _cloud_env("KIMI_API_KEY")
+            or os.environ.get("MOONSHOT_API_KEY")
+            or os.environ.get("KIMI_API_KEY")
+        )
     env_name = PROVIDER_ENV.get(target)
-    return os.environ.get(env_name) if env_name else None
+    if not env_name:
+        return None
+    return _browser_env(env_name) or _cloud_env(env_name) or os.environ.get(env_name)
+
+
+def anthropic_workspace_id() -> str:
+    return (os.environ.get("ANTHROPIC_WORKSPACE_ID") or "").strip() or (
+        os.environ.get("ANTHROPIC_WORKSPACE") or ""
+    ).strip()
+
+
+def save_anthropic_workspace_id(workspace_id: str) -> None:
+    value = (workspace_id or "").strip()
+    if not value:
+        raise ValueError("Paste a workspace id first.")
+    os.environ["ANTHROPIC_WORKSPACE_ID"] = value
+    ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if set_key is not None:
+        set_key(str(ENV_PATH), "ANTHROPIC_WORKSPACE_ID", value)
+    else:
+        _append_env("ANTHROPIC_WORKSPACE_ID", value)
+
+
+def litellm_kwargs_for(target: str) -> dict:
+    """API key plus Claude workspace header. Never log the values."""
+    extra: dict = {}
+    api_key = api_key_for(target)
+    if api_key:
+        extra["api_key"] = api_key
+    if target == "kimi":
+        extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
+    if target == "claude":
+        workspace = anthropic_workspace_id()
+        if workspace:
+            extra["extra_headers"] = {"anthropic-workspace-id": workspace}
+    return extra
 
 
 def missing_key_message(target: str) -> str | None:
@@ -92,6 +210,17 @@ def missing_key_message(target: str) -> str | None:
         f"{label} is not connected. Paste your {env_name} on the Connect page, "
         "or export it in your shell and restart pem."
     )
+
+
+def send_ready() -> bool:
+    """True if a live Send can go to an API key or to Ollama. Cursor is copy-only."""
+    status = provider_status()
+    for item in status.get("providers", {}).values():
+        if item.get("id") == "cursor":
+            continue
+        if item.get("connected"):
+            return True
+    return False
 
 
 def provider_status() -> dict:
@@ -127,6 +256,17 @@ def provider_status() -> dict:
     return {"providers": providers, "env_file": str(ENV_PATH), "route": snap}
 
 
+def send_ready() -> bool:
+    """True if a live Send can go to an API key or to Ollama. Cursor is copy-only."""
+    status = provider_status()
+    for item in status.get("providers", {}).values():
+        if item.get("id") == "cursor":
+            continue
+        if item.get("connected"):
+            return True
+    return False
+
+
 def save_provider_key(target: str, key: str) -> dict:
     target = (target or "").strip().lower()
     env_name = PROVIDER_ENV.get(target)
@@ -138,6 +278,8 @@ def save_provider_key(target: str, key: str) -> dict:
     os.environ[env_name] = key
     if target == "gemini":
         os.environ["GOOGLE_API_KEY"] = key
+    if target == "claude":
+        os.environ["CLAUDE_API_KEY"] = key
     if target == "kimi":
         os.environ["KIMI_API_KEY"] = key
     ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -145,6 +287,8 @@ def save_provider_key(target: str, key: str) -> dict:
         set_key(str(ENV_PATH), env_name, key)
         if target == "gemini":
             set_key(str(ENV_PATH), "GOOGLE_API_KEY", key)
+        if target == "claude":
+            set_key(str(ENV_PATH), "CLAUDE_API_KEY", key)
         if target == "kimi":
             set_key(str(ENV_PATH), "KIMI_API_KEY", key)
     else:

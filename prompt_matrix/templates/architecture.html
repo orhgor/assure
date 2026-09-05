@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ brand.architecture_title }}</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <meta name="description" content="{{ brand.architecture_meta_description }}">
+    <meta property="og:title" content="{{ brand.architecture_title }}">
+    <meta property="og:description" content="{{ brand.architecture_meta_description }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('44') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script>
+      window.__assureLandingStrings = {{ strings|tojson }};
+    </script>
+</head>
+<body>
+    {% set nav_current = 'architecture' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content">
+        <section class="hero-section arch-hero">
+            <div class="container">
+                <a href="/" class="back-link"><span data-i18n="arch.back">&larr; Back to</span> {{ brand.name }}</a>
+                <span class="eyebrow" data-i18n="arch.hero.eyebrow">How it works</span>
+                <h1 data-i18n="arch.hero.title">Why a wall of AI text isn't enough.</h1>
+                <p class="hero-sub" data-i18n-html="arch.hero.sub">Most AI gives you one long paragraph&mdash;polished words, no proof. Assure breaks your document into <strong>sections you can edit, lock, and verify</strong>&mdash;so numbers stay consistent and export means you can stand behind every page.</p>
+            </div>
+        </section>
+
+        <section class="ast-section">
+            <div class="container">
+                <h2 data-i18n="arch.ast.title">Flat text vs. a document you can trust</h2>
+                <p class="section-sub" data-i18n="arch.ast.sub">Assure structures your deliverable section by section. Every claim ties back to a source. Every number can be locked.</p>
+
+                <div class="ast-compare">
+                    <div class="ast-panel ast-flat">
+                        <h3 data-i18n="arch.ast.flat.title">What ChatGPT gives you</h3>
+                        <pre class="ast-mock" aria-hidden="true">"Q3 revenue reached $4.2M... margins expanded to 32%... European markets led growth..."</pre>
+                        <ul class="ast-fail-list">
+                            <li data-i18n="arch.ast.flat.fail1">One blob&mdash;hard to fix one claim without breaking others</li>
+                            <li data-i18n="arch.ast.flat.fail2">Numbers change when you rewrite nearby text</li>
+                            <li data-i18n="arch.ast.flat.fail3">You re-read fifty pages by hand</li>
+                        </ul>
+                    </div>
+                    <div class="ast-panel ast-tree">
+                        <h3 data-i18n="arch.ast.tree.title">What Assure builds</h3>
+                        <div class="ast-grid" aria-label="Document structure preview">
+                            <article class="ast-node ast-node-section">
+                                <div class="ast-node-header">
+                                    <span class="ast-node-icon" aria-hidden="true">§</span>
+                                    <span class="ast-node-label">Section</span>
+                                </div>
+                                <p class="ast-node-field"><span>title</span> Financial Summary</p>
+                                <p class="ast-node-field"><span>contains</span> paragraph, table</p>
+                                <div class="ast-node-children">
+                                    <article class="ast-node ast-node-paragraph">
+                                        <div class="ast-node-header">
+                                            <span class="ast-node-icon" aria-hidden="true">¶</span>
+                                            <span class="ast-node-label">Paragraph</span>
+                                        </div>
+                                        <p class="ast-node-field"><span>content</span> Q3 revenue reached $4.2M&hellip;</p>
+                                        <span class="ast-badge ast-badge-lock">🔒 Locked</span>
+                                    </article>
+                                    <article class="ast-node ast-node-table">
+                                        <div class="ast-node-header">
+                                            <span class="ast-node-icon" aria-hidden="true">⊞</span>
+                                            <span class="ast-node-label">Table</span>
+                                        </div>
+                                        <p class="ast-node-field"><span>headers</span> Region, Growth</p>
+                                        <span class="ast-badge ast-badge-z3">✅ Verified</span>
+                                    </article>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="exec-pipeline-section">
+            <div class="container">
+                <h2 data-i18n="arch.pipeline.title">Six steps from idea to deliverable</h2>
+                <p class="section-sub" data-i18n="arch.pipeline.sub">Each step leaves a trail. Nothing ships on vibes alone.</p>
+                <ol class="exec-pipeline">
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">✏️</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.draft.title">Draft</h3>
+                            <p data-i18n="arch.pipeline.draft.body">You describe what you need. Assure reads your sources and proposes a structured first pass.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">⚙️</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.compile.title">Compile</h3>
+                            <p data-i18n="arch.pipeline.compile.body">The draft becomes sections, paragraphs, and tables&mdash;each with a stable place in the document.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🔒</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.lock.title">Lock</h3>
+                            <p data-i18n="arch.pipeline.lock.body">Critical numbers freeze. Edit the narrative without silently changing the math.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🛡️</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.z3.title">Math Check</h3>
+                            <p data-i18n="arch.pipeline.z3.body">Assure checks that locked numbers agree across the whole document&mdash;before you export.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">🔍</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.redhat.title">Stress Test</h3>
+                            <p data-i18n="arch.pipeline.redhat.body">An adversarial review hunts for logic gaps, weak claims, and missing evidence&mdash;pinned to the exact section.</p>
+                        </div>
+                    </li>
+                    <li class="exec-step">
+                        <span class="exec-icon" aria-hidden="true">✅</span>
+                        <div class="exec-body">
+                            <h3 data-i18n="arch.pipeline.gate.title">Export</h3>
+                            <p data-i18n="arch.pipeline.gate.body">You can't ship until Math Check passes and open Stress Test findings are resolved. What downloads is defensible.</p>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="z3-section">
+            <div class="container narrow">
+                <h2 data-i18n="arch.z3.title">Math Check: numbers that stay true</h2>
+                <p data-i18n-html="arch.z3.lead">Assure treats your key metrics like promises. <strong>Revenue, margins, runway</strong>&mdash;once locked, they must stay consistent everywhere they appear.</p>
+                <div class="z3-example">
+                    <p class="z3-label" data-i18n="arch.z3.example.label">Example</p>
+                    <p class="z3-human-example" data-i18n-html="arch.z3.example.body"><strong>Locked:</strong> Q3 revenue $4.2M &middot; Margin 32%<br><strong>Math Check:</strong> ✅ Consistent across all sections</p>
+                </div>
+                <p data-i18n-html="arch.z3.body">When everything adds up, you see <strong>Verified</strong>. When two sections disagree, Assure shows you exactly where&mdash;before your client or auditor does.</p>
+                <ul class="z3-points">
+                    <li data-i18n-html="arch.z3.point1"><strong>Locked numbers:</strong> one source of truth for every metric in the document.</li>
+                    <li data-i18n-html="arch.z3.point2"><strong>Per-section status:</strong> pass or issue&mdash;without cluttering the Word export.</li>
+                    <li data-i18n-html="arch.z3.point3"><strong>Export gate:</strong> Word and PDF only download when the document is clean&mdash;or you fix it first.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <div class="container center">
+                <h2 data-i18n="arch.cta.title">Try it yourself.</h2>
+                <p data-i18n="arch.cta.sub">Paste a paragraph on the landing page, or open the full workbench.</p>
+                <div class="hero-cta-group">
+                    <a href="/#sandbox" class="btn-primary" data-i18n="arch.cta.sandbox">Try the Paste Test</a>
+                    <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small arch-cta-secondary" data-i18n="arch.cta.workspace">Launch Workbench</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+</body>
+</html>

@@ -487,6 +487,22 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
+#: prompt_matrix/templates/index.html
+msgid "Compare selected"
+msgstr ""
+
+#: prompt_matrix/templates/index.html
+msgid "See changes"
+msgstr ""
+
+#: prompt_matrix/templates/index.html
+msgid "Those two answers are the same."
+msgstr ""
+
+#: prompt_matrix/templates/index.html
+msgid "Select this answer to compare"
+msgstr ""
+
 #: prompt_matrix/templates/index.html:343
 msgid "Question"
 msgstr ""
@@ -773,4 +789,3 @@ msgstr ""
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

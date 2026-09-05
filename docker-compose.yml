@@ -1,0 +1,26 @@
+services:
+  assure-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      DATABASE_PATH: /app/data/history.sqlite
+      ENVIRONMENT: development
+      PORT: "8765"
+      PYTHONUNBUFFERED: "1"
+      STRIPE_WEBHOOK_SECRET: whsec_test_secret_for_local_validation
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # Optional: expose assure-app via Cloudflare Tunnel (set TUNNEL_TOKEN in .env).
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   command: tunnel run --token ${TUNNEL_TOKEN}
+  #   environment:
+  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+  #   depends_on:
+  #     - assure-app
+  #   restart: unless-stopped

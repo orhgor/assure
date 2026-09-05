@@ -13,24 +13,44 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from functools import wraps
 from typing import Any
 
 from flask import jsonify, redirect, request, session
 
 CLERK_API = "https://api.clerk.com/v1"
-PROTECTED_HTML = frozenset({"/", "/compose", "/connect"})
+PROTECTED_HTML = frozenset({"/", "/compose"})
 PUBLIC_API = frozenset(
     {
+        "/health",
         "/api/health",
+        "/api/status",
+        "/api/keys",
         "/api/i18n",
         "/api/auth/config",
         "/api/auth/session",
         "/api/auth/logout",
         "/api/auth/me",
         "/api/webhook/stripe",
+        "/api/webhooks/stripe",
+        "/api/waitlist",
+        "/api/sandbox/verify",
     }
 )
-PUBLIC_HTML = frozenset({"/signin", "/signup", "/signout", "/pricing", "/privacy", "/about"})
+PUBLIC_HTML = frozenset(
+    {
+        "/",
+        "/architecture",
+        "/signin",
+        "/signup",
+        "/signout",
+        "/pricing",
+        "/privacy",
+        "/about",
+        "/terms",
+        "/connect",
+    }
+)
 
 
 class AuthError(ValueError):
@@ -38,10 +58,9 @@ class AuthError(ValueError):
 
 
 def clerk_publishable_key() -> str:
-    return (
-        (os.environ.get("CLERK_PUBLISHABLE_KEY") or "").strip()
-        or (os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or "").strip()
-    )
+    return (os.environ.get("CLERK_PUBLISHABLE_KEY") or "").strip() or (
+        os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or ""
+    ).strip()
 
 
 def clerk_secret_key() -> str:
@@ -57,6 +76,36 @@ def is_self_hosted() -> bool:
     return raw.replace("_", "-") in {"self-hosted", "selfhosted", "self-host"}
 
 
+def is_production_env() -> bool:
+    return (os.environ.get("ENVIRONMENT") or "").strip().lower() == "production"
+
+
+def is_loopback_request() -> bool:
+    """True for local dev clients so Clerk never locks out loopback testing."""
+    addr = (request.remote_addr or "").strip().lower()
+    if addr in {"127.0.0.1", "::1", "localhost"}:
+        return True
+    host = (request.host or "").split(":")[0].strip().lower()
+    return host in {"127.0.0.1", "localhost"}
+
+
+def require_clerk_login() -> bool:
+    """Honour ASSURE_REQUIRE_LOGIN=false for local/docker overrides."""
+    if not auth_required():
+        return False
+    raw = (os.environ.get("ASSURE_REQUIRE_LOGIN") or "true").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def loopback_api_bypass() -> bool:
+    """Allow local API scripts on loopback without a Clerk session (non-production only)."""
+    return (
+        not is_production_env()
+        and is_loopback_request()
+        and (request.path or "").startswith("/api/")
+    )
+
+
 def auth_required() -> bool:
     if is_self_hosted():
         return False
@@ -67,7 +116,7 @@ def template_state(*, include_pk: bool = False) -> dict[str, Any]:
     user_id = session.get("clerk_user_id")
     state = {
         "configured": clerk_configured(),
-        "required": auth_required(),
+        "required": require_clerk_login() and not loopback_api_bypass(),
         "self_hosted": is_self_hosted(),
         "signed_in": bool(user_id),
         "user_id": user_id or "",
@@ -99,6 +148,14 @@ def remember_user(*, user_id: str, email: str = "") -> None:
     session["clerk_user_id"] = user_id
     if email:
         session["clerk_email"] = email
+    try:
+        from .credit_guard import ensure_wallet
+    except ImportError:
+        from credit_guard import ensure_wallet
+    try:
+        ensure_wallet(user_id)
+    except Exception:
+        pass
 
 
 def jwt_payload(token: str) -> dict[str, Any]:
@@ -177,30 +234,61 @@ def safe_next(value: str | None) -> str:
     return raw
 
 
+def _bearer_token() -> str | None:
+    auth = (request.headers.get("Authorization") or "").strip()
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        return token or None
+    return None
+
+
+def _bind_request_tier() -> None:
+    try:
+        from .cloud_billing import bind_request_tier
+    except ImportError:
+        from cloud_billing import bind_request_tier
+    try:
+        bind_request_tier()
+    except Exception:
+        try:
+            from .editions import set_request_plan
+        except ImportError:
+            from editions import set_request_plan
+        set_request_plan("free")
+
+
+def _try_bearer_session() -> bool:
+    token = _bearer_token()
+    if not token:
+        return False
+    try:
+        user = verify_session_token(token)
+    except AuthError:
+        return False
+    remember_user(user_id=user["id"], email=user.get("email") or "")
+    _bind_request_tier()
+    return True
+
+
 def protect_request():
     """Redirect HTML, or 401 JSON, when cloud login is on and the session is empty."""
     path = request.path
-    if path.startswith("/static/") or path == "/api/webhook/stripe":
-        return None
-    if current_user_id():
-        try:
-            from .cloud_billing import bind_request_tier
-        except ImportError:
-            from cloud_billing import bind_request_tier
-        try:
-            bind_request_tier()
-        except Exception:
-            try:
-                from .editions import set_request_plan
-            except ImportError:
-                from editions import set_request_plan
-            set_request_plan("free")
-    if not auth_required():
+    if path.startswith("/static/"):
         return None
     if path in PUBLIC_HTML or path in PUBLIC_API:
         return None
+    if loopback_api_bypass():
+        return None
+    if current_user_id():
+        _bind_request_tier()
+    if not require_clerk_login():
+        return None
     if current_user_id():
         return None
+    if is_production_env() and path.startswith("/api/"):
+        if _try_bearer_session():
+            return None
+        return jsonify({"error": "Sign in to use Compose."}), 401
     if path.startswith("/api/"):
         return jsonify({"error": "Sign in to use Compose."}), 401
     target = "/signin"
@@ -210,3 +298,16 @@ def protect_request():
             nxt = path + "?" + request.query_string.decode()
         target = "/signin?" + urllib.parse.urlencode({"next": nxt})
     return redirect(target)
+
+
+def login_required(view):
+    """Gate HTML and JSON when Clerk is configured. No-op without a publishable key."""
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        blocked = protect_request()
+        if blocked is not None:
+            return blocked
+        return view(*args, **kwargs)
+
+    return wrapped

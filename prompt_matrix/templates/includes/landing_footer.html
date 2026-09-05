@@ -1,0 +1,6 @@
+<footer class="site-footer">
+    <div class="container center">
+        <p data-i18n="landing.footer.copy">{{ strings.get('landing.footer.copy', '© 2026 Assure') }}</p>
+    </div>
+</footer>
+<script src="{{ url_for('static', filename='landing-i18n.js') }}?v={{ landing_js_version|default('31') }}"></script>

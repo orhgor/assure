@@ -840,4 +840,3 @@ msgstr ""
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

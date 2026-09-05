@@ -1,0 +1,4 @@
+{% if sentry_enabled and sentry_browser_dsn %}
+<script>window.__SENTRY_DSN={{ sentry_browser_dsn|tojson }};</script>
+<script src="{{ url_for('static', filename='sentry.bundle.js') }}?v={{ js_version|default('assure-21') }}" crossorigin="anonymous"></script>
+{% endif %}

@@ -237,7 +237,9 @@ def get_persona(name: str | None) -> dict[str, str]:
     return item
 
 
-def list_personas(*, edition: str | None = None, include_locked: bool = False) -> list[dict[str, str | bool]]:
+def list_personas(
+    *, edition: str | None = None, include_locked: bool = False
+) -> list[dict[str, str | bool]]:
     try:
         from .editions import current_edition
     except ImportError:

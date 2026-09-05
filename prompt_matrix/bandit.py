@@ -21,7 +21,9 @@ def epsilon_from_env(default: float = 0.2) -> float:
     return min(0.95, max(0.0, float(default)))
 
 
-def pick(rows: list[dict], *, epsilon: float = 0.2, rng: random.Random | None = None) -> dict | None:
+def pick(
+    rows: list[dict], *, epsilon: float = 0.2, rng: random.Random | None = None
+) -> dict | None:
     if not rows:
         return None
     rng = rng or random.Random()

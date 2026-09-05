@@ -15,6 +15,7 @@ _request_plan_id: ContextVar[str | None] = ContextVar("assure_request_plan", def
 def set_request_plan(plan_id: str | None) -> None:
     _request_plan_id.set(plan_id)
 
+
 EDITIONS = ("free", "pro", "team", "self-hosted")
 
 # User-facing Compose labels (UI only). Engine ids stay single | ensemble | redhat.
@@ -23,14 +24,16 @@ EDITIONS = ("free", "pro", "team", "self-hosted")
 # yet, so _() would freeze the first locale that imported this module.
 # Translate at request time with i18n.intent_plain(lang) (en, es, zh, fr, de, ja, tr).
 INTENT_PLAIN = {
-    "research": "Get a structured analysis with evidence.",
-    "design": "Create a plan or blueprint.",
-    "comparison": "Decide between options.",
-    "debug": "Fix a problem.",
-    "analysis": "Understand the numbers.",
+    "research": "Research: structures your question so the AI returns a thesis, verified findings, inferred gaps, and open questions. You do not have to know how to prompt.",
+    "design": "Design: a plan or draft you can hand to someone.",
+    "comparison": "Comparison: two options, with agreement and fights.",
+    "debug": "Debug: Identify and fix a problem.",
+    "analysis": "Analysis: what the numbers mean, and what they do not prove.",
 }
 
-FREE_ENSEMBLE = ("gemini", "deepseek")
+FREE_ENSEMBLE = ("gemini",)
+PRO_CONSENSUS = ("claude", "gemini")
+FREE_DEFAULT_TARGET = "gemini"
 
 
 @dataclass(frozen=True)
@@ -58,8 +61,8 @@ PLANS: dict[str, EditionPlan] = {
     "free": EditionPlan(
         id="free",
         label="Free",
-        daily_sends=10,
-        max_ensemble=2,
+        daily_sends=5,
+        max_ensemble=1,
         full_text_history=False,
         history_days=7,
         export_formats=(),
@@ -180,7 +183,7 @@ def snapshot(config_edition: str | None = None) -> dict:
 def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
     """Block Send when the UTC-day quota is used up. Copy/compile does not count.
 
-    Caps (local flags, not a payment API): Free 10, Pro 100, Team and
+    Caps (local flags, not a payment API): Free 5, Pro 100, Team and
     Self-hosted unlimited. Raise with ASSURE_EDITION / PEM_EDITION / --edition.
     """
     if not direct:
@@ -197,10 +200,10 @@ def guard_send(*, direct: bool, config_edition: str | None = None) -> None:
     used = count_sends_today()
     if used >= plan.daily_sends:
         raise MatrixError(
-            f"{plan.label} allows {plan.daily_sends} Sends per day. "
-            "You've reached today's limit. Pro is 100 Sends per day. "
+            f"{plan.label} allows {plan.daily_sends} checks per day. "
+            "You've reached today's limit. Pro is 100 checks per day. "
             "There is no checkout in this app. Set ASSURE_EDITION=pro "
-            "(or team / self-hosted), or open https://assure.ai/pricing (placeholder)."
+            "(or team / self-hosted), or open https://getassureai.com/app."
         )
 
 
@@ -224,6 +227,12 @@ def clamp_ensemble_extras(
             if name != primary:
                 rest.append(name)
                 break
+    if plan.id == "pro" and not rest:
+        for name in PRO_CONSENSUS:
+            if name != primary:
+                rest.append(name)
+                if len(rest) >= max(0, plan.max_ensemble - 1):
+                    break
     cap = max(0, plan.max_ensemble - 1)
     return rest[:cap]
 

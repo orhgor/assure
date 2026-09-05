@@ -49,14 +49,22 @@ THEME = Theme(
 
 
 def build_parser(config: MatrixConfig | None = None) -> argparse.ArgumentParser:
-    targets = sorted(config.targets) if config else ["claude", "gemini", "deepseek", "kimi", "ollama", "cursor"]
-    intents = sorted(config.intents) if config else [
-        "research",
-        "design",
-        "comparison",
-        "debug",
-        "analysis",
-    ]
+    targets = (
+        sorted(config.targets)
+        if config
+        else ["claude", "gemini", "deepseek", "kimi", "ollama", "cursor"]
+    )
+    intents = (
+        sorted(config.intents)
+        if config
+        else [
+            "research",
+            "design",
+            "comparison",
+            "debug",
+            "analysis",
+        ]
+    )
     parser = argparse.ArgumentParser(
         prog="assure",
         description=(
@@ -211,13 +219,14 @@ def main(argv: list[str] | None = None) -> int:
         from .pem_runner import ensure_preflight
     except ImportError:
         from pem_runner import ensure_preflight
-    ensure_preflight()
     if raw[:1] == ["mcp"]:
+        ensure_preflight(announce=False)
         try:
             from .mcp_server import serve_stdio
         except ImportError:
             from mcp_server import serve_stdio
         return serve_stdio()
+    ensure_preflight()
     if raw[:1] == ["eval"]:
         try:
             from .eval_run import main as eval_main
@@ -261,6 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.ci:
         args.quiet = True
+    want_copy = False if args.ci else (bool(args.copy) or not args.direct)
     try:
         from .engine import apply_runtime_options
     except ImportError:
@@ -303,9 +313,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if interactive:
             _print_banner(console)
-            target, intent, task, context = _interactive_collect(
-                console, config, args
-            )
+            target, intent, task, context = _interactive_collect(console, config, args)
         else:
             target = normalize_target(args.target, config)
             intent = args.intent.strip().lower()
@@ -329,14 +337,17 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.quiet:
             preview = render_prompt_detailed(
-                target, intent, task, context, config=config, config_path=args.config_path,
+                target,
+                intent,
+                task,
+                context,
+                config=config,
+                config_path=args.config_path,
                 class_id=args.class_id,
             )
             _print_preview(console, preview)
             if preview.files_read:
-                console.print(
-                    f"[muted]Injected file(s): {', '.join(preview.files_read)}[/muted]"
-                )
+                console.print(f"[muted]Injected file(s): {', '.join(preview.files_read)}[/muted]")
             try:
                 from .linter import lint_prompt
             except ImportError:
@@ -351,7 +362,12 @@ def main(argv: list[str] | None = None) -> int:
                 console.print(f"[muted]{report.as_text()}[/muted]")
         elif args.direct or args.lint:
             preview = render_prompt_detailed(
-                target, intent, task, context, config=config, config_path=args.config_path,
+                target,
+                intent,
+                task,
+                context,
+                config=config,
+                config_path=args.config_path,
                 class_id=args.class_id,
             )
             try:
@@ -381,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
                 persona=args.persona,
                 local=args.local,
                 direct=args.direct,
-                copy=args.copy or not args.direct,
+                copy=want_copy,
                 class_id=args.class_id,
                 lint=args.lint,
                 history=args.history,
@@ -423,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
             task,
             context,
             direct=args.direct,
-            copy=args.copy or not args.direct,
+            copy=want_copy,
             save_path=args.save,
             model=args.model,
             config=config,
@@ -626,9 +642,7 @@ def _pick_numbered(console: Console, title: str, rows: list[tuple[str, str]]) ->
 
 
 def _print_preview(console: Console, preview) -> None:
-    lexer = {"xml": "xml", "markdown": "markdown", "plain": "text"}.get(
-        preview.wrapper, "text"
-    )
+    lexer = {"xml": "xml", "markdown": "markdown", "plain": "text"}.get(preview.wrapper, "text")
     syntax = Syntax(
         preview.prompt.rstrip() + "\n",
         lexer,
@@ -692,7 +706,14 @@ def _should_serve(argv: list[str]) -> bool:
     first = argv[0]
     if first in flags:
         return True
-    prefixes = ("--host=", "--port=", "--auth-user=", "--auth-pass=", "--http-user=", "--http-pass=")
+    prefixes = (
+        "--host=",
+        "--port=",
+        "--auth-user=",
+        "--auth-pass=",
+        "--http-user=",
+        "--http-pass=",
+    )
     return first.startswith(prefixes)
 
 
@@ -700,13 +721,13 @@ def _print_top_help() -> None:
     print(
         """Assure (PEM engine)
 
-  assure              open http://127.0.0.1:8765
+  assure              start Assure (browser opens)
   pem                 same
   assure --web --edition pro
-  pem --web --host 0.0.0.0 --auth-user admin --auth-pass PASS
+  pem --web --host 0.0.0.0 --http-pass PASS
   pem --store-prompts --max-tokens 4096 --timeout 60
   pem --workflow redhat --critic rule
-  pem mcp             stdio MCP (compile, combine, critique-rewrite, lint, export)
+  pem mcp             stdio MCP (compile, combine, critique-rewrite, lint, export, swarm_develop)
   pem --export mdc --class-id comparison
   cat notes.md | pem claude research "Summarize" --direct
   pem --host 0.0.0.0  also reachable on your LAN

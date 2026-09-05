@@ -1,0 +1,2 @@
+# Dev dependencies for local hooks and CI (install: uv sync --extra dev)
+-e ".[dev]"

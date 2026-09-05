@@ -1,0 +1,36 @@
+name: Edge Worker (Staging)
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: worker-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Install worker dependencies
+        working-directory: worker
+        run: npm ci
+
+      - name: Deploy Worker --env staging
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler@4 deploy --env staging

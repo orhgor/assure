@@ -32,7 +32,9 @@ def lint_prompt(target: str, prompt: str) -> LintReport:
         report.errors.append("Prompt is empty.")
         return report
     if target == "claude":
-        _xml_dialect(report, text, required=("role", "instructions"), optional=("thinking", "context"))
+        _xml_dialect(
+            report, text, required=("role", "instructions"), optional=("thinking", "context")
+        )
     elif target == "cursor":
         if "/ask" not in text:
             report.errors.append("Cursor dialect needs /ask (usually /ask @workspace).")

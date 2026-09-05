@@ -1,0 +1,64 @@
+name = "assure-worker-prod"
+main = "index.js"
+compatibility_date = "2026-09-04"
+compatibility_flags = ["nodejs_compat"]
+
+[[r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "assure-pdf-uploads-prod"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "ccf7cdf70a004c4f97ccbc4f8f102c7a"
+
+[vars]
+ENVIRONMENT = "production"
+MAX_FILE_BYTES = "10485760"
+MAX_PAGES_DOC = "5"
+MAX_PAGES_PROJECT = "50"
+MAX_PAGES_DAY = "20"
+MIN_TEXT_CHARS = "200"
+UPLOAD_URL_TTL_SEC = "300"
+
+# Secrets (set via `wrangler secret put` per environment):
+# EC2_BACKEND_URL, SUBSTRATE_INGEST_SECRET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+
+[env.staging]
+name = "assure-worker-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+MAX_FILE_BYTES = "10485760"
+MAX_PAGES_DOC = "5"
+MAX_PAGES_PROJECT = "50"
+MAX_PAGES_DAY = "20"
+MIN_TEXT_CHARS = "200"
+UPLOAD_URL_TTL_SEC = "300"
+
+[[env.staging.r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "assure-pdf-uploads-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "701c7f9cc71f46e0a6c8519bb6db9070"
+
+[env.production]
+name = "assure-worker-prod"
+
+[[env.production.r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "assure-pdf-uploads-prod"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "ccf7cdf70a004c4f97ccbc4f8f102c7a"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+MAX_FILE_BYTES = "10485760"
+MAX_PAGES_DOC = "5"
+MAX_PAGES_PROJECT = "50"
+MAX_PAGES_DAY = "20"
+MIN_TEXT_CHARS = "200"
+UPLOAD_URL_TTL_SEC = "300"

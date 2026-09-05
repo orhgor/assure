@@ -174,7 +174,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--intent", default="analysis")
     parser.add_argument("--class-id", dest="class_id")
     parser.add_argument("--direct", action="store_true", help="Send each case (counts as a Send)")
-    parser.add_argument("--ci", action="store_true", help="Print JSON only; exit 1 if any case fails")
+    parser.add_argument(
+        "--ci", action="store_true", help="Print JSON only; exit 1 if any case fails"
+    )
     args = parser.parse_args(argv)
     try:
         dataset = load_dataset(args.dataset)

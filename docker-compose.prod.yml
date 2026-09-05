@@ -1,0 +1,25 @@
+# Production overrides for EC2 deployment (Cloudflare Tunnel — no public ports).
+services:
+  assure-app:
+    ports: !override
+      - "127.0.0.1:8765:8765"
+    environment:
+      ENVIRONMENT: production
+      DATABASE_PATH: /app/data/history.sqlite
+      PORT: "8765"
+      PYTHONUNBUFFERED: "1"
+    env_file:
+      - path: .env.production
+        required: false
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M

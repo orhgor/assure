@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import platform
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateError, TemplateSyntaxError
+from jinja2 import (
+    Environment,
+    FileSystemLoader,
+    StrictUndefined,
+    TemplateError,
+    TemplateSyntaxError,
+)
 from pydantic import ValidationError
 
 try:
@@ -32,7 +42,12 @@ except ImportError:
         TargetConfig,
     )
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+try:
+    from .paths import resource_dir
+except ImportError:
+    from paths import resource_dir
+
+PACKAGE_DIR = resource_dir()
 DEFAULT_CONFIG_PATH = PACKAGE_DIR / "config.json"
 
 MAX_FILE_BYTES = 200_000
@@ -71,7 +86,7 @@ TARGET_ALIASES = {
 
 DEFAULT_MODELS = {
     "claude": "anthropic/claude-sonnet-4-5",
-    "gemini": "gemini/gemini-3.5-flash",
+    "gemini": "gemini/gemini-3.6-flash",
     "deepseek": "deepseek/deepseek-chat",
     "kimi": "moonshot/kimi-k2.5",
     "ollama": "ollama/llama3.2",
@@ -79,7 +94,7 @@ DEFAULT_MODELS = {
 }
 
 API_KEY_HINTS = {
-    "claude": "ANTHROPIC_API_KEY",
+    "claude": "ANTHROPIC_API_KEY or CLAUDE_API_KEY",
     "gemini": "GEMINI_API_KEY or GOOGLE_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY or KIMI_API_KEY",
@@ -168,7 +183,7 @@ def apply_runtime_options(
     edition: str | None = None,
 ) -> None:
     """Push CLI flags into env so LiteLLM, history, auth, and the rule critic see them."""
-    rt = (config.runtime if config is not None else RuntimeSettings())
+    rt = config.runtime if config is not None else RuntimeSettings()
     if store_prompts or rt.store_prompts:
         os.environ["PEM_STORE_PROMPTS"] = "1"
     if cheap:
@@ -360,7 +375,7 @@ def execute(
             )
 
     if not used_direct:
-        should_copy = True
+        should_copy = bool(copy)
     if should_copy:
         copied = copy_to_clipboard(rendered.prompt)
 
@@ -378,20 +393,71 @@ def execute(
     )
 
 
-def copy_to_clipboard(text: str) -> bool:
-    try:
-        import pyperclip
-    except ImportError as exc:
-        raise MatrixError("pyperclip is not installed. Run: pip install -r requirements.txt") from exc
+_CLIPBOARD_LOG = logging.getLogger(__name__)
 
+
+def _headless_clipboard_host() -> bool:
+    """True on Docker/EC2 and other hosts with no desktop clipboard."""
+    flag = os.getenv("PEM_NO_CLIPBOARD", "").strip().lower()
+    if flag in {"1", "true", "yes"}:
+        return True
+    if (
+        platform.system() == "Linux"
+        and not os.getenv("DISPLAY")
+        and not os.getenv("WAYLAND_DISPLAY")
+    ):
+        return True
+    return False
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Copy to the local desktop clipboard when a mechanism exists.
+
+    Web UI copy uses ``navigator.clipboard`` in the browser. This helper is for
+    local CLI/desktop only. It never raises on headless servers.
+    """
+    if not text:
+        return False
+    if _headless_clipboard_host():
+        _CLIPBOARD_LOG.debug("Skipping clipboard copy on headless host")
+        return False
     try:
-        pyperclip.copy(text)
-    except Exception as exc:
-        raise MatrixError(
-            "Could not write to the clipboard. On Linux you may need xclip or xsel. "
-            f"Original error: {exc}"
-        ) from exc
-    return True
+        system = platform.system()
+        if system == "Darwin":
+            proc = subprocess.run(
+                ["pbcopy"],
+                input=text.encode("utf-8"),
+                capture_output=True,
+                timeout=5,
+            )
+            return proc.returncode == 0
+        if system == "Linux":
+            for cmd in (
+                ["wl-copy"],
+                ["xclip", "-selection", "clipboard"],
+                ["xsel", "--clipboard", "--input"],
+            ):
+                if shutil.which(cmd[0]):
+                    proc = subprocess.run(
+                        cmd,
+                        input=text.encode("utf-8"),
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    return proc.returncode == 0
+            return False
+        if system == "Windows" and shutil.which("clip"):
+            proc = subprocess.run(
+                ["clip"],
+                input=text.encode("utf-16le"),
+                capture_output=True,
+                timeout=5,
+                shell=True,
+            )
+            return proc.returncode == 0
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _CLIPBOARD_LOG.warning("Clipboard copy failed: %s", exc)
+    return False
 
 
 def send_to_llm(
@@ -420,9 +486,9 @@ def send_to_llm(
         ) from exc
 
     try:
-        from .keys import api_key_for, load_keys, missing_key_message
+        from .keys import litellm_kwargs_for, load_keys, missing_key_message
     except ImportError:
-        from keys import api_key_for, load_keys, missing_key_message
+        from keys import litellm_kwargs_for, load_keys, missing_key_message
 
     load_keys()
     runner = None
@@ -437,11 +503,26 @@ def send_to_llm(
         raise DirectCallError(missing)
 
     litellm.drop_params = True
-    messages = [{"role": "user", "content": rendered.prompt}]
-    api_key = api_key_for(target_name)
+    try:
+        from .services.language_guard import guard_messages, resolve_request_locale
+    except ImportError:
+        from services.language_guard import guard_messages, resolve_request_locale
+
+    messages = guard_messages(
+        [{"role": "user", "content": rendered.prompt}],
+        locale=resolve_request_locale(),
+    )
+    extra = litellm_kwargs_for(target_name)
 
     if structured:
-        return _send_structured(litellm, model_id, messages, target_name, intent=rendered.intent)
+        return _send_structured(
+            litellm,
+            model_id,
+            messages,
+            target_name,
+            intent=rendered.intent,
+            extra=extra,
+        )
 
     try:
         from .litellm_runner import call_model
@@ -449,9 +530,6 @@ def send_to_llm(
         from litellm_runner import call_model
 
     try:
-        extra = {"api_key": api_key} if api_key else {}
-        if target_name == "kimi":
-            extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
         if runner:
             model_id, local_extra = litellm_kwargs(runner)
             extra.update(local_extra)
@@ -799,15 +877,17 @@ def _send_structured(
     messages: list[dict[str, str]],
     target_name: str,
     intent: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> tuple[str, StructuredAIResponse]:
+    extra = dict(extra or {})
     try:
         import instructor
     except ImportError:
-        return _send_structured_fallback(litellm, model_id, messages, target_name)
+        return _send_structured_fallback(litellm, model_id, messages, target_name, extra=extra)
 
     factory = getattr(instructor, "from_litellm", None)
     if factory is None:
-        return _send_structured_fallback(litellm, model_id, messages, target_name)
+        return _send_structured_fallback(litellm, model_id, messages, target_name, extra=extra)
 
     client = factory(litellm.completion)
     try:
@@ -822,6 +902,7 @@ def _send_structured(
             response_model=StructuredAIResponse,
             max_tokens=max_tokens,
             timeout=timeout,
+            **extra,
         )
     except Exception as exc:
         raise _wrap_llm_error(target_name, model_id, exc) from exc
@@ -836,6 +917,7 @@ def _send_structured_fallback(
     model_id: str,
     messages: list[dict[str, str]],
     target_name: str,
+    extra: dict[str, Any] | None = None,
 ) -> tuple[str, StructuredAIResponse]:
     schema = StructuredAIResponse.model_json_schema()
     forced = list(messages) + [
@@ -852,7 +934,7 @@ def _send_structured_fallback(
     except ImportError:
         from litellm_runner import call_model
     try:
-        content = call_model(model_id, forced)
+        content = call_model(model_id, forced, **(extra or {}))
         if content.startswith("ERROR:"):
             raise DirectCallError(content)
     except DirectCallError:

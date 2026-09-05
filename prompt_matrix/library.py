@@ -17,8 +17,12 @@ try:
 except ImportError:
     from engine import MatrixError, load_matrix
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-DEFAULT_LIBRARY_PATH = PACKAGE_DIR / "library.json"
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+DEFAULT_LIBRARY_PATH = user_data_dir() / "library.json"
 _LOCK = threading.Lock()
 
 _XML_BLOCK = re.compile(
@@ -217,7 +221,6 @@ def get_saved_prompt(prompt_id: str, path: Path | None = None) -> SavedPrompt:
     raise MatrixError(f"Unknown saved prompt '{prompt_id}'.")
 
 
-
 def save_prompt(
     *,
     class_id: str,
@@ -300,8 +303,7 @@ def library_payload(path: Path | None = None) -> dict[str, Any]:
         counts[item.class_id] = counts.get(item.class_id, 0) + 1
     return {
         "classes": [
-            {**item.model_dump(), "count": counts.get(item.id, 0)}
-            for item in library.classes
+            {**item.model_dump(), "count": counts.get(item.id, 0)} for item in library.classes
         ],
         "prompts": [item.model_dump() for item in library.prompts],
     }
@@ -313,8 +315,7 @@ def learn_structure(prompt_text: str) -> LearnedStructure:
         raise MatrixError("Paste a prompt to learn from.")
 
     xml_fields = {
-        match.group(1).lower(): match.group(2).strip()
-        for match in _XML_BLOCK.finditer(text)
+        match.group(1).lower(): match.group(2).strip() for match in _XML_BLOCK.finditer(text)
     }
     headings = [item.strip() for item in _MD_HEADER.findall(text)]
     wrapper, target_guess = _guess_target(text, xml_fields, headings)
@@ -379,7 +380,9 @@ def _unique_slug(name: str, taken: set[str]) -> str:
     return slug
 
 
-def _guess_target(text: str, xml_fields: dict[str, str], headings: list[str]) -> tuple[str, str | None]:
+def _guess_target(
+    text: str, xml_fields: dict[str, str], headings: list[str]
+) -> tuple[str, str | None]:
     lowered = text.lower()
     if "/ask @workspace" in lowered or "output only the code" in lowered:
         return "markdown", "cursor"
@@ -469,7 +472,9 @@ def _to_template(text: str, task_guess: str, xml_fields: dict[str, str]) -> str:
             flags=re.S,
         )
     if "{{ task }}" not in template:
-        template = template.rstrip() + "\n\n{{ task }}\n{% if context %}\n{{ context }}\n{% endif %}\n"
+        template = (
+            template.rstrip() + "\n\n{{ task }}\n{% if context %}\n{{ context }}\n{% endif %}\n"
+        )
     elif "{{ context }}" not in template:
         template = template.rstrip() + "\n{% if context %}\n{{ context }}\n{% endif %}\n"
     return template.strip() + "\n"

@@ -74,30 +74,44 @@ TARGET_FOR = {
 }
 
 LITELLM_FOR = {
-    "gemini-1.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini-1.5-pro": "gemini/gemini-3.5-flash",
+    "gemini-1.5-flash": "gemini/gemini-3.6-flash",
+    "gemini-1.5-pro": "gemini/gemini-3.6-flash",
     "deepseek-chat": "deepseek/deepseek-chat",
-    "claude-3-haiku-20240307": "anthropic/claude-3-haiku-20240307",
+    "claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
     "claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
     "kimi-moonshot-v1": "moonshot/kimi-k2.5",
 }
 
-# Gemini 1.5 is retired on v1beta. gemini-3.6-flash is a separate quota pool that
-# 429s after the free generateContent cap. These ids still Send on this key.
+# Retired model rewrites — map any stale model id to a live one before the API call.
+# claude-3-haiku-20240307 and claude-3-5-sonnet-20241022 404 on current Anthropic workspaces.
+# All pre-3.6 Gemini models are retired on the v1beta generateContent endpoint.
 SEND_REWRITES = {
-    "gemini/gemini-1.5-pro": "gemini/gemini-3.5-flash",
-    "gemini/gemini-1.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini/gemini-2.0-flash": "gemini/gemini-3.5-flash",
-    "gemini/gemini-2.5-flash": "gemini/gemini-3.5-flash-lite",
-    "gemini/gemini-2.5-pro": "gemini/gemini-3.5-flash",
-    "gemini/gemini-3.6-flash": "gemini/gemini-3.5-flash",
+    "gemini/gemini-1.5-pro": "gemini/gemini-3.6-flash",
+    "gemini/gemini-1.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.0-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-2.5-pro": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.5-flash": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.5-flash-lite": "gemini/gemini-3.6-flash",
+    "gemini/gemini-3.7-flash": "gemini/gemini-3.6-flash",
+    "anthropic/claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
+    "anthropic/claude-3-5-sonnet-20241022": "anthropic/claude-sonnet-4-5",
+    "anthropic/claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
 }
 
 _model_override: ContextVar[tuple[str, str] | None] = ContextVar("pem_cost_model", default=None)
+_output_token_floor: ContextVar[int | None] = ContextVar("pem_output_token_floor", default=None)
+_timeout_floor: ContextVar[int | None] = ContextVar("pem_timeout_floor", default=None)
 
 
 def cost_route_enabled() -> bool:
-    return os.environ.get("PEM_COST_ROUTE", "").strip().lower() in {"1", "true", "yes", "on", "cheap"}
+    return os.environ.get("PEM_COST_ROUTE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "cheap",
+    }
 
 
 def should_auto_route(*, local: bool = False, cheap: bool = False) -> bool:
@@ -130,6 +144,29 @@ def model_override(target: str | None, model_id: str | None = None) -> Iterator[
         _model_override.reset(token)
 
 
+@contextmanager
+def role_output_limits(
+    *,
+    max_tokens: int | None = None,
+    timeout: int | None = None,
+) -> Iterator[None]:
+    """Raise the LiteLLM output cap for one role (swarm developer dumps)."""
+    if max_tokens is None and timeout is None:
+        yield
+        return
+    tok = _output_token_floor.set(int(max_tokens) if max_tokens else None)
+    sec = _timeout_floor.set(int(timeout) if timeout else None)
+    try:
+        yield
+    finally:
+        _output_token_floor.reset(tok)
+        _timeout_floor.reset(sec)
+
+
+def current_role_limits() -> tuple[int | None, int | None]:
+    return _output_token_floor.get(), _timeout_floor.get()
+
+
 def _pricing_key(model: str | None) -> str | None:
     raw = (model or "").strip()
     if not raw:
@@ -157,7 +194,9 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
         return 0.0
     key = _pricing_key(model)
     pricing = MODEL_PRICING.get(key or "", {"input": 1.00, "output": 1.00})  # fallback
-    return (input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing["output"]
+    return (input_tokens / 1_000_000) * pricing["input"] + (output_tokens / 1_000_000) * pricing[
+        "output"
+    ]
 
 
 def rewrite_send_id(model_id: str | None) -> str | None:
@@ -226,10 +265,12 @@ def suggest_live_target(
 
 SHORT_PROMPT_TOKENS = 1000
 # High list-price rows plus any *opus* id. Used only to drop ensemble extras on short prompts.
-EXPENSIVE_ON_SHORT = frozenset({
-    "claude-3-5-sonnet-20240620",
-    "gemini-1.5-pro",
-})
+EXPENSIVE_ON_SHORT = frozenset(
+    {
+        "claude-3-5-sonnet-20240620",
+        "gemini-1.5-pro",
+    }
+)
 
 
 def is_cost_inefficient_for_short(model: str, prompt_text: str) -> bool:
@@ -243,7 +284,9 @@ def is_cost_inefficient_for_short(model: str, prompt_text: str) -> bool:
     return key in EXPENSIVE_ON_SHORT
 
 
-def filter_ensemble_extras(primary: str, extras: list[str], prompt_text: str) -> tuple[list[str], list[str]]:
+def filter_ensemble_extras(
+    primary: str, extras: list[str], prompt_text: str
+) -> tuple[list[str], list[str]]:
     """Keep the ensemble. Drop extras that are a bad fit for a short prompt."""
     kept: list[str] = []
     skipped: list[str] = []
@@ -274,7 +317,12 @@ def cap_output_tokens(intent: str, model: str) -> int:
     # Gemini 2.5/3 count hidden thinking against max_tokens. Pricing aliases
     # like gemini-1.5-flash still send gemini/gemini-3.5-flash-lite.
     if any(tag in probe for tag in ("gemini-2.5", "gemini-3", "thinking")):
-        return max(base_cap, 8192)
-    if "flash" in name or "haiku" in name:
-        return min(base_cap, 1024)
-    return base_cap
+        capped = max(base_cap, 8192)
+    elif "flash" in name or "haiku" in name:
+        capped = min(base_cap, 1024)
+    else:
+        capped = base_cap
+    floor = _output_token_floor.get()
+    if floor:
+        return max(capped, floor)
+    return capped

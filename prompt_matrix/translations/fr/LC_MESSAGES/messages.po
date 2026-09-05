@@ -1074,4 +1074,3 @@ msgstr "Vos données restent ici. L'envoi va seulement vers le fournisseur chois
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

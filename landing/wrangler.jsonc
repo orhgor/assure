@@ -1,11 +1,20 @@
 {
   "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
-  "name": "assure-ai",
-  // Static marketing site. Deploy from this folder:
-  //   npx wrangler pages deploy . --project-name=assure-ai
-  // Then in Cloudflare: Pages → assure-ai → Custom domains → assure.ai
-  // Point the app later with data-app-origin on <html> (see index.html), or a
-  // Pages env var once a Worker sits in front.
-  "pages_build_output_dir": ".",
-  "compatibility_date": "2026-08-31"
+  "name": "assure",
+  // Legacy static site — apex/www now served by EC2 via Cloudflare Tunnel.
+  // Worker kept on workers.dev only; do not attach getassureai.com here.
+  "compatibility_date": "2026-09-01",
+  "main": "worker/index.js",
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": false
+  },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "html_handling": "none",
+    "not_found_handling": "404-page",
+    "run_worker_first": true
+  }
 }

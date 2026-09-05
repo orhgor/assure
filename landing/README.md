@@ -1,10 +1,23 @@
-# assure.ai
+# getassureai.com (canonical)
 
-This GitHub repository is the public webpage only. The Assure workbench is not in this repo. It runs on the machine (`assure --web`).
+Public Assure AI is served **directly from EC2** through Cloudflare Tunnel:
 
-## Cloudflare Pages
+- **https://getassureai.com/** — landing + paste sandbox
+- **https://getassureai.com/app** — JDF / Z3 workspace
 
-- Production branch: `webpage`
-- Root directory: `/` (this folder is the site)
-- Build command: empty
-- Custom domain: `assure.ai`
+Legacy **app.getassureai.com** and **www** 301 to the apex (Flask + tunnel).
+
+## DNS / tunnel (one-time)
+
+```bash
+bash scripts/aws/route-apex-dns.sh          # Mac: cloudflared login required
+bash scripts/aws/apply-tunnel-config.sh     # SSM: push ingress + restart cloudflared on EC2
+```
+
+Remove Worker custom domains for `getassureai.com` in Cloudflare if they still point at the old static site.
+
+Deploy this folder to Workers **only** for `assure.orhangorenn.workers.dev` (optional redirect):
+
+```bash
+npx wrangler deploy
+```

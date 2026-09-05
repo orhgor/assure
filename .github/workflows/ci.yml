@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [p4-account-wallet]
+  pull_request:
+    branches: [p4-account-wallet]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      - name: Install
+        run: uv sync --extra dev
+
+      - name: Ruff (syntax / undefined names)
+        run: uv run ruff check prompt_matrix/ --select E9,F821,F822,F823
+
+      - name: Ruff format check (core modules)
+        run: |
+          uv run ruff format --check \
+            prompt_matrix/db \
+            prompt_matrix/ledger \
+            prompt_matrix/cost_governance.py \
+            prompt_matrix/lib/logger.py
+
+      - name: Type check (core modules)
+        continue-on-error: true
+        run: |
+          uv run mypy \
+            prompt_matrix/db/connection.py \
+            prompt_matrix/ledger/truth_engine.py \
+            prompt_matrix/cost_governance.py \
+            prompt_matrix/lib/logger.py \
+            --follow-imports=skip
+
+      - name: Unit tests (unittest)
+        run: uv run python -m unittest discover -s tests -v
+
+      - name: Unit tests (pytest)
+        run: uv run pytest tests/ --ignore=tests/e2e -q
+
+      - name: Bandit (medium+ severity)
+        continue-on-error: true
+        run: uv run bandit -r prompt_matrix/ -ll -f json -o bandit-report.json
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          if-no-files-found: ignore
+
+      - name: Compile check
+        run: uv run pem --ci gemini analysis "Summarize" --copy
+
+      - name: Eval
+        run: uv run pem eval --dataset prompt_matrix/examples/eval_sample.json
+
+  # Browser E2E — optional; requires Playwright browsers on the runner.
+  e2e:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: uv sync --extra dev
+      - name: Install Playwright Chromium
+        run: uv run playwright install chromium
+      - name: Playwright workbench simulation
+        run: uv run pytest tests/e2e/ -q --tb=short

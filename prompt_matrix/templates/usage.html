@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Usage') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="usage.title">{{ gettext('Usage') }}</h1>
+      <p class="lede" data-i18n="usage.lead">{{ gettext('Credits left and recent Sends. Questions stay on this computer.') }}</p>
+    </div>
+    <section class="card">
+      {% if usage and usage.unlimited %}
+      <p data-i18n="usage.local">{{ gettext('This machine has no credit limit. Cloud credits apply after you sign in.') }}</p>
+      {% else %}
+      <p><strong data-i18n="usage.balance">{{ gettext('Credits left') }}</strong>: {{ usage.balance if usage else 0 }}</p>
+      <p><strong data-i18n="usage.tier">{{ gettext('Plan') }}</strong>: {{ (usage.tier if usage else 'free') }}</p>
+      {% endif %}
+    </section>
+    {% if usage and not usage.unlimited %}
+    <section class="card">
+      <h2 data-i18n="usage.transactions">{{ gettext('Recent activity') }}</h2>
+      {% if usage.transactions %}
+      <table class="usage-table">
+        <thead>
+          <tr>
+            <th data-i18n="usage.date">{{ gettext('Date') }}</th>
+            <th data-i18n="usage.type">{{ gettext('Type') }}</th>
+            <th data-i18n="usage.amount">{{ gettext('Amount') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tx in usage.transactions %}
+          <tr>
+            <td>{{ tx.created_at or '' }}</td>
+            <td>{{ tx.type or '' }}</td>
+            <td>{% if tx.amount is not none %}{% if tx.amount > 0 %}+{% endif %}{{ tx.amount }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="hint" data-i18n="usage.none">{{ gettext('No credit activity yet.') }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

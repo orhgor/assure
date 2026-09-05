@@ -6,6 +6,7 @@ Full compiled prompt and final reply: PEM_STORE_PROMPTS=1 (separate table).
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import html
 import json
@@ -14,8 +15,105 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-PACKAGE_DIR = Path(__file__).resolve().parent
-DB_PATH = PACKAGE_DIR / "history.sqlite"
+try:
+    from .paths import user_data_dir
+except ImportError:
+    from paths import user_data_dir
+
+
+def _resolve_db_path() -> Path:
+    override = (os.environ.get("DATABASE_PATH") or "").strip()
+    if override:
+        return Path(override)
+    return user_data_dir() / "history.sqlite"
+
+
+DB_PATH = _resolve_db_path()
+
+
+def _apply_pragmas(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=5000;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+
+
+def _new_connection() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    _apply_pragmas(conn)
+    return conn
+
+
+def get_db() -> sqlite3.Connection:
+    """Request-scoped SQLite handle in Flask; standalone connection elsewhere."""
+    try:
+        from flask import g, has_app_context
+
+        if has_app_context():
+            db = g.get("db")
+            if db is None:
+                db = _new_connection()
+                g.db = db
+            return db
+    except ImportError:
+        pass
+    return _new_connection()
+
+
+def close_db(e=None) -> None:
+    try:
+        from flask import g, has_app_context
+
+        if has_app_context():
+            db = g.pop("db", None)
+            if db is not None:
+                db.close()
+    except ImportError:
+        pass
+
+
+def ensure_user_subscriptions_table(conn: sqlite3.Connection | None = None) -> None:
+    db = conn or get_db()
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_subscriptions (
+            clerk_user_id TEXT PRIMARY KEY,
+            tier TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def upsert_user_subscription(clerk_user_id: str, tier: str) -> None:
+    user_id = (clerk_user_id or "").strip()
+    if not user_id:
+        return
+    db = get_db()
+    standalone = True
+    try:
+        from flask import has_app_context
+
+        standalone = not has_app_context()
+    except ImportError:
+        pass
+    try:
+        ensure_user_subscriptions_table(db)
+        db.execute(
+            """
+            INSERT INTO user_subscriptions (clerk_user_id, tier, updated_at)
+            VALUES (?, ?, datetime('now'))
+            ON CONFLICT(clerk_user_id) DO UPDATE SET
+                tier = excluded.tier,
+                updated_at = datetime('now')
+            """,
+            (user_id, tier),
+        )
+        db.commit()
+    finally:
+        if standalone:
+            db.close()
 
 
 def history_enabled(flag: bool = False) -> bool:
@@ -34,7 +132,7 @@ def run_hash(compiled_prompt: str) -> str:
 
 def migrate_to_full_storage() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         conn.execute(
             """
@@ -72,7 +170,7 @@ def store_full_run(
     if not force and not store_prompts_enabled():
         return
     migrate_to_full_storage()
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         conn.execute(
             """
@@ -119,8 +217,7 @@ def record_run(
     edition: str | None = None,
     context: str | None = None,
 ) -> int:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_executions(conn)
         prompt = prompt or ""
@@ -174,9 +271,11 @@ def prune_old_executions(days: int) -> None:
     if not DB_PATH.exists():
         return
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "executions" not in tables:
             return
         conn.execute("DELETE FROM executions WHERE timestamp < ?", (cutoff,))
@@ -197,8 +296,7 @@ def _ensure_sends_table(conn: sqlite3.Connection) -> None:
 
 
 def count_sends_today() -> int:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_sends_table(conn)
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -209,8 +307,7 @@ def count_sends_today() -> int:
 
 
 def record_send() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = _new_connection()
     try:
         _ensure_sends_table(conn)
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -270,10 +367,7 @@ def _ensure_token_columns(conn: sqlite3.Connection) -> None:
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    return _new_connection()
 
 
 def _parse_ts(value: str | None) -> datetime | None:
@@ -364,15 +458,22 @@ def _row_public(row: sqlite3.Row, *, full: bool) -> dict:
     return item
 
 
-def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, offset: int = 0) -> dict:
+def list_works(
+    *, days: int | None, full: bool, q: str = "", limit: int = 50, offset: int = 0
+) -> dict:
     if not DB_PATH.exists():
         return {"groups": [], "total": 0}
     q = (q or "").strip()
     cutoff = _cutoff_iso(days)
     conn = _connect()
+    rows = []
+    previews: dict[str, str] = {}
+    total = 0
     try:
         _ensure_executions(conn)
-        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
         if "executions" not in tables:
             return {"groups": [], "total": 0}
         where = ["1=1"]
@@ -406,12 +507,26 @@ def list_works(*, days: int | None, full: bool, q: str = "", limit: int = 50, of
             """,
             [*args, max(1, min(int(limit or 50), 100)), max(0, int(offset or 0))],
         ).fetchall()
+        previews: dict[str, str] = {}
+        if full and rows:
+            hashes = [row["prompt_hash"] for row in rows if row["prompt_hash"]]
+            if hashes and "prompt_versions" in (
+                {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            ):
+                qmarks = ",".join("?" * len(hashes))
+                for digest, text in conn.execute(
+                    f"SELECT run_hash, substr(IFNULL(final_response,''), 1, 160) "
+                    f"FROM prompt_versions WHERE run_hash IN ({qmarks})",
+                    hashes,
+                ).fetchall():
+                    previews[digest] = (text or "").strip()
     finally:
         conn.close()
     now = datetime.now(timezone.utc)
     buckets = {"today": [], "yesterday": [], "week": [], "older": []}
     for row in rows:
         item = _row_public(row, full=full)
+        item["preview"] = previews.get(row["prompt_hash"] or "", "") if full else ""
         buckets[_bucket(row["timestamp"], now)].append(item)
     groups = []
     for key in ("today", "yesterday", "week", "older"):
@@ -452,6 +567,73 @@ def get_work(item_id: int, *, full: bool, days: int | None = None) -> dict | Non
         conn.close()
 
 
+def get_run_by_hash(run_hash: str) -> dict | None:
+    """Retrieve a single stored reply by its run_hash.
+
+    Replies live in ``prompt_versions`` (not ``executions``). There is no
+    ``get_db()`` in this module; this uses ``_connect()``.
+    """
+    digest = (run_hash or "").strip()
+    if not digest:
+        return None
+    conn = _connect()
+    try:
+        migrate_to_full_storage()
+        _ensure_executions(conn)
+        ver = conn.execute(
+            """
+            SELECT run_hash, compiled_prompt, final_response, model, intent, timestamp
+            FROM prompt_versions WHERE run_hash = ?
+            """,
+            (digest,),
+        ).fetchone()
+        if not ver:
+            return None
+        exe = conn.execute(
+            """
+            SELECT timestamp, target_ai, intent
+            FROM executions WHERE prompt_hash = ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (digest,),
+        ).fetchone()
+        return {
+            "run_hash": ver["run_hash"],
+            "reply": ver["final_response"] or "",
+            "prompt": ver["compiled_prompt"] or "",
+            "model": ver["model"] or (exe["target_ai"] if exe else None),
+            "intent": ver["intent"] or (exe["intent"] if exe else ""),
+            "created_at": (exe["timestamp"] if exe else ver["timestamp"]),
+        }
+    finally:
+        conn.close()
+
+
+def diff_runs(left_hash: str, right_hash: str) -> str:
+    """Generate a unified diff between the reply fields of two run hashes.
+
+    Raises ValueError if either hash is not found.
+    """
+    left = get_run_by_hash(left_hash)
+    right = get_run_by_hash(right_hash)
+
+    if not left:
+        raise ValueError(f"Run hash '{left_hash}' not found in history.")
+    if not right:
+        raise ValueError(f"Run hash '{right_hash}' not found in history.")
+
+    left_lines = (left["reply"] or "").splitlines(keepends=True)
+    right_lines = (right["reply"] or "").splitlines(keepends=True)
+
+    diff = difflib.unified_diff(
+        left_lines,
+        right_lines,
+        fromfile=f"{left_hash} (reply)",
+        tofile=f"{right_hash} (reply)",
+    )
+    return "".join(diff)
+
+
 def delete_work(item_id: int) -> bool:
     if not DB_PATH.exists():
         return False
@@ -467,7 +649,9 @@ def delete_work(item_id: int) -> bool:
             "SELECT COUNT(*) FROM executions WHERE prompt_hash = ?", (digest,)
         ).fetchone()[0]
         if leftover == 0:
-            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            tables = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             if "prompt_versions" in tables:
                 conn.execute("DELETE FROM prompt_versions WHERE run_hash = ?", (digest,))
         conn.commit()
@@ -558,6 +742,7 @@ def export_work(item: dict, fmt: str) -> tuple[bytes, str, str]:
 
 def _simple_pdf(title: str, body: str) -> bytes:
     """Minimal PDF 1.4. No WeasyPrint. ASCII Helvetica only."""
+
     def pdf_str(value: str) -> str:
         cleaned = "".join(ch if 32 <= ord(ch) < 127 else "?" for ch in (value or ""))
         return cleaned.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
@@ -583,7 +768,11 @@ def _simple_pdf(title: str, body: str) -> bytes:
         b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n",
         b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
         b"/Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n",
-        b"4 0 obj << /Length " + str(len(stream)).encode() + b" >> stream\n" + stream + b"\nendstream endobj\n",
+        b"4 0 obj << /Length "
+        + str(len(stream)).encode()
+        + b" >> stream\n"
+        + stream
+        + b"\nendstream endobj\n",
         b"5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
     ]
     out = bytearray(b"%PDF-1.4\n")
@@ -670,4 +859,3 @@ def usage_summary(*, days: int = 30) -> dict:
         }
     finally:
         conn.close()
-

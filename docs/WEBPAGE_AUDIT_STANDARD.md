@@ -1,7 +1,7 @@
 # Webpage Audit Standard
 
-**Status:** standing orders for every public HTML / CSS / front-end JS change.  
-**Run:** before claiming UI work done, before opening or updating a PR, and again after visual polish.  
+**Status:** standing orders for every public HTML / CSS / front-end JS change.
+**Run:** before claiming UI work done, before opening or updating a PR, and again after visual polish.
 **Purpose:** stop re-issuing the same craft instructions. Agents and humans run this checklist instead.
 
 This file is **portable**. Copy it into any site repo. Fill **§0 Project profile** once per project. Keep claims / SEO / preflight in companion docs for that product.

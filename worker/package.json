@@ -1,0 +1,17 @@
+{
+  "name": "assure-pdf-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "dev": "wrangler dev --env staging"
+  },
+  "dependencies": {
+    "aws4fetch": "^1.0.20",
+    "unpdf": "^0.12.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

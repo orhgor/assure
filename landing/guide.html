@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-54F5NE9Y0P"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      'analytics_storage': 'denied',
+      'ad_storage': 'denied'
+    });
+    gtag('js', new Date());
+    gtag('config', 'G-54F5NE9Y0P');
+  </script>
+  <title>Assure Quickstart &amp; Verification Guide · Assure AI</title>
+  <meta name="description" content="Configure Gemini or Claude API keys in 60 seconds, run document grounding checks, and interpret green vs. yellow NLI trust signals.">
+  <link rel="canonical" href="https://getassureai.com/guide">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css?v=30">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+  <div class="masthead masthead-compact">
+    <div class="container">
+      <header class="header">
+        <a href="/" class="brand">
+          <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+          </svg>
+          Assure AI
+        </a>
+        <nav class="nav" aria-label="Main">
+          <a href="/#features">Features</a>
+          <a href="/guide" class="active" aria-current="page">Guide</a>
+          <a href="/#pricing">Pricing</a>
+          <a href="https://getassureai.com/app" class="btn">Launch App</a>
+        </nav>
+      </header>
+
+      <section class="guide-hero">
+        <h1 class="page-title">Assure Quickstart &amp; Verification Guide</h1>
+        <p class="page-lead">Configure your API keys in 60 seconds, run document grounding checks, and interpret NLI trust signals.</p>
+      </section>
+    </div>
+  </div>
+
+  <div class="container guide-body">
+    <section class="guide-section reveal">
+      <h2 class="section-title">Getting Your API Keys (BYOK in 60 Seconds)</h2>
+      <p class="trust-lead">Assure never bills you for tokens. You bring your own API keys. They are stored strictly in your browser's <span class="mono">localStorage</span> and never written to an Assure database.</p>
+
+      <div class="guide-cards">
+        <article class="guide-card">
+          <h3>Google Gemini Setup</h3>
+          <ol class="guide-steps">
+            <li>Open <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer">Google AI Studio</a> (aistudio.google.com).</li>
+            <li>Click <strong>Get API key</strong> → <strong>Create API key</strong>.</li>
+          </ol>
+          <p class="text-small guide-note">Gemini 1.5 Flash includes a free tier with zero upfront charges.</p>
+        </article>
+        <article class="guide-card">
+          <h3>Anthropic Claude Setup</h3>
+          <ol class="guide-steps">
+            <li>Open <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.</li>
+            <li>Navigate to <strong>API Keys</strong> → <strong>Create Key</strong>.</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+
+    <section class="guide-section reveal">
+      <h2 class="section-title">Running Your First Document Verification</h2>
+      <div class="steps-grid pillars-grid">
+        <div class="how-step">
+          <span class="step-number" aria-hidden="true">1</span>
+          <h3>Source Context</h3>
+          <p>Paste reference notes or upload a source document.</p>
+        </div>
+        <div class="how-step">
+          <span class="step-number" aria-hidden="true">2</span>
+          <h3>AI Draft</h3>
+          <p>Paste the generated text you need to audit.</p>
+        </div>
+        <div class="how-step">
+          <span class="step-number" aria-hidden="true">3</span>
+          <h3>Run Audit</h3>
+          <p>Assure extracts discrete claims and executes sentence-level Natural Language Inference (NLI) against your source text.</p>
+        </div>
+      </div>
+      <p class="cta-inline"><a href="https://getassureai.com/app" class="btn-primary">Launch Free Workbench</a></p>
+    </section>
+
+    <section class="guide-section reveal">
+      <h2 class="section-title">Understanding the Trust Signals (Green vs. Yellow)</h2>
+      <ul class="guide-signals">
+        <li><span class="signal-pill signal-green" aria-hidden="true">🟢</span> <strong>Green: Directly Entailed.</strong> The claim is explicitly supported and verified by your source text.</li>
+        <li><span class="signal-pill signal-yellow" aria-hidden="true">🟡</span> <strong>Yellow: Inferred / General Knowledge.</strong> The claim may be true in reality, but it cannot be verified from your uploaded document alone.</li>
+        <li><strong>Model Attribution:</strong> Pills reflect strictly the models that returned HTTP 200 during that run.</li>
+      </ul>
+    </section>
+
+    <section class="guide-section reveal">
+      <h2 class="section-title">Confidentiality &amp; Privacy Shield</h2>
+      <div class="trust-grid">
+        <div class="trust-item">
+          <h4>Zero document retention</h4>
+          <p>Uploaded files are processed in memory for the audit. Assure does not store your documents on our servers.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Client-side key storage</h4>
+          <p>API keys live in browser <span class="mono">localStorage</span> only — never in our database.</p>
+        </div>
+        <div class="trust-item">
+          <h4>In-memory NLI scoring</h4>
+          <p>Sentence-level checks run during your session without persisting source text to the cloud.</p>
+        </div>
+        <div class="trust-item">
+          <h4>Local SQLite history</h4>
+          <p>Run history stays on your machine in a local SQLite database you control.</p>
+        </div>
+      </div>
+      <p class="text-small"><a href="/privacy">Full privacy page</a></p>
+    </section>
+
+    <footer class="footer">
+      <div class="privacy">
+        <span>Copy stays on this computer</span>
+        <span>A Send goes only to the provider you chose</span>
+      </div>
+      <p class="text-small footer-oss">Assure is built on open-source foundations: PEM, LiteLLM, Jinja2. The <span class="mono">pem</span> CLI is free with a <a href="/install">source install</a>. The workbench is a paid product.</p>
+      <p>&copy; <span id="year">2026</span> Assure. All rights reserved. <a href="/privacy">Privacy</a> · <a href="/guide">Quickstart Guide</a> · <a href="/install">Install</a> · <a href="/terms">Terms</a></p>
+    </footer>
+  </div>
+
+  <script src="assets/site.js?v=29"></script>
+  <div id="cookie-consent" style="position:fixed;bottom:0;left:0;right:0;background:#111827;border-top:1px solid #374151;color:#f3f4f6;padding:14px 20px;text-align:center;z-index:99999;display:none;font-family:system-ui,-apple-system,sans-serif;font-size:0.875rem;">
+    <span>We use cookies to analyze traffic and improve user experience. Read our <a href="/privacy" style="color:#60a5fa;text-decoration:underline;">Privacy Policy</a>.</span>
+    <button id="accept-cookies-btn" style="margin-left:12px;padding:6px 18px;background:#2563eb;color:#ffffff;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:0.875rem;">Accept</button>
+  </div>
+  <script>
+    (function() {
+      var banner = document.getElementById('cookie-consent');
+      var btn = document.getElementById('accept-cookies-btn');
+      if (localStorage.getItem('cookies_accepted') === 'true') {
+        gtag('consent', 'update', { 'analytics_storage': 'granted' });
+      } else if (banner) {
+        banner.style.display = 'block';
+      }
+      if (btn) {
+        btn.addEventListener('click', function() {
+          localStorage.setItem('cookies_accepted', 'true');
+          if (banner) banner.style.display = 'none';
+          gtag('consent', 'update', { 'analytics_storage': 'granted' });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

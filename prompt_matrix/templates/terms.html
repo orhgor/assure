@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Terms of use') }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="terms.title">{{ gettext('Terms of use') }}</h1>
+      <p class="lede" data-i18n="terms.lead">{{ gettext('How Assure works, what you are responsible for, and what we do not promise.') }}</p>
+      <p class="hint" data-i18n="terms.updated">{{ gettext('Updated 31 August 2026.') }}</p>
+    </div>
+    <section class="card">
+      <h2 data-i18n="terms.who.h">{{ gettext('Who this covers') }}</h2>
+      <p data-i18n="terms.who">{{ gettext('These terms apply when you use the Assure workbench on this computer or read getassureai.com. They are not legal advice.') }}</p>
+      <h2 data-i18n="terms.duty.h">{{ gettext('Your responsibility') }}</h2>
+      <p data-i18n="terms.duty">{{ gettext('You are solely responsible for how you use Assure. You agree not to use it for any unlawful, harmful, or abusive purpose.') }}</p>
+      <h2 data-i18n="terms.prohibit.h">{{ gettext('Prohibited uses') }}</h2>
+      <p data-i18n="terms.prohibit">{{ gettext('You may not use Assure to generate or promote:') }}</p>
+      <ul>
+        <li data-i18n="terms.prohibit.violence">{{ gettext('Violence, threats, or harassment') }}</li>
+        <li data-i18n="terms.prohibit.hate">{{ gettext('Hate speech or discrimination') }}</li>
+        <li data-i18n="terms.prohibit.illegal">{{ gettext('Illegal content or activities') }}</li>
+        <li data-i18n="terms.prohibit.deceive">{{ gettext('Deceptive or fraudulent material') }}</li>
+        <li data-i18n="terms.prohibit.rights">{{ gettext('Content that violates the rights of others') }}</li>
+      </ul>
+      <h2 data-i18n="terms.answers.h">{{ gettext('Answers can be wrong') }}</h2>
+      <p data-i18n="terms.answers">{{ gettext('Assure rewrites your question, can send it to models you connect, and can drop claims that were not in your files. That is a filter, not a guarantee. You check the result before you use it with a client, a paper, or a decision.') }}</p>
+      <h2 data-i18n="terms.send.h">{{ gettext('Copy and Send') }}</h2>
+      <p data-i18n="terms.send">{{ gettext('Copy keeps the compiled prompt on this computer. Send goes only to the provider you connected. Closed to the internet keeps the question here. Open to the internet, it goes to that provider. Assure does not store the text of your questions.') }}</p>
+      <h2 data-i18n="terms.files.h">{{ gettext('Your files') }}</h2>
+      <p data-i18n="terms.files">{{ gettext('Only upload files you have the right to use. Do not Send health or other sensitive text to a provider that is open to the internet unless you mean to.') }}</p>
+      <h2 data-i18n="terms.providers.h">{{ gettext('Provider policies') }}</h2>
+      <p data-i18n="terms.providers">{{ gettext("You must also follow the terms of the AI provider you connect. A Send to Gemini, Claude, DeepSeek, or Kimi is subject to that provider's rules. Assure does not replace them.") }}</p>
+      <h2 data-i18n="terms.as_is.h">{{ gettext('No warranty') }}</h2>
+      <p data-i18n="terms.as_is">{{ gettext('The software is provided "as is", without warranties. We are not liable for damages or other consequences of your use. We do not promise uptime, accuracy, or fitness for a particular job. Free, Pro, and Team are product tiers on this machine, not a service-level contract.') }}</p>
+      <h2 data-i18n="terms.law.h">{{ gettext('If something goes wrong') }}</h2>
+      <p data-i18n="terms.law">{{ gettext('You are responsible for how you use the output. If these terms cannot be enforced in your location, the rest still apply.') }}</p>
+    </section>
+  </div>
+{% endblock %}

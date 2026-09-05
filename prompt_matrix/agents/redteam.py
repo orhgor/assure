@@ -64,14 +64,18 @@ def scan_text(text: str, *, context: str = "") -> dict:
 
 def scan_prompt_and_reply(prompt: str, reply: str | None = None, *, context: str = "") -> dict:
     prompt_scan = scan_text(prompt, context=context)
-    reply_scan = scan_text(reply or "", context=context) if reply else {
-        "ok": True,
-        "errors": [],
-        "warnings": [],
-        "flagged_count": 0,
-        "injection": False,
-        "pii": False,
-    }
+    reply_scan = (
+        scan_text(reply or "", context=context)
+        if reply
+        else {
+            "ok": True,
+            "errors": [],
+            "warnings": [],
+            "flagged_count": 0,
+            "injection": False,
+            "pii": False,
+        }
+    )
     errors = list(prompt_scan["errors"]) + [f"reply: {item}" for item in reply_scan["errors"]]
     warnings = list(prompt_scan["warnings"]) + [f"reply: {item}" for item in reply_scan["warnings"]]
     return {

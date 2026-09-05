@@ -1,0 +1,27 @@
+# Assure AI — local quality gates (run: pre-commit install)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^docker-compose.*\.ya?ml$
+      - id: check-added-large-files
+        args: ["--maxkb=5120"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix, --select, E4, E7, E9, F, I]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: unittest-quick
+        name: unittest (quick)
+        entry: uv run python -m unittest discover -s tests -q
+        language: system
+        pass_filenames: false
+        always_run: true

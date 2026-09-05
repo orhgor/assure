@@ -8,20 +8,30 @@ import socket
 import sys
 import threading
 import time
+import uuid
 import webbrowser
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, make_response, redirect, render_template, request, session
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+)
 
 try:
     from .engine import (
         MatrixError,
-        copy_to_clipboard,
         execute,
         load_matrix,
         render_prompt_detailed,
     )
-    from .keys import load_keys, provider_status, save_provider_key
+    from .keys import load_keys, provider_status, save_provider_key, send_ready
     from .runtime import library_status, warm_libraries
     from .library import (
         class_version_diff,
@@ -38,17 +48,16 @@ try:
         suggest_class,
     )
     from .personas import list_personas
-    from .pipelines import run_workflow
+    from .pipelines import compile_deep_prompt, run_workflow
     from .route import route_snapshot
 except ImportError:
     from engine import (
         MatrixError,
-        copy_to_clipboard,
         execute,
         load_matrix,
         render_prompt_detailed,
     )
-    from keys import load_keys, provider_status, save_provider_key
+    from keys import load_keys, provider_status, save_provider_key, send_ready
     from runtime import library_status, warm_libraries
     from library import (
         class_version_diff,
@@ -65,23 +74,214 @@ except ImportError:
         suggest_class,
     )
     from personas import list_personas
-    from pipelines import run_workflow
+    from pipelines import compile_deep_prompt, run_workflow
     from route import route_snapshot
 
-PACKAGE_DIR = Path(__file__).resolve().parent
+try:
+    from .paths import resource_dir
+except ImportError:
+    from paths import resource_dir
+
+PACKAGE_DIR = resource_dir()
 STATIC_DIR = PACKAGE_DIR / "static"
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+DEFAULT_BASIC_USER = "admin"
+DEFAULT_BASIC_PASS = "changeme"
 
 
-def create_app() -> Flask:
+def _init_sentry() -> None:
+    dsn = (os.environ.get("SENTRY_DSN") or "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+    except ImportError:
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment="production",
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=0.1,
+    )
+
+
+def _plausible_enabled() -> bool:
+    if os.environ.get("PLAUSIBLE_ENABLED", "").strip() == "1":
+        return True
+    return os.environ.get("ENVIRONMENT") == "production"
+
+
+def _sentry_enabled() -> bool:
+    if os.environ.get("SENTRY_ENABLED", "").strip() == "1":
+        return True
+    return os.environ.get("ENVIRONMENT") == "production"
+
+
+def _help_url() -> str:
+    raw = (os.environ.get("ASSURE_HELP_URL") or "").strip()
+    if raw:
+        return raw
+    return "mailto:feedback@getassureai.com"
+
+
+_DEFAULT_SENTRY_BROWSER_DSN = (
+    "https://464429cd135c3ce0fbbcb5b78e46e639@"
+    "o4512026954694656.ingest.us.sentry.io/4512026963869696"
+)
+
+
+def _sentry_browser_dsn() -> str:
+    for key in ("SENTRY_BROWSER_DSN", "SENTRY_DSN"):
+        dsn = (os.environ.get(key) or "").strip()
+        if dsn:
+            return dsn
+    if os.environ.get("ENVIRONMENT") == "production":
+        return _DEFAULT_SENTRY_BROWSER_DSN
+    return ""
+
+
+try:
+    from .waitlist import (
+        DuplicateWaitlistError,
+        WaitlistUnavailableError,
+        insert_waitlist,
+        is_valid_email as _is_valid_email,
+    )
+except ImportError:
+    from waitlist import (
+        DuplicateWaitlistError,
+        WaitlistUnavailableError,
+        insert_waitlist,
+        is_valid_email as _is_valid_email,
+    )
+
+CANONICAL_PUBLIC_HOST = os.environ.get("CANONICAL_HOST", "getassureai.com").strip().lower()
+_LEGACY_PUBLIC_HOSTS = frozenset({"app.getassureai.com", "www.getassureai.com"})
+
+BRAND = {
+    "name": "Assure",
+    "category": "The Intellectual Compiler",
+    "tagline": "Compile intent. Verify logic. Ship truth.",
+    "page_title": "Assure — AI guesses. Assure proves.",
+    "meta_description": (
+        "Traditional AI is a black box that makes things up. Assure uses formal logic "
+        "to turn raw chaos into mathematically airtight deliverables."
+    ),
+    "architecture_title": "How It Works · Assure — The Intellectual Compiler",
+    "architecture_meta_description": (
+        "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
+    ),
+}
+_WAITLIST_ORIGINS = frozenset(
+    {
+        "https://getassureai.com",
+        "https://www.getassureai.com",
+        "https://assure.orhangorenn.workers.dev",
+    }
+)
+
+
+def _waitlist_allowed_origin(origin: str) -> str:
+    """Allow production landing hosts and http(s)://127.0.0.1:* / localhost:*."""
+    raw = (origin or "").strip()
+    if not raw:
+        return ""
+    if raw in _WAITLIST_ORIGINS:
+        return raw
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        return ""
+    host = (parts.hostname or "").lower()
+    if parts.scheme in {"http", "https"} and host in {"127.0.0.1", "localhost"}:
+        return raw
+    return ""
+
+
+def _apply_waitlist_cors(resp):
+    origin = _waitlist_allowed_origin(request.headers.get("Origin") or "")
+    if origin:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        resp.headers["Vary"] = "Origin"
+    return resp
+
+
+def http_basic_user() -> str:
+    return os.environ.get("PEM_HTTP_USER") or DEFAULT_BASIC_USER
+
+
+def http_basic_pass() -> str:
+    return os.environ.get("PEM_HTTP_PASS") or DEFAULT_BASIC_PASS
+
+
+def loopback_host(host: str) -> bool:
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def http_password_is_default() -> bool:
+    return http_basic_pass() == DEFAULT_BASIC_PASS
+
+
+def http_auth_required(host: str) -> bool:
+    """Sign-in is off on this machine unless you set a password. LAN always requires one."""
+    if not loopback_host(host):
+        return True
+    return not http_password_is_default()
+
+
+def lan_bind_with_default_password(host: str) -> bool:
+    return host in {"0.0.0.0", "::"} and http_password_is_default()
+
+
+def startup_lines(
+    *,
+    local: str,
+    host: str,
+    send_ready_now: bool,
+    auth_on: bool,
+    user: str,
+) -> list[str]:
+    lines = [
+        "Assure is running.",
+        "",
+        f"Your browser should open. If it does not, go to {local}",
+    ]
+    if not send_ready_now:
+        lines.append("First run: paste a provider key, then write a question.")
+    if auth_on:
+        lines.append(f"Sign-in is on. User is {user}.")
+    elif not loopback_host(host):
+        lines.append("Sign-in is on for this bind address.")
+    lines.append("Copy stays on this computer. A Send goes only to the provider you chose.")
+    return lines
+
+
+def first_open_url(local: str) -> str:
+    """First browser tab. Connect if no Send-ready provider is pasted yet."""
+    base = local.rstrip("/")
+    return base if send_ready() else f"{base}/connect"
+
+
+def create_app(*, require_auth: bool = True) -> Flask:
+    _init_sentry()
     try:
         from .pem_runner import ensure_preflight
     except ImportError:
         from pem_runner import ensure_preflight
     ensure_preflight()
     load_keys()
+    try:
+        from .db.connection import init_db
+    except ImportError:
+        from db.connection import init_db
+    init_db()
     try:
         from .cloud_billing import load_cloud_env
     except ImportError:
@@ -94,7 +294,44 @@ def create_app() -> Flask:
         static_url_path="/static",
         template_folder=str(TEMPLATES_DIR),
     )
-    app.secret_key = os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
+
+    try:
+        from .rate_limits import init_app_limiter
+    except ImportError:
+        from rate_limits import init_app_limiter
+    init_app_limiter(app)
+
+    try:
+        from flask_cors import CORS
+
+        CORS(
+            app,
+            origins=[
+                "https://getassureai.com",
+                "https://www.getassureai.com",
+                "https://app.getassureai.com",
+                "http://127.0.0.1:8765",
+                "http://localhost:8765",
+            ],
+            allow_headers=[
+                "Content-Type",
+                "Authorization",
+                "X-Gemini-Key",
+                "X-Claude-Key",
+            ],
+            supports_credentials=True,
+        )
+    except ImportError:
+        pass
+    try:
+        from .history import close_db
+    except ImportError:
+        from history import close_db
+
+    app.teardown_appcontext(close_db)
+    app.secret_key = (
+        os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
+    )
     app.config["BABEL_DEFAULT_LOCALE"] = "en"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(PACKAGE_DIR / "translations")
     try:
@@ -102,14 +339,29 @@ def create_app() -> Flask:
     except ImportError:
         Babel = None
     try:
-        from .i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+        from .i18n import (
+            EN,
+            LOCALES,
+            LOCALE_LABELS,
+            catalog as string_catalog,
+            friendly_error,
+            normalize_locale,
+        )
     except ImportError:
-        from i18n import EN, LOCALES, LOCALE_LABELS, catalog as string_catalog, friendly_error, normalize_locale
+        from i18n import (
+            EN,
+            LOCALES,
+            LOCALE_LABELS,
+            catalog as string_catalog,
+            friendly_error,
+            normalize_locale,
+        )
     try:
         from .web_ui import protect_app
     except ImportError:
         from web_ui import protect_app
-    protect_app(app)
+    if require_auth:
+        protect_app(app)
 
     def _locale() -> str:
         # Flask-Babel 4 uses locale_selector=, not @babel.localeselector.
@@ -143,10 +395,50 @@ def create_app() -> Flask:
             return string_catalog(_locale()).get(key, message)
         if Babel is not None:
             from flask_babel import gettext as babel_gettext
+
             return babel_gettext(message)
         return message
 
     app.jinja_env.globals["gettext"] = _gettext
+
+    @app.context_processor
+    def _inject_brand():
+        strings = string_catalog(_locale())
+        brand = dict(BRAND)
+        for key in (
+            "brand.category",
+            "brand.tagline",
+            "brand.eyebrow",
+            "brand.hero_title",
+            "brand.page_title",
+            "brand.meta_description",
+            "brand.architecture_title",
+            "brand.architecture_meta_description",
+        ):
+            short = key.split(".", 1)[1]
+            if strings.get(key):
+                brand[short] = strings[key]
+        return {"brand": brand}
+
+    try:
+        from .ui_cache import APP_CSS, APP_JS
+    except ImportError:
+        try:
+            from ui_cache import APP_CSS, APP_JS
+        except ImportError:
+            APP_CSS, APP_JS = "1", "1"
+
+    @app.context_processor
+    def _ui_versions():
+        return {
+            "css_version": APP_CSS,
+            "js_version": APP_JS,
+            "plausible_enabled": _plausible_enabled(),
+            "sentry_enabled": _sentry_enabled(),
+            "sentry_browser_dsn": _sentry_browser_dsn(),
+            "help_url": _help_url(),
+            "edge_worker_url": (os.environ.get("ASSURE_EDGE_WORKER_URL") or "").strip(),
+        }
 
     try:
         from .cloud_auth import (
@@ -156,6 +448,7 @@ def create_app() -> Flask:
             clerk_configured,
             current_user_id,
             is_self_hosted,
+            login_required,
             protect_request,
             remember_user,
             safe_next,
@@ -170,6 +463,7 @@ def create_app() -> Flask:
             clerk_configured,
             current_user_id,
             is_self_hosted,
+            login_required,
             protect_request,
             remember_user,
             safe_next,
@@ -178,8 +472,46 @@ def create_app() -> Flask:
         )
 
     @app.before_request
+    def _set_language_guard_locale():
+        try:
+            from .services.language_guard import resolve_request_locale, set_request_locale
+        except ImportError:
+            from services.language_guard import resolve_request_locale, set_request_locale
+        set_request_locale(resolve_request_locale())
+
+    @app.before_request
+    def _canonical_host_redirect():
+        from urllib.parse import urlsplit, urlunsplit
+
+        host = (request.host or "").split(":")[0].lower()
+        if host in _LEGACY_PUBLIC_HOSTS and CANONICAL_PUBLIC_HOST:
+            parts = urlsplit(request.url)
+            return redirect(
+                urlunsplit(("https", CANONICAL_PUBLIC_HOST, parts.path, parts.query, "")),
+                code=301,
+            )
+        return None
+
+    @app.before_request
     def _cloud_login():
         return protect_request()
+
+    def _apply_browser_api_keys() -> None:
+        """Apply in-memory BYOK keys from request headers. Never logged or persisted."""
+        gemini = (request.headers.get("X-Gemini-Key") or "").strip()
+        claude = (request.headers.get("X-Claude-Key") or "").strip()
+        if not gemini and not claude:
+            return
+        blob: dict[str, str] = {}
+        if gemini:
+            blob["GEMINI_API_KEY"] = gemini
+            blob["GOOGLE_API_KEY"] = gemini
+        if claude:
+            blob["ANTHROPIC_API_KEY"] = claude
+            blob["CLAUDE_API_KEY"] = claude
+        from flask import g
+
+        g.browser_api_keys = blob
 
     def _page(template: str, active: str, **extra):
         lang = _locale()
@@ -201,20 +533,74 @@ def create_app() -> Flask:
         )
         resp = make_response(html)
         resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        if os.environ.get("ENVIRONMENT") == "production":
+            resp.headers["Cache-Control"] = "no-store, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+        return resp
+
+    def _landing_page(template: str):
+        lang = _locale()
+        session["lang"] = lang
+        try:
+            from .ui_cache import LANDING_CSS, LANDING_JS
+        except ImportError:
+            from ui_cache import LANDING_CSS, LANDING_JS
+        resp = make_response(
+            render_template(
+                template,
+                locale=lang,
+                languages=LOCALE_LABELS,
+                strings=string_catalog(lang),
+                landing_css_version=LANDING_CSS,
+                landing_js_version=LANDING_JS,
+            )
+        )
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        if os.environ.get("ENVIRONMENT") == "production":
+            resp.headers["Cache-Control"] = "public, max-age=300"
         return resp
 
     @app.get("/")
-    def index():
-        # Live markup is templates/index.html so Jinja gettext can run.
-        # static/index.html is a pointer only. Do not serve it as /.
-        return _page("index.html", "compose", initial_pane="compose")
+    def marketing_landing():
+        return _landing_page("landing.html")
+
+    @app.get("/favicon.ico")
+    @app.get("/favicon.svg")
+    def favicon():
+        return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
+
+    @app.get("/architecture")
+    def architecture_page():
+        return _landing_page("architecture.html")
+
+    def _workspace_page():
+        try:
+            from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+        except ImportError:
+            from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+        project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
+        initial_jdf = fetch_latest_jdf_or_empty(project_id)
+        return _page(
+            "index.html",
+            "compose",
+            initial_pane="compose",
+            include_pk=True,
+            initial_jdf=initial_jdf,
+            project_id=project_id,
+        )
+
+    @app.get("/app")
+    @login_required
+    def workspace():
+        return _workspace_page()
 
     @app.get("/compose")
     def compose_redirect():
         qs = request.query_string.decode() if request.query_string else ""
-        return redirect("/" + (("?" + qs) if qs else ""))
+        return redirect("/app" + (("?" + qs) if qs else ""))
 
     @app.get("/history")
+    @login_required
     def history_page():
         return _page("index.html", "history", initial_pane="history")
 
@@ -223,10 +609,12 @@ def create_app() -> Flask:
         return _page("index.html", "learn", initial_pane="learn")
 
     @app.get("/library")
+    @login_required
     def library_page():
         return _page("index.html", "library", initial_pane="library")
 
     @app.get("/connect")
+    @login_required
     def connect():
         return _page("connect.html", "connect")
 
@@ -313,11 +701,16 @@ def create_app() -> Flask:
     def privacy():
         return _page("privacy.html", "privacy")
 
+    @app.get("/terms")
+    def terms():
+        return _page("terms.html", "terms")
+
     @app.get("/about")
     def about():
         return _page("about.html", "about")
 
     @app.get("/account")
+    @login_required
     def account():
         try:
             from .cloud_billing import subscription_payload, stripe_configured
@@ -355,7 +748,9 @@ def create_app() -> Flask:
                 origin=request.host_url.rstrip("/"),
             )
         except BillingError as exc:
-            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+            return jsonify(
+                {"error": string_catalog(_locale()).get("billing.missing") or str(exc)}
+            ), 400
         return jsonify({"url": url})
 
     @app.post("/api/billing/portal")
@@ -370,8 +765,38 @@ def create_app() -> Flask:
         try:
             url = create_portal_url(user_id=user_id, origin=request.host_url.rstrip("/"))
         except BillingError as exc:
-            return jsonify({"error": string_catalog(_locale()).get("billing.missing") or str(exc)}), 400
+            return jsonify(
+                {"error": string_catalog(_locale()).get("billing.missing") or str(exc)}
+            ), 400
         return jsonify({"url": url})
+
+    @app.post("/api/webhooks/stripe")
+    def stripe_webhooks():
+        try:
+            from .cloud_billing import BillingError, verify_stripe_payload
+            from .history import upsert_user_subscription
+        except ImportError:
+            from cloud_billing import BillingError, verify_stripe_payload
+            from history import upsert_user_subscription
+        payload = request.get_data(as_text=False)
+        header = request.headers.get("Stripe-Signature") or ""
+        try:
+            event = verify_stripe_payload(payload, header)
+        except BillingError as exc:
+            return jsonify({"error": str(exc)}), 400
+        if str(event.get("type") or "") == "checkout.session.completed":
+            obj = event.get("data", {}).get("object") or {}
+            if isinstance(obj, dict):
+                meta = obj.get("metadata") or {}
+                user_id = str(
+                    obj.get("client_reference_id")
+                    or meta.get("clerk_user_id")
+                    or meta.get("user_id")
+                    or ""
+                )
+                if user_id:
+                    upsert_user_subscription(user_id, "pro")
+        return jsonify({"ok": True}), 200
 
     @app.post("/api/webhook/stripe")
     def stripe_webhook():
@@ -420,6 +845,69 @@ def create_app() -> Flask:
             return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
         return jsonify(export_user(user_id))
 
+    @app.get("/account/usage")
+    @login_required
+    def usage_page():
+        user_id = current_user_id()
+        try:
+            from .credit_guard import usage_payload
+        except ImportError:
+            from credit_guard import usage_payload
+        payload = usage_payload(user_id)
+        return _page("usage.html", "usage", usage=payload)
+
+    @app.get("/api/usage")
+    @login_required
+    def api_usage():
+        user_id = current_user_id()
+        try:
+            from .credit_guard import usage_payload
+        except ImportError:
+            from credit_guard import usage_payload
+        return jsonify(usage_payload(user_id))
+
+    @app.get("/api/settings")
+    @login_required
+    def get_settings_view():
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"api_keys": {}, "preferences": {}})
+        try:
+            from .credit_guard import ensure_wallet
+            from .user_settings import get_settings
+        except ImportError:
+            from credit_guard import ensure_wallet
+            from user_settings import get_settings
+        try:
+            ensure_wallet(user_id)
+            return jsonify(get_settings(user_id))
+        except Exception:
+            return jsonify({"api_keys": {}, "preferences": {}})
+
+    @app.post("/api/settings")
+    @login_required
+    def post_settings_view():
+        user_id = current_user_id()
+        if not user_id:
+            return jsonify({"error": string_catalog(_locale()).get("auth.fail")}), 401
+        data = request.get_json(silent=True) or {}
+        try:
+            from .credit_guard import ensure_wallet
+            from .user_settings import save_settings
+        except ImportError:
+            from credit_guard import ensure_wallet
+            from user_settings import save_settings
+        try:
+            ensure_wallet(user_id)
+            save_settings(
+                user_id,
+                api_keys=data.get("api_keys") if "api_keys" in data else None,
+                preferences=data.get("preferences") if "preferences" in data else None,
+            )
+        except Exception:
+            return jsonify({"error": string_catalog(_locale()).get("billing.missing")}), 503
+        return jsonify({"ok": True})
+
     @app.get("/api/i18n")
     def i18n_view():
         lang = _locale()
@@ -437,7 +925,53 @@ def create_app() -> Flask:
 
     @app.get("/api/health")
     def health():
-        return jsonify(library_status())
+        payload = {"status": "ok"}
+        try:
+            from .runtime import library_status
+        except ImportError:
+            from runtime import library_status
+        try:
+            payload.update(library_status())
+        except Exception:
+            pass
+        return jsonify(payload), 200
+
+    @app.post("/api/upload/validate")
+    @login_required
+    def upload_validate_view():
+        """Validate Substrate Vault attachment size and PDF page count."""
+        try:
+            from .upload_limits import UploadRejectedError, validate_upload_bytes
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_upload_bytes
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            return jsonify({"error": "No file uploaded."}), 400
+        try:
+            meta = validate_upload_bytes(upload.filename, upload.read())
+        except UploadRejectedError as exc:
+            return jsonify({"error": str(exc)}), exc.http_status
+        return jsonify({"ok": True, **meta})
+
+    @app.route("/api/waitlist", methods=["POST", "OPTIONS"])
+    def waitlist():
+        if request.method == "OPTIONS":
+            return _apply_waitlist_cors(make_response("", 204))
+        data = request.get_json(silent=True) or {}
+        name = str(data.get("name") or "").strip()
+        email = str(data.get("email") or "").strip()
+        if not name:
+            return _apply_waitlist_cors(jsonify({"error": "Full name is required."})), 400
+        if not email or not _is_valid_email(email):
+            return _apply_waitlist_cors(jsonify({"error": "Enter a valid email address."})), 400
+        try:
+            insert_waitlist(name, email)
+        except DuplicateWaitlistError:
+            return _apply_waitlist_cors(jsonify({"status": "ok"}))
+        except WaitlistUnavailableError as exc:
+            msg = str(exc) or "The waitlist is not open yet. Try again later."
+            return _apply_waitlist_cors(jsonify({"error": msg})), 503
+        return _apply_waitlist_cors(jsonify({"status": "ok"}))
 
     @app.get("/api/status")
     def status_view():
@@ -501,15 +1035,85 @@ def create_app() -> Flask:
             }
         )
 
+    @app.post("/api/intent")
+    def intent_view():
+        data = request.get_json(silent=True) or {}
+        task = str(data.get("task") or "")
+        try:
+            from .intent_detector import detect_intent_payload
+        except ImportError:
+            from intent_detector import detect_intent_payload
+        return jsonify(detect_intent_payload(task))
+
+    @app.post("/api/preview")
+    def preview_view():
+        data = request.get_json(silent=True) or {}
+        try:
+            from .upload_limits import UploadRejectedError, validate_file_context_payload
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_file_context_payload
+        file_context = str(data.get("file_context") or "").strip()
+        if file_context:
+            try:
+                validate_file_context_payload(file_context, data.get("upload_meta"))
+            except UploadRejectedError as exc:
+                return jsonify({"error": str(exc)}), exc.http_status
+        target = str(data.get("target_ai") or data.get("target") or "").strip()
+        task = str(data.get("task") or "").strip()
+        context = str(data.get("context") or "")
+        class_id = (data.get("class_id") or "").strip() or None
+        audience = str(data.get("audience") or "general").strip().lower() or "general"
+        intent_raw = str(data.get("intent") or "").strip()
+        try:
+            from .intent_detector import FALLBACK, detect_intent
+        except ImportError:
+            from intent_detector import FALLBACK, detect_intent
+        intent = intent_raw if intent_raw and intent_raw != "auto" else detect_intent(task)
+        if not intent:
+            intent = FALLBACK
+        if not task or not target:
+            return jsonify({"prompt": "", "intent": intent, "target_ai": target})
+        try:
+            rendered = compile_deep_prompt(
+                task,
+                intent,
+                context,
+                target_ai=target,
+                params={"audience": audience},
+                class_id=class_id,
+            )
+        except MatrixError as exc:
+            return jsonify({"error": friendly_error(str(exc), _locale()), "intent": intent}), 400
+        return jsonify(
+            {
+                "prompt": rendered.prompt,
+                "intent": rendered.intent,
+                "target_ai": rendered.target_ai,
+                "files_read": rendered.files_read,
+            }
+        )
+
     @app.post("/api/render")
+    @login_required
     def render_view():
         data = request.get_json(silent=True) or {}
+        try:
+            from .upload_limits import UploadRejectedError, validate_file_context_payload
+        except ImportError:
+            from upload_limits import UploadRejectedError, validate_file_context_payload
+        file_context = str(data.get("file_context") or "").strip()
+        if file_context:
+            try:
+                validate_file_context_payload(file_context, data.get("upload_meta"))
+            except UploadRejectedError as exc:
+                return jsonify({"error": friendly_error(str(exc), _locale())}), exc.http_status
         target = str(data.get("target_ai") or data.get("target") or "").strip()
         intent = str(data.get("intent") or "").strip()
         task = str(data.get("task") or "").strip()
         context = str(data.get("context") or "")
         direct = bool(data.get("direct"))
-        copy = data.get("copy", True)
+        # Clipboard is client-side (navigator.clipboard). Never copy on the server.
+        copy = False
         class_id = (data.get("class_id") or "").strip() or None
         workflow = str(data.get("workflow") or "single").strip().lower()
         extra_targets = data.get("extra_targets") or []
@@ -521,9 +1125,13 @@ def create_app() -> Flask:
         ground = bool(data.get("ground"))
         local = bool(data.get("local"))
         cheap = bool(data.get("cheap"))
+        audience = str(data.get("audience") or "general").strip().lower() or "general"
+        files_attached = bool(data.get("files_attached")) or bool(file_context)
 
         if not target or not intent or not task:
             return jsonify({"error": "Pick a target, an intent, and write a task."}), 400
+
+        _apply_browser_api_keys()
 
         try:
             from .cloud_billing import is_cloud_mode
@@ -551,22 +1159,31 @@ def create_app() -> Flask:
                 local=local,
                 lint=direct,
                 cheap=cheap,
+                audience=audience,
             )
             suggested = suggest_class(task, intent)
         except MatrixError as exc:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         except RecursionError:
-            return jsonify({"error": friendly_error(
-                "Could not search those file paths. Remove * and ** from the question, "
-                "or put paths only in Extra context.",
-                _locale(),
-            )}), 400
+            return jsonify(
+                {
+                    "error": friendly_error(
+                        "Could not search those file paths. Remove * and ** from the question, "
+                        "or put paths only in Extra context.",
+                        _locale(),
+                    )
+                }
+            ), 400
         except OSError:
-            return jsonify({"error": friendly_error(
-                "Could not search those file paths. Remove * and ** from the question, "
-                "or put paths only in Extra context.",
-                _locale(),
-            )}), 400
+            return jsonify(
+                {
+                    "error": friendly_error(
+                        "Could not search those file paths. Remove * and ** from the question, "
+                        "or put paths only in Extra context.",
+                        _locale(),
+                    )
+                }
+            ), 400
 
         try:
             from .linter import lint_prompt
@@ -578,6 +1195,34 @@ def create_app() -> Flask:
             from .editions import snapshot
         except ImportError:
             from editions import snapshot
+        try:
+            from .quality import (
+                audit_spans,
+                confidence_text,
+                models_from_steps,
+                models_used_from_steps,
+            )
+        except ImportError:
+            from quality import (
+                audit_spans,
+                confidence_text,
+                models_from_steps,
+                models_used_from_steps,
+            )
+        models = models_from_steps(result.steps, result.target_ai)
+        models_used = models_used_from_steps(result.steps)
+        qdict = dict(result.quality) if isinstance(result.quality, dict) else {}
+        if files_attached and file_context:
+            spans = audit_spans(result.reply or "", file_context)
+        else:
+            spans = {"grounded_spans": [], "inferred_spans": []}
+        qdict["grounded_spans"] = spans["grounded_spans"]
+        qdict["inferred_spans"] = spans["inferred_spans"]
+        conf = confidence_text(
+            quality=qdict,
+            models=models,
+            workflow=result.workflow or "",
+        )
 
         return jsonify(
             {
@@ -604,7 +1249,13 @@ def create_app() -> Flask:
                 "estimated_cost": result.estimated_cost,
                 "routed_model": result.routed_model,
                 "variation_id": result.variation_id,
-                "quality": result.quality,
+                "quality": qdict or None,
+                "grounded_spans": spans["grounded_spans"],
+                "inferred_spans": spans["inferred_spans"],
+                "files_attached": files_attached,
+                "models": models,
+                "models_used": models_used,
+                "confidence_text": conf,
                 "run_hash": result.run_hash,
                 "edition": snapshot(load_matrix().runtime.edition),
                 "lint": {
@@ -615,8 +1266,40 @@ def create_app() -> Flask:
             }
         )
 
+    @app.post("/api/tester-feedback")
+    def handle_tester_feedback():
+        data = request.get_json(silent=True) or {}
+        text = str(data.get("text") or "").strip()
+        if not text:
+            return jsonify({"error": "Feedback text required."}), 400
+        if len(text) > 4000:
+            return jsonify({"error": "Feedback text too long (max 4000 chars)."}), 400
+        page = str(data.get("page") or request.referrer or "")[:500]
+        request_id = str(uuid.uuid4())
+        user_hint = str(data.get("user") or "").strip()[:120] or None
+        try:
+            from flask import g
+
+            user_id = getattr(g, "user_id", None)
+            if user_id:
+                user_hint = str(user_id)
+        except RuntimeError:
+            pass
+        try:
+            from .lib.logger import get_audit_logger
+        except ImportError:
+            from lib.logger import get_audit_logger
+        get_audit_logger().log_audit(
+            request_id,
+            None,
+            "TESTER_FEEDBACK",
+            success=True,
+            details={"text": text, "page": page, "user": user_hint},
+        )
+        return jsonify({"status": "ok"}), 200
 
     @app.post("/api/feedback")
+    @login_required
     def handle_feedback():
         data = request.get_json(silent=True) or {}
         run_hash = str(data.get("run_hash") or "").strip()
@@ -643,7 +1326,7 @@ def create_app() -> Flask:
         out = apply_feedback(run_hash, rating, vid)
         if not out.get("ok"):
             return jsonify({"error": out.get("error") or "Could not save feedback."}), 400
-        return jsonify(out)
+        return jsonify({**out, "status": "ok"}), 200
 
     def _history_plan():
         try:
@@ -656,6 +1339,7 @@ def create_app() -> Flask:
 
     @app.get("/api/history")
     @app.get("/api/history/search")
+    @login_required
     def history_list():
         try:
             from .history import list_works
@@ -678,6 +1362,23 @@ def create_app() -> Flask:
         payload["edition"] = edition
         payload["q"] = q
         return jsonify(payload)
+
+    @app.get("/api/history/diff")
+    def history_diff():
+        """GET /api/history/diff?left=<hash>&right=<hash> — unified diff as text/plain."""
+        try:
+            from .history import diff_runs
+        except ImportError:
+            from history import diff_runs
+        left_hash = (request.args.get("left") or "").strip()
+        right_hash = (request.args.get("right") or "").strip()
+        if not left_hash or not right_hash:
+            return jsonify({"error": "Missing required query params: left, right"}), 400
+        try:
+            diff_text = diff_runs(left_hash, right_hash)
+            return Response(diff_text, mimetype="text/plain")
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 404
 
     @app.get("/api/history/<int:item_id>")
     def history_one(item_id: int):
@@ -848,15 +1549,12 @@ def create_app() -> Flask:
 
     @app.post("/api/copy")
     def copy_view():
+        """Legacy ack for clients that already copied in the browser."""
         data = request.get_json(silent=True) or {}
         text = data.get("text")
         if not isinstance(text, str) or not text.strip():
             return jsonify({"error": "Nothing to copy."}), 400
-        try:
-            copy_to_clipboard(text)
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
-        return jsonify({"copied": True, "chars": len(text)})
+        return jsonify({"copied": True, "client": True, "chars": len(text)})
 
     @app.post("/api/export")
     def export_view():
@@ -871,25 +1569,191 @@ def create_app() -> Flask:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         return jsonify({"text": text, "format": str(data.get("format") or "")})
 
+    try:
+        from .routers.inquire_stream import register_inquire_routes
+    except ImportError:
+        from routers.inquire_stream import register_inquire_routes
+    register_inquire_routes(app)
+
+    try:
+        from .routers.jdf_routes import register_jdf_routes
+    except ImportError:
+        from routers.jdf_routes import register_jdf_routes
+    register_jdf_routes(app)
+
+    try:
+        from .routers.export_routes import register_export_routes
+    except ImportError:
+        from routers.export_routes import register_export_routes
+    register_export_routes(app)
+
+    try:
+        from .routers.health import register_health_routes
+    except ImportError:
+        from routers.health import register_health_routes
+    register_health_routes(app)
+
+    try:
+        from .routers.adoption_routes import register_adoption_routes
+    except ImportError:
+        from routers.adoption_routes import register_adoption_routes
+    register_adoption_routes(app)
+
+    try:
+        from .routers.draft import register_draft_routes
+    except ImportError:
+        from routers.draft import register_draft_routes
+    register_draft_routes(app)
+
+    try:
+        from .routers.project_routes import register_project_routes
+    except ImportError:
+        from routers.project_routes import register_project_routes
+    register_project_routes(app)
+
+    try:
+        from .routers.comment_routes import register_comment_routes
+    except ImportError:
+        from routers.comment_routes import register_comment_routes
+    register_comment_routes(app)
+
+    try:
+        from .routers.substrate import register_substrate_routes
+    except ImportError:
+        from routers.substrate import register_substrate_routes
+    register_substrate_routes(app)
+
+    try:
+        from .routers.sandbox import register_sandbox_routes
+    except ImportError:
+        from routers.sandbox import register_sandbox_routes
+    register_sandbox_routes(app)
+
+    try:
+        from .routers.refine_node import register_refine_node_routes
+    except ImportError:
+        from routers.refine_node import register_refine_node_routes
+    register_refine_node_routes(app)
+
+    try:
+        from .routers.omp_routes import register_omp_routes
+    except ImportError:
+        from routers.omp_routes import register_omp_routes
+    register_omp_routes(app)
+
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):
         return jsonify({"error": friendly_error(str(exc), _locale())}), 400
+
+    def _wants_json() -> bool:
+        if request.path.startswith("/api/"):
+            return True
+        accept = (request.headers.get("Accept") or "").lower()
+        if "application/json" in accept:
+            first = accept.split(",")[0].strip()
+            return "text/html" not in first
+        return False
+
+    def _localized_error(key: str, fallback: str) -> str:
+        return string_catalog(_locale()).get(key, fallback)
+
+    def _error_json(key: str, fallback: str, status: int):
+        return jsonify({"error": _localized_error(key, fallback)}), status
+
+    def _error_page(key: str, fallback: str, status: int, title_key: str, title_fallback: str):
+        lang = _locale()
+        session["lang"] = lang
+        html = render_template(
+            "error.html",
+            locale=lang,
+            languages=LOCALE_LABELS,
+            active="",
+            auth=template_state(),
+            error_code=status,
+            error_message=_localized_error(key, fallback),
+            error_title=_localized_error(title_key, title_fallback),
+        )
+        resp = make_response(html, status)
+        resp.set_cookie("assure_lang", lang, max_age=60 * 60 * 24 * 365, samesite="Lax")
+        return resp
+
+    @app.errorhandler(404)
+    def not_found(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.not_found",
+                "We couldn't find that page.",
+                404,
+            )
+        return _error_page(
+            "error.not_found",
+            "We couldn't find that page.",
+            404,
+            "error.not_found_title",
+            "Page not found",
+        )
+
+    @app.errorhandler(429)
+    def rate_limited(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.rate_limit",
+                "Too many requests. Please wait a moment and try again.",
+                429,
+            )
+        return _error_page(
+            "error.rate_limit",
+            "Too many requests. Please wait a moment and try again.",
+            429,
+            "error.rate_limit",
+            "Too many requests",
+        )
+
+    @app.errorhandler(500)
+    def internal_error(_exc):
+        if _wants_json():
+            return _error_json(
+                "error.internal",
+                "Something went wrong on our side. We've been notified and are looking into it.",
+                500,
+            )
+        return _error_page(
+            "error.internal",
+            "Something went wrong on our side. We've been notified and are looking into it.",
+            500,
+            "error.internal",
+            "Something went wrong",
+        )
 
     @app.errorhandler(Exception)
     def api_error(exc: Exception):
         from werkzeug.exceptions import HTTPException
 
         if isinstance(exc, HTTPException):
-            if request.path.startswith("/api/"):
+            if exc.code in (404, 429, 500):
+                if exc.code == 404:
+                    return not_found(exc)
+                if exc.code == 429:
+                    return rate_limited(exc)
+                return internal_error(exc)
+            if _wants_json():
                 return jsonify({"error": exc.description or exc.name}), exc.code
             return exc
-        if request.path.startswith("/api/"):
+        if _wants_json():
             app.logger.exception(exc)
-            return jsonify({"error": string_catalog(_locale()).get(
-                "error.server",
-                "The server hit an error while answering. Try again.",
-            )}), 500
-        raise
+            return _error_json(
+                "error.internal",
+                "Something went wrong on our side. We've been notified and are looking into it.",
+                500,
+            )
+        app.logger.exception(exc)
+        return _error_page(
+            "error.internal",
+            "Something went wrong on our side. We've been notified and are looking into it.",
+            500,
+            "error.internal",
+            "Something went wrong",
+        )
 
     return app
 
@@ -911,13 +1775,13 @@ def _serve_parser() -> argparse.ArgumentParser:
         "--http-user",
         "--auth-user",
         dest="http_user",
-        help="Basic Auth user (or PEM_HTTP_USER, default admin)",
+        help="Sign-in user when a password is set (or PEM_HTTP_USER, default admin)",
     )
     parser.add_argument(
         "--http-pass",
         "--auth-pass",
         dest="http_pass",
-        help="Basic Auth password (or PEM_HTTP_PASS, default changeme)",
+        help="Sign-in password (or PEM_HTTP_PASS). Required on --host 0.0.0.0. Off on this machine by default.",
     )
     parser.add_argument(
         "--store-prompts",
@@ -973,24 +1837,37 @@ def serve(argv: list[str] | None = None) -> int:
         cheap=bool(getattr(args, "cheap", False)),
         edition=getattr(args, "edition", None),
     )
-    app = create_app()
-    url = f"http://{args.host}:{port}"
-    local = f"http://127.0.0.1:{port}"
-
     from rich.console import Console
     from rich.panel import Panel
 
     console = Console()
+    if lan_bind_with_default_password(args.host):
+        console.print(
+            "[bold red]Set --http-pass or PEM_HTTP_PASS before other machines can reach this.[/bold red]"
+        )
+        return 1
+    auth_on = http_auth_required(args.host)
+    app = create_app(require_auth=auth_on)
+    url = f"http://{args.host}:{port}"
+    local = f"http://127.0.0.1:{port}"
     lan = _lan_ip() if args.host in {"0.0.0.0", "::"} else None
-    lines = [f"[bold]Open this address[/bold]\n\n{local}"]
+    user = http_basic_user()
+    open_url = first_open_url(local)
+    lines = startup_lines(
+        local=local,
+        host=args.host,
+        send_ready_now=send_ready(),
+        auth_on=auth_on,
+        user=user,
+    )
     if args.host not in {"127.0.0.1", "localhost"}:
-        lines.append(url)
+        lines.insert(3, url)
     if lan:
-        lines.append(f"http://{lan}:{port}")
+        lines.insert(3, f"http://{lan}:{port}")
     console.print(Panel("\n".join(lines), title="Assure", border_style="cyan"))
 
     if not args.no_browser:
-        threading.Thread(target=_open_browser, args=(local,), daemon=True).start()
+        threading.Thread(target=_open_browser, args=(open_url,), daemon=True).start()
 
     try:
         app.run(host=args.host, port=port, debug=False, threaded=True, use_reloader=False)
@@ -1034,3 +1911,7 @@ def _lan_ip() -> str | None:
 
 if __name__ == "__main__":
     raise SystemExit(serve(sys.argv[1:]))
+
+
+# WSGI entry for gunicorn (`prompt_matrix.web:app`).
+app = create_app(require_auth=False)

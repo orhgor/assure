@@ -9,7 +9,7 @@
     "gemini": {
       "label": "Gemini (Google)",
       "wrapper": "plain",
-      "model": "gemini/gemini-3.5-flash",
+      "model": "gemini/gemini-3.6-flash",
       "structure": "Role: {{ role }}\n\nTask:\n{{ task }}\n{% if context %}\n\nSupporting context:\n{{ context }}\n{% endif %}\n\nOutput constraints:\n- Follow format: {{ format }}\n- Do not wrap the whole answer in JSON unless that format asks for a JSON object.\n- Every claim must come from the task or the context. If unverified, write exactly: Data not available.\n"
     },
     "deepseek": {

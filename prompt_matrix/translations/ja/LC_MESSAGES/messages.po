@@ -944,4 +944,3 @@ msgstr "データはここに残ります。送信は選んだ提供元だけで
 #~ " prompt is restructured for each "
 #~ "model. The answer appears here."
 #~ msgstr ""
-

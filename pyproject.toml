@@ -10,29 +10,94 @@ readme = "prompt_matrix/README.md"
 requires-python = ">=3.10"
 dependencies = [
     "jinja2>=3.1.4",
-    "pyperclip>=1.9.0",
-    "pydantic>=2.9.0",
-    "instructor>=1.7.0",
+    "pydantic>=2.7.0",
+    "instructor>=1.3.0",
     "litellm>=1.50.0",
     "rich>=13.9.0",
     "flask>=3.0.0",
+    "flask-limiter>=3.8.0",
     "python-dotenv>=1.0.0",
-    "tiktoken>=0.8.0",
+    "tiktoken>=0.7.0",
     "flask-httpauth>=4.8.0",
     "flask-babel>=4.0.0",
+    "cryptography>=43.0.0",
+    "z3-solver>=4.12.0",
+    "dspy-ai>=2.4.0",
+    "boto3>=1.34.0",
+    "python-docx>=1.1.2",
+    "httpx>=0.27.0",
+    "pytest-asyncio>=0.23.0",
+    "asgiref>=3.7.0",
+    "pypdf>=4.0.0",
+    "sentry-sdk[flask]>=2.0.0",
 ]
+
+# pdf2image>=1.16.0 — optional: install with `uv sync --extra textract`
 
 [project.scripts]
 prompt-matrix = "prompt_matrix.cli:main"
 pem = "prompt_matrix.cli:main"
 assure = "prompt_matrix.cli:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "asgiref>=3.7.0",
+    "pytest-playwright>=0.5.0",
+    "playwright>=1.49.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "bandit>=1.7.0",
+    "pre-commit>=3.8.0",
+]
+textract = [
+    "pdf2image>=1.16.0",
+]
+
 [project.urls]
-Homepage = "https://assure.ai/"
+Homepage = "https://getassureai.com/"
 
 
 [tool.setuptools.packages.find]
 include = ["prompt_matrix*"]
 
 [tool.setuptools.package-data]
-prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*"]
+prompt_matrix = ["config.json", "static/*", "templates/*", "mcp.example.json", "translations/*", "translations/*/*/*", "examples/*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+    ".venv",
+    "prompt_matrix/static/sentry.bundle.js",
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["I"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_ignores = false
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+exclude = ["tests/", "prompt_matrix/swarm.py"]
+
+[[tool.mypy.overrides]]
+module = [
+    "prompt_matrix.db.*",
+    "prompt_matrix.ledger.*",
+    "prompt_matrix.cost_governance",
+    "prompt_matrix.lib.logger",
+]
+check_untyped_defs = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]

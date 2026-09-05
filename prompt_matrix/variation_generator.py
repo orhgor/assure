@@ -44,7 +44,17 @@ SEED_EXTRAS: dict[str, list[str]] = {
 
 def infer_domain(task: str, context: str = "") -> str:
     blob = f"{task}\n{context}".lower()
-    if any(token in blob for token in ("traceback", "stack trace", "function", "typescript", "python", "compile error")):
+    if any(
+        token in blob
+        for token in (
+            "traceback",
+            "stack trace",
+            "function",
+            "typescript",
+            "python",
+            "compile error",
+        )
+    ):
         return "coding"
     if any(token in blob for token in ("campaign", "landing page", "brand voice", "cta")):
         return "marketing"

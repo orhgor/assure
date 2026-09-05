@@ -34,9 +34,11 @@ def preflight_check(stream: TextIO | None = None) -> dict[str, Any]:
 def ensure_preflight(*, announce: bool = True) -> dict[str, Any]:
     global _PREFLIGHT
     if _PREFLIGHT is None:
-        _PREFLIGHT = preflight_check(stream=sys.stderr) if announce else {
-            "tool_availability": dict(TOOL_AVAILABILITY)
-        }
+        _PREFLIGHT = (
+            preflight_check(stream=sys.stderr)
+            if announce
+            else {"tool_availability": dict(TOOL_AVAILABILITY)}
+        )
     return _PREFLIGHT
 
 

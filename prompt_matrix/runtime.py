@@ -12,7 +12,6 @@ DIST_NAMES = {
     "pydantic": "pydantic",
     "flask": "Flask",
     "rich": "rich",
-    "pyperclip": "pyperclip",
     "instructor": "instructor",
     "litellm": "litellm",
     "dotenv": "python-dotenv",
@@ -74,12 +73,15 @@ def _probe_rich() -> str:
     return "printed to a buffer"
 
 
-def _probe_pyperclip() -> str:
-    import pyperclip
+def _probe_clipboard() -> str:
+    try:
+        from .engine import copy_to_clipboard
+    except ImportError:
+        from engine import copy_to_clipboard
 
-    if not callable(getattr(pyperclip, "copy", None)):
-        raise RuntimeError("copy() missing")
-    return "imported; copy runs on Generate"
+    if not callable(copy_to_clipboard):
+        raise RuntimeError("copy_to_clipboard missing")
+    return "web UI uses navigator.clipboard; server does not copy"
 
 
 def _probe_instructor() -> str:
@@ -131,22 +133,39 @@ def _probe_flask_httpauth() -> str:
 
 PROBES: list[tuple[str, str, str, Callable[[], str]]] = [
     ("jinja2", "Jinja2", "Every Generate call fills the target template.", _probe_jinja2),
-    ("pydantic", "pydantic", "Validates config.json, requests, and saved classes.", _probe_pydantic),
+    (
+        "pydantic",
+        "pydantic",
+        "Validates config.json, requests, and saved classes.",
+        _probe_pydantic,
+    ),
     ("flask", "Flask", "Serves this page and /api/*.", _probe_flask),
     ("rich", "rich", "Prints the local URL when pem starts.", _probe_rich),
-    ("pyperclip", "pyperclip", "Copies the prompt after Generate.", _probe_pyperclip),
+    ("clipboard", "clipboard", "Browser copy in the web UI.", _probe_clipboard),
     ("instructor", "instructor", "Structured replies when Send is on.", _probe_instructor),
     ("litellm", "LiteLLM", "Send / --direct talks to provider APIs.", _probe_litellm),
     ("dotenv", "python-dotenv", "Loads and writes prompt_matrix/.env.", _probe_dotenv),
-    ("tiktoken", "tiktoken", "Counts input, output, and total tokens after each run.", _probe_tiktoken),
-    ("flask_httpauth", "Flask-HTTPAuth", "Basic Auth on the local UI except /api/health.", _probe_flask_httpauth),
+    (
+        "tiktoken",
+        "tiktoken",
+        "Counts input, output, and total tokens after each run.",
+        _probe_tiktoken,
+    ),
+    (
+        "flask_httpauth",
+        "Flask-HTTPAuth",
+        "Basic Auth on the local UI except /api/health.",
+        _probe_flask_httpauth,
+    ),
 ]
+
+_BUILTIN_PROBE_IDS = frozenset({"clipboard"})
 
 
 def probe_libraries() -> list[dict[str, Any]]:
     rows = []
     for module_name, label, when, probe in PROBES:
-        dist = DIST_NAMES[module_name]
+        dist = DIST_NAMES.get(module_name, "builtin")
         row: dict[str, Any] = {
             "id": module_name,
             "label": label,
@@ -157,10 +176,15 @@ def probe_libraries() -> list[dict[str, Any]]:
             "detail": "",
         }
         try:
-            module = import_module(module_name)
-            row["version"] = _dist_version(dist, module)
-            row["detail"] = probe()
-            row["ok"] = True
+            if module_name in _BUILTIN_PROBE_IDS:
+                row["version"] = "builtin"
+                row["detail"] = probe()
+                row["ok"] = True
+            else:
+                module = import_module(module_name)
+                row["version"] = _dist_version(dist, module)
+                row["detail"] = probe()
+                row["ok"] = True
         except Exception as exc:
             row["detail"] = f"{type(exc).__name__}: {exc}"
         rows.append(row)

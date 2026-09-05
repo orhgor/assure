@@ -9,14 +9,17 @@ as a hidden Send (judge stays unused so quota and cost stay honest).
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 try:
     from .agents.critique import run_critique
+    from .agents.final import _heading_key, _supported_by_context
     from .agents.rule_critic import rule_based_critique
 except ImportError:
     from agents.critique import run_critique
+    from agents.final import _heading_key, _supported_by_context
     from agents.rule_critic import rule_based_critique
 
 _WORD = re.compile(r"[a-z0-9]{2,}", re.I)
@@ -34,6 +37,8 @@ class QualityScore:
     flagged_count: int = 0
     draft_count: int = 0
     method: dict | None = None
+    grounded_spans: list = field(default_factory=list)
+    inferred_spans: list = field(default_factory=list)
 
     def as_dict(self) -> dict:
         payload = asdict(self)
@@ -115,6 +120,78 @@ def token_efficiency(core: float, total_tokens: int) -> float:
     return round(min(1.0, (core * 400.0) / tokens), 4)
 
 
+def audit_body(reply: str) -> str:
+    """Text the highlighter measures. Structured JSON uses the answer field."""
+    text = reply or ""
+    blob = text.strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", blob, re.S)
+    if fence:
+        blob = fence.group(1).strip()
+    try:
+        obj = json.loads(blob)
+    except (TypeError, ValueError):
+        return text
+    if isinstance(obj, dict):
+        answer = obj.get("answer")
+        if isinstance(answer, str) and answer.strip():
+            return answer
+    return text
+
+
+def audit_spans(reply: str, context: str) -> dict[str, list[dict[str, int]]]:
+    """Character offsets for grounded (file-backed) vs inferred sentences.
+
+    Empty lists when there is no reply or no file context so the UI hides the
+    legend. Section headings are skipped (neutral). A body line is grounded
+    only when enough of its words appear in the files — a VERIFIED heading
+    does not paint the rest of the section green.
+    """
+    text = audit_body(reply)
+    ctx = (context or "").strip()
+    grounded: list[dict[str, int]] = []
+    inferred: list[dict[str, int]] = []
+    if not text.strip() or not ctx:
+        return {"grounded_spans": grounded, "inferred_spans": inferred}
+    allowed = ctx.casefold()
+
+    def line_grounded(line: str) -> bool:
+        if _supported_by_context(line, allowed):
+            return True
+        words = [word for word in re.findall(r"[a-z0-9]+", line.casefold()) if len(word) > 2]
+        if len(words) < 2:
+            return False
+        hits = sum(1 for word in words if word in allowed)
+        return hits / len(words) >= 0.5
+
+    pos = 0
+    for raw in text.splitlines(keepends=True):
+        start = pos
+        end = pos + len(raw)
+        pos = end
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        if "data not available" in stripped.casefold():
+            continue
+        if _heading_key(stripped):
+            continue
+        folded = re.sub(r"^[#*_\s]+", "", stripped).casefold()
+        if folded.startswith(("verified findings", "inferred", "thesis", "open questions")):
+            continue
+        kind = "grounded" if line_grounded(stripped) else "inferred"
+        vis_end = end
+        while vis_end > start and text[vis_end - 1] in "\r\n":
+            vis_end -= 1
+        if vis_end <= start:
+            continue
+        item = {"start": start, "end": vis_end}
+        if kind == "grounded":
+            grounded.append(item)
+        else:
+            inferred.append(item)
+    return {"grounded_spans": grounded, "inferred_spans": inferred}
+
+
 def score_run(
     *,
     reply: str,
@@ -134,12 +211,8 @@ def score_run(
     if consensus is None:
         overall = 0.45 * coherence + 0.40 * (1.0 - hall) + 0.15 * efficiency
     else:
-        overall = (
-            0.35 * consensus
-            + 0.30 * coherence
-            + 0.25 * (1.0 - hall)
-            + 0.10 * efficiency
-        )
+        overall = 0.35 * consensus + 0.30 * coherence + 0.25 * (1.0 - hall) + 0.10 * efficiency
+    spans = audit_spans(reply, context)
     return QualityScore(
         consensus_score=consensus,
         coherence_score=coherence,
@@ -154,7 +227,102 @@ def score_run(
             "hallucination": "citation_scrubber",
             "judge": False,
         },
+        grounded_spans=spans["grounded_spans"],
+        inferred_spans=spans["inferred_spans"],
     )
+
+
+PENDING = "Confidence check pending. Review claims against your files."
+
+_MODEL_LABEL = {
+    "gemini": "Gemini",
+    "deepseek": "DeepSeek",
+    "claude": "Claude",
+    "kimi": "Kimi",
+    "ollama": "a runner closed to the internet",
+    "cursor": "Cursor",
+}
+
+
+def _model_label(name: str) -> str:
+    key = (name or "").strip().lower()
+    return _MODEL_LABEL.get(key, name or "the model")
+
+
+def _join_models(models: list[str]) -> str:
+    labels = [_model_label(item) for item in models if item]
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return labels[0]
+    if len(labels) == 2:
+        return f"{labels[0]} and {labels[1]}"
+    return ", ".join(labels[:-1]) + ", and " + labels[-1]
+
+
+def confidence_text(
+    *,
+    quality: dict | None = None,
+    models: list[str] | None = None,
+    workflow: str = "",
+) -> str:
+    """One sentence for every Send. Never empty."""
+    q = quality if isinstance(quality, dict) else {}
+    names = [item for item in (models or []) if item]
+    flagged = q.get("flagged_count")
+    score = q.get("consensus_score")
+    draft_n = int(q.get("draft_count") or 0)
+    n_flag = 0 if flagged is None else int(flagged)
+    joined = _join_models(names)
+
+    if not q:
+        return PENDING
+    if score is not None:
+        pct = int(round(float(score) * 100))
+        who = joined if len(names) >= 2 else "Models"
+        return f"{who} agree on {pct}%. {n_flag} claims were flagged as unsupported."
+    if names:
+        return (
+            f"Answer from {joined or _model_label(names[0])}. "
+            f"{n_flag} claims were checked against your files."
+        )
+    if flagged is None and score is None and draft_n < 2:
+        return PENDING
+    return f"Answer from one model. {n_flag} claims were checked against your files."
+
+
+def models_from_steps(steps, primary: str | None = None) -> list[str]:
+    names: list[str] = []
+    for step in steps or []:
+        label = getattr(step, "name", "") or ""
+        target = getattr(step, "target_ai", None)
+        if not target:
+            continue
+        if label.startswith("draft") or label in {"create", "attempt", "draft"}:
+            if target not in names:
+                names.append(target)
+    if primary and primary not in names:
+        names.insert(0, primary)
+    return names
+
+
+def models_used_from_steps(steps) -> list[str]:
+    """Models that returned a successful reply (no error / ERROR prefix)."""
+    names: list[str] = []
+    for step in steps or []:
+        target = getattr(step, "target_ai", None)
+        if not target or target in {"pem", "combine"}:
+            continue
+        if getattr(step, "error", None):
+            continue
+        reply = getattr(step, "reply", None)
+        if not reply or str(reply).strip().startswith("ERROR:"):
+            continue
+        label = getattr(step, "name", "") or ""
+        if label.startswith("draft") or label in {"create", "attempt", "final", "draft"}:
+            if target not in names:
+                names.append(target)
+    return names
 
 
 def draft_replies(steps) -> list[str]:

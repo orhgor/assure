@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 try:
-    from .engine import MatrixError
-    from .library import get_class
+    from ..engine import MatrixError
+    from ..library import get_class
 except ImportError:
     from engine import MatrixError
     from library import get_class
@@ -13,10 +13,9 @@ FORMATS = ("cursorrules", "mdc", "fabric", "dspy")
 
 
 def export_class(class_id: str, fmt: str, *, target_hint: str | None = None) -> str:
-    # Free has export_formats=(). Pro/Team/Self-hosted allow cursorrules, mdc, fabric, dspy.
     fmt = (fmt or "").strip().lower()
     try:
-        from .editions import current_edition
+        from ..editions import current_edition
     except ImportError:
         from editions import current_edition
     plan = current_edition()
@@ -44,11 +43,7 @@ def _cursorrules(item) -> str:
         f"You are {role}.\n\n{{{{ task }}}}\n\nOutput:\n{fmt}\n"
         "{% if context %}\n{{ context }}\n{% endif %}\n"
     )
-    return (
-        f"# {item.name}\n"
-        f"{item.description}\n\n"
-        f"{body.strip()}\n"
-    ).strip() + "\n"
+    return (f"# {item.name}\n" f"{item.description}\n\n" f"{body.strip()}\n").strip() + "\n"
 
 
 def _mdc(item) -> str:
@@ -89,7 +84,7 @@ def _dspy(item, target_hint: str | None) -> str:
     hint = target_hint or item.target_hint or "the compiled prompt"
     return (
         "import dspy\n\n"
-        f'class {ident}Signature(dspy.Signature):\n'
+        f"class {ident}Signature(dspy.Signature):\n"
         f'    """{doc}"""\n'
         f'    task = dspy.InputField(desc="the user task")\n'
         f'    context = dspy.InputField(desc="optional local context", default="")\n'

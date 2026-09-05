@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ error_title }} · {{ gettext('Assure') }}{% endblock %}
+{% block body %}
+  <div class="page error-page">
+    <div class="page-hero">
+      <p class="error-code" aria-hidden="true">{{ error_code }}</p>
+      <h1>{{ error_title }}</h1>
+      <p class="lede">{{ error_message }}</p>
+      <p><a class="btn btn-primary" href="/{% if locale %}?lang={{ locale }}{% endif %}" data-i18n="error.page_home">{{ gettext('Back to Assure') }}</a></p>
+    </div>
+  </div>
+{% endblock %}

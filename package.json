@@ -1,0 +1,38 @@
+{
+  "name": "assure",
+  "private": true,
+  "scripts": {
+    "bundle:sentry": "node scripts/bundle-sentry.mjs",
+    "build:sentry": "npm run bundle:sentry",
+    "bundle:tiptap": "node scripts/bundle-tiptap.mjs",
+    "build:static": "npm run bundle:sentry && npm run bundle:tiptap"
+  },
+  "dependencies": {
+    "@sentry/browser": "^9.47.1",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  },
+  "version": "1.0.0",
+  "description": "Ask one question. Get one verified answer. The question is rewritten for the model you pick, then checked.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orhgor/assure.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/orhgor/assure/issues"
+  },
+  "homepage": "https://github.com/orhgor/assure#readme"
+}

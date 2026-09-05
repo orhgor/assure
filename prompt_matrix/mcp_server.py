@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+# Force the MCP server to treat the REPO ROOT as its working directory
+# so that relative paths like ./history.py resolve correctly.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+os.chdir(REPO_ROOT)
 
 PROTOCOL = "2024-11-05"
 
@@ -41,7 +47,10 @@ TOOLS = [
                     "description": "research, design, comparison, debug, or analysis.",
                     "default": "analysis",
                 },
-                "context": {"type": "string", "description": "Notes or local file paths to inject."},
+                "context": {
+                    "type": "string",
+                    "description": "Notes or local file paths to inject.",
+                },
                 "class_id": {"type": "string", "description": "Optional saved class id."},
             },
             "required": ["task"],
@@ -66,7 +75,7 @@ TOOLS = [
                 "extra_targets": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Other models to draft. Default: [\"deepseek\"].",
+                    "description": 'Other models to draft. Default: ["deepseek"].',
                 },
                 "intent": {
                     "type": "string",
@@ -172,6 +181,155 @@ TOOLS = [
             "required": ["class_id"],
         },
     },
+    {
+        "name": "swarm_develop",
+        "description": (
+            "Start the development swarm. Default background=true: returns immediately. "
+            "Then call swarm_status until status is done or error. "
+            "Do not wait on one MCP call for the full pipeline — Cursor will time out. "
+            "Accepted files are written to the workspace after lint (apply_workspace). "
+            "Use pem_apply_diff if applied is false. Cursor hides the name apply_patch. "
+            "Pass background=false only for short compile-only (direct=false) runs."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Natural-language feature to build.",
+                },
+                "context_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Source file paths to include as context.",
+                },
+                "target_models": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": (
+                        'Role to model override, e.g. {"developer": "deepseek-chat"}. '
+                        "Roles: architect, developer, reviewer, tester, documenter. "
+                        "Also accepts a list of ROLE=MODEL strings."
+                    ),
+                },
+                "edition": {
+                    "type": "string",
+                    "enum": ["free", "pro", "team", "self-hosted"],
+                    "description": "Assure edition (sets ASSURE_EDITION for this call). Default from config / env.",
+                },
+                "max_redhat_iterations": {
+                    "type": "integer",
+                    "description": "Cap on reviewer-driven red-hat revisions. Maps to run_swarm(max_redhat_iterations) / CLI --max-iterations. Default 3.",
+                    "default": 3,
+                },
+                "min_confidence": {
+                    "type": "number",
+                    "description": "Merge gate used only when create_pr tries gh. Default 0.8. Not a score floor.",
+                    "default": 0.8,
+                },
+                "skip_tests": {
+                    "type": "boolean",
+                    "description": "Skip tester and unittest self-test. The report must not say tests passed.",
+                    "default": False,
+                },
+                "skip_docs": {
+                    "type": "boolean",
+                    "description": "Skip documenter.",
+                    "default": False,
+                },
+                "create_pr": {
+                    "type": "boolean",
+                    "description": "Try gh pr create if confidence meets min_confidence. Still writes logs/swarm.patch either way. Does not git add, commit, or push.",
+                    "default": False,
+                },
+                "direct": {
+                    "type": "boolean",
+                    "description": "If true, call the models. If false, compile prompts only (CLI --copy-only).",
+                    "default": True,
+                },
+                "local": {
+                    "type": "boolean",
+                    "description": "Route every role through the local ollama target.",
+                    "default": False,
+                },
+                "cheap": {
+                    "type": "boolean",
+                    "description": "Let PEM's cost router pick a cheaper live target.",
+                    "default": False,
+                },
+                "background": {
+                    "type": "boolean",
+                    "description": "If true (default), start the swarm on a worker thread and return immediately. Poll swarm_status. If false, block until the pipeline finishes (Cursor will usually time out).",
+                    "default": True,
+                },
+                "apply_workspace": {
+                    "type": "boolean",
+                    "description": "Write accepted files into the repo after local lint. Default true on MCP so work is not left only in logs/swarm.patch.",
+                    "default": True,
+                },
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "swarm_start",
+        "description": (
+            "Start the Assure development swarm in the background. Returns run_id immediately. "
+            "Poll swarm_status until done or error. Same arguments as swarm_develop."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Natural-language feature to build."},
+                "context_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Repo-relative paths. Bare names like web.py resolve under prompt_matrix/.",
+                },
+                "edition": {
+                    "type": "string",
+                    "enum": ["free", "pro", "team", "self-hosted"],
+                },
+                "max_redhat_iterations": {"type": "integer", "default": 3},
+                "skip_tests": {"type": "boolean", "default": False},
+                "skip_docs": {"type": "boolean", "default": False},
+                "direct": {"type": "boolean", "default": True},
+                "apply_workspace": {"type": "boolean", "default": True},
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "swarm_status",
+        "description": (
+            "Read the current background swarm. No live APIs. "
+            "Call after swarm_start until status is done or error."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "pem_apply_diff",
+        "description": (
+            "Land a unified diff on the workspace root. This is the patch tool Cursor lists. "
+            "No live APIs. Rejects path traversal and truncated dumps. "
+            "The name apply_patch is an alias but Cursor hides it from the MCP tool list."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "diff": {
+                    "type": "string",
+                    "description": "Unified diff (git-style ---/+++ / @@ hunks).",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Parse and check only. Do not write files.",
+                    "default": False,
+                },
+            },
+            "required": ["diff"],
+        },
+    },
 ]
 
 
@@ -180,7 +338,7 @@ def serve_stdio() -> int:
         from .pem_runner import ensure_preflight
     except ImportError:
         from pem_runner import ensure_preflight
-    ensure_preflight()
+    ensure_preflight(announce=False)
     load_keys()
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
@@ -190,6 +348,11 @@ def serve_stdio() -> int:
         if message is None:
             return 0
         response = _handle(message)
+        if message.get("method") == "notifications/initialized":
+            _write_message(
+                stdout,
+                {"jsonrpc": "2.0", "method": "notifications/tools/list_changed"},
+            )
         if response is not None:
             _write_message(stdout, response)
 
@@ -205,19 +368,23 @@ def _handle(message: dict[str, Any]) -> dict[str, Any] | None:
             "jsonrpc": "2.0",
             "id": msg_id,
             "result": {
-                "protocolVersion": client_version if str(client_version).startswith("202") else PROTOCOL,
+                "protocolVersion": client_version
+                if str(client_version).startswith("202")
+                else PROTOCOL,
                 "capabilities": {
-                    "tools": {"listChanged": False},
+                    "tools": {"listChanged": True},
                     "resources": {"listChanged": False},
                     "prompts": {"listChanged": False},
                 },
-                "serverInfo": {"name": "pem", "version": "0.1.0"},
+                "serverInfo": {"name": "pem", "version": "0.3.0"},
                 "instructions": (
                     "PEM compiles prompts and optionally calls Gemini/DeepSeek/Claude/Kimi/Ollama. "
                     "Standalone model calls have no live web search. "
-                    "Use pem_compile to shape a task for a target dialect (no model call). "
-                    "Use pem_combine for two-model draft plus merge. "
-                    "Use pem_critique_rewrite for attempt, persona critique, and final rewrite. "
+                    "Product swarm: call swarm_start (or swarm_develop) then poll swarm_status "
+                    "until status is done or error. Do not block on one tools/call for the full "
+                    "pipeline — Cursor times that out. "
+                    "Land leftover diffs with pem_apply_diff (Cursor hides the name apply_patch). "
+                    "MCP tools are stdio-only. "
                     "Intents: research, design, comparison, debug, analysis. "
                     "Personas: " + ", ".join(item["id"] for item in list_personas()) + "."
                 ),
@@ -284,9 +451,18 @@ def _call_tool(name: str, args: dict[str, Any]) -> str:
         return _lint(args)
     if name == "pem_export":
         return _export(args)
+    if name == "swarm_develop":
+        return _swarm_develop(args)
+    if name == "swarm_start":
+        return _swarm_start(args)
+    if name == "swarm_status":
+        return _swarm_status(args)
+    if name in {"pem_apply_diff", "apply_patch"}:
+        return _apply_patch(args)
     raise MatrixError(
         "Unknown tool. Use pem_compile, pem_combine, pem_critique_rewrite, "
-        "pem_dialect_lint, or pem_export."
+        "pem_dialect_lint, pem_export, swarm_start, swarm_status, swarm_develop, "
+        "or pem_apply_diff."
     )
 
 
@@ -433,6 +609,280 @@ def _export(args: dict[str, Any]) -> str:
     return export_class(class_id, fmt)
 
 
+_EDITIONS = ("free", "pro", "team", "self-hosted")
+_TRUNC_MARK = "... [truncated]"
+_SWARM_DIFF_WARNING = (
+    "Apply complete diffs from this report or from the Patch path below, "
+    "or call pem_apply_diff with that unified diff. "
+    "Truncated dumps are continued or dropped; do not paste a cut dump into index.html."
+)
+
+
+def _apply_patch(args: dict[str, Any]) -> str:
+    try:
+        from .patch_apply import PatchError, apply_unified_diff
+    except ImportError:
+        from patch_apply import PatchError, apply_unified_diff
+    diff = str(args.get("diff") or "")
+    if not diff.strip():
+        raise MatrixError("pem_apply_diff needs a unified diff.")
+    try:
+        return apply_unified_diff(
+            diff,
+            root=REPO_ROOT,
+            dry_run=_as_bool(args.get("dry_run"), False),
+        )
+    except PatchError as exc:
+        raise MatrixError(str(exc)) from exc
+
+
+def _swarm_kwargs(args: dict[str, Any], *, apply_default: bool) -> dict[str, Any]:
+    try:
+        from .swarm import MIN_CONFIDENCE
+    except ImportError:
+        from swarm import MIN_CONFIDENCE
+    task = str(args.get("task") or "").strip()
+    if not task:
+        raise MatrixError("swarm_develop needs a task.")
+    max_rounds = _as_optional_int(args.get("max_redhat_iterations"))
+    min_conf = _as_optional_float(args.get("min_confidence"))
+    return {
+        "task": task,
+        "context_files": _as_str_list(args.get("context_files")),
+        "target_models": _as_target_models(args.get("target_models")),
+        "create_pr": _as_bool(args.get("create_pr"), False),
+        "direct": _as_bool(args.get("direct"), True),
+        "local": _as_bool(args.get("local"), False),
+        "cheap": _as_bool(args.get("cheap"), False),
+        "max_redhat_iterations": max_rounds,
+        "min_confidence": MIN_CONFIDENCE if min_conf is None else min_conf,
+        "skip_tests": _as_bool(args.get("skip_tests"), False),
+        "skip_docs": _as_bool(args.get("skip_docs"), False),
+        "apply_workspace": _as_bool(args.get("apply_workspace"), apply_default),
+    }
+
+
+def _edition_arg(args: dict[str, Any]) -> str | None:
+    edition = str(args.get("edition") or "").strip().lower()
+    if not edition:
+        return None
+    if edition not in _EDITIONS:
+        raise MatrixError(f"Unknown edition {edition!r}. Use one of: {', '.join(_EDITIONS)}.")
+    return edition
+
+
+def _swarm_start(args: dict[str, Any]) -> str:
+    try:
+        from .swarm_job import format_job, start_job
+    except ImportError:
+        from swarm_job import format_job, start_job
+    kwargs = _swarm_kwargs(args, apply_default=True)
+    try:
+        job = start_job(kwargs, edition=_edition_arg(args))
+    except RuntimeError as exc:
+        raise MatrixError(str(exc)) from exc
+    return format_job(job)
+
+
+def _swarm_status(_args: dict[str, Any]) -> str:
+    try:
+        from .swarm_job import current_job, format_job
+    except ImportError:
+        from swarm_job import current_job, format_job
+    return format_job(current_job())
+
+
+def _swarm_develop(args: dict[str, Any]) -> str:
+    if _as_bool(args.get("background"), True):
+        return _swarm_start(args)
+    try:
+        from .swarm import run_swarm
+    except ImportError:
+        from swarm import run_swarm
+    kwargs = _swarm_kwargs(args, apply_default=False)
+    edition = _edition_arg(args)
+    previous_edition = os.environ.get("ASSURE_EDITION")
+    if edition:
+        os.environ["ASSURE_EDITION"] = edition
+    try:
+        result = run_swarm(**kwargs)
+    finally:
+        if edition:
+            if previous_edition is None:
+                os.environ.pop("ASSURE_EDITION", None)
+            else:
+                os.environ["ASSURE_EDITION"] = previous_edition
+    return _format_swarm_result(result)
+
+
+def _format_swarm_result(result: Any) -> str:
+    tests = getattr(result, "test_results", None)
+    skipped = bool(getattr(tests, "skipped", False))
+    passed = getattr(tests, "passed", None)
+    skip_reason = getattr(tests, "skip_reason", None)
+    if skipped:
+        test_line = f"skipped ({skip_reason or 'no reason'})"
+    elif passed is True:
+        test_line = "Pass"
+    elif passed is False:
+        test_line = "Fail"
+    else:
+        test_line = "Not run"
+    lint_ok = getattr(result, "lint_ok", None)
+    if lint_ok is True:
+        lint_line = "PASS"
+    elif lint_ok is False:
+        lint_line = "FAIL"
+    else:
+        lint_line = "not run"
+    docs = getattr(result, "documentation", None) or ""
+    if docs.strip().lower() == "skipped":
+        docs_line = "skipped"
+    elif docs.strip():
+        docs_line = "present"
+    else:
+        docs_line = "none"
+    files = getattr(result, "files", None) or getattr(result, "code", None) or {}
+    file_bits = []
+    for path, body in files.items():
+        size = len(body or "")
+        file_bits.append(f"{path} ({size} bytes)")
+    warnings = _truncation_warnings(result)
+    chunks = [
+        "# swarm_develop",
+        "",
+        _SWARM_DIFF_WARNING,
+        "",
+    ]
+    if warnings:
+        chunks.extend(["WARNING: " + item for item in warnings])
+        chunks.append("")
+    verdict = (
+        getattr(result, "review_verdict", None)
+        or getattr(result, "reviewer_verdict", None)
+        or "(none)"
+    )
+    rev_conf = getattr(result, "review_confidence", None)
+    if rev_conf is None:
+        rev_conf = getattr(result, "reviewer_confidence", None)
+    overall = getattr(result, "confidence", None)
+    if overall is None:
+        overall = getattr(result, "confidence_score", None)
+    rev_conf_text = "n/a" if rev_conf is None else f"{float(rev_conf):.2f}"
+    overall_text = "n/a" if overall is None else f"{float(overall):.3f}"
+    chunks.extend(
+        [
+            f"task: {getattr(result, 'task', '')}",
+            f"run_hash: {getattr(result, 'run_hash', '') or '(none)'}",
+            f"verdict: {verdict}",
+            f"reviewer_confidence: {rev_conf_text}",
+            f"overall_confidence: {overall_text}",
+            f"self-test: {test_line}",
+            f"local_lint: {lint_line}",
+            f"docs: {docs_line}",
+            f"files: {', '.join(file_bits) if file_bits else '(none)'}",
+            f"patch: {getattr(result, 'patch_path', None) or '(none)'}",
+            f"redhat_rounds: {getattr(result, 'redhat_rounds', 0)}",
+        ]
+    )
+    targets = getattr(result, "targets", None) or {}
+    if targets:
+        used = ", ".join(f"{role}={target}" for role, target in targets.items())
+        chunks.append(f"targets: {used}")
+    report = getattr(result, "quality_report", None) or getattr(result, "summary", None) or ""
+    chunks.extend(["", "===== QUALITY REPORT =====", report.rstrip()])
+    return "\n".join(chunks).rstrip() + "\n"
+
+
+def _truncation_warnings(result: Any) -> list[str]:
+    warnings: list[str] = []
+    files = getattr(result, "files", None) or getattr(result, "code", None) or {}
+    for path, body in files.items():
+        hint = _file_looks_truncated(str(path), body or "")
+        if hint:
+            warnings.append(hint)
+    report = getattr(result, "quality_report", None) or getattr(result, "summary", None) or ""
+    implementation = getattr(result, "implementation", None) or ""
+    for blob, label in ((report, "quality report"), (implementation, "implementation")):
+        if _TRUNC_MARK in blob:
+            warnings.append(f"{label} contains '{_TRUNC_MARK}'")
+        if blob.count("```") % 2:
+            warnings.append(f"{label} has an unclosed code fence")
+    notes = getattr(result, "notes", None) or []
+    for note in notes:
+        if _TRUNC_MARK in str(note):
+            warnings.append(str(note))
+    seen: list[str] = []
+    for item in warnings:
+        if item not in seen:
+            seen.append(item)
+    return seen
+
+
+def _file_looks_truncated(path: str, body: str) -> str | None:
+    try:
+        from .patch_apply import truncation_reason_for_body
+    except ImportError:
+        from patch_apply import truncation_reason_for_body
+    return truncation_reason_for_body(path, body)
+
+
+def _as_str_list(value: Any) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [part.strip() for part in value.replace("\n", ",").split(",") if part.strip()]
+        return items or None
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+        return items or None
+    text = str(value).strip()
+    return [text] if text else None
+
+
+def _as_target_models(value: Any) -> dict[str, str] | None:
+    if value is None or value == "" or value == {}:
+        return None
+    try:
+        from .swarm import _parse_role_models
+    except ImportError:
+        from swarm import _parse_role_models
+    if isinstance(value, dict):
+        items = [
+            f"{key}={val}" for key, val in value.items() if str(key).strip() and str(val).strip()
+        ]
+        return _parse_role_models(items) or None
+    if isinstance(value, str):
+        parts = [part.strip() for part in value.replace(",", " ").split() if part.strip()]
+        return _parse_role_models(parts) or None
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                role = str(item.get("role") or item.get("name") or "").strip()
+                model = str(item.get("model") or item.get("value") or "").strip()
+                if role and model:
+                    parts.append(f"{role}={model}")
+                continue
+            text = str(item).strip()
+            if text:
+                parts.append(text)
+        return _parse_role_models(parts) or None
+    return None
+
+
+def _as_optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _as_optional_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 def _as_bool(value: Any, default: bool = False) -> bool:
     if value is None:
         return default
@@ -477,7 +927,12 @@ def _as_object(payload: Any) -> dict[str, Any]:
 
 
 def _write_message(stdout, payload: dict[str, Any]) -> None:
-    blob = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    header = f"Content-Length: {len(blob)}\r\n\r\n".encode("ascii")
-    stdout.write(header + blob)
+    # MCP stdio is newline-delimited JSON. Content-Length (LSP) replies leave
+    # Cursor stuck on initializing / mcp_auth.
+    blob = json.dumps(payload, ensure_ascii=False).encode("utf-8") + b"\n"
+    stdout.write(blob)
     stdout.flush()
+
+
+if __name__ == "__main__":
+    raise SystemExit(serve_stdio())
