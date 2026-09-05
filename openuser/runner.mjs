@@ -323,6 +323,7 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       if (result.head !== "%PDF") throw new Error(`Expected PDF magic, got ${result.head}`);
       return;
     }
+    case "assert": {
       if (step.condition) {
         const ok = evalCondition(step.condition, ctx);
         if (!ok) throw new Error(`Assertion failed: ${step.condition} (${JSON.stringify(ctx)})`);
