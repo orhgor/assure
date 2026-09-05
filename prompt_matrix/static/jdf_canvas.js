@@ -2011,7 +2011,7 @@
       });
       return ul;
     }
-    if type === "table" && node.rows && node.rows.length) {
+    if (type === "table" && node.rows && node.rows.length) {
       var table = document.createElement("table");
       node.rows.forEach(function (row) {
         var tr = document.createElement("tr");
