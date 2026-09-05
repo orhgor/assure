@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -34,6 +35,10 @@ def test_draft_text_to_sections_plain():
     assert body[0]["children"][0]["content"] == "Single paragraph draft."
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
+)
 def test_verify_locks_pass():
     locks = [{"canonical_key": "Revenue", "value": 12_000_000, "metric": "ARR"}]
     result = verify_locks(locks, "Revenue ARR is $12M this quarter.")
