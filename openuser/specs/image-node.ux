@@ -1,0 +1,52 @@
+name: Image Node Rendering
+persona: Knowledge Worker
+description: Image nodes in the JDF AST render on the canvas.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: script
+    expression: |
+      (async () => {
+        const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
+        const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+        const doc = {
+          document_id: "doc-openuser-image",
+          meta: { title: "Image node" },
+          truth_ledger: {},
+          body: [{
+            type: "section",
+            id: "sec-ou-image",
+            title: "Figures",
+            children: [{
+              type: "image",
+              id: "img-ou-test",
+              src: pixel,
+              alt: "OpenUser pixel",
+              caption: "Test image",
+              meta: {},
+              annotations: { confidence: null, redhat: [], locked: false }
+            }],
+            meta: {},
+            annotations: { confidence: null, redhat: [], locked: false }
+          }]
+        };
+        const res = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document: doc, mutation_type: "OPENUSER_IMAGE" })
+        });
+        const data = await res.json();
+        if (window.__assureJdf && data.document) {
+          window.__assureJdf.tree = data.document;
+          window.__assureJdf.render();
+        }
+        return res.ok;
+      })()
+  - action: assert
+    condition: lastScriptResult === true
+  - action: wait
+    selector: "#jdf-render-target .jdf-node-image img"
+    timeout: 15000

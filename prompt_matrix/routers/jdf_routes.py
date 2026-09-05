@@ -17,6 +17,10 @@ try:
         patch_jdf_node,
         save_jdf_revision,
     )
+    from ..db.node_revision_repository import (
+        fetch_node_revision,
+        list_node_revisions,
+    )
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
@@ -25,6 +29,7 @@ try:
         parse_document,
         splice_node,
     )
+    from ..services.pdf_import import pdf_bytes_to_jdf
 except ImportError:
     from db.jdf_repository import (
         fetch_jdf_at_version,
@@ -32,6 +37,10 @@ except ImportError:
         list_jdf_revisions,
         patch_jdf_node,
         save_jdf_revision,
+    )
+    from db.node_revision_repository import (
+        fetch_node_revision,
+        list_node_revisions,
     )
     from lib.logger import get_audit_logger
     from models.jdf import (
@@ -41,6 +50,7 @@ except ImportError:
         parse_document,
         splice_node,
     )
+    from services.pdf_import import pdf_bytes_to_jdf
 
 
 class SaveJDFPayload(BaseModel):
@@ -169,3 +179,91 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             raise
+
+    @app.post("/api/projects/<project_id>/import-pdf")
+    def import_project_pdf(project_id: str):
+        request_id = str(uuid.uuid4())
+        start_time = time.perf_counter()
+        audit = get_audit_logger()
+        upload = request.files.get("file")
+        if upload is None or not upload.filename:
+            return jsonify({"ok": False, "error": "No file uploaded."}), 400
+        file_bytes = upload.read()
+        if not file_bytes:
+            return jsonify({"ok": False, "error": "Empty file."}), 400
+        try:
+            tree = pdf_bytes_to_jdf(
+                file_bytes,
+                project_id=project_id,
+                filename=upload.filename.strip(),
+            )
+            parse_document(tree)
+            result = save_jdf_revision(
+                project_id,
+                tree,
+                mutation_type="PDF_IMPORT",
+                change_summary=f"Imported {upload.filename}",
+            )
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_exception(
+                request_id,
+                project_id,
+                "PDF_IMPORT",
+                exc,
+                duration_ms=duration_ms,
+            )
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        audit.log_audit(
+            request_id,
+            project_id,
+            "PDF_IMPORT",
+            success=True,
+            duration_ms=duration_ms,
+            details={"filename": upload.filename, "version": result.get("version")},
+        )
+        return jsonify(result)
+
+    @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
+    def get_node_history(project_id: str, node_id: str):
+        revisions = list_node_revisions(project_id, node_id)
+        return jsonify(
+            {"ok": True, "node_id": node_id, "revisions": revisions, "count": len(revisions)}
+        )
+
+    @app.post("/api/projects/<project_id>/nodes/<node_id>/restore")
+    def restore_node_revision(project_id: str, node_id: str):
+        request_id = str(uuid.uuid4())
+        start_time = time.perf_counter()
+        audit = get_audit_logger()
+        data = request.get_json(silent=True) or {}
+        revision_id = str(data.get("revision_id") or "").strip()
+        if not revision_id:
+            return jsonify({"ok": False, "error": "revision_id required"}), 400
+        node_json = fetch_node_revision(project_id, node_id, revision_id)
+        if not node_json:
+            return jsonify({"ok": False, "error": "revision not found"}), 404
+        tree = fetch_latest_jdf_or_empty(project_id)
+        mutated, found = splice_node(tree, node_id, node_json)
+        if not found:
+            return jsonify({"ok": False, "error": "node not found in document"}), 404
+        parse_document(mutated)
+        result = save_jdf_revision(
+            project_id,
+            mutated,
+            mutation_type="NODE_RESTORE",
+            target_node_id=node_id,
+            change_summary=data.get("change_summary") or f"Restored node from {revision_id}",
+        )
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        audit.log_audit(
+            request_id,
+            project_id,
+            "NODE_RESTORE",
+            target_node_id=node_id,
+            success=True,
+            duration_ms=duration_ms,
+            details={"revision_id": revision_id},
+        )
+        return jsonify(result)

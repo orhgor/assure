@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 12
+_SCHEMA_VERSION = 13
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -35,6 +35,32 @@ def _migrate_v11(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE projects ADD COLUMN source_md TEXT NOT NULL DEFAULT ''")
     if not _column_exists(db, "projects", "last_compiled_json"):
         db.execute("ALTER TABLE projects ADD COLUMN last_compiled_json TEXT NOT NULL DEFAULT '[]'")
+
+
+def _migrate_v13(db: sqlite3.Connection) -> None:
+    """Per-node revision snapshots for surgical history modal."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS node_revisions (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            node_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            node_json TEXT NOT NULL,
+            document_version INTEGER,
+            mutation_type TEXT NOT NULL DEFAULT 'NODE_UPDATE',
+            change_summary TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (project_id, node_id, version)
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_node_revisions_lookup
+        ON node_revisions(project_id, node_id, version DESC)
+        """
+    )
 
 
 def _migrate_v12(db: sqlite3.Connection) -> None:
@@ -316,6 +342,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v11(db)
     if current < 12:
         _migrate_v12(db)
+    if current < 13:
+        _migrate_v13(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

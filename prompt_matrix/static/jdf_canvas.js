@@ -1271,7 +1271,124 @@
     }
     if (act === "redhat") {
       this.runRedhatAnalysis("node", nodeId);
+      return;
     }
+    if (act === "history") {
+      this.openNodeHistoryModal(nodeId);
+    }
+  };
+
+  JDFCanvasManager.prototype.openNodeHistoryModal = function (nodeId) {
+    var self = this;
+    var modal = document.getElementById("node-revision-modal");
+    var list = document.getElementById("node-revision-list");
+    var restoreBtn = document.getElementById("node-revision-restore-btn");
+    if (!modal || !list || !nodeId) return;
+    this._historyNodeId = nodeId;
+    this._historyRevisionId = null;
+    if (restoreBtn) restoreBtn.disabled = true;
+    list.innerHTML = "";
+    modal.hidden = false;
+    fetch(
+      "/api/projects/" +
+        encodeURIComponent(this.projectId) +
+        "/nodes/" +
+        encodeURIComponent(nodeId) +
+        "/history",
+      { credentials: "same-origin" }
+    )
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        var rows = (data && data.revisions) || [];
+        if (!rows.length) {
+          list.innerHTML =
+            '<li class="node-revision-empty">' +
+            jdfT("jdf.node.history.empty", "No prior revisions for this node.") +
+            "</li>";
+          return;
+        }
+        rows.forEach(function (rev) {
+          var li = document.createElement("li");
+          li.className = "node-revision-item";
+          li.dataset.revisionId = rev.revision_id;
+          li.innerHTML =
+            "<strong>v" +
+            rev.version +
+            "</strong> · " +
+            (rev.preview || rev.change_summary || "") +
+            '<span class="node-revision-when">' +
+            (rev.created_at || "") +
+            "</span>";
+          li.addEventListener("click", function () {
+            list.querySelectorAll(".node-revision-item").forEach(function (el) {
+              el.classList.remove("is-selected");
+            });
+            li.classList.add("is-selected");
+            self._historyRevisionId = rev.revision_id;
+            if (restoreBtn) restoreBtn.disabled = !self._historyRevisionId;
+          });
+          list.appendChild(li);
+        });
+      })
+      .catch(function () {
+        list.innerHTML =
+          '<li class="node-revision-empty">' +
+          jdfT("jdf.node.history.error", "Could not load node history.") +
+          "</li>";
+      });
+  };
+
+  JDFCanvasManager.prototype.closeNodeHistoryModal = function () {
+    var modal = document.getElementById("node-revision-modal");
+    if (modal) modal.hidden = true;
+    this._historyNodeId = null;
+    this._historyRevisionId = null;
+  };
+
+  JDFCanvasManager.prototype.restoreSelectedNodeRevision = function () {
+    var self = this;
+    var nodeId = this._historyNodeId;
+    var revisionId = this._historyRevisionId;
+    if (!nodeId || !revisionId) return;
+    fetch(
+      "/api/projects/" +
+        encodeURIComponent(this.projectId) +
+        "/nodes/" +
+        encodeURIComponent(nodeId) +
+        "/restore",
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision_id: revisionId }),
+      }
+    )
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok === false) {
+          throw new Error((data && data.error) || "restore failed");
+        }
+        if (data.document) {
+          self.tree = data.document;
+          self.render();
+        }
+        self.closeNodeHistoryModal();
+        if (global.AssureToast) {
+          global.AssureToast.show(
+            jdfT("jdf.node.history.restored", "Node revision restored."),
+            "success"
+          );
+        }
+      })
+      .catch(function (err) {
+        if (global.AssureToast) {
+          global.AssureToast.show(String(err.message || err), "error");
+        }
+      });
   };
 
   JDFCanvasManager.prototype._bindNodeMenu = function () {
@@ -1894,7 +2011,7 @@
       });
       return ul;
     }
-    if (type === "table" && node.rows && node.rows.length) {
+    if type === "table" && node.rows && node.rows.length) {
       var table = document.createElement("table");
       node.rows.forEach(function (row) {
         var tr = document.createElement("tr");
@@ -1906,6 +2023,21 @@
         table.appendChild(tr);
       });
       return table;
+    }
+    if (type === "image" && node.src) {
+      var figure = document.createElement("figure");
+      figure.className = "jdf-node-image";
+      var img = document.createElement("img");
+      img.src = node.src;
+      img.alt = node.alt || "";
+      img.loading = "lazy";
+      figure.appendChild(img);
+      if (node.caption) {
+        var cap = document.createElement("figcaption");
+        cap.textContent = node.caption;
+        figure.appendChild(cap);
+      }
+      return figure;
     }
     var p = document.createElement("p");
     var paraText = node.content || node.title || "";
@@ -2774,6 +2906,54 @@
     this._bindNodeMenu();
     this._bindCrossPaneLinks();
     this._bindSubstrateFocus();
+    var nodeRevClose = document.getElementById("node-revision-close");
+    var nodeRevBackdrop = document.querySelector("#node-revision-modal .node-revision-backdrop");
+    var nodeRevRestore = document.getElementById("node-revision-restore-btn");
+    function closeNodeRevModal() {
+      var modal = document.getElementById("node-revision-modal");
+      if (modal) modal.hidden = true;
+    }
+    if (nodeRevClose) nodeRevClose.addEventListener("click", closeNodeRevModal);
+    if (nodeRevBackdrop) nodeRevBackdrop.addEventListener("click", closeNodeRevModal);
+    if (nodeRevRestore) {
+      nodeRevRestore.addEventListener("click", function () {
+        self.restoreSelectedNodeRevision().catch(function (err) {
+          if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");
+        });
+      });
+    }
+    var importPdfBtn = document.getElementById("jdf-import-pdf-btn");
+    var importPdfInput = document.getElementById("jdf-import-pdf-input");
+    if (importPdfBtn && importPdfInput && !importPdfBtn.dataset.bound) {
+      importPdfBtn.dataset.bound = "1";
+      importPdfBtn.addEventListener("click", function () { importPdfInput.click(); });
+      importPdfInput.addEventListener("change", function () {
+        var file = importPdfInput.files && importPdfInput.files[0];
+        if (!file) return;
+        var fd = new FormData();
+        fd.append("file", file);
+        fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/import-pdf", {
+          method: "POST",
+          body: fd,
+        })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!res.ok) throw new Error((res.j && res.j.detail) || "Import failed");
+            if (res.j.document) {
+              self.tree = res.j.document;
+              self.render();
+              self.saveDocument("PDF_IMPORT");
+            }
+            if (global.AssureToast) {
+              global.AssureToast.show(jdfT("jdf.import.pdf_ok", "PDF imported"), "success");
+            }
+          })
+          .catch(function (err) {
+            if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");
+          })
+          .finally(function () { importPdfInput.value = ""; });
+      });
+    }
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         var menu = document.getElementById("jdf-node-menu");

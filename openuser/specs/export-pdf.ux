@@ -1,0 +1,21 @@
+name: Export PDF
+persona: Knowledge Worker
+description: PDF export link returns a valid PDF from the project export API.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: unique_intent
+    prefix: "Write one short paragraph about emergency shelter standards."
+  - action: click
+    selector: "#generate-compile-btn"
+  - action: wait_compile_ready
+    timeout: 120000
+  - action: click
+    selector: "#generate-accept-dock"
+  - action: wait
+    selector: "#btn-export-pdf"
+    timeout: 15000
+  - action: fetch_pdf
+    url: "/api/projects/{{projectId}}/export?format=pdf"

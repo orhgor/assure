@@ -241,15 +241,46 @@ def save_jdf_revision(
         """,
         (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
     )
+    node_snapshot = None
+    if target_node_id:
+        for block in tree.get("body") or []:
+            if isinstance(block, dict) and block.get("id") == target_node_id:
+                node_snapshot = block
+                break
+            for child in block.get("children") or []:
+                if isinstance(child, dict) and child.get("id") == target_node_id:
+                    node_snapshot = child
+                    break
+            if node_snapshot:
+                break
+    db.commit()
     try:
         from .project_files import save_last_compiled
     except ImportError:
         from db.project_files import save_last_compiled
     save_last_compiled(project_id, tree)
-    db.commit()
+    try:
+        from .jdf_disk import write_jdf_disk
+    except ImportError:
+        from db.jdf_disk import write_jdf_disk
+    disk_path = write_jdf_disk(project_id, tree)
+    if node_snapshot and target_node_id:
+        try:
+            from .node_revision_repository import save_node_revision
+        except ImportError:
+            from db.node_revision_repository import save_node_revision
+        save_node_revision(
+            project_id,
+            target_node_id,
+            node_snapshot,
+            document_version=next_version,
+            mutation_type=mutation_type,
+            change_summary=change_summary,
+        )
     return {
         "ok": True,
         "version": next_version,
         "revision_id": revision_id,
         "document": tree,
+        "disk_path": str(disk_path),
     }

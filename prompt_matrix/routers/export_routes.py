@@ -11,11 +11,13 @@ from flask import Response, jsonify
 try:
     from ..db.jdf_repository import fetch_latest_jdf_or_empty
     from ..exporters.docx_ast import export_jdf_to_docx
+    from ..exporters.pdf_ast import export_jdf_to_pdf
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
     from ..lib.logger import get_audit_logger
 except ImportError:
     from db.jdf_repository import fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
+    from exporters.pdf_ast import export_jdf_to_pdf
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
     from lib.logger import get_audit_logger
 
@@ -102,6 +104,36 @@ def register_export_routes(app) -> None:
                 headers={"Content-Disposition": f'attachment; filename="{filename_base}.html"'},
             )
 
+        if fmt == "pdf":
+            try:
+                pdf_bytes = export_jdf_to_pdf(tree)
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "EXPORT_PDF",
+                    exc,
+                    duration_ms=duration_ms,
+                    details={"format": fmt},
+                )
+                return jsonify({"ok": False, "error": str(exc)}), 500
+            filename = f"{filename_base}.pdf"
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_PDF",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": "pdf", "filename": filename},
+            )
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
         if fmt != "docx":
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -114,7 +146,7 @@ def register_export_routes(app) -> None:
                 details={"format": fmt},
             )
             return jsonify(
-                {"error": "Unsupported format", "supported": ["docx", "json", "md", "html"]}
+                {"error": "Unsupported format", "supported": ["docx", "json", "md", "html", "pdf"]}
             ), 400
 
         try:

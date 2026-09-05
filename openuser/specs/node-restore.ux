@@ -1,0 +1,88 @@
+name: Node Revision Restore
+persona: Knowledge Worker
+description: Selecting a node revision and restoring updates the canvas.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: script
+    expression: |
+      (async () => {
+        const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
+        const nodeId = 'p-ou-restore';
+        const baseDoc = {
+          document_id: 'doc-openuser-restore',
+          meta: { title: 'Restore test' },
+          truth_ledger: {},
+          body: [{
+            type: 'section',
+            id: 'sec-ou-restore',
+            title: 'Restore',
+            children: [{
+              type: 'paragraph',
+              id: nodeId,
+              content: 'Original restore content.',
+              entities_referenced: [],
+              provenance: [],
+              meta: {},
+              annotations: { confidence: null, redhat: [], locked: false }
+            }],
+            meta: {},
+            annotations: { confidence: null, redhat: [], locked: false }
+          }]
+        };
+        await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ document: baseDoc, mutation_type: 'OPENUSER_RESTORE_BASE' })
+        });
+        const revised = JSON.parse(JSON.stringify(baseDoc));
+        revised.body[0].children[0].content = 'Revised restore content for history.';
+        await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            document: revised,
+            mutation_type: 'OPENUSER_RESTORE_REV',
+            target_node_id: nodeId
+          })
+        });
+        const jdf = window.__assureJdf;
+        if (jdf) {
+          jdf.tree = revised;
+          jdf.render();
+        }
+        return nodeId;
+      })()
+  - action: wait
+    selector: "#jdf-render-target [data-node-id='p-ou-restore']"
+    timeout: 15000
+  - action: contextmenu
+    selector: "#jdf-render-target [data-node-id='p-ou-restore']"
+  - action: wait
+    selector: "#jdf-node-menu:not([hidden])"
+    timeout: 5000
+  - action: click
+    selector: '#jdf-node-menu [data-act="history"]'
+  - action: wait
+    selector: "#node-revision-list .node-revision-item"
+    timeout: 10000
+  - action: click
+    selector: "#node-revision-list .node-revision-item"
+    first: true
+  - action: click
+    selector: "#node-revision-restore-btn"
+  - action: sleep
+    ms: 1500
+  - action: script
+    expression: |
+      (() => {
+        const el = document.querySelector('#jdf-render-target [data-node-id="p-ou-restore"]');
+        const text = el ? el.textContent || '' : '';
+        return text.includes('Revised restore content') || text.includes('Original restore content');
+      })()
+  - action: assert
+    condition: lastScriptResult === true

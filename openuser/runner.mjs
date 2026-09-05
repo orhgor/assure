@@ -303,7 +303,26 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       ctx[step.id] = Date.now() - started;
       return;
     }
-    case "assert": {
+    case "contextmenu": {
+      const loc = page.locator(step.selector);
+      const target = step.first ? loc.first() : loc;
+      await target.scrollIntoViewIfNeeded().catch(() => {});
+      await target.click({ button: "right", timeout: step.timeout || 15000 });
+      return;
+    }
+    case "fetch_pdf": {
+      const url = expandTemplate(step.url, ctx);
+      const result = await page.evaluate(async (u) => {
+        const res = await fetch(u, { credentials: "same-origin" });
+        const buf = new Uint8Array(await res.arrayBuffer());
+        const head = Array.from(buf.slice(0, 4)).map((b) => String.fromCharCode(b)).join("");
+        return { ok: res.ok, status: res.status, head, size: buf.length };
+      }, url);
+      ctx.lastFetchPdf = result;
+      if (!result.ok) throw new Error(`PDF fetch failed: ${result.status}`);
+      if (result.head !== "%PDF") throw new Error(`Expected PDF magic, got ${result.head}`);
+      return;
+    }
       if (step.condition) {
         const ok = evalCondition(step.condition, ctx);
         if (!ok) throw new Error(`Assertion failed: ${step.condition} (${JSON.stringify(ctx)})`);
