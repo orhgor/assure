@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 11
+_SCHEMA_VERSION = 12
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -35,6 +35,24 @@ def _migrate_v11(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE projects ADD COLUMN source_md TEXT NOT NULL DEFAULT ''")
     if not _column_exists(db, "projects", "last_compiled_json"):
         db.execute("ALTER TABLE projects ADD COLUMN last_compiled_json TEXT NOT NULL DEFAULT '[]'")
+
+
+def _migrate_v12(db: sqlite3.Connection) -> None:
+    """Compile/Red-Hat cache blobs. OMP is the queryable index; this holds large AST JSON."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pipeline_cache (
+            cache_key TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pipeline_cache_proj ON pipeline_cache(project_id, kind)"
+    )
 
 
 def _migrate_v5(db: sqlite3.Connection) -> None:
@@ -296,6 +314,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v10(db)
     if current < 11:
         _migrate_v11(db)
+    if current < 12:
+        _migrate_v12(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

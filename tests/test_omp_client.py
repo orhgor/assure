@@ -7,7 +7,13 @@ from io import BytesIO
 from unittest.mock import patch
 from urllib.error import HTTPError
 
-from prompt_matrix.omp_client import omp_list_memories, omp_recall, omp_remember
+from prompt_matrix.omp_client import (
+    omp_list_memories,
+    omp_recall,
+    omp_remember,
+    safe_omp_recall,
+    safe_omp_remember,
+)
 
 
 class _Resp:
@@ -106,3 +112,26 @@ def test_http_error_returns_json_without_raising():
             out = omp_remember("k", "secret-should-not-matter")
     assert out.get("error") == "unauthorized"
     assert out.get("status") == 401
+
+
+def test_safe_omp_recall_returns_none_on_error():
+    with patch("prompt_matrix.omp_client._request", return_value={"error": "timeout"}):
+        assert safe_omp_recall("ast:default:abc") is None
+
+
+def test_safe_omp_recall_parses_json_content():
+    payload = {"document": {"body": []}, "verified": {"ok": True}}
+    raw = {
+        "memories": [
+            {"content": json.dumps(payload), "tags": ["ast:default:abc123"]},
+        ]
+    }
+
+    with patch("prompt_matrix.omp_client._request", return_value=raw):
+        out = safe_omp_recall("ast:default:abc123")
+    assert out == payload
+
+
+def test_safe_omp_remember_never_raises():
+    with patch("prompt_matrix.omp_client._request", side_effect=TimeoutError("slow")):
+        safe_omp_remember("k", {"ok": True}, tags=["ast"])

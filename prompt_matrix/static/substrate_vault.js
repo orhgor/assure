@@ -347,6 +347,18 @@
           };
         }
         toast(t("substrate.vault.verified", "Verified"), "success");
+        if (data.text) {
+          global.fetch("/api/omp/remember", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: "substrate:" + projectId() + ":" + (data.id || file.name),
+              content: String(data.text).slice(0, 4000),
+              tags: ["substrate", projectId(), data.filename || file.name],
+            }),
+          }).catch(function () {});
+        }
       } catch (err) {
         var failIdx = this.files.indexOf(optimisticRow);
         if (failIdx >= 0) this.files.splice(failIdx, 1);

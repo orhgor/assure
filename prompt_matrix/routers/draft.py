@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sys
@@ -11,6 +12,11 @@ from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, Field
+
+try:
+    from ..omp_client import safe_omp_recall, safe_omp_remember
+except ImportError:
+    from omp_client import safe_omp_recall, safe_omp_remember
 
 _log = logging.getLogger(__name__)
 
@@ -78,6 +84,59 @@ class DraftCancelledError(Exception):
 
 SUBSTRATE_CONTEXT_CHARS_PER_FILE = 4000
 SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
+
+
+def _compile_source_fingerprint(intent: str, substrate_file_ids: list[str] | None) -> str:
+    parts = [(intent or "").strip()]
+    if substrate_file_ids:
+        parts.append(",".join(sorted(str(item) for item in substrate_file_ids)))
+    digest = hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+    return digest[:16]
+
+
+def _ast_cache_key(project_id: str, source_md: str, substrate_file_ids: list[str] | None) -> str:
+    fingerprint = _compile_source_fingerprint(source_md, substrate_file_ids)
+    return f"ast:{project_id}:{fingerprint}"
+
+
+def _yield_cached_compile(
+    cached: dict[str, Any],
+    *,
+    rid: str,
+    project_id: str,
+) -> Iterator[str]:
+    document = cached.get("document") or {}
+    locks = cached.get("locks") or []
+    draft_text = cached.get("draft_text") or ""
+    verified = cached.get("verified") or {}
+    yield _typed_sse(
+        "status",
+        {"stage": "cache", "message": "Loaded compile from memory cache.", "request_id": rid},
+    )
+    yield _typed_sse(
+        "compiled",
+        {
+            "document": document,
+            "nodes": document.get("body") or cached.get("nodes") or [],
+            "locks": locks,
+            "node_count": len(document.get("body") or cached.get("nodes") or []),
+            "lock_count": len(locks),
+            "draft_text": draft_text,
+            "cache_hit": True,
+        },
+    )
+    yield _typed_sse("verified", verified)
+    yield _typed_sse(
+        "complete",
+        {
+            "ok": True,
+            "request_id": rid,
+            "node_count": len(document.get("body") or []),
+            "lock_count": len(locks),
+            "cache_hit": True,
+        },
+    )
+    yield _done_sse()
 
 
 class DraftPayload(BaseModel):
@@ -180,6 +239,7 @@ def run_redhat_audit(
     *,
     gov: CostGovernor,
     cancel_check: CancelCheck | None = None,
+    previous_context: str | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """DeepSeek-R1 adversarial critique (Stage 4 — heavy)."""
     _check_cancel(cancel_check)
@@ -187,14 +247,19 @@ def run_redhat_audit(
     if not content:
         return [], {"input_tokens": 0, "output_tokens": 0, "model_id": ""}
 
+    prompt_parts = [
+        "Red-hat adversarial review of this draft document. "
+        "List concrete risks, unsupported claims, and missing citations."
+    ]
+    prev = (previous_context or "").strip()
+    if prev:
+        prompt_parts.insert(0, f"Previous context:\n{prev[:4000]}\n")
+    prompt_parts.append(content)
+
     red_messages = [
         {
             "role": "user",
-            "content": (
-                "Red-hat adversarial review of this draft document. "
-                "List concrete risks, unsupported claims, and missing citations.\n\n"
-                f"{content}"
-            ),
+            "content": "\n\n".join(prompt_parts),
         }
     ]
 
@@ -326,6 +391,20 @@ def run_draft_pipeline(
             "error", {"ok": False, "error": str(exc), "http_status": 400, "request_id": rid}
         )
         yield _done_sse()
+        return
+
+    cache_key = _ast_cache_key(project_id, intent, substrate_file_ids)
+    cached = safe_omp_recall(cache_key)
+    if isinstance(cached, dict) and cached.get("document") and cached.get("verified"):
+        yield from _yield_cached_compile(cached, rid=rid, project_id=project_id)
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=True,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            details={"cache_hit": True, "cache_key": cache_key},
+        )
         return
 
     yield _typed_sse(
@@ -465,6 +544,18 @@ def run_draft_pipeline(
     )
     yield _typed_sse("verified", verified_payload)
 
+    safe_omp_remember(
+        cache_key,
+        {
+            "draft_text": full_text,
+            "document": verified_doc,
+            "locks": locks,
+            "z3_results": z3_results,
+            "verified": verified_payload,
+        },
+        tags=["ast", project_id, cache_key],
+    )
+
     # Hybrid compile gate: the pipeline ends here. Docking is unblocked now
     # that Math Check has passed. The Stress Test (Red-Hat, DeepSeek-Reasoner)
     # is opt-in and slow — it only runs if the user explicitly asks for it,
@@ -539,6 +630,17 @@ def run_redhat_pipeline(
 
     yield _typed_sse("status", {"message": "Running Stress Test…"})
 
+    redhat_key = f"redhat:{project_id}"
+    previous_context = safe_omp_recall(redhat_key)
+    if isinstance(previous_context, dict):
+        previous_context = (
+            previous_context.get("content")
+            or previous_context.get("critique")
+            or json.dumps(previous_context, ensure_ascii=False)
+        )
+    elif previous_context is not None:
+        previous_context = str(previous_context)
+
     redhat_critiques: list[dict[str, Any]] = []
     try:
         _check_cancel(cancel_check)
@@ -547,6 +649,7 @@ def run_redhat_pipeline(
             draft_text,
             gov=gov,
             cancel_check=cancel_check,
+            previous_context=previous_context if previous_context else None,
         )
         if red_usage.get("model_id"):
             gov.record_usage(
@@ -579,6 +682,15 @@ def run_redhat_pipeline(
                 "status": "error",
             }
         ]
+
+    if redhat_critiques:
+        critique_text = str(redhat_critiques[0].get("content") or "").strip()
+        if critique_text:
+            safe_omp_remember(
+                redhat_key,
+                critique_text,
+                tags=["redhat", project_id, redhat_key],
+            )
 
     annotated = document
     if redhat_critiques:

@@ -12,12 +12,16 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 OMP_SERVER = os.getenv("OMP_SERVER", "http://localhost:3456")
 API_KEY_PATH = os.path.expanduser("~/.omp/api_key")
 DEFAULT_NAMESPACE = "project:prompt-matrix"
+OMP_CONTENT_MAX = 9000
+_TAG_RE = re.compile(r"[^a-z0-9_:\-]+")
+SAFE_OMP_TIMEOUT = 2.0
 
 _log = logging.getLogger(__name__)
 
@@ -57,6 +61,7 @@ def _request(
     *,
     body: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
+    timeout: float = 5,
 ) -> dict[str, Any]:
     base = (os.getenv("OMP_SERVER") or OMP_SERVER).rstrip("/")
     url = base + path
@@ -69,7 +74,7 @@ def _request(
     data = None if body is None else json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=_get_headers(), method=method)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
             if resp.status == 204 or not raw:
                 return {"ok": True, "status": int(resp.status)}
@@ -129,9 +134,79 @@ def omp_health() -> dict[str, Any]:
     base = (os.getenv("OMP_SERVER") or OMP_SERVER).rstrip("/")
     req = urllib.request.Request(base + "/v1/health", method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=2) as resp:
+        with urllib.request.urlopen(req, timeout=SAFE_OMP_TIMEOUT) as resp:
             raw = resp.read()
             parsed = json.loads(raw) if raw else {}
             return parsed if isinstance(parsed, dict) else {"status": "ok"}
     except Exception as exc:
         return {"status": "down", "error": str(exc)}
+
+
+def _parse_recall_payload(raw: dict[str, Any] | None, key: str) -> Any | None:
+    """Extract stored content from an OMP search response."""
+    if not raw or raw.get("error"):
+        return None
+    memories = raw.get("memories") or raw.get("results") or []
+    if not isinstance(memories, list) or not memories:
+        return None
+    key_str = str(key)
+    for mem in memories:
+        if not isinstance(mem, dict):
+            continue
+        tags = mem.get("tags") or []
+        content = str(mem.get("content") or "").strip()
+        if not content:
+            continue
+        if key_str in tags or key_str in content:
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                return content
+    first = memories[0]
+    if not isinstance(first, dict):
+        return None
+    content = str(first.get("content") or "").strip()
+    if not content:
+        return None
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return content
+
+
+def safe_omp_recall(key: str) -> Any | None:
+    """Best-effort recall with a short timeout. Returns None if OMP is down or slow."""
+    if not key:
+        return None
+    try:
+        raw = _request(
+            "POST",
+            "/v1/memories/search",
+            body={"q": key, "limit": 10, "mode": "keyword"},
+            timeout=SAFE_OMP_TIMEOUT,
+        )
+        return _parse_recall_payload(raw, key)
+    except Exception as exc:
+        _log.debug("safe_omp_recall(%s) skipped: %s", key, exc)
+        return None
+
+
+def safe_omp_remember(key: str, content: Any, tags: list | None = None) -> None:
+    """Best-effort store; never raises and never blocks compile on failure."""
+    if not key:
+        return
+    try:
+        text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+        tag_list = [str(t) for t in (tags or []) if t]
+        if key not in tag_list:
+            tag_list.append(str(key))
+        payload = {
+            "content": text,
+            "type": "semantic",
+            "tags": tag_list,
+            "namespace": DEFAULT_NAMESPACE,
+            "source": {"tool": "assure", "timestamp": _now()},
+        }
+        _request("POST", "/v1/memories", body=payload, timeout=SAFE_OMP_TIMEOUT)
+    except Exception as exc:
+        _log.debug("safe_omp_remember(%s) skipped: %s", key, exc)

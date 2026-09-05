@@ -87,6 +87,70 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     assert any(f.strip() == "data: [DONE]" for f in frames)
 
 
+def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
+    """OMP compile cache should skip the LLM when a prior result exists."""
+
+    def fail_stream(*_a, **_k):
+        raise AssertionError("_stream_claude must not run on cache hit")
+
+    cached = {
+        "draft_text": "Cached draft.",
+        "document": {
+            "document_id": "doc-default",
+            "meta": {},
+            "truth_ledger": {},
+            "body": [
+                {
+                    "type": "section",
+                    "id": "sec-1",
+                    "title": "Cached",
+                    "children": [
+                        {"type": "paragraph", "id": "para-1", "content": "Cached draft."},
+                    ],
+                }
+            ],
+        },
+        "locks": [],
+        "verified": {
+            "ok": True,
+            "gate_status": "pass",
+            "z3_status": "PASS",
+            "z3_results": {"status": "PASS"},
+            "redhat_count": 0,
+            "redhat_critiques": [],
+            "document": {
+                "document_id": "doc-default",
+                "meta": {},
+                "truth_ledger": {},
+                "body": [],
+            },
+        },
+    }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fail_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.safe_omp_recall", lambda _key: cached)
+    remember_calls: list[tuple] = []
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.safe_omp_remember",
+        lambda key, payload, tags=None: remember_calls.append((key, payload, tags)),
+    )
+
+    frames = list(
+        run_draft_pipeline(
+            "default",
+            intent="Same intent as before.",
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    types = [e[1].get("type") or e[0] for e in events if isinstance(e[1], dict)]
+    assert "compiled" in types
+    assert "verified" in types
+    compiled = next(data for _ev, data in events if data.get("type") == "compiled")
+    assert compiled.get("cache_hit") is True
+    assert remember_calls == []
+
+
 def test_run_redhat_pipeline_opt_in(monkeypatch):
     """Opt-in Stage 4: only runs when explicitly invoked, over an
     already-verified document, and attaches findings without recomputing
