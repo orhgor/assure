@@ -51,6 +51,30 @@
       .join(" ");
   }
 
+  function renderOriginalDiffHtml(tokens) {
+    return tokens
+      .map(function (tok) {
+        if (tok.t === "ins") return "";
+        if (tok.t === "del") return '<del class="diff-del">' + tok.w + "</del>";
+        return tok.w;
+      })
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function renderProposedDiffHtml(tokens) {
+    return tokens
+      .map(function (tok) {
+        if (tok.t === "del") return "";
+        if (tok.t === "ins") return '<ins class="diff-ins">' + tok.w + "</ins>";
+        return tok.w;
+      })
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function parseSseChunk(buffer) {
     var events = [];
     var parts = buffer.split("\n\n");
@@ -225,6 +249,9 @@
     } catch (_) {}
     this.confidenceSpans =
       (this.tree && this.tree.meta && this.tree.meta.confidenceSpans) || [];
+    this._revisionHistory = [];
+    this._versionPreview = null;
+    this._liveTreeSnapshot = null;
     this._animateNextRender = false;
     this.isFirstLoad = true;
     this.isFirstVerification = true;
@@ -289,7 +316,10 @@
   JDFCanvasManager.prototype.setVersion = function (version) {
     this.documentVersion = version || 1;
     var verEl = document.getElementById("version-display");
-    if (verEl) verEl.textContent = String(this.documentVersion);
+    if (verEl && !document.getElementById("version-history-slider")) {
+      verEl.textContent = String(this.documentVersion);
+    }
+    this._syncVersionSliderUi(version);
     if (global.AssureCompilerStatus && typeof global.AssureCompilerStatus.setVersion === "function") {
       global.AssureCompilerStatus.setVersion(this.documentVersion);
     }
@@ -410,11 +440,122 @@
             after = files.hydrate(self.projectId);
           }
           return after.then(function () {
+            self._liveTreeSnapshot = JSON.parse(JSON.stringify(self.tree || {}));
             self._animateNextRender = self.isFirstLoad;
             self.render();
             self.isFirstLoad = false;
+            return self.loadRevisionHistory();
           });
         });
+    });
+  };
+
+  JDFCanvasManager.prototype.loadRevisionHistory = function () {
+    var self = this;
+    return fetch("/api/projects/" + encodeURIComponent(this.projectId) + "/history")
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        self._revisionHistory = (data.revisions || [])
+          .slice()
+          .sort(function (a, b) {
+            return a.version - b.version;
+          });
+        self._syncVersionSliderUi(self.documentVersion);
+      })
+      .catch(function () {
+        self._revisionHistory = [];
+        self._syncVersionSliderUi(self.documentVersion);
+      });
+  };
+
+  JDFCanvasManager.prototype._revisionMetaForVersion = function (version) {
+    var hist = this._revisionHistory || [];
+    var i;
+    for (i = 0; i < hist.length; i += 1) {
+      if (hist[i].version === version) return hist[i];
+    }
+    return null;
+  };
+
+  JDFCanvasManager.prototype._formatRevisionWhen = function (iso) {
+    if (!iso) return "";
+    try {
+      var d = new Date(iso);
+      return d.toLocaleString();
+    } catch (_) {
+      return String(iso);
+    }
+  };
+
+  JDFCanvasManager.prototype._syncVersionSliderUi = function (version) {
+    var slider = document.getElementById("version-history-slider");
+    var label = document.getElementById("version-history-label");
+    var restoreBtn = document.getElementById("version-restore-btn");
+    if (!slider) return;
+    var hist = this._revisionHistory || [];
+    var maxV = hist.length ? hist[hist.length - 1].version : this.documentVersion || 1;
+    var minV = hist.length ? hist[0].version : 1;
+    slider.min = String(minV);
+    slider.max = String(maxV);
+    slider.disabled = maxV <= minV;
+    var current = version || this.documentVersion || maxV;
+    slider.value = String(current);
+    if (label) {
+      var meta = this._revisionMetaForVersion(current);
+      var when = meta && meta.created_at ? this._formatRevisionWhen(meta.created_at) : "";
+      label.textContent = when
+        ? jdfT("jdf.version.label_when", "v{version} — {when}", { version: String(current), when: when })
+        : jdfT("jdf.version.label", "v{version}", { version: String(current) });
+    }
+    if (restoreBtn) {
+      restoreBtn.hidden = !this._versionPreview || current >= maxV;
+    }
+  };
+
+  JDFCanvasManager.prototype.loadJdfVersion = function (version) {
+    var self = this;
+    var target = parseInt(version, 10);
+    if (!target || isNaN(target)) return Promise.resolve();
+    var hist = this._revisionHistory || [];
+    var maxV = hist.length ? hist[hist.length - 1].version : this.documentVersion || target;
+    if (target >= maxV) {
+      this._versionPreview = null;
+      this._syncVersionSliderUi(maxV);
+      if (this._liveTreeSnapshot) {
+        this.tree = JSON.parse(JSON.stringify(this._liveTreeSnapshot));
+        this.render();
+      } else {
+        return this.refreshCanvas();
+      }
+      return Promise.resolve();
+    }
+    return fetch(
+      "/api/projects/" + encodeURIComponent(this.projectId) + "/jdf?version=" + encodeURIComponent(String(target))
+    )
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data.document) return;
+        self._versionPreview = target;
+        self.tree = data.document;
+        self.render();
+        self._syncVersionSliderUi(target);
+      });
+  };
+
+  JDFCanvasManager.prototype.restoreVersionPreview = function () {
+    var self = this;
+    if (!this._versionPreview || !this.tree) return Promise.resolve();
+    var version = this._versionPreview;
+    return this.saveDocument("MANUAL_TOUCHUP", {
+      change_summary: "Restored from version " + version,
+    }).then(function () {
+      self._versionPreview = null;
+      self._liveTreeSnapshot = JSON.parse(JSON.stringify(self.tree || {}));
+      return self.loadRevisionHistory();
     });
   };
 
@@ -427,6 +568,7 @@
       .then(function (data) {
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
+        self._liveTreeSnapshot = JSON.parse(JSON.stringify(self.tree || {}));
         self.render();
       });
   };
@@ -627,11 +769,14 @@
       .then(function (data) {
         if (data.document) self.tree = data.document;
         if (data.version) self.setVersion(data.version);
+        self._liveTreeSnapshot = JSON.parse(JSON.stringify(self.tree || {}));
+        self._versionPreview = null;
         self._setDirty(false);
         if (global.AssureUnsaved) global.AssureUnsaved.clearUnsaved();
         self.setSavePill("saved", "jdf.status.committed", {
           version: data.version || self.documentVersion,
         });
+        self.loadRevisionHistory();
         return data;
       })
       .catch(function (err) {
@@ -965,14 +1110,29 @@
     this.saveDocument("NODE_MERGE", { target_node_id: loc.node.id });
   };
 
-  JDFCanvasManager.prototype.showRevisionDiff = function (original, proposed) {
+  JDFCanvasManager.prototype.showRevisionDiff = function (original, proposed, options) {
     var panel = document.getElementById("jdf-diff-panel");
     var origEl = document.getElementById("jdf-diff-original");
     var propEl = document.getElementById("jdf-diff-proposed");
     if (!panel || !origEl || !propEl) return;
-    origEl.textContent = original || "";
-    propEl.textContent = proposed || "";
+    options = options || {};
+    if (options.sideBySideDiff) {
+      var tokens = computeWordDiff(original, proposed);
+      origEl.innerHTML =
+        renderOriginalDiffHtml(tokens) || this._escapeHtml(original || "");
+      propEl.innerHTML =
+        renderProposedDiffHtml(tokens) || this._escapeHtml(proposed || "");
+    } else {
+      origEl.textContent = original || "";
+      propEl.textContent = proposed || "";
+    }
     panel.hidden = false;
+    if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+      global.AssureNav.switchView("surgical");
+    }
+    try {
+      panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (_) {}
   };
 
   JDFCanvasManager.prototype.hideRevisionDiff = function () {
@@ -982,7 +1142,33 @@
   };
 
   JDFCanvasManager.prototype.acceptRevisionDiff = function () {
-    if (!this._pendingDiff || !this._pendingDiff.nodeId) return;
+    if (!this._pendingDiff) return;
+    var self = this;
+    if (this._pendingDiff.surgical && this._pendingDiff.payload) {
+      this._applyRefinedPayload(this._pendingDiff.payload);
+      var nid =
+        this._pendingDiff.nodeId ||
+        (this._pendingDiff.payload.node && this._pendingDiff.payload.node.id);
+      this.saveDocument("MUTATION_ACCEPT", {
+        target_node_id: nid,
+        change_summary: "Accepted surgical refine",
+      }).then(function () {
+        self._liveTreeSnapshot = JSON.parse(JSON.stringify(self.tree || {}));
+        self.loadRevisionHistory();
+      });
+      this.hideRevisionDiff();
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          jdfT("surgical.click.done", "Node updated. Math check re-run."),
+          "success"
+        );
+      }
+      return;
+    }
+    if (!this._pendingDiff.nodeId) {
+      this.hideRevisionDiff();
+      return;
+    }
     var node = this.getNodeById(this._pendingDiff.nodeId);
     if (node) {
       node.content = this._pendingDiff.proposed;
@@ -1456,8 +1642,7 @@
     });
   };
 
-  JDFCanvasManager.prototype.applyRefinedNode = function (payload) {
-    var self = this;
+  JDFCanvasManager.prototype._applyRefinedPayload = function (payload) {
     if (!payload) return;
     if (payload.document) {
       this.tree = sanitizeJDFDocument(payload.document);
@@ -1495,8 +1680,16 @@
     if (global.AssureGenerate) {
       global.AssureGenerate.compiledDocument = this.tree;
     }
+  };
+
+  JDFCanvasManager.prototype.applyRefinedNode = function (payload) {
+    var self = this;
+    if (!payload) return;
+    this._applyRefinedPayload(payload);
     if (this.saveDocument) {
-      this.saveDocument("surgical_refine", { target_node_id: payload.node && payload.node.id }).catch(function () {});
+      this.saveDocument("surgical_refine", { target_node_id: payload.node && payload.node.id }).catch(
+        function () {}
+      );
     }
   };
 
@@ -1516,6 +1709,9 @@
     } catch (_) {}
     var toggle = document.getElementById("confidence-overlay-toggle");
     if (toggle) toggle.checked = this.showConfidenceOverlay;
+    if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.setOverlayEnabled === "function") {
+      global.AssureTiptapEditor.setOverlayEnabled(this.showConfidenceOverlay);
+    }
     this.render();
   };
 
@@ -1583,13 +1779,30 @@
 
   JDFCanvasManager.prototype.setConfidenceSpans = function (spans, options) {
     this.confidenceSpans = Array.isArray(spans) ? spans : [];
+    global._assureConfidenceSpans = this.confidenceSpans;
     if (this.tree) {
       this.tree.meta = this.tree.meta || {};
       this.tree.meta.confidenceSpans = this.confidenceSpans;
     }
+    if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.setConfidenceSpans === "function") {
+      global.AssureTiptapEditor.setConfidenceSpans(this.confidenceSpans);
+    }
     if (!(options && options.render === false)) {
       this.render();
     }
+  };
+
+  JDFCanvasManager.prototype._renderCacheBadge = function (node, hostEl) {
+    if (!hostEl || !node || !node.meta || !node.meta.cache_hit) return;
+    var badge = document.createElement("span");
+    badge.className =
+      "inline-flex items-center text-xs text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded-full ml-2 assure-cache-badge";
+    badge.setAttribute(
+      "title",
+      jdfT("generate.cache_badge_tip", "Loaded from memory")
+    );
+    badge.textContent = jdfT("generate.cache_badge", "⚡ Cached");
+    hostEl.appendChild(badge);
   };
 
   JDFCanvasManager.prototype._confidenceSpansForNode = function (node) {
@@ -1741,6 +1954,7 @@
       var headingLabel = section.title || jdfT("generate.ast.heading", "Heading");
       self._paintConfidence(h2, headingLabel, self._confidenceSpansForNode(section));
       sectionSummary.appendChild(h2);
+      self._renderCacheBadge(section, sectionSummary);
       sectionDetails.appendChild(sectionSummary);
       (section.children || []).forEach(function (node) {
         var type = node.type || "paragraph";
@@ -1767,6 +1981,8 @@
         var wrap = self._wrapAstDetails(summaryText, inner, "jdf-ast-accordion jdf-ast-node");
         if (node.id) wrap.dataset.nodeId = node.id;
         wrap.classList.add("jdf-ast-hit");
+        var wrapSummary = wrap.querySelector("summary");
+        if (wrapSummary) self._renderCacheBadge(node, wrapSummary);
         sectionDetails.appendChild(wrap);
       });
       self.rootEl.appendChild(sectionDetails);
@@ -1893,6 +2109,12 @@
           });
         }
         article.appendChild(self._toolbar(node, sIdx, cIdx));
+        var cacheHeader = document.createElement("div");
+        cacheHeader.className = "jdf-node-cache-header";
+        self._renderCacheBadge(node, cacheHeader);
+        if (cacheHeader.childNodes.length) {
+          article.insertBefore(cacheHeader, article.firstChild);
+        }
         article.appendChild(body);
         if (self.showCitations) {
           self._renderCitationBadge(node, article);
@@ -2533,6 +2755,22 @@
     if (diffAccept) diffAccept.addEventListener("click", function () { self.acceptRevisionDiff(); });
     var diffReject = document.getElementById("jdf-diff-reject");
     if (diffReject) diffReject.addEventListener("click", function () { self.hideRevisionDiff(); });
+    var versionSlider = document.getElementById("version-history-slider");
+    if (versionSlider && !versionSlider.dataset.bound) {
+      versionSlider.dataset.bound = "1";
+      versionSlider.addEventListener("input", function () {
+        self.loadJdfVersion(parseInt(versionSlider.value, 10));
+      });
+    }
+    var versionRestore = document.getElementById("version-restore-btn");
+    if (versionRestore && !versionRestore.dataset.bound) {
+      versionRestore.dataset.bound = "1";
+      versionRestore.addEventListener("click", function () {
+        self.restoreVersionPreview().catch(function (err) {
+          if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");
+        });
+      });
+    }
     this._bindNodeMenu();
     this._bindCrossPaneLinks();
     this._bindSubstrateFocus();

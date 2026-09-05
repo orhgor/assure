@@ -471,7 +471,12 @@
               <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('● Ready') }}</span>
               <span id="compiler-status-detail" hidden></span>
             </span>
-            <span id="version-display" class="visually-hidden" aria-hidden="true">1</span>
+            <span id="version-display" class="version-history-control" aria-live="polite">
+              <label class="version-history-label" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('Version history') }}</label>
+              <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
+              <span id="version-history-label" class="version-history-meta">v1</span>
+              <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
+            </span>
           </div>
           <div class="command-deck-right">
             <button type="button" class="shortcut-hint-btn tooltip-trigger" id="shortcut-hint-btn" aria-label="{{ gettext('Keyboard shortcuts') }}" data-i18n-aria="shortcuts.title" data-tooltip="{{ gettext('Keyboard shortcuts') }}" data-i18n-tooltip="shortcuts.title" data-shortcut="?">?</button>

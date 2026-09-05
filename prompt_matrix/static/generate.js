@@ -554,6 +554,16 @@
           self.compiledNodes = data.nodes || (data.document && data.document.body) || [];
           self.compiledLocks = data.locks || [];
           self.compiledDocument = data.document || null;
+          if (data.cache_hit && self.compiledDocument) {
+            self.compiledDocument.meta = self.compiledDocument.meta || {};
+            self.compiledDocument.meta.cache_hit = true;
+            (self.compiledDocument.body || []).forEach(function (sec) {
+              sec.meta = Object.assign({}, sec.meta || {}, { cache_hit: true });
+              (sec.children || []).forEach(function (node) {
+                node.meta = Object.assign({}, node.meta || {}, { cache_hit: true });
+              });
+            });
+          }
           self.draftText = data.draft_text || self.draftText;
           global.compiledDraftNodes = self.compiledNodes;
           global.compiledLocks = self.compiledLocks;
@@ -731,13 +741,26 @@
     },
 
     renderDraftNodes: function (nodes) {
+      var self = this;
       var jdf = global.__assureJdf;
       if (!jdf || typeof jdf.setDraftPreview !== "function") return;
       var previewDoc = {
         document_id: "draft-preview",
-        meta: { title: t("generate.draft_preview_title", "Draft Preview") },
+        meta: {
+          title: t("generate.draft_preview_title", "Draft Preview"),
+          cache_hit: !!(this.compiledDocument && this.compiledDocument.meta && this.compiledDocument.meta.cache_hit),
+        },
         truth_ledger: (this.compiledDocument && this.compiledDocument.truth_ledger) || {},
-        body: nodes || [],
+        body: (nodes || []).map(function (sec) {
+          var copy = JSON.parse(JSON.stringify(sec));
+          if (self.compiledDocument && self.compiledDocument.meta && self.compiledDocument.meta.cache_hit) {
+            copy.meta = Object.assign({}, copy.meta || {}, { cache_hit: true });
+            (copy.children || []).forEach(function (child) {
+              child.meta = Object.assign({}, child.meta || {}, { cache_hit: true });
+            });
+          }
+          return copy;
+        }),
       };
       jdf.setDraftPreview(previewDoc);
       if (typeof jdf.setAllGutterState === "function") jdf.setAllGutterState("verifying");
@@ -906,6 +929,12 @@
         return (sections || []).map(function (sec) {
           var copy = JSON.parse(JSON.stringify(sec));
           copy.meta = Object.assign({}, copy.meta || {}, { prompt_cycle: cycleId });
+          if (self.compiledDocument && self.compiledDocument.meta && self.compiledDocument.meta.cache_hit) {
+            copy.meta.cache_hit = true;
+            (copy.children || []).forEach(function (child) {
+              child.meta = Object.assign({}, child.meta || {}, { cache_hit: true });
+            });
+          }
           return copy;
         });
       }
