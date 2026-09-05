@@ -58,6 +58,7 @@ export GHCR_USER='${GHCR_USER}'
 sudo -u ubuntu git config --global --add safe.directory /home/ubuntu/assure 2>/dev/null || true
 cd /home/ubuntu/assure
 sudo -u ubuntu git remote set-url origin "https://x-access-token:${TOKEN}@github.com/orhgor/assure.git"
+sudo -u ubuntu git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 sudo -u ubuntu git fetch origin ${GIT_BRANCH}
 sudo -u ubuntu git checkout -B ${GIT_BRANCH} origin/${GIT_BRANCH}
 sudo -u ubuntu git log -1 --oneline

@@ -141,6 +141,7 @@ acquire_redeploy_lock() {
 
 echo "==> Git sync (${BRANCH})"
 acquire_redeploy_lock
+git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 git fetch origin "$BRANCH"
 git checkout -B "$BRANCH" "origin/$BRANCH"
 FULL_SHA="$(git rev-parse HEAD)"
