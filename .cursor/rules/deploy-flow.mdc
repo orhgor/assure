@@ -1,0 +1,48 @@
+---
+description: GitHub → staging → production deploy flow; no local Flask by default
+alwaysApply: true
+---
+
+# Deploy flow (GitHub → staging → production)
+
+Do **not** start a local Flask workbench (`127.0.0.1:8801`, `8798`, etc.) unless the user explicitly asks for local debugging or a localhost-only test.
+
+Default targets:
+- **Staging:** https://staging.getassureai.com
+- **Production:** https://getassureai.com
+
+## Branch workflow
+
+1. Feature branch → PR → **CI** (pytest + OpenUser against staging).
+2. Merge to **`staging`** → **UX Regression (OpenUser)** + **Deploy to Staging**.
+3. Merge **`staging` → `main`** → **Deploy to Production**.
+
+Push to `staging` and `main`; do not rely on local servers for verification or demos.
+
+## OpenUser / UX tests
+
+- CI and UX workflows hit **staging**, not localhost.
+- Use project `prj_YhR-5cBgb_7E` via `--project` / `init_workbench` (not the polluted `default` project on staging).
+- Import PDF lives under footer **More** → `#command-deck-more`.
+
+## Deploy mechanisms
+
+**Automatic (on push):**
+- `deploy-staging.yml` — push to `staging` (SSH + `git pull` on EC2).
+- `deploy-production.yml` — push to `main`.
+
+Requires GitHub environment secrets: `EC2_SSH_PRIVATE_KEY`, `EC2_HOST_STAGING`, `EC2_HOST_PRODUCTION`.
+
+**Manual (Actions → workflow_dispatch):**
+- **App Docker (Staging)** — GHCR build + SSM redeploy to staging EC2.
+- **App Docker** — GHCR build + SSM redeploy to production EC2.
+
+Requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, instance IDs, `GHCR_DEPLOY_TOKEN` as configured in repo secrets.
+
+## When local server is OK
+
+Only if the user asks, or you need to reproduce a bug that does not appear on staging:
+- Local: `ASSURE_REQUIRE_LOGIN=false .venv/bin/python -c "from prompt_matrix.web import create_app; … port=8801"`
+- OpenUser local: `ASSURE_BASE_URL=http://127.0.0.1:8801`
+
+Stop local servers when done; prefer staging for day-to-day work.
