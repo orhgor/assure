@@ -379,7 +379,15 @@
           {
             types: ["heading"],
             attributes: {
-              sectionId: { default: "" },
+              sectionId: {
+                default: "",
+                parseHTML: function (el) {
+                  return el.getAttribute("data-section-id") || "";
+                },
+                renderHTML: function (attrs) {
+                  return attrs.sectionId ? { "data-section-id": attrs.sectionId } : {};
+                },
+              },
             },
           },
         ];
@@ -521,6 +529,12 @@
       },
     });
       rootEl.classList.add("is-tiptap");
+      if (typeof global.initializeEditorSyncBridge === "function") {
+        global.initializeEditorSyncBridge(editor);
+      }
+      if (typeof global.initializeAstSerializer === "function") {
+        global.initializeAstSerializer(editor);
+      }
       return editor;
     } catch (err) {
       editor = null;

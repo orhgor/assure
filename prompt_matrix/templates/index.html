@@ -133,26 +133,7 @@
               <ul id="projects-list" class="projects-list" role="list"></ul>
             </div>
 
-            <div id="view-generate" class="assure-view active">
-              <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
-              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
-              <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('What should this document cover?') }}"></textarea>
-              <div class="compile-toolbar">
-                <label class="compile-model-label tooltip-trigger" for="generate-model-select" data-tooltip="{{ gettext('Which model writes the first draft') }}" data-i18n-tooltip="tooltip.model">
-                  <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
-                  <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
-                    <option value="gemini">Gemini</option>
-                    <option value="claude">Claude</option>
-                    <option value="deepseek">DeepSeek</option>
-                  </select>
-                </label>
-                <label class="check compile-lock-toggle">
-                  <input type="checkbox" id="generate-lock-toggle" checked>
-                  <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
-                </label>
-              </div>
-              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
-              <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
+            <div id="left-pane-shared" class="left-pane-shared">
               <details id="substrate-vault" class="substrate-vault" open>
                 <summary class="substrate-vault-summary">
                   <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</span></span>
@@ -177,6 +158,58 @@
                   <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
                 </div>
               </details>
+              <details id="document-structure" class="document-structure-panel" open>
+                <summary class="document-structure-summary">
+                  <span class="document-structure-title">📐 <span data-i18n="structure.title">{{ gettext('Document Structure') }}</span></span>
+                </summary>
+                <div class="document-structure-body">
+                  <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
+                  <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Connect Sections') }}</button>
+                  </div>
+                </div>
+              </details>
+              <details id="refine-workspace" class="refine-workspace-panel" open>
+                <summary class="refine-workspace-summary">
+                  <span class="refine-workspace-title">✨ <span data-i18n="refine.workspace.title">{{ gettext('Refine Workspace') }}</span></span>
+                </summary>
+                <div class="refine-workspace-body" id="refineControlWorkspace">
+                  <div id="refineFocusBadgeContainer">
+                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Click a paragraph in the canvas to refine it') }}</span>
+                  </div>
+                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('Describe transformation directive or structural modification…') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Refine Selection') }}</button>
+                    <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
+                  </div>
+                  <div class="visible-action-bar refine-redhat-bar">
+                    <button type="button" class="btn-trust-action btn-trust-redhat" id="executeRedHatBtn" data-i18n="refine.run_redhat">{{ gettext('Run Red-Hat Audit') }}</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <div id="view-generate" class="assure-view active">
+              <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
+              <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
+              <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('What should this document cover?') }}"></textarea>
+              <div class="compile-toolbar">
+                <label class="compile-model-label tooltip-trigger" for="generate-model-select" data-tooltip="{{ gettext('Which model writes the first draft') }}" data-i18n-tooltip="tooltip.model">
+                  <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
+                  <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
+                    <option value="gemini">Gemini</option>
+                    <option value="claude">Claude</option>
+                    <option value="deepseek">DeepSeek</option>
+                  </select>
+                </label>
+                <label class="check compile-lock-toggle">
+                  <input type="checkbox" id="generate-lock-toggle" checked>
+                  <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
+                </label>
+              </div>
+              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
+              <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
               <div class="generate-quick-actions" id="generate-quick-actions">
                 <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
                 <div class="lock-inference-actions">
@@ -618,6 +651,11 @@
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="expand" data-i18n="spine.expand_all">{{ gettext('Expand All') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="collapse" data-i18n="spine.collapse_all">{{ gettext('Collapse All') }}</button>
         </div>
+        <div id="structure-node-menu" class="jdf-node-menu structure-node-menu" hidden role="menu" aria-hidden="true">
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="merge" data-i18n="structure.merge_next">{{ gettext('Merge with Next') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="split" data-i18n="structure.split">{{ gettext('Split Section') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="delete" data-i18n="structure.delete">{{ gettext('Delete Section') }}</button>
+        </div>
         <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
       </div>
     </div>
@@ -824,6 +862,12 @@
   <script src="{{ url_for('static', filename='workbench_ux.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='argument_spine.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='editor_sync.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='ast_serializer.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='document_structure.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='refine.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='connect.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='redhat_panel.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>

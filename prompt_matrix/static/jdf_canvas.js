@@ -751,6 +751,105 @@
     return path;
   };
 
+  JDFCanvasManager.prototype.getSectionPath = JDFCanvasManager.prototype.getNodeSectionPath;
+
+  JDFCanvasManager.prototype.reorderSections = function (orderedSectionIds) {
+    var body = this.tree.body || [];
+    var byId = {};
+    body.forEach(function (sec) {
+      byId[sec.id] = sec;
+    });
+    var next = (orderedSectionIds || [])
+      .map(function (id) {
+        return byId[id];
+      })
+      .filter(Boolean);
+    if (next.length !== body.length) return false;
+    this.tree.body = next;
+    this._setDirty(true);
+    if (global.AssureEditorBridge && typeof global.AssureEditorBridge.syncReorderedASTToCanvas === "function") {
+      global.AssureEditorBridge.syncReorderedASTToCanvas(orderedSectionIds);
+    } else {
+      this.render();
+    }
+    this.saveDocument("SECTION_REORDER");
+    return true;
+  };
+
+  JDFCanvasManager.prototype.mergeSectionWithNext = function (sectionId) {
+    var body = this.tree.body || [];
+    var sIdx = -1;
+    body.forEach(function (sec, idx) {
+      if (sec.id === sectionId) sIdx = idx;
+    });
+    if (sIdx < 0 || sIdx >= body.length - 1) return false;
+    var sec = body[sIdx];
+    var next = body[sIdx + 1];
+    sec.children = (sec.children || []).concat(next.children || []);
+    body.splice(sIdx + 1, 1);
+    this._setDirty(true);
+    this.render();
+    this.saveDocument("SECTION_MERGE", { target_node_id: sectionId });
+    return true;
+  };
+
+  JDFCanvasManager.prototype.deleteSection = function (sectionId) {
+    var body = this.tree.body || [];
+    if (body.length <= 1) return false;
+    var next = body.filter(function (sec) {
+      return sec.id !== sectionId;
+    });
+    if (next.length === body.length) return false;
+    this.tree.body = next;
+    if (this.surgicalTargetId) {
+      var path = this.getNodeSectionPath(this.surgicalTargetId);
+      if (path && path.section && path.section.id === sectionId) {
+        this.exitSurgicalMode();
+      }
+    }
+    this._setDirty(true);
+    this.render();
+    this.saveDocument("SECTION_DELETE", { target_node_id: sectionId });
+    return true;
+  };
+
+  JDFCanvasManager.prototype.connectSections = function (sourceSectionId, targetSectionId) {
+    var body = this.tree.body || [];
+    var targetSec = null;
+    var sourceSec = null;
+    body.forEach(function (sec) {
+      if (sec.id === sourceSectionId) sourceSec = sec;
+      if (sec.id === targetSectionId) targetSec = sec;
+    });
+    if (!sourceSec || !targetSec) return false;
+    var bridgeNode = (targetSec.children || [])[0];
+    if (!bridgeNode || !bridgeNode.id) return false;
+    var intent =
+      "Rewrite this section so it flows smoothly from the previous section titled \"" +
+      (sourceSec.title || "Section") +
+      "\". Preserve facts and locked numbers; improve the transition only.";
+    this.selectNodeForRefine(bridgeNode.id, { toast: false, skipViewSwitch: true, skipRender: true });
+    this.inquire(intent, true);
+    return true;
+  };
+
+  JDFCanvasManager.prototype.refineFullDocument = function (intent, runRedhat) {
+    var self = this;
+    var text = (intent || "").trim();
+    if (!text) return false;
+    this.surgicalTargetId = null;
+    var targetEl = document.getElementById("active-target-id");
+    if (targetEl) targetEl.textContent = "—";
+    if (this.rootEl) {
+      this.rootEl.querySelectorAll(".jdf-node").forEach(function (el) {
+        el.classList.remove("selected", "node-target");
+      });
+    }
+    this._setInquiryIntent(text);
+    this.inquire(text, runRedhat !== false);
+    return true;
+  };
+
   /**
    * Shared status used by the canvas gutter and the Argument Spine.
    * Z3 annotations use status "violation" | "pass" — never "FAIL".
