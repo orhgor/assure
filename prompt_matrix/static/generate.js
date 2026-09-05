@@ -161,6 +161,9 @@
 
       if (btn) {
         btn.addEventListener("click", function () {
+          btn.classList.remove("is-pulse");
+          void btn.offsetWidth;
+          btn.classList.add("is-pulse");
           self.startDraftStream(false, { fullAudit: false });
         });
       }
@@ -563,6 +566,9 @@
                 node.meta = Object.assign({}, node.meta || {}, { cache_hit: true });
               });
             });
+            if (global.AssureCompilerStatus && typeof global.AssureCompilerStatus.flashCacheHit === "function") {
+              global.AssureCompilerStatus.flashCacheHit();
+            }
           }
           self.draftText = data.draft_text || self.draftText;
           global.compiledDraftNodes = self.compiledNodes;
@@ -631,6 +637,14 @@
             document: data.document || self.compiledDocument,
             z3Results: data.z3_results || null,
           };
+          if (global.AssureCompilerStatus) {
+            global.AssureCompilerStatus.setLastAction(
+              t("generate.draft_ready", "✅ Draft ready!")
+            );
+          }
+          if (global.AssureToast) {
+            global.AssureToast.show(t("generate.draft_ready", "✅ Draft ready!"), "success");
+          }
           self.mergeAuditManifest(data);
           if (self.fullAudit) {
             self.hideRedhatPrompt();

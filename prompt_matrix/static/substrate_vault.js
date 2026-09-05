@@ -91,6 +91,8 @@
     fileInput: null,
     statusEl: null,
     detailsEl: null,
+    searchEl: null,
+    searchQuery: "",
 
     formatBytes: formatBytes,
 
@@ -120,6 +122,28 @@
       }
     },
 
+    _updateNavBadge: function (count) {
+      var badge = $("nav-sources-badge");
+      if (!badge) return;
+      var included = this.selectedIncludedIds().length;
+      var n = included || count || 0;
+      if (n > 0) {
+        badge.hidden = false;
+        badge.textContent = String(n);
+        badge.setAttribute("aria-hidden", "false");
+      } else {
+        badge.hidden = true;
+        badge.textContent = "";
+        badge.setAttribute("aria-hidden", "true");
+      }
+    },
+
+    _matchesSearch: function (file) {
+      var q = (this.searchQuery || "").trim().toLowerCase();
+      if (!q) return true;
+      return String(file.filename || "").toLowerCase().indexOf(q) >= 0;
+    },
+
     render: function () {
       if (!this.listEl) return;
       var self = this;
@@ -136,11 +160,13 @@
           this.countEl.hidden = true;
         }
       }
+      this._updateNavBadge(real.length);
       if (this.emptyEl) {
         this.emptyEl.hidden = this.files.length > 0;
       }
 
       this.files.forEach(function (file) {
+        if (!self._matchesSearch(file)) return;
         self.listEl.appendChild(self._renderRow(file));
       });
     },
@@ -399,8 +425,16 @@
       this.fileInput = $("substrate-vault-file-input");
       this.statusEl = $("substrate-vault-upload-status");
       this.detailsEl = $("substrate-vault");
+      this.searchEl = $("substrate-vault-search");
 
       this.bindCollapse();
+
+      if (this.searchEl) {
+        this.searchEl.addEventListener("input", function () {
+          self.searchQuery = self.searchEl.value || "";
+          self.render();
+        });
+      }
 
       if (this.uploadBtn) {
         this.uploadBtn.addEventListener("click", function () {

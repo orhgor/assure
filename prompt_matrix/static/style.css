@@ -1511,7 +1511,9 @@ body:has(#assure-app) .shell {
 }
 
 .app-body {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -1527,6 +1529,8 @@ body:has(#assure-app) .shell {
   background: var(--color-surface, #ffffff);
   border-right: 1px solid var(--color-border, #e2e8f0);
   overflow-y: auto;
+  grid-row: 1 / -1;
+  grid-column: 1;
 }
 
 .app-sidebar-link {
@@ -1567,7 +1571,66 @@ body:has(#assure-app) .shell {
   line-height: 1.25;
 }
 
+.app-sidebar-link-icon-only {
+  justify-content: center;
+}
+
+.app-sidebar-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: var(--color-primary, #1A4B8C);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.workbench-status-bar {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 14px;
+  background: var(--color-surface, #fff);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  font-size: 12px;
+  color: var(--color-text-secondary, #64748b);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.workbench-status-bar.is-flash {
+  background: #ecfdf5;
+  box-shadow: inset 0 -2px 0 #22c55e;
+}
+
+.workbench-status-bar.is-cache-hit {
+  background: #fffbeb;
+  box-shadow: inset 0 -2px 0 #f59e0b;
+}
+
+.workbench-health {
+  font-weight: 600;
+  color: var(--color-text, #1e293b);
+}
+
+.workbench-last-action {
+  font-weight: 500;
+  color: var(--color-primary, #1A4B8C);
+}
+
+.workbench-last-action[hidden] {
+  display: none;
+}
+
 .app-content {
+  grid-column: 2;
+  grid-row: 2;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -3298,7 +3361,7 @@ body.onboarding-active .sidebar-backdrop {
   position: relative;
   margin-bottom: var(--space-sm);
   border-radius: var(--radius-sm);
-  transition: outline 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: outline 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.18s ease;
   /* Left padding creates the slot for the verification gutter (left: 0 inside
      this padding area) so the gutter never clips at the viewport edge. */
   padding: 0 0 0 10px;
@@ -3306,6 +3369,10 @@ body.onboarding-active .sidebar-backdrop {
   background: transparent;
   cursor: pointer;
   overflow: visible;
+}
+
+.jdf-node:hover {
+  transform: translateY(-1px);
 }
 
 .jdf-node.selected {
@@ -3365,29 +3432,111 @@ body.onboarding-active .sidebar-backdrop {
 }
 
 .node-toolbar,
-.jdf-node-toolbar {
+.jdf-node-toolbar,
+.node-fab,
+.jdf-node-fab {
   position: absolute;
-  top: -12px;
-  right: 12px;
+  bottom: 8px;
+  right: 8px;
   display: flex;
-  gap: 2px;
+  gap: 4px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 2px 4px;
+  padding: 4px 6px;
   box-shadow: var(--shadow-sm);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  transform: translateY(2px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform: translateY(4px);
   z-index: 10;
   margin-bottom: 0;
 }
 
 .jdf-node:hover .node-toolbar,
-.jdf-node:hover .jdf-node-toolbar {
+.jdf-node:hover .jdf-node-toolbar,
+.jdf-node:hover .node-fab,
+.jdf-node:hover .jdf-node-fab {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(0);
+}
+
+.node-fab-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.node-fab-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.node-fab-btn-danger:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.compile-assemble-btn.is-pulse {
+  animation: compilePulse 0.55s ease-out;
+}
+
+@keyframes compilePulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(26, 75, 140, 0.45); }
+  45% { transform: scale(1.04); box-shadow: 0 0 0 8px rgba(26, 75, 140, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(26, 75, 140, 0); }
+}
+
+.compile-assemble-btn:not(:disabled):hover {
+  box-shadow: 0 0 0 3px rgba(26, 75, 140, 0.15);
+}
+
+.substrate-vault-search {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.command-deck-more {
+  position: relative;
+  display: inline-block;
+}
+
+.command-deck-more-panel {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+
+.command-deck-more:not([open]) .command-deck-more-panel {
+  display: none;
+}
+
+.node-toolbar,
+.jdf-node-toolbar {
+  top: -12px;
+  right: 12px;
+  bottom: auto;
+  padding: 2px 4px;
+  transform: translateY(2px);
+}
+
+.jdf-node:hover .node-toolbar,
+.jdf-node:hover .jdf-node-toolbar {
   transform: translateY(0);
 }
 

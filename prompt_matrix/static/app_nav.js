@@ -4,8 +4,8 @@
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "generate";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
-  var FULL_VIEWS = ["settings"];
-  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library"]).concat(FULL_VIEWS);
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library"]);
+  var SETTINGS_VIEWS = ["settings", "audit"];
 
   function $(id) {
     return document.getElementById(id);
@@ -159,6 +159,7 @@
     issueCount: 0,
     documentVersion: 1,
     currentState: "idle",
+    lastAction: "",
 
     update: function (state, detail) {
       var el = $("compiler-status");
@@ -170,8 +171,8 @@
       el.className = "compiler-status compiler-" + this.currentState;
 
       var defaults = {
-        idle: ["compiler.status.idle", "● Ready"],
-        processing: ["compiler.status.processing", "⬡ Working…"],
+        idle: ["compiler.status.idle", "All good"],
+        processing: ["compiler.status.processing", "Working…"],
         verified: ["compiler.status.verified", "✅ Verified"],
         issues: ["compiler.status.issues", "❌ Issues Found"],
         exporting: ["compiler.status.exporting", "⬡ Exporting…"],
@@ -195,6 +196,54 @@
           detailEl.textContent = "";
         }
       }
+
+      this._updateHealthBar();
+    },
+
+    setLastAction: function (message) {
+      this.lastAction = message || "";
+      var el = $("workbench-last-action");
+      if (el) {
+        el.textContent = this.lastAction;
+        el.hidden = !this.lastAction;
+      }
+      this._updateHealthBar();
+    },
+
+    _updateHealthBar: function () {
+      var healthEl = $("workbench-health");
+      var barEl = $("workbench-status-bar");
+      if (!healthEl) return;
+      var msg;
+      if (this.currentState === "processing" || this.currentState === "exporting") {
+        msg = translate("workbench.status.health_working", "Working on your draft…");
+      } else if (this.currentState === "issues" && this.issueCount > 0) {
+        msg = translate("workbench.status.health_issues", "{n} issues to review", {
+          n: this.issueCount,
+        });
+      } else if (this.currentState === "verified") {
+        msg = translate("compiler.status.verified", "✅ Verified");
+      } else {
+        msg = translate("workbench.status.health_ok", "Document looks good");
+      }
+      healthEl.textContent = msg;
+      if (barEl) {
+        barEl.classList.toggle("is-flash", this.currentState === "verified");
+        if (this.currentState === "verified") {
+          window.setTimeout(function () {
+            if (barEl) barEl.classList.remove("is-flash");
+          }, 1200);
+        }
+      }
+    },
+
+    flashCacheHit: function () {
+      var barEl = $("workbench-status-bar");
+      if (!barEl) return;
+      barEl.classList.add("is-cache-hit");
+      window.setTimeout(function () {
+        if (barEl) barEl.classList.remove("is-cache-hit");
+      }, 1200);
     },
 
     setVersion: function (version) {

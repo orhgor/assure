@@ -81,7 +81,7 @@
     btn.disabled = false;
     btn.removeAttribute("data-session-limited");
     btn.classList.remove("is-session-limited");
-    btn.textContent = t("generate.compile", "Compile");
+    btn.textContent = t("generate.compile", "✨ Assemble");
     btn.setAttribute("data-i18n", "generate.compile");
     btn.setAttribute(
       "data-tooltip",

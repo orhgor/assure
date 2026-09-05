@@ -92,27 +92,31 @@
         <div class="app-body">
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="projects" data-tooltip="{{ gettext('Browse and switch projects') }}" data-i18n-tooltip="tooltip.nav.projects">
-              <span class="app-sidebar-icon" aria-hidden="true">📁</span>
-              <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Projects') }}</span>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="projects" data-tooltip="{{ gettext('Your projects and works in progress') }}" data-i18n-tooltip="tooltip.nav.projects">
+              <span class="app-sidebar-icon" aria-hidden="true">✏️</span>
+              <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Write') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
-              <span class="app-sidebar-icon" aria-hidden="true">✨</span>
+              <span class="app-sidebar-icon" aria-hidden="true">📝</span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Edit a specific node with context-locking to prevent narrative drift.') }}" data-i18n-tooltip="tooltip.nav.surgical">
-              <span class="app-sidebar-icon" aria-hidden="true">🧠</span>
-              <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Refine') }}</span>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Polish one section at a time — the rest stays fixed.') }}" data-i18n-tooltip="tooltip.nav.surgical">
+              <span class="app-sidebar-icon" aria-hidden="true">✨</span>
+              <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Polish') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Saved prompts you can insert into the editor') }}" data-i18n-tooltip="tooltip.nav.library">
-              <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
-              <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</span>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Source files that ground your document') }}" data-i18n-tooltip="tooltip.nav.library">
+              <span class="app-sidebar-icon" aria-hidden="true">📁</span>
+              <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span>
+              <span class="app-sidebar-badge" id="nav-sources-badge" hidden aria-hidden="true"></span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings">
+            <button type="button" class="app-sidebar-link tooltip-trigger app-sidebar-link-icon-only" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings" aria-label="{{ gettext('Settings') }}" data-i18n-aria="nav.settings">
               <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
-              <span class="app-sidebar-label" data-i18n="nav.settings">{{ gettext('Settings') }}</span>
             </button>
           </nav>
+          <div class="workbench-status-bar" id="workbench-status-bar" aria-live="polite">
+            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok">{{ gettext('Document looks good') }}</span>
+            <span class="workbench-last-action" id="workbench-last-action"></span>
+          </div>
           <div class="app-content">
       <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
@@ -139,10 +143,11 @@
             <div id="left-pane-shared" class="left-pane-shared">
               <details id="substrate-vault" class="substrate-vault" open>
                 <summary class="substrate-vault-summary">
-                  <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</span></span>
+                  <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span></span>
                   <span class="substrate-vault-count" id="substrate-vault-count" hidden></span>
                 </summary>
                 <div class="substrate-vault-body">
+                  <input type="search" id="substrate-vault-search" class="form-control substrate-vault-search" placeholder="{{ gettext('Search your sources…') }}" data-i18n-placeholder="substrate.vault.search_placeholder" aria-label="{{ gettext('Search your sources…') }}" data-i18n-aria="substrate.vault.search_placeholder">
                   <ul id="substrate-vault-list" class="substrate-vault-list" role="list"></ul>
                   <p id="substrate-vault-empty" class="hint substrate-vault-empty" data-i18n="substrate.vault.empty">{{ gettext('No files uploaded. Drag and drop or click to upload.') }}</p>
                   <div class="substrate-vault-upload-row">
@@ -169,7 +174,7 @@
                   <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
                   <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
                   <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Connect Sections') }}</button>
+                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Link these ideas') }}</button>
                   </div>
                 </div>
               </details>
@@ -179,11 +184,11 @@
                 </summary>
                 <div class="refine-workspace-body" id="refineControlWorkspace">
                   <div id="refineFocusBadgeContainer">
-                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Click a paragraph in the canvas to refine it') }}</span>
+                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
                   </div>
-                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('Describe transformation directive or structural modification…') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
+                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
                   <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Refine Selection') }}</button>
+                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Polish this') }}</button>
                     <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
                   </div>
                   <div class="visible-action-bar refine-redhat-bar">
@@ -212,7 +217,7 @@
                 </label>
               </div>
               <div class="compile-action-row" id="generate-compile-row">
-                <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
+                <button type="button" class="btn btn-primary tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
                 <button type="button" class="btn btn-outline tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Compile, score claims with Z3, and run Red-Hat in one pass') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
               </div>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
@@ -468,11 +473,11 @@
         <footer class="command-deck">
           <div class="command-deck-left">
             <span id="compiler-status" class="compiler-status compiler-idle" aria-live="polite" role="status">
-              <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('● Ready') }}</span>
+              <span id="compiler-status-label" data-i18n="compiler.status.idle">{{ gettext('All good') }}</span>
               <span id="compiler-status-detail" hidden></span>
             </span>
             <span id="version-display" class="version-history-control" aria-live="polite">
-              <label class="version-history-label" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('Version history') }}</label>
+              <label class="version-history-label" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
               <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
               <span id="version-history-label" class="version-history-meta">v1</span>
               <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
@@ -483,7 +488,7 @@
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
             <details class="export-menu" id="export-menu">
-              <summary class="btn btn-sm btn-primary tooltip-trigger" data-tooltip="{{ gettext('Export verified document as Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Export') }}</summary>
+              <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Download') }}</summary>
               <div class="export-menu-panel">
                 <a id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export.word">{{ gettext('Word (.docx)') }}</a>
                 <a id="btn-export-md" href="/api/projects/{{ project_id|default('default') }}/export?format=md" data-i18n="jdf.export.md">{{ gettext('Markdown') }}</a>
@@ -491,9 +496,14 @@
                 <a id="btn-export-pdf" href="/api/projects/{{ project_id|default('default') }}/export?format=pdf" data-i18n="jdf.export.pdf">{{ gettext('PDF') }}</a>
               </div>
             </details>
-            <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-pdf-btn" data-i18n="jdf.import.pdf_btn" data-tooltip="{{ gettext('Import a PDF into the JDF canvas') }}" data-i18n-tooltip="jdf.import.pdf_tooltip">{{ gettext('Import PDF') }}</button>
-            <input type="file" id="jdf-import-pdf-input" accept=".pdf,application/pdf" hidden>
-            <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Manifest') }}</button>
+            <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Report') }}</button>
+            <details class="command-deck-more" id="command-deck-more">
+              <summary class="btn btn-sm btn-outline" data-i18n="command.deck.more">{{ gettext('More') }}</summary>
+              <div class="command-deck-more-panel">
+                <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-pdf-btn" data-i18n="jdf.import.pdf_btn" data-tooltip="{{ gettext('Import a PDF into the JDF canvas') }}" data-i18n-tooltip="jdf.import.pdf_tooltip">{{ gettext('Upload PDF') }}</button>
+                <input type="file" id="jdf-import-pdf-input" accept=".pdf,application/pdf" hidden>
+              </div>
+            </details>
           </div>
         </footer>
       </section>
@@ -654,24 +664,27 @@
               </div>
             </section>
 
-            <section id="view-settings" class="assure-view assure-full-view" hidden>
-              <div class="tool-panel-inner audit-console-layout card">
-                <h2 class="tool-panel-title" data-i18n="nav.settings">{{ gettext('Settings') }}</h2>
-                <p class="hint" data-i18n="settings.placeholder">{{ gettext('User preferences and provider keys.') }}</p>
-                <label class="jdf-redhat-toggle">
-                  <input type="checkbox" id="settings-show-citations" checked>
-                  <span data-i18n="settings.show_citations">{{ gettext('Include References section in DOCX export') }}</span>
-                </label>
-                <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
-                <hr class="settings-divider">
-                <h3 class="tool-panel-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h3>
-                <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>
-                <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Manifest') }}</button>
-                <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
-              </div>
-            </section>
-
           </div>
+        </div>
+        <div id="settings-overlay" class="settings-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="settings-overlay-title">
+          <div class="settings-overlay-backdrop" id="settings-overlay-backdrop" aria-hidden="true"></div>
+          <section id="view-settings" class="settings-modal card audit-console-layout">
+            <div class="settings-modal-head">
+              <h2 id="settings-overlay-title" class="tool-panel-title" data-i18n="nav.settings">{{ gettext('Settings') }}</h2>
+              <button type="button" class="btn btn-outline btn-sm" id="settings-overlay-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+            </div>
+            <p class="hint" data-i18n="settings.placeholder">{{ gettext('User preferences and provider keys.') }}</p>
+            <label class="jdf-redhat-toggle">
+              <input type="checkbox" id="settings-show-citations" checked>
+              <span data-i18n="settings.show_citations">{{ gettext('Include References section in DOCX export') }}</span>
+            </label>
+            <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
+            <hr class="settings-divider">
+            <h3 class="tool-panel-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h3>
+            <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>
+            <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Manifest') }}</button>
+            <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
+          </section>
         </div>
         <div id="jdf-surgical-popover" class="jdf-surgical-popover" hidden role="dialog" aria-labelledby="jdf-surgical-popover-title">
           <p id="jdf-surgical-popover-title" class="visually-hidden" data-i18n="surgical.click.title">{{ gettext('Fix this claim') }}</p>

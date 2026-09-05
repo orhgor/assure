@@ -1189,6 +1189,8 @@
       t.closest("select") ||
       t.closest("textarea") ||
       t.closest(".interactive-element") ||
+      t.closest(".jdf-node-fab") ||
+      t.closest(".node-fab") ||
       t.closest(".jdf-node-toolbar") ||
       t.closest(".node-toolbar") ||
       t.closest("#jdf-node-menu")
@@ -1590,6 +1592,63 @@
       });
     });
     return el;
+  };
+
+  JDFCanvasManager.prototype._nodeFab = function (node, sectionIdx, childIdx) {
+    var self = this;
+    var bar = document.createElement("div");
+    bar.className = "node-fab jdf-node-fab";
+    bar.setAttribute("role", "toolbar");
+    bar.innerHTML =
+      '<button type="button" class="node-fab-btn" data-act="rewrite" title="' +
+      jdfT("canvas.fab.rewrite", "Rewrite") +
+      '">' +
+      jdfT("canvas.fab.rewrite", "Rewrite") +
+      "</button>" +
+      '<button type="button" class="node-fab-btn" data-act="ground" title="' +
+      jdfT("canvas.fab.ground", "Search & Ground") +
+      '">' +
+      jdfT("canvas.fab.ground", "Search & Ground") +
+      "</button>" +
+      '<button type="button" class="node-fab-btn" data-act="history" title="' +
+      jdfT("canvas.fab.history", "History") +
+      '">' +
+      jdfT("canvas.fab.history", "History") +
+      "</button>" +
+      '<button type="button" class="node-fab-btn node-fab-btn-danger" data-act="del" title="' +
+      jdfT("canvas.fab.delete", "Delete") +
+      '">' +
+      jdfT("canvas.fab.delete", "Delete") +
+      "</button>";
+
+    bar.querySelector('[data-act="rewrite"]').addEventListener("click", function (e) {
+      e.stopPropagation();
+      self._runNodeMenuAction("reprompt", node.id);
+    });
+    bar.querySelector('[data-act="ground"]').addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (global.AssureSurgicalClick && typeof global.AssureSurgicalClick.open === "function") {
+        global.AssureSurgicalClick.open(node.id, 0, 0);
+        if (typeof global.AssureSurgicalClick.groundFromVault === "function") {
+          global.AssureSurgicalClick.groundFromVault();
+        }
+      }
+    });
+    bar.querySelector('[data-act="history"]').addEventListener("click", function (e) {
+      e.stopPropagation();
+      self.openNodeHistoryModal(node.id);
+    });
+    bar.querySelector('[data-act="del"]').addEventListener("click", function (e) {
+      e.stopPropagation();
+      var section = self.tree.body[sectionIdx];
+      section.children.splice(childIdx, 1);
+      self._setDirty(true);
+      self.render();
+      if (global.AssureCompilerStatus && typeof global.AssureCompilerStatus.setLastAction === "function") {
+        global.AssureCompilerStatus.setLastAction(jdfT("canvas.fab.delete", "Delete"));
+      }
+    });
+    return bar;
   };
 
   JDFCanvasManager.prototype._toolbar = function (node, sectionIdx, childIdx) {
@@ -2240,7 +2299,7 @@
             self._renderNodeBodyWithCitations(node, body);
           });
         }
-        article.appendChild(self._toolbar(node, sIdx, cIdx));
+        article.appendChild(self._nodeFab(node, sIdx, cIdx));
         var cacheHeader = document.createElement("div");
         cacheHeader.className = "jdf-node-cache-header";
         self._renderCacheBadge(node, cacheHeader);
