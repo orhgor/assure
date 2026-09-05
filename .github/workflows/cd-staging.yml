@@ -1,8 +1,6 @@
 name: App Docker (Staging)
 
 on:
-  push:
-    branches: [staging]
   workflow_dispatch:
 
 concurrency:

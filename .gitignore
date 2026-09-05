@@ -1,30 +1,72 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
 *.egg-info/
-.venv/
-venv/
+
+# Local env
 .env
+.env.local
+.env.*.local
 .env.production
 .env.staging
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Test artifacts
+openuser/screenshots/
+openuser/results/*.jsonl
+
+# Temporary files
+*.tmp
+*.temp
+
+# Virtual environments
+.venv/
+venv/
+
+# AWS / secrets (local only)
 scripts/aws/credentials/
 scripts/aws/cloud_init.sh
 scripts/aws/.tunnel-credentials.json
-.pytest_cache/
-.mypy_cache/
-dist/
-build/
+
+# OS / editor
 .DS_Store
+.cursor/settings.json
+
+# App data (local)
 prompt_matrix/library.json
 prompt_matrix/history.sqlite
+prompt_matrix/projects/
 data/
 data-staging/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
-logs/
+
+# Swarm / worktrees
 .swarm_history
 .worktrees/
+
+# Node
 node_modules/
 worker/node_modules/
-.cursor/settings.json
+
+# One-off scripts (local)
 scripts/apply_jobs_copy.py

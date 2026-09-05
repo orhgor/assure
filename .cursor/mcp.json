@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "openuser-manager": {
+      "command": "openuser",
+      "args": [
+        "mcp",
+        "--role",
+        "manager"
+      ]
+    },
+    "openuser-tester": {
+      "command": "openuser",
+      "args": [
+        "mcp",
+        "--role",
+        "tester"
+      ]
+    }
+  }
+}
