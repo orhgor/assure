@@ -248,6 +248,26 @@
           self._flashAllLockedNodes();
         });
       }
+
+      var modelSel = $("generate-model-select");
+      if (modelSel) {
+        try {
+          var saved = localStorage.getItem("assure_compile_model");
+          if (saved) modelSel.value = saved;
+        } catch (_) {}
+        modelSel.addEventListener("change", function () {
+          try {
+            localStorage.setItem("assure_compile_model", modelSel.value);
+          } catch (_) {}
+        });
+      }
+      if (global.AssurePromptHistory && typeof global.AssurePromptHistory.bind === "function") {
+        global.AssurePromptHistory.bind();
+      }
+    },
+
+    compileFromIntent: function () {
+      this.startDraftStream();
     },
 
     abort: function () {
@@ -408,6 +428,13 @@
       this.setCompiling(true);
       this.setPreviewSkeleton(true);
       this.controller = new AbortController();
+      if (global.AssurePromptHistory && typeof global.AssurePromptHistory.push === "function") {
+        var modelSel = $("generate-model-select");
+        global.AssurePromptHistory.push(intent, {
+          model: modelSel ? modelSel.value : "",
+          cycle: String(Date.now()),
+        });
+      }
       if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(true);
       if (global.AssureStreamRegistry) {
         global.AssureStreamRegistry.register(this.controller);
@@ -425,6 +452,13 @@
         global.AssureSse && typeof global.AssureSse.postStream === "function"
           ? global.AssureSse.postStream
           : null;
+      var modelEl = $("generate-model-select");
+      var lockOn = !($("generate-lock-toggle") && !$("generate-lock-toggle").checked);
+      var requestBody = {
+        intent: intent,
+        target_ai: modelEl ? modelEl.value : undefined,
+        lock_numbers: lockOn,
+      };
 
       function handleFrame(frame) {
         var type = eventType(frame);
@@ -468,6 +502,12 @@
           self.renderDraftNodes(self.compiledNodes);
           self.renderLockChecklist();
           self.renderSummaryCounts(data);
+          if (global.AssurePromptHistory && typeof global.AssurePromptHistory.markLatest === "function") {
+            global.AssurePromptHistory.markLatest({
+              status: "ok",
+              nodes: (self.compiledNodes || []).length,
+            });
+          }
           self.setSummaryVisible(true);
           var gateBanner = $("preflight-gate-banner");
           if (gateBanner) gateBanner.hidden = false;
@@ -520,6 +560,9 @@
           if (global.AssureToast) {
             global.AssureToast.show(String(data.error || t("generate.failed", "Compilation failed.")), "error");
           }
+          if (global.AssurePromptHistory && typeof global.AssurePromptHistory.markLatest === "function") {
+            global.AssurePromptHistory.markLatest({ status: "fail" });
+          }
           return;
         }
 
@@ -539,7 +582,7 @@
       if (postStream) {
         streamPromise = postStream({
           url: url,
-          body: { intent: intent },
+          body: requestBody,
           credentials: "same-origin",
           signal: self.controller.signal,
           parseBuffer: global.parseSseBuffer || parseSseBuffer,
@@ -550,7 +593,7 @@
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ intent: intent }),
+          body: JSON.stringify(requestBody),
           signal: self.controller.signal,
         }).then(function (res) {
           if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
@@ -773,14 +816,26 @@
       if (strip) strip.hidden = true;
       if (typeof jdf.clearDraftPreview === "function") jdf.clearDraftPreview();
 
+      var cycleId = "cycle-" + Date.now().toString(36);
+      function stampCycle(sections) {
+        return (sections || []).map(function (sec) {
+          var copy = JSON.parse(JSON.stringify(sec));
+          copy.meta = Object.assign({}, copy.meta || {}, { prompt_cycle: cycleId });
+          return copy;
+        });
+      }
+      var lockOn = !($("generate-lock-toggle") && !$("generate-lock-toggle").checked);
+
       if (self.compiledDocument && self.compiledDocument.body) {
         var base = JSON.parse(JSON.stringify(jdf.tree));
-        base.body = (base.body || []).concat(self.compiledDocument.body || []);
-        base.truth_ledger = Object.assign(
-          {},
-          base.truth_ledger || {},
-          self.compiledDocument.truth_ledger || {}
-        );
+        base.body = (base.body || []).concat(stampCycle(self.compiledDocument.body || []));
+        if (lockOn) {
+          base.truth_ledger = Object.assign(
+            {},
+            base.truth_ledger || {},
+            self.compiledDocument.truth_ledger || {}
+          );
+        }
         fetch("/api/projects/" + encodeURIComponent(projectId()) + "/jdf", {
           method: "PUT",
           credentials: "same-origin",
@@ -829,12 +884,14 @@
       }
 
       var doc = JSON.parse(JSON.stringify(jdf.tree));
-      doc.body = (doc.body || []).concat(this.compiledNodes);
+      doc.body = (doc.body || []).concat(stampCycle(this.compiledNodes));
       var ledger = doc.truth_ledger || {};
-      acceptedLocks.forEach(function (lock) {
-        var key = lock.canonical_key || lock.metric;
-        if (key && lock.value != null) ledger[key] = Number(lock.value);
-      });
+      if (lockOn) {
+        acceptedLocks.forEach(function (lock) {
+          var key = lock.canonical_key || lock.metric;
+          if (key && lock.value != null) ledger[key] = Number(lock.value);
+        });
+      }
       doc.truth_ledger = ledger;
 
       var dockBtn = $("generate-accept-dock");

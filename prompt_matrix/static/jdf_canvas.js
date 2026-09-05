@@ -691,6 +691,95 @@
     return found;
   };
 
+  JDFCanvasManager.prototype._locateNode = function (nodeId) {
+    var loc = null;
+    (this.tree.body || []).forEach(function (section, sIdx) {
+      if (loc) return;
+      (section.children || []).forEach(function (child, cIdx) {
+        if (child.id === nodeId) loc = { section: section, sIdx: sIdx, node: child, cIdx: cIdx };
+      });
+    });
+    return loc;
+  };
+
+  JDFCanvasManager.prototype.duplicateNode = function (nodeId) {
+    var loc = this._locateNode(nodeId || this.surgicalTargetId);
+    if (!loc) return;
+    var copy = JSON.parse(JSON.stringify(loc.node));
+    copy.id = newNodeId("p");
+    copy.meta = Object.assign({}, copy.meta || {}, { duplicated_from: loc.node.id });
+    loc.section.children.splice(loc.cIdx + 1, 0, copy);
+    this._setDirty(true);
+    this.render();
+    this.saveDocument("NODE_DUPLICATE", { target_node_id: copy.id });
+  };
+
+  JDFCanvasManager.prototype.splitSectionAtNode = function (nodeId) {
+    var loc = this._locateNode(nodeId || this.surgicalTargetId);
+    if (!loc || loc.cIdx <= 0) return;
+    var moved = loc.section.children.splice(loc.cIdx);
+    var next = {
+      type: "section",
+      id: newNodeId("sec"),
+      title: (loc.section.title || "Section") + " (2)",
+      children: moved,
+      annotations: { redhat: [], z3: [] },
+      meta: {},
+    };
+    this.tree.body.splice(loc.sIdx + 1, 0, next);
+    this._setDirty(true);
+    this.render();
+    this.saveDocument("SECTION_SPLIT", { target_node_id: nodeId });
+  };
+
+  JDFCanvasManager.prototype.mergeWithNext = function (nodeId) {
+    var loc = this._locateNode(nodeId || this.surgicalTargetId);
+    if (!loc) return;
+    if (loc.cIdx < loc.section.children.length - 1) {
+      var next = loc.section.children[loc.cIdx + 1];
+      loc.node.content = (this._nodeText(loc.node) + "\n\n" + this._nodeText(next)).trim();
+      loc.section.children.splice(loc.cIdx + 1, 1);
+    } else if (loc.sIdx < this.tree.body.length - 1) {
+      var nextSec = this.tree.body[loc.sIdx + 1];
+      loc.section.children = loc.section.children.concat(nextSec.children || []);
+      this.tree.body.splice(loc.sIdx + 1, 1);
+    } else {
+      return;
+    }
+    this._setDirty(true);
+    this.render();
+    this.saveDocument("NODE_MERGE", { target_node_id: loc.node.id });
+  };
+
+  JDFCanvasManager.prototype.showRevisionDiff = function (original, proposed) {
+    var panel = document.getElementById("jdf-diff-panel");
+    var origEl = document.getElementById("jdf-diff-original");
+    var propEl = document.getElementById("jdf-diff-proposed");
+    if (!panel || !origEl || !propEl) return;
+    origEl.textContent = original || "";
+    propEl.textContent = proposed || "";
+    panel.hidden = false;
+  };
+
+  JDFCanvasManager.prototype.hideRevisionDiff = function () {
+    var panel = document.getElementById("jdf-diff-panel");
+    if (panel) panel.hidden = true;
+    this._pendingDiff = null;
+  };
+
+  JDFCanvasManager.prototype.acceptRevisionDiff = function () {
+    if (!this._pendingDiff || !this._pendingDiff.nodeId) return;
+    var node = this.getNodeById(this._pendingDiff.nodeId);
+    if (node) {
+      node.content = this._pendingDiff.proposed;
+      this._setDirty(true);
+      this.render();
+      this.saveDocument("REVISION_ACCEPT", { target_node_id: node.id });
+    }
+    this.hideRevisionDiff();
+    this.livePreview = "";
+  };
+
   JDFCanvasManager.prototype._isInteractiveNodeClick = function (e) {
     var t = e.target;
     return !!(
@@ -770,6 +859,7 @@
         "Propose a revised version of this node for comparison. Do not change locked facts."
       );
       this._setInquiryIntent(intent);
+      this._pendingDiff = { nodeId: nodeId, original: this._nodeText(node), proposed: "" };
       if (global.AssureToast) {
         global.AssureToast.show(
           jdfT("jdf.menu.revision_toast", "Revision proposed — accept or discard the diff on the canvas."),
@@ -828,7 +918,17 @@
       intentEl.focus();
       if (typeof intentEl.select === "function") intentEl.select();
     }
-    this.render();
+    var aperture = document.getElementById("aperture-indicator");
+    if (aperture) aperture.hidden = false;
+    if (this.rootEl) {
+      this.rootEl.querySelectorAll(".jdf-node").forEach(function (el) {
+        el.classList.toggle("selected", el.dataset.nodeId === nodeId);
+        el.classList.toggle("node-target", el.dataset.nodeId === nodeId);
+      });
+    }
+    if (!opts.skipRender && !(global.AssureTiptapEditor && global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor())) {
+      this.render();
+    }
     if (opts.toast !== false && global.AssureToast) {
       global.AssureToast.show(
         jdfT("jdf.refine.selected", "Node selected for refine."),
@@ -1118,6 +1218,29 @@
     var nodeIndex = 0;
     var isPreview = this.rootEl.classList.contains("is-draft-preview");
     this.rootEl.classList.toggle("hide-citations", !this.showCitations);
+    var tiptap = global.AssureTiptapEditor;
+    if (tiptap && typeof tiptap.mount === "function" && global.AssureTiptap) {
+      try {
+        tiptap.mount({
+          rootEl: this.rootEl,
+          tree: this.tree,
+          canvas: this,
+          editable: !isPreview,
+        });
+        if (this.previewEl) {
+          this.previewEl.textContent = this.livePreview
+            ? this.livePreview
+            : jdfT("jdf.preview.empty", "Streaming output will appear here…");
+        }
+        return;
+      } catch (err) {
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn("TipTap mount failed; using DOM renderer", err);
+        }
+        if (tiptap.destroy) tiptap.destroy();
+        this.rootEl.classList.remove("is-tiptap");
+      }
+    }
     this.rootEl.innerHTML = "";
     var title = document.createElement("h2");
     title.className = "jdf-doc-title";
@@ -1599,6 +1722,10 @@
           if (global.AssureInquire && global.AssureInquire.showDockButton) {
             global.AssureInquire.showDockButton(true, self.livePreview);
           }
+          if (self._pendingDiff) {
+            self._pendingDiff.proposed = self.livePreview || "";
+            self.showRevisionDiff(self._pendingDiff.original, self._pendingDiff.proposed);
+          }
         }
       },
       onEvent: function (ev, data) {
@@ -1791,6 +1918,16 @@
         self.runRedhatAnalysis("full", null);
       });
     }
+    var dupBtn = document.getElementById("generate-duplicate-node");
+    if (dupBtn) dupBtn.addEventListener("click", function () { self.duplicateNode(); });
+    var splitBtn = document.getElementById("generate-split-section");
+    if (splitBtn) splitBtn.addEventListener("click", function () { self.splitSectionAtNode(); });
+    var mergeBtn = document.getElementById("generate-merge-next");
+    if (mergeBtn) mergeBtn.addEventListener("click", function () { self.mergeWithNext(); });
+    var diffAccept = document.getElementById("jdf-diff-accept");
+    if (diffAccept) diffAccept.addEventListener("click", function () { self.acceptRevisionDiff(); });
+    var diffReject = document.getElementById("jdf-diff-reject");
+    if (diffReject) diffReject.addEventListener("click", function () { self.hideRevisionDiff(); });
     this._bindNodeMenu();
     this._bindCrossPaneLinks();
     window.addEventListener("keydown", function (e) {

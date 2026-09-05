@@ -62,6 +62,14 @@
     if (exportBtn) {
       exportBtn.href = "/api/projects/" + encodeURIComponent(projectId) + "/export?format=docx";
     }
+    var exportMd = $("btn-export-md");
+    if (exportMd) {
+      exportMd.href = "/api/projects/" + encodeURIComponent(projectId) + "/export?format=md";
+    }
+    var exportHtml = $("btn-export-html");
+    if (exportHtml) {
+      exportHtml.href = "/api/projects/" + encodeURIComponent(projectId) + "/export?format=html";
+    }
 
     // Update URL without reload
     try {

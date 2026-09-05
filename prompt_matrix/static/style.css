@@ -2025,6 +2025,152 @@ body.draft-fullscreen-open {
   padding: var(--space-sm, 8px);
 }
 
+#view-generate.assure-view.active {
+  flex: 1;
+  min-height: 0;
+}
+
+.compile-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: flex-end;
+}
+
+.compile-model-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  flex: 1;
+  min-width: 140px;
+}
+
+.compile-lock-toggle {
+  margin: 0;
+  align-self: center;
+}
+
+.generate-quick-actions,
+.generate-history-panel {
+  margin-top: var(--space-sm);
+}
+
+.prompt-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prompt-history-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.export-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.export-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.export-menu-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+  z-index: 40;
+  padding: 4px;
+}
+
+.export-menu-panel a {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: var(--text-main);
+  border-radius: 4px;
+}
+
+.export-menu-panel a:hover {
+  background: rgba(26, 75, 140, 0.08);
+}
+
+.prompt-history-meta {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.prompt-history-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jdf-diff-panel {
+  margin-top: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+}
+
+.jdf-diff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.jdf-diff-pane {
+  max-height: 220px;
+  overflow: auto;
+  background: var(--color-bg);
+  padding: var(--space-sm);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.jdf-tree.is-tiptap {
+  outline: none;
+}
+
+.jdf-tiptap-host,
+.jdf-tiptap-doc {
+  min-height: 100%;
+}
+
+.jdf-tiptap-doc h2.jdf-doc-title,
+.jdf-tiptap-doc h2 {
+  font-size: 1.6rem;
+  margin: 0 0 var(--space-md);
+}
+
+.jdf-tiptap-doc h3 {
+  font-size: 1.1rem;
+  margin: var(--space-md) 0 var(--space-sm);
+}
+
+.jdf-tree.is-draft-preview .ProseMirror {
+  caret-color: transparent;
+}
+
 .left-pane .preview-box,
 .left-pane #streaming-preview {
   flex: 1;

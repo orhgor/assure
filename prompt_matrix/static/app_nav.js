@@ -320,9 +320,10 @@
       AssureStatus.init();
       updateCompilerStatus("idle");
 
-      var exportBtn = $("btn-export-docx");
-      if (exportBtn) {
-        exportBtn.addEventListener("click", function () {
+      ["btn-export-docx", "btn-export-md", "btn-export-html"].forEach(function (id) {
+        var el = $(id);
+        if (!el) return;
+        el.addEventListener("click", function () {
           AssureCompilerStatus.update("exporting");
           window.setTimeout(function () {
             if (AssureCompilerStatus.currentState === "exporting") {
@@ -330,7 +331,7 @@
             }
           }, 4000);
         });
-      }
+      });
 
       if (isMobileNav()) {
         setSidebarOpen(layout, false);

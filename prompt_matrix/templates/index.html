@@ -137,7 +137,34 @@
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
               <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('What should this document cover?') }}"></textarea>
+              <div class="compile-toolbar">
+                <label class="compile-model-label" for="generate-model-select">
+                  <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
+                  <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
+                    <option value="gemini">Gemini</option>
+                    <option value="claude">Claude</option>
+                    <option value="deepseek">DeepSeek</option>
+                  </select>
+                </label>
+                <label class="check compile-lock-toggle">
+                  <input type="checkbox" id="generate-lock-toggle" checked>
+                  <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
+                </label>
+              </div>
               <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile') }}</button>
+              <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
+              <div class="generate-quick-actions" id="generate-quick-actions">
+                <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
+                <div class="lock-inference-actions">
+                  <button type="button" class="btn btn-outline btn-sm" id="generate-duplicate-node" data-i18n="generate.duplicate_node">{{ gettext('Duplicate node') }}</button>
+                  <button type="button" class="btn btn-outline btn-sm" id="generate-split-section" data-i18n="generate.split_section">{{ gettext('Split section') }}</button>
+                  <button type="button" class="btn btn-outline btn-sm" id="generate-merge-next" data-i18n="generate.merge_next">{{ gettext('Merge with next') }}</button>
+                </div>
+              </div>
+              <div class="generate-history-panel">
+                <p class="preview-label" data-i18n="generate.recent_prompts">{{ gettext('Recent prompts') }}</p>
+                <div id="generate-prompt-history" class="prompt-history-list"></div>
+              </div>
               <div id="generate-stream-wrap" class="preview-box" hidden>
                 <p class="preview-label" data-i18n="generate.stream_progress">{{ gettext('Working…') }}</p>
                 <pre id="generate-stream-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
@@ -309,6 +336,23 @@
               <p class="preview-label" data-i18n="jdf.preview.stream">{{ gettext('Model stream') }}</p>
               <pre id="jdf-live-preview" class="jdf-live-preview" aria-live="polite" role="status"></pre>
             </div>
+            <div id="jdf-diff-panel" class="jdf-diff-panel" hidden>
+              <p class="preview-label" data-i18n="jdf.diff.title">{{ gettext('Revision comparison') }}</p>
+              <div class="jdf-diff-grid">
+                <div>
+                  <p class="hint" data-i18n="jdf.diff.original">{{ gettext('Original') }}</p>
+                  <pre id="jdf-diff-original" class="jdf-diff-pane"></pre>
+                </div>
+                <div>
+                  <p class="hint" data-i18n="jdf.diff.proposed">{{ gettext('Proposed') }}</p>
+                  <pre id="jdf-diff-proposed" class="jdf-diff-pane"></pre>
+                </div>
+              </div>
+              <div class="lock-inference-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="jdf-diff-accept" data-i18n="jdf.diff.accept">{{ gettext('Accept revision') }}</button>
+                <button type="button" class="btn btn-outline btn-sm" id="jdf-diff-reject" data-i18n="jdf.diff.reject">{{ gettext('Reject') }}</button>
+              </div>
+            </div>
             <div id="redhat-findings-wrap" hidden>
               <p class="preview-label" data-i18n="jdf.redhat.findings">{{ gettext('Stress Test Alert') }}</p>
               <div id="redhat-findings"></div>
@@ -351,7 +395,14 @@
           <div class="command-deck-right">
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
-            <a class="btn btn-sm btn-primary tooltip-trigger" id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export" data-tooltip="{{ gettext('Export verified document as Word') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Export') }}</a>
+            <details class="export-menu" id="export-menu">
+              <summary class="btn btn-sm btn-primary tooltip-trigger" data-tooltip="{{ gettext('Export verified document as Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Export') }}</summary>
+              <div class="export-menu-panel">
+                <a id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export.word">{{ gettext('Word (.docx)') }}</a>
+                <a id="btn-export-md" href="/api/projects/{{ project_id|default('default') }}/export?format=md" data-i18n="jdf.export.md">{{ gettext('Markdown') }}</a>
+                <a id="btn-export-html" href="/api/projects/{{ project_id|default('default') }}/export?format=html" data-i18n="jdf.export.html">{{ gettext('HTML') }}</a>
+              </div>
+            </details>
             <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Manifest') }}</button>
           </div>
         </footer>
@@ -672,11 +723,14 @@
   <script src="{{ url_for('static', filename='assure_tab_guard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_session_limit.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='tiptap.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='jdf_tiptap.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='prompt_history.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>

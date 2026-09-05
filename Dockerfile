@@ -6,8 +6,9 @@ FROM node:22-slim AS sentry
 WORKDIR /build
 COPY package.json package-lock.json ./
 COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
-COPY prompt_matrix/static/src/sentry-init.js prompt_matrix/static/src/sentry-init.js
-RUN npm ci && npm run bundle:sentry
+COPY scripts/bundle-tiptap.mjs scripts/bundle-tiptap.mjs
+COPY prompt_matrix/static/src/ prompt_matrix/static/src/
+RUN npm ci && npm run bundle:sentry && npm run bundle:tiptap
 
 FROM python:3.11-slim AS builder
 WORKDIR /app
@@ -40,6 +41,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 COPY --from=sentry /build/prompt_matrix/static/sentry.bundle.js prompt_matrix/static/sentry.bundle.js
+COPY --from=sentry /build/prompt_matrix/static/tiptap.bundle.js prompt_matrix/static/tiptap.bundle.js
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8765') + '/api/health', timeout=3)"

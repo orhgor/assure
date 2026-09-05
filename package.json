@@ -3,10 +3,15 @@
   "private": true,
   "scripts": {
     "bundle:sentry": "node scripts/bundle-sentry.mjs",
-    "build:sentry": "npm run bundle:sentry"
+    "build:sentry": "npm run bundle:sentry",
+    "bundle:tiptap": "node scripts/bundle-tiptap.mjs",
+    "build:static": "npm run bundle:sentry && npm run bundle:tiptap"
   },
   "dependencies": {
-    "@sentry/browser": "^9.47.1"
+    "@sentry/browser": "^9.47.1",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3"
   },
   "devDependencies": {
     "esbuild": "^0.25.9"

@@ -11,10 +11,12 @@ from flask import Response, jsonify
 try:
     from ..db.jdf_repository import fetch_latest_jdf_or_empty
     from ..exporters.docx_ast import export_jdf_to_docx
+    from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
     from ..lib.logger import get_audit_logger
 except ImportError:
     from db.jdf_repository import fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
+    from exporters.text_ast import jdf_to_html, jdf_to_markdown
     from lib.logger import get_audit_logger
 
 _SAFE_NAME = re.compile(r"[^\w\-]+")
@@ -63,6 +65,43 @@ def register_export_routes(app) -> None:
             )
             return jsonify({"ok": True, "document": tree})
 
+        tree = fetch_latest_jdf_or_empty(project_id)
+        filename_base = _doc_title(tree)
+
+        if fmt in ("md", "markdown"):
+            body = jdf_to_markdown(tree)
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_MD",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": "md", "filename": filename_base + ".md"},
+            )
+            return Response(
+                body,
+                mimetype="text/markdown; charset=utf-8",
+                headers={"Content-Disposition": f'attachment; filename="{filename_base}.md"'},
+            )
+
+        if fmt == "html":
+            body = jdf_to_html(tree)
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_HTML",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": "html", "filename": filename_base + ".html"},
+            )
+            return Response(
+                body,
+                mimetype="text/html; charset=utf-8",
+                headers={"Content-Disposition": f'attachment; filename="{filename_base}.html"'},
+            )
+
         if fmt != "docx":
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -74,10 +113,11 @@ def register_export_routes(app) -> None:
                 error_message="Unsupported format",
                 details={"format": fmt},
             )
-            return jsonify({"error": "Unsupported format", "supported": ["docx", "json"]}), 400
+            return jsonify(
+                {"error": "Unsupported format", "supported": ["docx", "json", "md", "html"]}
+            ), 400
 
         try:
-            tree = fetch_latest_jdf_or_empty(project_id)
             buffer = export_jdf_to_docx(tree, include_citations=include_citations)
             filename = f"{_doc_title(tree)}.docx"
             duration_ms = int((time.perf_counter() - start_time) * 1000)
