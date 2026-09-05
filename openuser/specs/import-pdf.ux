@@ -6,6 +6,7 @@ steps:
   - action: navigate
     url: "{{baseUrl}}/app"
   - action: init_workbench
+  - action: open_command_deck_more
   - action: wait
     selector: "#jdf-import-pdf-btn"
     timeout: 15000

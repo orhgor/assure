@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
-# Merge model provider keys from prompt_matrix/.env into EC2 .env.production and restart.
+# Merge model provider keys from prompt_matrix/.env into EC2 env file and restart.
 # Never prints key values. Requires AWS SSM + local prompt_matrix/.env.
+#
+# Production (default):
+#   bash scripts/aws/wire-provider-keys-via-ssm.sh
+# Staging:
+#   ASSURE_ENVIRONMENT=staging ASSURE_INSTANCE_ID=i-03e39eccc57572191 bash scripts/aws/wire-provider-keys-via-ssm.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 ENV_FILE="${ASSURE_KEYS_FILE:-$ROOT/prompt_matrix/.env}"
-INSTANCE_ID="${ASSURE_INSTANCE_ID:-i-09d0ad0b561113abe}"
 REGION="${AWS_REGION:-us-east-1}"
+
+if [[ "${ASSURE_ENVIRONMENT:-}" == "staging" ]]; then
+  REMOTE_ENV=".env.staging"
+  COMPOSE_OVERLAY="docker-compose.staging.yml"
+  INSTANCE_ID="${ASSURE_INSTANCE_ID:-i-03e39eccc57572191}"
+  PUBLIC_STATUS_URL="https://staging.getassureai.com/api/status"
+else
+  REMOTE_ENV=".env.production"
+  COMPOSE_OVERLAY="docker-compose.prod.yml"
+  INSTANCE_ID="${ASSURE_INSTANCE_ID:-i-09d0ad0b561113abe}"
+  PUBLIC_STATUS_URL="https://getassureai.com/api/status"
+fi
 
 PROVIDER_KEYS=(
   GEMINI_API_KEY
@@ -24,11 +40,10 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-BODY="$(mktemp)"
 REMOTE="$(mktemp)"
-trap 'rm -f "$BODY" "$REMOTE"' EXIT
+trap 'rm -f "$REMOTE"' EXIT
 
-python3 - "$ENV_FILE" "$REMOTE" "${PROVIDER_KEYS[@]}" <<'PY'
+python3 - "$ENV_FILE" "$REMOTE" "$REMOTE_ENV" "$COMPOSE_OVERLAY" "${PROVIDER_KEYS[@]}" <<'PY'
 import base64
 import json
 import pathlib
@@ -36,7 +51,9 @@ import sys
 
 env_path = pathlib.Path(sys.argv[1])
 out_path = pathlib.Path(sys.argv[2])
-key_names = sys.argv[3:]
+remote_env = sys.argv[3]
+compose_overlay = sys.argv[4]
+key_names = sys.argv[5:]
 
 values: dict[str, str] = {}
 for line in env_path.read_text(encoding="utf-8").splitlines():
@@ -54,12 +71,13 @@ if not values:
 
 payload = {k: base64.b64encode(v.encode()).decode() for k, v in values.items()}
 payload_json = json.dumps(payload)
-script = '''#!/usr/bin/env bash
+remote_path = f"/home/ubuntu/assure/{remote_env}"
+script = f'''#!/usr/bin/env bash
 set -euo pipefail
 python3 - <<'INNER'
 import base64, json, os, pathlib
-payload = json.loads(''' + repr(payload_json) + ''')
-path = pathlib.Path("/home/ubuntu/assure/.env.production")
+payload = json.loads({payload_json!r})
+path = pathlib.Path({remote_path!r})
 lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
 for name, b64 in payload.items():
     val = base64.b64decode(b64).decode()
@@ -69,27 +87,27 @@ path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
 os.chmod(path, 0o600)
 INNER
-chown ubuntu:ubuntu /home/ubuntu/assure/.env.production
+chown ubuntu:ubuntu {remote_path!r}
 cd /home/ubuntu/assure
-sudo -u ubuntu docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate assure-app
+sudo -u ubuntu docker compose -f docker-compose.yml -f {compose_overlay!r} up -d --force-recreate assure-app
 for i in $(seq 1 30); do
   curl -sf http://127.0.0.1:8765/health >/dev/null 2>&1 && break
   sleep 2
 done
 echo "---STATUS---"
-curl -sf http://127.0.0.1:8765/api/status | python3 -c "import json,sys; p=json.load(sys.stdin)['providers']; print({k:v['connected'] for k,v in p.items() if k in ('gemini','claude','deepseek','kimi')})"
+curl -sf http://127.0.0.1:8765/api/status | python3 -c "import json,sys; p=json.load(sys.stdin)['providers']; print({{k:v['connected'] for k,v in p.items() if k in ('gemini','claude','deepseek','kimi')}})"
 '''
 out_path.write_text(script, encoding="utf-8")
-print(f"Prepared {len(values)} key(s):", ", ".join(sorted(values)))
+print(f"Prepared {len(values)} key(s) for {remote_env}:", ", ".join(sorted(values)))
 PY
 
 B64="$(base64 < "$REMOTE" | tr -d '\n')"
-echo "Sending provider key merge to $INSTANCE_ID ($REGION)..."
+echo "Sending provider key merge to $INSTANCE_ID ($REGION) → $REMOTE_ENV..."
 CMD_ID="$(aws ssm send-command \
   --region "$REGION" \
   --instance-ids "$INSTANCE_ID" \
   --document-name AWS-RunShellScript \
-  --comment "Assure: wire provider keys into .env.production" \
+  --comment "Assure: wire provider keys into ${REMOTE_ENV}" \
   --timeout-seconds 300 \
   --parameters "commands=[\"echo ${B64} | base64 -d | bash\"]" \
   --query 'Command.CommandId' \
@@ -118,7 +136,10 @@ aws ssm get-command-invocation \
   --query '[Status,StandardOutputContent,StandardErrorContent]' \
   --output text | python3 - <<'PY'
 import sys
-status, out, err = sys.stdin.read().split("\t", 2)
+parts = sys.stdin.read().split("\t", 2)
+status = parts[0] if parts else ""
+out = parts[1] if len(parts) > 1 else ""
+err = parts[2] if len(parts) > 2 else ""
 print("SSM status:", status)
 if "---STATUS---" in out:
     print(out.split("---STATUS---", 1)[1].strip())
@@ -132,7 +153,7 @@ if status != "Success":
     raise SystemExit(1)
 PY
 
-curl -sf "https://getassureai.com/api/status" | python3 -c "
+curl -sf "${PUBLIC_STATUS_URL}" | python3 -c "
 import json, sys
 p = json.load(sys.stdin)['providers']
 for name in ('gemini', 'claude', 'deepseek', 'kimi'):

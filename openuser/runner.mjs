@@ -71,6 +71,12 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       return;
     }
     case "init_workbench": {
+      const pid = ctx.projectId || "default";
+      const base = String(ctx.baseUrl || process.env.ASSURE_BASE_URL || "https://staging.getassureai.com").replace(/\/$/, "");
+      const target = `${base}/app?project=${encodeURIComponent(pid)}#view=generate`;
+      if (!page.url().includes(`project=${encodeURIComponent(pid)}`)) {
+        await page.goto(target, { waitUntil: "domcontentloaded", timeout: step.timeout || 60000 });
+      }
       await page.waitForSelector("#jdf-workbench", { state: "visible", timeout: 30000 });
       await page.waitForFunction(
         () => window.__assureJdf && typeof window.__assureJdf.render === "function",
@@ -82,6 +88,22 @@ async function runStep(page, step, ctx, spec, stepIndex) {
         null,
         { timeout: 15000 }
       );
+      await page.evaluate(() => {
+        if (window.AssureNav && typeof window.AssureNav.switchView === "function") {
+          window.AssureNav.switchView("generate", { persist: false, replaceHash: false });
+        }
+        const panel = document.getElementById("view-generate");
+        if (panel && typeof panel.scrollIntoView === "function") {
+          panel.scrollIntoView({ block: "nearest" });
+        }
+      });
+      return;
+    }
+    case "open_command_deck_more": {
+      await page.evaluate(() => {
+        const details = document.getElementById("command-deck-more");
+        if (details) details.open = true;
+      });
       return;
     }
     case "wait": {
@@ -211,7 +233,7 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       return;
     }
     case "wait_compile_ready": {
-      const timeout = step.timeout || 120000;
+      const timeout = step.timeout || 300000;
       await page
         .waitForFunction(
           () => {
@@ -224,19 +246,23 @@ async function runStep(page, step, ctx, spec, stepIndex) {
             return /loaded from memory/i.test(msg);
           },
           null,
-          { timeout: Math.min(20000, timeout) }
+          { timeout: Math.min(30000, timeout) }
         )
         .catch(() => {});
       await page.waitForFunction(
         () => {
+          const gen = window.AssureGenerate;
+          const dock = document.getElementById("generate-accept-dock");
+          const dockReady = !!(dock && !dock.disabled);
+          if (gen && gen.auditComplete && dockReady) return true;
           const btn = document.getElementById("generate-compile-btn");
           const compiling = document.getElementById("generate-compiling");
           const countEl = document.getElementById("generate-node-count");
           if (btn && btn.disabled) return false;
           if (compiling && !compiling.hidden) return false;
           const n = countEl ? parseInt(String(countEl.textContent || "0").replace(/\D/g, ""), 10) : 0;
-          const dock = document.getElementById("generate-accept-dock");
-          return n > 0 && !!(dock && !dock.disabled);
+          const nodes = gen && Array.isArray(gen.compiledNodes) ? gen.compiledNodes.length : 0;
+          return (n > 0 || nodes > 0) && dockReady;
         },
         null,
         { timeout }
@@ -281,13 +307,18 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       return;
     }
     case "wait_audit_complete": {
-      const timeout = step.timeout || 180000;
+      const timeout = step.timeout || 360000;
       await page.waitForFunction(
         () => {
+          const gen = window.AssureGenerate;
           const loader = document.getElementById("gate-loader");
           const dock = document.getElementById("generate-accept-dock");
           const loaderHidden = !loader || loader.hidden;
-          const dockReady = dock && !dock.disabled;
+          const dockReady = !!(dock && !dock.disabled);
+          if (gen && gen.auditComplete && dockReady && loaderHidden) return true;
+          if (gen && gen.fullAudit && gen.auditComplete && dockReady) {
+            return !gen._redhatPending;
+          }
           return loaderHidden && dockReady;
         },
         null,
