@@ -138,7 +138,7 @@
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
               <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('What should this document cover?') }}"></textarea>
               <div class="compile-toolbar">
-                <label class="compile-model-label" for="generate-model-select">
+                <label class="compile-model-label tooltip-trigger" for="generate-model-select" data-tooltip="{{ gettext('Which model writes the first draft') }}" data-i18n-tooltip="tooltip.model">
                   <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
                   <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
                     <option value="gemini">Gemini</option>
@@ -151,8 +151,32 @@
                   <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
                 </label>
               </div>
-              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile">{{ gettext('Compile') }}</button>
+              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
+              <details id="substrate-vault" class="substrate-vault" open>
+                <summary class="substrate-vault-summary">
+                  <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</span></span>
+                  <span class="substrate-vault-count" id="substrate-vault-count" hidden></span>
+                </summary>
+                <div class="substrate-vault-body">
+                  <ul id="substrate-vault-list" class="substrate-vault-list" role="list"></ul>
+                  <p id="substrate-vault-empty" class="hint substrate-vault-empty" data-i18n="substrate.vault.empty">{{ gettext('No files uploaded. Drag and drop or click to upload.') }}</p>
+                  <div class="substrate-vault-upload-row">
+                    <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="substrate-vault-upload-btn" data-tooltip="{{ gettext('Upload a source file') }}" data-i18n-tooltip="tooltip.vault_upload" data-shortcut="⌘U" data-i18n="substrate.vault.upload">{{ gettext('Upload File') }}</button>
+                    <span id="substrate-vault-upload-status" class="substrate-vault-upload-status" aria-live="polite"></span>
+                    <input type="file" id="substrate-vault-file-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff" hidden>
+                  </div>
+                </div>
+              </details>
+              <details id="argument-spine" class="argument-spine" open>
+                <summary class="argument-spine-summary">
+                  <span class="argument-spine-title">🧠 <span data-i18n="spine.title">{{ gettext('Argument Spine') }}</span></span>
+                </summary>
+                <div class="argument-spine-body">
+                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
+                  <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
+                </div>
+              </details>
               <div class="generate-quick-actions" id="generate-quick-actions">
                 <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
                 <div class="lock-inference-actions">
@@ -181,9 +205,9 @@
                   </div>
                   <p id="z3-status" class="gate-z3-status verification-badge" hidden></p>
                   <div class="compile-actions">
-                    <button type="button" class="btn btn-primary btn-sm" id="generate-accept-dock" disabled data-i18n="generate.accept_dock">{{ gettext('Accept & Dock') }}</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="generate-recompile-btn" data-i18n="generate.recompile">{{ gettext('Re-compile') }}</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="generate-discard-btn" data-i18n="generate.discard">{{ gettext('Discard') }}</button>
+                    <button type="button" class="btn btn-primary btn-sm tooltip-trigger" id="generate-accept-dock" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept & Dock') }}</button>
+                    <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-recompile-btn" data-i18n="generate.recompile" data-tooltip="{{ gettext('Run the compile again with the same prompt') }}" data-i18n-tooltip="tooltip.recompile">{{ gettext('Re-compile') }}</button>
+                    <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>
                   </div>
                 </div>
                 <div id="gate-loader" class="gate-loader" hidden>
@@ -211,7 +235,7 @@
               <button type="button" id="demo-redhat-btn" class="demo-chip" role="button" tabindex="0" data-i18n="demo.redhat.label">{{ gettext('🔴 See Stress Test in Action') }}</button>
               <span class="demo-chip-hint" data-i18n="demo.redhat.hint">{{ gettext('Try it on a sample paragraph') }}</span>
             </div>
-            <button type="button" class="btn btn-outline btn-sm" id="redhat-analyze-full-btn" data-i18n="jdf.redhat.analyze_full">{{ gettext('🛡️ Run Red-Hat on Full Document') }}</button>
+            <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="redhat-analyze-full-btn" data-i18n="jdf.redhat.analyze_full" data-tooltip="{{ gettext('Run the adversarial audit across every node in the document') }}" data-i18n-tooltip="tooltip.stress">{{ gettext('🛡️ Run Red-Hat on Full Document') }}</button>
 
             <div id="compose-mode" class="work-mode-panel visually-hidden" aria-hidden="true" hidden data-mode-panel="compose">
               <form id="form" class="compose-mode-form">
@@ -328,8 +352,8 @@
             </div>
 
             <div class="inquiry-controls">
-              <button type="button" class="btn btn-primary" id="btn-inquire" data-i18n="jdf.inquire">{{ gettext('Refine') }}</button>
-              <button type="button" class="btn btn-primary dock-btn" id="btn-dock-draft" hidden data-i18n="compose.dock_button">{{ gettext('📤 Dock to Canvas') }}</button>
+              <button type="button" class="btn btn-primary tooltip-trigger" id="btn-inquire" data-i18n="jdf.inquire" data-tooltip="{{ gettext('Rewrite the selected node while the rest stays locked') }}" data-i18n-tooltip="tooltip.refine" data-shortcut="⌘↩">{{ gettext('Refine') }}</button>
+              <button type="button" class="btn btn-primary dock-btn tooltip-trigger" id="btn-dock-draft" hidden data-i18n="compose.dock_button" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('📤 Dock to Canvas') }}</button>
             </div>
             <div id="truth-error-detail" class="truth-error-detail" hidden role="alert"></div>
             <div id="streaming-preview" class="preview-box" aria-live="polite" role="status">
@@ -360,6 +384,9 @@
             <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
             </div><!-- #view-surgical -->
           </aside>
+          <div class="pane-splitter" id="pane-splitter" role="separator" tabindex="0"
+               aria-orientation="vertical" aria-valuemin="22" aria-valuemax="68" aria-valuenow="42"
+               aria-label="{{ gettext('Resize panes — drag, or use the arrow keys') }}" data-i18n-aria="panes.splitter"></div>
           <main class="right-pane" id="jdf-document-canvas">
             <div id="draft-preview-strip" class="draft-preview-strip" hidden aria-live="polite">
               <div class="draft-strip-left">
@@ -377,8 +404,8 @@
                 </div>
               </div>
               <div class="draft-preview-actions">
-                <button type="button" class="btn btn-sm btn-primary" id="draft-preview-dock-btn" disabled data-i18n="generate.accept_dock">{{ gettext('Accept &amp; Dock') }}</button>
-                <button type="button" class="btn btn-sm btn-outline" id="draft-preview-discard-btn" data-i18n="generate.discard">{{ gettext('Discard') }}</button>
+                <button type="button" class="btn btn-sm btn-primary tooltip-trigger" id="draft-preview-dock-btn" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept &amp; Dock') }}</button>
+                <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="draft-preview-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>
               </div>
             </div>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
@@ -393,6 +420,7 @@
             <span id="version-display" class="visually-hidden" aria-hidden="true">1</span>
           </div>
           <div class="command-deck-right">
+            <button type="button" class="shortcut-hint-btn tooltip-trigger" id="shortcut-hint-btn" aria-label="{{ gettext('Keyboard shortcuts') }}" data-i18n-aria="shortcuts.title" data-tooltip="{{ gettext('Keyboard shortcuts') }}" data-i18n-tooltip="shortcuts.title" data-shortcut="?">?</button>
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
             <details class="export-menu" id="export-menu">
@@ -407,6 +435,63 @@
           </div>
         </footer>
       </section>
+
+      <div class="shortcut-sheet" id="shortcut-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="shortcut-sheet-title">
+        <div class="shortcut-sheet-backdrop"></div>
+        <div class="shortcut-sheet-panel">
+          <div class="shortcut-sheet-head">
+            <h2 class="shortcut-sheet-title" id="shortcut-sheet-title" data-i18n="shortcuts.title">{{ gettext('Keyboard shortcuts') }}</h2>
+            <button type="button" class="btn btn-sm btn-outline" id="shortcut-sheet-close" data-i18n="history.close">{{ gettext('Close') }}</button>
+          </div>
+          <ul class="shortcut-sheet-list">
+            <li>
+              <span data-i18n="shortcuts.compile">{{ gettext('Compile the draft') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>↩</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.refine">{{ gettext('Refine the selected node') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>↩</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.dock">{{ gettext('Dock the draft to the canvas') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>⇧</kbd><kbd>D</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.export">{{ gettext('Open the export menu') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>⇧</kbd><kbd>E</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.save">{{ gettext('Save the document') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>S</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.upload">{{ gettext('Upload a file to the Substrate Vault') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>U</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.undo">{{ gettext('Undo in the editor') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>Z</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.redo">{{ gettext('Redo in the editor') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>⇧</kbd><kbd>Z</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.sidebar">{{ gettext('Show or hide the tools menu') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>B</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.panes">{{ gettext('Reset the pane split') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>\</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.help">{{ gettext('Show this list') }}</span>
+              <span class="shortcut-sheet-keys"><kbd>?</kbd></span>
+            </li>
+          </ul>
+          <p class="hint" data-i18n="shortcuts.panes_hint">{{ gettext('Drag the divider between the panes to resize them. Double-click it to reset.') }}</p>
+        </div>
+      </div>
 
       <div class="compose-compat visually-hidden" aria-hidden="true" id="compose-compat">
         <div class="recent-row" id="recent-row" hidden>
@@ -527,6 +612,11 @@
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="reprompt" data-i18n="jdf.menu.reprompt">{{ gettext('Re-prompt') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="revision" data-i18n="jdf.menu.revision">{{ gettext('Send for Revision') }}</button>
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="redhat" data-i18n="jdf.menu.redhat">{{ gettext('🛡️ Run Red-Hat on Node') }}</button>
+        </div>
+        <div id="spine-node-menu" class="jdf-node-menu spine-node-menu" hidden role="menu" aria-hidden="true">
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="scroll" data-i18n="spine.scroll_to">{{ gettext('Scroll to') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="expand" data-i18n="spine.expand_all">{{ gettext('Expand All') }}</button>
+          <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="collapse" data-i18n="spine.collapse_all">{{ gettext('Collapse All') }}</button>
         </div>
         <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
       </div>
@@ -731,6 +821,9 @@
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='prompt_history.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='workbench_ux.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='argument_spine.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>

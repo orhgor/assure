@@ -8,10 +8,13 @@
   var MAX = 5;
 
   function t(key, fallback) {
-    if (global.AssureI18n && typeof global.AssureI18n.t === "function") {
-      return global.AssureI18n.t(key, fallback);
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, {});
     }
-    return fallback;
+    if (typeof global.__assureT === "function") {
+      return global.__assureT(key, fallback);
+    }
+    return fallback || key;
   }
 
   function load() {
@@ -51,6 +54,7 @@
       text.className = "prompt-history-text btn-ghost";
       text.textContent = (item.text || "").slice(0, 120);
       text.title = item.text || "";
+      text.setAttribute("aria-label", t("generate.reuse", "Reuse") + ": " + (item.text || ""));
       text.addEventListener("click", function () {
         reuse(idx);
       });
@@ -118,6 +122,8 @@
 
   function bind() {
     render();
+    // Rows are built in JS, so a language switch has to rebuild them.
+    document.addEventListener("assure:i18n", render);
   }
 
   global.AssurePromptHistory = {

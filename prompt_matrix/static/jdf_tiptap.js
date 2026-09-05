@@ -26,12 +26,16 @@
 
   function gutterForNode(jdfNode, isPreview) {
     if (isPreview) return "unverified";
+    var canvas = global.__assureJdf;
+    if (canvas && typeof canvas.computeNodeStatus === "function") {
+      return canvas.computeNodeStatus(jdfNode);
+    }
     var ann = (jdfNode && jdfNode.annotations) || {};
     var hasRedhat = Array.isArray(ann.redhat) && ann.redhat.length > 0;
     var hasZ3Fail =
       Array.isArray(ann.z3) &&
       ann.z3.some(function (z) {
-        return z.status === "FAIL";
+        return z.status === "violation";
       });
     if (hasZ3Fail) return "error";
     if (hasRedhat) return "warning";

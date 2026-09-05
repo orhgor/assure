@@ -613,6 +613,98 @@ def apply_redhat_critiques_to_tree(
     return mutated
 
 
+def _numeric_string_forms(value: float) -> list[str]:
+    """Plausible ways ``value`` might appear as text (whole, comma-grouped, decimal)."""
+    forms: set[str] = set()
+    if value == int(value):
+        forms.add(str(int(value)))
+        forms.add(f"{int(value):,}")
+    else:
+        forms.add(str(value))
+        forms.add(f"{value:,.2f}")
+        forms.add(f"{value:.2f}")
+    return [f for f in forms if f and len(f) >= 2]
+
+
+def attach_substrate_provenance_to_tree(
+    tree: dict[str, Any],
+    locks: list[dict[str, Any]],
+    substrate_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Best-effort provenance stamping for the Substrate Vault.
+
+    If a lock's numeric value shows up in both a substrate file's extracted
+    text and a paragraph's content, attach a ``JDFProvenance`` entry naming
+    that file to that paragraph. This is a text-match heuristic — the same
+    rigor ``apply_z3_violations_to_tree`` already uses for locating the node
+    a violation belongs to — not claim-level NLP attribution.
+    """
+    if not locks or not substrate_rows:
+        return tree
+    mutated = document_to_dict(tree)
+
+    for lock in locks:
+        try:
+            value = float(lock.get("value"))
+        except (TypeError, ValueError):
+            continue
+        value_forms = _numeric_string_forms(value)
+        if not value_forms:
+            continue
+
+        matched_row: dict[str, Any] | None = None
+        matched_quote = ""
+        for row in substrate_rows:
+            text = str(row.get("extracted_text") or "")
+            for form in value_forms:
+                idx = text.find(form)
+                if idx >= 0:
+                    matched_row = row
+                    start = max(0, idx - 40)
+                    end = min(len(text), idx + len(form) + 40)
+                    matched_quote = text[start:end].strip()
+                    break
+            if matched_row:
+                break
+        if not matched_row:
+            continue
+
+        target_id: str | None = None
+        for node in flatten_nodes(mutated):
+            if node.get("type") != "paragraph":
+                continue
+            content = str(node.get("content") or "")
+            if any(form in content for form in value_forms):
+                target_id = str(node.get("id"))
+                break
+        if not target_id:
+            continue
+
+        node = get_node_by_id(mutated, target_id)
+        if not node:
+            continue
+        node = copy.deepcopy(node)
+        existing = node.get("provenance") or []
+        source_id = str(matched_row.get("id") or "")
+        if any(isinstance(p, dict) and p.get("source_id") == source_id for p in existing):
+            continue
+        existing.append(
+            {
+                "source_type": "internal_doc",
+                "source_name": matched_row.get("filename") or "",
+                "url_or_doi": "",
+                "source_id": source_id,
+                "page_number": "",
+                "extracted_quote": matched_quote,
+                "accessed_date": "",
+            }
+        )
+        node["provenance"] = existing
+        mutated, _ = splice_node(mutated, target_id, node)
+
+    return mutated
+
+
 # Re-export for type checkers
 __all__ = [
     "JDFDocumentTree",
@@ -638,6 +730,7 @@ __all__ = [
     "validate_document",
     "apply_z3_violations_to_tree",
     "apply_redhat_critiques_to_tree",
+    "attach_substrate_provenance_to_tree",
     "collect_unique_provenance",
     "enrich_document_citations",
     "extract_citations_from_content",

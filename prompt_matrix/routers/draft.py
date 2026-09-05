@@ -18,12 +18,14 @@ try:
         TaskType,
         TokenLimitExceededError,
     )
+    from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
+        attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
         parse_document,
@@ -39,12 +41,14 @@ except ImportError:
         TaskType,
         TokenLimitExceededError,
     )
+    from db.substrate_repository import fetch_substrate_entries_by_ids
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
+        attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
         parse_document,
@@ -68,9 +72,14 @@ class DraftCancelledError(Exception):
     """Raised when the client disconnects or aborts the stream."""
 
 
+SUBSTRATE_CONTEXT_CHARS_PER_FILE = 4000
+SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
+
+
 class DraftPayload(BaseModel):
     intent: str = Field(min_length=1)
     context: str | None = None
+    substrate_file_ids: list[str] = Field(default_factory=list)
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -97,6 +106,26 @@ def _draft_messages(intent: str, context: str | None) -> list[dict[str, str]]:
         {"role": "system", "content": _DRAFT_SYSTEM},
         {"role": "user", "content": "\n\n".join(parts)},
     ]
+
+
+def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
+    """Concatenate selected Substrate Vault files (bounded) so the draft is
+    actually grounded in them, not just told they exist."""
+    if not substrate_rows:
+        return ""
+    blocks: list[str] = []
+    total = 0
+    for row in substrate_rows:
+        text = str(row.get("extracted_text") or "").strip()
+        if not text:
+            continue
+        excerpt = text[:SUBSTRATE_CONTEXT_CHARS_PER_FILE]
+        block = f"### Source file: {row.get('filename') or 'substrate'}\n{excerpt}"
+        if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
+            break
+        blocks.append(block)
+        total += len(block)
+    return "\n\n".join(blocks)
 
 
 def run_lock_inference(text: str) -> tuple[list[dict[str, Any]], str]:
@@ -254,6 +283,7 @@ def run_draft_pipeline(
     *,
     intent: str,
     context: str | None = None,
+    substrate_file_ids: list[str] | None = None,
     governor: CostGovernor | None = None,
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
@@ -262,7 +292,13 @@ def run_draft_pipeline(
     start = time.perf_counter()
     audit = get_audit_logger()
     gov = governor or CostGovernor()
-    messages = _draft_messages(intent, context)
+
+    substrate_rows = (
+        fetch_substrate_entries_by_ids(project_id, substrate_file_ids) if substrate_file_ids else []
+    )
+    substrate_context = _build_substrate_context(substrate_rows)
+    combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
+    messages = _draft_messages(intent, combined_context)
 
     yield _typed_sse(
         "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
@@ -371,6 +407,8 @@ def run_draft_pipeline(
 
     document = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
     doc_dict = document_to_dict(document)
+    if substrate_rows and locks:
+        doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
 
     yield _typed_sse(
         "compiled",
@@ -592,6 +630,7 @@ def register_draft_routes(app) -> None:
                 {
                     "intent": data.get("intent") or data.get("user_intent") or "",
                     "context": data.get("context"),
+                    "substrate_file_ids": data.get("substrate_file_ids") or [],
                 }
             )
         except Exception as exc:
@@ -612,6 +651,7 @@ def register_draft_routes(app) -> None:
                     project_id,
                     intent=payload.intent.strip(),
                     context=payload.context,
+                    substrate_file_ids=payload.substrate_file_ids,
                     request_id=request_id,
                     cancel_check=cancel_check,
                 )

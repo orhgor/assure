@@ -10,16 +10,30 @@ from flask import jsonify, request
 from pydantic import BaseModel, Field
 
 try:
-    from ..db.jdf_repository import ensure_project
-    from ..db.substrate_repository import save_substrate_entry, save_substrate_text
+    from ..db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
+    from ..db.substrate_repository import (
+        delete_substrate_entry,
+        list_substrate_for_project,
+        save_substrate_entry,
+        save_substrate_text,
+        set_substrate_included,
+    )
     from ..lib.logger import get_audit_logger
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
+    from ..models.jdf import flatten_nodes
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
-    from db.jdf_repository import ensure_project
-    from db.substrate_repository import save_substrate_entry, save_substrate_text
+    from db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
+    from db.substrate_repository import (
+        delete_substrate_entry,
+        list_substrate_for_project,
+        save_substrate_entry,
+        save_substrate_text,
+        set_substrate_included,
+    )
     from lib.logger import get_audit_logger
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
+    from models.jdf import flatten_nodes
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 1
@@ -211,6 +225,7 @@ def register_substrate_routes(app) -> None:
             extracted_text=extracted_text,
             tables=extracted.get("tables") or [],
             forms=extracted.get("forms") or [],
+            file_size_bytes=len(file_bytes),
         )
 
         audit.log_audit(
@@ -235,6 +250,58 @@ def register_substrate_routes(app) -> None:
                 "text": entry["extracted_text"],
                 "tables": entry["tables"],
                 "forms": entry["forms"],
+                "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
                 "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
             }
         )
+
+    @app.get("/api/projects/<project_id>/substrate")
+    def substrate_list(project_id: str):
+        entries = list_substrate_for_project(project_id)
+        if not entries:
+            return jsonify({"ok": True, "files": []})
+
+        doc = fetch_latest_jdf_or_empty(project_id)
+        claims_by_source_id: dict[str, int] = {}
+        for node in flatten_nodes(doc):
+            for prov in node.get("provenance") or []:
+                if not isinstance(prov, dict):
+                    continue
+                source_id = str(prov.get("source_id") or "").strip()
+                if source_id:
+                    claims_by_source_id[source_id] = claims_by_source_id.get(source_id, 0) + 1
+
+        files = [
+            {
+                **entry,
+                "claims_count": claims_by_source_id.get(entry["id"], 0),
+            }
+            for entry in entries
+        ]
+        return jsonify({"ok": True, "files": files})
+
+    @app.delete("/api/projects/<project_id>/substrate/<file_id>")
+    def substrate_delete(project_id: str, file_id: str):
+        request_id = str(uuid.uuid4())
+        audit = get_audit_logger()
+        removed = delete_substrate_entry(project_id, file_id)
+        if not removed:
+            return jsonify({"ok": False, "error": "File not found."}), 404
+        audit.log_audit(
+            request_id,
+            project_id,
+            "SUBSTRATE_DELETE",
+            success=True,
+            details={"file_id": file_id},
+        )
+        return jsonify({"ok": True, "id": file_id})
+
+    @app.patch("/api/projects/<project_id>/substrate/<file_id>")
+    def substrate_patch(project_id: str, file_id: str):
+        data = request.get_json(silent=True) or {}
+        if "included" not in data:
+            return jsonify({"ok": False, "error": "Missing 'included' field."}), 400
+        updated = set_substrate_included(project_id, file_id, bool(data.get("included")))
+        if not updated:
+            return jsonify({"ok": False, "error": "File not found."}), 404
+        return jsonify({"ok": True, "id": file_id, "included": bool(data.get("included"))})

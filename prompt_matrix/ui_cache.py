@@ -1,6 +1,6 @@
 """Cache-bust query strings. Change these, not scattered HTML literals."""
 
-APP_CSS = "assure-74"
-APP_JS = "assure-65"
+APP_CSS = "assure-77"
+APP_JS = "assure-68"
 LANDING_CSS = "51"
 LANDING_JS = "40"

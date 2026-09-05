@@ -16,7 +16,17 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 9
+_SCHEMA_VERSION = 10
+
+
+def _migrate_v10(db: sqlite3.Connection) -> None:
+    """Substrate Vault UI: file size for display, included flag for compile grounding."""
+    if not _column_exists(db, "substrate_vault", "file_size_bytes"):
+        db.execute(
+            "ALTER TABLE substrate_vault ADD COLUMN file_size_bytes INTEGER NOT NULL DEFAULT 0"
+        )
+    if not _column_exists(db, "substrate_vault", "included"):
+        db.execute("ALTER TABLE substrate_vault ADD COLUMN included INTEGER NOT NULL DEFAULT 1")
 
 
 def _migrate_v5(db: sqlite3.Connection) -> None:
@@ -274,6 +284,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v8(db)
     if current < 9:
         _migrate_v9(db)
+    if current < 10:
+        _migrate_v10(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

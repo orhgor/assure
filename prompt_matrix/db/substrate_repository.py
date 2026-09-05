@@ -52,6 +52,7 @@ def save_substrate_entry(
     tables: list[dict[str, Any]] | None = None,
     forms: list[dict[str, Any]] | None = None,
     entry_id: str | None = None,
+    file_size_bytes: int = 0,
 ) -> dict[str, Any]:
     """Persist a Textract extraction in substrate_vault."""
     init_db()
@@ -61,8 +62,8 @@ def save_substrate_entry(
         """
         INSERT INTO substrate_vault (
             id, project_id, filename, page_count,
-            extracted_text, tables_json, forms_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            extracted_text, tables_json, forms_json, file_size_bytes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             vault_id,
@@ -72,6 +73,7 @@ def save_substrate_entry(
             extracted_text or "",
             json.dumps(tables or []),
             json.dumps(forms or []),
+            int(file_size_bytes or 0),
         ),
     )
     db.commit()
@@ -83,7 +85,76 @@ def save_substrate_entry(
         "extracted_text": extracted_text or "",
         "tables": tables or [],
         "forms": forms or [],
+        "file_size_bytes": int(file_size_bytes or 0),
     }
+
+
+def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
+    """List vault entries for a project (no extracted_text — keep the list light)."""
+    init_db()
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT id, filename, page_count, file_size_bytes, included, created_at
+        FROM substrate_vault
+        WHERE project_id = ?
+        ORDER BY created_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return [
+        {
+            "id": row[0],
+            "filename": row[1],
+            "page_count": int(row[2] or 1),
+            "file_size_bytes": int(row[3] or 0),
+            "included": bool(row[4]),
+            "created_at": row[5],
+        }
+        for row in rows
+    ]
+
+
+def delete_substrate_entry(project_id: str, file_id: str) -> bool:
+    """Delete a vault entry. Returns True if a row was removed."""
+    init_db()
+    db = get_db()
+    cur = db.execute(
+        "DELETE FROM substrate_vault WHERE project_id = ? AND id = ?",
+        (project_id, file_id),
+    )
+    db.commit()
+    return cur.rowcount > 0
+
+
+def set_substrate_included(project_id: str, file_id: str, included: bool) -> bool:
+    """Toggle whether a file feeds compile grounding. Returns True if a row matched."""
+    init_db()
+    db = get_db()
+    cur = db.execute(
+        "UPDATE substrate_vault SET included = ? WHERE project_id = ? AND id = ?",
+        (1 if included else 0, project_id, file_id),
+    )
+    db.commit()
+    return cur.rowcount > 0
+
+
+def fetch_substrate_entries_by_ids(project_id: str, file_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch full rows (including extracted_text) for the given ids — used to ground compile."""
+    if not file_ids:
+        return []
+    init_db()
+    db = get_db()
+    placeholders = ",".join("?" for _ in file_ids)
+    rows = db.execute(
+        f"""
+        SELECT id, filename, extracted_text
+        FROM substrate_vault
+        WHERE project_id = ? AND id IN ({placeholders})
+        """,
+        (project_id, *file_ids),
+    ).fetchall()
+    return [{"id": row[0], "filename": row[1], "extracted_text": row[2] or ""} for row in rows]
 
 
 def fetch_latest_substrate(project_id: str) -> dict[str, Any] | None:

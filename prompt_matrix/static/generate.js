@@ -454,10 +454,15 @@
           : null;
       var modelEl = $("generate-model-select");
       var lockOn = !($("generate-lock-toggle") && !$("generate-lock-toggle").checked);
+      var substrateIds =
+        global.AssureSubstrateVault && typeof global.AssureSubstrateVault.selectedIncludedIds === "function"
+          ? global.AssureSubstrateVault.selectedIncludedIds()
+          : [];
       var requestBody = {
         intent: intent,
         target_ai: modelEl ? modelEl.value : undefined,
         lock_numbers: lockOn,
+        substrate_file_ids: substrateIds,
       };
 
       function handleFrame(frame) {
@@ -868,6 +873,7 @@
           if (global.AssureToast) {
             global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
           }
+          document.dispatchEvent(new CustomEvent("assure:docked", { detail: { cycle: cycleId } }));
           if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
             global.AssureNav.switchView("surgical");
           }
@@ -929,6 +935,7 @@
           if (global.AssureToast) {
             global.AssureToast.show(t("generate.docked", "Nodes docked to canvas."), "success");
           }
+          document.dispatchEvent(new CustomEvent("assure:docked", {}));
           if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
             global.AssureNav.switchView("surgical");
           }

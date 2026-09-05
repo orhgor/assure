@@ -102,6 +102,32 @@
   --text-main: var(--text-color);
   --text-muted: var(--color-text-muted);
   --border-color: var(--color-border);
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 170ms;
+  --motion-slow: 240ms;
+  --ease-out: cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Workbench density — control chrome is tight so the document gets the room */
+  --wb-control-y: 7px;
+  --wb-control-x: 11px;
+  --wb-gap: 10px;
+  --wb-pane-pad: 14px;
+  --wb-focus-ring: 0 0 0 3px rgba(26, 75, 140, 0.28);
+  --wb-elevate: 0 1px 2px rgba(13, 43, 69, 0.06), 0 2px 8px rgba(13, 43, 69, 0.06);
+  --wb-elevate-hover: 0 2px 4px rgba(13, 43, 69, 0.08), 0 6px 18px rgba(13, 43, 69, 0.10);
+  --wb-splitter: 9px;
+  --wb-left: 42%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 1ms;
+    --motion-base: 1ms;
+    --motion-slow: 1ms;
+  }
 }
 
 .skeleton-block {
@@ -123,7 +149,11 @@ body {
   color: var(--text);
   font-family: var(--font-family);
   font-size: var(--font-size-base);
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis-weight: none;
 }
 
 .text-xs { font-size: var(--font-size-xs); }
@@ -5155,5 +5185,836 @@ body.tab-lockout-active {
 
   #assure-app {
     display: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Workbench polish — density, interaction states, motion, resizable panes.
+   Loaded last so it refines the base rules above without forking them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Interaction states on every control ───────────────────────────────── */
+.btn,
+button.primary,
+button.ghost,
+button.tiny,
+.btn-feedback,
+.feedback-btn {
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.btn:active:not(:disabled),
+button.primary:active:not(:disabled),
+button.ghost:active:not(:disabled),
+button.tiny:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: none;
+}
+
+/* Keyboard focus is visible; mouse focus is not. */
+.btn:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+summary:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.btn:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+.jdf-workbench select:focus-visible,
+.jdf-workbench textarea:focus-visible,
+.jdf-workbench input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: var(--wb-focus-ring);
+}
+
+/* A disabled control is not a loading control. */
+.btn:disabled,
+button.primary:disabled,
+button.ghost:disabled,
+button.tiny:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn.is-busy:disabled,
+#go.is-busy:disabled {
+  cursor: progress;
+  opacity: 1;
+}
+
+/* Outline buttons need a tinted spinner — a white one is invisible on them. */
+.btn-outline.is-busy::after,
+button.ghost.is-busy::after,
+button.tiny.is-busy::after {
+  border-color: rgba(26, 75, 140, 0.22);
+  border-top-color: var(--color-primary);
+}
+
+/* Dock is the payoff action — when it unlocks, it should read as unlocked. */
+#generate-accept-dock:not(:disabled),
+#btn-dock-draft:not(:disabled) {
+  background: var(--assure-confidence-green);
+  border-color: var(--assure-confidence-green);
+  color: #fff;
+  box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.5);
+  animation: dock-ready-glow var(--motion-slow) var(--ease-spring);
+}
+
+#generate-accept-dock:not(:disabled):hover,
+#btn-dock-draft:not(:disabled):hover {
+  background: #256c29;
+  border-color: #256c29;
+  box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.18);
+}
+
+@keyframes dock-ready-glow {
+  from { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.55); transform: scale(0.97); }
+  to   { box-shadow: 0 0 0 8px rgba(46, 125, 50, 0); transform: scale(1); }
+}
+
+#generate-discard-btn:hover:not(:disabled),
+#btn-discard-draft:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+  color: #991b1b;
+}
+
+/* ─── Density: control chrome tightens, document text does not ──────────── */
+.jdf-workbench textarea,
+.jdf-workbench input[type="text"],
+.jdf-workbench select,
+.jdf-workbench #generate-intent,
+.jdf-workbench #prompt-input,
+.jdf-workbench #inquiry-input,
+.jdf-workbench #refine-input,
+.jdf-workbench .prompt-input,
+.jdf-workbench .refine-input,
+.jdf-workbench .compose-task-input,
+.jdf-workbench .draft-textarea,
+.jdf-workbench textarea.form-control,
+.jdf-workbench input.form-control {
+  padding: var(--wb-control-y) var(--wb-control-x) !important;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.jdf-workbench select {
+  padding-right: calc(var(--wb-control-x) + 16px);
+}
+
+.jdf-workbench #generate-intent {
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  padding: var(--space-sm) var(--wb-control-x) !important;
+}
+
+.jdf-workbench .left-pane {
+  padding: var(--wb-pane-pad);
+  gap: var(--wb-gap);
+  scrollbar-width: thin;
+}
+
+.jdf-workbench .right-pane #jdf-render-target {
+  padding: var(--wb-pane-pad) calc(var(--wb-pane-pad) + 4px);
+}
+
+.jdf-workbench .left-pane .hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.jdf-workbench .jdf-pane-title {
+  margin: 0 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+/* The model picker used to grow and push the lock label past the pane edge. */
+.jdf-workbench .compile-toolbar {
+  gap: var(--wb-gap);
+  align-items: center;
+}
+
+.jdf-workbench .compile-model-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+
+.jdf-workbench .compile-model-label select {
+  width: auto;
+  min-width: 7.5rem;
+  max-width: 100%;
+}
+
+.jdf-workbench .compile-lock-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.jdf-workbench .lock-inference-actions,
+.jdf-workbench .compile-actions {
+  gap: 6px;
+}
+
+/* Panels read as layers, not as flat boxes. */
+.jdf-workbench .preview-box,
+.jdf-workbench .generate-summary,
+.jdf-workbench .generate-history-panel,
+.jdf-workbench .generate-quick-actions {
+  box-shadow: var(--wb-elevate);
+  transition: box-shadow var(--motion-base) var(--ease-out);
+}
+
+/* ─── Resizable panes ───────────────────────────────────────────────────── */
+@media (min-width: 1025px) {
+  .jdf-workbench .app-container {
+    align-items: stretch;
+  }
+
+  .jdf-workbench .left-pane {
+    flex: 0 0 clamp(280px, var(--wb-left), 68%);
+    border-right: none;
+  }
+
+  .jdf-workbench .right-pane {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .pane-splitter {
+    flex: 0 0 var(--wb-splitter);
+    align-self: stretch;
+    position: relative;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: var(--color-border);
+    background-clip: content-box;
+    border-left: 4px solid var(--color-surface);
+    border-right: 4px solid var(--color-bg);
+    cursor: col-resize;
+    touch-action: none;
+    transition: border-color var(--motion-fast) var(--ease-out);
+  }
+
+  /* Grip dots so the handle reads as draggable before you touch it. */
+  .pane-splitter::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3px;
+    height: 26px;
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--color-text-muted) 0 3px,
+      transparent 3px 6px
+    );
+    opacity: 0.75;
+    transition: opacity var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+  }
+
+  .pane-splitter:hover::after,
+  .pane-splitter:focus-visible::after,
+  .pane-splitter.is-dragging::after {
+    opacity: 1;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--color-primary) 0 3px,
+      transparent 3px 6px
+    );
+  }
+
+  .pane-splitter:hover,
+  .pane-splitter.is-dragging {
+    background: var(--color-primary);
+  }
+
+  .pane-splitter:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
+  /* While dragging, nothing else should take the pointer or select text. */
+  body.is-pane-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  body.is-pane-resizing .jdf-workbench iframe,
+  body.is-pane-resizing .jdf-workbench .ProseMirror {
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .pane-splitter {
+    display: none;
+  }
+}
+
+/* ─── Docking motion ────────────────────────────────────────────────────── */
+@keyframes dock-land {
+  0%   { opacity: 0; transform: translateY(-6px) scale(0.995); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+.jdf-node.just-docked,
+.jdf-tree .just-docked {
+  animation: dock-land var(--motion-slow) var(--ease-out);
+}
+
+.draft-preview-strip {
+  animation: dock-land var(--motion-base) var(--ease-out);
+  transition: background var(--motion-base) var(--ease-out);
+}
+
+/* ─── Recent prompts ────────────────────────────────────────────────────── */
+.prompt-history-row {
+  padding: 3px 4px;
+  margin: 0 -4px;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+
+.prompt-history-row:hover {
+  background: var(--color-primary-light);
+}
+
+.prompt-history-row .prompt-history-text {
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.prompt-history-row:hover .prompt-history-text {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prompt-history-row .prompt-history-text:active {
+  transform: translateY(1px);
+}
+
+/* The Reuse button only earns its space once you are on the row. */
+.prompt-history-row .btn-sm {
+  opacity: 0.55;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.prompt-history-row:hover .btn-sm,
+.prompt-history-row:focus-within .btn-sm {
+  opacity: 1;
+}
+
+/* ─── Export menu ───────────────────────────────────────────────────────── */
+.export-menu-panel a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition:
+    background var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out),
+    padding-left var(--motion-fast) var(--ease-out);
+}
+
+.export-menu-panel a::before {
+  content: "📄";
+  font-size: 13px;
+  line-height: 1;
+}
+
+.export-menu-panel a#btn-export-md::before { content: "📝"; }
+.export-menu-panel a#btn-export-html::before { content: "🌐"; }
+
+.export-menu-panel a:hover,
+.export-menu-panel a:focus-visible {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  padding-left: 14px;
+}
+
+/* ─── Keyboard shortcut hints and help sheet ────────────────────────────── */
+kbd,
+.kbd {
+  display: inline-block;
+  min-width: 1.35em;
+  padding: 1px 5px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg);
+  box-shadow: inset 0 -1px 0 rgba(13, 43, 69, 0.05);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tooltip-trigger[data-shortcut]::after {
+  content: attr(data-tooltip) "  ·  " attr(data-shortcut);
+}
+
+.shortcut-sheet[hidden] {
+  display: none !important;
+}
+
+.shortcut-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-6);
+}
+
+.shortcut-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 43, 69, 0.5);
+  backdrop-filter: blur(2px);
+  animation: shortcut-fade var(--motion-base) var(--ease-out);
+}
+
+.shortcut-sheet-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 30rem;
+  max-height: min(80vh, 640px);
+  overflow-y: auto;
+  padding: var(--spacing-5) var(--spacing-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: shortcut-rise var(--motion-base) var(--ease-out);
+}
+
+@keyframes shortcut-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shortcut-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.shortcut-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+}
+
+.shortcut-sheet-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.shortcut-sheet-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shortcut-sheet-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.shortcut-sheet-list li:nth-child(odd) {
+  background: var(--color-bg);
+}
+
+.shortcut-sheet-keys {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.shortcut-hint-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out);
+}
+
+.shortcut-hint-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* ─── Substrate Vault ────────────────────────────────────────────────────── */
+.substrate-vault {
+  margin: var(--space-sm) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.substrate-vault-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.substrate-vault-summary::-webkit-details-marker {
+  display: none;
+}
+
+.substrate-vault-summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.substrate-vault[open] > .substrate-vault-summary::before {
+  transform: rotate(90deg);
+}
+
+.substrate-vault-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.substrate-vault-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.substrate-vault-body {
+  padding: 0 10px var(--space-sm);
+}
+
+.substrate-vault-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 var(--space-xs);
+  padding: 0;
+  list-style: none;
+}
+
+.substrate-file-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.substrate-file-row:hover {
+  background: var(--color-bg);
+}
+
+.substrate-file-row.is-focused {
+  background: var(--color-primary-light);
+}
+
+.substrate-file-row.is-processing {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.substrate-file-row.is-failed {
+  opacity: 0.6;
+}
+
+.substrate-file-checkbox {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.substrate-file-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.substrate-file-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.substrate-file-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.substrate-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.substrate-file-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+
+.substrate-file-status.status-verified { color: var(--assure-confidence-green); }
+.substrate-file-status.status-processing { color: var(--color-warning); }
+.substrate-file-status.status-failed { color: var(--color-danger); }
+
+.substrate-file-delete {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition:
+    color var(--motion-fast) var(--ease-out),
+    background var(--motion-fast) var(--ease-out);
+}
+
+.substrate-file-delete:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.substrate-vault-empty {
+  margin: 4px 0;
+}
+
+.substrate-vault-upload-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.substrate-vault-upload-status {
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+
+/* Canvas-side highlight when a Vault file is clicked (provenance match). */
+.jdf-node.provenance-highlight {
+  animation: substrate-focus-pulse 900ms var(--ease-out);
+  box-shadow: 0 0 0 2px var(--color-primary);
+  border-radius: var(--radius-sm);
+}
+
+@keyframes substrate-focus-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(26, 75, 140, 0.35); }
+  100% { box-shadow: 0 0 0 2px var(--color-primary); }
+}
+
+/* ─── Argument Spine ─────────────────────────────────────────────────────── */
+.argument-spine {
+  margin: var(--space-sm) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.argument-spine-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.argument-spine-summary::-webkit-details-marker {
+  display: none;
+}
+
+.argument-spine-summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.argument-spine[open] > .argument-spine-summary::before {
+  transform: rotate(90deg);
+}
+
+.argument-spine-body {
+  padding: 0 10px var(--space-sm);
+}
+
+.argument-spine-empty {
+  margin: 4px 0;
+}
+
+.argument-spine-tree,
+.spine-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.spine-children {
+  padding-left: 18px;
+  margin-top: 2px;
+}
+
+.spine-section + .spine-section {
+  margin-top: 6px;
+}
+
+.spine-section.is-thesis > .spine-section-row .spine-label {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.spine-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 0;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.spine-row:hover {
+  background: var(--color-bg);
+}
+
+.spine-row.spine-active {
+  background: var(--color-primary-light);
+}
+
+.spine-fold {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.spine-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.spine-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.spine-dot-unverified { background: #94a3b8; }
+.spine-dot-verified { background: var(--assure-confidence-green); }
+.spine-dot-warning { background: var(--color-warning); }
+.spine-dot-error { background: var(--color-danger); }
+
+.spine-lock,
+.spine-edit {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.jdf-node.hover-highlight {
+  background: var(--color-primary-light);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Honour the OS motion preference everywhere ────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
   }
 }

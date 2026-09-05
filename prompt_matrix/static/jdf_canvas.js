@@ -684,11 +684,64 @@
     var found = null;
     (this.tree.body || []).forEach(function (section) {
       if (found) return;
+      if (section.id === nodeId) {
+        found = section;
+        return;
+      }
       (section.children || []).forEach(function (child) {
         if (child.id === nodeId) found = child;
       });
     });
     return found;
+  };
+
+  /** Walk body to return { section, node } for a child id, or { section } for a section id. */
+  JDFCanvasManager.prototype.getNodeSectionPath = function (nodeId) {
+    var path = null;
+    (this.tree.body || []).forEach(function (section) {
+      if (path) return;
+      if (section.id === nodeId) {
+        path = { section: section, node: null };
+        return;
+      }
+      (section.children || []).forEach(function (child) {
+        if (child.id === nodeId) path = { section: section, node: child };
+      });
+    });
+    return path;
+  };
+
+  /**
+   * Shared status used by the canvas gutter and the Argument Spine.
+   * Z3 annotations use status "violation" | "pass" — never "FAIL".
+   */
+  JDFCanvasManager.prototype.computeNodeStatus = function (node) {
+    if (!node) return "unverified";
+    if (this.rootEl && this.rootEl.classList.contains("is-draft-preview")) return "unverified";
+    var z3 = node.annotations && node.annotations.z3;
+    if (Array.isArray(z3) && z3.some(function (z) { return z.status === "violation"; })) {
+      return "error";
+    }
+    var redhat = node.annotations && node.annotations.redhat;
+    if (Array.isArray(redhat) && redhat.length) return "warning";
+    return "verified";
+  };
+
+  /** Same truth_ledger substring match the canvas uses for lock pills. */
+  JDFCanvasManager.prototype.nodeHasLockedNumber = function (node) {
+    var text = this._nodeText(node);
+    if (!text) return false;
+    var ledger = (this.tree && this.tree.truth_ledger) || {};
+    return Object.keys(ledger).some(function (key) {
+      var val = String(ledger[key]);
+      return !!val && text.indexOf(val) >= 0;
+    });
+  };
+
+  JDFCanvasManager.prototype._emitJdfRendered = function () {
+    document.dispatchEvent(
+      new CustomEvent("assure:jdf:rendered", { detail: { tree: this.tree } })
+    );
   };
 
   JDFCanvasManager.prototype._locateNode = function (nodeId) {
@@ -905,10 +958,12 @@
     var node = this.getNodeById(nodeId);
     if (!node) return;
     this.surgicalTargetId = nodeId;
-    if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
-      global.AssureNav.switchView("surgical");
-    } else if (global.AssureMode && typeof global.AssureMode.activate === "function") {
-      global.AssureMode.activate("surgical");
+    if (!opts.skipViewSwitch) {
+      if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+        global.AssureNav.switchView("surgical");
+      } else if (global.AssureMode && typeof global.AssureMode.activate === "function") {
+        global.AssureMode.activate("surgical");
+      }
     }
     if (this.surgicalEl) this.surgicalEl.hidden = false;
     var targetEl = document.getElementById("active-target-id");
@@ -935,6 +990,9 @@
         "info"
       );
     }
+    document.dispatchEvent(
+      new CustomEvent("assure:jdf:selected", { detail: { nodeId: nodeId } })
+    );
   };
 
   JDFCanvasManager.prototype._renderNodeBodyWithCitations = function (node, bodyEl) {
@@ -949,17 +1007,22 @@
       ledgerKeys.sort(function (a, b) {
         return String(ledger[b]).length - String(ledger[a]).length;
       });
+      var lockSourceName = provList.length && provList[0].source_name ? provList[0].source_name : "";
       ledgerKeys.forEach(function (key) {
         var val = String(ledger[key]);
         if (!val) return;
         var re = new RegExp(val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
         var escapedKey = key.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         html = html.replace(re, function (match) {
+          var tip = "\uD83D\uDD12 " + escapedKey + " = " + match;
+          if (lockSourceName) {
+            tip += " \u00B7 " + jdfT("jdf.citation.source_name", "Source") + ": " + lockSourceName;
+          }
           return (
             '<span class="truth-pill inline-citation interactive-element truth-pass lock-glyph-host" ' +
             'data-provenance="' + provAttr + '" ' +
             'data-lock-key="' + escapedKey + '" ' +
-            'title="\uD83D\uDD12 ' + escapedKey + ' = ' + match + '">' +
+            'title="' + tip.replace(/"/g, "&quot;") + '">' +
             match +
             '<span class="lock-glyph" aria-hidden="true">\uD83D\uDD12</span>' +
             '</span>'
@@ -1193,6 +1256,38 @@
     }, { passive: true });
   };
 
+  /** Substrate Vault → canvas: clicking a vault file highlights every node
+   * whose provenance cites it (matched on provenance.source_id). */
+  JDFCanvasManager.prototype._bindSubstrateFocus = function () {
+    var self = this;
+    if (this._substrateFocusBound) return;
+    this._substrateFocusBound = true;
+    document.addEventListener("assure:substrate:focus", function (e) {
+      var fileId = e.detail && e.detail.fileId;
+      var rootEl = self.rootEl;
+      if (!rootEl) return;
+      var nodes = rootEl.querySelectorAll(".jdf-node");
+      var firstMatch = null;
+      nodes.forEach(function (el) {
+        var node = self.getNodeById(el.dataset.nodeId);
+        var provList = node ? self._normalizeProvenanceList(node) : [];
+        var matches = !!fileId && provList.some(function (p) {
+          return p.source_id === fileId;
+        });
+        el.classList.toggle("provenance-highlight", matches);
+        if (matches && !firstMatch) firstMatch = el;
+      });
+      if (firstMatch && typeof firstMatch.scrollIntoView === "function") {
+        firstMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (fileId && global.AssureToast) {
+        global.AssureToast.show(
+          jdfT("substrate.vault.no_claims_yet", "No claims from this file yet — compile a document to ground it."),
+          "info"
+        );
+      }
+    });
+  };
+
   JDFCanvasManager.prototype.setAllGutterState = function (state) {
     var gutters = (this.rootEl || document).querySelectorAll(".verification-gutter");
     gutters.forEach(function (g) {
@@ -1232,6 +1327,7 @@
             ? this.livePreview
             : jdfT("jdf.preview.empty", "Streaming output will appear here…");
         }
+        this._emitJdfRendered();
         return;
       } catch (err) {
         if (typeof console !== "undefined" && console.warn) {
@@ -1326,19 +1422,7 @@
         var gutter = document.createElement("div");
         gutter.className = "verification-gutter";
         gutter.setAttribute("data-node-id", node.id);
-        if (isPreview) {
-          gutter.classList.add("unverified");
-        } else {
-          var hasRedhat = node.annotations && Array.isArray(node.annotations.redhat) && node.annotations.redhat.length > 0;
-          var hasZ3Fail = node.annotations && Array.isArray(node.annotations.z3) && node.annotations.z3.some(function (z) { return z.status === "FAIL"; });
-          if (hasZ3Fail) {
-            gutter.classList.add("error");
-          } else if (hasRedhat) {
-            gutter.classList.add("warning");
-          } else {
-            gutter.classList.add("verified");
-          }
-        }
+        gutter.classList.add(self.computeNodeStatus(node));
         article.appendChild(gutter);
         if (animate) {
           article.classList.add("animated");
@@ -1355,6 +1439,7 @@
         ? this.livePreview
         : jdfT("jdf.preview.empty", "Streaming output will appear here…");
     }
+    this._emitJdfRendered();
   };
 
   JDFCanvasManager.prototype._flattenPreview = function () {
@@ -1401,7 +1486,10 @@
     }
 
     var fullBtn = document.getElementById("redhat-analyze-full-btn");
-    if (scope === "full" && fullBtn) fullBtn.disabled = true;
+    if (scope === "full" && fullBtn) {
+      fullBtn.disabled = true;
+      fullBtn.classList.add("is-busy");
+    }
     this._syncCompilerStatus("processing", jdfT("audit.progress.redhat", "Running stress test…"));
     if (global.AssureToast) {
       global.AssureToast.show(jdfT("audit.progress.redhat", "Running stress test…"), "info");
@@ -1415,7 +1503,10 @@
         : null;
 
     function finish() {
-      if (scope === "full" && fullBtn) fullBtn.disabled = false;
+      if (scope === "full" && fullBtn) {
+        fullBtn.disabled = false;
+        fullBtn.classList.remove("is-busy");
+      }
     }
 
     function handleFrame(frame) {
@@ -1930,6 +2021,7 @@
     if (diffReject) diffReject.addEventListener("click", function () { self.hideRevisionDiff(); });
     this._bindNodeMenu();
     this._bindCrossPaneLinks();
+    this._bindSubstrateFocus();
     window.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         var menu = document.getElementById("jdf-node-menu");
