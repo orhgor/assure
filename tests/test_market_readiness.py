@@ -254,13 +254,23 @@ class LandingTests(unittest.TestCase):
 
 
 class WorkflowTests(unittest.TestCase):
-    def test_ci_yml_runs_pem(self):
+    def test_ci_yml_runs_pytest_and_openuser(self):
         text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        self.assertIn("pem --ci", text)
-        self.assertIn("pem eval", text)
-        self.assertIn("python -m unittest", text)
         self.assertIn("pytest", text)
-        self.assertIn("ruff check", text)
+        self.assertIn("openuser", text)
+        self.assertIn("playwright install chromium", text)
+
+    def test_deploy_workflows_exist(self):
+        staging = (ROOT / ".github" / "workflows" / "deploy-staging.yml").read_text(
+            encoding="utf-8"
+        )
+        production = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("branches: [staging]", staging)
+        self.assertIn("branches: [main]", production)
+        self.assertIn("EC2_SSH_PRIVATE_KEY", staging)
+        self.assertIn("EC2_SSH_PRIVATE_KEY", production)
 
 
 class ExecuteCopyTests(unittest.TestCase):
