@@ -32,6 +32,16 @@ KEYS = (
     "generate.history_ok",
     "generate.history_fail",
     "generate.history_pending",
+    "generate.compile_selection",
+    "generate.ast.heading",
+    "generate.ast.paragraph",
+    "generate.ast.list",
+    "generate.ast.callout",
+    "generate.ast.table",
+    "jdf.confidence.toggle",
+    "jdf.confidence.verified",
+    "jdf.confidence.uncertain",
+    "jdf.confidence.hallucination",
 )
 
 
@@ -61,6 +71,7 @@ def test_tiptap_markup_and_scripts() -> None:
 
 def test_tiptap_mapper_exports() -> None:
     js = (ROOT / "prompt_matrix" / "static" / "jdf_tiptap.js").read_text(encoding="utf-8")
+    assert "getSelectedTextRange" in js
     assert "jdfToTiptap" in js
     assert "tiptapToJdf" in js
     assert "AssureTiptapEditor" in js
@@ -79,6 +90,14 @@ def test_tiptap_mapper_exports() -> None:
     gen = (ROOT / "prompt_matrix" / "static" / "generate.js").read_text(encoding="utf-8")
     assert "prompt_cycle" in gen
     assert "AssurePromptHistory" in gen
+    assert "getCompilePayload" in gen
+    assert "compileType: payload.compileType" in gen
+    canvas_src = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
+    assert "renderCompiledAstAccordion" in canvas_src
+    assert 'createElement("details")' in canvas_src
+    assert 'createElement("h2")' in canvas_src
+    assert 'createElement("ul")' in canvas_src
+    assert 'createElement("p")' in canvas_src
 
 
 def test_jdf_paragraph_forbids_title_field() -> None:

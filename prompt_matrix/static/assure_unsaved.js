@@ -70,6 +70,9 @@
         if (fields.compile || fields.refine) {
           localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
         }
+        if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveSourceDebounced === "function") {
+          global.AssureProjectFileManager.saveSourceDebounced();
+        }
       } catch (_) {}
     }, DEBOUNCE_MS);
   }

@@ -241,6 +241,11 @@ def save_jdf_revision(
         """,
         (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
     )
+    try:
+        from .project_files import save_last_compiled
+    except ImportError:
+        from db.project_files import save_last_compiled
+    save_last_compiled(project_id, tree)
     db.commit()
     return {
         "ok": True,

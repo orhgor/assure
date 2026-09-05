@@ -167,6 +167,9 @@
 
     global.__ASSURE_PROJECT_ID__ = projectId;
     global.__assureJdf.projectId = projectId;
+    if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.remember === "function") {
+      global.AssureProjectFileManager.remember(projectId);
+    }
 
     var exportBtn = $("btn-export-docx");
     if (exportBtn) {
@@ -532,13 +535,20 @@
   }
 
   function restoreProjectFromUrl() {
-    try {
-      var url = new URL(global.location.href);
-      var pid = url.searchParams.get("project");
-      if (pid && pid !== (global.__ASSURE_PROJECT_ID__ || "default")) {
-        switchToProject(pid, pid, { skipUnsaved: true });
-      }
-    } catch (_) {}
+    var files = global.AssureProjectFileManager;
+    var pid = null;
+    if (files && typeof files.restoreActiveId === "function") {
+      pid = files.restoreActiveId();
+    } else {
+      try {
+        pid = new URL(global.location.href).searchParams.get("project");
+      } catch (_) {}
+    }
+    if (pid && pid !== (global.__ASSURE_PROJECT_ID__ || "default")) {
+      switchToProject(pid, pid, { skipUnsaved: true });
+    } else if (pid && files && typeof files.hydrate === "function") {
+      files.hydrate(pid).catch(function () {});
+    }
   }
 
   var AssureProjects = {

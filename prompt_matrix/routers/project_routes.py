@@ -13,12 +13,14 @@ from pydantic import BaseModel
 try:
     from ..db.connection import init_db
     from ..db.jdf_repository import ensure_project
+    from ..db.project_files import fetch_project_files, save_last_compiled, save_project_source
     from ..db.settings_repository import fetch_project_settings, save_project_settings
     from ..history import get_db
     from ..models.jdf import flatten_nodes
 except ImportError:
     from db.connection import init_db
     from db.jdf_repository import ensure_project
+    from db.project_files import fetch_project_files, save_last_compiled, save_project_source
     from db.settings_repository import fetch_project_settings, save_project_settings
     from history import get_db
     from models.jdf import flatten_nodes
@@ -165,6 +167,26 @@ def register_project_routes(app) -> None:
         db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         db.commit()
         return jsonify({"ok": True})
+
+    @app.get("/api/projects/<project_id>/files")
+    def get_project_files(project_id: str):
+        return jsonify(fetch_project_files(project_id))
+
+    @app.put("/api/projects/<project_id>/files")
+    def put_project_files(project_id: str):
+        data = request.get_json(silent=True) or {}
+        result = None
+        if "source_md" in data:
+            result = save_project_source(project_id, str(data.get("source_md") or ""))
+        if data.get("document") is not None:
+            result = save_last_compiled(project_id, data["document"])
+        elif data.get("manifest") is not None:
+            result = save_last_compiled(project_id, data["manifest"])
+        elif data.get("lastCompiledOutput") is not None:
+            result = save_last_compiled(project_id, data["lastCompiledOutput"])
+        if result is None:
+            result = fetch_project_files(project_id)
+        return jsonify(result)
 
     @app.get("/api/projects/<project_id>/settings")
     def get_project_settings(project_id: str):

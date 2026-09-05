@@ -210,6 +210,14 @@
     this.livePreview = "";
     this.documentVersion = 1;
     this.showCitations = true;
+    this.showConfidenceOverlay = true;
+    try {
+      if (global.localStorage && global.localStorage.getItem("assure_confidence_overlay") === "0") {
+        this.showConfidenceOverlay = false;
+      }
+    } catch (_) {}
+    this.confidenceSpans =
+      (this.tree && this.tree.meta && this.tree.meta.confidenceSpans) || [];
     this._animateNextRender = false;
     this.isFirstLoad = true;
     this.isFirstVerification = true;
@@ -376,7 +384,7 @@
     }
   };
 
-  JDFCanvasManager.prototype.loadProject = function () {
+    JDFCanvasManager.prototype.loadProject = function () {
     var self = this;
     if (this.isFirstLoad) {
       this.renderSkeleton(4);
@@ -389,9 +397,16 @@
         .then(function (data) {
           if (data.document) self.tree = data.document;
           if (data.version) self.setVersion(data.version);
-          self._animateNextRender = self.isFirstLoad;
-          self.render();
-          self.isFirstLoad = false;
+          var files = global.AssureProjectFileManager;
+          var after = Promise.resolve();
+          if (files && typeof files.hydrate === "function") {
+            after = files.hydrate(self.projectId);
+          }
+          return after.then(function () {
+            self._animateNextRender = self.isFirstLoad;
+            self.render();
+            self.isFirstLoad = false;
+          });
         });
     });
   };
@@ -1434,12 +1449,320 @@
     });
   };
 
+  JDFCanvasManager.prototype.applyRefinedNode = function (payload) {
+    var self = this;
+    if (!payload) return;
+    if (payload.document) {
+      this.tree = sanitizeJDFDocument(payload.document);
+    } else if (payload.node && payload.node.id) {
+      var spliced = JSON.parse(JSON.stringify(this.tree || {}));
+      var nid = payload.node.id;
+      var replaced = false;
+      (spliced.body || []).forEach(function (section) {
+        if (section && section.id === nid) {
+          Object.assign(section, payload.node);
+          replaced = true;
+        }
+        (section.children || []).forEach(function (child, i) {
+          if (child && child.id === nid) {
+            section.children[i] = payload.node;
+            replaced = true;
+          }
+        });
+      });
+      if (replaced) this.tree = sanitizeJDFDocument(spliced);
+    }
+    var spans =
+      payload.confidenceSpans ||
+      payload.confidence_spans ||
+      (this.tree.meta && this.tree.meta.confidenceSpans) ||
+      [];
+    this.setConfidenceSpans(spans, { render: false });
+    this.render();
+    if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveCompiled === "function") {
+      global.AssureProjectFileManager.saveCompiled(this.tree).catch(function () {});
+    }
+    if (global.compiledDocument) {
+      global.compiledDocument = this.tree;
+    }
+    if (global.AssureGenerate) {
+      global.AssureGenerate.compiledDocument = this.tree;
+    }
+    if (this.saveDocument) {
+      this.saveDocument("surgical_refine", { target_node_id: payload.node && payload.node.id }).catch(function () {});
+    }
+  };
+
   JDFCanvasManager.prototype.patchGutterFromRedhat = function (critiques) {
     (critiques || []).forEach(function (c) {
       var nodeId = c.target_node_id || c.node_id;
       if (!nodeId) return;
       var g = document.querySelector('.verification-gutter[data-node-id="' + nodeId + '"]');
       if (g) g.className = "verification-gutter warning";
+    });
+  };
+
+  JDFCanvasManager.prototype.setShowConfidenceOverlay = function (on) {
+    this.showConfidenceOverlay = !!on;
+    try {
+      global.localStorage.setItem("assure_confidence_overlay", this.showConfidenceOverlay ? "1" : "0");
+    } catch (_) {}
+    var toggle = document.getElementById("confidence-overlay-toggle");
+    if (toggle) toggle.checked = this.showConfidenceOverlay;
+    this.render();
+  };
+
+  JDFCanvasManager.prototype.renderAuditAppendix = function (claims, opts) {
+    var wrap = document.getElementById("jdf-audit-appendix");
+    var body = document.getElementById("jdf-audit-appendix-body");
+    if (!wrap || !body) return;
+    opts = opts || {};
+    if (!claims) {
+      wrap.hidden = true;
+      body.innerHTML = "";
+      return;
+    }
+    wrap.hidden = false;
+    body.innerHTML = "";
+    function tt(key, fallback) {
+      return jdfT(key, fallback);
+    }
+    if (!claims.length) {
+      var empty = document.createElement("p");
+      empty.className = "jdf-audit-appendix-empty";
+      empty.textContent = opts.pending
+        ? tt("generate.audit_manifest.pending", "Waiting for Z3 and Red-Hat…")
+        : tt("generate.audit_manifest.empty", "No claims yet.");
+      body.appendChild(empty);
+      return;
+    }
+    var table = document.createElement("table");
+    table.className = "jdf-audit-appendix-table";
+    var thead = document.createElement("thead");
+    var headRow = document.createElement("tr");
+    ["generate.audit_manifest.claim", "generate.audit_manifest.z3", "generate.audit_manifest.redhat"].forEach(function (key, i) {
+      var th = document.createElement("th");
+      th.textContent = tt(key, ["Claim", "Z3 score", "Red-Hat critique"][i]);
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    var tbody = document.createElement("tbody");
+    claims.forEach(function (row) {
+      var tr = document.createElement("tr");
+      var claimTd = document.createElement("td");
+      claimTd.textContent = row.claim || "";
+      var scoreTd = document.createElement("td");
+      var score = row.z3Score != null ? row.z3Score : row.z3_score;
+      scoreTd.textContent =
+        score == null
+          ? tt("generate.audit_manifest.pending_z3", "Waiting for Z3…")
+          : String(Math.round(Number(score) * 100) / 100);
+      var rhTd = document.createElement("td");
+      var critique = row.redhatCritique || row.redhat_critique || "";
+      rhTd.textContent =
+        critique ||
+        (opts.pending
+          ? tt("generate.audit_manifest.pending_redhat", "Waiting for Red-Hat…")
+          : "—");
+      tr.appendChild(claimTd);
+      tr.appendChild(scoreTd);
+      tr.appendChild(rhTd);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+  };
+
+  JDFCanvasManager.prototype.setConfidenceSpans = function (spans, options) {
+    this.confidenceSpans = Array.isArray(spans) ? spans : [];
+    if (this.tree) {
+      this.tree.meta = this.tree.meta || {};
+      this.tree.meta.confidenceSpans = this.confidenceSpans;
+    }
+    if (!(options && options.render === false)) {
+      this.render();
+    }
+  };
+
+  JDFCanvasManager.prototype._confidenceSpansForNode = function (node) {
+    var id = node && node.id;
+    var spans = this.confidenceSpans || [];
+    if (!spans.length && this.tree && this.tree.meta) {
+      spans = this.tree.meta.confidenceSpans || [];
+    }
+    if (!id) return spans.slice();
+    return spans.filter(function (span) {
+      var nid = span.nodeId || span.node_id;
+      return !nid || nid === id;
+    });
+  };
+
+  JDFCanvasManager.prototype._confidenceSpansForRange = function (node, start, end) {
+    return this._confidenceSpansForNode(node)
+      .map(function (span) {
+        var a = Number(span.startChar != null ? span.startChar : span.start);
+        var b = Number(span.endChar != null ? span.endChar : span.end);
+        var from = Math.max(a, start);
+        var to = Math.min(b, end);
+        if (!(to > from)) return null;
+        return Object.assign({}, span, { startChar: from - start, endChar: to - start });
+      })
+      .filter(Boolean);
+  };
+
+  JDFCanvasManager.prototype._paintConfidence = function (el, text, spans) {
+    var highlighter = global.AssureConfidenceHighlighter;
+    if (highlighter && typeof highlighter.paint === "function") {
+      highlighter.paint(el, text, spans, this.showConfidenceOverlay);
+      return;
+    }
+    el.textContent = text == null ? "" : String(text);
+  };
+
+  JDFCanvasManager.prototype._listLikeLines = function (text) {
+    var lines = String(text || "").split(/\n/);
+    var nonempty = lines.filter(function (line) {
+      return line.trim();
+    });
+    if (!nonempty.length) return null;
+    var bullet = /^\s*(?:[-*+]|\d+[.)])\s+/;
+    if (
+      !nonempty.every(function (line) {
+        return bullet.test(line);
+      })
+    ) {
+      return null;
+    }
+    return nonempty.map(function (line) {
+      return line.replace(bullet, "").trim();
+    });
+  };
+
+  JDFCanvasManager.prototype._renderAstInner = function (node) {
+    var type = (node && node.type) || "paragraph";
+    var listItems = null;
+    if (type === "list") {
+      listItems = (node.items || node.children || []).map(function (item) {
+        return typeof item === "string" ? item : item.content || item.text || "";
+      });
+    } else if (type === "paragraph") {
+      listItems = this._listLikeLines(node.content);
+    }
+    if (type === "heading" || type === "section") {
+      var heading = document.createElement("h2");
+      var headingText = node.title || node.content || "";
+      this._paintConfidence(heading, headingText, this._confidenceSpansForNode(node));
+      return heading;
+    }
+    if (listItems) {
+      var ul = document.createElement("ul");
+      var raw = String(node.content || "");
+      var cursor = 0;
+      var self = this;
+      listItems.forEach(function (item) {
+        var li = document.createElement("li");
+        var at = raw.indexOf(item, cursor);
+        if (at < 0) at = raw.indexOf(item);
+        var sliceSpans =
+          at >= 0
+            ? self._confidenceSpansForRange(node, at, at + item.length)
+            : self._confidenceSpansForNode(node);
+        if (at >= 0) cursor = at + item.length;
+        self._paintConfidence(li, item, sliceSpans);
+        ul.appendChild(li);
+      });
+      return ul;
+    }
+    if (type === "table" && node.rows && node.rows.length) {
+      var table = document.createElement("table");
+      node.rows.forEach(function (row) {
+        var tr = document.createElement("tr");
+        (row.cells || row || []).forEach(function (cell) {
+          var td = document.createElement("td");
+          td.textContent = typeof cell === "string" ? cell : cell.text || cell.content || "";
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+      return table;
+    }
+    var p = document.createElement("p");
+    var paraText = node.content || node.title || "";
+    this._paintConfidence(p, paraText, this._confidenceSpansForNode(node));
+    return p;
+  };
+
+  JDFCanvasManager.prototype._wrapAstDetails = function (summaryText, innerEl, className) {
+    var details = document.createElement("details");
+    details.className = className || "jdf-ast-accordion";
+    details.open = true;
+    var summary = document.createElement("summary");
+    summary.textContent = summaryText || "";
+    details.appendChild(summary);
+    details.appendChild(innerEl);
+    return details;
+  };
+
+  JDFCanvasManager.prototype.renderCompiledAstAccordion = function (tree) {
+    var self = this;
+    var tiptap = global.AssureTiptapEditor;
+    if (tiptap && typeof tiptap.destroy === "function") {
+      try {
+        tiptap.destroy();
+      } catch (_) {}
+    }
+    this.rootEl.classList.remove("is-tiptap");
+    this.rootEl.innerHTML = "";
+    var title = document.createElement("h2");
+    title.className = "jdf-doc-title";
+    title.textContent = (tree.meta && tree.meta.title) || jdfT("generate.draft_preview_title", "Draft Preview");
+    this.rootEl.appendChild(title);
+    var body = (tree && tree.body) || [];
+    if (!body.length) {
+      this.rootEl.appendChild(this.renderEmptyCanvas());
+      return;
+    }
+    body.forEach(function (section) {
+      var sectionDetails = document.createElement("details");
+      sectionDetails.className = "jdf-ast-accordion jdf-ast-section";
+      sectionDetails.open = true;
+      if (section.id) sectionDetails.dataset.nodeId = section.id;
+      sectionDetails.classList.add("jdf-ast-hit");
+      var sectionSummary = document.createElement("summary");
+      var h2 = document.createElement("h2");
+      var headingLabel = section.title || jdfT("generate.ast.heading", "Heading");
+      self._paintConfidence(h2, headingLabel, self._confidenceSpansForNode(section));
+      sectionSummary.appendChild(h2);
+      sectionDetails.appendChild(sectionSummary);
+      (section.children || []).forEach(function (node) {
+        var type = node.type || "paragraph";
+        var labelKey =
+          type === "callout"
+            ? "generate.ast.callout"
+            : type === "table"
+              ? "generate.ast.table"
+              : type === "list" || self._listLikeLines(node.content)
+                ? "generate.ast.list"
+                : type === "heading"
+                  ? "generate.ast.heading"
+                  : "generate.ast.paragraph";
+        var fallbacks = {
+          "generate.ast.callout": "Callout",
+          "generate.ast.table": "Table",
+          "generate.ast.list": "List",
+          "generate.ast.heading": "Heading",
+          "generate.ast.paragraph": "Paragraph",
+        };
+        var snippet = (self._nodeText(node) || "").trim().slice(0, 80);
+        var summaryText = snippet || jdfT(labelKey, fallbacks[labelKey] || type);
+        var inner = self._renderAstInner(node);
+        var wrap = self._wrapAstDetails(summaryText, inner, "jdf-ast-accordion jdf-ast-node");
+        if (node.id) wrap.dataset.nodeId = node.id;
+        wrap.classList.add("jdf-ast-hit");
+        sectionDetails.appendChild(wrap);
+      });
+      self.rootEl.appendChild(sectionDetails);
     });
   };
 
@@ -1452,7 +1775,17 @@
     var nodeIndex = 0;
     var isPreview = this.rootEl.classList.contains("is-draft-preview");
     this.rootEl.classList.toggle("hide-citations", !this.showCitations);
+    this.rootEl.classList.toggle("confidence-overlay-off", !this.showConfidenceOverlay);
+    var overlayWrap = document.getElementById("confidence-overlay-wrap");
+    if (overlayWrap) {
+      overlayWrap.hidden = !(this.confidenceSpans && this.confidenceSpans.length);
+    }
     var tiptap = global.AssureTiptapEditor;
+    if (isPreview) {
+      this.renderCompiledAstAccordion(this.tree);
+      this._emitJdfRendered();
+      return;
+    }
     if (tiptap && typeof tiptap.mount === "function" && global.AssureTiptap) {
       try {
         tiptap.mount({
@@ -2162,6 +2495,14 @@
     }
     var dupBtn = document.getElementById("generate-duplicate-node");
     if (dupBtn) dupBtn.addEventListener("click", function () { self.duplicateNode(); });
+    var overlayToggle = document.getElementById("confidence-overlay-toggle");
+    if (overlayToggle && !overlayToggle.dataset.bound) {
+      overlayToggle.dataset.bound = "1";
+      overlayToggle.checked = self.showConfidenceOverlay;
+      overlayToggle.addEventListener("change", function () {
+        self.setShowConfidenceOverlay(overlayToggle.checked);
+      });
+    }
     var splitBtn = document.getElementById("generate-split-section");
     if (splitBtn) splitBtn.addEventListener("click", function () { self.splitSectionAtNode(); });
     var mergeBtn = document.getElementById("generate-merge-next");
@@ -2192,13 +2533,10 @@
       }
     });
 
-    if (!global.__INITIAL_JDF__ || !(global.__INITIAL_JDF__.body || []).length) {
-      this.loadProject();
-    } else {
-      this.loadProjectSettings().then(function () {
-        self.render();
-      });
+    if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.remember === "function") {
+      global.AssureProjectFileManager.remember(this.projectId);
     }
+    this.loadProject();
     this.setSavePill("idle", "jdf.save.unsaved");
   };
 

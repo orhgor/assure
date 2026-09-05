@@ -277,6 +277,28 @@ def test_draft_stream_requires_intent(client):
     assert res.status_code == 400
 
 
+def test_draft_payload_selection_compile_type():
+    from prompt_matrix.routers.draft import DraftPayload
+
+    payload = DraftPayload.model_validate(
+        {
+            "intent": "",
+            "compileType": "selection",
+            "content": "Revenue grew 12% year over year.",
+        }
+    )
+    assert payload.compile_type == "selection"
+    assert payload.content.startswith("Revenue")
+
+
+def test_draft_stream_selection_requires_content(client):
+    res = client.post(
+        "/api/projects/default/draft/stream",
+        json={"intent": "", "compileType": "selection", "content": ""},
+    )
+    assert res.status_code == 400
+
+
 def test_draft_redhat_stream_requires_draft_text(client):
     res = client.post(
         "/api/projects/default/draft/redhat/stream",

@@ -578,14 +578,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
             from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
         except ImportError:
             from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
-        initial_jdf = fetch_latest_jdf_or_empty(DEFAULT_PROJECT_ID)
+        project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
+        initial_jdf = fetch_latest_jdf_or_empty(project_id)
         return _page(
             "index.html",
             "compose",
             initial_pane="compose",
             include_pk=True,
             initial_jdf=initial_jdf,
-            project_id=DEFAULT_PROJECT_ID,
+            project_id=project_id,
         )
 
     @app.get("/app")
@@ -1627,6 +1628,18 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.sandbox import register_sandbox_routes
     register_sandbox_routes(app)
+
+    try:
+        from .routers.refine_node import register_refine_node_routes
+    except ImportError:
+        from routers.refine_node import register_refine_node_routes
+    register_refine_node_routes(app)
+
+    try:
+        from .routers.omp_routes import register_omp_routes
+    except ImportError:
+        from routers.omp_routes import register_omp_routes
+    register_omp_routes(app)
 
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):

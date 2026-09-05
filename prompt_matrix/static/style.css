@@ -2744,6 +2744,103 @@ body.onboarding-active .sidebar-backdrop {
   background: transparent;
 }
 
+.jdf-tree.is-draft-preview .jdf-ast-accordion {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  background: var(--color-surface, #ffffff);
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-accordion > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 11px;
+  color: #1a4b8c;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-section > summary h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+  color: #1a4b8c;
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-node {
+  margin: 0 11px 8px;
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-accordion p,
+.jdf-tree.is-draft-preview .jdf-ast-accordion ul,
+.jdf-tree.is-draft-preview .jdf-ast-accordion table {
+  margin: 0;
+  padding: 7px 11px 11px;
+  color: #2d3748;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.jdf-tree.is-draft-preview .jdf-ast-accordion ul {
+  padding-left: 1.75rem;
+}
+
+.confidence-overlay-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 11px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  background: var(--color-surface, #ffffff);
+}
+
+.confidence-overlay-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a4b8c;
+  cursor: pointer;
+}
+
+.confidence-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 12px;
+  color: #2d3748;
+}
+
+.confidence-legend span {
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.bg-green-200 {
+  background-color: #bbf7d0;
+}
+
+.bg-yellow-200 {
+  background-color: #fefcbf;
+}
+
+.bg-red-200 {
+  background-color: #fecaca;
+}
+
+.jdf-tree.confidence-overlay-off .bg-green-200,
+.jdf-tree.confidence-overlay-off .bg-yellow-200,
+.jdf-tree.confidence-overlay-off .bg-red-200 {
+  background-color: transparent;
+}
+
 /* ─── Verification gutter ────────────────────────────────────────────────── */
 .verification-gutter {
   position: absolute;
@@ -2917,6 +3014,57 @@ body.onboarding-active .sidebar-backdrop {
   justify-content: center;
 }
 
+.jdf-workbench .compile-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm, 8px);
+  width: 100%;
+}
+
+.jdf-workbench .compile-action-row #generate-compile-btn,
+.jdf-workbench .compile-action-row #generate-full-audit-btn {
+  width: auto;
+  flex: 1 1 8rem;
+}
+
+.jdf-audit-appendix {
+  margin-top: var(--spacing-6, 24px);
+  padding-top: var(--spacing-4, 16px);
+  border-top: 1px solid var(--color-border, #E2E8F0);
+}
+
+.jdf-audit-appendix-title {
+  margin: 0 0 var(--space-sm, 8px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: 600;
+  color: var(--color-text, #2D3748);
+}
+
+.jdf-audit-appendix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.jdf-audit-appendix-table th,
+.jdf-audit-appendix-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border, #E2E8F0);
+}
+
+.jdf-audit-appendix-table th {
+  font-weight: 600;
+  color: var(--muted, #64748b);
+}
+
+.jdf-audit-appendix-empty {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
 .inquiry-input,
 .jdf-intent-input {
   width: 100%;
@@ -3071,6 +3219,43 @@ body.onboarding-active .sidebar-backdrop {
 
 .jdf-node-menu[hidden] {
   display: none !important;
+}
+
+.jdf-surgical-popover {
+  position: fixed;
+  z-index: 520;
+  min-width: 260px;
+  max-width: 360px;
+  padding: 10px;
+  border: 1px solid var(--color-border, #E2E8F0);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-md);
+}
+
+.jdf-surgical-popover[hidden] {
+  display: none !important;
+}
+
+.jdf-surgical-popover-actions,
+.jdf-surgical-popover-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.jdf-surgical-popover-form textarea {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.jdf-surgical-popover.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.jdf-ast-hit {
+  cursor: pointer;
 }
 
 .jdf-node-menu-item {
@@ -3895,6 +4080,69 @@ button.save-pill {
   gap: var(--spacing-4);
 }
 .library-list .card + .card { margin-top: 0; }
+
+.vault-prompts-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 11px;
+  margin-bottom: 11px;
+}
+
+.vault-prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 11px;
+}
+
+.vault-prompt-card {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  padding: 11px;
+  background: var(--color-surface, #ffffff);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.vault-prompt-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #1a4b8c;
+}
+
+.vault-meta,
+.vault-preview {
+  margin: 0;
+  font-size: 13px;
+  color: #2d3748;
+}
+
+.vault-class-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e8f0fe;
+  color: #1a4b8c;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.vault-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.vault-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a4b8c;
+}
 .history-head {
   display: flex;
   justify-content: flex-end;

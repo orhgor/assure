@@ -226,7 +226,14 @@
         var canvas = global.__assureJdf;
         if (!canvas || (canvas.rootEl && canvas.rootEl.classList.contains("is-draft-preview"))) return;
         var id = article.dataset.nodeId;
-        if (id && typeof canvas.selectNodeForRefine === "function") {
+        if (!id) return;
+        if (global.AssureSurgicalClick && typeof global.AssureSurgicalClick.open === "function") {
+          e.preventDefault();
+          e.stopPropagation();
+          global.AssureSurgicalClick.open(id, e.clientX, e.clientY);
+          return;
+        }
+        if (typeof canvas.selectNodeForRefine === "function") {
           canvas.selectNodeForRefine(id, { toast: false, skipRender: true });
         }
       });
@@ -550,6 +557,34 @@
     tiptapToJdf: tiptapToJdf,
     getEditor: function () {
       return editor;
+    },
+    getSelectedTextRange: function () {
+      if (!editor) {
+        return { from: 0, to: 0, text: "", empty: true };
+      }
+      var sel = editor.state.selection;
+      var from = sel.from;
+      var to = sel.to;
+      var empty = !!sel.empty || from === to;
+      var text = empty ? "" : editor.state.doc.textBetween(from, to, "\n");
+      return { from: from, to: to, text: text, empty: empty };
+    },
+    insertAtCursor: function (text) {
+      var raw = text == null ? "" : String(text);
+      if (!raw) return false;
+      if (!editor || editor.isDestroyed) return false;
+      var nodes = raw.split(/\n/).map(function (line) {
+        var node = { type: "jdfParagraph", attrs: { nodeId: "", gutter: "unverified" }, content: [] };
+        if (line) node.content = [{ type: "text", text: line }];
+        return node;
+      });
+      try {
+        var before = editor.getText();
+        editor.chain().focus().insertContent(nodes).run();
+        return editor.getText() !== before;
+      } catch (_) {
+        return false;
+      }
     },
   };
 })(typeof window !== "undefined" ? window : this);

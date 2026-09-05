@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 10
+_SCHEMA_VERSION = 11
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -27,6 +27,14 @@ def _migrate_v10(db: sqlite3.Connection) -> None:
         )
     if not _column_exists(db, "substrate_vault", "included"):
         db.execute("ALTER TABLE substrate_vault ADD COLUMN included INTEGER NOT NULL DEFAULT 1")
+
+
+def _migrate_v11(db: sqlite3.Connection) -> None:
+    """Per-project source.md + last compiled JDF AST (manifest.json)."""
+    if not _column_exists(db, "projects", "source_md"):
+        db.execute("ALTER TABLE projects ADD COLUMN source_md TEXT NOT NULL DEFAULT ''")
+    if not _column_exists(db, "projects", "last_compiled_json"):
+        db.execute("ALTER TABLE projects ADD COLUMN last_compiled_json TEXT NOT NULL DEFAULT '[]'")
 
 
 def _migrate_v5(db: sqlite3.Connection) -> None:
@@ -286,6 +294,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v9(db)
     if current < 10:
         _migrate_v10(db)
+    if current < 11:
+        _migrate_v11(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from typing import Any, Callable, Generator, Iterator
+from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 try:
     from ..cost_governance import (
@@ -77,9 +77,14 @@ SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
 
 
 class DraftPayload(BaseModel):
-    intent: str = Field(min_length=1)
+    intent: str = ""
     context: str | None = None
     substrate_file_ids: list[str] = Field(default_factory=list)
+    compile_type: Literal["full", "selection"] = Field(
+        default="full",
+        validation_alias=AliasChoices("compileType", "compile_type"),
+    )
+    content: str | None = None
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -631,10 +636,25 @@ def register_draft_routes(app) -> None:
                     "intent": data.get("intent") or data.get("user_intent") or "",
                     "context": data.get("context"),
                     "substrate_file_ids": data.get("substrate_file_ids") or [],
+                    "compileType": data.get("compileType") or data.get("compile_type") or "full",
+                    "content": data.get("content"),
                 }
             )
         except Exception as exc:
             return {"error": str(exc)}, 400
+
+        intent = (payload.intent or "").strip()
+        if payload.compile_type == "selection":
+            excerpt = (payload.content or intent).strip()
+            if not excerpt:
+                return {"error": "content required for selection compile"}, 400
+            intent = (
+                "Compile this selected excerpt into a structured document. "
+                "Preserve facts and numbers. Do not invent context that is not in the excerpt.\n\n"
+                + excerpt
+            )
+        elif not intent:
+            return {"error": "intent required"}, 400
 
         try:
             check_daily_compile_limit(project_id)
@@ -649,7 +669,7 @@ def register_draft_routes(app) -> None:
             try:
                 yield from run_draft_pipeline(
                     project_id,
-                    intent=payload.intent.strip(),
+                    intent=intent,
                     context=payload.context,
                     substrate_file_ids=payload.substrate_file_ids,
                     request_id=request_id,

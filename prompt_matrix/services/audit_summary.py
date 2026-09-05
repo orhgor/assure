@@ -4,6 +4,19 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+try:
+    from .confidence_spans import (
+        attach_confidence_spans_to_document,
+        build_confidence_spans,
+        build_macro_appendix,
+    )
+except ImportError:
+    from services.confidence_spans import (
+        attach_confidence_spans_to_document,
+        build_confidence_spans,
+        build_macro_appendix,
+    )
+
 GateStatus = Literal["pass", "blocked", "review"]
 
 
@@ -51,7 +64,19 @@ def build_audit_summary(
         summary["locks"] = locks
         summary["lock_count"] = lock_count if lock_count is not None else len(locks)
     if document is not None:
+        spans = build_confidence_spans(document, z3_results=z3_results)
+        document = attach_confidence_spans_to_document(document, spans)
+        appendix = build_macro_appendix(
+            document,
+            z3_results=z3_results,
+            redhat_critiques=redhat_critiques,
+            confidence_spans=spans,
+        )
         summary["document"] = document
+        summary["confidenceSpans"] = spans
+        summary["confidence_spans"] = spans
+        summary["audit_manifest"] = appendix
+        summary["claims"] = appendix
     return summary
 
 

@@ -126,6 +126,14 @@ def health_check():
     except ImportError:
         from upload_limits import limits_snapshot
     status["limits"] = limits_snapshot()
+    try:
+        from ..omp_client import omp_health
+    except ImportError:
+        from omp_client import omp_health
+    omp = omp_health()
+    status["checks"]["omp"] = omp.get("status") or "down"
+    if omp.get("version"):
+        status["checks"]["omp_version"] = omp["version"]
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip()
     if build_sha:
         status["build_sha"] = build_sha

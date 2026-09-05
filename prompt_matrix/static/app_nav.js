@@ -70,15 +70,30 @@
   /** Abort all in-flight streams when navigating away. */
   var AssureStreamRegistry = {
     controller: null,
-    register: function (ctrl) {
+    extras: [],
+    register: function (ctrl, opts) {
       // Only abort a previous stream. Full abort() also calls AssureGenerate.abort(),
       // which nulls the controller we are registering and crashes startDraftStream
       // on `self.controller.signal`.
+      opts = opts || {};
+      this.extras = this.extras || [];
+      if (opts.parallel) {
+        if (ctrl && this.extras.indexOf(ctrl) < 0) this.extras.push(ctrl);
+        return;
+      }
       if (this.controller && this.controller !== ctrl) {
         try {
           this.controller.abort();
         } catch (_) {}
       }
+      this.extras.forEach(function (extra) {
+        if (extra && extra !== ctrl) {
+          try {
+            extra.abort();
+          } catch (_) {}
+        }
+      });
+      this.extras = [];
       this.controller = ctrl;
     },
     abort: function () {
@@ -88,6 +103,12 @@
         } catch (_) {}
         this.controller = null;
       }
+      (this.extras || []).forEach(function (extra) {
+        try {
+          extra.abort();
+        } catch (_) {}
+      });
+      this.extras = [];
       if (global.__assureJdf && global.__assureJdf.streamClient) {
         try {
           global.__assureJdf.streamClient.abort();

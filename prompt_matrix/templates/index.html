@@ -104,9 +104,9 @@
               <span class="app-sidebar-icon" aria-hidden="true">🧠</span>
               <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Refine') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Saved prompts and reusable templates') }}" data-i18n-tooltip="tooltip.nav.library">
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Saved prompts you can insert into the editor') }}" data-i18n-tooltip="tooltip.nav.library">
               <span class="app-sidebar-icon" aria-hidden="true">🗂️</span>
-              <span class="app-sidebar-label" data-i18n="nav.library">{{ gettext('Library') }}</span>
+              <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings">
               <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
@@ -211,7 +211,10 @@
                   <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
                 </label>
               </div>
-              <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
+              <div class="compile-action-row" id="generate-compile-row">
+                <button type="button" class="btn btn-primary tooltip-trigger" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('Compile') }}</button>
+                <button type="button" class="btn btn-outline tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Compile, score claims with Z3, and run Red-Hat in one pass') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
+              </div>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
               <div class="generate-quick-actions" id="generate-quick-actions">
                 <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
@@ -444,7 +447,22 @@
                 <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="draft-preview-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>
               </div>
             </div>
+            <div id="confidence-overlay-wrap" class="confidence-overlay-wrap" hidden>
+              <label class="confidence-overlay-toggle" for="confidence-overlay-toggle">
+                <input type="checkbox" id="confidence-overlay-toggle" checked>
+                <span data-i18n="jdf.confidence.toggle">{{ gettext('Show Confidence Overlay') }}</span>
+              </label>
+              <span class="confidence-legend" aria-hidden="true">
+                <span class="bg-green-200" data-i18n="jdf.confidence.verified">{{ gettext('Verified') }}</span>
+                <span class="bg-yellow-200" data-i18n="jdf.confidence.uncertain">{{ gettext('Uncertain') }}</span>
+                <span class="bg-red-200" data-i18n="jdf.confidence.hallucination">{{ gettext('Hallucination') }}</span>
+              </span>
+            </div>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
+            <aside id="jdf-audit-appendix" class="jdf-audit-appendix" hidden>
+              <h2 class="jdf-audit-appendix-title" data-i18n="generate.audit_manifest">{{ gettext('Audit Manifest') }}</h2>
+              <div id="jdf-audit-appendix-body" class="jdf-audit-appendix-body"></div>
+            </aside>
           </main>
         </div>
         <footer class="command-deck">
@@ -615,11 +633,16 @@
       </div>
 
             <section id="view-library" class="assure-view assure-full-view" hidden>
-              <div class="tool-panel-inner library-tool-layout card">
-                <h2 class="tool-panel-title" data-i18n="nav.library">{{ gettext('Library') }}</h2>
-                <p class="hint" data-i18n="library.placeholder">{{ gettext('Saved prompts and templates will appear here.') }}</p>
+              <div class="tool-panel-inner vault-prompts-layout card">
+                <div class="vault-prompts-head">
+                  <div>
+                    <h2 class="tool-panel-title" data-i18n="substrate.vault.title">{{ gettext('Substrate Vault') }}</h2>
+                    <p class="hint" data-i18n="vault.prompts.lead">{{ gettext('Saved prompts you can insert at the cursor in the editor.') }}</p>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" id="vault-prompt-add" data-i18n="vault.prompts.add">{{ gettext('Add prompt') }}</button>
+                </div>
+                <div id="vault-prompt-grid" class="vault-prompt-grid"></div>
                 <p class="hint"><a href="/learn{{ q if q is defined else '' }}" data-i18n="classes.learn.link">{{ gettext('Learn a class from a pasted prompt') }}</a></p>
-                <div id="library-list" class="library-list"></div>
               </div>
             </section>
 
@@ -641,6 +664,21 @@
             </section>
 
           </div>
+        </div>
+        <div id="jdf-surgical-popover" class="jdf-surgical-popover" hidden role="dialog" aria-labelledby="jdf-surgical-popover-title">
+          <p id="jdf-surgical-popover-title" class="visually-hidden" data-i18n="surgical.click.title">{{ gettext('Fix this claim') }}</p>
+          <div id="jdf-surgical-popover-actions" class="jdf-surgical-popover-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="surgical-refine-ai-btn" data-i18n="surgical.click.refine_ai">{{ gettext('Refine with AI') }}</button>
+            <button type="button" class="btn btn-sm btn-outline" id="surgical-ground-vault-btn" data-i18n="surgical.click.ground_vault">{{ gettext('Ground from Vault') }}</button>
+          </div>
+          <form id="jdf-surgical-popover-form" class="jdf-surgical-popover-form" hidden>
+            <label class="visually-hidden" for="surgical-refine-instruction" data-i18n="surgical.click.instruction_label">{{ gettext('Instructions') }}</label>
+            <textarea id="surgical-refine-instruction" class="form-control" rows="3" data-i18n-placeholder="surgical.click.instruction_placeholder" placeholder="{{ gettext('Rewrite this to be more neutral') }}"></textarea>
+            <div class="jdf-surgical-popover-form-actions">
+              <button type="submit" class="btn btn-sm btn-primary" id="surgical-refine-apply" data-i18n="surgical.click.apply">{{ gettext('Apply') }}</button>
+              <button type="button" class="btn btn-sm btn-outline" id="surgical-refine-cancel" data-i18n="surgical.click.cancel">{{ gettext('Cancel') }}</button>
+            </div>
+          </form>
         </div>
         <div id="jdf-node-menu" class="jdf-node-menu" hidden role="menu" aria-hidden="true">
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="edit" data-i18n="jdf.menu.edit">{{ gettext('Edit') }}</button>
@@ -856,7 +894,11 @@
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='tiptap.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_tiptap.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='vault_prompts.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='project_files.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='confidence_highlighter.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -1055,6 +1097,7 @@
       document.querySelectorAll(".pane").forEach((pane) => { pane.hidden = true; });
       const pane = $("pane-" + name);
       if (pane) pane.hidden = false;
+      if (name === "library" && window.AssureVaultPrompts) window.AssureVaultPrompts.render();
       if (name === "library") renderLibrary();
       if (name === "history") loadHistory();
       const path = name === "compose" ? "/" : "/" + name;
@@ -2732,7 +2775,7 @@
     });
 
     function renderLibrary() {
-      const root = $("library-list") || $("library-list-standalone");
+      const root = $("library-list-standalone");
       if (!root) return;
       if (!state.library.classes.length) {
         root.innerHTML = '<section class="card"><p class="hint">' + escapeHtml(t("classes.empty", "No classes yet. Generate a prompt and save it, or learn one from a pasted example.")) + "</p></section>";
@@ -3295,7 +3338,10 @@
 
     loadI18n().then(() => Promise.all([loadCatalog(), loadLibrary(), loadStatus(), loadHealth()])).then(() => {
       document.addEventListener("assure:tool", (e) => {
-        if (e.detail && e.detail.tool === "library") renderLibrary();
+        if (e.detail && e.detail.tool === "library") {
+          if (window.AssureVaultPrompts) window.AssureVaultPrompts.render();
+          renderLibrary();
+        }
       });
       const start = document.body.getAttribute("data-pane") || "compose";
       if (["history", "learn", "library"].includes(start)) showPane(start);
@@ -3307,11 +3353,17 @@
       loadRecent();
       schedulePreview();
         if (window.JDFCanvasManager && $("jdf-workbench")) {
+        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
+          window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
+        }
         window.__assureJdf = new window.JDFCanvasManager({
           projectId: window.__ASSURE_PROJECT_ID__ || "default",
           document: window.__INITIAL_JDF__,
         });
         window.__assureJdf.bind();
+        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.bindSourceInput === "function") {
+          window.AssureProjectFileManager.bindSourceInput();
+        }
       }
       if (window.AssureProjects) window.AssureProjects.init();
       if (window.matchMedia && window.matchMedia("(max-width: 768px)").matches) {

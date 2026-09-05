@@ -82,6 +82,9 @@
     _docked: false,
     _redhatPending: false,
     _redhatCtx: null,
+    fullAudit: false,
+    redhatController: null,
+    _auditManifest: null,
 
     clearVerifyTimeout: function () {
       if (this.verifyTimeout) {
@@ -154,7 +157,13 @@
 
       if (btn) {
         btn.addEventListener("click", function () {
-          self.startDraftStream();
+          self.startDraftStream(false, { fullAudit: false });
+        });
+      }
+      var fullAuditBtn = $("generate-full-audit-btn");
+      if (fullAuditBtn) {
+        fullAuditBtn.addEventListener("click", function () {
+          self.startDraftStream(false, { fullAudit: true });
         });
       }
       if (intentEl) {
@@ -270,11 +279,34 @@
       this.startDraftStream();
     },
 
+    getCompilePayload: function () {
+      var intentEl = $("generate-intent");
+      var fullIntent = (intentEl && intentEl.value.trim()) || "";
+      var selected = "";
+      if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.getSelectedTextRange === "function") {
+        var range = global.AssureTiptapEditor.getSelectedTextRange();
+        if (range && range.text && range.text.trim()) {
+          selected = range.text.trim();
+        }
+      }
+      if (!selected && intentEl && typeof intentEl.selectionStart === "number" && intentEl.selectionStart !== intentEl.selectionEnd) {
+        selected = intentEl.value.slice(intentEl.selectionStart, intentEl.selectionEnd).trim();
+      }
+      if (selected) {
+        return { compileType: "selection", content: selected, intent: fullIntent || selected };
+      }
+      return { compileType: "full", content: fullIntent, intent: fullIntent };
+    },
+
     abort: function () {
       this.clearVerifyTimeout();
       if (this.controller) {
         this.controller.abort();
         this.controller = null;
+      }
+      if (this.redhatController) {
+        this.redhatController.abort();
+        this.redhatController = null;
       }
       if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
     },
@@ -313,6 +345,8 @@
       if (streamWrap) streamWrap.hidden = !on;
       var btn = $("generate-compile-btn");
       if (btn) btn.disabled = !!on;
+      var auditBtn = $("generate-full-audit-btn");
+      if (auditBtn) auditBtn.disabled = !!on;
       if (on) {
         if (typeof global.updateCompilerStatus === "function") {
           global.updateCompilerStatus("processing");
@@ -345,7 +379,9 @@
       this._docked = false;
       this._redhatPending = false;
       this._redhatCtx = null;
+      this._auditManifest = null;
       this.hideRedhatPrompt();
+      this.hideAuditAppendix();
       global.compiledDraftNodes = [];
       global.compiledLocks = [];
       global.compiledDocument = null;
@@ -391,15 +427,21 @@
       }
     },
 
-    startDraftStream: function (isRetry) {
+    startDraftStream: function (isRetry, opts) {
       var self = this;
-      var intentEl = $("generate-intent");
-      var intent = intentEl && intentEl.value.trim();
+      opts = opts || {};
+      var payload = this.getCompilePayload();
+      var intent = payload.intent;
       if (!intent) {
         if (global.AssureToast) {
           global.AssureToast.show(t("generate.intent_required", "Describe what to compile first."), "error");
         }
         return;
+      }
+      if (Object.prototype.hasOwnProperty.call(opts, "fullAudit")) {
+        this.fullAudit = !!opts.fullAudit;
+      } else if (!isRetry) {
+        this.fullAudit = false;
       }
 
       if (!isRetry && global.AssureSessionLimit && !global.AssureSessionLimit.tryConsume()) {
@@ -423,17 +465,22 @@
 
       this.abort();
       if (!isRetry) {
+        var keepFullAudit = this.fullAudit;
         this.resetUi();
+        this.fullAudit = keepFullAudit;
       }
       this.setCompiling(true);
       this.setPreviewSkeleton(true);
       this.controller = new AbortController();
       if (global.AssurePromptHistory && typeof global.AssurePromptHistory.push === "function") {
         var modelSel = $("generate-model-select");
-        global.AssurePromptHistory.push(intent, {
-          model: modelSel ? modelSel.value : "",
-          cycle: String(Date.now()),
-        });
+        global.AssurePromptHistory.push(
+          payload.compileType === "selection" ? payload.content : intent,
+          {
+            model: modelSel ? modelSel.value : "",
+            cycle: String(Date.now()),
+          }
+        );
       }
       if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(true);
       if (global.AssureStreamRegistry) {
@@ -459,7 +506,10 @@
           ? global.AssureSubstrateVault.selectedIncludedIds()
           : [];
       var requestBody = {
-        intent: intent,
+        intent: payload.intent,
+        compileType: payload.compileType,
+        compile_type: payload.compileType,
+        content: payload.content,
         target_ai: modelEl ? modelEl.value : undefined,
         lock_numbers: lockOn,
         substrate_file_ids: substrateIds,
@@ -521,6 +571,15 @@
             t("audit.progress.z3", "Running math check…")
           );
           self.startVerifyTimeout();
+          if (self.fullAudit) {
+            self._redhatCtx = {
+              draftText: self.draftText,
+              document: data.document || self.compiledDocument,
+              z3Results: null,
+            };
+            self.showAuditAppendixPending();
+            self.runRedhatStress({ parallel: true });
+          }
           return;
         }
 
@@ -533,6 +592,17 @@
           if (data.document) {
             self.compiledDocument = data.document;
             global.compiledDocument = data.document;
+            if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveCompiled === "function") {
+              global.AssureProjectFileManager.saveCompiled(data.document).catch(function () {});
+            }
+          }
+          var confidenceSpans =
+            data.confidenceSpans ||
+            data.confidence_spans ||
+            (data.document && data.document.meta && data.document.meta.confidenceSpans) ||
+            [];
+          if (global.__assureJdf && typeof global.__assureJdf.setConfidenceSpans === "function") {
+            global.__assureJdf.setConfidenceSpans(confidenceSpans);
           }
           self.renderAuditGate(data);
           var verifiedDockBtn = $("generate-accept-dock");
@@ -553,7 +623,12 @@
             document: data.document || self.compiledDocument,
             z3Results: data.z3_results || null,
           };
-          self.showRedhatPrompt();
+          self.mergeAuditManifest(data);
+          if (self.fullAudit) {
+            self.hideRedhatPrompt();
+          } else {
+            self.showRedhatPrompt();
+          }
           return;
         }
 
@@ -1002,6 +1077,79 @@
       });
     },
 
+    hideAuditAppendix: function () {
+      var el = $("jdf-audit-appendix");
+      var body = $("jdf-audit-appendix-body");
+      if (el) el.hidden = true;
+      if (body) body.innerHTML = "";
+      if (global.__assureJdf && typeof global.__assureJdf.renderAuditAppendix === "function") {
+        global.__assureJdf.renderAuditAppendix(null);
+      }
+    },
+
+    showAuditAppendixPending: function () {
+      var claims = (this._auditManifest && this._auditManifest.claims) || [];
+      this.renderAuditManifest(claims, { pending: true });
+    },
+
+    mergeAuditManifest: function (data) {
+      var incoming =
+        (data && (data.audit_manifest || data.claims || data.auditManifest)) || [];
+      var existing = (this._auditManifest && this._auditManifest.claims) || [];
+      var byNode = {};
+      existing.forEach(function (row) {
+        var nid = row.nodeId || row.node_id || "";
+        if (!byNode[nid]) byNode[nid] = [];
+        byNode[nid].push(row);
+      });
+      var z3 = (data && data.z3_results) || {};
+      var z3Live = String(z3.status || (data && data.z3_status) || "").toUpperCase();
+      var z3Trusted = z3Live === "PASS" || z3Live === "VIOLATION";
+      var merged;
+      if (incoming.length) {
+        merged = incoming.map(function (row, idx) {
+          var nid = row.nodeId || row.node_id || "";
+          var prev = (byNode[nid] && byNode[nid][0]) || existing[idx] || {};
+          var score = row.z3Score != null ? row.z3Score : row.z3_score;
+          var prevScore = prev.z3Score != null ? prev.z3Score : prev.z3_score;
+          if (!z3Trusted && prevScore != null) score = prevScore;
+          else if (score == null) score = prevScore;
+          var critique = row.redhatCritique || row.redhat_critique || "";
+          var prevCrit = prev.redhatCritique || prev.redhat_critique || "";
+          return {
+            claim: row.claim || prev.claim || "",
+            nodeId: nid,
+            z3Score: score,
+            redhatCritique: critique || prevCrit,
+          };
+        });
+      } else {
+        merged = existing.slice();
+      }
+      this._auditManifest = { claims: merged };
+      this.renderAuditManifest(merged, { pending: this.fullAudit && this._redhatPending });
+    },
+
+    renderAuditManifest: function (claims, opts) {
+      opts = opts || {};
+      var hasRh = (claims || []).some(function (row) {
+        return !!(row.redhatCritique || row.redhat_critique);
+      });
+      if (!this.fullAudit && !hasRh && !opts.pending) {
+        this.hideAuditAppendix();
+        return;
+      }
+      if (global.__assureJdf && typeof global.__assureJdf.renderAuditAppendix === "function") {
+        global.__assureJdf.renderAuditAppendix(claims || [], opts);
+        return;
+      }
+      var wrap = $("jdf-audit-appendix");
+      var body = $("jdf-audit-appendix-body");
+      if (!wrap || !body) return;
+      wrap.hidden = false;
+      body.textContent = "";
+    },
+
     showRedhatPrompt: function () {
       var el = $("redhat-prompt");
       var textEl = $("redhat-prompt-text");
@@ -1041,6 +1189,7 @@
       if (critiques.length && global.__assureJdf && typeof global.__assureJdf.patchGutterFromRedhat === "function") {
         global.__assureJdf.patchGutterFromRedhat(critiques);
       }
+      self.mergeAuditManifest(data);
       if (self._docked) {
         self.patchDockedRedhat(data.document);
       }
@@ -1049,12 +1198,12 @@
       }
     },
 
-    /** Opt-in Stage 4: only called when the user clicks "Run Stress Test"
-     * on the hybrid gate prompt. Runs over the already Math-Check-verified
-     * document from the "verified" event — never automatic. */
-    runRedhatStress: function () {
+    /** Opt-in Stage 4, or Full Audit parallel pass. Runs over the compiled
+     * document. Parallel mode must not abort the in-flight Z3 draft SSE. */
+    runRedhatStress: function (opts) {
       var self = this;
       var ctx = this._redhatCtx;
+      opts = opts || {};
       this.hideRedhatPrompt();
       if (!ctx || !ctx.document) {
         if (global.AssureToast) {
@@ -1065,6 +1214,16 @@
 
       this.setBackgroundStatus(true, t("audit.progress.redhat", "Running stress test…"));
       this._redhatPending = true;
+
+      if (this.redhatController) {
+        try {
+          this.redhatController.abort();
+        } catch (_) {}
+      }
+      this.redhatController = new AbortController();
+      if (global.AssureStreamRegistry) {
+        global.AssureStreamRegistry.register(this.redhatController, { parallel: !!opts.parallel || !!this.fullAudit });
+      }
 
       var url = "/api/projects/" + encodeURIComponent(projectId()) + "/draft/redhat/stream";
       var body = {
@@ -1086,11 +1245,13 @@
           return;
         }
         if (type === "audit_complete") {
+          self.redhatController = null;
           self._handleAuditComplete(data);
           return;
         }
         if (type === "error" || (type === "complete" && data.ok === false)) {
           self._redhatPending = false;
+          self.redhatController = null;
           self.setBackgroundStatus(false);
           if (global.AssureToast) {
             global.AssureToast.show(
@@ -1107,6 +1268,7 @@
           url: url,
           body: body,
           credentials: "same-origin",
+          signal: self.redhatController.signal,
           parseBuffer: global.parseSseBuffer || parseSseBuffer,
           onFrame: handleFrame,
         });
@@ -1116,6 +1278,7 @@
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal: self.redhatController.signal,
         }).then(function (res) {
           if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
           var reader = res.body.getReader();
@@ -1137,6 +1300,7 @@
       }
 
       streamPromise.catch(function (err) {
+        if (err && err.name === "AbortError") return;
         self._redhatPending = false;
         self.setBackgroundStatus(false);
         if (global.AssureToast) {
