@@ -1,0 +1,33 @@
+name: Red-Hat Memory Boost
+persona: Knowledge Worker
+description: Second Full Audit must be materially faster with prior critique injected.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: unique_intent
+    prefix: "Audit humanitarian supply chain risks in three bullet points."
+  - action: wait
+    selector: "#generate-full-audit-btn"
+    timeout: 15000
+  - action: measure
+    id: first_audit_ms
+    steps:
+      - action: click
+        selector: "#generate-full-audit-btn"
+        description: First Full Audit
+      - action: wait_audit_complete
+        timeout: 240000
+  - action: sleep
+    ms: 2000
+  - action: measure
+    id: second_audit_ms
+    steps:
+      - action: click
+        selector: "#generate-full-audit-btn"
+        description: Second Full Audit (memory)
+      - action: wait_audit_complete
+        timeout: 120000
+  - action: assert
+    condition: second_audit_ms < first_audit_ms * 0.65

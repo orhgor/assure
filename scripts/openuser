@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# OpenUser UX runner shim — upstream openuser-cli 0.1.x has no `run` subcommand.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ "${1:-}" == "run" || "${1:-}" == "history" ]]; then
+  exec node "$ROOT/openuser/runner.mjs" "$@"
+fi
+exec openuser "$@"

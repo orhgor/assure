@@ -1,0 +1,15 @@
+{
+  "projectId": "prj_YhR-5cBgb_7E",
+  "name": "Assure AI",
+  "baseUrl": "https://staging.getassureai.com",
+  "environments": [
+    {
+      "name": "staging",
+      "url": "https://staging.getassureai.com"
+    },
+    {
+      "name": "local",
+      "url": "http://127.0.0.1:8765"
+    }
+  ]
+}

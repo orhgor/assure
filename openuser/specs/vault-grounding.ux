@@ -1,0 +1,23 @@
+name: Vault Grounding Flow
+persona: Knowledge Worker
+description: Include Substrate Vault files and compile with substrate context.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: wait
+    selector: "#substrate-vault-upload-btn"
+    timeout: 15000
+  - action: vault_prepare
+    fixture: openuser/fixtures/grounding-sample.pdf
+    timeout: 90000
+  - action: unique_intent
+    prefix: "Summarize the uploaded vault document in one paragraph."
+  - action: click
+    selector: "#generate-compile-btn"
+  - action: wait_compile_ready
+    timeout: 120000
+  - action: assert
+    selector: "#generate-node-count"
+    text_min: "1"

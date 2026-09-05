@@ -5,7 +5,9 @@
     "bundle:sentry": "node scripts/bundle-sentry.mjs",
     "build:sentry": "npm run bundle:sentry",
     "bundle:tiptap": "node scripts/bundle-tiptap.mjs",
-    "build:static": "npm run bundle:sentry && npm run bundle:tiptap"
+    "build:static": "npm run bundle:sentry && npm run bundle:tiptap",
+    "ux:test": "node openuser/runner.mjs run --headless --spec 'openuser/specs/*.ux' --project prj_YhR-5cBgb_7E",
+    "ux:compile-cache": "node openuser/runner.mjs run --headless --spec openuser/specs/compile-cache.ux --project prj_YhR-5cBgb_7E"
   },
   "dependencies": {
     "@sentry/browser": "^9.47.1",
@@ -14,7 +16,11 @@
     "@tiptap/starter-kit": "^3.31.3"
   },
   "devDependencies": {
-    "esbuild": "^0.25.9"
+    "commander": "^13.1.0",
+    "esbuild": "^0.25.9",
+    "glob": "^11.0.3",
+    "playwright": "^1.55.0",
+    "yaml": "^2.8.1"
   },
   "version": "1.0.0",
   "description": "Ask one question. Get one verified answer. The question is rewritten for the model you pick, then checked.",

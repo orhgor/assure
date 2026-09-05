@@ -1,0 +1,48 @@
+name: UX Regression (OpenUser)
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  openuser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install OpenUser CLI
+        run: npm install -g openuser-cli
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run OpenUser UX specs (staging)
+        env:
+          ASSURE_BASE_URL: https://staging.getassureai.com
+        run: |
+          chmod +x scripts/openuser
+          ./scripts/openuser run --headless --spec 'openuser/specs/*.ux' --project prj_YhR-5cBgb_7E
+
+      - name: Sync results to OMP (best-effort)
+        if: always()
+        env:
+          OMP_SERVER: ${{ secrets.OMP_SERVER }}
+          OMP_API_KEY: ${{ secrets.OMP_API_KEY }}
+        run: |
+          chmod +x scripts/sync-openuser-to-omp.sh
+          ./scripts/sync-openuser-to-omp.sh || true
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: openuser-failures
+          path: openuser/screenshots/
