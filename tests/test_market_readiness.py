@@ -269,8 +269,10 @@ class WorkflowTests(unittest.TestCase):
         )
         self.assertIn("branches: [staging]", staging)
         self.assertIn("branches: [main]", production)
-        self.assertIn("EC2_SSH_PRIVATE_KEY", staging)
-        self.assertIn("EC2_SSH_PRIVATE_KEY", production)
+        self.assertIn("ssm-redeploy-and-wait.sh", staging)
+        self.assertIn("ssm-redeploy-and-wait.sh", production)
+        self.assertIn("AWS_ACCESS_KEY_ID", staging)
+        self.assertIn("ASSURE_INSTANCE_ID", production)
 
 
 class ExecuteCopyTests(unittest.TestCase):

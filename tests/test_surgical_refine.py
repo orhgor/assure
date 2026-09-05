@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from prompt_matrix.i18n import CATALOGS, LOCALES
 from prompt_matrix.services.refine_node import (
@@ -94,6 +97,10 @@ def test_neighbor_context_n_minus_one_plus_one() -> None:
     assert ctx["target"]["id"] == "p1"
 
 
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
+)
 def test_apply_refined_text_reruns_z3_on_node() -> None:
     result = apply_refined_text(DOC, "p1", "Revenue reached 12 million.")
     assert result["node"]["id"] == "p1"

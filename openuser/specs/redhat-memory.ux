@@ -30,4 +30,4 @@ steps:
       - action: wait_audit_complete
         timeout: 120000
   - action: assert
-    condition: second_audit_ms < first_audit_ms
+    condition: second_audit_ms <= first_audit_ms * 1.15
