@@ -5743,6 +5743,53 @@ body.tab-lockout-active {
   color: var(--muted);
 }
 
+.settings-overlay[hidden] {
+  display: none !important;
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-6, 24px);
+}
+
+body.settings-overlay-open {
+  overflow: hidden;
+}
+
+.settings-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 43, 69, 0.55);
+}
+
+.settings-modal {
+  position: relative;
+  z-index: 1;
+  width: min(640px, 92vw);
+  max-height: min(85vh, 720px);
+  overflow-y: auto;
+  padding: var(--space-md, 16px);
+  border: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: 0 16px 48px rgba(13, 43, 69, 0.18);
+}
+
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm, 8px);
+  margin-bottom: var(--space-sm, 8px);
+}
+
+.app-sidebar-link.is-settings-open {
+  background: rgba(26, 75, 140, 0.1);
+}
+
 .session-compile-limit {
   font-size: var(--font-size-xs);
   font-weight: 600;

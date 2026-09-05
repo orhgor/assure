@@ -79,17 +79,28 @@ def test_style_has_mobile_lockout_media_query() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-88"
-    assert APP_JS == "assure-83"
+    assert APP_CSS == "assure-90"
+    assert APP_JS == "assure-85"
 
 
 def test_app_nav_tab_switching() -> None:
     nav = (ROOT / "prompt_matrix" / "static" / "app_nav.js").read_text(encoding="utf-8")
     assert '"vault"' in nav or "'vault'" in nav
     assert "left-pane-shared" in nav
-    assert "mode-full-view" in nav
+    assert "openSettings" in nav
+    assert "closeSettings" in nav
     assert "fetchList" in nav
     assert 'view === "library") view = "vault"' in nav
+    assert "FULL_VIEWS" not in nav
+
+
+def test_settings_overlay_in_markup() -> None:
+    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
+    assert 'id="settings-overlay"' in html
+    assert 'id="settings-overlay-close"' in html
+    assert 'id="view-settings"' in html
+    css = (ROOT / "prompt_matrix" / "static" / "style.css").read_text(encoding="utf-8")
+    assert ".settings-overlay" in css
 
 
 def test_audit_manifest_workbench_entry() -> None:

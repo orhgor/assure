@@ -34,18 +34,19 @@
     if (hash.indexOf("view=") === 0) {
       var raw = hash.slice(5);
       if (raw === "library") return "vault";
+      if (SETTINGS_VIEWS.indexOf(raw) >= 0) return "__open_settings__";
       return raw;
     }
+    if (hash === "settings") return "__open_settings__";
     var legacy = {
       compose: "generate",
       workbench: "surgical",
       projects: "projects",
       library: "vault",
       vault: "vault",
-      audit: "settings",
+      audit: "__open_settings__",
       generate: "generate",
       surgical: "surgical",
-      settings: "settings",
     };
     if (legacy[hash]) return legacy[hash];
     if (ALL_VIEWS.indexOf(hash) >= 0) return hash;
@@ -65,7 +66,7 @@
       if (stored === "compose" || stored === "workbench") {
         return stored === "compose" ? "generate" : "surgical";
       }
-      if (stored === "audit") return "settings";
+      if (stored === "audit" || stored === "settings") return null;
       if (stored === "library") return "vault";
       return stored;
     } catch (_) {
@@ -361,12 +362,25 @@
       if (!layout) return;
 
       var initial = readViewFromHash() || readStoredView() || DEFAULT_VIEW;
+      var openSettingsOnLoad = initial === "__open_settings__";
+      if (openSettingsOnLoad) {
+        initial = readStoredView() || DEFAULT_VIEW;
+      }
+      if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = DEFAULT_VIEW;
       this.switchView(initial, { replaceHash: false, persist: false });
+      if (openSettingsOnLoad) this.openSettings({ replaceHash: false });
 
       layout.querySelectorAll(".app-sidebar-link[data-tool]").forEach(function (node) {
         node.addEventListener("click", function (event) {
           event.preventDefault();
-          AssureNav.switchView(node.getAttribute("data-tool"));
+          var tool = node.getAttribute("data-tool");
+          if (tool === "settings") {
+            AssureNav.openSettings();
+            closeMobileSidebar();
+            return;
+          }
+          AssureNav.closeSettings({ replaceHash: false });
+          AssureNav.switchView(tool);
           closeMobileSidebar();
         });
       });
@@ -388,6 +402,11 @@
 
       window.addEventListener("hashchange", function () {
         var view = readViewFromHash();
+        if (view === "__open_settings__") {
+          AssureNav.openSettings({ replaceHash: false });
+          return;
+        }
+        AssureNav.closeSettings({ replaceHash: false });
         if (view && view !== AssureNav.activeView) {
           AssureNav.switchView(view, { replaceHash: false, persist: true });
         }
@@ -415,6 +434,80 @@
 
       AssureLandingBridge.init();
       AssureNav.initSettings();
+      AssureNav.initSettingsOverlay();
+    },
+
+    initSettingsOverlay: function () {
+      var overlay = $("settings-overlay");
+      var backdrop = $("settings-overlay-backdrop");
+      var closeBtn = $("settings-overlay-close");
+      if (!overlay) return;
+
+      function close() {
+        AssureNav.closeSettings();
+      }
+
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      if (backdrop) backdrop.addEventListener("click", close);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) close();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && overlay && !overlay.hidden) {
+          e.preventDefault();
+          close();
+        }
+      });
+    },
+
+    openSettings: function (opts) {
+      opts = opts || {};
+      var overlay = $("settings-overlay");
+      if (!overlay) return;
+      overlay.hidden = false;
+      document.body.classList.add("settings-overlay-open");
+      var settingsBtn = document.querySelector('.app-sidebar-link[data-tool="settings"]');
+      if (settingsBtn) {
+        settingsBtn.classList.add("is-settings-open");
+        settingsBtn.setAttribute("aria-expanded", "true");
+      }
+      if (opts.replaceHash !== false) {
+        var next = location.pathname + location.search + "#settings";
+        if (location.pathname + location.search + location.hash !== next) {
+          history.replaceState(null, "", next);
+        }
+      }
+      document.dispatchEvent(new CustomEvent("assure:settings-open"));
+      document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: "settings" } }));
+      document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: "settings" } }));
+      var closeBtn = $("settings-overlay-close");
+      if (closeBtn && typeof closeBtn.focus === "function") {
+        window.setTimeout(function () {
+          closeBtn.focus();
+        }, 0);
+      }
+    },
+
+    closeSettings: function (opts) {
+      opts = opts || {};
+      var overlay = $("settings-overlay");
+      if (!overlay || overlay.hidden) return;
+      overlay.hidden = true;
+      document.body.classList.remove("settings-overlay-open");
+      var settingsBtn = document.querySelector('.app-sidebar-link[data-tool="settings"]');
+      if (settingsBtn) {
+        settingsBtn.classList.remove("is-settings-open");
+        settingsBtn.classList.remove("is-active");
+        settingsBtn.setAttribute("aria-expanded", "false");
+        settingsBtn.setAttribute("aria-current", "false");
+      }
+      if (opts.replaceHash !== false) {
+        var hashView = this.activeView === "vault" ? "library" : this.activeView;
+        var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
+        if (location.pathname + location.search + location.hash !== next) {
+          history.replaceState(null, "", next);
+        }
+      }
     },
 
     initSettings: function () {
@@ -470,17 +563,16 @@
       if (!view) view = DEFAULT_VIEW;
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
-      if (view === "audit") view = "settings";
+      if (view === "audit" || view === "settings" || view === "__open_settings__") {
+        this.openSettings(opts);
+        return;
+      }
       if (view === "library") view = "vault";
       if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
 
       if (view !== this.activeView) {
         if (!opts.skipUnsaved && global.AssureUnsaved) {
-          var leavingWorkspace = FULL_VIEWS.indexOf(view) >= 0;
-          if (
-            global.AssureUnsaved.isGenerating ||
-            (global.AssureUnsaved.hasUnsavedChanges && leavingWorkspace)
-          ) {
+          if (global.AssureUnsaved.isGenerating) {
             if (
               !global.AssureUnsaved.confirmLeave(
                 "unsaved.switch_view",
@@ -502,32 +594,27 @@
       var workbench = $("jdf-workbench");
       var leftPaneShared = $("left-pane-shared");
       var inWorkspace = WORKSPACE_VIEWS.indexOf(view) >= 0;
-      var inFullView = FULL_VIEWS.indexOf(view) >= 0;
 
       if (layout) {
         layout.querySelectorAll(".app-sidebar-link").forEach(function (link) {
           var tool = link.getAttribute("data-tool") || "";
+          if (tool === "settings") return;
           var on =
             tool === view ||
             (view === "vault" && tool === "library") ||
             (view === "generate" && tool === "generate") ||
             (view === "surgical" && tool === "surgical") ||
-            (view === "projects" && tool === "projects") ||
-            (view === "settings" && tool === "settings");
+            (view === "projects" && tool === "projects");
           link.classList.toggle("is-active", on);
           link.setAttribute("aria-current", on ? "page" : "false");
         });
       }
 
       if (appContent) {
-        appContent.classList.toggle("mode-full-view", inFullView);
         appContent.classList.toggle("mode-workspace", inWorkspace);
       }
 
       if (workbench) workbench.hidden = false;
-
-      var rightPane = $("jdf-document-canvas");
-      if (rightPane) rightPane.hidden = inFullView;
 
       if (leftPaneShared) {
         leftPaneShared.hidden = !inWorkspace || view === "projects";
@@ -537,14 +624,6 @@
         var el = $("view-" + name);
         if (!el) return;
         var on = inWorkspace && view === name;
-        el.classList.toggle("active", on);
-        el.hidden = !on;
-      });
-
-      FULL_VIEWS.forEach(function (name) {
-        var el = $("view-" + name);
-        if (!el) return;
-        var on = view === name;
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
