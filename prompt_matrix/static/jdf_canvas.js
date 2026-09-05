@@ -536,6 +536,46 @@
     }
   };
 
+  var JDF_ALLOWED_KEYS = {
+    paragraph: ["type", "id", "content", "entities_referenced", "provenance", "meta", "annotations"],
+    section: ["type", "id", "title", "children", "meta", "annotations"],
+    callout: ["type", "id", "variant", "title", "content", "annotations"],
+    table: ["type", "id", "caption", "headers", "rows", "bound_entities", "annotations"],
+    document: ["document_id", "meta", "truth_ledger", "body"],
+  };
+
+  function sanitizeJDFNode(node) {
+    if (!node || typeof node !== "object") return node;
+    var type = node.type;
+    var keys = type && JDF_ALLOWED_KEYS[type];
+    if (!keys) return node;
+    var sanitized = {};
+    var i;
+    for (i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (node[key] !== undefined) sanitized[key] = node[key];
+    }
+    if (sanitized.children && Array.isArray(sanitized.children)) {
+      sanitized.children = sanitized.children.map(sanitizeJDFNode);
+    }
+    return sanitized;
+  }
+
+  function sanitizeJDFDocument(tree) {
+    if (!tree || typeof tree !== "object") return tree;
+    var keys = JDF_ALLOWED_KEYS.document;
+    var sanitized = {};
+    var i;
+    for (i = 0; i < keys.length; i += 1) {
+      var key = keys[i];
+      if (tree[key] !== undefined) sanitized[key] = tree[key];
+    }
+    if (sanitized.body && Array.isArray(sanitized.body)) {
+      sanitized.body = sanitized.body.map(sanitizeJDFNode);
+    }
+    return sanitized;
+  }
+
   JDFCanvasManager.prototype.saveDocument = function (mutationType, extra) {
     var self = this;
     this.setSavePill("saving", "jdf.save.saving");
@@ -545,7 +585,7 @@
       body: JSON.stringify(
         Object.assign(
           {
-            document: this.tree,
+            document: sanitizeJDFDocument(this.tree),
             mutation_type: mutationType || "MANUAL_SAVE",
           },
           extra || {}
@@ -588,7 +628,7 @@
         Object.assign(
           {
             id: nodeId,
-            node_data: nodeData,
+            node_data: sanitizeJDFNode(nodeData),
             mutation_type: mutationType || "NODE_UPDATE",
             insert_after_id: this.activeInsertAfterId || null,
           },
@@ -1496,7 +1536,7 @@
     }
 
     var url = "/api/projects/" + encodeURIComponent(this.projectId) + "/draft/redhat/stream";
-    var body = { draft_text: text, document: this.tree, target_node_id: targetNodeId };
+    var body = { draft_text: text, document: sanitizeJDFDocument(this.tree), target_node_id: targetNodeId };
     var postStream =
       global.AssureSse && typeof global.AssureSse.postStream === "function"
         ? global.AssureSse.postStream
@@ -1609,6 +1649,12 @@
   JDFCanvasManager.prototype.showDiffPreview = function (targetNodeId, originalText, newText, onAccept, onDiscard) {
     var self = this;
     var host = this.rootEl.querySelector('[data-node-id="' + targetNodeId + '"]');
+    if (!host && this.surgicalTargetId) {
+      host = this.rootEl.querySelector('[data-node-id="' + this.surgicalTargetId + '"]');
+    }
+    if (!host) {
+      host = this.rootEl.querySelector(".jdf-node.selected") || this.rootEl.querySelector(".jdf-node");
+    }
     if (!host) return;
     var card = document.createElement("div");
     card.className = "diff-container";
@@ -1641,7 +1687,13 @@
       if (typeof onDiscard === "function") onDiscard();
       card.remove();
     });
-    host.insertAdjacentElement("afterend", card);
+    // TipTap owns the node DOM; inserting beside a node view is stripped on the next transaction.
+    var tiptapHost = this.rootEl.querySelector(".jdf-tiptap-host");
+    if (tiptapHost) {
+      tiptapHost.insertAdjacentElement("afterend", card);
+    } else {
+      host.insertAdjacentElement("afterend", card);
+    }
   };
 
   JDFCanvasManager.prototype.applyMutation = function (targetNodeId, node) {
@@ -1836,7 +1888,7 @@
       user_intent: intent,
       target_node_id: null,
       run_redhat: runRedhat !== false,
-      document: this.tree,
+      document: sanitizeJDFDocument(this.tree),
     });
   };
 
@@ -1959,7 +2011,7 @@
       user_intent: intent,
       target_node_id: this.surgicalTargetId,
       run_redhat: runRedhat !== false,
-      document: this.tree,
+      document: sanitizeJDFDocument(this.tree),
     });
   };
 
@@ -2054,6 +2106,8 @@
   global.JDFCanvasManager = JDFCanvasManager;
   global.InquireStreamClient = InquireStreamClient;
   global.computeWordDiff = computeWordDiff;
+  global.sanitizeJDFNode = sanitizeJDFNode;
+  global.sanitizeJDFDocument = sanitizeJDFDocument;
   global.dockDraftToCanvas = function (text) {
     if (global.__assureJdf) return global.__assureJdf.dockDraftToCanvas(text);
     return Promise.reject(new Error("JDF manager not ready"));

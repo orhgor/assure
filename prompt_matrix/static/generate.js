@@ -846,7 +846,10 @@
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            document: base,
+            document:
+              typeof global.sanitizeJDFDocument === "function"
+                ? global.sanitizeJDFDocument(base)
+                : base,
             mutation_type: "GENERATE_DOCK",
             change_summary: "Generate: docked document tree",
           }),

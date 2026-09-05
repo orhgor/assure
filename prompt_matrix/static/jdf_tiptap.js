@@ -166,16 +166,28 @@
       }
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
       var old = lookupOld(previousTree, nodeId);
-      var child = {
-        type: node.type === "jdfCallout" ? "callout" : "paragraph",
-        id: nodeId,
-        content: textContent(node),
-        title: (node.attrs && node.attrs.calloutTitle) || (old && old.title) || "",
-        entities_referenced: (old && old.entities_referenced) || [],
-        annotations: (old && old.annotations) || { redhat: [], z3: [] },
-        meta: Object.assign({}, (old && old.meta) || {}),
-        provenance: (old && old.provenance) || [],
-      };
+      var isCallout = node.type === "jdfCallout";
+      var child;
+      if (isCallout) {
+        child = {
+          type: "callout",
+          id: nodeId,
+          variant: (node.attrs && node.attrs.calloutVariant) || (old && old.variant) || "insight",
+          title: (node.attrs && node.attrs.calloutTitle) || (old && old.title) || "",
+          content: textContent(node),
+          annotations: (old && old.annotations) || { redhat: [], z3: [] },
+        };
+      } else {
+        child = {
+          type: "paragraph",
+          id: nodeId,
+          content: textContent(node),
+          entities_referenced: (old && old.entities_referenced) || [],
+          annotations: (old && old.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (old && old.meta) || {}),
+          provenance: (old && old.provenance) || [],
+        };
+      }
       current.children.push(child);
     });
 
@@ -249,7 +261,15 @@
       content: "inline*",
       addAttributes: function () {
         return {
-          nodeId: { default: "" },
+          nodeId: {
+            default: "",
+            parseHTML: function (el) {
+              return el.getAttribute("data-node-id") || "";
+            },
+            renderHTML: function (attrs) {
+              return attrs.nodeId ? { "data-node-id": attrs.nodeId } : {};
+            },
+          },
           gutter: { default: "unverified" },
         };
       },

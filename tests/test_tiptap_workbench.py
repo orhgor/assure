@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from prompt_matrix.i18n import CATALOGS, LOCALES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +68,31 @@ def test_tiptap_mapper_exports() -> None:
     assert "AssureTiptapEditor" in canvas
     assert "duplicateNode" in canvas
     assert "showRevisionDiff" in canvas
+    assert "sanitizeJDFDocument" in canvas
+    assert "sanitizeJDFNode" in canvas
+    para_keys = 'paragraph: ["type", "id", "content", "entities_referenced", "provenance", "meta", "annotations"]'
+    assert para_keys in canvas
+    assert "document: sanitizeJDFDocument(this.tree)" in canvas
+    assert "jdf-tiptap-host" in canvas
+    gen_js = (ROOT / "prompt_matrix" / "static" / "generate.js").read_text(encoding="utf-8")
+    assert "sanitizeJDFDocument" in gen_js
     gen = (ROOT / "prompt_matrix" / "static" / "generate.js").read_text(encoding="utf-8")
     assert "prompt_cycle" in gen
     assert "AssurePromptHistory" in gen
+
+
+def test_jdf_paragraph_forbids_title_field() -> None:
+    from pydantic import ValidationError
+
+    from prompt_matrix.models.jdf import JDFParagraphNode
+
+    with pytest.raises(ValidationError, match="title"):
+        JDFParagraphNode.model_validate(
+            {"type": "paragraph", "id": "p1", "content": "x", "title": ""}
+        )
+
+
+def test_tiptap_does_not_copy_title_onto_paragraphs() -> None:
+    js = (ROOT / "prompt_matrix" / "static" / "jdf_tiptap.js").read_text(encoding="utf-8")
+    assert 'var isCallout = node.type === "jdfCallout";' in js
+    assert 'type: node.type === "jdfCallout" ? "callout" : "paragraph"' not in js
