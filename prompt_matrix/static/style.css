@@ -1582,6 +1582,22 @@ body:has(#assure-app) .shell {
   min-height: 0;
 }
 
+/* Full-view tabs (Settings) stay inside the workbench shell; hide the canvas pane. */
+.app-content.mode-full-view .jdf-workbench .right-pane {
+  display: none;
+}
+
+.app-content.mode-full-view .jdf-workbench .left-pane {
+  flex: 1 1 100%;
+  max-width: none;
+  border-right: none;
+}
+
+.app-content.mode-workspace .jdf-workbench .right-pane {
+  display: flex;
+}
+
+/* Sidebar view containers (Projects / Generate / Surgical) */
 .tool-panel {
   display: none;
   flex: 1;

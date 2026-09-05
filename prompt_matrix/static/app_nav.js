@@ -3,9 +3,9 @@
 
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "generate";
-  var WORKSPACE_VIEWS = ["projects", "generate", "surgical"];
-  var FULL_VIEWS = ["library", "settings"];
-  var ALL_VIEWS = WORKSPACE_VIEWS.concat(FULL_VIEWS);
+  var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
+  var FULL_VIEWS = ["settings"];
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library"]).concat(FULL_VIEWS);
 
   function $(id) {
     return document.getElementById(id);
@@ -31,12 +31,17 @@
     var hash = (location.hash || "").replace(/^#/, "");
     if (!hash) return null;
     if (hash.indexOf("tool=") === 0) return hash.slice(5);
-    if (hash.indexOf("view=") === 0) return hash.slice(5);
+    if (hash.indexOf("view=") === 0) {
+      var raw = hash.slice(5);
+      if (raw === "library") return "vault";
+      return raw;
+    }
     var legacy = {
       compose: "generate",
       workbench: "surgical",
       projects: "projects",
-      library: "library",
+      library: "vault",
+      vault: "vault",
       audit: "settings",
       generate: "generate",
       surgical: "surgical",
@@ -61,6 +66,7 @@
         return stored === "compose" ? "generate" : "surgical";
       }
       if (stored === "audit") return "settings";
+      if (stored === "library") return "vault";
       return stored;
     } catch (_) {
       return null;
@@ -341,7 +347,7 @@
       AssureStatus.init();
       updateCompilerStatus("idle");
 
-      ["btn-export-docx", "btn-export-md", "btn-export-html"].forEach(function (id) {
+      ["btn-export-docx", "btn-export-md", "btn-export-html", "btn-export-pdf"].forEach(function (id) {
         var el = $(id);
         if (!el) return;
         el.addEventListener("click", function () {
@@ -416,6 +422,7 @@
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
       if (view === "audit") view = "settings";
+      if (view === "library") view = "vault";
       if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
 
       if (view !== this.activeView) {
@@ -442,37 +449,92 @@
       if (opts.persist !== false) persistView(view);
 
       var layout = $("assure-app");
+      var appContent = layout && layout.querySelector(".app-content");
+      var workbench = $("jdf-workbench");
+      var leftPaneShared = $("left-pane-shared");
+      var inWorkspace = WORKSPACE_VIEWS.indexOf(view) >= 0;
+      var inFullView = FULL_VIEWS.indexOf(view) >= 0;
+
       if (layout) {
         layout.querySelectorAll(".app-sidebar-link").forEach(function (link) {
-          var on = link.getAttribute("data-tool") === view;
+          var tool = link.getAttribute("data-tool") || "";
+          var on =
+            tool === view ||
+            (view === "vault" && tool === "library") ||
+            (view === "generate" && tool === "generate") ||
+            (view === "surgical" && tool === "surgical") ||
+            (view === "projects" && tool === "projects") ||
+            (view === "settings" && tool === "settings");
           link.classList.toggle("is-active", on);
           link.setAttribute("aria-current", on ? "page" : "false");
         });
       }
 
-      var workbench = $("jdf-workbench");
-      var inWorkspace = WORKSPACE_VIEWS.indexOf(view) >= 0;
-      if (workbench) workbench.hidden = !inWorkspace;
+      if (appContent) {
+        appContent.classList.toggle("mode-full-view", inFullView);
+        appContent.classList.toggle("mode-workspace", inWorkspace);
+      }
 
-      ALL_VIEWS.forEach(function (name) {
+      if (workbench) workbench.hidden = false;
+
+      var rightPane = $("jdf-document-canvas");
+      if (rightPane) rightPane.hidden = inFullView;
+
+      if (leftPaneShared) {
+        leftPaneShared.hidden = !inWorkspace || view === "projects";
+      }
+
+      ["projects", "generate", "surgical"].forEach(function (name) {
         var el = $("view-" + name);
         if (!el) return;
-        var on = name === view;
+        var on = inWorkspace && view === name;
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
 
+      FULL_VIEWS.forEach(function (name) {
+        var el = $("view-" + name);
+        if (!el) return;
+        var on = view === name;
+        el.classList.toggle("active", on);
+        el.hidden = !on;
+      });
+
+      var legacyLibrary = $("view-library");
+      if (legacyLibrary) {
+        legacyLibrary.classList.remove("active");
+        legacyLibrary.hidden = true;
+      }
+
+      if (view === "vault" && leftPaneShared) {
+        var vaultPanel = $("substrate-vault");
+        if (vaultPanel && vaultPanel.tagName === "DETAILS") {
+          vaultPanel.open = true;
+        }
+        window.setTimeout(function () {
+          if (vaultPanel && typeof vaultPanel.scrollIntoView === "function") {
+            vaultPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        }, 0);
+        if (global.AssureSubstrateVault && typeof global.AssureSubstrateVault.fetchList === "function") {
+          global.AssureSubstrateVault.fetchList();
+        }
+      }
+
       if (opts.replaceHash !== false) {
-        var next = location.pathname + location.search + "#view=" + encodeURIComponent(view);
+        var hashView = view === "vault" ? "library" : view;
+        var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
         }
       }
 
       document.body.setAttribute("data-assure-view", view);
-      document.body.setAttribute("data-assure-tool", view);
+      document.body.setAttribute("data-assure-tool", view === "vault" ? "library" : view);
       document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: view } }));
-      document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: view } }));
+      document.dispatchEvent(
+        new CustomEvent("assure:tool", { detail: { tool: view === "vault" ? "library" : view } })
+      );
 
       if (view === "projects" && global.AssureProjects) {
         global.AssureProjects.load();
