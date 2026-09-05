@@ -119,8 +119,11 @@
           <aside class="left-pane" id="left-pane">
 
             <div id="view-projects" class="assure-view" hidden>
-              <div class="projects-header">
-                <h3 class="jdf-pane-title" data-i18n="nav.projects">{{ gettext('Projects') }}</h3>
+              <div class="projects-dashboard-header">
+                <div class="projects-dashboard-headline">
+                  <h3 class="jdf-pane-title" data-i18n="projects.dashboard.title">{{ gettext('Active Works') }}</h3>
+                  <p class="hint projects-dashboard-lead" data-i18n="projects.dashboard.lead">{{ gettext('Pick up where you left off — each card shows status and your next step.') }}</p>
+                </div>
                 <button type="button" class="btn btn-primary btn-sm" id="projects-new-btn" data-i18n="projects.new">{{ gettext('+ New') }}</button>
               </div>
               <div id="projects-new-form" class="projects-new-form" hidden>
@@ -130,7 +133,7 @@
                   <button type="button" class="btn btn-outline btn-sm" id="projects-new-cancel" data-i18n="cancel">{{ gettext('Cancel') }}</button>
                 </div>
               </div>
-              <ul id="projects-list" class="projects-list" role="list"></ul>
+              <div id="projects-dashboard" class="projects-dashboard" role="list" aria-live="polite"></div>
             </div>
 
             <div id="left-pane-shared" class="left-pane-shared">

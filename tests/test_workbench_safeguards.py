@@ -79,8 +79,8 @@ def test_style_has_mobile_lockout_media_query() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-78"
-    assert APP_JS == "assure-70"
+    assert APP_CSS == "assure-79"
+    assert APP_JS == "assure-71"
 
 
 def test_audit_manifest_workbench_entry() -> None:

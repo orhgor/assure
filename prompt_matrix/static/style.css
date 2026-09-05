@@ -4875,6 +4875,173 @@ input.auto-resize {
   gap: var(--space-sm);
 }
 
+/* ─── Active Works Dashboard (Projects) ─────────────────────────────────── */
+.projects-dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.projects-dashboard-lead {
+  margin: 4px 0 0;
+  max-width: 28rem;
+}
+
+.projects-dashboard,
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.projects-dashboard-empty,
+.projects-dashboard-loading,
+.projects-list-empty,
+.projects-list-loading {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-sm) 0;
+  text-align: left;
+}
+
+.project-work-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.project-work-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.08);
+}
+
+.project-work-card.is-active {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.15);
+}
+
+.project-work-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.project-status-drafting .project-status-pill,
+.project-status-pill[data-status="drafting"] {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.project-status-verifying .project-status-pill,
+.project-status-pill[data-status="verifying"] {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.project-status-audited .project-status-pill,
+.project-status-pill[data-status="audited"] {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.project-status-ready_to_export .project-status-pill,
+.project-status-pill[data-status="ready_to_export"] {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.project-active-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.project-work-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-work-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.project-work-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.project-vital {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.project-vital-lock {
+  color: #1d4ed8;
+}
+
+.project-vital-warning {
+  color: #c2410c;
+}
+
+.project-vital-ok {
+  color: #15803d;
+}
+
+.project-vital-muted {
+  color: #94a3b8;
+}
+
+.project-work-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.project-work-action {
+  flex: 1;
+  justify-content: center;
+  max-width: calc(100% - 72px);
+}
+
+.project-work-tools {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .projects-list {
   list-style: none;
   margin: 0;
