@@ -29,9 +29,10 @@
     });
   }
 
-  /** POST SSE with 12s idle timeout; auto-reconnect up to 3 attempts (2s base backoff). */
+  /** POST SSE with idle timeout; auto-reconnect up to 3 attempts (2s base backoff).
+   * Default 90s — lock inference and Red-Hat can run 30–60s with no SSE chunks. */
   function postSseStream(config) {
-    var idleTimeoutMs = config.idleTimeoutMs || 12000;
+    var idleTimeoutMs = config.idleTimeoutMs == null ? 90000 : config.idleTimeoutMs;
     var maxAttempts = config.maxAttempts || 3;
     var baseBackoffMs = config.baseBackoffMs || 2000;
     var parseBuffer = config.parseBuffer || parseSseChunk;

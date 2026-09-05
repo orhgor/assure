@@ -49,6 +49,14 @@ def test_full_audit_js_wires_parallel_redhat() -> None:
     assert "fullAudit" in js
     assert "generate-full-audit-btn" in js
     assert "runRedhatStress({ parallel: true })" in js
+    assert "idleTimeoutMs: SSE_IDLE_MS" in js
+    assert "finishRedhatStress" in js
+    assert "if (self.fullAudit) {" in js
+    assert "self.runRedhatStress({ parallel: true });" in js
+    assert (
+        "runRedhatStress({ parallel: true })"
+        not in js.split('if (type === "compiled")')[1].split('if (type === "verified")')[0]
+    )
     assert "parallel: !!opts.parallel" in js
     nav = (ROOT / "prompt_matrix" / "static" / "app_nav.js").read_text(encoding="utf-8")
     assert "opts.parallel" in nav

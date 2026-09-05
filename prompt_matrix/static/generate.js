@@ -70,6 +70,10 @@
     return data.type || frame.event || "message";
   }
 
+  /** Lock inference + Red-Hat can run 30–90s with no SSE chunks. */
+  var SSE_IDLE_MS = 90000;
+  var REDHAT_WALL_MS = 90000;
+
   var AssureGenerate = {
     controller: null,
     compiledNodes: [],
@@ -572,13 +576,7 @@
           );
           self.startVerifyTimeout();
           if (self.fullAudit) {
-            self._redhatCtx = {
-              draftText: self.draftText,
-              document: data.document || self.compiledDocument,
-              z3Results: null,
-            };
             self.showAuditAppendixPending();
-            self.runRedhatStress({ parallel: true });
           }
           return;
         }
@@ -626,6 +624,12 @@
           self.mergeAuditManifest(data);
           if (self.fullAudit) {
             self.hideRedhatPrompt();
+            self._redhatCtx = {
+              draftText: self.draftText,
+              document: data.document || self.compiledDocument,
+              z3Results: data.z3_results || null,
+            };
+            self.runRedhatStress({ parallel: true });
           } else {
             self.showRedhatPrompt();
           }
@@ -665,6 +669,7 @@
           body: requestBody,
           credentials: "same-origin",
           signal: self.controller.signal,
+          idleTimeoutMs: SSE_IDLE_MS,
           parseBuffer: global.parseSseBuffer || parseSseBuffer,
           onFrame: handleFrame,
         });
@@ -1200,6 +1205,25 @@
 
     /** Opt-in Stage 4, or Full Audit parallel pass. Runs over the compiled
      * document. Parallel mode must not abort the in-flight Z3 draft SSE. */
+    finishRedhatStress: function (opts) {
+      opts = opts || {};
+      this._redhatPending = false;
+      this.redhatController = null;
+      if (this._redhatWallTimer) {
+        clearTimeout(this._redhatWallTimer);
+        this._redhatWallTimer = null;
+      }
+      this.setBackgroundStatus(false);
+      if (opts.error && global.AssureToast) {
+        global.AssureToast.show(String(opts.error), "error");
+      }
+      if (opts.fallbackManifest) {
+        this.mergeAuditManifest(opts.fallbackManifest);
+      } else if (this._auditManifest && this._auditManifest.claims) {
+        this.renderAuditManifest(this._auditManifest.claims, { pending: false });
+      }
+    },
+
     runRedhatStress: function (opts) {
       var self = this;
       var ctx = this._redhatCtx;
@@ -1220,7 +1244,25 @@
           this.redhatController.abort();
         } catch (_) {}
       }
+      if (this._redhatWallTimer) {
+        clearTimeout(this._redhatWallTimer);
+        this._redhatWallTimer = null;
+      }
       this.redhatController = new AbortController();
+      this._redhatWallTimer = window.setTimeout(function () {
+        if (!self._redhatPending) return;
+        try {
+          self.redhatController.abort();
+        } catch (_) {}
+        var msg = t("audit.timeout", "Verification timeout — click to retry");
+        self.finishRedhatStress({
+          error: msg,
+          fallbackManifest: {
+            claims: (self._auditManifest && self._auditManifest.claims) || [],
+            audit_manifest: (self._auditManifest && self._auditManifest.claims) || [],
+          },
+        });
+      }, REDHAT_WALL_MS);
       if (global.AssureStreamRegistry) {
         global.AssureStreamRegistry.register(this.redhatController, { parallel: !!opts.parallel || !!this.fullAudit });
       }
@@ -1235,6 +1277,7 @@
         global.AssureSse && typeof global.AssureSse.postStream === "function"
           ? global.AssureSse.postStream
           : null;
+      var sawAuditComplete = false;
 
       function handleFrame(frame) {
         var type = eventType(frame);
@@ -1245,21 +1288,28 @@
           return;
         }
         if (type === "audit_complete") {
+          sawAuditComplete = true;
           self.redhatController = null;
+          if (self._redhatWallTimer) {
+            clearTimeout(self._redhatWallTimer);
+            self._redhatWallTimer = null;
+          }
           self._handleAuditComplete(data);
           return;
         }
         if (type === "error" || (type === "complete" && data.ok === false)) {
-          self._redhatPending = false;
-          self.redhatController = null;
-          self.setBackgroundStatus(false);
-          if (global.AssureToast) {
-            global.AssureToast.show(
-              String(data.error || t("generate.failed", "Stress Test failed.")),
-              "error"
-            );
-          }
+          sawAuditComplete = true;
+          self.finishRedhatStress({
+            error: data.error || t("generate.failed", "Stress Test failed."),
+          });
         }
+      }
+
+      function onStreamEnd() {
+        if (sawAuditComplete || !self._redhatPending) return;
+        self.finishRedhatStress({
+          error: t("audit.timeout", "Verification timeout — click to retry"),
+        });
       }
 
       var streamPromise;
@@ -1269,8 +1319,10 @@
           body: body,
           credentials: "same-origin",
           signal: self.redhatController.signal,
+          idleTimeoutMs: SSE_IDLE_MS,
           parseBuffer: global.parseSseBuffer || parseSseBuffer,
           onFrame: handleFrame,
+          onDone: onStreamEnd,
         });
       } else {
         streamPromise = fetch(url, {
@@ -1287,7 +1339,10 @@
 
           function pump() {
             return reader.read().then(function (result) {
-              if (result.done) return;
+              if (result.done) {
+                onStreamEnd();
+                return;
+              }
               buffer += decoder.decode(result.value, { stream: true });
               var parsed = parseSseBuffer(buffer);
               buffer = parsed.remainder;
@@ -1300,12 +1355,12 @@
       }
 
       streamPromise.catch(function (err) {
-        if (err && err.name === "AbortError") return;
-        self._redhatPending = false;
-        self.setBackgroundStatus(false);
-        if (global.AssureToast) {
-          global.AssureToast.show(String((err && err.message) || err), "error");
+        if (err && err.name === "AbortError") {
+          if (!self._redhatPending) return;
         }
+        self.finishRedhatStress({
+          error: (err && err.message) || t("generate.failed", "Stress Test failed."),
+        });
       });
     },
 

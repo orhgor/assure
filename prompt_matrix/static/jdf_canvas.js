@@ -136,8 +136,15 @@
         url: url,
         body: payload || {},
         signal: this.controller.signal,
+        idleTimeoutMs: 90000,
         parseBuffer: parseSseChunk,
         onFrame: dispatch,
+      }).catch(function (err) {
+        if (typeof self.handlers.onError === "function") self.handlers.onError(err);
+        else if (typeof self.handlers.onEvent === "function") {
+          self.handlers.onEvent("error", { ok: false, error: String(err && err.message ? err.message : err) });
+        }
+        throw err;
       });
     }
 
@@ -2027,6 +2034,7 @@
         url: url,
         body: body,
         credentials: "same-origin",
+        idleTimeoutMs: 90000,
         parseBuffer: parseSseChunk,
         onFrame: handleFrame,
       });
@@ -2312,6 +2320,20 @@
             if (global.AssureInquire && global.AssureInquire.showDockButton) {
               global.AssureInquire.showDockButton(true, self.livePreview);
             }
+          }
+        }
+        if (ev === "error") {
+          self.clearVerifyTimeout();
+          self._setStreaming(false);
+          self.setPreviewSkeleton(false);
+          if (self.stopBtn) self.stopBtn.style.display = "none";
+          self.setSavePill("saved", "jdf.save.stream_complete");
+          self._syncCompilerStatus("idle");
+          if (global.AssureToast) {
+            global.AssureToast.show(
+              String((data && data.error) || jdfT("generate.failed", "Compilation failed.")),
+              "error"
+            );
           }
         }
       },

@@ -149,6 +149,44 @@ def test_run_redhat_pipeline_opt_in(monkeypatch):
     assert any(f.strip() == "data: [DONE]" for f in frames)
 
 
+def test_run_redhat_pipeline_survives_model_error(monkeypatch):
+    """Red-Hat failures must still emit audit_complete so the UI can recover."""
+
+    def boom(*_a, **_k):
+        raise RuntimeError("API timeout")
+
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", boom)
+
+    doc = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {"type": "paragraph", "id": "para-1", "content": "Revenue was $4.2M."},
+                ],
+            }
+        ],
+    }
+
+    frames = list(
+        run_redhat_pipeline(
+            "default",
+            draft_text="Revenue was $4.2M.",
+            document=doc,
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
+    assert audit["redhat_count"] == 1
+    assert "Audit failed" in audit["redhat_critiques"][0]["content"]
+
+
 def test_run_redhat_pipeline_target_node_id(monkeypatch):
     """On-demand surgical-canvas audit: scoped to one node via
     target_node_id, so the finding must attach to that node, not the

@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
+import sys
 import time
 import uuid
 from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, Field
+
+_log = logging.getLogger(__name__)
 
 try:
     from ..cost_governance import (
@@ -374,6 +378,8 @@ def run_draft_pipeline(
 
     _check_cancel(cancel_check)
 
+    yield _typed_sse("status", {"stage": "locks", "message": "Inferring locks…"})
+
     # Stage 2: compile full JDFDocumentTree + lock inference (emit immediately)
     ledger: dict[str, float] = {}
     locks: list[dict[str, Any]] = []
@@ -562,6 +568,17 @@ def run_redhat_pipeline(
             error_message="cancelled during redhat audit",
         )
         return
+    except Exception as exc:
+        _log.exception("Red-Hat audit failed for project %s", project_id)
+        print(f"REDHAT_AUDIT_ERROR project={project_id} error={exc}", file=sys.stderr)
+        redhat_critiques = [
+            {
+                "title": "Red-hat review",
+                "content": f"Audit failed: {exc}. Check API keys and try again.",
+                "model": "",
+                "status": "error",
+            }
+        ]
 
     annotated = document
     if redhat_critiques:
