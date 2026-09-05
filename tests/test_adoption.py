@@ -56,7 +56,7 @@ def test_parse_model_json_embedded_object():
 
 def test_resolve_lock_inference_model():
     assert resolve_lock_inference_model(False) == "deepseek/deepseek-chat"
-    assert resolve_lock_inference_model(True) == "gemini/gemini-1.5-pro"
+    assert resolve_lock_inference_model(True) == "gemini/gemini-3.6-flash"
 
 
 def test_pdf_has_visual_content_empty():
