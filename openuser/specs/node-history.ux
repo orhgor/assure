@@ -6,70 +6,62 @@ steps:
   - action: navigate
     url: "{{baseUrl}}/app"
   - action: init_workbench
-  - action: unique_intent
-    prefix: "Write one paragraph about water purification in emergencies."
-  - action: click
-    selector: "#generate-compile-btn"
-  - action: wait_compile_ready
-    timeout: 120000
-  - action: click
-    selector: "#generate-accept-dock"
-  - action: wait
-    selector: "#jdf-render-target [data-node-id]"
-    timeout: 20000
   - action: script
     expression: |
       (async () => {
         const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
-        const node = document.querySelector('#jdf-render-target [data-node-id]');
-        const nodeId = node && node.getAttribute('data-node-id');
-        if (!nodeId) return { ok: false, reason: 'no-node' };
-        const jdf = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`).then(r => r.json());
-        const doc = jdf.document || {};
-        const walk = (n) => {
-          if (!n || typeof n !== 'object') return null;
-          if (n.id === nodeId) return n;
-          for (const c of (n.children || [])) {
-            const hit = walk(c);
-            if (hit) return hit;
-          }
-          return null;
+        const ann = { redhat: [], z3: [] };
+        const nodeId = "p-ou-history";
+        const baseDoc = {
+          document_id: "doc-openuser-history",
+          meta: { title: "History test" },
+          truth_ledger: {},
+          body: [{
+            type: "section",
+            id: "sec-ou-history",
+            title: "History",
+            children: [{
+              type: "paragraph",
+              id: nodeId,
+              content: "Original history content.",
+              entities_referenced: [],
+              provenance: [],
+              meta: {},
+              annotations: ann
+            }],
+            meta: {},
+            annotations: ann
+          }]
         };
-        let target = null;
-        for (const sec of (doc.body || [])) {
-          target = walk(sec);
-          if (target) break;
-        }
-        if (!target) return { ok: false, reason: 'node-missing' };
-        const updated = JSON.parse(JSON.stringify(doc));
-        const patchNode = (n) => {
-          if (n.id === nodeId && n.type === 'paragraph') {
-            n.content = (n.content || '') + ' [history-probe]';
-            return true;
-          }
-          for (const c of (n.children || [])) {
-            if (patchNode(c)) return true;
-          }
-          return false;
-        };
-        for (const sec of (updated.body || [])) patchNode(sec);
+        await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ document: baseDoc, mutation_type: "OPENUSER_HISTORY_BASE" })
+        });
+        const revised = JSON.parse(JSON.stringify(baseDoc));
+        revised.body[0].children[0].content = "Revised history content.";
         const put = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
-          method: 'PUT',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            document: updated,
-            mutation_type: 'OPENUSER_HISTORY',
+            document: revised,
+            mutation_type: "OPENUSER_HISTORY_REV",
             target_node_id: nodeId
           })
         });
+        const data = await put.json();
+        if (window.__assureJdf && data.document) {
+          window.__assureJdf.tree = data.document;
+          window.__assureJdf.render();
+        }
         return { ok: put.ok, nodeId };
       })()
   - action: assert
     condition: lastScriptResult.ok === true
   - action: contextmenu
-    selector: "#jdf-render-target [data-node-id]"
-    first: true
+    selector: "#jdf-render-target article.jdf-node[data-node-id='p-ou-history']"
   - action: wait
     selector: "#jdf-node-menu:not([hidden])"
     timeout: 5000
@@ -79,5 +71,5 @@ steps:
     selector: "#node-revision-modal:not([hidden])"
     timeout: 10000
   - action: assert
-    selector: "#node-revision-list .node-revision-item, #node-revision-list .node-revision-empty"
+    selector: "#node-revision-list .node-revision-item"
     visible: true

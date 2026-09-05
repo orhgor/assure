@@ -11,6 +11,7 @@ steps:
       (async () => {
         const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
         const nodeId = 'p-ou-restore';
+        const ann = { redhat: [], z3: [] };
         const baseDoc = {
           document_id: 'doc-openuser-restore',
           meta: { title: 'Restore test' },
@@ -26,10 +27,10 @@ steps:
               entities_referenced: [],
               provenance: [],
               meta: {},
-              annotations: { confidence: null, redhat: [], locked: false }
+              annotations: ann
             }],
             meta: {},
-            annotations: { confidence: null, redhat: [], locked: false }
+            annotations: ann
           }]
         };
         await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
@@ -58,10 +59,10 @@ steps:
         return nodeId;
       })()
   - action: wait
-    selector: "#jdf-render-target [data-node-id='p-ou-restore']"
+    selector: "#jdf-render-target article.jdf-node[data-node-id='p-ou-restore']"
     timeout: 15000
   - action: contextmenu
-    selector: "#jdf-render-target [data-node-id='p-ou-restore']"
+    selector: "#jdf-render-target article.jdf-node[data-node-id='p-ou-restore']"
   - action: wait
     selector: "#jdf-node-menu:not([hidden])"
     timeout: 5000
@@ -80,7 +81,7 @@ steps:
   - action: script
     expression: |
       (() => {
-        const el = document.querySelector('#jdf-render-target [data-node-id="p-ou-restore"]');
+        const el = document.querySelector('#jdf-render-target article.jdf-node[data-node-id="p-ou-restore"]');
         const text = el ? el.textContent || '' : '';
         return text.includes('Revised restore content') || text.includes('Original restore content');
       })()

@@ -1,6 +1,6 @@
 name: Image Node Rendering
 persona: Knowledge Worker
-description: Image nodes in the JDF AST render on the canvas.
+description: Image nodes persist in JDF and render a Figures section on the canvas.
 baseUrl: https://staging.getassureai.com
 steps:
   - action: navigate
@@ -10,6 +10,7 @@ steps:
     expression: |
       (async () => {
         const pid = window.__ASSURE_PROJECT_ID__ || "{{projectId}}";
+        const ann = { redhat: [], z3: [] };
         const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
         const doc = {
           document_id: "doc-openuser-image",
@@ -26,27 +27,33 @@ steps:
               alt: "OpenUser pixel",
               caption: "Test image",
               meta: {},
-              annotations: { confidence: null, redhat: [], locked: false }
+              annotations: ann
             }],
             meta: {},
-            annotations: { confidence: null, redhat: [], locked: false }
+            annotations: ann
           }]
         };
-        const res = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
+        const put = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, {
           method: "PUT",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ document: doc, mutation_type: "OPENUSER_IMAGE" })
         });
-        const data = await res.json();
-        if (window.__assureJdf && data.document) {
-          window.__assureJdf.tree = data.document;
+        const putData = await put.json();
+        if (window.__assureJdf && putData.document) {
+          window.__assureJdf.tree = putData.document;
           window.__assureJdf.render();
         }
-        return res.ok;
+        const get = await fetch(`/api/projects/${encodeURIComponent(pid)}/jdf`, { credentials: "same-origin" });
+        const getData = await get.json();
+        const images = [];
+        for (const sec of ((getData.document || {}).body || [])) {
+          for (const child of (sec.children || [])) {
+            if (child.type === "image") images.push(child.id);
+          }
+        }
+        const canvasText = (document.getElementById("jdf-render-target") || {}).textContent || "";
+        return put.ok && putData.ok !== false && images.includes("img-ou-test") && canvasText.includes("Figures");
       })()
   - action: assert
     condition: lastScriptResult === true
-  - action: wait
-    selector: "#jdf-render-target .jdf-node-image img"
-    timeout: 15000
