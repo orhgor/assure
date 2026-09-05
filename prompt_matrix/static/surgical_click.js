@@ -223,6 +223,10 @@
         }
         return;
       }
+      var nodeBefore = canvas.getNodeById(nodeId);
+      var originalText = nodeBefore
+        ? String(nodeBefore.content || nodeBefore.title || "")
+        : "";
       this.setBusy(true);
       var body = {
         node_id: nodeId,
@@ -254,12 +258,31 @@
             }
             return;
           }
-          if (typeof canvas.applyRefinedNode === "function") {
-            canvas.applyRefinedNode(pack.data);
+          var proposedText = "";
+          if (pack.data.node) {
+            proposedText = String(pack.data.node.content || pack.data.node.title || "");
+          } else if (pack.data.document) {
+            var updated = canvas.getNodeById(nodeId);
+            proposedText = updated
+              ? String(updated.content || updated.title || "")
+              : originalText;
+          }
+          canvas._pendingDiff = {
+            nodeId: nodeId,
+            original: originalText,
+            proposed: proposedText,
+            payload: pack.data,
+            surgical: true,
+          };
+          if (typeof canvas.showRevisionDiff === "function") {
+            canvas.showRevisionDiff(originalText, proposedText, { sideBySideDiff: true });
           }
           self.close();
           if (global.AssureToast) {
-            global.AssureToast.show(t("surgical.click.done", "Node updated. Math check re-run."), "success");
+            global.AssureToast.show(
+              t("jdf.diff.review", "Review the proposed changes, then Accept or Reject."),
+              "info"
+            );
           }
         })
         .catch(function (err) {

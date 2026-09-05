@@ -87,6 +87,7 @@
         para.attrs = {
           nodeId: node.id || "",
           gutter: gutterForNode(node, isPreview),
+          cacheHit: !!(node.meta && node.meta.cache_hit),
         };
         content.push(para);
       });
@@ -210,7 +211,16 @@
       gutter.setAttribute("data-node-id", node.attrs.nodeId || "");
       var body = document.createElement("div");
       body.className = "jdf-node-body";
-      if (kind === "callout" && node.attrs.calloutTitle) {
+      if (node.attrs.cacheHit) {
+        var cacheBadge = document.createElement("span");
+        cacheBadge.className =
+          "inline-flex items-center text-xs text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded-full ml-2 assure-cache-badge";
+        cacheBadge.textContent = "⚡ Cached";
+        cacheBadge.setAttribute("title", "Loaded from memory");
+        article.appendChild(gutter);
+        article.appendChild(cacheBadge);
+        article.appendChild(body);
+      } else if (kind === "callout" && node.attrs.calloutTitle) {
         var cap = document.createElement("strong");
         cap.className = "jdf-callout-title";
         cap.textContent = node.attrs.calloutTitle;
@@ -254,6 +264,17 @@
           article.dataset.nodeId = updated.attrs.nodeId || "";
           gutter.className = "verification-gutter " + (updated.attrs.gutter || "unverified");
           gutter.setAttribute("data-node-id", updated.attrs.nodeId || "");
+          var existingBadge = article.querySelector(".assure-cache-badge");
+          if (updated.attrs.cacheHit && !existingBadge) {
+            var cacheBadge = document.createElement("span");
+            cacheBadge.className =
+              "inline-flex items-center text-xs text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded-full ml-2 assure-cache-badge";
+            cacheBadge.textContent = "⚡ Cached";
+            cacheBadge.setAttribute("title", "Loaded from memory");
+            article.insertBefore(cacheBadge, body);
+          } else if (!updated.attrs.cacheHit && existingBadge) {
+            existingBadge.remove();
+          }
           node = updated;
           return true;
         },
@@ -278,6 +299,7 @@
             },
           },
           gutter: { default: "unverified" },
+          cacheHit: { default: false },
         };
       },
       parseHTML: function () {
@@ -353,6 +375,46 @@
       },
     });
 
+    var confidencePluginKey = new T.PluginKey("confidenceDecorations");
+
+    var ConfidenceDecorations = T.Extension.create({
+      name: "confidenceDecorations",
+      addProseMirrorPlugins: function () {
+        var key = confidencePluginKey;
+        return [
+          new T.Plugin({
+            key: key,
+            state: {
+              init: function (_cfg, state) {
+                return buildConfidenceSet(
+                  T,
+                  state.doc,
+                  global._assureConfidenceSpans || [],
+                  confidenceOverlayEnabled
+                );
+              },
+              apply: function (tr, old, _oldState, newState) {
+                if (tr.docChanged || tr.getMeta(key)) {
+                  return buildConfidenceSet(
+                    T,
+                    newState.doc,
+                    global._assureConfidenceSpans || [],
+                    confidenceOverlayEnabled
+                  );
+                }
+                return old.map(tr.mapping, tr.doc);
+              },
+            },
+            props: {
+              decorations: function (state) {
+                return key.getState(state);
+              },
+            },
+          }),
+        ];
+      },
+    });
+
     var LockDecorations = T.Extension.create({
       name: "lockDecorations",
       addProseMirrorPlugins: function () {
@@ -406,8 +468,79 @@
       JdfCallout: JdfCallout,
       JdfTable: JdfTable,
       LockDecorations: LockDecorations,
+      ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
+      confidencePluginKey: confidencePluginKey,
     };
+  }
+
+  function classForConfidenceScore(score) {
+    var highlighter = global.AssureConfidenceHighlighter;
+    if (highlighter && typeof highlighter.classForScore === "function") {
+      return highlighter.classForScore(score);
+    }
+    var n = Number(score);
+    if (!Number.isFinite(n)) return "bg-yellow-200";
+    if (n > 0.8) return "bg-green-200";
+    if (n >= 0.4) return "bg-yellow-200";
+    return "bg-red-200";
+  }
+
+  var confidenceOverlayEnabled = true;
+  try {
+    if (global.localStorage && global.localStorage.getItem("assure_confidence_overlay") === "0") {
+      confidenceOverlayEnabled = false;
+    }
+  } catch (_) {}
+
+  function normalizeConfidenceSpan(span) {
+    var start = Number(span.startChar != null ? span.startChar : span.start);
+    var end = Number(span.endChar != null ? span.endChar : span.end);
+    var score = Number(span.score);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+    return {
+      start: start,
+      end: end,
+      score: Number.isFinite(score) ? score : 0.55,
+      nodeId: span.nodeId || span.node_id || "",
+    };
+  }
+
+  function buildConfidenceSet(T, doc, spans, enabled) {
+    if (!enabled || !spans || !spans.length) return T.DecorationSet.empty;
+    var byNode = {};
+    var globalSpans = [];
+    (spans || []).forEach(function (raw) {
+      var span = normalizeConfidenceSpan(raw);
+      if (!span) return;
+      if (span.nodeId) {
+        if (!byNode[span.nodeId]) byNode[span.nodeId] = [];
+        byNode[span.nodeId].push(span);
+      } else {
+        globalSpans.push(span);
+      }
+    });
+    var decorations = [];
+    doc.descendants(function (node, pos) {
+      if (node.type.name !== "jdfParagraph" && node.type.name !== "jdfCallout") return;
+      var nid = (node.attrs && node.attrs.nodeId) || "";
+      var nodeSpans = nid && byNode[nid] ? byNode[nid] : globalSpans;
+      if (!nodeSpans.length) return;
+      var blockStart = pos + 1;
+      var textLen = node.textContent.length;
+      nodeSpans.forEach(function (span) {
+        var from = blockStart + Math.max(0, Math.min(textLen, span.start));
+        var to = blockStart + Math.max(from - blockStart, Math.min(textLen, span.end));
+        if (to > from) {
+          decorations.push(
+            T.Decoration.inline(from, to, {
+              class: classForConfidenceScore(span.score) + " assure-confidence-mark",
+            })
+          );
+        }
+      });
+    });
+    return decorations.length ? T.DecorationSet.create(doc, decorations) : T.DecorationSet.empty;
   }
 
   function buildLockSet(T, doc) {
@@ -455,6 +588,15 @@
 
   var editor = null;
   var saveTimer = null;
+  var confidencePluginKeyRef = null;
+
+  function applyConfidenceToTipTap() {
+    if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
+    try {
+      var tr = editor.state.tr.setMeta(confidencePluginKeyRef, { refresh: true });
+      editor.view.dispatch(tr);
+    } catch (_) {}
+  }
 
   function destroy() {
     if (saveTimer) {
@@ -486,10 +628,12 @@
       editor.commands.setContent(json, false);
       canvas._tiptapSyncing = false;
       rootEl.classList.toggle("is-tiptap", true);
+      applyConfidenceToTipTap();
       return editor;
     }
 
     var ext = defineExtensions(T);
+    confidencePluginKeyRef = ext.confidencePluginKey;
     rootEl.innerHTML = "";
     var host = document.createElement("div");
     host.className = "jdf-tiptap-host";
@@ -515,6 +659,7 @@
         ext.JdfCallout,
         ext.JdfTable,
         ext.LockDecorations,
+        ext.ConfidenceDecorations,
       ],
       content: json,
       editorProps: {
@@ -542,6 +687,7 @@
       if (typeof global.initializeAstSerializer === "function") {
         global.initializeAstSerializer(editor);
       }
+      applyConfidenceToTipTap();
       return editor;
     } catch (err) {
       editor = null;
@@ -555,6 +701,15 @@
     destroy: destroy,
     jdfToTiptap: jdfToTiptap,
     tiptapToJdf: tiptapToJdf,
+    applyConfidenceToTipTap: applyConfidenceToTipTap,
+    setConfidenceSpans: function (spans) {
+      global._assureConfidenceSpans = Array.isArray(spans) ? spans : [];
+      applyConfidenceToTipTap();
+    },
+    setOverlayEnabled: function (on) {
+      confidenceOverlayEnabled = !!on;
+      applyConfidenceToTipTap();
+    },
     getEditor: function () {
       return editor;
     },

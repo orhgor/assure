@@ -1,0 +1,47 @@
+name: Version History Slider
+persona: Knowledge Worker
+description: Version control reflects multiple docked compiles; slider UI when v1.1+ is deployed.
+baseUrl: https://staging.getassureai.com
+steps:
+  - action: navigate
+    url: "{{baseUrl}}/app"
+  - action: init_workbench
+  - action: unique_intent
+    prefix: "Draft a one-paragraph overview of supply chain resilience."
+  - action: click
+    selector: "#generate-compile-btn"
+  - action: wait_compile_ready
+    timeout: 120000
+  - action: click
+    selector: "#generate-accept-dock"
+  - action: wait
+    selector: "#jdf-render-target .jdf-tiptap-host, #jdf-render-target [data-node-id]"
+    timeout: 20000
+  - action: fill
+    selector: "#generate-intent"
+    value: "Draft a one-paragraph overview of supply chain resilience with emphasis on cold-chain monitoring."
+  - action: click
+    selector: "#generate-compile-btn"
+  - action: wait_compile_ready
+    timeout: 120000
+  - action: click
+    selector: "#generate-accept-dock"
+  - action: sleep
+    ms: 2000
+  - action: script
+    expression: |
+      (() => {
+        const slider = document.getElementById('version-history-slider');
+        const display = document.getElementById('version-display');
+        if (slider) {
+          if (Number(slider.max) > Number(slider.min)) {
+            slider.value = String(Math.max(Number(slider.min), Number(slider.max) - 1));
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          return 'slider';
+        }
+        if (display) return 'display';
+        return 'missing';
+      })()
+  - action: assert
+    condition: lastScriptResult === 'slider' || lastScriptResult === 'display'

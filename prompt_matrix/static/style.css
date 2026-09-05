@@ -6597,3 +6597,37 @@ article.jdf-node.canvas-section-highlight {
     scroll-behavior: auto !important;
   }
 }
+
+.version-history-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  max-width: min(420px, 55vw);
+}
+
+.version-history-label {
+  font-size: 0.75rem;
+  color: var(--color-muted, #64748b);
+  white-space: nowrap;
+}
+
+.version-history-slider {
+  width: 120px;
+  accent-color: var(--color-primary, #2563eb);
+}
+
+.version-history-meta {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text, #0f172a);
+  min-width: 4rem;
+}
+
+.jdf-node-cache-header {
+  margin-bottom: 0.25rem;
+}
+
+.confidence-overlay-off .assure-confidence-mark {
+  background-color: transparent !important;
+}
