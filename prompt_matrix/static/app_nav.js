@@ -27,15 +27,31 @@
     return s;
   }
 
+  function normalizeViewName(raw) {
+    if (!raw) return null;
+    if (raw === "compose") return "generate";
+    if (raw === "workbench") return "surgical";
+    if (raw === "library") return "vault";
+    if (SETTINGS_VIEWS.indexOf(raw) >= 0) return "__open_settings__";
+    if (ALL_VIEWS.indexOf(raw) >= 0) return raw;
+    return null;
+  }
+
+  function readViewFromSearch() {
+    try {
+      var params = new URL(location.href).searchParams;
+      return normalizeViewName(params.get("view") || params.get("tool"));
+    } catch (_) {
+      return null;
+    }
+  }
+
   function readViewFromHash() {
     var hash = (location.hash || "").replace(/^#/, "");
     if (!hash) return null;
-    if (hash.indexOf("tool=") === 0) return hash.slice(5);
+    if (hash.indexOf("tool=") === 0) return normalizeViewName(hash.slice(5));
     if (hash.indexOf("view=") === 0) {
-      var raw = hash.slice(5);
-      if (raw === "library") return "vault";
-      if (SETTINGS_VIEWS.indexOf(raw) >= 0) return "__open_settings__";
-      return raw;
+      return normalizeViewName(hash.slice(5));
     }
     if (hash === "settings") return "__open_settings__";
     var legacy = {
@@ -371,13 +387,14 @@
       var layout = $("assure-app");
       if (!layout) return;
 
-      var initial = readViewFromHash() || readStoredView() || DEFAULT_VIEW;
+      var fromUrl = readViewFromHash() || readViewFromSearch();
+      var initial = fromUrl || readStoredView() || DEFAULT_VIEW;
       var openSettingsOnLoad = initial === "__open_settings__";
       if (openSettingsOnLoad) {
         initial = readStoredView() || DEFAULT_VIEW;
       }
       if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = DEFAULT_VIEW;
-      this.switchView(initial, { replaceHash: false, persist: false });
+      this.switchView(initial, { replaceHash: false, persist: !!fromUrl });
       if (openSettingsOnLoad) this.openSettings({ replaceHash: false });
 
       layout.querySelectorAll(".app-sidebar-link[data-tool]").forEach(function (node) {
@@ -639,6 +656,13 @@
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
+
+      if (view === "generate") {
+        ["substrate-vault", "argument-spine", "document-structure", "refine-workspace"].forEach(function (id) {
+          var panel = $(id);
+          if (panel && panel.tagName === "DETAILS") panel.open = false;
+        });
+      }
 
       var legacyLibrary = $("view-library");
       if (legacyLibrary) {
