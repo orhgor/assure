@@ -84,6 +84,11 @@
       sel.addEventListener("change", function () {
         var next = sel.value;
         if (ROLES.indexOf(next) < 0) return;
+        RoleWorkbench.role = next;
+        try {
+          localStorage.setItem(STORAGE_KEY, next);
+        } catch (_) {}
+        RoleWorkbench.applyRole();
         fetch("/api/user/role", {
           method: "POST",
           credentials: "same-origin",

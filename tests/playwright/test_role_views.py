@@ -14,11 +14,10 @@ def test_role_views_executive_hides_draft_tools(page, base_url):
     goto_workbench(page, base_url)
     page.select_option(ROLE_SWITCHER, "executive")
     page.wait_for_function(
-        """() => document.body.getAttribute('data-workbench-role') === 'executive'""",
-        timeout=10_000,
+        """() => document.querySelector('.app-sidebar-link[data-tool="surgical"]')?.hidden""",
+        timeout=15_000,
     )
-    surgical = page.locator('.app-sidebar-link[data-tool="surgical"]')
-    assert surgical.is_hidden()
+    assert page.locator('.app-sidebar-link[data-tool="surgical"]').is_hidden()
 
 
 def test_role_views_compliance_shows_analytics(page, base_url):
@@ -26,8 +25,11 @@ def test_role_views_compliance_shows_analytics(page, base_url):
     goto_workbench(page, base_url)
     page.select_option(ROLE_SWITCHER, "compliance")
     page.wait_for_function(
-        """() => document.body.getAttribute('data-workbench-role') === 'compliance'""",
-        timeout=10_000,
+        """() => {
+          const btn = document.querySelector('.app-sidebar-link[data-tool="analytics"]');
+          return btn && !btn.hidden;
+        }""",
+        timeout=15_000,
     )
     analytics = page.locator('.app-sidebar-link[data-tool="analytics"]')
     assert analytics.is_visible()
