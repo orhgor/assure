@@ -337,6 +337,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from history import close_db
 
     app.teardown_appcontext(close_db)
+
+    @app.after_request
+    def _static_cache_headers(resp: Response):
+        if request.path.startswith("/static/"):
+            if "v=" in (request.query_string or b"").decode("utf-8", errors="ignore"):
+                resp.headers.setdefault("Cache-Control", "public, max-age=86400, immutable")
+            elif os.environ.get("ENVIRONMENT") == "production":
+                resp.headers.setdefault("Cache-Control", "public, max-age=300")
+        return resp
+
     app.secret_key = (
         os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
     )
@@ -1708,6 +1718,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             register_import_config_routes,
         )
     register_import_config_routes(app)
+
+    try:
+        from .routers.async_tasks_routes import register_async_task_routes
+    except ImportError:
+        from routers.async_tasks_routes import register_async_task_routes
+    register_async_task_routes(app)
     register_audit_log_routes(app)
 
     try:

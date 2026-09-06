@@ -8,6 +8,11 @@ services:
       DATABASE_PATH: /app/data/history.sqlite
       PORT: "8765"
       PYTHONUNBUFFERED: "1"
+      GUNICORN_WORKERS: "4"
+      GUNICORN_WORKER_CONNECTIONS: "100"
+      SQLITE_USE_POOL: "1"
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-sqs://}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-db+sqlite:///data/celery-results.sqlite}
     env_file:
       - path: .env.production
         required: false

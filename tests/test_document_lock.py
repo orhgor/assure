@@ -78,6 +78,19 @@ def test_lock_hash_consistency(client):
     assert hash_jdf_tree(doc2) != h1
 
 
+def test_unlocked_document_accepts_write(client):
+    create = client.post("/api/projects", json={"title": "Unlocked Write"})
+    pid = create.get_json()["id"]
+    first = client.put(f"/api/projects/{pid}/jdf", json={"document": _sample_doc(pid)})
+    assert first.status_code == 200
+
+    updated = client.put(
+        f"/api/projects/{pid}/jdf",
+        json={"document": {**_sample_doc(pid), "meta": {"title": "Updated"}}},
+    )
+    assert updated.status_code == 200
+
+
 def test_get_lock_status(client):
     create = client.post("/api/projects", json={"title": "Lock Status"})
     pid = create.get_json()["id"]
