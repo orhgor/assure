@@ -28,10 +28,26 @@ steps:
   - action: fill
     selector: "#surgical-refine-instruction"
     value: "Make this paragraph more neutral and concise."
-  - action: click
-    selector: "#surgical-refine-apply"
+  - action: submit
+    selector: "#jdf-surgical-popover-form"
+  - action: script
+    expression: |
+      (async () => {
+        for (let i = 0; i < 60; i += 1) {
+          const modal = document.getElementById('node-conflict-modal');
+          const overwrite = document.getElementById('node-conflict-overwrite');
+          if (modal && !modal.hidden && overwrite) {
+            overwrite.click();
+            return 'overwrite';
+          }
+          const panel = document.getElementById('jdf-diff-panel');
+          if (panel && !panel.hidden) return 'diff';
+          await new Promise((r) => setTimeout(r, 500));
+        }
+        return 'none';
+      })()
   - action: wait_refine_result
-    timeout: 180000
+    timeout: 240000
   - action: script
     expression: |
       (() => {

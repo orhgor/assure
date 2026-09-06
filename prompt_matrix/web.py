@@ -302,6 +302,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     init_app_limiter(app)
 
     try:
+        from .db.pipeline_cache import maybe_prune_pipeline_cache
+    except ImportError:
+        from db.pipeline_cache import maybe_prune_pipeline_cache
+    maybe_prune_pipeline_cache()
+
+    try:
         from flask_cors import CORS
 
         CORS(
@@ -318,6 +324,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "Authorization",
                 "X-Gemini-Key",
                 "X-Claude-Key",
+                "X-CSRFToken",
+                "X-CSRF-TOKEN",
             ],
             supports_credentials=True,
         )
@@ -332,6 +340,32 @@ def create_app(*, require_auth: bool = True) -> Flask:
     app.secret_key = (
         os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
     )
+    try:
+        from .middleware import csrf_enabled, csrf_exempt_path, register_security_guards
+    except ImportError:
+        from middleware import csrf_enabled, csrf_exempt_path, register_security_guards
+    register_security_guards(app)
+    app.config["WTF_CSRF_ENABLED"] = csrf_enabled()
+    app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken", "X-CSRF-TOKEN"]
+    app.config["WTF_CSRF_TIME_LIMIT"] = None
+    csrf = None
+    if app.config["WTF_CSRF_ENABLED"]:
+        try:
+            from flask_wtf.csrf import CSRFError, CSRFProtect, generate_csrf
+
+            csrf = CSRFProtect()
+            csrf.init_app(app)
+
+            @app.errorhandler(CSRFError)
+            def _csrf_error(_err):
+                return jsonify({"ok": False, "error": "CSRF token missing or invalid."}), 403
+
+            @app.context_processor
+            def _csrf_token():
+                return {"csrf_token": generate_csrf}
+        except ImportError:
+            app.config["WTF_CSRF_ENABLED"] = False
+            csrf = None
     app.config["BABEL_DEFAULT_LOCALE"] = "en"
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = str(PACKAGE_DIR / "translations")
     try:
@@ -1496,20 +1530,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         return jsonify({"deleted": prompt_id})
 
-    @app.get("/api/prompts")
-    def prompts_list():
-        try:
-            return jsonify({"prompts": [item.model_dump() for item in load_library().prompts]})
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
-
-    @app.get("/api/prompts/<prompt_id>")
-    def prompts_one(prompt_id: str):
-        try:
-            return jsonify(get_saved_prompt(prompt_id).model_dump())
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 404
-
     @app.post("/api/library/classes/<class_id>/versions")
     def class_snapshot_view(class_id: str):
         data = request.get_json(silent=True) or {}
@@ -1636,10 +1656,34 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_refine_node_routes(app)
 
     try:
+        from .routers.ground_routes import register_ground_routes
+    except ImportError:
+        from routers.ground_routes import register_ground_routes
+    register_ground_routes(app)
+
+    try:
+        from .routers.conflict_routes import register_conflict_routes
+    except ImportError:
+        from routers.conflict_routes import register_conflict_routes
+    register_conflict_routes(app)
+
+    try:
         from .routers.omp_routes import register_omp_routes
     except ImportError:
         from routers.omp_routes import register_omp_routes
     register_omp_routes(app)
+
+    try:
+        from .routers.project_templates import register_project_template_routes
+    except ImportError:
+        from routers.project_templates import register_project_template_routes
+    register_project_template_routes(app)
+
+    try:
+        from .routers.prompt_routes import register_prompt_routes
+    except ImportError:
+        from routers.prompt_routes import register_prompt_routes
+    register_prompt_routes(app)
 
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):
@@ -1754,6 +1798,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "error.internal",
             "Something went wrong",
         )
+
+    if csrf is not None:
+        for rule in app.url_map.iter_rules():
+            if csrf_exempt_path(rule.rule):
+                view = app.view_functions.get(rule.endpoint)
+                if view is not None:
+                    csrf.exempt(view)
+
+    @app.cli.command("prune-cache")
+    def prune_cache_command() -> None:
+        """Delete expired pipeline_cache rows."""
+        try:
+            from .db.pipeline_cache import prune_expired_pipeline_cache
+        except ImportError:
+            from db.pipeline_cache import prune_expired_pipeline_cache
+        deleted = prune_expired_pipeline_cache()
+        print(f"pruned {deleted} expired cache rows")
 
     return app
 

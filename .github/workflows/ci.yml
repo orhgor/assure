@@ -20,45 +20,45 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pymupdf
 
-      - name: Pytest
-        run: pytest tests/ --ignore=tests/e2e -v
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium --with-deps
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Reset OpenUser project budget on staging
-        run: bash scripts/aws/reset-openuser-project-budget.sh
-
-      - name: Wait for staging to finish deploy
-        env:
-          ASSURE_BASE_URL: https://staging.getassureai.com
-          STAGING_EXPECT_SHA: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')) && github.sha || '' }}
-        run: bash scripts/aws/wait-staging-ready.sh
-
-      - name: OpenUser UX specs (staging)
-        env:
-          ASSURE_BASE_URL: https://staging.getassureai.com
+      - name: Run non-Z3 tests
         run: |
-          chmod +x scripts/openuser
-          ./scripts/openuser run --headless --spec 'openuser/specs/*.ux' --project prj_YhR-5cBgb_7E
+          pytest tests/ \
+            --ignore=tests/e2e \
+            --ignore=tests/playwright \
+            --ignore=tests/test_sanitization.py \
+            --ignore=tests/test_confidence_overlay.py \
+            --ignore=tests/test_full_audit.py \
+            --ignore=tests/test_z3_benchmark.py \
+            --ignore=tests/test_z3_explanation.py \
+            --ignore=tests/test_inquire_stream.py \
+            -v
 
-      - uses: actions/upload-artifact@v4
-        if: failure()
+      - name: Run Z3-heavy tests serially (prevents segfault)
+        run: |
+          pytest tests/test_inquire_stream.py -v
+          pytest tests/test_sanitization.py -v
+          pytest tests/test_confidence_overlay.py -v
+          pytest tests/test_full_audit.py -v
+          pytest tests/test_z3_explanation.py -v
+
+      - name: Z3 accuracy benchmark
+        run: pytest tests/test_z3_benchmark.py -v
+
+  playwright-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          name: openuser-failures
-          path: openuser/screenshots/
-          if-no-files-found: ignore
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-playwright pymupdf
+          playwright install chromium --with-deps
+
+      - name: Run Playwright pytest suite
+        run: pytest tests/playwright/ -v --tb=short

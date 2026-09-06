@@ -97,7 +97,13 @@ async function runStep(page, step, ctx, spec, stepIndex) {
             if (panel && typeof panel.scrollIntoView === "function") {
               panel.scrollIntoView({ block: "nearest" });
             }
+            const canvas = window.__assureJdf;
+            if (canvas && typeof canvas.refreshCanvas === "function") {
+              return canvas.refreshCanvas();
+            }
+            return Promise.resolve();
           });
+          await page.waitForTimeout(500);
           return;
         } catch (err) {
           lastErr = err;
@@ -298,7 +304,7 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       return;
     }
     case "wait_refine_result": {
-      const timeout = step.timeout || 180000;
+      const timeout = step.timeout || 240000;
       await page.waitForFunction(
         () => {
           const fail = window.__openUserReadFailure && window.__openUserReadFailure();
@@ -309,6 +315,16 @@ async function runStep(page, step, ctx, spec, stepIndex) {
           if (busy) return false;
           if (panel && !panel.hidden) return { ok: true };
           if (pop && pop.hidden) return { ok: true };
+          const form = document.getElementById("jdf-surgical-popover-form");
+          const actions = document.getElementById("jdf-surgical-popover-actions");
+          const formOpen = form && !form.hidden;
+          const actionsOpen = actions && !actions.hidden;
+          if (!formOpen && actionsOpen) return { ok: true, applied: true };
+          const toasts = Array.from(document.querySelectorAll("#toast-root .toast"))
+            .map((el) => (el.textContent || "").trim())
+            .filter(Boolean);
+          const refineErr = toasts.some((t) => /refine failed|refinement|surgical\.click\.failed/i.test(t));
+          if (refineErr) return { ok: false, fail: toasts.join(" | ") || "refine failed" };
           return false;
         },
         null,
@@ -506,7 +522,7 @@ async function runSpec(specPath, options) {
   const spec = parseSpec(specPath);
   const cfg = loadProjectConfig(options.project);
   const ctx = {
-    baseUrl: spec.baseUrl || cfg.baseUrl,
+    baseUrl: process.env.ASSURE_BASE_URL || spec.baseUrl || cfg.baseUrl,
     projectId: cfg.projectId,
   };
   const started = Date.now();
@@ -609,7 +625,10 @@ program
       if (result.ok) {
         const label = result.skipped ? "SKIP" : "PASS";
         console.log(`${label} ${result.entry.name} (${result.entry.duration_ms}ms)`);
-        if (result.skipped && result.entry.note) console.log(`  note: ${result.entry.note}`);
+        if (result.skipped) {
+          console.warn("⚠️ Spec skipped (expected), not failing.");
+          if (result.entry.note) console.log(`  note: ${result.entry.note}`);
+        }
       } else {
         failed += 1;
         console.error(`FAIL ${result.entry.name}: ${result.entry.error}`);

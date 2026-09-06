@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field
 
 try:
     from ..db.comment_repository import add_comment, delete_comment, list_comments
+    from ..middleware import project_ownership_required
 except ImportError:
     from db.comment_repository import add_comment, delete_comment, list_comments
+    from middleware import project_ownership_required
 
 
 class CommentPayload(BaseModel):
@@ -19,12 +21,14 @@ class CommentPayload(BaseModel):
 
 def register_comment_routes(app) -> None:
     @app.get("/api/projects/<project_id>/comments")
+    @project_ownership_required
     def get_comments(project_id: str):
         node_id = (request.args.get("node_id") or "").strip() or None
         comments = list_comments(project_id, node_id=node_id)
         return jsonify({"ok": True, "comments": comments, "count": len(comments)})
 
     @app.post("/api/projects/<project_id>/comments")
+    @project_ownership_required
     def post_comment(project_id: str):
         data = request.get_json(silent=True) or {}
         try:
@@ -43,6 +47,7 @@ def register_comment_routes(app) -> None:
             return jsonify({"ok": False, "error": str(exc)}), 400
 
     @app.delete("/api/projects/<project_id>/comments/<comment_id>")
+    @project_ownership_required
     def remove_comment(project_id: str, comment_id: str):
         if delete_comment(project_id, comment_id):
             return jsonify({"ok": True})

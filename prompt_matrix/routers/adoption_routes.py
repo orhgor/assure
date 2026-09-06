@@ -14,12 +14,14 @@ try:
     from ..db.audit_repository import _collect_provenance, fetch_audit_entries
     from ..db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
     from ..lib.logger import get_audit_logger
+    from ..middleware import project_ownership_required
     from ..services.lock_inference import document_substrate_text, infer_lock_candidates
     from ..upload_limits import UploadRejectedError, pdf_has_visual_content, validate_upload_bytes
 except ImportError:
     from db.audit_repository import _collect_provenance, fetch_audit_entries
     from db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
     from lib.logger import get_audit_logger
+    from middleware import project_ownership_required
     from services.lock_inference import document_substrate_text, infer_lock_candidates
     from upload_limits import UploadRejectedError, pdf_has_visual_content, validate_upload_bytes
 
@@ -38,6 +40,7 @@ class ApplyLocksPayload(BaseModel):
 
 def register_adoption_routes(app) -> None:
     @app.post("/api/projects/<project_id>/infer-locks")
+    @project_ownership_required
     def infer_locks(project_id: str):
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()
@@ -123,6 +126,7 @@ def register_adoption_routes(app) -> None:
         )
 
     @app.post("/api/projects/<project_id>/apply-locks")
+    @project_ownership_required
     def apply_locks(project_id: str):
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()
@@ -168,6 +172,7 @@ def register_adoption_routes(app) -> None:
         return jsonify({"ok": True, "applied": applied, "truth_ledger": ledger, **result})
 
     @app.get("/api/projects/<project_id>/export-audit")
+    @project_ownership_required
     def export_audit(project_id: str):
         doc = fetch_latest_jdf_or_empty(project_id)
         entries = fetch_audit_entries(project_id)

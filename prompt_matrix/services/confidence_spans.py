@@ -73,27 +73,54 @@ def _score_unit(
     *,
     violation_keys: set[str],
     lock_keys: set[str],
-) -> tuple[float, str]:
+    ledger: dict[str, Any] | None = None,
+    context: str = "",
+) -> tuple[float, str, str]:
+    try:
+        from ..ledger.z3_ledger import check_claim
+    except ImportError:
+        from ledger.z3_ledger import check_claim
+    checked = check_claim(
+        chunk,
+        context=context or chunk,
+        ledger=ledger,
+        source_label=_source_label(node),
+    )
     lowered = chunk.lower()
     for key in violation_keys:
         if key.lower() in lowered:
-            return 0.25, "z3"
+            return 0.25, "z3", checked["reason"]
     annotations = (node.get("annotations") or {}).get("z3") or []
     for ann in annotations:
         if str(ann.get("status") or "") != "violation":
             continue
         canonical = str(ann.get("canonical_key") or "")
         if canonical and canonical.lower() in lowered:
-            return 0.25, "z3"
+            return 0.25, "z3", checked["reason"]
     provenance = node.get("provenance") or []
     if provenance:
         first = provenance[0] if isinstance(provenance[0], dict) else {}
         source = str(first.get("source_name") or first.get("source_id") or "substrate")
-        return 0.9, source
+        return float(checked["confidence"]), source, checked["reason"]
     for key in lock_keys:
         if key.lower() in lowered:
-            return 0.95, "z3"
-    return 0.55, "ledger"
+            return float(checked["confidence"]), "z3", checked["reason"]
+    return float(checked["confidence"]), "ledger", checked["reason"]
+
+
+def _source_label(node: dict[str, Any]) -> str:
+    for prov in node.get("provenance") or []:
+        if isinstance(prov, dict) and (prov.get("source_name") or prov.get("page_number")):
+            name = str(prov.get("source_name") or "source")
+            page = str(prov.get("page_number") or "")
+            section = str(prov.get("extracted_quote") or "")[:80]
+            bits = [name]
+            if page:
+                bits.append(f"p.{page}")
+            if section:
+                bits.append(section)
+            return ", ".join(bits)
+    return "source text"
 
 
 def _walk_nodes(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -118,25 +145,35 @@ def build_confidence_spans(
     violation_keys = _violation_keys(z3_results)
     lock_keys = _verified_lock_keys(z3_results, ledger if isinstance(ledger, dict) else {})
     spans: list[dict[str, Any]] = []
+    node_spans: dict[str, list[dict[str, Any]]] = {}
     for node in _walk_nodes(document):
         text = _node_text(node)
         node_id = str(node.get("id") or "")
         for start, end, chunk in _iter_units(text):
-            score, source = _score_unit(
+            score, source, reason = _score_unit(
                 chunk,
                 node,
                 violation_keys=violation_keys,
                 lock_keys=lock_keys,
+                ledger=ledger if isinstance(ledger, dict) else {},
+                context=text,
             )
-            spans.append(
-                {
-                    "startChar": start,
-                    "endChar": end,
-                    "score": score,
-                    "source": source,
-                    "nodeId": node_id,
-                }
-            )
+            span = {
+                "startChar": start,
+                "endChar": end,
+                "score": score,
+                "source": source,
+                "nodeId": node_id,
+                "reason": reason,
+            }
+            spans.append(span)
+            node_spans.setdefault(node_id, []).append(span)
+    for node in _walk_nodes(document):
+        nid = str(node.get("id") or "")
+        meta = dict(node.get("meta") or {})
+        if nid in node_spans:
+            meta["confidenceSpans"] = node_spans[nid]
+            node["meta"] = meta
     return spans
 
 

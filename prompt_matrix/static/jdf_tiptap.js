@@ -6,6 +6,29 @@
 (function (global) {
   "use strict";
 
+  function purifyHtml(html) {
+    if (global.DOMPurify && typeof global.DOMPurify.sanitize === "function") {
+      return global.DOMPurify.sanitize(String(html || ""), {
+        ALLOWED_TAGS: ["p", "span", "br", "strong", "em", "u", "a", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr", "td", "th", "img"],
+        ALLOWED_ATTR: ["href", "title", "rel", "src", "alt", "class"],
+      });
+    }
+    return String(html || "");
+  }
+
+  function purifyTiptapDoc(node) {
+    if (!node || typeof node !== "object") return node;
+    if (Array.isArray(node)) return node.map(purifyTiptapDoc);
+    var copy = {};
+    Object.keys(node).forEach(function (key) {
+      var val = node[key];
+      if (key === "text" && typeof val === "string") copy[key] = purifyHtml(val);
+      else if (val && typeof val === "object") copy[key] = purifyTiptapDoc(val);
+      else copy[key] = val;
+    });
+    return copy;
+  }
+
   function newNodeId(prefix) {
     return (prefix || "n") + "-" + Math.random().toString(36).slice(2, 10);
   }
@@ -88,6 +111,7 @@
           nodeId: node.id || "",
           gutter: gutterForNode(node, isPreview),
           cacheHit: !!(node.meta && node.meta.cache_hit),
+          metaJson: JSON.stringify(node.meta || {}),
         };
         content.push(para);
       });
@@ -168,6 +192,12 @@
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
       var old = lookupOld(previousTree, nodeId);
       var isCallout = node.type === "jdfCallout";
+      var metaFromAttr = {};
+      try {
+        metaFromAttr = JSON.parse((node.attrs && node.attrs.metaJson) || "{}") || {};
+      } catch (_) {
+        metaFromAttr = {};
+      }
       var child;
       if (isCallout) {
         child = {
@@ -177,6 +207,7 @@
           title: (node.attrs && node.attrs.calloutTitle) || (old && old.title) || "",
           content: textContent(node),
           annotations: (old && old.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
         };
       } else {
         child = {
@@ -185,7 +216,7 @@
           content: textContent(node),
           entities_referenced: (old && old.entities_referenced) || [],
           annotations: (old && old.annotations) || { redhat: [], z3: [] },
-          meta: Object.assign({}, (old && old.meta) || {}),
+          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
           provenance: (old && old.provenance) || [],
         };
       }
@@ -300,6 +331,15 @@
           },
           gutter: { default: "unverified" },
           cacheHit: { default: false },
+          metaJson: {
+            default: "{}",
+            parseHTML: function (el) {
+              return el.getAttribute("data-meta-json") || "{}";
+            },
+            renderHTML: function (attrs) {
+              return attrs.metaJson ? { "data-meta-json": attrs.metaJson } : {};
+            },
+          },
         };
       },
       parseHTML: function () {
@@ -503,6 +543,7 @@
       end: end,
       score: Number.isFinite(score) ? score : 0.55,
       nodeId: span.nodeId || span.node_id || "",
+      reason: span.reason ? String(span.reason) : "",
     };
   }
 
@@ -532,11 +573,28 @@
         var from = blockStart + Math.max(0, Math.min(textLen, span.start));
         var to = blockStart + Math.max(from - blockStart, Math.min(textLen, span.end));
         if (to > from) {
-          decorations.push(
-            T.Decoration.inline(from, to, {
-              class: classForConfidenceScore(span.score) + " assure-confidence-mark",
-            })
-          );
+          var attrs = {
+            class: classForConfidenceScore(span.score) + " assure-confidence-mark",
+          };
+          if (span.reason) {
+            attrs["data-confidence-reason"] = span.reason;
+            attrs.title = span.reason;
+          }
+          decorations.push(T.Decoration.inline(from, to, attrs));
+          if (span.reason) {
+            decorations.push(
+              T.Decoration.widget(to, function () {
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "z3-reason-icon";
+                btn.setAttribute("aria-label", "Why this score");
+                btn.setAttribute("title", span.reason);
+                btn.setAttribute("data-confidence-reason", span.reason);
+                btn.textContent = "i";
+                return btn;
+              })
+            );
+          }
         }
       });
     });
@@ -592,10 +650,20 @@
 
   function applyConfidenceToTipTap() {
     if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
-    try {
-      var tr = editor.state.tr.setMeta(confidencePluginKeyRef, { refresh: true });
-      editor.view.dispatch(tr);
-    } catch (_) {}
+    var run = function () {
+      if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
+      try {
+        var tr = editor.state.tr.setMeta(confidencePluginKeyRef, { refresh: true });
+        editor.view.dispatch(tr);
+      } catch (_) {}
+    };
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(function () {
+        global.requestAnimationFrame(run);
+      });
+    } else {
+      setTimeout(run, 0);
+    }
   }
 
   function destroy() {
@@ -625,7 +693,7 @@
     if (editor) {
       canvas._tiptapSyncing = true;
       editor.setEditable(editable);
-      editor.commands.setContent(json, false);
+      editor.commands.setContent(purifyTiptapDoc(json), false);
       canvas._tiptapSyncing = false;
       rootEl.classList.toggle("is-tiptap", true);
       applyConfidenceToTipTap();
@@ -661,7 +729,7 @@
         ext.LockDecorations,
         ext.ConfidenceDecorations,
       ],
-      content: json,
+      content: purifyTiptapDoc(json),
       editorProps: {
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },

@@ -212,6 +212,10 @@
               <div class="compile-action-row" id="generate-compile-row">
                 <button type="button" class="btn btn-primary tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
                 <button type="button" class="btn btn-outline tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Compile, score claims with Z3, and run Red-Hat in one pass') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
+                <div id="first-compile-coachmark" class="first-compile-coachmark" hidden role="status">
+                  <p data-i18n="coachmark.first_compile">{{ gettext("Ready to see it in action? Click 'Assemble' to structure your draft.") }}</p>
+                  <button type="button" class="btn btn-sm btn-outline" id="first-compile-coachmark-dismiss" data-i18n="coachmark.dismiss">{{ gettext('Dismiss') }}</button>
+                </div>
               </div>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
               <div class="generate-quick-actions" id="generate-quick-actions">
@@ -679,11 +683,27 @@
             <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
           </section>
         </div>
+        {% include 'modals/new_project_wizard.html' %}
+        <div id="jdf-floating-bar" class="jdf-floating-bar" hidden role="toolbar" aria-label="{{ gettext('Paragraph actions') }}">
+          <button type="button" class="jdf-fab-btn" id="floating-rewrite-btn" data-i18n="canvas.fab.rewrite">{{ gettext('✏️ Rewrite') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-ground-btn" data-i18n="canvas.fab.ground">{{ gettext('🔍 Ground') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-history-btn" data-i18n="canvas.fab.history">{{ gettext('📜 History') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-delete-btn" data-i18n="canvas.fab.delete">{{ gettext('🗑️ Delete') }}</button>
+        </div>
         <div id="jdf-surgical-popover" class="jdf-surgical-popover" hidden role="dialog" aria-labelledby="jdf-surgical-popover-title">
           <p id="jdf-surgical-popover-title" class="visually-hidden" data-i18n="surgical.click.title">{{ gettext('Fix this claim') }}</p>
-          <div id="jdf-surgical-popover-actions" class="jdf-surgical-popover-actions">
+          <div id="jdf-surgical-popover-actions" class="jdf-surgical-popover-actions surgical-sandwich">
             <button type="button" class="btn btn-sm btn-primary" id="surgical-refine-ai-btn" data-i18n="surgical.click.refine_ai">{{ gettext('Refine with AI') }}</button>
-            <button type="button" class="btn btn-sm btn-outline" id="surgical-ground-vault-btn" data-i18n="surgical.click.ground_vault">{{ gettext('Ground from Vault') }}</button>
+            <div class="surgical-sandwich-item" id="surgical-ground-wrap">
+              <button type="button" class="btn btn-sm btn-outline" id="surgical-ground-btn" aria-haspopup="true" aria-expanded="false" data-i18n="surgical.click.ground">{{ gettext('Ground') }}</button>
+              <div id="surgical-ground-submenu" class="surgical-submenu" hidden role="menu">
+                <button type="button" class="btn btn-sm" role="menuitem" id="surgical-ground-auto" data-ground-mode="auto" data-i18n="surgical.click.ground_auto">{{ gettext('Auto (Search → LLM)') }}</button>
+                <button type="button" class="btn btn-sm" role="menuitem" id="surgical-ground-search" data-ground-mode="search" data-i18n="surgical.click.ground_search">{{ gettext('Search Only') }}</button>
+                <button type="button" class="btn btn-sm" role="menuitem" id="surgical-ground-llm" data-ground-mode="llm" data-i18n="surgical.click.ground_llm">{{ gettext('LLM Only') }}</button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" id="surgical-history-btn" data-i18n="surgical.click.history">{{ gettext('History') }}</button>
+            <button type="button" class="btn btn-sm btn-outline" id="surgical-delete-btn" data-i18n="surgical.click.delete">{{ gettext('Delete') }}</button>
           </div>
           <form id="jdf-surgical-popover-form" class="jdf-surgical-popover-form" hidden>
             <label class="visually-hidden" for="surgical-refine-instruction" data-i18n="surgical.click.instruction_label">{{ gettext('Instructions') }}</label>
@@ -693,6 +713,15 @@
               <button type="button" class="btn btn-sm btn-outline" id="surgical-refine-cancel" data-i18n="surgical.click.cancel">{{ gettext('Cancel') }}</button>
             </div>
           </form>
+        </div>
+        <div id="source-conflict-modal" class="tab-lockout-modal" hidden role="dialog" aria-modal="true" aria-labelledby="source-conflict-title">
+          <div class="tab-lockout-backdrop" id="source-conflict-backdrop"></div>
+          <div class="tab-lockout-panel card">
+            <h2 id="source-conflict-title" data-i18n="conflict.modal.title">{{ gettext('Source conflict (keyword scan)') }}</h2>
+            <p data-i18n="conflict.modal.body">{{ gettext('These included vault files disagree on a number, date, or term. This scan is keyword-level only; semantic contradiction detection is not applied.') }}</p>
+            <ul id="source-conflict-list" class="source-conflict-list"></ul>
+            <button type="button" class="btn btn-primary" id="source-conflict-close" data-i18n="conflict.modal.close">{{ gettext('Close') }}</button>
+          </div>
         </div>
         <div id="jdf-node-menu" class="jdf-node-menu" hidden role="menu" aria-hidden="true">
           <button type="button" class="jdf-node-menu-item" role="menuitem" data-act="edit" data-i18n="jdf.menu.edit">{{ gettext('Edit') }}</button>
@@ -893,6 +922,17 @@
       <button type="button" class="btn btn-primary" id="tab-lockout-continue" data-i18n="safeguard.tab.continue">{{ gettext('Use this tab') }}</button>
     </div>
   </div>
+  <div id="node-conflict-modal" class="tab-lockout-modal" hidden role="dialog" aria-modal="true" aria-labelledby="node-conflict-title">
+    <div class="tab-lockout-backdrop" id="node-conflict-backdrop"></div>
+    <div class="tab-lockout-panel card">
+      <h2 id="node-conflict-title" data-i18n="conflict.title">{{ gettext('This node was changed elsewhere') }}</h2>
+      <p data-i18n="conflict.body">{{ gettext('This node was changed by another user. Reload or overwrite?') }}</p>
+      <div class="row" style="gap: 8px; margin-top: 12px;">
+        <button type="button" class="btn btn-outline" id="node-conflict-reload" data-i18n="conflict.reload">{{ gettext('Reload') }}</button>
+        <button type="button" class="btn btn-primary" id="node-conflict-overwrite" data-i18n="conflict.overwrite">{{ gettext('Overwrite') }}</button>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block scripts %}
   <script>
@@ -917,6 +957,7 @@
       } catch (_) {}
     })();
   </script>
+  <script src="{{ url_for('static', filename='assure_csrf.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_unsaved.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_tab_guard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_session_limit.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -929,6 +970,8 @@
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='toast.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='new_project_wizard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>

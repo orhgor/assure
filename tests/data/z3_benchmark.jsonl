@@ -1,0 +1,30 @@
+{"claim": "Revenue is 100", "ledger": {"revenue": 100}, "expected": "true"}
+{"claim": "Headcount is 42", "ledger": {"headcount": 42}, "expected": "true"}
+{"claim": "Margin equals 18.5", "ledger": {"margin": 18.5}, "expected": "true"}
+{"claim": "ARR reached 12", "ledger": {"ARR": 12}, "expected": "true"}
+{"claim": "Price is 9.99", "ledger": {"price": 9.99}, "expected": "true"}
+{"claim": "Units sold 5000", "ledger": {"units": 5000}, "expected": "true"}
+{"claim": "Tax rate 0.2", "ledger": {"tax_rate": 0.2}, "expected": "true"}
+{"claim": "Year 2024", "ledger": {"year": 2024}, "expected": "true"}
+{"claim": "Revenue is 80", "ledger": {"revenue": 100}, "expected": "false"}
+{"claim": "Headcount is 10", "ledger": {"headcount": 42}, "expected": "false"}
+{"claim": "Margin equals 10", "ledger": {"margin": 18.5}, "expected": "false"}
+{"claim": "ARR reached 99", "ledger": {"ARR": 12}, "expected": "false"}
+{"claim": "Price is 1", "ledger": {"price": 9.99}, "expected": "false"}
+{"claim": "Units sold 1", "ledger": {"units": 5000}, "expected": "false"}
+{"claim": "Tax rate 0.9", "ledger": {"tax_rate": 0.2}, "expected": "false"}
+{"claim": "Year 1999", "ledger": {"year": 2024}, "expected": "false"}
+{"claim": "Kızılay was founded in 1868.", "context": "Turkey's Red Crescent history.", "expected": "uncertain"}
+{"claim": "Kızılay has 80 blood centers.", "context": "Turkish Red Crescent services.", "expected": "uncertain"}
+{"claim": "Kızılay is a German organization.", "context": "Turkish humanitarian aid.", "expected": "uncertain"}
+{"claim": "The narrative is well sourced.", "context": "Qualitative review.", "expected": "uncertain"}
+{"claim": "Quality of writing improved.", "context": "Editorial notes.", "expected": "uncertain"}
+{"claim": "The board approved the plan.", "context": "Governance minutes.", "expected": "uncertain"}
+{"claim": "Customers remain loyal.", "context": "Brand section.", "expected": "uncertain"}
+{"claim": "The climate is temperate.", "context": "Setting.", "expected": "uncertain"}
+{"claim": "Strategy is sound.", "context": "Opinion.", "expected": "uncertain"}
+{"claim": "The team collaborated closely.", "context": "Culture.", "expected": "uncertain"}
+{"claim": "Cash is 250", "ledger": {"cash": 250}, "expected": "true"}
+{"claim": "Cash is 1", "ledger": {"cash": 250}, "expected": "false"}
+{"claim": "Debt is 40", "ledger": {"debt": 40}, "expected": "true"}
+{"claim": "Debt is 99", "ledger": {"debt": 40}, "expected": "false"}

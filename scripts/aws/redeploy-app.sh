@@ -70,8 +70,19 @@ image_tag_is_immutable_sha() {
   [[ "$tag" =~ ^[0-9a-f]{40}$ ]]
 }
 
+valid_image_ref() {
+  local ref="${1:-}"
+  [[ -n "$ref" && "$ref" == "${IMAGE_REPO}:"* ]] || return 1
+  local tag="${ref##*:}"
+  [[ -n "$tag" && "$tag" != "assure-assure-app" && "$tag" != "unknown" ]] || return 1
+}
+
 running_app_image() {
-  docker inspect --format '{{.Config.Image}}' assure-assure-app-1 2>/dev/null || true
+  local img
+  img="$(docker inspect --format '{{.Config.Image}}' assure-assure-app-1 2>/dev/null || true)"
+  if valid_image_ref "$img"; then
+    printf '%s' "$img"
+  fi
 }
 
 pull_image_with_retry() {
@@ -158,6 +169,10 @@ if [[ -z "$PREVIOUS_IMAGE" && -f "$STATE_FILE" ]]; then
   source "$STATE_FILE"
   PREVIOUS_IMAGE="${CURRENT:-}"
 fi
+if [[ -n "$PREVIOUS_IMAGE" ]] && ! valid_image_ref "$PREVIOUS_IMAGE"; then
+  echo "WARN: ignoring invalid PREVIOUS image ${PREVIOUS_IMAGE}" >&2
+  PREVIOUS_IMAGE=""
+fi
 write_deploy_state "${PREVIOUS_IMAGE:-unknown}" "$ASSURE_IMAGE"
 
 echo "==> GHCR login"
@@ -192,7 +207,7 @@ else
 fi
 
 echo "==> Wait for health"
-for i in $(seq 1 45); do
+for i in $(seq 1 60); do
   if curl -sf "$HEALTH_URL" >/tmp/assure-health.json 2>/dev/null \
     && [[ -s /tmp/assure-health.json ]]; then
     break

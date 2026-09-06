@@ -21,6 +21,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from ..models.jdf import flatten_nodes
+    from ..middleware import project_ownership_required
     from ..services.omp_memory import remember_vault_file
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -35,6 +36,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from models.jdf import flatten_nodes
+    from middleware import project_ownership_required
     from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -150,6 +152,7 @@ def register_substrate_routes(app) -> None:
         return jsonify({"ok": True, "id": edge_row["id"], "text_chars": len(text)})
 
     @app.post("/api/projects/<project_id>/substrate/upload")
+    @project_ownership_required
     def substrate_upload(project_id: str):
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()
@@ -273,6 +276,7 @@ def register_substrate_routes(app) -> None:
         )
 
     @app.get("/api/projects/<project_id>/substrate")
+    @project_ownership_required
     def substrate_list(project_id: str):
         entries = list_substrate_for_project(project_id)
         if not entries:
@@ -298,6 +302,7 @@ def register_substrate_routes(app) -> None:
         return jsonify({"ok": True, "files": files})
 
     @app.delete("/api/projects/<project_id>/substrate/<file_id>")
+    @project_ownership_required
     def substrate_delete(project_id: str, file_id: str):
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()
@@ -314,6 +319,7 @@ def register_substrate_routes(app) -> None:
         return jsonify({"ok": True, "id": file_id})
 
     @app.patch("/api/projects/<project_id>/substrate/<file_id>")
+    @project_ownership_required
     def substrate_patch(project_id: str, file_id: str):
         data = request.get_json(silent=True) or {}
         if "included" not in data:

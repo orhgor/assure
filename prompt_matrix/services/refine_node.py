@@ -9,6 +9,7 @@ try:
     from ..compiler.aperture import build_aperture_context
     from ..cost_governance import CostGovernor, TaskType
     from ..db.project_files import save_last_compiled
+    from ..lib.sanitize import sanitize_jdf_node
     from ..models.jdf import (
         document_to_dict,
         empty_annotations,
@@ -25,6 +26,7 @@ except ImportError:
     from compiler.aperture import build_aperture_context
     from cost_governance import CostGovernor, TaskType
     from db.project_files import save_last_compiled
+    from lib.sanitize import sanitize_jdf_node
     from models.jdf import document_to_dict, empty_annotations, get_node_by_id, splice_node
     from routers.draft import verify_locks
     from routers.inquire_stream import _build_messages, resolve_active_document
@@ -178,6 +180,7 @@ def run_refine_node(
     substrate_file_ids: list[str] | None = None,
     gov: CostGovernor | None = None,
     persist: bool = True,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     tree = resolve_active_document(project_id, document)
     doc = document_to_dict(tree)
@@ -217,22 +220,22 @@ def run_refine_node(
         raise RuntimeError(text or "Refine failed.")
 
     applied = apply_refined_text(doc, node_id, text)
+    applied["document"] = sanitize_jdf_node(applied["document"])
+    applied["node"] = sanitize_jdf_node(applied.get("node") or {})
     if persist:
         save_last_compiled(project_id, applied["document"])
         try:
             from ..db.jdf_repository import save_jdf_revision
         except ImportError:
             from db.jdf_repository import save_jdf_revision
-        try:
-            save_jdf_revision(
-                project_id,
-                applied["document"],
-                mutation_type="surgical_refine",
-                target_node_id=node_id,
-                change_summary="Surgical refine",
-            )
-        except Exception:
-            pass
+        save_jdf_revision(
+            project_id,
+            applied["document"],
+            mutation_type="surgical_refine",
+            target_node_id=node_id,
+            change_summary="Surgical refine",
+            expected_version=expected_version,
+        )
     applied["ok"] = True
     applied["ground_from_vault"] = bool(ground_from_vault)
     applied["context"] = {

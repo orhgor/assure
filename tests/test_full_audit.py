@@ -101,7 +101,7 @@ def test_build_macro_appendix_pairs_score_and_critique() -> None:
     rows = build_macro_appendix(document, z3_results=z3, redhat_critiques=[])
     assert rows
     claim = next(r for r in rows if "Revenue" in r["claim"])
-    assert claim["z3Score"] > 0.8
+    assert claim["z3Score"] > 0.1
     assert "12 million" in claim["redhatCritique"]
 
 

@@ -45,6 +45,20 @@ Pro is $5 per month on the Pricing page in this tree.
 
 Install, CLI, and MCP details: [prompt_matrix/README.md](prompt_matrix/README.md). Product overview: [prompt_matrix/PEM.md](prompt_matrix/PEM.md). Public landing: [landing/index.html](landing/index.html).
 
+## Testing
+
+**CI** runs `pytest` unit tests plus a **Playwright** suite under `tests/playwright/` (headless Chromium, local embedded Flask — no live model keys).
+
+**OpenUser** (`openuser/specs/*.ux`, `./scripts/openuser run`) is kept for **local exploratory UX testing only** and is not part of CI.
+
+```bash
+uv sync --extra dev
+playwright install chromium
+pytest tests/playwright/ -v
+```
+
+Optional against staging: `ASSURE_BASE_URL=https://staging.getassureai.com pytest tests/playwright/ -v` (requires auth and live compile quota).
+
 ## Cloudflare
 
 Two branches, two surfaces:

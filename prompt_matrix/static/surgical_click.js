@@ -1,6 +1,5 @@
 /**
- * Surgical click-to-fix on compiled AST nodes in the right panel.
- * Popover: Refine with AI / Ground from Vault. Does not switch to Refine view.
+ * Surgical sandwich menu: Refine / Ground (submenu) / History / Delete.
  */
 (function (global) {
   "use strict";
@@ -32,6 +31,41 @@
       });
     });
     return out;
+  }
+
+  function showConflictModal(clicker, opts) {
+    var modal = $("node-conflict-modal");
+    if (!modal) {
+      if (global.confirm(t("conflict.body", "This node was changed by another user. Reload or overwrite?"))) {
+        var canvas = global.__assureJdf;
+        if (canvas && typeof canvas.refreshCanvas === "function") canvas.refreshCanvas();
+      }
+      clicker.setBusy(false);
+      return;
+    }
+    modal.hidden = false;
+    clicker.setBusy(false);
+    document.body.classList.add("tab-lockout-active");
+    function close() {
+      modal.hidden = true;
+      document.body.classList.remove("tab-lockout-active");
+    }
+    var reloadBtn = $("node-conflict-reload");
+    var overwriteBtn = $("node-conflict-overwrite");
+    var backdrop = $("node-conflict-backdrop");
+    function onReload() {
+      close();
+      clicker.setBusy(false);
+      var canvas = global.__assureJdf;
+      if (canvas && typeof canvas.refreshCanvas === "function") canvas.refreshCanvas();
+    }
+    function onOverwrite() {
+      close();
+      clicker.postRefine(Object.assign({}, opts, { overwrite: true }));
+    }
+    if (reloadBtn) reloadBtn.onclick = onReload;
+    if (overwriteBtn) overwriteBtn.onclick = onOverwrite;
+    if (backdrop) backdrop.onclick = onReload;
   }
 
   function neighborContext(tree, nodeId) {
@@ -68,10 +102,14 @@
       var self = this;
       var pop = $("jdf-surgical-popover");
       var refineBtn = $("surgical-refine-ai-btn");
-      var vaultBtn = $("surgical-ground-vault-btn");
+      var groundWrap = $("surgical-ground-wrap");
+      var groundBtn = $("surgical-ground-btn");
+      var submenu = $("surgical-ground-submenu");
       var form = $("jdf-surgical-popover-form");
       var cancel = $("surgical-refine-cancel");
       var canvasRoot = $("jdf-render-target");
+      var histBtn = $("surgical-history-btn");
+      var delBtn = $("surgical-delete-btn");
 
       if (refineBtn) {
         refineBtn.addEventListener("click", function (e) {
@@ -80,11 +118,54 @@
           self.showInstructionForm();
         });
       }
-      if (vaultBtn) {
-        vaultBtn.addEventListener("click", function (e) {
+      function openSub() {
+        if (!submenu || !groundWrap) return;
+        submenu.hidden = false;
+        groundWrap.classList.add("is-open");
+        if (groundBtn) groundBtn.setAttribute("aria-expanded", "true");
+      }
+      function closeSub() {
+        if (!submenu || !groundWrap) return;
+        submenu.hidden = true;
+        groundWrap.classList.remove("is-open");
+        if (groundBtn) groundBtn.setAttribute("aria-expanded", "false");
+      }
+      self._closeGroundSub = closeSub;
+      if (groundBtn) {
+        groundBtn.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          self.groundFromVault();
+          openSub();
+        });
+      }
+      if (groundWrap) {
+        groundWrap.addEventListener("mouseenter", openSub);
+      }
+      ["surgical-ground-auto", "surgical-ground-search", "surgical-ground-llm"].forEach(function (id) {
+        var el = $(id);
+        if (!el) return;
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self.postGround(el.getAttribute("data-ground-mode") || "auto");
+        });
+      });
+      if (histBtn) {
+        histBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var canvas = global.__assureJdf;
+          if (canvas && typeof canvas.openNodeHistoryModal === "function" && self.nodeId) {
+            canvas.openNodeHistoryModal(self.nodeId);
+          }
+          self.close();
+        });
+      }
+      if (delBtn) {
+        delBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self.deleteCurrent();
         });
       }
       if (form) {
@@ -101,6 +182,21 @@
         });
       }
       if (canvasRoot) {
+        canvasRoot.addEventListener("mouseover", function (e) {
+          var hit = e.target.closest && e.target.closest("[data-node-id]");
+          if (!hit || !canvasRoot.contains(hit)) return;
+          if (hit.classList.contains("verification-gutter")) return;
+          var id = hit.getAttribute("data-node-id");
+          if (!id) return;
+          self.showFloatingBar(id, hit);
+        });
+        canvasRoot.addEventListener("mouseleave", function (e) {
+          var bar = $("jdf-floating-bar");
+          if (!bar || bar.hidden) return;
+          var rel = e.relatedTarget;
+          if (rel && (bar.contains(rel) || (rel.closest && rel.closest("[data-node-id]")))) return;
+          self.hideFloatingBar();
+        }, true);
         canvasRoot.addEventListener("click", function (e) {
           if (e.target.closest && e.target.closest("summary")) {
             e.preventDefault();
@@ -139,7 +235,7 @@
       this._openedAt = Date.now();
       var pad = 8;
       var w = pop.offsetWidth || 280;
-      var h = pop.offsetHeight || 120;
+      var h = pop.offsetHeight || 180;
       var x = Math.min(Math.max(pad, clientX || pad), window.innerWidth - w - pad);
       var y = Math.min(Math.max(pad, (clientY || pad) + 8), window.innerHeight - h - pad);
       pop.style.left = x + "px";
@@ -149,8 +245,74 @@
     close: function () {
       var pop = $("jdf-surgical-popover");
       if (pop) pop.hidden = true;
+      if (this._closeGroundSub) this._closeGroundSub();
       this.resetActions();
       this.nodeId = null;
+    },
+
+    showFloatingBar: function (nodeId, anchorEl) {
+      var bar = $("jdf-floating-bar");
+      if (!bar || !anchorEl) return;
+      this.nodeId = nodeId;
+      bar.hidden = false;
+      bar.removeAttribute("hidden");
+      bar.classList.remove("is-visible");
+      var rect = anchorEl.getBoundingClientRect();
+      var pad = 8;
+      var w = bar.offsetWidth || 320;
+      var x = Math.min(Math.max(pad, rect.right - w), window.innerWidth - w - pad);
+      var y = Math.max(pad, rect.top - 44);
+      bar.style.left = x + "px";
+      bar.style.top = y + "px";
+      requestAnimationFrame(function () {
+        bar.classList.add("is-visible");
+      });
+      this._bindFloatingBar();
+    },
+
+    hideFloatingBar: function () {
+      var bar = $("jdf-floating-bar");
+      if (!bar) return;
+      bar.classList.remove("is-visible");
+      bar.hidden = true;
+    },
+
+    _floatingBound: false,
+    _bindFloatingBar: function () {
+      if (this._floatingBound) return;
+      this._floatingBound = true;
+      var self = this;
+      var map = [
+        ["floating-rewrite-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.showInstructionForm();
+        }],
+        ["floating-ground-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.postGround("auto");
+        }],
+        ["floating-history-btn", function () {
+          var canvas = global.__assureJdf;
+          if (canvas && typeof canvas.openNodeHistoryModal === "function" && self.nodeId) {
+            canvas.openNodeHistoryModal(self.nodeId);
+          }
+          self.hideFloatingBar();
+        }],
+        ["floating-delete-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.deleteCurrent();
+          self.hideFloatingBar();
+        }],
+      ];
+      map.forEach(function (pair) {
+        var el = $(pair[0]);
+        if (!el) return;
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          pair[1]();
+        });
+      });
     },
 
     resetActions: function () {
@@ -160,6 +322,7 @@
       if (actions) actions.hidden = false;
       if (form) form.hidden = true;
       if (area) area.value = "";
+      if (this._closeGroundSub) this._closeGroundSub();
     },
 
     showInstructionForm: function () {
@@ -180,10 +343,37 @@
     setBusy: function (on) {
       var pop = $("jdf-surgical-popover");
       if (pop) pop.classList.toggle("is-busy", !!on);
-      ["surgical-refine-ai-btn", "surgical-ground-vault-btn", "surgical-refine-apply"].forEach(function (id) {
+      [
+        "surgical-refine-ai-btn",
+        "surgical-ground-btn",
+        "surgical-ground-auto",
+        "surgical-ground-search",
+        "surgical-ground-llm",
+        "surgical-history-btn",
+        "surgical-delete-btn",
+        "surgical-refine-apply",
+      ].forEach(function (id) {
         var el = $(id);
         if (el) el.disabled = !!on;
       });
+    },
+
+    deleteCurrent: function () {
+      var canvas = global.__assureJdf;
+      var nodeId = this.nodeId;
+      if (!canvas || !canvas.tree || !nodeId) return;
+      (canvas.tree.body || []).forEach(function (section) {
+        if (!section || !section.children) return;
+        section.children = section.children.filter(function (child) {
+          return !child || child.id !== nodeId;
+        });
+      });
+      if (typeof canvas._setDirty === "function") canvas._setDirty(true);
+      if (typeof canvas.render === "function") canvas.render();
+      if (typeof canvas.saveDocument === "function") {
+        canvas.saveDocument("NODE_DELETE", { target_node_id: nodeId });
+      }
+      this.close();
     },
 
     submitRefine: function () {
@@ -213,6 +403,83 @@
       });
     },
 
+    openDiff: function (nodeId, originalText, proposedText, payload) {
+      var canvas = global.__assureJdf;
+      if (!canvas) return;
+      canvas._pendingDiff = {
+        nodeId: nodeId,
+        original: originalText,
+        proposed: proposedText,
+        payload: payload,
+        surgical: true,
+      };
+      if (typeof canvas.showRevisionDiff === "function") {
+        canvas.showRevisionDiff(originalText, proposedText, { sideBySideDiff: true });
+      }
+      this.close();
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          t("jdf.diff.review", "Review the proposed changes, then Accept or Reject."),
+          "info"
+        );
+      }
+    },
+
+    postGround: function (mode) {
+      var self = this;
+      var nodeId = this.nodeId;
+      var canvas = global.__assureJdf;
+      if (!nodeId || !canvas || !canvas.tree) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("surgical.click.no_node", "Select a compiled node first."), "error");
+        }
+        return;
+      }
+      var nodeBefore = canvas.getNodeById(nodeId);
+      var originalText = nodeBefore ? String(nodeBefore.content || nodeBefore.title || "") : "";
+      this.setBusy(true);
+      fetch(
+        "/api/projects/" +
+          encodeURIComponent(projectId()) +
+          "/nodes/" +
+          encodeURIComponent(nodeId) +
+          "/ground",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: mode || "auto", document: canvas.tree }),
+        }
+      )
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (pack) {
+          self.setBusy(false);
+          if (!pack.ok || !pack.data || pack.data.ok === false) {
+            if (global.AssureToast) {
+              global.AssureToast.show(
+                String((pack.data && pack.data.error) || t("surgical.click.ground_failed", "Grounding failed.")),
+                "error"
+              );
+            }
+            return;
+          }
+          var suggested = pack.data.suggested || pack.data.node || {};
+          var proposedText = String(suggested.content || suggested.title || "");
+          pack.data.node = suggested;
+          self.openDiff(nodeId, originalText, proposedText, pack.data);
+        })
+        .catch(function (err) {
+          self.setBusy(false);
+          if (global.AssureToast) {
+            global.AssureToast.show(String((err && err.message) || err), "error");
+          }
+        });
+    },
+
     postRefine: function (opts) {
       var self = this;
       var nodeId = this.nodeId;
@@ -235,7 +502,12 @@
         substrate_file_ids: opts.substrate_file_ids || [],
         context: neighborContext(canvas.tree, nodeId),
         document: canvas.tree,
+        expected_version: canvas.tree && canvas.tree.meta ? canvas.tree.meta.version : undefined,
       };
+      if (body.expected_version == null && canvas.documentVersion != null) {
+        body.expected_version = canvas.documentVersion;
+      }
+      if (opts.overwrite) delete body.expected_version;
       fetch("/api/projects/" + encodeURIComponent(projectId()) + "/refine-node", {
         method: "POST",
         credentials: "same-origin",
@@ -250,12 +522,17 @@
         .then(function (pack) {
           self.setBusy(false);
           if (!pack.ok || !pack.data || pack.data.ok === false) {
+            if (pack.data && pack.data.latest_version != null) {
+              showConflictModal(self, opts);
+              return;
+            }
             if (global.AssureToast) {
               global.AssureToast.show(
                 String((pack.data && pack.data.error) || t("surgical.click.failed", "Refine failed.")),
                 "error"
               );
             }
+            self.resetActions();
             return;
           }
           var proposedText = "";
@@ -267,29 +544,14 @@
               ? String(updated.content || updated.title || "")
               : originalText;
           }
-          canvas._pendingDiff = {
-            nodeId: nodeId,
-            original: originalText,
-            proposed: proposedText,
-            payload: pack.data,
-            surgical: true,
-          };
-          if (typeof canvas.showRevisionDiff === "function") {
-            canvas.showRevisionDiff(originalText, proposedText, { sideBySideDiff: true });
-          }
-          self.close();
-          if (global.AssureToast) {
-            global.AssureToast.show(
-              t("jdf.diff.review", "Review the proposed changes, then Accept or Reject."),
-              "info"
-            );
-          }
+          self.openDiff(nodeId, originalText, proposedText, pack.data);
         })
         .catch(function (err) {
           self.setBusy(false);
           if (global.AssureToast) {
             global.AssureToast.show(String((err && err.message) || err), "error");
           }
+          self.resetActions();
         });
     },
   };
