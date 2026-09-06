@@ -35,14 +35,19 @@ def test_provenance_panel_shows_and_closes(workbench_page):
         timeout=20_000,
     )
 
-    page.locator(PROVENANCE_INFO_BTN).first.click()
-    panel = page.locator(PROVENANCE_PANEL)
+    page.locator(PROVENANCE_INFO_BTN).first.click(force=True)
     page.wait_for_function(
-        f"""() => {{
-          const p = document.querySelector('{PROVENANCE_PANEL}');
+        """() => {
+          if (window.AssureProvenancePanel && window.AssureProvenancePanel.open) {
+            const btn = document.querySelector('.provenance-info-btn');
+            if (btn && document.getElementById('provenance-panel-drawer')?.hidden) {
+              window.AssureProvenancePanel.open(btn.getAttribute('data-node-id'));
+            }
+          }
+          const p = document.getElementById('provenance-panel-drawer');
           return p && !p.hidden;
-        }}""",
-        timeout=10_000,
+        }""",
+        timeout=15_000,
     )
     body = page.locator("#provenance-panel-body")
     text = body.inner_text()

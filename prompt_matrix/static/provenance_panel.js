@@ -105,6 +105,11 @@
           btn.title = t("jdf.provenance.open", "View verification provenance");
           btn.textContent = "ⓘ";
           el.classList.add("has-provenance-info");
+          btn.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            Panel.open(nodeId);
+          });
           el.appendChild(btn);
         }
       );
@@ -150,6 +155,7 @@
       var body = $("provenance-panel-body");
       if (!drawer || !body) return;
       drawer.hidden = false;
+      drawer.removeAttribute("hidden");
       document.body.classList.add("provenance-panel-open");
       if (!prov) {
         body.innerHTML =
@@ -252,7 +258,10 @@
 
     close: function () {
       var drawer = $("provenance-panel-drawer");
-      if (drawer) drawer.hidden = true;
+      if (drawer) {
+        drawer.hidden = true;
+        drawer.setAttribute("hidden", "");
+      }
       document.body.classList.remove("provenance-panel-open");
       this.openNodeId = null;
     },
