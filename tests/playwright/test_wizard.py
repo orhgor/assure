@@ -22,11 +22,24 @@ def _open_projects(page) -> None:
     page.wait_for_selector("#view-projects", state="visible")
 
 
+def _wait_app_bootstrap(page) -> None:
+    """Projects new-btn handlers bind only after catalog/health bootstrap."""
+    page.wait_for_function(
+        """() => {
+          return window.__assureJdf
+            && window.AssureNewProjectWizard
+            && typeof window.AssureNewProjectWizard.open === 'function';
+        }""",
+        timeout=30_000,
+    )
+
+
 def test_wizard_creates_project(page, base_url):
     from tests.playwright.helpers import prime_page
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    _wait_app_bootstrap(page)
     _open_projects(page)
     page.wait_for_selector("#projects-new-btn", state="visible")
     page.locator("#projects-new-btn").click()
