@@ -893,6 +893,17 @@
       <button type="button" class="btn btn-primary" id="tab-lockout-continue" data-i18n="safeguard.tab.continue">{{ gettext('Use this tab') }}</button>
     </div>
   </div>
+  <div id="node-conflict-modal" class="tab-lockout-modal" hidden role="dialog" aria-modal="true" aria-labelledby="node-conflict-title">
+    <div class="tab-lockout-backdrop" id="node-conflict-backdrop"></div>
+    <div class="tab-lockout-panel card">
+      <h2 id="node-conflict-title" data-i18n="conflict.title">{{ gettext('This node was changed elsewhere') }}</h2>
+      <p data-i18n="conflict.body">{{ gettext('This node was changed by another user. Reload or overwrite?') }}</p>
+      <div class="row" style="gap: 8px; margin-top: 12px;">
+        <button type="button" class="btn btn-outline" id="node-conflict-reload" data-i18n="conflict.reload">{{ gettext('Reload') }}</button>
+        <button type="button" class="btn btn-primary" id="node-conflict-overwrite" data-i18n="conflict.overwrite">{{ gettext('Overwrite') }}</button>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 {% block scripts %}
   <script>
@@ -917,6 +928,7 @@
       } catch (_) {}
     })();
   </script>
+  <script src="{{ url_for('static', filename='assure_csrf.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_unsaved.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_tab_guard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_session_limit.js') }}?v={{ js_version|default('assure-21') }}"></script>

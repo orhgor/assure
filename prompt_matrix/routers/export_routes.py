@@ -14,12 +14,14 @@ try:
     from ..exporters.pdf_ast import export_jdf_to_pdf
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
     from ..lib.logger import get_audit_logger
+    from ..middleware import project_ownership_required
 except ImportError:
     from db.jdf_repository import fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
     from exporters.pdf_ast import export_jdf_to_pdf
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
     from lib.logger import get_audit_logger
+    from middleware import project_ownership_required
 
 _SAFE_NAME = re.compile(r"[^\w\-]+")
 
@@ -41,6 +43,7 @@ def register_export_routes(app) -> None:
 
     @app.get("/api/projects/<project_id>/export")
     @limiter.limit("10 per minute")
+    @project_ownership_required
     def export_project_document(project_id: str):
         """
         Sync endpoint: Gunicorn/Flask executes this in a worker thread.

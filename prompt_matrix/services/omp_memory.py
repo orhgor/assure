@@ -14,14 +14,14 @@ import os
 from typing import Any
 
 try:
-    from ..db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache
+    from ..db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
     from ..omp_client import (
         sanitize_omp_tag,
         safe_omp_recall,
         safe_omp_remember,
     )
 except ImportError:
-    from db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache
+    from db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
     from omp_client import sanitize_omp_tag, safe_omp_recall, safe_omp_remember
 
 CACHE_MARKER = "PEM_CACHE_V1"
@@ -65,6 +65,8 @@ def load_ast_cache(cache_key: str) -> dict[str, Any] | None:
         local = fetch_pipeline_cache(cache_key)
         if isinstance(local, dict) and local.get("compiled"):
             return local
+        if sqlite_cache_expired(cache_key):
+            return None
     except Exception:
         local = None
     try:
@@ -137,6 +139,8 @@ def load_redhat_critique(project_id: str) -> str | None:
             text = str(local.get("critique") or "").strip()
             if text:
                 return text
+        if sqlite_cache_expired(key):
+            return None
     except Exception:
         pass
     try:

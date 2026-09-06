@@ -8,8 +8,12 @@ from flask import jsonify, request
 from pydantic import BaseModel, Field
 
 try:
+    from ..db.jdf_repository import RevisionConflict
+    from ..middleware import project_ownership_required
     from ..services.refine_node import run_refine_node
 except ImportError:
+    from db.jdf_repository import RevisionConflict
+    from middleware import project_ownership_required
     from services.refine_node import run_refine_node
 
 
@@ -21,6 +25,7 @@ class RefineNodePayload(BaseModel):
     ground_from_vault: bool = False
     substrate_file_ids: list[str] = Field(default_factory=list)
     project_id: str | None = None
+    expected_version: int | None = None
 
 
 def _handle(project_id: str, data: dict[str, Any]):
@@ -40,6 +45,19 @@ def _handle(project_id: str, data: dict[str, Any]):
             context=payload.context,
             ground_from_vault=payload.ground_from_vault,
             substrate_file_ids=payload.substrate_file_ids,
+            expected_version=payload.expected_version,
+        )
+    except RevisionConflict as exc:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "Conflict: node was modified elsewhere",
+                    "latest_version": exc.latest_version,
+                    "current_content": exc.current_content,
+                }
+            ),
+            409,
         )
     except KeyError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 404
@@ -52,6 +70,7 @@ def _handle(project_id: str, data: dict[str, Any]):
 
 def register_refine_node_routes(app) -> None:
     @app.post("/api/projects/<project_id>/refine-node")
+    @project_ownership_required
     def refine_node(project_id: str):
         return _handle(project_id, request.get_json(silent=True) or {})
 

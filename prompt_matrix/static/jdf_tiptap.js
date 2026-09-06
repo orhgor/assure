@@ -6,6 +6,29 @@
 (function (global) {
   "use strict";
 
+  function purifyHtml(html) {
+    if (global.DOMPurify && typeof global.DOMPurify.sanitize === "function") {
+      return global.DOMPurify.sanitize(String(html || ""), {
+        ALLOWED_TAGS: ["p", "span", "br", "strong", "em", "u", "a", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr", "td", "th", "img"],
+        ALLOWED_ATTR: ["href", "title", "rel", "src", "alt", "class"],
+      });
+    }
+    return String(html || "");
+  }
+
+  function purifyTiptapDoc(node) {
+    if (!node || typeof node !== "object") return node;
+    if (Array.isArray(node)) return node.map(purifyTiptapDoc);
+    var copy = {};
+    Object.keys(node).forEach(function (key) {
+      var val = node[key];
+      if (key === "text" && typeof val === "string") copy[key] = purifyHtml(val);
+      else if (val && typeof val === "object") copy[key] = purifyTiptapDoc(val);
+      else copy[key] = val;
+    });
+    return copy;
+  }
+
   function newNodeId(prefix) {
     return (prefix || "n") + "-" + Math.random().toString(36).slice(2, 10);
   }
@@ -625,7 +648,7 @@
     if (editor) {
       canvas._tiptapSyncing = true;
       editor.setEditable(editable);
-      editor.commands.setContent(json, false);
+      editor.commands.setContent(purifyTiptapDoc(json), false);
       canvas._tiptapSyncing = false;
       rootEl.classList.toggle("is-tiptap", true);
       applyConfidenceToTipTap();
@@ -661,7 +684,7 @@
         ext.LockDecorations,
         ext.ConfidenceDecorations,
       ],
-      content: json,
+      content: purifyTiptapDoc(json),
       editorProps: {
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },

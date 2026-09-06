@@ -16,6 +16,7 @@ try:
     from ..db.project_files import fetch_project_files, save_last_compiled, save_project_source
     from ..db.settings_repository import fetch_project_settings, save_project_settings
     from ..history import get_db
+    from ..middleware import project_ownership_required
     from ..models.jdf import flatten_nodes
 except ImportError:
     from db.connection import init_db
@@ -23,6 +24,7 @@ except ImportError:
     from db.project_files import fetch_project_files, save_last_compiled, save_project_source
     from db.settings_repository import fetch_project_settings, save_project_settings
     from history import get_db
+    from middleware import project_ownership_required
     from models.jdf import flatten_nodes
 
 
@@ -142,10 +144,20 @@ def register_project_routes(app) -> None:
         if not title:
             return jsonify({"error": "title required"}), 400
         project_id = _slug(title)
-        ensure_project(project_id, title)
+        owner = None
+        try:
+            from ..cloud_auth import current_user_id
+        except ImportError:
+            try:
+                from cloud_auth import current_user_id
+            except ImportError:
+                current_user_id = lambda: None  # noqa: E731
+        owner = current_user_id()
+        ensure_project(project_id, title, owner_id=owner)
         return jsonify({"ok": True, "id": project_id, "title": title}), 201
 
     @app.patch("/api/projects/<project_id>")
+    @project_ownership_required
     def rename_project(project_id: str):
         data = request.get_json(silent=True) or {}
         title = (data.get("title") or "").strip()
@@ -160,6 +172,7 @@ def register_project_routes(app) -> None:
         return jsonify({"ok": True, "id": project_id, "title": title})
 
     @app.delete("/api/projects/<project_id>")
+    @project_ownership_required
     def delete_project(project_id: str):
         if project_id == "default":
             return jsonify({"error": "Cannot delete the default project"}), 403
@@ -169,10 +182,12 @@ def register_project_routes(app) -> None:
         return jsonify({"ok": True})
 
     @app.get("/api/projects/<project_id>/files")
+    @project_ownership_required
     def get_project_files(project_id: str):
         return jsonify(fetch_project_files(project_id))
 
     @app.put("/api/projects/<project_id>/files")
+    @project_ownership_required
     def put_project_files(project_id: str):
         data = request.get_json(silent=True) or {}
         result = None
@@ -189,11 +204,13 @@ def register_project_routes(app) -> None:
         return jsonify(result)
 
     @app.get("/api/projects/<project_id>/settings")
+    @project_ownership_required
     def get_project_settings(project_id: str):
         settings = fetch_project_settings(project_id)
         return jsonify({"ok": True, "settings": settings})
 
     @app.put("/api/projects/<project_id>/settings")
+    @project_ownership_required
     def put_project_settings(project_id: str):
         data = request.get_json(silent=True) or {}
         try:

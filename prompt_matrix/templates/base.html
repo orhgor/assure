@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if csrf_token is defined %}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  {% endif %}
   <meta name="description" content="{{ brand.meta_description }}">
   <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
   <meta property="og:description" content="{{ brand.meta_description }}">
@@ -15,6 +18,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
   {% include 'includes/plausible.html' %}
   {% include 'includes/sentry.html' %}
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" crossorigin="anonymous"></script>
   <script>
     /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
     (function () {

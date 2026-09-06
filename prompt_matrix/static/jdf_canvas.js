@@ -1,6 +1,16 @@
 (function (global) {
   "use strict";
 
+  function purifyHtml(html) {
+    if (global.DOMPurify && typeof global.DOMPurify.sanitize === "function") {
+      return global.DOMPurify.sanitize(String(html || ""), {
+        ALLOWED_TAGS: ["p", "span", "br", "strong", "em", "u", "a", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr", "td", "th", "img"],
+        ALLOWED_ATTR: ["href", "title", "rel", "src", "alt", "class", "data-provenance", "data-lock-key"],
+      });
+    }
+    return String(html || "");
+  }
+
   function computeWordDiff(oldStr, newStr) {
     var a = (oldStr || "").split(/\s+/).filter(Boolean);
     var b = (newStr || "").split(/\s+/).filter(Boolean);
@@ -1507,7 +1517,7 @@
         });
       }
     }
-    bodyEl.innerHTML = html;
+    bodyEl.innerHTML = purifyHtml(html);
   };
 
   JDFCanvasManager.prototype._renderCitationBadge = function (node, article) {

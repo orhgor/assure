@@ -18,6 +18,40 @@ except ImportError:
 DEFAULT_PROJECT_ID = "default"
 
 
+class RevisionConflict(Exception):
+    """Optimistic lock failed: stored version does not match expected_version."""
+
+    def __init__(
+        self,
+        latest_version: int,
+        current_content: dict[str, Any] | None = None,
+        message: str = "Conflict: node was modified elsewhere",
+    ) -> None:
+        super().__init__(message)
+        self.latest_version = int(latest_version)
+        self.current_content = current_content or {}
+
+
+def project_owner_id(project_id: str) -> str | None:
+    init_db()
+    db = get_db()
+    row = db.execute("SELECT owner_id FROM projects WHERE id = ?", (project_id,)).fetchone()
+    if not row:
+        return None
+    raw = row[0]
+    return str(raw) if raw else None
+
+
+def current_document_version(project_id: str) -> int:
+    init_db()
+    db = get_db()
+    row = db.execute(
+        "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
+        (project_id,),
+    ).fetchone()
+    return int(row[0] or 0)
+
+
 def empty_document(project_id: str) -> dict[str, Any]:
     return JDFDocumentTree(
         document_id=f"doc-{project_id}",
@@ -27,18 +61,27 @@ def empty_document(project_id: str) -> dict[str, Any]:
     ).model_dump(mode="json")
 
 
-def ensure_project(project_id: str, title: str | None = None) -> None:
+def ensure_project(project_id: str, title: str | None = None, owner_id: str | None = None) -> None:
     init_db()
     db = get_db()
     label = (title or project_id).strip() or project_id
     db.execute(
         """
-        INSERT INTO projects (id, title, current_version)
-        VALUES (?, ?, 1)
+        INSERT INTO projects (id, title, current_version, owner_id)
+        VALUES (?, ?, 1, ?)
         ON CONFLICT(id) DO NOTHING
         """,
-        (project_id, label),
+        (project_id, label, owner_id),
     )
+    if owner_id:
+        db.execute(
+            """
+            UPDATE projects
+            SET owner_id = ?
+            WHERE id = ? AND (owner_id IS NULL OR owner_id = '')
+            """,
+            (owner_id, project_id),
+        )
     db.commit()
 
 
@@ -131,6 +174,7 @@ def patch_jdf_node(
     mutation_type: str = "NODE_UPDATE",
     insert_after_id: str | None = None,
     change_summary: str | None = None,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     """Surgically upsert one block node; uses JSON1 when updating an existing path."""
     init_db()
@@ -176,6 +220,7 @@ def patch_jdf_node(
         mutation_type=mutation_type,
         target_node_id=node_id,
         change_summary=change_summary,
+        expected_version=expected_version,
     )
 
 
@@ -186,6 +231,7 @@ def save_jdf_revision(
     mutation_type: str,
     target_node_id: str | None = None,
     change_summary: str | None = None,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     init_db()
     ensure_project(project_id)
@@ -200,7 +246,10 @@ def save_jdf_revision(
         "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
         (project_id,),
     ).fetchone()
-    next_version = int(row[0]) + 1
+    current_version = int(row[0] or 0)
+    if expected_version is not None and current_version != int(expected_version):
+        raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
+    next_version = current_version + 1
     revision_id = f"rev-{uuid.uuid4().hex[:16]}"
     truth = json.dumps(tree.get("truth_ledger") or {})
 

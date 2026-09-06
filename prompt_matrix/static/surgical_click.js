@@ -34,6 +34,40 @@
     return out;
   }
 
+  function showConflictModal(clicker, opts) {
+    var modal = $("node-conflict-modal");
+    if (!modal) {
+      if (global.confirm(t("conflict.body", "This node was changed by another user. Reload or overwrite?"))) {
+        var canvas = global.__assureJdf;
+        if (canvas && typeof canvas.refreshCanvas === "function") canvas.refreshCanvas();
+      }
+      clicker.setBusy(false);
+      return;
+    }
+    modal.hidden = false;
+    document.body.classList.add("tab-lockout-active");
+    function close() {
+      modal.hidden = true;
+      document.body.classList.remove("tab-lockout-active");
+    }
+    var reloadBtn = $("node-conflict-reload");
+    var overwriteBtn = $("node-conflict-overwrite");
+    var backdrop = $("node-conflict-backdrop");
+    function onReload() {
+      close();
+      clicker.setBusy(false);
+      var canvas = global.__assureJdf;
+      if (canvas && typeof canvas.refreshCanvas === "function") canvas.refreshCanvas();
+    }
+    function onOverwrite() {
+      close();
+      clicker.postRefine(Object.assign({}, opts, { overwrite: true }));
+    }
+    if (reloadBtn) reloadBtn.onclick = onReload;
+    if (overwriteBtn) overwriteBtn.onclick = onOverwrite;
+    if (backdrop) backdrop.onclick = onReload;
+  }
+
   function neighborContext(tree, nodeId) {
     var nodes = flattenNodes(tree);
     var idx = -1;
@@ -235,7 +269,12 @@
         substrate_file_ids: opts.substrate_file_ids || [],
         context: neighborContext(canvas.tree, nodeId),
         document: canvas.tree,
+        expected_version: canvas.tree && canvas.tree.meta ? canvas.tree.meta.version : undefined,
       };
+      if (body.expected_version == null && canvas.documentVersion != null) {
+        body.expected_version = canvas.documentVersion;
+      }
+      if (opts.overwrite) delete body.expected_version;
       fetch("/api/projects/" + encodeURIComponent(projectId()) + "/refine-node", {
         method: "POST",
         credentials: "same-origin",
@@ -250,6 +289,10 @@
         .then(function (pack) {
           self.setBusy(false);
           if (!pack.ok || !pack.data || pack.data.ok === false) {
+            if (pack.data && pack.data.latest_version != null) {
+              showConflictModal(self, opts);
+              return;
+            }
             if (global.AssureToast) {
               global.AssureToast.show(
                 String((pack.data && pack.data.error) || t("surgical.click.failed", "Refine failed.")),

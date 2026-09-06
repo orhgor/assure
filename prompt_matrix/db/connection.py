@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 13
+_SCHEMA_VERSION = 14
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -35,6 +35,22 @@ def _migrate_v11(db: sqlite3.Connection) -> None:
         db.execute("ALTER TABLE projects ADD COLUMN source_md TEXT NOT NULL DEFAULT ''")
     if not _column_exists(db, "projects", "last_compiled_json"):
         db.execute("ALTER TABLE projects ADD COLUMN last_compiled_json TEXT NOT NULL DEFAULT '[]'")
+
+
+def _migrate_v14(db: sqlite3.Connection) -> None:
+    """Project owner and pipeline cache TTL."""
+    if not _column_exists(db, "projects", "owner_id"):
+        db.execute("ALTER TABLE projects ADD COLUMN owner_id TEXT")
+    if not _column_exists(db, "pipeline_cache", "expires_at"):
+        db.execute("ALTER TABLE pipeline_cache ADD COLUMN expires_at DATETIME")
+        db.execute(
+            """
+            UPDATE pipeline_cache
+            SET expires_at = datetime(updated_at, '+30 days')
+            WHERE expires_at IS NULL
+            """
+        )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_cache_exp ON pipeline_cache(expires_at)")
 
 
 def _migrate_v13(db: sqlite3.Connection) -> None:
@@ -344,6 +360,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v12(db)
     if current < 13:
         _migrate_v13(db)
+    if current < 14:
+        _migrate_v14(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

@@ -782,8 +782,14 @@ def register_draft_routes(app) -> None:
             limiter,
         )
 
+    try:
+        from ..middleware import project_ownership_required
+    except ImportError:
+        from middleware import project_ownership_required
+
     @app.post("/api/projects/<project_id>/draft/stream")
     @limiter.limit("30 per minute")
+    @project_ownership_required
     def draft_stream(project_id: str):
         data = request.get_json(silent=True) or {}
         try:
@@ -867,6 +873,7 @@ def register_draft_routes(app) -> None:
 
     @app.post("/api/projects/<project_id>/draft/redhat/stream")
     @limiter.limit("30 per minute")
+    @project_ownership_required
     def draft_redhat_stream(project_id: str):
         """Opt-in Stress Test — continuing an already-verified compile, not
         a new one, so this does not consume the daily compile limit."""

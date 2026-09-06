@@ -447,8 +447,14 @@ def register_inquire_routes(app) -> None:
             limiter,
         )
 
+    try:
+        from ..middleware import project_ownership_required
+    except ImportError:
+        from middleware import project_ownership_required
+
     @app.post("/api/projects/<project_id>/inquire/stream")
     @limiter.limit("30 per minute")
+    @project_ownership_required
     def inquire_stream(project_id: str):
         data = request.get_json(silent=True) or {}
         try:

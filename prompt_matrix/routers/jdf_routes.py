@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 try:
     from ..db.jdf_repository import (
+        RevisionConflict,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -22,6 +23,8 @@ try:
         list_node_revisions,
     )
     from ..lib.logger import get_audit_logger
+    from ..lib.sanitize import sanitize_jdf_node
+    from ..middleware import project_ownership_required
     from ..models.jdf import (
         JDFDocumentTree,
         document_to_dict,
@@ -30,8 +33,10 @@ try:
         splice_node,
     )
     from ..services.pdf_import import pdf_bytes_to_jdf
+    from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.jdf_repository import (
+        RevisionConflict,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -43,6 +48,8 @@ except ImportError:
         list_node_revisions,
     )
     from lib.logger import get_audit_logger
+    from lib.sanitize import sanitize_jdf_node
+    from middleware import project_ownership_required
     from models.jdf import (
         JDFDocumentTree,
         document_to_dict,
@@ -51,6 +58,7 @@ except ImportError:
         splice_node,
     )
     from services.pdf_import import pdf_bytes_to_jdf
+    from upload_limits import UploadRejectedError, validate_upload_bytes
 
 
 class SaveJDFPayload(BaseModel):
@@ -62,6 +70,21 @@ class SaveJDFPayload(BaseModel):
     change_summary: str | None = None
     id: str | None = None
     node_data: dict[str, Any] | None = None
+    expected_version: int | None = None
+
+
+def _conflict_payload(exc: RevisionConflict):
+    return (
+        jsonify(
+            {
+                "ok": False,
+                "error": "Conflict: node was modified elsewhere",
+                "latest_version": exc.latest_version,
+                "current_content": exc.current_content,
+            }
+        ),
+        409,
+    )
 
 
 def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
@@ -82,11 +105,13 @@ def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
 
 def register_jdf_routes(app) -> None:
     @app.get("/api/projects/<project_id>/history")
+    @project_ownership_required
     def get_project_history(project_id: str):
         revisions = list_jdf_revisions(project_id)
         return jsonify({"ok": True, "revisions": revisions, "count": len(revisions)})
 
     @app.get("/api/projects/<project_id>/jdf")
+    @project_ownership_required
     def get_project_jdf(project_id: str):
         version_raw = request.args.get("version")
         if version_raw is not None:
@@ -105,6 +130,7 @@ def register_jdf_routes(app) -> None:
         return jsonify({"ok": True, "document": doc})
 
     @app.put("/api/projects/<project_id>/jdf")
+    @project_ownership_required
     def put_project_jdf(project_id: str):
         request_id = str(uuid.uuid4())
         start_time = time.perf_counter()
@@ -124,18 +150,19 @@ def register_jdf_routes(app) -> None:
             return jsonify({"error": str(exc)}), 400
         try:
             node_id = payload.id or payload.target_node_id
+            expected = payload.expected_version
             if payload.node_data and node_id:
                 result = patch_jdf_node(
                     project_id,
                     node_id,
-                    payload.node_data,
+                    sanitize_jdf_node(payload.node_data),
                     mutation_type=payload.mutation_type,
                     insert_after_id=payload.insert_after_id,
                     change_summary=payload.change_summary,
+                    expected_version=expected,
                 )
             else:
-                tree = _resolve_tree(payload, project_id)
-                # Strict validation before SQLite write
+                tree = sanitize_jdf_node(_resolve_tree(payload, project_id))
                 parse_document(tree)
                 result = save_jdf_revision(
                     project_id,
@@ -143,6 +170,7 @@ def register_jdf_routes(app) -> None:
                     mutation_type=payload.mutation_type,
                     target_node_id=payload.target_node_id,
                     change_summary=payload.change_summary,
+                    expected_version=expected,
                 )
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -157,6 +185,8 @@ def register_jdf_routes(app) -> None:
             if node_id:
                 result["updated_node_id"] = node_id
             return jsonify(result)
+        except RevisionConflict as exc:
+            return _conflict_payload(exc)
         except ValueError as exc:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_exception(
@@ -181,6 +211,7 @@ def register_jdf_routes(app) -> None:
             raise
 
     @app.post("/api/projects/<project_id>/import-pdf")
+    @project_ownership_required
     def import_project_pdf(project_id: str):
         request_id = str(uuid.uuid4())
         start_time = time.perf_counter()
@@ -192,10 +223,16 @@ def register_jdf_routes(app) -> None:
         if not file_bytes:
             return jsonify({"ok": False, "error": "Empty file."}), 400
         try:
-            tree = pdf_bytes_to_jdf(
-                file_bytes,
-                project_id=project_id,
-                filename=upload.filename.strip(),
+            validate_upload_bytes(upload.filename.strip(), file_bytes)
+        except UploadRejectedError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), exc.http_status
+        try:
+            tree = sanitize_jdf_node(
+                pdf_bytes_to_jdf(
+                    file_bytes,
+                    project_id=project_id,
+                    filename=upload.filename.strip(),
+                )
             )
             parse_document(tree)
             result = save_jdf_revision(
@@ -226,6 +263,7 @@ def register_jdf_routes(app) -> None:
         return jsonify(result)
 
     @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
+    @project_ownership_required
     def get_node_history(project_id: str, node_id: str):
         revisions = list_node_revisions(project_id, node_id)
         return jsonify(
@@ -233,6 +271,7 @@ def register_jdf_routes(app) -> None:
         )
 
     @app.post("/api/projects/<project_id>/nodes/<node_id>/restore")
+    @project_ownership_required
     def restore_node_revision(project_id: str, node_id: str):
         request_id = str(uuid.uuid4())
         start_time = time.perf_counter()

@@ -30,6 +30,8 @@ dependencies = [
     "asgiref>=3.7.0",
     "pypdf>=4.0.0",
     "pymupdf>=1.24.0",
+    "flask-wtf>=1.2.0",
+    "bleach>=6.1.0",
     "sentry-sdk[flask]>=2.0.0",
 ]
 

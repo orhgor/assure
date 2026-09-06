@@ -227,3 +227,48 @@ class TruthLedgerEngine:
             self.close()
         except Exception:
             pass
+
+
+def run_z3_verification(
+    claim: str,
+    context: str = "",
+    ledger: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Score a claim against a numeric truth ledger via Z3.
+
+    Natural-language claims with no extractable metric stay ``uncertain``
+    (score 0.5). This does not call an LLM.
+    """
+    import re
+
+    engine = TruthLedgerEngine()
+    try:
+        locks = dict(ledger or {})
+        if not locks and context:
+            for raw in re.findall(r"([A-Za-z_][\w]*)\s*=\s*(-?\d+(?:\.\d+)?)", context):
+                locks[raw[0]] = float(raw[1])
+        for key, val in locks.items():
+            try:
+                engine.lock_metric(str(key), float(val))
+            except (TypeError, ValueError):
+                continue
+        numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", claim or "")]
+        if not locks or not numbers:
+            return {"status": "uncertain", "score": 0.5, "detail": "no numeric lock to check"}
+        matched = False
+        contradicted = False
+        for key, locked in list(engine.snapshot().items()):
+            locked_val = float(locked[0])
+            for num in numbers:
+                ok, _msg = engine.verify_metric(key, num)
+                if abs(num - locked_val) < 1e-9:
+                    matched = True
+                if not ok:
+                    contradicted = True
+        if contradicted and not matched:
+            return {"status": "false", "score": 0.15, "detail": "contradicts ledger"}
+        if matched:
+            return {"status": "true", "score": 0.92, "detail": "consistent with ledger"}
+        return {"status": "uncertain", "score": 0.5, "detail": "numbers did not bind to locks"}
+    finally:
+        engine.close()
