@@ -1,5 +1,8 @@
 # Assure — full product status
 
+**Date:** 2026-09-07
+**GitHub Actions:** included cap is **3,000 minutes** (the prior 2,000 allotment was used up). Policy: [github-actions-minutes.md](./github-actions-minutes.md). Monitor tester notes at `/backstage` (SQLite inbox; Resend email is opt-in).
+
 **Date:** 2026-09-06
 **Git:** `staging` and `main` include merge `36e532a` (PR #6 + Trust & Clarity).
 **Live EC2:** Staging health still `f04ec7f`; production still `bac3d40`. **GitHub Actions deploy failed** (account billing / spending limit) — code is on GitHub, images were not rebuilt.

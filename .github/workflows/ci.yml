@@ -2,7 +2,19 @@ name: CI
 
 on:
   push:
+    branches: [main, staging]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
+    branches: [main, staging]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -35,7 +47,6 @@ jobs:
 
       - name: Run Z3-heavy tests serially (prevents segfault)
         run: |
-          # inquire_stream can segfault on process teardown after all tests pass (exit 139).
           pytest tests/test_inquire_stream.py -v || test $? -eq 139
           pytest tests/test_sanitization.py -v || test $? -eq 139
           pytest tests/test_confidence_overlay.py -v || test $? -eq 139

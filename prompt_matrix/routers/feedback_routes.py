@@ -1,4 +1,4 @@
-"""User feedback via Resend email + SQLite storage."""
+"""User feedback via SQLite inbox (optional Resend)."""
 
 from __future__ import annotations
 
@@ -11,16 +11,29 @@ from flask import current_app, jsonify, request
 
 try:
     from ..cloud_auth import current_user_id
-    from ..db.feedback_repository import save_feedback
+    from ..db.feedback_repository import list_feedback, save_feedback
+    from ..github_actions_budget import actions_budget
     from ..lib.logger import get_audit_logger
 except ImportError:
     from cloud_auth import current_user_id
-    from db.feedback_repository import save_feedback
+    from db.feedback_repository import list_feedback, save_feedback
+    from github_actions_budget import actions_budget
     from lib.logger import get_audit_logger
+
+
+def _truthy(raw: Any) -> bool:
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _resend_configured() -> bool:
     return bool((current_app.config.get("RESEND_API_KEY") or "").strip())
+
+
+def _send_email_enabled() -> bool:
+    flag = current_app.config.get("FEEDBACK_SEND_EMAIL")
+    if flag is None:
+        flag = os.environ.get("FEEDBACK_SEND_EMAIL", "")
+    return _truthy(flag) and _resend_configured()
 
 
 def _send_feedback_email(
@@ -111,7 +124,7 @@ def submit_user_feedback(data: dict[str, Any]) -> tuple[Any, int]:
         },
     )
 
-    if _resend_configured():
+    if _send_email_enabled():
         try:
             _send_feedback_email(
                 user_email=user_email,
@@ -121,12 +134,11 @@ def submit_user_feedback(data: dict[str, Any]) -> tuple[Any, int]:
             )
         except Exception as exc:
             current_app.logger.error("Feedback email failed: %s", exc)
-            return jsonify({"error": "Failed to send feedback"}), 500
 
     return jsonify({"status": "ok", "message": "Feedback sent", "id": row["id"]}), 200
 
 
-def register_feedback_routes(app) -> None:
+def register_feedback_routes(app, page_renderer=None) -> None:
     app.config.setdefault("RESEND_API_KEY", os.environ.get("RESEND_API_KEY", ""))
     app.config.setdefault(
         "RESEND_FROM_EMAIL",
@@ -180,3 +192,20 @@ def register_feedback_routes(app) -> None:
     @app.post("/api/tester-feedback")
     def handle_tester_feedback():
         return submit_user_feedback(request.get_json(silent=True) or {})
+
+    @app.get("/api/backstage/feedback")
+    def backstage_feedback():
+        rows = list_feedback(limit=200)
+        return jsonify({"ok": True, "count": len(rows), "rows": rows})
+
+    @app.get("/api/backstage/actions-budget")
+    def backstage_actions_budget():
+        return jsonify({"ok": True, **actions_budget()})
+
+    @app.get("/backstage")
+    def backstage_page():
+        if page_renderer is not None:
+            return page_renderer("backstage.html", "backstage")
+        from flask import render_template
+
+        return render_template("backstage.html")
