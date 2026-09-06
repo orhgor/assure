@@ -1668,7 +1668,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from .routers.feedback_routes import register_feedback_routes
     except ImportError:
         from routers.feedback_routes import register_feedback_routes
-    register_feedback_routes(app)
+    register_feedback_routes(app, page_renderer=_page)
 
     try:
         from .routers.compliance_routes import register_compliance_routes

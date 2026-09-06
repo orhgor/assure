@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ gettext('Backstage') }}{% endblock %}
+{% block body %}
+<main class="backstage-page" id="backstage-page">
+  <header class="backstage-header">
+    <h1 data-i18n="backstage.title">{{ gettext('Backstage') }}</h1>
+    <p class="hint" data-i18n="backstage.lead">{{ gettext('Tester feedback inbox and GitHub Actions minute budget.') }}</p>
+    <p><a href="/app" data-i18n="nav.workbench">{{ gettext('Workbench') }}</a></p>
+  </header>
+
+  <section class="backstage-section" aria-labelledby="backstage-actions-heading">
+    <h2 id="backstage-actions-heading" data-i18n="backstage.actions.title">{{ gettext('GitHub Actions minutes') }}</h2>
+    <p class="hint" data-i18n="backstage.actions.lead">{{ gettext('Included limit is 3,000 minutes. Do not run CI on every push or a 10-minute canary.') }}</p>
+    <div class="analytics-kpis backstage-kpis">
+      <article class="analytics-kpi">
+        <h2 data-i18n="backstage.actions.limit">{{ gettext('Included minutes') }}</h2>
+        <p id="backstage-actions-limit">3000</p>
+      </article>
+      <article class="analytics-kpi">
+        <h2 data-i18n="backstage.actions.used">{{ gettext('Used (this cycle)') }}</h2>
+        <p id="backstage-actions-used">—</p>
+      </article>
+      <article class="analytics-kpi">
+        <h2 data-i18n="backstage.actions.remaining">{{ gettext('Remaining') }}</h2>
+        <p id="backstage-actions-remaining">—</p>
+      </article>
+    </div>
+    <p class="hint" id="backstage-actions-source"></p>
+    <ul class="backstage-policy" id="backstage-actions-policy"></ul>
+    <p>
+      <a id="backstage-billing-link" href="https://github.com/settings/billing" data-i18n="backstage.actions.billing">{{ gettext('Open GitHub billing') }}</a>
+    </p>
+  </section>
+
+  <section class="backstage-section" aria-labelledby="backstage-feedback-heading">
+    <h2 id="backstage-feedback-heading" data-i18n="backstage.feedback.title">{{ gettext('Feedback inbox') }}</h2>
+    <p class="hint" id="backstage-feedback-empty" hidden data-i18n="backstage.feedback.empty">{{ gettext('No feedback yet.') }}</p>
+    <div class="backstage-table-wrap">
+      <table class="backstage-table" id="backstage-feedback-table">
+        <thead>
+          <tr>
+            <th data-i18n="backstage.feedback.when">{{ gettext('Received') }}</th>
+            <th data-i18n="backstage.feedback.from">{{ gettext('From') }}</th>
+            <th data-i18n="backstage.feedback.page">{{ gettext('Page') }}</th>
+            <th data-i18n="backstage.feedback.rating">{{ gettext('Rating') }}</th>
+            <th data-i18n="backstage.feedback.message">{{ gettext('Message') }}</th>
+          </tr>
+        </thead>
+        <tbody id="backstage-feedback-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='backstage.js') }}?v={{ js_version|default('assure-99') }}"></script>
+{% endblock %}

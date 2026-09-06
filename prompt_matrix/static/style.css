@@ -7922,3 +7922,31 @@ body[data-workbench-role="executive"] #generate-intent {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
+
+/* Backstage inbox */
+.backstage-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.backstage-header h1 { margin: 0 0 8px; }
+.backstage-section { margin-top: 28px; }
+.backstage-kpis { margin-bottom: 12px; }
+.backstage-policy { margin: 8px 0 16px; padding-left: 1.2em; }
+.backstage-table-wrap { overflow-x: auto; }
+.backstage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.backstage-table th,
+.backstage-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+.backstage-message {
+  white-space: pre-wrap;
+  max-width: 36rem;
+}
