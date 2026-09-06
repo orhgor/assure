@@ -24,6 +24,16 @@ conn.execute(
     "UPDATE project_budgets SET tokens_used=0, token_limit=? WHERE project_id=?",
     (limit, pid),
 )
+# Cold-compile UX specs miss the AST cache; a leftover daily cap 429s them
+# and the runner used to hang until waitForFunction timed out.
+try:
+    daily_before = conn.execute(
+        "SELECT date, count FROM daily_compile_limits WHERE project_id=?",
+        (pid,),
+    ).fetchall()
+    conn.execute("DELETE FROM daily_compile_limits WHERE project_id=?", (pid,))
+except sqlite3.OperationalError as exc:
+    daily_before = str(exc)
 conn.commit()
 after = conn.execute(
     "SELECT token_limit, tokens_used FROM project_budgets WHERE project_id=?",
@@ -31,6 +41,7 @@ after = conn.execute(
 ).fetchone()
 print("before", before)
 print("after", after)
+print("daily_compile_limits_before", daily_before)
 PY
 )
 

@@ -74,30 +74,38 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       const pid = ctx.projectId || "default";
       const base = String(ctx.baseUrl || process.env.ASSURE_BASE_URL || "https://staging.getassureai.com").replace(/\/$/, "");
       const target = `${base}/app?project=${encodeURIComponent(pid)}#view=generate`;
-      if (!page.url().includes(`project=${encodeURIComponent(pid)}`)) {
-        await page.goto(target, { waitUntil: "domcontentloaded", timeout: step.timeout || 60000 });
+      let lastErr;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          await page.goto(target, { waitUntil: "domcontentloaded", timeout: step.timeout || 60000 });
+          await page.waitForSelector("#jdf-workbench", { state: "visible", timeout: 30000 });
+          await page.waitForFunction(
+            () => window.__assureJdf && typeof window.__assureJdf.render === "function",
+            null,
+            { timeout: 30000 }
+          );
+          await page.waitForFunction(
+            () => !document.body.classList.contains("onboarding-active"),
+            null,
+            { timeout: 15000 }
+          );
+          await page.evaluate(() => {
+            if (window.AssureNav && typeof window.AssureNav.switchView === "function") {
+              window.AssureNav.switchView("generate", { persist: false, replaceHash: false });
+            }
+            const panel = document.getElementById("view-generate");
+            if (panel && typeof panel.scrollIntoView === "function") {
+              panel.scrollIntoView({ block: "nearest" });
+            }
+          });
+          return;
+        } catch (err) {
+          lastErr = err;
+          process.stderr.write(`  · init_workbench retry ${attempt}/3: ${err.message || err}\n`);
+          await page.waitForTimeout(4000 * attempt);
+        }
       }
-      await page.waitForSelector("#jdf-workbench", { state: "visible", timeout: 30000 });
-      await page.waitForFunction(
-        () => window.__assureJdf && typeof window.__assureJdf.render === "function",
-        null,
-        { timeout: 30000 }
-      );
-      await page.waitForFunction(
-        () => !document.body.classList.contains("onboarding-active"),
-        null,
-        { timeout: 15000 }
-      );
-      await page.evaluate(() => {
-        if (window.AssureNav && typeof window.AssureNav.switchView === "function") {
-          window.AssureNav.switchView("generate", { persist: false, replaceHash: false });
-        }
-        const panel = document.getElementById("view-generate");
-        if (panel && typeof panel.scrollIntoView === "function") {
-          panel.scrollIntoView({ block: "nearest" });
-        }
-      });
-      return;
+      throw lastErr;
     }
     case "open_command_deck_more": {
       await page.evaluate(() => {
@@ -234,27 +242,43 @@ async function runStep(page, step, ctx, spec, stepIndex) {
     }
     case "wait_compile_ready": {
       const timeout = step.timeout || 300000;
-      await page
-        .waitForFunction(
+      const started = Date.now();
+      try {
+        await page.waitForFunction(
           () => {
+            const fail = window.__openUserReadFailure && window.__openUserReadFailure();
+            if (fail) return { ok: false, fail };
             const btn = document.getElementById("generate-compile-btn");
             const status = document.getElementById("gate-status-text");
             const compiling = document.getElementById("generate-compiling");
-            if (btn && btn.disabled) return true;
-            if (compiling && !compiling.hidden) return true;
+            if (btn && btn.disabled) return { ok: true, phase: "started" };
+            if (compiling && !compiling.hidden) return { ok: true, phase: "started" };
             const msg = status ? status.textContent || "" : "";
-            return /loaded from memory/i.test(msg);
+            if (/loaded from memory/i.test(msg)) return { ok: true, phase: "started" };
+            return false;
           },
           null,
-          { timeout: Math.min(30000, timeout) }
-        )
-        .catch(() => {});
+          { timeout: Math.min(45000, timeout) }
+        ).then(async (handle) => {
+          const val = await handle.jsonValue();
+          if (val && val.ok === false) throw new Error(`wait_compile_ready: ${val.fail}`);
+        });
+      } catch (err) {
+        const fail = await page.evaluate(() =>
+          window.__openUserReadFailure ? window.__openUserReadFailure() : ""
+        );
+        if (fail) throw new Error(`wait_compile_ready: ${fail}`);
+        if (/wait_compile_ready:/.test(String(err.message || err))) throw err;
+      }
+      const remaining = Math.max(5000, timeout - (Date.now() - started));
       await page.waitForFunction(
         () => {
+          const fail = window.__openUserReadFailure && window.__openUserReadFailure();
+          if (fail) return { ok: false, fail };
           const gen = window.AssureGenerate;
           const dock = document.getElementById("generate-accept-dock");
           const dockReady = !!(dock && !dock.disabled);
-          if (gen && gen.auditComplete && dockReady) return true;
+          if (gen && gen.auditComplete && dockReady) return { ok: true };
           const btn = document.getElementById("generate-compile-btn");
           const compiling = document.getElementById("generate-compiling");
           const countEl = document.getElementById("generate-node-count");
@@ -262,28 +286,37 @@ async function runStep(page, step, ctx, spec, stepIndex) {
           if (compiling && !compiling.hidden) return false;
           const n = countEl ? parseInt(String(countEl.textContent || "0").replace(/\D/g, ""), 10) : 0;
           const nodes = gen && Array.isArray(gen.compiledNodes) ? gen.compiledNodes.length : 0;
-          return (n > 0 || nodes > 0) && dockReady;
+          if ((n > 0 || nodes > 0) && dockReady) return { ok: true };
+          return false;
         },
         null,
-        { timeout }
-      );
+        { timeout: remaining }
+      ).then(async (handle) => {
+        const val = await handle.jsonValue();
+        if (val && val.ok === false) throw new Error(`wait_compile_ready: ${val.fail}`);
+      });
       return;
     }
     case "wait_refine_result": {
       const timeout = step.timeout || 180000;
       await page.waitForFunction(
         () => {
+          const fail = window.__openUserReadFailure && window.__openUserReadFailure();
+          if (fail) return { ok: false, fail };
           const panel = document.getElementById("jdf-diff-panel");
           const pop = document.getElementById("jdf-surgical-popover");
           const busy = pop && pop.classList.contains("is-busy");
           if (busy) return false;
-          if (panel && !panel.hidden) return true;
-          if (pop && pop.hidden) return true;
+          if (panel && !panel.hidden) return { ok: true };
+          if (pop && pop.hidden) return { ok: true };
           return false;
         },
         null,
         { timeout }
-      );
+      ).then(async (handle) => {
+        const val = await handle.jsonValue();
+        if (val && val.ok === false) throw new Error(`wait_refine_result: ${val.fail}`);
+      });
       return;
     }
     case "wait_for_sse": {
@@ -310,20 +343,26 @@ async function runStep(page, step, ctx, spec, stepIndex) {
       const timeout = step.timeout || 360000;
       await page.waitForFunction(
         () => {
+          const fail = window.__openUserReadFailure && window.__openUserReadFailure();
+          if (fail) return { ok: false, fail };
           const gen = window.AssureGenerate;
           const loader = document.getElementById("gate-loader");
           const dock = document.getElementById("generate-accept-dock");
           const loaderHidden = !loader || loader.hidden;
           const dockReady = !!(dock && !dock.disabled);
-          if (gen && gen.auditComplete && dockReady && loaderHidden) return true;
-          if (gen && gen.fullAudit && gen.auditComplete && dockReady) {
-            return !gen._redhatPending;
+          if (gen && gen.auditComplete && dockReady && loaderHidden) return { ok: true };
+          if (gen && gen.fullAudit && gen.auditComplete && dockReady && !gen._redhatPending) {
+            return { ok: true };
           }
-          return loaderHidden && dockReady;
+          if (loaderHidden && dockReady) return { ok: true };
+          return false;
         },
         null,
         { timeout }
-      );
+      ).then(async (handle) => {
+        const val = await handle.jsonValue();
+        if (val && val.ok === false) throw new Error(`wait_audit_complete: ${val.fail}`);
+      });
       return;
     }
     case "measure": {
@@ -383,6 +422,77 @@ async function runStep(page, step, ctx, spec, stepIndex) {
   }
 }
 
+function pageInitScript() {
+  try {
+    localStorage.setItem("assure_onboarding_complete", "1");
+  } catch (_) {}
+  window.__openUserSseEvents = window.__openUserSseEvents || [];
+  window.__openUserErrors = window.__openUserErrors || [];
+  const failRe = new RegExp(
+    "stream failed|compilation failed|daily compile|budget exhausted|session limit|too many requests|insufficient project budget|intent required|verify-timeout|verification timeout|connection dropped",
+    "i"
+  );
+  const pushErr = (msg) => {
+    const text = String(msg || "").trim();
+    if (!text) return;
+    const list = window.__openUserErrors;
+    if (!list.includes(text)) list.push(text);
+  };
+  window.__openUserReadFailure = function () {
+    const errs = window.__openUserErrors || [];
+    const status = document.getElementById("gate-status-text");
+    const statusText = status ? status.textContent || "" : "";
+    if (status && status.classList.contains("verify-timeout-retry")) {
+      return statusText || "verification timeout";
+    }
+    const toasts = Array.from(document.querySelectorAll("#toast-root .toast"))
+      .map((el) => (el.textContent || "").trim())
+      .filter(Boolean);
+    const blob = errs.concat(toasts).concat([statusText]).join(" | ");
+    if (failRe.test(blob) || /HTTP 429|HTTP 5\d\d/.test(blob)) return blob.slice(0, 400);
+    return "";
+  };
+  const origFetch = window.fetch;
+  if (origFetch) {
+    window.fetch = function () {
+      return origFetch.apply(this, arguments).then((res) => {
+        try {
+          const url = String(arguments[0] || "");
+          if (res && (res.status === 429 || res.status >= 500) && /draft|refine|redhat|compile/i.test(url)) {
+            pushErr("HTTP " + res.status + " " + url);
+          }
+        } catch (_) {}
+        return res;
+      });
+    };
+  }
+  const scanToasts = () => {
+    document.querySelectorAll("#toast-root .toast").forEach((el) => {
+      const text = (el.textContent || "").trim();
+      if (failRe.test(text) || /failed \(4|failed \(5/i.test(text)) pushErr(text);
+    });
+  };
+  const start = () => {
+    try {
+      new MutationObserver(scanToasts).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    } catch (_) {}
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, { once: true });
+  } else {
+    start();
+  }
+}
+
+function isRetryableSpecError(err) {
+  const msg = String(err && err.message ? err.message : err);
+  if (/Assertion failed/i.test(msg)) return false;
+  return /Timeout|waitForSelector|waitForFunction|net::|ERR_|Target closed|init_workbench/i.test(msg);
+}
+
 function evalCondition(expr, ctx) {
   const safe = String(expr || "").trim();
   const fn = new Function(
@@ -410,12 +520,7 @@ async function runSpec(specPath, options) {
       viewport: { width: 1440, height: 900 },
       ignoreHTTPSErrors: true,
     });
-    await context.addInitScript(() => {
-      try {
-        localStorage.setItem("assure_onboarding_complete", "1");
-      } catch (_) {}
-      window.__openUserSseEvents = window.__openUserSseEvents || [];
-    });
+    await context.addInitScript(pageInitScript);
     page = await context.newPage();
 
     for (let i = 0; i < (spec.steps || []).length; i += 1) {
@@ -495,7 +600,12 @@ program
     let failed = 0;
     for (const file of files) {
       process.stderr.write(`\n▶ ${path.basename(file)}\n`);
-      const result = await runSpec(file, opts);
+      let result = await runSpec(file, opts);
+      if (!result.ok && isRetryableSpecError(result.error)) {
+        process.stderr.write(`  ↻ retry once after: ${result.entry.error}\n`);
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        result = await runSpec(file, opts);
+      }
       if (result.ok) {
         const label = result.skipped ? "SKIP" : "PASS";
         console.log(`${label} ${result.entry.name} (${result.entry.duration_ms}ms)`);

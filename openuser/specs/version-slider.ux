@@ -11,7 +11,7 @@ steps:
   - action: click
     selector: "#generate-compile-btn"
   - action: wait_compile_ready
-    timeout: 120000
+    timeout: 180000
   - action: click
     selector: "#generate-accept-dock"
   - action: wait
@@ -23,7 +23,7 @@ steps:
   - action: click
     selector: "#generate-compile-btn"
   - action: wait_compile_ready
-    timeout: 120000
+    timeout: 180000
   - action: click
     selector: "#generate-accept-dock"
   - action: sleep

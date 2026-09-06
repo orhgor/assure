@@ -34,6 +34,12 @@ jobs:
       - name: Reset OpenUser project budget on staging
         run: bash scripts/aws/reset-openuser-project-budget.sh
 
+      - name: Wait for staging to finish deploy
+        env:
+          ASSURE_BASE_URL: https://staging.getassureai.com
+          STAGING_EXPECT_SHA: ${{ github.sha }}
+        run: bash scripts/aws/wait-staging-ready.sh
+
       - name: Run OpenUser UX specs (staging)
         env:
           ASSURE_BASE_URL: https://staging.getassureai.com
