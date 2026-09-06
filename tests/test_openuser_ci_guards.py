@@ -8,9 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_ci_waits_for_staging_before_openuser():
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     ux = (ROOT / ".github/workflows/ux-tests.yml").read_text(encoding="utf-8")
-    assert "wait-staging-ready.sh" in ci
+    assert "openuser" not in ci
     assert "wait-staging-ready.sh" in ux
-    assert "STAGING_EXPECT_SHA" in ci
     assert "STAGING_EXPECT_SHA" in ux
 
 
