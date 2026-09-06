@@ -1,16 +1,19 @@
-"""Guards that keep OpenUser UX specs from racing deploys or hanging on 429s."""
+"""Guards for CI test layout (OpenUser is local-only; Playwright runs in ci.yml)."""
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_ci_waits_for_staging_before_openuser():
+def test_ci_has_playwright_job_not_openuser():
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     ux = (ROOT / ".github/workflows/ux-tests.yml").read_text(encoding="utf-8")
     assert "openuser" not in ci
-    assert "wait-staging-ready.sh" in ux
-    assert "STAGING_EXPECT_SHA" in ux
+    assert "playwright-tests" in ci
+    assert "tests/playwright/" in ci
+    assert "playwright install chromium" in ci
+    assert "workflow_dispatch:" in ux
+    assert "if: false" in ux or "disabled" in ux
 
 
 def test_budget_reset_clears_daily_compile_quota():

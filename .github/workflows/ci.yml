@@ -24,6 +24,7 @@ jobs:
         run: |
           pytest tests/ \
             --ignore=tests/e2e \
+            --ignore=tests/playwright \
             --ignore=tests/test_sanitization.py \
             --ignore=tests/test_confidence_overlay.py \
             --ignore=tests/test_full_audit.py \
@@ -40,3 +41,22 @@ jobs:
 
       - name: Z3 accuracy benchmark
         run: pytest tests/test_z3_benchmark.py -v
+
+  playwright-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-playwright pymupdf
+          playwright install chromium --with-deps
+
+      - name: Run Playwright pytest suite
+        run: pytest tests/playwright/ -v --tb=short
