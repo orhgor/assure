@@ -146,64 +146,6 @@
               <div id="projects-dashboard" class="projects-dashboard" role="list" aria-live="polite"></div>
             </div>
 
-            <div id="left-pane-shared" class="left-pane-shared">
-              <details id="substrate-vault" class="substrate-vault" open>
-                <summary class="substrate-vault-summary">
-                  <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span></span>
-                  <span class="substrate-vault-count" id="substrate-vault-count" hidden></span>
-                </summary>
-                <div class="substrate-vault-body">
-                  <input type="search" id="substrate-vault-search" class="form-control substrate-vault-search" placeholder="{{ gettext('Search your sources…') }}" data-i18n-placeholder="substrate.vault.search_placeholder" aria-label="{{ gettext('Search your sources…') }}" data-i18n-aria="substrate.vault.search_placeholder">
-                  <ul id="substrate-vault-list" class="substrate-vault-list" role="list"></ul>
-                  <p id="substrate-vault-empty" class="hint substrate-vault-empty" data-i18n="substrate.vault.empty">{{ gettext('No files uploaded. Drag and drop or click to upload.') }}</p>
-                  <div class="substrate-vault-upload-row">
-                    <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="substrate-vault-upload-btn" data-tooltip="{{ gettext('Upload a source file') }}" data-i18n-tooltip="tooltip.vault_upload" data-shortcut="⌘U" data-i18n="substrate.vault.upload">{{ gettext('Upload File') }}</button>
-                    <span id="substrate-vault-upload-status" class="substrate-vault-upload-status" aria-live="polite"></span>
-                    <input type="file" id="substrate-vault-file-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff" hidden>
-                  </div>
-                </div>
-              </details>
-              <details id="argument-spine" class="argument-spine" open>
-                <summary class="argument-spine-summary">
-                  <span class="argument-spine-title">🧠 <span data-i18n="spine.title">{{ gettext('Argument Spine') }}</span></span>
-                </summary>
-                <div class="argument-spine-body">
-                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
-                  <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
-                </div>
-              </details>
-              <details id="document-structure" class="document-structure-panel" open>
-                <summary class="document-structure-summary">
-                  <span class="document-structure-title">📐 <span data-i18n="structure.title">{{ gettext('Document Structure') }}</span></span>
-                </summary>
-                <div class="document-structure-body">
-                  <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
-                  <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
-                  <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Link these ideas') }}</button>
-                  </div>
-                </div>
-              </details>
-              <details id="refine-workspace" class="refine-workspace-panel" open>
-                <summary class="refine-workspace-summary">
-                  <span class="refine-workspace-title">✨ <span data-i18n="refine.workspace.title">{{ gettext('Refine Workspace') }}</span></span>
-                </summary>
-                <div class="refine-workspace-body" id="refineControlWorkspace">
-                  <div id="refineFocusBadgeContainer">
-                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
-                  </div>
-                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
-                  <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Polish this') }}</button>
-                    <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
-                  </div>
-                  <div class="visible-action-bar refine-redhat-bar">
-                    <button type="button" class="btn-trust-action btn-trust-redhat" id="executeRedHatBtn" data-i18n="refine.run_redhat">{{ gettext('Run Red-Hat Audit') }}</button>
-                  </div>
-                </div>
-              </details>
-            </div>
-
             <div id="view-generate" class="assure-view active">
               <h3 class="jdf-pane-title" data-i18n="generate.title">{{ gettext('Compile a Document') }}</h3>
               <p class="hint" data-i18n="generate.lead">{{ gettext('Paste a draft or describe what you need.') }}</p>
@@ -232,9 +174,13 @@
                 <nav class="action-phase-row stepper-timeline" aria-label="{{ gettext('Document workflow') }}">
                   <div class="action-phase step-item is-active" data-phase="write" role="tab" aria-selected="true">
                     <div class="step-marker">1</div>
-                    <div class="step-content">
+                    <div class="step-content compile-action-row">
                       <span class="step-label" data-i18n="action.group.write">{{ gettext('Write') }}</span>
                       <button type="button" class="btn btn-primary btn-sm step-action-btn tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
+                      <div id="first-compile-coachmark" class="first-compile-coachmark" hidden role="status">
+                        <p data-i18n="coachmark.first_compile">{{ gettext("Ready to see it in action? Click 'Assemble' to structure your draft.") }}</p>
+                        <button type="button" class="btn btn-sm btn-outline" id="first-compile-coachmark-dismiss" data-i18n="coachmark.dismiss">{{ gettext('Dismiss') }}</button>
+                      </div>
                     </div>
                   </div>
                   <div class="action-phase step-item is-disabled" data-phase="verify" role="tab" aria-selected="false">
@@ -264,10 +210,6 @@
                 <input type="checkbox" id="workbench-show-advanced">
                 <span data-i18n="clarity.show_advanced">{{ gettext('Show advanced') }}</span>
               </label>
-              <div id="first-compile-coachmark" class="first-compile-coachmark" hidden role="status">
-                <p data-i18n="coachmark.first_compile">{{ gettext("Ready to see it in action? Click 'Assemble' to structure your draft.") }}</p>
-                <button type="button" class="btn btn-sm btn-outline" id="first-compile-coachmark-dismiss" data-i18n="coachmark.dismiss">{{ gettext('Dismiss') }}</button>
-              </div>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
               <div class="generate-quick-actions workbench-advanced-only" id="generate-quick-actions">
                 <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
@@ -333,6 +275,64 @@
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
               </div>
+            </div>
+
+            <div id="left-pane-shared" class="left-pane-shared">
+              <details id="substrate-vault" class="substrate-vault">
+                <summary class="substrate-vault-summary">
+                  <span class="substrate-vault-title">📁 <span data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span></span>
+                  <span class="substrate-vault-count" id="substrate-vault-count" hidden></span>
+                </summary>
+                <div class="substrate-vault-body">
+                  <input type="search" id="substrate-vault-search" class="form-control substrate-vault-search" placeholder="{{ gettext('Search your sources…') }}" data-i18n-placeholder="substrate.vault.search_placeholder" aria-label="{{ gettext('Search your sources…') }}" data-i18n-aria="substrate.vault.search_placeholder">
+                  <ul id="substrate-vault-list" class="substrate-vault-list" role="list"></ul>
+                  <p id="substrate-vault-empty" class="hint substrate-vault-empty" data-i18n="substrate.vault.empty">{{ gettext('No files uploaded. Drag and drop or click to upload.') }}</p>
+                  <div class="substrate-vault-upload-row">
+                    <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="substrate-vault-upload-btn" data-tooltip="{{ gettext('Upload a source file') }}" data-i18n-tooltip="tooltip.vault_upload" data-shortcut="⌘U" data-i18n="substrate.vault.upload">{{ gettext('Upload File') }}</button>
+                    <span id="substrate-vault-upload-status" class="substrate-vault-upload-status" aria-live="polite"></span>
+                    <input type="file" id="substrate-vault-file-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff" hidden>
+                  </div>
+                </div>
+              </details>
+              <details id="argument-spine" class="argument-spine">
+                <summary class="argument-spine-summary">
+                  <span class="argument-spine-title">🧠 <span data-i18n="spine.title">{{ gettext('Argument Spine') }}</span></span>
+                </summary>
+                <div class="argument-spine-body">
+                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
+                  <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
+                </div>
+              </details>
+              <details id="document-structure" class="document-structure-panel">
+                <summary class="document-structure-summary">
+                  <span class="document-structure-title">📐 <span data-i18n="structure.title">{{ gettext('Document Structure') }}</span></span>
+                </summary>
+                <div class="document-structure-body">
+                  <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
+                  <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Link these ideas') }}</button>
+                  </div>
+                </div>
+              </details>
+              <details id="refine-workspace" class="refine-workspace-panel">
+                <summary class="refine-workspace-summary">
+                  <span class="refine-workspace-title">✨ <span data-i18n="refine.workspace.title">{{ gettext('Refine Workspace') }}</span></span>
+                </summary>
+                <div class="refine-workspace-body" id="refineControlWorkspace">
+                  <div id="refineFocusBadgeContainer">
+                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
+                  </div>
+                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Polish this') }}</button>
+                    <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
+                  </div>
+                  <div class="visible-action-bar refine-redhat-bar">
+                    <button type="button" class="btn-trust-action btn-trust-redhat" id="executeRedHatBtn" data-i18n="refine.run_redhat">{{ gettext('Run Red-Hat Audit') }}</button>
+                  </div>
+                </div>
+              </details>
             </div>
 
             <div id="view-analytics" class="assure-view analytics-embedded-container" hidden>

@@ -2130,13 +2130,25 @@ body.draft-fullscreen-open {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--space-sm, 8px);
 }
 
+#view-generate {
+  display: block;
+}
+
 #view-generate.assure-view.active {
-  flex: 1;
+  display: block;
+  flex: 1 0 auto;
   min-height: 0;
+  overflow: visible;
+}
+
+#view-generate[hidden],
+#view-generate.assure-view:not(.active) {
+  display: none !important;
 }
 
 .compile-toolbar {
@@ -6684,6 +6696,7 @@ kbd,
 .left-pane-shared {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   gap: var(--wb-gap-sm, 8px);
   margin-bottom: var(--wb-gap-md, 14px);
 }
@@ -7119,7 +7132,7 @@ body.assure-doc-locked .jdf-tree [contenteditable="true"] {
   position: absolute;
   left: 0;
   top: calc(100% + 0.35rem);
-  z-index: 5;
+  z-index: 20;
   max-width: 280px;
   padding: 0.65rem 0.75rem;
   border-radius: 0.65rem;

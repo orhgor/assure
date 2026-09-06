@@ -123,6 +123,7 @@
         var stored = global.localStorage.getItem(COLLAPSE_KEY);
         if (stored === "1") this.detailsEl.open = false;
         else if (stored === "0") this.detailsEl.open = true;
+        else this.detailsEl.open = false;
       } catch (_) {}
       this.detailsEl.addEventListener("toggle", function () {
         try {
