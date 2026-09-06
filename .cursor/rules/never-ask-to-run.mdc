@@ -1,0 +1,8 @@
+---
+description: Never ask the user to run commands; execute them.
+alwaysApply: true
+---
+
+# Never ask to run
+
+Do not ask the user to run pytest, git, servers, or any other command. Use tools and execute. Do not wait for a Run click. Only stop for human-only steps (password, 2FA, payment).
