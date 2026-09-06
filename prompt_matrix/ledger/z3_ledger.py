@@ -28,6 +28,25 @@ def _overlap_pct(claim: str, context: str) -> tuple[float, str]:
     return pct, phrase
 
 
+def _page_from_context(context: str, phrase: str) -> int | None:
+    """Return page number if context uses --- Page N --- markers."""
+    if not context.strip():
+        return None
+    sections = re.split(r"--- Page (\d+) ---", context)
+    if len(sections) <= 1:
+        return None
+    needle = (phrase or "").strip().lower()
+    if not needle:
+        return None
+    # sections alternate: [pre, page_num, text, page_num, text, ...]
+    for i in range(1, len(sections) - 1, 2):
+        page_num = int(sections[i])
+        body = (sections[i + 1] or "").lower()
+        if needle in body or any(w in body for w in needle.split() if len(w) > 2):
+            return page_num
+    return None
+
+
 def check_claim(
     claim: str,
     context: str = "",
@@ -40,9 +59,11 @@ def check_claim(
     score = float(verified.get("score") or 0.5)
     pct, phrase = _overlap_pct(claim, context)
     label = (source_label or "").strip() or "source text"
+    page = _page_from_context(context, phrase)
+    page_suffix = f" on page {page}" if page else ""
     if phrase and pct >= 1:
         reason = (
-            f"Matched {pct:.0f}% of source phrase {phrase!r} in {label}; "
+            f"Matched {pct:.0f}% of source phrase {phrase!r} in {label}{page_suffix}; "
             f"ledger status={verified.get('status')}."
         )
     elif context.strip():

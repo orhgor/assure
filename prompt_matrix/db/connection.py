@@ -16,7 +16,61 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 16
+_SCHEMA_VERSION = 17
+
+
+def _migrate_v17(db: sqlite3.Connection) -> None:
+    """v1.5: sign-offs, document locks, user activity audit log."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS sign_offs (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            node_id TEXT,
+            reviewer_id TEXT NOT NULL,
+            reviewer_name TEXT,
+            status TEXT CHECK(status IN ('approved','rejected','pending')),
+            comment TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sign_offs_project ON sign_offs(project_id, timestamp DESC)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS document_locks (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            locked_by TEXT NOT NULL,
+            locked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            content_hash TEXT NOT NULL
+        )
+        """
+    )
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_doc_locks_proj_ver ON document_locks(project_id, version)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_activity_log (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            project_id TEXT,
+            action TEXT NOT NULL,
+            details TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_activity_proj ON user_activity_log(project_id, timestamp DESC)"
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_activity_user ON user_activity_log(user_id, timestamp DESC)"
+    )
 
 
 def _migrate_v16(db: sqlite3.Connection) -> None:
@@ -587,6 +641,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v15(db)
     if current < 16:
         _migrate_v16(db)
+    if current < 17:
+        _migrate_v17(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

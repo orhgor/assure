@@ -108,8 +108,28 @@ def register_export_routes(app) -> None:
             )
 
         if fmt == "pdf":
+            audit_bundle = (request.args.get("audit_bundle") or "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
             try:
-                pdf_bytes = export_jdf_to_pdf(tree)
+                if audit_bundle:
+                    from ..services.audit_bundle import export_audit_bundle_pdf
+                else:
+                    export_audit_bundle_pdf = None  # type: ignore[assignment]
+            except ImportError:
+                from services.audit_bundle import export_audit_bundle_pdf
+
+            try:
+                if audit_bundle:
+                    pdf_bytes = export_audit_bundle_pdf(project_id, tree)
+                    filename = f"{filename_base}-audit-report.pdf"
+                    action = "EXPORT_AUDIT_PDF"
+                else:
+                    pdf_bytes = export_jdf_to_pdf(tree)
+                    filename = f"{filename_base}.pdf"
+                    action = "EXPORT_PDF"
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -121,15 +141,47 @@ def register_export_routes(app) -> None:
                     details={"format": fmt},
                 )
                 return jsonify({"ok": False, "error": str(exc)}), 500
-            filename = f"{filename_base}.pdf"
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,
                 project_id,
-                "EXPORT_PDF",
+                action if audit_bundle else "EXPORT_PDF",
                 success=True,
                 duration_ms=duration_ms,
-                details={"format": "pdf", "filename": filename},
+                details={"format": "pdf", "filename": filename, "audit_bundle": audit_bundle},
+            )
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+        if fmt == "audit-pdf":
+            try:
+                try:
+                    from ..services.audit_bundle import export_audit_bundle_pdf
+                except ImportError:
+                    from services.audit_bundle import export_audit_bundle_pdf
+                pdf_bytes = export_audit_bundle_pdf(project_id, tree)
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "EXPORT_AUDIT_PDF",
+                    exc,
+                    duration_ms=duration_ms,
+                )
+                return jsonify({"ok": False, "error": str(exc)}), 500
+            filename = f"{filename_base}-audit-report.pdf"
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_AUDIT_PDF",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": "audit-pdf", "filename": filename},
             )
             return Response(
                 pdf_bytes,
@@ -149,7 +201,10 @@ def register_export_routes(app) -> None:
                 details={"format": fmt},
             )
             return jsonify(
-                {"error": "Unsupported format", "supported": ["docx", "json", "md", "html", "pdf"]}
+                {
+                    "error": "Unsupported format",
+                    "supported": ["docx", "json", "md", "html", "pdf", "audit-pdf"],
+                }
             ), 400
 
         try:

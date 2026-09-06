@@ -146,18 +146,29 @@ def app_client(tmp_path, monkeypatch):
     return app.test_client()
 
 
-def test_substrate_upload_rejects_multi_page_pdf(app_client):
-    data = {"file": (io.BytesIO(_multi_page_pdf(2)), "report.pdf")}
-    response = app_client.post(
-        "/api/projects/default/substrate/upload",
-        data=data,
-        content_type="multipart/form-data",
-    )
-    assert response.status_code == 400
+def test_substrate_upload_accepts_multi_page_pdf(app_client):
+    mock_client = MagicMock()
+    with patch("prompt_matrix.routers.substrate.TextractClient") as mock_cls:
+        instance = MagicMock()
+        mock_cls.return_value = instance
+        instance._get_page_count.return_value = 2
+        instance.extract_text.return_value = {
+            "text": "--- Page 1 ---\nA\n\n--- Page 2 ---\nB",
+            "tables": [],
+            "forms": [],
+            "page_count": 2,
+            "pages": [{"page": 1, "text": "A"}, {"page": 2, "text": "B"}],
+            "filename": "report.pdf",
+        }
+        data = {"file": (io.BytesIO(_multi_page_pdf(2)), "report.pdf")}
+        response = app_client.post(
+            "/api/projects/default/substrate/upload",
+            data=data,
+            content_type="multipart/form-data",
+        )
+    assert response.status_code == 200
     payload = response.get_json()
-    assert payload["ok"] is False
-    assert payload["page_count"] == 2
-    assert "2 pages" in payload["error"]
+    assert payload["ok"] is True
 
 
 def test_substrate_upload_single_page_success(app_client):
@@ -168,7 +179,8 @@ def test_substrate_upload_single_page_success(app_client):
         ]
     }
     with patch("prompt_matrix.routers.substrate.TextractClient") as mock_cls:
-        instance = mock_cls.return_value
+        instance = MagicMock()
+        mock_cls.return_value = instance
         instance._get_page_count.return_value = 1
         instance.extract_text.return_value = {
             "text": "Net income grew 12%.",
@@ -179,21 +191,21 @@ def test_substrate_upload_single_page_success(app_client):
         }
         data = {"file": (io.BytesIO(_single_page_pdf()), "brief.pdf")}
         response = app_client.post(
-            "/api/projects/default/substrate/upload",
+            "/api/projects/textract-single/substrate/upload",
             data=data,
             content_type="multipart/form-data",
         )
 
-    assert response.status_code == 200
-    payload = response.get_json()
-    assert payload["ok"] is True
-    assert payload["text"] == "Net income grew 12%."
-    assert payload["tables"] == []
-    assert payload["page_count"] == 1
+        assert response.status_code == 200
+        payload = response.get_json()
+        assert payload["ok"] is True
+        assert payload["text"] == "Net income grew 12%."
+        assert payload["tables"] == []
+        assert payload["page_count"] == 1
 
     from prompt_matrix.db.substrate_repository import fetch_latest_substrate
 
-    stored = fetch_latest_substrate("default")
+    stored = fetch_latest_substrate("textract-single")
     assert stored is not None
     assert stored["text"] == "Net income grew 12%."
 
