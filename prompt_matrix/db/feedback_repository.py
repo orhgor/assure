@@ -38,3 +38,32 @@ def save_feedback(
         "rating": rating,
         "url": url or "",
     }
+
+
+def list_feedback(*, limit: int = 200) -> list[dict[str, Any]]:
+    init_db()
+    db = get_db()
+    cap = max(1, min(int(limit), 500))
+    rows = db.execute(
+        """
+        SELECT id, user_email, message, rating, url, created_at
+        FROM feedback
+        ORDER BY created_at DESC
+        LIMIT ?
+        """,
+        (cap,),
+    ).fetchall()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        out.append(
+            {
+                "id": item.get("id"),
+                "user_email": item.get("user_email") or "",
+                "message": item.get("message") or "",
+                "rating": item.get("rating"),
+                "url": item.get("url") or "",
+                "created_at": item.get("created_at"),
+            }
+        )
+    return out
