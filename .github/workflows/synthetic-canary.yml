@@ -1,0 +1,15 @@
+name: Synthetic Canary
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Production health + sandbox verify
+        run: bash scripts/synthetic-canary.sh

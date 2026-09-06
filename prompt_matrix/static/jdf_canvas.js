@@ -1,6 +1,21 @@
 (function (global) {
   "use strict";
 
+  /** Deterministic workbench state for Playwright (idle|compiling|syncing|locked|verifying). */
+  function setWorkbenchState(state) {
+    var root =
+      document.getElementById("workbench-root") || document.getElementById("jdf-workbench");
+    if (root) root.setAttribute("data-state", state || "idle");
+  }
+  global.setWorkbenchState = setWorkbenchState;
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setWorkbenchState("idle");
+    });
+  } else {
+    setWorkbenchState("idle");
+  }
+
   function purifyHtml(html) {
     if (global.DOMPurify && typeof global.DOMPurify.sanitize === "function") {
       return global.DOMPurify.sanitize(String(html || ""), {

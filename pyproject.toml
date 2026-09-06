@@ -34,6 +34,9 @@ dependencies = [
     "flask-wtf>=1.2.0",
     "bleach>=6.1.0",
     "sentry-sdk[flask]>=2.0.0",
+    "gevent>=24.2.0",
+    "celery[sqs]>=5.4.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 # pdf2image>=1.16.0 — optional: install with `uv sync --extra textract`

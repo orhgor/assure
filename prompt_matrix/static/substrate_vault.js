@@ -359,32 +359,14 @@
         var data = await res.json().catch(function () {
           return {};
         });
+        if (res.status === 202 && data.task_id) {
+          await self.pollUploadStatus(data.task_id, optimisticRow, file);
+          return;
+        }
         if (!res.ok || data.ok === false) {
           throw new Error(data.error || t("error.server", "Something went wrong. Try again."));
         }
-        var idx = this.files.indexOf(optimisticRow);
-        if (idx >= 0) {
-          this.files[idx] = {
-            id: data.id,
-            filename: data.filename || file.name,
-            file_size_bytes: data.size_bytes || file.size,
-            included: true,
-            claims_count: 0,
-          };
-        }
-        toast(t("substrate.vault.verified", "Verified"), "success");
-        if (data.text) {
-          global.fetch("/api/omp/remember", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              key: "substrate:" + projectId() + ":" + (data.id || file.name),
-              content: String(data.text).slice(0, 4000),
-              tags: ["substrate", projectId(), data.filename || file.name],
-            }),
-          }).catch(function () {});
-        }
+        self._applyUploadedFile(optimisticRow, file, data);
       } catch (err) {
         var failIdx = this.files.indexOf(optimisticRow);
         if (failIdx >= 0) this.files.splice(failIdx, 1);
@@ -393,6 +375,58 @@
         if (this.statusEl) this.statusEl.textContent = "";
         this.render();
       }
+    },
+
+    _applyUploadedFile: function (optimisticRow, file, data) {
+      var idx = this.files.indexOf(optimisticRow);
+      if (idx >= 0) {
+        this.files[idx] = {
+          id: data.id,
+          filename: data.filename || file.name,
+          file_size_bytes: data.size_bytes || file.size,
+          included: true,
+          claims_count: 0,
+        };
+      }
+      toast(t("substrate.vault.verified", "Verified"), "success");
+      if (data.text) {
+        global.fetch("/api/omp/remember", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "substrate:" + projectId() + ":" + (data.id || file.name),
+            content: String(data.text).slice(0, 4000),
+            tags: ["substrate", projectId(), data.filename || file.name],
+          }),
+        }).catch(function () {});
+      }
+    },
+
+    pollUploadStatus: async function (taskId, optimisticRow, file) {
+      var self = this;
+      var res = await global.fetch("/api/tasks/" + encodeURIComponent(taskId), {
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var data = await res.json();
+      var status = String(data.status || "").toLowerCase();
+
+      if (status === "pending" || status === "processing") {
+        if (self.statusEl) {
+          self.statusEl.textContent = t("substrate.vault.processing", "Processing");
+        }
+        await new Promise(function (resolve) {
+          global.setTimeout(resolve, 2000);
+        });
+        return self.pollUploadStatus(taskId, optimisticRow, file);
+      }
+      if (status === "success") {
+        var entry = (data.result && data.result.entry) || data.result || {};
+        self._applyUploadedFile(optimisticRow, file, entry);
+        return;
+      }
+      throw new Error((data.error || data.result && data.result.error) || "Upload processing failed");
     },
 
     triggerUpload: function () {

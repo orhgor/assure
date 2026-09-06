@@ -111,7 +111,7 @@
             <span class="workbench-last-action" id="workbench-last-action"></span>
           </div>
           <div class="app-content">
-      <section class="jdf-workbench workspace-shell" id="jdf-workbench" aria-label="{{ gettext('Document engineering') }}">
+      <section class="jdf-workbench workspace-shell" id="workbench-root" aria-label="{{ gettext('Document engineering') }}">
         <div class="app-container">
           <aside class="left-pane" id="left-pane">
 
@@ -3457,7 +3457,7 @@
       paintBadge($("ground") && $("ground").checked);
       loadRecent();
       schedulePreview();
-        if (window.JDFCanvasManager && $("jdf-workbench")) {
+        if (window.JDFCanvasManager && $("workbench-root")) {
         if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
           window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
         }

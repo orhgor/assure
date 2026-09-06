@@ -33,6 +33,9 @@
     }
     if (lockBtn) lockBtn.disabled = !!locked;
     document.body.classList.toggle("assure-doc-locked", !!locked);
+    if (typeof global.setWorkbenchState === "function") {
+      global.setWorkbenchState(locked ? "locked" : "idle");
+    }
   }
 
   function disableEditControls(disabled) {
