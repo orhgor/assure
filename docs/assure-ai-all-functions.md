@@ -1,11 +1,55 @@
 # Assure AI — All Functions
 
-**Version:** v1.4.0 (production `ee6a9ee`, UI cache `assure-96`)
+**Production:** v1.4.0 (`ee6a9ee`, UI cache `assure-96`) — https://getassureai.com/app
+**Staging:** v1.5 (`bc7515c`, UI cache `assure-97`) — https://staging.getassureai.com/app
 **Stack:** Flask · Vanilla JS · TipTap · SQLite · JDF (JSON Document Format)
-**Product URL:** https://getassureai.com/app
-**Last updated:** 2026-09-06
+**Last updated:** 2026-09-08
 
-This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and v1.5 planning—not a marketing brochure.
+This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and release planning—not a marketing brochure.
+
+---
+
+## Development status (what shipped and runs smoothly)
+
+### v1.4 — The Welcoming Scalpel ✅ production
+
+| Area | Status | Notes |
+|------|--------|-------|
+| New Project Wizard (3-step) | ✅ Live | Templates, sources, prompt → project + JDF seed |
+| SQLite prompt library | ✅ Live | CRUD `/api/prompts`, vault UI |
+| Project templates API | ✅ Live | 5 seeded templates |
+| First-compile coachmark | ✅ Live | One-time overlay after wizard |
+| Floating action bar (Polish) | ✅ Live | Rewrite / Ground / History / Delete |
+| Status bar + toast micro-UX | ✅ Live | Compiler status, non-blocking toasts |
+| Warm i18n copy (7 locales) | ✅ Live | “Assemble”, “Polish”, etc. |
+| **Tests** | ✅ Green | CI pytest + Playwright on v1.4 merge |
+
+**Production tag:** `v1.4.0` · merge `ee6a9ee`
+
+---
+
+### v1.5 — Enterprise Compliance & CI Integration ✅ staging
+
+| Feature | Status | Verification |
+|---------|--------|--------------|
+| **CI/CD drift endpoint** | ✅ Shipped | `POST /api/projects/<id>/drift-check` — config vs vault policy, Z3-backed findings |
+| **Sign-off workflow** | ✅ Shipped | Document + node sign-off routes, list API, UI panel in command deck **More** |
+| **Document locking** | ✅ Shipped | Lock version + content hash; `PUT /jdf` → 409 when locked; lock banner + disabled edits |
+| **JSON/YAML import** | ✅ Shipped | `POST /import-config` → JDF section; UI upload in **More** |
+| **Audit report PDF bundle** | ✅ Shipped | `export?format=audit-pdf` or `format=pdf&audit_bundle=1` — TOC, Z3, Red-Hat, sign-offs, lock hash |
+| **Global user activity log** | ✅ Shipped | `user_activity_log` table + middleware; `GET /api/audit-log` |
+| **OMP Decision Log UI** | ✅ Shipped | Timeline from `/api/omp/memories?tags=project:{id}` |
+| **Multi-page PDF vault** | ✅ Shipped | Up to 50 pages; page markers in extracted text; Z3 reasons cite page number |
+| **All Functions reference** | ✅ Doc | This file (`docs/assure-ai-all-functions.md`) |
+| **Tests (pytest)** | ✅ Green | 422+ pass (incl. 8 new v1.5 test modules) |
+| **Tests (Playwright)** | ✅ Green locally | 22/22 pass; lock UI uses API + reload (no `refreshLockState` race) |
+| **Deploy staging** | ✅ Live | `staging.getassureai.com/health` → `assure-97`, healthy |
+
+**Branch:** `feat/v1.5-enterprise-compliance` → merged **`staging`** @ `c5d979a` (+ lock-test fixes `0629e66`, `bc7515c`)
+
+**Not in v1.5 (deferred v2.0):** semantic conflict detection (NLI), SSO/RBAC, project API keys for drift CI.
+
+**CI note:** pytest job green on every staging push. Playwright job can flake on slow compile timeouts (`status_bar`, `surgical_refine`, `version_slider`) under CI load—unrelated to v1.5 code; lock UI test stabilized.
 
 ---
 
@@ -151,8 +195,9 @@ This document inventories every major product function as implemented in the cod
 |--------|----------|----------|
 | GET | `/api/projects/<id>/history` | JDF revision list |
 | GET | `/api/projects/<id>/jdf` | Fetch document (optional `?version=`) |
-| PUT | `/api/projects/<id>/jdf` | Save revision (full doc, node patch, optimistic lock → 409) |
+| PUT | `/api/projects/<id>/jdf` | Save revision (full doc, node patch, optimistic lock → 409; **document lock → 409**) |
 | POST | `/api/projects/<id>/import-pdf` | PDF → JDF tree |
+| POST | `/api/projects/<id>/import-config` | **v1.5** JSON/YAML → JDF config section |
 | GET | `/api/projects/<id>/nodes/<node_id>/history` | Per-node revision list |
 | POST | `/api/projects/<id>/nodes/<node_id>/restore` | Restore node snapshot |
 
@@ -184,7 +229,7 @@ This document inventories every major product function as implemented in the cod
 | Method | Endpoint | Function |
 |--------|----------|----------|
 | POST | `/api/substrate` | Edge/worker text ingest |
-| POST | `/api/projects/<id>/substrate/upload` | Upload PDF/image → Textract (1 page max) |
+| POST | `/api/projects/<id>/substrate/upload` | Upload PDF/image → Textract (**up to 50 pages** on PDF) |
 | GET | `/api/projects/<id>/substrate` | List vault files + claim counts |
 | DELETE | `/api/projects/<id>/substrate/<file_id>` | Remove file |
 | PATCH | `/api/projects/<id>/substrate/<file_id>` | Toggle **included** for compile grounding |
@@ -193,10 +238,17 @@ This document inventories every major product function as implemented in the cod
 
 | Method | Endpoint | Function |
 |--------|----------|----------|
-| GET | `/api/projects/<id>/export` | **docx**, **md**, **html**, **pdf**, **json** |
+| GET | `/api/projects/<id>/export` | **docx**, **md**, **html**, **pdf**, **audit-pdf**, **json** |
 | POST | `/api/projects/<id>/infer-locks` | Extract lock candidates from sources |
 | POST | `/api/projects/<id>/apply-locks` | Apply locks → truth ledger |
 | GET | `/api/projects/<id>/export-audit` | JSON audit manifest |
+| POST | `/api/projects/<id>/drift-check` | **v1.5** CI config vs policy drift (Z3 findings) |
+| POST | `/api/projects/<id>/lock` | **v1.5** Lock current JDF version + content hash |
+| GET | `/api/projects/<id>/lock` | **v1.5** Lock status for project/version |
+| GET | `/api/projects/<id>/sign-offs` | **v1.5** List sign-offs |
+| POST | `/api/projects/<id>/sign-off` | **v1.5** Document-level sign-off |
+| POST | `/api/projects/<id>/nodes/<node_id>/sign-off` | **v1.5** Node-level sign-off |
+| GET | `/api/audit-log` | **v1.5** User activity log (scoped by `user_id`) |
 
 #### Conflicts & comments
 
@@ -261,7 +313,8 @@ This document inventories every major product function as implemented in the cod
 
 - TipTap rich editor ↔ JDF AST sync
 - **Confidence overlay** — Verified / Uncertain / Hallucination spans
-- Version history slider + restore
+- Version history slider + restore + **🔒 Lock version** (v1.5)
+- **Lock banner** when document version is locked (v1.5)
 - **Floating action bar:** ✏️ Rewrite · 🔍 Ground · 📜 History · 🗑️ Delete
 - **Surgical popover:** Polish, Ground (auto/search/llm), History, Delete
 - **Node menu:** Edit, Revise, Re-prompt, Send for Revision, Node history, Red-Hat on node
@@ -277,10 +330,10 @@ This document inventories every major product function as implemented in the cod
 
 ### 3.7 Command deck (footer)
 
-- Compiler status + version slider
-- **Download:** Word · Markdown · HTML · PDF
+- Compiler status + version slider + **lock control** (v1.5)
+- **Download:** Word · Markdown · HTML · PDF · **Audit PDF bundle** (v1.5)
 - **Audit Report** modal + JSON export
-- **More → Upload PDF** (JDF import)
+- **More →** Upload PDF · **Import JSON/YAML** · **Sign-Off** · **Decision Log** (v1.5)
 - Stop stream
 
 ### 3.8 Settings & library
@@ -307,6 +360,8 @@ This document inventories every major product function as implemented in the cod
 | **Confidence overlay** | Span scores: green (>0.8), yellow (0.4–0.8), red (<0.4) + “Why this score” |
 | **Source conflicts** | Keyword-level numeric/date/term scan across included vault files |
 | **Audit manifest** | JSON export: Z3 logs, Red-Hat logs, provenance, truth ledger, JDF body |
+| **Audit PDF bundle** | **v1.5** Formal compliance PDF: document, Z3 spans, Red-Hat, sign-offs, lock hash, build SHA |
+| **Drift check** | **v1.5** Compare structured config to vault policy for CI pipelines |
 | **Preflight gate** | Blocks dock until Math Check + Stress Test pass (configurable flow) |
 
 ---
@@ -315,11 +370,11 @@ This document inventories every major product function as implemented in the cod
 
 | Context | Formats |
 |---------|---------|
-| JDF project | docx, md, html, pdf, json |
+| JDF project | docx, md, html, pdf, **audit-pdf**, json |
 | History run | markdown, html, prompty, pdf, plain |
 | Saved class | cursorrules, mdc, fabric, dspy (Pro+) |
-| Audit | JSON manifest |
-| Import | PDF → JDF (`/import-pdf` or vault upload) |
+| Audit | JSON manifest + **PDF compliance bundle** (v1.5) |
+| Import | PDF → JDF; **JSON/YAML → JDF section** (v1.5); vault upload |
 | Account | JSON user export |
 
 DOCX optional **References / citations** section via project setting `show_citations`.
@@ -328,7 +383,7 @@ DOCX optional **References / citations** section via project setting `show_citat
 
 ## 6. Database persistence
 
-**Schema version:** 16 (SQLite)
+**Schema version:** 17 (SQLite)
 
 | Table | Purpose |
 |-------|---------|
@@ -341,9 +396,12 @@ DOCX optional **References / citations** section via project setting `show_citat
 | `pipeline_cache` | Compile/Red-Hat cache (OMP-indexed, TTL) |
 | `project_templates` | **v1.4** wizard templates |
 | `prompts` | **v1.4** prompt library |
+| `sign_offs` | **v1.5** Document/node reviewer approvals |
+| `document_locks` | **v1.5** Version lock + content hash |
+| `user_activity_log` | **v1.5** Global API activity audit |
 | `token_ledger_entries` | Usage tracking |
 | `project_budgets` | Per-project token limits |
-| `audit_log` | Structured request audit trail |
+| `audit_log` | Structured request audit trail (export/JDF/substrate events) |
 | `executions` | PEM compose run history |
 | `user_subscriptions` | Clerk user → tier |
 
@@ -411,8 +469,9 @@ DOCX optional **References / citations** section via project setting `show_citat
 - Rate limiting on export and substrate ingest
 - Project ownership middleware
 - Cost governance: budgets, token ledger, SSE budget errors
-- Upload limits: 10 MB default; vault Textract **1 page** max
-- Audit logging: EXPORT_*, JDF_PUT, SUBSTRATE_*, etc.
+- Upload limits: 10 MB default; vault Textract **50 pages** max (PDF)
+- Audit logging: EXPORT_*, JDF_PUT, SUBSTRATE_*, DRIFT_CHECK, DOCUMENT_LOCK, etc.
+- **User activity log** (v1.5): middleware on `/api/*` → `user_activity_log`
 - CLI: `flask prune-cache` for expired pipeline_cache
 
 ---
@@ -437,6 +496,7 @@ DOCX optional **References / citations** section via project setting `show_citat
 | `adoption.js` | Lock inference UI |
 | `onboarding.js` | First-run tour |
 | `toast.js` | Non-critical notifications |
+| `compliance_ui.js` | **v1.5** Lock, sign-off, decision log, config import UI |
 | `sandbox.js` | Landing paste test |
 | `landing-demo.js` | Landing interactive demo |
 
@@ -447,12 +507,14 @@ DOCX optional **References / citations** section via project setting `show_citat
 | Area | Limitation |
 |------|------------|
 | Source conflicts | Keyword-level only; semantic NLI deferred to v2.0 |
-| Vault upload | Single-page PDF/image (Textract); multi-page rejected |
-| JSON configs | Best ingested as text; no native JSON Textract path |
+| Drift check | Numeric/key overlap vs policy text; not semantic NLI |
+| Vault upload | Multi-page PDF up to 50 pages; images still single-page |
+| Sign-off / lock | No unlock route; no SSO-backed reviewer identity (v2.0) |
+| Audit PDF | Fallback PDF engine if WeasyPrint/Playwright unavailable |
 | Team edition | Shared workspaces not in this repo |
 | Cursor target | Compile/copy only — no model Send |
 | Sandbox / landing demo | No document persistence |
-| Comments API | Exists; not full v2.0 compliance workflow |
+| CI drift auth | Clerk session required; project API key deferred |
 
 ---
 
@@ -461,6 +523,16 @@ DOCX optional **References / citations** section via project setting `show_citat
 - [Insurance demo pack](./demo/insurance-boston-real-estate/README.md)
 - [Deploy flow](../.cursor/rules/deploy-flow.mdc)
 - [Launch checklist](./launch-checklist.md)
+
+---
+
+## Release checklist (quick reference)
+
+| Milestone | Branch / SHA | Environment | UI cache |
+|-----------|--------------|-------------|----------|
+| v1.4.0 | `main` / `ee6a9ee` | Production | `assure-96` |
+| v1.5 | `staging` / `bc7515c` | Staging | `assure-97` |
+| v1.5 → production | Pending merge `staging` → `main` | — | — |
 
 ---
 
