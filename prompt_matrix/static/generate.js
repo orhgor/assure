@@ -621,6 +621,10 @@
           if (data.document) {
             self.compiledDocument = data.document;
             global.compiledDocument = data.document;
+            if (data.document.body) {
+              self.compiledNodes = data.document.body;
+              self.renderDraftNodes(data.document.body);
+            }
             if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveCompiled === "function") {
               global.AssureProjectFileManager.saveCompiled(data.document).catch(function () {});
             }

@@ -67,15 +67,29 @@
       if (!root) return;
       var canvas = global.__assureJdf;
       if (!canvas || typeof canvas.computeNodeStatus !== "function") return;
+      var isPreview = canvas.rootEl && canvas.rootEl.classList.contains("is-draft-preview");
       root.querySelectorAll(".jdf-node, .jdf-ast-node, details.jdf-ast-section[data-node-id]").forEach(
         function (el) {
           var nodeId = el.getAttribute("data-node-id");
           if (!nodeId) return;
           var node = canvas.getNodeById && canvas.getNodeById(nodeId);
           if (!node) return;
+          var docNode = null;
+          var compiled = global.compiledDocument;
+          if (compiled && compiled.body) {
+            (compiled.body || []).forEach(function (sec) {
+              (sec.children || []).forEach(function (child) {
+                if (child && String(child.id) === nodeId) docNode = child;
+              });
+            });
+          }
           var status = canvas.computeNodeStatus(node);
+          var meta = (docNode && docNode.meta) || node.meta || {};
+          var verified =
+            status === "verified" ||
+            (isPreview && (meta.provenance || el.querySelector(".ink-stamp")));
           var existing = el.querySelector(".provenance-info-btn");
-          if (status !== "verified") {
+          if (!verified) {
             if (existing) existing.remove();
             return;
           }
@@ -120,6 +134,16 @@
       if (!nodeId) return;
       var canvas = global.__assureJdf;
       var node = canvas && canvas.getNodeById ? canvas.getNodeById(nodeId) : null;
+      var compiled = global.compiledDocument;
+      if (compiled && compiled.body) {
+        (compiled.body || []).forEach(function (sec) {
+          (sec.children || []).forEach(function (child) {
+            if (child && String(child.id) === nodeId) {
+              node = Object.assign({}, child, { meta: child.meta || {} });
+            }
+          });
+        });
+      }
       var prov = this.resolveProvenance(node);
       this.openNodeId = nodeId;
       var drawer = $("provenance-panel-drawer");
@@ -242,5 +266,10 @@
     window.setTimeout(function () {
       Panel.syncInfoButtons();
     }, 400);
+  });
+  document.addEventListener("assure:jdf:rendered", function () {
+    window.setTimeout(function () {
+      Panel.syncInfoButtons();
+    }, 120);
   });
 })(window);

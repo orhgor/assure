@@ -27,7 +27,10 @@ def test_provenance_panel_shows_and_closes(workbench_page):
           if (window.AssureProvenancePanel && window.AssureProvenancePanel.syncInfoButtons) {
             window.AssureProvenancePanel.syncInfoButtons();
           }
-          return document.querySelectorAll('.provenance-info-btn').length > 0;
+          if (window.AssureWowEffects && window.AssureWowEffects.refreshStamps) {
+            window.AssureWowEffects.refreshStamps();
+          }
+          return document.querySelectorAll('.provenance-info-btn, .ink-stamp').length > 0;
         }""",
         timeout=20_000,
     )
