@@ -1160,6 +1160,13 @@
       propEl.textContent = proposed || "";
     }
     panel.hidden = false;
+    if (global.AssureWowEffects && typeof global.AssureWowEffects.showDiffXRay === "function") {
+      global.AssureWowEffects.showDiffXRay(
+        original,
+        proposed,
+        (this._pendingDiff && this._pendingDiff.nodeId) || this.surgicalTargetId || ""
+      );
+    }
     if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
       global.AssureNav.switchView("surgical");
     }
@@ -1171,6 +1178,9 @@
   JDFCanvasManager.prototype.hideRevisionDiff = function () {
     var panel = document.getElementById("jdf-diff-panel");
     if (panel) panel.hidden = true;
+    if (global.AssureWowEffects && typeof global.AssureWowEffects.hideDiffXRay === "function") {
+      global.AssureWowEffects.hideDiffXRay();
+    }
     this._pendingDiff = null;
   };
 
@@ -1910,6 +1920,9 @@
     gutters.forEach(function (g) {
       g.className = "verification-gutter " + (state || "");
     });
+    if (global.AssureWowEffects && typeof global.AssureWowEffects.onAllGuttersVerified === "function") {
+      global.AssureWowEffects.onAllGuttersVerified(state);
+    }
   };
 
   JDFCanvasManager.prototype._applyRefinedPayload = function (payload) {
@@ -2418,6 +2431,9 @@
         gutter.setAttribute("data-node-id", node.id);
         gutter.classList.add(self.computeNodeStatus(node));
         article.appendChild(gutter);
+        if (global.AssureWowEffects && typeof global.AssureWowEffects.syncNodeStamp === "function") {
+          global.AssureWowEffects.syncNodeStamp(article, node, self);
+        }
         if (animate) {
           article.classList.add("animated");
           article.style.animationDelay = (nodeIndex * 30) + "ms";

@@ -164,12 +164,18 @@
           btn.classList.remove("is-pulse");
           void btn.offsetWidth;
           btn.classList.add("is-pulse");
+          if (global.AssureWowEffects && typeof global.AssureWowEffects.onCompileStart === "function") {
+            global.AssureWowEffects.onCompileStart();
+          }
           self.startDraftStream(false, { fullAudit: false });
         });
       }
       var fullAuditBtn = $("generate-full-audit-btn");
       if (fullAuditBtn) {
         fullAuditBtn.addEventListener("click", function () {
+          if (global.AssureWowEffects && typeof global.AssureWowEffects.onCompileStart === "function") {
+            global.AssureWowEffects.onCompileStart();
+          }
           self.startDraftStream(false, { fullAudit: true });
         });
       }
@@ -639,6 +645,9 @@
           var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";
           if (global.__assureJdf && typeof global.__assureJdf.setAllGutterState === "function") {
             global.__assureJdf.setAllGutterState(gutterVerified);
+          }
+          if (global.AssureWowEffects && typeof global.AssureWowEffects.onVerified === "function") {
+            global.AssureWowEffects.onVerified(gutterVerified);
           }
           self.setGateLoading(false);
           self._redhatCtx = {
@@ -1254,6 +1263,9 @@
       var critiques = data.redhat_critiques || [];
       if (critiques.length && global.__assureJdf && typeof global.__assureJdf.patchGutterFromRedhat === "function") {
         global.__assureJdf.patchGutterFromRedhat(critiques);
+      }
+      if (global.AssureWowEffects && typeof global.AssureWowEffects.onRedhatComplete === "function") {
+        global.AssureWowEffects.onRedhatComplete(critiques);
       }
       self.mergeAuditManifest(data);
       if (self._docked) {

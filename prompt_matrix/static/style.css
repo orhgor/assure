@@ -7264,3 +7264,263 @@ body.assure-doc-locked .jdf-tree [contenteditable="true"] {
 body.wizard-open {
   overflow: hidden;
 }
+
+/* ── Wow Effect UI (workbench only; ASSURE_WOW_EFFECTS / __ASSURE_WOW_EFFECTS__) ── */
+
+#jdf-document-canvas {
+  position: relative;
+}
+
+.laser-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(46, 125, 50, 0.15) 20%,
+    rgba(46, 125, 50, 0.95) 50%,
+    rgba(26, 75, 140, 0.95) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 12px rgba(46, 125, 50, 0.65),
+    0 0 28px rgba(26, 75, 140, 0.35);
+  transition: top 0.12s linear, opacity 0.2s ease;
+}
+
+.laser-beam.is-armed,
+.laser-beam.is-running {
+  opacity: 1;
+}
+
+.laser-beam.is-running {
+  animation: laser-sweep 0.8s ease-in-out infinite;
+}
+
+@keyframes laser-sweep {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+.jdf-node.wow-node-snap {
+  transform: scale(1.02);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wow-verified-check {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--confidence-green, #2e7d32);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: wow-check-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 3;
+  pointer-events: none;
+}
+
+@keyframes wow-check-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.jdf-node.has-ink-stamp {
+  position: relative;
+}
+
+.ink-stamp {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border: 2px solid var(--trust-blue, #1a4b8c);
+  border-radius: 4px;
+  color: var(--trust-blue, #1a4b8c);
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.92);
+  transform: scale(0);
+  opacity: 0;
+  animation: inkStamp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(13, 43, 69, 0.12);
+}
+
+.ink-stamp[data-stamp-kind="audit"] {
+  border-color: var(--confidence-green, #2e7d32);
+  color: var(--confidence-green, #2e7d32);
+}
+
+@keyframes inkStamp {
+  from {
+    transform: scale(0) rotate(-8deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(-2deg);
+    opacity: 1;
+  }
+}
+
+.diff-xray-overlay {
+  position: absolute;
+  inset: 0.75rem;
+  z-index: 50;
+  background: rgba(13, 43, 69, 0.92);
+  border-radius: 10px;
+  padding: 0.75rem 1rem 1rem;
+  color: #f7f8fa;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.diff-xray-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.diff-xray-stage {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  border: 1px solid rgba(226, 232, 240, 0.25);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d2b45;
+}
+
+.diff-xray-pane {
+  position: absolute;
+  inset: 0;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.diff-xray-original {
+  z-index: 2;
+  background: rgba(220, 38, 38, 0.08);
+  color: #fecaca;
+}
+
+.diff-xray-revised {
+  z-index: 1;
+  background: rgba(46, 125, 50, 0.08);
+  color: #bbf7d0;
+}
+
+.diff-xray-handle-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.diff-xray-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  pointer-events: auto;
+  accent-color: var(--accent-gold, #d4a843);
+}
+
+.diff-xray-close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 6;
+  color: #f7f8fa;
+}
+
+#reasoning-graph-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  z-index: 120;
+  background: var(--light-gray, #f7f8fa);
+  border-left: 1px solid var(--warm-gray, #e2e8f0);
+  box-shadow: -8px 0 32px rgba(13, 43, 69, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.reasoning-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--warm-gray, #e2e8f0);
+  background: #fff;
+}
+
+.reasoning-graph-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+#reasoning-graph-cy {
+  flex: 1;
+  min-height: 240px;
+  background: #fff;
+}
+
+.reasoning-graph-fallback {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+}
+
+.reasoning-graph-fallback li {
+  padding: 0.35rem 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--warm-gray, #e2e8f0);
+}
+
+.reasoning-graph-fallback li:hover {
+  color: var(--trust-blue, #1a4b8c);
+}
+
+#wow-reasoning-graph-btn[aria-expanded="true"] {
+  border-color: var(--trust-blue, #1a4b8c);
+  color: var(--trust-blue, #1a4b8c);
+}

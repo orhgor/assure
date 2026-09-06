@@ -465,6 +465,13 @@
               </span>
             </div>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
+            <aside id="reasoning-graph-drawer" class="reasoning-graph-drawer" hidden>
+              <div class="reasoning-graph-header">
+                <h2 data-i18n="jdf.reasoning_graph.title">{{ gettext('Reasoning Graph') }}</h2>
+                <button type="button" class="btn btn-sm btn-ghost" id="reasoning-graph-close" aria-label="{{ gettext('Close reasoning graph') }}" data-i18n-aria="jdf.reasoning_graph.close">×</button>
+              </div>
+              <div id="reasoning-graph-cy" class="reasoning-graph-cy"></div>
+            </aside>
             <aside id="jdf-audit-appendix" class="jdf-audit-appendix" hidden>
               <h2 class="jdf-audit-appendix-title" data-i18n="generate.audit_manifest">{{ gettext('Audit Report') }}</h2>
               <div id="jdf-audit-appendix-body" class="jdf-audit-appendix-body"></div>
@@ -501,6 +508,7 @@
               </div>
             </details>
             <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Report') }}</button>
+            <button type="button" class="btn btn-sm btn-outline" id="wow-reasoning-graph-btn" aria-expanded="false" data-i18n="jdf.reasoning_graph.toggle">{{ gettext('Reasoning Graph') }}</button>
             <details class="command-deck-more" id="command-deck-more">
               <summary class="btn btn-sm btn-outline" data-i18n="command.deck.more">{{ gettext('More') }}</summary>
               <div class="command-deck-more-panel">
@@ -998,6 +1006,9 @@
   <script src="{{ url_for('static', filename='project_files.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='confidence_highlighter.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <script>window.__ASSURE_WOW_EFFECTS__ = true;</script>
+  <script src="{{ url_for('static', filename='wow_effects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ js_version|default('assure-21') }}"></script>

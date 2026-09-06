@@ -24,6 +24,11 @@ RENDER_TARGET = "#jdf-render-target"
 VERSION_SLIDER = "#version-history-slider"
 VERSION_DISPLAY = "#version-display"
 DIFF_PANEL = "#jdf-diff-panel"
+LASER_BEAM = "#laser-beam"
+INK_STAMP = ".ink-stamp"
+DIFF_XRAY = "#diff-xray-overlay"
+REASONING_GRAPH_BTN = "#wow-reasoning-graph-btn"
+REASONING_GRAPH_DRAWER = "#reasoning-graph-drawer"
 SURGICAL_POPOVER = "#jdf-surgical-popover"
 REFINE_BTN = "#surgical-refine-ai-btn"
 REFINE_INSTRUCTION = "#surgical-refine-instruction"
@@ -38,13 +43,15 @@ def app_url(base_url: str) -> str:
     return f"{root}/app"
 
 
-def prime_page(page, *, compiles: int = 0) -> None:
+def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
     page.set_viewport_size(DESKTOP_VIEWPORT)
+    wow = "true" if wow_effects else "false"
     page.add_init_script(
         f"""
         try {{
           localStorage.setItem({ONBOARDING_KEY!r}, '1');
           sessionStorage.setItem({SESSION_COMPILE_KEY!r}, '{int(compiles)}');
+          window.__ASSURE_WOW_EFFECTS__ = {wow};
         }} catch (e) {{}}
         """
     )
