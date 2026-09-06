@@ -1,17 +1,15 @@
 # Assure — full product status
 
 **Date:** 2026-09-06
-**Current track:** `feat/ui-revision-sprint` `e19523c` → [PR #6](https://github.com/orhgor/assure/pull/6) → `staging` → `main`
-**Workbench UI inventory:** [workbench-ui-current-state.md](./workbench-ui-current-state.md)
-**Function catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md)
+**Git:** `staging` and `main` include merge `36e532a` (PR #6 + Trust & Clarity).
+**Live EC2:** Staging health still `f04ec7f`; production still `bac3d40`. **GitHub Actions deploy failed** (account billing / spending limit) — code is on GitHub, images were not rebuilt.
 
 ## Current snapshot (2026-09-06)
 
-| Environment | Git | Workbench notes |
+| Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
-| **Production** (before this promote) | `main` @ `bac3d40` | v2.0.0 Wow only (laser, stamps, x-ray, reasoning graph). No Trust & Clarity stepper/provenance/roles. |
-| **Staging** (before this promote) | `staging` @ `f04ec7f` | Trust & Clarity (provenance, roles, action-phase grid). |
-| **This promote** | UI revision on Trust & Clarity | Lifecycle **stepper**, **embedded analytics** (280px cards), provenance **slide-in** drawer, single Accept & Dock. |
+| **Production** | `main` includes `36e532a` after this promote | `bac3d40` — Wow only until Actions billing is fixed and deploy succeeds |
+| **Staging** | `36e532a` Merge PR #6 | `f04ec7f` — Trust & Clarity grid, not yet the stepper |
 
 **Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
 **CI:** PR #6 `test` + `playwright-tests` **SUCCESS** (2026-09-06).
@@ -29,7 +27,7 @@
 | Active Works visual hierarchy | ❌ Not in this sprint |
 | Full Audit as verify-only (no re-compile) | ❌ Still re-runs compile stream |
 
-**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md)
+**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Function catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md)
 
 ---
 

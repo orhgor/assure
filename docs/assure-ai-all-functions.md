@@ -1,8 +1,9 @@
 # Assure AI — All Functions
 
-**Production:** v2.0.0 Wow (`bac3d40`) until this sprint is promoted — then UI revision + Trust & Clarity.
-**Staging (target):** `feat/ui-revision-sprint` `e19523c` via [PR #6](https://github.com/orhgor/assure/pull/6) onto `staging`.
-**Last updated:** 2026-09-06 (UI revision sprint)
+**Production git:** `main` includes `36e532a` (PR #6). **Live EC2** still `bac3d40` until deploy billing is fixed.
+**Staging git:** `36e532a`. **Live EC2** still `f04ec7f`.
+**Stack:** Flask · Vanilla JS · TipTap · SQLite · JDF (JSON Document Format)
+**Last updated:** 2026-09-06 (UI revision sprint — git promoted; GHCR/EC2 not rebuilt)
 
 This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and release planning—not a marketing brochure.
 
@@ -572,7 +573,7 @@ DOCX optional **References / citations** section via project setting `show_citat
 | v1.4.0 | `main` / `ee6a9ee` | Production (historical) | `assure-96` |
 | v2.0.0 Wow | `main` / `bac3d40` | Production (pre-promote) | — |
 | Trust & Clarity | `staging` / `f04ec7f` | Staging (pre-promote) | — |
-| UI revision sprint | `e19523c` PR #6 | Staging + production (this promote) | — |
+| UI revision sprint | `36e532a` (PR #6) | Git on `staging` + `main`; live EC2 pending Actions billing | — |
 
 ---
 

@@ -1,7 +1,7 @@
 # Assure Workbench — Current UI State
 
 **Purpose:** Baseline for the next UI propagation prompt (revise, add, enhance).
-**Branch / deploy snapshot:** `feat/ui-revision-sprint` @ `e19523c` ([PR #6](https://github.com/orhgor/assure/pull/6) → staging → production).
+**Branch / deploy snapshot:** Git `36e532a` (PR #6 merged to `staging` and `main`). Live staging `/health` still `f04ec7f`; live production still `bac3d40` (Actions deploy blocked on billing).
 **Live inventory (product):** `docs/product-status.md` (current snapshot) · `docs/assure-ai-all-functions.md` §3.
 
 ### What changed since the last status pass
