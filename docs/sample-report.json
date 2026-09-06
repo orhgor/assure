@@ -1,0 +1,13 @@
+{
+  "title": "Sample compliance report",
+  "pages": [
+    {
+      "elements": [
+        {
+          "type": "paragraph",
+          "content": "Revenue reached $12M in Q3."
+        }
+      ]
+    }
+  ]
+}

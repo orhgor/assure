@@ -46,20 +46,33 @@ def live_assure_server():
 
     patches = [
         patch("prompt_matrix.history.DB_PATH", db_path),
+        patch("prompt_matrix.history._resolve_db_path", return_value=db_path),
+        patch("prompt_matrix.db.pool._resolve_db_path", return_value=db_path),
         patch("prompt_matrix.lib.logger.DB_PATH", db_path),
         patch("prompt_matrix.lib.logger.resolve_db_path", return_value=str(db_path)),
+        patch("prompt_matrix.history.get_db", side_effect=_getter),
         patch("prompt_matrix.db.connection.get_db", side_effect=_getter),
+        patch("prompt_matrix.db.jdf_repository.get_db", side_effect=_getter),
+        patch("prompt_matrix.db.feedback_repository.get_db", side_effect=_getter),
         patch("prompt_matrix.routers.health.os.statvfs", return_value=_StatVfs()),
         # Blank Clerk keys so auth is off for the Playwright server only.
         # Do not set ASSURE_REQUIRE_LOGIN=false here — that leaks into unrelated tests.
         patch.dict(
             os.environ,
-            {"CLERK_PUBLISHABLE_KEY": "", "CLERK_SECRET_KEY": ""},
+            {
+                "CLERK_PUBLISHABLE_KEY": "",
+                "CLERK_SECRET_KEY": "",
+                "SQLITE_USE_POOL": "0",
+            },
             clear=False,
         ),
     ]
     for item in patches:
         item.start()
+
+    from prompt_matrix.db.pool import reset_engine_for_tests
+
+    reset_engine_for_tests()
 
     conn = _getter()
     from prompt_matrix.db.connection import init_db

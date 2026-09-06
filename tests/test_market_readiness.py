@@ -79,7 +79,7 @@ class CatalogTests(unittest.TestCase):
 class ComposeMarkupTests(unittest.TestCase):
     def test_workbench_shell_in_index(self):
         html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-        self.assertIn('id="jdf-workbench"', html)
+        self.assertIn('id="workbench-root"', html)
         self.assertIn('id="view-generate"', html)
         self.assertIn('id="generate-compile-btn"', html)
         self.assertIn('data-tool="generate"', html)

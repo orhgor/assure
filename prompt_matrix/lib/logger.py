@@ -23,8 +23,31 @@ _audit_singleton: AuditLogger | None = None
 class _RequestIdFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
+            try:
+                from flask import g, has_app_context
+
+                if has_app_context() and getattr(g, "request_id", None):
+                    record.request_id = g.request_id
+                    return True
+            except Exception:
+                pass
             record.request_id = "-"
         return True
+
+
+def set_request_id() -> None:
+    """Attach a request id for logs and Sentry."""
+    try:
+        from flask import g, request
+    except ImportError:
+        return
+    g.request_id = (request.headers.get("X-Request-Id") or str(uuid.uuid4())).strip()
+    try:
+        import sentry_sdk
+
+        sentry_sdk.set_tag("request_id", g.request_id)
+    except Exception:
+        pass
 
 
 def _log_dir() -> Path:

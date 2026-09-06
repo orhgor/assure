@@ -209,13 +209,24 @@ def run_refine_node(
     messages = _build_messages(instruction, aperture)
     governor = gov or CostGovernor()
     governor.preflight(project_id, TaskType.SURGICAL_EDIT, messages)
-    result = governor.execute_with_retry_budget(
-        project_id,
-        TaskType.SURGICAL_EDIT,
-        messages,
-        defer_budget_record=True,
-    )
-    text = (result.text or "").strip()
+    node_type = str(original.get("type") or "paragraph")
+    text = ""
+    try:
+        from ..llm.orchestrator import orchestrate_node_compilation_sync
+    except ImportError:
+        from llm.orchestrator import orchestrate_node_compilation_sync
+    try:
+        text = orchestrate_node_compilation_sync(node_type, messages).strip()
+    except Exception:
+        text = ""
+    if not text:
+        result = governor.execute_with_retry_budget(
+            project_id,
+            TaskType.SURGICAL_EDIT,
+            messages,
+            defer_budget_record=True,
+        )
+        text = (result.text or "").strip()
     if not text or text.startswith("ERROR:"):
         raise RuntimeError(text or "Refine failed.")
 

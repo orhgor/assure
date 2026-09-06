@@ -110,10 +110,42 @@ class JDFImageNode(BaseModel):
     annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
 
 
-JDFBlockNode = Annotated[
-    Union[JDFParagraphNode, JDFCalloutNode, JDFTableNode, JDFImageNode],
+class JDFSignatureNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["signature"] = "signature"
+    id: str
+    signer_name: str = ""
+    signed_at: str = ""
+    content: str = ""
+    meta: dict[str, Any] = Field(default_factory=dict)
+    annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
+
+
+class JDFCheckboxNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["checkbox"] = "checkbox"
+    id: str
+    label: str = ""
+    checked: bool = False
+    meta: dict[str, Any] = Field(default_factory=dict)
+    annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
+
+
+JDFLeafNode = Annotated[
+    Union[
+        JDFParagraphNode,
+        JDFCalloutNode,
+        JDFTableNode,
+        JDFImageNode,
+        JDFSignatureNode,
+        JDFCheckboxNode,
+    ],
     Field(discriminator="type"),
 ]
+
+JDFBlockNode = JDFLeafNode
 
 
 class JDFSectionNode(BaseModel):
@@ -122,9 +154,7 @@ class JDFSectionNode(BaseModel):
     type: Literal["section"] = "section"
     id: str
     title: str
-    children: list[JDFParagraphNode | JDFCalloutNode | JDFTableNode | JDFImageNode] = Field(
-        default_factory=list
-    )
+    children: list[JDFLeafNode] = Field(default_factory=list)
     meta: dict[str, Any] = Field(default_factory=dict)
     annotations: JDFNodeAnnotations = Field(default_factory=JDFNodeAnnotations)
 

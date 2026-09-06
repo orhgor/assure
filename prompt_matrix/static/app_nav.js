@@ -570,6 +570,10 @@
     /** Primary navigation — aborts streams and toggles view containers. */
     switchView: function (view, opts) {
       opts = opts || {};
+      if (view === "analytics") {
+        global.location.href = "/analytics";
+        return;
+      }
       if (!view) view = DEFAULT_VIEW;
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
@@ -601,7 +605,7 @@
 
       var layout = $("assure-app");
       var appContent = layout && layout.querySelector(".app-content");
-      var workbench = $("jdf-workbench");
+      var workbench = $("workbench-root");
       var leftPaneShared = $("left-pane-shared");
       var inWorkspace = WORKSPACE_VIEWS.indexOf(view) >= 0;
 

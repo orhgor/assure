@@ -1,6 +1,21 @@
 (function (global) {
   "use strict";
 
+  /** Deterministic workbench state for Playwright (idle|compiling|syncing|locked|verifying). */
+  function setWorkbenchState(state) {
+    var root =
+      document.getElementById("workbench-root") || document.getElementById("jdf-workbench");
+    if (root) root.setAttribute("data-state", state || "idle");
+  }
+  global.setWorkbenchState = setWorkbenchState;
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setWorkbenchState("idle");
+    });
+  } else {
+    setWorkbenchState("idle");
+  }
+
   function purifyHtml(html) {
     if (global.DOMPurify && typeof global.DOMPurify.sanitize === "function") {
       return global.DOMPurify.sanitize(String(html || ""), {
@@ -3140,4 +3155,24 @@
       return global.__assureJdf.selectNodeForRefine(nodeId, opts);
     }
   };
+
+  function applyCompiledASTToCanvas(astData) {
+    var target = document.getElementById("jdf-render-target");
+    if (global.assureJdfRender && target && astData && astData.pages) {
+      try {
+        var viewer = global.assureJdfRender("#jdf-render-target", astData, { toolbar: true });
+        setWorkbenchState("idle");
+        return viewer;
+      } catch (err) {
+        console.warn("assureJdfRender failed, falling back to canvas manager", err);
+      }
+    }
+    if (global.__assureJdf && typeof global.__assureJdf.applyCompiledTree === "function") {
+      var out = global.__assureJdf.applyCompiledTree(astData);
+      setWorkbenchState("idle");
+      return out;
+    }
+    return null;
+  }
+  global.applyCompiledASTToCanvas = applyCompiledASTToCanvas;
 })(window);

@@ -39,6 +39,14 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
 
 def _new_connection() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    use_pool = os.environ.get("SQLITE_USE_POOL", "1").lower() not in ("0", "false", "no")
+    if use_pool:
+        try:
+            from .db.pool import checkout_dbapi_connection
+
+            return checkout_dbapi_connection()
+        except Exception:
+            pass
     conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
     conn.row_factory = sqlite3.Row
     _apply_pragmas(conn)
@@ -68,7 +76,15 @@ def close_db(e=None) -> None:
         if has_app_context():
             db = g.pop("db", None)
             if db is not None:
-                db.close()
+                try:
+                    from .db.pool import connection_is_pooled, release_dbapi_connection
+
+                    if connection_is_pooled(db):
+                        release_dbapi_connection(db)
+                    else:
+                        db.close()
+                except Exception:
+                    db.close()
     except ImportError:
         pass
 

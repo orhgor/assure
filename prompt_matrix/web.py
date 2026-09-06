@@ -102,7 +102,7 @@ def _init_sentry() -> None:
         return
     sentry_sdk.init(
         dsn=dsn,
-        environment="production",
+        environment=os.environ.get("ENVIRONMENT", "production"),
         integrations=[FlaskIntegration()],
         traces_sample_rate=0.1,
     )
@@ -337,6 +337,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from history import close_db
 
     app.teardown_appcontext(close_db)
+
+    try:
+        from .lib.logger import set_request_id
+    except ImportError:
+        from lib.logger import set_request_id
+
+    app.before_request(set_request_id)
+
+    @app.after_request
+    def _static_cache_headers(resp: Response):
+        if request.path.startswith("/static/"):
+            if "v=" in (request.query_string or b"").decode("utf-8", errors="ignore"):
+                resp.headers.setdefault("Cache-Control", "public, max-age=86400, immutable")
+            elif os.environ.get("ENVIRONMENT") == "production":
+                resp.headers.setdefault("Cache-Control", "public, max-age=300")
+        return resp
+
     app.secret_key = (
         os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
     )
@@ -1300,68 +1317,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
             }
         )
 
-    @app.post("/api/tester-feedback")
-    def handle_tester_feedback():
-        data = request.get_json(silent=True) or {}
-        text = str(data.get("text") or "").strip()
-        if not text:
-            return jsonify({"error": "Feedback text required."}), 400
-        if len(text) > 4000:
-            return jsonify({"error": "Feedback text too long (max 4000 chars)."}), 400
-        page = str(data.get("page") or request.referrer or "")[:500]
-        request_id = str(uuid.uuid4())
-        user_hint = str(data.get("user") or "").strip()[:120] or None
-        try:
-            from flask import g
-
-            user_id = getattr(g, "user_id", None)
-            if user_id:
-                user_hint = str(user_id)
-        except RuntimeError:
-            pass
-        try:
-            from .lib.logger import get_audit_logger
-        except ImportError:
-            from lib.logger import get_audit_logger
-        get_audit_logger().log_audit(
-            request_id,
-            None,
-            "TESTER_FEEDBACK",
-            success=True,
-            details={"text": text, "page": page, "user": user_hint},
-        )
-        return jsonify({"status": "ok"}), 200
-
-    @app.post("/api/feedback")
-    @login_required
-    def handle_feedback():
-        data = request.get_json(silent=True) or {}
-        run_hash = str(data.get("run_hash") or "").strip()
-        rating_raw = data.get("rating")
-        variation_id = data.get("variation_id")
-        if not run_hash:
-            return jsonify({"error": "Missing run."}), 400
-        try:
-            rating = int(rating_raw)
-        except (TypeError, ValueError):
-            return jsonify({"error": "Rating must be 0 or 1."}), 400
-        if rating not in (0, 1):
-            return jsonify({"error": "Rating must be 0 or 1."}), 400
-        vid = None
-        if variation_id not in (None, ""):
-            try:
-                vid = int(variation_id)
-            except (TypeError, ValueError):
-                vid = None
-        try:
-            from .template_library import apply_feedback
-        except ImportError:
-            from template_library import apply_feedback
-        out = apply_feedback(run_hash, rating, vid)
-        if not out.get("ok"):
-            return jsonify({"error": out.get("error") or "Could not save feedback."}), 400
-        return jsonify({**out, "status": "ok"}), 200
-
     def _history_plan():
         try:
             from .editions import current_edition, snapshot
@@ -1686,10 +1641,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_prompt_routes(app)
 
     try:
-        from .routers.drift_routes import register_drift_routes
+        from .routers.analytics import register_analytics_routes
     except ImportError:
-        from routers.drift_routes import register_drift_routes
-    register_drift_routes(app)
+        from routers.analytics import register_analytics_routes
+    register_analytics_routes(app, page_renderer=_page)
+
+    try:
+        from .routers.feedback_routes import register_feedback_routes
+    except ImportError:
+        from routers.feedback_routes import register_feedback_routes
+    register_feedback_routes(app)
 
     try:
         from .routers.compliance_routes import register_compliance_routes
@@ -1708,6 +1669,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             register_import_config_routes,
         )
     register_import_config_routes(app)
+
+    try:
+        from .routers.async_tasks_routes import register_async_task_routes
+    except ImportError:
+        from routers.async_tasks_routes import register_async_task_routes
+    register_async_task_routes(app)
     register_audit_log_routes(app)
 
     try:

@@ -7,8 +7,9 @@ WORKDIR /build
 COPY package.json package-lock.json ./
 COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
 COPY scripts/bundle-tiptap.mjs scripts/bundle-tiptap.mjs
+COPY scripts/bundle-jdf.mjs scripts/bundle-jdf.mjs
 COPY prompt_matrix/static/src/ prompt_matrix/static/src/
-RUN npm ci && npm run bundle:sentry && npm run bundle:tiptap
+RUN npm ci && npm run bundle:sentry && npm run bundle:tiptap && npm run bundle:jdf
 
 FROM python:3.11-slim AS builder
 WORKDIR /app
@@ -18,7 +19,7 @@ COPY requirements.txt .
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc \
     && pip install --upgrade pip \
-    && pip install --prefer-binary -r requirements.txt gunicorn flask-cors httpx asgiref \
+    && pip install --prefer-binary -r requirements.txt gunicorn gevent flask-cors httpx asgiref \
     && apt-get purge -y gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -28,7 +29,8 @@ WORKDIR /app
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PORT=8765 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    USE_DOCLING=1
 
 ARG ASSURE_BUILD_SHA=unknown
 ENV ASSURE_BUILD_SHA=${ASSURE_BUILD_SHA}
@@ -46,4 +48,4 @@ COPY --from=sentry /build/prompt_matrix/static/tiptap.bundle.js prompt_matrix/st
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8765') + '/api/health', timeout=3)"
 
-CMD ["sh", "-c", "exec gunicorn --workers 1 --threads 8 --bind 0.0.0.0:${PORT:-8765} prompt_matrix.web:app"]
+CMD ["sh", "-c", "exec gunicorn --worker-class gevent --workers ${GUNICORN_WORKERS:-4} --worker-connections ${GUNICORN_WORKER_CONNECTIONS:-100} --bind 0.0.0.0:${PORT:-8765} prompt_matrix.web:app"]

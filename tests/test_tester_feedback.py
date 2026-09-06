@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
-import uuid
 
 import pytest
 
@@ -12,17 +12,20 @@ import pytest
 def feedback_client(tmp_path, monkeypatch):
     db_path = tmp_path / "history.sqlite"
     monkeypatch.setenv("DATABASE_PATH", str(db_path))
-    try:
-        from prompt_matrix.lib import logger as logger_mod
+    monkeypatch.setenv("WTF_CSRF_ENABLED", "0")
+    import prompt_matrix.history as history_mod
 
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    try:
+        import prompt_matrix.lib.logger as logger_mod
+
+        logger_mod.DB_PATH = history_mod.DB_PATH
         logger_mod._audit_singleton = None
     except ImportError:
         pass
     from prompt_matrix.db.connection import init_db
 
-    conn = sqlite3.connect(str(db_path))
-    init_db(conn)
-    conn.close()
+    init_db()
 
     from prompt_matrix.web import create_app
 
@@ -43,17 +46,23 @@ def test_tester_feedback_logs_audit_row(feedback_client):
         json={"text": "Export button was unclear", "page": "/app"},
     )
     assert res.status_code == 200
-    assert res.get_json().get("status") == "ok"
+    body = res.get_json()
+    assert body.get("status") == "ok"
+    assert body.get("id", "").startswith("fb-")
 
     conn = sqlite3.connect(db_path)
-    row = conn.execute(
+    audit = conn.execute(
         """
         SELECT action, success, details FROM audit_log
-        WHERE action='TESTER_FEEDBACK' ORDER BY created_at DESC LIMIT 1
+        WHERE action='USER_FEEDBACK' ORDER BY created_at DESC LIMIT 1
         """
     ).fetchone()
+    row = conn.execute("SELECT message FROM feedback ORDER BY created_at DESC LIMIT 1").fetchone()
     conn.close()
+    assert audit is not None
+    assert audit[0] == "USER_FEEDBACK"
+    assert audit[1] == 1
+    details = json.loads(audit[2] or "{}")
+    assert "Export button" in details.get("message_preview", "")
     assert row is not None
-    assert row[0] == "TESTER_FEEDBACK"
-    assert row[1] == 1
-    assert "Export button" in (row[2] or "")
+    assert "Export button" in row[0]

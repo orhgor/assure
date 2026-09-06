@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block body %}
+<main class="analytics-page" id="analytics-page">
+  <header class="analytics-header">
+    <h1 data-i18n="analytics.title">Analytics</h1>
+    <p class="hint" data-i18n="analytics.lead">Z3 health, Red-Hat critiques, and compliance velocity.</p>
+  </header>
+  <section class="analytics-kpis" id="analytics-kpis">
+    <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.z3_pass">Z3 Pass Rate</h2><p id="kpi-z3-pass">—</p></article>
+    <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.total_audits">Total Audits</h2><p id="kpi-total-audits">—</p></article>
+    <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.velocity">Avg Sign-offs</h2><p id="kpi-velocity">—</p></article>
+  </section>
+  <section class="analytics-charts">
+    <canvas id="chart-z3-health" height="160"></canvas>
+    <canvas id="chart-redhat" height="160"></canvas>
+    <div id="chart-velocity-table" class="analytics-table"></div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='analytics.js') }}?v={{ js_version|default('assure-97') }}"></script>
+{% endblock %}

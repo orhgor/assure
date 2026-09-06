@@ -16,7 +16,33 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 17
+_SCHEMA_VERSION = 19
+
+
+def _migrate_v19(db: sqlite3.Connection) -> None:
+    """User feedback table for Resend + analytics."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feedback (
+            id TEXT PRIMARY KEY,
+            user_email TEXT,
+            message TEXT NOT NULL,
+            rating INTEGER,
+            url TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at DESC)")
+
+
+def _migrate_v18(db: sqlite3.Connection) -> None:
+    """v2.0: analytics SQL views."""
+    try:
+        from .analytics_views import ensure_analytics_views
+    except ImportError:
+        from db.analytics_views import ensure_analytics_views
+    ensure_analytics_views(db)
 
 
 def _migrate_v17(db: sqlite3.Connection) -> None:
@@ -643,6 +669,10 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v16(db)
     if current < 17:
         _migrate_v17(db)
+    if current < 18:
+        _migrate_v18(db)
+    if current < 19:
+        _migrate_v19(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
@@ -703,3 +733,37 @@ def run_with_db_retry(
 
 def open_connection() -> sqlite3.Connection:
     return _connect_with_retry()
+
+
+try:
+    from sqlalchemy.exc import OperationalError as SAOperationalError
+except ImportError:
+    SAOperationalError = None  # type: ignore[misc, assignment]
+
+
+def execute_write_with_retry(fn, max_retries: int = 5, base_delay: float = 0.2):
+    """
+    Execute a database write with exponential backoff on lock/busy errors.
+    Handles raw sqlite3 and SQLAlchemy-wrapped exceptions.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            is_sqlite_lock = isinstance(exc, sqlite3.OperationalError) and any(
+                term in str(exc).lower() for term in ("locked", "busy")
+            )
+            is_sa_lock = (
+                SAOperationalError is not None
+                and isinstance(exc, SAOperationalError)
+                and any(term in str(exc).lower() for term in ("locked", "busy"))
+            )
+            if (is_sqlite_lock or is_sa_lock) and attempt < max_retries - 1:
+                time.sleep(base_delay * (2**attempt))
+                continue
+            raise
+    if last_exc is not None:
+        raise last_exc
+    raise sqlite3.OperationalError("database is locked")
