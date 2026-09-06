@@ -19,6 +19,8 @@ _CSRF_EXEMPT_PREFIXES = (
     "/api/sandbox/verify",
     "/api/auth/",
     "/api/substrate",
+    "/api/feedback",
+    "/api/tester-feedback",
 )
 
 

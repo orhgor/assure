@@ -56,18 +56,35 @@
       if (!text) return;
       btn.disabled = true;
       submitBtn.disabled = true;
-      nativeFetch("/api/tester-feedback", {
+      nativeFetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text, page: location.pathname }),
+        body: JSON.stringify({
+          message: text,
+          url: global.location.href,
+        }),
       })
         .then(function (res) {
           if (!res.ok) throw new Error("bad status");
           closeModal();
-          window.alert(t("tester.feedback.thanks", "Thank you! Your feedback was sent."));
+          if (global.AssureToast && typeof global.AssureToast.show === "function") {
+            global.AssureToast.show(
+              t("tester.feedback.thanks", "Thank you! Your feedback was sent."),
+              "success"
+            );
+          } else {
+            window.alert(t("tester.feedback.thanks", "Thank you! Your feedback was sent."));
+          }
         })
         .catch(function () {
-          window.alert(t("tester.feedback.error", "Could not send feedback. Please try again."));
+          if (global.AssureToast && typeof global.AssureToast.show === "function") {
+            global.AssureToast.show(
+              t("tester.feedback.error", "Could not send feedback. Please try again."),
+              "error"
+            );
+          } else {
+            window.alert(t("tester.feedback.error", "Could not send feedback. Please try again."));
+          }
         })
         .finally(function () {
           btn.disabled = false;

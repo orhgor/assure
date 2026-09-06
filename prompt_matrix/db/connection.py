@@ -16,7 +16,24 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 18
+_SCHEMA_VERSION = 19
+
+
+def _migrate_v19(db: sqlite3.Connection) -> None:
+    """User feedback table for Resend + analytics."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feedback (
+            id TEXT PRIMARY KEY,
+            user_email TEXT,
+            message TEXT NOT NULL,
+            rating INTEGER,
+            url TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at DESC)")
 
 
 def _migrate_v18(db: sqlite3.Connection) -> None:
@@ -654,6 +671,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v17(db)
     if current < 18:
         _migrate_v18(db)
+    if current < 19:
+        _migrate_v19(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
