@@ -82,11 +82,14 @@ def save_pipeline_cache(
 def prune_expired_pipeline_cache() -> int:
     init_db()
     db = get_db()
-    cur = db.execute(
-        "DELETE FROM pipeline_cache WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')"
-    )
-    db.commit()
-    return int(cur.rowcount or 0)
+    try:
+        cur = db.execute(
+            "DELETE FROM pipeline_cache WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')"
+        )
+        db.commit()
+        return int(cur.rowcount or 0)
+    except sqlite3.OperationalError:
+        return 0
 
 
 def sqlite_cache_expired(cache_key: str) -> bool:
