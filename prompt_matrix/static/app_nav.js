@@ -570,6 +570,10 @@
     /** Primary navigation — aborts streams and toggles view containers. */
     switchView: function (view, opts) {
       opts = opts || {};
+      if (view === "analytics") {
+        global.location.href = "/analytics";
+        return;
+      }
       if (!view) view = DEFAULT_VIEW;
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";

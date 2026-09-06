@@ -3155,4 +3155,24 @@
       return global.__assureJdf.selectNodeForRefine(nodeId, opts);
     }
   };
+
+  function applyCompiledASTToCanvas(astData) {
+    var target = document.getElementById("jdf-render-target");
+    if (global.assureJdfRender && target && astData && astData.pages) {
+      try {
+        var viewer = global.assureJdfRender("#jdf-render-target", astData, { toolbar: true });
+        setWorkbenchState("idle");
+        return viewer;
+      } catch (err) {
+        console.warn("assureJdfRender failed, falling back to canvas manager", err);
+      }
+    }
+    if (global.__assureJdf && typeof global.__assureJdf.applyCompiledTree === "function") {
+      var out = global.__assureJdf.applyCompiledTree(astData);
+      setWorkbenchState("idle");
+      return out;
+    }
+    return null;
+  }
+  global.applyCompiledASTToCanvas = applyCompiledASTToCanvas;
 })(window);

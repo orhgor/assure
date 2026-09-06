@@ -1703,10 +1703,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_prompt_routes(app)
 
     try:
-        from .routers.drift_routes import register_drift_routes
+        from .routers.analytics import register_analytics_routes
     except ImportError:
-        from routers.drift_routes import register_drift_routes
-    register_drift_routes(app)
+        from routers.analytics import register_analytics_routes
+    register_analytics_routes(app, page_renderer=_page)
 
     try:
         from .routers.compliance_routes import register_compliance_routes

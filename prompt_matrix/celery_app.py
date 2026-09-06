@@ -15,7 +15,11 @@ celery_app = Celery(
     "assure",
     broker=_broker,
     backend=_result_backend,
-    include=["prompt_matrix.tasks.llm_tasks", "prompt_matrix.tasks.substrate_tasks"],
+    include=[
+        "prompt_matrix.tasks.llm_tasks",
+        "prompt_matrix.tasks.substrate_tasks",
+        "prompt_matrix.tasks.compile_tasks",
+    ],
 )
 
 celery_app.conf.update(

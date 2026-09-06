@@ -16,7 +16,16 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 17
+_SCHEMA_VERSION = 18
+
+
+def _migrate_v18(db: sqlite3.Connection) -> None:
+    """v2.0: analytics SQL views."""
+    try:
+        from .analytics_views import ensure_analytics_views
+    except ImportError:
+        from db.analytics_views import ensure_analytics_views
+    ensure_analytics_views(db)
 
 
 def _migrate_v17(db: sqlite3.Connection) -> None:
@@ -643,6 +652,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v16(db)
     if current < 17:
         _migrate_v17(db)
+    if current < 18:
+        _migrate_v18(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

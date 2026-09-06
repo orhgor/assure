@@ -126,6 +126,10 @@ def test_run_refine_node_returns_only_updated_node(monkeypatch) -> None:
         (),
         {"text": "Revenue reached 12 million, locked to the ledger.", "ok": True},
     )()
+    monkeypatch.setattr(
+        "prompt_matrix.llm.orchestrator.orchestrate_node_compilation_sync",
+        lambda *_a, **_k: "",
+    )
     out = run_refine_node(
         "proj-x",
         node_id="p1",

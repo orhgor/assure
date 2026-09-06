@@ -26,3 +26,6 @@ pytest-asyncio>=0.23.0
 gevent>=24.2.0
 celery[sqs]>=5.4.0
 sqlalchemy>=2.0.0
+# Optional Sprint 2 stack (install on workers that ingest PDFs / run minimizer):
+# docling>=2.0.0
+# groundrails>=1.0.0

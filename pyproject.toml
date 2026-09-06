@@ -61,6 +61,9 @@ dev = [
 textract = [
     "pdf2image>=1.16.0",
 ]
+substrate = [
+    "docling>=2.0.0",
+]
 
 [project.urls]
 Homepage = "https://getassureai.com/"

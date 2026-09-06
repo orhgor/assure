@@ -41,6 +41,13 @@ jobs:
           pytest tests/test_full_audit.py -v
           pytest tests/test_z3_explanation.py -v
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate sample JDF with @uurtech/jdf-cli
+        run: npx --yes @uurtech/jdf-cli validate docs/report.jdf
+
       - name: Z3 accuracy benchmark
         run: pytest tests/test_z3_benchmark.py -v
 

@@ -102,6 +102,10 @@
               <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span>
               <span class="app-sidebar-badge" id="nav-sources-badge" hidden aria-hidden="true"></span>
             </button>
+            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="analytics" data-tooltip="{{ gettext('Z3 health and compliance analytics') }}" data-i18n-tooltip="tooltip.nav.analytics">
+              <span class="app-sidebar-icon" aria-hidden="true">📊</span>
+              <span class="app-sidebar-label" data-i18n="nav.analytics">{{ gettext('Analytics') }}</span>
+            </button>
             <button type="button" class="app-sidebar-link tooltip-trigger app-sidebar-link-icon-only" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings" aria-label="{{ gettext('Settings') }}" data-i18n-aria="nav.settings">
               <span class="app-sidebar-icon" aria-hidden="true">⚙️</span>
             </button>
@@ -478,6 +482,7 @@
               <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
               <span id="version-history-label" class="version-history-meta">v1</span>
               <button type="button" class="btn btn-outline btn-sm compliance-lock-btn" id="compliance-lock-btn" title="{{ gettext('Lock version') }}" data-i18n-title="compliance.lock.btn" aria-label="{{ gettext('Lock version') }}" data-i18n-aria="compliance.lock.btn">🔒</button>
+              <button type="button" class="btn btn-outline btn-sm" id="jdf-insert-signature-btn" title="{{ gettext('Insert signature field') }}" data-i18n-title="compliance.signature.btn">✍️</button>
               <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
             </span>
             <div id="compliance-lock-banner" class="compliance-lock-banner" hidden role="status" data-i18n="compliance.lock.banner"></div>
@@ -986,6 +991,7 @@
   <script src="{{ url_for('static', filename='assure_tab_guard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='assure_session_limit.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='jdf.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='tiptap.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_tiptap.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='vault_prompts.js') }}?v={{ js_version|default('assure-21') }}"></script>

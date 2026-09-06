@@ -1,11 +1,10 @@
-"""Fixtures for tests/playwright — reuses the live Flask server from tests/e2e."""
+"""Fixtures for tests/playwright — local Flask server for browser tests."""
 
 from __future__ import annotations
 
 import pytest
 
-pytest_plugins = ["tests.e2e.conftest"]
-
+from tests.e2e.conftest import base_url, live_assure_server  # noqa: F401
 from tests.playwright.helpers import goto_workbench, prime_page  # noqa: E402
 
 

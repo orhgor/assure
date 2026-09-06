@@ -109,3 +109,16 @@ def register_async_task_routes(app) -> None:
     def task_status(task_id: str):
         result = AsyncResult(task_id, app=celery_app)
         return jsonify(_task_status(result))
+
+    @app.post("/api/projects/<project_id>/compile/safe")
+    def enqueue_safe_compile(project_id: str):
+        data = request.get_json(silent=True) or {}
+        node_id = str(data.get("node_id") or data.get("nodeId") or "").strip()
+        if not node_id:
+            return jsonify({"error": "node_id required"}), 400
+        try:
+            from ..tasks.compile_tasks import safe_compile_and_verify
+        except ImportError:
+            from tasks.compile_tasks import safe_compile_and_verify
+        async_result = safe_compile_and_verify.delay(project_id, node_id)
+        return jsonify({"ok": True, "task_id": async_result.id, "status": "pending"}), 202

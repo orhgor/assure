@@ -74,8 +74,45 @@ def _substrate_async_enabled() -> bool:
 def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
     """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
     validate_upload_bytes(filename, file_bytes)
-    client = TextractClient()
-    page_count = client._get_page_count(file_bytes, filename)
+
+    use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
+    extracted: dict | None = None
+    page_count = 1
+
+    if use_docling:
+        try:
+            from ..verification.docling_extractor import extract_substrate_bytes
+
+            temp_path = _temp_upload_dir() / f"{uuid.uuid4().hex}_{secure_filename(filename)}"
+            parsed = extract_substrate_bytes(str(temp_path), file_bytes, filename)
+            tables = parsed.get("extracted_tables") or []
+            pages = [
+                int((t.get("provenance") or {}).get("page") or 1)
+                for t in tables
+                if isinstance(t, dict)
+            ]
+            page_count = max(pages + [1])
+            extracted = {
+                "text": str(parsed.get("full_text") or "").strip(),
+                "tables": tables,
+                "forms": [],
+                "page_count": page_count,
+            }
+        except Exception:
+            extracted = None
+
+    if extracted is None:
+        client = TextractClient()
+        page_count = client._get_page_count(file_bytes, filename)
+        if page_count > TEXTRACT_MAX_PAGES:
+            raise SubstrateIngestError(
+                f"This document has {page_count} pages. Substrate Vault accepts up to "
+                f"{TEXTRACT_MAX_PAGES} pages.",
+                page_count=page_count,
+            )
+        extracted = client.extract_text(file_bytes, filename)
+        page_count = int(extracted.get("page_count") or page_count)
+
     if page_count > TEXTRACT_MAX_PAGES:
         raise SubstrateIngestError(
             f"This document has {page_count} pages. Substrate Vault accepts up to "
@@ -83,7 +120,6 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
             page_count=page_count,
         )
 
-    extracted = client.extract_text(file_bytes, filename)
     extracted_text = str(extracted.get("text") or "").strip()
     if len(extracted_text) <= 10:
         raise SubstrateIngestError(

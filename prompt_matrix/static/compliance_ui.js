@@ -220,9 +220,48 @@
       .catch(function () {});
   }
 
+  function insertSignatureField() {
+    var pid = projectId();
+    if (!pid || !global.__assureJdf) return;
+    var nodeId = "sig-" + Date.now();
+    var sigNode = {
+      type: "signature",
+      id: nodeId,
+      signer_name: "",
+      signed_at: "",
+      content: "",
+      meta: {},
+      annotations: { redhat: [], z3: [] },
+    };
+    fetch("/api/projects/" + encodeURIComponent(pid) + "/jdf", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        document: sigNode,
+        mutation_type: "INSERT_SIGNATURE",
+        target_node_id: nodeId,
+      }),
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data && data.ok !== false && global.AssureToast) {
+          global.AssureToast.show(t("compliance.signature.added", "Signature field added"), "success");
+        }
+        if (global.__assureJdf && global.__assureJdf.refreshCanvas) {
+          global.__assureJdf.refreshCanvas();
+        }
+      })
+      .catch(function () {});
+  }
+
   function bindUi() {
     var lockBtn = $("compliance-lock-btn");
     if (lockBtn) lockBtn.addEventListener("click", lockDocument);
+    var sigBtn = $("jdf-insert-signature-btn");
+    if (sigBtn) sigBtn.addEventListener("click", insertSignatureField);
 
     var approveBtn = $("signoff-approve-btn");
     var rejectBtn = $("signoff-reject-btn");
