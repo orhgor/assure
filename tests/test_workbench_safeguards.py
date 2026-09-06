@@ -15,6 +15,7 @@ SAFEGUARD_KEYS = (
     "safeguard.mobile.body",
     "safeguard.tab.title",
     "safeguard.tab.body",
+    "safeguard.tab.continue",
     "safeguard.session.remaining",
     "safeguard.session.limit_reached",
     "safeguard.session.tooltip",
@@ -58,7 +59,7 @@ def test_workbench_markup_has_mobile_hint() -> None:
     assert 'data-i18n="safeguard.mobile.body"' in html
     assert "Desktop required" not in html
     assert "Kurumsal Deterministik Derleyici" not in html
-    assert 'id="tab-lockout-modal"' in html
+    assert 'id="tab-lockout-continue"' in html
     assert 'id="session-compile-limit"' in html
     assert "assure_tab_guard.js" in html
     assert "assure_session_limit.js" in html
@@ -68,7 +69,8 @@ def test_tab_guard_module_exports_init() -> None:
     js = (ROOT / "prompt_matrix" / "static" / "assure_tab_guard.js").read_text(encoding="utf-8")
     assert "assure_workbench_state" in js
     assert "AssureTabGuard" in js
-    assert "tab-lockout-modal" in js
+    assert "pagehide" in js
+    assert "tab-lockout-continue" in js
 
 
 def test_session_limit_module_has_cap() -> None:
@@ -87,8 +89,8 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-91"
-    assert APP_JS == "assure-87"
+    assert APP_CSS == "assure-92"
+    assert APP_JS == "assure-88"
 
 
 def test_app_nav_tab_switching() -> None:

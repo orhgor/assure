@@ -307,6 +307,10 @@
 
     abort: function () {
       this.clearVerifyTimeout();
+      if (this._streamRetryTimer) {
+        clearTimeout(this._streamRetryTimer);
+        this._streamRetryTimer = null;
+      }
       if (this.controller) {
         this.controller.abort();
         this.controller = null;
@@ -739,7 +743,8 @@
                 "info"
               );
             }
-            window.setTimeout(function () {
+            self._streamRetryTimer = window.setTimeout(function () {
+              self._streamRetryTimer = null;
               self.startDraftStream(true);
             }, 800);
             return;

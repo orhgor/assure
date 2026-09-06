@@ -580,7 +580,7 @@
       vars: vars || null,
     };
     var fallbacks = {
-      "jdf.save.unsaved": "Saving…",
+      "jdf.save.unsaved": "Unsaved",
       "jdf.save.ready": "All good",
       "jdf.status.compiling": "⬡ Working…",
       "jdf.status.committed": "● Committed (v{version})",
@@ -3036,7 +3036,7 @@
       global.AssureProjectFileManager.remember(this.projectId);
     }
     this.loadProject();
-    this.setSavePill("idle", "jdf.save.unsaved");
+    this.setSavePill("idle", "jdf.save.ready");
   };
 
   global.JDFCanvasManager = JDFCanvasManager;

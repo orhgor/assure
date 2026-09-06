@@ -107,7 +107,7 @@
             </button>
           </nav>
           <div class="workbench-status-bar" id="workbench-status-bar" aria-live="polite">
-            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok">{{ gettext('✅ Verified – No hallucinations found.') }}</span>
+            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok" data-i18n-live>{{ gettext('✅ Verified – No hallucinations found.') }}</span>
             <span class="workbench-last-action" id="workbench-last-action"></span>
           </div>
           <div class="app-content">
@@ -479,7 +479,7 @@
           <div class="command-deck-right">
             <button type="button" class="shortcut-hint-btn tooltip-trigger" id="shortcut-hint-btn" aria-label="{{ gettext('Keyboard shortcuts') }}" data-i18n-aria="shortcuts.title" data-tooltip="{{ gettext('Keyboard shortcuts') }}" data-i18n-tooltip="shortcuts.title" data-shortcut="?">?</button>
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
-            <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('Saving…') }}</button>
+            <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.ready" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('All good') }}</button>
             <details class="export-menu" id="export-menu">
               <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Download') }}</summary>
               <div class="export-menu-panel">
@@ -890,6 +890,7 @@
     <div class="tab-lockout-panel card">
       <h2 id="tab-lockout-title" data-i18n="safeguard.tab.title">{{ gettext('Workbench already open') }}</h2>
       <p data-i18n="safeguard.tab.body">{{ gettext('Workbench is already active in another tab. Close this tab to prevent state corruption.') }}</p>
+      <button type="button" class="btn btn-primary" id="tab-lockout-continue" data-i18n="safeguard.tab.continue">{{ gettext('Use this tab') }}</button>
     </div>
   </div>
 {% endblock %}
@@ -1059,6 +1060,8 @@
 
     function applyI18n() {
       document.querySelectorAll("[data-i18n]").forEach((el) => {
+        if (el.hasAttribute("data-i18n-live")) return;
+        if (el.children.length) return;
         el.textContent = t(el.dataset.i18n, el.textContent);
       });
       document.querySelectorAll("[data-i18n-html]").forEach((el) => {
@@ -1078,6 +1081,12 @@
       });
       document.documentElement.lang = state.locale || "en";
       document.dispatchEvent(new CustomEvent("assure:i18n"));
+      if (window.AssureSessionLimit && typeof window.AssureSessionLimit.applyUi === "function") {
+        window.AssureSessionLimit.applyUi();
+      }
+      if (window.AssureCompilerStatus && typeof window.AssureCompilerStatus._updateHealthBar === "function") {
+        window.AssureCompilerStatus._updateHealthBar();
+      }
     }
 
     async function loadI18n(lang) {
