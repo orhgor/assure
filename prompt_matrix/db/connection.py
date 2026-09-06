@@ -16,7 +16,205 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 15
+_SCHEMA_VERSION = 16
+
+
+def _migrate_v16(db: sqlite3.Connection) -> None:
+    """v1.4: project templates + SQLite prompt library."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS project_templates (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            jdf_structure TEXT NOT NULL DEFAULT '{}',
+            default_prompt TEXT NOT NULL DEFAULT '',
+            suggested_sources TEXT NOT NULL DEFAULT '[]',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS prompts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            name TEXT NOT NULL,
+            class TEXT NOT NULL DEFAULT 'research',
+            tags TEXT NOT NULL DEFAULT '[]',
+            content TEXT NOT NULL DEFAULT '',
+            version_history TEXT NOT NULL DEFAULT '[]',
+            is_global INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_prompts_user ON prompts(user_id, updated_at DESC)")
+
+    seeds = [
+        (
+            "compliance-memo",
+            "Compliance Memo",
+            {
+                "body": [
+                    {
+                        "type": "section",
+                        "id": "sec-compliance",
+                        "title": "Executive Summary",
+                        "children": [
+                            {
+                                "type": "paragraph",
+                                "id": "p-compliance-1",
+                                "content": "",
+                                "meta": {},
+                                "annotations": {"redhat": [], "z3": []},
+                            }
+                        ],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                    {
+                        "type": "section",
+                        "id": "sec-findings",
+                        "title": "Findings",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                ]
+            },
+            "Draft a compliance memo summarizing regulatory obligations, key risks, and recommended controls.",
+            ["policy-handbook.pdf"],
+        ),
+        (
+            "research-paper",
+            "Research Paper",
+            {
+                "body": [
+                    {
+                        "type": "section",
+                        "id": "sec-abstract",
+                        "title": "Abstract",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                    {
+                        "type": "section",
+                        "id": "sec-methods",
+                        "title": "Methods",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                    {
+                        "type": "section",
+                        "id": "sec-results",
+                        "title": "Results",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                ]
+            },
+            "Outline a research paper with abstract, methods, results, and discussion for the uploaded sources.",
+            ["paper-draft.pdf"],
+        ),
+        (
+            "blank",
+            "Blank",
+            {"body": []},
+            "",
+            [],
+        ),
+        (
+            "contract-review",
+            "Contract Review",
+            {
+                "body": [
+                    {
+                        "type": "section",
+                        "id": "sec-parties",
+                        "title": "Parties & Scope",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                    {
+                        "type": "section",
+                        "id": "sec-risks",
+                        "title": "Risk Summary",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                ]
+            },
+            "Review the contract and list obligations, termination clauses, and liability risks.",
+            ["contract.pdf"],
+        ),
+        (
+            "blog-post",
+            "Blog Post",
+            {
+                "body": [
+                    {
+                        "type": "section",
+                        "id": "sec-hook",
+                        "title": "Hook",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                    {
+                        "type": "section",
+                        "id": "sec-body",
+                        "title": "Body",
+                        "children": [],
+                        "meta": {},
+                        "annotations": {"redhat": [], "z3": []},
+                    },
+                ]
+            },
+            "Write a concise blog post with a strong hook, three supporting points, and a clear call to action.",
+            [],
+        ),
+    ]
+    import json as _json
+
+    for tid, name, structure, prompt, sources in seeds:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO project_templates
+              (id, name, jdf_structure, default_prompt, suggested_sources)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (tid, name, _json.dumps(structure), prompt, _json.dumps(sources)),
+        )
+
+    starter_prompts = [
+        (
+            "starter-executive-summary",
+            "Executive summary",
+            "research",
+            "Write a one-page executive summary with verified metrics and plain-language risks.",
+        ),
+        (
+            "starter-policy-brief",
+            "Policy brief",
+            "research",
+            "Draft a policy brief: context, options, recommendation, and citations from Sources.",
+        ),
+    ]
+    for pid, name, pclass, content in starter_prompts:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO prompts
+              (id, user_id, name, class, tags, content, version_history, is_global)
+            VALUES (?, NULL, ?, ?, '[]', ?, '[{"version":1}]', 1)
+            """,
+            (pid, name, pclass, content),
+        )
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -387,6 +585,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v14(db)
     if current < 15:
         _migrate_v15(db)
+    if current < 16:
+        _migrate_v16(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

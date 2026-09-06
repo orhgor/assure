@@ -71,7 +71,7 @@ def test_surgical_i18n_keys() -> None:
         for key in KEYS:
             assert key in cat, f"missing {locale} {key}"
             assert str(cat[key]).strip()
-    assert CATALOGS["en"]["surgical.click.refine_ai"] == "Refine with AI"
+    assert CATALOGS["en"]["surgical.click.refine_ai"] == "✏️ Polish"
     assert CATALOGS["tr"]["surgical.click.refine_ai"] == "YZ ile iyileştir"
 
 

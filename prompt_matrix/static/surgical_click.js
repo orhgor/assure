@@ -182,6 +182,21 @@
         });
       }
       if (canvasRoot) {
+        canvasRoot.addEventListener("mouseover", function (e) {
+          var hit = e.target.closest && e.target.closest("[data-node-id]");
+          if (!hit || !canvasRoot.contains(hit)) return;
+          if (hit.classList.contains("verification-gutter")) return;
+          var id = hit.getAttribute("data-node-id");
+          if (!id) return;
+          self.showFloatingBar(id, hit);
+        });
+        canvasRoot.addEventListener("mouseleave", function (e) {
+          var bar = $("jdf-floating-bar");
+          if (!bar || bar.hidden) return;
+          var rel = e.relatedTarget;
+          if (rel && (bar.contains(rel) || (rel.closest && rel.closest("[data-node-id]")))) return;
+          self.hideFloatingBar();
+        }, true);
         canvasRoot.addEventListener("click", function (e) {
           if (e.target.closest && e.target.closest("summary")) {
             e.preventDefault();
@@ -233,6 +248,71 @@
       if (this._closeGroundSub) this._closeGroundSub();
       this.resetActions();
       this.nodeId = null;
+    },
+
+    showFloatingBar: function (nodeId, anchorEl) {
+      var bar = $("jdf-floating-bar");
+      if (!bar || !anchorEl) return;
+      this.nodeId = nodeId;
+      bar.hidden = false;
+      bar.removeAttribute("hidden");
+      bar.classList.remove("is-visible");
+      var rect = anchorEl.getBoundingClientRect();
+      var pad = 8;
+      var w = bar.offsetWidth || 320;
+      var x = Math.min(Math.max(pad, rect.right - w), window.innerWidth - w - pad);
+      var y = Math.max(pad, rect.top - 44);
+      bar.style.left = x + "px";
+      bar.style.top = y + "px";
+      requestAnimationFrame(function () {
+        bar.classList.add("is-visible");
+      });
+      this._bindFloatingBar();
+    },
+
+    hideFloatingBar: function () {
+      var bar = $("jdf-floating-bar");
+      if (!bar) return;
+      bar.classList.remove("is-visible");
+      bar.hidden = true;
+    },
+
+    _floatingBound: false,
+    _bindFloatingBar: function () {
+      if (this._floatingBound) return;
+      this._floatingBound = true;
+      var self = this;
+      var map = [
+        ["floating-rewrite-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.showInstructionForm();
+        }],
+        ["floating-ground-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.postGround("auto");
+        }],
+        ["floating-history-btn", function () {
+          var canvas = global.__assureJdf;
+          if (canvas && typeof canvas.openNodeHistoryModal === "function" && self.nodeId) {
+            canvas.openNodeHistoryModal(self.nodeId);
+          }
+          self.hideFloatingBar();
+        }],
+        ["floating-delete-btn", function () {
+          self.open(self.nodeId, window.innerWidth / 2, window.innerHeight / 2);
+          self.deleteCurrent();
+          self.hideFloatingBar();
+        }],
+      ];
+      map.forEach(function (pair) {
+        var el = $(pair[0]);
+        if (!el) return;
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          pair[1]();
+        });
+      });
     },
 
     resetActions: function () {

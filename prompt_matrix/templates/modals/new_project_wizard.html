@@ -1,0 +1,43 @@
+<div id="new-project-wizard" class="wizard-modal" hidden role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+  <div class="wizard-backdrop" id="wizard-backdrop"></div>
+  <section class="wizard-panel card">
+    <header class="wizard-head">
+      <h2 id="wizard-title" data-i18n="wizard.title">{{ gettext('New project') }}</h2>
+      <p class="wizard-step-label" id="wizard-step-label" data-i18n="wizard.step.type">{{ gettext('Step 1 of 3 — Choose a template') }}</p>
+    </header>
+
+    <div class="wizard-body">
+      <div class="wizard-step" id="wizard-step-type" data-step="1">
+        <div class="wizard-template-grid" id="wizard-template-grid" role="listbox" aria-label="{{ gettext('Project templates') }}"></div>
+      </div>
+
+      <div class="wizard-step" id="wizard-step-sources" data-step="2" hidden>
+        <div class="wizard-dropzone" id="wizard-dropzone">
+          <p data-i18n="wizard.sources.lead">{{ gettext('Add source files (optional)') }}</p>
+          <p class="hint" data-i18n="wizard.sources.hint">{{ gettext('Drag and drop PDFs or images here, or click to browse.') }}</p>
+          <input type="file" id="wizard-file-input" class="visually-hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif" multiple>
+          <button type="button" class="btn btn-outline btn-sm" id="wizard-browse-btn" data-i18n="wizard.sources.browse">{{ gettext('Browse files') }}</button>
+        </div>
+        <ul class="wizard-file-list" id="wizard-file-list" aria-live="polite"></ul>
+      </div>
+
+      <div class="wizard-step" id="wizard-step-prompt" data-step="3" hidden>
+        <label class="wizard-label" for="wizard-prompt-select" data-i18n="wizard.prompt.library">{{ gettext('Starter prompt from Library') }}</label>
+        <select id="wizard-prompt-select" class="form-control">
+          <option value="" data-i18n="wizard.prompt.custom">{{ gettext('Custom prompt') }}</option>
+        </select>
+        <label class="wizard-label" for="wizard-prompt-text" data-i18n="wizard.prompt.label">{{ gettext('Your prompt') }}</label>
+        <textarea id="wizard-prompt-text" class="form-control" rows="5" data-i18n-placeholder="wizard.prompt.placeholder" placeholder="{{ gettext('Describe what you want to assemble…') }}"></textarea>
+        <label class="wizard-label" for="wizard-title-input" data-i18n="wizard.project_name">{{ gettext('Project name') }}</label>
+        <input type="text" id="wizard-title-input" class="form-control" maxlength="80" data-i18n-placeholder="projects.name_placeholder" placeholder="{{ gettext('Project name…') }}">
+      </div>
+    </div>
+
+    <footer class="wizard-foot">
+      <button type="button" class="btn btn-outline btn-sm" id="wizard-back-btn" hidden data-i18n="wizard.back">{{ gettext('Back') }}</button>
+      <button type="button" class="btn btn-primary btn-sm" id="wizard-next-btn" data-i18n="wizard.next">{{ gettext('Next') }}</button>
+      <button type="button" class="btn btn-primary btn-sm" id="wizard-create-btn" hidden data-i18n="wizard.create">{{ gettext('Create project') }}</button>
+      <a href="#" class="wizard-skip-link" id="wizard-skip-link" data-i18n="wizard.skip">{{ gettext('Skip wizard') }}</a>
+    </footer>
+  </section>
+</div>

@@ -786,6 +786,14 @@
         self.setSavePill("saved", "jdf.status.committed", {
           version: data.version || self.documentVersion,
         });
+        if (
+          mutationType &&
+          (mutationType.indexOf("refine") >= 0 ||
+            mutationType === "MUTATION_ACCEPT" ||
+            mutationType === "NODE_UPDATE")
+        ) {
+          self._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
+        }
         self.loadRevisionHistory();
         return data;
       })
