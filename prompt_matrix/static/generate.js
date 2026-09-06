@@ -359,6 +359,9 @@
       var auditBtn = $("generate-full-audit-btn");
       if (auditBtn) auditBtn.disabled = !!on;
       if (on) {
+        if (global.AssureFirstCompileCoachmark && typeof global.AssureFirstCompileCoachmark.dismiss === "function") {
+          global.AssureFirstCompileCoachmark.dismiss();
+        }
         if (typeof global.updateCompilerStatus === "function") {
           global.updateCompilerStatus("processing");
         }
@@ -1527,11 +1530,55 @@
     if (global.AssureGenerate) global.AssureGenerate.startDraftStream();
   };
 
+  var AssureFirstCompileCoachmark = {
+    _dismissed: false,
+
+    check: function (force) {
+      if (this._dismissed && !force) return;
+      var mark = $("first-compile-coachmark");
+      if (!mark) return;
+      var pid = projectId();
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/files", { credentials: "same-origin" })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          var manifest = (data && data.manifest) || {};
+          var nodes = manifest.lastCompiledOutput || [];
+          var empty = !nodes || !nodes.length;
+          if (empty && !AssureFirstCompileCoachmark._dismissed) {
+            mark.hidden = false;
+          }
+        })
+        .catch(function () {});
+    },
+
+    dismiss: function () {
+      this._dismissed = true;
+      var mark = $("first-compile-coachmark");
+      if (mark) mark.hidden = true;
+    },
+
+    init: function () {
+      var dismissBtn = $("first-compile-coachmark-dismiss");
+      if (dismissBtn) {
+        dismissBtn.addEventListener("click", function () {
+          AssureFirstCompileCoachmark.dismiss();
+        });
+      }
+      this.check(false);
+    },
+  };
+
+  global.AssureFirstCompileCoachmark = AssureFirstCompileCoachmark;
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       AssureGenerate.init();
+      AssureFirstCompileCoachmark.init();
     });
   } else {
     AssureGenerate.init();
+    AssureFirstCompileCoachmark.init();
   }
 })(window);

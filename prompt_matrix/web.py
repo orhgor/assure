@@ -1530,20 +1530,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
             return jsonify({"error": friendly_error(str(exc), _locale())}), 400
         return jsonify({"deleted": prompt_id})
 
-    @app.get("/api/prompts")
-    def prompts_list():
-        try:
-            return jsonify({"prompts": [item.model_dump() for item in load_library().prompts]})
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 400
-
-    @app.get("/api/prompts/<prompt_id>")
-    def prompts_one(prompt_id: str):
-        try:
-            return jsonify(get_saved_prompt(prompt_id).model_dump())
-        except MatrixError as exc:
-            return jsonify({"error": friendly_error(str(exc), _locale())}), 404
-
     @app.post("/api/library/classes/<class_id>/versions")
     def class_snapshot_view(class_id: str):
         data = request.get_json(silent=True) or {}
@@ -1686,6 +1672,18 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.omp_routes import register_omp_routes
     register_omp_routes(app)
+
+    try:
+        from .routers.project_templates import register_project_template_routes
+    except ImportError:
+        from routers.project_templates import register_project_template_routes
+    register_project_template_routes(app)
+
+    try:
+        from .routers.prompt_routes import register_prompt_routes
+    except ImportError:
+        from routers.prompt_routes import register_prompt_routes
+    register_prompt_routes(app)
 
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):

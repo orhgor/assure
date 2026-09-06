@@ -212,6 +212,10 @@
               <div class="compile-action-row" id="generate-compile-row">
                 <button type="button" class="btn btn-primary tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
                 <button type="button" class="btn btn-outline tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Compile, score claims with Z3, and run Red-Hat in one pass') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
+                <div id="first-compile-coachmark" class="first-compile-coachmark" hidden role="status">
+                  <p data-i18n="coachmark.first_compile">{{ gettext("Ready to see it in action? Click 'Assemble' to structure your draft.") }}</p>
+                  <button type="button" class="btn btn-sm btn-outline" id="first-compile-coachmark-dismiss" data-i18n="coachmark.dismiss">{{ gettext('Dismiss') }}</button>
+                </div>
               </div>
               <p class="hint" data-i18n="generate.append_hint">{{ gettext('Accept &amp; Dock appends this draft to the document already on the canvas.') }}</p>
               <div class="generate-quick-actions" id="generate-quick-actions">
@@ -679,6 +683,13 @@
             <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
           </section>
         </div>
+        {% include 'modals/new_project_wizard.html' %}
+        <div id="jdf-floating-bar" class="jdf-floating-bar" hidden role="toolbar" aria-label="{{ gettext('Paragraph actions') }}">
+          <button type="button" class="jdf-fab-btn" id="floating-rewrite-btn" data-i18n="canvas.fab.rewrite">{{ gettext('✏️ Rewrite') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-ground-btn" data-i18n="canvas.fab.ground">{{ gettext('🔍 Ground') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-history-btn" data-i18n="canvas.fab.history">{{ gettext('📜 History') }}</button>
+          <button type="button" class="jdf-fab-btn" id="floating-delete-btn" data-i18n="canvas.fab.delete">{{ gettext('🗑️ Delete') }}</button>
+        </div>
         <div id="jdf-surgical-popover" class="jdf-surgical-popover" hidden role="dialog" aria-labelledby="jdf-surgical-popover-title">
           <p id="jdf-surgical-popover-title" class="visually-hidden" data-i18n="surgical.click.title">{{ gettext('Fix this claim') }}</p>
           <div id="jdf-surgical-popover-actions" class="jdf-surgical-popover-actions surgical-sandwich">
@@ -959,6 +970,8 @@
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='toast.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='new_project_wizard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='onboarding.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>

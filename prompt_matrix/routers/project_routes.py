@@ -8,20 +8,22 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 try:
     from ..db.connection import init_db
-    from ..db.jdf_repository import ensure_project
+    from ..db.jdf_repository import ensure_project, save_jdf_revision
     from ..db.project_files import fetch_project_files, save_last_compiled, save_project_source
+    from ..db.project_templates_repository import fetch_template
     from ..db.settings_repository import fetch_project_settings, save_project_settings
     from ..history import get_db
     from ..middleware import project_ownership_required
     from ..models.jdf import flatten_nodes
 except ImportError:
     from db.connection import init_db
-    from db.jdf_repository import ensure_project
+    from db.jdf_repository import ensure_project, save_jdf_revision
     from db.project_files import fetch_project_files, save_last_compiled, save_project_source
+    from db.project_templates_repository import fetch_template
     from db.settings_repository import fetch_project_settings, save_project_settings
     from history import get_db
     from middleware import project_ownership_required
@@ -30,6 +32,14 @@ except ImportError:
 
 class ProjectSettingsPayload(BaseModel):
     show_citations: bool = True
+
+
+class ProjectCreatePayload(BaseModel):
+    title: str
+    template_id: str | None = None
+    prompt: str | None = None
+    source_md: str | None = None
+    prompt_id: str | None = None
 
 
 def _slug(title: str) -> str:
@@ -140,7 +150,11 @@ def register_project_routes(app) -> None:
     @app.post("/api/projects")
     def create_project():
         data = request.get_json(silent=True) or {}
-        title = (data.get("title") or "").strip()
+        try:
+            payload = ProjectCreatePayload.model_validate(data)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 400
+        title = payload.title.strip()
         if not title:
             return jsonify({"error": "title required"}), 400
         project_id = _slug(title)
@@ -154,7 +168,49 @@ def register_project_routes(app) -> None:
                 current_user_id = lambda: None  # noqa: E731
         owner = current_user_id()
         ensure_project(project_id, title, owner_id=owner)
-        return jsonify({"ok": True, "id": project_id, "title": title}), 201
+
+        template = fetch_template(payload.template_id) if payload.template_id else None
+        default_prompt = ""
+        if template:
+            structure = template.get("jdf_structure") or {}
+            body = structure.get("body") if isinstance(structure, dict) else []
+            document = {
+                "document_id": f"doc-{project_id}",
+                "meta": {"project_id": project_id, "template_id": template["id"]},
+                "truth_ledger": {},
+                "body": body if isinstance(body, list) else [],
+            }
+            save_jdf_revision(
+                project_id,
+                document,
+                mutation_type="WIZARD_INIT",
+                change_summary=f"Created from template {template['name']}",
+            )
+            default_prompt = str(template.get("default_prompt") or "")
+
+        prompt_text = (payload.prompt or default_prompt or "").strip()
+        if payload.prompt_id and not prompt_text:
+            try:
+                from ..db.prompts_repository import fetch_prompt
+            except ImportError:
+                from db.prompts_repository import fetch_prompt
+            row = fetch_prompt(payload.prompt_id)
+            if row:
+                prompt_text = str(row.get("content") or "").strip()
+
+        source_md = (payload.source_md or prompt_text or "").strip()
+        if source_md:
+            save_project_source(project_id, source_md)
+
+        return jsonify(
+            {
+                "ok": True,
+                "id": project_id,
+                "title": title,
+                "template_id": template["id"] if template else None,
+                "prompt": prompt_text,
+            }
+        ), 201
 
     @app.patch("/api/projects/<project_id>")
     @project_ownership_required

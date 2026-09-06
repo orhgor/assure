@@ -465,6 +465,10 @@
     if (!newBtn || !form || !input || !confirmBtn || !cancelBtn) return;
 
     newBtn.addEventListener("click", function () {
+      if (global.AssureNewProjectWizard && typeof global.AssureNewProjectWizard.open === "function") {
+        global.AssureNewProjectWizard.open();
+        return;
+      }
       form.hidden = false;
       newBtn.hidden = true;
       input.value = "";
