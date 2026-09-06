@@ -649,6 +649,11 @@
           if (global.AssureWowEffects && typeof global.AssureWowEffects.onVerified === "function") {
             global.AssureWowEffects.onVerified(gutterVerified);
           }
+          window.setTimeout(function () {
+            if (global.AssureWowEffects && typeof global.AssureWowEffects.refreshStamps === "function") {
+              global.AssureWowEffects.refreshStamps();
+            }
+          }, 80);
           self.setGateLoading(false);
           self._redhatCtx = {
             draftText: self.draftText,

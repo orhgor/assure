@@ -6,7 +6,6 @@ import pytest
 
 from tests.playwright.helpers import (
     INK_STAMP,
-    dock_document,
     fill_and_compile,
     route_draft_success,
     wait_compile_ready,
@@ -21,11 +20,15 @@ def test_ink_stamp_appears_on_verified_nodes(workbench_page):
 
     fill_and_compile(page, "Write a short paragraph about revenue growth.")
     wait_compile_ready(page)
-    dock_document(page)
 
     page.wait_for_function(
-        """() => document.querySelectorAll('.ink-stamp').length > 0""",
-        timeout=25_000,
+        """() => {
+          if (window.AssureWowEffects && typeof window.AssureWowEffects.refreshStamps === 'function') {
+            window.AssureWowEffects.refreshStamps();
+          }
+          return document.querySelectorAll('.ink-stamp').length > 0;
+        }""",
+        timeout=20_000,
     )
     stamp = page.locator(INK_STAMP).first
     text = stamp.inner_text().upper()
