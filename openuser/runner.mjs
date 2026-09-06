@@ -625,7 +625,10 @@ program
       if (result.ok) {
         const label = result.skipped ? "SKIP" : "PASS";
         console.log(`${label} ${result.entry.name} (${result.entry.duration_ms}ms)`);
-        if (result.skipped && result.entry.note) console.log(`  note: ${result.entry.note}`);
+        if (result.skipped) {
+          console.warn("⚠️ Spec skipped (expected), not failing.");
+          if (result.entry.note) console.log(`  note: ${result.entry.note}`);
+        }
       } else {
         failed += 1;
         console.error(`FAIL ${result.entry.name}: ${result.entry.error}`);

@@ -255,10 +255,14 @@ class LandingTests(unittest.TestCase):
 
 class WorkflowTests(unittest.TestCase):
     def test_ci_yml_runs_pytest_and_openuser(self):
-        text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        self.assertIn("pytest", text)
-        self.assertIn("openuser", text)
-        self.assertIn("playwright install chromium", text)
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        ux = (ROOT / ".github" / "workflows" / "ux-tests.yml").read_text(encoding="utf-8")
+        self.assertIn("pytest", ci)
+        self.assertIn("test_z3_benchmark.py", ci)
+        self.assertIn("Run Z3-heavy tests serially", ci)
+        self.assertNotIn("openuser", ci)
+        self.assertIn("openuser", ux)
+        self.assertIn("playwright install chromium", ux)
 
     def test_deploy_workflows_exist(self):
         staging = (ROOT / ".github" / "workflows" / "deploy-staging.yml").read_text(
