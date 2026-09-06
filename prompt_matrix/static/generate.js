@@ -1575,7 +1575,8 @@
     check: function (force) {
       if (this._dismissed && !force) return;
       var mark = $("first-compile-coachmark");
-      if (!mark) return;
+      var assemble = $("generate-compile-btn");
+      if (!mark || !assemble) return;
       var pid = projectId();
       fetch("/api/projects/" + encodeURIComponent(pid) + "/files", { credentials: "same-origin" })
         .then(function (r) {
@@ -1585,7 +1586,8 @@
           var manifest = (data && data.manifest) || {};
           var nodes = manifest.lastCompiledOutput || [];
           var empty = !nodes || !nodes.length;
-          if (empty && !AssureFirstCompileCoachmark._dismissed) {
+          var assembleVisible = !!(assemble.offsetParent || assemble.getClientRects().length);
+          if (empty && assembleVisible && !AssureFirstCompileCoachmark._dismissed) {
             mark.hidden = false;
           }
         })

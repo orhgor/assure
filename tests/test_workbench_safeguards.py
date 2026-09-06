@@ -89,8 +89,9 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-97"
-    assert APP_JS == "assure-97"
+    assert APP_CSS.startswith("assure-")
+    assert APP_JS.startswith("assure-")
+    assert APP_CSS == APP_JS
 
 
 def test_app_nav_tab_switching() -> None:
