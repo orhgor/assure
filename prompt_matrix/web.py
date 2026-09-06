@@ -1670,6 +1670,18 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_refine_node_routes(app)
 
     try:
+        from .routers.ground_routes import register_ground_routes
+    except ImportError:
+        from routers.ground_routes import register_ground_routes
+    register_ground_routes(app)
+
+    try:
+        from .routers.conflict_routes import register_conflict_routes
+    except ImportError:
+        from routers.conflict_routes import register_conflict_routes
+    register_conflict_routes(app)
+
+    try:
         from .routers.omp_routes import register_omp_routes
     except ImportError:
         from routers.omp_routes import register_omp_routes

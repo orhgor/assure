@@ -157,6 +157,22 @@ def fetch_substrate_entries_by_ids(project_id: str, file_ids: list[str]) -> list
     return [{"id": row[0], "filename": row[1], "extracted_text": row[2] or ""} for row in rows]
 
 
+def list_included_vault_text(project_id: str) -> list[dict[str, Any]]:
+    """Included vault files with extracted_text for keyword conflict scans."""
+    init_db()
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT id, filename, extracted_text
+        FROM substrate_vault
+        WHERE project_id = ? AND included = 1
+        ORDER BY created_at DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return [{"id": row[0], "filename": row[1], "extracted_text": row[2] or ""} for row in rows]
+
+
 def fetch_latest_substrate(project_id: str) -> dict[str, Any] | None:
     init_db()
     db = get_db()

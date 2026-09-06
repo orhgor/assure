@@ -3328,7 +3328,71 @@ body.onboarding-active .sidebar-backdrop {
   margin-bottom: 8px;
 }
 
+.jdf-surgical-popover-actions.surgical-sandwich {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.surgical-sandwich-item {
+  position: relative;
+}
+
+.surgical-submenu {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 0;
+  z-index: 530;
+  min-width: 200px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--color-border, #E2E8F0);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  box-shadow: var(--shadow-md);
+}
+
+.surgical-submenu[hidden] {
+  display: none !important;
+}
+
+.surgical-sandwich-item:hover .surgical-submenu,
+.surgical-sandwich-item.is-open .surgical-submenu {
+  display: flex !important;
+}
+
 .jdf-surgical-popover.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.source-conflict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #c2410c;
+  background: #ffedd5;
+  color: #9a3412;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.z3-reason-icon {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.75;
+  cursor: help;
+}
+
+.source-conflict-list {
+  margin: 12px 0;
+  padding-left: 18px;
+}
   opacity: 0.7;
   pointer-events: none;
 }

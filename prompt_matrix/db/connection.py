@@ -16,7 +16,7 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 14
+_SCHEMA_VERSION = 15
 
 
 def _migrate_v10(db: sqlite3.Connection) -> None:
@@ -51,6 +51,29 @@ def _migrate_v14(db: sqlite3.Connection) -> None:
             """
         )
     db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_cache_exp ON pipeline_cache(expires_at)")
+
+
+def _migrate_v15(db: sqlite3.Connection) -> None:
+    """Keyword-level source conflict flags (not semantic NLI)."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS source_conflicts (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            claim_id TEXT NOT NULL,
+            source_a_id TEXT NOT NULL,
+            source_b_id TEXT NOT NULL,
+            conflict_description TEXT NOT NULL,
+            detected_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_source_conflicts_proj
+        ON source_conflicts(project_id, claim_id)
+        """
+    )
 
 
 def _migrate_v13(db: sqlite3.Connection) -> None:
@@ -362,6 +385,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v13(db)
     if current < 14:
         _migrate_v14(db)
+    if current < 15:
+        _migrate_v15(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

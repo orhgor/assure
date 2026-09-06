@@ -1,6 +1,5 @@
 /**
- * Surgical click-to-fix on compiled AST nodes in the right panel.
- * Popover: Refine with AI / Ground from Vault. Does not switch to Refine view.
+ * Surgical sandwich menu: Refine / Ground (submenu) / History / Delete.
  */
 (function (global) {
   "use strict";
@@ -102,10 +101,14 @@
       var self = this;
       var pop = $("jdf-surgical-popover");
       var refineBtn = $("surgical-refine-ai-btn");
-      var vaultBtn = $("surgical-ground-vault-btn");
+      var groundWrap = $("surgical-ground-wrap");
+      var groundBtn = $("surgical-ground-btn");
+      var submenu = $("surgical-ground-submenu");
       var form = $("jdf-surgical-popover-form");
       var cancel = $("surgical-refine-cancel");
       var canvasRoot = $("jdf-render-target");
+      var histBtn = $("surgical-history-btn");
+      var delBtn = $("surgical-delete-btn");
 
       if (refineBtn) {
         refineBtn.addEventListener("click", function (e) {
@@ -114,11 +117,56 @@
           self.showInstructionForm();
         });
       }
-      if (vaultBtn) {
-        vaultBtn.addEventListener("click", function (e) {
+      function openSub() {
+        if (!submenu || !groundWrap) return;
+        submenu.hidden = false;
+        groundWrap.classList.add("is-open");
+        if (groundBtn) groundBtn.setAttribute("aria-expanded", "true");
+      }
+      function closeSub() {
+        if (!submenu || !groundWrap) return;
+        submenu.hidden = true;
+        groundWrap.classList.remove("is-open");
+        if (groundBtn) groundBtn.setAttribute("aria-expanded", "false");
+      }
+      self._closeGroundSub = closeSub;
+      if (groundBtn) {
+        groundBtn.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          self.groundFromVault();
+          if (submenu && submenu.hidden) openSub();
+          else closeSub();
+        });
+      }
+      if (groundWrap) {
+        groundWrap.addEventListener("mouseenter", openSub);
+        groundWrap.addEventListener("mouseleave", closeSub);
+      }
+      ["surgical-ground-auto", "surgical-ground-search", "surgical-ground-llm"].forEach(function (id) {
+        var el = $(id);
+        if (!el) return;
+        el.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self.postGround(el.getAttribute("data-ground-mode") || "auto");
+        });
+      });
+      if (histBtn) {
+        histBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var canvas = global.__assureJdf;
+          if (canvas && typeof canvas.openNodeHistoryModal === "function" && self.nodeId) {
+            canvas.openNodeHistoryModal(self.nodeId);
+          }
+          self.close();
+        });
+      }
+      if (delBtn) {
+        delBtn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          self.deleteCurrent();
         });
       }
       if (form) {
@@ -173,7 +221,7 @@
       this._openedAt = Date.now();
       var pad = 8;
       var w = pop.offsetWidth || 280;
-      var h = pop.offsetHeight || 120;
+      var h = pop.offsetHeight || 180;
       var x = Math.min(Math.max(pad, clientX || pad), window.innerWidth - w - pad);
       var y = Math.min(Math.max(pad, (clientY || pad) + 8), window.innerHeight - h - pad);
       pop.style.left = x + "px";
@@ -183,6 +231,7 @@
     close: function () {
       var pop = $("jdf-surgical-popover");
       if (pop) pop.hidden = true;
+      if (this._closeGroundSub) this._closeGroundSub();
       this.resetActions();
       this.nodeId = null;
     },
@@ -194,6 +243,7 @@
       if (actions) actions.hidden = false;
       if (form) form.hidden = true;
       if (area) area.value = "";
+      if (this._closeGroundSub) this._closeGroundSub();
     },
 
     showInstructionForm: function () {
@@ -214,10 +264,37 @@
     setBusy: function (on) {
       var pop = $("jdf-surgical-popover");
       if (pop) pop.classList.toggle("is-busy", !!on);
-      ["surgical-refine-ai-btn", "surgical-ground-vault-btn", "surgical-refine-apply"].forEach(function (id) {
+      [
+        "surgical-refine-ai-btn",
+        "surgical-ground-btn",
+        "surgical-ground-auto",
+        "surgical-ground-search",
+        "surgical-ground-llm",
+        "surgical-history-btn",
+        "surgical-delete-btn",
+        "surgical-refine-apply",
+      ].forEach(function (id) {
         var el = $(id);
         if (el) el.disabled = !!on;
       });
+    },
+
+    deleteCurrent: function () {
+      var canvas = global.__assureJdf;
+      var nodeId = this.nodeId;
+      if (!canvas || !canvas.tree || !nodeId) return;
+      (canvas.tree.body || []).forEach(function (section) {
+        if (!section || !section.children) return;
+        section.children = section.children.filter(function (child) {
+          return !child || child.id !== nodeId;
+        });
+      });
+      if (typeof canvas._setDirty === "function") canvas._setDirty(true);
+      if (typeof canvas.render === "function") canvas.render();
+      if (typeof canvas.saveDocument === "function") {
+        canvas.saveDocument("NODE_DELETE", { target_node_id: nodeId });
+      }
+      this.close();
     },
 
     submitRefine: function () {
@@ -245,6 +322,83 @@
         ground_from_vault: true,
         substrate_file_ids: ids,
       });
+    },
+
+    openDiff: function (nodeId, originalText, proposedText, payload) {
+      var canvas = global.__assureJdf;
+      if (!canvas) return;
+      canvas._pendingDiff = {
+        nodeId: nodeId,
+        original: originalText,
+        proposed: proposedText,
+        payload: payload,
+        surgical: true,
+      };
+      if (typeof canvas.showRevisionDiff === "function") {
+        canvas.showRevisionDiff(originalText, proposedText, { sideBySideDiff: true });
+      }
+      this.close();
+      if (global.AssureToast) {
+        global.AssureToast.show(
+          t("jdf.diff.review", "Review the proposed changes, then Accept or Reject."),
+          "info"
+        );
+      }
+    },
+
+    postGround: function (mode) {
+      var self = this;
+      var nodeId = this.nodeId;
+      var canvas = global.__assureJdf;
+      if (!nodeId || !canvas || !canvas.tree) {
+        if (global.AssureToast) {
+          global.AssureToast.show(t("surgical.click.no_node", "Select a compiled node first."), "error");
+        }
+        return;
+      }
+      var nodeBefore = canvas.getNodeById(nodeId);
+      var originalText = nodeBefore ? String(nodeBefore.content || nodeBefore.title || "") : "";
+      this.setBusy(true);
+      fetch(
+        "/api/projects/" +
+          encodeURIComponent(projectId()) +
+          "/nodes/" +
+          encodeURIComponent(nodeId) +
+          "/ground",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: mode || "auto", document: canvas.tree }),
+        }
+      )
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok, data: data };
+          });
+        })
+        .then(function (pack) {
+          self.setBusy(false);
+          if (!pack.ok || !pack.data || pack.data.ok === false) {
+            if (global.AssureToast) {
+              global.AssureToast.show(
+                String((pack.data && pack.data.error) || t("surgical.click.ground_failed", "Grounding failed.")),
+                "error"
+              );
+            }
+            return;
+          }
+          var suggested = pack.data.suggested || pack.data.node || {};
+          var proposedText = String(suggested.content || suggested.title || "");
+          pack.data.node = suggested;
+          self.openDiff(nodeId, originalText, proposedText, pack.data);
+        })
+        .catch(function (err) {
+          self.setBusy(false);
+          if (global.AssureToast) {
+            global.AssureToast.show(String((err && err.message) || err), "error");
+          }
+        });
     },
 
     postRefine: function (opts) {
@@ -310,23 +464,7 @@
               ? String(updated.content || updated.title || "")
               : originalText;
           }
-          canvas._pendingDiff = {
-            nodeId: nodeId,
-            original: originalText,
-            proposed: proposedText,
-            payload: pack.data,
-            surgical: true,
-          };
-          if (typeof canvas.showRevisionDiff === "function") {
-            canvas.showRevisionDiff(originalText, proposedText, { sideBySideDiff: true });
-          }
-          self.close();
-          if (global.AssureToast) {
-            global.AssureToast.show(
-              t("jdf.diff.review", "Review the proposed changes, then Accept or Reject."),
-              "info"
-            );
-          }
+          self.openDiff(nodeId, originalText, proposedText, pack.data);
         })
         .catch(function (err) {
           self.setBusy(false);

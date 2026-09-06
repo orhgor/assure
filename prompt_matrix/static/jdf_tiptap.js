@@ -111,6 +111,7 @@
           nodeId: node.id || "",
           gutter: gutterForNode(node, isPreview),
           cacheHit: !!(node.meta && node.meta.cache_hit),
+          metaJson: JSON.stringify(node.meta || {}),
         };
         content.push(para);
       });
@@ -191,6 +192,12 @@
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
       var old = lookupOld(previousTree, nodeId);
       var isCallout = node.type === "jdfCallout";
+      var metaFromAttr = {};
+      try {
+        metaFromAttr = JSON.parse((node.attrs && node.attrs.metaJson) || "{}") || {};
+      } catch (_) {
+        metaFromAttr = {};
+      }
       var child;
       if (isCallout) {
         child = {
@@ -200,6 +207,7 @@
           title: (node.attrs && node.attrs.calloutTitle) || (old && old.title) || "",
           content: textContent(node),
           annotations: (old && old.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
         };
       } else {
         child = {
@@ -208,7 +216,7 @@
           content: textContent(node),
           entities_referenced: (old && old.entities_referenced) || [],
           annotations: (old && old.annotations) || { redhat: [], z3: [] },
-          meta: Object.assign({}, (old && old.meta) || {}),
+          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
           provenance: (old && old.provenance) || [],
         };
       }
@@ -323,6 +331,15 @@
           },
           gutter: { default: "unverified" },
           cacheHit: { default: false },
+          metaJson: {
+            default: "{}",
+            parseHTML: function (el) {
+              return el.getAttribute("data-meta-json") || "{}";
+            },
+            renderHTML: function (attrs) {
+              return attrs.metaJson ? { "data-meta-json": attrs.metaJson } : {};
+            },
+          },
         };
       },
       parseHTML: function () {

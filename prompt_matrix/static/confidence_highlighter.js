@@ -24,6 +24,7 @@
       end: end,
       score: Number.isFinite(score) ? score : 0.55,
       source: span.source ? String(span.source) : "",
+      reason: span.reason ? String(span.reason) : "",
     };
   }
 
@@ -56,7 +57,20 @@
       el.className = classForScore(mark.score);
       el.setAttribute("data-confidence-score", String(mark.score));
       if (mark.source) el.setAttribute("data-confidence-source", mark.source);
+      if (mark.reason) {
+        el.setAttribute("data-confidence-reason", mark.reason);
+        el.setAttribute("title", mark.reason);
+      }
       el.textContent = raw.slice(start, end);
+      if (mark.reason) {
+        var tip = document.createElement("button");
+        tip.type = "button";
+        tip.className = "z3-reason-icon";
+        tip.setAttribute("aria-label", "Why this score");
+        tip.setAttribute("title", mark.reason);
+        tip.textContent = "i";
+        el.appendChild(tip);
+      }
       host.appendChild(el);
       cursor = end;
     });

@@ -1589,6 +1589,67 @@
     article.appendChild(details);
   };
 
+  JDFCanvasManager.prototype.loadSourceConflicts = function () {
+    var self = this;
+    var pid = this.projectId || global.__ASSURE_PROJECT_ID__ || "default";
+    fetch("/api/projects/" + encodeURIComponent(pid) + "/conflicts?refresh=1", {
+      credentials: "same-origin",
+    })
+      .then(function (res) {
+        return res.json();
+      })
+      .then(function (data) {
+        self.sourceConflicts = (data && data.conflicts) || [];
+        self.render({ skipConflictFetch: true });
+      })
+      .catch(function () {
+        self.sourceConflicts = self.sourceConflicts || [];
+      });
+  };
+
+  JDFCanvasManager.prototype.conflictsForNode = function (nodeId) {
+    return (this.sourceConflicts || []).filter(function (row) {
+      return row && row.claim_id === nodeId;
+    });
+  };
+
+  JDFCanvasManager.prototype.showSourceConflictModal = function (rows) {
+    var modal = document.getElementById("source-conflict-modal");
+    var list = document.getElementById("source-conflict-list");
+    if (!modal || !list) return;
+    list.innerHTML = "";
+    (rows || []).forEach(function (row) {
+      var li = document.createElement("li");
+      li.textContent = row.conflict_description || "";
+      list.appendChild(li);
+    });
+    modal.hidden = false;
+    var close = document.getElementById("source-conflict-close");
+    var backdrop = document.getElementById("source-conflict-backdrop");
+    function hide() {
+      modal.hidden = true;
+    }
+    if (close) close.onclick = hide;
+    if (backdrop) backdrop.onclick = hide;
+  };
+
+  JDFCanvasManager.prototype._renderSourceConflictBadge = function (node, article) {
+    var self = this;
+    var rows = this.conflictsForNode(node && node.id);
+    var metaFlag = node && node.meta && node.meta.source_conflicts;
+    if (!rows.length && !metaFlag) return;
+    var badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "source-conflict-badge";
+    badge.textContent = "⚠️ " + jdfT("conflict.badge", "Conflict");
+    badge.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      self.showSourceConflictModal(rows.length ? rows : [{ conflict_description: String(metaFlag) }]);
+    });
+    article.appendChild(badge);
+  };
+
   JDFCanvasManager.prototype._makeDockAnchor = function (afterId) {
     var self = this;
     var el = document.createElement("div");
@@ -1993,6 +2054,9 @@
 
   JDFCanvasManager.prototype._confidenceSpansForNode = function (node) {
     var id = node && node.id;
+    if (node && node.meta && Array.isArray(node.meta.confidenceSpans) && node.meta.confidenceSpans.length) {
+      return node.meta.confidenceSpans.slice();
+    }
     var spans = this.confidenceSpans || [];
     if (!spans.length && this.tree && this.tree.meta) {
       spans = this.tree.meta.confidenceSpans || [];
@@ -2200,6 +2264,10 @@
     var isPreview = this.rootEl.classList.contains("is-draft-preview");
     this.rootEl.classList.toggle("hide-citations", !this.showCitations);
     this.rootEl.classList.toggle("confidence-overlay-off", !this.showConfidenceOverlay);
+    if (!options.skipConflictFetch && !this._conflictFetchStarted) {
+      this._conflictFetchStarted = true;
+      this.loadSourceConflicts();
+    }
     var overlayWrap = document.getElementById("confidence-overlay-wrap");
     if (overlayWrap) {
       overlayWrap.hidden = !(this.confidenceSpans && this.confidenceSpans.length);
@@ -2320,6 +2388,7 @@
         if (self.showCitations) {
           self._renderCitationBadge(node, article);
         }
+        self._renderSourceConflictBadge(node, article);
         // Verification gutter — 4px left bar communicating node state
         var gutter = document.createElement("div");
         gutter.className = "verification-gutter";
