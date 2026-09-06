@@ -2135,19 +2135,15 @@ body.draft-fullscreen-open {
   padding: var(--space-sm, 8px);
 }
 
-#view-generate {
-  display: block;
-}
-
 #view-generate.assure-view.active {
-  display: block;
+  display: block !important;
   flex: 1 0 auto;
   min-height: 0;
   overflow: visible;
 }
 
-#view-generate[hidden],
-#view-generate.assure-view:not(.active) {
+.app-content.mode-full-view #view-generate,
+.app-content.mode-full-view #view-generate[hidden] {
   display: none !important;
 }
 
