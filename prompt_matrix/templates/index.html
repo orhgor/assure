@@ -477,8 +477,10 @@
               <label class="version-history-label" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
               <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
               <span id="version-history-label" class="version-history-meta">v1</span>
+              <button type="button" class="btn btn-outline btn-sm compliance-lock-btn" id="compliance-lock-btn" title="{{ gettext('Lock version') }}" data-i18n-title="compliance.lock.btn" aria-label="{{ gettext('Lock version') }}" data-i18n-aria="compliance.lock.btn">🔒</button>
               <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
             </span>
+            <div id="compliance-lock-banner" class="compliance-lock-banner" hidden role="status" data-i18n="compliance.lock.banner"></div>
           </div>
           <div class="command-deck-right">
             <button type="button" class="shortcut-hint-btn tooltip-trigger" id="shortcut-hint-btn" aria-label="{{ gettext('Keyboard shortcuts') }}" data-i18n-aria="shortcuts.title" data-tooltip="{{ gettext('Keyboard shortcuts') }}" data-i18n-tooltip="shortcuts.title" data-shortcut="?">?</button>
@@ -499,8 +501,30 @@
               <div class="command-deck-more-panel">
                 <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-pdf-btn" data-i18n="jdf.import.pdf_btn" data-tooltip="{{ gettext('Import a PDF into the JDF canvas') }}" data-i18n-tooltip="jdf.import.pdf_tooltip">{{ gettext('Upload PDF') }}</button>
                 <input type="file" id="jdf-import-pdf-input" accept=".pdf,application/pdf" hidden>
+                <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-config-btn" data-i18n="jdf.import.config_btn" data-tooltip="{{ gettext('Import a structured config into the JDF canvas') }}" data-i18n-tooltip="jdf.import.config_tooltip">{{ gettext('Import JSON/YAML') }}</button>
+                <input type="file" id="jdf-import-config-input" accept=".json,.yaml,.yml,application/json,text/yaml" hidden>
+                <button type="button" class="btn btn-sm btn-outline" id="signoff-open-btn" data-i18n="compliance.signoff.title">{{ gettext('Sign-Off') }}</button>
+                <button type="button" class="btn btn-sm btn-outline" id="decision-log-open-btn" data-i18n="compliance.decision_log.title">{{ gettext('Decision Log') }}</button>
               </div>
             </details>
+            <aside id="signoff-panel" class="compliance-panel" hidden>
+              <h3 data-i18n="compliance.signoff.title">{{ gettext('Sign-Off') }}</h3>
+              <label><span data-i18n="compliance.signoff.name_placeholder">{{ gettext('Reviewer name') }}</span>
+                <input type="text" id="signoff-reviewer-name" class="input-sm" data-i18n-placeholder="compliance.signoff.name_placeholder" placeholder="{{ gettext('Reviewer name') }}">
+              </label>
+              <label><span data-i18n="compliance.signoff.comment_placeholder">{{ gettext('Comment (optional)') }}</span>
+                <textarea id="signoff-comment" rows="2" data-i18n-placeholder="compliance.signoff.comment_placeholder" placeholder="{{ gettext('Comment (optional)') }}"></textarea>
+              </label>
+              <div class="compliance-panel-actions">
+                <button type="button" class="btn btn-sm btn-primary" id="signoff-approve-btn" data-i18n="compliance.signoff.approve">{{ gettext('Approve') }}</button>
+                <button type="button" class="btn btn-sm btn-outline" id="signoff-reject-btn" data-i18n="compliance.signoff.reject">{{ gettext('Reject') }}</button>
+              </div>
+              <ul id="signoff-list" class="signoff-list"></ul>
+            </aside>
+            <aside id="decision-log-panel" class="compliance-panel" hidden>
+              <h3 data-i18n="compliance.decision_log.title">{{ gettext('Decision Log') }}</h3>
+              <div id="decision-log-timeline" class="decision-log-timeline"></div>
+            </aside>
           </div>
         </footer>
       </section>
@@ -985,6 +1009,7 @@
   <script src="{{ url_for('static', filename='refine.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='connect.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='redhat_panel.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='compliance_ui.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>

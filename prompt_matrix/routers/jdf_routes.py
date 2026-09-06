@@ -34,6 +34,8 @@ try:
     )
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
+    from ..db.document_lock_repository import is_version_locked
+    from ..db.jdf_repository import current_document_version
 except ImportError:
     from db.jdf_repository import (
         RevisionConflict,
@@ -59,6 +61,8 @@ except ImportError:
     )
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
+    from db.document_lock_repository import is_version_locked
+    from db.jdf_repository import current_document_version
 
 
 class SaveJDFPayload(BaseModel):
@@ -148,6 +152,11 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             return jsonify({"error": str(exc)}), 400
+
+        ver = current_document_version(project_id)
+        if ver > 0 and is_version_locked(project_id, ver):
+            return jsonify({"ok": False, "error": "Document is locked"}), 409
+
         try:
             node_id = payload.id or payload.target_node_id
             expected = payload.expected_version

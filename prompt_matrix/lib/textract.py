@@ -1,4 +1,4 @@
-"""AWS Textract integration for Substrate Vault single-page extraction."""
+"""AWS Textract integration for Substrate Vault extraction (single- and multi-page)."""
 
 from __future__ import annotations
 
@@ -20,7 +20,9 @@ class TextractError(Exception):
 
 
 class TextractClient:
-    """Extract text, tables, and forms from a single-page document via Textract."""
+    """Extract text, tables, and forms from documents via Textract."""
+
+    TEXTRACT_MAX_PAGES = 50
 
     def __init__(self, *, client: Any | None = None, region: str | None = None) -> None:
         self._client = client
@@ -87,10 +89,36 @@ class TextractClient:
             raise last_exc
         raise TextractError("Textract analyze_document failed.")
 
+    def _split_pdf_pages(self, file_bytes: bytes) -> list[bytes]:
+        try:
+            from pypdf import PdfReader, PdfWriter
+        except ImportError as exc:
+            raise TextractError("PDF splitting unavailable.") from exc
+        reader = PdfReader(BytesIO(file_bytes))
+        pages: list[bytes] = []
+        for idx in range(len(reader.pages)):
+            writer = PdfWriter()
+            writer.add_page(reader.pages[idx])
+            buf = BytesIO()
+            writer.write(buf)
+            pages.append(buf.getvalue())
+        return pages
+
+    def _detect_page_text(self, page_bytes: bytes) -> str:
+        try:
+            response = self._boto_client().detect_document_text(Document={"Bytes": page_bytes})
+        except Exception as exc:
+            raise TextractError(f"Textract page extract failed: {exc}") from exc
+        blocks = response.get("Blocks") or []
+        return self._extract_plain_text(blocks)
+
     def extract_text(self, file_bytes: bytes, filename: str) -> dict[str, Any]:
-        """Return text, tables, and forms from a single-page document."""
+        """Return text, tables, and forms. Multi-page PDFs are processed page-by-page."""
         filename = (filename or "upload").strip() or "upload"
         page_count = self._get_page_count(file_bytes, filename)
+
+        if page_count > 1 and Path(filename).suffix.lower() == ".pdf":
+            return self._extract_multipage_pdf(file_bytes, filename, page_count)
 
         response: dict[str, Any]
         try:
@@ -123,6 +151,28 @@ class TextractClient:
             "forms": forms,
             "page_count": page_count,
             "filename": filename,
+            "pages": [{"page": 1, "text": text}] if text else [],
+        }
+
+    def _extract_multipage_pdf(
+        self, file_bytes: bytes, filename: str, page_count: int
+    ) -> dict[str, Any]:
+        page_blobs = self._split_pdf_pages(file_bytes)
+        pages_meta: list[dict[str, Any]] = []
+        combined: list[str] = []
+        for idx, blob in enumerate(page_blobs[: self.TEXTRACT_MAX_PAGES], start=1):
+            page_text = self._detect_page_text(blob).strip()
+            pages_meta.append({"page": idx, "text": page_text})
+            if page_text:
+                combined.append(f"--- Page {idx} ---\n{page_text}")
+        text = "\n\n".join(combined)
+        return {
+            "text": text,
+            "tables": [],
+            "forms": [],
+            "page_count": min(page_count, len(page_blobs)),
+            "filename": filename,
+            "pages": pages_meta,
         }
 
     @staticmethod

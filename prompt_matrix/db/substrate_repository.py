@@ -139,6 +139,19 @@ def set_substrate_included(project_id: str, file_id: str, included: bool) -> boo
     return cur.rowcount > 0
 
 
+def fetch_substrate_entry(project_id: str, file_id: str) -> dict[str, Any] | None:
+    """Fetch a single vault entry including extracted_text."""
+    rows = fetch_substrate_entries_by_ids(project_id, [file_id])
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        "id": row["id"],
+        "filename": row["filename"],
+        "extracted_text": row.get("extracted_text") or "",
+    }
+
+
 def fetch_substrate_entries_by_ids(project_id: str, file_ids: list[str]) -> list[dict[str, Any]]:
     """Fetch full rows (including extracted_text) for the given ids — used to ground compile."""
     if not file_ids:

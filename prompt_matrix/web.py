@@ -1685,6 +1685,37 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from routers.prompt_routes import register_prompt_routes
     register_prompt_routes(app)
 
+    try:
+        from .routers.drift_routes import register_drift_routes
+    except ImportError:
+        from routers.drift_routes import register_drift_routes
+    register_drift_routes(app)
+
+    try:
+        from .routers.compliance_routes import register_compliance_routes
+    except ImportError:
+        from routers.compliance_routes import register_compliance_routes
+    register_compliance_routes(app)
+
+    try:
+        from .routers.import_config_routes import (
+            register_audit_log_routes,
+            register_import_config_routes,
+        )
+    except ImportError:
+        from routers.import_config_routes import (
+            register_audit_log_routes,
+            register_import_config_routes,
+        )
+    register_import_config_routes(app)
+    register_audit_log_routes(app)
+
+    try:
+        from .middleware_activity import register_activity_audit_middleware
+    except ImportError:
+        from middleware_activity import register_activity_audit_middleware
+    register_activity_audit_middleware(app)
+
     @app.errorhandler(MatrixError)
     def matrix_error(exc: MatrixError):
         return jsonify({"error": friendly_error(str(exc), _locale())}), 400
