@@ -12,10 +12,11 @@
             </span>
         </a>
         <nav class="nav-links is-collapsed" id="landing-nav-links" data-i18n-aria="landing.nav.aria" aria-label="Primary">
-            <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">Menu</button>
-            <a href="{% if nav_current|default('landing') == 'landing' %}#glossary{% else %}/#glossary{% endif %}" data-i18n="landing.nav.docs">Docs</a>
-            <a href="/architecture"{% if nav_current|default('landing') == 'architecture' %} aria-current="page"{% endif %} data-i18n="landing.nav.architecture">How it works</a>
-            <a href="{% if nav_current|default('landing') == 'landing' %}#sandbox{% else %}/#sandbox{% endif %}" data-i18n="landing.nav.sandbox">Sandbox</a>
+            <button type="button" class="nav-menu-toggle" id="nav-menu-toggle" aria-expanded="false" aria-controls="landing-nav-links" data-i18n="landing.nav.menu">{{ strings.get('landing.nav.menu', 'Menu') }}</button>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#proof{% else %}/#proof{% endif %}" data-i18n="landing.nav.docs">{{ strings.get('landing.nav.docs', 'Proof') }}</a>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#why-now{% else %}/#why-now{% endif %}" data-i18n="landing.nav.architecture">{{ strings.get('landing.nav.architecture', 'Why now') }}</a>
+            <a href="{% if nav_current|default('landing') == 'landing' %}#trust{% else %}/#trust{% endif %}" data-i18n="landing.nav.sandbox">{{ strings.get('landing.nav.sandbox', 'Trust') }}</a>
+            <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
             <label class="landing-lang-wrap" for="landing-lang">
                 <span class="visually-hidden" data-i18n="landing.lang">Language</span>
                 <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="Language">
@@ -24,7 +25,7 @@
                     {% endfor %}
                 </select>
             </label>
-            <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">Launch Workspace &rarr;</a>
+            <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">{{ strings.get('landing.nav.launch', 'Launch App') }}</a>
         </nav>
     </div>
 </header>
