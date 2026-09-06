@@ -1,13 +1,48 @@
 # Assure — full product status
 
+**Date:** 2026-09-06
+**Current track:** `feat/ui-revision-sprint` `e19523c` → [PR #6](https://github.com/orhgor/assure/pull/6) → `staging` → `main`
+**Workbench UI inventory:** [workbench-ui-current-state.md](./workbench-ui-current-state.md)
+**Function catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md)
+
+## Current snapshot (2026-09-06)
+
+| Environment | Git | Workbench notes |
+| :--- | :--- | :--- |
+| **Production** (before this promote) | `main` @ `bac3d40` | v2.0.0 Wow only (laser, stamps, x-ray, reasoning graph). No Trust & Clarity stepper/provenance/roles. |
+| **Staging** (before this promote) | `staging` @ `f04ec7f` | Trust & Clarity (provenance, roles, action-phase grid). |
+| **This promote** | UI revision on Trust & Clarity | Lifecycle **stepper**, **embedded analytics** (280px cards), provenance **slide-in** drawer, single Accept & Dock. |
+
+**Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
+**CI:** PR #6 `test` + `playwright-tests` **SUCCESS** (2026-09-06).
+
+### Workbench (after this sprint)
+
+| Item | Status |
+| :--- | :--- |
+| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ Analytics is in-shell (`#view-analytics`), not a full navigation away |
+| Document Lifecycle stepper (Write → Verify → Audit → Ship) | ✅ `workbench_stepper.js` |
+| Single Accept & Dock | ✅ `#generate-accept-dock-phase` only |
+| Provenance ⓘ drawer | ✅ `#provenance-panel-drawer.is-open` |
+| Role switcher | ✅ Admin / Compliance / Developer / Executive |
+| Wow effects | ✅ Optional layer — **not unified** with gutters/overlay/ⓘ |
+| Active Works visual hierarchy | ❌ Not in this sprint |
+| Full Audit as verify-only (no re-compile) | ❌ Still re-runs compile stream |
+
+**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md)
+
+---
+
+## Historical snapshot — 2026-09-04
+
 **Date:** 2026-09-04
 **Code check & test report:** [2026-09-04-edge-restructure-codecheck.md](./audits/2026-09-04-edge-restructure-codecheck.md)
 **Decision:** **GO (production)** — app on `p4-account-wallet`; marketing on `webpage`
-**Production:** `https://getassureai.com/health` → `status: healthy`, `build_sha: 1b21f8b`, UI `assure-64` / `assure-55`, disk **3.51 GB** free, `backup: never_run`
-**Tests:** **291 pytest passed, 1 failed** locally (`tests/test_adoption.py::test_resolve_lock_inference_model` still expects `gemini-1.5-pro`; code routes `gemini-3.6-flash`). CI App Docker + Security green; CI unit job red on that one assertion.
-**Container:** `assure-assure-app-1` on EC2 — GHCR `ghcr.io/orhgor/assure-app:1b21f8b` + SSM (`scripts/aws/ssm-redeploy-and-wait.sh`)
-**Git:** **`1b21f8b`** on `p4-account-wallet` (origin). Working tree also has **uncommitted** node context menu + UI cache `assure-65` / `assure-56`.
-**Detail checklist:** [launch-checklist.md](./launch-checklist.md) · **Post-launch ops:** [post-launch-ops.md](./post-launch-ops.md)
+**Production (that day):** `https://getassureai.com/health` → `status: healthy`, `build_sha: 1b21f8b`
+**Tests (that day):** **291 pytest passed, 1 failed** locally (`tests/test_adoption.py::test_resolve_lock_inference_model`).
+**Git (that day):** **`1b21f8b`** on `p4-account-wallet`.
+
+The sections below are the 2026-09-04 launch log. Prefer the **Current snapshot** above for what to demo now.
 
 ---
 

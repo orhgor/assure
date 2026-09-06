@@ -740,6 +740,24 @@ def create_app(*, require_auth: bool = True) -> Flask:
         clear_user()
         return jsonify({"ok": True})
 
+    VALID_ROLES = ("admin", "compliance", "developer", "executive")
+
+    @app.get("/api/user/role")
+    def user_role():
+        role = str(session.get("assure_role") or "compliance")
+        if role not in VALID_ROLES:
+            role = "compliance"
+        return jsonify({"role": role, "roles": list(VALID_ROLES)})
+
+    @app.post("/api/user/role")
+    def set_user_role():
+        data = request.get_json(silent=True) or {}
+        role = str(data.get("role") or "").strip().lower()
+        if role not in VALID_ROLES:
+            return jsonify({"ok": False, "error": "Invalid role."}), 400
+        session["assure_role"] = role
+        return jsonify({"ok": True, "role": role})
+
     @app.get("/pricing")
     def pricing():
         try:

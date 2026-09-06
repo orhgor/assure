@@ -85,6 +85,7 @@ def _score_unit(
         context=context or chunk,
         ledger=ledger,
         source_label=_source_label(node),
+        source_id=_source_id(node),
     )
     lowered = chunk.lower()
     for key in violation_keys:
@@ -121,6 +122,13 @@ def _source_label(node: dict[str, Any]) -> str:
                 bits.append(section)
             return ", ".join(bits)
     return "source text"
+
+
+def _source_id(node: dict[str, Any]) -> str:
+    for prov in node.get("provenance") or []:
+        if isinstance(prov, dict) and prov.get("source_id"):
+            return str(prov.get("source_id") or "")
+    return ""
 
 
 def _walk_nodes(document: dict[str, Any]) -> list[dict[str, Any]]:

@@ -280,7 +280,7 @@
     },
 
     dock: function () {
-      if (clickIfUsable($("draft-preview-dock-btn"))) return true;
+      if (clickIfUsable($("generate-accept-dock-phase"))) return true;
       if (clickIfUsable($("generate-accept-dock"))) return true;
       if (clickIfUsable($("btn-dock-draft"))) return true;
       toast(t("shortcuts.dock_unavailable", "Nothing is ready to dock yet."), "info");

@@ -4,7 +4,7 @@
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "generate";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
-  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library"]);
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics"]);
   var SETTINGS_VIEWS = ["settings", "audit"];
 
   function $(id) {
@@ -570,10 +570,6 @@
     /** Primary navigation — aborts streams and toggles view containers. */
     switchView: function (view, opts) {
       opts = opts || {};
-      if (view === "analytics") {
-        global.location.href = "/analytics";
-        return;
-      }
       if (!view) view = DEFAULT_VIEW;
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
@@ -618,26 +614,28 @@
             (view === "vault" && tool === "library") ||
             (view === "generate" && tool === "generate") ||
             (view === "surgical" && tool === "surgical") ||
-            (view === "projects" && tool === "projects");
+            (view === "projects" && tool === "projects") ||
+            (view === "analytics" && tool === "analytics");
           link.classList.toggle("is-active", on);
           link.setAttribute("aria-current", on ? "page" : "false");
         });
       }
 
       if (appContent) {
-        appContent.classList.toggle("mode-workspace", inWorkspace);
+        appContent.classList.toggle("mode-workspace", inWorkspace && view !== "analytics");
+        appContent.classList.toggle("mode-full-view", view === "analytics");
       }
 
       if (workbench) workbench.hidden = false;
 
       if (leftPaneShared) {
-        leftPaneShared.hidden = !inWorkspace || view === "projects";
+        leftPaneShared.hidden = !inWorkspace || view === "projects" || view === "analytics";
       }
 
-      ["projects", "generate", "surgical"].forEach(function (name) {
+      ["projects", "generate", "surgical", "analytics"].forEach(function (name) {
         var el = $("view-" + name);
         if (!el) return;
-        var on = inWorkspace && view === name;
+        var on = view === name && (inWorkspace || name === "analytics" || name === "projects");
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
@@ -680,6 +678,9 @@
 
       if (view === "projects" && global.AssureProjects) {
         global.AssureProjects.load();
+      }
+      if (view === "analytics" && global.AssureAnalytics && typeof global.AssureAnalytics.render === "function") {
+        global.AssureAnalytics.render();
       }
     },
 

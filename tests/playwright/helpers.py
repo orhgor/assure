@@ -14,7 +14,7 @@ DESKTOP_VIEWPORT = {"width": 1440, "height": 900}
 COMPILE_INPUT = "#generate-intent"
 COMPILE_BTN = "#generate-compile-btn"
 FULL_AUDIT_BTN = "#generate-full-audit-btn"
-DOCK_BTN = "#generate-accept-dock"
+DOCK_BTN = "#generate-accept-dock-phase"
 WORKBENCH = "#workbench-root"
 GATE_STATUS = "#gate-status-text"
 COMPILE_STATUS_BAR = ".workbench-status-bar"
@@ -33,6 +33,12 @@ SURGICAL_POPOVER = "#jdf-surgical-popover"
 REFINE_BTN = "#surgical-refine-ai-btn"
 REFINE_INSTRUCTION = "#surgical-refine-instruction"
 REFINE_FORM = "#jdf-surgical-popover-form"
+
+PROVENANCE_PANEL = "#provenance-panel-drawer"
+PROVENANCE_INFO_BTN = ".provenance-info-btn"
+ROLE_SWITCHER = "#role-switcher"
+SHOW_ADVANCED = "#workbench-show-advanced"
+ACTION_PHASE = ".action-phase"
 
 NODE_ID = "para-pw-1"
 SECTION_ID = "sec-pw-1"
@@ -91,6 +97,17 @@ def sample_document(*, content: str = "Revenue reached $12M in Q3.") -> dict[str
                         "id": NODE_ID,
                         "content": content,
                         "entities_referenced": ["revenue"],
+                        "provenance": [
+                            {
+                                "source_type": "internal_doc",
+                                "source_name": "NAIC_Underwriting_Policy_2025.pdf",
+                                "source_id": "sub-pw-1",
+                                "page_number": "4",
+                                "extracted_quote": "Revenue reached $12M",
+                                "url_or_doi": "",
+                                "accessed_date": "",
+                            }
+                        ],
                         "meta": {},
                         "annotations": empty_annotations(),
                     }
@@ -117,15 +134,25 @@ def draft_stream_success(
         doc["meta"]["confidenceSpans"] = confidence_spans
     section_nodes = doc["body"]
     extra = {"cache_hit": True, "omp_cached": True} if cache_hit else {}
+    from prompt_matrix.services.audit_summary import build_audit_summary
+
+    audit = build_audit_summary(
+        z3_results={
+            "status": "PASS",
+            "violations": [],
+            "lock_results": [{"key": "revenue", "ok": True, "value": 12_000_000}],
+        },
+        redhat_critiques=[],
+        document=doc,
+    )
     verified = {
         "type": "verified",
-        "document": doc,
+        **audit,
         "z3_results": {"z3_status": "PASS", "status": "PASS", "locks_verified": 1},
         "redhat_critiques": [],
         "redhat_count": 0,
         "gate_status": "pass",
         "z3_status": "PASS",
-        "confidenceSpans": confidence_spans or [],
         **extra,
     }
     return (

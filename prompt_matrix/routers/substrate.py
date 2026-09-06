@@ -14,6 +14,7 @@ try:
     from ..db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
     from ..db.substrate_repository import (
         delete_substrate_entry,
+        fetch_substrate_entry,
         list_substrate_for_project,
         save_substrate_entry,
         save_substrate_text,
@@ -29,6 +30,7 @@ except ImportError:
     from db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
     from db.substrate_repository import (
         delete_substrate_entry,
+        fetch_substrate_entry,
         list_substrate_for_project,
         save_substrate_entry,
         save_substrate_text,
@@ -368,6 +370,25 @@ def register_substrate_routes(app) -> None:
             for entry in entries
         ]
         return jsonify({"ok": True, "files": files})
+
+    @app.get("/api/projects/<project_id>/substrate/<file_id>")
+    @project_ownership_required
+    def substrate_get(project_id: str, file_id: str):
+        entry = fetch_substrate_entry(project_id, file_id)
+        if not entry:
+            return jsonify({"ok": False, "error": "File not found."}), 404
+        return jsonify(
+            {
+                "ok": True,
+                "file": {
+                    "id": entry.get("id"),
+                    "filename": entry.get("filename"),
+                    "page_count": entry.get("page_count"),
+                    "extracted_text": entry.get("extracted_text") or "",
+                    "included": entry.get("included", True),
+                },
+            }
+        )
 
     @app.delete("/api/projects/<project_id>/substrate/<file_id>")
     @project_ownership_required

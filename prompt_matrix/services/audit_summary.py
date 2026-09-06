@@ -10,12 +10,14 @@ try:
         build_confidence_spans,
         build_macro_appendix,
     )
+    from .provenance_meta import attach_provenance_meta_to_tree
 except ImportError:
     from services.confidence_spans import (
         attach_confidence_spans_to_document,
         build_confidence_spans,
         build_macro_appendix,
     )
+    from services.provenance_meta import attach_provenance_meta_to_tree
 
 GateStatus = Literal["pass", "blocked", "review"]
 
@@ -66,6 +68,7 @@ def build_audit_summary(
     if document is not None:
         spans = build_confidence_spans(document, z3_results=z3_results)
         document = attach_confidence_spans_to_document(document, spans)
+        document = attach_provenance_meta_to_tree(document, z3_results=z3_results)
         appendix = build_macro_appendix(
             document,
             z3_results=z3_results,
