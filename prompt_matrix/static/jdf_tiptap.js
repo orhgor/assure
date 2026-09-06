@@ -650,10 +650,20 @@
 
   function applyConfidenceToTipTap() {
     if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
-    try {
-      var tr = editor.state.tr.setMeta(confidencePluginKeyRef, { refresh: true });
-      editor.view.dispatch(tr);
-    } catch (_) {}
+    var run = function () {
+      if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
+      try {
+        var tr = editor.state.tr.setMeta(confidencePluginKeyRef, { refresh: true });
+        editor.view.dispatch(tr);
+      } catch (_) {}
+    };
+    if (typeof global.requestAnimationFrame === "function") {
+      global.requestAnimationFrame(function () {
+        global.requestAnimationFrame(run);
+      });
+    } else {
+      setTimeout(run, 0);
+    }
   }
 
   function destroy() {

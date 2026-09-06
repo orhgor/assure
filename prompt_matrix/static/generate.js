@@ -992,6 +992,14 @@
           if (result.data.document) jdf.tree = result.data.document;
           self._docked = true;
           if (typeof jdf.render === "function") jdf.render();
+          if (
+            global.AssureTiptapEditor &&
+            typeof global.AssureTiptapEditor.applyConfidenceToTipTap === "function"
+          ) {
+            setTimeout(function () {
+              global.AssureTiptapEditor.applyConfidenceToTipTap();
+            }, 150);
+          }
           if (result.data.version && typeof jdf.setVersion === "function") {
             jdf.setVersion(result.data.version);
           }

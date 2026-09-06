@@ -20,11 +20,10 @@ steps:
   - action: wait
     selector: "#confidence-overlay-wrap:not([hidden])"
     timeout: 30000
-  - action: script
-    expression: |
-      (() => {
-        const icon = document.querySelector('.z3-reason-icon, [data-confidence-reason]');
-        return icon ? 'reason' : 'missing';
-      })()
+  - action: wait
+    selector: ".z3-reason-icon, [data-confidence-reason]"
+    timeout: 15000
   - action: assert
-    condition: lastScriptResult === 'reason'
+    selector: ".z3-reason-icon, [data-confidence-reason]"
+    visible: true
+    first: true
