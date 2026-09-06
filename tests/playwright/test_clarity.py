@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.playwright.helpers import SHOW_ADVANCED, goto_workbench, prime_page
+from tests.playwright.helpers import goto_workbench, prime_page
 
 pytestmark = pytest.mark.playwright
 
@@ -15,7 +15,7 @@ def test_advanced_quick_actions_hidden_by_default(page, base_url):
     quick = page.locator("#generate-quick-actions")
     assert quick.is_hidden()
 
-    page.locator(SHOW_ADVANCED).check()
+    page.locator("#workbench-advanced-toggle-btn").click()
     page.wait_for_function(
         "() => document.body.classList.contains('workbench-advanced-on')",
         timeout=5_000,

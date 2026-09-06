@@ -23,7 +23,7 @@ pytestmark = pytest.mark.playwright
 # Selectors copied from templates/index.html — not guessed.
 COMPILE_INPUT = "#generate-intent"
 COMPILE_BTN = "#generate-compile-btn"
-DOCK_BTN = "#generate-accept-dock"
+DOCK_BTN = "#generate-accept-dock-phase"
 WORKBENCH = "#jdf-workbench"
 LEFT_PANE = "#left-pane"
 SPLITTER = "#pane-splitter"

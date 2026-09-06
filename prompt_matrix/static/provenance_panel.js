@@ -156,6 +156,8 @@
       if (!drawer || !body) return;
       drawer.hidden = false;
       drawer.removeAttribute("hidden");
+      drawer.classList.add("is-open");
+      drawer.setAttribute("aria-hidden", "false");
       document.body.classList.add("provenance-panel-open");
       if (!prov) {
         body.innerHTML =
@@ -261,6 +263,8 @@
       if (drawer) {
         drawer.hidden = true;
         drawer.setAttribute("hidden", "");
+        drawer.classList.remove("is-open");
+        drawer.setAttribute("aria-hidden", "true");
       }
       document.body.classList.remove("provenance-panel-open");
       this.openNodeId = null;

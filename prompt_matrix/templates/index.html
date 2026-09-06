@@ -222,25 +222,45 @@
                   <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
                 </label>
               </div>
-              <div class="action-phase-row" aria-label="{{ gettext('Document workflow') }}">
-                <div class="action-phase" data-phase="write">
-                  <p class="action-phase-label" data-i18n="action.group.write">{{ gettext('Write') }}</p>
-                  <button type="button" class="btn btn-primary tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
+              <div class="workbench-stepper-container" role="region" aria-label="{{ gettext('Document Lifecycle') }}" data-i18n-aria="stepper.title">
+                <div class="stepper-header">
+                  <span class="stepper-title" data-i18n="stepper.title">{{ gettext('Document Lifecycle') }}</span>
+                  <button type="button" class="btn-text-subtle" id="workbench-advanced-toggle-btn" aria-expanded="false" aria-controls="generate-quick-actions">
+                    <span data-i18n="stepper.advanced">{{ gettext('Advanced') }}</span>
+                  </button>
                 </div>
-                <div class="action-phase" data-phase="verify">
-                  <p class="action-phase-label" data-i18n="action.group.verify">{{ gettext('Verify') }}</p>
-                  <button type="button" class="btn btn-outline tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Verify this claim with math check and stress test') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
-                </div>
-                <div class="action-phase workbench-advanced-only" data-phase="audit">
-                  <p class="action-phase-label" data-i18n="action.group.audit">{{ gettext('Audit') }}</p>
-                  <p class="hint action-phase-hint" data-i18n="action.group.audit_hint">{{ gettext('Run stress test from Polish or the summary panel.') }}</p>
-                </div>
-                <div class="action-phase" data-phase="ship">
-                  <p class="action-phase-label" data-i18n="action.group.ship">{{ gettext('Ship') }}</p>
-                  <button type="button" class="btn btn-primary btn-sm tooltip-trigger" id="generate-accept-dock-phase" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept & Dock') }}</button>
-                </div>
+                <nav class="action-phase-row stepper-timeline" aria-label="{{ gettext('Document workflow') }}">
+                  <div class="action-phase step-item is-active" data-phase="write" role="tab" aria-selected="true">
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                      <span class="step-label" data-i18n="action.group.write">{{ gettext('Write') }}</span>
+                      <button type="button" class="btn btn-primary btn-sm step-action-btn tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-i18n="generate.compile" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩">{{ gettext('✨ Assemble') }}</button>
+                    </div>
+                  </div>
+                  <div class="action-phase step-item is-disabled" data-phase="verify" role="tab" aria-selected="false">
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                      <span class="step-label" data-i18n="action.group.verify">{{ gettext('Verify') }}</span>
+                      <button type="button" class="btn btn-outline btn-sm step-action-btn tooltip-trigger" id="generate-full-audit-btn" data-i18n="generate.full_audit" data-tooltip="{{ gettext('Verify this claim with math check and stress test') }}" data-i18n-tooltip="tooltip.full_audit">{{ gettext('Full Audit') }}</button>
+                    </div>
+                  </div>
+                  <div class="action-phase step-item is-disabled" data-phase="audit" role="tab" aria-selected="false">
+                    <div class="step-marker">3</div>
+                    <div class="step-content">
+                      <span class="step-label" data-i18n="action.group.audit">{{ gettext('Audit') }}</span>
+                      <button type="button" class="btn-trust-redhat btn-sm step-action-btn tooltip-trigger" id="generate-redhat-btn" data-i18n="generate.redhat_short" data-tooltip="{{ gettext('Run the adversarial stress test on this draft') }}" data-i18n-tooltip="tooltip.stress">{{ gettext('Red-Hat') }}</button>
+                    </div>
+                  </div>
+                  <div class="action-phase step-item is-disabled" data-phase="ship" role="tab" aria-selected="false">
+                    <div class="step-marker">4</div>
+                    <div class="step-content">
+                      <span class="step-label" data-i18n="action.group.ship">{{ gettext('Ship') }}</span>
+                      <button type="button" class="btn btn-primary btn-sm step-action-btn tooltip-trigger" id="generate-accept-dock-phase" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept &amp; Dock') }}</button>
+                    </div>
+                  </div>
+                </nav>
               </div>
-              <label class="workbench-advanced-toggle check">
+              <label class="workbench-advanced-toggle check visually-hidden">
                 <input type="checkbox" id="workbench-show-advanced">
                 <span data-i18n="clarity.show_advanced">{{ gettext('Show advanced') }}</span>
               </label>
@@ -295,7 +315,6 @@
                   </div>
                   <p id="z3-status" class="gate-z3-status verification-badge" hidden></p>
                   <div class="compile-actions">
-                    <button type="button" class="btn btn-primary btn-sm tooltip-trigger" id="generate-accept-dock" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept & Dock') }}</button>
                     <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-recompile-btn" data-i18n="generate.recompile" data-tooltip="{{ gettext('Run the compile again with the same prompt') }}" data-i18n-tooltip="tooltip.recompile">{{ gettext('Re-compile') }}</button>
                     <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>
                   </div>
@@ -314,6 +333,27 @@
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
               </div>
+            </div>
+
+            <div id="view-analytics" class="assure-view analytics-embedded-container" hidden>
+              <h3 class="jdf-pane-title" data-i18n="analytics.title">{{ gettext('Analytics') }}</h3>
+              <p class="hint" data-i18n="analytics.lead">{{ gettext('Z3 health, Red-Hat critiques, and compliance velocity.') }}</p>
+              <section class="analytics-kpis" id="analytics-kpis">
+                <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.z3_pass">{{ gettext('Z3 Pass Rate') }}</h2><p id="kpi-z3-pass">—</p></article>
+                <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.total_audits">{{ gettext('Total Audits') }}</h2><p id="kpi-total-audits">—</p></article>
+                <article class="analytics-kpi"><h2 data-i18n="analytics.kpi.velocity">{{ gettext('Avg Sign-offs') }}</h2><p id="kpi-velocity">—</p></article>
+              </section>
+              <section class="analytics-charts-grid" id="analytics-charts">
+                <div class="analytics-chart-card">
+                  <canvas id="chart-z3-health"></canvas>
+                </div>
+                <div class="analytics-chart-card">
+                  <canvas id="chart-redhat"></canvas>
+                </div>
+                <div class="analytics-chart-card analytics-table-card">
+                  <div id="chart-velocity-table" class="analytics-table"></div>
+                </div>
+              </section>
             </div>
 
             <div id="view-surgical" class="assure-view" hidden>
@@ -494,7 +534,6 @@
                 </div>
               </div>
               <div class="draft-preview-actions">
-                <button type="button" class="btn btn-sm btn-primary tooltip-trigger" id="draft-preview-dock-btn" disabled data-i18n="generate.accept_dock" data-tooltip="{{ gettext('Append this draft to the document on the canvas') }}" data-i18n-tooltip="tooltip.dock" data-shortcut="⌘⇧D">{{ gettext('Accept &amp; Dock') }}</button>
                 <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="draft-preview-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>
               </div>
             </div>
@@ -517,7 +556,7 @@
               </div>
               <div id="reasoning-graph-cy" class="reasoning-graph-cy"></div>
             </aside>
-            <aside id="provenance-panel-drawer" class="provenance-panel-drawer" hidden>
+            <aside id="provenance-panel-drawer" class="provenance-panel-drawer" hidden aria-hidden="true">
               <div class="provenance-panel-header">
                 <h2 data-i18n="jdf.provenance.title">{{ gettext('Verification Provenance') }}</h2>
                 <button type="button" class="btn btn-sm btn-ghost" id="provenance-panel-close" aria-label="{{ gettext('Close provenance panel') }}" data-i18n-aria="jdf.provenance.close">×</button>
@@ -1064,6 +1103,7 @@
   <script src="{{ url_for('static', filename='provenance_panel.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='role_workbench.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_clarity.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='workbench_stepper.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -1082,6 +1122,8 @@
   <script src="{{ url_for('static', filename='connect.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='redhat_panel.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='compliance_ui.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='analytics.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='generate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='adoption.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>
