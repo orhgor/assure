@@ -7,6 +7,7 @@ WORKDIR /build
 COPY package.json package-lock.json ./
 COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
 COPY scripts/bundle-tiptap.mjs scripts/bundle-tiptap.mjs
+COPY scripts/bundle-jdf.mjs scripts/bundle-jdf.mjs
 COPY prompt_matrix/static/src/ prompt_matrix/static/src/
 RUN npm ci && npm run bundle:sentry && npm run bundle:tiptap && npm run bundle:jdf
 
