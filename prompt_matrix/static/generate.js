@@ -1571,6 +1571,54 @@
 
   var AssureFirstCompileCoachmark = {
     _dismissed: false,
+    _step: 0,
+    _steps: [
+      { selector: "#generate-intent", i18n: "coachmark.tour.step1", fallback: "Start here – type your intent" },
+      { selector: "#generate-compile-btn", i18n: "coachmark.tour.step2", fallback: "Click Assemble to compile" },
+      { selector: "#jdf-render-target", i18n: "coachmark.tour.step3", fallback: "See verification results on the canvas" },
+    ],
+
+    _copy: function (step) {
+      var key = this._steps[step] && this._steps[step].i18n;
+      var fallback = this._steps[step] && this._steps[step].fallback;
+      if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+      return fallback;
+    },
+
+    renderStep: function () {
+      var mark = $("first-compile-coachmark");
+      var copy = $("coachmark-copy");
+      var progress = $("coachmark-progress");
+      var back = $("first-compile-coachmark-back");
+      var next = $("first-compile-coachmark-next");
+      if (!mark) return;
+      var step = this._steps[this._step];
+      if (!step) {
+        this.dismiss();
+        return;
+      }
+      if (copy) {
+        copy.setAttribute("data-i18n", step.i18n);
+        copy.textContent = this._copy(this._step);
+      }
+      if (progress) progress.textContent = this._step + 1 + " / " + this._steps.length;
+      if (back) back.hidden = this._step === 0;
+      if (next) {
+        next.textContent =
+          this._step >= this._steps.length - 1
+            ? (typeof global.__assureT === "function" ? global.__assureT("coachmark.tour.done", "Done") : "Done")
+            : (typeof global.__assureT === "function" ? global.__assureT("coachmark.tour.next", "Next") : "Next");
+      }
+      mark.hidden = false;
+      mark.dataset.tourStep = String(this._step + 1);
+      var target = document.querySelector(step.selector);
+      var assembleWrap = document.querySelector(".compile-action-row") || mark.parentElement;
+      if (this._step === 1 && assembleWrap) {
+        assembleWrap.appendChild(mark);
+      } else if (target && target.parentElement && this._step !== 1) {
+        target.parentElement.appendChild(mark);
+      }
+    },
 
     check: function (force) {
       if (this._dismissed && !force) return;
@@ -1578,6 +1626,7 @@
       var assemble = $("generate-compile-btn");
       if (!mark || !assemble) return;
       var pid = projectId();
+      var self = this;
       fetch("/api/projects/" + encodeURIComponent(pid) + "/files", { credentials: "same-origin" })
         .then(function (r) {
           return r.json();
@@ -1587,11 +1636,27 @@
           var nodes = manifest.lastCompiledOutput || [];
           var empty = !nodes || !nodes.length;
           var assembleVisible = !!(assemble.offsetParent || assemble.getClientRects().length);
-          if (empty && assembleVisible && !AssureFirstCompileCoachmark._dismissed) {
-            mark.hidden = false;
+          if (empty && assembleVisible && !self._dismissed) {
+            self._step = 0;
+            self.renderStep();
           }
         })
         .catch(function () {});
+    },
+
+    next: function () {
+      if (this._step >= this._steps.length - 1) {
+        this.dismiss();
+        return;
+      }
+      this._step += 1;
+      this.renderStep();
+    },
+
+    back: function () {
+      if (this._step <= 0) return;
+      this._step -= 1;
+      this.renderStep();
     },
 
     dismiss: function () {
@@ -1601,10 +1666,23 @@
     },
 
     init: function () {
+      var self = this;
       var dismissBtn = $("first-compile-coachmark-dismiss");
+      var nextBtn = $("first-compile-coachmark-next");
+      var backBtn = $("first-compile-coachmark-back");
       if (dismissBtn) {
         dismissBtn.addEventListener("click", function () {
-          AssureFirstCompileCoachmark.dismiss();
+          self.dismiss();
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener("click", function () {
+          self.next();
+        });
+      }
+      if (backBtn) {
+        backBtn.addEventListener("click", function () {
+          self.back();
         });
       }
       this.check(false);
