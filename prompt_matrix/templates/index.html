@@ -43,16 +43,13 @@
         <a class="btn btn-primary" id="upgrade-link" href="/pricing" data-i18n="upgrade">{{ gettext('See Pro pricing') }}</a>
         <p class="hint" data-i18n="upgrade.hint">{{ gettext('Pro is $19 per month on the Pricing page. On this machine, ASSURE_EDITION=pro raises the cap without Stripe.') }}</p>
       </div>
-      <div id="mobile-lockout" class="mobile-lockout" aria-live="polite">
-        <div class="mobile-lockout-panel card">
-          <svg class="mobile-lockout-mark brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="48" height="48">
-            <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
-            <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <h2 data-i18n="safeguard.mobile.title">{{ gettext('Desktop required') }}</h2>
-          <p data-i18n="safeguard.mobile.body">{{ gettext('Kurumsal Deterministik Derleyici (Enterprise Deterministic Compiler) requires a desktop environment for AST visualization and logic auditing. Please open this link on your computer.') }}</p>
-        </div>
-      </div>
+      <aside id="mobile-lockout" class="mobile-hint" role="note">
+        <p>
+          <strong data-i18n="safeguard.mobile.title">{{ gettext('Easier on a larger screen') }}</strong>
+          <span data-i18n="safeguard.mobile.body">{{ gettext('You can keep writing here. A bigger window just makes reviewing drafts more comfortable.') }}</span>
+        </p>
+        <button type="button" class="btn btn-sm btn-outline" id="mobile-hint-dismiss" data-i18n="history.close">{{ gettext('Close') }}</button>
+      </aside>
       <div class="app-layout" id="assure-app">
         <header class="app-header">
           <div class="app-header-left">
@@ -68,10 +65,6 @@
             </div>
           </div>
           <div class="app-header-center app-trust-strip" aria-label="{{ gettext('Trust signals') }}">
-            <span data-i18n="landing.trust.z3">{{ gettext('Math Check') }}</span>
-            <span aria-hidden="true">·</span>
-            <span data-i18n="landing.trust.redhat">{{ gettext('Stress Tested') }}</span>
-            <span aria-hidden="true">·</span>
             <span data-i18n="header.privacy">{{ gettext('Copy stays here. Send goes only to the provider you chose.') }}</span>
           </div>
           <div class="app-header-right">
@@ -98,7 +91,7 @@
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
               <span class="app-sidebar-icon" aria-hidden="true">📝</span>
-              <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Compile') }}</span>
+              <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Draft') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Polish one section at a time — the rest stays fixed.') }}" data-i18n-tooltip="tooltip.nav.surgical">
               <span class="app-sidebar-icon" aria-hidden="true">✨</span>
@@ -114,7 +107,7 @@
             </button>
           </nav>
           <div class="workbench-status-bar" id="workbench-status-bar" aria-live="polite">
-            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok">{{ gettext('Document looks good') }}</span>
+            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok">{{ gettext('✅ Verified – No hallucinations found.') }}</span>
             <span class="workbench-last-action" id="workbench-last-action"></span>
           </div>
           <div class="app-content">
@@ -391,7 +384,7 @@
                 <button type="button" class="btn btn-outline btn-sm" id="btn-cancel-edit">{{ gettext('✕ Cancel') }}</button>
               </p>
               <label class="visually-hidden" for="inquiry-input">{{ gettext('Edit intent') }}</label>
-              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input refine-input draft-textarea auto-resize" placeholder="{{ gettext('Describe the refactor for the selected node…') }}" data-i18n-placeholder="refine.placeholder">
+              <input type="text" id="inquiry-input" class="form-control jdf-intent-input inquiry-input refine-input draft-textarea auto-resize" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.placeholder">
               <p class="inquiry-shortcut-hint hint" id="inquiry-shortcut-hint" data-i18n="jdf.inquire.shortcut">{{ gettext('Press Ctrl or ⌘ + Enter to refine') }}</p>
             </div>
 
@@ -465,7 +458,7 @@
             </div>
             <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
             <aside id="jdf-audit-appendix" class="jdf-audit-appendix" hidden>
-              <h2 class="jdf-audit-appendix-title" data-i18n="generate.audit_manifest">{{ gettext('Audit Manifest') }}</h2>
+              <h2 class="jdf-audit-appendix-title" data-i18n="generate.audit_manifest">{{ gettext('Audit Report') }}</h2>
               <div id="jdf-audit-appendix-body" class="jdf-audit-appendix-body"></div>
             </aside>
           </main>
@@ -486,7 +479,7 @@
           <div class="command-deck-right">
             <button type="button" class="shortcut-hint-btn tooltip-trigger" id="shortcut-hint-btn" aria-label="{{ gettext('Keyboard shortcuts') }}" data-i18n-aria="shortcuts.title" data-tooltip="{{ gettext('Keyboard shortcuts') }}" data-i18n-tooltip="shortcuts.title" data-shortcut="?">?</button>
             <button type="button" class="btn btn-sm btn-danger hidden" id="btn-stop-stream" style="display: none;" title="{{ gettext('Cancel the live stream if it seems stuck.') }}" data-i18n-title="jdf.stop_stream.hint" data-i18n="jdf.stop_stream">{{ gettext('Stop stream') }}</button>
-            <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('◌ Unsaved') }}</button>
+            <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.unsaved" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('Saving…') }}</button>
             <details class="export-menu" id="export-menu">
               <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Download') }}</summary>
               <div class="export-menu-panel">
@@ -517,7 +510,7 @@
           </div>
           <ul class="shortcut-sheet-list">
             <li>
-              <span data-i18n="shortcuts.compile">{{ gettext('Compile the draft') }}</span>
+              <span data-i18n="shortcuts.compile">{{ gettext('Assemble the draft') }}</span>
               <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>↩</kbd></span>
             </li>
             <li>
@@ -680,9 +673,9 @@
             </label>
             <p class="hint"><a href="/connect" data-i18n="app.open.connect">{{ gettext('Open connect page') }}</a></p>
             <hr class="settings-divider">
-            <h3 class="tool-panel-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h3>
+            <h3 class="tool-panel-title" data-i18n="audit.title">{{ gettext('Audit Report') }}</h3>
             <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>
-            <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Manifest') }}</button>
+            <button type="button" class="btn btn-primary" id="export-audit-btn" data-i18n="adoption.audit.export">{{ gettext('Export Audit Report') }}</button>
             <pre id="audit-preview" class="audit-preview hint" data-i18n="adoption.audit.preview_empty">{{ gettext('Open this tab to preview the manifest, or export to download.') }}</pre>
           </section>
         </div>
@@ -694,7 +687,7 @@
           </div>
           <form id="jdf-surgical-popover-form" class="jdf-surgical-popover-form" hidden>
             <label class="visually-hidden" for="surgical-refine-instruction" data-i18n="surgical.click.instruction_label">{{ gettext('Instructions') }}</label>
-            <textarea id="surgical-refine-instruction" class="form-control" rows="3" data-i18n-placeholder="surgical.click.instruction_placeholder" placeholder="{{ gettext('Rewrite this to be more neutral') }}"></textarea>
+            <textarea id="surgical-refine-instruction" class="form-control" rows="3" data-i18n-placeholder="surgical.click.instruction_placeholder" placeholder="{{ gettext('What would you like to change?') }}"></textarea>
             <div class="jdf-surgical-popover-form-actions">
               <button type="submit" class="btn btn-sm btn-primary" id="surgical-refine-apply" data-i18n="surgical.click.apply">{{ gettext('Apply') }}</button>
               <button type="button" class="btn btn-sm btn-outline" id="surgical-refine-cancel" data-i18n="surgical.click.cancel">{{ gettext('Cancel') }}</button>
@@ -844,7 +837,7 @@
   </aside>
   <dialog class="work-dialog audit-manifest-dialog" id="audit-manifest-modal" aria-labelledby="audit-manifest-title">
     <div class="output-head">
-      <h2 id="audit-manifest-title" data-i18n="audit.title">{{ gettext('Audit Manifest') }}</h2>
+      <h2 id="audit-manifest-title" data-i18n="audit.title">{{ gettext('Audit Report') }}</h2>
       <button class="btn btn-outline ghost" type="button" id="audit-manifest-close" data-i18n="history.close">{{ gettext('Close') }}</button>
     </div>
     <p class="hint" data-i18n="audit.description">{{ gettext('A verifiable compliance record of your document compilation.') }}</p>

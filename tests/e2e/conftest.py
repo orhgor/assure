@@ -13,7 +13,7 @@ from unittest.mock import patch
 import pytest
 from werkzeug.serving import make_server
 
-# CSS @media (max-width: 1024px) shows #mobile-lockout and hides #assure-app.
+# CSS @media (max-width: 1024px) shows a mobile hint; the workbench stays usable.
 # Playwright's default 1280×720 is technically wide enough; pin desktop anyway.
 DESKTOP_VIEWPORT = {"width": 1440, "height": 900}
 _SYSTEM_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")

@@ -441,7 +441,7 @@
       var intent = payload.intent;
       if (!intent) {
         if (global.AssureToast) {
-          global.AssureToast.show(t("generate.intent_required", "Describe what to compile first."), "error");
+          global.AssureToast.show(t("generate.intent_required", "Tell us what you want to write first."), "error");
         }
         return;
       }

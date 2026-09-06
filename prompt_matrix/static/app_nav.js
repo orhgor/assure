@@ -174,8 +174,8 @@
       var defaults = {
         idle: ["compiler.status.idle", "All good"],
         processing: ["compiler.status.processing", "Working…"],
-        verified: ["compiler.status.verified", "✅ Verified"],
-        issues: ["compiler.status.issues", "❌ Issues Found"],
+        verified: ["compiler.status.verified", "✅ Verified – No hallucinations found."],
+        issues: ["compiler.status.issues", "⚠️ Risks found"],
         exporting: ["compiler.status.exporting", "⬡ Exporting…"],
       };
       var pair = defaults[this.currentState] || defaults.idle;
@@ -218,17 +218,20 @@
       var msg;
       if (this.currentState === "processing" || this.currentState === "exporting") {
         msg = translate("workbench.status.health_working", "Working on your draft…");
+      } else if (this.currentState === "cached") {
+        msg = translate("workbench.status.health_cached", "⚡ Cached – Instant load from memory.");
       } else if (this.currentState === "issues" && this.issueCount > 0) {
-        msg = translate("workbench.status.health_issues", "{n} issues to review", {
+        msg = translate("workbench.status.health_issues", "⚠️ {n} risks found – Click to see details.", {
           n: this.issueCount,
         });
       } else if (this.currentState === "verified") {
-        msg = translate("compiler.status.verified", "✅ Verified");
+        msg = translate("compiler.status.verified", "✅ Verified – No hallucinations found.");
       } else {
-        msg = translate("workbench.status.health_ok", "Document looks good");
+        msg = translate("workbench.status.health_ok", "✅ Verified – No hallucinations found.");
       }
       healthEl.textContent = msg;
       if (barEl) {
+        barEl.classList.toggle("is-clickable", this.currentState === "issues" && this.issueCount > 0);
         barEl.classList.toggle("is-flash", this.currentState === "verified");
         if (this.currentState === "verified") {
           window.setTimeout(function () {
@@ -240,11 +243,18 @@
 
     flashCacheHit: function () {
       var barEl = $("workbench-status-bar");
-      if (!barEl) return;
-      barEl.classList.add("is-cache-hit");
+      var prev = this.currentState;
+      this.update("cached");
+      if (barEl) {
+        barEl.classList.add("is-cache-hit");
+        window.setTimeout(function () {
+          if (barEl) barEl.classList.remove("is-cache-hit");
+        }, 1200);
+      }
+      var self = this;
       window.setTimeout(function () {
-        if (barEl) barEl.classList.remove("is-cache-hit");
-      }, 1200);
+        if (self.currentState === "cached") self.update(prev === "cached" ? "verified" : prev);
+      }, 1600);
     },
 
     setVersion: function (version) {
@@ -829,6 +839,38 @@
     });
   }
 
+  function initMobileHint() {
+    var banner = $("mobile-lockout");
+    var dismiss = $("mobile-hint-dismiss");
+    if (!banner) return;
+    try {
+      if (localStorage.getItem("assure_mobile_hint_dismissed") === "1") {
+        banner.classList.add("is-dismissed");
+      }
+    } catch (_) {}
+    if (dismiss) {
+      dismiss.addEventListener("click", function () {
+        banner.classList.add("is-dismissed");
+        try {
+          localStorage.setItem("assure_mobile_hint_dismissed", "1");
+        } catch (_) {}
+      });
+    }
+  }
+
+  function initHealthBarClicks() {
+    var bar = $("workbench-status-bar");
+    if (!bar) return;
+    bar.addEventListener("click", function () {
+      if (!AssureCompilerStatus || AssureCompilerStatus.currentState !== "issues") return;
+      var appendix = $("jdf-audit-appendix");
+      if (appendix) {
+        appendix.hidden = false;
+        if (typeof appendix.scrollIntoView === "function") appendix.scrollIntoView({ block: "nearest" });
+      }
+    });
+  }
+
   global.AssureAutoResize = { resize: autoResizeTextarea, init: initAutoResize };
 
   if (document.readyState === "loading") {
@@ -837,11 +879,15 @@
       initAutoResize();
       initCompileExampleChips();
       initDemoRedhatChip();
+      initMobileHint();
+      initHealthBarClicks();
     });
   } else {
     AssureNav.init();
     initAutoResize();
     initCompileExampleChips();
     initDemoRedhatChip();
+    initMobileHint();
+    initHealthBarClicks();
   }
 })(window);

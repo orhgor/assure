@@ -1624,8 +1624,8 @@ body:has(#assure-app) .shell {
   color: var(--color-primary, #1A4B8C);
 }
 
-.workbench-last-action[hidden] {
-  display: none;
+.workbench-status-bar.is-clickable {
+  cursor: pointer;
 }
 
 .app-content {
@@ -5663,40 +5663,26 @@ input.auto-resize {
   display: none;
 }
 
-.mobile-lockout {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-6);
-  background: linear-gradient(160deg, var(--assure-deep-navy) 0%, var(--assure-trust-blue) 100%);
-  color: var(--white);
-}
-
-.mobile-lockout-panel {
-  max-width: 34rem;
-  text-align: center;
-  padding: var(--spacing-8) var(--spacing-6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.98);
+.mobile-hint {
+  display: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  background: #eff6ff;
+  border-bottom: 1px solid rgba(26, 75, 140, 0.16);
   color: var(--assure-dark-gray);
 }
 
-.mobile-lockout-panel h2 {
-  margin: var(--spacing-4) 0 var(--spacing-3);
-  color: var(--assure-trust-blue);
-  font-size: var(--font-size-xl);
-}
-
-.mobile-lockout-panel p {
+.mobile-hint p {
   margin: 0;
-  line-height: 1.6;
-  color: var(--muted);
+  line-height: 1.45;
 }
 
-.mobile-lockout-mark {
-  margin: 0 auto;
+.mobile-hint strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--assure-trust-blue);
 }
 
 .tab-lockout-modal[hidden] {
@@ -5806,12 +5792,8 @@ body.settings-overlay-open {
 }
 
 @media (max-width: 1024px) {
-  #mobile-lockout {
+  #mobile-lockout:not(.is-dismissed) {
     display: flex;
-  }
-
-  #assure-app {
-    display: none !important;
   }
 }
 

@@ -10,6 +10,7 @@ from prompt_matrix.ui_cache import APP_CSS, APP_JS
 ROOT = Path(__file__).resolve().parents[1]
 
 SAFEGUARD_KEYS = (
+    "workbench.status.health_cached",
     "safeguard.mobile.title",
     "safeguard.mobile.body",
     "safeguard.tab.title",
@@ -38,7 +39,11 @@ SAFEGUARD_KEYS = (
 )
 
 
-def test_safeguard_keys_in_every_locale() -> None:
+def test_catalogs_drop_corporate_lockout_copy() -> None:
+    for locale in LOCALES:
+        blob = " ".join(str(v) for v in CATALOGS[locale].values())
+        assert "Kurumsal" not in blob, locale
+        assert "Desktop required" not in blob, locale
     for locale in LOCALES:
         cat = CATALOGS[locale]
         for key in SAFEGUARD_KEYS:
@@ -46,11 +51,13 @@ def test_safeguard_keys_in_every_locale() -> None:
             assert str(cat[key]).strip(), f"empty {locale} {key}"
 
 
-def test_workbench_markup_has_mobile_lockout() -> None:
+def test_workbench_markup_has_mobile_hint() -> None:
     html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
     assert 'id="mobile-lockout"' in html
     assert 'data-i18n="safeguard.mobile.title"' in html
     assert 'data-i18n="safeguard.mobile.body"' in html
+    assert "Desktop required" not in html
+    assert "Kurumsal Deterministik Derleyici" not in html
     assert 'id="tab-lockout-modal"' in html
     assert 'id="session-compile-limit"' in html
     assert "assure_tab_guard.js" in html
@@ -71,16 +78,17 @@ def test_session_limit_module_has_cap() -> None:
     assert "AssureSessionLimit" in js
 
 
-def test_style_has_mobile_lockout_media_query() -> None:
+def test_style_keeps_workbench_usable_on_mobile() -> None:
     css = (ROOT / "prompt_matrix" / "static" / "style.css").read_text(encoding="utf-8")
     assert "#mobile-lockout" in css
+    assert ".mobile-hint" in css
     assert "max-width: 1024px" in css
-    assert "#assure-app" in css
+    assert "#assure-app {\n    display: none !important;" not in css
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-90"
-    assert APP_JS == "assure-85"
+    assert APP_CSS == "assure-91"
+    assert APP_JS == "assure-86"
 
 
 def test_app_nav_tab_switching() -> None:

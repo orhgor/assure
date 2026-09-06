@@ -231,7 +231,7 @@ TRANSLATIONS = {
         "landing.trust.redhat": "Red-Hat karşıt denetim",
         "landing.sandbox.title": "Sıfır riskli yapıştırma testi",
         "landing.sandbox.sub": "Finansal metrik veya iddia içeren bir paragraf yapıştırın. Motor düğümleri ayırır, değişkenleri kilitler ve mantık boşluklarını işaretler.",
-        "landing.sandbox.run": "Deterministik denetim çalıştır",
+        "landing.sandbox.run": "Denetimi çalıştır",
         "landing.sandbox.advanced": "Gelişmiş modeller",
         "landing.sandbox.advanced_hint": "Workbench'e gönderirken geçerlidir — sandbox denetimini değiştirmez.",
         "landing.sandbox.error.empty": "Test için metin girin.",

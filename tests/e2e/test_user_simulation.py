@@ -588,20 +588,13 @@ def test_draft_stream_error_toast_when_all_retries_fail(workbench_page):
 # ---------------------------------------------------------------------------
 
 
-def test_mobile_viewport_shows_lockout_and_hides_workbench(page, base_url):
-    """At 390×844 the workbench is hidden; #mobile-lockout is the only UI.
-
-    Production testers on phones never reach #generate-intent. Desktop fixtures
-    must stay ≥1025px so this does not fire accidentally.
-    """
+def test_mobile_viewport_keeps_workbench_usable(page, base_url):
+    """At 390×844 the workbench stays usable; the old desktop lockout is gone."""
     _prime(page, viewport=MOBILE_VIEWPORT)
     _goto_workbench(page, base_url, wait_canvas=False)
 
-    page.wait_for_selector(MOBILE_LOCKOUT, state="visible")
-    assert page.locator(MOBILE_LOCKOUT).is_visible()
-    assert page.locator(ASSURE_APP).is_hidden()
-    assert page.locator(WORKBENCH).is_hidden()
-    assert page.locator(COMPILE_BTN).is_hidden()
+    assert page.locator(ASSURE_APP).is_visible()
+    assert page.locator(COMPILE_BTN).is_visible()
 
 
 # ---------------------------------------------------------------------------

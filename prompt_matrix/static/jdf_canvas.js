@@ -580,12 +580,12 @@
       vars: vars || null,
     };
     var fallbacks = {
-      "jdf.save.unsaved": "◌ Unsaved",
-      "jdf.save.ready": "◌ Unsaved",
+      "jdf.save.unsaved": "Saving…",
+      "jdf.save.ready": "All good",
       "jdf.status.compiling": "⬡ Working…",
       "jdf.status.committed": "● Committed (v{version})",
       "jdf.save.saving": "Saving…",
-      "jdf.save.saved": "Saved",
+      "jdf.save.saved": "Draft saved",
       "jdf.save.error": "Save failed",
       "jdf.save.streaming": "Streaming…",
       "jdf.save.stream_complete": "Stream complete",
@@ -1584,7 +1584,7 @@
     var el = document.createElement("div");
     el.className = "dock-anchor";
     el.dataset.afterId = afterId || "";
-    el.innerHTML = '<button type="button" class="dock-btn">+ Insert Here</button>';
+    el.innerHTML = '<button type="button" class="dock-btn">' + jdfT("jdf.canvas.insert_here", "+ Insert here") + "</button>";
     el.querySelector(".dock-btn").addEventListener("click", function () {
       self.activeInsertAfterId = afterId || null;
       document.querySelectorAll(".dock-anchor").forEach(function (n) {

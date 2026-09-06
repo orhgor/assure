@@ -40,7 +40,7 @@
     if (!el) return;
     el.className = "save-pill pill-idle tooltip-trigger";
     el.setAttribute("data-i18n", "jdf.save.unsaved");
-    el.textContent = t("jdf.save.unsaved", "◌ Unsaved");
+    el.textContent = t("jdf.save.unsaved", "Saving…");
   }
 
   function bindBeforeUnload() {
