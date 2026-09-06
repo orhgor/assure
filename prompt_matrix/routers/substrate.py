@@ -1,4 +1,4 @@
-"""Substrate Vault upload routes — Textract single-page ingestion + edge ingest."""
+"""Substrate Vault upload routes — Textract ingestion (multi-page PDFs supported)."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ except ImportError:
     from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
-TEXTRACT_MAX_PAGES = 1
+TEXTRACT_MAX_PAGES = 50
 
 
 def _index_vault_file(project_id: str, entry: dict) -> None:
@@ -182,7 +182,7 @@ def register_substrate_routes(app) -> None:
                 project_id,
                 "SUBSTRATE_UPLOAD",
                 success=False,
-                error_message=f"multi_page:{page_count}",
+                error_message=f"too_many_pages:{page_count}",
             )
             return (
                 jsonify(
@@ -190,7 +190,7 @@ def register_substrate_routes(app) -> None:
                         "ok": False,
                         "error": (
                             f"This document has {page_count} pages. Substrate Vault accepts "
-                            "single-page PDFs or images only. Split or export one page and try again."
+                            f"up to {TEXTRACT_MAX_PAGES} pages."
                         ),
                         "page_count": page_count,
                         "max_pages": TEXTRACT_MAX_PAGES,
