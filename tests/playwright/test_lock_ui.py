@@ -30,13 +30,12 @@ def test_locked_disables_edit_controls(page, base_url):
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
-    page.evaluate(
-        """() => {
-          document.body.classList.add('assure-doc-locked');
-          var banner = document.getElementById('compliance-lock-banner');
-          if (banner) { banner.hidden = false; banner.textContent = 'Locked'; }
-          var btn = document.getElementById('compliance-lock-btn');
-          if (btn) btn.disabled = true;
-        }"""
+    page.wait_for_function(
+        "() => window.AssureCompliance && window.AssureCompliance.refreshLockState"
     )
-    assert page.evaluate("() => document.body.classList.contains('assure-doc-locked')") is True
+    page.evaluate("() => { window.__ASSURE_PROJECT_ID__ = 'default'; }")
+    lock_res = page.request.post(f"{base_url.rstrip('/')}/api/projects/default/lock")
+    assert lock_res.status == 200
+    page.evaluate("() => window.AssureCompliance.refreshLockState()")
+    page.wait_for_function("() => document.body.classList.contains('assure-doc-locked')")
+    assert page.locator("#compliance-lock-btn").is_disabled()
