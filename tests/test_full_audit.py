@@ -41,7 +41,7 @@ def test_full_audit_markup() -> None:
     assert 'id="jdf-audit-appendix"' in html
     assert 'data-i18n="generate.audit_manifest"' in html
     assert "gettext('Full Audit')" in html
-    assert "gettext('Audit Manifest')" in html
+    assert "gettext('Audit Report')" in html
 
 
 def test_full_audit_js_wires_parallel_redhat() -> None:
