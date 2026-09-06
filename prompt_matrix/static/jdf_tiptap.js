@@ -543,6 +543,7 @@
       end: end,
       score: Number.isFinite(score) ? score : 0.55,
       nodeId: span.nodeId || span.node_id || "",
+      reason: span.reason ? String(span.reason) : "",
     };
   }
 
@@ -572,11 +573,28 @@
         var from = blockStart + Math.max(0, Math.min(textLen, span.start));
         var to = blockStart + Math.max(from - blockStart, Math.min(textLen, span.end));
         if (to > from) {
-          decorations.push(
-            T.Decoration.inline(from, to, {
-              class: classForConfidenceScore(span.score) + " assure-confidence-mark",
-            })
-          );
+          var attrs = {
+            class: classForConfidenceScore(span.score) + " assure-confidence-mark",
+          };
+          if (span.reason) {
+            attrs["data-confidence-reason"] = span.reason;
+            attrs.title = span.reason;
+          }
+          decorations.push(T.Decoration.inline(from, to, attrs));
+          if (span.reason) {
+            decorations.push(
+              T.Decoration.widget(to, function () {
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "z3-reason-icon";
+                btn.setAttribute("aria-label", "Why this score");
+                btn.setAttribute("title", span.reason);
+                btn.setAttribute("data-confidence-reason", span.reason);
+                btn.textContent = "i";
+                return btn;
+              })
+            );
+          }
         }
       });
     });

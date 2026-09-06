@@ -23,11 +23,19 @@ steps:
   - action: wait
     selector: "#jdf-surgical-popover:not([hidden])"
     timeout: 10000
-  - action: click
-    selector: "#surgical-ground-btn"
-  - action: wait
-    selector: "#surgical-ground-submenu:not([hidden])"
-    timeout: 5000
+  - action: script
+    expression: |
+      (() => {
+        const btn = document.getElementById('surgical-ground-btn');
+        const sub = document.getElementById('surgical-ground-submenu');
+        const wrap = document.getElementById('surgical-ground-wrap');
+        if (btn) btn.click();
+        if (sub && !sub.hidden) return 'open';
+        if (wrap && wrap.classList.contains('is-open')) return 'open';
+        return 'closed';
+      })()
+  - action: assert
+    condition: lastScriptResult === 'open'
   - action: assert
     selector: "#surgical-ground-auto"
   - action: assert

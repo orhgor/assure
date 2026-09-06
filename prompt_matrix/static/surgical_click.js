@@ -44,6 +44,7 @@
       return;
     }
     modal.hidden = false;
+    clicker.setBusy(false);
     document.body.classList.add("tab-lockout-active");
     function close() {
       modal.hidden = true;
@@ -134,13 +135,11 @@
         groundBtn.addEventListener("click", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          if (submenu && submenu.hidden) openSub();
-          else closeSub();
+          openSub();
         });
       }
       if (groundWrap) {
         groundWrap.addEventListener("mouseenter", openSub);
-        groundWrap.addEventListener("mouseleave", closeSub);
       }
       ["surgical-ground-auto", "surgical-ground-search", "surgical-ground-llm"].forEach(function (id) {
         var el = $(id);
@@ -453,6 +452,7 @@
                 "error"
               );
             }
+            self.resetActions();
             return;
           }
           var proposedText = "";
@@ -471,6 +471,7 @@
           if (global.AssureToast) {
             global.AssureToast.show(String((err && err.message) || err), "error");
           }
+          self.resetActions();
         });
     },
   };

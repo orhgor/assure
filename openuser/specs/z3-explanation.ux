@@ -1,6 +1,6 @@
 name: Z3 explanation tooltip
 persona: Knowledge Worker
-description: Confidence overlay shows a reason tooltip or i icon on a compiled node.
+description: Full Audit confidence overlay shows a reason tooltip or i icon on a compiled node.
 baseUrl: https://staging.getassureai.com
 steps:
   - action: navigate
@@ -9,14 +9,17 @@ steps:
   - action: unique_intent
     prefix: "Write a paragraph that revenue is 100 million with a matching lock."
   - action: click
-    selector: "#generate-compile-btn"
-  - action: wait_compile_ready
+    selector: "#generate-full-audit-btn"
+  - action: wait_audit_complete
     timeout: 180000
   - action: click
     selector: "#generate-accept-dock"
   - action: wait
-    selector: "#jdf-render-target [data-node-id]"
+    selector: "#jdf-render-target.is-tiptap, #jdf-render-target .jdf-tiptap-host"
     timeout: 20000
+  - action: wait
+    selector: "#confidence-overlay-wrap:not([hidden])"
+    timeout: 30000
   - action: script
     expression: |
       (() => {

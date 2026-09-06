@@ -112,3 +112,5 @@ def test_z3_explanation_survives_save_reload(tmp_path, monkeypatch) -> None:
     ).read_text(encoding="utf-8")
     assert "metaJson" in js
     assert "data-meta-json" in js
+    assert "z3-reason-icon" in js
+    assert "data-confidence-reason" in js
