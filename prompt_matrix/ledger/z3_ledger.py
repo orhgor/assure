@@ -7,6 +7,7 @@ against ``context`` is a transparency hint, not semantic NLI.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from typing import Any
 
 try:
@@ -47,12 +48,40 @@ def _page_from_context(context: str, phrase: str) -> int | None:
     return None
 
 
+def _rule_from_ledger(claim: str, ledger: dict[str, Any] | None) -> str:
+    numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", claim or "")]
+    for key, raw in (ledger or {}).items():
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if numbers and any(abs(val - n) < 1e-9 for n in numbers):
+            return f"{key} == {val}"
+        if str(key).lower() in (claim or "").lower():
+            return f"{key} == {val}"
+    if ledger:
+        key, raw = next(iter(ledger.items()))
+        return f"{key} == {raw}"
+    return "ledger_check"
+
+
+def _excerpt_from_context(context: str, phrase: str) -> str:
+    ctx = (context or "").strip()
+    if phrase and phrase in ctx:
+        idx = ctx.lower().find(phrase.lower())
+        start = max(0, idx - 60)
+        end = min(len(ctx), idx + len(phrase) + 60)
+        return ctx[start:end].strip()
+    return ctx[:240].strip() if ctx else ""
+
+
 def check_claim(
     claim: str,
     context: str = "",
     ledger: dict[str, Any] | None = None,
     *,
     source_label: str = "",
+    source_id: str = "",
 ) -> dict[str, Any]:
     """Return confidence 0–1 plus a reason string for UI tooltips."""
     verified = run_z3_verification(claim, context=context, ledger=ledger)
@@ -70,10 +99,22 @@ def check_claim(
         reason = f"No match found in {label}. Ledger status={verified.get('status')}."
     else:
         reason = f"Ledger status={verified.get('status')} (no source phrase provided)."
+    rule = _rule_from_ledger(claim, ledger)
+    excerpt = _excerpt_from_context(context, phrase) or (claim or "")[:240]
+    provenance = {
+        "source_id": (source_id or "").strip(),
+        "source_name": label,
+        "page_number": page,
+        "excerpt": excerpt,
+        "rule": rule,
+        "confidence": max(0.0, min(1.0, score)),
+        "verified_at": datetime.now(UTC).isoformat(),
+    }
     return {
         "confidence": max(0.0, min(1.0, score)),
         "reason": reason,
         "status": verified.get("status"),
         "detail": verified.get("detail"),
         "score": score,
+        "provenance": provenance,
     }

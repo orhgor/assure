@@ -7531,3 +7531,185 @@ details.jdf-ast-section {
   border-color: var(--trust-blue, #1a4b8c);
   color: var(--trust-blue, #1a4b8c);
 }
+
+/* Trust & Clarity — provenance panel */
+.provenance-panel-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  z-index: 121;
+  background: var(--light-gray, #f7f8fa);
+  border-left: 1px solid var(--warm-gray, #e2e8f0);
+  box-shadow: -8px 0 32px rgba(13, 43, 69, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.provenance-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--warm-gray, #e2e8f0);
+  background: #fff;
+}
+
+.provenance-panel-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.provenance-panel-body {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.provenance-info-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 4;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--warm-gray, #e2e8f0);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--trust-blue, #1a4b8c);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.has-provenance-info {
+  position: relative;
+}
+
+.provenance-excerpt {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: rgba(26, 75, 140, 0.06);
+  border-left: 3px solid var(--trust-blue, #1a4b8c);
+  font-size: 0.875rem;
+}
+
+.provenance-rule {
+  margin: 0.5rem 0 1rem;
+  padding: 0.65rem 0.75rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.provenance-confidence-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0 0.5rem;
+}
+
+.provenance-confidence-bar span {
+  display: block;
+  height: 100%;
+  background: var(--trust-blue, #1a4b8c);
+}
+
+.provenance-confidence-bar.is-mid span {
+  background: #ca8a04;
+}
+
+.provenance-confidence-bar.is-low span {
+  background: #dc2626;
+}
+
+.provenance-confidence {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
+
+.provenance-dl dt {
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-top: 0.5rem;
+}
+
+.provenance-dl dd {
+  margin: 0.15rem 0 0;
+}
+
+/* Role switcher */
+.app-role-select {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--warm-gray, #e2e8f0);
+  margin-right: 0.5rem;
+}
+
+.role-widget-rail {
+  margin: 0.75rem 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.role-widget {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--warm-gray, #e2e8f0);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.role-widget-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Action grouping & progressive disclosure */
+.action-phase-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.action-phase-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+.workbench-advanced-toggle {
+  display: block;
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+body.workbench-advanced-off .workbench-advanced-only {
+  display: none !important;
+}
+
+body[data-workbench-role="executive"] #view-generate .jdf-pane-title,
+body[data-workbench-role="executive"] #generate-intent {
+  /* executive lands on projects; generate stays reachable */
+}
+
+body.provenance-panel-open #provenance-panel-drawer {
+  display: flex;
+}

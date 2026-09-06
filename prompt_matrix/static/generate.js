@@ -653,6 +653,9 @@
             if (global.AssureWowEffects && typeof global.AssureWowEffects.refreshStamps === "function") {
               global.AssureWowEffects.refreshStamps();
             }
+            if (global.AssureProvenancePanel && typeof global.AssureProvenancePanel.syncInfoButtons === "function") {
+              global.AssureProvenancePanel.syncInfoButtons();
+            }
           }, 80);
           self.setGateLoading(false);
           self._redhatCtx = {
