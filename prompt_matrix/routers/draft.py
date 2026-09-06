@@ -10,7 +10,7 @@ import uuid
 from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 try:
     from ..cost_governance import (
@@ -24,7 +24,6 @@ try:
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
-        JDFDocumentTree,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
         attach_substrate_provenance_to_tree,
@@ -54,7 +53,6 @@ except ImportError:
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
     from models.jdf import (
-        JDFDocumentTree,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
         attach_substrate_provenance_to_tree,
@@ -95,6 +93,8 @@ SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
 
 
 class DraftPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     intent: str = ""
     context: str | None = None
     substrate_file_ids: list[str] = Field(default_factory=list)
@@ -103,6 +103,8 @@ class DraftPayload(BaseModel):
         validation_alias=AliasChoices("compileType", "compile_type"),
     )
     content: str | None = None
+    target_ai: str | None = None
+    lock_numbers: bool | None = None
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -620,6 +622,8 @@ def run_draft_pipeline(
 
 
 class RedhatPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     draft_text: str = Field(min_length=1)
     document: dict[str, Any]
     z3_results: dict[str, Any] | None = None

@@ -9,7 +9,7 @@ import uuid
 from typing import Any, Generator, Iterator
 
 from flask import Response, request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from ..compiler.aperture import build_aperture_context
@@ -56,6 +56,8 @@ _METRIC_RE = re.compile(
 
 
 class InquiryPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     user_intent: str
     target_node_id: str | None = None
     run_redhat: bool = True
