@@ -1,9 +1,8 @@
 # Assure AI — All Functions
 
-**Production:** v1.4.0 (`ee6a9ee`, UI cache `assure-96`) — https://getassureai.com/app
-**Staging:** v1.5 (`bc7515c`, UI cache `assure-97`) — https://staging.getassureai.com/app
-**Stack:** Flask · Vanilla JS · TipTap · SQLite · JDF (JSON Document Format)
-**Last updated:** 2026-09-08
+**Production:** v2.0.0 Wow (`bac3d40`) until this sprint is promoted — then UI revision + Trust & Clarity.
+**Staging (target):** `feat/ui-revision-sprint` `e19523c` via [PR #6](https://github.com/orhgor/assure/pull/6) onto `staging`.
+**Last updated:** 2026-09-06 (UI revision sprint)
 
 This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and release planning—not a marketing brochure.
 
@@ -49,7 +48,22 @@ This document inventories every major product function as implemented in the cod
 
 **Not in v1.5 (deferred v2.0):** semantic conflict detection (NLI), SSO/RBAC, project API keys for drift CI.
 
-**CI note:** pytest job green on every staging push. Playwright job can flake on slow compile timeouts (`status_bar`, `surgical_refine`, `version_slider`) under CI load—unrelated to v1.5 code; lock UI test stabilized.
+**CI note:** pytest job green on every staging push. Playwright job can flake on slow compile timeouts (`status_bar`, `surgical_refine`, `version_slider`) under CI load.
+
+---
+
+### v2.0 Wow + Trust & Clarity + UI revision sprint
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Wow effects | ✅ Production `bac3d40` | Laser beam, ink stamps, diff x-ray, reasoning graph (`wow_effects.js`) |
+| Provenance panel | ✅ This sprint / staging PR | ⓘ on verified nodes → slide-in `#provenance-panel-drawer` |
+| Role switcher | ✅ Trust & Clarity | Admin / Compliance / Developer / Executive |
+| Lifecycle stepper | ✅ UI revision | Write → Verify → Audit (Red-Hat) → Ship; single Accept & Dock |
+| Embedded analytics | ✅ UI revision | `#view-analytics` in workbench; chart cards ≤ 280px |
+| **Tests** | ✅ PR #6 CI | pytest + Playwright (`test_ui_revision_sprint.py`) green |
+
+**Not unified yet:** wow stamps/gutters/overlay still stack; Full Audit still re-compiles; `/analytics` standalone page remains; Active Works hierarchy unchanged.
 
 ---
 
@@ -279,8 +293,9 @@ This document inventories every major product function as implemented in the cod
 
 ### 3.1 Navigation
 
-- **Top tabs:** Compose · Previous work · Learn · Classes
-- **Sidebar:** Write (projects) · Draft (Assemble) · Polish (surgical) · Sources (vault) · Settings
+- **Sidebar:** Write (projects) · Draft · Polish · Sources · **Analytics** (in-shell `#view-analytics`) · Settings
+- Hidden legacy tabs: Compose · Previous work · Learn · Classes (`?pane=`)
+- **Header:** role switcher, locale, engine status, trust strip
 - **Resizable panes**, keyboard shortcuts (`?` sheet), 7-locale i18n
 - **Safeguards:** single-tab guard, unsaved-changes confirm, session compile limit, mobile hint
 - **Onboarding:** 5-step tour + first-compile coachmark (v1.4)
@@ -291,16 +306,20 @@ This document inventories every major product function as implemented in the cod
 - **+ New** → 3-step **New Project Wizard** (template → sources → prompt)
 - Inline quick-create, rename, delete, switch project
 
-### 3.3 Draft (Assemble)
+### 3.3 Draft (Assemble) — Document Lifecycle stepper
 
-- Intent textarea + model picker (Gemini / Claude / DeepSeek)
-- **✨ Assemble** — SSE compile pipeline
-- **Full Audit** — compile + Z3 + Red-Hat in one pass
-- Lock-numbers toggle, stream preview, node/lock summary
-- **Accept & Dock**, Re-assemble, Discard
-- Inferred locks checklist, Red-Hat preview, preflight gate
-- Quick actions: duplicate node, split section, merge with next
+- Intent textarea; model picker + lock-numbers behind **Advanced**
+- **Stepper** (`.workbench-stepper-container`): numbered Write / Verify / Audit / Ship
+  - **✨ Assemble** — SSE compile (`#generate-compile-btn`)
+  - **Full Audit** — compile + Z3 + Red-Hat in one pass (`#generate-full-audit-btn`; still a full re-compile)
+  - **Red-Hat** — stress test on the current draft (`#generate-redhat-btn`)
+  - **Accept & Dock** — only `#generate-accept-dock-phase` (duplicates removed)
+- Events: `assure:compile:start`, `assure:compile:verified`, `assure:audit:complete`
+- Stream preview, node/lock summary, Re-compile, Discard (draft strip)
+- Inferred locks checklist, Red-Hat prompt on draft strip, preflight gate
+- Quick actions (Advanced): duplicate node, split section, merge with next
 - Recent prompts history
+- Role widget rail (risk / audit / debug / KPI hints)
 
 ### 3.4 Polish (Surgical)
 
@@ -318,7 +337,9 @@ This document inventories every major product function as implemented in the cod
 - **Floating action bar:** ✏️ Rewrite · 🔍 Ground · 📜 History · 🗑️ Delete
 - **Surgical popover:** Polish, Ground (auto/search/llm), History, Delete
 - **Node menu:** Edit, Revise, Re-prompt, Send for Revision, Node history, Red-Hat on node
-- Node revision modal, node conflict modal, source conflict modal
+- **Provenance ⓘ** → slide-in verification drawer (source, page, rule, confidence)
+- Wow (optional): laser sweep, ink stamps, reasoning graph drawer
+- Dual diff: left `#jdf-diff-panel` + canvas x-ray overlay
 - Citation drawer, Audit Report appendix on canvas
 - **Argument Spine** and **Document Structure** trees
 - Status bar: ✅ Verified · ⚠️ risks · ⚡ Cached · Working…
@@ -328,21 +349,29 @@ This document inventories every major product function as implemented in the cod
 - Search, upload (PDF/PNG/JPG/TIF), drag-and-drop
 - Toggle included per file, delete, claim counts per source
 
-### 3.7 Command deck (footer)
+### 3.7 Analytics (embedded)
+
+- Sidebar **Analytics** stays in `#assure-app` (no full-page redirect)
+- KPI row (Z3 pass rate, total audits, avg sign-offs)
+- Chart cards max **280px**; Chart.js `maintainAspectRatio: false`
+- Legacy `GET /analytics` page still exists (router unchanged)
+
+### 3.8 Command deck (footer)
 
 - Compiler status + version slider + **lock control** (v1.5)
 - **Download:** Word · Markdown · HTML · PDF · **Audit PDF bundle** (v1.5)
 - **Audit Report** modal + JSON export
+- **Reasoning Graph** toggle
 - **More →** Upload PDF · **Import JSON/YAML** · **Sign-Off** · **Decision Log** (v1.5)
 - Stop stream
 
-### 3.8 Settings & library
+### 3.9 Settings & library
 
 - Settings overlay: citations in DOCX, link to Connect
 - Vault prompts grid (CRUD via `/api/prompts`)
 - Connect page: paste Claude / Gemini / DeepSeek / Kimi keys
 
-### 3.9 Legacy compose (still wired)
+### 3.10 Legacy compose (still wired)
 
 - Quick Answer / Compare & Validate / Refine & Verify workflows
 - Personas, audience selector, file attach, live preview
@@ -484,7 +513,13 @@ DOCX optional **References / citations** section via project setting `show_citat
 | `app_nav.js` | Sidebar, compiler status bar, toasts |
 | `projects.js` | Project dashboard CRUD |
 | `new_project_wizard.js` | v1.4 3-step wizard |
-| `generate.js` | Draft/compile SSE + coachmark |
+| `generate.js` | Draft/compile SSE + coachmark + stepper events |
+| `workbench_stepper.js` | Document Lifecycle stepper states |
+| `analytics.js` | Embedded / standalone Chart.js dashboards |
+| `provenance_panel.js` | Verification provenance drawer |
+| `role_workbench.js` | Role switcher + nav visibility |
+| `workbench_clarity.js` | Advanced disclosure |
+| `wow_effects.js` | Laser, ink stamps, x-ray, reasoning graph |
 | `jdf_canvas.js` | Canvas, save, export, conflicts |
 | `jdf_tiptap.js` | TipTap ↔ JDF bridge |
 | `inquire_client.js` | Inquire SSE refine |
@@ -514,14 +549,18 @@ DOCX optional **References / citations** section via project setting `show_citat
 | Team edition | Shared workspaces not in this repo |
 | Cursor target | Compile/copy only — no model Send |
 | Sandbox / landing demo | No document persistence |
-| CI drift auth | Clerk session required; project API key deferred |
+| Wow / trust chrome | Gutters, confidence overlay, ink stamps, checkmarks, and provenance ⓘ can all show on one node |
+| Full Audit | Re-runs the full compile stream rather than verifying the current draft only |
+| Analytics | Sidebar is embedded; `GET /analytics` standalone page still exists |
+| Active Works | Dashboard visual hierarchy not revised |
 
 ---
 
 ## Related documents
 
+- [Workbench UI current state](./workbench-ui-current-state.md)
+- [Product status](./product-status.md)
 - [Insurance demo pack](./demo/insurance-boston-real-estate/README.md)
-- [Deploy flow](../.cursor/rules/deploy-flow.mdc)
 - [Launch checklist](./launch-checklist.md)
 
 ---
@@ -530,9 +569,10 @@ DOCX optional **References / citations** section via project setting `show_citat
 
 | Milestone | Branch / SHA | Environment | UI cache |
 |-----------|--------------|-------------|----------|
-| v1.4.0 | `main` / `ee6a9ee` | Production | `assure-96` |
-| v1.5 | `staging` / `bc7515c` | Staging | `assure-97` |
-| v1.5 → production | Pending merge `staging` → `main` | — | — |
+| v1.4.0 | `main` / `ee6a9ee` | Production (historical) | `assure-96` |
+| v2.0.0 Wow | `main` / `bac3d40` | Production (pre-promote) | — |
+| Trust & Clarity | `staging` / `f04ec7f` | Staging (pre-promote) | — |
+| UI revision sprint | `e19523c` PR #6 | Staging + production (this promote) | — |
 
 ---
 
