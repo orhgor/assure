@@ -7312,9 +7312,16 @@ body.wizard-open {
   }
 }
 
-.jdf-node.wow-node-snap {
+.jdf-node.wow-node-snap,
+.jdf-ast-node.wow-node-snap,
+details.jdf-ast-section.wow-node-snap {
   transform: scale(1.02);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.jdf-ast-node,
+details.jdf-ast-section {
+  position: relative;
 }
 
 .wow-verified-check {

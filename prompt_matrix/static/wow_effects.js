@@ -43,10 +43,66 @@
     return beam;
   }
 
-  function nodeArticles() {
+  function nodeTargets() {
     var root = renderTarget();
     if (!root) return [];
-    return Array.from(root.querySelectorAll(".jdf-node"));
+    return Array.from(root.querySelectorAll(".jdf-node, .jdf-ast-node, details.jdf-ast-section[data-node-id]"));
+  }
+
+  /** @deprecated use nodeTargets */
+  function nodeArticles() {
+    return nodeTargets();
+  }
+
+  function findTargetByNodeId(nodeId) {
+    if (!nodeId) return null;
+    var root = renderTarget();
+    if (!root) return null;
+    return (
+      root.querySelector('.jdf-node[data-node-id="' + nodeId + '"]') ||
+      root.querySelector('.jdf-ast-node[data-node-id="' + nodeId + '"]') ||
+      root.querySelector('details.jdf-ast-section[data-node-id="' + nodeId + '"]')
+    );
+  }
+
+  function walkTreeNodes(canvas, fn) {
+    if (!canvas || !canvas.tree) return;
+    (canvas.tree.body || []).forEach(function (section) {
+      (section.children || []).forEach(function (node) {
+        if (node && node.id) fn(node);
+      });
+    });
+  }
+
+  function refreshStamps() {
+    if (!enabled()) return;
+    var canvas = global.__assureJdf;
+    if (!canvas || !canvas.tree) return;
+    walkTreeNodes(canvas, function (node) {
+      var status = canvas.computeNodeStatus(node);
+      var el = findTargetByNodeId(node.id);
+      if (!el) return;
+      if (status === "verified") {
+        applyInkStamp(el, "z3");
+        addCheckmark(el);
+      }
+    });
+  }
+
+  function scheduleRefresh(delayMs) {
+    window.setTimeout(function () {
+      refreshStamps();
+    }, delayMs || 0);
+  }
+
+  function bindRenderRefresh() {
+    document.addEventListener("assure:jdf:rendered", function () {
+      scheduleRefresh(0);
+      scheduleRefresh(280);
+    });
+    document.addEventListener("assure:docked", function () {
+      scheduleRefresh(320);
+    });
   }
 
   function stampLabel(kind) {
@@ -100,8 +156,11 @@
 
   function sweepNodes(options) {
     options = options || {};
-    var nodes = nodeArticles();
-    if (!nodes.length) return;
+    var nodes = nodeTargets();
+    if (!nodes.length) {
+      scheduleRefresh(0);
+      return;
+    }
     var beam = ensureLaserBeam();
     if (!beam) return;
     beam.classList.add("is-running");
@@ -128,7 +187,7 @@
     if (!enabled()) return;
     var beam = ensureLaserBeam();
     if (beam) beam.classList.add("is-armed");
-    nodeArticles().forEach(function (el) {
+    nodeTargets().forEach(function (el) {
       el.classList.remove("has-ink-stamp", "wow-node-snap");
       var stamp = el.querySelector(".ink-stamp");
       if (stamp) stamp.remove();
@@ -140,20 +199,31 @@
   function onVerified(gutterState) {
     if (!enabled()) return;
     sweepNodes({ gutterState: gutterState || "verified" });
+    scheduleRefresh(500);
   }
 
   function syncNodeStamp(article, node, canvas) {
-    if (!enabled() || !article || !node || !canvas) return;
+    if (!enabled() || !node || !canvas) return;
+    var target = article || findTargetByNodeId(node.id);
+    if (!target) {
+      scheduleRefresh(120);
+      return;
+    }
     var status = canvas.computeNodeStatus(node);
-    if (status === "verified") applyInkStamp(article, "z3");
+    if (status === "verified") applyInkStamp(target, "z3");
   }
 
   function onAllGuttersVerified(state) {
     if (!enabled() || state !== "verified") return;
-    nodeArticles().forEach(function (article) {
-      applyInkStamp(article, "z3");
-      addCheckmark(article);
-    });
+    var targets = nodeTargets();
+    if (targets.length) {
+      targets.forEach(function (article) {
+        applyInkStamp(article, "z3");
+        addCheckmark(article);
+      });
+      return;
+    }
+    refreshStamps();
   }
 
   function onRedhatComplete(critiques) {
@@ -163,9 +233,12 @@
       var id = c.target_node_id || c.node_id;
       if (id) warned[id] = true;
     });
-    nodeArticles().forEach(function (article) {
-      var id = article.dataset.nodeId;
-      if (id && !warned[id]) applyInkStamp(article, "audit");
+    var canvas = global.__assureJdf;
+    if (!canvas) return;
+    walkTreeNodes(canvas, function (node) {
+      if (!node.id || warned[node.id]) return;
+      var el = findTargetByNodeId(node.id);
+      if (el) applyInkStamp(el, "audit");
     });
   }
 
@@ -242,7 +315,7 @@
     applySplit(50);
 
     if (nodeId) {
-      var target = host.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      var target = findTargetByNodeId(nodeId);
       if (target && typeof target.scrollIntoView === "function") {
         target.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -435,6 +508,7 @@
     if (!enabled()) return;
     ensureLaserBeam();
     bindReasoningToggle();
+    bindRenderRefresh();
   }
 
   if (document.readyState === "loading") {
@@ -456,5 +530,6 @@
     hideDiffXRay: hideDiffXRay,
     toggleReasoningDrawer: toggleReasoningDrawer,
     renderReasoningGraph: renderReasoningGraph,
+    refreshStamps: refreshStamps,
   };
 })(typeof window !== "undefined" ? window : globalThis);

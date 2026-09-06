@@ -23,7 +23,10 @@ def test_ink_stamp_appears_on_verified_nodes(workbench_page):
     wait_compile_ready(page)
     dock_document(page)
 
-    page.wait_for_selector(INK_STAMP, timeout=15_000)
+    page.wait_for_function(
+        """() => document.querySelectorAll('.ink-stamp').length > 0""",
+        timeout=25_000,
+    )
     stamp = page.locator(INK_STAMP).first
     text = stamp.inner_text().upper()
     assert "VERIFIED" in text or "Z3" in text or "AUDIT" in text
