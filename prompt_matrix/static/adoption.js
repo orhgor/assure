@@ -361,7 +361,7 @@
           if (pre) pre.textContent = JSON.stringify(manifest, null, 2);
           if (global.AssureToast) {
             global.AssureToast.show(
-              t("audit.toast_exported", "Audit Manifest exported: {filename}", { filename: filename }) +
+              t("audit.toast_exported", "Audit Report exported: {filename}", { filename: filename }) +
                 " " +
                 t("audit.toast_share", "Share this file with your compliance team or auditor."),
               "success"
