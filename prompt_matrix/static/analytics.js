@@ -1,9 +1,23 @@
 (function (global) {
   "use strict";
 
+  var z3Chart = null;
+  var rhChart = null;
+  var booted = false;
+
   async function fetchJson(url) {
     var res = await global.fetch(url, { credentials: "same-origin" });
     return res.json();
+  }
+
+  function chartOptions() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+      },
+    };
   }
 
   function renderVelocityTable(rows) {
@@ -31,7 +45,9 @@
       "</tbody></table>";
   }
 
-  async function boot() {
+  async function render() {
+    var z3Ctx = document.getElementById("chart-z3-health");
+    if (!z3Ctx) return;
     var started = performance.now();
     var z3 = await fetchJson("/api/analytics/z3-health");
     var redhat = await fetchJson("/api/analytics/redhat-critiques");
@@ -50,10 +66,11 @@
     }, 0);
     var avgPass =
       passRates.length > 0
-        ? (passRates.reduce(function (a, b) {
-            return a + b;
-          }, 0) /
-            passRates.length).toFixed(1)
+        ? (
+            passRates.reduce(function (a, b) {
+              return a + b;
+            }, 0) / passRates.length
+          ).toFixed(1)
         : "—";
 
     var velRows = (velocity && velocity.rows) || [];
@@ -74,20 +91,20 @@
     if (kpiVel) kpiVel.textContent = String(avgSignoffs);
 
     if (global.Chart) {
-      var z3Ctx = document.getElementById("chart-z3-health");
-      if (z3Ctx) {
-        new global.Chart(z3Ctx, {
-          type: "bar",
-          data: {
-            labels: labels,
-            datasets: [{ label: "Z3 pass rate %", data: passRates, backgroundColor: "#4caf50" }],
-          },
-        });
-      }
+      if (z3Chart) z3Chart.destroy();
+      z3Chart = new global.Chart(z3Ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{ label: "Z3 pass rate %", data: passRates, backgroundColor: "#1A4B8C" }],
+        },
+        options: chartOptions(),
+      });
       var rhCtx = document.getElementById("chart-redhat");
       var rhRows = (redhat && redhat.rows) || [];
       if (rhCtx) {
-        new global.Chart(rhCtx, {
+        if (rhChart) rhChart.destroy();
+        rhChart = new global.Chart(rhCtx, {
           type: "doughnut",
           data: {
             labels: rhRows.map(function (r) {
@@ -98,23 +115,40 @@
                 data: rhRows.map(function (r) {
                   return r.frequency;
                 }),
-                backgroundColor: ["#ef5350", "#ffb300", "#42a5f5", "#ab47bc"],
+                backgroundColor: ["#1A4B8C", "#2e7d32", "#64748b", "#0d2b45"],
               },
             ],
           },
+          options: chartOptions(),
         });
       }
     }
 
     renderVelocityTable(velRows);
+    booted = true;
     if (performance.now() - started > 2000) {
       console.warn("Analytics dashboard load exceeded 2s");
     }
   }
 
+  function bootIfStandalone() {
+    if (!document.getElementById("chart-z3-health")) return;
+    if (document.getElementById("view-analytics") && document.getElementById("assure-app")) {
+      return;
+    }
+    render();
+  }
+
+  global.AssureAnalytics = {
+    render: render,
+    booted: function () {
+      return booted;
+    },
+  };
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
+    document.addEventListener("DOMContentLoaded", bootIfStandalone);
   } else {
-    boot();
+    bootIfStandalone();
   }
 })(window);

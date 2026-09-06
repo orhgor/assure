@@ -5,6 +5,19 @@
     return document.getElementById(id);
   }
 
+  function dockButtons() {
+    var phase = $("generate-accept-dock-phase");
+    var legacy = $("generate-accept-dock");
+    var list = [];
+    if (phase) list.push(phase);
+    if (legacy && legacy !== phase) list.push(legacy);
+    return list;
+  }
+
+  function withDock(fn) {
+    dockButtons().forEach(fn);
+  }
+
   function t(key, fallback, vars) {
     if (typeof global.__assureTf === "function") {
       return global.__assureTf(key, fallback, vars || {});
@@ -157,7 +170,6 @@
       var self = this;
       var btn = $("generate-compile-btn");
       var intentEl = $("generate-intent");
-      var dockBtn = $("generate-accept-dock");
 
       if (btn) {
         btn.addEventListener("click", function () {
@@ -179,6 +191,12 @@
           self.startDraftStream(false, { fullAudit: true });
         });
       }
+      var redhatBtn = $("generate-redhat-btn");
+      if (redhatBtn) {
+        redhatBtn.addEventListener("click", function () {
+          self.runRedhatStress();
+        });
+      }
       if (intentEl) {
         intentEl.addEventListener("keydown", function (e) {
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -187,11 +205,11 @@
           }
         });
       }
-      if (dockBtn) {
+      withDock(function (dockBtn) {
         dockBtn.addEventListener("click", function () {
           self.acceptAndDock();
         });
-      }
+      });
       var recompileBtn = $("generate-recompile-btn");
       if (recompileBtn) {
         recompileBtn.addEventListener("click", function () {
@@ -202,12 +220,6 @@
       if (discardBtn) {
         discardBtn.addEventListener("click", function () {
           self.resetUi();
-        });
-      }
-      var previewDockBtn = $("draft-preview-dock-btn");
-      if (previewDockBtn) {
-        previewDockBtn.addEventListener("click", function () {
-          self.acceptAndDock();
         });
       }
       var previewDiscardBtn = $("draft-preview-discard-btn");
@@ -336,12 +348,13 @@
     setGateLoading: function (on, message) {
       var loader = $("gate-loader");
       var statusText = $("gate-status-text");
-      var dockBtn = $("generate-accept-dock");
       if (loader) loader.hidden = !on;
       if (statusText && message) statusText.textContent = message;
-      if (dockBtn && on) {
-        dockBtn.disabled = true;
-        dockBtn.hidden = false;
+      if (on) {
+        withDock(function (dockBtn) {
+          dockBtn.disabled = true;
+          dockBtn.hidden = false;
+        });
       }
     },
 
@@ -415,8 +428,6 @@
       }
       var strip = $("draft-preview-strip");
       if (strip) strip.hidden = true;
-      var previewDockBtn = $("draft-preview-dock-btn");
-      if (previewDockBtn) previewDockBtn.disabled = true;
       var jdfCanvas = global.__assureJdf;
       if (jdfCanvas && typeof jdfCanvas.clearDraftPreview === "function") {
         jdfCanvas.clearDraftPreview();
@@ -442,11 +453,10 @@
       }
       var list = $("generate-lock-checklist");
       if (list) list.innerHTML = "";
-      var dockBtn = $("generate-accept-dock");
-      if (dockBtn) {
+      withDock(function (dockBtn) {
         dockBtn.disabled = true;
         dockBtn.hidden = false;
-      }
+      });
     },
 
     startDraftStream: function (isRetry, opts) {
@@ -493,6 +503,7 @@
       }
       this.setCompiling(true);
       this.setPreviewSkeleton(true);
+      document.dispatchEvent(new CustomEvent("assure:compile:start"));
       this.controller = new AbortController();
       if (global.AssurePromptHistory && typeof global.AssurePromptHistory.push === "function") {
         var modelSel = $("generate-model-select");
@@ -638,13 +649,11 @@
             global.__assureJdf.setConfidenceSpans(confidenceSpans);
           }
           self.renderAuditGate(data);
-          var verifiedDockBtn = $("generate-accept-dock");
-          if (verifiedDockBtn) {
+          withDock(function (verifiedDockBtn) {
             verifiedDockBtn.disabled = false;
             verifiedDockBtn.hidden = false;
-          }
-          var previewDockBtn = $("draft-preview-dock-btn");
-          if (previewDockBtn) previewDockBtn.disabled = false;
+          });
+          document.dispatchEvent(new CustomEvent("assure:compile:verified"));
           var z3s = ((data.z3_results || {}).z3_status || "UNKNOWN");
           var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";
           if (global.__assureJdf && typeof global.__assureJdf.setAllGutterState === "function") {
@@ -710,8 +719,11 @@
           if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (!self.auditComplete) {
             self.setGateLoading(false);
-            var dock = $("generate-accept-dock");
-            if (dock && self.compiledNodes.length) dock.disabled = false;
+            if (self.compiledNodes.length) {
+              withDock(function (dock) {
+                dock.disabled = false;
+              });
+            }
           }
         }
       }
@@ -811,8 +823,6 @@
       if (typeof jdf.setAllGutterState === "function") jdf.setAllGutterState("verifying");
       var strip = $("draft-preview-strip");
       if (strip) strip.hidden = false;
-      var previewDockBtn = $("draft-preview-dock-btn");
-      if (previewDockBtn) previewDockBtn.disabled = true;
     },
 
     renderSummaryCounts: function (data) {
@@ -961,10 +971,9 @@
         return;
       }
 
-      var dockBtn = $("generate-accept-dock");
-      if (dockBtn) dockBtn.disabled = true;
-      var previewDockBtn = $("draft-preview-dock-btn");
-      if (previewDockBtn) previewDockBtn.disabled = true;
+      withDock(function (dockBtn) {
+        dockBtn.disabled = true;
+      });
       var strip = $("draft-preview-strip");
       if (strip) strip.hidden = true;
       if (typeof jdf.clearDraftPreview === "function") jdf.clearDraftPreview();
@@ -1065,8 +1074,9 @@
       }
       doc.truth_ledger = ledger;
 
-      var dockBtn = $("generate-accept-dock");
-      if (dockBtn) dockBtn.disabled = true;
+      withDock(function (dockBtn) {
+        dockBtn.disabled = true;
+      });
 
       fetch("/api/projects/" + encodeURIComponent(projectId()) + "/jdf", {
         method: "PUT",
@@ -1270,8 +1280,10 @@
       }
       self.setBackgroundStatus(false);
       self.renderAuditGate(data);
-      var dockBtn = $("generate-accept-dock");
-      if (dockBtn) dockBtn.disabled = false;
+      withDock(function (dockBtn) {
+        dockBtn.disabled = false;
+      });
+      document.dispatchEvent(new CustomEvent("assure:audit:complete"));
       var critiques = data.redhat_critiques || [];
       if (critiques.length && global.__assureJdf && typeof global.__assureJdf.patchGutterFromRedhat === "function") {
         global.__assureJdf.patchGutterFromRedhat(critiques);
@@ -1463,6 +1475,7 @@
         );
       }
       if (skipBtn) skipBtn.hidden = true;
+      document.dispatchEvent(new CustomEvent("assure:audit:complete"));
     },
 
     /** Collect {nodeId: annotations} for every node/section carrying a

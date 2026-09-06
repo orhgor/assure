@@ -48,27 +48,11 @@
       document.body.classList.toggle("workbench-advanced-off", !show);
     },
 
-    syncDockButtons: function () {
-      var primary = $("generate-accept-dock");
-      var phase = $("generate-accept-dock-phase");
-      if (!primary || !phase) return;
-      phase.disabled = primary.disabled;
-      phase.hidden = primary.hidden;
-      if (!phase._bound) {
-        phase._bound = true;
-        phase.addEventListener("click", function () {
-          if (!primary.disabled) primary.click();
-        });
-      }
-    },
+    syncDockButtons: function () {},
   };
 
   global.AssureWorkbenchClarity = Clarity;
   document.addEventListener("DOMContentLoaded", function () {
     Clarity.init();
-    Clarity.syncDockButtons();
-    window.setInterval(function () {
-      Clarity.syncDockButtons();
-    }, 800);
   });
 })(window);
