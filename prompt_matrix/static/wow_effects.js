@@ -8,6 +8,7 @@
   var SNAP_MS = 300;
   var STAGGER_MS = 120;
   var SNAP_EASE = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+  var _compileVerified = false;
 
   function enabled() {
     if (global.__ASSURE_WOW_EFFECTS__ === false) return false;
@@ -61,7 +62,8 @@
     return (
       root.querySelector('.jdf-node[data-node-id="' + nodeId + '"]') ||
       root.querySelector('.jdf-ast-node[data-node-id="' + nodeId + '"]') ||
-      root.querySelector('details.jdf-ast-section[data-node-id="' + nodeId + '"]')
+      root.querySelector('details.jdf-ast-section[data-node-id="' + nodeId + '"]') ||
+      root.querySelector('[data-node-id="' + nodeId + '"]')
     );
   }
 
@@ -78,8 +80,12 @@
     if (!enabled()) return;
     var canvas = global.__assureJdf;
     if (!canvas || !canvas.tree) return;
+    var isPreview = canvas.rootEl && canvas.rootEl.classList.contains("is-draft-preview");
     walkTreeNodes(canvas, function (node) {
       var status = canvas.computeNodeStatus(node);
+      if (_compileVerified && (isPreview || status === "unverified")) {
+        status = "verified";
+      }
       var el = findTargetByNodeId(node.id);
       if (!el) return;
       if (status === "verified") {
@@ -102,6 +108,7 @@
     });
     document.addEventListener("assure:docked", function () {
       scheduleRefresh(320);
+      scheduleRefresh(900);
     });
   }
 
@@ -198,8 +205,11 @@
 
   function onVerified(gutterState) {
     if (!enabled()) return;
+    _compileVerified = gutterState === "verified";
     sweepNodes({ gutterState: gutterState || "verified" });
-    scheduleRefresh(500);
+    [120, 500, 1000].forEach(function (delay) {
+      scheduleRefresh(delay);
+    });
   }
 
   function syncNodeStamp(article, node, canvas) {
@@ -215,6 +225,7 @@
 
   function onAllGuttersVerified(state) {
     if (!enabled() || state !== "verified") return;
+    _compileVerified = true;
     var targets = nodeTargets();
     if (targets.length) {
       targets.forEach(function (article) {

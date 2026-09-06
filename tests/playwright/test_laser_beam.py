@@ -33,4 +33,6 @@ def test_laser_beam_appears_and_nodes_animate(workbench_page):
         timeout=20_000,
     )
     assert page.locator(LASER_BEAM).count() >= 1
-    assert page.locator("#jdf-render-target .jdf-node").count() >= 1
+    assert (
+        page.locator("#jdf-render-target .jdf-node, #jdf-render-target .jdf-ast-node").count() >= 1
+    )

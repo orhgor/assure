@@ -2328,6 +2328,11 @@
             : jdfT("jdf.preview.empty", "Streaming output will appear here…");
         }
         this._emitJdfRendered();
+        if (global.AssureWowEffects && typeof global.AssureWowEffects.refreshStamps === "function") {
+          window.setTimeout(function () {
+            global.AssureWowEffects.refreshStamps();
+          }, 120);
+        }
         return;
       } catch (err) {
         if (typeof console !== "undefined" && console.warn) {
@@ -2450,6 +2455,11 @@
         : jdfT("jdf.preview.empty", "Streaming output will appear here…");
     }
     this._emitJdfRendered();
+    if (global.AssureWowEffects && typeof global.AssureWowEffects.refreshStamps === "function") {
+      window.setTimeout(function () {
+        global.AssureWowEffects.refreshStamps();
+      }, 120);
+    }
   };
 
   JDFCanvasManager.prototype._flattenPreview = function () {
