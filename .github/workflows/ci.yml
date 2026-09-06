@@ -27,6 +27,8 @@ jobs:
             --ignore=tests/test_sanitization.py \
             --ignore=tests/test_confidence_overlay.py \
             --ignore=tests/test_full_audit.py \
+            --ignore=tests/test_z3_benchmark.py \
+            --ignore=tests/test_z3_explanation.py \
             -v
 
       - name: Run Z3-heavy tests serially (prevents segfault)
@@ -34,6 +36,7 @@ jobs:
           pytest tests/test_sanitization.py -v
           pytest tests/test_confidence_overlay.py -v
           pytest tests/test_full_audit.py -v
+          pytest tests/test_z3_explanation.py -v
 
       - name: Z3 accuracy benchmark
         run: pytest tests/test_z3_benchmark.py -v
