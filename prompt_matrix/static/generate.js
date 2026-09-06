@@ -359,6 +359,7 @@
       var auditBtn = $("generate-full-audit-btn");
       if (auditBtn) auditBtn.disabled = !!on;
       if (on) {
+        if (global.setWorkbenchState) global.setWorkbenchState("compiling");
         if (global.AssureFirstCompileCoachmark && typeof global.AssureFirstCompileCoachmark.dismiss === "function") {
           global.AssureFirstCompileCoachmark.dismiss();
         }
@@ -366,6 +367,7 @@
           global.updateCompilerStatus("processing");
         }
       } else if (!this.auditComplete) {
+        if (global.setWorkbenchState) global.setWorkbenchState("idle");
         if (typeof global.updateCompilerStatus === "function") {
           global.updateCompilerStatus("idle");
         }

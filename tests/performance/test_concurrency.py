@@ -43,6 +43,15 @@ def _write_project(conn: sqlite3.Connection, idx: int) -> None:
 
 def test_fifty_concurrent_pool_writes_no_database_locked(pooled_db):
     """50 parallel writers via QueuePool must not raise 'database is locked'."""
+    _run_concurrent_writes(50, pooled_db)
+
+
+def test_hundred_concurrent_pool_writes_no_database_locked(pooled_db):
+    """100 parallel writers — hard gate for Gunicorn + Celery SQLite safety."""
+    _run_concurrent_writes(100, pooled_db)
+
+
+def _run_concurrent_writes(count: int, pooled_db) -> None:
     errors: list[str] = []
     lock = threading.Lock()
 
@@ -59,18 +68,20 @@ def test_fifty_concurrent_pool_writes_no_database_locked(pooled_db):
         finally:
             release_dbapi_connection(conn)
 
-    with ThreadPoolExecutor(max_workers=50) as pool:
-        futures = [pool.submit(worker, i) for i in range(50)]
+    with ThreadPoolExecutor(max_workers=min(count, 100)) as pool:
+        futures = [pool.submit(worker, i) for i in range(count)]
         for fut in as_completed(futures):
             fut.result()
 
     assert errors == [], f"database locked errors: {errors[:5]}"
     verify = open_connection()
     try:
-        count = verify.execute("SELECT COUNT(*) FROM projects WHERE id LIKE 'perf-%'").fetchone()[0]
+        count_rows = verify.execute(
+            "SELECT COUNT(*) FROM projects WHERE id LIKE 'perf-%'"
+        ).fetchone()[0]
     finally:
         verify.close()
-    assert count == 50
+    assert count_rows == count
 
 
 def test_wal_mode_enabled(pooled_db):

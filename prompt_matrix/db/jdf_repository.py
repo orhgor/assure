@@ -253,43 +253,52 @@ def save_jdf_revision(
     revision_id = f"rev-{uuid.uuid4().hex[:16]}"
     truth = json.dumps(tree.get("truth_ledger") or {})
 
-    db.execute(
-        """
-        UPDATE projects
-        SET current_version = ?, updated_at = datetime('now')
-        WHERE id = ?
-        """,
-        (next_version, project_id),
-    )
-    db.execute(
-        """
-        INSERT INTO jdf_revisions (
-            id, project_id, version, jdf_tree, truth_ledger,
-            mutation_type, target_node_id, change_summary
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            revision_id,
-            project_id,
-            next_version,
-            json.dumps(tree),
-            truth,
-            mutation_type,
-            target_node_id,
-            change_summary,
-        ),
-    )
-    db.execute(
-        """
-        INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
-        VALUES (?, ?, ?, datetime('now'))
-        ON CONFLICT(project_id) DO UPDATE SET
-            document_id = excluded.document_id,
-            tree_json = excluded.tree_json,
-            updated_at = datetime('now')
-        """,
-        (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
-    )
+    def _persist_revision() -> None:
+        db.execute(
+            """
+            UPDATE projects
+            SET current_version = ?, updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (next_version, project_id),
+        )
+        db.execute(
+            """
+            INSERT INTO jdf_revisions (
+                id, project_id, version, jdf_tree, truth_ledger,
+                mutation_type, target_node_id, change_summary
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                revision_id,
+                project_id,
+                next_version,
+                json.dumps(tree),
+                truth,
+                mutation_type,
+                target_node_id,
+                change_summary,
+            ),
+        )
+        db.execute(
+            """
+            INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
+            VALUES (?, ?, ?, datetime('now'))
+            ON CONFLICT(project_id) DO UPDATE SET
+                document_id = excluded.document_id,
+                tree_json = excluded.tree_json,
+                updated_at = datetime('now')
+            """,
+            (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
+        )
+        db.commit()
+
+    try:
+        from .connection import execute_write_with_retry
+    except ImportError:
+        from connection import execute_write_with_retry
+    execute_write_with_retry(_persist_revision)
+
     node_snapshot = None
     if target_node_id:
         for block in tree.get("body") or []:
@@ -302,7 +311,6 @@ def save_jdf_revision(
                     break
             if node_snapshot:
                 break
-    db.commit()
     try:
         from .project_files import save_last_compiled
     except ImportError:

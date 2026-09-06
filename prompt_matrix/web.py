@@ -102,7 +102,7 @@ def _init_sentry() -> None:
         return
     sentry_sdk.init(
         dsn=dsn,
-        environment="production",
+        environment=os.environ.get("ENVIRONMENT", "production"),
         integrations=[FlaskIntegration()],
         traces_sample_rate=0.1,
     )
@@ -337,6 +337,13 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from history import close_db
 
     app.teardown_appcontext(close_db)
+
+    try:
+        from .lib.logger import set_request_id
+    except ImportError:
+        from lib.logger import set_request_id
+
+    app.before_request(set_request_id)
 
     @app.after_request
     def _static_cache_headers(resp: Response):

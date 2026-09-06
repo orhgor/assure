@@ -104,7 +104,7 @@
     },
 
     bind: function () {
-      this.workbench = $("jdf-workbench");
+      this.workbench = $("workbench-root");
       this.splitter = $("pane-splitter");
       this.container = this.workbench
         ? this.workbench.querySelector(".app-container")

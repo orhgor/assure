@@ -12,7 +12,10 @@ _result_backend = (
 ).strip()
 
 celery_app = Celery(
-    "assure", broker=_broker, backend=_result_backend, include=["prompt_matrix.tasks.llm_tasks"]
+    "assure",
+    broker=_broker,
+    backend=_result_backend,
+    include=["prompt_matrix.tasks.llm_tasks", "prompt_matrix.tasks.substrate_tasks"],
 )
 
 celery_app.conf.update(
@@ -29,6 +32,9 @@ celery_app.conf.update(
         "visibility_timeout": int(os.environ.get("CELERY_SQS_VISIBILITY_TIMEOUT", "3600")),
         "polling_interval": float(os.environ.get("CELERY_SQS_POLLING_INTERVAL", "1")),
         "queue_name_prefix": os.environ.get("CELERY_SQS_QUEUE_PREFIX", "assure-"),
+    },
+    task_routes={
+        "assure.process_substrate_upload": {"queue": "sqlite_writes"},
     },
 )
 

@@ -14,16 +14,30 @@ except ImportError:
 
 
 def _task_status(result: AsyncResult) -> dict:
-    payload: dict = {
+    normalized = "pending"
+    if result.status == "PENDING":
+        normalized = "pending"
+    elif result.status in ("STARTED", "RETRY"):
+        normalized = "processing"
+    elif result.successful():
+        payload = result.result if isinstance(result.result, dict) else {}
+        normalized = str(payload.get("status") or "success").lower()
+        if normalized not in ("success", "failure"):
+            normalized = "success"
+    elif result.failed():
+        normalized = "failure"
+
+    body: dict = {
         "task_id": result.id,
-        "status": result.status,
+        "status": normalized,
+        "celery_status": result.status,
         "ready": result.ready(),
     }
     if result.successful():
-        payload["result"] = result.result
+        body["result"] = result.result
     elif result.failed():
-        payload["error"] = str(result.result)
-    return payload
+        body["error"] = str(result.result)
+    return body
 
 
 def register_async_task_routes(app) -> None:

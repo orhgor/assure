@@ -8,6 +8,7 @@ from pathlib import Path
 
 from flask import jsonify, request
 from pydantic import BaseModel, Field
+from werkzeug.utils import secure_filename
 
 try:
     from ..db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
@@ -41,6 +42,79 @@ except ImportError:
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 50
+
+
+class SubstrateIngestError(ValueError):
+    """Validation/extraction failure with optional response fields."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        text_chars: int | None = None,
+        page_count: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.text_chars = text_chars
+        self.page_count = page_count
+
+
+def _temp_upload_dir() -> Path:
+    override = (os.environ.get("TEMP_UPLOAD_DIR") or "").strip()
+    if override:
+        return Path(override)
+    db_path = (os.environ.get("DATABASE_PATH") or "/app/data/history.sqlite").strip()
+    return Path(db_path).parent / "tmp_uploads"
+
+
+def _substrate_async_enabled() -> bool:
+    return os.environ.get("SUBSTRATE_ASYNC_UPLOAD", "").lower() in ("1", "true", "yes")
+
+
+def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
+    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
+    validate_upload_bytes(filename, file_bytes)
+    client = TextractClient()
+    page_count = client._get_page_count(file_bytes, filename)
+    if page_count > TEXTRACT_MAX_PAGES:
+        raise SubstrateIngestError(
+            f"This document has {page_count} pages. Substrate Vault accepts up to "
+            f"{TEXTRACT_MAX_PAGES} pages.",
+            page_count=page_count,
+        )
+
+    extracted = client.extract_text(file_bytes, filename)
+    extracted_text = str(extracted.get("text") or "").strip()
+    if len(extracted_text) <= 10:
+        raise SubstrateIngestError(
+            "Could not extract enough readable text from this file "
+            f"({len(extracted_text)} characters). Upload a clearer scan or "
+            "a file with more visible text.",
+            text_chars=len(extracted_text),
+        )
+
+    ensure_project(project_id)
+    entry = save_substrate_entry(
+        project_id,
+        filename=filename,
+        page_count=extracted.get("page_count") or page_count,
+        extracted_text=extracted_text,
+        tables=extracted.get("tables") or [],
+        forms=extracted.get("forms") or [],
+        file_size_bytes=len(file_bytes),
+    )
+    _index_vault_file(project_id, entry)
+    return {
+        "ok": True,
+        "id": entry["id"],
+        "filename": filename,
+        "page_count": page_count,
+        "text": entry["extracted_text"],
+        "tables": entry["tables"],
+        "forms": entry["forms"],
+        "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
+        "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+    }
 
 
 def _index_vault_file(project_id: str, entry: dict) -> None:
@@ -170,37 +244,46 @@ def register_substrate_routes(app) -> None:
         except UploadRejectedError as exc:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
 
-        client = TextractClient()
-        try:
-            page_count = client._get_page_count(file_bytes, filename)
-        except TextractError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
+        if _substrate_async_enabled():
+            temp_dir = _temp_upload_dir()
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = secure_filename(filename) or "upload.bin"
+            temp_path = temp_dir / f"{uuid.uuid4().hex}_{safe_name}"
+            temp_path.write_bytes(file_bytes)
+            try:
+                from ..tasks.substrate_tasks import process_substrate_upload
+            except ImportError:
+                from tasks.substrate_tasks import process_substrate_upload
+            task = process_substrate_upload.apply_async(
+                args=[project_id, str(temp_path), filename],
+                queue="sqlite_writes",
+            )
+            audit.log_audit(
+                request_id,
+                project_id,
+                "SUBSTRATE_UPLOAD",
+                success=True,
+                details={"filename": filename, "async": True, "task_id": task.id},
+            )
+            return jsonify({"ok": True, "task_id": task.id, "status": "queued"}), 202
 
-        if page_count > TEXTRACT_MAX_PAGES:
+        try:
+            payload = ingest_substrate_file(project_id, filename, file_bytes)
+        except SubstrateIngestError as exc:
             audit.log_audit(
                 request_id,
                 project_id,
                 "SUBSTRATE_UPLOAD",
                 success=False,
-                error_message=f"too_many_pages:{page_count}",
+                error_message=str(exc),
             )
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": (
-                            f"This document has {page_count} pages. Substrate Vault accepts "
-                            f"up to {TEXTRACT_MAX_PAGES} pages."
-                        ),
-                        "page_count": page_count,
-                        "max_pages": TEXTRACT_MAX_PAGES,
-                    }
-                ),
-                400,
-            )
-
-        try:
-            extracted = client.extract_text(file_bytes, filename)
+            body: dict = {"ok": False, "error": str(exc)}
+            if exc.text_chars is not None:
+                body["text_chars"] = exc.text_chars
+            if exc.page_count is not None:
+                body["page_count"] = exc.page_count
+                body["max_pages"] = TEXTRACT_MAX_PAGES
+            return jsonify(body), 400
         except TextractError as exc:
             audit.log_audit(
                 request_id,
@@ -211,43 +294,6 @@ def register_substrate_routes(app) -> None:
             )
             return jsonify({"ok": False, "error": str(exc)}), 503
 
-        extracted_text = str(extracted.get("text") or "").strip()
-        if len(extracted_text) <= 10:
-            audit.log_audit(
-                request_id,
-                project_id,
-                "SUBSTRATE_UPLOAD",
-                success=False,
-                error_message="extracted_text_too_short",
-                details={"text_chars": len(extracted_text)},
-            )
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": (
-                            "Could not extract enough readable text from this file "
-                            f"({len(extracted_text)} characters). Upload a clearer scan or "
-                            "a file with more visible text."
-                        ),
-                        "text_chars": len(extracted_text),
-                    }
-                ),
-                400,
-            )
-
-        ensure_project(project_id)
-        entry = save_substrate_entry(
-            project_id,
-            filename=filename,
-            page_count=extracted.get("page_count") or page_count,
-            extracted_text=extracted_text,
-            tables=extracted.get("tables") or [],
-            forms=extracted.get("forms") or [],
-            file_size_bytes=len(file_bytes),
-        )
-        _index_vault_file(project_id, entry)
-
         audit.log_audit(
             request_id,
             project_id,
@@ -255,25 +301,11 @@ def register_substrate_routes(app) -> None:
             success=True,
             details={
                 "filename": filename,
-                "page_count": page_count,
-                "table_count": len(entry.get("tables") or []),
-                "text_chars": len(entry.get("extracted_text") or ""),
+                "page_count": payload.get("page_count"),
+                "text_chars": len(payload.get("text") or ""),
             },
         )
-
-        return jsonify(
-            {
-                "ok": True,
-                "id": entry["id"],
-                "filename": filename,
-                "page_count": page_count,
-                "text": entry["extracted_text"],
-                "tables": entry["tables"],
-                "forms": entry["forms"],
-                "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
-                "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
-            }
-        )
+        return jsonify(payload)
 
     @app.get("/api/projects/<project_id>/substrate")
     @project_ownership_required

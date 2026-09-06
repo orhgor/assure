@@ -703,3 +703,37 @@ def run_with_db_retry(
 
 def open_connection() -> sqlite3.Connection:
     return _connect_with_retry()
+
+
+try:
+    from sqlalchemy.exc import OperationalError as SAOperationalError
+except ImportError:
+    SAOperationalError = None  # type: ignore[misc, assignment]
+
+
+def execute_write_with_retry(fn, max_retries: int = 5, base_delay: float = 0.2):
+    """
+    Execute a database write with exponential backoff on lock/busy errors.
+    Handles raw sqlite3 and SQLAlchemy-wrapped exceptions.
+    """
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            is_sqlite_lock = isinstance(exc, sqlite3.OperationalError) and any(
+                term in str(exc).lower() for term in ("locked", "busy")
+            )
+            is_sa_lock = (
+                SAOperationalError is not None
+                and isinstance(exc, SAOperationalError)
+                and any(term in str(exc).lower() for term in ("locked", "busy"))
+            )
+            if (is_sqlite_lock or is_sa_lock) and attempt < max_retries - 1:
+                time.sleep(base_delay * (2**attempt))
+                continue
+            raise
+    if last_exc is not None:
+        raise last_exc
+    raise sqlite3.OperationalError("database is locked")

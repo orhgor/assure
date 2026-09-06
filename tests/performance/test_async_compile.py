@@ -68,6 +68,6 @@ def test_async_api_enqueue_and_poll(client):
     st = status.get_json()
     assert st["task_id"] == task_id
     assert st["ready"] is True
-    assert st["status"] == "SUCCESS"
+    assert st["status"] == "success"
     assert "result" in st
     assert st["result"]["prompt"]

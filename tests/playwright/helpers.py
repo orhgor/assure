@@ -15,7 +15,7 @@ COMPILE_INPUT = "#generate-intent"
 COMPILE_BTN = "#generate-compile-btn"
 FULL_AUDIT_BTN = "#generate-full-audit-btn"
 DOCK_BTN = "#generate-accept-dock"
-WORKBENCH = "#jdf-workbench"
+WORKBENCH = "#workbench-root"
 GATE_STATUS = "#gate-status-text"
 COMPILE_STATUS_BAR = ".workbench-status-bar"
 CONFIDENCE_WRAP = "#confidence-overlay-wrap"
@@ -195,6 +195,18 @@ def route_redhat_success(route) -> None:
         route.continue_()
         return
     fulfill_sse(route, redhat_audit_stream_success())
+
+
+def mock_sse_stream(page, *, cache_hit: bool = True) -> None:
+    """Intercept draft/stream SSE and return a canned compile response."""
+
+    def _handler(route) -> None:
+        if route.request.method != "POST":
+            route.continue_()
+            return
+        fulfill_sse(route, draft_stream_success(cache_hit=cache_hit))
+
+    page.route("**/api/projects/*/draft/stream", _handler)
 
 
 def fill_and_compile(page, prompt: str) -> None:
