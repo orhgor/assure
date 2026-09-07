@@ -1,0 +1,15 @@
+---
+description: Non-interactive, fast agent shells. No pagers, editors, or waiting on hung commands.
+alwaysApply: true
+---
+
+# Shell Execution Rules (NO WAITING)
+
+- All shell commands must be **non-interactive**. Use:
+  - `--no-pager`, `PAGER=cat`, or `git --no-pager` for any command that might open a pager.
+  - `-y`, `--yes`, `--force`, or `| yes` for any command that asks for confirmation.
+  - `CI=true`, `TERM=dumb`, or `DEBIAN_FRONTEND=noninteractive` to suppress prompts.
+- **Never** run long-running processes (dev servers, watchers, daemons) in the agent shell. If needed, run them in a **separate terminal** or with `&` and disown, but do not let the agent wait for them.
+- **If a command does not produce output within 3 seconds**, assume it is hung and abort it immediately. Do not wait for the default timeout.
+- **Always prefer `curl`, `git`, `npm`, `python` commands that exit quickly**. If you must run a slow command, use `timeout 5s <cmd>` to force a cutoff (on macOS, `gtimeout 5s` if GNU coreutils is installed).
+- **Do not** start interactive editors (`vim`, `nano`, `less`) inside the agent shell.

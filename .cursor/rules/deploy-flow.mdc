@@ -13,16 +13,16 @@ Default targets:
 
 ## Branch workflow
 
-1. Feature branch → PR → **CI** (pytest + OpenUser against staging).
-2. Merge to **`staging`** → **UX Regression (OpenUser)** + **Deploy to Staging**.
+1. Feature branch → PR → **CI** (pytest + Playwright).
+2. Merge to **`staging`** → **Deploy to Staging**.
 3. Merge **`staging` → `main`** → **Deploy to Production**.
 
 **Paused (2026-09-07):** Do **not** `git push` to `staging` or `main` until the user says GitHub is available again. Ship staging on EC2 only: SSM to `i-03e39eccc57572191` (`/home/ubuntu/assure`), `git fetch`/`checkout` on the box, then `scripts/aws/redeploy-app.sh` (or `ssm-redeploy-and-wait.sh`). Do not start GitHub Actions deploys.
 
-## OpenUser / UX tests
+## UX tests
 
-- CI and UX workflows hit **staging**, not localhost.
-- Use project `prj_YhR-5cBgb_7E` via `--project` / `init_workbench` (not the polluted `default` project on staging).
+- CI Playwright hits an embedded local Flask app (see `.github/workflows/ci.yml`), not a long-running agent-shell server.
+- Optional live checks against **staging** use `ASSURE_BASE_URL=https://staging.getassureai.com`.
 - Import PDF lives under footer **More** → `#command-deck-more`.
 
 ## Deploy mechanisms
@@ -45,6 +45,5 @@ Requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, instance IDs, `GHCR_DEPLO
 
 Only if the user asks, or you need to reproduce a bug that does not appear on staging:
 - Local: `ASSURE_REQUIRE_LOGIN=false .venv/bin/python -c "from prompt_matrix.web import create_app; … port=8801"`
-- OpenUser local: `ASSURE_BASE_URL=http://127.0.0.1:8801`
 
-Stop local servers when done; prefer staging for day-to-day work.
+Stop local servers when done; prefer staging for day-to-day work. Do not wait on them in the agent shell.

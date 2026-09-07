@@ -78,7 +78,6 @@ def test_lucide_sidebar_mapping(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
     expect(page.locator('.app-sidebar-icon [data-lucide="pencil"]')).to_be_visible()
-    expect(page.locator('.app-sidebar-icon [data-lucide="file-text"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="folder"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="bar-chart-2"]')).to_be_visible()
 

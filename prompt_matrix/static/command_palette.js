@@ -24,8 +24,11 @@
         name: t("palette.cmd.new", "New Workspace"),
         desc: t("palette.cmd.new_desc", "Create a blank document"),
         run: function () {
-          if (global.AssureNewProjectWizard && typeof global.AssureNewProjectWizard.open === "function") {
-            global.AssureNewProjectWizard.open("blank");
+          if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+            global.AssureNav.switchView("projects");
+          }
+          if (global.AssureProjects && typeof global.AssureProjects.beginCreate === "function") {
+            global.AssureProjects.beginCreate("blank");
           }
         },
       },
@@ -212,6 +215,12 @@
     overlay.addEventListener("keydown", onOverlayKey);
     bindDetailsA11y($("export-menu"));
     bindDetailsA11y($("command-deck-more"));
+    var searchBtn = $("header-command-palette-btn");
+    if (searchBtn) {
+      searchBtn.addEventListener("click", function () {
+        open();
+      });
+    }
   }
 
   global.AssureCommandPalette = {

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-PDF_FIXTURE = ROOT / "openuser" / "fixtures" / "grounding-sample.pdf"
+PDF_FIXTURE = ROOT / "tests" / "fixtures" / "grounding-sample.pdf"
 
 
 def _reset_db_path(monkeypatch, db_path: Path) -> None:

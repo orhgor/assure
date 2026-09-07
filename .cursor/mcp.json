@@ -1,13 +1,5 @@
 {
   "mcpServers": {
-    "openuser-manager": {
-      "command": "openuser",
-      "args": ["mcp", "--role", "manager"]
-    },
-    "openuser-tester": {
-      "command": "openuser",
-      "args": ["mcp", "--role", "tester"]
-    },
     "playwright": {
       "command": "npx",
       "args": ["@playwright/mcp@latest"]

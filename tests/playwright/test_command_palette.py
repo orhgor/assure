@@ -71,5 +71,11 @@ def test_draft_restore_toast(page: Page, base_url: str):
         } catch (e) {}
         """
     )
+    root = base_url.rstrip("/")
+    page.request.put(
+        f"{root}/api/projects/default/files",
+        data='{"source_md":""}',
+        headers={"Content-Type": "application/json"},
+    )
     goto_workbench(page, base_url)
     expect(page.locator(COMPILE_INPUT)).to_have_value("Restored compile intent from storage.")

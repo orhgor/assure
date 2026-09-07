@@ -108,29 +108,31 @@ def test_accordion_icons_aligned(workbench_page):
 
 def test_header_utilities_vertically_aligned(workbench_page):
     page = workbench_page
+    page.evaluate("() => window.AssureProjects.openCompiler('default')")
+    expect(page.locator("#document-chrome")).to_be_visible()
     boxes = page.evaluate(
         """() => {
           const header = document.querySelector('.app-header');
           const role = document.querySelector('.role-switcher');
-          const actions = document.querySelector('.utility-actions');
+          const actions = document.querySelector('.document-chrome');
           const download = document.querySelector('#export-menu > summary');
           if (!header || !role || !actions || !download) return null;
           const h = header.getBoundingClientRect();
           const r = role.getBoundingClientRect();
-          const a = actions.getBoundingClientRect();
           const d = download.getBoundingClientRect();
           return {
             headerHeight: h.height,
             roleMid: r.top + r.height / 2,
-            actionsMid: a.top + a.height / 2,
             downloadMid: d.top + d.height / 2,
             headerMid: h.top + h.height / 2,
             wrap: getComputedStyle(actions).flexWrap,
             headerPos: getComputedStyle(header).position,
+            chromeHidden: actions.hidden,
           };
         }"""
     )
     assert boxes
+    assert boxes["chromeHidden"] is False
     assert boxes["headerHeight"] >= 52
     assert abs(boxes["roleMid"] - boxes["headerMid"]) < 8
     assert abs(boxes["downloadMid"] - boxes["headerMid"]) < 10

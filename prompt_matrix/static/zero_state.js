@@ -42,12 +42,17 @@
   }
 
   function toggleZeroState() {
+    if (global.AssureNav && global.AssureNav.activeView === "projects") {
+      var dash = document.getElementById("zero-state-dashboard");
+      if (dash) dash.hidden = true;
+      return;
+    }
     var editor = document.getElementById("jdf-render-target");
     var dashboard = document.getElementById("zero-state-dashboard");
     var stage = document.getElementById("canvas-stage");
     if (!editor) return;
     var empty = isEditorEmpty(editor);
-    if (dashboard) dashboard.hidden = !empty;
+    if (dashboard) dashboard.hidden = true;
     editor.classList.toggle("is-empty", empty);
     if (stage) stage.classList.toggle("is-zero", empty);
     editor.setAttribute(
@@ -60,13 +65,11 @@
   }
 
   function openTemplate(id) {
-    var wizard = global.AssureNewProjectWizard;
-    if (wizard && typeof wizard.open === "function") {
-      wizard.open(id || "blank");
-      return;
-    }
     if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
-      global.AssureNav.switchView("projects", { replaceHash: false, persist: false });
+      global.AssureNav.switchView("projects", { persist: true });
+    }
+    if (global.AssureProjects && typeof global.AssureProjects.beginCreate === "function") {
+      global.AssureProjects.beginCreate(id || "blank");
     }
   }
 
@@ -76,7 +79,10 @@
     if (!editor || editor.dataset.zeroStateBound === "1") return;
     editor.dataset.zeroStateBound = "1";
     editor.addEventListener("input", toggleZeroState);
-    var observer = new MutationObserver(toggleZeroState);
+    var observer = new MutationObserver(function () {
+      if (global.AssureNav && global.AssureNav.activeView === "projects") return;
+      toggleZeroState();
+    });
     observer.observe(editor, { childList: true, subtree: true, characterData: true });
     document.addEventListener("assure:jdf:rendered", toggleZeroState);
     document.addEventListener("assure:compile:start", toggleZeroState);

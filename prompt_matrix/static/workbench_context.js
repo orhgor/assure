@@ -111,6 +111,8 @@
         if (!node) return;
         node.hidden = !canvasIds[id];
       });
+      var stage = $("canvas-stage");
+      if (stage) stage.hidden = tab === "write" || tab === "sources" || tab === "analytics";
 
       var toolbar = $("canvas-toolbar");
       if (toolbar) toolbar.hidden = tab !== "draft" && tab !== "polish";
