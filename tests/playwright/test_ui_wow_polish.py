@@ -89,12 +89,15 @@ def test_onboarding_tour_appears_on_first_load(page: Page, base_url: str):
         """
         try {
           localStorage.removeItem('assure_onboarding_complete');
+          localStorage.setItem('assure_founder_workbench', '0');
           sessionStorage.setItem('assure_session_compiles', '0');
           window.__ASSURE_WOW_EFFECTS__ = true;
         } catch (e) {}
         """
     )
-    page.goto(f"{base_url.rstrip('/')}/app?lang=en&view=generate", wait_until="domcontentloaded")
+    page.goto(
+        f"{base_url.rstrip('/')}/app?lang=en&view=generate&legacy=1", wait_until="domcontentloaded"
+    )
     page.wait_for_selector("#generate-compile-btn", state="visible")
     page.wait_for_selector(".onboarding-callout", timeout=15_000)
     copy = page.locator(".onboarding-callout-text")

@@ -36,7 +36,24 @@
   function textContent(node) {
     if (!node) return "";
     if (node.type === "text") return node.text || "";
+    if (node.type === "lockPill") {
+      var idx = (node.attrs && node.attrs.lockIndex) || 1;
+      return "[🔒 #" + String(idx).padStart(2, "0") + "]";
+    }
     return (node.content || []).map(textContent).join("");
+  }
+
+  function lockPillNode(pill) {
+    var coords = pill.page_coordinates || pill.pageCoordinates || {};
+    return {
+      type: "lockPill",
+      attrs: {
+        lockHash: String(pill.lock_hash || pill.lockHash || ""),
+        sourceId: String(pill.source_id || pill.sourceId || ""),
+        pageCoordinates: JSON.stringify(coords),
+        lockIndex: Number(pill.lock_index || pill.lockIndex || 1),
+      },
+    };
   }
 
   function paragraphJson(text) {
@@ -107,6 +124,13 @@
           return;
         }
         var para = paragraphJson(node.content || "");
+        var lockPills = (node.meta && node.meta.lock_pills) || [];
+        if (lockPills.length) {
+          para.content = para.content || [];
+          lockPills.forEach(function (pill) {
+            para.content.push(lockPillNode(pill));
+          });
+        }
         para.attrs = {
           nodeId: node.id || "",
           gutter: gutterForNode(node, isPreview),
@@ -210,13 +234,38 @@
           meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
         };
       } else {
+        var lockPills = [];
+        var textParts = [];
+        (node.content || []).forEach(function (child) {
+          if (child.type === "lockPill") {
+            var coords = {};
+            try {
+              coords = JSON.parse((child.attrs && child.attrs.pageCoordinates) || "{}");
+            } catch (_) {
+              coords = {};
+            }
+            lockPills.push({
+              lock_hash: (child.attrs && child.attrs.lockHash) || "",
+              source_id: (child.attrs && child.attrs.sourceId) || "",
+              page_coordinates: coords,
+              lock_index: (child.attrs && child.attrs.lockIndex) || lockPills.length + 1,
+            });
+            textParts.push(
+              "[🔒 #" + String((child.attrs && child.attrs.lockIndex) || lockPills.length).padStart(2, "0") + "]"
+            );
+          } else {
+            textParts.push(textContent(child));
+          }
+        });
         child = {
           type: "paragraph",
           id: nodeId,
-          content: textContent(node),
+          content: textParts.join(" ").trim() || textContent(node),
           entities_referenced: (old && old.entities_referenced) || [],
           annotations: (old && old.annotations) || { redhat: [], z3: [] },
-          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr),
+          meta: Object.assign({}, (old && old.meta) || {}, metaFromAttr, {
+            lock_pills: lockPills.length ? lockPills : (old && old.meta && old.meta.lock_pills) || [],
+          }),
           provenance: (old && old.provenance) || [],
         };
       }
@@ -455,6 +504,93 @@
       },
     });
 
+    var LockPill = T.Node.create({
+      name: "lockPill",
+      group: "inline",
+      inline: true,
+      atom: true,
+      selectable: true,
+      addAttributes: function () {
+        return {
+          lockHash: { default: "" },
+          sourceId: { default: "" },
+          pageCoordinates: { default: "{}" },
+          lockIndex: { default: 1 },
+        };
+      },
+      parseHTML: function () {
+        return [{ tag: "span.lock-pill" }];
+      },
+      renderHTML: function (_ref) {
+        var idx = String(_ref.node.attrs.lockIndex || 1).padStart(2, "0");
+        return [
+          "span",
+          T.mergeAttributes(_ref.HTMLAttributes, {
+            class: "lock-pill interactive-element",
+            "data-lock-hash": _ref.node.attrs.lockHash || "",
+            "data-source-id": _ref.node.attrs.sourceId || "",
+            "data-page-coordinates": _ref.node.attrs.pageCoordinates || "{}",
+            "data-lock-index": String(_ref.node.attrs.lockIndex || 1),
+            title: "Verified lock — click to inspect evidence",
+          }),
+          "[🔒 #" + idx + "]",
+        ];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var node = props.node;
+          var span = document.createElement("span");
+          span.className = "lock-pill interactive-element";
+          span.setAttribute("data-lock-hash", node.attrs.lockHash || "");
+          span.setAttribute("data-source-id", node.attrs.sourceId || "");
+          span.setAttribute("data-page-coordinates", node.attrs.pageCoordinates || "{}");
+          span.setAttribute("data-lock-index", String(node.attrs.lockIndex || 1));
+          var idx = String(node.attrs.lockIndex || 1).padStart(2, "0");
+          span.textContent = "[🔒 #" + idx + "]";
+          var coords = {};
+          try {
+            coords = JSON.parse(node.attrs.pageCoordinates || "{}");
+          } catch (_) {}
+          span.title =
+            "Lock " +
+            idx +
+            "\nHash: " +
+            (node.attrs.lockHash || "—") +
+            "\nSource: " +
+            (node.attrs.sourceId || "—") +
+            "\nPage: " +
+            (coords.page || 1);
+          span.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.dispatchEvent(
+              new CustomEvent("assure:lock-pill-click", {
+                detail: {
+                  lockHash: node.attrs.lockHash,
+                  sourceId: node.attrs.sourceId,
+                  pageCoordinates: coords,
+                  lockIndex: node.attrs.lockIndex,
+                },
+              })
+            );
+          });
+          return {
+            dom: span,
+            update: function (updated) {
+              if (updated.type !== node.type) return false;
+              node = updated;
+              var nextIdx = String(updated.attrs.lockIndex || 1).padStart(2, "0");
+              span.textContent = "[🔒 #" + nextIdx + "]";
+              span.setAttribute("data-lock-hash", updated.attrs.lockHash || "");
+              span.setAttribute("data-source-id", updated.attrs.sourceId || "");
+              span.setAttribute("data-page-coordinates", updated.attrs.pageCoordinates || "{}");
+              return true;
+            },
+          };
+        };
+      },
+    });
+
     var LockDecorations = T.Extension.create({
       name: "lockDecorations",
       addProseMirrorPlugins: function () {
@@ -507,11 +643,39 @@
       JdfParagraph: JdfParagraph,
       JdfCallout: JdfCallout,
       JdfTable: JdfTable,
+      LockPill: LockPill,
       LockDecorations: LockDecorations,
       ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
       confidencePluginKey: confidencePluginKey,
     };
+  }
+
+  function extensionList(T, ext, opts) {
+    opts = opts || {};
+    var list = [
+      T.StarterKit.configure({
+        paragraph: false,
+        heading: { levels: [2, 3] },
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        codeBlock: false,
+        blockquote: false,
+        horizontalRule: false,
+      }),
+      ext.HeadingId,
+      ext.JdfParagraph,
+      ext.JdfCallout,
+      ext.JdfTable,
+    ];
+    if (opts.founderMode) {
+      list.push(ext.LockPill);
+    } else {
+      list.push(ext.LockDecorations);
+    }
+    list.push(ext.ConfidenceDecorations);
+    return list;
   }
 
   function classForConfidenceScore(score) {
@@ -691,10 +855,10 @@
     var json = jdfToTiptap(tree, isPreview);
 
     if (editor) {
-      canvas._tiptapSyncing = true;
+      if (canvas) canvas._tiptapSyncing = true;
       editor.setEditable(editable);
       editor.commands.setContent(purifyTiptapDoc(json), false);
-      canvas._tiptapSyncing = false;
+      if (canvas) canvas._tiptapSyncing = false;
       rootEl.classList.toggle("is-tiptap", true);
       applyConfidenceToTipTap();
       return editor;
@@ -707,33 +871,22 @@
     host.className = "jdf-tiptap-host";
     rootEl.appendChild(host);
 
+    var onUpdateExternal = typeof opts.onUpdate === "function" ? opts.onUpdate : null;
+
     try {
       editor = new T.Editor({
       element: host,
       editable: editable,
-      extensions: [
-        T.StarterKit.configure({
-          paragraph: false,
-          heading: { levels: [2, 3] },
-          bulletList: false,
-          orderedList: false,
-          listItem: false,
-          codeBlock: false,
-          blockquote: false,
-          horizontalRule: false,
-        }),
-        ext.HeadingId,
-        ext.JdfParagraph,
-        ext.JdfCallout,
-        ext.JdfTable,
-        ext.LockDecorations,
-        ext.ConfidenceDecorations,
-      ],
+      extensions: extensionList(T, ext, { founderMode: !!opts.founderMode }),
       content: purifyTiptapDoc(json),
       editorProps: {
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },
       onUpdate: function () {
+        if (onUpdateExternal) {
+          onUpdateExternal(editor);
+          return;
+        }
         if (!canvas || canvas._tiptapSyncing) return;
         if (rootEl.classList.contains("is-draft-preview")) return;
         var next = tiptapToJdf(editor.getJSON(), canvas.tree);
@@ -805,6 +958,21 @@
         var before = editor.getText();
         editor.chain().focus().insertContent(nodes).run();
         return editor.getText() !== before;
+      } catch (_) {
+        return false;
+      }
+    },
+    insertLockPills: function (paragraphText, lockPills) {
+      if (!editor || editor.isDestroyed) return false;
+      var content = [];
+      if (paragraphText) content.push({ type: "text", text: String(paragraphText) });
+      (lockPills || []).forEach(function (pill) {
+        content.push(lockPillNode(pill));
+      });
+      if (!content.length) return false;
+      try {
+        editor.chain().focus().insertContent({ type: "jdfParagraph", attrs: { nodeId: "", gutter: "verified" }, content: content }).run();
+        return true;
       } catch (_) {
         return false;
       }

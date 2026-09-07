@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, staging]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

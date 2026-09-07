@@ -3,8 +3,9 @@
 
   var STORAGE_KEY = "assure_view";
   var DEFAULT_VIEW = "projects";
+  var FOUNDER_DEFAULT_VIEW = "runs";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
-  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics"]);
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics", "runs"]);
   var SETTINGS_VIEWS = ["settings", "audit"];
 
   function $(id) {
@@ -96,6 +97,24 @@
     } catch (_) {
       return null;
     }
+  }
+
+  function isFounderShell() {
+    if (
+      global.AssureFounderMode &&
+      typeof global.AssureFounderMode.isEnabled === "function"
+    ) {
+      return global.AssureFounderMode.isEnabled();
+    }
+    try {
+      return localStorage.getItem("assure_founder_workbench") !== "0";
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function defaultViewForShell() {
+    return isFounderShell() ? FOUNDER_DEFAULT_VIEW : DEFAULT_VIEW;
   }
 
   /** Abort all in-flight streams when navigating away. */
@@ -396,12 +415,19 @@
       if (!layout) return;
 
       var fromUrl = readViewFromHash() || readViewFromSearch();
-      var initial = fromUrl || readStoredView() || DEFAULT_VIEW;
+      var shellDefault = defaultViewForShell();
+      var initial = fromUrl || readStoredView() || shellDefault;
       var openSettingsOnLoad = initial === "__open_settings__";
       if (openSettingsOnLoad) {
-        initial = readStoredView() || DEFAULT_VIEW;
+        initial = readStoredView() || shellDefault;
       }
-      if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = DEFAULT_VIEW;
+      if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = shellDefault;
+      if (isFounderShell()) {
+        if (initial === "projects" || initial === "generate" || initial === "surgical" || initial === "vault") {
+          initial = shellDefault;
+        }
+        if (initial === "library") initial = shellDefault;
+      }
       this.switchView(initial, { replaceHash: false, persist: !!fromUrl });
       if (openSettingsOnLoad) this.openSettings({ replaceHash: false });
 
@@ -595,7 +621,7 @@
     /** Primary navigation — aborts streams and toggles view containers. */
     switchView: function (view, opts) {
       opts = opts || {};
-      if (!view) view = DEFAULT_VIEW;
+      if (!view) view = defaultViewForShell();
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
       if (view === "audit" || view === "settings" || view === "__open_settings__") {
@@ -603,6 +629,51 @@
         return;
       }
       if (view === "library") view = "vault";
+
+      if (isFounderShell()) {
+        if (view === "vault") {
+          if (global.AssureFounderShell && typeof global.AssureFounderShell.openSourcesDrawer === "function") {
+            global.AssureFounderShell.openSourcesDrawer();
+          }
+          return;
+        }
+        if (view === "analytics") {
+          view = "runs";
+        }
+        if (view === "runs" || view === "projects" || view === "generate" || view === "surgical") {
+          view = "runs";
+        }
+        if (ALL_VIEWS.indexOf(view) < 0) view = FOUNDER_DEFAULT_VIEW;
+
+        this.activeView = view;
+        if (opts.persist !== false) persistView(view);
+
+        var layoutFounder = $("assure-app");
+        if (layoutFounder) {
+          layoutFounder.querySelectorAll(".app-sidebar-link").forEach(function (link) {
+            var tool = link.getAttribute("data-tool") || "";
+            if (tool === "settings") return;
+            link.classList.toggle("is-active", false);
+            link.setAttribute("aria-current", "false");
+          });
+        }
+
+        if (global.AssureFounderShell && typeof global.AssureFounderShell.apply === "function") {
+          global.AssureFounderShell.apply(view);
+        }
+
+        if (opts.replaceHash !== false) {
+          var nextRuns = location.pathname + location.search + "#view=runs";
+          if (location.pathname + location.search + location.hash !== nextRuns) {
+            history.replaceState(null, "", nextRuns);
+          }
+        }
+
+        document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: view } }));
+        document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: "runs" } }));
+        return;
+      }
+
       if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
 
       if (view !== this.activeView) {

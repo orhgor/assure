@@ -68,3 +68,18 @@ def jdf_to_pdf_bytes(tree: dict[str, Any]) -> tuple[bytes, str]:
 def export_jdf_to_pdf(tree: dict[str, Any]) -> bytes:
     data, _engine = jdf_to_pdf_bytes(tree)
     return data
+
+
+def export_html_to_pdf(html: str, *, fallback_title: str = "Assure Document") -> bytes:
+    """Render arbitrary HTML to PDF (certificate / audit bundle)."""
+    pdf = _pdf_via_weasyprint(html)
+    if pdf:
+        return pdf
+    pdf = _pdf_via_playwright(html)
+    if pdf:
+        return pdf
+    try:
+        from ..history import _simple_pdf
+    except ImportError:
+        from history import _simple_pdf
+    return _simple_pdf(fallback_title, html)

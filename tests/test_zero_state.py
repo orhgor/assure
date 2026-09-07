@@ -13,9 +13,9 @@ def test_zero_state_is_wrapper_not_inner_canvas():
     assert 'id="zero-state-dashboard"' in HTML
     assert 'id="jdf-render-target"' in HTML
     dash_at = HTML.index('id="zero-state-dashboard"')
-    target_at = HTML.index('id="jdf-render-target" class="jdf-tree"')
+    target_at = HTML.index('id="jdf-render-target"')
     assert dash_at < target_at
-    inner = HTML[target_at : target_at + 180]
+    inner = HTML[target_at : target_at + 220]
     assert "zero-state-dashboard" not in inner
     assert 'role="tree"' in inner
 
