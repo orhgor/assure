@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 
 class JDFProvenance(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     source_type: Literal["internal_doc", "academic_paper", "news_article", "web_url"] = (
         "internal_doc"
@@ -30,7 +30,7 @@ class JDFProvenance(BaseModel):
 
 
 class JDFRedhatAnnotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: str
     text: str
@@ -38,7 +38,7 @@ class JDFRedhatAnnotation(BaseModel):
 
 
 class JDFZ3Annotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: str
     message: str
@@ -49,7 +49,7 @@ class JDFZ3Annotation(BaseModel):
 class JDFNodeAnnotations(BaseModel):
     """Metadata attached to nodes — never exported to .docx."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     redhat: list[JDFRedhatAnnotation] = Field(default_factory=list)
     z3: list[JDFZ3Annotation] = Field(default_factory=list)
@@ -60,7 +60,7 @@ def empty_annotations() -> dict[str, Any]:
 
 
 class JDFParagraphNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["paragraph"] = "paragraph"
     id: str
@@ -74,7 +74,7 @@ class JDFParagraphNode(BaseModel):
 class JDFCalloutNode(BaseModel):
     """In-document callouts (warning/insight). Red-Hat critiques use ``annotations.redhat``."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["callout"] = "callout"
     id: str
@@ -85,7 +85,7 @@ class JDFCalloutNode(BaseModel):
 
 
 class JDFTableNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["table"] = "table"
     id: str
@@ -97,7 +97,7 @@ class JDFTableNode(BaseModel):
 
 
 class JDFImageNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["image"] = "image"
     id: str
@@ -111,7 +111,7 @@ class JDFImageNode(BaseModel):
 
 
 class JDFSignatureNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["signature"] = "signature"
     id: str
@@ -123,7 +123,7 @@ class JDFSignatureNode(BaseModel):
 
 
 class JDFCheckboxNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["checkbox"] = "checkbox"
     id: str
@@ -149,7 +149,7 @@ JDFBlockNode = JDFLeafNode
 
 
 class JDFSectionNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["section"] = "section"
     id: str
@@ -160,7 +160,7 @@ class JDFSectionNode(BaseModel):
 
 
 class JDFDocumentTree(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str
     meta: dict[str, Any] = Field(default_factory=dict)

@@ -44,7 +44,7 @@ def test_projects_dashboard_i18n() -> None:
 def test_projects_dashboard_markup_and_js() -> None:
     html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
     assert 'id="projects-dashboard"' in html
-    assert 'id="view-projects"' in html
+    assert 'id="view-projects"' in html or 'id="panel-write"' in html
     assert 'data-i18n="projects.dashboard.title"' in html
     assert 'class="project-work-card"' not in html  # rendered client-side
     js = (ROOT / "prompt_matrix" / "static" / "projects.js").read_text(encoding="utf-8")

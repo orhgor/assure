@@ -646,13 +646,20 @@
       if (workbench) workbench.hidden = false;
 
       if (leftPaneShared) {
-        leftPaneShared.hidden = !inWorkspace || view === "projects" || view === "analytics";
+        leftPaneShared.hidden = view !== "generate";
       }
 
-      ["projects", "generate", "surgical", "analytics"].forEach(function (name) {
-        var el = $("view-" + name);
+      var panelMap = {
+        projects: "panel-write",
+        generate: "panel-draft",
+        surgical: "view-surgical",
+        analytics: "panel-analytics",
+        vault: "panel-sources",
+      };
+      ["projects", "generate", "surgical", "analytics", "vault"].forEach(function (name) {
+        var el = $(panelMap[name] || ("view-" + name)) || $("view-" + name);
         if (!el) return;
-        var on = view === name && (inWorkspace || name === "analytics" || name === "projects");
+        var on = view === name;
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
@@ -670,16 +677,7 @@
         legacyLibrary.hidden = true;
       }
 
-      if (view === "vault" && leftPaneShared) {
-        var vaultPanel = $("substrate-vault");
-        if (vaultPanel && vaultPanel.tagName === "DETAILS") {
-          vaultPanel.open = true;
-        }
-        window.setTimeout(function () {
-          if (vaultPanel && typeof vaultPanel.scrollIntoView === "function") {
-            vaultPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          }
-        }, 0);
+      if (view === "vault") {
         if (global.AssureSubstrateVault && typeof global.AssureSubstrateVault.fetchList === "function") {
           global.AssureSubstrateVault.fetchList();
         }

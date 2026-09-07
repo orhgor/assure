@@ -100,15 +100,14 @@ def test_tiptap_mapper_exports() -> None:
     assert 'createElement("p")' in canvas_src
 
 
-def test_jdf_paragraph_forbids_title_field() -> None:
-    from pydantic import ValidationError
-
+def test_jdf_paragraph_ignores_title_field() -> None:
     from prompt_matrix.models.jdf import JDFParagraphNode
 
-    with pytest.raises(ValidationError, match="title"):
-        JDFParagraphNode.model_validate(
-            {"type": "paragraph", "id": "p1", "content": "x", "title": ""}
-        )
+    node = JDFParagraphNode.model_validate(
+        {"type": "paragraph", "id": "p1", "content": "x", "title": ""}
+    )
+    assert node.content == "x"
+    assert "title" not in node.model_dump()
 
 
 def test_tiptap_does_not_copy_title_onto_paragraphs() -> None:

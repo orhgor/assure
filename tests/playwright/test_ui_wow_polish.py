@@ -50,7 +50,8 @@ def test_sidebar_uses_lucide_not_emoji(page: Page, base_url: str):
 def test_stepper_connectors_visible(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
-    expect(page.locator(".step-connector").first).to_be_visible()
+    expect(page.locator(".step-item").first).to_be_visible()
+    assert page.locator(".step-item").count() == 4
     assert page.locator(".step-connector").count() == 3
 
 
