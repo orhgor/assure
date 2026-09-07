@@ -100,10 +100,10 @@
       }
     },
 
-    open: function () {
+    open: function (templateId) {
       this.step = 1;
       this.pendingFiles = [];
-      this.selectedTemplateId = "blank";
+      this.selectedTemplateId = templateId || "blank";
       var modal = $("new-project-wizard");
       if (!modal) return;
       modal.hidden = false;
@@ -147,7 +147,44 @@
           self.renderPromptSelect();
         })
         .catch(function () {
-          self.templates = [{ id: "blank", name: "Blank", default_prompt: "", jdf_structure: { body: [] } }];
+          self.templates = [
+            {
+              id: "research-dossier",
+              name: "Research Dossier",
+              icon: "📄",
+              description:
+                "Synthesize scattered findings, map claims to primary sources, and verify citations before publishing.",
+              default_prompt: "",
+              jdf_structure: { body: [] },
+            },
+            {
+              id: "compliance-memo",
+              name: "Compliance Memo",
+              icon: "⚖️",
+              description:
+                "Audit regulatory filings, policies, and statutory statements against binding guidelines.",
+              default_prompt: "",
+              jdf_structure: { body: [] },
+            },
+            {
+              id: "contract-review",
+              name: "Contract Review",
+              icon: "📑",
+              description:
+                "Cross-check terms, redlines, and commitments across multi-party agreements.",
+              default_prompt: "",
+              jdf_structure: { body: [] },
+            },
+            {
+              id: "blank",
+              name: "Blank Workspace",
+              icon: "➕",
+              description:
+                "Start from scratch. Drop raw documents into the vault and compile custom audit assertions.",
+              default_prompt: "",
+              jdf_structure: { body: [] },
+            },
+          ];
           self.renderTemplates();
         });
     },
@@ -159,17 +196,24 @@
       grid.innerHTML = this.templates
         .map(function (tpl) {
           var active = tpl.id === self.selectedTemplateId ? " is-selected" : "";
+          var icon = tpl.icon || "";
+          var desc = tpl.description || "";
           return (
-            '<button type="button" class="wizard-template-card' +
+            '<button type="button" class="wizard-template-card icp-template-card' +
             active +
             '" data-template-id="' +
             escHtml(tpl.id) +
             '" role="option" aria-selected="' +
             (active ? "true" : "false") +
             '">' +
-            '<span class="wizard-template-name">' +
+            (icon ? '<span class="icp-template-icon" aria-hidden="true">' + escHtml(icon) + "</span>" : "") +
+            '<span class="wizard-template-name icp-template-name">' +
             escHtml(tpl.name) +
-            "</span></button>"
+            "</span>" +
+            (desc
+              ? '<span class="wizard-template-desc icp-template-desc">' + escHtml(desc) + "</span>"
+              : "") +
+            "</button>"
           );
         })
         .join("");

@@ -2,7 +2,7 @@
   "use strict";
 
   var STORAGE_KEY = "assure_view";
-  var DEFAULT_VIEW = "generate";
+  var DEFAULT_VIEW = "projects";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
   var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics"]);
   var SETTINGS_VIEWS = ["settings", "audit"];
@@ -30,8 +30,9 @@
   function normalizeViewName(raw) {
     if (!raw) return null;
     if (raw === "compose") return "generate";
+    if (raw === "compiler") return "generate";
     if (raw === "workbench") return "surgical";
-    if (raw === "library") return "vault";
+    if (raw === "library" || raw === "sources") return "vault";
     if (SETTINGS_VIEWS.indexOf(raw) >= 0) return "__open_settings__";
     if (ALL_VIEWS.indexOf(raw) >= 0) return raw;
     return null;
@@ -49,9 +50,16 @@
   function readViewFromHash() {
     var hash = (location.hash || "").replace(/^#/, "");
     if (!hash) return null;
+    if (hash.indexOf("=") !== -1) {
+      try {
+        var params = new URLSearchParams(hash);
+        var named = params.get("view") || params.get("tool");
+        if (named) return normalizeViewName(named);
+      } catch (_) {}
+    }
     if (hash.indexOf("tool=") === 0) return normalizeViewName(hash.slice(5));
     if (hash.indexOf("view=") === 0) {
-      return normalizeViewName(hash.slice(5));
+      return normalizeViewName(hash.slice(5).split("&")[0]);
     }
     if (hash === "settings") return "__open_settings__";
     var legacy = {
@@ -529,7 +537,7 @@
         settingsBtn.setAttribute("aria-current", "false");
       }
       if (opts.replaceHash !== false) {
-        var hashView = this.activeView === "vault" ? "library" : this.activeView;
+        var hashView = this.activeView === "vault" ? "sources" : this.activeView === "generate" ? "compiler" : this.activeView;
         var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
@@ -684,8 +692,12 @@
       }
 
       if (opts.replaceHash !== false) {
-        var hashView = view === "vault" ? "library" : view;
+        var hashView = view === "vault" ? "sources" : view === "generate" ? "compiler" : view;
         var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
+        if (view === "generate") {
+          var pid = global.__ASSURE_PROJECT_ID__ || "";
+          if (pid) next += "&id=" + encodeURIComponent(pid);
+        }
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
         }
@@ -699,6 +711,9 @@
       );
 
       if (view === "projects" && global.AssureProjects) {
+        if (!opts.preserveWorkspaceSelection && typeof global.AssureProjects.select === "function") {
+          global.AssureProjects.select(null);
+        }
         global.AssureProjects.load();
       }
       if (view === "analytics" && global.AssureAnalytics && typeof global.AssureAnalytics.render === "function") {

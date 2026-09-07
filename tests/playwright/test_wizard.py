@@ -1,4 +1,4 @@
-"""New project wizard — 3 steps and project creation."""
+"""Workspace create flow — lazy persist until Create Workspace."""
 
 from __future__ import annotations
 
@@ -8,12 +8,6 @@ import pytest
 
 pytestmark = pytest.mark.playwright
 
-WIZARD = "#new-project-wizard"
-WIZARD_NEXT = "#wizard-next-btn"
-WIZARD_CREATE = "#wizard-create-btn"
-WIZARD_TITLE = "#wizard-title-input"
-WIZARD_PROMPT = "#wizard-prompt-text"
-
 
 def _open_projects(page) -> None:
     page.evaluate(
@@ -22,60 +16,37 @@ def _open_projects(page) -> None:
     page.wait_for_selector("#panel-write", state="visible")
 
 
-def _wait_app_bootstrap(page) -> None:
-    """Projects new-btn handlers bind only after catalog/health bootstrap."""
-    page.wait_for_function(
-        """() => {
-          return window.__assureJdf
-            && window.AssureNewProjectWizard
-            && typeof window.AssureNewProjectWizard.open === 'function';
-        }""",
-        timeout=30_000,
-    )
-
-
 def test_wizard_creates_project(page, base_url):
     from tests.playwright.helpers import prime_page
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
-    _wait_app_bootstrap(page)
+    page.wait_for_function(
+        """() => window.AssureNav && window.AssureProjects && typeof window.AssureProjects.beginCreate === 'function'""",
+        timeout=30_000,
+    )
     _open_projects(page)
     page.wait_for_selector("#projects-new-btn", state="visible")
     page.locator("#projects-new-btn").click()
-    page.wait_for_selector(WIZARD, state="visible")
-    page.wait_for_selector('[data-template-id="blank"]', state="visible")
-
-    page.locator('[data-template-id="blank"]').click()
-    page.locator(WIZARD_NEXT).click()
-    page.wait_for_selector("#wizard-step-sources", state="visible")
-    page.locator(WIZARD_NEXT).click()
-    page.wait_for_selector("#wizard-step-prompt", state="visible")
+    page.wait_for_selector("#workspace-canvas-create", state="visible")
+    page.locator('[data-create-template="blank"]').click()
 
     title = f"PW Wizard {int(time.time())}"
-    page.locator(WIZARD_TITLE).fill(title)
-    page.locator(WIZARD_PROMPT).fill("Summarize compliance risks in plain language.")
-
-    page.evaluate(
-        "() => { if (window.AssureUnsaved && window.AssureUnsaved.clearUnsaved) window.AssureUnsaved.clearUnsaved(); }"
-    )
+    page.locator("#workspace-create-title").fill(title)
 
     with page.expect_response(
-        lambda r: "/api/projects" in r.url and r.request.method == "POST", timeout=30_000
+        lambda r: r.url.rstrip("/").endswith("/api/projects") and r.request.method == "POST",
+        timeout=30_000,
     ) as resp_info:
-        page.locator(WIZARD_CREATE).click()
+        page.locator("#workspace-create-confirm").click()
     response = resp_info.value
-    assert response.status == 201
+    assert response.status in (200, 201)
     body = response.json()
     assert body.get("ok") is True
     project_id = body["id"]
 
-    page.wait_for_selector(WIZARD, state="hidden", timeout=15_000)
     page.wait_for_function(
-        "(pid) => window.__ASSURE_PROJECT_ID__ === pid",
+        "(pid) => window.AssureProjects && window.AssureProjects.selectedId === pid",
         arg=project_id,
         timeout=15_000,
     )
-
-    intent = page.locator("#generate-intent")
-    assert "compliance" in (intent.input_value() or "").lower()

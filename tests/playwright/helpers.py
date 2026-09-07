@@ -64,17 +64,37 @@ def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
 
 
 def goto_workbench(page, base_url: str):
-    page.goto(app_url(base_url), wait_until="domcontentloaded")
-    page.wait_for_selector(WORKBENCH, state="visible")
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector(WORKBENCH, state="visible", timeout=30_000)
     page.wait_for_function(
-        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'"
+        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'",
+        timeout=30_000,
     )
-    page.wait_for_function("() => !document.body.classList.contains('onboarding-active')")
-    page.evaluate(
-        "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
+    page.wait_for_function(
+        "() => !document.body.classList.contains('onboarding-active')",
+        timeout=30_000,
     )
-    page.wait_for_selector(COMPILE_BTN, state="visible")
+    enter_compiler(page)
+    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
     return page
+
+
+def enter_compiler(page, project_id=None):
+    pid = project_id or "default"
+    page.evaluate(
+        """(pid) => {
+          if (window.AssureProjects && typeof window.AssureProjects.openCompiler === 'function') {
+            window.AssureProjects.openCompiler(pid);
+            return;
+          }
+          if (window.AssureNav) {
+            window.AssureNav.switchView('generate', {replaceHash: false, persist: false});
+          }
+        }""",
+        pid,
+    )
+    page.wait_for_selector("#document-chrome", state="visible", timeout=30_000)
+    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
 
 
 def empty_annotations() -> dict[str, list]:

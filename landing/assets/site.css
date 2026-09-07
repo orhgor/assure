@@ -539,6 +539,38 @@ p {
   margin-top: var(--space-8);
 }
 
+.icp-audiences {
+  margin: 2.5rem 0 0;
+}
+
+.icp-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.icp-card {
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  padding: 1.25rem 1.35rem;
+  background: #fff;
+}
+
+.icp-card-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.icp-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.icp-card p {
+  margin: 0;
+  color: var(--muted, #64748b);
+  line-height: 1.45;
+}
+
 .how-step {
   padding: 0;
   background: none;

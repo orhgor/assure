@@ -117,6 +117,8 @@
             borderRadius: 4,
             borderSkipped: false,
             maxBarThickness: 48,
+            categoryPercentage: 0.7,
+            barPercentage: 0.85,
           },
         ],
       },

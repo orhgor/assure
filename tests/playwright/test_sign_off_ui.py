@@ -12,11 +12,17 @@ def _open_more_panel(page):
     page.wait_for_timeout(200)
 
 
-def test_signoff_panel_opens(page, base_url):
-    from tests.playwright.helpers import prime_page
+def _boot(page, base_url):
+    from tests.playwright.helpers import enter_compiler, prime_page
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    enter_compiler(page)
+
+
+def test_signoff_panel_opens(page, base_url):
+    _boot(page, base_url)
     _open_more_panel(page)
     page.wait_for_selector("#signoff-open-btn", state="visible")
     page.locator("#signoff-open-btn").click()
@@ -26,10 +32,7 @@ def test_signoff_panel_opens(page, base_url):
 
 
 def test_signoff_form_fields(page, base_url):
-    from tests.playwright.helpers import prime_page
-
-    prime_page(page)
-    page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    _boot(page, base_url)
     _open_more_panel(page)
     page.locator("#signoff-open-btn").click()
     page.locator("#signoff-reviewer-name").fill("Reviewer One")

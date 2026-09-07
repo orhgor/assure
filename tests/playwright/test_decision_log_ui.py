@@ -17,6 +17,10 @@ def test_decision_log_panel(page, base_url):
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    from tests.playwright.helpers import enter_compiler
+
+    enter_compiler(page)
     _open_more_panel(page)
     page.wait_for_selector("#decision-log-open-btn", state="visible")
     page.locator("#decision-log-open-btn").click()
@@ -30,6 +34,10 @@ def test_decision_log_fetches_memories(page, base_url):
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    from tests.playwright.helpers import enter_compiler
+
+    enter_compiler(page)
     page.evaluate("() => { window.__ASSURE_PROJECT_ID__ = 'prj_playwright'; }")
     _open_more_panel(page)
     page.locator("#decision-log-open-btn").click()
