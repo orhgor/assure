@@ -14,7 +14,12 @@ fi
 
 install_with_uv() {
   command -v uv >/dev/null 2>&1 || return 1
+  rm -rf "$VENV"
   uv venv "$VENV" --python 3.12
+  arch="$(uname -m)"
+  if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+    uv pip install torch --index-url https://download.pytorch.org/whl/cpu --python "$VENV/bin/python"
+  fi
   uv pip install -r "$REQ" --python "$VENV/bin/python"
 }
 
@@ -45,6 +50,11 @@ install_with_pip() {
   "$py" -m venv "$VENV"
   "$VENV/bin/python" -m ensurepip --upgrade 2>/dev/null || true
   "$VENV/bin/python" -m pip install --upgrade pip
+  arch="$(uname -m)"
+  if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
+    echo "==> Pre-install CPU torch (avoid CUDA wheels on ARM EC2)"
+    "$VENV/bin/python" -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+  fi
   "$VENV/bin/python" -m pip install -r "$REQ"
 }
 
