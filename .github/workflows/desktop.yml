@@ -11,13 +11,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# macOS/Windows builds require GitHub-hosted runners; Linux uses staging EC2.
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, self-hosted]
-    runs-on: ${{ matrix.os }}
+        include:
+          - runs-on: macos-latest
+            artifact: macos-latest
+          - runs-on: windows-latest
+            artifact: windows-latest
+          - runs-on: [self-hosted, staging]
+            artifact: linux-arm64
+    runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -33,5 +40,5 @@ jobs:
         run: pyinstaller --noconfirm --clean packaging/assure.spec
       - uses: actions/upload-artifact@v4
         with:
-          name: assure-${{ matrix.os }}
+          name: assure-${{ matrix.artifact }}
           path: dist/**
