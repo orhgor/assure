@@ -48,11 +48,22 @@
     var founder = isFounderMode();
     document.body.classList.toggle("founder-workbench", founder);
     document.body.classList.toggle("legacy-workbench", !founder);
+    document.body.classList.toggle("founder-mode-active", founder);
+    applyAppRootClasses();
+  }
+
+  function applyAppRootClasses() {
+    var founder = isFounderMode();
+    var app = document.getElementById("assure-app");
+    if (app) app.classList.toggle("founder-mode-active", founder);
   }
 
   function init() {
     persistDefaultFlag();
     applyBodyClasses();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyAppRootClasses, { once: true });
+    }
   }
 
   global.AssureFounderMode = {
@@ -60,6 +71,7 @@
     isEnabled: isFounderMode,
     isLegacyUrl: isLegacyUrl,
     applyBodyClasses: applyBodyClasses,
+    applyAppRootClasses: applyAppRootClasses,
     init: init,
   };
 
