@@ -1696,6 +1696,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_audit_log_routes(app)
 
     try:
+        from .routers.runs_routes import register_runs_routes
+        from .routers.drafts_routes import register_drafts_routes
+    except ImportError:
+        from routers.runs_routes import register_runs_routes
+        from routers.drafts_routes import register_drafts_routes
+    register_runs_routes(app)
+    register_drafts_routes(app)
+
+    try:
         from .middleware_activity import register_activity_audit_middleware
     except ImportError:
         from middleware_activity import register_activity_audit_middleware

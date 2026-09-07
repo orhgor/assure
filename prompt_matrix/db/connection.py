@@ -16,7 +16,43 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 20
+_SCHEMA_VERSION = 21
+
+
+def _migrate_v21(db: sqlite3.Connection) -> None:
+    """Founder workbench Phase 1 — runs and drafts."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runs (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT,
+            directive TEXT NOT NULL,
+            content TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT 'gemini',
+            sources_used TEXT NOT NULL DEFAULT '[]',
+            extracted_locks TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_runs_workspace ON runs(workspace_id, created_at DESC)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS drafts (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL UNIQUE,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
 
 
 def _migrate_v20(db: sqlite3.Connection) -> None:
@@ -806,6 +842,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v19(db)
     if current < 20:
         _migrate_v20(db)
+    if current < 21:
+        _migrate_v21(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

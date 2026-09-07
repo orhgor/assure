@@ -96,8 +96,10 @@ class DraftPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     intent: str = ""
+    directive: str | None = None
     context: str | None = None
     substrate_file_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
     compile_type: Literal["full", "selection"] = Field(
         default="full",
         validation_alias=AliasChoices("compileType", "compile_type"),
@@ -814,9 +816,16 @@ def register_draft_routes(app) -> None:
         try:
             payload = DraftPayload.model_validate(
                 {
-                    "intent": data.get("intent") or data.get("user_intent") or "",
+                    "intent": data.get("intent")
+                    or data.get("directive")
+                    or data.get("user_intent")
+                    or "",
+                    "directive": data.get("directive"),
                     "context": data.get("context"),
-                    "substrate_file_ids": data.get("substrate_file_ids") or [],
+                    "substrate_file_ids": data.get("substrate_file_ids")
+                    or data.get("source_ids")
+                    or [],
+                    "source_ids": data.get("source_ids") or [],
                     "compileType": data.get("compileType") or data.get("compile_type") or "full",
                     "content": data.get("content"),
                 }
@@ -824,7 +833,7 @@ def register_draft_routes(app) -> None:
         except Exception as exc:
             return {"error": str(exc)}, 400
 
-        intent = (payload.intent or "").strip()
+        intent = (payload.intent or payload.directive or "").strip()
         if payload.compile_type == "selection":
             excerpt = (payload.content or intent).strip()
             if not excerpt:
