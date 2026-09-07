@@ -57,7 +57,7 @@
             <button type="button" class="sidebar-toggle tooltip-trigger" id="sidebar-toggle" aria-expanded="true" aria-controls="app-sidebar" aria-label="{{ gettext('Toggle tools menu') }}" data-i18n-aria="app.sidebar.toggle" data-tooltip="{{ gettext('Toggle tools menu') }}" data-i18n-tooltip="app.sidebar.toggle"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-menu"/></svg></button>
             <div class="app-logo">
               <svg class="app-logo-mark brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="24" height="24">
-                <rect width="36" height="36" rx="8" fill="#ffffff"/>
+                <rect width="36" height="36" rx="8" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
                 <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#1A4B8C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
               <span class="app-logo-text">
@@ -67,6 +67,18 @@
           </div>
           <div class="app-header-center app-trust-strip" id="app-header-center" hidden></div>
           <div class="app-header-right">
+            <div class="role-switcher">
+              <label class="role-switcher-label visually-hidden" for="role-switcher">
+                <span data-i18n="role.label">{{ gettext('Role') }}</span>
+              </label>
+              <select id="role-switcher" class="app-role-select" aria-label="{{ gettext('Workbench role') }}" data-i18n-aria="role.label">
+                <option value="admin" data-i18n="role.admin">{{ gettext('Admin') }}</option>
+                <option value="compliance" selected data-i18n="role.compliance">{{ gettext('Compliance') }}</option>
+                <option value="developer" data-i18n="role.developer">{{ gettext('Developer') }}</option>
+                <option value="executive" data-i18n="role.executive">{{ gettext('Executive') }}</option>
+              </select>
+            </div>
+            <div class="utility-actions">
             <span id="version-display" class="version-history-control header-history" aria-live="polite">
               <label class="version-history-label visually-hidden" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
               <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1" title="{{ gettext('History') }}" data-i18n-title="jdf.version.history">
@@ -98,15 +110,6 @@
               </div>
             </details>
             <button type="button" id="save-status" class="save-pill pill-idle tooltip-trigger" aria-live="polite" data-i18n="jdf.save.ready" data-tooltip="{{ gettext('Save the current document version') }}" data-i18n-tooltip="tooltip.save">{{ gettext('All good') }}</button>
-            <label class="role-switcher-label visually-hidden" for="role-switcher">
-              <span data-i18n="role.label">{{ gettext('Role') }}</span>
-            </label>
-            <select id="role-switcher" class="app-role-select" aria-label="{{ gettext('Workbench role') }}" data-i18n-aria="role.label">
-              <option value="admin" data-i18n="role.admin">{{ gettext('Admin') }}</option>
-              <option value="compliance" selected data-i18n="role.compliance">{{ gettext('Compliance') }}</option>
-              <option value="developer" data-i18n="role.developer">{{ gettext('Developer') }}</option>
-              <option value="executive" data-i18n="role.executive">{{ gettext('Executive') }}</option>
-            </select>
             <span class="session-compile-limit tooltip-trigger" id="session-compile-limit" hidden aria-live="polite"></span>
             <span class="engine-status tooltip-trigger" id="engine-status" data-tooltip="{{ gettext('Engine online') }}" data-i18n-tooltip="app.status.online">
               <span class="engine-status-dot is-offline" id="engine-status-dot" aria-live="polite"></span>
@@ -119,6 +122,7 @@
               <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
+            </div>
           </div>
         </header>
         <div class="app-body">
@@ -193,7 +197,7 @@
               </div>
               <div class="workbench-stepper-container" role="region" aria-label="{{ gettext('Document Lifecycle') }}" data-i18n-aria="stepper.title">
                 <div class="stepper-header">
-                  <span class="stepper-title" data-i18n="stepper.title">{{ gettext('Document Lifecycle') }}</span>
+                  <span class="stepper-title eyebrow" data-i18n="stepper.title">{{ gettext('Document Lifecycle') }}</span>
                   <button type="button" class="btn-text-subtle" id="workbench-advanced-toggle-btn" aria-expanded="false" aria-controls="generate-quick-actions">
                     <span data-i18n="stepper.advanced">{{ gettext('Advanced') }}</span>
                   </button>
@@ -257,6 +261,52 @@
                   </label>
                 </div>
               </div>
+              <div id="left-pane-shared" class="left-pane-shared">
+              <details id="argument-spine" class="argument-spine accordion-card">
+                <summary class="argument-spine-summary">
+                  <span class="argument-spine-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-git-branch"/></svg> <span data-i18n="spine.title">{{ gettext('Argument Spine') }}</span></span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="argument-spine-body accordion-content">
+                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
+                  <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
+                </div>
+              </details>
+              <hr class="pane-divider">
+              <details id="document-structure" class="document-structure-panel accordion-card">
+                <summary class="document-structure-summary">
+                  <span class="document-structure-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-layout-list"/></svg> <span data-i18n="structure.title">{{ gettext('Document Structure') }}</span></span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="document-structure-body accordion-content">
+                  <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
+                  <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Link these ideas') }}</button>
+                  </div>
+                </div>
+              </details>
+              <hr class="pane-divider">
+              <details id="refine-workspace" class="refine-workspace-panel accordion-card">
+                <summary class="refine-workspace-summary">
+                  <span class="refine-workspace-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-sparkles"/></svg> <span data-i18n="refine.workspace.title">{{ gettext('Refine Workspace') }}</span></span>
+                  <span class="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <div class="refine-workspace-body accordion-content" id="refineControlWorkspace">
+                  <div id="refineFocusBadgeContainer">
+                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
+                  </div>
+                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
+                  <div class="visible-action-bar">
+                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Polish this') }}</button>
+                    <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
+                  </div>
+                  <div class="visible-action-bar refine-redhat-bar">
+                    <button type="button" class="btn-trust-action btn-trust-redhat" id="executeRedHatBtn" data-i18n="refine.run_redhat">{{ gettext('Run Red-Hat Audit') }}</button>
+                  </div>
+                </div>
+              </details>
+              </div>
               <div id="role-widget-rail" class="role-widget-rail" aria-live="polite">
                 <div class="role-widget" data-role-widget="risk" hidden>
                   <p class="role-widget-title" data-i18n="role.widget.risk">{{ gettext('Risk Signals') }}</p>
@@ -312,49 +362,6 @@
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
                 </div>
-              </div>
-              <div id="left-pane-shared" class="left-pane-shared">
-              <details id="argument-spine" class="argument-spine">
-                <summary class="argument-spine-summary">
-                  <span class="argument-spine-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-git-branch"/></svg> <span data-i18n="spine.title">{{ gettext('Argument Spine') }}</span></span>
-                </summary>
-                <div class="argument-spine-body">
-                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
-                  <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
-                </div>
-              </details>
-              <hr class="pane-divider">
-              <details id="document-structure" class="document-structure-panel">
-                <summary class="document-structure-summary">
-                  <span class="document-structure-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-layout-list"/></svg> <span data-i18n="structure.title">{{ gettext('Document Structure') }}</span></span>
-                </summary>
-                <div class="document-structure-body">
-                  <p id="document-structure-empty" class="hint document-structure-empty" data-i18n="structure.no_sections">{{ gettext('Compile a document to see sections.') }}</p>
-                  <ul class="document-structure-tree" id="structureTreeContainer" role="tree" hidden></ul>
-                  <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="actionConnectBtn" disabled data-i18n="structure.connect">{{ gettext('Link these ideas') }}</button>
-                  </div>
-                </div>
-              </details>
-              <hr class="pane-divider">
-              <details id="refine-workspace" class="refine-workspace-panel">
-                <summary class="refine-workspace-summary">
-                  <span class="refine-workspace-title"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-sparkles"/></svg> <span data-i18n="refine.workspace.title">{{ gettext('Refine Workspace') }}</span></span>
-                </summary>
-                <div class="refine-workspace-body" id="refineControlWorkspace">
-                  <div id="refineFocusBadgeContainer">
-                    <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
-                  </div>
-                  <textarea class="assure-input-control form-control refine-intent-input auto-resize" id="refineIntentInput" rows="3" placeholder="{{ gettext('What would you like to change?') }}" data-i18n-placeholder="refine.input_placeholder"></textarea>
-                  <div class="visible-action-bar">
-                    <button type="button" class="btn-trust-action" id="executeNodeRefineBtn" data-i18n="refine.selection">{{ gettext('Polish this') }}</button>
-                    <button type="button" class="btn-trust-action" id="executeFullDocRefineBtn" data-i18n="refine.full_document">{{ gettext('Refine Full Document') }}</button>
-                  </div>
-                  <div class="visible-action-bar refine-redhat-bar">
-                    <button type="button" class="btn-trust-action btn-trust-redhat" id="executeRedHatBtn" data-i18n="refine.run_redhat">{{ gettext('Run Red-Hat Audit') }}</button>
-                  </div>
-                </div>
-              </details>
               </div>
             </div>
 
@@ -597,7 +604,9 @@
               <pre id="canvas-source-body" class="canvas-source-body" hidden></pre>
             </div>
             <div id="canvas-analytics-view" class="canvas-analytics-view" hidden></div>
-            <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
+            <div class="jdf-card">
+              <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
+            </div>
             <aside id="reasoning-graph-drawer" class="reasoning-graph-drawer" hidden>
               <div class="reasoning-graph-header">
                 <h2 data-i18n="jdf.reasoning_graph.title">{{ gettext('Reasoning Graph') }}</h2>

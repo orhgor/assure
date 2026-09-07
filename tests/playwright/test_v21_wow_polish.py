@@ -19,6 +19,20 @@ def test_design_system(page: Page, base_url: str):
         """() => getComputedStyle(document.documentElement).getPropertyValue('--color-trust').trim()"""
     )
     assert trust
+    header = page.evaluate(
+        """() => {
+          const h = document.querySelector('.app-header');
+          const s = getComputedStyle(h);
+          const path = document.querySelector('.app-logo-mark path');
+          return {
+            bg: s.backgroundColor,
+            color: s.color,
+            stroke: path && path.getAttribute('stroke'),
+          };
+        }"""
+    )
+    assert "255, 255, 255" in header["bg"] or header["bg"] in ("#ffffff", "rgb(255, 255, 255)")
+    assert header["stroke"] == "#1A4B8C"
 
 
 def test_stepper_connectors(page: Page, base_url: str):
