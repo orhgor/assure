@@ -186,6 +186,21 @@
     snapNode(article);
   }
 
+  function extendLaserBeamToNode(nodeElement) {
+    if (!nodeElement) return;
+    var laser = document.getElementById("laser-beam") || ensureLaserBeam();
+    if (!laser) return;
+    var host = laser.parentElement;
+    if (!host) return;
+    var rect = nodeElement.getBoundingClientRect();
+    var containerRect = host.getBoundingClientRect();
+    var relativeTop = Math.max(0, rect.top - containerRect.top + (host.scrollTop || 0));
+    laser.style.transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s ease";
+    laser.style.height = relativeTop + rect.height + "px";
+    laser.classList.add("is-segmented", "is-running", "is-armed");
+    progressToNode(nodeElement);
+  }
+
   function positionBeamAt(article, beam) {
     if (!beam || !article) return;
     extendBeamTo(article, beam);
@@ -583,6 +598,7 @@
     onVerified: onVerified,
     progressToNode: progressToNode,
     extendBeamTo: extendBeamTo,
+    extendLaserBeamToNode: extendLaserBeamToNode,
     applyInkStamp: applyInkStamp,
     syncNodeStamp: syncNodeStamp,
     onAllGuttersVerified: onAllGuttersVerified,

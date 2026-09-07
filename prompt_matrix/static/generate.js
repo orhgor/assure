@@ -1610,6 +1610,7 @@
             : (typeof global.__assureT === "function" ? global.__assureT("coachmark.tour.next", "Next") : "Next");
       }
       mark.hidden = false;
+      mark.classList.add("coachmark-tour");
       mark.dataset.tourStep = String(this._step + 1);
       var target = document.querySelector(step.selector);
       var assembleWrap = document.querySelector(".compile-action-row") || mark.parentElement;

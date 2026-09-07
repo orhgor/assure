@@ -14,11 +14,12 @@
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
   {% include 'includes/plausible.html' %}
   {% include 'includes/sentry.html' %}
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@0.469.0"></script>
   <script>
     /* Hashes are not sent to Flask. /#history is GET / ; the browser then reads the hash. */
     (function () {

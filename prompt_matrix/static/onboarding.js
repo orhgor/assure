@@ -83,7 +83,16 @@
     });
   }
 
+  function forceTour() {
+    try {
+      return new URLSearchParams(window.location.search).get("onboarding") === "true";
+    } catch (_) {
+      return false;
+    }
+  }
+
   function isComplete() {
+    if (forceTour()) return false;
     try {
       return localStorage.getItem(ONBOARDING_KEY) === "1";
     } catch (_) {
@@ -166,7 +175,7 @@
 
   function buildCallout(stepIndex, total) {
     var callout = document.createElement("div");
-    callout.className = "onboarding-callout";
+    callout.className = "onboarding-callout coachmark-tour";
     callout.setAttribute("role", "status");
     callout.setAttribute("aria-live", "polite");
 
