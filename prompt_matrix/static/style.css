@@ -9223,6 +9223,66 @@ body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #
   flex-direction: column;
 }
 
+/* Founder mode: collapse legacy sidebar track — two-pane Runs Stack + Active Draft only */
+body.founder-mode-active #app-sidebar,
+body.founder-mode-active .app-sidebar,
+body.founder-mode-active #left-pane-shared,
+body.founder-mode-active #sidebar-backdrop {
+  display: none !important;
+}
+
+body.founder-mode-active #assure-app.app-layout,
+body.founder-mode-active #assure-app.founder-mode-active {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100dvh;
+}
+
+body.founder-mode-active .app-body {
+  display: flex !important;
+  flex-direction: row !important;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+body.founder-mode-active .app-content {
+  flex: 1 1 auto !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+body.founder-mode-active .app-container {
+  display: flex !important;
+  flex-direction: row !important;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+body.founder-mode-active #panel-runs {
+  flex: 0 0 320px !important;
+  max-width: 320px;
+  min-width: 0;
+  border-right: 1px solid var(--border-color, var(--color-border, #e2e8f0));
+}
+
+body.founder-mode-active .right-pane,
+body.founder-mode-active #founder-draft-shell {
+  flex: 1 1 auto !important;
+  min-width: 0;
+}
+
 .founder-header-tools {
   display: flex;
   align-items: center;

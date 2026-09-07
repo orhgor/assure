@@ -82,7 +82,10 @@
     var founderTools = $("founder-header-tools");
     if (founderTools) founderTools.hidden = false;
     var layout = $("assure-app");
-    if (layout) layout.classList.add("founder-shell-layout");
+    if (layout) {
+      layout.classList.add("founder-shell-layout");
+      layout.classList.add("founder-mode-active");
+    }
     var appContent = layout && layout.querySelector(".app-content");
     if (appContent) {
       appContent.style.gridColumn = "1";
@@ -113,7 +116,10 @@
     var founderTools = $("founder-header-tools");
     if (founderTools) founderTools.hidden = true;
     var layout = $("assure-app");
-    if (layout) layout.classList.remove("founder-shell-layout");
+    if (layout) {
+      layout.classList.remove("founder-shell-layout");
+      layout.classList.remove("founder-mode-active");
+    }
     var appContent = layout && layout.querySelector(".app-content");
     if (appContent) {
       appContent.style.gridColumn = "";

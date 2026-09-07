@@ -220,7 +220,7 @@ def test_default_founder_shell(page: Page, base_url: str):
     page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
     page.wait_for_function(
-        "() => document.body.classList.contains('founder-workbench') && !document.body.classList.contains('legacy-workbench')",
+        "() => document.body.classList.contains('founder-workbench') && document.body.classList.contains('founder-mode-active') && !document.body.classList.contains('legacy-workbench')",
         timeout=10_000,
     )
     expect(page.locator("#panel-runs")).to_be_visible()
@@ -247,10 +247,15 @@ def test_default_founder_shell(page: Page, base_url: str):
           const content = document.querySelector('.app-content');
           const container = document.querySelector('.app-container');
           const sidebar = document.querySelector('#app-body > #app-sidebar');
-          if (!content || !container) return false;
+          const appBody = document.querySelector('.app-body');
+          if (!content || !container || !appBody) return false;
+          const bodyDisplay = getComputedStyle(appBody).display;
+          const containerDisplay = getComputedStyle(container).display;
           const contentCol = getComputedStyle(content).gridColumnStart;
-          const cols = getComputedStyle(container).gridTemplateColumns.trim().split(/\\s+/);
-          return contentCol === '1' && cols.length === 2 && !sidebar;
+          return bodyDisplay === 'flex'
+            && containerDisplay === 'flex'
+            && contentCol !== '2'
+            && !sidebar;
         }""",
         timeout=10_000,
     )
