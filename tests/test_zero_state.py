@@ -27,9 +27,10 @@ def test_zero_state_js_does_not_rewrite_canvas_html():
 
 
 def test_zero_state_dashboard_has_real_templates():
-    assert 'data-zero-template="compliance-memo"' in HTML
-    assert 'data-zero-template="contract-review"' in HTML
-    assert 'data-zero-template="blank"' in HTML
+    assert 'data-create-template="research-dossier"' in HTML
+    assert 'data-create-template="compliance-memo"' in HTML
+    assert 'data-create-template="contract-review"' in HTML
+    assert 'data-create-template="blank"' in HTML
     assert "Clinical Documentation" not in HTML
     assert "CPT Coding" not in HTML
 
