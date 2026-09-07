@@ -33,7 +33,17 @@ install_with_pip() {
     echo "ERROR: Python 3.12 required for groundrails (install python3.12 or uv)." >&2
     return 1
   fi
+  if ! "$py" -m venv /tmp/assure-venv-probe 2>/dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
+      echo "==> Installing python3.12-venv (ensurepip)"
+      sudo apt-get update -qq
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3.12-venv
+    fi
+  fi
+  rm -rf /tmp/assure-venv-probe
+  rm -rf "$VENV"
   "$py" -m venv "$VENV"
+  "$VENV/bin/python" -m ensurepip --upgrade 2>/dev/null || true
   "$VENV/bin/python" -m pip install --upgrade pip
   "$VENV/bin/python" -m pip install -r "$REQ"
 }
