@@ -9154,33 +9154,67 @@ body.founder-workbench.sources-drawer-open #panel-sources .substrate-vault-body 
   overflow-y: auto;
 }
 
-body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .app-body {
+body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .app-body,
+body.founder-workbench:not(.legacy-workbench) .app-body {
   grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .app-content,
+body.founder-workbench:not(.legacy-workbench) .app-content {
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+body.founder-workbench:not(.legacy-workbench) #app-sidebar,
+body.founder-workbench:not(.legacy-workbench) #sidebar-backdrop {
+  display: none !important;
 }
 
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .app-container {
   display: grid;
-  grid-template-columns: minmax(240px, 28%) 6px minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
+  width: 100%;
 }
 
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .left-pane {
   display: flex;
   flex-direction: column;
+  grid-column: 1;
   min-width: 0;
-  max-width: none;
+  max-width: 320px;
+  width: 100%;
   border-right: 1px solid var(--border-subtle, #e5e7eb);
+  overflow: hidden;
 }
 
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .right-pane {
+  grid-column: 2;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
-body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #pane-splitter,
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #pane-splitter {
-  display: block;
+  display: none !important;
+}
+
+body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #panel-runs.founder-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #founder-draft-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .founder-header-tools {

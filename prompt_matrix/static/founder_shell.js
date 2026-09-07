@@ -83,6 +83,11 @@
     if (founderTools) founderTools.hidden = false;
     var layout = $("assure-app");
     if (layout) layout.classList.add("founder-shell-layout");
+    var appContent = layout && layout.querySelector(".app-content");
+    if (appContent) {
+      appContent.style.gridColumn = "1";
+      appContent.style.gridRow = "1";
+    }
     legacyDetached = true;
     updateWorkspaceTitle();
   }
@@ -109,6 +114,11 @@
     if (founderTools) founderTools.hidden = true;
     var layout = $("assure-app");
     if (layout) layout.classList.remove("founder-shell-layout");
+    var appContent = layout && layout.querySelector(".app-content");
+    if (appContent) {
+      appContent.style.gridColumn = "";
+      appContent.style.gridRow = "";
+    }
   }
 
   function resolveWorkspaceTitle() {

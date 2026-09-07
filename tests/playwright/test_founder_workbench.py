@@ -183,6 +183,30 @@ def test_default_founder_shell(page: Page, base_url: str):
     expect(page.locator("#canvas-onboarding-state")).to_be_hidden()
     expect(page.locator("#panel-write")).to_be_hidden()
     expect(page.locator(".founder-sidebar-legacy").first).to_be_hidden()
+    page.wait_for_function(
+        """() => {
+          const content = document.querySelector('.app-content');
+          const container = document.querySelector('.app-container');
+          const sidebar = document.querySelector('#app-body > #app-sidebar');
+          if (!content || !container) return false;
+          const contentCol = getComputedStyle(content).gridColumnStart;
+          const cols = getComputedStyle(container).gridTemplateColumns.trim().split(/\\s+/);
+          return contentCol === '1' && cols.length === 2 && !sidebar;
+        }""",
+        timeout=10_000,
+    )
+    layout = page.evaluate(
+        """() => {
+          const left = document.querySelector('.left-pane');
+          const right = document.querySelector('.right-pane');
+          return {
+            leftWidth: left ? left.getBoundingClientRect().width : 0,
+            rightWidth: right ? right.getBoundingClientRect().width : 0,
+          };
+        }"""
+    )
+    assert layout["leftWidth"] >= 280
+    assert layout["rightWidth"] > layout["leftWidth"]
 
 
 def test_command_bar(page: Page, base_url: str):
