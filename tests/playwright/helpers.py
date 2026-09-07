@@ -49,18 +49,38 @@ def app_url(base_url: str) -> str:
     return f"{root}/app"
 
 
-def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
+def prime_page(
+    page, *, compiles: int = 0, wow_effects: bool = True, founder_workbench: bool = False
+) -> None:
     page.set_viewport_size(DESKTOP_VIEWPORT)
     wow = "true" if wow_effects else "false"
+    founder = "1" if founder_workbench else "0"
     page.add_init_script(
         f"""
         try {{
           localStorage.setItem({ONBOARDING_KEY!r}, '1');
+          localStorage.setItem('assure_founder_workbench', '{founder}');
           sessionStorage.setItem({SESSION_COMPILE_KEY!r}, '{int(compiles)}');
           window.__ASSURE_WOW_EFFECTS__ = {wow};
         }} catch (e) {{}}
         """
     )
+
+
+def goto_founder_workbench(page, base_url: str):
+    prime_page(page, founder_workbench=True)
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
+    page.wait_for_selector("#panel-runs", state="visible", timeout=30_000)
+    page.wait_for_function(
+        "() => document.body.classList.contains('founder-workbench')",
+        timeout=10_000,
+    )
+    page.wait_for_function(
+        "() => window.AssureCommandBar && window.AssureRunsStack",
+        timeout=30_000,
+    )
+    return page
 
 
 def goto_workbench(page, base_url: str):

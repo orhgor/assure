@@ -27,7 +27,15 @@
 {% endblock %}
 {% block body %}
     {% set pane = initial_pane|default('compose') %}
-    <script>document.body.classList.add("founder-workbench");</script>
+    <script>
+      try {
+        if (localStorage.getItem("assure_founder_workbench") !== "0") {
+          document.body.classList.add("founder-workbench");
+        }
+      } catch (e) {
+        document.body.classList.add("founder-workbench");
+      }
+    </script>
     <div class="visually-hidden" aria-hidden="true">
       <button type="button" class="tab" id="tab-compose" tabindex="-1" data-pane="compose" aria-selected="{{ 'true' if pane == 'compose' else 'false' }}"></button>
       <button type="button" class="tab" id="tab-history" tabindex="-1" data-pane="history" aria-selected="{{ 'true' if pane == 'history' else 'false' }}"></button>
@@ -68,6 +76,7 @@
           </div>
           <div class="app-header-center app-trust-strip" id="app-header-center" hidden></div>
           <div class="app-header-right header-right">
+            <button type="button" class="btn btn-sm btn-primary founder-only-export" id="btn-export-dossier" title="Export Formal Verification Certificate">Export Verified Dossier</button>
             <div id="document-chrome" class="document-chrome" hidden>
             <span id="version-display" class="version-history-control header-history version-tag" aria-live="polite">
               <label class="version-history-label visually-hidden" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
@@ -742,6 +751,19 @@
       </div>
 
       {% include 'modals/command_bar.html' %}
+      <aside id="evidence-inspector-drawer" class="evidence-inspector-drawer" hidden aria-hidden="true">
+        <div class="evidence-inspector-header">
+          <h2>Evidence Inspector</h2>
+          <button type="button" class="btn btn-sm btn-ghost" id="evidence-inspector-close" aria-label="Close evidence inspector">×</button>
+        </div>
+        <div class="evidence-inspector-meta">
+          <p><strong>Lock hash:</strong> <code id="evidence-inspector-hash"></code></p>
+          <p><strong>Source:</strong> <span id="evidence-inspector-filename"></span> (<code id="evidence-inspector-source-id"></code>)</p>
+          <pre id="evidence-inspector-coords" class="evidence-inspector-coords"></pre>
+          <button type="button" class="btn btn-outline btn-sm" id="evidence-inspector-goto">Go to Source</button>
+        </div>
+        <div id="evidence-inspector-body" class="evidence-inspector-body"></div>
+      </aside>
       <div id="command-palette-overlay" class="command-palette-overlay" aria-hidden="true">
         <div id="command-palette" class="command-palette" role="dialog" aria-modal="true" aria-labelledby="palette-input">
           <input id="palette-input" type="text" class="palette-input" autocomplete="off" spellcheck="false" placeholder="{{ gettext('Type a command or search…') }}" data-i18n-placeholder="palette.placeholder" aria-label="{{ gettext('Type a command or search…') }}" data-i18n-aria="palette.placeholder" aria-controls="palette-results" aria-autocomplete="list">
@@ -1239,6 +1261,8 @@
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='argument_spine.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='editor_sync.js') }}?v={{ js_version|default('assure-21') }}"></script>

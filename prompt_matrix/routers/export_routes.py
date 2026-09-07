@@ -156,6 +156,39 @@ def register_export_routes(app) -> None:
                 headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
 
+        if fmt == "dossier-pdf":
+            try:
+                try:
+                    from ..services.verification_dossier import export_verification_dossier_pdf
+                except ImportError:
+                    from services.verification_dossier import export_verification_dossier_pdf
+                pdf_bytes = export_verification_dossier_pdf(project_id)
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "EXPORT_DOSSIER_PDF",
+                    exc,
+                    duration_ms=duration_ms,
+                )
+                return jsonify({"ok": False, "error": str(exc)}), 500
+            filename = f"{filename_base}-verification-dossier.pdf"
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                "EXPORT_DOSSIER_PDF",
+                success=True,
+                duration_ms=duration_ms,
+                details={"format": "dossier-pdf", "filename": filename},
+            )
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
         if fmt == "audit-pdf":
             try:
                 try:
@@ -203,7 +236,7 @@ def register_export_routes(app) -> None:
             return jsonify(
                 {
                     "error": "Unsupported format",
-                    "supported": ["docx", "json", "md", "html", "pdf", "audit-pdf"],
+                    "supported": ["docx", "json", "md", "html", "pdf", "audit-pdf", "dossier-pdf"],
                 }
             ), 400
 

@@ -1,5 +1,5 @@
 /**
- * Founder workbench — active draft pane (TipTap + autosave).
+ * Founder workbench — active draft pane (TipTap + autosave + lock pills).
  */
 (function (global) {
   "use strict";
@@ -29,7 +29,7 @@
               content: "",
               entities_referenced: [],
               provenance: [],
-              meta: {},
+              meta: { lock_pills: [] },
               annotations: { redhat: [], z3: [] },
             },
           ],
@@ -46,12 +46,11 @@
   }
 
   function saveDraft() {
-    var editor = global.AssureTiptapEditor;
-    var root = $("founder-draft-editor");
-    if (!editor || !root || !editor.tiptapToJdf) return;
+    var editorApi = global.AssureTiptapEditor;
+    var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
+    if (!editorApi || !ed || !editorApi.tiptapToJdf) return;
     try {
-      var doc = editor.tiptapToJdf(editor.getEditor && editor.getEditor(), draftTree);
-      draftTree = doc || draftTree;
+      draftTree = editorApi.tiptapToJdf(ed.getJSON(), draftTree) || draftTree;
     } catch (_) {}
     fetch("/api/drafts", {
       method: "PUT",
@@ -70,11 +69,11 @@
       tree: draftTree,
       canvas: null,
       editable: true,
+      founderMode: true,
+      onUpdate: function () {
+        scheduleSave();
+      },
     });
-    var ed = global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor();
-    if (ed && ed.on) {
-      ed.on("update", scheduleSave);
-    }
   }
 
   function loadDraft() {
@@ -93,7 +92,7 @@
       });
   }
 
-  function runToPlainText(run) {
+  function runParagraphText(run) {
     var parts = [];
     var content = run.content || {};
     (content.body || []).forEach(function (sec) {
@@ -101,25 +100,58 @@
         if (node.type === "paragraph" && node.content) parts.push(node.content);
       });
     });
-    var locks = run.extracted_locks || [];
-    locks.forEach(function (lock, i) {
-      var key = lock.canonical_key || lock.metric || "metric";
-      parts.push("[🔒 #" + (i + 1) + "] " + key + " = " + lock.value);
-    });
     return parts.join("\n\n");
   }
 
   function appendRun(run) {
-    var text = runToPlainText(run);
-    var ed = global.AssureTiptapEditor && global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor();
-    if (ed && ed.commands) {
-      ed.commands.insertContent("<p>" + text.replace(/</g, "&lt;").replace(/\n\n/g, "</p><p>") + "</p>");
+    var text = runParagraphText(run);
+    var locks = run.extracted_locks || [];
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.insertLockPills && editorApi.getEditor && editorApi.getEditor()) {
+      if (editorApi.insertLockPills(text, locks)) {
+        scheduleSave();
+        return;
+      }
+    }
+    if (editorApi && editorApi.insertAtCursor) {
+      var fallback = text;
+      locks.forEach(function (lock, i) {
+        var idx = String(lock.lock_index || i + 1).padStart(2, "0");
+        fallback += " [🔒 #" + idx + "]";
+      });
+      editorApi.insertAtCursor(fallback);
       scheduleSave();
       return;
     }
     var root = $("founder-draft-editor");
     if (root) {
-      root.innerText = (root.innerText ? root.innerText + "\n\n" : "") + text;
+      locks.forEach(function (lock, i) {
+        var span = document.createElement("span");
+        span.className = "lock-pill interactive-element";
+        var idx = String(lock.lock_index || i + 1).padStart(2, "0");
+        span.textContent = "[🔒 #" + idx + "]";
+        span.setAttribute("data-lock-hash", lock.lock_hash || "");
+        span.setAttribute("data-source-id", lock.source_id || "");
+        span.setAttribute("data-page-coordinates", JSON.stringify(lock.page_coordinates || {}));
+        span.setAttribute("data-lock-index", String(lock.lock_index || i + 1));
+        span.addEventListener("click", function (e) {
+          e.preventDefault();
+          document.dispatchEvent(
+            new CustomEvent("assure:lock-pill-click", {
+              detail: {
+                lockHash: lock.lock_hash,
+                sourceId: lock.source_id,
+                pageCoordinates: lock.page_coordinates || {},
+                lockIndex: lock.lock_index || i + 1,
+              },
+            })
+          );
+        });
+        root.appendChild(document.createTextNode(text + " "));
+        root.appendChild(span);
+        root.appendChild(document.createTextNode(" "));
+      });
+      if (!locks.length && text) root.appendChild(document.createTextNode(text));
       scheduleSave();
     }
   }

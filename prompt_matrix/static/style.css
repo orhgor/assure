@@ -8950,3 +8950,116 @@ body.founder-workbench #panel-runs.is-collapsed .jdf-pane-title {
   margin: 8px 0 0;
   min-height: 1.2em;
 }
+
+body.founder-workbench .founder-only-export {
+  display: inline-flex;
+}
+
+body:not(.founder-workbench) .founder-only-export {
+  display: none !important;
+}
+
+.lock-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  cursor: pointer;
+}
+
+.run-card-preview {
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  color: var(--text-muted, #374151);
+}
+
+.run-finding-highlight {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.run-findings-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run-finding-item {
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.run-finding-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.evidence-inspector-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  z-index: 11000;
+  background: var(--surface-raised, #fff);
+  border-left: 1px solid var(--border-subtle, #e5e7eb);
+  box-shadow: -8px 0 24px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.evidence-inspector-drawer[hidden] {
+  display: none !important;
+}
+
+.evidence-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.evidence-inspector-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.evidence-inspector-coords {
+  font-size: 11px;
+  background: #f9fafb;
+  padding: 8px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.evidence-highlight {
+  background: #fef08a;
+  padding: 2px 0;
+}
+
+.evidence-source-doc {
+  white-space: normal;
+}

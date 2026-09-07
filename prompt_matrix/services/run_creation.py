@@ -8,11 +8,13 @@ try:
     from ..db.runs_repository import insert_run
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..models.jdf import build_document_from_draft, document_to_dict
+    from ..services.lock_metadata import enrich_extracted_locks
     from ..routers.draft import run_lock_inference, verify_locks
 except ImportError:
     from db.runs_repository import insert_run
     from db.substrate_repository import fetch_substrate_entries_by_ids
     from models.jdf import build_document_from_draft, document_to_dict
+    from services.lock_metadata import enrich_extracted_locks
     from routers.draft import run_lock_inference, verify_locks
 
 SUBSTRATE_CHARS = 4000
@@ -50,6 +52,7 @@ def create_run_from_directive(
 
     if source_ids:
         locks, _lock_model = run_lock_inference(combined)
+        locks = enrich_extracted_locks(locks, sources_used)
         z3 = verify_locks(locks, text)
         status = "contradiction" if z3.get("status") == "VIOLATION" else "stamped"
     else:
