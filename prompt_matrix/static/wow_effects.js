@@ -584,6 +584,13 @@
     ensureLaserBeam();
     bindReasoningToggle();
     bindRenderRefresh();
+    if (global.lucide && typeof global.lucide.createIcons === "function") {
+      try {
+        if (document.querySelector("i[data-lucide]")) {
+          global.lucide.createIcons();
+        }
+      } catch (_) {}
+    }
   }
 
   if (document.readyState === "loading") {
@@ -591,6 +598,19 @@
   } else {
     init();
   }
+
+  function lucideIconEl(doc, name) {
+    doc = doc || document;
+    var svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "lucide-icon");
+    svg.setAttribute("aria-hidden", "true");
+    var use = doc.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#icon-" + name);
+    svg.appendChild(use);
+    return svg;
+  }
+
+  global.AssureLucideIcon = lucideIconEl;
 
   global.AssureWowEffects = {
     enabled: enabled,

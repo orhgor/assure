@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 
 class JDFProvenance(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     source_type: Literal["internal_doc", "academic_paper", "news_article", "web_url"] = (
         "internal_doc"
@@ -30,7 +30,7 @@ class JDFProvenance(BaseModel):
 
 
 class JDFRedhatAnnotation(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     text: str
@@ -38,7 +38,7 @@ class JDFRedhatAnnotation(BaseModel):
 
 
 class JDFZ3Annotation(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     id: str
     message: str
@@ -49,7 +49,7 @@ class JDFZ3Annotation(BaseModel):
 class JDFNodeAnnotations(BaseModel):
     """Metadata attached to nodes — never exported to .docx."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     redhat: list[JDFRedhatAnnotation] = Field(default_factory=list)
     z3: list[JDFZ3Annotation] = Field(default_factory=list)
@@ -60,7 +60,7 @@ def empty_annotations() -> dict[str, Any]:
 
 
 class JDFParagraphNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["paragraph"] = "paragraph"
     id: str
@@ -74,7 +74,7 @@ class JDFParagraphNode(BaseModel):
 class JDFCalloutNode(BaseModel):
     """In-document callouts (warning/insight). Red-Hat critiques use ``annotations.redhat``."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["callout"] = "callout"
     id: str
@@ -85,7 +85,7 @@ class JDFCalloutNode(BaseModel):
 
 
 class JDFTableNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["table"] = "table"
     id: str
@@ -97,7 +97,7 @@ class JDFTableNode(BaseModel):
 
 
 class JDFImageNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["image"] = "image"
     id: str
@@ -111,7 +111,7 @@ class JDFImageNode(BaseModel):
 
 
 class JDFSignatureNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["signature"] = "signature"
     id: str
@@ -123,7 +123,7 @@ class JDFSignatureNode(BaseModel):
 
 
 class JDFCheckboxNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["checkbox"] = "checkbox"
     id: str
@@ -149,7 +149,7 @@ JDFBlockNode = JDFLeafNode
 
 
 class JDFSectionNode(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     type: Literal["section"] = "section"
     id: str
@@ -160,7 +160,7 @@ class JDFSectionNode(BaseModel):
 
 
 class JDFDocumentTree(BaseModel):
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     document_id: str
     meta: dict[str, Any] = Field(default_factory=dict)
@@ -320,11 +320,83 @@ def collect_unique_provenance(tree: JDFDocumentTree | dict[str, Any]) -> list[di
     return refs
 
 
+def strip_unknown_jdf_keys(raw: dict[str, Any]) -> dict[str, Any]:
+    """Drop canvas-only fields so extra=forbid validation can stay strict."""
+    doc_keys = ("document_id", "meta", "truth_ledger", "body", "type", "title")
+    section_keys = ("type", "id", "title", "children", "meta", "annotations")
+    leaf_keys = {
+        "paragraph": (
+            "type",
+            "id",
+            "content",
+            "entities_referenced",
+            "provenance",
+            "meta",
+            "annotations",
+        ),
+        "callout": ("type", "id", "variant", "title", "content", "annotations"),
+        "table": ("type", "id", "caption", "headers", "rows", "bound_entities", "annotations"),
+        "image": ("type", "id", "src", "alt", "caption", "width", "height", "meta", "annotations"),
+        "signature": ("type", "id", "signer_name", "signed_at", "content", "meta", "annotations"),
+        "checkbox": ("type", "id", "label", "checked", "meta", "annotations"),
+    }
+    prov_keys = (
+        "source_type",
+        "source_name",
+        "url_or_doi",
+        "source_id",
+        "page_number",
+        "extracted_quote",
+        "accessed_date",
+    )
+    ann_keys = ("redhat", "z3")
+
+    def pick(src: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+        return {k: src[k] for k in keys if k in src}
+
+    doc = pick(raw, doc_keys)
+    title = str(doc.pop("title", None) or "").strip()
+    doc.pop("type", None)
+    if title:
+        meta = dict(doc.get("meta") or {})
+        if not str(meta.get("title") or "").strip():
+            meta["title"] = title
+        doc["meta"] = meta
+    body: list[dict[str, Any]] = []
+    for section in raw.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        sec = pick(section, section_keys)
+        children: list[dict[str, Any]] = []
+        for child in section.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            keys = leaf_keys.get(str(child.get("type") or ""), leaf_keys["paragraph"])
+            node = pick(child, keys)
+            if isinstance(node.get("provenance"), list):
+                node["provenance"] = [
+                    pick(_migrate_legacy_provenance_entry(item), prov_keys)
+                    if isinstance(item, dict)
+                    else item
+                    for item in node["provenance"]
+                ]
+            if isinstance(node.get("annotations"), dict):
+                node["annotations"] = pick(node["annotations"], ann_keys)
+            children.append(node)
+        sec["children"] = children
+        if isinstance(sec.get("annotations"), dict):
+            sec["annotations"] = pick(sec["annotations"], ann_keys)
+        body.append(sec)
+    doc["body"] = body
+    return doc
+
+
 def parse_document(raw: dict[str, Any] | str) -> JDFDocumentTree:
     """Strict Pydantic validation before any SQLite write."""
     if isinstance(raw, str):
         raw = json.loads(raw)
     if isinstance(raw, dict):
+        raw = strip_unknown_jdf_keys(raw)
         raw = enrich_document_citations(raw)
     return JDFDocumentTree.model_validate(raw)
 

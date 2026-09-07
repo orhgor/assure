@@ -28,7 +28,6 @@ try:
     from ..lib.sanitize import sanitize_jdf_node
     from ..middleware import project_ownership_required
     from ..models.jdf import (
-        document_to_dict,
         insert_node_after_anchor,
         parse_document,
         splice_node,
@@ -54,7 +53,6 @@ except ImportError:
     from lib.sanitize import sanitize_jdf_node
     from middleware import project_ownership_required
     from models.jdf import (
-        document_to_dict,
         insert_node_after_anchor,
         parse_document,
         splice_node,
@@ -110,7 +108,7 @@ def _conflict_payload(exc: RevisionConflict):
 
 def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     if payload.document is not None:
-        tree = document_to_dict(_incoming_document(payload, project_id))
+        tree = parse_document(_incoming_document(payload, project_id)).model_dump(mode="json")
     else:
         tree = fetch_latest_jdf_or_empty(project_id)
         chosen = (payload.title or "").strip()

@@ -28,8 +28,8 @@ def test_production_health_v15():
     assert data.get("ok") is True
     assert data.get("status") == "healthy"
     ui = data.get("ui") or {}
-    assert ui.get("css_version") == "assure-97"
-    assert ui.get("js_version") == "assure-97"
+    assert ui.get("css_version") == "assure-99"
+    assert ui.get("js_version") == "assure-99"
     sha = str(data.get("build_sha") or "")
     assert len(sha) >= 7
 

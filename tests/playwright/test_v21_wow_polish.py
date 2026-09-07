@@ -63,3 +63,36 @@ def test_lucide_sidebar_mapping(page: Page, base_url: str):
     expect(page.locator('.app-sidebar-icon [data-lucide="file-text"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="folder"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="bar-chart-2"]')).to_be_visible()
+
+
+def test_laser_beam_grows_per_segment(workbench_page):
+    page = workbench_page
+    heights = page.evaluate(
+        """() => {
+          const host = document.querySelector('#jdf-render-target');
+          if (!host || !window.AssureWowEffects) return [];
+          host.style.position = 'relative';
+          host.style.minHeight = '240px';
+          const mk = (top) => {
+            const el = document.createElement('article');
+            el.className = 'jdf-node';
+            el.style.position = 'absolute';
+            el.style.left = '0';
+            el.style.right = '0';
+            el.style.top = top + 'px';
+            el.style.height = '72px';
+            host.appendChild(el);
+            return el;
+          };
+          const a = mk(8);
+          const b = mk(96);
+          const beamFn = window.AssureWowEffects.extendLaserBeamToNode || window.AssureWowEffects.progressToNode;
+          beamFn.call(window.AssureWowEffects, a);
+          const h1 = parseFloat((document.getElementById('laser-beam') || {}).style.height || '0');
+          beamFn.call(window.AssureWowEffects, b);
+          const h2 = parseFloat((document.getElementById('laser-beam') || {}).style.height || '0');
+          return [h1, h2];
+        }"""
+    )
+    assert len(heights) == 2
+    assert heights[1] > heights[0]

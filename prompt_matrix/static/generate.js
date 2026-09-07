@@ -678,11 +678,11 @@
           };
           if (global.AssureCompilerStatus) {
             global.AssureCompilerStatus.setLastAction(
-              t("generate.draft_ready", "✅ Draft ready!")
+              t("generate.draft_ready", "Draft ready!")
             );
           }
           if (global.AssureToast) {
-            global.AssureToast.show(t("generate.draft_ready", "✅ Draft ready!"), "success");
+            global.AssureToast.show(t("generate.draft_ready", "Draft ready!"), "success");
           }
           self.mergeAuditManifest(data);
           if (self.fullAudit) {
@@ -1083,7 +1083,10 @@
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          document: doc,
+          document:
+            typeof global.sanitizeJDFDocument === "function"
+              ? global.sanitizeJDFDocument(doc)
+              : doc,
           mutation_type: "GENERATE_DOCK",
           change_summary: "Generate: docked " + self.compiledNodes.length + " section(s)",
         }),
