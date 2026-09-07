@@ -64,6 +64,12 @@
                 <span data-i18n="hero">{{ gettext('Assure') }}</span>
               </span>
             </div>
+            <span id="version-display" class="version-history-control header-history version-tag" aria-live="polite">
+              <label class="version-history-label visually-hidden" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
+              <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1" title="{{ gettext('History') }}" data-i18n-title="jdf.version.history">
+              <span id="version-history-label" class="version-history-meta">v1</span>
+              <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
+            </span>
           </div>
           <div class="app-header-center app-trust-strip" id="app-header-center" hidden></div>
           <div class="app-header-right header-right">
@@ -79,14 +85,8 @@
               </select>
             </div>
             <div class="utility-actions">
-            <span id="version-display" class="version-history-control header-history" aria-live="polite">
-              <label class="version-history-label visually-hidden" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
-              <input type="range" id="version-history-slider" class="version-history-slider" min="1" max="1" step="1" value="1" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1" title="{{ gettext('History') }}" data-i18n-title="jdf.version.history">
-              <span id="version-history-label" class="version-history-meta">v1</span>
-              <button type="button" class="btn btn-outline btn-sm compliance-lock-btn" id="compliance-lock-btn" title="{{ gettext('Lock version') }}" data-i18n-title="compliance.lock.btn" aria-label="{{ gettext('Lock version') }}" data-i18n-aria="compliance.lock.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-lock"/></svg></button>
-              <button type="button" class="btn btn-outline btn-sm" id="jdf-insert-signature-btn" title="{{ gettext('Insert signature field') }}" data-i18n-title="compliance.signature.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-pen-line"/></svg></button>
-              <button type="button" class="btn btn-outline btn-sm" id="version-restore-btn" hidden data-i18n="jdf.version.restore">{{ gettext('Restore this version') }}</button>
-            </span>
+            <button type="button" class="btn btn-outline btn-sm compliance-lock-btn" id="compliance-lock-btn" title="{{ gettext('Lock version') }}" data-i18n-title="compliance.lock.btn" aria-label="{{ gettext('Lock version') }}" data-i18n-aria="compliance.lock.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-lock"/></svg></button>
+            <button type="button" class="btn btn-outline btn-sm" id="jdf-insert-signature-btn" title="{{ gettext('Insert signature field') }}" data-i18n-title="compliance.signature.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-pen-line"/></svg></button>
             <details class="export-menu" id="export-menu">
               <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Download') }}</summary>
               <div class="export-menu-panel">
@@ -615,7 +615,15 @@
               <pre id="canvas-source-body" class="canvas-source-body" hidden></pre>
             </div>
             <div id="canvas-analytics-view" class="canvas-analytics-view" hidden></div>
-            <div class="jdf-card">
+            <div class="jdf-card canvas-stage" id="canvas-stage">
+              <div id="zero-state-dashboard" class="zero-state-dashboard" hidden>
+                <ol class="zero-state-steps">
+                  <li data-i18n="canvas.zero.step1">{{ gettext('Paste or describe the document in Draft.') }}</li>
+                  <li data-i18n="canvas.zero.step2">{{ gettext('Click Assemble to extract claims.') }}</li>
+                  <li data-i18n="canvas.zero.step3">{{ gettext('Run Full Audit to verify locked numbers.') }}</li>
+                </ol>
+                <p class="zero-state-hint" data-i18n="canvas.zero.hint">{{ gettext('Type or paste to begin…') }}</p>
+              </div>
               <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
             </div>
             <aside id="reasoning-graph-drawer" class="reasoning-graph-drawer" hidden>
@@ -1131,6 +1139,7 @@
   <script src="{{ url_for('static', filename='project_files.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='confidence_highlighter.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_canvas.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='zero_state.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
   <script>window.__ASSURE_WOW_EFFECTS__ = true;</script>
   <script src="{{ url_for('static', filename='wow_effects.js') }}?v={{ js_version|default('assure-21') }}"></script>

@@ -1468,8 +1468,19 @@ body:has(#assure-app) .shell {
   max-width: 11rem;
 }
 
-.app-logo .brand-mark {
+.header-left .version-history-control {
   flex-shrink: 0;
+  gap: 8px;
+}
+
+.header-left .version-history-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1024px) {
@@ -2869,6 +2880,69 @@ body.onboarding-active .sidebar-backdrop {
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   overflow: auto;
+}
+
+.jdf-card.canvas-stage {
+  position: relative;
+}
+
+.zero-state-dashboard {
+  position: absolute;
+  inset: 24px;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 28rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.zero-state-dashboard[hidden] {
+  display: none !important;
+}
+
+.zero-state-steps {
+  margin: 0 0 12px;
+  padding-left: 1.25rem;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.zero-state-hint {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.canvas-stage.is-zero .jdf-canvas-empty {
+  visibility: hidden;
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#jdf-render-target.is-empty {
+  position: relative;
+  min-height: 12rem;
+}
+
+#jdf-render-target.is-empty::before {
+  content: attr(data-ghost);
+  white-space: pre-wrap;
+  color: #9ca3af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.canvas-stage.is-zero #jdf-render-target.is-empty::before {
+  content: none;
 }
 
 .jdf-workbench .right-pane #jdf-render-target {

@@ -567,6 +567,7 @@ How to run the next task: Cursor MCP `pem` lists `swarm_develop`. Call that tool
 | 2026-09-05 | Humanized workbench UX | `861e4f4` | pass (Cursor) | Frontend-only: sidebar labels (Write/Polish/Sources, settings icon-only), friendly copy + 7-locale i18n, workbench health status bar, canvas node FAB (Rewrite/Ground/History/Delete), ✨ Assemble compile + pulse/toast, Sources search + nav badge, simplified footer (Import PDF under More). UI cache `assure-89`/`assure-84`. OpenUser compile-cache + redhat-memory blocked locally (ENOSPC / Playwright). Pushed `main` + `staging`. |
 | 2026-09-05 | Settings overlay + nav fix | `501bd14` | pass (Cursor) | Fix undefined `FULL_VIEWS` crash in `app_nav.js`. Settings opens as overlay (`#settings-overlay`) — workbench stays visible. `openSettings` / `closeSettings`, Escape + backdrop close. UI cache `assure-90`/`assure-85`. Pushed `main` + `staging`. |
 | 2026-09-07 | Header / Draft tracker / Analytics polish | Cursor, not swarm | n/a | Protected header-left/right flex clusters. Draft lifecycle is a linear tracker + action bar (no equal-height black cards). Analytics KPIs/chart grid/table chrome; Chart.js y 0–100 + grid + rounded bars; live series only. UI cache `assure-109`. |
+| 2026-09-07 | Phase 1 zero-state overlay | Cursor, not swarm | n/a | Version slider+label moved into header-left. Canvas `#zero-state-dashboard` wrapper overlay; `#jdf-render-target` internals unchanged. Copy uses Assemble / Full Audit (not clinical/CPT). UI cache `assure-110`. |
 
 **Not run as swarm yet**
 
