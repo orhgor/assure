@@ -4,9 +4,9 @@
   var ONBOARDING_KEY = "assure_onboarding_complete";
   var STEPS = [
     {
-      selector: "#view-generate",
-      i18n: "onboarding.step1",
-      fallback: "Start here: describe what your document should cover.",
+      selector: "#generate-intent",
+      i18n: "coachmark.tour.step1",
+      fallback: "Start here – type your intent",
       prepare: function () {
         if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
           global.AssureNav.switchView("generate", { replaceHash: false, persist: true });
@@ -15,30 +15,13 @@
     },
     {
       selector: "#generate-compile-btn",
-      i18n: "onboarding.step2",
-      fallback: "Compile streams a draft and builds JDF nodes with inferred locks.",
+      i18n: "coachmark.tour.step2",
+      fallback: "Click Assemble to compile",
     },
     {
-      selector: "#compiler-status",
-      i18n: "onboarding.step3",
-      fallback: "Watch verification status here — Ready, Working, Verified, or Issues Found.",
-    },
-    {
-      selector: "#toggle-redhat",
-      i18n: "onboarding.step4",
-      fallback:
-        "Stress Test is an automated devil's advocate. Enable it to catch logical gaps before your client does.",
-      prepare: function () {
-        if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
-          global.AssureNav.switchView("surgical", { replaceHash: false, persist: true });
-        }
-      },
-    },
-    {
-      selector: '[data-tool="surgical"]',
-      i18n: "onboarding.step5",
-      fallback:
-        "Refine edits one node with context-locking. Your change affects only this node — the surrounding text stays locked.",
+      selector: "#jdf-render-target",
+      i18n: "coachmark.tour.step3",
+      fallback: "See verification results on the canvas",
     },
   ];
 

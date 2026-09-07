@@ -67,6 +67,11 @@
           el.setAttribute("aria-selected", "false");
           if (marker) marker.textContent = String(idx + 1);
         }
+        var conn = document.querySelector('.step-connector[data-after="' + p + '"]');
+        if (conn) {
+          conn.classList.toggle("is-complete", completed);
+          conn.classList.toggle("is-active", active);
+        }
         if (p === "ship" && targetIdx >= PHASES.indexOf("verify") && !completed && !active) {
           el.classList.remove("is-disabled");
         }

@@ -105,6 +105,9 @@
     document.addEventListener("assure:jdf:rendered", function () {
       scheduleRefresh(0);
       scheduleRefresh(280);
+      if (!enabled()) return;
+      var nodes = nodeTargets();
+      if (nodes.length) progressToNode(nodes[nodes.length - 1]);
     });
     document.addEventListener("assure:docked", function () {
       scheduleRefresh(320);
@@ -117,8 +120,17 @@
     return "VERIFIED • Z3 LOCKED";
   }
 
+  function stampsEnabled() {
+    try {
+      return document.body.classList.contains("ink-stamps-on") ||
+        global.localStorage.getItem("assure_ink_stamps") === "1";
+    } catch (_) {
+      return document.body.classList.contains("ink-stamps-on");
+    }
+  }
+
   function applyInkStamp(article, kind) {
-    if (!enabled() || !article) return;
+    if (!enabled() || !article || !stampsEnabled()) return;
     kind = kind || "z3";
     var existing = article.querySelector(".ink-stamp");
     if (existing && existing.dataset.stampKind === kind) return;
@@ -151,14 +163,32 @@
     }, SNAP_MS);
   }
 
-  function positionBeamAt(article, beam) {
+  function extendBeamTo(article, beam) {
     if (!beam || !article) return;
     var host = canvasHost();
     if (!host) return;
     var hostRect = host.getBoundingClientRect();
     var rect = article.getBoundingClientRect();
-    var top = rect.top - hostRect.top + host.scrollTop;
-    beam.style.top = Math.max(0, top) + "px";
+    var top = Math.max(0, rect.top - hostRect.top + host.scrollTop);
+    var bottom = Math.max(top + 3, rect.bottom - hostRect.top + host.scrollTop);
+    beam.classList.add("is-segmented", "is-running");
+    beam.style.top = "0px";
+    beam.style.height = bottom + "px";
+    beam.dataset.extent = String(bottom);
+  }
+
+  function progressToNode(article) {
+    if (!enabled() || !article) return;
+    var beam = ensureLaserBeam();
+    if (!beam) return;
+    beam.classList.add("is-armed");
+    extendBeamTo(article, beam);
+    snapNode(article);
+  }
+
+  function positionBeamAt(article, beam) {
+    if (!beam || !article) return;
+    extendBeamTo(article, beam);
   }
 
   function sweepNodes(options) {
@@ -193,7 +223,11 @@
   function onCompileStart() {
     if (!enabled()) return;
     var beam = ensureLaserBeam();
-    if (beam) beam.classList.add("is-armed");
+    if (beam) {
+      beam.classList.add("is-armed", "is-segmented");
+      beam.style.top = "0px";
+      beam.style.height = "3px";
+    }
     nodeTargets().forEach(function (el) {
       el.classList.remove("has-ink-stamp", "wow-node-snap");
       var stamp = el.querySelector(".ink-stamp");
@@ -516,6 +550,21 @@
   }
 
   function init() {
+    var stampToggle = document.getElementById("ink-stamp-toggle");
+    if (stampToggle && !stampToggle.dataset.wowBound) {
+      stampToggle.dataset.wowBound = "1";
+      try {
+        stampToggle.checked = localStorage.getItem("assure_ink_stamps") === "1";
+      } catch (_) {}
+      document.body.classList.toggle("ink-stamps-on", stampToggle.checked);
+      stampToggle.addEventListener("change", function () {
+        document.body.classList.toggle("ink-stamps-on", stampToggle.checked);
+        try {
+          localStorage.setItem("assure_ink_stamps", stampToggle.checked ? "1" : "0");
+        } catch (_) {}
+        if (stampToggle.checked) refreshStamps();
+      });
+    }
     if (!enabled()) return;
     ensureLaserBeam();
     bindReasoningToggle();
@@ -532,7 +581,8 @@
     enabled: enabled,
     onCompileStart: onCompileStart,
     onVerified: onVerified,
-    sweepNodes: sweepNodes,
+    progressToNode: progressToNode,
+    extendBeamTo: extendBeamTo,
     applyInkStamp: applyInkStamp,
     syncNodeStamp: syncNodeStamp,
     onAllGuttersVerified: onAllGuttersVerified,
