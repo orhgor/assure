@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from flask import jsonify, request
+import json
+
+from flask import Response, jsonify, request, stream_with_context
 from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from ..db.runs_repository import delete_run, fetch_run, list_runs
     from ..db.redhat_findings_repository import fetch_finding, update_finding_status
+    from ..services.auto_compiler import done_sse, run_auto_compiler_pipeline
     from ..services.founder_redhat import get_run_with_findings, run_adversarial_redhat
     from ..services.lock_metadata import enrich_extracted_locks
     from ..services.macro_verify import contradictions_for_run
@@ -15,6 +18,7 @@ try:
 except ImportError:
     from db.runs_repository import delete_run, fetch_run, list_runs
     from db.redhat_findings_repository import fetch_finding, update_finding_status
+    from services.auto_compiler import done_sse, run_auto_compiler_pipeline
     from services.founder_redhat import get_run_with_findings, run_adversarial_redhat
     from services.lock_metadata import enrich_extracted_locks
     from services.macro_verify import contradictions_for_run
@@ -28,6 +32,7 @@ class RunCreatePayload(BaseModel):
     workspace_id: str | None = None
     source_ids: list[str] = Field(default_factory=list)
     model: str = "gemini"
+    stream: bool = False
 
 
 class FindingUpdatePayload(BaseModel):
@@ -36,6 +41,13 @@ class FindingUpdatePayload(BaseModel):
     action: str = ""
     dismissal_rationale: str = ""
     suggested_fix: str = ""
+
+
+def _wants_sse(payload: RunCreatePayload) -> bool:
+    if payload.stream:
+        return True
+    accept = (request.headers.get("Accept") or "").lower()
+    return "text/event-stream" in accept
 
 
 def register_runs_routes(app) -> None:
@@ -47,6 +59,30 @@ def register_runs_routes(app) -> None:
             return jsonify({"ok": False, "error": str(exc)}), 400
         if not payload.directive.strip():
             return jsonify({"ok": False, "error": "directive is required"}), 400
+
+        if _wants_sse(payload):
+
+            def generate():
+                try:
+                    yield from run_auto_compiler_pipeline(
+                        payload.directive,
+                        workspace_id=payload.workspace_id,
+                        source_ids=payload.source_ids,
+                        model=payload.model,
+                    )
+                except Exception as exc:
+                    yield (
+                        f"event: error\ndata: {json.dumps({'ok': False, 'error': str(exc)})}\n\n"
+                    )
+                    yield done_sse()
+
+            headers = {
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            }
+            return Response(stream_with_context(generate()), headers=headers)
+
         try:
             run = create_run_from_directive(
                 payload.directive,

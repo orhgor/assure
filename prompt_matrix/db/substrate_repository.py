@@ -9,9 +9,11 @@ from typing import Any
 try:
     from ..db.connection import init_db
     from ..history import get_db
+    from ..services.vault_tfidf_cache import invalidate_workspace_cache
 except ImportError:
     from db.connection import init_db
     from history import get_db
+    from services.vault_tfidf_cache import invalidate_workspace_cache
 
 
 def save_substrate_text(
@@ -34,6 +36,7 @@ def save_substrate_text(
         (row_id, project_id, raw_text or "", int(page_count), source),
     )
     db.commit()
+    invalidate_workspace_cache(project_id)
     return {
         "id": row_id,
         "project_id": project_id,
@@ -77,6 +80,7 @@ def save_substrate_entry(
         ),
     )
     db.commit()
+    invalidate_workspace_cache(project_id)
     return {
         "id": vault_id,
         "project_id": project_id,
@@ -124,6 +128,8 @@ def delete_substrate_entry(project_id: str, file_id: str) -> bool:
         (project_id, file_id),
     )
     db.commit()
+    if cur.rowcount > 0:
+        invalidate_workspace_cache(project_id)
     return cur.rowcount > 0
 
 
@@ -136,6 +142,8 @@ def set_substrate_included(project_id: str, file_id: str, included: bool) -> boo
         (1 if included else 0, project_id, file_id),
     )
     db.commit()
+    if cur.rowcount > 0:
+        invalidate_workspace_cache(project_id)
     return cur.rowcount > 0
 
 

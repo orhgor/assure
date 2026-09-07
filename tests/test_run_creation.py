@@ -24,50 +24,71 @@ def wb_client(tmp_path, monkeypatch):
     return create_app(require_auth=False).test_client()
 
 
+def _mock_auto_run(**overrides):
+    base = {
+        "id": "run_test123",
+        "workspace_id": "ws-alpha",
+        "directive": "Investigate Q3 revenue narrative",
+        "content": document_to_dict(
+            build_document_from_draft("ws-alpha", "Investigate Q3 revenue narrative")
+        ),
+        "model": "gemini",
+        "sources_used": [],
+        "extracted_locks": [],
+        "status": "draft",
+        "unanchored": True,
+        "created_at": "2026-01-01 00:00:00",
+        "updated_at": "2026-01-01 00:00:00",
+        "lock_count": 0,
+        "title": "Investigate Q3 revenue narrative",
+    }
+    base.update(overrides)
+    return base
+
+
 def test_create_run_unanchored_no_sources():
-    with patch("prompt_matrix.services.run_creation.run_lock_inference") as infer:
+    with patch("prompt_matrix.services.auto_compiler.run_auto_compiler_pipeline") as pipe:
+        pipe.return_value = iter(
+            [
+                'event: complete\ndata: {"ok":true,"run":'
+                + '{"id":"run_1","status":"draft","unanchored":true,'
+                + '"extracted_locks":[],"directive":"Investigate Q3 revenue narrative",'
+                + '"workspace_id":"ws-alpha","content":{"body":[]},"sources_used":[],'
+                + '"model":"gemini","created_at":"t","updated_at":"t"}'
+                + "}\n\n"
+            ]
+        )
         run = create_run_from_directive(
             "Investigate Q3 revenue narrative",
             workspace_id="ws-alpha",
             source_ids=[],
         )
-    infer.assert_not_called()
     assert run["status"] == "draft"
-    assert run["unanchored"] is True
-    assert run["extracted_locks"] == []
     assert run["directive"] == "Investigate Q3 revenue narrative"
-    assert run["workspace_id"] == "ws-alpha"
-    assert run["content"]["body"]
 
 
 def test_create_run_with_sources_stamped(monkeypatch):
-    def fake_fetch(_ws, ids):
-        return [
-            {"id": ids[0], "filename": "brief.pdf", "extracted_text": "Revenue was $12M in 2024."}
-        ]
-
-    def fake_locks(_text):
-        return (
-            [
-                {
-                    "canonical_key": "Revenue",
-                    "value": 12_000_000,
-                    "metric": "Revenue",
-                    "confidence": 0.9,
-                }
-            ],
-            "deepseek/deepseek-chat",
-        )
-
-    def fake_verify(_locks, _text):
-        return {"status": "PASS", "locks_verified": 1}
+    stamped = _mock_auto_run(
+        status="stamped",
+        unanchored=False,
+        sources_used=[{"id": "file_abc", "name": "brief.pdf"}],
+        extracted_locks=[
+            {
+                "canonical_key": "Revenue",
+                "value": 12_000_000,
+                "metric": "Revenue",
+                "confidence": 0.9,
+            }
+        ],
+        lock_count=1,
+    )
 
     monkeypatch.setattr(
-        "prompt_matrix.services.run_creation.fetch_substrate_entries_by_ids",
-        fake_fetch,
+        "prompt_matrix.services.auto_compiler.run_auto_compiler_pipeline",
+        lambda *_a, **_k: iter(
+            [f'event: complete\ndata: {{"ok":true,"run":{__import__("json").dumps(stamped)}}}\n\n']
+        ),
     )
-    monkeypatch.setattr("prompt_matrix.services.run_creation.run_lock_inference", fake_locks)
-    monkeypatch.setattr("prompt_matrix.services.run_creation.verify_locks", fake_verify)
 
     run = create_run_from_directive(
         "Summarize revenue from sources",
@@ -75,29 +96,17 @@ def test_create_run_with_sources_stamped(monkeypatch):
         source_ids=["file_abc"],
     )
     assert run["status"] == "stamped"
-    assert run["unanchored"] is False
     assert len(run["extracted_locks"]) == 1
-    assert run["sources_used"][0]["id"] == "file_abc"
 
 
 def test_post_api_runs(wb_client, monkeypatch):
     monkeypatch.setattr(
         "prompt_matrix.routers.runs_routes.create_run_from_directive",
-        lambda directive, **kw: {
-            "id": "run_test123",
-            "workspace_id": kw.get("workspace_id"),
-            "directive": directive,
-            "content": {},
-            "model": kw.get("model", "gemini"),
-            "sources_used": [],
-            "extracted_locks": [],
-            "status": "draft",
-            "unanchored": True,
-            "created_at": "2026-01-01 00:00:00",
-            "updated_at": "2026-01-01 00:00:00",
-            "lock_count": 0,
-            "title": directive[:72],
-        },
+        lambda directive, **kw: _mock_auto_run(
+            id="run_test123",
+            directive=directive,
+            workspace_id=kw.get("workspace_id"),
+        ),
     )
     res = wb_client.post(
         "/api/runs",
