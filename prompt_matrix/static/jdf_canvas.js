@@ -711,12 +711,12 @@
     if (status === "PASS") {
       this.currentVerificationState = "verified";
       this._compilerIssueCount = 0;
-      this._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
+      this._syncCompilerStatus("verified", jdfT("compiler.status.verified", "Verified"));
       this._triggerLockAnimation();
     } else if (status === "FAIL") {
       this.currentVerificationState = "issues";
       this._compilerIssueCount = violationCount || 1;
-      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "❌ Issues Found"));
+      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "Issues Found"));
     } else {
       this.currentVerificationState = null;
       if (!this.isStreaming) {
@@ -731,6 +731,9 @@
     callout: ["type", "id", "variant", "title", "content", "annotations"],
     table: ["type", "id", "caption", "headers", "rows", "bound_entities", "annotations"],
     document: ["document_id", "meta", "truth_ledger", "body"],
+    image: ["type", "id", "src", "alt", "caption", "width", "height", "meta", "annotations"],
+    signature: ["type", "id", "signer_name", "signed_at", "content", "meta", "annotations"],
+    checkbox: ["type", "id", "label", "checked", "meta", "annotations"],
   };
 
   function sanitizeJDFNode(node) {
@@ -807,7 +810,7 @@
             mutationType === "MUTATION_ACCEPT" ||
             mutationType === "NODE_UPDATE")
         ) {
-          self._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
+          self._syncCompilerStatus("verified", jdfT("compiler.status.verified", "Verified"));
         }
         self.loadRevisionHistory();
         return data;
@@ -1564,9 +1567,14 @@
       "aria-label",
       jdfT("jdf.citation.badge", "Citations") + " " + provList.length
     );
-    badge.innerHTML =
-      "📎 " +
-      jdfT("jdf.citation.count", "{count} source(s)", { count: String(provList.length) });
+    if (typeof global.AssureLucideIcon === "function") {
+      badge.appendChild(global.AssureLucideIcon(document, "paperclip"));
+    }
+    badge.appendChild(
+      document.createTextNode(
+        " " + jdfT("jdf.citation.count", "{count} source(s)", { count: String(provList.length) })
+      )
+    );
     var details = document.createElement("div");
     details.className = "citation-details";
     details.hidden = true;

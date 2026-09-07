@@ -53,19 +53,19 @@
     var z3 = audit.z3_results || {};
     var violCount = (z3.violations || []).length;
     if (audit.gate_status === "pass") {
-      return t("audit.gate.pass", "✅ Verified — ready to export.");
+      return t("audit.gate.pass", "Verified — ready to export.");
     }
     if (audit.gate_status === "blocked") {
       return t(
         "audit.gate.blocked",
-        "❌ Export blocked — Math Check found {n} issue(s).",
+        "Export blocked — Math Check found {n} issue(s).",
         { n: violCount }
       );
     }
     if (audit.redhat_count > 0) {
       return t(
         "audit.gate.review",
-        "⚠️ {n} stress test finding(s) need review before export.",
+        "{n} stress test finding(s) need review before export.",
         { n: audit.redhat_count }
       );
     }
@@ -89,10 +89,10 @@
 
   function z3StatusLabel(z3Status) {
     if (z3Status === "PASS") {
-      return t("jdf.truth.pass", "✅ Verified").replace(/^[^\w]+/, "").trim() || "Verified";
+      return t("jdf.truth.pass", "Verified");
     }
     if (z3Status === "VIOLATION") {
-      return t("jdf.truth.fail", "❌ Issues Found").replace(/^[^\w]+/, "").trim() || "Issues Found";
+      return t("jdf.truth.fail", "Issues Found");
     }
     return z3Status || "Checked";
   }
@@ -145,13 +145,13 @@
       z3El.hidden = false;
       z3El.className = "gate-z3-status verification-badge " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
       if (status === "PASS") {
-        z3El.textContent = t("generate.z3.pass", "✅ Verified") +
+        z3El.textContent = t("generate.z3.pass", "Verified") +
           (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
         syncCompilerStatus("verified");
         triggerLockAnimation(document.getElementById("compiler-status"));
       } else if (status === "VIOLATION") {
         var viol = (z3.violations || []).join(" ");
-        z3El.textContent = t("generate.z3.fail", "❌ Issues Found") + (viol ? " " + viol : "");
+        z3El.textContent = t("generate.z3.fail", "Issues Found") + (viol ? " " + viol : "");
         syncCompilerStatus("issues");
       } else {
         z3El.textContent = t("generate.z3.skipped", "Math check skipped.");

@@ -305,7 +305,7 @@
       var label = doc.createElement("span");
       label.className = "spine-label";
       if (isThesis) {
-        label.textContent = "🧠 " + t("spine.thesis", "Thesis");
+        label.textContent = t("spine.thesis", "Thesis");
       } else {
         label.textContent = t("spine.branch", "Argument Branch") + " · " + (section.title || "");
       }
@@ -350,14 +350,18 @@
         lock.className = "spine-lock";
         lock.setAttribute("aria-label", t("spine.locked", "Locked number"));
         lock.title = t("spine.locked", "Locked number");
-        lock.textContent = "🔒";
+        lock.appendChild(
+          global.AssureLucideIcon ? global.AssureLucideIcon(doc, "lock") : doc.createTextNode("")
+        );
         row.appendChild(lock);
       }
       if (targetId && node.id === targetId) {
         var edit = doc.createElement("span");
         edit.className = "spine-edit";
         edit.setAttribute("aria-hidden", "true");
-        edit.textContent = "✏️";
+        edit.appendChild(
+          global.AssureLucideIcon ? global.AssureLucideIcon(doc, "pencil") : doc.createTextNode("")
+        );
         row.appendChild(edit);
       }
 

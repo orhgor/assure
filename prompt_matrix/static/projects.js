@@ -280,13 +280,13 @@
         escHtml(t("projects.rename", "Rename")) +
         '" aria-label="' +
         escHtml(t("projects.rename", "Rename")) +
-        '">✏️</button>' +
+        '"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-pencil"/></svg></button>' +
         (p.id !== "default"
           ? '<button type="button" class="projects-action-btn" data-tool="delete" title="' +
             escHtml(t("projects.delete", "Delete")) +
             '" aria-label="' +
             escHtml(t("projects.delete", "Delete")) +
-            '">🗑️</button>'
+            '"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-trash"/></svg></button>'
           : "") +
         "</div>" +
         "</div>";

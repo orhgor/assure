@@ -61,7 +61,7 @@ class InquiryPayload(BaseModel):
     user_intent: str
     target_node_id: str | None = None
     run_redhat: bool = True
-    document: JDFDocumentTree | None = None
+    document: dict[str, Any] | None = None
     incoming_metrics: list[list[Any]] = Field(default_factory=list)
 
 

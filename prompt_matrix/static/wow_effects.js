@@ -186,6 +186,21 @@
     snapNode(article);
   }
 
+  function extendLaserBeamToNode(nodeElement) {
+    if (!nodeElement) return;
+    var laser = document.getElementById("laser-beam") || ensureLaserBeam();
+    if (!laser) return;
+    var host = laser.parentElement;
+    if (!host) return;
+    var rect = nodeElement.getBoundingClientRect();
+    var containerRect = host.getBoundingClientRect();
+    var relativeTop = Math.max(0, rect.top - containerRect.top + (host.scrollTop || 0));
+    laser.style.transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s ease";
+    laser.style.height = relativeTop + rect.height + "px";
+    laser.classList.add("is-segmented", "is-running", "is-armed");
+    progressToNode(nodeElement);
+  }
+
   function positionBeamAt(article, beam) {
     if (!beam || !article) return;
     extendBeamTo(article, beam);
@@ -569,6 +584,13 @@
     ensureLaserBeam();
     bindReasoningToggle();
     bindRenderRefresh();
+    if (global.lucide && typeof global.lucide.createIcons === "function") {
+      try {
+        if (document.querySelector("i[data-lucide]")) {
+          global.lucide.createIcons();
+        }
+      } catch (_) {}
+    }
   }
 
   if (document.readyState === "loading") {
@@ -577,12 +599,26 @@
     init();
   }
 
+  function lucideIconEl(doc, name) {
+    doc = doc || document;
+    var svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "lucide-icon");
+    svg.setAttribute("aria-hidden", "true");
+    var use = doc.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#icon-" + name);
+    svg.appendChild(use);
+    return svg;
+  }
+
+  global.AssureLucideIcon = lucideIconEl;
+
   global.AssureWowEffects = {
     enabled: enabled,
     onCompileStart: onCompileStart,
     onVerified: onVerified,
     progressToNode: progressToNode,
     extendBeamTo: extendBeamTo,
+    extendLaserBeamToNode: extendLaserBeamToNode,
     applyInkStamp: applyInkStamp,
     syncNodeStamp: syncNodeStamp,
     onAllGuttersVerified: onAllGuttersVerified,

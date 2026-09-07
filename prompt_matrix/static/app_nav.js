@@ -190,7 +190,7 @@
       var defaults = {
         idle: ["compiler.status.idle", "All good"],
         processing: ["compiler.status.processing", "Working…"],
-        verified: ["compiler.status.verified", "✅ Verified – No hallucinations found."],
+        verified: ["compiler.status.verified", "Verified – No hallucinations found."],
         issues: ["compiler.status.issues", "⚠️ Risks found"],
         exporting: ["compiler.status.exporting", "⬡ Exporting…"],
       };
@@ -241,9 +241,9 @@
           n: this.issueCount,
         });
       } else if (this.currentState === "verified") {
-        msg = translate("compiler.status.verified", "✅ Verified – No hallucinations found.");
+        msg = translate("compiler.status.verified", "Verified – No hallucinations found.");
       } else {
-        msg = translate("workbench.status.health_ok", "✅ Verified – No hallucinations found.");
+        msg = translate("workbench.status.health_ok", "Verified – No hallucinations found.");
       }
       healthEl.textContent = msg;
       if (barEl) {

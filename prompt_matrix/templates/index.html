@@ -96,11 +96,11 @@
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="projects" data-tooltip="{{ gettext('Your projects and works in progress') }}" data-i18n-tooltip="tooltip.nav.projects">
-              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="pencil"><use href="#icon-pencil"/></svg></span>
+              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="pencil" data-lucide="pencil"><use href="#icon-pencil"/></svg></span>
               <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Write') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="generate" aria-current="page" data-tooltip="{{ gettext('Describe intent, stream a draft, compile JDF nodes') }}" data-i18n-tooltip="tooltip.nav.generate">
-              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="file-text"><use href="#icon-file-text"/></svg></span>
+              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="file-text" data-lucide="file-text"><use href="#icon-file-text"/></svg></span>
               <span class="app-sidebar-label" data-i18n="nav.generate">{{ gettext('Draft') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="surgical" data-tooltip="{{ gettext('Polish one section at a time — the rest stays fixed.') }}" data-i18n-tooltip="tooltip.nav.surgical">
@@ -108,20 +108,20 @@
               <span class="app-sidebar-label" data-i18n="nav.surgical">{{ gettext('Polish') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Source files that ground your document') }}" data-i18n-tooltip="tooltip.nav.library">
-              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="folder"><use href="#icon-folder"/></svg></span>
+              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="folder" data-lucide="folder"><use href="#icon-folder"/></svg></span>
               <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span>
               <span class="app-sidebar-badge" id="nav-sources-badge" hidden aria-hidden="true"></span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="analytics" data-tooltip="{{ gettext('Z3 health and compliance analytics') }}" data-i18n-tooltip="tooltip.nav.analytics">
-              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="bar-chart"><use href="#icon-bar-chart"/></svg></span>
+              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="bar-chart" data-lucide="bar-chart-2"><use href="#icon-bar-chart"/></svg></span>
               <span class="app-sidebar-label" data-i18n="nav.analytics">{{ gettext('Analytics') }}</span>
             </button>
             <button type="button" class="app-sidebar-link tooltip-trigger app-sidebar-link-icon-only" data-tool="settings" data-tooltip="{{ gettext('Provider keys and preferences') }}" data-i18n-tooltip="tooltip.nav.settings" aria-label="{{ gettext('Settings') }}" data-i18n-aria="nav.settings">
-              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="settings"><use href="#icon-settings"/></svg></span>
+              <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="settings" data-lucide="settings"><use href="#icon-settings"/></svg></span>
             </button>
           </nav>
           <div class="workbench-status-bar" id="workbench-status-bar" aria-live="polite">
-            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok" data-i18n-live>{{ gettext('✅ Verified – No hallucinations found.') }}</span>
+            <span class="workbench-health" id="workbench-health" data-i18n="workbench.status.health_ok" data-i18n-live>{{ gettext('Verified – No hallucinations found.') }}</span>
             <span class="workbench-last-action" id="workbench-last-action"></span>
           </div>
           <div class="app-content">

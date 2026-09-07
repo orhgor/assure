@@ -9,11 +9,11 @@ from typing import Any
 try:
     from ..db.connection import init_db
     from ..history import get_db
-    from ..models.jdf import JDFDocumentTree
+    from ..models.jdf import JDFDocumentTree, parse_document
 except ImportError:
     from db.connection import init_db
     from history import get_db
-    from models.jdf import JDFDocumentTree
+    from models.jdf import JDFDocumentTree, parse_document
 
 DEFAULT_PROJECT_ID = "default"
 
@@ -240,7 +240,7 @@ def save_jdf_revision(
     if isinstance(document, JDFDocumentTree):
         tree = document.model_dump(mode="json")
     else:
-        tree = JDFDocumentTree.model_validate(document).model_dump(mode="json")
+        tree = parse_document(document).model_dump(mode="json")
 
     row = db.execute(
         "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
