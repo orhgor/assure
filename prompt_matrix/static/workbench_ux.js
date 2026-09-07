@@ -386,6 +386,15 @@
             return;
           }
 
+          if (!e.shiftKey && key === "k") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (global.AssureCommandPalette && typeof global.AssureCommandPalette.open === "function") {
+              global.AssureCommandPalette.open();
+            }
+            return;
+          }
+
           // Cmd+B is bold and Cmd+\ is a text chord inside the editor, so
           // these only act as app shortcuts when focus is outside a field.
           if (isTyping(e.target)) return;

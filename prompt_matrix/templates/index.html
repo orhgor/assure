@@ -86,9 +86,9 @@
             </div>
             <div class="utility-actions">
             <button type="button" class="btn btn-outline btn-sm compliance-lock-btn" id="compliance-lock-btn" title="{{ gettext('Lock version') }}" data-i18n-title="compliance.lock.btn" aria-label="{{ gettext('Lock version') }}" data-i18n-aria="compliance.lock.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-lock"/></svg></button>
-            <button type="button" class="btn btn-outline btn-sm" id="jdf-insert-signature-btn" title="{{ gettext('Insert signature field') }}" data-i18n-title="compliance.signature.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-pen-line"/></svg></button>
+            <button type="button" class="btn btn-outline btn-sm" id="jdf-insert-signature-btn" title="{{ gettext('Insert signature') }}" data-i18n-title="compliance.signature.btn" aria-label="{{ gettext('Insert signature') }}" data-i18n-aria="compliance.signature.btn"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-pen-line"/></svg></button>
             <details class="export-menu" id="export-menu">
-              <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export">{{ gettext('Download') }}</summary>
+              <summary class="btn btn-sm btn-primary tooltip-trigger" data-i18n="jdf.export" data-tooltip="{{ gettext('Download your document as PDF, Word, Markdown, or HTML') }}" data-i18n-tooltip="tooltip.export" aria-haspopup="menu" aria-expanded="false">{{ gettext('Download') }}</summary>
               <div class="export-menu-panel">
                 <a id="btn-export-docx" href="/api/projects/{{ project_id|default('default') }}/export?format=docx" data-i18n="jdf.export.word">{{ gettext('Word (.docx)') }}</a>
                 <a id="btn-export-md" href="/api/projects/{{ project_id|default('default') }}/export?format=md" data-i18n="jdf.export.md">{{ gettext('Markdown') }}</a>
@@ -98,7 +98,7 @@
             </details>
             <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="btn-audit-manifest" data-i18n="audit.deck" data-tooltip="{{ gettext('Export a verifiable JSON manifest for compliance review, regulatory submission, or internal audit. Includes Z3 verification logs, Red-Hat audits, source file hashes, and model signatures.') }}" data-i18n-tooltip="audit.tooltip">{{ gettext('Audit Report') }}</button>
             <details class="command-deck-more" id="command-deck-more">
-              <summary class="btn btn-sm btn-outline" data-i18n="command.deck.more">{{ gettext('More') }}</summary>
+              <summary class="btn btn-sm btn-outline" data-i18n="command.deck.more" aria-haspopup="menu" aria-expanded="false">{{ gettext('More') }}</summary>
               <div class="command-deck-more-panel">
                 <button type="button" class="btn btn-sm btn-outline tooltip-trigger" id="jdf-import-pdf-btn" data-i18n="jdf.import.pdf_btn" data-tooltip="{{ gettext('Import a PDF into the JDF canvas') }}" data-i18n-tooltip="jdf.import.pdf_tooltip">{{ gettext('Upload PDF') }}</button>
                 <input type="file" id="jdf-import-pdf-input" accept=".pdf,application/pdf" hidden>
@@ -676,6 +676,13 @@
         </div>
       </section>
 
+      <div id="command-palette-overlay" class="command-palette-overlay" aria-hidden="true">
+        <div id="command-palette" class="command-palette" role="dialog" aria-modal="true" aria-labelledby="palette-input">
+          <input id="palette-input" type="text" class="palette-input" autocomplete="off" spellcheck="false" placeholder="{{ gettext('Type a command or search…') }}" data-i18n-placeholder="palette.placeholder" aria-label="{{ gettext('Type a command or search…') }}" data-i18n-aria="palette.placeholder" aria-controls="palette-results" aria-autocomplete="list">
+          <div id="palette-results" class="palette-results" role="listbox"></div>
+        </div>
+      </div>
+
       <div class="shortcut-sheet" id="shortcut-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="shortcut-sheet-title">
         <div class="shortcut-sheet-backdrop"></div>
         <div class="shortcut-sheet-panel">
@@ -727,6 +734,10 @@
             <li>
               <span data-i18n="shortcuts.help">{{ gettext('Show this list') }}</span>
               <span class="shortcut-sheet-keys"><kbd>?</kbd></span>
+            </li>
+            <li>
+              <span data-i18n="shortcuts.palette">{{ gettext('Open the command palette') }}</span>
+              <span class="shortcut-sheet-keys"><kbd class="kbd-mod">⌘</kbd><kbd>K</kbd></span>
             </li>
           </ul>
           <p class="hint" data-i18n="shortcuts.panes_hint">{{ gettext('Drag the divider between the panes to resize them. Double-click it to reset.') }}</p>
@@ -1158,6 +1169,7 @@
   <script src="{{ url_for('static', filename='audit_gate.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='prompt_history.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_ux.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='argument_spine.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='editor_sync.js') }}?v={{ js_version|default('assure-21') }}"></script>

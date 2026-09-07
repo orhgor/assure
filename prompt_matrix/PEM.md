@@ -569,6 +569,7 @@ How to run the next task: Cursor MCP `pem` lists `swarm_develop`. Call that tool
 | 2026-09-07 | Header / Draft tracker / Analytics polish | Cursor, not swarm | n/a | Protected header-left/right flex clusters. Draft lifecycle is a linear tracker + action bar (no equal-height black cards). Analytics KPIs/chart grid/table chrome; Chart.js y 0–100 + grid + rounded bars; live series only. UI cache `assure-109`. |
 | 2026-09-07 | Phase 1 zero-state overlay | Cursor, not swarm | n/a | Version slider+label moved into header-left. Canvas `#zero-state-dashboard` wrapper overlay; `#jdf-render-target` internals unchanged. Copy uses Assemble / Full Audit (not clinical/CPT). UI cache `assure-110`. |
 | 2026-09-07 | Zero-state template cards | Cursor, not swarm | n/a | Empty canvas dashboard: Compliance memo / Contract review / Blank → existing project wizard templates. Stub Untitled/Section treated as empty. Ghost `pointer-events: none`. UI cache `assure-111`. |
+| 2026-09-07 | Cmd+K palette + autosave toast | Cursor, not swarm | n/a | Command palette (⌘K / Esc, live actions). 10s localStorage autosave + restore toast. KPI/table CSS already in tree; chart bars keep live API series (no fake pass-rate array). Signature `aria-label`; details menus `aria-expanded`. UI cache `assure-112`. |
 
 **Not run as swarm yet**
 
