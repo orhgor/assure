@@ -8,8 +8,7 @@ import pytest
 
 from tests.playwright.helpers import (
     COMPILE_INPUT,
-    FULL_AUDIT_BTN,
-    click_workbench,
+    click_full_audit,
     route_draft_success,
     route_redhat_success,
     wait_compile_ready,
@@ -26,7 +25,7 @@ def test_full_audit_completes_within_sixty_seconds(workbench_page):
     prompt = "Summarize humanitarian logistics best practices in three bullet points."
     page.locator(COMPILE_INPUT).fill(prompt)
     started = time.monotonic()
-    click_workbench(page, FULL_AUDIT_BTN)
+    click_full_audit(page)
     wait_compile_ready(page, timeout_ms=30_000)
     page.wait_for_function(
         "() => window.AssureGenerate && window.AssureGenerate.auditComplete === true",

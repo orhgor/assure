@@ -21,5 +21,6 @@ def test_action_grouping_phases_present(page, base_url):
     phases = page.locator(ACTION_PHASE)
     assert phases.count() >= 3
     assert page.locator('[data-action-phase="write"]').locator(COMPILE_BTN).is_visible()
-    assert page.locator('[data-action-phase="verify"]').locator(FULL_AUDIT_BTN).is_visible()
+    assert page.locator('[data-action-phase="verify"]').locator(FULL_AUDIT_BTN).count() == 1
+    assert page.locator('[data-action-phase="verify"]').locator(FULL_AUDIT_BTN).is_hidden()
     assert page.locator('[data-phase="ship"]').is_visible()

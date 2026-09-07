@@ -9210,3 +9210,84 @@ body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #
 #founder-legacy-park {
   display: none !important;
 }
+
+/* —— UI micro-clarity sprint —— */
+.draft-compose-header {
+  margin-bottom: 0.75rem;
+}
+
+.draft-compose-lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.draft-char-counter {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.panel-placeholder {
+  margin: 0 0 0.75rem;
+}
+
+.compile-strictness-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+body[data-workbench-phase="write"] .lifecycle-action:not([data-action-phase="write"]) {
+  display: none;
+}
+
+body[data-workbench-phase="verify"] .lifecycle-action:not([data-action-phase="verify"]) {
+  display: none;
+}
+
+body[data-workbench-phase="audit"] .lifecycle-action:not([data-action-phase="audit"]) {
+  display: none;
+}
+
+body[data-workbench-phase="ship"] .lifecycle-action:not([data-action-phase="ship"]) {
+  display: none;
+}
+
+body[data-workbench-phase="verify"] .workbench-stage-write-only,
+body[data-workbench-phase="audit"] .workbench-stage-write-only,
+body[data-workbench-phase="ship"] .workbench-stage-write-only {
+  display: none;
+}
+
+body[data-workbench-phase="write"] .workbench-stage-verify-only,
+body[data-workbench-phase="audit"] .workbench-stage-verify-only,
+body[data-workbench-phase="ship"] .workbench-stage-verify-only {
+  display: none;
+}
+
+body[data-workbench-phase="write"] .workbench-stage-audit-only,
+body[data-workbench-phase="verify"] .workbench-stage-audit-only,
+body[data-workbench-phase="ship"] .workbench-stage-audit-only {
+  display: none;
+}
+
+body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
+  opacity: 1;
+}
+
+.project-work-card.is-archived {
+  border-color: #d1d5db;
+  opacity: 0.92;
+}
+
+.project-archived-badge {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.project-work-card.is-archived .project-work-open {
+  cursor: default;
+}

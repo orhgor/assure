@@ -59,6 +59,18 @@
     });
   }
 
+  function usesFallbackTitle(project) {
+    var title = ((project && project.title) || "").trim();
+    if (
+      project &&
+      project.id === "default" &&
+      (!title || title === "Default project" || title.toLowerCase() === "default")
+    ) {
+      return false;
+    }
+    return !title || PRJ_ID_RE.test(title);
+  }
+
   function displayTitle(project) {
     var title = ((project && project.title) || "").trim();
     if (
@@ -391,6 +403,28 @@
     });
   }
 
+  function emptyStateMessage() {
+    if (!projectsCache.length) {
+      return t(
+        "projects.empty",
+        "No workspaces yet. Click + New to initialize your first project."
+      );
+    }
+    if (statusFilter === "drafting") {
+      return t("projects.empty.filter_drafting", "No Drafting workspaces found.");
+    }
+    if (statusFilter === "audited") {
+      return t("projects.empty.filter_audited", "No Audited workspaces found.");
+    }
+    if (statusFilter === "archived") {
+      return t("projects.empty.filter_archived", "No Archived workspaces found.");
+    }
+    return t(
+      "projects.empty",
+      "No workspaces yet. Click + New to initialize your first project."
+    );
+  }
+
   function renderDashboard(projects) {
     var host = $("projects-dashboard");
     if (!host) return;
@@ -404,9 +438,7 @@
 
     if (!filtered.length) {
       host.innerHTML =
-        '<p class="projects-dashboard-empty">' +
-        escHtml(t("projects.empty", "No projects yet. Create one to begin.")) +
-        "</p>";
+        '<p class="projects-dashboard-empty">' + escHtml(emptyStateMessage()) + "</p>";
       paintWorkspaceCanvas();
       return;
     }
@@ -414,26 +446,45 @@
     host.innerHTML = "";
     filtered.forEach(function (p) {
       var isActive = !!selectedId && p.id === selectedId;
+      var archived = isArchived(p.id);
       var meta = statusMeta(p.status || "drafting");
       var card = document.createElement("article");
       card.className =
-        "project-work-card project-status-" + (p.status || "drafting") + (isActive ? " is-active" : "");
+        "project-work-card project-status-" +
+        (p.status || "drafting") +
+        (isActive ? " is-active" : "") +
+        (archived ? " is-archived" : "");
       card.dataset.projectId = p.id;
       card.setAttribute("role", "listitem");
 
+      var titleText = displayTitle(p);
+      var titleTooltip = usesFallbackTitle(p)
+        ? t(
+            "projects.title_fallback_tooltip",
+            "System-generated title. Click 'Rename' in actions to customize."
+          )
+        : "";
+      var statusPill = archived
+        ? '<span class="project-status-pill project-archived-badge" data-status="archived">' +
+          escHtml(t("projects.badge.archived", "Archived")) +
+          "</span>"
+        : '<span class="project-status-pill" data-status="' +
+          escHtml(p.status || "drafting") +
+          '">' +
+          escHtml(t(meta.labelKey, meta.labelFallback)) +
+          "</span>";
+
       card.innerHTML =
         '<div class="project-work-card-top">' +
-        '<span class="project-status-pill" data-status="' +
-        escHtml(p.status || "drafting") +
-        '">' +
-        escHtml(t(meta.labelKey, meta.labelFallback)) +
-        "</span>" +
+        statusPill +
         (isActive
           ? '<span class="project-active-badge">' + escHtml(t("projects.active_badge", "Active")) + "</span>"
           : "") +
         '<div class="project-overflow">' +
-        '<button type="button" class="projects-action-btn project-overflow-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="' +
-        escHtml(t("projects.menu.more", "Workspace actions")) +
+        '<button type="button" class="projects-action-btn project-overflow-toggle" aria-haspopup="menu" aria-expanded="false" title="' +
+        escHtml(t("projects.menu.actions", "Workspace actions")) +
+        '" aria-label="' +
+        escHtml(t("projects.menu.actions_menu", "Workspace actions menu")) +
         '">…</button>' +
         '<div class="project-overflow-menu" hidden role="menu">' +
         '<button type="button" role="menuitem" data-tool="rename">' +
@@ -454,8 +505,10 @@
         '<button type="button" class="project-work-open" aria-label="' +
         escHtml(t("projects.action.open", "Open workspace")) +
         '">' +
-        '<h4 class="project-work-title">' +
-        escHtml(displayTitle(p)) +
+        '<h4 class="project-work-title"' +
+        (titleTooltip ? ' title="' + escHtml(titleTooltip) + '"' : "") +
+        ">" +
+        escHtml(titleText) +
         "</h4>" +
         '<div class="project-work-vitals">' +
         vitalSignsHtml(p) +
@@ -475,6 +528,24 @@
         overflow.classList.toggle("is-open", open);
         menu.hidden = !open;
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      toggle.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle.click();
+        }
+        if (e.key === "Escape") {
+          closeOpenMenus();
+          menu.hidden = true;
+          toggle.setAttribute("aria-expanded", "false");
+        }
+      });
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          closeOpenMenus();
+          menu.hidden = true;
+          toggle.setAttribute("aria-expanded", "false");
+        }
       });
 
       card.querySelector('[data-tool="rename"]').addEventListener("click", function (e) {

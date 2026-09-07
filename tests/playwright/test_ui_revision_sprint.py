@@ -24,6 +24,10 @@ def test_stepper_workflow_renders(page, base_url):
     expect(page.locator('.step-item[data-phase="audit"]')).to_be_visible()
     expect(page.locator('.step-item[data-phase="ship"]')).to_be_visible()
     expect(page.locator("#generate-compile-btn")).to_be_visible()
+    expect(page.locator("#generate-accept-dock-phase")).to_be_attached()
+    page.evaluate(
+        "() => { if (window.AssureStepper) window.AssureStepper.setPhase('ship', 'active'); }"
+    )
     expect(page.locator("#generate-accept-dock-phase")).to_be_visible()
     assert page.locator("#generate-accept-dock").count() == 0
     assert page.locator("#draft-preview-dock-btn").count() == 0
