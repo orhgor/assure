@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Poll staging /health until ok. Optionally wait until build_sha matches
-# STAGING_EXPECT_SHA so OpenUser does not race a simultaneous GHCR/SSM deploy.
+# STAGING_EXPECT_SHA so Playwright or a deploy check does not race a simultaneous GHCR/SSM deploy.
 set -euo pipefail
 
 BASE="${ASSURE_BASE_URL:-https://staging.getassureai.com}"

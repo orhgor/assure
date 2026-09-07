@@ -374,9 +374,18 @@
       var streamWrap = $("generate-stream-wrap");
       if (streamWrap) streamWrap.hidden = !on;
       var btn = $("generate-compile-btn");
-      if (btn) btn.disabled = !!on;
+      if (btn) {
+        btn.disabled = !!on;
+        btn.classList.toggle("is-busy", !!on);
+        btn.setAttribute("aria-busy", on ? "true" : "false");
+      }
       var auditBtn = $("generate-full-audit-btn");
       if (auditBtn) auditBtn.disabled = !!on;
+      var root = $("workbench-root");
+      if (root) {
+        if (on) root.classList.add("is-busy");
+        else root.classList.remove("is-busy");
+      }
       if (on) {
         if (global.setWorkbenchState) global.setWorkbenchState("compiling");
         if (global.AssureFirstCompileCoachmark && typeof global.AssureFirstCompileCoachmark.dismiss === "function") {
@@ -457,6 +466,9 @@
         dockBtn.disabled = true;
         dockBtn.hidden = false;
       });
+      if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+        global.AssureStepper.setPhase("write", "active");
+      }
     },
 
     startDraftStream: function (isRetry, opts) {
@@ -610,6 +622,10 @@
             });
           }
           self.setSummaryVisible(true);
+          document.dispatchEvent(new CustomEvent("assure:compile:complete"));
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("verify", "active");
+          }
           var gateBanner = $("preflight-gate-banner");
           if (gateBanner) gateBanner.hidden = false;
           self.setGateLoading(
@@ -653,6 +669,9 @@
             verifiedDockBtn.disabled = false;
             verifiedDockBtn.hidden = false;
           });
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("ship", "active");
+          }
           document.dispatchEvent(new CustomEvent("assure:compile:verified"));
           var z3s = ((data.z3_results || {}).z3_status || "UNKNOWN");
           var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";
@@ -747,7 +766,20 @@
           body: JSON.stringify(requestBody),
           signal: self.controller.signal,
         }).then(function (res) {
-          if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
+          if (!res.ok || !res.body) {
+            return res.text().then(function (txt) {
+              var msg = "Stream failed (" + res.status + ")";
+              try {
+                var parsed = JSON.parse(txt);
+                msg = parsed.error || parsed.message || msg;
+              } catch (_) {
+                if (txt && txt.trim()) msg = String(txt).slice(0, 400);
+              }
+              var err = new Error(msg);
+              err.status = res.status;
+              throw err;
+            });
+          }
           var reader = res.body.getReader();
           var decoder = new TextDecoder();
           var buffer = "";
@@ -771,9 +803,13 @@
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
           self.setGateLoading(false);
+          if (global.setWorkbenchState) global.setWorkbenchState("idle");
+          if (typeof global.updateCompilerStatus === "function") {
+            global.updateCompilerStatus("idle");
+          }
           if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (err && err.name === "AbortError") return;
-          if (!self.auditComplete && self._streamRetryCount < 1) {
+          if (!self.auditComplete && self._streamRetryCount < 1 && !(err && err.status >= 400 && err.status < 500)) {
             self._streamRetryCount += 1;
             if (global.AssureToast) {
               global.AssureToast.show(
@@ -788,8 +824,17 @@
             return;
           }
           if (global.AssureToast) {
-            global.AssureToast.show(String(err.message || err), "error");
+            global.AssureToast.show(String((err && err.message) || err || t("generate.failed", "Compilation failed.")), "error");
           }
+        })
+        .then(function () {
+          var btn = $("generate-compile-btn");
+          if (btn) {
+            btn.classList.remove("is-busy");
+            btn.setAttribute("aria-busy", "false");
+          }
+          var root = $("workbench-root");
+          if (root) root.classList.remove("is-busy");
         });
     },
 

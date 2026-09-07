@@ -63,7 +63,18 @@
         signal: controller.signal,
       }).then(function (res) {
         if (!res.ok || !res.body) {
-          throw new Error("Stream failed (" + res.status + ")");
+          return res.text().then(function (txt) {
+            var msg = "Stream failed (" + res.status + ")";
+            try {
+              var parsed = JSON.parse(txt);
+              msg = parsed.error || parsed.message || msg;
+            } catch (_) {
+              if (txt && txt.trim()) msg = String(txt).slice(0, 400);
+            }
+            var err = new Error(msg);
+            err.status = res.status;
+            throw err;
+          });
         }
         var reader = res.body.getReader();
         var decoder = new TextDecoder();
@@ -117,6 +128,7 @@
         });
       }).catch(function (err) {
         if (outerSignal && outerSignal.aborted) throw err;
+        if (err && err.status >= 400 && err.status < 500) throw err;
         if (attempt >= maxAttempts) throw err;
         var delay = baseBackoffMs * Math.pow(2, attempt - 1);
         return sleep(delay).then(runAttempt);

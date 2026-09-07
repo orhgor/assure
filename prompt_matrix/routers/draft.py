@@ -10,7 +10,7 @@ import uuid
 from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
 try:
     from ..cost_governance import (
@@ -96,8 +96,10 @@ class DraftPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     intent: str = ""
+    directive: str | None = None
     context: str | None = None
     substrate_file_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
     compile_type: Literal["full", "selection"] = Field(
         default="full",
         validation_alias=AliasChoices("compileType", "compile_type"),
@@ -565,7 +567,22 @@ def run_draft_pipeline(
     verified_doc = doc_dict
     if z3_results.get("violations"):
         verified_doc = apply_z3_violations_to_tree(verified_doc, z3_results["violations"])
-    parse_document(verified_doc)
+    try:
+        parse_document(verified_doc)
+    except (ValidationError, ValueError, TypeError) as exc:
+        msg = str(exc)
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=msg,
+        )
+        yield _typed_sse("error", {"error": msg, "ok": False})
+        yield _typed_sse("complete", {"ok": False, "error": msg, "request_id": rid})
+        yield _done_sse()
+        return
 
     verified_payload = build_audit_summary(
         z3_results=z3_results,
@@ -799,9 +816,16 @@ def register_draft_routes(app) -> None:
         try:
             payload = DraftPayload.model_validate(
                 {
-                    "intent": data.get("intent") or data.get("user_intent") or "",
+                    "intent": data.get("intent")
+                    or data.get("directive")
+                    or data.get("user_intent")
+                    or "",
+                    "directive": data.get("directive"),
                     "context": data.get("context"),
-                    "substrate_file_ids": data.get("substrate_file_ids") or [],
+                    "substrate_file_ids": data.get("substrate_file_ids")
+                    or data.get("source_ids")
+                    or [],
+                    "source_ids": data.get("source_ids") or [],
                     "compileType": data.get("compileType") or data.get("compile_type") or "full",
                     "content": data.get("content"),
                 }
@@ -809,7 +833,7 @@ def register_draft_routes(app) -> None:
         except Exception as exc:
             return {"error": str(exc)}, 400
 
-        intent = (payload.intent or "").strip()
+        intent = (payload.intent or payload.directive or "").strip()
         if payload.compile_type == "selection":
             excerpt = (payload.content or intent).strip()
             if not excerpt:

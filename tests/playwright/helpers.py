@@ -49,13 +49,17 @@ def app_url(base_url: str) -> str:
     return f"{root}/app"
 
 
-def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
+def prime_page(
+    page, *, compiles: int = 0, wow_effects: bool = True, founder_workbench: bool = False
+) -> None:
     page.set_viewport_size(DESKTOP_VIEWPORT)
     wow = "true" if wow_effects else "false"
+    founder = "1" if founder_workbench else "0"
     page.add_init_script(
         f"""
         try {{
           localStorage.setItem({ONBOARDING_KEY!r}, '1');
+          localStorage.setItem('assure_founder_workbench', '{founder}');
           sessionStorage.setItem({SESSION_COMPILE_KEY!r}, '{int(compiles)}');
           window.__ASSURE_WOW_EFFECTS__ = {wow};
         }} catch (e) {{}}
@@ -63,18 +67,54 @@ def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
     )
 
 
-def goto_workbench(page, base_url: str):
-    page.goto(app_url(base_url), wait_until="domcontentloaded")
-    page.wait_for_selector(WORKBENCH, state="visible")
+def goto_founder_workbench(page, base_url: str):
+    prime_page(page, founder_workbench=True)
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
+    page.wait_for_selector("#panel-runs", state="visible", timeout=30_000)
     page.wait_for_function(
-        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'"
+        "() => document.body.classList.contains('founder-workbench')",
+        timeout=10_000,
     )
-    page.wait_for_function("() => !document.body.classList.contains('onboarding-active')")
-    page.evaluate(
-        "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
+    page.wait_for_function(
+        "() => window.AssureCommandBar && window.AssureRunsStack",
+        timeout=30_000,
     )
-    page.wait_for_selector(COMPILE_BTN, state="visible")
     return page
+
+
+def goto_workbench(page, base_url: str):
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector(WORKBENCH, state="visible", timeout=30_000)
+    page.wait_for_function(
+        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'",
+        timeout=30_000,
+    )
+    page.wait_for_function(
+        "() => !document.body.classList.contains('onboarding-active')",
+        timeout=30_000,
+    )
+    enter_compiler(page)
+    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
+    return page
+
+
+def enter_compiler(page, project_id=None):
+    pid = project_id or "default"
+    page.evaluate(
+        """(pid) => {
+          if (window.AssureProjects && typeof window.AssureProjects.openCompiler === 'function') {
+            window.AssureProjects.openCompiler(pid);
+            return;
+          }
+          if (window.AssureNav) {
+            window.AssureNav.switchView('generate', {replaceHash: false, persist: false});
+          }
+        }""",
+        pid,
+    )
+    page.wait_for_selector("#document-chrome", state="visible", timeout=30_000)
+    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
 
 
 def empty_annotations() -> dict[str, list]:
@@ -243,7 +283,29 @@ def mock_sse_stream(page, *, cache_hit: bool = True) -> None:
     page.route("**/api/projects/*/draft/stream", _handler)
 
 
+def ensure_write_phase(page) -> None:
+    page.evaluate(
+        """() => {
+          if (window.AssureStepper) window.AssureStepper.setPhase('write', 'active');
+        }"""
+    )
+
+
+def ensure_verify_phase(page) -> None:
+    page.evaluate(
+        """() => {
+          if (window.AssureStepper) window.AssureStepper.setPhase('verify', 'active');
+        }"""
+    )
+
+
+def click_full_audit(page) -> None:
+    ensure_verify_phase(page)
+    click_workbench(page, FULL_AUDIT_BTN)
+
+
 def fill_and_compile(page, prompt: str) -> None:
+    ensure_write_phase(page)
     page.locator(COMPILE_INPUT).fill(prompt)
     click_workbench(page, COMPILE_BTN)
 
@@ -252,11 +314,13 @@ def wait_compile_ready(page, timeout_ms: int = 60_000) -> None:
     page.wait_for_function(
         f"""() => {{
           const dock = document.querySelector('{DOCK_BTN}');
-          const btn = document.querySelector('{COMPILE_BTN}');
           const compiling = document.getElementById('generate-compiling');
-          if (btn && btn.disabled) return false;
           if (compiling && !compiling.hidden) return false;
-          return dock && !dock.disabled;
+          if (dock && !dock.disabled) {{
+            if (window.AssureStepper) window.AssureStepper.setPhase('ship', 'active');
+            return true;
+          }}
+          return false;
         }}""",
         timeout=timeout_ms,
     )
@@ -283,7 +347,7 @@ def click_workbench(page, selector: str) -> None:
     loc = page.locator(selector)
     page.evaluate(
         """() => {
-          const panel = document.getElementById('view-generate');
+          const panel = document.getElementById('panel-draft') || document.getElementById('view-generate');
           if (panel) panel.scrollIntoView({ block: 'nearest' });
         }"""
     )

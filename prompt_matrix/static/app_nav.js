@@ -2,9 +2,10 @@
   "use strict";
 
   var STORAGE_KEY = "assure_view";
-  var DEFAULT_VIEW = "generate";
+  var DEFAULT_VIEW = "projects";
+  var FOUNDER_DEFAULT_VIEW = "runs";
   var WORKSPACE_VIEWS = ["projects", "generate", "surgical", "vault"];
-  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics"]);
+  var ALL_VIEWS = WORKSPACE_VIEWS.concat(["library", "analytics", "runs"]);
   var SETTINGS_VIEWS = ["settings", "audit"];
 
   function $(id) {
@@ -30,8 +31,9 @@
   function normalizeViewName(raw) {
     if (!raw) return null;
     if (raw === "compose") return "generate";
+    if (raw === "compiler") return "generate";
     if (raw === "workbench") return "surgical";
-    if (raw === "library") return "vault";
+    if (raw === "library" || raw === "sources") return "vault";
     if (SETTINGS_VIEWS.indexOf(raw) >= 0) return "__open_settings__";
     if (ALL_VIEWS.indexOf(raw) >= 0) return raw;
     return null;
@@ -49,9 +51,16 @@
   function readViewFromHash() {
     var hash = (location.hash || "").replace(/^#/, "");
     if (!hash) return null;
+    if (hash.indexOf("=") !== -1) {
+      try {
+        var params = new URLSearchParams(hash);
+        var named = params.get("view") || params.get("tool");
+        if (named) return normalizeViewName(named);
+      } catch (_) {}
+    }
     if (hash.indexOf("tool=") === 0) return normalizeViewName(hash.slice(5));
     if (hash.indexOf("view=") === 0) {
-      return normalizeViewName(hash.slice(5));
+      return normalizeViewName(hash.slice(5).split("&")[0]);
     }
     if (hash === "settings") return "__open_settings__";
     var legacy = {
@@ -88,6 +97,24 @@
     } catch (_) {
       return null;
     }
+  }
+
+  function isFounderShell() {
+    if (
+      global.AssureFounderMode &&
+      typeof global.AssureFounderMode.isEnabled === "function"
+    ) {
+      return global.AssureFounderMode.isEnabled();
+    }
+    try {
+      return localStorage.getItem("assure_founder_workbench") !== "0";
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function defaultViewForShell() {
+    return isFounderShell() ? FOUNDER_DEFAULT_VIEW : DEFAULT_VIEW;
   }
 
   /** Abort all in-flight streams when navigating away. */
@@ -388,12 +415,19 @@
       if (!layout) return;
 
       var fromUrl = readViewFromHash() || readViewFromSearch();
-      var initial = fromUrl || readStoredView() || DEFAULT_VIEW;
+      var shellDefault = defaultViewForShell();
+      var initial = fromUrl || readStoredView() || shellDefault;
       var openSettingsOnLoad = initial === "__open_settings__";
       if (openSettingsOnLoad) {
-        initial = readStoredView() || DEFAULT_VIEW;
+        initial = readStoredView() || shellDefault;
       }
-      if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = DEFAULT_VIEW;
+      if (SETTINGS_VIEWS.indexOf(initial) >= 0) initial = shellDefault;
+      if (isFounderShell()) {
+        if (initial === "projects" || initial === "generate" || initial === "surgical" || initial === "vault") {
+          initial = shellDefault;
+        }
+        if (initial === "library") initial = shellDefault;
+      }
       this.switchView(initial, { replaceHash: false, persist: !!fromUrl });
       if (openSettingsOnLoad) this.openSettings({ replaceHash: false });
 
@@ -529,7 +563,7 @@
         settingsBtn.setAttribute("aria-current", "false");
       }
       if (opts.replaceHash !== false) {
-        var hashView = this.activeView === "vault" ? "library" : this.activeView;
+        var hashView = this.activeView === "vault" ? "sources" : this.activeView === "generate" ? "compiler" : this.activeView;
         var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
@@ -587,7 +621,7 @@
     /** Primary navigation — aborts streams and toggles view containers. */
     switchView: function (view, opts) {
       opts = opts || {};
-      if (!view) view = DEFAULT_VIEW;
+      if (!view) view = defaultViewForShell();
       if (view === "compose") view = "generate";
       if (view === "workbench") view = "surgical";
       if (view === "audit" || view === "settings" || view === "__open_settings__") {
@@ -595,6 +629,51 @@
         return;
       }
       if (view === "library") view = "vault";
+
+      if (isFounderShell()) {
+        if (view === "vault") {
+          if (global.AssureFounderShell && typeof global.AssureFounderShell.openSourcesDrawer === "function") {
+            global.AssureFounderShell.openSourcesDrawer();
+          }
+          return;
+        }
+        if (view === "analytics") {
+          view = "runs";
+        }
+        if (view === "runs" || view === "projects" || view === "generate" || view === "surgical") {
+          view = "runs";
+        }
+        if (ALL_VIEWS.indexOf(view) < 0) view = FOUNDER_DEFAULT_VIEW;
+
+        this.activeView = view;
+        if (opts.persist !== false) persistView(view);
+
+        var layoutFounder = $("assure-app");
+        if (layoutFounder) {
+          layoutFounder.querySelectorAll(".app-sidebar-link").forEach(function (link) {
+            var tool = link.getAttribute("data-tool") || "";
+            if (tool === "settings") return;
+            link.classList.toggle("is-active", false);
+            link.setAttribute("aria-current", "false");
+          });
+        }
+
+        if (global.AssureFounderShell && typeof global.AssureFounderShell.apply === "function") {
+          global.AssureFounderShell.apply(view);
+        }
+
+        if (opts.replaceHash !== false) {
+          var nextRuns = location.pathname + location.search + "#view=runs";
+          if (location.pathname + location.search + location.hash !== nextRuns) {
+            history.replaceState(null, "", nextRuns);
+          }
+        }
+
+        document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: view } }));
+        document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: "runs" } }));
+        return;
+      }
+
       if (ALL_VIEWS.indexOf(view) < 0) view = DEFAULT_VIEW;
 
       if (view !== this.activeView) {
@@ -646,13 +725,20 @@
       if (workbench) workbench.hidden = false;
 
       if (leftPaneShared) {
-        leftPaneShared.hidden = !inWorkspace || view === "projects" || view === "analytics";
+        leftPaneShared.hidden = view !== "generate";
       }
 
-      ["projects", "generate", "surgical", "analytics"].forEach(function (name) {
-        var el = $("view-" + name);
+      var panelMap = {
+        projects: "panel-write",
+        generate: "panel-draft",
+        surgical: "view-surgical",
+        analytics: "panel-analytics",
+        vault: "panel-sources",
+      };
+      ["projects", "generate", "surgical", "analytics", "vault"].forEach(function (name) {
+        var el = $(panelMap[name] || ("view-" + name)) || $("view-" + name);
         if (!el) return;
-        var on = view === name && (inWorkspace || name === "analytics" || name === "projects");
+        var on = view === name;
         el.classList.toggle("active", on);
         el.hidden = !on;
       });
@@ -670,24 +756,19 @@
         legacyLibrary.hidden = true;
       }
 
-      if (view === "vault" && leftPaneShared) {
-        var vaultPanel = $("substrate-vault");
-        if (vaultPanel && vaultPanel.tagName === "DETAILS") {
-          vaultPanel.open = true;
-        }
-        window.setTimeout(function () {
-          if (vaultPanel && typeof vaultPanel.scrollIntoView === "function") {
-            vaultPanel.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          }
-        }, 0);
+      if (view === "vault") {
         if (global.AssureSubstrateVault && typeof global.AssureSubstrateVault.fetchList === "function") {
           global.AssureSubstrateVault.fetchList();
         }
       }
 
       if (opts.replaceHash !== false) {
-        var hashView = view === "vault" ? "library" : view;
+        var hashView = view === "vault" ? "sources" : view === "generate" ? "compiler" : view;
         var next = location.pathname + location.search + "#view=" + encodeURIComponent(hashView);
+        if (view === "generate") {
+          var pid = global.__ASSURE_PROJECT_ID__ || "";
+          if (pid) next += "&id=" + encodeURIComponent(pid);
+        }
         if (location.pathname + location.search + location.hash !== next) {
           history.replaceState(null, "", next);
         }
@@ -701,6 +782,9 @@
       );
 
       if (view === "projects" && global.AssureProjects) {
+        if (!opts.preserveWorkspaceSelection && typeof global.AssureProjects.select === "function") {
+          global.AssureProjects.select(null);
+        }
         global.AssureProjects.load();
       }
       if (view === "analytics" && global.AssureAnalytics && typeof global.AssureAnalytics.render === "function") {

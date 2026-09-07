@@ -345,7 +345,7 @@
 
           if (key === "enter") {
             // Compile in the compile view, Refine in the refine view.
-            var handled = viewIsActive("view-generate")
+            var handled = viewIsActive("panel-draft") || viewIsActive("view-generate")
               ? Shortcuts.compile()
               : Shortcuts.refine();
             if (handled) {
@@ -383,6 +383,15 @@
             e.preventDefault();
             e.stopPropagation();
             Shortcuts.upload();
+            return;
+          }
+
+          if (!e.shiftKey && key === "k") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (global.AssureCommandPalette && typeof global.AssureCommandPalette.open === "function") {
+              global.AssureCommandPalette.open();
+            }
             return;
           }
 

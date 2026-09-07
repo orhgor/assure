@@ -439,7 +439,7 @@
 
     bindCollapse: function () {
       var self = this;
-      if (!this.detailsEl) return;
+      if (!this.detailsEl || this.detailsEl.tagName !== "DETAILS") return;
       try {
         var stored = global.localStorage.getItem(COLLAPSE_KEY);
         var navView = global.AssureNav && global.AssureNav.activeView;

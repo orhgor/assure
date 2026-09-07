@@ -30,9 +30,6 @@ build/
 *.iml
 
 # Test artifacts
-openuser/screenshots/
-openuser/results/*.jsonl
-
 # Temporary files
 *.tmp
 *.temp

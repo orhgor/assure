@@ -98,13 +98,11 @@ def test_parse_document_strips_unknown_keys():
     assert (dumped.get("meta") or {}).get("title") == "Root"
 
 
-def test_unknown_leaf_key_forbidden_on_model():
-    import pytest
-    from pydantic import ValidationError
-
+def test_unknown_leaf_key_ignored_on_model():
     from prompt_matrix.models.jdf import JDFParagraphNode
 
-    with pytest.raises(ValidationError):
-        JDFParagraphNode.model_validate(
-            {"type": "paragraph", "id": "p-1", "content": "Hello", "gutter": "verified"}
-        )
+    node = JDFParagraphNode.model_validate(
+        {"type": "paragraph", "id": "p-1", "content": "Hello", "gutter": "verified"}
+    )
+    assert node.content == "Hello"
+    assert not hasattr(node, "gutter") or "gutter" not in node.model_dump()

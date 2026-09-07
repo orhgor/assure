@@ -12,6 +12,8 @@ os.environ["RESEND_API_KEY"] = ""
 
 def pytest_configure(config):
     os.environ["RESEND_API_KEY"] = ""
+    os.environ["SQLITE_USE_POOL"] = "0"
+    os.environ.setdefault("BRAVE_API_KEY", "")
     config.addinivalue_line(
         "markers",
         "playwright: browser-driven Assure workbench simulation (requires pytest-playwright)",
@@ -29,3 +31,4 @@ def pytest_configure(config):
 def _block_live_resend(monkeypatch):
     """Strip Resend credentials so pytest never sends live mail."""
     monkeypatch.setenv("RESEND_API_KEY", "")
+    monkeypatch.setenv("SQLITE_USE_POOL", "0")

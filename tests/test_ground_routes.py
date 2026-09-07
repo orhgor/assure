@@ -42,8 +42,12 @@ def _tree() -> dict:
 def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "g.sqlite"))
     monkeypatch.setenv("WTF_CSRF_ENABLED", "0")
+    monkeypatch.setenv("BRAVE_API_KEY", "")
+    monkeypatch.setenv("SQLITE_USE_POOL", "0")
+    from prompt_matrix.db.pool import reset_engine_for_tests
     import prompt_matrix.history as history_mod
 
+    reset_engine_for_tests()
     history_mod.DB_PATH = history_mod._resolve_db_path()
     from prompt_matrix.db.connection import init_db
     from prompt_matrix.web import create_app
@@ -52,6 +56,14 @@ def _client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     ensure_project("default")
     save_jdf_revision("default", _tree(), mutation_type="seed")
     return create_app(require_auth=False).test_client()
+
+
+def _stub_llm(monkeypatch: pytest.MonkeyPatch, complete):
+    monkeypatch.setattr("prompt_matrix.services.ground_node._complete", complete)
+    monkeypatch.setattr(
+        "prompt_matrix.litellm_runner.call_model",
+        lambda *_a, **_k: complete("stub", []),
+    )
 
 
 def _node_json(content: str) -> str:
@@ -77,10 +89,7 @@ def test_ground_search_mode(tmp_path, monkeypatch) -> None:
         "prompt_matrix.services.ground_node.search_brave_web",
         lambda *_a, **_k: snippets,
     )
-    monkeypatch.setattr(
-        "prompt_matrix.services.ground_node._complete",
-        lambda model, messages: _node_json("Founded in 1868 per search."),
-    )
+    _stub_llm(monkeypatch, lambda model, messages: _node_json("Founded in 1868 per search."))
     client = _client(tmp_path, monkeypatch)
     res = client.post("/api/projects/default/nodes/p1/ground", json={"mode": "search"})
     assert res.status_code == 200
@@ -95,10 +104,7 @@ def test_ground_llm_mode(tmp_path, monkeypatch) -> None:
         "prompt_matrix.services.ground_node.search_brave_web",
         lambda *_a, **_k: [],
     )
-    monkeypatch.setattr(
-        "prompt_matrix.services.ground_node._complete",
-        lambda model, messages: _node_json("Clarified with internal knowledge."),
-    )
+    _stub_llm(monkeypatch, lambda model, messages: _node_json("Clarified with internal knowledge."))
     client = _client(tmp_path, monkeypatch)
     res = client.post("/api/projects/default/nodes/p1/ground", json={"mode": "llm"})
     assert res.status_code == 200
@@ -117,7 +123,7 @@ def test_ground_auto_fallback(tmp_path, monkeypatch) -> None:
         assert "claude" in model or "gpt" in model
         return _node_json("Fell back to LLM.")
 
-    monkeypatch.setattr("prompt_matrix.services.ground_node._complete", _complete)
+    _stub_llm(monkeypatch, _complete)
     client = _client(tmp_path, monkeypatch)
     res = client.post("/api/projects/default/nodes/p1/ground", json={"mode": "auto"})
     assert res.status_code == 200
@@ -126,6 +132,7 @@ def test_ground_auto_fallback(tmp_path, monkeypatch) -> None:
 
 def test_ground_node_not_found(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("prompt_matrix.services.ground_node.search_brave_web", lambda *_a, **_k: [])
+    _stub_llm(monkeypatch, lambda *_a, **_k: "{}")
     client = _client(tmp_path, monkeypatch)
     res = client.post("/api/projects/default/nodes/missing/ground", json={"mode": "llm"})
     assert res.status_code == 404

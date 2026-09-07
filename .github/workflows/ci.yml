@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +66,9 @@ jobs:
         run: pytest tests/test_z3_benchmark.py -v
 
   playwright-tests:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 

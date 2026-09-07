@@ -272,7 +272,7 @@
     if (isComplete()) return;
     waitForElement("#assure-app", 10000)
       .then(function () {
-        return waitForElement("#view-generate", 10000);
+        return waitForElement("#panel-draft", 10000);
       })
       .then(function () {
         if (!isComplete()) showStep(0);

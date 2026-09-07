@@ -80,9 +80,9 @@ class ComposeMarkupTests(unittest.TestCase):
     def test_workbench_shell_in_index(self):
         html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="workbench-root"', html)
-        self.assertIn('id="view-generate"', html)
+        self.assertIn('id="panel-draft"', html)
         self.assertIn('id="generate-compile-btn"', html)
-        self.assertIn('data-tool="generate"', html)
+        self.assertIn('data-tool="projects"', html)
         self.assertIn("data-tooltip=", html)
         self.assertIn('id="task"', html)
         self.assertIn('id="live-preview"', html)
@@ -256,15 +256,13 @@ class LandingTests(unittest.TestCase):
 class WorkflowTests(unittest.TestCase):
     def test_ci_yml_runs_pytest_and_playwright(self):
         ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-        ux = (ROOT / ".github" / "workflows" / "ux-tests.yml").read_text(encoding="utf-8")
         self.assertIn("pytest", ci)
         self.assertIn("test_z3_benchmark.py", ci)
         self.assertIn("Run Z3-heavy tests serially", ci)
         self.assertIn("playwright-tests", ci)
         self.assertIn("tests/playwright/", ci)
         self.assertNotIn("openuser", ci)
-        self.assertIn("workflow_dispatch", ux)
-        self.assertIn("if: false", ux)
+        self.assertFalse((ROOT / ".github" / "workflows" / "ux-tests.yml").exists())
 
     def test_deploy_workflows_exist(self):
         staging = (ROOT / ".github" / "workflows" / "deploy-staging.yml").read_text(
@@ -314,7 +312,7 @@ class ComposePageTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_data(as_text=True)
         self.assertIn("jdf-workbench", body)
-        self.assertIn("view-generate", body)
+        self.assertIn("panel-draft", body)
         self.assertIn("generate-compile-btn", body)
         self.assertIn("Prompt Library", body)
         self.assertIn("Refine this answer", body)

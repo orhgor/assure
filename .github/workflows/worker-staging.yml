@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     environment: staging
     steps:
       - uses: actions/checkout@v4

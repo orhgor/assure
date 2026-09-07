@@ -16,7 +16,200 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 19
+_SCHEMA_VERSION = 22
+
+
+def _migrate_v22(db: sqlite3.Connection) -> None:
+    """Founder workbench Phase 2 — Red-Hat findings on runs."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_findings (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'medium',
+            suggested_fix TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'open',
+            dismissal_rationale TEXT NOT NULL DEFAULT '',
+            model_used TEXT NOT NULL DEFAULT '',
+            highlight_text TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_redhat_findings_run ON redhat_findings(run_id, created_at DESC)"
+    )
+
+
+def _migrate_v21(db: sqlite3.Connection) -> None:
+    """Founder workbench Phase 1 — runs and drafts."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runs (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT,
+            directive TEXT NOT NULL,
+            content TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT 'gemini',
+            sources_used TEXT NOT NULL DEFAULT '[]',
+            extracted_locks TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_runs_workspace ON runs(workspace_id, created_at DESC)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS drafts (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL UNIQUE,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+def _migrate_v20(db: sqlite3.Connection) -> None:
+    """Big Four ICP templates — research dossier + refreshed copy."""
+    import json as _json
+
+    def _structure(template_id: str, fallback: dict) -> dict:
+        row = db.execute(
+            "SELECT jdf_structure FROM project_templates WHERE id = ?",
+            (template_id,),
+        ).fetchone()
+        if not row or not row[0]:
+            return fallback
+        try:
+            return _json.loads(row[0])
+        except (TypeError, ValueError):
+            return fallback
+
+    research_dossier = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-summary",
+                "title": "Executive Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-sources",
+                "title": "Source Map",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-citations",
+                "title": "Verified Citations",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+    contract_default = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-parties",
+                "title": "Parties & Scope",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-risks",
+                "title": "Risk Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+    compliance_default = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-compliance",
+                "title": "Executive Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-findings",
+                "title": "Findings",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+
+    rows = [
+        (
+            "research-dossier",
+            "Research Dossier",
+            research_dossier,
+            (
+                "Synthesize scattered findings, map each claim to primary sources, "
+                "and verify citations before publishing."
+            ),
+            ["sources.zip"],
+        ),
+        (
+            "compliance-memo",
+            "Compliance Memo",
+            _structure("compliance-memo", compliance_default),
+            (
+                "Audit regulatory filings, policies, and statutory statements "
+                "against binding guidelines."
+            ),
+            ["policy-handbook.pdf"],
+        ),
+        (
+            "contract-review",
+            "Contract Review",
+            _structure("contract-review", contract_default),
+            "Cross-check terms, redlines, and commitments across multi-party agreements.",
+            ["contract.pdf"],
+        ),
+        ("blank", "Blank Workspace", {"body": []}, "", []),
+    ]
+    for tid, name, structure, prompt, sources in rows:
+        db.execute(
+            """
+            INSERT INTO project_templates
+              (id, name, jdf_structure, default_prompt, suggested_sources)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              jdf_structure = excluded.jdf_structure,
+              default_prompt = excluded.default_prompt,
+              suggested_sources = excluded.suggested_sources
+            """,
+            (tid, name, _json.dumps(structure), prompt, _json.dumps(sources)),
+        )
 
 
 def _migrate_v19(db: sqlite3.Connection) -> None:
@@ -673,6 +866,12 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v18(db)
     if current < 19:
         _migrate_v19(db)
+    if current < 20:
+        _migrate_v20(db)
+    if current < 21:
+        _migrate_v21(db)
+    if current < 22:
+        _migrate_v22(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

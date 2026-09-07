@@ -24,6 +24,10 @@ def test_stepper_workflow_renders(page, base_url):
     expect(page.locator('.step-item[data-phase="audit"]')).to_be_visible()
     expect(page.locator('.step-item[data-phase="ship"]')).to_be_visible()
     expect(page.locator("#generate-compile-btn")).to_be_visible()
+    expect(page.locator("#generate-accept-dock-phase")).to_be_attached()
+    page.evaluate(
+        "() => { if (window.AssureStepper) window.AssureStepper.setPhase('ship', 'active'); }"
+    )
     expect(page.locator("#generate-accept-dock-phase")).to_be_visible()
     assert page.locator("#generate-accept-dock").count() == 0
     assert page.locator("#draft-preview-dock-btn").count() == 0
@@ -35,7 +39,7 @@ def test_analytics_embedded_constraints(page, base_url):
     page.evaluate(
         "() => window.AssureNav && window.AssureNav.switchView('analytics', {replaceHash: false, persist: false})"
     )
-    page.wait_for_selector("#view-analytics", state="visible")
+    page.wait_for_selector("#panel-analytics", state="visible")
     expect(page.locator("#assure-app")).to_be_visible()
     chart_card = page.locator(".analytics-chart-card").first
     expect(chart_card).to_be_visible()

@@ -39,7 +39,7 @@ def test_sidebar_uses_lucide_not_emoji(page: Page, base_url: str):
     goto_workbench(page, base_url)
     icons = page.locator(".app-sidebar-icon")
     expect(icons.first).to_be_visible()
-    expect(page.locator('.app-sidebar-icon svg[data-icon="file-text"]')).to_be_visible()
+    expect(page.locator('.app-sidebar-icon svg[data-icon="folder"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon svg[data-icon="pencil"]')).to_be_visible()
     text = page.locator("#app-sidebar").inner_text()
     assert "✏️" not in text
@@ -50,7 +50,8 @@ def test_sidebar_uses_lucide_not_emoji(page: Page, base_url: str):
 def test_stepper_connectors_visible(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
-    expect(page.locator(".step-connector").first).to_be_visible()
+    expect(page.locator(".step-item").first).to_be_visible()
+    assert page.locator(".step-item").count() == 4
     assert page.locator(".step-connector").count() == 3
 
 
@@ -88,12 +89,15 @@ def test_onboarding_tour_appears_on_first_load(page: Page, base_url: str):
         """
         try {
           localStorage.removeItem('assure_onboarding_complete');
+          localStorage.setItem('assure_founder_workbench', '0');
           sessionStorage.setItem('assure_session_compiles', '0');
           window.__ASSURE_WOW_EFFECTS__ = true;
         } catch (e) {}
         """
     )
-    page.goto(f"{base_url.rstrip('/')}/app?lang=en&view=generate", wait_until="domcontentloaded")
+    page.goto(
+        f"{base_url.rstrip('/')}/app?lang=en&view=generate&legacy=1", wait_until="domcontentloaded"
+    )
     page.wait_for_selector("#generate-compile-btn", state="visible")
     page.wait_for_selector(".onboarding-callout", timeout=15_000)
     copy = page.locator(".onboarding-callout-text")
