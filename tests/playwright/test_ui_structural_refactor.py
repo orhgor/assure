@@ -57,16 +57,24 @@ def test_stepper_grid_bounds(workbench_page):
     )
     grid = page.locator(".stepper-timeline")
     expect(grid).to_be_visible()
-    buttons = page.locator(".step-action-btn")
-    assert buttons.count() >= 4
-    first = buttons.nth(0).bounding_box()
-    last = buttons.nth(3).bounding_box()
+    items = page.locator(".step-item")
+    assert items.count() == 4
+    first = items.nth(0).bounding_box()
+    last = items.nth(3).bounding_box()
     assert first and last
     assert last["x"] > first["x"]
-    assert abs(first["y"] - last["y"]) < 40
+    assert abs(first["y"] - last["y"]) < 8
     row = grid.bounding_box()
     assert row
     assert last["x"] + last["width"] <= row["x"] + row["width"] + 2
+    buttons = page.locator(".step-action-btn")
+    assert buttons.count() >= 4
+    bar = page.locator(".lifecycle-action-bar")
+    expect(bar).to_be_visible()
+    last_btn = buttons.nth(3).bounding_box()
+    bar_box = bar.bounding_box()
+    assert last_btn and bar_box
+    assert last_btn["x"] + last_btn["width"] <= bar_box["x"] + bar_box["width"] + 2
 
 
 def test_status_bar_scope(workbench_page):
@@ -96,6 +104,68 @@ def test_accordion_icons_aligned(workbench_page):
     )
     assert "flex" in display
     assert "center" in display
+
+
+def test_header_utilities_vertically_aligned(workbench_page):
+    page = workbench_page
+    page.evaluate("() => window.AssureProjects.openCompiler('default')")
+    expect(page.locator("#document-chrome")).to_be_visible()
+    boxes = page.evaluate(
+        """() => {
+          const header = document.querySelector('.app-header');
+          const role = document.querySelector('.role-switcher');
+          const actions = document.querySelector('.document-chrome');
+          const download = document.querySelector('#export-menu > summary');
+          if (!header || !role || !actions || !download) return null;
+          const h = header.getBoundingClientRect();
+          const r = role.getBoundingClientRect();
+          const d = download.getBoundingClientRect();
+          return {
+            headerHeight: h.height,
+            roleMid: r.top + r.height / 2,
+            downloadMid: d.top + d.height / 2,
+            headerMid: h.top + h.height / 2,
+            wrap: getComputedStyle(actions).flexWrap,
+            headerPos: getComputedStyle(header).position,
+            chromeHidden: actions.hidden,
+          };
+        }"""
+    )
+    assert boxes
+    assert boxes["chromeHidden"] is False
+    assert boxes["headerHeight"] >= 52
+    assert abs(boxes["roleMid"] - boxes["headerMid"]) < 8
+    assert abs(boxes["downloadMid"] - boxes["headerMid"]) < 10
+    assert boxes["wrap"] == "nowrap"
+    assert boxes["headerPos"] in ("sticky", "relative", "static")
+
+
+def test_spine_sits_above_audit_rail(workbench_page):
+    page = workbench_page
+    page.evaluate(
+        "() => window.AssureNav.switchView('generate', {replaceHash:false, persist:false})"
+    )
+    order = page.evaluate(
+        """() => {
+          const spine = document.querySelector('#argument-spine');
+          const audit = document.querySelector('#role-widget-rail');
+          if (!spine || !audit) return null;
+          const pos = spine.compareDocumentPosition(audit);
+          return (pos & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+        }"""
+    )
+    assert order is True
+
+
+def test_jdf_canvas_card_wrap(workbench_page):
+    page = workbench_page
+    wrapped = page.evaluate(
+        """() => {
+          const target = document.querySelector('#jdf-render-target');
+          return !!(target && target.closest('.jdf-card'));
+        }"""
+    )
+    assert wrapped is True
 
 
 def test_analytics_layout(workbench_page):

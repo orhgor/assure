@@ -19,6 +19,20 @@ def test_design_system(page: Page, base_url: str):
         """() => getComputedStyle(document.documentElement).getPropertyValue('--color-trust').trim()"""
     )
     assert trust
+    header = page.evaluate(
+        """() => {
+          const h = document.querySelector('.app-header');
+          const s = getComputedStyle(h);
+          const path = document.querySelector('.app-logo-mark path');
+          return {
+            bg: s.backgroundColor,
+            color: s.color,
+            stroke: path && path.getAttribute('stroke'),
+          };
+        }"""
+    )
+    assert "255, 255, 255" in header["bg"] or header["bg"] in ("#ffffff", "rgb(255, 255, 255)")
+    assert header["stroke"] == "#1A4B8C"
 
 
 def test_stepper_connectors(page: Page, base_url: str):
@@ -26,10 +40,11 @@ def test_stepper_connectors(page: Page, base_url: str):
     goto_workbench(page, base_url)
     expect(page.locator(".step-item").first).to_be_visible()
     assert page.locator(".step-item").count() == 4
-    cols = page.evaluate(
-        """() => getComputedStyle(document.querySelector('.stepper-timeline')).gridTemplateColumns"""
+    display = page.evaluate(
+        """() => getComputedStyle(document.querySelector('.stepper-timeline')).display"""
     )
-    assert len(str(cols).split()) >= 4
+    assert display == "flex"
+    assert page.locator(".step-connector").count() == 3
 
 
 def test_trust_hierarchy(page: Page, base_url: str):
@@ -63,7 +78,6 @@ def test_lucide_sidebar_mapping(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
     expect(page.locator('.app-sidebar-icon [data-lucide="pencil"]')).to_be_visible()
-    expect(page.locator('.app-sidebar-icon [data-lucide="file-text"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="folder"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon [data-lucide="bar-chart-2"]')).to_be_visible()
 

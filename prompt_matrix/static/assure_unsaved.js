@@ -3,12 +3,14 @@
 
   var DRAFT_KEY = "assure_draft_prompt";
   var DEBOUNCE_MS = 1000;
+  var AUTOSAVE_MS = 10000;
 
   var _inputDirty = false;
   var _documentDirty = false;
   var _isGenerating = false;
   var _draftTimer = null;
   var _beforeUnloadBound = false;
+  var _restoreNotified = false;
 
   function t(key, fallback, vars) {
     if (typeof global.__assureTf === "function") {
@@ -61,23 +63,28 @@
     };
   }
 
+  function persistDraft() {
+    try {
+      var fields = readDraftFields();
+      if (fields.compile || fields.refine) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
+      }
+      if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveSourceDebounced === "function") {
+        global.AssureProjectFileManager.saveSourceDebounced();
+      }
+    } catch (_) {}
+  }
+
   function writeDraftDebounced() {
     if (_draftTimer) clearTimeout(_draftTimer);
     _draftTimer = global.setTimeout(function () {
       _draftTimer = null;
-      try {
-        var fields = readDraftFields();
-        if (fields.compile || fields.refine) {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(fields));
-        }
-        if (global.AssureProjectFileManager && typeof global.AssureProjectFileManager.saveSourceDebounced === "function") {
-          global.AssureProjectFileManager.saveSourceDebounced();
-        }
-      } catch (_) {}
+      persistDraft();
     }, DEBOUNCE_MS);
   }
 
   function restoreDraftIfEmpty() {
+    var restored = false;
     try {
       var raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
@@ -86,11 +93,22 @@
       var refineEl = $("inquiry-input");
       if (compileEl && !compileEl.value.trim() && draft.compile) {
         compileEl.value = draft.compile;
+        restored = true;
       }
       if (refineEl && !refineEl.value.trim() && draft.refine) {
         refineEl.value = draft.refine;
+        restored = true;
       }
-    } catch (_) {}
+    } catch (_) {
+      return;
+    }
+    if (restored && !_restoreNotified && global.AssureToast && typeof global.AssureToast.show === "function") {
+      _restoreNotified = true;
+      global.AssureToast.show(
+        t("unsaved.draft_restored", "Restored an unsaved draft."),
+        "info"
+      );
+    }
   }
 
   function clearDraftStorage() {
@@ -168,11 +186,13 @@
     },
 
     clearDraft: clearDraftStorage,
+    restoreDraftIfEmpty: restoreDraftIfEmpty,
 
     init: function () {
       bindBeforeUnload();
       bindInputs();
       restoreDraftIfEmpty();
+      global.setInterval(persistDraft, AUTOSAVE_MS);
       recomputeGlobals();
     },
   };

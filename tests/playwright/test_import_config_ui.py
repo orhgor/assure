@@ -15,6 +15,10 @@ def test_import_config_button_visible(page, base_url):
 
     prime_page(page)
     page.goto(f"{base_url.rstrip('/')}/app", wait_until="domcontentloaded")
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    from tests.playwright.helpers import enter_compiler
+
+    enter_compiler(page)
     page.locator("#command-deck-more summary").click()
     page.wait_for_selector("#jdf-import-config-btn", state="visible")
     assert page.locator("#jdf-import-config-input").count() == 1

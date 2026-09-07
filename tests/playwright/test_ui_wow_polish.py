@@ -39,7 +39,7 @@ def test_sidebar_uses_lucide_not_emoji(page: Page, base_url: str):
     goto_workbench(page, base_url)
     icons = page.locator(".app-sidebar-icon")
     expect(icons.first).to_be_visible()
-    expect(page.locator('.app-sidebar-icon svg[data-icon="file-text"]')).to_be_visible()
+    expect(page.locator('.app-sidebar-icon svg[data-icon="folder"]')).to_be_visible()
     expect(page.locator('.app-sidebar-icon svg[data-icon="pencil"]')).to_be_visible()
     text = page.locator("#app-sidebar").inner_text()
     assert "✏️" not in text
