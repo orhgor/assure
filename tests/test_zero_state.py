@@ -24,3 +24,20 @@ def test_zero_state_js_does_not_rewrite_canvas_html():
     assert "innerHTML" not in JS
     assert 'getElementById("jdf-render-target")' in JS
     assert "classList.toggle" in JS
+
+
+def test_zero_state_dashboard_has_real_templates():
+    assert 'data-zero-template="compliance-memo"' in HTML
+    assert 'data-zero-template="contract-review"' in HTML
+    assert 'data-zero-template="blank"' in HTML
+    assert "Clinical Documentation" not in HTML
+    assert "CPT Coding" not in HTML
+
+
+def test_zero_state_placeholders_are_pointer_none():
+    css = (ROOT / "prompt_matrix" / "static" / "style.css").read_text(encoding="utf-8")
+    assert "#jdf-render-target.is-empty::before" in css
+    ghost = css.split("#jdf-render-target.is-empty::before")[1].split("}")[0]
+    assert "pointer-events: none" in ghost
+    dash = css.split(".zero-state-dashboard {")[1].split("}")[0]
+    assert "pointer-events: none" in dash

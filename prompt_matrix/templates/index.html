@@ -617,12 +617,13 @@
             <div id="canvas-analytics-view" class="canvas-analytics-view" hidden></div>
             <div class="jdf-card canvas-stage" id="canvas-stage">
               <div id="zero-state-dashboard" class="zero-state-dashboard" hidden>
-                <ol class="zero-state-steps">
-                  <li data-i18n="canvas.zero.step1">{{ gettext('Paste or describe the document in Draft.') }}</li>
-                  <li data-i18n="canvas.zero.step2">{{ gettext('Click Assemble to extract claims.') }}</li>
-                  <li data-i18n="canvas.zero.step3">{{ gettext('Run Full Audit to verify locked numbers.') }}</li>
-                </ol>
-                <p class="zero-state-hint" data-i18n="canvas.zero.hint">{{ gettext('Type or paste to begin…') }}</p>
+                <h3 class="zero-state-title" data-i18n="canvas.zero.title">{{ gettext('Initialize a new workspace') }}</h3>
+                <p class="zero-state-lead" data-i18n="canvas.zero.lead">{{ gettext('Choose a starting point. Assemble extracts claims; Full Audit checks locked numbers.') }}</p>
+                <div class="zero-state-grid">
+                  <button type="button" class="zero-state-card" data-zero-template="compliance-memo" data-i18n="canvas.zero.card.audit">{{ gettext('Compliance memo') }}</button>
+                  <button type="button" class="zero-state-card" data-zero-template="contract-review" data-i18n="canvas.zero.card.verify">{{ gettext('Contract review') }}</button>
+                  <button type="button" class="zero-state-card" data-zero-template="blank" data-i18n="canvas.zero.card.blank">{{ gettext('+ Blank workspace') }}</button>
+                </div>
               </div>
               <div id="jdf-render-target" class="jdf-tree" role="tree"></div>
             </div>

@@ -100,10 +100,10 @@
       }
     },
 
-    open: function () {
+    open: function (templateId) {
       this.step = 1;
       this.pendingFiles = [];
-      this.selectedTemplateId = "blank";
+      this.selectedTemplateId = templateId || "blank";
       var modal = $("new-project-wizard");
       if (!modal) return;
       modal.hidden = false;
