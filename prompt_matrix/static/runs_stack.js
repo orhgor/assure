@@ -179,6 +179,18 @@
       });
   }
 
+  function setPipelineStatus(message) {
+    var el = $("runs-stack-pipeline-status");
+    if (!el) return;
+    if (!message) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = message;
+  }
+
   function prepend(run) {
     runs.unshift(run);
     render();
@@ -266,6 +278,12 @@
     load();
   }
 
-  global.AssureRunsStack = { load: load, prepend: prepend, render: render, init: init };
+  global.AssureRunsStack = {
+    load: load,
+    prepend: prepend,
+    render: render,
+    init: init,
+    setPipelineStatus: setPipelineStatus,
+  };
   document.addEventListener("DOMContentLoaded", init);
 })(window);
