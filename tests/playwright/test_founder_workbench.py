@@ -8,7 +8,7 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.playwright.helpers import goto_founder_workbench
+from tests.playwright.helpers import app_url, goto_founder_workbench
 
 pytestmark = pytest.mark.playwright
 
@@ -132,6 +132,49 @@ def _dismiss_overlays(page: Page) -> None:
           }
         }"""
     )
+
+
+DRAFTS_GET_RE = re.compile(r"/api/drafts(\?.*)?$")
+
+
+def test_default_founder_shell(page: Page, base_url: str):
+    """Founder workbench is the default /app experience."""
+
+    def handle_drafts(route):
+        if route.request.method == "GET":
+            route.fulfill(
+                content_type="application/json",
+                body=json.dumps({"ok": True, "draft": None}),
+            )
+            return
+        route.continue_()
+
+    page.route(DRAFTS_GET_RE, handle_drafts)
+    page.add_init_script(
+        """
+        try {
+          localStorage.setItem('assure_onboarding_complete', '1');
+          localStorage.removeItem('assure_founder_workbench');
+        } catch (e) {}
+        """
+    )
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
+    page.wait_for_function(
+        "() => document.body.classList.contains('founder-workbench') && !document.body.classList.contains('legacy-workbench')",
+        timeout=10_000,
+    )
+    expect(page.locator("#panel-runs")).to_be_visible()
+    expect(page.locator("#founder-draft-shell")).to_be_visible()
+    page.wait_for_function(
+        "() => { const p = document.getElementById('founder-draft-placeholder'); return p && !p.hidden; }",
+        timeout=15_000,
+    )
+    expect(page.locator("#founder-draft-placeholder")).to_contain_text("⌘K")
+    expect(page.locator("#projects-dashboard")).to_be_hidden()
+    expect(page.locator("#canvas-onboarding-state")).to_be_hidden()
+    expect(page.locator("#panel-write")).to_be_hidden()
+    expect(page.locator(".founder-sidebar-legacy").first).to_be_hidden()
 
 
 def test_command_bar(page: Page, base_url: str):

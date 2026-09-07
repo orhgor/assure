@@ -15,28 +15,9 @@
   function emptyDoc() {
     return {
       document_id: "draft-" + workspaceId,
-      meta: { project_id: workspaceId, source: "founder_draft" },
+      meta: { project_id: workspaceId, source: "founder_draft", founder_blank: true },
       truth_ledger: {},
-      body: [
-        {
-          type: "section",
-          id: "sec-draft",
-          title: "Draft",
-          children: [
-            {
-              type: "paragraph",
-              id: "para-draft-1",
-              content: "",
-              entities_referenced: [],
-              provenance: [],
-              meta: { lock_pills: [] },
-              annotations: { redhat: [], z3: [] },
-            },
-          ],
-          meta: {},
-          annotations: { redhat: [], z3: [] },
-        },
-      ],
+      body: [],
     };
   }
 
@@ -62,18 +43,59 @@
 
   function mountEditor(tree) {
     var root = $("founder-draft-editor");
-    if (!root || !global.AssureTiptapEditor) return;
+    var editorApi = global.AssureTiptapEditor;
+    if (!root || !editorApi) return;
     draftTree = tree || emptyDoc();
-    global.AssureTiptapEditor.mount({
+    var isBlank = !!(draftTree.meta && draftTree.meta.founder_blank);
+    editorApi.mount({
       rootEl: root,
       tree: draftTree,
       canvas: null,
       editable: true,
       founderMode: true,
       onUpdate: function () {
+        updatePlaceholder();
         scheduleSave();
       },
     });
+    var ed = editorApi.getEditor && editorApi.getEditor();
+    if (ed && isBlank) {
+      try {
+        ed.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] }, false);
+      } catch (_) {}
+      draftTree = emptyDoc();
+      delete draftTree.meta.founder_blank;
+    }
+    updatePlaceholder();
+    window.setTimeout(updatePlaceholder, 100);
+  }
+
+  function draftHasContent() {
+    var editorApi = global.AssureTiptapEditor;
+    var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
+    if (ed) {
+      try {
+        if (typeof ed.isEmpty === "boolean") return !ed.isEmpty;
+        return ed.getText().trim().length > 0;
+      } catch (_) {
+        return false;
+      }
+    }
+    var root = $("founder-draft-editor");
+    if (root && root.textContent && root.textContent.trim().length > 0) return true;
+    return false;
+  }
+
+  function updatePlaceholder() {
+    var placeholder = $("founder-draft-placeholder");
+    if (!placeholder) return;
+    var editorApi = global.AssureTiptapEditor;
+    var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
+    if (!ed) {
+      placeholder.hidden = false;
+      return;
+    }
+    placeholder.hidden = draftHasContent();
   }
 
   function loadDraft() {
@@ -110,6 +132,7 @@
     if (editorApi && editorApi.insertLockPills && editorApi.getEditor && editorApi.getEditor()) {
       if (editorApi.insertLockPills(text, locks)) {
         scheduleSave();
+        updatePlaceholder();
         return;
       }
     }
@@ -121,6 +144,7 @@
       });
       editorApi.insertAtCursor(fallback);
       scheduleSave();
+      updatePlaceholder();
       return;
     }
     var root = $("founder-draft-editor");
@@ -153,6 +177,7 @@
       });
       if (!locks.length && text) root.appendChild(document.createTextNode(text));
       scheduleSave();
+      updatePlaceholder();
     }
   }
 

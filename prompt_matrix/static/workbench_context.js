@@ -75,6 +75,13 @@
     },
 
     render: function () {
+      if (
+        global.AssureFounderShell &&
+        typeof global.AssureFounderShell.isFounderShell === "function" &&
+        global.AssureFounderShell.isFounderShell()
+      ) {
+        return;
+      }
       var tab = this.activeTab || "draft";
       var layout = $("assure-app");
       if (layout) layout.setAttribute("data-active-tab", tab);

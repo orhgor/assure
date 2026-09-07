@@ -29,8 +29,25 @@
     {% set pane = initial_pane|default('compose') %}
     <script>
       try {
-        if (localStorage.getItem("assure_founder_workbench") !== "0") {
+        var params = new URLSearchParams(location.search);
+        var hash = (location.hash || "").replace(/^#/, "");
+        var hashView = null;
+        if (hash.indexOf("view=") === 0 || hash.indexOf("tool=") === 0) {
+          try {
+            var hashParams = new URLSearchParams(hash);
+            hashView = hashParams.get("view") || hashParams.get("tool");
+          } catch (e2) {}
+        }
+        var legacy =
+          params.get("legacy") === "1" ||
+          localStorage.getItem("assure_founder_workbench") === "0" ||
+          params.get("view") === "projects" ||
+          params.get("tool") === "projects" ||
+          hashView === "projects";
+        if (!legacy) {
           document.body.classList.add("founder-workbench");
+        } else {
+          document.body.classList.add("legacy-workbench");
         }
       } catch (e) {
         document.body.classList.add("founder-workbench");
@@ -144,11 +161,11 @@
         <div class="app-body">
           <div class="sidebar-backdrop" id="sidebar-backdrop" hidden aria-hidden="true"></div>
           <nav class="app-sidebar" id="app-sidebar" aria-label="{{ gettext('Tools') }}" data-i18n-aria="app.tool.sidebar">
-            <button type="button" class="app-sidebar-link tooltip-trigger is-active" data-tool="projects" aria-current="page" data-tooltip="{{ gettext('Your workspaces') }}" data-i18n-tooltip="tooltip.nav.projects">
+            <button type="button" class="app-sidebar-link tooltip-trigger founder-sidebar-legacy" data-tool="projects" aria-current="page" data-tooltip="{{ gettext('Your workspaces') }}" data-i18n-tooltip="tooltip.nav.projects">
               <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="pencil" data-lucide="pencil"><use href="#icon-pencil"/></svg></span>
               <span class="app-sidebar-label" data-i18n="nav.projects">{{ gettext('Workspaces') }}</span>
             </button>
-            <button type="button" class="app-sidebar-link tooltip-trigger" data-tool="library" data-tooltip="{{ gettext('Source files that ground your document') }}" data-i18n-tooltip="tooltip.nav.library">
+            <button type="button" class="app-sidebar-link tooltip-trigger founder-sidebar-legacy" data-tool="library" data-tooltip="{{ gettext('Source files that ground your document') }}" data-i18n-tooltip="tooltip.nav.library">
               <span class="app-sidebar-icon" aria-hidden="true"><svg class="lucide-icon" data-icon="folder" data-lucide="folder"><use href="#icon-folder"/></svg></span>
               <span class="app-sidebar-label" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</span>
               <span class="app-sidebar-badge" id="nav-sources-badge" hidden aria-hidden="true"></span>
@@ -389,7 +406,11 @@
               </div>
             </div>
 
-            <div id="panel-sources" class="assure-view context-panel" data-view="vault" hidden>
+            <div id="panel-sources" class="assure-view context-panel sources-drawer-panel" data-view="vault" hidden aria-hidden="true">
+              <div class="sources-drawer-header">
+                <h3 class="jdf-pane-title" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</h3>
+                <button type="button" class="btn btn-sm btn-ghost" id="sources-drawer-close" aria-label="{{ gettext('Close sources') }}" data-i18n-aria="founder.sources.close">×</button>
+              </div>
               <div id="substrate-vault" class="substrate-vault substrate-vault-flat">
                 <div class="substrate-vault-body">
                   <input type="search" id="substrate-vault-search" class="form-control substrate-vault-search" placeholder="{{ gettext('Search your sources…') }}" data-i18n-placeholder="substrate.vault.search_placeholder" aria-label="{{ gettext('Search your sources…') }}" data-i18n-aria="substrate.vault.search_placeholder">
@@ -683,7 +704,14 @@
             <div id="canvas-analytics-view" class="canvas-analytics-view" hidden></div>
             <div class="jdf-card canvas-stage" id="canvas-stage">
               <div id="founder-draft-shell" class="founder-draft-shell">
-                <h3 class="jdf-pane-title founder-draft-title">Active Draft</h3>
+                <div class="founder-draft-header">
+                  <h3 class="jdf-pane-title founder-draft-title" data-i18n="founder.draft.title">{{ gettext('Active Draft') }}</h3>
+                  <div class="founder-draft-actions">
+                    <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
+                    <button type="button" class="btn btn-ghost btn-sm founder-show-workspaces-link" id="founder-show-workspaces" data-i18n="founder.show_workspaces">{{ gettext('Show Workspaces') }}</button>
+                  </div>
+                </div>
+                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('Write your draft here, or hit ⌘K to start.') }}</p>
                 <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
               </div>
               <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
@@ -751,6 +779,7 @@
       </div>
 
       {% include 'modals/command_bar.html' %}
+      <div id="sources-drawer-backdrop" class="sources-drawer-backdrop" hidden aria-hidden="true"></div>
       <aside id="evidence-inspector-drawer" class="evidence-inspector-drawer" hidden aria-hidden="true">
         <div class="evidence-inspector-header">
           <h2>Evidence Inspector</h2>
@@ -1250,6 +1279,7 @@
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_context.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_shell.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='toast.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='new_project_wizard.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='projects.js') }}?v={{ js_version|default('assure-21') }}"></script>

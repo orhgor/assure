@@ -9063,3 +9063,87 @@ body:not(.founder-workbench) .founder-only-export {
 .evidence-source-doc {
   white-space: normal;
 }
+
+/* Founder workbench default shell */
+body.founder-workbench:not(.legacy-workbench) #panel-write,
+body.founder-workbench:not(.legacy-workbench) #panel-draft,
+body.founder-workbench:not(.legacy-workbench) #view-surgical,
+body.founder-workbench:not(.legacy-workbench) #canvas-onboarding-state,
+body.founder-workbench:not(.legacy-workbench) .founder-sidebar-legacy {
+  display: none !important;
+}
+
+body.founder-workbench:not(.legacy-workbench) #panel-sources.sources-drawer-panel {
+  display: none !important;
+}
+
+body.founder-workbench.sources-drawer-open #panel-sources.sources-drawer-panel {
+  display: flex !important;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, 92vw);
+  height: 100vh;
+  z-index: 11500;
+  background: var(--surface-raised, #fff);
+  border-left: 1px solid var(--border-subtle, #e5e7eb);
+  box-shadow: -12px 0 32px rgba(15, 23, 42, 0.12);
+  padding: 16px;
+  overflow: hidden;
+}
+
+body.legacy-workbench #panel-runs,
+body.legacy-workbench .founder-draft-shell,
+body.legacy-workbench .founder-show-workspaces-link {
+  display: none !important;
+}
+
+.founder-draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.founder-draft-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.founder-draft-placeholder {
+  margin: 0 0 8px;
+}
+
+.founder-draft-editor.is-dragover {
+  outline: 2px dashed #2563eb;
+  outline-offset: 2px;
+}
+
+.sources-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 11400;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.sources-drawer-backdrop[hidden] {
+  display: none !important;
+}
+
+.sources-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+body.founder-workbench.sources-drawer-open #panel-sources .substrate-vault-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
