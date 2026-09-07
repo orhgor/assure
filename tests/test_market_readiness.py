@@ -80,7 +80,7 @@ class ComposeMarkupTests(unittest.TestCase):
     def test_workbench_shell_in_index(self):
         html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="workbench-root"', html)
-        self.assertIn('id="view-generate"', html)
+        self.assertIn('id="panel-draft"', html)
         self.assertIn('id="generate-compile-btn"', html)
         self.assertIn('data-tool="generate"', html)
         self.assertIn("data-tooltip=", html)
@@ -314,7 +314,7 @@ class ComposePageTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.get_data(as_text=True)
         self.assertIn("jdf-workbench", body)
-        self.assertIn("view-generate", body)
+        self.assertIn("panel-draft", body)
         self.assertIn("generate-compile-btn", body)
         self.assertIn("Prompt Library", body)
         self.assertIn("Refine this answer", body)

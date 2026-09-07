@@ -345,7 +345,7 @@
 
           if (key === "enter") {
             // Compile in the compile view, Refine in the refine view.
-            var handled = viewIsActive("view-generate")
+            var handled = viewIsActive("panel-draft") || viewIsActive("view-generate")
               ? Shortcuts.compile()
               : Shortcuts.refine();
             if (handled) {

@@ -35,7 +35,7 @@ def test_analytics_embedded_constraints(page, base_url):
     page.evaluate(
         "() => window.AssureNav && window.AssureNav.switchView('analytics', {replaceHash: false, persist: false})"
     )
-    page.wait_for_selector("#view-analytics", state="visible")
+    page.wait_for_selector("#panel-analytics", state="visible")
     expect(page.locator("#assure-app")).to_be_visible()
     chart_card = page.locator(".analytics-chart-card").first
     expect(chart_card).to_be_visible()

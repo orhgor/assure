@@ -28,7 +28,7 @@ def test_draft_view_has_compile_ui(page: Page, base_url: str):
     )
     page.wait_for_selector("#generate-compile-btn", state="visible")
 
-    expect(page.locator("#view-generate")).to_be_visible()
+    expect(page.locator("#panel-draft")).to_be_visible()
     intent = page.locator("#generate-intent")
     expect(intent).to_be_visible()
     assemble = page.locator("#generate-compile-btn")
@@ -58,7 +58,7 @@ def test_draft_view_has_compile_ui(page: Page, base_url: str):
 def test_draft_view_compile_ui_after_workbench_prime(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
-    expect(page.locator("#view-generate")).to_be_visible()
+    expect(page.locator("#panel-draft")).to_be_visible()
     expect(page.locator("#generate-intent")).to_be_visible()
     expect(page.locator("#generate-compile-btn")).to_be_visible()
     expect(page.locator(".stepper-timeline")).to_be_visible()

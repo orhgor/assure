@@ -10,7 +10,7 @@ import uuid
 from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
 try:
     from ..cost_governance import (
@@ -565,7 +565,22 @@ def run_draft_pipeline(
     verified_doc = doc_dict
     if z3_results.get("violations"):
         verified_doc = apply_z3_violations_to_tree(verified_doc, z3_results["violations"])
-    parse_document(verified_doc)
+    try:
+        parse_document(verified_doc)
+    except (ValidationError, ValueError, TypeError) as exc:
+        msg = str(exc)
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=msg,
+        )
+        yield _typed_sse("error", {"error": msg, "ok": False})
+        yield _typed_sse("complete", {"ok": False, "error": msg, "request_id": rid})
+        yield _done_sse()
+        return
 
     verified_payload = build_audit_summary(
         z3_results=z3_results,

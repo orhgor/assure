@@ -19,7 +19,7 @@ def _open_projects(page) -> None:
     page.evaluate(
         "() => window.AssureNav && window.AssureNav.switchView('projects', {replaceHash: false, persist: false})"
     )
-    page.wait_for_selector("#view-projects", state="visible")
+    page.wait_for_selector("#panel-write", state="visible")
 
 
 def _wait_app_bootstrap(page) -> None:

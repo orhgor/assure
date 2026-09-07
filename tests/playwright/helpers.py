@@ -283,7 +283,7 @@ def click_workbench(page, selector: str) -> None:
     loc = page.locator(selector)
     page.evaluate(
         """() => {
-          const panel = document.getElementById('view-generate');
+          const panel = document.getElementById('panel-draft') || document.getElementById('view-generate');
           if (panel) panel.scrollIntoView({ block: 'nearest' });
         }"""
     )

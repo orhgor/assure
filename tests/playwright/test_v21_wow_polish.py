@@ -24,9 +24,12 @@ def test_design_system(page: Page, base_url: str):
 def test_stepper_connectors(page: Page, base_url: str):
     prime_page(page)
     goto_workbench(page, base_url)
-    connector = page.locator(".step-item:not(:last-child)").first
-    expect(connector).to_be_visible()
-    expect(page.locator(".step-connector").first).to_be_visible()
+    expect(page.locator(".step-item").first).to_be_visible()
+    assert page.locator(".step-item").count() == 4
+    cols = page.evaluate(
+        """() => getComputedStyle(document.querySelector('.stepper-timeline')).gridTemplateColumns"""
+    )
+    assert len(str(cols).split()) >= 4
 
 
 def test_trust_hierarchy(page: Page, base_url: str):
