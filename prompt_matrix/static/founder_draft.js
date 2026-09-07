@@ -187,7 +187,10 @@
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
       loadDraft();
     });
-    if (document.body.classList.contains("founder-workbench")) {
+    if (
+      (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||
+      document.body.classList.contains("founder-workbench")
+    ) {
       loadDraft();
     }
   }

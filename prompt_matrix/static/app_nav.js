@@ -100,15 +100,17 @@
   }
 
   function isFounderShell() {
-    if (document.body.classList.contains("legacy-workbench")) return false;
-    if (!document.body.classList.contains("founder-workbench")) return false;
     if (
-      global.AssureFounderShell &&
-      typeof global.AssureFounderShell.isFounderShell === "function"
+      global.AssureFounderMode &&
+      typeof global.AssureFounderMode.isEnabled === "function"
     ) {
-      return global.AssureFounderShell.isFounderShell();
+      return global.AssureFounderMode.isEnabled();
     }
-    return true;
+    try {
+      return localStorage.getItem("assure_founder_workbench") !== "0";
+    } catch (_) {
+      return true;
+    }
   }
 
   function defaultViewForShell() {

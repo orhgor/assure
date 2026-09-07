@@ -27,38 +27,7 @@
 {% endblock %}
 {% block body %}
     {% set pane = initial_pane|default('compose') %}
-    <script>
-      // Founder default: on unless localStorage is explicitly "0" (legacy Playwright uses "0").
-      // First visit: persist "1" without reload. Never overwrite "0" or call location.reload().
-      try {
-        var storedFlag = localStorage.getItem("assure_founder_workbench");
-        if (storedFlag === null) {
-          localStorage.setItem("assure_founder_workbench", "1");
-        }
-        var params = new URLSearchParams(location.search);
-        var hash = (location.hash || "").replace(/^#/, "");
-        var hashView = null;
-        if (hash.indexOf("view=") === 0 || hash.indexOf("tool=") === 0) {
-          try {
-            var hashParams = new URLSearchParams(hash);
-            hashView = hashParams.get("view") || hashParams.get("tool");
-          } catch (e2) {}
-        }
-        var legacy =
-          params.get("legacy") === "1" ||
-          localStorage.getItem("assure_founder_workbench") === "0" ||
-          params.get("view") === "projects" ||
-          params.get("tool") === "projects" ||
-          hashView === "projects";
-        if (!legacy) {
-          document.body.classList.add("founder-workbench");
-        } else {
-          document.body.classList.add("legacy-workbench");
-        }
-      } catch (e) {
-        document.body.classList.add("founder-workbench");
-      }
-    </script>
+    <script src="{{ url_for('static', filename='founder_mode.js') }}?v={{ js_version|default('assure-21') }}"></script>
     <div class="visually-hidden" aria-hidden="true">
       <button type="button" class="tab" id="tab-compose" tabindex="-1" data-pane="compose" aria-selected="{{ 'true' if pane == 'compose' else 'false' }}"></button>
       <button type="button" class="tab" id="tab-history" tabindex="-1" data-pane="history" aria-selected="{{ 'true' if pane == 'history' else 'false' }}"></button>

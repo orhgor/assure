@@ -30,11 +30,17 @@
   }
 
   function isLegacyWorkbench() {
+    if (
+      global.AssureFounderMode &&
+      typeof global.AssureFounderMode.isEnabled === "function"
+    ) {
+      return !global.AssureFounderMode.isEnabled();
+    }
     return document.body.classList.contains("legacy-workbench");
   }
 
   function isFounderShell() {
-    return document.body.classList.contains("founder-workbench") && !isLegacyWorkbench();
+    return !isLegacyWorkbench() && document.body.classList.contains("founder-workbench");
   }
 
   function looksLikeSlug(value) {
@@ -237,8 +243,12 @@
     try {
       localStorage.setItem("assure_founder_workbench", "0");
     } catch (_) {}
-    document.body.classList.remove("founder-workbench");
-    document.body.classList.add("legacy-workbench");
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.applyBodyClasses === "function") {
+      global.AssureFounderMode.applyBodyClasses();
+    } else {
+      document.body.classList.remove("founder-workbench");
+      document.body.classList.add("legacy-workbench");
+    }
     document.body.classList.remove("sources-drawer-open");
     restoreLegacyDom();
     setSidebarFounderMode(false);

@@ -76,9 +76,10 @@
 
     render: function () {
       if (
-        global.AssureFounderShell &&
-        typeof global.AssureFounderShell.isFounderShell === "function" &&
-        global.AssureFounderShell.isFounderShell()
+        (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||
+        (global.AssureFounderShell &&
+          typeof global.AssureFounderShell.isFounderShell === "function" &&
+          global.AssureFounderShell.isFounderShell())
       ) {
         return;
       }

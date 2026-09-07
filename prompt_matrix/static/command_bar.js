@@ -151,7 +151,11 @@
     });
     document.addEventListener("keydown", function (e) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey) {
-        if (document.body.classList.contains("founder-workbench")) {
+        var founderOn =
+          global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"
+            ? global.AssureFounderMode.isEnabled()
+            : document.body.classList.contains("founder-workbench");
+        if (founderOn) {
           e.preventDefault();
           e.stopPropagation();
           if (overlay && overlay.hidden) open();
