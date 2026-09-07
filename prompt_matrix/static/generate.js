@@ -466,6 +466,9 @@
         dockBtn.disabled = true;
         dockBtn.hidden = false;
       });
+      if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+        global.AssureStepper.setPhase("write", "active");
+      }
     },
 
     startDraftStream: function (isRetry, opts) {
@@ -619,6 +622,10 @@
             });
           }
           self.setSummaryVisible(true);
+          document.dispatchEvent(new CustomEvent("assure:compile:complete"));
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("verify", "active");
+          }
           var gateBanner = $("preflight-gate-banner");
           if (gateBanner) gateBanner.hidden = false;
           self.setGateLoading(
@@ -662,6 +669,9 @@
             verifiedDockBtn.disabled = false;
             verifiedDockBtn.hidden = false;
           });
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("ship", "active");
+          }
           document.dispatchEvent(new CustomEvent("assure:compile:verified"));
           var z3s = ((data.z3_results || {}).z3_status || "UNKNOWN");
           var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";

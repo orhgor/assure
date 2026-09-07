@@ -34,7 +34,8 @@ def test_draft_view_has_compile_ui(page: Page, base_url: str):
     assemble = page.locator("#generate-compile-btn")
     expect(assemble).to_be_visible()
     expect(page.locator(".stepper-timeline")).to_be_visible()
-    expect(page.locator("#generate-full-audit-btn")).to_be_visible()
+    expect(page.locator("#generate-full-audit-btn")).to_be_attached()
+    expect(page.locator("#generate-full-audit-btn")).to_be_hidden()
 
     intent_box = intent.bounding_box()
     assemble_box = assemble.bounding_box()

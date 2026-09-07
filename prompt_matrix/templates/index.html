@@ -184,7 +184,7 @@
                 <button type="button" class="projects-status-tab is-active" role="tab" data-filter="all" data-i18n="projects.filter.all">{{ gettext('All') }}</button>
                 <button type="button" class="projects-status-tab" role="tab" data-filter="drafting" data-i18n="projects.filter.drafting">{{ gettext('Drafting') }}</button>
                 <button type="button" class="projects-status-tab" role="tab" data-filter="audited" data-i18n="projects.filter.audited">{{ gettext('Audited') }}</button>
-                <button type="button" class="projects-status-tab" role="tab" data-filter="archived" data-i18n="projects.filter.archived">{{ gettext('Archived') }}</button>
+                <button type="button" class="projects-status-tab" role="tab" data-filter="archived" data-i18n="projects.filter.archived" title="{{ gettext('Archived workspaces are stored in read-only mode and can be restored at any time.') }}" data-i18n-title="projects.filter.archived_tooltip">{{ gettext('Archived') }}</button>
               </div>
               <div id="projects-new-form" class="projects-new-form" hidden>
                 <input type="text" id="projects-new-input" class="form-control" placeholder="{{ gettext('Project name…') }}" data-i18n-placeholder="projects.name_placeholder" maxlength="80">
@@ -197,26 +197,40 @@
             </div>
 
             <div id="panel-draft" class="assure-view context-panel" data-view="generate" hidden>
-              <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('e.g. Q3 investor update with revenue, growth, and runway metrics…') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('What should this document cover?') }}"></textarea>
-              <div class="compile-toolbar workbench-advanced-only">
-                <label class="compile-model-label tooltip-trigger" for="generate-model-select" data-tooltip="{{ gettext('Which model writes the first draft') }}" data-i18n-tooltip="tooltip.model">
-                  <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
-                  <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
-                    <option value="gemini">Gemini</option>
-                    <option value="claude">Claude</option>
-                    <option value="deepseek">DeepSeek</option>
-                  </select>
-                </label>
-                <label class="check compile-lock-toggle">
-                  <input type="checkbox" id="generate-lock-toggle" checked>
-                  <span data-i18n="generate.lock_toggle">{{ gettext('Lock numbers for this compile') }}</span>
-                </label>
+              <div class="workbench-stage-write-only workbench-draft-compose">
+                <div class="draft-compose-header">
+                  <h3 class="jdf-pane-title" data-i18n="generate.draft_header">{{ gettext('Draft or Import Document') }}</h3>
+                  <p class="hint draft-compose-lead" data-i18n="generate.draft_subtext">{{ gettext('Paste draft text, import a document, or define your objective. Assemble extracts verifiable claims against linked sources.') }}</p>
+                </div>
+                <textarea id="generate-intent" class="form-control compose-task-input prompt-input draft-textarea auto-resize" rows="6" placeholder="{{ gettext('Paste draft text, import a document, or define your objective. Assemble extracts verifiable claims against linked sources.') }}" data-i18n-placeholder="compile.placeholder" data-i18n-aria="generate.intent_label" aria-label="{{ gettext('Draft or import document') }}"></textarea>
+                <p id="generate-intent-counter" class="draft-char-counter hint" aria-live="polite">0 words · 0 characters · Markdown & plain text supported</p>
+                <div class="compile-toolbar workbench-advanced-params workbench-advanced-only">
+                  <label class="compile-model-label tooltip-trigger" for="generate-model-select" data-tooltip="{{ gettext('Which model writes the first draft') }}" data-i18n-tooltip="tooltip.model">
+                    <span data-i18n="generate.model_label">{{ gettext('Model') }}</span>
+                    <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
+                      <option value="gemini">Gemini</option>
+                      <option value="claude">Claude</option>
+                      <option value="deepseek">DeepSeek</option>
+                    </select>
+                  </label>
+                  <label class="check compile-lock-toggle">
+                    <input type="checkbox" id="generate-lock-toggle" checked>
+                    <span data-i18n="generate.lock_threshold">{{ gettext('Lock Threshold') }}</span>
+                  </label>
+                  <label class="compile-strictness-label" for="generate-strictness-select">
+                    <span data-i18n="generate.strictness_label">{{ gettext('Strictness Mode') }}</span>
+                    <select id="generate-strictness-select" class="form-control select-control" aria-label="{{ gettext('Strictness Mode') }}" data-i18n-aria="generate.strictness_label">
+                      <option value="balanced" data-i18n="generate.strictness_balanced">{{ gettext('Balanced') }}</option>
+                      <option value="strict" data-i18n="generate.strictness_strict">{{ gettext('Strict') }}</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="workbench-stepper-container" role="region" aria-label="{{ gettext('Document Lifecycle') }}" data-i18n-aria="stepper.title">
                 <div class="stepper-header">
                   <span class="stepper-title eyebrow" data-i18n="stepper.title">{{ gettext('Document Lifecycle') }}</span>
-                  <button type="button" class="btn-text-subtle" id="workbench-advanced-toggle-btn" aria-expanded="false" aria-controls="generate-quick-actions">
-                    <span data-i18n="stepper.advanced">{{ gettext('Advanced') }}</span>
+                  <button type="button" class="btn-text-subtle" id="workbench-advanced-toggle-btn" aria-expanded="false" aria-controls="workbench-advanced-params-panel">
+                    <span data-i18n="clarity.show_advanced">{{ gettext('Show advanced parameters') }}</span>
                   </button>
                 </div>
                 <nav class="action-phase-row stepper-timeline lifecycle-tracker" aria-label="{{ gettext('Document workflow') }}">
@@ -242,7 +256,7 @@
                 </nav>
                 <div class="lifecycle-action-bar">
                   <div class="lifecycle-action compile-action-row" data-action-phase="write">
-                    <button type="button" class="btn btn-primary step-action-btn tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-sparkles"/></svg> <span data-i18n="generate.compile">{{ gettext('Assemble') }}</span></button>
+                    <button type="button" class="btn btn-primary step-action-btn tooltip-trigger compile-assemble-btn" id="generate-compile-btn" data-tooltip="{{ gettext('Stream a draft, compile nodes, and infer locks') }}" data-i18n-tooltip="tooltip.compile" data-shortcut="⌘↩"><svg class="lucide-icon" aria-hidden="true"><use href="#icon-sparkles"/></svg> <span data-i18n="generate.compile">{{ gettext('Assemble Document') }}</span></button>
                     <div id="first-compile-coachmark" class="first-compile-coachmark" hidden role="status" data-tour-step="1">
                       <p id="coachmark-copy" data-i18n="coachmark.tour.step1">{{ gettext('Start here – type your intent') }}</p>
                       <div class="coachmark-actions">
@@ -266,7 +280,7 @@
               </div>
               <label class="workbench-advanced-toggle check visually-hidden">
                 <input type="checkbox" id="workbench-show-advanced">
-                <span data-i18n="clarity.show_advanced">{{ gettext('Show advanced') }}</span>
+                <span data-i18n="clarity.show_advanced">{{ gettext('Show advanced parameters') }}</span>
               </label>
               <div class="generate-quick-actions workbench-advanced-only" id="generate-quick-actions">
                 <p class="preview-label" data-i18n="generate.quick_actions">{{ gettext('Quick actions') }}</p>
@@ -287,7 +301,7 @@
                   <span class="accordion-chevron" aria-hidden="true">▾</span>
                 </summary>
                 <div class="argument-spine-body accordion-content">
-                  <p id="argument-spine-empty" class="hint argument-spine-empty" data-i18n="spine.empty">{{ gettext('Compile a document to see its argument structure.') }}</p>
+                  <p id="argument-spine-empty" class="hint argument-spine-empty panel-placeholder" data-i18n="spine.empty">{{ gettext('Section hierarchy and argument spine generate upon document assembly.') }}</p>
                   <ul id="argument-spine-tree" class="argument-spine-tree" role="tree" hidden></ul>
                 </div>
               </details>
@@ -312,6 +326,7 @@
                   <span class="accordion-chevron" aria-hidden="true">▾</span>
                 </summary>
                 <div class="refine-workspace-body accordion-content" id="refineControlWorkspace">
+                  <p id="refine-workspace-empty" class="hint refine-workspace-empty panel-placeholder" data-i18n="refine.empty">{{ gettext('Select a compiled paragraph to refine language and structure.') }}</p>
                   <div id="refineFocusBadgeContainer">
                     <span class="focus-context-badge" id="refineNodeFocusIndicator" data-i18n="refine.click_to_refine">{{ gettext('Tap any paragraph to polish it.') }}</span>
                   </div>
@@ -329,7 +344,7 @@
               <div id="role-widget-rail" class="role-widget-rail" aria-live="polite">
                 <div class="role-widget" data-role-widget="risk" hidden>
                   <p class="role-widget-title" data-i18n="role.widget.risk">{{ gettext('Risk Signals') }}</p>
-                  <p class="hint" data-i18n="role.widget.risk_hint">{{ gettext('Z3 violations and open critiques surface here after compile.') }}</p>
+                  <p class="hint panel-placeholder" data-i18n="role.widget.risk_hint">{{ gettext('No audit executed. Risk signals and contradictions populate after Full Audit.') }}</p>
                 </div>
                 <div class="role-widget" data-role-widget="audit" hidden>
                   <p class="role-widget-title" data-i18n="role.widget.audit">{{ gettext('Audit Trail') }}</p>
@@ -356,7 +371,7 @@
                 <span class="spinner" aria-hidden="true"></span>
                 <span data-i18n="generate.compiling">{{ gettext('Working…') }}</span>
               </div>
-              <div id="compilation-summary" class="generate-summary compile-status-bar" hidden>
+              <div id="compilation-summary" class="generate-summary compile-status-bar workbench-stage-verify-only" hidden>
                 <div class="compile-status-row">
                   <div class="compile-summary">
                     <span><span data-i18n="generate.summary_nodes">{{ gettext('Nodes') }}</span>: <strong id="generate-node-count">0</strong></span>
@@ -376,7 +391,7 @@
                   <summary data-i18n="generate.locks_summary">{{ gettext('Inferred locks') }}</summary>
                   <div id="generate-lock-checklist" class="lock-checklist"></div>
                 </details>
-                <ul id="redhat-preview" class="redhat-preview-list" hidden></ul>
+                <ul id="redhat-preview" class="redhat-preview-list workbench-stage-audit-only" hidden></ul>
                 <div id="preflight-gate-banner" class="preflight-gate-banner" hidden>
                   <span class="preflight-gate-icon" aria-hidden="true">🛡️</span>
                   <span id="preflight-gate-text" data-i18n="generate.gate.banner">{{ gettext('Complete Math Check and Stress Test before docking.') }}</span>
@@ -1258,6 +1273,7 @@
   <script src="{{ url_for('static', filename='role_workbench.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_clarity.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_stepper.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='workbench_micro_clarity.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_context.js') }}?v={{ js_version|default('assure-21') }}"></script>

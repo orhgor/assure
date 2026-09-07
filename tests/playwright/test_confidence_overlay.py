@@ -6,11 +6,10 @@ import pytest
 
 from tests.playwright.helpers import (
     COMPILE_INPUT,
-    FULL_AUDIT_BTN,
     CONFIDENCE_TOGGLE,
     CONFIDENCE_WRAP,
     RENDER_TARGET,
-    click_workbench,
+    click_full_audit,
     confidence_spans_sample,
     dock_document,
     route_draft_success,
@@ -35,7 +34,7 @@ def test_confidence_overlay_toggles_off(workbench_page):
     page.locator(COMPILE_INPUT).fill(
         "Summarize humanitarian logistics best practices in three bullet points."
     )
-    click_workbench(page, FULL_AUDIT_BTN)
+    click_full_audit(page)
     wait_compile_ready(page)
     wait_audit_complete(page, timeout_ms=60_000)
     dock_document(page)

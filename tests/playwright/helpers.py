@@ -283,7 +283,29 @@ def mock_sse_stream(page, *, cache_hit: bool = True) -> None:
     page.route("**/api/projects/*/draft/stream", _handler)
 
 
+def ensure_write_phase(page) -> None:
+    page.evaluate(
+        """() => {
+          if (window.AssureStepper) window.AssureStepper.setPhase('write', 'active');
+        }"""
+    )
+
+
+def ensure_verify_phase(page) -> None:
+    page.evaluate(
+        """() => {
+          if (window.AssureStepper) window.AssureStepper.setPhase('verify', 'active');
+        }"""
+    )
+
+
+def click_full_audit(page) -> None:
+    ensure_verify_phase(page)
+    click_workbench(page, FULL_AUDIT_BTN)
+
+
 def fill_and_compile(page, prompt: str) -> None:
+    ensure_write_phase(page)
     page.locator(COMPILE_INPUT).fill(prompt)
     click_workbench(page, COMPILE_BTN)
 
@@ -292,11 +314,13 @@ def wait_compile_ready(page, timeout_ms: int = 60_000) -> None:
     page.wait_for_function(
         f"""() => {{
           const dock = document.querySelector('{DOCK_BTN}');
-          const btn = document.querySelector('{COMPILE_BTN}');
           const compiling = document.getElementById('generate-compiling');
-          if (btn && btn.disabled) return false;
           if (compiling && !compiling.hidden) return false;
-          return dock && !dock.disabled;
+          if (dock && !dock.disabled) {{
+            if (window.AssureStepper) window.AssureStepper.setPhase('ship', 'active');
+            return true;
+          }}
+          return false;
         }}""",
         timeout=timeout_ms,
     )
