@@ -69,9 +69,12 @@ def test_stepper_grid_bounds(workbench_page):
     assert last["x"] + last["width"] <= row["x"] + row["width"] + 2
     buttons = page.locator(".step-action-btn")
     assert buttons.count() >= 4
+    bar = page.locator(".lifecycle-action-bar")
+    expect(bar).to_be_visible()
     last_btn = buttons.nth(3).bounding_box()
-    assert last_btn
-    assert last_btn["x"] + last_btn["width"] <= row["x"] + row["width"] + 2
+    bar_box = bar.bounding_box()
+    assert last_btn and bar_box
+    assert last_btn["x"] + last_btn["width"] <= bar_box["x"] + bar_box["width"] + 2
 
 
 def test_status_bar_scope(workbench_page):

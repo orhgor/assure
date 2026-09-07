@@ -40,10 +40,11 @@ def test_stepper_connectors(page: Page, base_url: str):
     goto_workbench(page, base_url)
     expect(page.locator(".step-item").first).to_be_visible()
     assert page.locator(".step-item").count() == 4
-    cols = page.evaluate(
-        """() => getComputedStyle(document.querySelector('.stepper-timeline')).gridTemplateColumns"""
+    display = page.evaluate(
+        """() => getComputedStyle(document.querySelector('.stepper-timeline')).display"""
     )
-    assert len(str(cols).split()) >= 4
+    assert display == "flex"
+    assert page.locator(".step-connector").count() == 3
 
 
 def test_trust_hierarchy(page: Page, base_url: str):
