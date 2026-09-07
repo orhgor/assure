@@ -977,5 +977,37 @@
         return false;
       }
     },
+    appendStreamText: function (delta) {
+      var text = delta == null ? "" : String(delta);
+      if (!text || !editor || editor.isDestroyed) return false;
+      try {
+        editor.chain().focus("end").insertContent({ type: "text", text: text }).run();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
+    insertStreamLockPill: function (pill) {
+      if (!editor || editor.isDestroyed) return false;
+      try {
+        editor.chain().focus("end").insertContent(lockPillNode(pill)).run();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
+    clearForStreaming: function () {
+      if (!editor || editor.isDestroyed) return false;
+      try {
+        editor.commands.setContent(
+          { type: "doc", content: [{ type: "jdfParagraph", attrs: { nodeId: "", gutter: "unverified" }, content: [] }] },
+          false
+        );
+        editor.chain().focus("end").run();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
   };
 })(typeof window !== "undefined" ? window : this);

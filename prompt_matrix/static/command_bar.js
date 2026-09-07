@@ -1,5 +1,5 @@
 /**
- * Founder workbench — global command bar (⌘K).
+ * Founder workbench — global command bar (⌘K) with Auto-Compiler SSE streaming.
  */
 (function (global) {
   "use strict";
@@ -9,9 +9,38 @@
   var statusEl = null;
   var pendingFiles = [];
   var workspaceId = "default";
+  var activeStream = null;
+  var submitting = false;
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function toast(message, kind) {
+    if (global.AssureToast && typeof global.AssureToast.show === "function") {
+      global.AssureToast.show(message, kind || "error");
+    }
+  }
+
+  function setStatus(message) {
+    if (statusEl) statusEl.textContent = message || "";
+  }
+
+  function setPipelineStatus(message) {
+    if (global.AssureRunsStack && typeof global.AssureRunsStack.setPipelineStatus === "function") {
+      global.AssureRunsStack.setPipelineStatus(message);
+    }
+  }
+
+  function clearBusy() {
+    submitting = false;
+    setPipelineStatus("");
+    if (activeStream && typeof activeStream.abort === "function") {
+      try {
+        activeStream.abort();
+      } catch (_) {}
+    }
+    activeStream = null;
   }
 
   function open() {
@@ -23,7 +52,7 @@
       input.focus();
     }
     pendingFiles = [];
-    if (statusEl) statusEl.textContent = "";
+    setStatus("");
   }
 
   function close() {
@@ -52,30 +81,74 @@
     });
   }
 
-  function submitDirective() {
-    var directive = (input && input.value.trim()) || "";
-    if (!directive) {
-      if (statusEl) statusEl.textContent = "Enter a directive first.";
+  function formatStatus(data) {
+    if (!data) return "";
+    var stage = data.stage || "router";
+    var intent = data.intent_type || "draft";
+    var count = data.source_count != null ? data.source_count : "—";
+    var ms = data.router_ms != null ? " · " + data.router_ms + "ms" : "";
+    if (stage === "compile_prompt") {
+      return "Compiling prompt… " + intent + (data.web_fallback ? " · web fallback" : "");
+    }
+    return "Routing… " + intent + " · " + count + " sources" + ms;
+  }
+
+  function handleSseFrame(frame) {
+    var event = frame && frame.event;
+    var data = (frame && frame.data) || {};
+    if (event === "status") {
+      var msg = formatStatus(data);
+      setStatus(msg);
+      setPipelineStatus(msg);
       return;
     }
-    if (statusEl) statusEl.textContent = "Running verification…";
-    var chain = pendingFiles.length
-      ? uploadFiles(pendingFiles)
-      : Promise.resolve([]);
-    chain
-      .then(function (sourceIds) {
-        return fetch("/api/runs", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            directive: directive,
-            workspace_id: workspaceId,
-            source_ids: sourceIds,
-            model: "gemini",
-          }),
-        });
-      })
+    if (event === "token" && data.delta) {
+      if (global.AssureFounderDraft && typeof global.AssureFounderDraft.appendStreamToken === "function") {
+        global.AssureFounderDraft.appendStreamToken(data.delta);
+      }
+      return;
+    }
+    if (event === "lock") {
+      if (global.AssureFounderDraft && typeof global.AssureFounderDraft.insertStreamLock === "function") {
+        global.AssureFounderDraft.insertStreamLock(data);
+      }
+      return;
+    }
+    if (event === "complete") {
+      if (global.AssureFounderDraft && typeof global.AssureFounderDraft.finishStreaming === "function") {
+        global.AssureFounderDraft.finishStreaming();
+      }
+      clearBusy();
+      close();
+      if (data.run && global.AssureRunsStack && typeof global.AssureRunsStack.prepend === "function") {
+        global.AssureRunsStack.prepend(data.run);
+      }
+      document.dispatchEvent(new CustomEvent("assure:run-created", { detail: data.run || data }));
+      return;
+    }
+    if (event === "error") {
+      clearBusy();
+      var errMsg = data.error || "Run failed";
+      setStatus(errMsg);
+      toast(errMsg, "error");
+      if (global.AssureFounderDraft && typeof global.AssureFounderDraft.finishStreaming === "function") {
+        global.AssureFounderDraft.finishStreaming();
+      }
+    }
+  }
+
+  function submitDirectiveSync(directive, sourceIds) {
+    return fetch("/api/runs", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directive: directive,
+        workspace_id: workspaceId,
+        source_ids: sourceIds,
+        model: "gemini",
+      }),
+    })
       .then(function (r) {
         return r.json();
       })
@@ -83,14 +156,79 @@
         if (!data.ok) {
           throw new Error(data.error || "Run failed");
         }
+        if (global.AssureFounderDraft && typeof global.AssureFounderDraft.appendRun === "function") {
+          global.AssureFounderDraft.appendRun(data.run);
+        }
         close();
         if (global.AssureRunsStack && typeof global.AssureRunsStack.prepend === "function") {
           global.AssureRunsStack.prepend(data.run);
         }
         document.dispatchEvent(new CustomEvent("assure:run-created", { detail: data.run }));
+      });
+  }
+
+  function submitDirectiveStream(directive, sourceIds) {
+    var postSse =
+      (global.AssureSse && global.AssureSse.postStream) ||
+      (global.AssureInquire && global.AssureInquire.postSseStream);
+    if (!postSse) {
+      return submitDirectiveSync(directive, sourceIds);
+    }
+
+    if (global.AssureFounderDraft && typeof global.AssureFounderDraft.beginStreaming === "function") {
+      global.AssureFounderDraft.beginStreaming();
+    }
+
+    var controller = new AbortController();
+    activeStream = { abort: function () { controller.abort(); } };
+
+    return postSse({
+      url: "/api/runs",
+      credentials: "same-origin",
+      signal: controller.signal,
+      headers: { Accept: "text/event-stream" },
+      body: {
+        directive: directive,
+        workspace_id: workspaceId,
+        source_ids: sourceIds,
+        model: "gemini",
+        stream: true,
+      },
+      onFrame: handleSseFrame,
+    }).catch(function (err) {
+      if (err && err.name === "AbortError") return;
+      clearBusy();
+      if (global.AssureFounderDraft && typeof global.AssureFounderDraft.finishStreaming === "function") {
+        global.AssureFounderDraft.finishStreaming();
+      }
+      return submitDirectiveSync(directive, sourceIds);
+    });
+  }
+
+  function submitDirective() {
+    var directive = (input && input.value.trim()) || "";
+    if (!directive) {
+      setStatus("Enter a directive first.");
+      return;
+    }
+    if (submitting) return;
+    submitting = true;
+    setStatus("Running verification…");
+    setPipelineStatus("Starting…");
+
+    var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
+    chain
+      .then(function (sourceIds) {
+        return submitDirectiveStream(directive, sourceIds);
       })
       .catch(function (err) {
-        if (statusEl) statusEl.textContent = String(err.message || err);
+        clearBusy();
+        var msg = String((err && err.message) || err);
+        setStatus(msg);
+        toast(msg, "error");
+      })
+      .finally(function () {
+        submitting = false;
       });
   }
 

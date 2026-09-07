@@ -7,6 +7,8 @@
   var saveTimer = null;
   var workspaceId = "default";
   var draftTree = { body: [] };
+  var streamingLockIndex = 0;
+  var streamingActive = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -125,6 +127,47 @@
     return parts.join("\n\n");
   }
 
+  function beginStreaming() {
+    streamingActive = true;
+    streamingLockIndex = 0;
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.clearForStreaming) {
+      editorApi.clearForStreaming();
+    }
+    updatePlaceholder();
+  }
+
+  function appendStreamToken(delta) {
+    if (!streamingActive) beginStreaming();
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.appendStreamText) {
+      editorApi.appendStreamText(delta);
+      updatePlaceholder();
+      scheduleSave();
+      return true;
+    }
+    return false;
+  }
+
+  function insertStreamLock(lock) {
+    streamingLockIndex += 1;
+    var pill = Object.assign({}, lock || {}, { lock_index: streamingLockIndex });
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.insertStreamLockPill) {
+      editorApi.insertStreamLockPill(pill);
+      scheduleSave();
+      updatePlaceholder();
+      return true;
+    }
+    return false;
+  }
+
+  function finishStreaming() {
+    streamingActive = false;
+    scheduleSave();
+    updatePlaceholder();
+  }
+
   function appendRun(run) {
     var text = runParagraphText(run);
     var locks = run.extracted_locks || [];
@@ -195,6 +238,14 @@
     }
   }
 
-  global.AssureFounderDraft = { init: init, appendRun: appendRun, loadDraft: loadDraft };
+  global.AssureFounderDraft = {
+    init: init,
+    appendRun: appendRun,
+    loadDraft: loadDraft,
+    beginStreaming: beginStreaming,
+    appendStreamToken: appendStreamToken,
+    insertStreamLock: insertStreamLock,
+    finishStreaming: finishStreaming,
+  };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

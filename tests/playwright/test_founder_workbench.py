@@ -8,7 +8,7 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.playwright.helpers import app_url, goto_founder_workbench
+from tests.playwright.helpers import app_url, goto_founder_workbench, sse
 
 pytestmark = pytest.mark.playwright
 
@@ -64,7 +64,20 @@ SAMPLE_RUN = {
 }
 
 
-def _mock_runs_api(page: Page) -> None:
+def _is_sse_run_request(request) -> bool:
+    if request.method != "POST":
+        return False
+    accept = (request.headers.get("accept") or "").lower()
+    if "text/event-stream" in accept:
+        return True
+    try:
+        body = json.loads(request.post_data or "{}")
+        return bool(body.get("stream"))
+    except Exception:
+        return False
+
+
+def _mock_runs_api(page: Page, *, sse_stream: bool = True) -> None:
     runs = []
 
     def handle_runs(route):
@@ -74,6 +87,52 @@ def _mock_runs_api(page: Page) -> None:
             run["directive"] = body.get("directive", run["directive"])
             run["id"] = f"run_pw_{len(runs)+1:02d}"
             runs.insert(0, run)
+            if sse_stream and _is_sse_run_request(route.request):
+                stream_body = (
+                    sse(
+                        "status",
+                        {
+                            "type": "status",
+                            "stage": "router",
+                            "intent_type": "audit",
+                            "source_count": 1,
+                            "router_ms": 4,
+                        },
+                    )
+                    + sse(
+                        "status",
+                        {
+                            "type": "status",
+                            "stage": "compile_prompt",
+                            "intent_type": "audit",
+                            "model": "gemini",
+                            "web_fallback": False,
+                        },
+                    )
+                    + sse("token", {"type": "token", "delta": "Revenue reached $12M in Q3. "})
+                    + sse(
+                        "lock",
+                        {
+                            "type": "lock",
+                            "lock_hash": "abc123hash4567",
+                            "source_id": "sub-pw-1",
+                            "page_coordinates": {
+                                "page": 1,
+                                "x": 0,
+                                "y": 0,
+                                "width": 100,
+                                "height": 24,
+                            },
+                            "web": False,
+                            "pill": None,
+                            "metric": "Revenue reached $12M in Q3",
+                        },
+                    )
+                    + sse("complete", {"type": "complete", "ok": True, "run": run})
+                    + "data: [DONE]\n\n"
+                )
+                route.fulfill(status=200, content_type="text/event-stream", body=stream_body)
+                return
             route.fulfill(
                 status=201,
                 content_type="application/json",
@@ -220,6 +279,30 @@ def test_command_bar(page: Page, base_url: str):
     page.wait_for_selector(".run-card", timeout=15_000)
     _dismiss_overlays(page)
     expect(page.locator(".run-card")).to_contain_text("Investigate Q3 revenue")
+
+
+def test_command_bar_streaming_tokens(page: Page, base_url: str):
+    _mock_runs_api(page)
+    goto_founder_workbench(page, base_url)
+    page.keyboard.press("Meta+K")
+    page.locator("#command-bar-input").fill("Stream revenue narrative")
+    page.keyboard.press("Enter")
+    page.wait_for_function(
+        "() => { const el = document.querySelector('#founder-draft-editor'); return el && el.innerText.includes('Revenue reached $12M'); }",
+        timeout=15_000,
+    )
+    expect(page.locator("#founder-draft-editor")).to_contain_text("Revenue reached $12M")
+
+
+def test_command_bar_incremental_locks(page: Page, base_url: str):
+    _mock_runs_api(page)
+    goto_founder_workbench(page, base_url)
+    page.keyboard.press("Meta+K")
+    page.locator("#command-bar-input").fill("Lock revenue claim")
+    page.keyboard.press("Enter")
+    page.wait_for_selector(".lock-pill", timeout=15_000)
+    expect(page.locator(".lock-pill").first).to_contain_text("🔒")
+    expect(page.locator("#runs-stack-pipeline-status")).to_be_hidden()
 
 
 def test_redhat(page: Page, base_url: str):
