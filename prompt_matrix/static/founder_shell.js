@@ -5,13 +5,20 @@
 (function (global) {
   "use strict";
 
-  var LEFT_LEGACY_PANELS = [
+  var PARK_NODE_IDS = [
+    "app-sidebar",
     "panel-write",
     "panel-draft",
-    "panel-sources",
-    "panel-analytics",
     "view-surgical",
+    "panel-analytics",
+    "workbench-status-bar",
   ];
+
+  var HEADER_HIDE_IDS = ["sidebar-toggle", "document-chrome"];
+
+  var parked = {};
+  var parkRoot = null;
+  var legacyDetached = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -30,6 +37,94 @@
     return document.body.classList.contains("founder-workbench") && !isLegacyWorkbench();
   }
 
+  function looksLikeSlug(value) {
+    var s = String(value || "").trim();
+    if (!s || s.indexOf(" ") >= 0) return false;
+    return /^[a-z0-9]+(-[a-z0-9]+)+$/i.test(s) && s.length <= 48;
+  }
+
+  function ensureParkRoot() {
+    if (parkRoot) return parkRoot;
+    parkRoot = $("founder-legacy-park");
+    if (!parkRoot) {
+      parkRoot = document.createElement("div");
+      parkRoot.id = "founder-legacy-park";
+      parkRoot.hidden = true;
+      parkRoot.setAttribute("aria-hidden", "true");
+      document.body.appendChild(parkRoot);
+    }
+    return parkRoot;
+  }
+
+  function parkNodeById(id) {
+    var el = $(id);
+    if (!el || parked[id]) return;
+    parked[id] = { el: el, parent: el.parentNode, next: el.nextSibling };
+    ensureParkRoot().appendChild(el);
+  }
+
+  function detachLegacyDom() {
+    if (!isFounderShell() || legacyDetached) return;
+    PARK_NODE_IDS.forEach(parkNodeById);
+    HEADER_HIDE_IDS.forEach(function (id) {
+      var node = $(id);
+      if (node) node.hidden = true;
+    });
+    document.querySelectorAll(".founder-legacy-chrome").forEach(function (node) {
+      node.hidden = true;
+    });
+    var founderTools = $("founder-header-tools");
+    if (founderTools) founderTools.hidden = false;
+    var layout = $("assure-app");
+    if (layout) layout.classList.add("founder-shell-layout");
+    legacyDetached = true;
+    updateWorkspaceTitle();
+  }
+
+  function restoreLegacyDom() {
+    if (!legacyDetached) return;
+    Object.keys(parked).forEach(function (id) {
+      var rec = parked[id];
+      if (!rec || !rec.el || !rec.parent) return;
+      rec.parent.insertBefore(rec.el, rec.next);
+    });
+    parked = {};
+    legacyDetached = false;
+    HEADER_HIDE_IDS.forEach(function (id) {
+      var node = $(id);
+      if (!node) return;
+      if (id === "document-chrome") node.hidden = true;
+      else node.hidden = false;
+    });
+    document.querySelectorAll(".founder-legacy-chrome").forEach(function (node) {
+      node.hidden = false;
+    });
+    var founderTools = $("founder-header-tools");
+    if (founderTools) founderTools.hidden = true;
+    var layout = $("assure-app");
+    if (layout) layout.classList.remove("founder-shell-layout");
+  }
+
+  function resolveWorkspaceTitle() {
+    var pid = String(global.__ASSURE_PROJECT_ID__ || "default").trim();
+    var title = "";
+    if (global.AssureProjects && typeof global.AssureProjects.titleFor === "function") {
+      title = global.AssureProjects.titleFor(pid) || "";
+    }
+    if (!title && pid !== "default" && !looksLikeSlug(pid)) title = pid;
+    title = String(title || "").trim();
+    if (!title || title === "default" || title.toLowerCase() === "default project" || looksLikeSlug(title)) {
+      return translate("founder.workspace.untitled", "Untitled Workspace");
+    }
+    return title;
+  }
+
+  function updateWorkspaceTitle() {
+    var titleEl = $("founder-workspace-title");
+    if (!titleEl) return;
+    titleEl.textContent = resolveWorkspaceTitle();
+  }
+
   function setSidebarFounderMode(on) {
     document.querySelectorAll(".founder-sidebar-legacy").forEach(function (link) {
       link.hidden = !!on;
@@ -39,7 +134,7 @@
   }
 
   function hideLegacyLeftPanels() {
-    LEFT_LEGACY_PANELS.forEach(function (id) {
+    ["panel-write", "panel-draft", "panel-sources", "panel-analytics", "view-surgical"].forEach(function (id) {
       var el = $(id);
       if (!el) return;
       el.hidden = true;
@@ -49,27 +144,14 @@
 
   function applyFounderShell(view) {
     view = view || "runs";
+    detachLegacyDom();
     hideLegacyLeftPanels();
     closeSourcesDrawer();
 
     var runs = $("panel-runs");
-    var analytics = $("panel-analytics");
-    if (view === "analytics") {
-      if (runs) {
-        runs.hidden = true;
-        runs.classList.remove("active");
-      }
-      if (analytics) {
-        analytics.hidden = false;
-        analytics.classList.add("active");
-      }
-    } else if (runs) {
+    if (runs) {
       runs.hidden = false;
       runs.classList.add("active");
-      if (analytics) {
-        analytics.hidden = true;
-        analytics.classList.remove("active");
-      }
     }
 
     var onboarding = $("canvas-onboarding-state");
@@ -88,29 +170,29 @@
     if (sourcePreview) sourcePreview.hidden = true;
 
     var analyticsCanvas = $("canvas-analytics-view");
-    if (analyticsCanvas) analyticsCanvas.hidden = view !== "analytics";
+    if (analyticsCanvas) analyticsCanvas.hidden = true;
 
     var toolbar = $("canvas-toolbar");
     if (toolbar) toolbar.hidden = true;
 
-    var statusBar = $("workbench-status-bar");
-    if (statusBar) statusBar.hidden = true;
+    var strip = $("draft-preview-strip");
+    if (strip) strip.hidden = true;
+
+    var overlay = $("confidence-overlay-wrap");
+    if (overlay) overlay.hidden = true;
 
     var layout = $("assure-app");
     var appContent = layout && layout.querySelector(".app-content");
     if (appContent) {
-      appContent.classList.toggle("mode-full-view", view === "analytics");
-      appContent.classList.toggle("mode-workspace", view !== "analytics");
+      appContent.classList.remove("mode-full-view");
+      appContent.classList.add("mode-workspace");
     }
 
     setSidebarFounderMode(true);
+    updateWorkspaceTitle();
 
     document.body.setAttribute("data-assure-view", view);
-    document.body.setAttribute("data-assure-tool", view === "analytics" ? "analytics" : "runs");
-
-    if (view === "analytics" && global.AssureAnalytics && typeof global.AssureAnalytics.render === "function") {
-      global.AssureAnalytics.render();
-    }
+    document.body.setAttribute("data-assure-tool", "runs");
   }
 
   function openSourcesDrawer() {
@@ -155,24 +237,32 @@
     try {
       localStorage.setItem("assure_founder_workbench", "0");
     } catch (_) {}
+    document.body.classList.remove("founder-workbench");
     document.body.classList.add("legacy-workbench");
     document.body.classList.remove("sources-drawer-open");
+    restoreLegacyDom();
     setSidebarFounderMode(false);
     if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
       global.AssureNav.switchView("projects", { replaceHash: true, persist: true });
     }
   }
 
-  function init() {
-    if (!isFounderShell()) return;
-
-    applyFounderShell("runs");
-
+  function bindUi() {
     var attachBtn = $("founder-attach-sources");
     if (attachBtn) {
       attachBtn.addEventListener("click", function (e) {
         e.preventDefault();
         openSourcesDrawer();
+      });
+    }
+
+    var cmdkBtn = $("founder-cmdk-btn");
+    if (cmdkBtn) {
+      cmdkBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (global.AssureCommandBar && typeof global.AssureCommandBar.open === "function") {
+          global.AssureCommandBar.open();
+        }
       });
     }
 
@@ -217,15 +307,28 @@
         closeSourcesDrawer();
       }
     });
+
+    document.addEventListener("assure:project", function () {
+      updateWorkspaceTitle();
+    });
+  }
+
+  function init() {
+    if (!isFounderShell()) return;
+    applyFounderShell("runs");
+    bindUi();
   }
 
   global.AssureFounderShell = {
     isFounderShell: isFounderShell,
     isLegacyWorkbench: isLegacyWorkbench,
     apply: applyFounderShell,
+    detachLegacyDom: detachLegacyDom,
+    restoreLegacyDom: restoreLegacyDom,
     openSourcesDrawer: openSourcesDrawer,
     closeSourcesDrawer: closeSourcesDrawer,
     enableLegacyWorkspaces: enableLegacyWorkspaces,
+    updateWorkspaceTitle: updateWorkspaceTitle,
     init: init,
   };
 

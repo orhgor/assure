@@ -764,12 +764,23 @@
     }
   }
 
+  function titleFor(projectId) {
+    var pid = String(projectId || "").trim();
+    if (!pid) return "";
+    var project = projectsCache.filter(function (p) {
+      return p.id === pid;
+    })[0];
+    if (!project) project = { id: pid, title: "" };
+    return displayTitle(project);
+  }
+
   var AssureProjects = {
     load: loadProjects,
     switchTo: switchToProject,
     select: selectWorkspace,
     beginCreate: beginCreate,
     openCompiler: openCompiler,
+    titleFor: titleFor,
     get selectedId() {
       return selectedId;
     },

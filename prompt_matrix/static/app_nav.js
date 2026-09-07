@@ -636,30 +636,7 @@
           return;
         }
         if (view === "analytics") {
-          this.activeView = "analytics";
-          if (opts.persist !== false) persistView("analytics");
-          if (global.AssureFounderShell && typeof global.AssureFounderShell.apply === "function") {
-            global.AssureFounderShell.apply("analytics");
-          }
-          var layoutAnalytics = $("assure-app");
-          if (layoutAnalytics) {
-            layoutAnalytics.querySelectorAll(".app-sidebar-link").forEach(function (link) {
-              var tool = link.getAttribute("data-tool") || "";
-              if (tool === "settings") return;
-              var on = tool === "analytics";
-              link.classList.toggle("is-active", on);
-              link.setAttribute("aria-current", on ? "page" : "false");
-            });
-          }
-          if (opts.replaceHash !== false) {
-            var nextAnalytics = location.pathname + location.search + "#view=analytics";
-            if (location.pathname + location.search + location.hash !== nextAnalytics) {
-              history.replaceState(null, "", nextAnalytics);
-            }
-          }
-          document.dispatchEvent(new CustomEvent("assure:view", { detail: { view: "analytics" } }));
-          document.dispatchEvent(new CustomEvent("assure:tool", { detail: { tool: "analytics" } }));
-          return;
+          view = "runs";
         }
         if (view === "runs" || view === "projects" || view === "generate" || view === "surgical") {
           view = "runs";
