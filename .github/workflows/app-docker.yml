@@ -17,7 +17,8 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
+    runs-on: self-hosted
+    timeout-minutes: 15
     environment: production
     steps:
       - name: Checkout
@@ -51,7 +52,8 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    timeout-minutes: 15
     environment: production
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:

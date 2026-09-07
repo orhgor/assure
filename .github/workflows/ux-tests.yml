@@ -10,9 +10,14 @@ name: UX Regression (OpenUser)
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   disabled:
     if: false
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    timeout-minutes: 15
     steps:
       - run: echo "OpenUser is not run in CI. Use tests/playwright/ or run ./scripts/openuser locally."

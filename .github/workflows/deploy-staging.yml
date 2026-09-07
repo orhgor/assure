@@ -11,13 +11,15 @@ concurrency:
 permissions:
   contents: read
   packages: write
+  actions: write
 
 env:
   IMAGE_NAME: ghcr.io/orhgor/assure-app
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
+    runs-on: self-hosted
+    timeout-minutes: 15
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +49,8 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    timeout-minutes: 15
     environment: staging
     steps:
       - uses: actions/checkout@v4
