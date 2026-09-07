@@ -12,11 +12,14 @@ services:
       DATABASE_PATH: /app/data/history.sqlite
       PORT: "8765"
       PYTHONUNBUFFERED: "1"
+      USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
+      GROUNDRAILS_PYTHON: ${GROUNDRAILS_PYTHON:-/app/.venv312/bin/python}
     env_file:
       - path: .env.staging
         required: false
     volumes:
       - ./data-staging:/app/data
+      - ./.venv312:/app/.venv312:ro
     restart: unless-stopped
     deploy:
       resources:

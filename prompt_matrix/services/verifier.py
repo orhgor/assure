@@ -1,4 +1,4 @@
-"""groundrails-backed claim verification — deterministic CPU locks."""
+"""Claim verification — groundrails subprocess (optional) or native heuristic fallback."""
 
 from __future__ import annotations
 
@@ -8,40 +8,44 @@ from typing import Any
 
 try:
     from ..services.lock_metadata import enrich_extracted_locks
+    from .groundrails_subprocess import (
+        cli_result_to_verdict,
+        groundrails_python,
+        groundrails_service_enabled,
+        verify_claim_with_groundrails,
+    )
     from .text_normalizer import normalize_text
 except ImportError:
+    from services.groundrails_subprocess import (
+        cli_result_to_verdict,
+        groundrails_python,
+        groundrails_service_enabled,
+        verify_claim_with_groundrails,
+    )
     from services.lock_metadata import enrich_extracted_locks
     from services.text_normalizer import normalize_text
 
 logger = logging.getLogger(__name__)
 
-_GROUNDRAILS_INIT = False
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
-try:
-    import groundrails
-
-    GROUNDRAILS_AVAILABLE = True
-except (ImportError, RuntimeError) as e:
-    groundrails = None  # type: ignore[assignment,misc]
-    GROUNDRAILS_AVAILABLE = False
-    logger.warning(
-        "Groundrails unavailable. Falling back to native verification handler. Details: %s",
-        e,
-    )
+GROUNDRAILS_AVAILABLE = bool(groundrails_python())
 
 
-def _ensure_groundrails() -> bool:
-    global _GROUNDRAILS_INIT
-    if not GROUNDRAILS_AVAILABLE or groundrails is None:
-        return False
-    if not _GROUNDRAILS_INIT:
-        try:
-            groundrails.init()
-        except Exception:
-            pass
-        _GROUNDRAILS_INIT = True
-    return True
+def native_heuristic_verify(claim: str, source_text: str) -> dict[str, Any]:
+    """Deterministic Python-native fallback when groundrails subprocess is unavailable."""
+    words = [w for w in claim.lower().split() if len(w) > 3]
+    matches = sum(1 for w in words if w in source_text.lower())
+    match_ratio = (matches / len(words)) if words else 0.0
+    is_grounded = match_ratio >= 0.4
+
+    return {
+        "claim": claim,
+        "grounded": is_grounded,
+        "score": round(match_ratio, 2),
+        "support": {"passage": source_text[:100] if is_grounded else None, "offset": 0},
+        "engine": "native-heuristic-fallback",
+    }
 
 
 class ClaimVerifier:
@@ -49,106 +53,23 @@ class ClaimVerifier:
         self.confidence_threshold = confidence_threshold
 
     def verify_claims(self, claims: list[str], source_text: str) -> list[dict[str, Any]]:
-        """
-        Verifies extracted claims against a normalized source text stream.
-        Utilizes the groundrails lexical pass when available, with a semantic fallback
-        cascade for uncertain matches, or resorts to the native heuristic engine.
-        """
+        """Verify claims against normalized source text."""
         clean_source = normalize_text(source_text)
         results: list[dict[str, Any]] = []
 
         for claim in claims:
-            verdict: dict[str, Any] | None = None
-            if GROUNDRAILS_AVAILABLE and _ensure_groundrails():
-                try:
-                    verdict = self._run_groundrails_pipeline(claim, clean_source)
-                except Exception as ex:
-                    logger.error(
-                        "Groundrails execution error on claim: '%s'. Error: %s",
-                        claim,
-                        ex,
-                    )
-
-            if verdict is None:
-                verdict = self._native_heuristic_fallback(claim, clean_source)
-
-            results.append(verdict)
+            results.append(self.verify_claim(claim, clean_source))
 
         return results
 
-    def _run_groundrails_pipeline(self, claim: str, source_text: str) -> dict[str, Any]:
-        """
-        Executes groundrails lexical grounder with an optional semantic cascade escalation
-        if the lexical confidence score falls below the threshold.
-        """
-        if groundrails is None:
-            raise RuntimeError("groundrails not loaded")
+    def verify_claim(self, claim: str, source_text: str) -> dict[str, Any]:
+        """Single-claim verification with optional groundrails subprocess."""
+        if groundrails_service_enabled():
+            cli_result = verify_claim_with_groundrails(claim, source_text)
+            if cli_result is not None:
+                return cli_result_to_verdict(claim, cli_result)
 
-        if hasattr(groundrails, "check_claim"):
-            lexical_result = groundrails.check_claim(claim=claim, evidence=source_text)
-            score = float(lexical_result.get("score", 0.0))
-            is_grounded = bool(lexical_result.get("grounded", False))
-        else:
-            from groundrails import grounding_document
-
-            doc = grounding_document([claim], [("source", source_text)])
-            is_grounded = True
-            score = 0.9
-            lexical_result: dict[str, Any] = {"support": None, "contradiction": None}
-            for item in getattr(doc, "claims", []) or []:
-                verdict = str(getattr(item, "verdict", "") or "").lower()
-                if verdict not in ("grounded", "pass", "ok"):
-                    is_grounded = False
-                    score = 0.4
-                support = getattr(item, "support", None) or getattr(item, "evidence", None)
-                if support is not None:
-                    quoted = str(
-                        getattr(support, "quote", "") or getattr(support, "text", "") or ""
-                    )
-                    lexical_result["support"] = {"passage": quoted, "offset": 0}
-
-        if score < self.confidence_threshold or not is_grounded:
-            semantic_result = self._run_semantic_cascade(claim, source_text)
-            if semantic_result.get("score", 0.0) > score:
-                return semantic_result
-
-        return {
-            "claim": claim,
-            "grounded": is_grounded,
-            "score": score,
-            "support": lexical_result.get("support"),
-            "contradiction": lexical_result.get("contradiction"),
-            "engine": "groundrails-lexical",
-        }
-
-    def _run_semantic_cascade(self, claim: str, source_text: str) -> dict[str, Any]:
-        """
-        Lightweight semantic re-evaluation pass for paraphrased or cross-lingual edge cases.
-        """
-        return {
-            "claim": claim,
-            "grounded": True,
-            "score": 0.88,
-            "support": {"passage": source_text[:120], "offset": 0},
-            "engine": "semantic-cascade-fallback",
-        }
-
-    def _native_heuristic_fallback(self, claim: str, source_text: str) -> dict[str, Any]:
-        """
-        Deterministic Python-native fallback when groundrails is missing or encounters a runtime fault.
-        """
-        words = [w for w in claim.lower().split() if len(w) > 3]
-        matches = sum(1 for w in words if w in source_text.lower())
-        match_ratio = (matches / len(words)) if words else 0.0
-        is_grounded = match_ratio >= 0.4
-
-        return {
-            "claim": claim,
-            "grounded": is_grounded,
-            "score": round(match_ratio, 2),
-            "support": {"passage": source_text[:100] if is_grounded else None, "offset": 0},
-            "engine": "native-heuristic-fallback",
-        }
+        return native_heuristic_verify(claim, source_text)
 
 
 def _verdict_to_lock(
