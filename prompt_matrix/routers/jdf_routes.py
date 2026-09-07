@@ -7,11 +7,13 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 try:
+    from ..db.document_lock_repository import is_version_locked
     from ..db.jdf_repository import (
         RevisionConflict,
+        current_document_version,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -26,7 +28,6 @@ try:
     from ..lib.sanitize import sanitize_jdf_node
     from ..middleware import project_ownership_required
     from ..models.jdf import (
-        JDFDocumentTree,
         document_to_dict,
         insert_node_after_anchor,
         parse_document,
@@ -34,11 +35,11 @@ try:
     )
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
-    from ..db.document_lock_repository import is_version_locked
-    from ..db.jdf_repository import current_document_version
 except ImportError:
+    from db.document_lock_repository import is_version_locked
     from db.jdf_repository import (
         RevisionConflict,
+        current_document_version,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -53,7 +54,6 @@ except ImportError:
     from lib.sanitize import sanitize_jdf_node
     from middleware import project_ownership_required
     from models.jdf import (
-        JDFDocumentTree,
         document_to_dict,
         insert_node_after_anchor,
         parse_document,
@@ -61,12 +61,13 @@ except ImportError:
     )
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
-    from db.document_lock_repository import is_version_locked
-    from db.jdf_repository import current_document_version
 
 
 class SaveJDFPayload(BaseModel):
-    document: JDFDocumentTree | None = None
+    model_config = ConfigDict(extra="ignore")
+
+    document: dict[str, Any] | None = None
+    title: str | None = None
     mutation_type: str = "NODE_DOCK"
     target_node_id: str | None = None
     insert_after_id: str | None = None
@@ -75,6 +76,22 @@ class SaveJDFPayload(BaseModel):
     id: str | None = None
     node_data: dict[str, Any] | None = None
     expected_version: int | None = None
+
+
+def _incoming_document(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
+    raw = dict(payload.document or {})
+    raw.pop("type", None)
+    root_title = raw.pop("title", None)
+    if not str(raw.get("document_id") or "").strip():
+        raw["document_id"] = f"doc-{project_id}"
+    meta = dict(raw.get("meta") or {})
+    chosen = (payload.title or root_title or "").strip()
+    if chosen:
+        meta["title"] = chosen
+    raw["meta"] = meta
+    raw.setdefault("truth_ledger", {})
+    raw.setdefault("body", [])
+    return raw
 
 
 def _conflict_payload(exc: RevisionConflict):
@@ -93,9 +110,14 @@ def _conflict_payload(exc: RevisionConflict):
 
 def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     if payload.document is not None:
-        tree = document_to_dict(payload.document)
+        tree = document_to_dict(_incoming_document(payload, project_id))
     else:
         tree = fetch_latest_jdf_or_empty(project_id)
+        chosen = (payload.title or "").strip()
+        if chosen:
+            meta = dict(tree.get("meta") or {})
+            meta["title"] = chosen
+            tree["meta"] = meta
 
     if payload.new_node and payload.insert_after_id:
         tree, _ = insert_node_after_anchor(tree, payload.insert_after_id, payload.new_node)

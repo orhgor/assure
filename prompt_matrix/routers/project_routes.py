@@ -8,7 +8,7 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 try:
     from ..db.connection import init_db
@@ -31,10 +31,14 @@ except ImportError:
 
 
 class ProjectSettingsPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     show_citations: bool = True
 
 
 class ProjectCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     title: str
     template_id: str | None = None
     prompt: str | None = None
