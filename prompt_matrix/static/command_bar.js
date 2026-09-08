@@ -114,6 +114,23 @@
       }
       return;
     }
+    if (event === "verification_complete") {
+      var locks = (data.locks || (data.data && data.data.locks)) || [];
+      locks.forEach(function (lock) {
+        if (lock.status !== "grounded") return;
+        if (global.AssureFounderDraft && typeof global.AssureFounderDraft.insertStreamLock === "function") {
+          global.AssureFounderDraft.insertStreamLock({
+            claim_id: lock.claim_id,
+            lock_hash: lock.lock_hash,
+            source_id: lock.source_id,
+            page_coordinates: lock.page_coordinates,
+            metric: lock.text || lock.claim_id,
+            lock_index: lock.lock_index,
+          });
+        }
+      });
+      return;
+    }
     if (event === "complete") {
       if (global.AssureFounderDraft && typeof global.AssureFounderDraft.finishStreaming === "function") {
         global.AssureFounderDraft.finishStreaming();

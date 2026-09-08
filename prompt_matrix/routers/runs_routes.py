@@ -11,18 +11,24 @@ try:
     from ..db.runs_repository import delete_run, fetch_run, list_runs
     from ..db.redhat_findings_repository import fetch_finding, update_finding_status
     from ..services.auto_compiler import done_sse, run_auto_compiler_pipeline
+    from ..services.fast_router import classify_intent, detect_sources
     from ..services.founder_redhat import get_run_with_findings, run_adversarial_redhat
     from ..services.lock_metadata import enrich_extracted_locks
     from ..services.macro_verify import contradictions_for_run
+    from ..services.orchestrator import orchestrate_sourced_run
     from ..services.run_creation import create_run_from_directive
+    from ..services.compiler import PromptCompiler
 except ImportError:
     from db.runs_repository import delete_run, fetch_run, list_runs
     from db.redhat_findings_repository import fetch_finding, update_finding_status
     from services.auto_compiler import done_sse, run_auto_compiler_pipeline
+    from services.fast_router import classify_intent, detect_sources
     from services.founder_redhat import get_run_with_findings, run_adversarial_redhat
     from services.lock_metadata import enrich_extracted_locks
     from services.macro_verify import contradictions_for_run
+    from services.orchestrator import orchestrate_sourced_run
     from services.run_creation import create_run_from_directive
+    from services.compiler import PromptCompiler
 
 
 class RunCreatePayload(BaseModel):
@@ -95,6 +101,46 @@ def register_runs_routes(app) -> None:
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
         return jsonify({"ok": True, "run": run}), 201
+
+    @app.post("/api/runs/execute")
+    def execute_run():
+        """Stream tokens then verification_complete — orchestrator SSE endpoint."""
+        try:
+            payload = RunCreatePayload.model_validate(request.get_json(silent=True) or {})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        if not payload.directive.strip():
+            return jsonify({"ok": False, "error": "directive is required"}), 400
+
+        ws = payload.workspace_id or "default"
+        intent_type = classify_intent(payload.directive)
+        sources = detect_sources(
+            payload.directive,
+            ws,
+            explicit_source_ids=payload.source_ids or None,
+        )
+        sources_block = PromptCompiler.format_sources_from_rows(sources)
+
+        def generate():
+            try:
+                yield from orchestrate_sourced_run(
+                    payload.directive.strip(),
+                    sources=sources,
+                    sources_block=sources_block,
+                    workspace_id=ws,
+                    model=payload.model,
+                    intent_type=intent_type,
+                )
+            except Exception as exc:
+                yield f"event: error\ndata: {json.dumps({'ok': False, 'error': str(exc)})}\n\n"
+                yield done_sse()
+
+        headers = {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+        return Response(stream_with_context(generate()), headers=headers)
 
     @app.get("/api/runs")
     def get_runs():

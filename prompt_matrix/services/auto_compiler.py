@@ -12,37 +12,37 @@ from typing import Any, Callable, Generator, Iterator
 try:
     from ..db.runs_repository import insert_run
     from ..models.jdf import build_document_from_draft, document_to_dict
+    from ..services.compiler import PromptCompiler
     from ..services.fast_router import classify_intent, detect_sources
     from ..services.lock_inference import infer_lock_candidates
     from ..services.lock_metadata import enrich_extracted_locks
+    from ..services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
+    from ..services.parser import extract_claims_from_stream
     from ..services.perplexity_agent import (
         stream_perplexity_agent,
         web_sources_from_text,
     )
     from ..services.prompt_compiler import compile_prompt
+    from ..services.router import route_intent
     from ..services.verifier import claims_from_text, verify_claims
 except ImportError:
     from db.runs_repository import insert_run
     from models.jdf import build_document_from_draft, document_to_dict
+    from services.compiler import PromptCompiler
     from services.fast_router import classify_intent, detect_sources
     from services.lock_inference import infer_lock_candidates
     from services.lock_metadata import enrich_extracted_locks
+    from services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
+    from services.parser import extract_claims_from_stream
     from services.perplexity_agent import stream_perplexity_agent, web_sources_from_text
     from services.prompt_compiler import compile_prompt
+    from services.router import route_intent
     from services.verifier import claims_from_text, verify_claims
 
 CancelCheck = Callable[[], bool]
 
-
-def typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
-    data: dict[str, Any] = {"type": event_type}
-    if payload:
-        data.update(payload)
-    return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-
-
-def done_sse() -> str:
-    return "data: [DONE]\n\n"
+# Re-export for routes that import from auto_compiler
+__all__ = ["done_sse", "run_auto_compiler_pipeline", "create_run_from_directive", "typed_sse"]
 
 
 def _run_lock_inference(text: str) -> tuple[list[dict[str, Any]], str]:
@@ -79,6 +79,13 @@ def _litellm_model_name(model: str) -> str:
         "deepseek": "deepseek/deepseek-chat",
     }
     return mapping.get(model, model)
+
+
+def _claims_for_verification(text: str) -> list[str]:
+    tagged = extract_claims_from_stream(text)
+    if tagged:
+        return [str(item.get("text") or "").strip() for item in tagged if item.get("text")]
+    return claims_from_text(text)
 
 
 def _stream_litellm(prompt: str, *, model: str) -> Iterator[str]:
@@ -129,7 +136,7 @@ def _verification_worker(
     while not stop_event.is_set():
         text = text_holder[0]
         if len(text) > last_len:
-            for claim in claims_from_text(text):
+            for claim in _claims_for_verification(text):
                 key = claim.lower()
                 if key in seen_claims:
                     continue
@@ -162,12 +169,15 @@ def run_auto_compiler_pipeline(
     intent_type = classify_intent(text)
     sources = detect_sources(text, ws, explicit_source_ids=source_ids or None)
     router_ms = int((time.perf_counter() - t0) * 1000)
+    routing = route_intent(text, has_sources=bool(sources))
 
     yield typed_sse(
         "status",
         {
             "stage": "router",
             "intent_type": intent_type,
+            "task": routing.get("task"),
+            "has_sources": routing.get("has_sources"),
             "source_count": len(sources),
             "router_ms": router_ms,
             "request_id": rid,
@@ -175,6 +185,7 @@ def run_auto_compiler_pipeline(
     )
 
     compiled_prompt = compile_prompt(text, intent_type, sources)
+    sources_block = PromptCompiler.format_sources_from_rows(sources)
     use_web = not sources and not (source_ids or [])
     model_used = "perplexity-agent" if use_web else model
 
@@ -187,6 +198,19 @@ def run_auto_compiler_pipeline(
             "web_fallback": use_web,
         },
     )
+
+    if sources and not use_web:
+        yield from orchestrate_sourced_run(
+            text,
+            sources=sources,
+            sources_block=sources_block,
+            workspace_id=ws,
+            model=model,
+            intent_type=intent_type,
+            router_ms=router_ms,
+            request_id=rid,
+        )
+        return
 
     full_text = ""
     text_holder = [""]

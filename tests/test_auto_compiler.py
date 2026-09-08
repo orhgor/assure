@@ -8,10 +8,13 @@ from unittest.mock import patch
 import pytest
 
 from prompt_matrix.services.auto_compiler import run_auto_compiler_pipeline
+from prompt_matrix.services.compiler import PromptCompiler
 from prompt_matrix.services.fast_router import (
     classify_intent,
     detect_sources,
 )
+from prompt_matrix.services.parser import extract_claims_from_stream
+from prompt_matrix.services.router import route_intent
 from prompt_matrix.services.vault_tfidf_cache import invalidate_workspace_cache
 from prompt_matrix.services.perplexity_agent import (
     complete_perplexity_agent,
@@ -66,6 +69,57 @@ def test_compile_prompt_includes_constraints():
     assert "NOT FOUND IN SOURCES" in prompt
     assert "brief.pdf" in prompt
     assert "assure-jdf" in prompt.lower() or "JDF" in prompt or "document_id" in prompt
+
+
+def test_prompt_compiler_injects_sources():
+    compiler = PromptCompiler()
+    messages = compiler.compile(
+        "Summarize Q3 revenue",
+        "--- Document 1: brief.pdf ---\nRevenue was $12M in Q3.",
+    )
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert messages[1]["role"] == "user"
+    assert "Revenue was $12M in Q3." in messages[0]["content"]
+    assert "[claim: N]" in messages[0]["content"]
+    assert "NO EXTERNAL KNOWLEDGE" in messages[0]["content"]
+    assert "DIRECTIVE: Summarize Q3 revenue" in messages[1]["content"]
+
+
+def test_prompt_compiler_format_sources_from_rows():
+    block = PromptCompiler.format_sources_from_rows(
+        [{"id": "s1", "filename": "brief.pdf", "extracted_text": "Revenue $12M."}]
+    )
+    assert "brief.pdf" in block
+    assert "Revenue $12M." in block
+
+
+def test_extract_claims_from_stream_parses_tags():
+    text = "This is a fact [claim: 1]. This is another [Claim: 2]."
+    claims = extract_claims_from_stream(text)
+    assert len(claims) == 2
+    assert claims[0]["claim_id"] == "claim_1"
+    assert claims[0]["text"] == "This is a fact"
+    assert claims[1]["claim_id"] == "claim_2"
+    assert claims[1]["text"] == "This is another"
+
+
+def test_extract_claims_from_stream_ignores_spacing_and_casing():
+    text = "Sampling runs at 4Hz[claim:1]. Resolution is 24-bit [Claim: 2]."
+    claims = extract_claims_from_stream(text)
+    assert len(claims) == 2
+    assert claims[0]["text"].endswith("4Hz")
+    assert claims[1]["claim_id"] == "claim_2"
+
+
+def test_route_intent_heuristic():
+    assert route_intent("Write investor update", has_sources=True) == {
+        "task": "draft",
+        "has_sources": True,
+        "intent_type": "draft",
+    }
+    assert route_intent("Extract metrics", has_sources=False)["task"] == "extract"
+    assert route_intent("Extract metrics", has_sources=False)["has_sources"] is False
 
 
 def test_verify_claims_fallback():
@@ -128,9 +182,10 @@ def test_sse_multiplexing_token_and_lock(monkeypatch):
         lambda *_a, **_k: [{"id": "s1", "name": "brief.pdf", "excerpt": "Revenue was $12M in Q3."}],
     )
 
-    def fake_stream(_prompt, *, model):
-        yield "Revenue was $12M in Q3."
+    def fake_stream(_messages, _model):
+        yield "Revenue was $12M in Q3. [claim: 1]"
 
+    monkeypatch.setattr("prompt_matrix.services.orchestrator.default_token_stream", fake_stream)
     monkeypatch.setattr("prompt_matrix.services.auto_compiler._stream_litellm", fake_stream)
     monkeypatch.setattr(
         "prompt_matrix.services.auto_compiler._run_lock_inference",
