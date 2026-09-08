@@ -71,7 +71,7 @@ def goto_founder_workbench(page, base_url: str):
     prime_page(page, founder_workbench=True)
     page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
-    page.wait_for_selector("#panel-runs", state="visible", timeout=30_000)
+    page.wait_for_selector("#runs-stack", state="visible", timeout=30_000)
     page.wait_for_function(
         "() => document.body.classList.contains('founder-workbench')",
         timeout=10_000,

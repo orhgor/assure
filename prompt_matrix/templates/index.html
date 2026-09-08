@@ -162,12 +162,39 @@
           </div>
           <div class="app-content">
       <section class="jdf-workbench workspace-shell" id="workbench-root" aria-label="{{ gettext('Document engineering') }}">
-        <div class="app-container">
+        <div class="app-container founder-workbench">
+          <nav id="state-rail" class="state-rail" aria-label="{{ gettext('Workbench stages') }}" data-i18n-aria="founder.state_rail.label" hidden>
+            <button type="button" class="state-rail-btn is-active" data-stage="directive" data-filter="all" aria-label="{{ gettext('Directive') }}" data-i18n-aria="founder.state_rail.directive">
+              <span class="state-rail-icon" aria-hidden="true">⚡</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.state_rail.directive_tip">{{ gettext('Directive (⌘K)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-stage="runs" data-filter="all" aria-label="{{ gettext('Runs') }}" data-i18n-aria="founder.state_rail.runs">
+              <span class="state-rail-icon" aria-hidden="true">⚙️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.state_rail.runs_tip">{{ gettext('Runs (Shift+2)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-stage="grounded" data-filter="grounded" aria-label="{{ gettext('Grounding Vault') }}" data-i18n-aria="founder.state_rail.grounded">
+              <span class="state-rail-icon" aria-hidden="true">🔒</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.state_rail.grounded_tip">{{ gettext('Grounding Vault (Shift+3)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-stage="redhat" data-filter="redhat" aria-label="{{ gettext('Red-Hat Audit') }}" data-i18n-aria="founder.state_rail.redhat">
+              <span class="state-rail-icon" aria-hidden="true">🛡️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.state_rail.redhat_tip">{{ gettext('Red-Hat Audit (Shift+4)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-stage="dossier" data-filter="dossier" aria-label="{{ gettext('Dossier Export') }}" data-i18n-aria="founder.state_rail.dossier">
+              <span class="state-rail-icon" aria-hidden="true">📂</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.state_rail.dossier_tip">{{ gettext('Dossier Export (Shift+5)') }}</span>
+            </button>
+          </nav>
           <aside class="left-pane" id="left-pane">
 
-            <div id="panel-runs" class="assure-view context-panel active founder-panel" data-view="runs">
+            <div id="runs-stack" class="assure-view context-panel active founder-panel panel-runs" data-view="runs" data-filter="all">
               <div class="runs-stack-header">
-                <h3 class="jdf-pane-title">Runs</h3>
+                <h3 class="jdf-pane-title" data-i18n="founder.runs.title">{{ gettext('Runs') }}</h3>
                 <button type="button" id="runs-stack-toggle" class="btn btn-ghost btn-sm" aria-label="Collapse runs stack" title="Collapse">◀</button>
               </div>
               <p id="runs-stack-pipeline-status" class="runs-stack-pipeline-status hint" hidden aria-live="polite"></p>
@@ -699,13 +726,9 @@
             <div class="jdf-card canvas-stage" id="canvas-stage">
               <div id="founder-draft-shell" class="founder-draft-shell">
                 <div class="founder-draft-header">
-                  <h3 class="jdf-pane-title founder-draft-title">
-                    <span data-i18n="founder.draft.title">{{ gettext('Active Draft') }}</span>
-                    <span class="founder-workspace-title" id="founder-workspace-title"></span>
-                  </h3>
+                  <h3 class="jdf-pane-title founder-draft-title" id="founder-document-title" data-i18n="founder.document.untitled">{{ gettext('Untitled Document') }}</h3>
                   <div class="founder-draft-actions">
                     <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
-                    <button type="button" class="btn btn-ghost btn-sm founder-show-workspaces-link" id="founder-show-workspaces" data-i18n="founder.show_workspaces">{{ gettext('Show Workspaces') }}</button>
                   </div>
                 </div>
                 <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('Write your draft here, or hit ⌘K to start.') }}</p>
@@ -1288,6 +1311,7 @@
   <script src="{{ url_for('static', filename='workbench_ux.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
