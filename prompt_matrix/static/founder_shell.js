@@ -1,6 +1,6 @@
 /**
  * Founder workbench shell — default /app layout (Runs Stack + Active Draft).
- * Legacy workspaces remain available via ?legacy=1, ?view=projects, or Show Workspaces.
+ * Legacy workspaces remain available via ?legacy=1 or ?view=projects.
  */
 (function (global) {
   "use strict";
@@ -92,7 +92,7 @@
       appContent.style.gridRow = "1";
     }
     legacyDetached = true;
-    updateWorkspaceTitle();
+    updateDocumentTitle();
   }
 
   function restoreLegacyDom() {
@@ -127,7 +127,7 @@
     }
   }
 
-  function resolveWorkspaceTitle() {
+  function resolveDocumentTitle() {
     var pid = String(global.__ASSURE_PROJECT_ID__ || "default").trim();
     var title = "";
     if (global.AssureProjects && typeof global.AssureProjects.titleFor === "function") {
@@ -136,23 +136,25 @@
     if (!title && pid !== "default" && !looksLikeSlug(pid)) title = pid;
     title = String(title || "").trim();
     if (!title || title === "default" || title.toLowerCase() === "default project" || looksLikeSlug(title)) {
-      return translate("founder.workspace.untitled", "Untitled Workspace");
+      return translate("founder.document.untitled", "Untitled Document");
     }
     return title;
   }
 
-  function updateWorkspaceTitle() {
-    var titleEl = $("founder-workspace-title");
+  function updateDocumentTitle() {
+    var titleEl = $("founder-document-title");
     if (!titleEl) return;
-    titleEl.textContent = resolveWorkspaceTitle();
+    titleEl.textContent = resolveDocumentTitle();
   }
 
   function setSidebarFounderMode(on) {
     document.querySelectorAll(".founder-sidebar-legacy").forEach(function (link) {
       link.hidden = !!on;
     });
-    var showLegacy = $("founder-show-workspaces");
-    if (showLegacy) showLegacy.hidden = !on;
+    if (global.AssureStateRail) {
+      if (on && typeof global.AssureStateRail.showRail === "function") global.AssureStateRail.showRail();
+      else if (!on && typeof global.AssureStateRail.hideRail === "function") global.AssureStateRail.hideRail();
+    }
   }
 
   function hideLegacyLeftPanels() {
@@ -170,7 +172,7 @@
     hideLegacyLeftPanels();
     closeSourcesDrawer();
 
-    var runs = $("panel-runs");
+    var runs = $("runs-stack");
     if (runs) {
       runs.hidden = false;
       runs.classList.add("active");
@@ -211,7 +213,7 @@
     }
 
     setSidebarFounderMode(true);
-    updateWorkspaceTitle();
+    updateDocumentTitle();
 
     document.body.setAttribute("data-assure-view", view);
     document.body.setAttribute("data-assure-tool", "runs");
@@ -298,14 +300,6 @@
     var backdrop = $("sources-drawer-backdrop");
     if (backdrop) backdrop.addEventListener("click", closeSourcesDrawer);
 
-    var showWorkspaces = $("founder-show-workspaces");
-    if (showWorkspaces) {
-      showWorkspaces.addEventListener("click", function (e) {
-        e.preventDefault();
-        enableLegacyWorkspaces();
-      });
-    }
-
     var draftEditor = $("founder-draft-editor");
     if (draftEditor) {
       draftEditor.addEventListener("dragover", function (e) {
@@ -335,7 +329,7 @@
     });
 
     document.addEventListener("assure:project", function () {
-      updateWorkspaceTitle();
+      updateDocumentTitle();
     });
   }
 
@@ -354,7 +348,7 @@
     openSourcesDrawer: openSourcesDrawer,
     closeSourcesDrawer: closeSourcesDrawer,
     enableLegacyWorkspaces: enableLegacyWorkspaces,
-    updateWorkspaceTitle: updateWorkspaceTitle,
+    updateDocumentTitle: updateDocumentTitle,
     init: init,
   };
 

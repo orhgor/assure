@@ -264,6 +264,14 @@
     });
   }
 
+  function isTypingTarget() {
+    var el = document.activeElement;
+    if (!el) return false;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
   function init() {
     overlay = $("command-bar-overlay");
     input = $("command-bar-input");
@@ -288,6 +296,7 @@
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
     });
     document.addEventListener("keydown", function (e) {
+      if (isTypingTarget()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey) {
         var founderOn =
           global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"
