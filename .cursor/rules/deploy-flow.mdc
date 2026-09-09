@@ -11,6 +11,30 @@ Default targets:
 - **Staging:** https://staging.getassureai.com
 - **Production:** https://getassureai.com
 
+## Stack split (do not mix)
+
+| Surface | Host | Backend | Deploy |
+| --- | --- | --- | --- |
+| **Marketing** (apex `/`, locales, `/static/*`, legal pages) | `getassureai.com` | **Cloudflare R2** + `assure-marketing-proxy` Worker | `scripts/deploy-marketing-r2.sh` only |
+| **Everything else** (workbench, PEM, `/api`, SQLite, auth, providers) | `app.getassureai.com` | **EC2** Docker + Tunnel | `scripts/aws/ssm-redeploy-and-wait.sh` / `redeploy-app.sh` only |
+
+**EC2 owns all runtime product logic** — not just the UI shell:
+- PEM engine, orchestrator, compiler, swarm, JDF pipeline
+- `/api/*` routes, WebSocket/SSE streams, sandbox verify
+- SQLite (`data/history.sqlite`), substrate vault (extracted text only on EC2/SQLite)
+- Ephemeral document uploads → **separate R2 staging bucket**, deleted after Textract/ingest (`docs/runbooks/substrate-r2-ephemeral-uploads.md`)
+- SQLite backups → R2 (`assure-prod-backups`, retention policy — not uploads)
+- Provider integrations: Gemini, Claude, DeepSeek, Kimi, **Ollama**, LiteLLM, OpenRouter-style routing
+- Auth/billing: Clerk (sign-in UI + `/api/auth/*` on EC2; marketing gets client-only Clerk JS at static build — see `docs/runbooks/clerk-marketing-workbench.md`), credits/wallet, user settings, API keys (`.env.production` on box)
+- Observability hooks (Sentry, Plausible on app templates) — server-side on EC2
+
+Rules:
+- Never deploy marketing HTML/CSS/JS to EC2 as the live apex source.
+- Never move workbench, API, provider calls, or PEM execution to Workers, R2, or edge compute.
+- Flask landing routes in `web.py` are for **local render + static export** (`scripts/render_static.py`), not production apex traffic.
+- Worker redirects apex `/app*` and `/api*` → `app.getassureai.com` (EC2).
+- Marketing copy: `prompt_matrix/i18n.py` → build → R2. Product code: `prompt_matrix/` → GHCR → EC2.
+
 ## Branch workflow
 
 1. Feature branch → PR → **CI** (pytest + Playwright).
