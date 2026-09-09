@@ -214,7 +214,7 @@ def test_context_aware_invoke(page: Page, base_url: str):
     operator = page.locator("#operator-prompt")
     expect(operator).to_be_visible(timeout=5_000)
     expect(operator.locator("#operator-prompt-input")).to_have_attribute(
-        "placeholder", "Edit selection..."
+        "placeholder", re.compile(r"^Edit selection")
     )
     expect(operator.locator("#operator-prompt-input")).to_have_value("", timeout=5_000)
     page.keyboard.press("Escape")

@@ -791,6 +791,10 @@
                   global.AssureTiptapEditor &&
                   global.AssureTiptapEditor.getEditor &&
                   global.AssureTiptapEditor.getEditor();
+                if (ed && typeof global.showOperatorPrompt === "function") {
+                  global.showOperatorPrompt(ed);
+                  return true;
+                }
                 if (
                   ed &&
                   global.AssureOperatorPrompt &&
