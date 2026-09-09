@@ -163,9 +163,55 @@
     }
   }
 
+  var syncHideTimer = null;
+
+  function showSyncStatus(text, hideAfter) {
+    var shell = $("sync-status");
+    var label = $("sync-status-text");
+    if (!shell || !label) return;
+    if (syncHideTimer) {
+      clearTimeout(syncHideTimer);
+      syncHideTimer = null;
+    }
+    var msg = String(text || "").trim();
+    if (!msg) {
+      shell.classList.add("is-hidden");
+      shell.hidden = true;
+      return;
+    }
+    label.textContent = msg;
+    shell.classList.remove("is-hidden", "is-verified", "is-saving", "is-verifying");
+    shell.hidden = false;
+    var lower = msg.toLowerCase();
+    if (lower.indexOf("verified") >= 0 || lower.indexOf("✓") >= 0) {
+      shell.classList.add("is-verified");
+    } else if (lower.indexOf("z3") >= 0 || lower.indexOf("verif") >= 0) {
+      shell.classList.add("is-verifying");
+    } else {
+      shell.classList.add("is-saving");
+    }
+    if (hideAfter === true || typeof hideAfter === "number") {
+      var ms = typeof hideAfter === "number" ? hideAfter : 2000;
+      syncHideTimer = setTimeout(function () {
+        shell.classList.add("is-hidden");
+        setTimeout(function () {
+          shell.hidden = true;
+          label.textContent = "";
+        }, 350);
+      }, ms);
+    }
+  }
+
   function openDrawer(mode, detail) {
     drawerMode = mode || "redhat";
     drawerDetail = detail || null;
+    if (
+      drawerMode !== "redhat" &&
+      global.AssureRedhatDrawer &&
+      typeof global.AssureRedhatDrawer.stopPolling === "function"
+    ) {
+      global.AssureRedhatDrawer.stopPolling();
+    }
     if (detail && detail.runId && global.AssureRunsStack && global.AssureRunsStack.setSelectedRunId) {
       global.AssureRunsStack.setSelectedRunId(detail.runId);
     }
@@ -485,7 +531,16 @@
     openAuditDrawer: openAuditDrawer,
     refreshDrawerBody: refreshDrawerBody,
     isNarrowViewport: isNarrowViewport,
+    showSyncStatus: showSyncStatus,
   };
 
+  global.showSyncStatus = showSyncStatus;
+
   document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("assure:z3-verified", function () {
+    showSyncStatus(
+      translate("founder.sync.verified", "Verified ✓"),
+      true
+    );
+  });
 })(window);

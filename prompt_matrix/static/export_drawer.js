@@ -82,25 +82,32 @@
 
   function exportVerifiedPdf() {
     if (pdfBusy) return;
-    var doc = currentJdfDocument();
-    if (!doc) {
-      toast(translate("founder.export.pdf_error", "Could not read the draft."), "error");
-      return;
-    }
     setPdfBusy(true);
     var pid = projectId();
-    fetch("/api/projects/" + encodeURIComponent(pid) + "/draft", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: doc }),
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          return { ok: res.ok && data.ok !== false, data: data };
+    var flush =
+      global.AssureFounderDraft && typeof global.AssureFounderDraft.flushSave === "function"
+        ? global.AssureFounderDraft.flushSave()
+        : Promise.resolve();
+    flush
+      .then(function () {
+        var doc = currentJdfDocument();
+        if (!doc) {
+          toast(translate("founder.export.pdf_error", "Could not read the draft."), "error");
+          return null;
+        }
+        return fetch("/api/projects/" + encodeURIComponent(pid) + "/draft", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: doc }),
+        }).then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok && data.ok !== false, data: data };
+          });
         });
       })
       .then(function (result) {
+        if (!result) return;
         if (!result.ok) {
           toast(
             (result.data && result.data.error) ||

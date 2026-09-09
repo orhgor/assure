@@ -192,6 +192,7 @@
           });
         }
       });
+      document.dispatchEvent(new CustomEvent("assure:z3-verified"));
       return;
     }
     if (event === "complete") {
