@@ -7,6 +7,7 @@
   var runs = [];
   var collapsed = false;
   var searchQuery = "";
+  var selectedRunId = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -252,6 +253,7 @@
       var id = card.getAttribute("data-run-id");
       card.addEventListener("click", function (e) {
         if (e.target && e.target.closest && e.target.closest("button")) return;
+        selectedRunId = id;
         sendToDraft(id);
       });
       card.querySelector('[data-action="draft"]').addEventListener("click", function (e) {
@@ -264,7 +266,11 @@
       var rh = card.querySelector('[data-action="redhat"]');
       if (rh)
         rh.addEventListener("click", function () {
+          selectedRunId = id;
           runRedhat(id, rh);
+          if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.openDrawer === "function") {
+            global.AssureWorkbenchPanes.openDrawer("redhat", { runId: id });
+          }
         });
       card.querySelectorAll('[data-action="accept-finding"]').forEach(function (btn) {
         btn.addEventListener("click", function (e) {
@@ -456,6 +462,12 @@
     render: render,
     init: init,
     setPipelineStatus: setPipelineStatus,
+    getSelectedRunId: function () {
+      return selectedRunId;
+    },
+    setSelectedRunId: function (id) {
+      selectedRunId = id || null;
+    },
     getRuns: function () {
       return runs.slice();
     },

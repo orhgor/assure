@@ -128,3 +128,18 @@ def test_restore_updates_draft_and_returns_document(founder_client) -> None:
 def test_restore_missing_version_returns_404(founder_client) -> None:
     res = founder_client.post("/api/projects/founder/restore", json={"version": 99})
     assert res.status_code == 404
+
+
+def test_pre_export_draft_save(founder_client) -> None:
+    res = founder_client.post(
+        "/api/projects/founder/draft",
+        json={"content": SAMPLE_TREE_V2},
+    )
+    assert res.status_code == 200, res.get_json()
+    draft = founder_client.get("/api/drafts?workspace_id=founder")
+    draft_doc = (draft.get_json().get("draft") or {}).get("content") or {}
+    assert draft_doc["body"][0]["children"][0]["content"] == "Version two text."
+    export = founder_client.get("/api/projects/founder/export?format=json")
+    assert export.status_code == 200
+    exported = export.get_json().get("document") or {}
+    assert exported["body"][0]["children"][0]["content"] == "Version two text."

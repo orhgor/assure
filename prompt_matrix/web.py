@@ -1703,6 +1703,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_drafts_routes(app)
 
     try:
+        from .routers.locks_routes import register_locks_routes
+    except ImportError:
+        from routers.locks_routes import register_locks_routes
+    register_locks_routes(app)
+
+    try:
         from .middleware_activity import register_activity_audit_middleware
     except ImportError:
         from middleware_activity import register_activity_audit_middleware

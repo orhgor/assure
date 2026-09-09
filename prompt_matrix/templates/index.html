@@ -771,7 +771,11 @@
               <h3 id="workbench-drawer-title" class="jdf-pane-title" data-i18n="founder.drawer.audit_title">{{ gettext('Audit & findings') }}</h3>
               <button type="button" id="workbench-drawer-close" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Close drawer') }}" data-i18n-aria="founder.drawer.close" title="{{ gettext('Close (Esc)') }}" data-i18n-title="founder.drawer.close_tip">✕</button>
             </header>
-            <div id="workbench-drawer-body" class="workbench-drawer-body"></div>
+            <div id="workbench-drawer-body" class="workbench-drawer-body">
+              <section id="drawer-evidence" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+              <section id="drawer-redhat" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+              <section id="drawer-export" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+            </div>
           </aside>
         </div>
         <div class="workbench-utility" id="workbench-utility">
@@ -1332,6 +1336,9 @@
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_panes.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='evidence_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='redhat_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='export_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_inline_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>

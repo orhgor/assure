@@ -328,6 +328,9 @@
     appendRun: appendRun,
     loadDraft: loadDraft,
     applyRestoredDocument: applyRestoredDocument,
+    getDraftTree: function () {
+      return draftTree;
+    },
     resetToEmpty: resetToEmpty,
     beginStreaming: beginStreaming,
     appendStreamToken: appendStreamToken,

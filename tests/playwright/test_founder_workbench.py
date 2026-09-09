@@ -386,7 +386,23 @@ def test_send_to_draft(page: Page, base_url: str):
 
 def test_evidence_inspector(page: Page, base_url: str):
     _mock_runs_api(page)
-    _mock_substrate(page)
+    page.route(
+        "**/api/locks/*/evidence",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "lock_hash": "abc123hash4567",
+                    "source_id": "sub-pw-1",
+                    "source_name": "brief.pdf",
+                    "page_number": 1,
+                    "excerpt": "Revenue reached $12M in Q3.",
+                    "z3_proof": "(assert (= Revenue 12000000))",
+                }
+            ),
+        ),
+    )
     goto_founder_workbench(page, base_url)
     page.keyboard.press("Meta+K")
     page.locator("#command-bar-input").fill("Revenue check")
@@ -410,9 +426,9 @@ def test_evidence_inspector(page: Page, base_url: str):
           }));
         }"""
     )
-    expect(page.locator("#evidence-inspector-drawer")).to_be_visible()
-    expect(page.locator("#evidence-inspector-hash")).not_to_have_text("")
-    expect(page.locator("#evidence-inspector-body")).to_contain_text("Revenue reached")
+    expect(page.locator("#workbench-right-drawer")).to_be_visible()
+    expect(page.locator("#drawer-evidence")).to_be_visible()
+    expect(page.locator(".drawer-evidence-excerpt")).to_contain_text("Revenue reached")
 
 
 def test_founder_empty_bootstrap(page: Page, base_url: str):

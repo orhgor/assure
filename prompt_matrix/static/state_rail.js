@@ -113,6 +113,10 @@
   }
 
   function triggerDossierExport() {
+    if (global.AssureExportDrawer && typeof global.AssureExportDrawer.open === "function") {
+      global.AssureExportDrawer.open();
+      return;
+    }
     var btn = $("btn-export-dossier");
     if (btn && typeof btn.click === "function") btn.click();
   }

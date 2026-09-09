@@ -8,6 +8,8 @@
   var leftOpen = true;
   var rightOpen = false;
   var sidebarTab = "runs";
+  var drawerMode = null;
+  var drawerDetail = null;
   var leftBeforeResponsive = null;
 
   function $(id) {
@@ -112,11 +114,67 @@
 
   function closeRight() {
     rightOpen = false;
+    drawerMode = null;
+    drawerDetail = null;
     if (leftBeforeResponsive) {
       leftOpen = true;
       leftBeforeResponsive = null;
     }
     applyGridClasses();
+    hideDrawerPanels();
+  }
+
+  function hideDrawerPanels() {
+    ["drawer-evidence", "drawer-redhat", "drawer-export"].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      el.hidden = true;
+      el.setAttribute("aria-hidden", "true");
+    });
+  }
+
+  function drawerTitleForMode(mode) {
+    if (mode === "evidence") {
+      return translate("evidence.inspector.title", "Evidence Inspector");
+    }
+    if (mode === "export") {
+      return translate("founder.export.drawer_title", "Export");
+    }
+    return translate("founder.drawer.audit_title", "Audit & findings");
+  }
+
+  function activateDrawerMode(mode, detail) {
+    hideDrawerPanels();
+    var panelId =
+      mode === "evidence" ? "drawer-evidence" : mode === "export" ? "drawer-export" : "drawer-redhat";
+    var panel = $(panelId);
+    if (panel) {
+      panel.hidden = false;
+      panel.setAttribute("aria-hidden", "false");
+    }
+    var title = $("workbench-drawer-title");
+    if (title) title.textContent = drawerTitleForMode(mode);
+    if (mode === "evidence" && global.AssureEvidenceDrawer && global.AssureEvidenceDrawer.activate) {
+      global.AssureEvidenceDrawer.activate(detail || drawerDetail || {});
+    } else if (mode === "redhat" && global.AssureRedhatDrawer && global.AssureRedhatDrawer.activate) {
+      global.AssureRedhatDrawer.activate();
+    } else if (mode === "export" && global.AssureExportDrawer && global.AssureExportDrawer.activate) {
+      global.AssureExportDrawer.activate();
+    }
+  }
+
+  function openDrawer(mode, detail) {
+    drawerMode = mode || "redhat";
+    drawerDetail = detail || null;
+    if (detail && detail.runId && global.AssureRunsStack && global.AssureRunsStack.setSelectedRunId) {
+      global.AssureRunsStack.setSelectedRunId(detail.runId);
+    }
+    toggleRight(true);
+    activateDrawerMode(drawerMode, drawerDetail);
+  }
+
+  function getDrawerMode() {
+    return drawerMode;
   }
 
   function isLeftOpen() {
@@ -331,63 +389,16 @@
     return sidebarTab;
   }
 
-  function renderDrawerFindings() {
-    var body = $("workbench-drawer-body");
-    if (!body) return;
-    var runs = (global.AssureRunsStack && global.AssureRunsStack.getRuns()) || [];
-    var html = "";
-    runs.forEach(function (run) {
-      (run.redhat_findings || []).forEach(function (f) {
-        if (f.status !== "open") return;
-        html +=
-          '<article class="drawer-finding" data-run-id="' +
-          (run.id || "") +
-          '" data-finding-id="' +
-          (f.id || "") +
-          '">' +
-          "<h4>" +
-          (f.title || "Finding") +
-          "</h4>" +
-          "<p>" +
-          (f.content || "") +
-          "</p>" +
-          '<button type="button" class="btn btn-outline btn-sm drawer-accept-fix" data-action="accept-finding">' +
-          translate("founder.runs.accept_fix", "Accept Fix") +
-          "</button>" +
-          "</article>";
-      });
-    });
-    if (!html) {
-      html = '<p class="hint">' + translate("founder.drawer.empty", "No open audit findings.") + "</p>";
-    }
-    body.innerHTML = html;
-    body.querySelectorAll(".drawer-accept-fix").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var article = btn.closest(".drawer-finding");
-        if (!article) return;
-        document.dispatchEvent(
-          new CustomEvent("assure:drawer-accept-fix", {
-            detail: {
-              runId: article.getAttribute("data-run-id"),
-              findingId: article.getAttribute("data-finding-id"),
-            },
-          })
-        );
-      });
-    });
-  }
-
   function refreshDrawerBody() {
-    var title = $("workbench-drawer-title");
-    if (title) title.textContent = translate("founder.drawer.audit_title", "Audit & findings");
-    renderDrawerFindings();
+    if (!drawerMode) drawerMode = "redhat";
+    activateDrawerMode(drawerMode, drawerDetail);
   }
 
   function openAuditDrawer() {
     if (global.AssureStateRail && typeof global.AssureStateRail.setFilter === "function") {
       global.AssureStateRail.setFilter("redhat");
     }
-    toggleRight(true);
+    openDrawer("redhat");
   }
 
   function bindHotkeys() {
@@ -469,6 +480,8 @@
     loadSources: loadSources,
     loadVersions: loadVersions,
     restoreVersion: restoreVersion,
+    openDrawer: openDrawer,
+    getDrawerMode: getDrawerMode,
     openAuditDrawer: openAuditDrawer,
     refreshDrawerBody: refreshDrawerBody,
     isNarrowViewport: isNarrowViewport,

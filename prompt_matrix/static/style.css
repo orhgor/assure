@@ -9444,6 +9444,69 @@ body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench.p
   transform: translateX(0);
 }
 
+body.founder-workbench:not(.legacy-workbench) .workbench-drawer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-evidence-excerpt {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--border-subtle, #cbd5e1);
+  background: rgba(241, 245, 249, 0.9);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-evidence-z3 {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-card {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-raised, #fff);
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-card.is-fatal {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-card.is-warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-severity {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-export-lead {
+  margin: 0 0 8px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .workbench-drawer-panel[hidden] {
+  display: none !important;
+}
+
 body.founder-workbench:not(.legacy-workbench) .workbench-right-drawer[hidden] {
   display: none !important;
 }

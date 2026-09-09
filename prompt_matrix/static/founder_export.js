@@ -24,8 +24,7 @@
   }
 
   function init() {
-    var btn = document.getElementById("btn-export-dossier");
-    if (btn) btn.addEventListener("click", exportDossier);
+    /* Export drawer (export_drawer.js) owns founder export in Phase 3. */
   }
 
   global.AssureFounderExport = { exportDossier: exportDossier, init: init };
