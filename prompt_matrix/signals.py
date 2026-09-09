@@ -40,7 +40,7 @@ def schedule_redhat_multipass(
     *,
     run_id: str | None = None,
     debounce: bool = False,
-) -> None:
+) -> str | None:
     """Enqueue multi-pass audit; optionally debounce overlapping draft edits."""
     if debounce:
         with _debounce_lock:
@@ -63,7 +63,7 @@ def schedule_redhat_multipass(
             _debounce_timers[project_id] = timer
             timer.daemon = True
             timer.start()
-        return
+        return None
 
     try:
         from prompt_matrix.db.redhat_audit_lock_repository import bump_generation
@@ -74,13 +74,14 @@ def schedule_redhat_multipass(
 
     generation, prev_task = bump_generation(project_id)
     _revoke_task(prev_task)
-    run_redhat_multipass_task.delay(
+    async_result = run_redhat_multipass_task.delay(
         project_id,
         current_jdf,
         previous_jdf,
         run_id,
         generation,
     )
+    return str(async_result.id or "") or None
 
 
 def _on_z3_verified(sender: Any, **kwargs: Any) -> None:

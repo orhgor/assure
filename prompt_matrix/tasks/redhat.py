@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import html
 import json
 import re
+import uuid
 from typing import Any
 
 from prompt_matrix.celery_app import celery_app
@@ -29,6 +31,43 @@ PASS1_MODEL = "deepseek/deepseek-chat"
 PASS2_MODEL = "anthropic/claude-sonnet-4-5"
 HIGH_LIABILITY_KEYWORDS = ("liability", "indemnify", "termination", "$")
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+def _patch_html(suggested_fix: str) -> str:
+    fix = (suggested_fix or "").strip()
+    if not fix:
+        return ""
+    return f'<span class="diff-add">{html.escape(fix)}</span>'
+
+
+def _telemetry_finding(
+    finding: dict[str, Any],
+    *,
+    pass_num: int,
+    block_hash: str,
+    node_id: str = "",
+    cache_hit: bool = False,
+) -> dict[str, Any]:
+    payload = dict(finding)
+    payload.setdefault("id", f"rh_{uuid.uuid4().hex[:12]}")
+    payload["pass"] = pass_num
+    payload["block_hash"] = block_hash
+    payload["node_id"] = node_id
+    payload["cache_hit"] = cache_hit
+    payload["patch_html"] = _patch_html(str(payload.get("suggested_fix") or ""))
+    return payload
+
+
+def _telemetry_update(project_id: str, **kwargs: Any) -> None:
+    try:
+        from prompt_matrix.db.redhat_telemetry_repository import upsert_telemetry
+    except ImportError:
+        from db.redhat_telemetry_repository import upsert_telemetry
+    try:
+        upsert_telemetry(project_id, **kwargs)
+    except Exception:
+        # Drawer telemetry is best-effort; never fail the audit pipeline.
+        pass
 
 
 def _resolve_run_id(project_id: str, run_id: str | None) -> str | None:
@@ -148,12 +187,14 @@ def run_redhat_pass1(
         if delta.get("change") == "deleted":
             continue
         block_hash = str(delta.get("block_hash") or hash_block(delta.get("node") or {}))
+        node_id = str(delta.get("node_id") or "")
         cached = fetch_cache(block_hash)
         if cached:
             findings = list(cached.get("findings") or [])
             block_results.append(
                 {
                     "block_hash": block_hash,
+                    "node_id": node_id,
                     "findings": findings,
                     "pass1_model": cached.get("pass1_model") or PASS1_MODEL,
                     "cached": True,
@@ -178,6 +219,7 @@ def run_redhat_pass1(
         block_results.append(
             {
                 "block_hash": block_hash,
+                "node_id": node_id,
                 "findings": findings,
                 "pass1_model": model_used,
                 "cached": False,
@@ -289,7 +331,22 @@ def run_redhat_multipass_audit(
 
     deltas = get_ast_deltas(current_jdf, previous_jdf)
     if not deltas:
+        _telemetry_update(
+            project_id,
+            status="complete",
+            pass1_complete=True,
+            pass2_running=False,
+            findings=[],
+        )
         return {"ok": True, "deltas": 0, "findings": []}
+
+    _telemetry_update(
+        project_id,
+        status="pass1_running",
+        pass1_complete=False,
+        pass2_running=False,
+        run_id=run_id or "",
+    )
 
     pass1 = run_redhat_pass1(
         deltas,
@@ -298,26 +355,93 @@ def run_redhat_multipass_audit(
         generation=generation,
     )
     if pass1.get("stale"):
+        _telemetry_update(project_id, status="error", error="stale_generation", pass2_running=False)
         return {"ok": False, "stale": True}
 
-    pass2_results: list[dict[str, Any]] = []
+    pass1_feed: list[dict[str, Any]] = []
     for block in pass1.get("blocks") or []:
-        pass2_results.append(
-            run_redhat_pass2(
-                block["block_hash"],
-                block.get("findings") or [],
-                project_id,
-                block_text=str(block.get("text") or ""),
-                run_id=pass1.get("run_id") or run_id,
-                pass1_model=str(block.get("pass1_model") or PASS1_MODEL),
-                generation=generation,
+        for finding in block.get("findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            sev = str(finding.get("severity") or "medium").lower()
+            if sev == "high":
+                continue
+            pass1_feed.append(
+                _telemetry_finding(
+                    finding,
+                    pass_num=1,
+                    block_hash=str(block.get("block_hash") or ""),
+                    node_id=str(block.get("node_id") or ""),
+                    cache_hit=bool(block.get("cached")),
+                )
             )
+
+    _telemetry_update(
+        project_id,
+        status="pass1_complete",
+        pass1_complete=True,
+        pass2_running=False,
+        findings=pass1_feed,
+    )
+
+    needs_pass2 = any(
+        should_run_pass2(block.get("findings") or [], str(block.get("text") or ""))
+        for block in pass1.get("blocks") or []
+    )
+    if needs_pass2:
+        _telemetry_update(
+            project_id, status="pass2_running", pass2_running=True, pass1_complete=True
         )
+
+    pass2_results: list[dict[str, Any]] = []
+    pass2_feed: list[dict[str, Any]] = list(pass1_feed)
+    for block in pass1.get("blocks") or []:
+        pass2_result = run_redhat_pass2(
+            block["block_hash"],
+            block.get("findings") or [],
+            project_id,
+            block_text=str(block.get("text") or ""),
+            run_id=pass1.get("run_id") or run_id,
+            pass1_model=str(block.get("pass1_model") or PASS1_MODEL),
+            generation=generation,
+        )
+        pass2_results.append(pass2_result)
+        if pass2_result.get("skipped"):
+            continue
+        for finding in pass2_result.get("findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            pass2_feed.append(
+                _telemetry_finding(
+                    finding,
+                    pass_num=2,
+                    block_hash=str(block.get("block_hash") or ""),
+                    node_id=str(block.get("node_id") or ""),
+                    cache_hit=False,
+                )
+            )
+        if pass2_feed != pass1_feed:
+            _telemetry_update(
+                project_id,
+                status="pass2_running" if needs_pass2 else "pass1_complete",
+                pass1_complete=True,
+                pass2_running=needs_pass2,
+                findings=pass2_feed,
+            )
 
     final = run_redhat_pass3(
         pass1.get("blocks") or [],
         pass2_results,
         run_id=pass1.get("run_id") or run_id,
+    )
+
+    _telemetry_update(
+        project_id,
+        status="complete",
+        pass1_complete=True,
+        pass2_running=False,
+        findings=pass2_feed,
+        run_id=str(pass1.get("run_id") or run_id or ""),
     )
 
     return {

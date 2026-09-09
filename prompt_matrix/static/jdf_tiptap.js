@@ -1111,6 +1111,69 @@
     }
   }
 
+  function findBlockByNodeId(nodeId) {
+    if (!editor || editor.isDestroyed || !nodeId) return null;
+    var hit = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.attrs && node.attrs.nodeId === nodeId) {
+        hit = { pos: pos, node: node };
+        return false;
+      }
+    });
+    return hit;
+  }
+
+  function parsePatchToInlineContent(patchHTML) {
+    var raw = String(patchHTML || "").trim();
+    if (!raw) return [];
+    var div = document.createElement("div");
+    div.innerHTML = raw;
+    var parts = [];
+    div.querySelectorAll(".diff-add").forEach(function (el) {
+      var text = String(el.textContent || "").trim();
+      if (text) parts.push({ type: "text", text: " " + text });
+    });
+    if (!parts.length) {
+      var plain = String(div.textContent || "").trim();
+      if (plain) parts.push({ type: "text", text: " " + plain });
+    }
+    return parts;
+  }
+
+  function applyRedHatFix(blockHash, patchHTML, buttonElement, nodeId) {
+    if (!editor || editor.isDestroyed) return false;
+    var loc = findBlockByNodeId(nodeId);
+    if (!loc && blockHash) {
+      editor.state.doc.descendants(function (node, pos) {
+        if (loc || !node.isBlock) return;
+        loc = { pos: pos, node: node };
+      });
+    }
+    if (!loc) return false;
+    var inline = parsePatchToInlineContent(patchHTML);
+    if (!inline.length) return false;
+    var insertPos = loc.pos + loc.node.nodeSize - 1;
+    try {
+      editor.chain().focus().insertContentAt(insertPos, inline).run();
+    } catch (_) {
+      return false;
+    }
+    if (buttonElement) {
+      buttonElement.disabled = true;
+      buttonElement.classList.add("is-applied");
+      buttonElement.textContent =
+        typeof global.__assureT === "function"
+          ? global.__assureT("founder.redhat.applied", "Applied ✓")
+          : "Applied ✓";
+    }
+    document.dispatchEvent(
+      new CustomEvent("assure:redhat-fix-applied", {
+        detail: { blockHash: blockHash, nodeId: nodeId || "" },
+      })
+    );
+    return true;
+  }
+
   var editor = null;
   var saveTimer = null;
   var codeBlockTimer = null;
@@ -1392,5 +1455,8 @@
       return at ? at.attrs.suggestionId || null : null;
     },
     getDocumentContextAst: getDocumentContextAst,
+    applyRedHatFix: applyRedHatFix,
   };
+
+  global.applyRedHatFix = applyRedHatFix;
 })(typeof window !== "undefined" ? window : this);

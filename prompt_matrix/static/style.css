@@ -9668,6 +9668,125 @@ body.founder-workbench:not(.legacy-workbench) .drawer-redhat-severity {
   margin-bottom: 4px;
 }
 
+body.founder-workbench:not(.legacy-workbench) .redhat-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-drawer-intro {
+  margin: 0 0 10px;
+  font-size: 0.8125rem;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass-badge.is-pass1 {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass-badge.is-pass2 {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-cache-hit {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #22c55e;
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-card.is-pass2 {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+body.founder-workbench:not(.legacy-workbench) .drawer-redhat-card.is-pass1 {
+  border-color: rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-finding-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-accept-fix.is-applied {
+  border-color: #22c55e;
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass2-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+  animation: redhat-pass2-pulse 1.6s ease-in-out infinite;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass2-loading.hidden {
+  display: none !important;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass2-loading-text {
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #d97706;
+}
+
+body.founder-workbench:not(.legacy-workbench) .redhat-pass2-loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+@keyframes redhat-pass2-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+body.founder-workbench:not(.legacy-workbench) .diff-add {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #15803d;
+  text-decoration: underline;
+  text-decoration-color: #22c55e;
+}
+
+body.founder-workbench:not(.legacy-workbench) .diff-remove {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+  text-decoration: line-through;
+}
+
 body.founder-workbench:not(.legacy-workbench) .drawer-export-lead {
   margin: 0 0 8px;
 }
