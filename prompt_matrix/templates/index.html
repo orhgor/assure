@@ -786,6 +786,23 @@
               <section id="drawer-export" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
             </div>
           </aside>
+          <div id="operator-canvas-overlay" class="operator-canvas-overlay hidden" hidden aria-hidden="true"></div>
+          <div id="operator-prompt" class="operator-prompt hidden scale-95 opacity-0" hidden aria-hidden="true" role="dialog">
+            <div class="operator-prompt-row">
+              <span class="operator-prompt-icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+              </span>
+              <input type="text" id="operator-prompt-input" class="operator-prompt-input"
+                     autocomplete="off" spellcheck="false"
+                     data-i18n-placeholder="operator.prompt.placeholder_draft"
+                     placeholder="{{ gettext('Draft intent...') }}">
+              <span class="operator-prompt-esc" aria-hidden="true"><kbd>ESC</kbd> <span data-i18n="operator.prompt.esc">{{ gettext('to cancel') }}</span></span>
+            </div>
+            <div id="operator-prompt-loading" class="operator-prompt-loading hidden" hidden aria-live="polite">
+              <svg class="operator-prompt-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+              <span class="operator-prompt-loading-text" id="operator-prompt-loading-text" data-i18n="operator.prompt.loading">{{ gettext('Compiling AST...') }}</span>
+            </div>
+          </div>
         </div>
         <div class="workbench-utility" id="workbench-utility">
             <span id="compiler-status" class="compiler-status compiler-idle visually-hidden" aria-live="polite" role="status">
