@@ -775,6 +775,38 @@
       },
     });
 
+    var OperatorPromptHotkey = T.Extension.create({
+      name: "operatorPromptHotkey",
+      priority: 2000,
+      addProseMirrorPlugins: function () {
+        return [
+          new T.Plugin({
+            props: {
+              handleKeyDown: function (_view, event) {
+                if (!(event.metaKey || event.ctrlKey) || event.shiftKey) return false;
+                if (String(event.key || "").toLowerCase() !== "k") return false;
+                event.preventDefault();
+                event.stopPropagation();
+                var ed =
+                  global.AssureTiptapEditor &&
+                  global.AssureTiptapEditor.getEditor &&
+                  global.AssureTiptapEditor.getEditor();
+                if (
+                  ed &&
+                  global.AssureOperatorPrompt &&
+                  typeof global.AssureOperatorPrompt.openAtSelection === "function"
+                ) {
+                  global.AssureOperatorPrompt.openAtSelection(ed);
+                  return true;
+                }
+                return false;
+              },
+            },
+          }),
+        ];
+      },
+    });
+
     var CodeFenceBridge = T.Extension.create({
       name: "codeFenceBridge",
       priority: 1000,
@@ -818,6 +850,7 @@
       ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
       CodeFenceBridge: CodeFenceBridge,
+      OperatorPromptHotkey: OperatorPromptHotkey,
       confidencePluginKey: confidencePluginKey,
     };
   }
@@ -846,6 +879,7 @@
     if (opts.founderMode) {
       list.push(ext.LockPill);
       list.push(ext.Suggestion);
+      list.push(ext.OperatorPromptHotkey);
     } else {
       list.push(ext.LockDecorations);
     }

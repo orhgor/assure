@@ -9039,6 +9039,90 @@ body.founder-workbench #panel-runs.is-collapsed .jdf-pane-title {
   min-height: 1.2em;
 }
 
+/* Floating in-editor operator prompt (⌘K) */
+.operator-prompt {
+  position: fixed;
+  z-index: 11000;
+  min-width: min(420px, calc(100vw - 24px));
+  max-width: min(520px, calc(100vw - 24px));
+  pointer-events: auto;
+}
+
+.operator-prompt.hidden {
+  display: none !important;
+}
+
+.operator-prompt-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #1e293b;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.operator-prompt.is-focused .operator-prompt-chrome {
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(56, 189, 248, 0.35),
+    0 0 18px rgba(56, 189, 248, 0.18);
+  animation: operator-prompt-glow 2.4s ease-in-out infinite;
+}
+
+.operator-prompt.is-loading .operator-prompt-chrome {
+  opacity: 0.92;
+}
+
+@keyframes operator-prompt-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 25px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(56, 189, 248, 0.35),
+      0 0 14px rgba(56, 189, 248, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 10px 25px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(129, 140, 248, 0.55),
+      0 0 22px rgba(129, 140, 248, 0.28);
+  }
+}
+
+.operator-prompt-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  user-select: none;
+}
+
+.operator-prompt-input {
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f8fafc;
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 0;
+}
+
+.operator-prompt-input::placeholder {
+  color: #64748b;
+}
+
+.operator-prompt-input:disabled {
+  color: #cbd5e1;
+  cursor: wait;
+}
+
 body.founder-workbench .founder-only-export {
   display: inline-flex;
 }

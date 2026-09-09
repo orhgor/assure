@@ -180,18 +180,6 @@ def test_context_aware_invoke(page: Page, base_url: str):
         "() => window.AssureTiptapEditor && window.AssureTiptapEditor.getEditor && window.AssureTiptapEditor.getEditor()",
         timeout=15_000,
     )
-    page.evaluate(
-        """() => {
-          window.__assureInvokeLog = false;
-          const orig = console.info;
-          console.info = function () {
-            if (arguments[0] === "[Assure] context-aware invoke payload") {
-              window.__assureInvokeLog = true;
-            }
-            return orig.apply(console, arguments);
-          };
-        }"""
-    )
     selected = page.evaluate(
         """() => {
           const needle = "Selected paragraph for investigation.";
@@ -221,10 +209,13 @@ def test_context_aware_invoke(page: Page, base_url: str):
         }"""
     )
     assert selected and selected.get("text") == "Selected paragraph for investigation."
+    page.locator("#founder-draft-editor .ProseMirror").click()
     page.keyboard.press("Meta+K")
-    expect(page.locator("#command-bar-overlay")).to_be_visible(timeout=5_000)
-    expect(page.locator("#command-bar-input")).to_have_value(
-        "Selected paragraph for investigation.",
-        timeout=5_000,
+    operator = page.locator("#operator-prompt")
+    expect(operator).to_be_visible(timeout=5_000)
+    expect(operator.locator("#operator-prompt-input")).to_have_attribute(
+        "placeholder", "Edit selection..."
     )
-    page.wait_for_function("() => window.__assureInvokeLog === true", timeout=5_000)
+    expect(operator.locator("#operator-prompt-input")).to_have_value("", timeout=5_000)
+    page.keyboard.press("Escape")
+    expect(operator).to_be_hidden(timeout=5_000)

@@ -75,6 +75,9 @@
         scheduleSave();
       },
     });
+    if (global.AssureOperatorPrompt && typeof global.AssureOperatorPrompt.init === "function") {
+      global.AssureOperatorPrompt.init();
+    }
     var ed = editorApi.getEditor && editorApi.getEditor();
     if (ed && isBlank) {
       try {

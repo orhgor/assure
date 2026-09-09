@@ -285,31 +285,48 @@
     });
   }
 
+  function runDirective(directive, sourceIds) {
+    if (submitting) return Promise.resolve();
+    submitting = true;
+    setStatus(translate("command.bar.running", "Running verification…"));
+    setPipelineStatus(translate("command.bar.running", "Running verification…"));
+    return submitDirectiveStream(directive, sourceIds || [])
+      .catch(function (err) {
+        clearBusy();
+        var msg = String((err && err.message) || err);
+        setStatus(msg);
+        toast(msg, "error");
+        throw err;
+      })
+      .finally(function () {
+        submitting = false;
+      });
+  }
+
   function submitDirective() {
     var directive = (input && input.value.trim()) || "";
     if (!directive) {
       setStatus(translate("command.bar.enter_directive", "Describe what to investigate first."));
       return;
     }
-    if (submitting) return;
-    submitting = true;
-    setStatus(translate("command.bar.running", "Running verification…"));
-    setPipelineStatus(translate("command.bar.running", "Running verification…"));
-
     var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
-    chain
-      .then(function (sourceIds) {
-        return submitDirectiveStream(directive, sourceIds);
-      })
-      .catch(function (err) {
-        clearBusy();
-        var msg = String((err && err.message) || err);
-        setStatus(msg);
-        toast(msg, "error");
-      })
-      .finally(function () {
-        submitting = false;
-      });
+    chain.then(function (sourceIds) {
+      return runDirective(directive, sourceIds);
+    });
+  }
+
+  function submitExternal(directive, options) {
+    options = options || {};
+    var text = String(directive || "").trim();
+    if (!text) return Promise.resolve();
+    var selected = String(options.selected_text || "").trim();
+    if (selected) {
+      text = text + "\n\n---\nSelected:\n" + selected;
+    }
+    if (global.AssureFounderDraft && typeof global.AssureFounderDraft.beginStreaming === "function") {
+      global.AssureFounderDraft.beginStreaming();
+    }
+    return runDirective(text, options.source_ids || []);
   }
 
   function bindDropzone() {
@@ -386,6 +403,11 @@
             ? global.AssureFounderMode.isEnabled()
             : document.body.classList.contains("founder-workbench");
         if (founderOn) {
+          var ed =
+            global.AssureTiptapEditor && global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor();
+          if (ed && ed.isFocused) {
+            return;
+          }
           e.preventDefault();
           e.stopPropagation();
           if (!overlay || overlay.hidden) openWithSelectionContext();
@@ -403,6 +425,7 @@
     captureInvokeContext: captureInvokeContext,
     close: close,
     submit: submitDirective,
+    submitExternal: submitExternal,
     init: init,
   };
   document.addEventListener("DOMContentLoaded", init);
