@@ -1,4 +1,13 @@
 {% extends "base.html" %}
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+{% endblock %}
 {% block title %}
 {%- set pane = initial_pane|default('compose') -%}
 {%- if pane == 'history' -%}{{ gettext('Previous work') }}
@@ -67,11 +76,11 @@
             </div>
           </div>
           <div class="app-header-center founder-header-tools" id="founder-header-tools" hidden>
-            <button type="button" class="btn btn-outline btn-sm founder-cmdk-btn" id="founder-cmdk-btn" data-i18n="founder.cmdk_btn">{{ gettext('⚡ Directive… (⌘K)') }}</button>
+            <button type="button" class="btn btn-outline btn-sm founder-cmdk-btn" id="founder-cmdk-btn" data-i18n="founder.cmdk_btn">{{ gettext('⚡ Investigate… (⌘K)') }}</button>
           </div>
           <div class="app-header-center app-trust-strip founder-legacy-chrome" id="app-header-center" hidden></div>
           <div class="app-header-right header-right">
-            <button type="button" class="btn btn-sm btn-primary founder-only-export" id="btn-export-dossier" title="Export Formal Verification Certificate">Export Verified Dossier</button>
+            <button type="button" class="btn btn-sm btn-primary founder-only-export" id="btn-export-dossier" title="{{ gettext('Export Formal Verification Certificate') }}" data-i18n-title="founder.export.dossier_title" data-i18n="founder.export.dossier">{{ gettext('Export Verified Dossier') }}</button>
             <div id="document-chrome" class="document-chrome founder-legacy-chrome" hidden>
             <span id="version-display" class="version-history-control header-history version-tag" aria-live="polite">
               <label class="version-history-label visually-hidden" for="version-history-slider" data-i18n="jdf.version.history">{{ gettext('History') }}</label>
@@ -162,41 +171,43 @@
           </div>
           <div class="app-content">
       <section class="jdf-workbench workspace-shell" id="workbench-root" aria-label="{{ gettext('Document engineering') }}">
-        <div class="app-container founder-workbench">
+        <div class="app-container founder-workbench pane-left-open">
           <nav id="state-rail" class="state-rail" aria-label="{{ gettext('Workbench stages') }}" data-i18n-aria="founder.state_rail.label" hidden>
-            <button type="button" class="state-rail-btn is-active" data-stage="directive" data-filter="all" aria-label="{{ gettext('Directive') }}" data-i18n-aria="founder.state_rail.directive">
+            <button type="button" class="state-rail-btn" data-rail="draft" data-stage="directive" data-filter="all" title="{{ gettext('Draft (⌘K)') }}" aria-label="{{ gettext('Draft') }}" data-i18n-title="founder.rail.draft_tip" data-i18n-aria="founder.rail.draft">
               <span class="state-rail-icon" aria-hidden="true">⚡</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.directive_tip">{{ gettext('Directive (⌘K)') }}</span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.draft_tip">{{ gettext('Draft (⌘K)') }}</span>
             </button>
-            <button type="button" class="state-rail-btn" data-stage="runs" data-filter="all" aria-label="{{ gettext('Runs') }}" data-i18n-aria="founder.state_rail.runs">
-              <span class="state-rail-icon" aria-hidden="true">⚙️</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.runs_tip">{{ gettext('Runs (Shift+2)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="grounded" data-filter="grounded" aria-label="{{ gettext('Grounding Vault') }}" data-i18n-aria="founder.state_rail.grounded">
-              <span class="state-rail-icon" aria-hidden="true">🔒</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.grounded_tip">{{ gettext('Grounding Vault (Shift+3)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="redhat" data-filter="redhat" aria-label="{{ gettext('Red-Hat Audit') }}" data-i18n-aria="founder.state_rail.redhat">
-              <span class="state-rail-icon" aria-hidden="true">🛡️</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.redhat_tip">{{ gettext('Red-Hat Audit (Shift+4)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="dossier" data-filter="dossier" aria-label="{{ gettext('Dossier Export') }}" data-i18n-aria="founder.state_rail.dossier">
+            <button type="button" class="state-rail-btn" data-rail="sources" data-stage="sources" title="{{ gettext('Sources') }}" aria-label="{{ gettext('Sources') }}" data-i18n-title="founder.rail.sources_tip" data-i18n-aria="founder.rail.sources">
               <span class="state-rail-icon" aria-hidden="true">📂</span>
               <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.dossier_tip">{{ gettext('Dossier Export (Shift+5)') }}</span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.sources_tip">{{ gettext('Sources') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn is-active" data-rail="runs" data-stage="runs" data-filter="all" title="{{ gettext('Runs (⌘B)') }}" aria-label="{{ gettext('Runs') }}" data-i18n-title="founder.rail.runs_tip" data-i18n-aria="founder.rail.runs">
+              <span class="state-rail-icon" aria-hidden="true">⚙️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.runs_tip">{{ gettext('Runs (⌘B)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-rail="audit" data-stage="redhat" data-filter="redhat" title="{{ gettext('Audit (⌘I)') }}" aria-label="{{ gettext('Audit') }}" data-i18n-title="founder.rail.audit_tip" data-i18n-aria="founder.rail.audit">
+              <span class="state-rail-icon" aria-hidden="true">🛡️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.audit_tip">{{ gettext('Audit (⌘I)') }}</span>
             </button>
           </nav>
           <aside class="left-pane" id="left-pane">
+            <div class="left-pane-inner">
+            <div class="founder-sidebar-head runs-stack-header">
+              <div class="founder-sidebar-tabs" role="tablist" aria-label="{{ gettext('Sidebar') }}" data-i18n-aria="founder.sidebar.label">
+                <button type="button" class="founder-sidebar-tab is-active" role="tab" data-sidebar-tab="runs" aria-selected="true" data-i18n="founder.sidebar.runs">{{ gettext('Runs') }}</button>
+                <button type="button" class="founder-sidebar-tab" role="tab" data-sidebar-tab="sources" aria-selected="false" data-i18n="founder.sidebar.sources">{{ gettext('Sources') }}</button>
+                <button type="button" class="founder-sidebar-tab" role="tab" data-sidebar-tab="versions" aria-selected="false" data-i18n="founder.sidebar.versions">{{ gettext('Versions') }}</button>
+              </div>
+              <div class="founder-sidebar-toolbar">
+                <input type="search" id="runs-stack-search" class="form-control founder-runs-search" placeholder="{{ gettext('Filter runs…') }}" data-i18n-placeholder="founder.runs.search_placeholder" aria-label="{{ gettext('Filter runs') }}" data-i18n-aria="founder.runs.search_aria" autocomplete="off" />
+                <button type="button" id="runs-stack-toggle" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Collapse sidebar (⌘B)') }}" title="{{ gettext('Collapse sidebar (⌘B)') }}" data-i18n-aria="founder.runs.collapse_aria" data-i18n-title="founder.runs.collapse_tip">◀</button>
+              </div>
+            </div>
 
             <div id="runs-stack" class="assure-view context-panel active founder-panel panel-runs" data-view="runs" data-filter="all">
-              <div class="runs-stack-header">
-                <h3 class="jdf-pane-title" data-i18n="founder.runs.title">{{ gettext('Runs') }}</h3>
-                <button type="button" id="runs-stack-toggle" class="btn btn-ghost btn-sm" aria-label="Collapse runs stack" title="Collapse">◀</button>
-              </div>
               <p id="runs-stack-pipeline-status" class="runs-stack-pipeline-status hint" hidden aria-live="polite"></p>
               <div id="runs-stack-list" class="runs-stack-list" role="list" aria-live="polite"></div>
             </div>
@@ -427,7 +438,8 @@
               </div>
             </div>
 
-            <div id="panel-sources" class="assure-view context-panel sources-drawer-panel" data-view="vault" hidden aria-hidden="true">
+            <div id="panel-sources" class="assure-view context-panel sources-drawer-panel founder-panel" data-view="vault" hidden aria-hidden="true">
+              <p id="founder-sources-loading" class="founder-pane-loading hint" hidden aria-live="polite" data-i18n="founder.sources.loading">{{ gettext('Loading sources…') }}</p>
               <div class="sources-drawer-header">
                 <h3 class="jdf-pane-title" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</h3>
                 <button type="button" class="btn btn-sm btn-ghost" id="sources-drawer-close" aria-label="{{ gettext('Close sources') }}" data-i18n-aria="founder.sources.close">×</button>
@@ -444,6 +456,12 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div id="pane-versions" class="assure-view context-panel founder-panel founder-versions-panel" data-view="versions" hidden aria-hidden="true">
+              <p id="founder-versions-loading" class="founder-pane-loading hint" hidden aria-live="polite" data-i18n="founder.versions.loading">{{ gettext('Loading version history…') }}</p>
+              <p id="founder-versions-empty" class="hint founder-versions-empty" hidden data-i18n="founder.versions.empty">{{ gettext('No saved versions yet.') }}</p>
+              <ol id="founder-versions-timeline" class="founder-versions-timeline" role="list"></ol>
             </div>
 
             <div id="panel-analytics" class="assure-view context-panel analytics-embedded-container" data-view="analytics" hidden>
@@ -632,6 +650,7 @@
             </div>
             <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
             </div><!-- #view-surgical -->
+            </div><!-- .left-pane-inner -->
           </aside>
           <div class="pane-splitter" id="pane-splitter" role="separator" tabindex="0"
                aria-orientation="vertical" aria-valuemin="22" aria-valuemax="68" aria-valuenow="42"
@@ -731,7 +750,7 @@
                     <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
                   </div>
                 </div>
-                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('Write your draft here, or hit ⌘K to start.') }}</p>
+                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
                 <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
               </div>
               <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
@@ -756,6 +775,17 @@
               <div id="jdf-audit-appendix-body" class="jdf-audit-appendix-body"></div>
             </aside>
           </main>
+          <aside id="workbench-right-drawer" class="workbench-right-drawer" hidden aria-hidden="true">
+            <header class="workbench-drawer-header">
+              <h3 id="workbench-drawer-title" class="jdf-pane-title" data-i18n="founder.drawer.audit_title">{{ gettext('Audit & findings') }}</h3>
+              <button type="button" id="workbench-drawer-close" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Close drawer') }}" data-i18n-aria="founder.drawer.close" title="{{ gettext('Close (Esc)') }}" data-i18n-title="founder.drawer.close_tip">✕</button>
+            </header>
+            <div id="workbench-drawer-body" class="workbench-drawer-body">
+              <section id="drawer-evidence" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+              <section id="drawer-redhat" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+              <section id="drawer-export" class="workbench-drawer-panel" hidden aria-hidden="true"></section>
+            </div>
+          </aside>
         </div>
         <div class="workbench-utility" id="workbench-utility">
             <span id="compiler-status" class="compiler-status compiler-idle visually-hidden" aria-live="polite" role="status">
@@ -803,14 +833,14 @@
       <div id="sources-drawer-backdrop" class="sources-drawer-backdrop" hidden aria-hidden="true"></div>
       <aside id="evidence-inspector-drawer" class="evidence-inspector-drawer" hidden aria-hidden="true">
         <div class="evidence-inspector-header">
-          <h2>Evidence Inspector</h2>
-          <button type="button" class="btn btn-sm btn-ghost" id="evidence-inspector-close" aria-label="Close evidence inspector">×</button>
+          <h2 data-i18n="evidence.inspector.title">{{ gettext('Evidence Inspector') }}</h2>
+          <button type="button" class="btn btn-sm btn-ghost" id="evidence-inspector-close" aria-label="{{ gettext('Close evidence inspector') }}" data-i18n-aria="evidence.inspector.close">×</button>
         </div>
         <div class="evidence-inspector-meta">
-          <p><strong>Lock hash:</strong> <code id="evidence-inspector-hash"></code></p>
-          <p><strong>Source:</strong> <span id="evidence-inspector-filename"></span> (<code id="evidence-inspector-source-id"></code>)</p>
+          <p><strong data-i18n="evidence.inspector.lock_hash">{{ gettext('Lock hash:') }}</strong> <code id="evidence-inspector-hash"></code></p>
+          <p><strong data-i18n="evidence.inspector.source">{{ gettext('Source:') }}</strong> <span id="evidence-inspector-filename"></span> (<code id="evidence-inspector-source-id"></code>)</p>
           <pre id="evidence-inspector-coords" class="evidence-inspector-coords"></pre>
-          <button type="button" class="btn btn-outline btn-sm" id="evidence-inspector-goto">Go to Source</button>
+          <button type="button" class="btn btn-outline btn-sm" id="evidence-inspector-goto" data-i18n="evidence.inspector.goto">{{ gettext('Go to Source') }}</button>
         </div>
         <div id="evidence-inspector-body" class="evidence-inspector-body"></div>
       </aside>
@@ -936,8 +966,8 @@
             <div class="follow-row" id="follow-row" hidden><div class="follow-chips" id="follow-chips"></div></div>
             <div class="feedback-section" id="feedback-section" hidden>
               <div class="feedback-thumbs" id="feedback-thumbs">
-                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-up" aria-label="{{ gettext('Thumbs up, helpful') }}">👍</button>
-                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-down" aria-label="{{ gettext('Thumbs down, not helpful') }}">👎</button>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-up" aria-label="{{ gettext('Thumbs up, helpful') }}" data-i18n-aria="feedback.yes_aria">👍</button>
+                <button type="button" class="btn-feedback feedback-btn" id="feedback-thumb-down" aria-label="{{ gettext('Thumbs down, not helpful') }}" data-i18n-aria="feedback.no_aria">👎</button>
               </div>
               <button type="button" class="btn btn-outline" id="refine-answer" data-i18n="refine">{{ gettext('Refine this answer') }}</button>
               <span class="feedback-thanks" id="feedback-thanks" hidden data-i18n="feedback.thanks_full">{{ gettext('Thanks for your feedback!') }}</span>
@@ -1222,8 +1252,8 @@
       <button class="btn btn-outline ghost" type="button" id="settings-close" data-i18n="history.close">{{ gettext('Close') }}</button>
     </div>
     <div class="settings-guide-banner">
-      <span>Need an API key?</span>
-      <a href="https://getassureai.com/app" rel="noopener noreferrer">Launch Assure Workspace →</a>
+      <span data-i18n="settings.api_key_banner">{{ gettext('Need an API key?') }}</span>
+      <a href="https://getassureai.com/app" rel="noopener noreferrer" data-i18n="settings.api_key_link">{{ gettext('Launch Assure Workspace →') }}</a>
     </div>
     <p class="hint settings-banner bad" id="settings-keys-banner" hidden data-i18n="settings.keys_required">{{ gettext('Please provide at least one provider API key to run verification.') }}</p>
     <label class="section" for="settings-gemini-key" data-i18n="settings.gemini">{{ gettext('Gemini API Key') }}</label>
@@ -1265,12 +1295,14 @@
       try {
         var u = new URL(location.href);
         var urlLang = u.searchParams.get("lang");
+        var stored = localStorage.getItem("assure_locale") || "en";
         if (urlLang) {
           localStorage.setItem("assure_locale", urlLang);
           return;
         }
-        var stored = localStorage.getItem("assure_locale");
-        if (stored) {
+        if (!stored) stored = "en";
+        localStorage.setItem("assure_locale", stored);
+        if (stored !== "en" || !u.searchParams.has("lang")) {
           u.searchParams.set("lang", stored);
           location.replace(u.pathname + u.search + u.hash);
         }
@@ -1284,6 +1316,7 @@
   <script src="{{ url_for('static', filename='inquire_client.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='tiptap.bundle.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='code_blocks.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='jdf_tiptap.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='vault_prompts.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='project_files.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -1312,8 +1345,13 @@
   <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='workbench_panes.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='evidence_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='redhat_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='export_drawer.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_inline_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -3775,16 +3813,24 @@
       loadRecent();
       schedulePreview();
         if (window.JDFCanvasManager && $("workbench-root")) {
-        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
-          window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
-        }
-        window.__assureJdf = new window.JDFCanvasManager({
-          projectId: window.__ASSURE_PROJECT_ID__ || "default",
-          document: window.__INITIAL_JDF__,
-        });
-        window.__assureJdf.bind();
-        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.bindSourceInput === "function") {
-          window.AssureProjectFileManager.bindSourceInput();
+        var founderShell =
+          window.AssureFounderMode &&
+          typeof window.AssureFounderMode.isEnabled === "function" &&
+          window.AssureFounderMode.isEnabled();
+        if (founderShell) {
+          window.__ASSURE_PROJECT_ID__ = window.AssureFounderMode.getWorkspaceId();
+        } else {
+          if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
+            window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
+          }
+          window.__assureJdf = new window.JDFCanvasManager({
+            projectId: window.__ASSURE_PROJECT_ID__ || "default",
+            document: window.__INITIAL_JDF__,
+          });
+          window.__assureJdf.bind();
+          if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.bindSourceInput === "function") {
+            window.AssureProjectFileManager.bindSourceInput();
+          }
         }
       }
       if (window.AssureProjects) window.AssureProjects.init();

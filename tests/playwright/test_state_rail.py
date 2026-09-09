@@ -88,7 +88,8 @@ def test_state_rail_filters_run_cards(page: Page, base_url: str):
     goto_founder_workbench(page, base_url)
     expect(page.locator(".run-card")).to_have_count(4, timeout=15_000)
 
-    page.locator('#state-rail [data-stage="grounded"]').click()
+    page.locator("body").click(position={"x": 400, "y": 400})
+    page.keyboard.press("Shift+3")
     page.wait_for_function(
         "() => document.getElementById('runs-stack')?.getAttribute('data-filter') === 'grounded'",
         timeout=5_000,
@@ -97,6 +98,10 @@ def test_state_rail_filters_run_cards(page: Page, base_url: str):
     expect(page.locator(".runs-stack-empty")).to_have_count(0)
 
     page.locator('#state-rail [data-stage="redhat"]').click()
+    page.wait_for_function(
+        "() => document.getElementById('runs-stack')?.getAttribute('data-filter') === 'redhat'",
+        timeout=5_000,
+    )
     expect(page.locator(".run-card")).to_have_count(1)
     expect(page.locator(".run-card").first).to_contain_text("Audit candidate")
 
@@ -120,8 +125,9 @@ def test_state_rail_empty_filter_message(page: Page, base_url: str):
     )
     goto_founder_workbench(page, base_url)
     expect(page.locator(".run-card")).to_have_count(1, timeout=15_000)
-    page.locator('#state-rail [data-stage="grounded"]').click()
-    expect(page.locator(".runs-stack-empty")).to_be_visible()
+    page.locator("body").click(position={"x": 400, "y": 400})
+    page.keyboard.press("Shift+3")
+    expect(page.locator(".runs-stack-empty")).to_be_visible(timeout=5_000)
     expect(page.locator(".runs-stack-empty")).to_contain_text("Attach sources")
 
 
@@ -134,11 +140,11 @@ def test_shortcuts_suppressed_in_tiptap(page: Page, base_url: str):
     )
     editor = page.locator("#founder-draft-editor .ProseMirror")
     editor.click()
-    editor.type("typing should not open palette")
+    editor.type("typing should not trigger rail filters")
     page.keyboard.press("Shift+2")
     expect(page.locator("#command-bar-overlay")).to_be_hidden()
     page.keyboard.press("Meta+K")
-    expect(page.locator("#command-bar-overlay")).to_be_hidden()
+    expect(page.locator("#command-bar-overlay")).to_be_visible(timeout=5_000)
 
 
 def test_shortcuts_work_outside_editor(page: Page, base_url: str):
@@ -163,7 +169,7 @@ def test_header_baseline_alignment(page: Page, base_url: str):
     goto_founder_workbench(page, base_url)
     tops = page.evaluate(
         """() => {
-          const runsHeader = document.querySelector('.runs-stack-header');
+          const runsHeader = document.querySelector('.founder-sidebar-head.runs-stack-header');
           const draftHeader = document.querySelector('.founder-draft-header');
           if (!runsHeader || !draftHeader) return null;
           return {

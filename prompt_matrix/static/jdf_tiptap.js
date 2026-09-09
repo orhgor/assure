@@ -123,6 +123,17 @@
           });
           return;
         }
+        if (ntype === "code_block" || ntype === "codeBlock") {
+          var codeText = String(node.content || "");
+          content.push({
+            type: "codeBlock",
+            attrs: {
+              language: String(node.language || node.lang || ""),
+            },
+            content: codeText ? [{ type: "text", text: codeText }] : [],
+          });
+          return;
+        }
         var para = paragraphJson(node.content || "");
         var lockPills = (node.meta && node.meta.lock_pills) || [];
         if (lockPills.length) {
@@ -211,6 +222,19 @@
         }
         if (!payload.id) payload.id = (node.attrs && node.attrs.nodeId) || newNodeId("tbl");
         current.children.push(payload);
+        return;
+      }
+      if (node.type === "codeBlock") {
+        var codeId = (node.attrs && node.attrs.nodeId) || newNodeId("cb");
+        var oldCode = lookupOld(previousTree, codeId);
+        current.children.push({
+          type: "code_block",
+          id: codeId,
+          language: String((node.attrs && node.attrs.language) || ""),
+          content: textContent(node),
+          annotations: (oldCode && oldCode.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (oldCode && oldCode.meta) || {}),
+        });
         return;
       }
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
@@ -504,6 +528,118 @@
       },
     });
 
+    var Suggestion = T.Node.create({
+      name: "suggestion",
+      group: "block",
+      atom: true,
+      selectable: true,
+      draggable: false,
+      addAttributes: function () {
+        return {
+          suggestionId: { default: "" },
+          originalText: { default: "" },
+          newText: { default: "" },
+        };
+      },
+      parseHTML: function () {
+        return [{ tag: "div.tiptap-suggestion" }];
+      },
+      renderHTML: function (_ref) {
+        return [
+          "div",
+          T.mergeAttributes(_ref.HTMLAttributes, {
+            class: "tiptap-suggestion",
+            "data-suggestion-id": _ref.node.attrs.suggestionId || "",
+          }),
+        ];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var node = props.node;
+          var dom = document.createElement("div");
+          dom.className = "tiptap-suggestion";
+          dom.setAttribute("data-suggestion-id", node.attrs.suggestionId || "");
+          dom.setAttribute("tabindex", "0");
+          dom.setAttribute("role", "group");
+          dom.setAttribute("aria-label", "Suggested edit");
+
+          var actions = document.createElement("div");
+          actions.className = "tiptap-suggestion-actions";
+
+          var acceptBtn = document.createElement("button");
+          acceptBtn.type = "button";
+          acceptBtn.className = "tiptap-suggestion-accept";
+          acceptBtn.setAttribute("aria-label", "Accept suggestion");
+          acceptBtn.title = "Accept (⌘↵)";
+          acceptBtn.textContent = "✓";
+
+          var rejectBtn = document.createElement("button");
+          rejectBtn.type = "button";
+          rejectBtn.className = "tiptap-suggestion-reject";
+          rejectBtn.setAttribute("aria-label", "Reject suggestion");
+          rejectBtn.title = "Reject (Esc)";
+          rejectBtn.textContent = "✕";
+
+          var removeEl = document.createElement("div");
+          removeEl.className = "tiptap-suggestion-remove";
+          removeEl.textContent = node.attrs.originalText || "";
+
+          var addEl = document.createElement("div");
+          addEl.className = "tiptap-suggestion-add";
+          addEl.textContent = node.attrs.newText || "";
+
+          actions.appendChild(acceptBtn);
+          actions.appendChild(rejectBtn);
+          dom.appendChild(actions);
+          dom.appendChild(removeEl);
+          dom.appendChild(addEl);
+
+          function dispatch(action) {
+            document.dispatchEvent(
+              new CustomEvent("assure:suggestion-action", {
+                detail: {
+                  action: action,
+                  suggestionId: node.attrs.suggestionId || "",
+                },
+              })
+            );
+          }
+
+          acceptBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("accept");
+          });
+          rejectBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("reject");
+          });
+
+          return {
+            dom: dom,
+            update: function (updated) {
+              if (updated.type !== node.type) return false;
+              node = updated;
+              dom.setAttribute("data-suggestion-id", updated.attrs.suggestionId || "");
+              removeEl.textContent = updated.attrs.originalText || "";
+              addEl.textContent = updated.attrs.newText || "";
+              return true;
+            },
+            selectNode: function () {
+              dom.classList.add("is-selected");
+            },
+            deselectNode: function () {
+              dom.classList.remove("is-selected");
+            },
+            stopEvent: function () {
+              return true;
+            },
+          };
+        };
+      },
+    });
+
     var LockPill = T.Node.create({
       name: "lockPill",
       group: "inline",
@@ -639,14 +775,49 @@
       },
     });
 
+    var CodeFenceBridge = T.Extension.create({
+      name: "codeFenceBridge",
+      priority: 1000,
+      addProseMirrorPlugins: function () {
+        return [
+          new T.Plugin({
+            props: {
+              handleTextInput: function (view, _from, _to, text) {
+                if (text !== " " && text !== "\n") return false;
+                var state = view.state;
+                var $from = state.selection.$from;
+                var block = $from.parent;
+                if (!block.isTextblock || block.type.name === "codeBlock") return false;
+                var prior = block.textBetween(0, $from.parentOffset, undefined, "\0");
+                var match = prior.match(/^```([a-zA-Z0-9_-]+)$/) || prior.match(/^~~~([a-zA-Z0-9_-]+)$/);
+                var plain = prior === "```" || prior === "~~~";
+                if (!match && !plain) return false;
+                var lang = match ? match[1] : "";
+                var codeBlock = state.schema.nodes.codeBlock;
+                if (!codeBlock) return false;
+                var tr = state.tr;
+                var start = $from.start();
+                tr.delete(start, $from.pos);
+                tr.setBlockType(start, start, codeBlock, { language: lang });
+                view.dispatch(tr);
+                return true;
+              },
+            },
+          }),
+        ];
+      },
+    });
+
     return {
       JdfParagraph: JdfParagraph,
       JdfCallout: JdfCallout,
       JdfTable: JdfTable,
+      Suggestion: Suggestion,
       LockPill: LockPill,
       LockDecorations: LockDecorations,
       ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
+      CodeFenceBridge: CodeFenceBridge,
       confidencePluginKey: confidencePluginKey,
     };
   }
@@ -660,7 +831,9 @@
         bulletList: false,
         orderedList: false,
         listItem: false,
-        codeBlock: false,
+        codeBlock: {
+          languageClassPrefix: "language-",
+        },
         blockquote: false,
         horizontalRule: false,
       }),
@@ -668,9 +841,11 @@
       ext.JdfParagraph,
       ext.JdfCallout,
       ext.JdfTable,
+      ext.CodeFenceBridge,
     ];
     if (opts.founderMode) {
       list.push(ext.LockPill);
+      list.push(ext.Suggestion);
     } else {
       list.push(ext.LockDecorations);
     }
@@ -808,9 +983,118 @@
     return T.DecorationSet.create(doc, decorations);
   }
 
+  function splitParagraphNodes(text) {
+    var raw = String(text || "").trim();
+    if (!raw) return [];
+    return raw.split(/\n\n+/).map(function (line) {
+      return {
+        type: "jdfParagraph",
+        attrs: { nodeId: "", gutter: "unverified" },
+        content: line ? [{ type: "text", text: line }] : [],
+      };
+    });
+  }
+
+  function findSuggestionPos(suggestionId) {
+    if (!editor || editor.isDestroyed || !suggestionId) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion" && node.attrs.suggestionId === suggestionId) {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function findFirstSuggestionPos() {
+    if (!editor || editor.isDestroyed) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion") {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function removeSuggestionNode(suggestionId) {
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function acceptSuggestionNode(suggestionId, options) {
+    options = options || {};
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      if (options.skipContentReplace) {
+        return removeSuggestionNode(suggestionId);
+      }
+      var paras = splitParagraphNodes(node.attrs.newText);
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContentAt(pos, paras.length ? paras : [{ type: "jdfParagraph", attrs: { nodeId: "", gutter: "unverified" }, content: [] }])
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function rejectSuggestionNode(suggestionId) {
+    return removeSuggestionNode(suggestionId);
+  }
+
+  function getDocumentContextAst() {
+    if (!editor || editor.isDestroyed) return [];
+    try {
+      var json = editor.getJSON();
+      return (json && json.content) || [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   var editor = null;
   var saveTimer = null;
+  var codeBlockTimer = null;
   var confidencePluginKeyRef = null;
+
+  function scheduleCodeBlockDecorations(rootEl) {
+    if (codeBlockTimer) clearTimeout(codeBlockTimer);
+    codeBlockTimer = setTimeout(function () {
+      var run = function () {
+        if (global.AssureCodeBlocks && typeof global.AssureCodeBlocks.decorate === "function") {
+          global.AssureCodeBlocks.decorate(rootEl || document);
+        }
+      };
+      if (typeof global.requestAnimationFrame === "function") {
+        global.requestAnimationFrame(function () {
+          global.requestAnimationFrame(run);
+        });
+      } else {
+        run();
+      }
+    }, 0);
+  }
 
   function applyConfidenceToTipTap() {
     if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
@@ -883,6 +1167,7 @@
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },
       onUpdate: function () {
+        scheduleCodeBlockDecorations(rootEl);
         if (onUpdateExternal) {
           onUpdateExternal(editor);
           return;
@@ -902,6 +1187,7 @@
       },
     });
       rootEl.classList.add("is-tiptap");
+      scheduleCodeBlockDecorations(rootEl);
       if (typeof global.initializeEditorSyncBridge === "function") {
         global.initializeEditorSyncBridge(editor);
       }
@@ -933,6 +1219,20 @@
     },
     getEditor: function () {
       return editor;
+    },
+    setContentFromJdf: function (tree) {
+      if (!editor || editor.isDestroyed || !tree) return false;
+      try {
+        var json = jdfToTiptap(tree, false);
+        editor.commands.setContent(purifyTiptapDoc(json), false);
+        applyConfidenceToTipTap();
+        scheduleCodeBlockDecorations(
+          document.querySelector("#founder-draft-editor") || document
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
     },
     getSelectedTextRange: function () {
       if (!editor) {
@@ -1009,5 +1309,50 @@
         return false;
       }
     },
+    insertSuggestion: function (opts) {
+      opts = opts || {};
+      if (!editor || editor.isDestroyed) return null;
+      var id = "sg-" + Math.random().toString(36).slice(2, 10);
+      try {
+        editor
+          .chain()
+          .focus("end")
+          .insertContent({
+            type: "suggestion",
+            attrs: {
+              suggestionId: id,
+              originalText: String(opts.originalText || ""),
+              newText: String(opts.newText || ""),
+            },
+          })
+          .run();
+        return id;
+      } catch (_) {
+        return null;
+      }
+    },
+    acceptSuggestion: acceptSuggestionNode,
+    rejectSuggestion: rejectSuggestionNode,
+    findSuggestionPos: findSuggestionPos,
+    hasSuggestion: function () {
+      return findFirstSuggestionPos() != null;
+    },
+    getFocusedSuggestionId: function () {
+      if (!editor || editor.isDestroyed) return null;
+      var sel = editor.state.selection;
+      var node = sel.node;
+      if (node && node.type && node.type.name === "suggestion") {
+        return node.attrs.suggestionId || null;
+      }
+      var $pos = sel.$from;
+      if ($pos && $pos.parent && $pos.parent.type.name === "suggestion") {
+        return $pos.parent.attrs.suggestionId || null;
+      }
+      var pos = findFirstSuggestionPos();
+      if (pos == null) return null;
+      var at = editor.state.doc.nodeAt(pos);
+      return at ? at.attrs.suggestionId || null : null;
+    },
+    getDocumentContextAst: getDocumentContextAst,
   };
 })(typeof window !== "undefined" ? window : this);

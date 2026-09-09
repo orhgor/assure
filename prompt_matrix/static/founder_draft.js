@@ -5,13 +5,28 @@
   "use strict";
 
   var saveTimer = null;
-  var workspaceId = "default";
+  var workspaceId = "founder";
   var draftTree = { body: [] };
   var streamingLockIndex = 0;
   var streamingActive = false;
+  var activeRunId = null;
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function resolveWorkspaceId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
+    return global.__ASSURE_PROJECT_ID__ || "default";
+  }
+
+  function isFounderShell() {
+    return (
+      document.body.classList.contains("founder-workbench") &&
+      !document.body.classList.contains("legacy-workbench")
+    );
   }
 
   function emptyDoc() {
@@ -63,7 +78,19 @@
     var ed = editorApi.getEditor && editorApi.getEditor();
     if (ed && isBlank) {
       try {
-        ed.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] }, false);
+        ed.commands.setContent(
+          {
+            type: "doc",
+            content: [
+              {
+                type: "jdfParagraph",
+                attrs: { nodeId: "", gutter: "unverified" },
+                content: [],
+              },
+            ],
+          },
+          false
+        );
       } catch (_) {}
       draftTree = emptyDoc();
       delete draftTree.meta.founder_blank;
@@ -100,7 +127,44 @@
     placeholder.hidden = draftHasContent();
   }
 
+  function resetToEmpty() {
+    activeRunId = null;
+    draftTree = emptyDoc();
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.clearForStreaming) {
+      editorApi.clearForStreaming();
+    }
+    mountEditor(emptyDoc());
+  }
+
+  function applyRestoredDocument(document, version) {
+    if (!document || typeof document !== "object") return false;
+    draftTree = document;
+    streamingActive = false;
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && typeof editorApi.setContentFromJdf === "function") {
+      editorApi.setContentFromJdf(document);
+    } else if (editorApi && typeof editorApi.mount === "function") {
+      mountEditor(document);
+    } else {
+      return false;
+    }
+    updatePlaceholder();
+    scheduleSave();
+    if (version != null && global.AssureToast && typeof global.AssureToast.show === "function") {
+      var msg =
+        typeof global.__assureTf === "function"
+          ? global.__assureTf("founder.versions.restored", "Draft restored to version {version}", {
+              version: version,
+            })
+          : "Draft restored to version " + version;
+      global.AssureToast.show(msg, "success");
+    }
+    return true;
+  }
+
   function loadDraft() {
+    if (!isFounderShell()) return Promise.resolve();
     return fetch("/api/drafts?workspace_id=" + encodeURIComponent(workspaceId), {
       credentials: "same-origin",
     })
@@ -108,12 +172,31 @@
         return r.json();
       })
       .then(function (data) {
-        var content = (data.draft && data.draft.content) || emptyDoc();
-        mountEditor(content);
+        var content = (data.draft && data.draft.content) || null;
+        if (content && content.body && content.body.length) {
+          mountEditor(content);
+          return;
+        }
+        resetToEmpty();
       })
       .catch(function () {
-        mountEditor(emptyDoc());
+        resetToEmpty();
       });
+  }
+
+  function syncDraftWithRuns(runs) {
+    if (!isFounderShell() || streamingActive) return;
+    var list = runs || [];
+    if (!list.length) {
+      if (!draftHasContent()) resetToEmpty();
+      return;
+    }
+    if (activeRunId) {
+      var still = list.some(function (r) {
+        return r.id === activeRunId;
+      });
+      if (!still && !draftHasContent()) resetToEmpty();
+    }
   }
 
   function runParagraphText(run) {
@@ -130,6 +213,7 @@
   function beginStreaming() {
     streamingActive = true;
     streamingLockIndex = 0;
+    activeRunId = null;
     var editorApi = global.AssureTiptapEditor;
     if (editorApi && editorApi.clearForStreaming) {
       editorApi.clearForStreaming();
@@ -169,6 +253,8 @@
   }
 
   function appendRun(run) {
+    if (!run) return;
+    activeRunId = run.id || null;
     var text = runParagraphText(run);
     var locks = run.extracted_locks || [];
     var editorApi = global.AssureTiptapEditor;
@@ -225,11 +311,22 @@
   }
 
   function init() {
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId = resolveWorkspaceId();
+    if (isFounderShell()) {
+      global.__ASSURE_PROJECT_ID__ = workspaceId;
+    }
+
     document.addEventListener("assure:project", function (ev) {
+      if (isFounderShell()) return;
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
       loadDraft();
     });
+
+    document.addEventListener("assure:runs-updated", function (ev) {
+      var detail = (ev && ev.detail) || {};
+      syncDraftWithRuns(detail.runs || []);
+    });
+
     if (
       (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||
       document.body.classList.contains("founder-workbench")
@@ -242,10 +339,18 @@
     init: init,
     appendRun: appendRun,
     loadDraft: loadDraft,
+    applyRestoredDocument: applyRestoredDocument,
+    getDraftTree: function () {
+      return draftTree;
+    },
+    resetToEmpty: resetToEmpty,
     beginStreaming: beginStreaming,
     appendStreamToken: appendStreamToken,
     insertStreamLock: insertStreamLock,
     finishStreaming: finishStreaming,
+    getWorkspaceId: function () {
+      return workspaceId;
+    },
   };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

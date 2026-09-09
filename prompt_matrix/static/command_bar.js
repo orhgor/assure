@@ -16,6 +16,22 @@
     return document.getElementById(id);
   }
 
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
+  function translatef(key, fallback, params) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, params || {});
+    }
+    var out = translate(key, fallback);
+    Object.keys(params || {}).forEach(function (k) {
+      out = out.replace("{" + k + "}", String(params[k]));
+    });
+    return out;
+  }
+
   function toast(message, kind) {
     if (global.AssureToast && typeof global.AssureToast.show === "function") {
       global.AssureToast.show(message, kind || "error");
@@ -43,16 +59,56 @@
     activeStream = null;
   }
 
-  function open() {
+  function captureInvokeContext() {
+    var ctx = {
+      selected_text: "",
+      full_document_context: [],
+      active_source_ids: [],
+    };
+    if (global.AssureTiptapEditor) {
+      if (typeof global.AssureTiptapEditor.getSelectedTextRange === "function") {
+        var range = global.AssureTiptapEditor.getSelectedTextRange();
+        ctx.selected_text = (range && range.text) || "";
+      }
+      if (typeof global.AssureTiptapEditor.getDocumentContextAst === "function") {
+        ctx.full_document_context = global.AssureTiptapEditor.getDocumentContextAst() || [];
+      }
+    }
+    if (global.AssureSubstrateVault && typeof global.AssureSubstrateVault.selectedIncludedIds === "function") {
+      ctx.active_source_ids = global.AssureSubstrateVault.selectedIncludedIds() || [];
+    }
+    try {
+      console.info("[Assure] context-aware invoke payload", ctx);
+    } catch (_) {}
+    return ctx;
+  }
+
+  function open(options) {
+    options = options || {};
     if (!overlay) return;
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     if (input) {
-      input.value = "";
+      input.value = options.prefill || "";
       input.focus();
+      if (options.prefill) {
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
     }
     pendingFiles = [];
     setStatus("");
+  }
+
+  function openWithSelectionContext() {
+    var ctx = captureInvokeContext();
+    if (!ctx.selected_text) {
+      var ed =
+        global.AssureTiptapEditor && global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor();
+      if (ed && !ed.state.selection.empty) {
+        ctx.selected_text = ed.state.doc.textBetween(ed.state.selection.from, ed.state.selection.to, "\n");
+      }
+    }
+    open({ prefill: ctx.selected_text || "" });
   }
 
   function close() {
@@ -88,9 +144,16 @@
     var count = data.source_count != null ? data.source_count : "—";
     var ms = data.router_ms != null ? " · " + data.router_ms + "ms" : "";
     if (stage === "compile_prompt") {
-      return "Compiling prompt… " + intent + (data.web_fallback ? " · web fallback" : "");
+      return translatef("command.bar.status_compiling", "Compiling prompt… {intent}{fallback}", {
+        intent: intent,
+        fallback: data.web_fallback ? translate("command.bar.web_fallback", " · web fallback") : "",
+      });
     }
-    return "Routing… " + intent + " · " + count + " sources" + ms;
+    return translatef("command.bar.status_routing", "Routing… {intent} · {count} sources{ms}", {
+      intent: intent,
+      count: count,
+      ms: ms,
+    });
   }
 
   function handleSseFrame(frame) {
@@ -225,13 +288,13 @@
   function submitDirective() {
     var directive = (input && input.value.trim()) || "";
     if (!directive) {
-      setStatus("Enter a directive first.");
+      setStatus(translate("command.bar.enter_directive", "Describe what to investigate first."));
       return;
     }
     if (submitting) return;
     submitting = true;
-    setStatus("Running verification…");
-    setPipelineStatus("Starting…");
+    setStatus(translate("command.bar.running", "Running verification…"));
+    setPipelineStatus(translate("command.bar.running", "Running verification…"));
 
     var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
     chain
@@ -293,7 +356,10 @@
     overlay = $("command-bar-overlay");
     input = $("command-bar-input");
     statusEl = $("command-bar-status");
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId =
+      global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function"
+        ? global.AssureFounderMode.getWorkspaceId()
+        : global.__ASSURE_PROJECT_ID__ || "default";
     if (input) {
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -310,10 +376,10 @@
     }
     bindDropzone();
     document.addEventListener("assure:project", function (ev) {
+      if (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) return;
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
     });
     document.addEventListener("keydown", function (e) {
-      if (isTypingTarget()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey) {
         var founderOn =
           global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"
@@ -322,13 +388,22 @@
         if (founderOn) {
           e.preventDefault();
           e.stopPropagation();
-          if (overlay && overlay.hidden) open();
+          if (!overlay || overlay.hidden) openWithSelectionContext();
           else close();
+          return;
         }
       }
+      if (isTypingTarget()) return;
     }, true);
   }
 
-  global.AssureCommandBar = { open: open, close: close, submit: submitDirective, init: init };
+  global.AssureCommandBar = {
+    open: open,
+    openWithSelectionContext: openWithSelectionContext,
+    captureInvokeContext: captureInvokeContext,
+    close: close,
+    submit: submitDirective,
+    init: init,
+  };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

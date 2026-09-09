@@ -28,6 +28,8 @@ def _node_text(node: dict[str, Any]) -> str:
         alt = str(node.get("alt") or "").strip()
         caption = str(node.get("caption") or "").strip()
         return caption or alt or "Image"
+    if ntype in ("code_block", "codeBlock"):
+        return str(node.get("content") or "").strip()
     return str(node.get("content") or "").strip()
 
 
@@ -43,6 +45,15 @@ def jdf_to_markdown(tree: dict[str, Any]) -> str:
             if not isinstance(child, dict):
                 continue
             ntype = str(child.get("type") or "paragraph")
+            if ntype in ("code_block", "codeBlock"):
+                lang = str(child.get("language") or child.get("lang") or "text").strip() or "text"
+                code = str(child.get("content") or "")
+                lines.append("```" + lang)
+                if code:
+                    lines.append(code)
+                lines.append("```")
+                lines.append("")
+                continue
             if ntype == "image" and child.get("src"):
                 alt = str(child.get("alt") or "Image").strip()
                 cap = str(child.get("caption") or "").strip()
@@ -74,7 +85,7 @@ def jdf_to_html(tree: dict[str, Any]) -> str:
         "<head>",
         '<meta charset="utf-8">',
         f"<title>{html.escape(title)}</title>",
-        "<style>body{font-family:Georgia,serif;max-width:42rem;margin:2rem auto;padding:0 1.25rem;line-height:1.6;color:#1b1f24}h1{color:#1A4B8C}blockquote{border-left:4px solid #1A4B8C;margin:1rem 0;padding-left:1rem;color:#334}</style>",
+        "<style>body{font-family:Georgia,serif;max-width:42rem;margin:2rem auto;padding:0 1.25rem;line-height:1.6;color:#1b1f24}h1{color:#1A4B8C}blockquote{border-left:4px solid #1A4B8C;margin:1rem 0;padding-left:1rem;color:#334}pre{background:#1e293b;color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:16px;overflow-x:auto;font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.85rem;position:relative}pre code{background:transparent;color:inherit;font-family:inherit;white-space:pre-wrap}.code-lang-label{position:absolute;top:8px;right:12px;font-size:0.65rem;font-weight:600;color:#94a3b8;background:#334155;padding:2px 10px;border-radius:4px;letter-spacing:0.05em}</style>",
         "</head>",
         "<body>",
         f"<h1>{html.escape(title)}</h1>",
@@ -87,6 +98,14 @@ def jdf_to_html(tree: dict[str, Any]) -> str:
             if not isinstance(child, dict):
                 continue
             ntype = str(child.get("type") or "paragraph")
+            if ntype in ("code_block", "codeBlock"):
+                lang = str(child.get("language") or child.get("lang") or "text").strip() or "text"
+                code = html.escape(str(child.get("content") or ""))
+                parts.append(
+                    f'<pre><span class="code-lang-label">{html.escape(lang)}</span>'
+                    f'<code class="language-{html.escape(lang, quote=True)}">{code}</code></pre>'
+                )
+                continue
             if ntype == "image" and child.get("src"):
                 alt = html.escape(str(child.get("alt") or "Image"))
                 src = str(child.get("src") or "")

@@ -5,6 +5,9 @@
   "use strict";
 
   function workspaceId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
     return global.__ASSURE_PROJECT_ID__ || "default";
   }
 
@@ -21,8 +24,7 @@
   }
 
   function init() {
-    var btn = document.getElementById("btn-export-dossier");
-    if (btn) btn.addEventListener("click", exportDossier);
+    /* Export drawer (export_drawer.js) owns founder export in Phase 3. */
   }
 
   global.AssureFounderExport = { exportDossier: exportDossier, init: init };

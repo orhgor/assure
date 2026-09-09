@@ -18,7 +18,7 @@ REDHAT_RE = re.compile(r"/api/runs/[^/]+/redhat$")
 
 SAMPLE_RUN = {
     "id": "run_pw_test01",
-    "workspace_id": "default",
+    "workspace_id": "founder",
     "directive": "Investigate Q3 revenue narrative",
     "title": "Investigate Q3 revenue narrative",
     "model": "gemini",
@@ -85,6 +85,7 @@ def _mock_runs_api(page: Page, *, sse_stream: bool = True) -> None:
             body = json.loads(route.request.post_data or "{}")
             run = dict(SAMPLE_RUN)
             run["directive"] = body.get("directive", run["directive"])
+            run["workspace_id"] = body.get("workspace_id", run.get("workspace_id", "founder"))
             run["id"] = f"run_pw_{len(runs)+1:02d}"
             runs.insert(0, run)
             if sse_stream and _is_sse_run_request(route.request):
@@ -139,14 +140,15 @@ def _mock_runs_api(page: Page, *, sse_stream: bool = True) -> None:
                 body=json.dumps({"ok": True, "run": run}),
             )
             return
-        ws = "default"
+        ws = "founder"
         m = re.search(r"workspace_id=([^&]+)", route.request.url)
         if m:
             ws = m.group(1)
+        visible = [r for r in runs if r.get("workspace_id") == ws]
         payload = {
             "ok": True,
-            "runs": [r for r in runs if r.get("workspace_id") == ws],
-            "count": len(runs),
+            "runs": visible,
+            "count": len(visible),
         }
         route.fulfill(content_type="application/json", body=json.dumps(payload))
 
@@ -159,7 +161,7 @@ def _mock_runs_api(page: Page, *, sse_stream: bool = True) -> None:
 
 def _mock_substrate(page: Page) -> None:
     page.route(
-        "**/api/projects/default/substrate/sub-pw-1",
+        "**/api/projects/founder/substrate/sub-pw-1",
         lambda route: route.fulfill(
             content_type="application/json",
             body=json.dumps(
@@ -229,7 +231,10 @@ def test_default_founder_shell(page: Page, base_url: str):
         "() => { const p = document.getElementById('founder-draft-placeholder'); return p && !p.hidden; }",
         timeout=15_000,
     )
-    expect(page.locator("#founder-draft-placeholder")).to_contain_text("⌘K")
+    expect(page.locator("#founder-draft-placeholder")).to_contain_text("investigating or drafting")
+    expect(page.locator('#state-rail [data-rail="draft"]')).to_have_attribute(
+        "title", re.compile(r"⌘K")
+    )
     expect(page.locator("#left-pane #generate-compile-btn")).to_have_count(0)
     expect(page.locator("#left-pane #panel-draft")).to_have_count(0)
     expect(page.locator("#founder-legacy-park #panel-draft")).to_have_count(1)
@@ -381,7 +386,23 @@ def test_send_to_draft(page: Page, base_url: str):
 
 def test_evidence_inspector(page: Page, base_url: str):
     _mock_runs_api(page)
-    _mock_substrate(page)
+    page.route(
+        "**/api/locks/*/evidence",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "ok": True,
+                    "lock_hash": "abc123hash4567",
+                    "source_id": "sub-pw-1",
+                    "source_name": "brief.pdf",
+                    "page_number": 1,
+                    "excerpt": "Revenue reached $12M in Q3.",
+                    "z3_proof": "(assert (= Revenue 12000000))",
+                }
+            ),
+        ),
+    )
     goto_founder_workbench(page, base_url)
     page.keyboard.press("Meta+K")
     page.locator("#command-bar-input").fill("Revenue check")
@@ -405,9 +426,44 @@ def test_evidence_inspector(page: Page, base_url: str):
           }));
         }"""
     )
-    expect(page.locator("#evidence-inspector-drawer")).to_be_visible()
-    expect(page.locator("#evidence-inspector-hash")).not_to_have_text("")
-    expect(page.locator("#evidence-inspector-body")).to_contain_text("Revenue reached")
+    expect(page.locator("#workbench-right-drawer")).to_be_visible()
+    expect(page.locator("#drawer-evidence")).to_be_visible()
+    expect(page.locator(".drawer-evidence-excerpt")).to_contain_text("Revenue reached")
+
+
+def test_founder_empty_bootstrap(page: Page, base_url: str):
+    page.route(
+        "**/api/drafts?workspace_id=founder**",
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body=json.dumps({"draft": None}),
+        ),
+    )
+    page.route(
+        RUNS_LIST_RE,
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body=json.dumps({"ok": True, "runs": [], "count": 0}),
+        )
+        if route.request.method == "GET"
+        else route.continue_(),
+    )
+    goto_founder_workbench(page, base_url)
+    expect(page.locator("#founder-draft-placeholder")).to_be_visible()
+    expect(page.locator(".runs-stack-empty")).to_contain_text("No runs yet")
+    expect(page.locator("#jdf-render-target")).to_be_hidden()
+    assert page.evaluate("() => !window.__assureJdf")
+
+
+def test_founder_draft_column_width(page: Page, base_url: str):
+    goto_founder_workbench(page, base_url)
+    max_width = page.evaluate(
+        """() => {
+          const el = document.querySelector('.founder-draft-shell');
+          return el ? parseFloat(getComputedStyle(el).maxWidth) : 0;
+        }"""
+    )
+    assert max_width == 800
 
 
 def test_export(page: Page, base_url: str):

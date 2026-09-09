@@ -8,7 +8,8 @@ This file is **portable**. Copy it into any site repo. Fill **§0 Project profil
 
 **Companions (this repo):**
 
-- Public site: [`landing/`](../landing/) (`index.html`, `audit.html`)
+- **Master webpage inventory:** [`docs/webpage-all-content.md`](../docs/webpage-all-content.md)
+- Public site (static draft): [`landing/`](../landing/) (`index.html`, `audit.html`)
 - Per-change reports: [`audits/`](./audits/) + [`audits/_TEMPLATE.md`](./audits/_TEMPLATE.md)
 - Public revision table: [`landing/audit.html`](../landing/audit.html) (counts must match the tree)
 - Product claims live in `prompt_matrix/i18n.py`, `prompt_matrix/PEM.md`, and in-app Pricing / Privacy

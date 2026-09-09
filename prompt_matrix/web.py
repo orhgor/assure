@@ -159,18 +159,18 @@ except ImportError:
     )
 
 CANONICAL_PUBLIC_HOST = os.environ.get("CANONICAL_HOST", "getassureai.com").strip().lower()
-_LEGACY_PUBLIC_HOSTS = frozenset({"app.getassureai.com", "www.getassureai.com"})
+_LEGACY_PUBLIC_HOSTS = frozenset({"www.getassureai.com"})
 
 BRAND = {
     "name": "Assure",
-    "category": "The Intellectual Compiler",
-    "tagline": "Compile intent. Verify logic. Ship truth.",
-    "page_title": "Assure — AI guesses. Assure proves.",
+    "category": "The Deterministic Truth Engine",
+    "tagline": "The enterprise standard for verified AI drafting.",
+    "page_title": "Assure AI — The Deterministic Truth Engine for High-Stakes Professionals",
     "meta_description": (
-        "Traditional AI is a black box that makes things up. Assure uses formal logic "
-        "to turn raw chaos into mathematically airtight deliverables."
+        "Assure AI is the deterministic truth engine built for insurance, legal, and compliance "
+        "professionals to mathematically ground every citation, exclusion, and financial figure before it ships."
     ),
-    "architecture_title": "How It Works · Assure — The Intellectual Compiler",
+    "architecture_title": "How It Works · Assure — The Deterministic Truth Engine",
     "architecture_meta_description": (
         "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
     ),
@@ -179,7 +179,7 @@ _WAITLIST_ORIGINS = frozenset(
     {
         "https://getassureai.com",
         "https://www.getassureai.com",
-        "https://assure.orhangorenn.workers.dev",
+        "https://app.getassureai.com",
     }
 )
 
@@ -428,9 +428,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         cookie = request.cookies.get("assure_lang")
         if cookie:
             return normalize_locale(cookie)
-        match = request.accept_languages.best_match(list(LOCALES))
-        if match:
-            return normalize_locale(match)
+        # Default English — do not infer locale from Accept-Language (avoids mixed TR/EN UI).
         return "en"
 
     if Babel is not None:
@@ -768,7 +766,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.get("/privacy")
     def privacy():
-        return _page("privacy.html", "privacy")
+        return _landing_page("landing_privacy.html")
 
     @app.get("/terms")
     def terms():
@@ -1703,6 +1701,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from routers.drafts_routes import register_drafts_routes
     register_runs_routes(app)
     register_drafts_routes(app)
+
+    try:
+        from .routers.locks_routes import register_locks_routes
+    except ImportError:
+        from routers.locks_routes import register_locks_routes
+    register_locks_routes(app)
 
     try:
         from .middleware_activity import register_activity_audit_middleware

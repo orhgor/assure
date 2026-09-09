@@ -1,36 +1,65 @@
 # Assure — full product status
 
-**Date:** 2026-09-07
-**GitHub Actions:** included cap is **3,000 minutes** (the prior 2,000 allotment was used up). Policy: [github-actions-minutes.md](./github-actions-minutes.md). Monitor tester notes at `/backstage` (SQLite inbox; Resend email is opt-in).
+**Date:** 2026-09-09
+**GitHub Actions:** included cap is **3,000 minutes**. Policy: [github-actions-minutes.md](./github-actions-minutes.md). **Deploy jobs still fail** on billing/spending limit (`ubuntu-latest`). Self-hosted runner `assure-staging-ec2` is **offline** (staging EC2 disk full).
 
-**Date:** 2026-09-06
-**Git:** `staging` and `main` include merge `36e532a` (PR #6 + Trust & Clarity).
-**Live EC2:** Staging health still `f04ec7f`; production still `bac3d40`. **GitHub Actions deploy failed** (account billing / spending limit) — code is on GitHub, images were not rebuilt.
+**Execution plan (when EC2 is back):** [runbooks/staging-launch-execution.md](./runbooks/staging-launch-execution.md) — Phase 1 infra → Phase 2 Stack B → Phases 3–6 QA/deploy.
 
-## Current snapshot (2026-09-06)
+**Next workbench epic (after EC2):** [runbooks/research-synthesis-pr1-pr2.md](./runbooks/research-synthesis-pr1-pr2.md) — PR 1 (backend + iterate/verify/history) then PR 2 (compare/merge). **SQLite required** — no browser-only draft history.
+
+## Current snapshot (2026-09-09)
 
 | Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
-| **Production** | `main` includes `36e532a` after this promote | `bac3d40` — Wow only until Actions billing is fixed and deploy succeeds |
-| **Staging** | `36e532a` Merge PR #6 | `f04ec7f` — Trust & Clarity grid, not yet the stepper |
+| **Production** | `main` @ `1d6bf79` (v3.2.0 groundrails promote) | **healthy** — `1d6bf798`, UI `assure-122`, ~10.6 GB disk free |
+| **Staging** | `staging` @ `fe73790` (PRs #30–#32 merged) | **502** — EC2 disk full; app container down. Git has UI polish + orchestrator; **not deployed** |
 
 **Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
-**CI:** PR #6 `test` + `playwright-tests` **SUCCESS** (2026-09-06).
+**Tests (local HEAD):** **654** pytest collected; Playwright founder suite **15/15** on PR #30 merge.
+**Auth:** Clerk **not configured** on production (`/api/auth/config` → `configured: false`). No workbench sign-in required.
 
-### Workbench (after this sprint)
+### Recent merges on `staging` (not live on EC2 yet)
+
+| PR | Theme | UI cache |
+| :--- | :--- | :--- |
+| **#30** Final UI polish | 48px `#state-rail`, `#runs-stack` filters, guarded ⌘K / Shift+1–5, button hierarchy | `assure-124` |
+| **#31** Auto-compiler | `PromptCompiler`, `generate_run_stream`, `verification_complete` SSE, `POST /api/runs/execute` | `assure-124` |
+| **#32** Deploy resilience | `deploy-staging.yml` / `cd-staging.yml` on `ubuntu-latest` (self-hosted runner offline) | — |
+
+### Workbench (git `staging`; production still pre–founder shell)
 
 | Item | Status |
 | :--- | :--- |
-| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ Analytics is in-shell (`#view-analytics`), not a full navigation away |
-| Document Lifecycle stepper (Write → Verify → Audit → Ship) | ✅ `workbench_stepper.js` |
-| Single Accept & Dock | ✅ `#generate-accept-dock-phase` only |
-| Provenance ⓘ drawer | ✅ `#provenance-panel-drawer.is-open` |
-| Role switcher | ✅ Admin / Compliance / Developer / Executive |
-| Wow effects | ✅ Optional layer — **not unified** with gutters/overlay/ⓘ |
-| Active Works visual hierarchy | ❌ Not in this sprint |
-| Full Audit as verify-only (no re-compile) | ❌ Still re-runs compile stream |
+| Founder shell — state rail + runs stack | ✅ On `staging` git (`state_rail.js`, `runs_stack.js`); ❌ not on live prod (`assure-122`) |
+| Orchestrator SSE + lock pills | ✅ On `staging` git (`orchestrator.py`, `command_bar.js`); ❌ not deployed |
+| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ Production |
+| Document Lifecycle stepper | ✅ Production |
+| Provenance ⓘ drawer | ✅ Production |
+| Wow effects | ✅ Production — still **not unified** with gutters/overlay |
+| Full Audit as verify-only | ❌ Still re-runs compile stream |
 
-**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Function catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md)
+### Staging EC2 recovery (blocked)
+
+| Blocker | Detail |
+| :--- | :--- |
+| **Disk** | Console: `No space left on device`; SSM `RunShellScript` fails instantly on `i-03e39eccc57572191` |
+| **IAM** | Deploy user cannot `RebootInstances`, `ModifyVolume`, or self-update IAM |
+| **GHA billing** | `App Docker (Staging)` and `Deploy to Staging` fail in ~5s on spending limit |
+| **Fix path** | [staging-launch-execution.md](./runbooks/staging-launch-execution.md) Phase 1: cleanup → `flask prune-cache` → `redeploy-app.sh` → restart `actions-runner` |
+
+**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Workbench catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md) · **Webpage catalog:** [webpage-all-content.md](./webpage-all-content.md)
+
+---
+
+## Historical snapshot — 2026-09-06
+
+**Git:** `staging` and `main` included merge `36e532a` (PR #6 + Trust & Clarity).
+**Live EC2 (that day):** Staging `f04ec7f`; production `bac3d40`. Actions deploy blocked on billing.
+
+| Environment | Git | Live `/health` |
+| :--- | :--- | :--- |
+| **Production** | `36e532a` on `main` | `bac3d40` |
+| **Staging** | `36e532a` | `f04ec7f` |
 
 ---
 
@@ -272,10 +301,13 @@ Assure is **bring your own key (BYOK)**. Key facts:
 
 | Item | Status |
 | :--- | :--- |
-| SQLite backup cron | ⚠️ `never_run` in health check |
-| EC2 disk after image pull | ⚠️ **3.51 GB** free on last health (guard refuses fallback build under 3 GB) |
+| **Staging EC2 disk** | 🔴 **Full** — `i-03e39eccc57572191`; SSM commands fail; `/health` → **502** |
+| **Production EC2 disk** | ✅ ~**10.6 GB** free (`1d6bf798` health) |
+| **GitHub Actions billing** | 🔴 Blocks `ubuntu-latest` staging deploy/build |
+| **Self-hosted runner** | 🔴 `assure-staging-ec2` offline |
+| SQLite backup cron | ⚠️ `never_run` in production health check |
 | `test_resolve_lock_inference_model` | ⚠️ Expects `gemini-1.5-pro`; runtime is `gemini-3.6-flash` |
-| Landing page i18n | ✅ Marketing strings in 7 locales (`fe247c8`); extend architecture body if needed |
+| Landing page i18n | ✅ Marketing strings in 7 locales |
 | GHCR image race on manual redeploy | ✅ Mitigated — pull retries in `redeploy-app.sh` |
 
 ---
@@ -360,6 +392,7 @@ Export DOCX and/or Audit Manifest JSON
 | Document | Purpose |
 | :--- | :--- |
 | [launch-checklist.md](./launch-checklist.md) | Item-by-item pass/fail with probe notes |
+| [webpage-all-content.md](./webpage-all-content.md) | **Webpage master** — live Flask marketing, static `landing/`, copy, APIs |
 | [../landing/ICP.md](../landing/ICP.md) | Personas and jobs |
 | [../landing/objections.md](../landing/objections.md) | Sales objection answers |
 | [../prompt_matrix/PEM.md](../prompt_matrix/PEM.md) | Engine and swarm log |

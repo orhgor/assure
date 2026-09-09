@@ -16,6 +16,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
+  {% block extra_head %}{% endblock %}
   {% include 'includes/plausible.html' %}
   {% include 'includes/sentry.html' %}
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" crossorigin="anonymous"></script>
@@ -75,7 +76,7 @@
         {% if auth is defined and auth.signed_in and auth.email %}
         <span class="auth-who">{{ auth.email }}</span>
         {% endif %}
-        <button type="button" class="privacy-chip" id="privacy-chip" data-i18n="privacy.chip.closed" title="{{ gettext('Copy stays here. The question stays on this computer.') }}">🔒 {{ gettext('Closed to the internet') }}</button>
+        <button type="button" class="privacy-chip" id="privacy-chip" data-i18n="privacy.chip.closed" title="{{ gettext('Closed to the internet: processed on Assure\'s secure servers, never sent to a third-party provider.') }}" data-i18n-title="privacy.chip.tip.closed">🔒 {{ gettext('Closed to the internet') }}</button>
         <span class="edition-chip" id="edition-chip">{{ gettext('Free') }}</span>
       </div>
     </header>

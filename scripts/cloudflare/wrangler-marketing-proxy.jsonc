@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  "name": "assure-marketing-proxy",
+  "main": "marketing-r2-worker.js",
+  "compatibility_date": "2026-09-08",
+  "workers_dev": false,
+  "r2_buckets": [
+    {
+      "binding": "MARKETING",
+      "bucket_name": "assure-marketing-prod"
+    }
+  ],
+  "routes": [
+    { "pattern": "getassureai.com/", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/static/*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/architecture*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/privacy*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/terms*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/about*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/pricing*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/es*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/zh*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/fr*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/de*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/ja*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/tr*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/favicon*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/robots.txt", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/app*", "zone_name": "getassureai.com" },
+    { "pattern": "getassureai.com/api*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/static/*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/architecture*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/privacy*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/terms*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/about*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/pricing*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/es*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/zh*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/fr*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/de*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/ja*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/tr*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/favicon*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/robots.txt", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/app*", "zone_name": "getassureai.com" },
+    { "pattern": "www.getassureai.com/api*", "zone_name": "getassureai.com" }
+  ]
+}

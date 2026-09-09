@@ -7,6 +7,7 @@
   "use strict";
 
   var STORAGE_KEY = "assure_founder_workbench";
+  var FOUNDER_WORKSPACE_ID = "founder";
 
   function readFlag() {
     try {
@@ -66,10 +67,18 @@
     }
   }
 
+  function getWorkspaceId() {
+    if (isFounderMode()) return FOUNDER_WORKSPACE_ID;
+    var pid = String(global.__ASSURE_PROJECT_ID__ || "default").trim();
+    return pid || "default";
+  }
+
   global.AssureFounderMode = {
     STORAGE_KEY: STORAGE_KEY,
+    FOUNDER_WORKSPACE_ID: FOUNDER_WORKSPACE_ID,
     isEnabled: isFounderMode,
     isLegacyUrl: isLegacyUrl,
+    getWorkspaceId: getWorkspaceId,
     applyBodyClasses: applyBodyClasses,
     applyAppRootClasses: applyAppRootClasses,
     init: init,

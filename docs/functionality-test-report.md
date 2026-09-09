@@ -1,9 +1,12 @@
 # Assure workbench functionality test report
 
-**Date:** 5 September 2026
-**Primary surface:** local HEAD at `http://127.0.0.1:8798/app` (TipTap + left-pane controls, uncommitted vs `origin/staging`).
-**Secondary:** `https://staging.getassureai.com/app` (HTTP 200; deployed commit `19f8c19` — cross-pane/gutter, **no** TipTap / model selector / recent prompts).
+**Date:** 8 September 2026 (refreshed)
+**Primary surface:** local HEAD at `http://127.0.0.1:8765/app` (founder shell + state rail on `staging` git).
+**Production:** https://getassureai.com/app — **200**, `1d6bf798`, UI `assure-122` (pre–founder shell).
+**Staging:** https://staging.getassureai.com — **502** (EC2 disk full; git at `fe73790` / `assure-124` not deployed).
 **Evidence types:** (a) live browser/API this session, (b) source inspection, (c) inference — unused here.
+
+> **Note:** The detailed PASS/FAIL matrix below is from the **5 September 2026** TipTap/local run. Staging was HTTP 200 then at `19f8c19`. Do not use it for current staging parity until EC2 is recovered and redeployed.
 
 Live LLM compile from this machine returned:
 

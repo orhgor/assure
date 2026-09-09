@@ -168,7 +168,7 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"Zero hallucination. Absolute verification.", res.data)
+        self.assertIn(b"Draft at the speed of AI. Verify with mathematical certainty.", res.data)
         self.assertIn(b"Request Enterprise Pilot", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
 
@@ -184,9 +184,10 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/?lang=tr")
         self.assertEqual(res.status_code, 200)
-        self.assertIn("Sıfır halüsinasyon".encode(), res.data)
+        self.assertIn("AI hızında taslak yazın".encode(), res.data)
         self.assertIn("Şirket piloğu talep et".encode(), res.data)
         self.assertNotIn(b"The Intellectual Compiler", res.data)
+        self.assertNotIn(b"Deterministic Truth Engine", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
         self.assertNotIn(b"The Problem Statement", res.data)
         self.assertIn("Kanıt".encode(), res.data)
@@ -205,9 +206,9 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"See it work for your role.", res.data)
+        self.assertIn(b"One engine. Three high-stakes workflows.", res.data)
         self.assertIn(b"landing-pilot.js?v=" + LANDING_JS.encode(), res.data)
-        self.assertIn(b'data-role-tab="underwriter"', res.data)
+        self.assertIn(b'data-role-tab="tab1"', res.data)
         self.assertNotIn(b"hero-comparison", res.data)
         self.assertNotIn(b'class="lw-workbench"', res.data)
 

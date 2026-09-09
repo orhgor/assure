@@ -18,16 +18,31 @@
       .replace(/>/g, "&gt;");
   }
 
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
   function open(detail) {
-    if (!drawer) return;
     detail = detail || {};
+    if (
+      document.body.classList.contains("founder-workbench") &&
+      !document.body.classList.contains("legacy-workbench") &&
+      global.AssureEvidenceDrawer &&
+      typeof global.AssureEvidenceDrawer.open === "function"
+    ) {
+      global.AssureEvidenceDrawer.open(detail);
+      return;
+    }
+    if (!drawer) return;
     drawer.hidden = false;
     drawer.setAttribute("aria-hidden", "false");
     $("evidence-inspector-hash").textContent = detail.lockHash || "—";
     $("evidence-inspector-source-id").textContent = detail.sourceId || "—";
     var coords = detail.pageCoordinates || {};
     $("evidence-inspector-coords").textContent = JSON.stringify(coords, null, 2);
-    $("evidence-inspector-body").innerHTML = '<p class="hint">Loading source…</p>';
+    $("evidence-inspector-body").innerHTML =
+      '<p class="hint">' + esc(translate("evidence.inspector.loading", "Loading source…")) + "</p>";
     if (detail.sourceId) {
       fetch(
         "/api/projects/" +
@@ -40,7 +55,9 @@
           return r.json();
         })
         .then(function (data) {
-          var text = (data && (data.extracted_text || data.text)) || "No extracted text for this source.";
+          var text =
+            (data && (data.extracted_text || data.text)) ||
+            translate("evidence.inspector.no_text", "No extracted text for this source.");
           var page = Number(coords.page || 1);
           var marker = "<mark class=\"evidence-highlight\" id=\"evidence-page-marker\">";
           var body = esc(text).replace(/\n/g, "<br>");
@@ -63,11 +80,19 @@
         })
         .catch(function () {
           $("evidence-inspector-body").innerHTML =
-            '<p class="hint">Could not load source document.</p>';
+            '<p class="hint">' +
+            esc(translate("evidence.inspector.load_error", "Could not load source document.")) +
+            "</p>";
         });
     } else {
-      $("evidence-inspector-body").innerHTML = '<p class="hint">No source linked to this lock.</p>';
-      $("evidence-inspector-filename").textContent = "Unanchored lock";
+      $("evidence-inspector-body").innerHTML =
+        '<p class="hint">' +
+        esc(translate("evidence.inspector.no_source", "No source linked to this lock.")) +
+        "</p>";
+      $("evidence-inspector-filename").textContent = translate(
+        "evidence.inspector.unanchored",
+        "Unanchored lock"
+      );
     }
   }
 
@@ -84,7 +109,10 @@
 
   function init() {
     drawer = $("evidence-inspector-drawer");
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId =
+      global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function"
+        ? global.AssureFounderMode.getWorkspaceId()
+        : global.__ASSURE_PROJECT_ID__ || "default";
     var closeBtn = $("evidence-inspector-close");
     var gotoBtn = $("evidence-inspector-goto");
     if (closeBtn) closeBtn.addEventListener("click", close);
