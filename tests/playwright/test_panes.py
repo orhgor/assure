@@ -101,7 +101,7 @@ def test_responsive_collapse(page: Page, base_url: str):
     _dismiss_overlays(page)
     container = page.locator(".app-container.founder-workbench")
     expect(container).to_have_class(re.compile(r"pane-left-open"))
-    page.locator(".right-pane").click(position={"x": 200, "y": 200})
+    page.locator("body").click(position={"x": 400, "y": 400})
     page.keyboard.press("Meta+I")
     expect(container).to_have_class(re.compile(r"pane-right-open"), timeout=5_000)
     expect(container).to_have_class(re.compile(r"pane-left-closed"), timeout=5_000)
@@ -175,33 +175,56 @@ def test_command_palette_polish(page: Page, base_url: str):
 
 def test_context_aware_invoke(page: Page, base_url: str):
     goto_founder_workbench(page, base_url)
+    _dismiss_overlays(page)
     page.wait_for_function(
-        "() => document.querySelector('#founder-draft-editor .ProseMirror')",
+        "() => window.AssureTiptapEditor && window.AssureTiptapEditor.getEditor && window.AssureTiptapEditor.getEditor()",
         timeout=15_000,
     )
-    editor = page.locator("#founder-draft-editor .ProseMirror")
-    editor.click()
-    editor.type("Selected paragraph for investigation.")
-    selected = page.evaluate(
+    page.evaluate(
         """() => {
-          const api = window.AssureTiptapEditor;
-          const ed = api && api.getEditor && api.getEditor();
-          if (ed) ed.chain().focus().selectAll().run();
-          return api && api.getSelectedTextRange ? api.getSelectedTextRange() : null;
+          window.__assureInvokeLog = false;
+          const orig = console.info;
+          console.info = function () {
+            if (arguments[0] === "[Assure] context-aware invoke payload") {
+              window.__assureInvokeLog = true;
+            }
+            return orig.apply(console, arguments);
+          };
         }"""
     )
-    assert selected and selected.get("text")
-    logs: list[str] = []
-
-    def on_console(msg):
-        if "context-aware invoke payload" in msg.text:
-            logs.append(msg.text)
-
-    page.on("console", on_console)
+    selected = page.evaluate(
+        """() => {
+          const needle = "Selected paragraph for investigation.";
+          const api = window.AssureTiptapEditor;
+          const ed = api && api.getEditor && api.getEditor();
+          if (!ed) return null;
+          ed.chain()
+            .focus()
+            .insertContent({
+              type: "jdfParagraph",
+              content: [{ type: "text", text: needle }],
+            })
+            .run();
+          let from = null;
+          let to = null;
+          ed.state.doc.descendants(function (node, pos) {
+            if (from != null || !node.isText) return;
+            var idx = node.text.indexOf(needle);
+            if (idx >= 0) {
+              from = pos + idx;
+              to = from + needle.length;
+            }
+          });
+          if (from == null) return null;
+          ed.chain().focus().setTextSelection({ from: from, to: to }).run();
+          return api.getSelectedTextRange ? api.getSelectedTextRange() : { text: needle };
+        }"""
+    )
+    assert selected and selected.get("text") == "Selected paragraph for investigation."
     page.keyboard.press("Meta+K")
     expect(page.locator("#command-bar-overlay")).to_be_visible(timeout=5_000)
     expect(page.locator("#command-bar-input")).to_have_value(
-        "Selected paragraph for investigation."
+        "Selected paragraph for investigation.",
+        timeout=5_000,
     )
-    page.wait_for_timeout(300)
-    assert any("context-aware invoke payload" in line for line in logs)
+    page.wait_for_function("() => window.__assureInvokeLog === true", timeout=5_000)

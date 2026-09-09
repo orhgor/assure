@@ -467,17 +467,33 @@ def test_founder_draft_column_width(page: Page, base_url: str):
 
 
 def test_export(page: Page, base_url: str):
-    pdf_marker = b"%PDF"
-
-    page.route(
-        "**/export?format=dossier-pdf**",
-        lambda route: route.fulfill(
-            content_type="application/pdf",
-            body=pdf_marker + b"-mock-verification-dossier",
-        ),
-    )
     goto_founder_workbench(page, base_url)
-    with page.expect_download() as dl_info:
-        page.locator("#btn-export-dossier").click()
-    download = dl_info.value
-    assert download.suggested_filename.endswith(".pdf")
+    page.wait_for_function(
+        "() => document.querySelector('#founder-draft-editor .ProseMirror')",
+        timeout=15_000,
+    )
+    editor = page.locator("#founder-draft-editor .ProseMirror")
+    editor.click()
+    editor.type("Dossier export body.")
+
+    save_calls: list[str] = []
+
+    def handle_draft_save(route):
+        if route.request.method == "POST":
+            save_calls.append(route.request.url)
+            route.fulfill(
+                content_type="application/json",
+                body=json.dumps({"ok": True, "document": {}}),
+            )
+            return
+        route.continue_()
+
+    page.route("**/api/projects/founder/draft", handle_draft_save)
+    page.locator("#btn-export-dossier").click()
+    expect(page.locator("#drawer-export")).to_be_visible(timeout=5_000)
+
+    with page.expect_request("**/api/projects/founder/draft") as save_req:
+        with page.expect_request("**/export?format=pdf") as _pdf_req:
+            page.locator(".drawer-export-pdf").click()
+    assert save_req.value.method == "POST"
+    assert save_calls
