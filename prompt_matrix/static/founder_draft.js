@@ -5,6 +5,8 @@
   "use strict";
 
   var saveTimer = null;
+  var saveInFlight = null;
+  var z3FallbackTimer = null;
   var workspaceId = "founder";
   var draftTree = { body: [] };
   var streamingLockIndex = 0;
@@ -38,24 +40,86 @@
     };
   }
 
-  function scheduleSave() {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveDraft, 800);
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
   }
 
-  function saveDraft() {
+  function showSync(text, hideAfter) {
+    if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.showSyncStatus === "function") {
+      global.AssureWorkbenchPanes.showSyncStatus(text, hideAfter);
+    } else if (typeof global.showSyncStatus === "function") {
+      global.showSyncStatus(text, hideAfter);
+    }
+  }
+
+  function afterDraftSaved() {
+    showSync(translate("founder.sync.z3_verifying", "Z3 Verifying..."));
+    if (z3FallbackTimer) clearTimeout(z3FallbackTimer);
+    z3FallbackTimer = setTimeout(function () {
+      document.dispatchEvent(new CustomEvent("assure:z3-verified"));
+    }, 2500);
+  }
+
+  function saveDraftNow() {
+    if (saveInFlight) return saveInFlight;
     var editorApi = global.AssureTiptapEditor;
     var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
-    if (!editorApi || !ed || !editorApi.tiptapToJdf) return;
+    if (!editorApi || !ed || !editorApi.tiptapToJdf) return Promise.resolve();
     try {
       draftTree = editorApi.tiptapToJdf(ed.getJSON(), draftTree) || draftTree;
-    } catch (_) {}
-    fetch("/api/drafts", {
-      method: "PUT",
+    } catch (_) {
+      return Promise.resolve();
+    }
+    var url;
+    var method;
+    var body;
+    if (isFounderShell()) {
+      url = "/api/projects/" + encodeURIComponent(workspaceId) + "/draft";
+      method = "POST";
+      body = JSON.stringify({ content: draftTree });
+    } else {
+      url = "/api/drafts";
+      method = "PUT";
+      body = JSON.stringify({ workspace_id: workspaceId, content: draftTree });
+    }
+    saveInFlight = fetch(url, {
+      method: method,
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspace_id: workspaceId, content: draftTree }),
-    }).catch(function () {});
+      body: body,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { ok: res.ok && data.ok !== false, data: data };
+        });
+      })
+      .then(function (result) {
+        if (result.ok && isFounderShell()) afterDraftSaved();
+        return result;
+      })
+      .catch(function () {})
+      .finally(function () {
+        saveInFlight = null;
+      });
+    return saveInFlight;
+  }
+
+  function scheduleSave() {
+    showSync(translate("founder.sync.saving", "Saving..."));
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      saveDraftNow();
+    }, 800);
+  }
+
+  function flushSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    return saveDraftNow() || Promise.resolve();
   }
 
   function mountEditor(tree) {
@@ -354,6 +418,8 @@
     appendStreamToken: appendStreamToken,
     insertStreamLock: insertStreamLock,
     finishStreaming: finishStreaming,
+    flushSave: flushSave,
+    saveDraftNow: saveDraftNow,
     getWorkspaceId: function () {
       return workspaceId;
     },

@@ -76,6 +76,11 @@
             </div>
           </div>
           <div class="app-header-center founder-header-tools" id="founder-header-tools" hidden>
+            <div id="sync-status" class="founder-sync-status is-hidden" hidden aria-live="polite" role="status">
+              <span class="founder-sync-status__spinner" aria-hidden="true"></span>
+              <span class="founder-sync-status__check" aria-hidden="true">✓</span>
+              <span class="founder-sync-status-text" id="sync-status-text"></span>
+            </div>
             <button type="button" class="btn btn-outline btn-sm founder-cmdk-btn" id="founder-cmdk-btn" data-i18n="founder.cmdk_btn">{{ gettext('⚡ Investigate… (⌘K)') }}</button>
           </div>
           <div class="app-header-center app-trust-strip founder-legacy-chrome" id="app-header-center" hidden></div>

@@ -699,10 +699,15 @@
           span.addEventListener("click", function (e) {
             e.preventDefault();
             e.stopPropagation();
+            var hash = node.attrs.lockHash || "";
+            if (typeof global.openEvidenceDrawer === "function") {
+              global.openEvidenceDrawer(hash, e);
+              return;
+            }
             document.dispatchEvent(
               new CustomEvent("assure:lock-pill-click", {
                 detail: {
-                  lockHash: node.attrs.lockHash,
+                  lockHash: hash,
                   sourceId: node.attrs.sourceId,
                   pageCoordinates: coords,
                   lockIndex: node.attrs.lockIndex,
