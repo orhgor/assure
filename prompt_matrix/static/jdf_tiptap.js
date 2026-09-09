@@ -1138,6 +1138,17 @@
     getEditor: function () {
       return editor;
     },
+    setContentFromJdf: function (tree) {
+      if (!editor || editor.isDestroyed || !tree) return false;
+      try {
+        var json = jdfToTiptap(tree, false);
+        editor.commands.setContent(purifyTiptapDoc(json), false);
+        applyConfidenceToTipTap();
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
     getSelectedTextRange: function () {
       if (!editor) {
         return { from: 0, to: 0, text: "", empty: true };

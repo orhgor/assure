@@ -125,6 +125,32 @@
     mountEditor(emptyDoc());
   }
 
+  function applyRestoredDocument(document, version) {
+    if (!document || typeof document !== "object") return false;
+    draftTree = document;
+    streamingActive = false;
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && typeof editorApi.setContentFromJdf === "function") {
+      editorApi.setContentFromJdf(document);
+    } else if (editorApi && typeof editorApi.mount === "function") {
+      mountEditor(document);
+    } else {
+      return false;
+    }
+    updatePlaceholder();
+    scheduleSave();
+    if (version != null && global.AssureToast && typeof global.AssureToast.show === "function") {
+      var msg =
+        typeof global.__assureTf === "function"
+          ? global.__assureTf("founder.versions.restored", "Draft restored to version {version}", {
+              version: version,
+            })
+          : "Draft restored to version " + version;
+      global.AssureToast.show(msg, "success");
+    }
+    return true;
+  }
+
   function loadDraft() {
     if (!isFounderShell()) return Promise.resolve();
     return fetch("/api/drafts?workspace_id=" + encodeURIComponent(workspaceId), {
@@ -301,6 +327,7 @@
     init: init,
     appendRun: appendRun,
     loadDraft: loadDraft,
+    applyRestoredDocument: applyRestoredDocument,
     resetToEmpty: resetToEmpty,
     beginStreaming: beginStreaming,
     appendStreamToken: appendStreamToken,

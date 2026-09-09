@@ -9173,6 +9173,79 @@ body.founder-workbench:not(.legacy-workbench) #panel-sources.sources-drawer-pane
   display: flex !important;
 }
 
+body.founder-workbench:not(.legacy-workbench) #pane-versions.founder-versions-panel {
+  display: none;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+
+body.founder-workbench:not(.legacy-workbench) #pane-versions.founder-versions-panel.active {
+  display: flex !important;
+}
+
+body.founder-workbench:not(.legacy-workbench) #panel-sources .sources-drawer-header,
+body.founder-workbench:not(.legacy-workbench) #panel-sources #sources-drawer-close {
+  display: none;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-pane-loading {
+  padding: 12px 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-versions-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-entry {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-raised, #fff);
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-primary, #0f172a);
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-time {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-meta {
+  margin: 0 0 4px;
+  font-size: 0.8125rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary, #475569);
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-summary {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-version-restore {
+  width: 100%;
+}
+
 body.founder-workbench.sources-drawer-open #panel-sources.sources-drawer-panel {
   display: flex !important;
   flex-direction: column;

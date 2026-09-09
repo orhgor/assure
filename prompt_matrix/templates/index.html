@@ -190,6 +190,7 @@
               <div class="founder-sidebar-tabs" role="tablist" aria-label="{{ gettext('Sidebar') }}" data-i18n-aria="founder.sidebar.label">
                 <button type="button" class="founder-sidebar-tab is-active" role="tab" data-sidebar-tab="runs" aria-selected="true" data-i18n="founder.sidebar.runs">{{ gettext('Runs') }}</button>
                 <button type="button" class="founder-sidebar-tab" role="tab" data-sidebar-tab="sources" aria-selected="false" data-i18n="founder.sidebar.sources">{{ gettext('Sources') }}</button>
+                <button type="button" class="founder-sidebar-tab" role="tab" data-sidebar-tab="versions" aria-selected="false" data-i18n="founder.sidebar.versions">{{ gettext('Versions') }}</button>
               </div>
               <div class="founder-sidebar-toolbar">
                 <input type="search" id="runs-stack-search" class="form-control founder-runs-search" placeholder="{{ gettext('Filter runs…') }}" data-i18n-placeholder="founder.runs.search_placeholder" aria-label="{{ gettext('Filter runs') }}" data-i18n-aria="founder.runs.search_aria" autocomplete="off" />
@@ -428,7 +429,8 @@
               </div>
             </div>
 
-            <div id="panel-sources" class="assure-view context-panel sources-drawer-panel" data-view="vault" hidden aria-hidden="true">
+            <div id="panel-sources" class="assure-view context-panel sources-drawer-panel founder-panel" data-view="vault" hidden aria-hidden="true">
+              <p id="founder-sources-loading" class="founder-pane-loading hint" hidden aria-live="polite" data-i18n="founder.sources.loading">{{ gettext('Loading sources…') }}</p>
               <div class="sources-drawer-header">
                 <h3 class="jdf-pane-title" data-i18n="substrate.vault.title">{{ gettext('Sources') }}</h3>
                 <button type="button" class="btn btn-sm btn-ghost" id="sources-drawer-close" aria-label="{{ gettext('Close sources') }}" data-i18n-aria="founder.sources.close">×</button>
@@ -445,6 +447,12 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div id="pane-versions" class="assure-view context-panel founder-panel founder-versions-panel" data-view="versions" hidden aria-hidden="true">
+              <p id="founder-versions-loading" class="founder-pane-loading hint" hidden aria-live="polite" data-i18n="founder.versions.loading">{{ gettext('Loading version history…') }}</p>
+              <p id="founder-versions-empty" class="hint founder-versions-empty" hidden data-i18n="founder.versions.empty">{{ gettext('No saved versions yet.') }}</p>
+              <ol id="founder-versions-timeline" class="founder-versions-timeline" role="list"></ol>
             </div>
 
             <div id="panel-analytics" class="assure-view context-panel analytics-embedded-container" data-view="analytics" hidden>
