@@ -10,6 +10,16 @@
     --trust-blue: var(--assure-trust-blue);
     --accent-blue: var(--assure-trust-blue);
     --accent-green: var(--assure-confidence-green);
+    /* 8px baseline grid */
+    --space-1: 8px;
+    --space-2: 16px;
+    --space-3: 24px;
+    --space-5: 40px;
+    --space-6: 48px;
+    --space-8: 64px;
+    --space-12: 96px;
+    --space-16: 128px;
+    --space-20: 160px;
 }
 
 * {
@@ -121,8 +131,17 @@ body {
 .cta-section h2,
 .persona-strip-label,
 .competitor-quote,
-.section-sub {
+.section-sub,
+.enterprise-landing .section-title {
     text-wrap: balance;
+}
+
+.text-line {
+    display: block;
+}
+
+.text-line + .text-line {
+    margin-top: 0.08em;
 }
 
 .hero-sub {
@@ -1593,9 +1612,15 @@ body {
     .hero-comparison,
     .hero-comparison *,
     .lw-demo,
-    .lw-demo * {
+    .lw-demo *,
+    .trust-arch-grid article,
+    .enterprise-landing .hero-cta-group .btn-primary,
+    .enterprise-landing .hero-cta-group .btn-secondary,
+    .pilot-sandbox.is-success,
+    .pilot-sandbox .waitlist-success-icon {
         animation: none !important;
         transition: none !important;
+        transform: none !important;
     }
 }
 
@@ -2070,7 +2095,7 @@ body {
 .enterprise-landing .hero-section {
     background: #fff;
     color: #0a0a0a;
-    padding: 5rem 0 4rem;
+    padding: var(--space-12) 0 var(--space-20);
     text-align: center;
 }
 
@@ -2080,7 +2105,17 @@ body {
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: #64748b;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.trust-arch .trust-badge {
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #64748b;
+    letter-spacing: 0.02em;
+    margin: -1.5rem auto 2rem;
+    max-width: 32rem;
 }
 
 .enterprise-landing .hero-section h1 {
@@ -2089,22 +2124,49 @@ body {
     font-weight: 700;
     letter-spacing: -0.04em;
     max-width: 18ch;
-    margin: 0 auto 1rem;
-    line-height: 1.08;
+    margin: 0 auto var(--space-3);
+    line-height: 1.15;
 }
 
 .enterprise-landing .hero-sub {
     color: #475569;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     max-width: 36rem;
-    margin: 0 auto 2rem;
+    margin: 0 auto var(--space-6);
+    line-height: 1.5;
 }
 
 .enterprise-landing .hero-cta-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: var(--space-2);
     justify-content: center;
+    align-items: stretch;
+    max-width: 42rem;
+    margin: 0 auto;
+}
+
+.enterprise-landing .hero-cta-group .btn-primary,
+.enterprise-landing .hero-cta-group .btn-secondary {
+    flex: 1 1 12rem;
+    min-width: min(100%, 12rem);
+    max-width: 20rem;
+    min-height: 44px;
+    text-align: center;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.enterprise-landing .hero-cta-group .btn-primary:hover,
+.enterprise-landing .hero-cta-group .btn-primary:focus-visible,
+.enterprise-landing .hero-cta-group .btn-secondary:hover,
+.enterprise-landing .hero-cta-group .btn-secondary:focus-visible {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(10, 10, 10, 0.12);
 }
 
 .enterprise-landing .btn-secondary {
@@ -2114,22 +2176,35 @@ body {
     min-height: 44px;
     padding: 0.8rem 2.2rem;
     border-radius: 9999px;
-    font-weight: 500;
+    font-weight: 600;
     color: #0a0a0a;
     border: 1px solid #0a0a0a;
     background: transparent;
     text-decoration: none;
 }
 
-.enterprise-landing .btn-secondary:hover {
+.enterprise-landing .btn-secondary:hover,
+.enterprise-landing .btn-secondary:active {
     background: #0a0a0a;
     color: #fff;
+    border-color: #0a0a0a;
 }
 
 .enterprise-landing .section-title {
     text-align: center;
     color: #0a0a0a;
-    margin-bottom: 2.5rem;
+    margin-bottom: var(--space-6);
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.enterprise-landing .section-title .text-line {
+    display: block;
+}
+
+.role-demo .section-title {
+    line-height: 1.2;
 }
 
 .enterprise-landing .section-title::after {
@@ -2137,7 +2212,7 @@ body {
     display: block;
     width: 32px;
     height: 3px;
-    margin: 0.75rem auto 0;
+    margin: var(--space-3) auto 0;
     background: #0a0a0a;
 }
 
@@ -2145,7 +2220,13 @@ body {
 .why-now,
 .trust-arch,
 .plans-section {
-    padding: 4rem 0;
+    padding: var(--space-12) 0;
+}
+
+.role-demo .role-caption {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    color: #475569;
 }
 
 .role-tabs {
@@ -2309,24 +2390,52 @@ body {
     color: #475569;
 }
 
+.trust-arch-grid-four {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+@media (min-width: 1100px) {
+    .trust-arch-grid-four {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 .trust-arch-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-3);
 }
 
 .trust-arch-grid article {
-    padding: 1.5rem;
-    border-top: 2px solid #0a0a0a;
+    padding: var(--space-3);
+    border: 1px solid #e2e8f0;
+    border-top: 3px solid #0a0a0a;
+    border-radius: 8px;
+    background: #fff;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.trust-arch-grid article:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .trust-arch-grid h3 {
-    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
     color: #0a0a0a;
+    font-weight: 600;
+    font-size: 1.125rem;
+    line-height: 1.3;
 }
 
 .trust-arch-grid p {
     color: #475569;
+    line-height: 1.55;
 }
 
 .trust-lead {
@@ -2420,19 +2529,33 @@ body {
     background: #fff;
     color: #0a0a0a;
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: var(--space-8) var(--space-6);
     z-index: 1;
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.16);
 }
 
 .waitlist-close {
     position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
+    top: var(--space-1);
+    right: var(--space-1);
+    min-width: 44px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
     border: 0;
+    border-radius: 8px;
     background: transparent;
     font-size: 1.5rem;
+    line-height: 1;
     cursor: pointer;
     color: #64748b;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.waitlist-close:hover,
+.waitlist-close:focus-visible {
+    background: #f1f5f9;
+    color: #0a0a0a;
 }
 
 .waitlist-panel h2 {
@@ -2483,18 +2606,119 @@ body.waitlist-open {
     margin: 0.75rem 0;
 }
 
+.pilot-sandbox.is-success {
+    animation: waitlist-success-in 0.45s ease;
+}
+
+.pilot-sandbox .waitlist-success-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-2);
+    border-radius: 9999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 1.5rem;
+    font-weight: 700;
+    animation: waitlist-check-pop 0.5s ease 0.1s both;
+}
+
+@keyframes waitlist-success-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes waitlist-check-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.85);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
 .enterprise-landing .site-footer {
-    background: #fff;
+    background: #f8fafc;
     color: #475569;
     border-top: 1px solid #e2e8f0;
+    padding: var(--space-8) 0;
 }
 
 .enterprise-landing .footer-links {
-    margin-top: 0.5rem;
+    margin-top: var(--space-2);
 }
 
 .enterprise-landing .footer-links a {
     color: #0a0a0a;
+}
+
+.footer-engineer {
+    margin: var(--space-2) auto 0;
+    max-width: 42rem;
+    color: #334155;
+    font-size: 1rem;
+    line-height: 1.55;
+    font-weight: 500;
+}
+
+.footer-back-top {
+    display: inline-block;
+    margin-top: var(--space-3);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.footer-back-top:hover,
+.footer-back-top:focus-visible {
+    color: #0a0a0a;
+}
+
+.enterprise-landing .landing-lang-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.enterprise-landing .landing-lang-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.enterprise-landing .landing-lang-select {
+    border: 0;
+    background: transparent;
+    color: #0a0a0a;
+    font-weight: 700;
+    padding: 0.35rem 0.25rem;
+    max-width: none;
+    min-width: 6.5rem;
+    cursor: pointer;
+}
+
+.enterprise-landing .landing-lang-select:focus-visible {
+    outline: 2px solid #0a0a0a;
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 @media (max-width: 800px) {
@@ -2506,5 +2730,159 @@ body.waitlist-open {
 
     .enterprise-landing .hero-section h1 {
         max-width: none;
+    }
+}
+
+/* Enterprise privacy page (marketing) */
+.privacy-landing .privacy-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 4rem;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: #0f172a;
+}
+
+.privacy-landing .privacy-page h1 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.5rem;
+}
+
+.privacy-landing .last-updated {
+    color: #475569;
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+}
+
+.privacy-landing .summary-box {
+    background: #f8fafc;
+    border-left: 4px solid #2563eb;
+    padding: 1.25rem 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+    color: #334155;
+}
+
+.privacy-landing .privacy-toc {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.privacy-landing .privacy-toc-title {
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+}
+
+.privacy-landing .privacy-toc ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    columns: 2;
+    gap: 2rem;
+}
+
+.privacy-landing .privacy-toc a {
+    color: #2563eb;
+    text-decoration: none;
+    font-size: 0.9375rem;
+}
+
+.privacy-landing .privacy-toc a:hover {
+    text-decoration: underline;
+}
+
+.privacy-landing .privacy-section h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    text-wrap: balance;
+}
+
+.privacy-landing .privacy-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+}
+
+.privacy-landing .privacy-divider {
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+    margin: 2.5rem 0;
+}
+
+.privacy-landing .privacy-page table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 2rem;
+    font-size: 0.9rem;
+}
+
+.privacy-landing .privacy-page th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.privacy-landing .privacy-page td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.privacy-landing .privacy-placeholder {
+    color: #64748b;
+    font-style: italic;
+}
+
+.privacy-landing .privacy-body {
+    margin-top: 0.5rem;
+}
+
+.privacy-landing .privacy-intro {
+    color: #334155;
+    margin-bottom: 2rem;
+}
+
+.privacy-landing .privacy-emphasis {
+    background: #f8fafc;
+    border-left: 3px solid #16a34a;
+    padding: 1rem 1.25rem;
+    border-radius: 4px;
+    margin: 1.5rem 0;
+}
+
+.privacy-landing .privacy-body code {
+    font-family: ui-monospace, "IBM Plex Mono", monospace;
+    font-size: 0.875em;
+    background: #f1f5f9;
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+}
+
+.privacy-landing .privacy-contact {
+    font-size: 1.125rem;
+}
+
+.privacy-landing .privacy-body ul {
+    padding-left: 1.35rem;
+    margin: 0.75rem 0 1.25rem;
+}
+
+.privacy-landing .privacy-body li {
+    margin-bottom: 0.5rem;
+}
+
+.privacy-landing .privacy-body p {
+    margin: 0.75rem 0;
+}
+
+@media (max-width: 640px) {
+    .privacy-landing .privacy-toc ul {
+        columns: 1;
     }
 }

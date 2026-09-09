@@ -125,10 +125,6 @@ def resolve_request_locale() -> str:
     if cookie:
         return normalize_locale(cookie)
 
-    match = request.accept_languages.best_match(list(LOCALES))
-    if match:
-        return normalize_locale(match)
-
     return "en"
 
 

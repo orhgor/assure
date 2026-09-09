@@ -11,6 +11,11 @@
     return document.getElementById(id);
   }
 
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
   function esc(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -30,9 +35,9 @@
   }
 
   function statusLabel(status) {
-    if (status === "stamped") return "Stamped";
-    if (status === "contradiction") return "Contradiction";
-    return "Draft";
+    if (status === "stamped") return translate("founder.runs.status.stamped", "Stamped");
+    if (status === "contradiction") return translate("founder.runs.status.contradiction", "Contradiction");
+    return translate("founder.runs.status.draft", "Draft");
   }
 
   function runPreviewText(run) {
@@ -44,6 +49,64 @@
       });
     });
     return parts.filter(Boolean).join(" ");
+  }
+
+  function runDisplayTitle(run) {
+    var title = String(run.title || "").trim();
+    var directive = String(run.directive || "").trim();
+    if (title && directive && title === directive) return title;
+    if (title) return title;
+    return directive || translate("founder.runs.untitled", "Run");
+  }
+
+  function verifiedClaimsLabel(count) {
+    var n = Number(count) || 0;
+    if (n === 1) {
+      return translate("founder.runs.one_verified_claim", "1 verified claim");
+    }
+    return translate("founder.runs.verified_claims", "{count} verified claims").replace("{count}", String(n));
+  }
+
+  function getActiveFilter() {
+    if (global.AssureStateRail && typeof global.AssureStateRail.getFilter === "function") {
+      return global.AssureStateRail.getFilter();
+    }
+    var stack = $("runs-stack");
+    return (stack && stack.getAttribute("data-filter")) || "all";
+  }
+
+  function runMatchesFilter(run, filter) {
+    if (filter === "all") return true;
+    if (filter === "grounded") return (run.extracted_locks || []).length > 0;
+    if (filter === "redhat") {
+      return (run.redhat_findings || []).length > 0;
+    }
+    if (filter === "dossier") {
+      return run.status === "stamped" && (run.extracted_locks || []).length > 0;
+    }
+    return true;
+  }
+
+  function emptyStateMessage(filter) {
+    if (filter === "grounded") {
+      return translate(
+        "founder.runs.empty_grounded",
+        "No grounded runs found. Attach sources to generate deterministic locks."
+      );
+    }
+    if (filter === "redhat") {
+      return translate(
+        "founder.runs.empty_redhat",
+        "No Red-Hat audits found. Run Red-Hat on a draft run."
+      );
+    }
+    if (filter === "dossier") {
+      return translate(
+        "founder.runs.empty_dossier",
+        "No export-ready runs found. Complete verification to build a dossier."
+      );
+    }
+    return translate("founder.runs.empty_all", "No runs yet. Press ⌘K to investigate.");
   }
 
   function highlightFindings(text, findings) {
@@ -74,14 +137,35 @@
     );
   }
 
+  function emitRunsUpdated(streaming) {
+    document.dispatchEvent(
+      new CustomEvent("assure:runs-updated", {
+        detail: { runs: runs.slice(), streaming: !!streaming },
+      })
+    );
+  }
+
   function render() {
     var host = $("runs-stack-list");
     if (!host) return;
+    var filter = getActiveFilter();
+    var visible = runs.filter(function (run) {
+      return runMatchesFilter(run, filter);
+    });
+
     if (!runs.length) {
-      host.innerHTML = '<p class="runs-stack-empty hint">No runs yet. Press ⌘K to investigate.</p>';
+      host.innerHTML = '<p class="runs-stack-empty hint">' + esc(emptyStateMessage("all")) + "</p>";
+      emitRunsUpdated(false);
       return;
     }
-    host.innerHTML = runs
+
+    if (!visible.length) {
+      host.innerHTML = '<p class="runs-stack-empty hint">' + esc(emptyStateMessage(filter)) + "</p>";
+      emitRunsUpdated(false);
+      return;
+    }
+
+    host.innerHTML = visible
       .map(function (run) {
         var locks = (run.extracted_locks || []).length;
         var findings = run.redhat_findings || [];
@@ -107,6 +191,10 @@
         return (
           '<article class="run-card" data-run-id="' +
           esc(run.id) +
+          '" data-grounded="' +
+          (locks > 0 ? "1" : "0") +
+          '" data-redhat="' +
+          (findings.length > 0 ? "1" : "0") +
           '">' +
           '<div class="run-card-top">' +
           '<span class="run-status-pill" data-status="' +
@@ -118,19 +206,27 @@
           esc(run.model || "gemini") +
           "</span></div>" +
           '<h4 class="run-card-title">' +
-          esc(run.title || run.directive || "Run") +
+          esc(runDisplayTitle(run)) +
           "</h4>" +
           '<p class="run-card-meta">' +
-          esc(locks + " locks · " + fmtTime(run.created_at)) +
+          esc(verifiedClaimsLabel(locks) + " · " + fmtTime(run.created_at)) +
           "</p>" +
           '<div class="run-card-preview">' +
           preview +
           "</div>" +
           (findingsHtml ? '<ul class="run-findings-list">' + findingsHtml + "</ul>" : "") +
           '<div class="run-card-actions">' +
-          '<button type="button" class="btn btn-outline btn-sm" data-action="draft">Send to Draft</button>' +
-          '<button type="button" class="btn-trust-redhat btn-sm" data-action="redhat">⚡ Red-Hat</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-action="delete">Delete</button>' +
+          '<button type="button" class="btn btn-primary btn-sm run-btn-draft" data-action="draft">' +
+          esc(translate("founder.runs.send_draft", "Send to Draft")) +
+          "</button>" +
+          '<button type="button" class="btn btn-outline btn-sm run-btn-redhat" data-action="redhat">' +
+          esc(translate("generate.redhat_short", "Red-Hat")) +
+          "</button>" +
+          '<button type="button" class="btn btn-text-subtle btn-sm run-btn-delete" data-action="delete" aria-label="' +
+          esc(translate("founder.runs.delete_aria", "Delete run")) +
+          '">' +
+          esc(translate("founder.runs.delete", "Delete")) +
+          "</button>" +
           "</div></article>"
         );
       })
@@ -145,9 +241,10 @@
         deleteRun(id);
       });
       var rh = card.querySelector('[data-action="redhat"]');
-      if (rh) rh.addEventListener("click", function () {
-        runRedhat(id, rh);
-      });
+      if (rh)
+        rh.addEventListener("click", function () {
+          runRedhat(id, rh);
+        });
       card.querySelectorAll('[data-action="accept-finding"]').forEach(function (btn) {
         btn.addEventListener("click", function () {
           resolveFinding(id, btn.getAttribute("data-finding-id"), "accept", "");
@@ -155,12 +252,14 @@
       });
       card.querySelectorAll('[data-action="dismiss-finding"]').forEach(function (btn) {
         btn.addEventListener("click", function () {
-          var rationale = window.prompt("Dismissal rationale (required):") || "";
+          var rationale =
+            window.prompt(translate("founder.runs.dismiss_prompt", "Dismissal rationale (required):")) || "";
           if (!rationale.trim()) return;
           resolveFinding(id, btn.getAttribute("data-finding-id"), "dismiss", rationale.trim());
         });
       });
     });
+    emitRunsUpdated(false);
   }
 
   function load() {
@@ -185,10 +284,12 @@
     if (!message) {
       el.hidden = true;
       el.textContent = "";
+      document.dispatchEvent(new CustomEvent("assure:pipeline-status", { detail: { message: "" } }));
       return;
     }
     el.hidden = false;
     el.textContent = message;
+    document.dispatchEvent(new CustomEvent("assure:pipeline-status", { detail: { message: message } }));
   }
 
   function prepend(run) {
@@ -225,7 +326,7 @@
   function runRedhat(runId, btn) {
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Running…";
+      btn.textContent = translate("founder.runs.running", "Running…");
     }
     fetch("/api/runs/" + encodeURIComponent(runId) + "/redhat", {
       method: "POST",
@@ -240,7 +341,7 @@
       .finally(function () {
         if (btn) {
           btn.disabled = false;
-          btn.textContent = "⚡ Red-Hat";
+          btn.textContent = translate("generate.redhat_short", "Red-Hat");
         }
       });
   }
@@ -262,7 +363,7 @@
 
   function toggleCollapse() {
     collapsed = !collapsed;
-    var pane = $("panel-runs");
+    var pane = $("runs-stack");
     if (pane) pane.classList.toggle("is-collapsed", collapsed);
   }
 
@@ -275,6 +376,9 @@
     document.addEventListener("assure:project", function () {
       load();
     });
+    document.addEventListener("assure:state-filter", function () {
+      render();
+    });
     load();
   }
 
@@ -284,6 +388,9 @@
     render: render,
     init: init,
     setPipelineStatus: setPipelineStatus,
+    getRuns: function () {
+      return runs.slice();
+    },
   };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

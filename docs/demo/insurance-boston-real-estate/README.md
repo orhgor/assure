@@ -1,8 +1,8 @@
 # Assure AI — Insurance Demo Environment
 
 **Audience:** Boston-based real estate insurance company
-**Product version:** v1.4.0 (`ee6a9ee`, UI `assure-96`)
-**Last verified:** 2026-09-06
+**Product version:** v3.2.0 production (`1d6bf79`, UI `assure-122`)
+**Last verified:** 2026-09-08
 
 ---
 
@@ -10,10 +10,10 @@
 
 | Environment | URL | `build_sha` | Recommendation |
 |-------------|-----|-------------|----------------|
-| **Production** | https://getassureai.com/app | `ee6a9ee` | **Primary demo** — tagged `v1.4.0`, what you sold |
-| **Staging** | https://staging.getassureai.com/app | `ad29210` | Rehearsal / dry-run only (same UI cache `assure-96`) |
+| **Production** | https://getassureai.com/app | `1d6bf798` | **Primary demo** — healthy, ~10.6 GB disk free |
+| **Staging** | https://staging.getassureai.com/app | — | 🔴 **502** — EC2 disk full; use production for demos |
 
-Both are healthy (~19 GB disk free). Use **production** for the live meeting unless you need to break things on staging first.
+Use **production** for live meetings until staging EC2 is recovered (`free-disk-cleanup.sh` + redeploy).
 
 ---
 
@@ -55,7 +55,7 @@ Use a fresh project per audience, or reset Sources and clear canvas via new proj
 
 ## Pre-demo checklist
 
-- [ ] Health: `curl https://getassureai.com/health` → `ok: true`, `assure-96`
+- [ ] Health: `curl https://getassureai.com/health` → `ok: true`, `assure-122`, `build_sha` starts with `1d6bf79`
 - [ ] Logged in (Clerk) on demo machine
 - [ ] Demo project created with both sources uploaded and **included** in compile
 - [ ] Browser: 1440×900+, onboarding dismissed (`localStorage.assure_onboarding_complete = 1`)

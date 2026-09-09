@@ -223,7 +223,7 @@ def test_default_founder_shell(page: Page, base_url: str):
         "() => document.body.classList.contains('founder-workbench') && document.body.classList.contains('founder-mode-active') && !document.body.classList.contains('legacy-workbench')",
         timeout=10_000,
     )
-    expect(page.locator("#panel-runs")).to_be_visible()
+    expect(page.locator("#runs-stack")).to_be_visible()
     expect(page.locator("#founder-draft-shell")).to_be_visible()
     page.wait_for_function(
         "() => { const p = document.getElementById('founder-draft-placeholder'); return p && !p.hidden; }",
@@ -248,13 +248,16 @@ def test_default_founder_shell(page: Page, base_url: str):
           const container = document.querySelector('.app-container');
           const sidebar = document.querySelector('#app-body > #app-sidebar');
           const appBody = document.querySelector('.app-body');
-          if (!content || !container || !appBody) return false;
+          const rail = document.getElementById('state-rail');
+          if (!content || !container || !appBody || !rail) return false;
           const bodyDisplay = getComputedStyle(appBody).display;
           const containerDisplay = getComputedStyle(container).display;
-          const contentCol = getComputedStyle(content).gridColumnStart;
+          const cols = getComputedStyle(container).gridTemplateColumns;
+          const railWidth = Math.round(rail.getBoundingClientRect().width);
           return bodyDisplay === 'flex'
-            && containerDisplay === 'flex'
-            && contentCol !== '2'
+            && containerDisplay === 'grid'
+            && cols.includes('48px')
+            && railWidth === 48
             && !sidebar;
         }""",
         timeout=10_000,
@@ -263,14 +266,19 @@ def test_default_founder_shell(page: Page, base_url: str):
         """() => {
           const left = document.querySelector('.left-pane');
           const right = document.querySelector('.right-pane');
+          const rail = document.getElementById('state-rail');
           return {
             leftWidth: left ? left.getBoundingClientRect().width : 0,
             rightWidth: right ? right.getBoundingClientRect().width : 0,
+            railWidth: rail ? rail.getBoundingClientRect().width : 0,
           };
         }"""
     )
+    assert layout["railWidth"] == 48
     assert layout["leftWidth"] >= 280
     assert layout["rightWidth"] > layout["leftWidth"]
+    expect(page.locator("#state-rail")).to_be_visible()
+    expect(page.locator("#founder-show-workspaces")).to_have_count(0)
 
 
 def test_command_bar(page: Page, base_url: str):

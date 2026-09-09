@@ -1,0 +1,245 @@
+<p class="privacy-intro">Assure AI（&ldquo;当社&rdquo;、&ldquo;私たち&rdquo;、または&ldquo;弊社&rdquo;）は、お客様のプライバシー保護に努めています。本プライバシーポリシーは、当社のプラットフォームおよびサービスをご利用いただく際に、当社がどのように情報を収集、利用、保護するかを説明します。</p>
+
+<section id="collect" aria-labelledby="privacy-s1">
+<h2 id="privacy-s1">1. 収集・保存するデータ</h2>
+
+<h3>a. クラウド（サーバー）に保存されるデータ</h3>
+<p>サービス提供のため、当社の安全なサーバー（AWS EC2）に以下のデータを保存します：</p>
+<ul>
+  <li><strong>アカウントデータ：</strong> メールアドレス、サブスクリプション階層、Stripe 顧客 ID。</li>
+  <li><strong>質問とプロンプト：</strong> コマンドバーまたはコンパイル画面に入力するテキスト（データベースのプロジェクトおよび実行ログに保存）。</li>
+  <li><strong>アップロードされたソースファイル：</strong> PDF、画像、JSON、YAML その他のアップロード文書（<code>substrate_vault</code> テーブルに保存）。</li>
+  <li><strong>コンパイル済みドラフト：</strong> JDF AST、検証ログ、ロックハッシュ（<code>jdf_revisions</code> テーブルに保存）。</li>
+  <li><strong>監査ログ：</strong> エンタープライズコンプライアンス用の活動およびリクエストログ（<code>user_activity_log</code> および <code>audit_log</code> に保存）。</li>
+  <li><strong>ウェイトリスト登録：</strong> メール、会社名、ワークフロータイプ（ウェイトリストに参加した場合）。</li>
+</ul>
+<p class="privacy-emphasis"><strong>当社は</strong>お客様のデータをモデル訓練に<strong>使用しません</strong>。<strong>当社は</strong>広告またはマーケティング目的で第三者にデータを販売または共有<strong>しません</strong>。</p>
+
+<h3>b. お客様の端末にローカル保存されるデータ</h3>
+<p>以下のデータは<strong>お客様のコンピューター上</strong>に留まり、当社のサーバーには送信されません：</p>
+<ul>
+  <li>接続済みプロバイダーの API キー（Claude、Gemini、DeepSeek、Kimi など）。</li>
+  <li>Workbench UI の状態および設定（レイアウト設定、テーマ設定など）。</li>
+</ul>
+
+<h3>c. 第三者 AI プロバイダー（&ldquo;送信&rdquo;時）</h3>
+<p>接続済みプロバイダーにプロンプトを<strong>送信</strong>することを選択した場合：</p>
+<ul>
+  <li>お客様の質問および添付ファイルは、セッションから選択したプロバイダーへ<strong>直接</strong>送信されます。</li>
+  <li>プロバイダー固有の利用規約およびプライバシーポリシーが適用されます。利用前に確認し、同意する必要があります。</li>
+  <li>Assure は、標準的なワークスペース履歴の一部としてプロジェクトファイルおよびドラフトに永続保存される範囲を超えて、第三者 API の生レスポンスを独自に記録または保持しません。</li>
+</ul>
+
+<h3>d. &ldquo;インターネットに閉じた&rdquo;モード</h3>
+<p>&ldquo;インターネットに閉じた&rdquo;が選択されている場合：</p>
+<ul>
+  <li>お客様のデータは外部プロバイダーに<strong>送信されません</strong>。</li>
+  <li>処理（Z3 検証および <code>groundrails</code> を含む）は<strong>Assure の安全なサーバー上</strong>で実行されます&mdash;ローカルマシン上ではありません。</li>
+  <li>お客様のデータは、セクション 1a で説明するとおり、引き続き Assure のサーバーに保存されます。</li>
+</ul>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="use" aria-labelledby="privacy-s2">
+<h2 id="privacy-s2">2. データの利用方法</h2>
+<table>
+  <thead><tr><th scope="col">データの種類</th><th scope="col">目的</th></tr></thead>
+  <tbody>
+    <tr><td><strong>メールおよびサブスクリプション階層</strong></td><td>アカウント管理、請求、サポート。</td></tr>
+    <tr><td><strong>質問、プロンプト、ソースファイル</strong></td><td>文書のコンパイル、検証、監査。</td></tr>
+    <tr><td><strong>コンパイル済みドラフトおよびロックハッシュ</strong></td><td>バージョン履歴および監査証跡の提供。</td></tr>
+    <tr><td><strong>監査ログ</strong></td><td>利用状況の追跡およびエンタープライズ顧客のセキュリティ維持。</td></tr>
+    <tr><td><strong>ウェイトリスト登録</strong></td><td>サービス開始時またはベータテスターが必要な際の通知。</td></tr>
+    <tr><td><strong>API キー</strong></td><td>ローカルインスタンスを第三者 AI プロバイダーに接続するためにのみ使用。キーは端末から送信されません。</td></tr>
+    <tr><td><strong>利用分析（任意）</strong></td><td>Plausible による匿名化・集計された利用データ。個人データは収集されません。</td></tr>
+  </tbody>
+</table>
+<p class="privacy-emphasis"><strong>当社は</strong>お客様のデータをモデル訓練に<strong>使用しません</strong>。<strong>当社は</strong>広告またはマーケティング目的で第三者にデータを販売または共有<strong>しません</strong>。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="sharing" aria-labelledby="privacy-s3">
+<h2 id="privacy-s3">3. データの共有</h2>
+
+<h3>a. 第三者 AI プロバイダー</h3>
+<p>接続済みプロバイダー（Claude、Gemini、DeepSeek、Kimi など）にプロンプトを<strong>送信</strong>することを選択した場合：</p>
+<ul>
+  <li>お客様の質問および添付ファイルは、選択したプロバイダーへ<strong>直接</strong>送信されます。</li>
+  <li>プロバイダー固有の利用規約およびプライバシーポリシーが適用されます。</li>
+  <li>Assure は、保存済みプロジェクト履歴の範囲を超えて、第三者の生レスポンスを独自に記録または保持しません。</li>
+</ul>
+
+<h3>b. &ldquo;インターネットに閉じた&rdquo;モード</h3>
+<p>&ldquo;インターネットに閉じた&rdquo;が選択されている場合：</p>
+<ul>
+  <li>お客様のデータは外部プロバイダーに送信されません。</li>
+  <li>処理は Assure の安全なサーバー上で実行されます。</li>
+  <li>お客様のデータは、セクション 1a で説明するとおり、引き続き Assure のサーバーに保存されます。</li>
+</ul>
+
+<h3>c. サービスプロバイダー</h3>
+<p>プラットフォーム運営のため、外部サービスを利用しています：</p>
+<table>
+  <thead><tr><th scope="col">サービス</th><th scope="col">目的</th><th scope="col">共有されるデータ</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stripe</strong></td><td>請求および決済処理</td><td>メール、Stripe 顧客 ID、決済情報</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>アカウントおよびサブスクリプション管理</td><td>メール、サブスクリプション階層</td></tr>
+    <tr><td><strong>Clerk</strong></td><td>認証およびユーザー管理（設定時）</td><td>メール、ユーザー ID</td></tr>
+    <tr><td><strong>Plausible</strong></td><td>匿名利用分析</td><td>集計・匿名化データのみ</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="rights" aria-labelledby="privacy-s4">
+<h2 id="privacy-s4">4. お客様の権利</h2>
+<p>お客様の管轄区域（GDPR および CCPA を含む）に応じて、以下の権利を有する場合があります：</p>
+<table>
+  <thead><tr><th scope="col">権利</th><th scope="col">行使方法</th></tr></thead>
+  <tbody>
+    <tr><td><strong>アクセス</strong></td><td>当社が保有するお客様の個人データのコピーを請求。</td></tr>
+    <tr><td><strong>訂正</strong></td><td>不正確な個人データの訂正を請求。</td></tr>
+    <tr><td><strong>消去</strong></td><td>アカウントおよび関連データの削除を請求。</td></tr>
+    <tr><td><strong>データポータビリティ</strong></td><td>機械可読形式でのデータコピーを請求。</td></tr>
+    <tr><td><strong>異議申立て / 処理制限</strong></td><td>特定の処理に異議を申し立てる。</td></tr>
+  </tbody>
+</table>
+<p>これらの権利を行使するには、以下までご連絡ください：<a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="security" aria-labelledby="privacy-s5">
+<h2 id="privacy-s5">5. データセキュリティ</h2>
+<table>
+  <thead><tr><th scope="col">対策</th><th scope="col">説明</th></tr></thead>
+  <tbody>
+    <tr><td><strong>サーバー側暗号化</strong></td><td>Assure のサーバーに保存されるすべてのデータは保存時暗号化（検証済みクラウドインフラ設定）。</td></tr>
+    <tr><td><strong>転送時暗号化</strong></td><td>ブラウザと Assure のサーバー間で送信されるすべてのデータは安全な転送暗号化（TLS）を使用。</td></tr>
+    <tr><td><strong>最小限のデータ保持</strong></td><td>データは、サービス提供および法的義務の履行に必要な期間のみ保持。</td></tr>
+    <tr><td><strong>訓練へのデータ不使用</strong></td><td>当社はお客様のデータをモデル訓練に使用しません。</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="retention" aria-labelledby="privacy-s6">
+<h2 id="privacy-s6">6. データ保持</h2>
+<table>
+  <thead><tr><th scope="col">データの種類</th><th scope="col">保持期間</th></tr></thead>
+  <tbody>
+    <tr><td><strong>メールおよびサブスクリプション階層</strong></td><td>アカウント存続期間中保持。アカウント終了時に削除。</td></tr>
+    <tr><td><strong>Stripe 顧客 ID</strong></td><td>請求および決済履歴のため、金融規制に従い保持。</td></tr>
+    <tr><td><strong>質問、ファイル、ドラフト</strong></td><td>プロジェクトを明示的に削除、ワークスペース履歴を消去、またはアカウントを閉じるまで、Assure の安全なサーバーに保存。</td></tr>
+    <tr><td><strong>利用分析（Plausible）</strong></td><td>匿名化・集計。個人データは保持されません。</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="children" aria-labelledby="privacy-s7">
+<h2 id="privacy-s7">7. 児童のプライバシー</h2>
+<p>Assure AI は 16 歳未満の方を対象としていません。当社は故意に児童から個人データを収集しません。児童が個人データを提供したと思われる場合はご連絡ください。削除いたします。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="disclaimer" aria-labelledby="privacy-s8">
+<h2 id="privacy-s8">8. 免責事項 &ndash; AI 生成コンテンツ</h2>
+<p>Assure AI が生成する出力は、大規模言語モデルおよび決定論的検証エンジンによって生成されます。正確性と信頼性に努めますが、AI 生成コンテンツの完全性、正確性、または特定目的への適合性について<strong>いかなる表明または保証も行いません</strong>。</p>
+
+<p><strong>法的、金融、または専門的助言ではありません。</strong></p>
+<p>Assure AI が生成するコンテンツは、情報提供および起草支援のみを目的としています。法的、金融、医療、その他の専門的助言を構成するものではありません。AI 生成コンテンツに基づく意思決定の前に、必ず資格を有する専門家にご相談ください。</p>
+
+<p><strong>ユーザーによる責任。</strong></p>
+<p>専門的、法的、またはビジネス上の文脈で使用する前に、すべての出力を確認、検証、妥当性確認する責任はお客様にあります。</p>
+
+<p><strong>ハルシネーションおよびエラー。</strong></p>
+<p>AI モデルは、不正確、誤解を招く、または幻覚的なコンテンツを生成する場合があります。Assure AI の検証ツール（Z3、Red-Hat、Substrate Vault）はこれらのリスクを低減するよう設計されていますが、完全には排除できません。</p>
+
+<p><strong>正確性の保証なし。</strong></p>
+<p>出力がエラーなし、完全、または最新であることを保証しません。</p>
+
+<p><strong>依拠に対する責任の否認。</strong></p>
+<p>法律で認められる最大限の範囲において、Assure AI は、プラットフォームが生成した出力への依拠から生じるいかなる損失、損害、または危害についても一切の責任を否認します。</p>
+
+<p><strong>Assure AI を利用することにより、お客様はこれらの制限を承認し、受け入れます。</strong></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="dpa" aria-labelledby="privacy-s9">
+<h2 id="privacy-s9">9. 個人データ文書（データ処理契約）</h2>
+<p>GDPR、CCPA、または類似のデータ保護法の対象となる管轄区域のユーザー向けに、本セクションでは個人データの処理方法を説明します。</p>
+
+<h3>a. データ管理者およびデータ処理者</h3>
+<table>
+  <thead><tr><th scope="col">役割</th><th scope="col">主体</th></tr></thead>
+  <tbody>
+    <tr><td><strong>データ管理者</strong></td><td>お客様（ユーザー）が、質問、文書、プロンプトのデータ管理者です。データ処理の目的および手段を決定します。</td></tr>
+    <tr><td><strong>データ処理者</strong></td><td>Assure AI はデータ処理者として、お客様の指示に従い、お客様に代わってのみデータを処理します。</td></tr>
+  </tbody>
+</table>
+
+<h3>b. 処理される個人データのカテゴリ</h3>
+<table>
+  <thead><tr><th scope="col">カテゴリ</th><th scope="col">データ要素</th></tr></thead>
+  <tbody>
+    <tr><td><strong>アカウントデータ</strong></td><td>メールアドレス、サブスクリプション階層、Stripe 顧客 ID</td></tr>
+    <tr><td><strong>利用データ</strong></td><td>匿名化・集計された分析（個人識別子なし）</td></tr>
+    <tr><td><strong>コンテンツデータ</strong></td><td>質問、プロンプト、アップロードファイル、コンパイル済みドラフト &ndash; AWS サーバー上で安全に処理・保存</td></tr>
+  </tbody>
+</table>
+
+<h3>c. 処理の目的</h3>
+<table>
+  <thead><tr><th scope="col">目的</th><th scope="col">法的根拠</th></tr></thead>
+  <tbody>
+    <tr><td><strong>サービス提供</strong></td><td>契約履行 &ndash; 文書のコンパイル、検証、監査</td></tr>
+    <tr><td><strong>請求およびアカウント管理</strong></td><td>契約履行 &ndash; サブスクリプションおよび決済の管理</td></tr>
+    <tr><td><strong>サービス改善</strong></td><td>正当な利益 &ndash; 匿名化分析によるプラットフォーム改善</td></tr>
+  </tbody>
+</table>
+
+<h3>d. データ主体の権利</h3>
+<p>お客様には以下の権利があります：</p>
+<ul>
+  <li><strong>アクセス</strong> &ndash; 個人データのコピーを請求</li>
+  <li><strong>訂正</strong> &ndash; 不正確なデータの訂正</li>
+  <li><strong>消去</strong> &ndash; アカウントおよび関連データの削除を請求</li>
+  <li><strong>ポータビリティ</strong> &ndash; 機械可読形式でのデータコピーを請求</li>
+  <li><strong>異議申立て</strong> &ndash; 特定の処理に異議を申し立てる</li>
+</ul>
+<p>これらの権利を行使するには、以下までご連絡ください：<a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+
+<h3>e. データ転送</h3>
+<p>第三者プロバイダー（Claude、Gemini、DeepSeek など）にプロンプトを<strong>送信</strong>する場合、お客様のデータは管轄区域外のサーバーに転送される場合があります。これらのプロバイダーは独立したデータ管理者であり、独自のデータ保護ポリシーの対象です。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="transfers" aria-labelledby="privacy-s10">
+<h2 id="privacy-s10">10. 国際データ転送</h2>
+<p>第三者プロバイダー（Claude、Gemini、DeepSeek など）に質問を<strong>送信</strong>する場合、お客様のデータは居住国以外のサーバーに転送される場合があります。これらのプロバイダーは独自のデータ保護ポリシーの対象であり、お客様の現地管轄区域と同等の保護水準を提供しない場合があります。</p>
+<p>Assure AI を利用し、プロバイダーを選択することにより、お客様はこの転送に同意します。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="changes" aria-labelledby="privacy-s11">
+<h2 id="privacy-s11">11. 本ポリシーの変更</h2>
+<p>当社は本プライバシーポリシーを随時更新する場合があります。最新版は常に <a href="https://getassureai.com/privacy">https://getassureai.com/privacy</a> でご確認いただけます。重要な変更については、Workbench またはメールでお知らせします。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="contact" aria-labelledby="privacy-s12">
+<h2 id="privacy-s12">12. お問い合わせ</h2>
+<p>本プライバシーポリシーまたはお客様のデータに関するご質問がある場合：</p>
+<p class="privacy-contact"><strong>メール：</strong> <a href="mailto:privacy@getassureai.com">privacy@getassureai.com</a></p>
+</section>

@@ -16,6 +16,22 @@
     return document.getElementById(id);
   }
 
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
+  function translatef(key, fallback, params) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, params || {});
+    }
+    var out = translate(key, fallback);
+    Object.keys(params || {}).forEach(function (k) {
+      out = out.replace("{" + k + "}", String(params[k]));
+    });
+    return out;
+  }
+
   function toast(message, kind) {
     if (global.AssureToast && typeof global.AssureToast.show === "function") {
       global.AssureToast.show(message, kind || "error");
@@ -88,9 +104,16 @@
     var count = data.source_count != null ? data.source_count : "—";
     var ms = data.router_ms != null ? " · " + data.router_ms + "ms" : "";
     if (stage === "compile_prompt") {
-      return "Compiling prompt… " + intent + (data.web_fallback ? " · web fallback" : "");
+      return translatef("command.bar.status_compiling", "Compiling prompt… {intent}{fallback}", {
+        intent: intent,
+        fallback: data.web_fallback ? translate("command.bar.web_fallback", " · web fallback") : "",
+      });
     }
-    return "Routing… " + intent + " · " + count + " sources" + ms;
+    return translatef("command.bar.status_routing", "Routing… {intent} · {count} sources{ms}", {
+      intent: intent,
+      count: count,
+      ms: ms,
+    });
   }
 
   function handleSseFrame(frame) {
@@ -112,6 +135,23 @@
       if (global.AssureFounderDraft && typeof global.AssureFounderDraft.insertStreamLock === "function") {
         global.AssureFounderDraft.insertStreamLock(data);
       }
+      return;
+    }
+    if (event === "verification_complete") {
+      var locks = (data.locks || (data.data && data.data.locks)) || [];
+      locks.forEach(function (lock) {
+        if (lock.status !== "grounded") return;
+        if (global.AssureFounderDraft && typeof global.AssureFounderDraft.insertStreamLock === "function") {
+          global.AssureFounderDraft.insertStreamLock({
+            claim_id: lock.claim_id,
+            lock_hash: lock.lock_hash,
+            source_id: lock.source_id,
+            page_coordinates: lock.page_coordinates,
+            metric: lock.text || lock.claim_id,
+            lock_index: lock.lock_index,
+          });
+        }
+      });
       return;
     }
     if (event === "complete") {
@@ -208,13 +248,13 @@
   function submitDirective() {
     var directive = (input && input.value.trim()) || "";
     if (!directive) {
-      setStatus("Enter a directive first.");
+      setStatus(translate("command.bar.enter_directive", "Describe what to investigate first."));
       return;
     }
     if (submitting) return;
     submitting = true;
-    setStatus("Running verification…");
-    setPipelineStatus("Starting…");
+    setStatus(translate("command.bar.running", "Running verification…"));
+    setPipelineStatus(translate("command.bar.running", "Running verification…"));
 
     var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
     chain
@@ -264,6 +304,14 @@
     });
   }
 
+  function isTypingTarget() {
+    var el = document.activeElement;
+    if (!el) return false;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
   function init() {
     overlay = $("command-bar-overlay");
     input = $("command-bar-input");
@@ -288,6 +336,7 @@
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
     });
     document.addEventListener("keydown", function (e) {
+      if (isTypingTarget()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey) {
         var founderOn =
           global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"

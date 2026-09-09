@@ -33,17 +33,22 @@ EN = {
     "workbench.status.health_cached": "⚡ Cached – Instant load from memory.",
     "title": "Assure",
     "hero": "Assure",
-    "brand.category": "The Intellectual Compiler",
-    "brand.eyebrow": "Compile. Verify. Trust what you ship.",
-    "brand.hero_title": "Zero hallucination. Absolute verification.",
-    "brand.tagline": "Compile. Verify. Trust what you ship.",
-    "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
-    "brand.tagline_html": "The Intellectual Compiler",
-    "brand.page_title": "Assure AI — Zero hallucination. Absolute verification.",
-    "brand.meta_description": (
-        "The enterprise document platform that proves every word, number, and clause before you ship."
+    "brand.category": "The Deterministic Truth Engine",
+    "brand.eyebrow": "The enterprise standard for verified AI drafting.",
+    "brand.hero_title": "Draft at the speed of AI. Verify with mathematical certainty.",
+    "brand.hero_title_html": (
+        '<span class="text-line">Draft at the speed of AI.</span>'
+        '<span class="text-line">Verify with mathematical\u00a0certainty.</span>'
     ),
-    "brand.architecture_title": "How It Works · Assure — The Intellectual Compiler",
+    "brand.tagline": "The enterprise standard for verified AI drafting.",
+    "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
+    "brand.tagline_html": "The Deterministic Truth Engine",
+    "brand.page_title": "Assure AI — The Deterministic Truth Engine for High-Stakes Professionals",
+    "brand.meta_description": (
+        "Assure AI is the deterministic truth engine built for insurance, legal, and compliance "
+        "professionals to mathematically ground every citation, exclusion, and financial figure before it ships."
+    ),
+    "brand.architecture_title": "How It Works · Assure — The Deterministic Truth Engine",
     "brand.architecture_meta_description": (
         "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
     ),
@@ -172,32 +177,74 @@ EN = {
     "landing.nav.privacy": "Privacy",
     "landing.nav.launch": "Launch App",
     "landing.nav.menu": "Menu",
-    "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
+    "landing.hero.subtitle": "Plausible AI is a liability. Assure reduces the risk.",
+    "landing.hero.badge": "Enterprise ready · Bring your own keys · 7 languages",
+    "landing.hero.cta_primary": "Request Enterprise Pilot",
+    "landing.hero.cta_secondary": "Run a 60-Second Red\u00a0Hat Audit",
     "landing.hero.cta.paste": "Request Enterprise Pilot",
-    "landing.hero.cta.architecture": "See the 60-Second Proof",
+    "landing.hero.cta.architecture": "Run a 60-Second Red-Hat Audit",
     "landing.hero.caption": "Compile. Verify. Trust what you ship.",
     "landing.hero.promise": "You don't have to check the math. The math checks itself.",
-    "landing.proof.title": "See it work for your role.",
-    "landing.proof.tab.underwriter": "Insurance Underwriters",
-    "landing.proof.tab.compliance": "Compliance Officers",
-    "landing.proof.tab.ops": "Technical Operators",
-    "landing.why.title": "Why now",
-    "landing.why.status_quo": "The status quo",
-    "landing.why.standard": "The Assure AI standard",
-    "landing.why.copy": (
-        "Generative AI is fast, but it is fundamentally unverified. In enterprise compliance, guessing is a liability. "
-        "Assure AI places a deterministic verification engine between your models and your output. It checks math with "
-        "formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice."
+    "landing.proof.title": "One engine. Three high-stakes workflows.",
+    "landing.proof.title_html": (
+        '<span class="text-line">One engine.</span>'
+        '<span class="text-line">Three high-stakes\u00a0workflows.</span>'
+    ),
+    "landing.proof.tab1.title": "Coverage Counsel & Litigators",
+    "landing.proof.tab1.body": (
+        "Never submit an unverified citation. Assure's Z3 logic engine grounds every precedent, statute, and "
+        "policy exclusion you cite back to its exact source page. Draft coverage opinions and motions with AI "
+        "speed, backed by page-level provenance you can hand opposing counsel."
+    ),
+    "landing.proof.tab2.title": "Public Adjusters & Risk Managers",
+    "landing.proof.tab2.body": (
+        "Uncover the coverage gaps a manual read misses. Assure's Red-Hat engine stress-tests claim denials "
+        "against the master policy you upload, flagging contradictions, unsupported exclusions, and numbers "
+        "that don't reconcile — with the source page cited for each finding."
+    ),
+    "landing.proof.tab3.title": "Compliance Officers",
+    "landing.proof.tab3.body": (
+        "Every claim in your compliance drafts traces back to a source. Assure's Substrate Vault anchors each "
+        "figure and citation to the exact page of the policy or regulation you uploaded — so nothing ships "
+        "that you can't immediately defend."
+    ),
+    "landing.why.title": "Plausibility is a liability. Certainty is a competitive advantage.",
+    "landing.why.title_html": (
+        '<span class="text-line">Plausibility is a liability.</span>'
+        '<span class="text-line">Certainty is a competitive\u00a0advantage.</span>'
+    ),
+    "landing.why.body": (
+        "Before you export, Assure verifies every claim, every number, every citation against your source documents. "
+        "You ship with confidence. Standard AI chatbots are designed to sound confident—even when inventing "
+        "financial metrics or legal precedents. For high-stakes professionals, 'sounding right' is not the same "
+        "as being right. Assure bridges the gap between AI speed and enterprise reliability, delivering outputs "
+        "that are deterministically and mathematically grounded."
     ),
     "landing.trust.title": "Enterprise trust architecture",
-    "landing.trust.privacy.title": "Data privacy",
-    "landing.trust.privacy.body": "Local-first architecture. Your policy data never trains public models.",
-    "landing.trust.audit.title": "Auditability",
-    "landing.trust.audit.body": "Deterministic trails. Every compile outputs an unalterable audit package.",
-    "landing.trust.model.title": "Model flexibility",
-    "landing.trust.model.body": "Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.",
+    "landing.trust.card1.title": "Orchestration Engine",
+    "landing.trust.card1.body": (
+        "One intent. Multiple specialized models working in concert. No prompt engineering required."
+    ),
+    "landing.trust.card2.title": "Mathematical Logic Engine",
+    "landing.trust.card2.body": (
+        "LLMs guess. Assure proves. Every number is mathematically grounded in your source documents."
+    ),
+    "landing.trust.card3.title": "Adversarial Audit",
+    "landing.trust.card3.body": (
+        "Before you ship, Assure attacks your own work. It finds the contradictions and unsupported claims "
+        "that others would exploit."
+    ),
+    "landing.trust.card4.title": "Audit-Ready Export",
+    "landing.trust.card4.body": (
+        "Export a complete audit dossier — cryptographic locks, Red-Hat findings, reviewer sign-offs. "
+        "One click, full provenance."
+    ),
     "landing.plans.lead": "You bring your own keys. Assure charges for the workbench, not the models.",
     "landing.footer.docs": "Developer documentation",
+    "landing.footer.back_top": "Back to top",
+    "landing.footer.engineer_tagline": (
+        "Secure by design. Processed on our servers, never used to train our models."
+    ),
     "landing.features.1.title": "Lock Your Numbers",
     "landing.features.1.body": (
         "Every number in your document is mathematically verified. No drift. No contradictions. "
@@ -341,7 +388,7 @@ EN = {
     "landing.cta.sub": "Experience document engineering backed by mathematical certainty.",
     "landing.cta.btn": "Launch Assure Workspace",
     "landing.social_proof": "Used by analysts, researchers, and engineers at high-consequence institutions.",
-    "landing.footer.copy": "Assure — AI guesses. Assure proves. — Compile intent. Verify logic. Ship truth.",
+    "landing.footer.copy": "Assure — The Deterministic Truth Engine",
     "settings.show_citations": "Include References section in DOCX export",
     "arch.back": "← Back to",
     "arch.hero.eyebrow": "How it works",
@@ -395,8 +442,64 @@ EN = {
     "founder.draft.placeholder": "Write your draft here, or hit ⌘K to start.",
     "founder.attach_sources": "Attach Sources",
     "founder.show_workspaces": "Show Workspaces",
+    "founder.document.untitled": "Untitled Document",
+    "founder.runs.title": "Runs",
+    "founder.runs.untitled": "Run",
+    "founder.runs.one_verified_claim": "1 verified claim",
+    "founder.runs.verified_claims": "{count} verified claims",
+    "founder.runs.empty_all": "No runs yet. Press ⌘K to investigate.",
+    "founder.runs.empty_grounded": "No grounded runs found. Attach sources to generate deterministic locks.",
+    "founder.runs.empty_redhat": "No Red-Hat audits found. Run Red-Hat on a draft run.",
+    "founder.runs.empty_dossier": "No export-ready runs found. Complete verification to build a dossier.",
+    "founder.state_rail.label": "Workbench stages",
+    "founder.state_rail.directive": "Investigate",
+    "founder.state_rail.directive_tip": "Investigate (⌘K)",
+    "founder.state_rail.runs": "Runs",
+    "founder.state_rail.runs_tip": "Runs (Shift+2)",
+    "founder.state_rail.grounded": "Grounding Vault",
+    "founder.state_rail.grounded_tip": "Grounding Vault (Shift+3)",
+    "founder.state_rail.grounded_verified": "Grounding Vault ({count} claims verified)",
+    "founder.state_rail.redhat": "Red-Hat Audit",
+    "founder.state_rail.redhat_tip": "Red-Hat Audit (Shift+4)",
+    "founder.state_rail.dossier": "Dossier Export",
+    "founder.state_rail.dossier_tip": "Dossier Export (Shift+5)",
     "founder.sources.close": "Close sources",
-    "founder.cmdk_btn": "⚡ Directive… (⌘K)",
+    "founder.cmdk_btn": "⚡ Investigate… (⌘K)",
+    "founder.export.dossier": "Export Verified Dossier",
+    "founder.export.dossier_title": "Export Formal Verification Certificate",
+    "founder.runs.collapse_aria": "Collapse runs stack",
+    "founder.runs.collapse": "Collapse",
+    "founder.runs.send_draft": "Send to Draft",
+    "founder.runs.delete": "Delete",
+    "founder.runs.delete_aria": "Delete run",
+    "founder.runs.status.stamped": "Stamped",
+    "founder.runs.status.contradiction": "Contradiction",
+    "founder.runs.status.draft": "Draft",
+    "founder.runs.running": "Running…",
+    "founder.runs.dismiss_prompt": "Dismissal rationale (required):",
+    "evidence.inspector.close": "Close evidence inspector",
+    "evidence.inspector.title": "Evidence Inspector",
+    "evidence.inspector.lock_hash": "Lock hash:",
+    "evidence.inspector.source": "Source:",
+    "evidence.inspector.goto": "Go to Source",
+    "evidence.inspector.loading": "Loading source…",
+    "evidence.inspector.no_text": "No extracted text for this source.",
+    "evidence.inspector.load_error": "Could not load source document.",
+    "evidence.inspector.no_source": "No source linked to this lock.",
+    "evidence.inspector.unanchored": "Unanchored lock",
+    "command.bar.label": "What to investigate",
+    "command.bar.placeholder": "What are we investigating or drafting?",
+    "command.bar.drop_aria": "Drop source files (optional)",
+    "command.bar.drop_hint": "Drop source files here (optional) — or press Enter to run",
+    "command.bar.status_compiling": "Compiling prompt… {intent}{fallback}",
+    "command.bar.web_fallback": " · web fallback",
+    "command.bar.status_routing": "Routing… {intent} · {count} sources{ms}",
+    "command.bar.enter_directive": "Describe what to investigate first.",
+    "command.bar.running": "Running verification…",
+    "settings.api_key_banner": "Need an API key?",
+    "settings.api_key_link": "Launch Assure Workspace →",
+    "jdf.workbench.aria": "Document engineering",
+    "stepper.workflow": "Document workflow",
     "founder.workspace.untitled": "Untitled Workspace",
     "substrate.vault.empty": "No files uploaded. Drag and drop or click to upload.",
     "substrate.vault.upload": "Upload File",
@@ -764,6 +867,33 @@ EN = {
     "pricing.pro.3": "Test card payments only until you switch Stripe to live keys.",
     "privacy.page.title": "Privacy",
     "privacy.page.lead": "Cloud stores email, plan, credit usage, and encrypted API keys. Questions and answers stay on this computer.",
+    "privacy.enterprise.page_title": "Privacy Policy · Assure AI",
+    "privacy.enterprise.meta": "How Assure AI collects, uses, and safeguards your data.",
+    "privacy.enterprise.title": "Privacy Policy",
+    "privacy.enterprise.updated": "Last updated: September 8, 2026",
+    "privacy.enterprise.intro": (
+        'Assure AI ("we," "our," or "us") is committed to protecting your privacy. '
+        "This Privacy Policy explains how we collect, use, and safeguard your information "
+        "when you use our platform and services."
+    ),
+    "privacy.enterprise.summary": (
+        "We store only the data needed to operate the service. "
+        "We never use your data to train our models."
+    ),
+    "privacy.enterprise.toc_label": "On this page",
+    "privacy.enterprise.toc_title": "Quick links",
+    "privacy.enterprise.s1.title": "What data we collect",
+    "privacy.enterprise.s2.title": "How we use your data",
+    "privacy.enterprise.s3.title": "Sharing your data",
+    "privacy.enterprise.s4.title": "Your rights",
+    "privacy.enterprise.s5.title": "Data security",
+    "privacy.enterprise.s6.title": "Data retention",
+    "privacy.enterprise.s7.title": "Children's privacy",
+    "privacy.enterprise.s8.title": "Disclaimer — AI-generated content",
+    "privacy.enterprise.s9.title": "Data processing agreement",
+    "privacy.enterprise.s10.title": "International transfers",
+    "privacy.enterprise.s11.title": "Changes to this policy",
+    "privacy.enterprise.s12.title": "Contact us",
     "privacy.cloud": "In the cloud",
     "privacy.cloud.body": "If you sign in, we store your email, free or pro tier, Stripe customer id, credit usage, and encrypted API keys. We do not store questions or answers.",
     "privacy.local": "On this computer",
@@ -1208,7 +1338,9 @@ EN = {
     "analytics.kpi.issues": "Open issues",
     "privacy.chip.closed": "Closed to the internet",
     "privacy.chip.open": "Connected to {name}",
-    "privacy.chip.tip.closed": "Copy stays here. The question stays on this computer.",
+    "privacy.chip.tip.closed": (
+        "Closed to the internet: processed on Assure's secure servers, never sent to a third-party provider."
+    ),
     "privacy.chip.tip.open": "Copy stays here. Send goes only to {name}.",
     "trust.conf.pending": "Confidence check pending. Review claims against your files.",
     "go.copy.hint": "Option-click or Cmd or Ctrl + Shift + Enter copies the prompt.",
@@ -1437,18 +1569,22 @@ ES = {
     "workbench.status.health_working": "Trabajando en tu borrador…",
     "workbench.status.health_cached": "⚡ En caché – Carga instantánea desde la memoria.",
     "hero": "Assure",
-    "brand.category": "El Compilador Intelectual",
-    "brand.eyebrow": "Compila. Verifica. Confía en lo que envías.",
-    "brand.hero_title": "Cero alucinación. Verificación absoluta.",
-    "brand.tagline": "Compila. Verifica. Confía en lo que envías.",
-    "tagline_html": 'La pregunta correcta produce una respuesta de <span class="trust">confianza</span>.',
-    "brand.tagline_html": "El Compilador Intelectual",
-    "brand.page_title": "Assure AI — Cero alucinación. Verificación absoluta.",
-    "brand.meta_description": (
-        "Assure es el primer Compilador Intelectual: convierte la intención en bruto, "
-        "documentos desordenados y datos no estructurados en entregables verificables y auditables."
+    "brand.category": "El Motor de Verdad Determinista",
+    "brand.eyebrow": "El estándar empresarial para la redacción verificada con IA.",
+    "brand.hero_title": "Redacta a la velocidad de la IA. Verifica con certeza matemática.",
+    "brand.hero_title_html": (
+        '<span class="text-line">Redacta a la velocidad de la IA.</span>'
+        '<span class="text-line">Verifica con certeza\u00a0matemática.</span>'
     ),
-    "brand.architecture_title": "Cómo funciona · Assure — El Compilador Intelectual",
+    "brand.tagline": "El estándar empresarial para la redacción verificada con IA.",
+    "tagline_html": 'La pregunta correcta produce una respuesta de <span class="trust">confianza</span>.',
+    "brand.tagline_html": "El Motor de Verdad Determinista",
+    "brand.page_title": "Assure AI — El Motor de Verdad Determinista para Profesionales de Alto Riesgo",
+    "brand.meta_description": (
+        "Assure AI es el motor de verdad determinista para profesionales de seguros, derecho y cumplimiento "
+        "que fundamenta matemáticamente cada cita, exclusión y cifra financiera antes de enviarla."
+    ),
+    "brand.architecture_title": "Cómo funciona · Assure — El Motor de Verdad Determinista",
     "brand.architecture_meta_description": (
         "Por qué adivinar falla—y cómo Assure convierte tu intención en documentos verificados listos para entregar."
     ),
@@ -1568,10 +1704,73 @@ ES = {
     "landing.nav.sandbox": "Confianza",
     "landing.nav.launch": "Abrir la app",
     "landing.nav.menu": "Menú",
-    "landing.hero.sub": "La plataforma empresarial de documentos que prueba cada palabra, cifra y cláusula antes de que la envíes.",
+    "landing.hero.subtitle": "La IA plausible es un riesgo. Assure reduce el riesgo.",
+    "landing.hero.badge": "Listo para empresas · Trae tus propias claves · 7 idiomas",
+    "landing.hero.cta_primary": "Solicitar piloto empresarial",
+    "landing.hero.cta_secondary": "Ejecutar auditoría Red-Hat de 60 segundos",
     "landing.hero.cta.paste": "Solicitar piloto empresarial",
-    "landing.hero.cta.architecture": "Ver la prueba de 60 segundos",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "Ejecutar auditoría Red-Hat de 60 segundos",
+    "landing.hero.caption": "Compila. Verifica. Confía en lo que envías.",
+    "landing.proof.title": "Un motor. Tres flujos de alto riesgo.",
+    "landing.proof.title_html": (
+        '<span class="text-line">Un motor.</span>'
+        '<span class="text-line">Tres flujos de alto\u00a0riesgo.</span>'
+    ),
+    "landing.proof.tab1.title": "Abogados de cobertura y litigantes",
+    "landing.proof.tab1.body": (
+        "Nunca envíes una cita sin verificar. El motor lógico Z3 de Assure fundamenta cada precedente, estatuto "
+        "y exclusión de póliza en su página fuente exacta. Redacta opiniones de cobertura y mociones con velocidad "
+        "de IA, respaldadas por procedencia a nivel de página que puedes entregar a la contraparte."
+    ),
+    "landing.proof.tab2.title": "Peritos públicos y gestores de riesgo",
+    "landing.proof.tab2.body": (
+        "Descubre las brechas de cobertura que una lectura manual pasa por alto. El motor Red-Hat de Assure "
+        "somete a prueba las denegaciones de reclamaciones contra la póliza maestra que subes, señalando "
+        "contradicciones, exclusiones no respaldadas y cifras que no cuadran — con la página fuente citada "
+        "para cada hallazgo."
+    ),
+    "landing.proof.tab3.title": "Oficiales de cumplimiento",
+    "landing.proof.tab3.body": (
+        "Cada afirmación en tus borradores de cumplimiento rastrea hasta una fuente. El Substrate Vault de Assure "
+        "ancla cada cifra y cita a la página exacta de la póliza o regulación que subiste — para que nada se "
+        "envíe sin poder defenderlo de inmediato."
+    ),
+    "landing.why.title": "La plausibilidad es un riesgo. La certeza es una ventaja competitiva.",
+    "landing.why.title_html": (
+        '<span class="text-line">La plausibilidad es un riesgo.</span>'
+        '<span class="text-line">La certeza es una ventaja\u00a0competitiva.</span>'
+    ),
+    "landing.why.body": (
+        "Antes de exportar, Assure verifica cada afirmación, cada cifra y cada cita contra tus documentos fuente. "
+        "Envías con confianza. Los chatbots de IA estándar están diseñados para sonar seguros — incluso cuando "
+        "inventan métricas financieras o precedentes legales. Para profesionales de alto riesgo, «sonar correcto» "
+        "no es lo mismo que ser correcto. Assure cierra la brecha entre la velocidad de la IA y la fiabilidad "
+        "empresarial, entregando resultados deterministas y matemáticamente fundamentados."
+    ),
+    "landing.trust.title": "Arquitectura de confianza empresarial",
+    "landing.plans.lead": "Trae tus propias claves. Assure cobra por el banco de trabajo, no por los modelos.",
+    "landing.trust.card1.title": "Motor de orquestación",
+    "landing.trust.card1.body": (
+        "Una intención. Varios modelos especializados trabajando en conjunto. Sin ingeniería de prompts."
+    ),
+    "landing.trust.card2.title": "Motor de lógica matemática",
+    "landing.trust.card2.body": (
+        "Los LLM adivinan. Assure demuestra. Cada cifra está matemáticamente fundamentada en tus documentos fuente."
+    ),
+    "landing.trust.card3.title": "Auditoría adversarial",
+    "landing.trust.card3.body": (
+        "Antes de enviar, Assure ataca tu propio trabajo. Encuentra las contradicciones y afirmaciones no "
+        "respaldadas que otros explotarían."
+    ),
+    "landing.trust.card4.title": "Exportación lista para auditoría",
+    "landing.trust.card4.body": (
+        "Exporta un dossier de auditoría completo — bloqueos criptográficos, hallazgos Red-Hat, firmas de "
+        "revisores. Un clic, procedencia completa."
+    ),
+    "landing.footer.engineer_tagline": (
+        "Seguro por diseño. Procesado en nuestros servidores, nunca usado para entrenar nuestros modelos."
+    ),
+    "landing.footer.back_top": "Volver arriba",
     "landing.demo.aria": "Vista previa interactiva del espacio de trabajo",
     "landing.demo.tablist": "Elija una profesión",
     "landing.demo.tab.journalism": "Periodista investigador",
@@ -1689,7 +1888,7 @@ ES = {
     "landing.cta.sub": "Ingeniería documental respaldada por certeza matemática.",
     "landing.cta.btn": "Abrir espacio Assure",
     "landing.social_proof": "Usado por analistas, investigadores e ingenieros en instituciones de alta consecuencia.",
-    "landing.footer.copy": "Assure — El Compilador Intelectual — Compila intención. Verifica lógica. Entrega verdad.",
+    "landing.footer.copy": "Assure — El Motor de Verdad Determinista",
     "stream.reconnect": "Conexión interrumpida — reintentando…",
     "context": "Contexto extra (opcional)",
     "file": "Adjuntar un archivo (opcional)",
@@ -1704,7 +1903,63 @@ ES = {
     "founder.draft.placeholder": "Escribe tu borrador aquí o pulsa ⌘K para empezar.",
     "founder.attach_sources": "Adjuntar fuentes",
     "founder.show_workspaces": "Mostrar espacios de trabajo",
-    "founder.cmdk_btn": "⚡ Directiva… (⌘K)",
+    "founder.document.untitled": "Documento sin título",
+    "founder.runs.title": "Ejecuciones",
+    "founder.runs.untitled": "Ejecución",
+    "founder.runs.one_verified_claim": "1 afirmación verificada",
+    "founder.runs.verified_claims": "{count} afirmaciones verificadas",
+    "founder.runs.empty_all": "Aún no hay ejecuciones. Pulsa ⌘K para investigar.",
+    "founder.runs.empty_grounded": "No hay ejecuciones fundamentadas. Adjunta fuentes para generar bloqueos deterministas.",
+    "founder.runs.empty_redhat": "No hay auditorías Red-Hat. Ejecuta Red-Hat en un borrador.",
+    "founder.runs.empty_dossier": "No hay ejecuciones listas para exportar. Completa la verificación para crear un dossier.",
+    "founder.state_rail.label": "Etapas del banco de trabajo",
+    "founder.state_rail.directive": "Investigar",
+    "founder.state_rail.directive_tip": "Investigar (⌘K)",
+    "founder.state_rail.runs": "Ejecuciones",
+    "founder.state_rail.runs_tip": "Ejecuciones (Mayús+2)",
+    "founder.state_rail.grounded": "Bóveda de fundamentación",
+    "founder.state_rail.grounded_tip": "Bóveda de fundamentación (Mayús+3)",
+    "founder.state_rail.grounded_verified": "Bóveda de fundamentación ({count} afirmaciones verificadas)",
+    "founder.state_rail.redhat": "Auditoría Red-Hat",
+    "founder.state_rail.redhat_tip": "Auditoría Red-Hat (Mayús+4)",
+    "founder.state_rail.dossier": "Exportar dossier",
+    "founder.state_rail.dossier_tip": "Exportar dossier (Mayús+5)",
+    "founder.cmdk_btn": "⚡ Investigar… (⌘K)",
+    "founder.export.dossier": "Exportar dossier verificado",
+    "founder.export.dossier_title": "Exportar certificado de verificación formal",
+    "founder.runs.collapse_aria": "Contraer pila de ejecuciones",
+    "founder.runs.collapse": "Contraer",
+    "founder.runs.send_draft": "Enviar al borrador",
+    "founder.runs.delete": "Eliminar",
+    "founder.runs.delete_aria": "Eliminar ejecución",
+    "founder.runs.status.stamped": "Sellado",
+    "founder.runs.status.contradiction": "Contradicción",
+    "founder.runs.status.draft": "Borrador",
+    "founder.runs.running": "Ejecutando…",
+    "founder.runs.dismiss_prompt": "Motivo del descarte (obligatorio):",
+    "evidence.inspector.close": "Cerrar inspector de evidencia",
+    "evidence.inspector.title": "Inspector de evidencia",
+    "evidence.inspector.lock_hash": "Hash del bloqueo:",
+    "evidence.inspector.source": "Fuente:",
+    "evidence.inspector.goto": "Ir a la fuente",
+    "evidence.inspector.loading": "Cargando fuente…",
+    "evidence.inspector.no_text": "No hay texto extraído para esta fuente.",
+    "evidence.inspector.load_error": "No se pudo cargar el documento fuente.",
+    "evidence.inspector.no_source": "No hay fuente vinculada a este bloqueo.",
+    "evidence.inspector.unanchored": "Bloqueo sin anclaje",
+    "command.bar.label": "Qué investigar",
+    "command.bar.placeholder": "¿Qué estamos investigando o redactando?",
+    "command.bar.drop_aria": "Soltar archivos fuente (opcional)",
+    "command.bar.drop_hint": "Suelta archivos fuente aquí (opcional) — o pulsa Enter para ejecutar",
+    "command.bar.status_compiling": "Compilando prompt… {intent}{fallback}",
+    "command.bar.web_fallback": " · respaldo web",
+    "command.bar.status_routing": "Enrutando… {intent} · {count} fuentes{ms}",
+    "command.bar.enter_directive": "Primero describe qué investigar.",
+    "command.bar.running": "Ejecutando verificación…",
+    "settings.api_key_banner": "¿Necesitas una clave API?",
+    "settings.api_key_link": "Abrir Assure Workspace →",
+    "jdf.workbench.aria": "Ingeniería documental",
+    "stepper.workflow": "Flujo de trabajo del documento",
     "founder.workspace.untitled": "Espacio sin título",
     "founder.sources.close": "Cerrar fuentes",
     "substrate.vault.empty": "No se han subido archivos. Arrastra y suelta o haz clic para subir.",
@@ -2060,6 +2315,27 @@ ES = {
     "pricing.pro.3": "Solo pagos de prueba hasta que pases Stripe a claves reales.",
     "privacy.page.title": "Privacidad",
     "privacy.page.lead": "En la nube se guarda el correo, el plan, el uso de créditos y las claves API cifradas. Las preguntas y respuestas se quedan en este equipo.",
+    "privacy.enterprise.page_title": "Política de privacidad · Assure AI",
+    "privacy.enterprise.meta": "Cómo Assure AI recopila, usa y protege sus datos.",
+    "privacy.enterprise.title": "Política de privacidad",
+    "privacy.enterprise.updated": "Última actualización: 8 de septiembre de 2026",
+    "privacy.enterprise.summary": (
+        "Solo almacenamos los datos necesarios para operar el servicio. "
+        "Nunca usamos sus datos para entrenar nuestros modelos."
+    ),
+    "privacy.enterprise.toc_title": "Enlaces rápidos",
+    "privacy.enterprise.s1.title": "Qué datos recopilamos",
+    "privacy.enterprise.s2.title": "Cómo usamos sus datos",
+    "privacy.enterprise.s3.title": "Compartir sus datos",
+    "privacy.enterprise.s4.title": "Sus derechos",
+    "privacy.enterprise.s5.title": "Seguridad de datos",
+    "privacy.enterprise.s6.title": "Retención de datos",
+    "privacy.enterprise.s7.title": "Privacidad de menores",
+    "privacy.enterprise.s8.title": "Descargo — contenido generado por IA",
+    "privacy.enterprise.s9.title": "Acuerdo de tratamiento de datos",
+    "privacy.enterprise.s10.title": "Transferencias internacionales",
+    "privacy.enterprise.s11.title": "Cambios en esta política",
+    "privacy.enterprise.s12.title": "Contáctenos",
     "privacy.cloud": "En la nube",
     "privacy.cloud.body": "Si inicias sesión, guardamos tu correo, el nivel free o pro, el id de cliente de Stripe, el uso de créditos y las claves API cifradas. No guardamos preguntas ni respuestas.",
     "privacy.local": "En este equipo",
@@ -2481,7 +2757,9 @@ ES = {
     "analytics.kpi.issues": "Problemas abiertos",
     "privacy.chip.closed": "Cerrado a internet",
     "privacy.chip.open": "Conectado a {name}",
-    "privacy.chip.tip.closed": "Copiar se queda aquí. La pregunta se queda en esta computadora.",
+    "privacy.chip.tip.closed": (
+        "Cerrado a internet: procesado en los servidores seguros de Assure, nunca enviado a un proveedor externo."
+    ),
     "privacy.chip.tip.open": "Copiar se queda aquí. El envío va solo a {name}.",
     "trust.conf.pending": "Comprobación de confianza pendiente. Revisa las afirmaciones con tus archivos.",
     "go.copy.hint": "Alt-clic o Cmd/Ctrl + Mayús + Intro copia el prompt.",
@@ -2725,18 +3003,22 @@ ZH = {
     "workbench.status.health_working": "正在处理你的草稿…",
     "workbench.status.health_cached": "⚡ 已缓存 – 从记忆即时加载。",
     "hero": "Assure",
-    "brand.category": "智能编译器",
-    "brand.eyebrow": "编译。验证。信任所交付的内容。",
-    "brand.hero_title": "零幻觉。绝对核验。",
-    "brand.tagline": "编译。验证。信任所交付的内容。",
-    "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
-    "brand.tagline_html": "智能编译器",
-    "brand.page_title": "Assure AI — 零幻觉。绝对核验。",
-    "brand.meta_description": (
-        "Assure 是首个智能编译器——将原始意图、杂乱的文档和非结构化数据"
-        "转化为经数学验证、可审计的交付成果。"
+    "brand.category": "确定性真相引擎",
+    "brand.eyebrow": "企业级 AI 起草验证标准。",
+    "brand.hero_title": "以 AI 的速度起草。以数学确定性验证。",
+    "brand.hero_title_html": (
+        '<span class="text-line">以 AI 的速度起草。</span>'
+        '<span class="text-line">以数学确定性\u00a0验证。</span>'
     ),
-    "brand.architecture_title": "工作原理 · Assure — 智识编译器",
+    "brand.tagline": "企业级 AI 起草验证标准。",
+    "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
+    "brand.tagline_html": "确定性真相引擎",
+    "brand.page_title": "Assure AI — 面向高风险专业人士的确定性真相引擎",
+    "brand.meta_description": (
+        "Assure AI 是专为保险、法律和合规专业人士打造的确定性真相引擎，"
+        "在输出前对每一条引用、排除条款和财务数字进行数学级溯源验证。"
+    ),
+    "brand.architecture_title": "工作原理 · Assure — 确定性真相引擎",
     "brand.architecture_meta_description": (
         "为什么靠猜测会失败——以及 Assure 如何将您的意图转化为可放心交付的验证文档。"
     ),
@@ -2856,10 +3138,62 @@ ZH = {
     "landing.nav.sandbox": "信任",
     "landing.nav.launch": "打开应用",
     "landing.nav.menu": "菜单",
-    "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
+    "landing.hero.subtitle": "看似合理的 AI 是一种风险。Assure 降低风险。",
+    "landing.hero.badge": "企业就绪 · 自带密钥 · 7 种语言",
+    "landing.hero.cta_primary": "申请企业试点",
+    "landing.hero.cta_secondary": "运行 60 秒 Red-Hat 审计",
     "landing.hero.cta.paste": "申请企业试点",
-    "landing.hero.cta.architecture": "查看 60 秒实证",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "运行 60 秒 Red-Hat 审计",
+    "landing.hero.caption": "编译。验证。信任所交付的内容。",
+    "landing.proof.title": "一个引擎。三种高风险工作流。",
+    "landing.proof.title_html": (
+        '<span class="text-line">一个引擎。</span>'
+        '<span class="text-line">三种高风险工作流。</span>'
+    ),
+    "landing.proof.tab1.title": "承保法律顾问与诉讼律师",
+    "landing.proof.tab1.body": (
+        "绝不提交未经核验的引用。Assure 的 Z3 逻辑引擎将您引用的每一条先例、法规和保单除外条款"
+        "追溯到其确切源页。以 AI 速度起草承保意见和动议，并提供可交给对方律师的页级溯源。"
+    ),
+    "landing.proof.tab2.title": "公估师与风险经理",
+    "landing.proof.tab2.body": (
+        "发现人工阅读遗漏的承保缺口。Assure 的 Red-Hat 引擎对您上传的主保单进行拒赔压力测试，"
+        "标记矛盾、无依据的除外条款和无法核对的数字——每项发现均标注源页。"
+    ),
+    "landing.proof.tab3.title": "合规官",
+    "landing.proof.tab3.body": (
+        "合规草稿中的每一项主张均可追溯至来源。Assure 的 Substrate Vault 将每个数字和引用锚定到"
+        "您上传的保单或法规的确切页面——确保输出的内容您都能立即辩护。"
+    ),
+    "landing.why.title": "看似合理是风险。确定性是竞争优势。",
+    "landing.why.title_html": (
+        '<span class="text-line">看似合理是风险。</span>'
+        '<span class="text-line">确定性是竞争\u00a0优势。</span>'
+    ),
+    "landing.why.body": (
+        "导出前，Assure 将每条声明、每个数字、每条引用与您的源文件逐一对照验证。您可以放心交付。"
+        "标准 AI 聊天机器人旨在听起来自信——即使它们编造财务指标或法律先例。"
+        "对高风险专业人士而言，「听起来正确」不等于「真正正确」。Assure 弥合 AI 速度与企业可靠性之间的差距，"
+        "交付确定且数学上可溯源的输出。"
+    ),
+    "landing.trust.title": "企业信任架构",
+    "landing.plans.lead": "自带密钥。Assure 对工作台收费，不对模型收费。",
+    "landing.trust.card1.title": "编排引擎",
+    "landing.trust.card1.body": ("一个意图。多个专业模型协同工作。无需提示工程。"),
+    "landing.trust.card2.title": "数学逻辑引擎",
+    "landing.trust.card2.body": (
+        "LLM 会猜测。Assure 会证明。每个数字都在您的源文件中数学上可溯源。"
+    ),
+    "landing.trust.card3.title": "对抗性审计",
+    "landing.trust.card3.body": (
+        "交付前，Assure 会攻击您自己的成果。找出他人会利用的矛盾与无依据声明。"
+    ),
+    "landing.trust.card4.title": "审计就绪导出",
+    "landing.trust.card4.body": (
+        "导出完整审计档案——加密锁定、Red-Hat 发现、审阅者签核。一键，完整溯源。"
+    ),
+    "landing.footer.engineer_tagline": ("安全设计。在我们的服务器上处理，绝不用于训练我们的模型。"),
+    "landing.footer.back_top": "返回顶部",
     "landing.demo.aria": "交互式工作台预览",
     "landing.demo.tablist": "选择职业场景",
     "landing.demo.tab.journalism": "调查记者",
@@ -2977,7 +3311,7 @@ ZH = {
     "landing.cta.sub": "以数学确定性为支撑的文档工程。",
     "landing.cta.btn": "启动 Assure 工作台",
     "landing.social_proof": "被高风险机构的分析师、研究人员和工程师使用。",
-    "landing.footer.copy": "Assure — 智能编译器 — 编译意图。验证逻辑。交付真相。",
+    "landing.footer.copy": "Assure — 确定性真相引擎",
     "stream.reconnect": "连接中断 — 正在重试…",
     "context": "额外说明（可选）",
     "file": "附加文件（可选）",
@@ -2992,7 +3326,63 @@ ZH = {
     "founder.draft.placeholder": "在此撰写草稿，或按 ⌘K 开始。",
     "founder.attach_sources": "附加来源",
     "founder.show_workspaces": "显示工作区",
-    "founder.cmdk_btn": "⚡ 指令… (⌘K)",
+    "founder.document.untitled": "未命名文档",
+    "founder.runs.title": "运行",
+    "founder.runs.untitled": "运行",
+    "founder.runs.one_verified_claim": "1 条已验证声明",
+    "founder.runs.verified_claims": "{count} 条已验证声明",
+    "founder.runs.empty_all": "尚无运行。按 ⌘K 开始调查。",
+    "founder.runs.empty_grounded": "未找到已 grounding 的运行。附加来源以生成确定性锁定。",
+    "founder.runs.empty_redhat": "未找到 Red-Hat 审计。对草稿运行 Red-Hat。",
+    "founder.runs.empty_dossier": "未找到可导出的运行。完成验证以构建档案。",
+    "founder.state_rail.label": "工作台阶段",
+    "founder.state_rail.directive": "调查",
+    "founder.state_rail.directive_tip": "调查 (⌘K)",
+    "founder.state_rail.runs": "运行",
+    "founder.state_rail.runs_tip": "运行 (Shift+2)",
+    "founder.state_rail.grounded": "Grounding 库",
+    "founder.state_rail.grounded_tip": "Grounding 库 (Shift+3)",
+    "founder.state_rail.grounded_verified": "Grounding 库（{count} 条声明已验证）",
+    "founder.state_rail.redhat": "Red-Hat 审计",
+    "founder.state_rail.redhat_tip": "Red-Hat 审计 (Shift+4)",
+    "founder.state_rail.dossier": "档案导出",
+    "founder.state_rail.dossier_tip": "档案导出 (Shift+5)",
+    "founder.cmdk_btn": "⚡ 调查… (⌘K)",
+    "founder.export.dossier": "导出已验证档案",
+    "founder.export.dossier_title": "导出正式验证证书",
+    "founder.runs.collapse_aria": "折叠运行堆栈",
+    "founder.runs.collapse": "折叠",
+    "founder.runs.send_draft": "发送到草稿",
+    "founder.runs.delete": "删除",
+    "founder.runs.delete_aria": "删除运行",
+    "founder.runs.status.stamped": "已盖章",
+    "founder.runs.status.contradiction": "矛盾",
+    "founder.runs.status.draft": "草稿",
+    "founder.runs.running": "运行中…",
+    "founder.runs.dismiss_prompt": "驳回理由（必填）：",
+    "evidence.inspector.close": "关闭证据检查器",
+    "evidence.inspector.title": "证据检查器",
+    "evidence.inspector.lock_hash": "锁定哈希：",
+    "evidence.inspector.source": "来源：",
+    "evidence.inspector.goto": "转到来源",
+    "evidence.inspector.loading": "正在加载来源…",
+    "evidence.inspector.no_text": "此来源没有提取的文本。",
+    "evidence.inspector.load_error": "无法加载来源文档。",
+    "evidence.inspector.no_source": "此锁定未关联来源。",
+    "evidence.inspector.unanchored": "未锚定锁定",
+    "command.bar.label": "调查内容",
+    "command.bar.placeholder": "我们在调查或起草什么？",
+    "command.bar.drop_aria": "拖放来源文件（可选）",
+    "command.bar.drop_hint": "在此拖放来源文件（可选）— 或按 Enter 运行",
+    "command.bar.status_compiling": "正在编译提示… {intent}{fallback}",
+    "command.bar.web_fallback": " · 网络回退",
+    "command.bar.status_routing": "正在路由… {intent} · {count} 个来源{ms}",
+    "command.bar.enter_directive": "请先描述要调查的内容。",
+    "command.bar.running": "正在运行验证…",
+    "settings.api_key_banner": "需要 API 密钥？",
+    "settings.api_key_link": "打开 Assure Workspace →",
+    "jdf.workbench.aria": "文档工程",
+    "stepper.workflow": "文档工作流",
     "founder.workspace.untitled": "未命名工作区",
     "founder.sources.close": "关闭来源",
     "substrate.vault.empty": "尚未上传文件。拖放或点击以上传。",
@@ -3348,6 +3738,24 @@ ZH = {
     "pricing.pro.3": "在把 Stripe 换成正式密钥之前，只接受测试卡。",
     "privacy.page.title": "隐私",
     "privacy.page.lead": "云端存邮箱、方案、额度使用和加密后的 API 密钥。问题和答案留在这台电脑上。",
+    "privacy.enterprise.page_title": "隐私政策 · Assure AI",
+    "privacy.enterprise.meta": "Assure AI 如何收集、使用和保护您的数据。",
+    "privacy.enterprise.title": "隐私政策",
+    "privacy.enterprise.updated": "最后更新：2026 年 9 月 8 日",
+    "privacy.enterprise.summary": "我们仅存储运营服务所需的数据。我们从不使用您的数据训练模型。",
+    "privacy.enterprise.toc_title": "快速链接",
+    "privacy.enterprise.s1.title": "我们收集的数据",
+    "privacy.enterprise.s2.title": "我们如何使用您的数据",
+    "privacy.enterprise.s3.title": "数据共享",
+    "privacy.enterprise.s4.title": "您的权利",
+    "privacy.enterprise.s5.title": "数据安全",
+    "privacy.enterprise.s6.title": "数据保留",
+    "privacy.enterprise.s7.title": "儿童隐私",
+    "privacy.enterprise.s8.title": "免责声明 — AI 生成内容",
+    "privacy.enterprise.s9.title": "数据处理协议",
+    "privacy.enterprise.s10.title": "国际数据传输",
+    "privacy.enterprise.s11.title": "政策变更",
+    "privacy.enterprise.s12.title": "联系我们",
     "privacy.cloud": "在云端",
     "privacy.cloud.body": "如果你登录，我们会存邮箱、free 或 pro 档、Stripe 客户 id、额度使用，以及加密后的 API 密钥。我们不存储问题或答案。",
     "privacy.local": "在这台电脑",
@@ -3770,7 +4178,9 @@ ZH = {
     "analytics.kpi.issues": "未处理问题",
     "privacy.chip.closed": "不对互联网开放",
     "privacy.chip.open": "已连接 {name}",
-    "privacy.chip.tip.closed": "复制留在本机。问题留在这台电脑上。",
+    "privacy.chip.tip.closed": (
+        "对互联网关闭：在 Assure 的安全服务器上处理，绝不发送给第三方提供商。"
+    ),
     "privacy.chip.tip.open": "复制留在本机。发送只走 {name}。",
     "trust.conf.pending": "置信检查待完成。请对照你的文件复核声明。",
     "go.copy.hint": "Option 点击或 Cmd/Ctrl + Shift + Enter 复制提示。",
@@ -4013,18 +4423,22 @@ FR = {
     "workbench.status.health_working": "Travail sur votre brouillon…",
     "workbench.status.health_cached": "⚡ En cache – Chargement instantané depuis la mémoire.",
     "hero": "Assure",
-    "brand.category": "Le Compilateur Intellectuel",
-    "brand.eyebrow": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
-    "brand.hero_title": "Zéro hallucination. Vérification absolue.",
-    "brand.tagline": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
-    "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
-    "brand.tagline_html": "Le Compilateur Intellectuel",
-    "brand.page_title": "Assure AI — Zéro hallucination. Vérification absolue.",
-    "brand.meta_description": (
-        "Assure est le premier Compilateur Intellectuel — transformant l'intention brute, "
-        "les documents désordonnés et les données non structurées en livrables vérifiables et auditables."
+    "brand.category": "Le Moteur de Vérité Déterministe",
+    "brand.eyebrow": "La norme entreprise pour la rédaction IA vérifiée.",
+    "brand.hero_title": "Rédigez à la vitesse de l'IA. Vérifiez avec une certitude mathématique.",
+    "brand.hero_title_html": (
+        '<span class="text-line">Rédigez à la vitesse de l\'IA.</span>'
+        '<span class="text-line">Vérifiez avec une certitude\u00a0mathématique.</span>'
     ),
-    "brand.architecture_title": "Comment ça marche · Assure — Le Compilateur Intellectuel",
+    "brand.tagline": "La norme entreprise pour la rédaction IA vérifiée.",
+    "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
+    "brand.tagline_html": "Le Moteur de Vérité Déterministe",
+    "brand.page_title": "Assure AI — Le Moteur de Vérité Déterministe pour les Professionnels à Enjeux Élevés",
+    "brand.meta_description": (
+        "Assure AI est le moteur de vérité déterministe conçu pour les professionnels de l'assurance, "
+        "du droit et de la conformité afin de fonder mathématiquement chaque citation, exclusion et chiffre financier avant livraison."
+    ),
+    "brand.architecture_title": "Comment ça marche · Assure — Le Moteur de Vérité Déterministe",
     "brand.architecture_meta_description": (
         "Pourquoi deviner échoue—et comment Assure transforme votre intention en documents vérifiés prêts à livrer."
     ),
@@ -4144,10 +4558,73 @@ FR = {
     "landing.nav.sandbox": "Confiance",
     "landing.nav.launch": "Ouvrir l'app",
     "landing.nav.menu": "Menu",
-    "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
+    "landing.hero.subtitle": "Une IA plausible est un risque. Assure réduit ce risque.",
+    "landing.hero.badge": "Prêt pour l'entreprise · Apportez vos propres clés · 7 langues",
+    "landing.hero.cta_primary": "Demander un pilote entreprise",
+    "landing.hero.cta_secondary": "Lancer un audit Red-Hat de 60 secondes",
     "landing.hero.cta.paste": "Demander un pilote entreprise",
-    "landing.hero.cta.architecture": "Voir la preuve en 60 secondes",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "Lancer un audit Red-Hat de 60 secondes",
+    "landing.hero.caption": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
+    "landing.proof.title": "Un moteur. Trois flux à enjeux élevés.",
+    "landing.proof.title_html": (
+        '<span class="text-line">Un moteur.</span>'
+        '<span class="text-line">Trois flux à enjeux\u00a0élevés.</span>'
+    ),
+    "landing.proof.tab1.title": "Conseils en couverture et avocats contentieux",
+    "landing.proof.tab1.body": (
+        "Ne soumettez jamais une citation non vérifiée. Le moteur logique Z3 d'Assure ancre chaque précédent, "
+        "statut et exclusion de police à sa page source exacte. Rédigez avis de couverture et requêtes à la "
+        "vitesse de l'IA, avec une provenance page par page à remettre à la partie adverse."
+    ),
+    "landing.proof.tab2.title": "Experts en sinistres et gestionnaires de risques",
+    "landing.proof.tab2.body": (
+        "Découvrez les lacunes de couverture qu'une lecture manuelle manque. Le moteur Red-Hat d'Assure "
+        "teste les refus de sinistre contre la police maîtresse que vous téléversez, signalant contradictions, "
+        "exclusions non étayées et chiffres incohérents — avec la page source citée pour chaque constat."
+    ),
+    "landing.proof.tab3.title": "Responsables conformité",
+    "landing.proof.tab3.body": (
+        "Chaque affirmation de vos brouillons de conformité remonte à une source. Le Substrate Vault d'Assure "
+        "ancre chaque chiffre et citation à la page exacte de la police ou réglementation téléversée — "
+        "pour que rien ne parte sans pouvoir être défendu immédiatement."
+    ),
+    "landing.why.title": "La plausibilité est un risque. La certitude est un avantage compétitif.",
+    "landing.why.title_html": (
+        '<span class="text-line">La plausibilité est un risque.</span>'
+        '<span class="text-line">La certitude est un avantage\u00a0compétitif.</span>'
+    ),
+    "landing.why.body": (
+        "Avant l'export, Assure vérifie chaque affirmation, chaque chiffre et chaque citation contre vos "
+        "documents sources. Vous livrez en toute confiance. Les chatbots IA standard sont conçus pour paraître "
+        "confiants — même en inventant des métriques financières ou des précédents juridiques. Pour les "
+        "professionnels à enjeux élevés, « paraître juste » n'est pas « être juste ». Assure comble l'écart "
+        "entre la vitesse de l'IA et la fiabilité entreprise, en livrant des résultats déterministes et "
+        "mathématiquement ancrés."
+    ),
+    "landing.trust.title": "Architecture de confiance entreprise",
+    "landing.plans.lead": "Apportez vos propres clés. Assure facture le workbench, pas les modèles.",
+    "landing.trust.card1.title": "Moteur d'orchestration",
+    "landing.trust.card1.body": (
+        "Une intention. Plusieurs modèles spécialisés en concert. Aucune ingénierie de prompts requise."
+    ),
+    "landing.trust.card2.title": "Moteur de logique mathématique",
+    "landing.trust.card2.body": (
+        "Les LLM devinent. Assure prouve. Chaque chiffre est mathématiquement ancré dans vos documents sources."
+    ),
+    "landing.trust.card3.title": "Audit adversarial",
+    "landing.trust.card3.body": (
+        "Avant de livrer, Assure attaque votre propre travail. Il trouve les contradictions et affirmations "
+        "non étayées que d'autres exploiteraient."
+    ),
+    "landing.trust.card4.title": "Export prêt pour audit",
+    "landing.trust.card4.body": (
+        "Exportez un dossier d'audit complet — verrous cryptographiques, constats Red-Hat, validations des "
+        "réviseurs. Un clic, provenance complète."
+    ),
+    "landing.footer.engineer_tagline": (
+        "Sécurisé par conception. Traité sur nos serveurs, jamais utilisé pour entraîner nos modèles."
+    ),
+    "landing.footer.back_top": "Retour en haut",
     "landing.demo.aria": "Aperçu interactif de l'espace de travail",
     "landing.demo.tablist": "Choisir une profession",
     "landing.demo.tab.journalism": "Journaliste d'investigation",
@@ -4265,7 +4742,7 @@ FR = {
     "landing.cta.sub": "Ingénierie documentaire fondée sur la certitude mathématique.",
     "landing.cta.btn": "Lancer l'espace Assure",
     "landing.social_proof": "Utilisé par analystes, chercheurs et ingénieurs dans des institutions à haute conséquence.",
-    "landing.footer.copy": "Assure — Le Compilateur Intellectuel — Compilez l'intention. Vérifiez la logique. Livrez la vérité.",
+    "landing.footer.copy": "Assure — Le Moteur de Vérité Déterministe",
     "settings.show_citations": "Inclure la section Références dans l'export DOCX",
     "arch.back": "← Retour à",
     "arch.hero.eyebrow": "Comment ça marche",
@@ -4318,7 +4795,63 @@ FR = {
     "founder.draft.placeholder": "Rédigez votre brouillon ici ou appuyez sur ⌘K pour commencer.",
     "founder.attach_sources": "Joindre des sources",
     "founder.show_workspaces": "Afficher les espaces de travail",
-    "founder.cmdk_btn": "⚡ Directive… (⌘K)",
+    "founder.document.untitled": "Document sans titre",
+    "founder.runs.title": "Exécutions",
+    "founder.runs.untitled": "Exécution",
+    "founder.runs.one_verified_claim": "1 affirmation vérifiée",
+    "founder.runs.verified_claims": "{count} affirmations vérifiées",
+    "founder.runs.empty_all": "Aucune exécution. Appuyez sur ⌘K pour enquêter.",
+    "founder.runs.empty_grounded": "Aucune exécution ancrée. Joignez des sources pour générer des verrous déterministes.",
+    "founder.runs.empty_redhat": "Aucun audit Red-Hat. Lancez Red-Hat sur un brouillon.",
+    "founder.runs.empty_dossier": "Aucune exécution prête à l'export. Terminez la vérification pour créer un dossier.",
+    "founder.state_rail.label": "Étapes de l'atelier",
+    "founder.state_rail.directive": "Enquêter",
+    "founder.state_rail.directive_tip": "Enquêter (⌘K)",
+    "founder.state_rail.runs": "Exécutions",
+    "founder.state_rail.runs_tip": "Exécutions (Maj+2)",
+    "founder.state_rail.grounded": "Coffre d'ancrage",
+    "founder.state_rail.grounded_tip": "Coffre d'ancrage (Maj+3)",
+    "founder.state_rail.grounded_verified": "Coffre d'ancrage ({count} affirmations vérifiées)",
+    "founder.state_rail.redhat": "Audit Red-Hat",
+    "founder.state_rail.redhat_tip": "Audit Red-Hat (Maj+4)",
+    "founder.state_rail.dossier": "Export dossier",
+    "founder.state_rail.dossier_tip": "Export dossier (Maj+5)",
+    "founder.cmdk_btn": "⚡ Enquêter… (⌘K)",
+    "founder.export.dossier": "Exporter le dossier vérifié",
+    "founder.export.dossier_title": "Exporter le certificat de vérification formelle",
+    "founder.runs.collapse_aria": "Réduire la pile d'exécutions",
+    "founder.runs.collapse": "Réduire",
+    "founder.runs.send_draft": "Envoyer au brouillon",
+    "founder.runs.delete": "Supprimer",
+    "founder.runs.delete_aria": "Supprimer l'exécution",
+    "founder.runs.status.stamped": "Estampillé",
+    "founder.runs.status.contradiction": "Contradiction",
+    "founder.runs.status.draft": "Brouillon",
+    "founder.runs.running": "Exécution…",
+    "founder.runs.dismiss_prompt": "Motif du rejet (obligatoire) :",
+    "evidence.inspector.close": "Fermer l'inspecteur de preuves",
+    "evidence.inspector.title": "Inspecteur de preuves",
+    "evidence.inspector.lock_hash": "Hash du verrou :",
+    "evidence.inspector.source": "Source :",
+    "evidence.inspector.goto": "Aller à la source",
+    "evidence.inspector.loading": "Chargement de la source…",
+    "evidence.inspector.no_text": "Aucun texte extrait pour cette source.",
+    "evidence.inspector.load_error": "Impossible de charger le document source.",
+    "evidence.inspector.no_source": "Aucune source liée à ce verrou.",
+    "evidence.inspector.unanchored": "Verrou non ancré",
+    "command.bar.label": "Objet de l'enquête",
+    "command.bar.placeholder": "Qu'enquêtons-nous ou rédigeons-nous ?",
+    "command.bar.drop_aria": "Déposer des fichiers sources (facultatif)",
+    "command.bar.drop_hint": "Déposez des fichiers sources ici (facultatif) — ou appuyez sur Entrée pour lancer",
+    "command.bar.status_compiling": "Compilation du prompt… {intent}{fallback}",
+    "command.bar.web_fallback": " · repli web",
+    "command.bar.status_routing": "Routage… {intent} · {count} sources{ms}",
+    "command.bar.enter_directive": "Décrivez d'abord ce que vous enquêtez.",
+    "command.bar.running": "Vérification en cours…",
+    "settings.api_key_banner": "Besoin d'une clé API ?",
+    "settings.api_key_link": "Ouvrir Assure Workspace →",
+    "jdf.workbench.aria": "Ingénierie documentaire",
+    "stepper.workflow": "Flux de travail du document",
     "founder.workspace.untitled": "Espace sans titre",
     "founder.sources.close": "Fermer les sources",
     "substrate.vault.empty": "Aucun fichier importé. Glissez-déposez ou cliquez pour importer.",
@@ -4674,6 +5207,27 @@ FR = {
     "pricing.pro.3": "Paiements de test seulement jusqu'aux clés Stripe live.",
     "privacy.page.title": "Confidentialité",
     "privacy.page.lead": "Le cloud stocke l'e-mail, l'offre, l'usage des crédits et les clés API chiffrées. Questions et réponses restent sur cet ordinateur.",
+    "privacy.enterprise.page_title": "Politique de confidentialité · Assure AI",
+    "privacy.enterprise.meta": "Comment Assure AI collecte, utilise et protège vos données.",
+    "privacy.enterprise.title": "Politique de confidentialité",
+    "privacy.enterprise.updated": "Dernière mise à jour : 8 septembre 2026",
+    "privacy.enterprise.summary": (
+        "Nous ne stockons que les données nécessaires au service. "
+        "Nous n'utilisons jamais vos données pour entraîner nos modèles."
+    ),
+    "privacy.enterprise.toc_title": "Liens rapides",
+    "privacy.enterprise.s1.title": "Données collectées",
+    "privacy.enterprise.s2.title": "Utilisation de vos données",
+    "privacy.enterprise.s3.title": "Partage de vos données",
+    "privacy.enterprise.s4.title": "Vos droits",
+    "privacy.enterprise.s5.title": "Sécurité des données",
+    "privacy.enterprise.s6.title": "Conservation des données",
+    "privacy.enterprise.s7.title": "Confidentialité des enfants",
+    "privacy.enterprise.s8.title": "Avertissement — contenu généré par IA",
+    "privacy.enterprise.s9.title": "Accord de traitement des données",
+    "privacy.enterprise.s10.title": "Transferts internationaux",
+    "privacy.enterprise.s11.title": "Modifications de cette politique",
+    "privacy.enterprise.s12.title": "Nous contacter",
     "privacy.cloud": "Dans le cloud",
     "privacy.cloud.body": "Si vous vous connectez, nous stockons votre e-mail, le niveau free ou pro, l'id client Stripe, l'usage des crédits et les clés API chiffrées. Nous ne stockons pas les questions ni les réponses.",
     "privacy.local": "Sur cet ordinateur",
@@ -5045,7 +5599,9 @@ FR = {
     "analytics.kpi.issues": "Problèmes ouverts",
     "privacy.chip.closed": "Fermé à Internet",
     "privacy.chip.open": "Connecté à {name}",
-    "privacy.chip.tip.closed": "Copier reste ici. La question reste sur cet ordinateur.",
+    "privacy.chip.tip.closed": (
+        "Fermé à internet : traité sur les serveurs sécurisés d'Assure, jamais envoyé à un fournisseur tiers."
+    ),
     "privacy.chip.tip.open": "Copier reste ici. L'envoi va seulement vers {name}.",
     "trust.conf.pending": "Vérification de confiance en attente. Relisez les affirmations avec vos fichiers.",
     "go.copy.hint": "Option-clic ou Cmd/Ctrl + Maj + Entrée copie le prompt.",
@@ -5288,18 +5844,22 @@ DE = {
     "workbench.status.health_working": "Arbeitet an Ihrem Entwurf…",
     "workbench.status.health_cached": "⚡ Zwischengespeichert – Sofortiges Laden aus dem Speicher.",
     "hero": "Assure",
-    "brand.category": "Der Intellektuelle Compiler",
-    "brand.eyebrow": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
-    "brand.hero_title": "Null Halluzination. Absolute Prüfung.",
-    "brand.tagline": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
-    "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
-    "brand.tagline_html": "Der Intellektuelle Compiler",
-    "brand.page_title": "Assure AI — Null Halluzination. Absolute Prüfung.",
-    "brand.meta_description": (
-        "Assure ist der erste Intellektuelle Compiler — er verwandelt rohe Absicht, "
-        "unordentliche Dokumente und unstrukturierte Daten in mathematisch verifizierte, auditierbare Lieferungen."
+    "brand.category": "Die Deterministische Wahrheits-Engine",
+    "brand.eyebrow": "Der Unternehmensstandard für verifiziertes KI-Drafting.",
+    "brand.hero_title": "Entwerfen mit KI-Geschwindigkeit. Verifizieren mit mathematischer Sicherheit.",
+    "brand.hero_title_html": (
+        '<span class="text-line">Entwerfen mit KI-Geschwindigkeit.</span>'
+        '<span class="text-line">Verifizieren mit mathematischer\u00a0Sicherheit.</span>'
     ),
-    "brand.architecture_title": "So funktioniert's · Assure — Der Intellektuelle Compiler",
+    "brand.tagline": "Der Unternehmensstandard für verifiziertes KI-Drafting.",
+    "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
+    "brand.tagline_html": "Die Deterministische Wahrheits-Engine",
+    "brand.page_title": "Assure AI — Die Deterministische Wahrheits-Engine für Hochrisiko-Profis",
+    "brand.meta_description": (
+        "Assure AI ist die deterministische Wahrheits-Engine für Versicherungs-, Rechts- und Compliance-Profis, "
+        "die jede Zitation, Ausschlussklausel und Finanzzahl mathematisch verankert, bevor sie versendet wird."
+    ),
+    "brand.architecture_title": "So funktioniert's · Assure — Die Deterministische Wahrheits-Engine",
     "brand.architecture_meta_description": (
         "Warum Raten scheitert—und wie Assure Ihre Absicht in verifizierte Dokumente verwandelt, die Sie verantworten können."
     ),
@@ -5419,10 +5979,73 @@ DE = {
     "landing.nav.sandbox": "Vertrauen",
     "landing.nav.launch": "App starten",
     "landing.nav.menu": "Menü",
-    "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
+    "landing.hero.subtitle": "Plausible KI ist ein Risiko. Assure reduziert es.",
+    "landing.hero.badge": "Enterprise-ready · Eigene Schlüssel mitbringen · 7 Sprachen",
+    "landing.hero.cta_primary": "Enterprise-Pilot anfragen",
+    "landing.hero.cta_secondary": "60-Sekunden-Red-Hat-Audit starten",
     "landing.hero.cta.paste": "Enterprise-Pilot anfragen",
-    "landing.hero.cta.architecture": "Den 60-Sekunden-Beweis sehen",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "60-Sekunden-Red-Hat-Audit starten",
+    "landing.hero.caption": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
+    "landing.proof.title": "Eine Engine. Drei Hochrisiko-Workflows.",
+    "landing.proof.title_html": (
+        '<span class="text-line">Eine Engine.</span>'
+        '<span class="text-line">Drei Hochrisiko-Workflows.</span>'
+    ),
+    "landing.proof.tab1.title": "Deckungsberater & Prozessanwälte",
+    "landing.proof.tab1.body": (
+        "Reichen Sie nie eine ungeprüfte Zitation ein. Assures Z3-Logik-Engine verankert jeden Präzedenzfall, "
+        "Statut und Policenausschluss auf der exakten Quellseite. Entwerfen Sie Deckungsgutachten und Schriftsätze "
+        "mit KI-Geschwindigkeit — mit seitenweiser Herkunft für die Gegenseite."
+    ),
+    "landing.proof.tab2.title": "Öffentliche Gutachter & Risikomanager",
+    "landing.proof.tab2.body": (
+        "Deckungslücken finden, die manuelles Lesen übersieht. Assures Red-Hat-Engine stresst Leistungsablehnungen "
+        "gegen Ihre hochgeladene Hauptpolice und markiert Widersprüche, unbelegte Ausschlüsse und nicht "
+        "abrechenbare Zahlen — mit Quellseite pro Befund."
+    ),
+    "landing.proof.tab3.title": "Compliance-Beauftragte",
+    "landing.proof.tab3.body": (
+        "Jede Behauptung in Compliance-Entwürfen führt zu einer Quelle. Assures Substrate Vault verankert "
+        "jede Zahl und Zitation auf der exakten Seite der hochgeladenen Police oder Regelung — damit nichts "
+        "versendet wird, was Sie nicht sofort verteidigen können."
+    ),
+    "landing.why.title": "Plausibilität ist ein Risiko. Gewissheit ist ein Wettbewerbsvorteil.",
+    "landing.why.title_html": (
+        '<span class="text-line">Plausibilität ist ein Risiko.</span>'
+        '<span class="text-line">Gewissheit ist ein Wettbewerbs\u00a0vorteil.</span>'
+    ),
+    "landing.why.body": (
+        "Vor dem Export prüft Assure jede Behauptung, jede Zahl und jede Zitation gegen Ihre Quelldokumente. "
+        "Sie liefern mit Zuversicht. Standard-KI-Chatbots sind darauf ausgelegt, selbstsicher zu klingen — "
+        "selbst wenn sie Finanzkennzahlen oder Rechtspräzedenzfälle erfinden. Für Hochrisiko-Profis ist "
+        "„richtig klingen“ nicht dasselbe wie „richtig sein“. Assure schließt die Lücke zwischen "
+        "KI-Geschwindigkeit und Enterprise-Zuverlässigkeit und liefert deterministisch und mathematisch "
+        "verankerte Ergebnisse."
+    ),
+    "landing.trust.title": "Enterprise-Vertrauensarchitektur",
+    "landing.plans.lead": "Bringen Sie eigene Schlüssel mit. Assure berechnet die Werkbank, nicht die Modelle.",
+    "landing.trust.card1.title": "Orchestrierungs-Engine",
+    "landing.trust.card1.body": (
+        "Eine Absicht. Mehrere spezialisierte Modelle im Zusammenspiel. Kein Prompt-Engineering nötig."
+    ),
+    "landing.trust.card2.title": "Mathematische Logik-Engine",
+    "landing.trust.card2.body": (
+        "LLMs raten. Assure beweist. Jede Zahl ist mathematisch in Ihren Quelldokumenten verankert."
+    ),
+    "landing.trust.card3.title": "Adversarial-Audit",
+    "landing.trust.card3.body": (
+        "Bevor Sie liefern, greift Assure Ihre eigene Arbeit an. Es findet Widersprüche und unbelegte "
+        "Behauptungen, die andere ausnutzen würden."
+    ),
+    "landing.trust.card4.title": "Audit-fertiger Export",
+    "landing.trust.card4.body": (
+        "Exportieren Sie ein vollständiges Audit-Dossier — kryptografische Sperren, Red-Hat-Befunde, "
+        "Prüfer-Freigaben. Ein Klick, volle Herkunft."
+    ),
+    "landing.footer.engineer_tagline": (
+        "Secure by Design. Auf unseren Servern verarbeitet, nie zum Training unserer Modelle verwendet."
+    ),
+    "landing.footer.back_top": "Nach oben",
     "landing.demo.aria": "Interaktive Workbench-Vorschau",
     "landing.demo.tablist": "Berufsszenario wählen",
     "landing.demo.tab.journalism": "Investigativjournalist",
@@ -5540,7 +6163,7 @@ DE = {
     "landing.cta.sub": "Dokumentenengineering mit mathematischer Sicherheit.",
     "landing.cta.btn": "Assure-Arbeitsbereich starten",
     "landing.social_proof": "Genutzt von Analysten, Forschern und Ingenieuren in hochriskanten Institutionen.",
-    "landing.footer.copy": "Assure — Der Intellektuelle Compiler — Absicht kompilieren. Logik prüfen. Wahrheit liefern.",
+    "landing.footer.copy": "Assure — Die Deterministische Wahrheits-Engine",
     "stream.reconnect": "Verbindung unterbrochen — erneuter Versuch…",
     "context": "Zusätzlicher Kontext (optional)",
     "file": "Datei anhängen (optional)",
@@ -5555,7 +6178,63 @@ DE = {
     "founder.draft.placeholder": "Schreiben Sie hier Ihren Entwurf oder drücken Sie ⌘K zum Starten.",
     "founder.attach_sources": "Quellen anhängen",
     "founder.show_workspaces": "Arbeitsbereiche anzeigen",
-    "founder.cmdk_btn": "⚡ Direktive… (⌘K)",
+    "founder.document.untitled": "Unbenanntes Dokument",
+    "founder.runs.title": "Läufe",
+    "founder.runs.untitled": "Lauf",
+    "founder.runs.one_verified_claim": "1 verifizierte Behauptung",
+    "founder.runs.verified_claims": "{count} verifizierte Behauptungen",
+    "founder.runs.empty_all": "Noch keine Läufe. Drücken Sie ⌘K zum Untersuchen.",
+    "founder.runs.empty_grounded": "Keine verankerten Läufe. Quellen anhängen für deterministische Sperren.",
+    "founder.runs.empty_redhat": "Keine Red-Hat-Audits. Red-Hat auf einem Entwurf ausführen.",
+    "founder.runs.empty_dossier": "Keine exportfertigen Läufe. Verifizierung abschließen für ein Dossier.",
+    "founder.state_rail.label": "Werkbank-Phasen",
+    "founder.state_rail.directive": "Untersuchen",
+    "founder.state_rail.directive_tip": "Untersuchen (⌘K)",
+    "founder.state_rail.runs": "Läufe",
+    "founder.state_rail.runs_tip": "Läufe (Umschalt+2)",
+    "founder.state_rail.grounded": "Verankerungs-Tresor",
+    "founder.state_rail.grounded_tip": "Verankerungs-Tresor (Umschalt+3)",
+    "founder.state_rail.grounded_verified": "Verankerungs-Tresor ({count} Behauptungen verifiziert)",
+    "founder.state_rail.redhat": "Red-Hat-Audit",
+    "founder.state_rail.redhat_tip": "Red-Hat-Audit (Umschalt+4)",
+    "founder.state_rail.dossier": "Dossier-Export",
+    "founder.state_rail.dossier_tip": "Dossier-Export (Umschalt+5)",
+    "founder.cmdk_btn": "⚡ Untersuchen… (⌘K)",
+    "founder.export.dossier": "Verifiziertes Dossier exportieren",
+    "founder.export.dossier_title": "Formales Verifizierungszertifikat exportieren",
+    "founder.runs.collapse_aria": "Lauf-Stapel einklappen",
+    "founder.runs.collapse": "Einklappen",
+    "founder.runs.send_draft": "In Entwurf senden",
+    "founder.runs.delete": "Löschen",
+    "founder.runs.delete_aria": "Lauf löschen",
+    "founder.runs.status.stamped": "Gestempelt",
+    "founder.runs.status.contradiction": "Widerspruch",
+    "founder.runs.status.draft": "Entwurf",
+    "founder.runs.running": "Läuft…",
+    "founder.runs.dismiss_prompt": "Ablehnungsbegründung (erforderlich):",
+    "evidence.inspector.close": "Beweis-Inspektor schließen",
+    "evidence.inspector.title": "Beweis-Inspektor",
+    "evidence.inspector.lock_hash": "Sperr-Hash:",
+    "evidence.inspector.source": "Quelle:",
+    "evidence.inspector.goto": "Zur Quelle",
+    "evidence.inspector.loading": "Quelle wird geladen…",
+    "evidence.inspector.no_text": "Kein extrahierter Text für diese Quelle.",
+    "evidence.inspector.load_error": "Quelldokument konnte nicht geladen werden.",
+    "evidence.inspector.no_source": "Keine Quelle mit dieser Sperre verknüpft.",
+    "evidence.inspector.unanchored": "Nicht verankerte Sperre",
+    "command.bar.label": "Was untersuchen?",
+    "command.bar.placeholder": "Was untersuchen oder entwerfen wir?",
+    "command.bar.drop_aria": "Quelldateien ablegen (optional)",
+    "command.bar.drop_hint": "Quelldateien hier ablegen (optional) — oder Enter drücken zum Starten",
+    "command.bar.status_compiling": "Prompt wird kompiliert… {intent}{fallback}",
+    "command.bar.web_fallback": " · Web-Fallback",
+    "command.bar.status_routing": "Routing… {intent} · {count} Quellen{ms}",
+    "command.bar.enter_directive": "Beschreiben Sie zuerst, was untersucht werden soll.",
+    "command.bar.running": "Verifikation läuft…",
+    "settings.api_key_banner": "API-Schlüssel benötigt?",
+    "settings.api_key_link": "Assure Workspace öffnen →",
+    "jdf.workbench.aria": "Dokumenten-Engineering",
+    "stepper.workflow": "Dokument-Workflow",
     "founder.workspace.untitled": "Unbenannter Arbeitsbereich",
     "founder.sources.close": "Quellen schließen",
     "substrate.vault.empty": "Keine Dateien hochgeladen. Ziehen und ablegen oder klicken zum Hochladen.",
@@ -5911,6 +6590,27 @@ DE = {
     "pricing.pro.3": "Nur Testzahlungen, bis Sie Stripe auf Live-Schlüssel umstellen.",
     "privacy.page.title": "Datenschutz",
     "privacy.page.lead": "In der Cloud liegen E-Mail, Tarif, Credit-Nutzung und verschlüsselte API-Schlüssel. Fragen und Antworten bleiben auf diesem Rechner.",
+    "privacy.enterprise.page_title": "Datenschutzerklärung · Assure AI",
+    "privacy.enterprise.meta": "Wie Assure AI Ihre Daten erhebt, nutzt und schützt.",
+    "privacy.enterprise.title": "Datenschutzerklärung",
+    "privacy.enterprise.updated": "Zuletzt aktualisiert: 8. September 2026",
+    "privacy.enterprise.summary": (
+        "Wir speichern nur die Daten, die für den Betrieb des Dienstes nötig sind. "
+        "Wir nutzen Ihre Daten niemals zum Training unserer Modelle."
+    ),
+    "privacy.enterprise.toc_title": "Schnelllinks",
+    "privacy.enterprise.s1.title": "Welche Daten wir erheben",
+    "privacy.enterprise.s2.title": "Wie wir Ihre Daten nutzen",
+    "privacy.enterprise.s3.title": "Weitergabe Ihrer Daten",
+    "privacy.enterprise.s4.title": "Ihre Rechte",
+    "privacy.enterprise.s5.title": "Datensicherheit",
+    "privacy.enterprise.s6.title": "Datenspeicherung",
+    "privacy.enterprise.s7.title": "Datenschutz für Kinder",
+    "privacy.enterprise.s8.title": "Haftungsausschluss — KI-generierte Inhalte",
+    "privacy.enterprise.s9.title": "Auftragsverarbeitungsvereinbarung",
+    "privacy.enterprise.s10.title": "Internationale Übermittlungen",
+    "privacy.enterprise.s11.title": "Änderungen dieser Richtlinie",
+    "privacy.enterprise.s12.title": "Kontakt",
     "privacy.cloud": "In der Cloud",
     "privacy.cloud.body": "Wenn Sie sich anmelden, speichern wir E-Mail, Free- oder Pro-Stufe, die Stripe-Kunden-ID, Credit-Nutzung und verschlüsselte API-Schlüssel. Fragen und Antworten speichern wir nicht.",
     "privacy.local": "Auf diesem Rechner",
@@ -6333,7 +7033,9 @@ DE = {
     "analytics.kpi.issues": "Offene Probleme",
     "privacy.chip.closed": "Vom Internet getrennt",
     "privacy.chip.open": "Verbunden mit {name}",
-    "privacy.chip.tip.closed": "Kopieren bleibt hier. Die Frage bleibt auf diesem Rechner.",
+    "privacy.chip.tip.closed": (
+        "Internet geschlossen: Verarbeitung auf Assures sicheren Servern, nie an Drittanbieter gesendet."
+    ),
     "privacy.chip.tip.open": "Kopieren bleibt hier. Senden geht nur an {name}.",
     "trust.conf.pending": "Vertrauensprüfung ausstehend. Prüfen Sie Aussagen gegen Ihre Dateien.",
     "go.copy.hint": "Option-Klick oder Cmd/Strg + Umschalt + Enter kopiert den Prompt.",
@@ -6576,18 +7278,22 @@ JA = {
     "workbench.status.health_working": "下書きを処理中…",
     "workbench.status.health_cached": "⚡ キャッシュ – メモリから即時読み込み。",
     "hero": "Assure",
-    "brand.category": "インテレクチュアル・コンパイラー",
-    "brand.eyebrow": "コンパイル。検証。出荷するものを信頼する。",
-    "brand.hero_title": "幻覚ゼロ。絶対検証。",
-    "brand.tagline": "コンパイル。検証。出荷するものを信頼する。",
-    "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
-    "brand.tagline_html": "インテレクチュアル・コンパイラー",
-    "brand.page_title": "Assure AI — 幻覚ゼロ。絶対検証。",
-    "brand.meta_description": (
-        "Assure は最初のインテレクチュアル・コンパイラーです。生の意図、乱雑な文書、"
-        "非構造化データを数学的に検証可能で監査可能な成果物に変換します。"
+    "brand.category": "決定論的真実エンジン",
+    "brand.eyebrow": "検証済み AI 起草のエンタープライズ標準。",
+    "brand.hero_title": "AI の速度で起草。数学的確実性で検証。",
+    "brand.hero_title_html": (
+        '<span class="text-line">AI の速度で起草。</span>'
+        '<span class="text-line">数学的確実性で\u00a0検証。</span>'
     ),
-    "brand.architecture_title": "仕組み · Assure — 知能コンパイラ",
+    "brand.tagline": "検証済み AI 起草のエンタープライズ標準。",
+    "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
+    "brand.tagline_html": "決定論的真実エンジン",
+    "brand.page_title": "Assure AI — ハイステークス専門家のための決定論的真実エンジン",
+    "brand.meta_description": (
+        "Assure AI は保険・法務・コンプライアンスの専門家向けに構築された決定論的真実エンジンです。"
+        "出力前に引用・除外条項・財務数値を数学的に根拠付けします。"
+    ),
+    "brand.architecture_title": "仕組み · Assure — 決定論的真実エンジン",
     "brand.architecture_meta_description": (
         "推測がなぜ失敗するのか—Assure が意図を自信を持って届けられる検証済みドキュメントに変える方法。"
     ),
@@ -6707,10 +7413,69 @@ JA = {
     "landing.nav.sandbox": "信頼",
     "landing.nav.launch": "アプリを起動",
     "landing.nav.menu": "メニュー",
-    "landing.hero.sub": "The enterprise document platform that proves every word, number, and clause before you ship.",
+    "landing.hero.subtitle": "もっともらしい AI はリスクです。Assure がリスクを下げます。",
+    "landing.hero.badge": "エンタープライズ対応 · 独自キーを持ち込み · 7言語",
+    "landing.hero.cta_primary": "エンタープライズパイロットを依頼",
+    "landing.hero.cta_secondary": "60 秒 Red-Hat 監査を実行",
     "landing.hero.cta.paste": "エンタープライズパイロットを依頼",
-    "landing.hero.cta.architecture": "60秒の実証を見る",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "60 秒 Red-Hat 監査を実行",
+    "landing.hero.caption": "コンパイル。検証。出荷するものを信頼する。",
+    "landing.proof.title": "1 つのエンジン。3 つのハイステークスワークフロー。",
+    "landing.proof.title_html": (
+        '<span class="text-line">1 つのエンジン。</span>'
+        '<span class="text-line">3 つのハイステークスワークフロー。</span>'
+    ),
+    "landing.proof.tab1.title": "カバレッジ顧問・訴訟弁護士",
+    "landing.proof.tab1.body": (
+        "未検証の引用を提出しない。Assure の Z3 論理エンジンは引用する判例・法令・ポリシー除外を"
+        "正確なソースページに根拠付けます。AI の速度でカバレッジ意見書と動議を起草し、"
+        "相手方弁護士に渡せるページ単位のプロvenance を添付。"
+    ),
+    "landing.proof.tab2.title": "公定損害鑑定人・リスクマネージャー",
+    "landing.proof.tab2.body": (
+        "手読みでは見逃すカバレッジギャップを発見。Assure の Red-Hat エンジンがアップロードした"
+        "マスターポリシーに対して拒否請求をストレステストし、矛盾・根拠のない除外・"
+        "不一致の数値を各所のソースページ付きでフラグ。"
+    ),
+    "landing.proof.tab3.title": "コンプライアンス担当",
+    "landing.proof.tab3.body": (
+        "コンプライアンス草稿の各主張はソースに遡ります。Assure の Substrate Vault は各数値と引用を"
+        "アップロードしたポリシーまたは規制の正確なページに固定 — 即座に防御できない内容は出荷しません。"
+    ),
+    "landing.why.title": "もっともらしさはリスク。確実性は競争優位。",
+    "landing.why.title_html": (
+        '<span class="text-line">もっともらしさはリスク。</span>'
+        '<span class="text-line">確実性は競争\u00a0優位。</span>'
+    ),
+    "landing.why.body": (
+        "エクスポート前に、Assure はすべての主張、数値、引用をソース文書と照合して検証します。"
+        "自信を持って出荷できます。標準 AI チャットボットは自信を持って聞こえるよう設計されています — "
+        "財務指標や判例をでっち上げていても。ハイステークスの専門家にとって「正しそうに聞こえる」ことは"
+        "「正しい」ことと同じではありません。Assure は AI の速度とエンタープライズの信頼性のギャップを埋め、"
+        "決定論的かつ数学的に根拠付けされた出力を届けます。"
+    ),
+    "landing.trust.title": "エンタープライズ信頼アーキテクチャ",
+    "landing.plans.lead": "独自のキーをご利用ください。Assure はワークベンチに課金し、モデルには課金しません。",
+    "landing.trust.card1.title": "オーケストレーションエンジン",
+    "landing.trust.card1.body": (
+        "1つの意図。複数の専門モデルが連携。プロンプトエンジニアリング不要。"
+    ),
+    "landing.trust.card2.title": "数学的論理エンジン",
+    "landing.trust.card2.body": (
+        "LLM は推測します。Assure は証明します。すべての数値がソース文書に数学的に根拠付けされます。"
+    ),
+    "landing.trust.card3.title": "敵対的監査",
+    "landing.trust.card3.body": (
+        "出荷前に、Assure はあなた自身の成果を攻撃します。他者が突く矛盾と根拠のない主張を見つけます。"
+    ),
+    "landing.trust.card4.title": "監査対応エクスポート",
+    "landing.trust.card4.body": (
+        "完全な監査 dossier をエクスポート — 暗号ロック、Red-Hat 所見、レビュアー承認。ワンクリック、完全なプロvenance。"
+    ),
+    "landing.footer.engineer_tagline": (
+        "セキュア by デザイン。当社サーバーで処理、モデル学習には一切使用しません。"
+    ),
+    "landing.footer.back_top": "ページ上部へ",
     "landing.demo.aria": "インタラクティブなワークベンチプレビュー",
     "landing.demo.tablist": "職種を選ぶ",
     "landing.demo.tab.journalism": "調査記者",
@@ -6828,7 +7593,7 @@ JA = {
     "landing.cta.sub": "数学的確実性に基づくドキュメントエンジニアリング。",
     "landing.cta.btn": "Assure ワークスペースを起動",
     "landing.social_proof": "高リスク機関の分析官、研究者、エンジニアが利用。",
-    "landing.footer.copy": "Assure — インテレクチュアル・コンパイラー — 意図をコンパイル。論理を検証。真実を届ける。",
+    "landing.footer.copy": "Assure — 決定論的真実エンジン",
     "stream.reconnect": "接続が切れました — 再試行中…",
     "context": "追加の文脈（任意）",
     "file": "ファイルを添付（任意）",
@@ -6843,7 +7608,63 @@ JA = {
     "founder.draft.placeholder": "ここに下書きを書くか、⌘K を押して開始してください。",
     "founder.attach_sources": "ソースを添付",
     "founder.show_workspaces": "ワークスペースを表示",
-    "founder.cmdk_btn": "⚡ 指令… (⌘K)",
+    "founder.document.untitled": "無題のドキュメント",
+    "founder.runs.title": "実行",
+    "founder.runs.untitled": "実行",
+    "founder.runs.one_verified_claim": "1 件の検証済みクレーム",
+    "founder.runs.verified_claims": "{count} 件の検証済みクレーム",
+    "founder.runs.empty_all": "実行がありません。⌘K で調査を開始してください。",
+    "founder.runs.empty_grounded": "グラウンディング済みの実行がありません。ソースを添付して決定論的ロックを生成してください。",
+    "founder.runs.empty_redhat": "Red-Hat 監査がありません。下書きで Red-Hat を実行してください。",
+    "founder.runs.empty_dossier": "エクスポート可能な実行がありません。検証を完了してドシエを作成してください。",
+    "founder.state_rail.label": "ワークベンチ段階",
+    "founder.state_rail.directive": "調査",
+    "founder.state_rail.directive_tip": "調査 (⌘K)",
+    "founder.state_rail.runs": "実行",
+    "founder.state_rail.runs_tip": "実行 (Shift+2)",
+    "founder.state_rail.grounded": "グラウンディング保管庫",
+    "founder.state_rail.grounded_tip": "グラウンディング保管庫 (Shift+3)",
+    "founder.state_rail.grounded_verified": "グラウンディング保管庫（{count} 件のクレーム検証済み）",
+    "founder.state_rail.redhat": "Red-Hat 監査",
+    "founder.state_rail.redhat_tip": "Red-Hat 監査 (Shift+4)",
+    "founder.state_rail.dossier": "ドシエエクスポート",
+    "founder.state_rail.dossier_tip": "ドシエエクスポート (Shift+5)",
+    "founder.cmdk_btn": "⚡ 調査… (⌘K)",
+    "founder.export.dossier": "検証済みドシエをエクスポート",
+    "founder.export.dossier_title": "正式検証証明書をエクスポート",
+    "founder.runs.collapse_aria": "実行スタックを折りたたむ",
+    "founder.runs.collapse": "折りたたむ",
+    "founder.runs.send_draft": "下書きに送る",
+    "founder.runs.delete": "削除",
+    "founder.runs.delete_aria": "実行を削除",
+    "founder.runs.status.stamped": "スタンプ済み",
+    "founder.runs.status.contradiction": "矛盾",
+    "founder.runs.status.draft": "下書き",
+    "founder.runs.running": "実行中…",
+    "founder.runs.dismiss_prompt": "却下理由（必須）：",
+    "evidence.inspector.close": "証拠インスペクターを閉じる",
+    "evidence.inspector.title": "証拠インスペクター",
+    "evidence.inspector.lock_hash": "ロックハッシュ：",
+    "evidence.inspector.source": "ソース：",
+    "evidence.inspector.goto": "ソースへ移動",
+    "evidence.inspector.loading": "ソースを読み込み中…",
+    "evidence.inspector.no_text": "このソースから抽出されたテキストはありません。",
+    "evidence.inspector.load_error": "ソースドキュメントを読み込めませんでした。",
+    "evidence.inspector.no_source": "このロックにリンクされたソースはありません。",
+    "evidence.inspector.unanchored": "未アンカーのロック",
+    "command.bar.label": "調査内容",
+    "command.bar.placeholder": "何を調査または起草しますか？",
+    "command.bar.drop_aria": "ソースファイルをドロップ（任意）",
+    "command.bar.drop_hint": "ここにソースファイルをドロップ（任意）— または Enter で実行",
+    "command.bar.status_compiling": "プロンプトをコンパイル中… {intent}{fallback}",
+    "command.bar.web_fallback": " · Web フォールバック",
+    "command.bar.status_routing": "ルーティング中… {intent} · {count} ソース{ms}",
+    "command.bar.enter_directive": "最初に調査内容を入力してください。",
+    "command.bar.running": "検証を実行中…",
+    "settings.api_key_banner": "API キーが必要ですか？",
+    "settings.api_key_link": "Assure Workspace を開く →",
+    "jdf.workbench.aria": "ドキュメントエンジニアリング",
+    "stepper.workflow": "ドキュメントワークフロー",
     "founder.workspace.untitled": "無題のワークスペース",
     "founder.sources.close": "ソースを閉じる",
     "substrate.vault.empty": "ファイルがアップロードされていません。ドラッグ&ドロップまたはクリックしてアップロードしてください。",
@@ -7199,6 +8020,24 @@ JA = {
     "pricing.pro.3": "Stripe を本番キーに切り替えるまでテスト決済のみです。",
     "privacy.page.title": "プライバシー",
     "privacy.page.lead": "クラウドにはメール、プラン、クレジット利用、暗号化した API キーを置きます。質問と答えはこのパソコンに残ります。",
+    "privacy.enterprise.page_title": "プライバシーポリシー · Assure AI",
+    "privacy.enterprise.meta": "Assure AI がデータを収集・利用・保護する方法。",
+    "privacy.enterprise.title": "プライバシーポリシー",
+    "privacy.enterprise.updated": "最終更新：2026年9月8日",
+    "privacy.enterprise.summary": "サービス運営に必要なデータのみを保存します。お客様のデータをモデル訓練に使用することはありません。",
+    "privacy.enterprise.toc_title": "クイックリンク",
+    "privacy.enterprise.s1.title": "収集するデータ",
+    "privacy.enterprise.s2.title": "データの利用方法",
+    "privacy.enterprise.s3.title": "データの共有",
+    "privacy.enterprise.s4.title": "お客様の権利",
+    "privacy.enterprise.s5.title": "データセキュリティ",
+    "privacy.enterprise.s6.title": "データ保持",
+    "privacy.enterprise.s7.title": "児童のプライバシー",
+    "privacy.enterprise.s8.title": "免責事項 — AI 生成コンテンツ",
+    "privacy.enterprise.s9.title": "データ処理契約",
+    "privacy.enterprise.s10.title": "国際データ転送",
+    "privacy.enterprise.s11.title": "本ポリシーの変更",
+    "privacy.enterprise.s12.title": "お問い合わせ",
     "privacy.cloud": "クラウド上",
     "privacy.cloud.body": "ログインすると、メール、free または pro、Stripe の顧客 id、クレジット利用、暗号化した API キーを保存します。質問と回答は保存しません。",
     "privacy.local": "このパソコン上",
@@ -7621,7 +8460,9 @@ JA = {
     "analytics.kpi.issues": "未解決の問題",
     "privacy.chip.closed": "インターネットに閉じています",
     "privacy.chip.open": "{name} に接続",
-    "privacy.chip.tip.closed": "コピーはここに残ります。質問はこのコンピュータに残ります。",
+    "privacy.chip.tip.closed": (
+        "インターネットに閉じた：Assure の安全なサーバーで処理され、第三者プロバイダーには送信されません。"
+    ),
     "privacy.chip.tip.open": "コピーはここに残ります。送信は {name} だけです。",
     "trust.conf.pending": "信頼度の確認は保留中です。主張をファイルと照合してください。",
     "go.copy.hint": "Option クリック、または Cmd/Ctrl + Shift + Enter でプロンプトをコピーします。",
@@ -7864,19 +8705,23 @@ TR = {
     "workbench.status.health_working": "Taslak üzerinde çalışılıyor…",
     "workbench.status.health_cached": "⚡ Bellekten – Anında yüklendi.",
     "hero": "Assure",
-    "brand.category": "Zihinsel Derleyici",
-    "brand.eyebrow": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
-    "brand.hero_title": "Sıfır halüsinasyon. Mutlak doğrulama.",
-    "brand.tagline": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
+    "brand.category": "Deterministik Gerçek Motoru",
+    "brand.eyebrow": "Doğrulanmış AI taslağı için kurumsal standart.",
+    "brand.hero_title": "AI hızında taslak yazın. Matematiksel kesinlikle doğrulayın.",
+    "brand.hero_title_html": (
+        '<span class="text-line">AI hızında taslak yazın.</span>'
+        '<span class="text-line">Matematiksel kesinlikle\u00a0doğrulayın.</span>'
+    ),
+    "brand.tagline": "Doğrulanmış AI taslağı için kurumsal standart.",
     "how.restructure": "Bir soru yazarsın. Assure, seçtiğin yapay zeka için promptu yeniden yazar. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtla onu o sağlayıcıya gönderir. Kopya bu bilgisayarda kalır.",
     "tagline_html": 'Doğru soru <span class="trust">güvenilir</span> yanıt üretir.',
-    "brand.tagline_html": "Zihinsel Derleyici",
-    "brand.page_title": "Assure AI — Sıfır halüsinasyon. Mutlak doğrulama.",
+    "brand.tagline_html": "Deterministik Gerçek Motoru",
+    "brand.page_title": "Assure AI — Yüksek Riskli Profesyoneller İçin Deterministik Gerçek Motoru",
     "brand.meta_description": (
-        "Assure, ham niyet, dağınık belgeler ve yapılandırılmamış verileri "
-        "matematiksel olarak doğrulanmış, denetlenebilir teslimatlara dönüştüren ilk Zihinsel Derleyicidir."
+        "Assure AI, sigorta, hukuk ve uyum profesyonelleri için her alıntı, istisna ve finansal rakamı "
+        "göndermeden önce matematiksel olarak temellendiren deterministik gerçek motorudur."
     ),
-    "brand.architecture_title": "Nasıl çalışır · Assure — Zihinsel Derleyici",
+    "brand.architecture_title": "Nasıl çalışır · Assure — Deterministik Gerçek Motoru",
     "brand.architecture_meta_description": (
         "Tahmin etmenin neden başarısız olduğu—Assure'un niyetinizi güvenle teslim edebileceğiniz doğrulanmış belgelere dönüştürmesi."
     ),
@@ -8041,10 +8886,73 @@ TR = {
     "landing.nav.sandbox": "Güven",
     "landing.nav.launch": "Uygulamayı aç",
     "landing.nav.menu": "Menü",
-    "landing.hero.sub": "Göndermeden önce her sözcüğü, sayıyı ve maddeyi kanıtlayan kurumsal belge platformu.",
+    "landing.hero.subtitle": "İnandırıcı yapay zeka bir risktir. Assure riski azaltır.",
+    "landing.hero.badge": "Şirket düzeyinde hazır · Kendi anahtarlarınızı getirin · 7 dil",
+    "landing.hero.cta_primary": "Şirket piloğu talep et",
+    "landing.hero.cta_secondary": "60 saniyelik Red-Hat denetimi çalıştır",
     "landing.hero.cta.paste": "Şirket piloğu talep et",
-    "landing.hero.cta.architecture": "60 saniyelik kanıtı gör",
-    "landing.hero.caption": "You compile. It verifies. You ship.",
+    "landing.hero.cta.architecture": "60 saniyelik Red-Hat denetimi çalıştır",
+    "landing.hero.caption": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
+    "landing.proof.title": "Tek motor. Üç yüksek riskli iş akışı.",
+    "landing.proof.title_html": (
+        '<span class="text-line">Tek motor.</span>'
+        '<span class="text-line">Üç yüksek riskli iş\u00a0akışı.</span>'
+    ),
+    "landing.proof.tab1.title": "Kapsam Danışmanları ve Dava Avukatları",
+    "landing.proof.tab1.body": (
+        "Doğrulanmamış alıntı asla göndermeyin. Assure'un Z3 mantık motoru, atıf yaptığınız her emsal, "
+        "kanun ve poliçe istisnasını tam kaynak sayfasına bağlar. AI hızıyla kapsam görüşleri ve "
+        "dilekçeler yazın; karşı tarafa verebileceğiniz sayfa düzeyinde kaynak iziyle."
+    ),
+    "landing.proof.tab2.title": "Kamu Eksperleri ve Risk Yöneticileri",
+    "landing.proof.tab2.body": (
+        "Manuel okumanın kaçırdığı kapsam boşluklarını ortaya çıkarın. Assure'un Red-Hat motoru, "
+        "yüklediğiniz ana poliçeye karşı ret taleplerini stres testine tabi tutar; çelişkileri, "
+        "desteksiz istisnaları ve tutmayan rakamları — her bulgu için kaynak sayfasıyla — işaretler."
+    ),
+    "landing.proof.tab3.title": "Uyum Görevlileri",
+    "landing.proof.tab3.body": (
+        "Uyum taslaklarınızdaki her iddia bir kaynağa iz sürer. Assure'un Substrate Vault'u her rakamı "
+        "ve alıntıyı yüklediğiniz poliçe veya düzenlemenin tam sayfasına sabitler — hemen savunamayacağınız "
+        "hiçbir şey gönderilmez."
+    ),
+    "landing.why.title": "Olasılık bir risktir. Kesinlik rekabet avantajıdır.",
+    "landing.why.title_html": (
+        '<span class="text-line">Olasılık bir risktir.</span>'
+        '<span class="text-line">Kesinlik rekabet\u00a0avantajıdır.</span>'
+    ),
+    "landing.why.body": (
+        "Dışa aktarmadan önce Assure her iddiayı, her rakamı ve her alıntıyı kaynak belgelerinize göre "
+        "doğrular. Güvenle gönderirsiniz. Standart AI sohbet botları kendinden emin duyulacak şekilde "
+        "tasarlanmıştır — finansal metrikler veya hukuki emsaller uydururken bile. Yüksek riskli "
+        "profesyoneller için 'doğru duymak', 'doğru olmak' ile aynı şey değildir. Assure, AI hızı ile "
+        "kurumsal güvenilirlik arasındaki boşluğu kapatır; deterministik ve matematiksel olarak kaynaklı "
+        "çıktılar sunar."
+    ),
+    "landing.trust.title": "Şirket düzeyinde güven mimarisi",
+    "landing.plans.lead": "Kendi anahtarlarınızı getirin. Assure model değil, tezgah için ücret alır.",
+    "landing.trust.card1.title": "Orkestrasyon Motoru",
+    "landing.trust.card1.body": (
+        "Tek niyet. Uyum içinde çalışan birden fazla uzmanlaşmış model. Prompt mühendisliği gerekmez."
+    ),
+    "landing.trust.card2.title": "Matematiksel Mantık Motoru",
+    "landing.trust.card2.body": (
+        "LLM'ler tahmin eder. Assure kanıtlar. Her rakam kaynak belgelerinizde matematiksel olarak temellendirilir."
+    ),
+    "landing.trust.card3.title": "Düşmanca Denetim",
+    "landing.trust.card3.body": (
+        "Göndermeden önce Assure kendi çalışmanıza saldırır. Başkalarının istismar edeceği çelişkileri "
+        "ve desteksiz iddiaları bulur."
+    ),
+    "landing.trust.card4.title": "Denetime Hazır Dışa Aktarma",
+    "landing.trust.card4.body": (
+        "Tam bir denetim dosyası dışa aktarın — kriptografik kilitler, Red-Hat bulguları, inceleyici onayları. "
+        "Tek tık, tam kaynak izi."
+    ),
+    "landing.footer.engineer_tagline": (
+        "Tasarım gereği güvenli. Sunucularımızda işlenir, modellerimizi eğitmek için asla kullanılmaz."
+    ),
+    "landing.footer.back_top": "Başa dön",
     "landing.demo.aria": "Etkileşimli tezgah önizlemesi",
     "landing.demo.tablist": "Meslek senaryosu seçin",
     "landing.demo.tab.journalism": "Araştırmacı gazeteci",
@@ -8162,7 +9070,7 @@ TR = {
     "landing.cta.sub": "Matematiksel kesinlikle desteklenen belge mühendisliği.",
     "landing.cta.btn": "Assure çalışma alanını aç",
     "landing.social_proof": "Yüksek sonuçlu kurumlarda analist, araştırmacı ve mühendisler tarafından kullanılır.",
-    "landing.footer.copy": "Assure — Yapay zeka tahmin eder. Assure kanıtlar. — Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.",
+    "landing.footer.copy": "Assure — Deterministik Gerçek Motoru",
     "stream.reconnect": "Bağlantı koptu — yeniden deneniyor…",
     "context": "Ek bağlam (isteğe bağlı)",
     "context.placeholder": "Notlar, veya ./src/app.py gibi bir dosya yolu",
@@ -8178,7 +9086,63 @@ TR = {
     "founder.draft.placeholder": "Taslağınızı buraya yazın veya başlamak için ⌘K tuşuna basın.",
     "founder.attach_sources": "Kaynak ekle",
     "founder.show_workspaces": "Çalışma alanlarını göster",
-    "founder.cmdk_btn": "⚡ Yönerge… (⌘K)",
+    "founder.document.untitled": "Adsız Belge",
+    "founder.runs.title": "Çalıştırmalar",
+    "founder.runs.untitled": "Çalıştırma",
+    "founder.runs.one_verified_claim": "1 doğrulanmış iddia",
+    "founder.runs.verified_claims": "{count} doğrulanmış iddia",
+    "founder.runs.empty_all": "Henüz çalıştırma yok. Başlamak için ⌘K tuşuna basın.",
+    "founder.runs.empty_grounded": "Temellendirilmiş çalıştırma yok. Deterministik kilitler için kaynak ekleyin.",
+    "founder.runs.empty_redhat": "Red-Hat denetimi yok. Bir taslakta Red-Hat çalıştırın.",
+    "founder.runs.empty_dossier": "Dışa aktarmaya hazır çalıştırma yok. Dosya oluşturmak için doğrulamayı tamamlayın.",
+    "founder.state_rail.label": "Tezgah aşamaları",
+    "founder.state_rail.directive": "Soru",
+    "founder.state_rail.directive_tip": "Soru (⌘K)",
+    "founder.state_rail.runs": "Çalıştırmalar",
+    "founder.state_rail.runs_tip": "Çalıştırmalar (Shift+2)",
+    "founder.state_rail.grounded": "Temellendirme Kasası",
+    "founder.state_rail.grounded_tip": "Temellendirme Kasası (Shift+3)",
+    "founder.state_rail.grounded_verified": "Temellendirme Kasası ({count} iddia doğrulandı)",
+    "founder.state_rail.redhat": "Red-Hat Denetimi",
+    "founder.state_rail.redhat_tip": "Red-Hat Denetimi (Shift+4)",
+    "founder.state_rail.dossier": "Dosya Dışa Aktarma",
+    "founder.state_rail.dossier_tip": "Dosya Dışa Aktarma (Shift+5)",
+    "founder.cmdk_btn": "⚡ Soru… (⌘K)",
+    "founder.export.dossier": "Doğrulanmış dosyayı dışa aktar",
+    "founder.export.dossier_title": "Resmi doğrulama sertifikasını dışa aktar",
+    "founder.runs.collapse_aria": "Çalıştırma yığınını daralt",
+    "founder.runs.collapse": "Daralt",
+    "founder.runs.send_draft": "Taslağa gönder",
+    "founder.runs.delete": "Sil",
+    "founder.runs.delete_aria": "Çalıştırmayı sil",
+    "founder.runs.status.stamped": "Damgalı",
+    "founder.runs.status.contradiction": "Çelişki",
+    "founder.runs.status.draft": "Taslak",
+    "founder.runs.running": "Çalışıyor…",
+    "founder.runs.dismiss_prompt": "Red gerekçesi (zorunlu):",
+    "evidence.inspector.close": "Kanıt denetleyicisini kapat",
+    "evidence.inspector.title": "Kanıt Denetleyici",
+    "evidence.inspector.lock_hash": "Kilit özeti:",
+    "evidence.inspector.source": "Kaynak:",
+    "evidence.inspector.goto": "Kaynağa git",
+    "evidence.inspector.loading": "Kaynak yükleniyor…",
+    "evidence.inspector.no_text": "Bu kaynak için çıkarılmış metin yok.",
+    "evidence.inspector.load_error": "Kaynak belgesi yüklenemedi.",
+    "evidence.inspector.no_source": "Bu kilide bağlı kaynak yok.",
+    "evidence.inspector.unanchored": "Bağlanmamış kilit",
+    "command.bar.label": "Ne incelenecek?",
+    "command.bar.placeholder": "Ne inceliyor veya taslak olarak yazıyoruz?",
+    "command.bar.drop_aria": "Kaynak dosyalarını bırak (isteğe bağlı)",
+    "command.bar.drop_hint": "Kaynak dosyalarını buraya bırak (isteğe bağlı) — veya Enter ile çalıştır",
+    "command.bar.status_compiling": "İstem derleniyor… {intent}{fallback}",
+    "command.bar.web_fallback": " · web yedek",
+    "command.bar.status_routing": "Yönlendiriliyor… {intent} · {count} kaynak{ms}",
+    "command.bar.enter_directive": "Önce bir soru yazın.",
+    "command.bar.running": "Doğrulama çalışıyor…",
+    "settings.api_key_banner": "API anahtarı mı gerekiyor?",
+    "settings.api_key_link": "Assure Workspace'i aç →",
+    "jdf.workbench.aria": "Belge mühendisliği",
+    "stepper.workflow": "Belge iş akışı",
     "founder.workspace.untitled": "Adsız çalışma alanı",
     "founder.sources.close": "Kaynakları kapat",
     "substrate.vault.empty": "Yüklenmiş dosya yok. Sürükleyip bırakın veya yüklemek için tıklayın.",
@@ -8225,7 +9189,7 @@ TR = {
     "surgical.click.title": "Bu iddiayı düzelt",
     "surgical.click.refine_ai": "YZ ile iyileştir",
     "surgical.click.ground_vault": "Kasadan temellendir",
-    "surgical.click.instruction_label": "Yönergeler",
+    "surgical.click.instruction_label": "İsteğiniz",
     "surgical.click.instruction_placeholder": "Neyi değiştirmek istersiniz?",
     "surgical.click.apply": "Uygula",
     "surgical.click.cancel": "İptal",
@@ -8492,6 +9456,27 @@ TR = {
     "pricing.pro.3": "Stripe'ı canlı anahtarlara geçirene kadar yalnızca test ödemeleri.",
     "privacy.page.title": "Gizlilik",
     "privacy.page.lead": "Bulutta e-posta, plan, kredi kullanımı ve şifreli API anahtarları durur. Sorular ve yanıtlar bu bilgisayarda kalır.",
+    "privacy.enterprise.page_title": "Gizlilik Politikası · Assure AI",
+    "privacy.enterprise.meta": "Assure AI verilerinizi nasıl toplar, kullanır ve korur.",
+    "privacy.enterprise.title": "Gizlilik Politikası",
+    "privacy.enterprise.updated": "Son güncelleme: 8 Eylül 2026",
+    "privacy.enterprise.summary": (
+        "Yalnızca hizmeti işletmek için gerekli verileri saklarız. "
+        "Verilerinizi modellerimizi eğitmek için asla kullanmayız."
+    ),
+    "privacy.enterprise.toc_title": "Hızlı bağlantılar",
+    "privacy.enterprise.s1.title": "Topladığımız veriler",
+    "privacy.enterprise.s2.title": "Verilerinizi nasıl kullanırız",
+    "privacy.enterprise.s3.title": "Veri paylaşımı",
+    "privacy.enterprise.s4.title": "Haklarınız",
+    "privacy.enterprise.s5.title": "Veri güvenliği",
+    "privacy.enterprise.s6.title": "Veri saklama",
+    "privacy.enterprise.s7.title": "Çocukların gizliliği",
+    "privacy.enterprise.s8.title": "Sorumluluk reddi — yapay zekâ içeriği",
+    "privacy.enterprise.s9.title": "Veri işleme sözleşmesi",
+    "privacy.enterprise.s10.title": "Uluslararası aktarımlar",
+    "privacy.enterprise.s11.title": "Bu politikadaki değişiklikler",
+    "privacy.enterprise.s12.title": "Bize ulaşın",
     "privacy.cloud": "Bulutta",
     "privacy.cloud.body": "Giriş yaparsan e-posta, free veya pro katmanı, Stripe müşteri id'si, kredi kullanımı ve şifreli API anahtarları saklanır. Soru ve yanıt saklanmaz.",
     "privacy.local": "Bu bilgisayarda",
@@ -8913,7 +9898,9 @@ TR = {
     "analytics.kpi.issues": "Açık sorunlar",
     "privacy.chip.closed": "İnternete kapalı",
     "privacy.chip.open": "{name} bağlı",
-    "privacy.chip.tip.closed": "Kopya burada kalır. Soru bu bilgisayarda kalır.",
+    "privacy.chip.tip.closed": (
+        "İnternete kapalı: Assure'un güvenli sunucularında işlenir, üçüncü taraf sağlayıcıya asla gönderilmez."
+    ),
     "privacy.chip.tip.open": "Kopya burada kalır. Gönderim yalnızca {name} gider.",
     "trust.conf.pending": "Güven denetimi bekleniyor. İddiaları dosyalarına göre gözden geçir.",
     "go.copy.hint": "Option tık veya Cmd/Ctrl + Shift + Enter promptu kopyalar.",
@@ -9132,6 +10119,12 @@ def catalog(lang: str | None = None) -> dict[str, str]:
     locale = normalize_locale(lang)
     base = dict(EN)
     base.update(CATALOGS.get(locale) or {})
+    try:
+        from prompt_matrix.privacy_enterprise import privacy_body_html
+
+        base["privacy.enterprise.body_html"] = privacy_body_html(locale)
+    except OSError:
+        pass
     return base
 
 

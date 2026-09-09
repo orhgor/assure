@@ -2,10 +2,10 @@
 
 **Purpose:** Single document for launch readiness, market assessment, positioning, feature inventory, and development history.
 **Product:** Assure (workbench) · **Engine:** PEM (`prompt_matrix`)
-**Last updated:** 2026-09-04
-**Decision:** **GO (production)** — `getassureai.com` healthy at `1b21f8b`; fix remaining P1 (Clerk gate) before wide promotion
-**Tests:** 291 pytest passed, 1 failed (`test_resolve_lock_inference_model`); App Docker green
-**Live site:** https://getassureai.com/ · app branch `p4-account-wallet` · UI `assure-64` / `assure-55`
+**Last updated:** 2026-09-09
+**Decision:** **GO (production)** — marketing on R2; workbench at `1d6bf798` (prod UI `assure-122`). Staging EC2 **502** (disk full) — execute [staging-launch-execution.md](./runbooks/staging-launch-execution.md) when box is available.
+**Tests:** **654** pytest collected locally; Playwright founder suite 15/15 on PR #30
+**Live site:** https://getassureai.com/ · `main` @ `1d6bf79` · staging git @ `fe73790` (not deployed)
 
 ---
 
@@ -37,10 +37,10 @@ Assure is a **local AI workbench** that translates plain questions into model-sp
 | Area | Status |
 | :--- | :--- |
 | **Public website** | Live at `getassureai.com` + `www` (200). BYOK pricing copy deployed. GA4 live and disclosed. |
-| **Core product** | Compile → Z3 / Red-Hat → JDF canvas → Refine (and local node menu) → Export DOCX + Audit Manifest. |
+| **Core product** | Compile → Z3 / Red-Hat → JDF canvas → Refine → Export DOCX + Audit Manifest. Production at v3.2.0 groundrails. |
 | **i18n** | All 7 locales on workbench and landing marketing strings (`en es zh fr de ja tr`). |
 | **Distribution** | Source install only. No PyPI. No public desktop download. Waitlist on site. |
-| **Launch** | Production GO at `1b21f8b`. Clerk gate and backup cron still open. |
+| **Launch** | Production GO at `1d6bf798`. Staging EC2 down (disk). Clerk not configured — no sign-in wall. |
 
 **One line:** Talk to AI like a colleague — we handle the translation and the check. You bring your own API keys; Assure charges for the workbench, not the models.
 

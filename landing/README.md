@@ -1,5 +1,7 @@
 # getassureai.com (canonical)
 
+**Master reference:** [docs/webpage-all-content.md](../docs/webpage-all-content.md) — all routes, live vs static stacks, copy sources.
+
 Public Assure AI is served **directly from EC2** through Cloudflare Tunnel:
 
 - **https://getassureai.com/** — landing + paste sandbox

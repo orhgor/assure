@@ -22,7 +22,9 @@ logs/
 
 # Build outputs
 dist/
+dist-test-render/
 build/
+.cache/
 
 # IDE
 .vscode/
