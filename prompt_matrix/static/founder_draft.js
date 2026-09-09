@@ -78,7 +78,19 @@
     var ed = editorApi.getEditor && editorApi.getEditor();
     if (ed && isBlank) {
       try {
-        ed.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] }, false);
+        ed.commands.setContent(
+          {
+            type: "doc",
+            content: [
+              {
+                type: "jdfParagraph",
+                attrs: { nodeId: "", gutter: "unverified" },
+                content: [],
+              },
+            ],
+          },
+          false
+        );
       } catch (_) {}
       draftTree = emptyDoc();
       delete draftTree.meta.founder_blank;

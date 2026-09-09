@@ -123,6 +123,17 @@
           });
           return;
         }
+        if (ntype === "code_block" || ntype === "codeBlock") {
+          var codeText = String(node.content || "");
+          content.push({
+            type: "codeBlock",
+            attrs: {
+              language: String(node.language || node.lang || ""),
+            },
+            content: codeText ? [{ type: "text", text: codeText }] : [],
+          });
+          return;
+        }
         var para = paragraphJson(node.content || "");
         var lockPills = (node.meta && node.meta.lock_pills) || [];
         if (lockPills.length) {
@@ -211,6 +222,19 @@
         }
         if (!payload.id) payload.id = (node.attrs && node.attrs.nodeId) || newNodeId("tbl");
         current.children.push(payload);
+        return;
+      }
+      if (node.type === "codeBlock") {
+        var codeId = (node.attrs && node.attrs.nodeId) || newNodeId("cb");
+        var oldCode = lookupOld(previousTree, codeId);
+        current.children.push({
+          type: "code_block",
+          id: codeId,
+          language: String((node.attrs && node.attrs.language) || ""),
+          content: textContent(node),
+          annotations: (oldCode && oldCode.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (oldCode && oldCode.meta) || {}),
+        });
         return;
       }
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
@@ -751,6 +775,39 @@
       },
     });
 
+    var CodeFenceBridge = T.Extension.create({
+      name: "codeFenceBridge",
+      priority: 1000,
+      addProseMirrorPlugins: function () {
+        return [
+          new T.Plugin({
+            props: {
+              handleTextInput: function (view, _from, _to, text) {
+                if (text !== " " && text !== "\n") return false;
+                var state = view.state;
+                var $from = state.selection.$from;
+                var block = $from.parent;
+                if (!block.isTextblock || block.type.name === "codeBlock") return false;
+                var prior = block.textBetween(0, $from.parentOffset, undefined, "\0");
+                var match = prior.match(/^```([a-zA-Z0-9_-]+)$/) || prior.match(/^~~~([a-zA-Z0-9_-]+)$/);
+                var plain = prior === "```" || prior === "~~~";
+                if (!match && !plain) return false;
+                var lang = match ? match[1] : "";
+                var codeBlock = state.schema.nodes.codeBlock;
+                if (!codeBlock) return false;
+                var tr = state.tr;
+                var start = $from.start();
+                tr.delete(start, $from.pos);
+                tr.setBlockType(start, start, codeBlock, { language: lang });
+                view.dispatch(tr);
+                return true;
+              },
+            },
+          }),
+        ];
+      },
+    });
+
     return {
       JdfParagraph: JdfParagraph,
       JdfCallout: JdfCallout,
@@ -760,6 +817,7 @@
       LockDecorations: LockDecorations,
       ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
+      CodeFenceBridge: CodeFenceBridge,
       confidencePluginKey: confidencePluginKey,
     };
   }
@@ -773,7 +831,9 @@
         bulletList: false,
         orderedList: false,
         listItem: false,
-        codeBlock: false,
+        codeBlock: {
+          languageClassPrefix: "language-",
+        },
         blockquote: false,
         horizontalRule: false,
       }),
@@ -781,6 +841,7 @@
       ext.JdfParagraph,
       ext.JdfCallout,
       ext.JdfTable,
+      ext.CodeFenceBridge,
     ];
     if (opts.founderMode) {
       list.push(ext.LockPill);
@@ -1014,7 +1075,26 @@
 
   var editor = null;
   var saveTimer = null;
+  var codeBlockTimer = null;
   var confidencePluginKeyRef = null;
+
+  function scheduleCodeBlockDecorations(rootEl) {
+    if (codeBlockTimer) clearTimeout(codeBlockTimer);
+    codeBlockTimer = setTimeout(function () {
+      var run = function () {
+        if (global.AssureCodeBlocks && typeof global.AssureCodeBlocks.decorate === "function") {
+          global.AssureCodeBlocks.decorate(rootEl || document);
+        }
+      };
+      if (typeof global.requestAnimationFrame === "function") {
+        global.requestAnimationFrame(function () {
+          global.requestAnimationFrame(run);
+        });
+      } else {
+        run();
+      }
+    }, 0);
+  }
 
   function applyConfidenceToTipTap() {
     if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
@@ -1087,6 +1167,7 @@
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },
       onUpdate: function () {
+        scheduleCodeBlockDecorations(rootEl);
         if (onUpdateExternal) {
           onUpdateExternal(editor);
           return;
@@ -1106,6 +1187,7 @@
       },
     });
       rootEl.classList.add("is-tiptap");
+      scheduleCodeBlockDecorations(rootEl);
       if (typeof global.initializeEditorSyncBridge === "function") {
         global.initializeEditorSyncBridge(editor);
       }
@@ -1144,6 +1226,9 @@
         var json = jdfToTiptap(tree, false);
         editor.commands.setContent(purifyTiptapDoc(json), false);
         applyConfidenceToTipTap();
+        scheduleCodeBlockDecorations(
+          document.querySelector("#founder-draft-editor") || document
+        );
         return true;
       } catch (_) {
         return false;
