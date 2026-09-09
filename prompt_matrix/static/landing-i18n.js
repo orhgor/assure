@@ -33,13 +33,26 @@
     });
   }
 
+  function localeHref(code) {
+    var paths = window.__ASSURE_LOCALE_PATHS;
+    var suffix = window.__ASSURE_PAGE_SUFFIX || "";
+    if (paths && Object.prototype.hasOwnProperty.call(paths, code)) {
+      var base = paths[code] || "/";
+      if (code === "en") {
+        return (suffix ? "/" + suffix : "/") + window.location.hash;
+      }
+      return base + suffix + window.location.hash;
+    }
+    var u = new URL(window.location.href);
+    u.searchParams.set("lang", code);
+    return u.pathname + u.search + u.hash;
+  }
+
   function initLocale() {
     var select = document.getElementById("landing-lang");
     if (!select) return;
     select.addEventListener("change", function () {
-      var u = new URL(window.location.href);
-      u.searchParams.set("lang", select.value);
-      window.location.href = u.pathname + u.search + u.hash;
+      window.location.href = localeHref(select.value);
     });
   }
 

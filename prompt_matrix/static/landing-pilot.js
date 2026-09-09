@@ -20,7 +20,10 @@
     var done = document.getElementById("waitlist-done");
     if (wrap) wrap.hidden = false;
     if (form) form.hidden = false;
-    if (done) done.hidden = true;
+    if (done) {
+      done.hidden = true;
+      done.classList.remove("is-success");
+    }
   }
 
   function bindWaitlist() {
@@ -56,7 +59,8 @@
       var email = emailEl ? String(emailEl.value || "").trim() : "";
       var workflow = workflowEl ? String(workflowEl.value || "").trim() : "";
       var name = workflow ? company + " — " + workflow : company;
-      fetch("/api/waitlist", {
+      var appOrigin = (window.__ASSURE_APP_ORIGIN || "https://app.getassureai.com").replace(/\/$/, "");
+      fetch(appOrigin + "/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name, email: email, workflow: workflow, company: company }),
@@ -74,7 +78,10 @@
           }
           form.hidden = true;
           if (wrap) wrap.hidden = true;
-          if (done) done.hidden = false;
+          if (done) {
+            done.hidden = false;
+            done.classList.add("is-success");
+          }
         })
         .catch(function (error) {
           if (err) {

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('53') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('54') }}">
     {% include 'includes/plausible.html' %}
     {% include 'includes/sentry.html' %}
     <script>
@@ -26,100 +26,62 @@
     <main id="main-content">
         <section class="hero-section">
             <div class="container">
-                <p class="hero-kicker" data-i18n="brand.tagline">{{ brand.tagline }}</p>
-                <h1 data-i18n="brand.hero_title">{{ strings.get('brand.hero_title', 'Zero hallucination. Absolute verification.') }}</h1>
-                <p class="hero-sub" data-i18n="landing.hero.sub">{{ strings.get('landing.hero.sub', 'The enterprise document platform that proves every word, number, and clause before you ship.') }}</p>
+                <h1 data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', strings.get('brand.hero_title', ''))|safe }}</h1>
+                <p class="hero-sub" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', '') }}</p>
                 <div class="hero-cta-group">
-                    <button type="button" class="btn-primary" data-waitlist-open data-i18n="landing.hero.cta.paste">{{ strings.get('landing.hero.cta.paste', 'Request Enterprise Pilot') }}</button>
-                    <a href="#proof" class="btn-secondary" data-i18n="landing.hero.cta.architecture">{{ strings.get('landing.hero.cta.architecture', 'See the 60-Second Proof') }}</a>
+                    <button type="button" class="btn-primary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Request Enterprise Pilot') }}</button>
+                    <a href="#proof" class="btn-secondary" data-i18n="landing.hero.cta_secondary">{{ strings.get('landing.hero.cta_secondary', 'Run a 60-Second Red-Hat Audit') }}</a>
                 </div>
             </div>
         </section>
 
         <section id="proof" class="role-demo">
             <div class="container">
-                <h2 class="section-title" data-i18n="landing.proof.title">{{ strings.get('landing.proof.title', 'See it work for your role.') }}</h2>
+                <h2 class="section-title" data-i18n-html="landing.proof.title_html">{{ strings.get('landing.proof.title_html', strings.get('landing.proof.title', ''))|safe }}</h2>
                 <div class="role-tabs" role="tablist" aria-label="{{ strings.get('landing.proof.tablist', 'Roles') }}">
-                    <button type="button" class="role-tab is-active" role="tab" id="tab-underwriter" aria-selected="true" aria-controls="panel-underwriter" data-role-tab="underwriter" data-i18n="landing.proof.tab.underwriter">{{ strings.get('landing.proof.tab.underwriter', 'Insurance Underwriters') }}</button>
-                    <button type="button" class="role-tab" role="tab" id="tab-compliance" aria-selected="false" aria-controls="panel-compliance" data-role-tab="compliance" data-i18n="landing.proof.tab.compliance">{{ strings.get('landing.proof.tab.compliance', 'Compliance Officers') }}</button>
-                    <button type="button" class="role-tab" role="tab" id="tab-ops" aria-selected="false" aria-controls="panel-ops" data-role-tab="ops" data-i18n="landing.proof.tab.ops">{{ strings.get('landing.proof.tab.ops', 'Technical Operators') }}</button>
+                    <button type="button" class="role-tab is-active" role="tab" id="tab-tab1" aria-selected="true" aria-controls="panel-tab1" data-role-tab="tab1" data-i18n="landing.proof.tab1.title">{{ strings.get('landing.proof.tab1.title', 'Coverage Counsel & Litigators') }}</button>
+                    <button type="button" class="role-tab" role="tab" id="tab-tab2" aria-selected="false" aria-controls="panel-tab2" data-role-tab="tab2" data-i18n="landing.proof.tab2.title">{{ strings.get('landing.proof.tab2.title', 'Public Adjusters & Risk Managers') }}</button>
+                    <button type="button" class="role-tab" role="tab" id="tab-tab3" aria-selected="false" aria-controls="panel-tab3" data-role-tab="tab3" data-i18n="landing.proof.tab3.title">{{ strings.get('landing.proof.tab3.title', 'Compliance Officers') }}</button>
                 </div>
-                <article class="role-panel is-active" role="tabpanel" id="panel-underwriter" aria-labelledby="tab-underwriter" data-role-panel="underwriter">
-                    <div class="role-stage" aria-hidden="true">
-                        <ol class="role-flow">
-                            <li class="role-step"><span>1</span> {{ strings.get('landing.proof.uw.1', 'Extract tables from the binder') }}</li>
-                            <li class="role-step"><span>2</span> {{ strings.get('landing.proof.uw.2', 'Catch math drift before it ships') }}</li>
-                            <li class="role-step"><span>3</span> {{ strings.get('landing.proof.uw.3', 'Cite the exact source page') }}</li>
-                        </ol>
-                        <p class="role-badge">{{ strings.get('landing.proof.uw.badge', 'Locked document') }}</p>
-                    </div>
-                    <p class="role-caption">{{ strings.get('landing.proof.uw.caption', 'This catches calculation errors before your auditors do.') }}</p>
+                <article class="role-panel is-active" role="tabpanel" id="panel-tab1" aria-labelledby="tab-tab1" data-role-panel="tab1">
+                    <p class="role-caption" data-i18n="landing.proof.tab1.body">{{ strings.get('landing.proof.tab1.body', '') }}</p>
                 </article>
-                <article class="role-panel" role="tabpanel" id="panel-compliance" aria-labelledby="tab-compliance" data-role-panel="compliance" hidden>
-                    <div class="role-stage" aria-hidden="true">
-                        <ol class="role-flow">
-                            <li class="role-step"><span>1</span> {{ strings.get('landing.proof.co.1', 'Stress-test the draft for gaps') }}</li>
-                            <li class="role-step"><span>2</span> {{ strings.get('landing.proof.co.2', 'Insert the missing compliance clause') }}</li>
-                            <li class="role-step"><span>3</span> {{ strings.get('landing.proof.co.3', 'Export an unalterable audit package') }}</li>
-                        </ol>
-                        <p class="role-badge">{{ strings.get('landing.proof.co.badge', 'Audit trail') }}</p>
-                    </div>
-                    <p class="role-caption">{{ strings.get('landing.proof.co.caption', 'This protects the firm from liability and builds an audit trail automatically.') }}</p>
+                <article class="role-panel" role="tabpanel" id="panel-tab2" aria-labelledby="tab-tab2" data-role-panel="tab2" hidden>
+                    <p class="role-caption" data-i18n="landing.proof.tab2.body">{{ strings.get('landing.proof.tab2.body', '') }}</p>
                 </article>
-                <article class="role-panel" role="tabpanel" id="panel-ops" aria-labelledby="tab-ops" data-role-panel="ops" hidden>
-                    <div class="role-stage" aria-hidden="true">
-                        <ol class="role-flow">
-                            <li class="role-step"><span>1</span> {{ strings.get('landing.proof.ops.1', 'Validate the document in CI') }}</li>
-                            <li class="role-step"><span>2</span> {{ strings.get('landing.proof.ops.2', 'Detect drift against the last locked version') }}</li>
-                            <li class="role-step"><span>3</span> {{ strings.get('landing.proof.ops.3', 'Pass or fail the build') }}</li>
-                        </ol>
-                        <p class="role-badge">{{ strings.get('landing.proof.ops.badge', 'Pipeline gate') }}</p>
-                    </div>
-                    <p class="role-caption">{{ strings.get('landing.proof.ops.caption', 'This fits the pipeline you already run — no new workflow to learn.') }}</p>
+                <article class="role-panel" role="tabpanel" id="panel-tab3" aria-labelledby="tab-tab3" data-role-panel="tab3" hidden>
+                    <p class="role-caption" data-i18n="landing.proof.tab3.body">{{ strings.get('landing.proof.tab3.body', '') }}</p>
                 </article>
             </div>
         </section>
 
         <section id="why-now" class="why-now">
             <div class="container">
-                <h2 class="section-title" data-i18n="landing.why.title">{{ strings.get('landing.why.title', 'Why now') }}</h2>
-                <div class="why-split">
-                    <div class="why-col">
-                        <h3 data-i18n="landing.why.status_quo">{{ strings.get('landing.why.status_quo', 'The status quo') }}</h3>
-                        <ul>
-                            <li data-i18n="landing.why.q1">{{ strings.get('landing.why.q1', 'AI writes the text.') }}</li>
-                            <li data-i18n="landing.why.q2">{{ strings.get('landing.why.q2', 'Humans blindly trust it.') }}</li>
-                            <li data-i18n="landing.why.q3">{{ strings.get('landing.why.q3', 'Liability hides in drafts.') }}</li>
-                        </ul>
-                    </div>
-                    <div class="why-col why-col-standard">
-                        <h3 data-i18n="landing.why.standard">{{ strings.get('landing.why.standard', 'The Assure AI standard') }}</h3>
-                        <ul>
-                            <li data-i18n="landing.why.a1">{{ strings.get('landing.why.a1', 'AI writes the text.') }}</li>
-                            <li data-i18n="landing.why.a2">{{ strings.get('landing.why.a2', 'Deterministic engines prove it.') }}</li>
-                            <li data-i18n="landing.why.a3">{{ strings.get('landing.why.a3', 'Every claim is locked before it ships.') }}</li>
-                        </ul>
-                    </div>
-                </div>
-                <p class="why-copy" data-i18n="landing.why.copy">{{ strings.get('landing.why.copy', 'Generative AI is fast, but it is fundamentally unverified. In enterprise compliance, guessing is a liability. Assure AI places a deterministic verification engine between your models and your output. It checks math with formal logic, tracks source provenance down to the exact page, and flags every logical gap before a human ever has to look twice.') }}</p>
+                <h2 class="section-title" data-i18n-html="landing.why.title_html">{{ strings.get('landing.why.title_html', strings.get('landing.why.title', ''))|safe }}</h2>
+                <p class="why-copy" data-i18n="landing.why.body">{{ strings.get('landing.why.body', '') }}</p>
             </div>
         </section>
 
         <section id="trust" class="trust-arch">
             <div class="container">
                 <h2 class="section-title" data-i18n="landing.trust.title">{{ strings.get('landing.trust.title', 'Enterprise trust architecture') }}</h2>
-                <div class="trust-arch-grid">
+                <p class="trust-badge" data-i18n="landing.hero.badge">{{ strings.get('landing.hero.badge', '') }}</p>
+                <div class="trust-arch-grid trust-arch-grid-four">
                     <article>
-                        <h3 data-i18n="landing.trust.privacy.title">{{ strings.get('landing.trust.privacy.title', 'Data privacy') }}</h3>
-                        <p data-i18n="landing.trust.privacy.body">{{ strings.get('landing.trust.privacy.body', 'Local-first architecture. Your policy data never trains public models.') }}</p>
+                        <h3 data-i18n="landing.trust.card1.title">{{ strings.get('landing.trust.card1.title', '') }}</h3>
+                        <p data-i18n="landing.trust.card1.body">{{ strings.get('landing.trust.card1.body', '') }}</p>
                     </article>
                     <article>
-                        <h3 data-i18n="landing.trust.audit.title">{{ strings.get('landing.trust.audit.title', 'Auditability') }}</h3>
-                        <p data-i18n="landing.trust.audit.body">{{ strings.get('landing.trust.audit.body', 'Deterministic trails. Every compile outputs an unalterable audit package.') }}</p>
+                        <h3 data-i18n="landing.trust.card2.title">{{ strings.get('landing.trust.card2.title', '') }}</h3>
+                        <p data-i18n="landing.trust.card2.body">{{ strings.get('landing.trust.card2.body', '') }}</p>
                     </article>
                     <article>
-                        <h3 data-i18n="landing.trust.model.title">{{ strings.get('landing.trust.model.title', 'Model flexibility') }}</h3>
-                        <p data-i18n="landing.trust.model.body">{{ strings.get('landing.trust.model.body', 'Bring your own keys, or use managed enterprise routers. You choose the model. We prove the output.') }}</p>
+                        <h3 data-i18n="landing.trust.card3.title">{{ strings.get('landing.trust.card3.title', '') }}</h3>
+                        <p data-i18n="landing.trust.card3.body">{{ strings.get('landing.trust.card3.body', '') }}</p>
+                    </article>
+                    <article>
+                        <h3 data-i18n="landing.trust.card4.title">{{ strings.get('landing.trust.card4.title', '') }}</h3>
+                        <p data-i18n="landing.trust.card4.body">{{ strings.get('landing.trust.card4.body', '') }}</p>
                     </article>
                 </div>
             </div>
@@ -148,7 +110,7 @@
                             <li data-i18n="landing.plans.ent.2">{{ strings.get('landing.plans.ent.2', 'Audit packages for regulated work') }}</li>
                             <li data-i18n="landing.plans.ent.3">{{ strings.get('landing.plans.ent.3', 'Your keys or managed routers') }}</li>
                         </ul>
-                        <button type="button" class="btn-primary-small" data-waitlist-open data-i18n="landing.hero.cta.paste">{{ strings.get('landing.hero.cta.paste', 'Request Enterprise Pilot') }}</button>
+                        <button type="button" class="btn-primary-small" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Request Enterprise Pilot') }}</button>
                     </article>
                 </div>
             </div>
@@ -180,6 +142,7 @@
                 </form>
             </div>
             <div id="waitlist-done" class="pilot-sandbox" hidden>
+                <span class="waitlist-success-icon" aria-hidden="true">✓</span>
                 <p class="role-badge" data-i18n="landing.pilot.ready_badge">{{ strings.get('landing.pilot.ready_badge', 'Live sandbox session') }}</p>
                 <h2 data-i18n="landing.pilot.ready_title">{{ strings.get('landing.pilot.ready_title', 'Sandbox is ready') }}</h2>
                 <p data-i18n="landing.pilot.ready_body">{{ strings.get('landing.pilot.ready_body', 'Your session is queued. Open the workbench to compile and verify a document. A confirmation goes to your work email when the list accepts the request.') }}</p>
@@ -189,6 +152,6 @@
     </div>
 
     {% include 'includes/landing_footer.html' %}
-    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('41') }}"></script>
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('42') }}"></script>
 </body>
 </html>

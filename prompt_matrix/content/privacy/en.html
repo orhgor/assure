@@ -1,0 +1,245 @@
+<p class="privacy-intro">Assure AI (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our platform and services.</p>
+
+<section id="collect" aria-labelledby="privacy-s1">
+<h2 id="privacy-s1">1. What Data We Collect and Store</h2>
+
+<h3>a. Data Stored in the Cloud (Server)</h3>
+<p>We store the following data on our secure servers (AWS EC2) to provide the service:</p>
+<ul>
+  <li><strong>Account data:</strong> Email address, subscription tier, and Stripe customer ID.</li>
+  <li><strong>Questions and prompts:</strong> The text you enter in the command bar or compile interface (stored in the database projects and run logs).</li>
+  <li><strong>Uploaded source files:</strong> PDFs, images, JSON, YAML, and other documents you upload (stored in the <code>substrate_vault</code> table).</li>
+  <li><strong>Compiled drafts:</strong> JDF ASTs, verification logs, and lock hashes (stored in the <code>jdf_revisions</code> table).</li>
+  <li><strong>Audit logs:</strong> Activity and request logs for enterprise compliance (stored in <code>user_activity_log</code> and <code>audit_log</code>).</li>
+  <li><strong>Waitlist submissions:</strong> Email, company name, and workflow type (if you join the waitlist).</li>
+</ul>
+<p class="privacy-emphasis"><strong>We do not</strong> use your data to train our models. <strong>We do not</strong> sell or share your data with third parties for advertising or marketing purposes.</p>
+
+<h3>b. Data Stored Locally on Your Machine</h3>
+<p>The following data stays <strong>on your computer</strong> and is never transmitted to our servers:</p>
+<ul>
+  <li>API keys for connected providers (Claude, Gemini, DeepSeek, Kimi, etc.).</li>
+  <li>Workbench UI state and preferences (e.g., layout settings, theme preferences).</li>
+</ul>
+
+<h3>c. Third-Party AI Providers (When You &ldquo;Send&rdquo;)</h3>
+<p>When you choose to <strong>Send</strong> a prompt to a connected provider:</p>
+<ul>
+  <li>Your question and any attached files are transmitted <strong>directly</strong> from your session to the provider you selected.</li>
+  <li>The provider&rsquo;s own terms and privacy policies apply. You must review and accept them before use.</li>
+  <li>Assure does not independently log or retain raw third-party API responses beyond what is persistently saved to your project files and drafts as part of your standard workspace history.</li>
+</ul>
+
+<h3>d. &ldquo;Closed to the Internet&rdquo; Mode</h3>
+<p>When &ldquo;Closed to the internet&rdquo; is selected:</p>
+<ul>
+  <li>Your data is <strong>not</strong> sent to any external provider.</li>
+  <li>Processing (including Z3 verification and <code>groundrails</code>) runs <strong>on Assure&rsquo;s secure servers</strong>&mdash;not on your local machine.</li>
+  <li>Your data is still stored on Assure&rsquo;s servers as described in Section 1a.</li>
+</ul>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="use" aria-labelledby="privacy-s2">
+<h2 id="privacy-s2">2. How We Use Your Data</h2>
+<table>
+  <thead><tr><th scope="col">Data Type</th><th scope="col">Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Email &amp; subscription tier</strong></td><td>Account management, billing, and support.</td></tr>
+    <tr><td><strong>Questions, prompts, and source files</strong></td><td>To compile, verify, and audit your documents.</td></tr>
+    <tr><td><strong>Compiled drafts and lock hashes</strong></td><td>To provide version history and audit trails.</td></tr>
+    <tr><td><strong>Audit logs</strong></td><td>To track usage and maintain security for enterprise customers.</td></tr>
+    <tr><td><strong>Waitlist submissions</strong></td><td>To notify you when the service launches or when we need beta testers.</td></tr>
+    <tr><td><strong>API keys</strong></td><td>Used exclusively to connect your local instance to third-party AI providers. Keys never leave your machine.</td></tr>
+    <tr><td><strong>Usage analytics (optional)</strong></td><td>Anonymized, aggregate usage data via Plausible. No personal data is collected.</td></tr>
+  </tbody>
+</table>
+<p class="privacy-emphasis"><strong>We do not</strong> use your data to train our models. <strong>We do not</strong> sell or share your data with third parties for advertising or marketing purposes.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="sharing" aria-labelledby="privacy-s3">
+<h2 id="privacy-s3">3. Sharing Your Data</h2>
+
+<h3>a. Third-Party AI Providers</h3>
+<p>When you choose to <strong>Send</strong> a prompt to a connected provider (e.g., Claude, Gemini, DeepSeek, Kimi):</p>
+<ul>
+  <li>Your question and any attached files are transmitted <strong>directly</strong> to the provider you selected.</li>
+  <li>The provider&rsquo;s own terms and privacy policies apply.</li>
+  <li>Assure does not independently log or retain raw third-party responses beyond your saved project history.</li>
+</ul>
+
+<h3>b. &ldquo;Closed to the Internet&rdquo; Mode</h3>
+<p>When &ldquo;Closed to the internet&rdquo; is selected:</p>
+<ul>
+  <li>Your data is not sent to any external provider.</li>
+  <li>Processing runs on Assure&rsquo;s secure servers.</li>
+  <li>Your data is still stored on Assure&rsquo;s servers as described in Section 1a.</li>
+</ul>
+
+<h3>c. Service Providers</h3>
+<p>We use external services to operate the platform:</p>
+<table>
+  <thead><tr><th scope="col">Service</th><th scope="col">Purpose</th><th scope="col">Data Shared</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stripe</strong></td><td>Billing and payment processing</td><td>Email, Stripe customer ID, payment details</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>Account and subscription management</td><td>Email, subscription tier</td></tr>
+    <tr><td><strong>Clerk</strong></td><td>Authentication and user management (when configured)</td><td>Email, user ID</td></tr>
+    <tr><td><strong>Plausible</strong></td><td>Anonymous usage analytics</td><td>Aggregated, anonymized data only</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="rights" aria-labelledby="privacy-s4">
+<h2 id="privacy-s4">4. Your Rights</h2>
+<p>Depending on your jurisdiction (including GDPR and CCPA), you may have the following rights:</p>
+<table>
+  <thead><tr><th scope="col">Right</th><th scope="col">How to Exercise</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Access</strong></td><td>Request a copy of the personal data we hold about you.</td></tr>
+    <tr><td><strong>Rectification</strong></td><td>Request correction of inaccurate personal data.</td></tr>
+    <tr><td><strong>Erasure</strong></td><td>Request deletion of your account and associated data.</td></tr>
+    <tr><td><strong>Data Portability</strong></td><td>Request a machine-readable copy of your data.</td></tr>
+    <tr><td><strong>Object / Restrict Processing</strong></td><td>Object to certain types of processing.</td></tr>
+  </tbody>
+</table>
+<p>To exercise any of these rights, contact us at: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="security" aria-labelledby="privacy-s5">
+<h2 id="privacy-s5">5. Data Security</h2>
+<table>
+  <thead><tr><th scope="col">Measure</th><th scope="col">Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Server-side encryption</strong></td><td>All data stored on Assure&rsquo;s servers is encrypted at rest (verified cloud infrastructure configuration).</td></tr>
+    <tr><td><strong>Encryption in transit</strong></td><td>All data transmitted between your browser and Assure&rsquo;s servers uses secure transport encryption (TLS).</td></tr>
+    <tr><td><strong>Minimal data retention</strong></td><td>Data is retained only as long as necessary to provide the service and comply with legal obligations.</td></tr>
+    <tr><td><strong>No data used for training</strong></td><td>We never use your data to train our models.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="retention" aria-labelledby="privacy-s6">
+<h2 id="privacy-s6">6. Data Retention</h2>
+<table>
+  <thead><tr><th scope="col">Data Type</th><th scope="col">Retention Period</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Email and subscription tier</strong></td><td>Retained for the duration of your account. Deleted upon account termination.</td></tr>
+    <tr><td><strong>Stripe customer ID</strong></td><td>Retained for billing and payment history purposes, as required by financial regulations.</td></tr>
+    <tr><td><strong>Questions, files, and drafts</strong></td><td>Stored on Assure&rsquo;s secure servers until you explicitly delete the project, clear your workspace history, or close your account.</td></tr>
+    <tr><td><strong>Usage analytics (Plausible)</strong></td><td>Anonymized and aggregated; no personal data is retained.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="children" aria-labelledby="privacy-s7">
+<h2 id="privacy-s7">7. Children&rsquo;s Privacy</h2>
+<p>Assure AI is not intended for use by individuals under the age of 16. We do not knowingly collect personal data from children. If you believe a child has provided us with personal data, please contact us, and we will delete it.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="disclaimer" aria-labelledby="privacy-s8">
+<h2 id="privacy-s8">8. Disclaimer &ndash; AI-Generated Content</h2>
+<p>The outputs generated by Assure AI are produced by large language models and deterministic verification engines. While we strive for accuracy and reliability, we make <strong>no representations or warranties</strong> about the completeness, correctness, or fitness for purpose of any AI-generated content.</p>
+
+<p><strong>Not legal, financial, or professional advice.</strong></p>
+<p>The content generated by Assure AI is for informational and drafting assistance purposes only. It does not constitute legal, financial, medical, or other professional advice. Always consult a qualified professional before making decisions based on AI-generated content.</p>
+
+<p><strong>User assumes responsibility.</strong></p>
+<p>You are solely responsible for reviewing, verifying, and validating all outputs before using them in any professional, legal, or business context.</p>
+
+<p><strong>Hallucinations and errors.</strong></p>
+<p>AI models can produce incorrect, misleading, or hallucinated content. Assure AI&rsquo;s verification tools (Z3, Red-Hat, Substrate Vault) are designed to reduce these risks, but they do not eliminate them entirely.</p>
+
+<p><strong>No guarantee of accuracy.</strong></p>
+<p>We do not guarantee that the output will be error-free, complete, or up-to-date.</p>
+
+<p><strong>No liability for reliance.</strong></p>
+<p>To the maximum extent permitted by law, Assure AI disclaims all liability for any loss, damage, or harm arising from your reliance on the outputs generated by the platform.</p>
+
+<p><strong>By using Assure AI, you acknowledge and accept these limitations.</strong></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="dpa" aria-labelledby="privacy-s9">
+<h2 id="privacy-s9">9. Personal Data Document (Data Processing Agreement)</h2>
+<p>For users in jurisdictions subject to GDPR, CCPA, or similar data protection laws, this section outlines how your personal data is processed.</p>
+
+<h3>a. Data Controller and Data Processor</h3>
+<table>
+  <thead><tr><th scope="col">Role</th><th scope="col">Entity</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Data Controller</strong></td><td>You (the user) are the data controller for your questions, documents, and prompts. You determine the purposes and means of processing your data.</td></tr>
+    <tr><td><strong>Data Processor</strong></td><td>Assure AI acts as a data processor, processing your data only on your behalf and according to your instructions.</td></tr>
+  </tbody>
+</table>
+
+<h3>b. Categories of Personal Data Processed</h3>
+<table>
+  <thead><tr><th scope="col">Category</th><th scope="col">Data Elements</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Account data</strong></td><td>Email address, subscription tier, Stripe customer ID</td></tr>
+    <tr><td><strong>Usage data</strong></td><td>Anonymized, aggregated analytics (no personal identifiers)</td></tr>
+    <tr><td><strong>Content data</strong></td><td>Your questions, prompts, uploaded files, and compiled drafts &ndash; processed and stored securely on our AWS servers</td></tr>
+  </tbody>
+</table>
+
+<h3>c. Purpose of Processing</h3>
+<table>
+  <thead><tr><th scope="col">Purpose</th><th scope="col">Legal Basis</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Providing the service</strong></td><td>Contract performance &ndash; to compile, verify, and audit your documents</td></tr>
+    <tr><td><strong>Billing and account management</strong></td><td>Contract performance &ndash; to manage subscriptions and payments</td></tr>
+    <tr><td><strong>Service improvement</strong></td><td>Legitimate interest &ndash; to improve the platform via anonymized analytics</td></tr>
+  </tbody>
+</table>
+
+<h3>d. Data Subject Rights</h3>
+<p>You have the right to:</p>
+<ul>
+  <li><strong>Access</strong> &ndash; request a copy of your personal data</li>
+  <li><strong>Rectification</strong> &ndash; correct inaccurate data</li>
+  <li><strong>Erasure</strong> &ndash; request deletion of your account and associated data</li>
+  <li><strong>Portability</strong> &ndash; request a machine-readable copy of your data</li>
+  <li><strong>Object</strong> &ndash; object to certain types of processing</li>
+</ul>
+<p>To exercise these rights, contact us at: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+
+<h3>e. Data Transfers</h3>
+<p>When you <strong>Send</strong> a prompt to a third-party provider (e.g., Claude, Gemini, DeepSeek), your data may be transferred to servers outside your jurisdiction. These providers are independent data controllers and are subject to their own data protection policies.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="transfers" aria-labelledby="privacy-s10">
+<h2 id="privacy-s10">10. International Data Transfers</h2>
+<p>When you <strong>Send</strong> a question to a third-party provider (e.g., Claude, Gemini, DeepSeek), your data may be transferred to servers located outside your country of residence. These providers are subject to their own data protection policies and may not offer the same level of protection as your local jurisdiction.</p>
+<p>By using Assure AI and choosing a provider, you consent to this transfer.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="changes" aria-labelledby="privacy-s11">
+<h2 id="privacy-s11">11. Changes to This Policy</h2>
+<p>We may update this Privacy Policy from time to time. The latest version will always be available at <a href="https://getassureai.com/privacy">https://getassureai.com/privacy</a>. We will notify you of material changes via the workbench or email.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="contact" aria-labelledby="privacy-s12">
+<h2 id="privacy-s12">12. Contact Us</h2>
+<p>If you have any questions about this Privacy Policy or your data:</p>
+<p class="privacy-contact"><strong>Email:</strong> <a href="mailto:privacy@getassureai.com">privacy@getassureai.com</a></p>
+</section>

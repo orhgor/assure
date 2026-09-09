@@ -16,6 +16,22 @@
     return document.getElementById(id);
   }
 
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
+  function translatef(key, fallback, params) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, params || {});
+    }
+    var out = translate(key, fallback);
+    Object.keys(params || {}).forEach(function (k) {
+      out = out.replace("{" + k + "}", String(params[k]));
+    });
+    return out;
+  }
+
   function toast(message, kind) {
     if (global.AssureToast && typeof global.AssureToast.show === "function") {
       global.AssureToast.show(message, kind || "error");
@@ -88,9 +104,16 @@
     var count = data.source_count != null ? data.source_count : "—";
     var ms = data.router_ms != null ? " · " + data.router_ms + "ms" : "";
     if (stage === "compile_prompt") {
-      return "Compiling prompt… " + intent + (data.web_fallback ? " · web fallback" : "");
+      return translatef("command.bar.status_compiling", "Compiling prompt… {intent}{fallback}", {
+        intent: intent,
+        fallback: data.web_fallback ? translate("command.bar.web_fallback", " · web fallback") : "",
+      });
     }
-    return "Routing… " + intent + " · " + count + " sources" + ms;
+    return translatef("command.bar.status_routing", "Routing… {intent} · {count} sources{ms}", {
+      intent: intent,
+      count: count,
+      ms: ms,
+    });
   }
 
   function handleSseFrame(frame) {
@@ -225,13 +248,13 @@
   function submitDirective() {
     var directive = (input && input.value.trim()) || "";
     if (!directive) {
-      setStatus("Enter a directive first.");
+      setStatus(translate("command.bar.enter_directive", "Describe what to investigate first."));
       return;
     }
     if (submitting) return;
     submitting = true;
-    setStatus("Running verification…");
-    setPipelineStatus("Starting…");
+    setStatus(translate("command.bar.running", "Running verification…"));
+    setPipelineStatus(translate("command.bar.running", "Running verification…"));
 
     var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
     chain

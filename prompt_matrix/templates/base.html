@@ -75,7 +75,7 @@
         {% if auth is defined and auth.signed_in and auth.email %}
         <span class="auth-who">{{ auth.email }}</span>
         {% endif %}
-        <button type="button" class="privacy-chip" id="privacy-chip" data-i18n="privacy.chip.closed" title="{{ gettext('Copy stays here. The question stays on this computer.') }}">🔒 {{ gettext('Closed to the internet') }}</button>
+        <button type="button" class="privacy-chip" id="privacy-chip" data-i18n="privacy.chip.closed" title="{{ gettext('Closed to the internet: processed on Assure\'s secure servers, never sent to a third-party provider.') }}" data-i18n-title="privacy.chip.tip.closed">🔒 {{ gettext('Closed to the internet') }}</button>
         <span class="edition-chip" id="edition-chip">{{ gettext('Free') }}</span>
       </div>
     </header>
