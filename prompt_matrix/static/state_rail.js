@@ -69,7 +69,14 @@
       if (stage === "directive") {
         active = false;
       } else if (stage === "runs") {
-        active = filter === "all";
+        active =
+          filter === "all" &&
+          (!global.AssureWorkbenchPanes ||
+            global.AssureWorkbenchPanes.getSidebarTab() === "runs");
+      } else if (stage === "sources") {
+        active =
+          global.AssureWorkbenchPanes &&
+          global.AssureWorkbenchPanes.getSidebarTab() === "sources";
       } else {
         active = btnFilter === filter;
       }
@@ -113,21 +120,39 @@
   function handleStageClick(stage, filter) {
     if (stage === "directive") {
       openDirective();
-      setFilter("all");
+      return;
+    }
+    if (stage === "sources") {
+      if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.setSidebarTab === "function") {
+        global.AssureWorkbenchPanes.setSidebarTab("sources");
+      } else {
+        openGroundingVault();
+      }
       return;
     }
     if (stage === "grounded") {
       setFilter("grounded");
+      if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.setSidebarTab === "function") {
+        global.AssureWorkbenchPanes.setSidebarTab("runs");
+      }
       return;
     }
     if (stage === "redhat") {
       setFilter("redhat");
+      if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.openAuditDrawer === "function") {
+        global.AssureWorkbenchPanes.openAuditDrawer();
+      }
       return;
     }
     if (stage === "dossier") {
       setFilter("dossier");
       triggerDossierExport();
       return;
+    }
+    if (stage === "runs") {
+      if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.setSidebarTab === "function") {
+        global.AssureWorkbenchPanes.setSidebarTab("runs");
+      }
     }
     setFilter(filter || "all");
   }
@@ -136,15 +161,15 @@
     var rail = $("state-rail");
     if (!rail) return;
 
-    var groundedTip = translate("founder.state_rail.grounded_tip", "Grounding Vault (Shift+3)");
+    var sourcesTip = translate("founder.rail.sources_tip", "Sources");
     if (store.verifiedClaimCount > 0) {
-      groundedTip = translate(
-        "founder.state_rail.grounded_verified",
-        "Grounding Vault ({count} claims verified)"
+      sourcesTip = translate(
+        "founder.rail.sources_verified",
+        "Sources ({count} claims verified)"
       ).replace("{count}", String(store.verifiedClaimCount));
     }
-    var groundedBtn = rail.querySelector('[data-stage="grounded"] .state-rail-tooltip');
-    if (groundedBtn) groundedBtn.textContent = groundedTip;
+    var sourcesBtn = rail.querySelector('[data-stage="sources"] .state-rail-tooltip');
+    if (sourcesBtn) sourcesBtn.textContent = sourcesTip;
 
     rail.querySelectorAll(".state-rail-btn").forEach(function (btn) {
       var dot = btn.querySelector(".state-rail-dot");
@@ -165,7 +190,7 @@
       rhDot.classList.add("is-amber");
     }
 
-    var gDot = rail.querySelector('[data-stage="grounded"] .state-rail-dot');
+    var gDot = rail.querySelector('[data-stage="sources"] .state-rail-dot');
     if (gDot && store.allLocked && store.verifiedClaimCount > 0) {
       gDot.hidden = false;
       gDot.classList.add("is-green");

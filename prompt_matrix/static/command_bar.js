@@ -316,7 +316,10 @@
     overlay = $("command-bar-overlay");
     input = $("command-bar-input");
     statusEl = $("command-bar-status");
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId =
+      global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function"
+        ? global.AssureFounderMode.getWorkspaceId()
+        : global.__ASSURE_PROJECT_ID__ || "default";
     if (input) {
       input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -333,6 +336,7 @@
     }
     bindDropzone();
     document.addEventListener("assure:project", function (ev) {
+      if (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) return;
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
     });
     document.addEventListener("keydown", function (e) {

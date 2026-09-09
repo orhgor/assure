@@ -162,41 +162,41 @@
           </div>
           <div class="app-content">
       <section class="jdf-workbench workspace-shell" id="workbench-root" aria-label="{{ gettext('Document engineering') }}">
-        <div class="app-container founder-workbench">
+        <div class="app-container founder-workbench pane-left-open">
           <nav id="state-rail" class="state-rail" aria-label="{{ gettext('Workbench stages') }}" data-i18n-aria="founder.state_rail.label" hidden>
-            <button type="button" class="state-rail-btn is-active" data-stage="directive" data-filter="all" aria-label="{{ gettext('Investigate') }}" data-i18n-aria="founder.state_rail.directive">
+            <button type="button" class="state-rail-btn" data-rail="draft" data-stage="directive" data-filter="all" title="{{ gettext('Draft (⌘K)') }}" aria-label="{{ gettext('Draft') }}" data-i18n-title="founder.rail.draft_tip" data-i18n-aria="founder.rail.draft">
               <span class="state-rail-icon" aria-hidden="true">⚡</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.directive_tip">{{ gettext('Investigate (⌘K)') }}</span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.draft_tip">{{ gettext('Draft (⌘K)') }}</span>
             </button>
-            <button type="button" class="state-rail-btn" data-stage="runs" data-filter="all" aria-label="{{ gettext('Runs') }}" data-i18n-aria="founder.state_rail.runs">
-              <span class="state-rail-icon" aria-hidden="true">⚙️</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.runs_tip">{{ gettext('Runs (Shift+2)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="grounded" data-filter="grounded" aria-label="{{ gettext('Grounding Vault') }}" data-i18n-aria="founder.state_rail.grounded">
-              <span class="state-rail-icon" aria-hidden="true">🔒</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.grounded_tip">{{ gettext('Grounding Vault (Shift+3)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="redhat" data-filter="redhat" aria-label="{{ gettext('Red-Hat Audit') }}" data-i18n-aria="founder.state_rail.redhat">
-              <span class="state-rail-icon" aria-hidden="true">🛡️</span>
-              <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.redhat_tip">{{ gettext('Red-Hat Audit (Shift+4)') }}</span>
-            </button>
-            <button type="button" class="state-rail-btn" data-stage="dossier" data-filter="dossier" aria-label="{{ gettext('Dossier Export') }}" data-i18n-aria="founder.state_rail.dossier">
+            <button type="button" class="state-rail-btn" data-rail="sources" data-stage="sources" title="{{ gettext('Sources') }}" aria-label="{{ gettext('Sources') }}" data-i18n-title="founder.rail.sources_tip" data-i18n-aria="founder.rail.sources">
               <span class="state-rail-icon" aria-hidden="true">📂</span>
               <span class="state-rail-dot" hidden aria-hidden="true"></span>
-              <span class="state-rail-tooltip" data-i18n="founder.state_rail.dossier_tip">{{ gettext('Dossier Export (Shift+5)') }}</span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.sources_tip">{{ gettext('Sources') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn is-active" data-rail="runs" data-stage="runs" data-filter="all" title="{{ gettext('Runs (⌘B)') }}" aria-label="{{ gettext('Runs') }}" data-i18n-title="founder.rail.runs_tip" data-i18n-aria="founder.rail.runs">
+              <span class="state-rail-icon" aria-hidden="true">⚙️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.runs_tip">{{ gettext('Runs (⌘B)') }}</span>
+            </button>
+            <button type="button" class="state-rail-btn" data-rail="audit" data-stage="redhat" data-filter="redhat" title="{{ gettext('Audit (⌘I)') }}" aria-label="{{ gettext('Audit') }}" data-i18n-title="founder.rail.audit_tip" data-i18n-aria="founder.rail.audit">
+              <span class="state-rail-icon" aria-hidden="true">🛡️</span>
+              <span class="state-rail-dot" hidden aria-hidden="true"></span>
+              <span class="state-rail-tooltip" data-i18n="founder.rail.audit_tip">{{ gettext('Audit (⌘I)') }}</span>
             </button>
           </nav>
           <aside class="left-pane" id="left-pane">
+            <div class="founder-sidebar-head runs-stack-header">
+              <div class="founder-sidebar-tabs" role="tablist" aria-label="{{ gettext('Sidebar') }}" data-i18n-aria="founder.sidebar.label">
+                <button type="button" class="founder-sidebar-tab is-active" role="tab" data-sidebar-tab="runs" aria-selected="true" data-i18n="founder.sidebar.runs">{{ gettext('Runs') }}</button>
+                <button type="button" class="founder-sidebar-tab" role="tab" data-sidebar-tab="sources" aria-selected="false" data-i18n="founder.sidebar.sources">{{ gettext('Sources') }}</button>
+              </div>
+              <div class="founder-sidebar-toolbar">
+                <input type="search" id="runs-stack-search" class="form-control founder-runs-search" placeholder="{{ gettext('Filter runs…') }}" data-i18n-placeholder="founder.runs.search_placeholder" aria-label="{{ gettext('Filter runs') }}" data-i18n-aria="founder.runs.search_aria" autocomplete="off" />
+                <button type="button" id="runs-stack-toggle" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Collapse sidebar (⌘B)') }}" title="{{ gettext('Collapse sidebar (⌘B)') }}" data-i18n-aria="founder.runs.collapse_aria" data-i18n-title="founder.runs.collapse_tip">◀</button>
+              </div>
+            </div>
 
             <div id="runs-stack" class="assure-view context-panel active founder-panel panel-runs" data-view="runs" data-filter="all">
-              <div class="runs-stack-header">
-                <h3 class="jdf-pane-title" data-i18n="founder.runs.title">{{ gettext('Runs') }}</h3>
-                <button type="button" id="runs-stack-toggle" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Collapse runs stack') }}" title="{{ gettext('Collapse') }}" data-i18n-aria="founder.runs.collapse_aria" data-i18n-title="founder.runs.collapse">◀</button>
-              </div>
               <p id="runs-stack-pipeline-status" class="runs-stack-pipeline-status hint" hidden aria-live="polite"></p>
               <div id="runs-stack-list" class="runs-stack-list" role="list" aria-live="polite"></div>
             </div>
@@ -731,7 +731,8 @@
                     <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
                   </div>
                 </div>
-                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('Write your draft here, or hit ⌘K to start.') }}</p>
+                <div id="founder-inline-diff" class="founder-inline-diff" hidden aria-live="polite"></div>
+                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
                 <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
               </div>
               <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
@@ -756,6 +757,13 @@
               <div id="jdf-audit-appendix-body" class="jdf-audit-appendix-body"></div>
             </aside>
           </main>
+          <aside id="workbench-right-drawer" class="workbench-right-drawer" hidden aria-hidden="true">
+            <header class="workbench-drawer-header">
+              <h3 id="workbench-drawer-title" class="jdf-pane-title" data-i18n="founder.drawer.audit_title">{{ gettext('Audit & findings') }}</h3>
+              <button type="button" id="workbench-drawer-close" class="btn btn-ghost btn-sm" aria-label="{{ gettext('Close drawer') }}" data-i18n-aria="founder.drawer.close" title="{{ gettext('Close (Esc)') }}" data-i18n-title="founder.drawer.close_tip">✕</button>
+            </header>
+            <div id="workbench-drawer-body" class="workbench-drawer-body"></div>
+          </aside>
         </div>
         <div class="workbench-utility" id="workbench-utility">
             <span id="compiler-status" class="compiler-status compiler-idle visually-hidden" aria-live="polite" role="status">
@@ -1314,8 +1322,10 @@
   <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='workbench_panes.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_inline_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -3777,16 +3787,24 @@
       loadRecent();
       schedulePreview();
         if (window.JDFCanvasManager && $("workbench-root")) {
-        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
-          window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
-        }
-        window.__assureJdf = new window.JDFCanvasManager({
-          projectId: window.__ASSURE_PROJECT_ID__ || "default",
-          document: window.__INITIAL_JDF__,
-        });
-        window.__assureJdf.bind();
-        if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.bindSourceInput === "function") {
-          window.AssureProjectFileManager.bindSourceInput();
+        var founderShell =
+          window.AssureFounderMode &&
+          typeof window.AssureFounderMode.isEnabled === "function" &&
+          window.AssureFounderMode.isEnabled();
+        if (founderShell) {
+          window.__ASSURE_PROJECT_ID__ = window.AssureFounderMode.getWorkspaceId();
+        } else {
+          if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.restoreActiveId === "function") {
+            window.__ASSURE_PROJECT_ID__ = window.AssureProjectFileManager.restoreActiveId();
+          }
+          window.__assureJdf = new window.JDFCanvasManager({
+            projectId: window.__ASSURE_PROJECT_ID__ || "default",
+            document: window.__INITIAL_JDF__,
+          });
+          window.__assureJdf.bind();
+          if (window.AssureProjectFileManager && typeof window.AssureProjectFileManager.bindSourceInput === "function") {
+            window.AssureProjectFileManager.bindSourceInput();
+          }
         }
       }
       if (window.AssureProjects) window.AssureProjects.init();

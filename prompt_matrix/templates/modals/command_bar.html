@@ -1,15 +1,17 @@
 <div id="command-bar-overlay" class="command-bar-overlay" hidden aria-hidden="true">
   <div class="command-bar-modal" role="dialog" aria-modal="true" aria-labelledby="command-bar-label">
     <label id="command-bar-label" class="visually-hidden" for="command-bar-input" data-i18n="command.bar.label">{{ gettext('What to investigate') }}</label>
-    <input
-      id="command-bar-input"
-      type="text"
-      class="command-bar-input form-control"
-      placeholder="{{ gettext('What are we investigating or drafting?') }}"
-      data-i18n-placeholder="command.bar.placeholder"
-      autocomplete="off"
-      spellcheck="true"
-    />
+    <div class="command-bar-input-wrap">
+      <input
+        id="command-bar-input"
+        type="text"
+        class="command-bar-input form-control"
+        placeholder="{{ gettext('What are we investigating or drafting?') }}"
+        data-i18n-placeholder="command.bar.placeholder"
+        autocomplete="off"
+        spellcheck="true"
+      />
+    </div>
     <div
       id="command-bar-dropzone"
       class="command-bar-dropzone"

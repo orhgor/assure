@@ -6,6 +6,7 @@
 
   var runs = [];
   var collapsed = false;
+  var searchQuery = "";
 
   function $(id) {
     return document.getElementById(id);
@@ -38,6 +39,17 @@
     if (status === "stamped") return translate("founder.runs.status.stamped", "Stamped");
     if (status === "contradiction") return translate("founder.runs.status.contradiction", "Contradiction");
     return translate("founder.runs.status.draft", "Draft");
+  }
+
+  function runBodyText(run) {
+    var parts = [];
+    var content = run.content || {};
+    (content.body || []).forEach(function (sec) {
+      (sec.children || []).forEach(function (node) {
+        if (node.type === "paragraph" && node.content) parts.push(node.content);
+      });
+    });
+    return parts.join("\n\n");
   }
 
   function runPreviewText(run) {
@@ -149,8 +161,12 @@
     var host = $("runs-stack-list");
     if (!host) return;
     var filter = getActiveFilter();
+    var q = String(searchQuery || "").trim().toLowerCase();
     var visible = runs.filter(function (run) {
-      return runMatchesFilter(run, filter);
+      if (!runMatchesFilter(run, filter)) return false;
+      if (!q) return true;
+      var hay = (runDisplayTitle(run) + " " + runPreviewText(run)).toLowerCase();
+      return hay.indexOf(q) !== -1;
     });
 
     if (!runs.length) {
@@ -234,7 +250,12 @@
 
     host.querySelectorAll(".run-card").forEach(function (card) {
       var id = card.getAttribute("data-run-id");
-      card.querySelector('[data-action="draft"]').addEventListener("click", function () {
+      card.addEventListener("click", function (e) {
+        if (e.target && e.target.closest && e.target.closest("button")) return;
+        sendToDraft(id);
+      });
+      card.querySelector('[data-action="draft"]').addEventListener("click", function (e) {
+        e.stopPropagation();
         sendToDraft(id);
       });
       card.querySelector('[data-action="delete"]').addEventListener("click", function () {
@@ -246,8 +267,13 @@
           runRedhat(id, rh);
         });
       card.querySelectorAll('[data-action="accept-finding"]').forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          resolveFinding(id, btn.getAttribute("data-finding-id"), "accept", "");
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          document.dispatchEvent(
+            new CustomEvent("assure:accept-finding-diff", {
+              detail: { runId: id, findingId: btn.getAttribute("data-finding-id") },
+            })
+          );
         });
       });
       card.querySelectorAll('[data-action="dismiss-finding"]').forEach(function (btn) {
@@ -262,8 +288,15 @@
     emitRunsUpdated(false);
   }
 
+  function workspaceId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
+    return global.__ASSURE_PROJECT_ID__ || "default";
+  }
+
   function load() {
-    var ws = global.__ASSURE_PROJECT_ID__ || "default";
+    var ws = workspaceId();
     return fetch("/api/runs?workspace_id=" + encodeURIComponent(ws) + "&include_findings=1", {
       credentials: "same-origin",
     })
@@ -297,12 +330,36 @@
     render();
   }
 
+  function applyRunToDraft(run) {
+    if (!run || !global.AssureFounderDraft) return;
+    if (typeof global.AssureFounderDraft.resetToEmpty === "function") {
+      global.AssureFounderDraft.resetToEmpty();
+    }
+    global.AssureFounderDraft.appendRun(run);
+  }
+
   function sendToDraft(runId) {
     var run = runs.filter(function (r) {
       return r.id === runId;
     })[0];
     if (!run || !global.AssureFounderDraft) return;
-    global.AssureFounderDraft.appendRun(run);
+    var proposed = runBodyText(run);
+    var original =
+      global.AssureFounderInlineDiff && global.AssureFounderInlineDiff.getDraftPlainText
+        ? global.AssureFounderInlineDiff.getDraftPlainText()
+        : "";
+    if (global.AssureFounderInlineDiff && typeof global.AssureFounderInlineDiff.showDiff === "function") {
+      var shown = global.AssureFounderInlineDiff.showDiff({
+        original: original,
+        proposed: proposed,
+        onAccept: function () {
+          applyRunToDraft(run);
+        },
+        onReject: function () {},
+      });
+      if (shown) return;
+    }
+    applyRunToDraft(run);
   }
 
   function deleteRun(runId) {
@@ -362,6 +419,10 @@
   }
 
   function toggleCollapse() {
+    if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.toggleLeft === "function") {
+      global.AssureWorkbenchPanes.toggleLeft();
+      return;
+    }
     collapsed = !collapsed;
     var pane = $("runs-stack");
     if (pane) pane.classList.toggle("is-collapsed", collapsed);
@@ -370,6 +431,13 @@
   function init() {
     var toggle = $("runs-stack-toggle");
     if (toggle) toggle.addEventListener("click", toggleCollapse);
+    var search = $("runs-stack-search");
+    if (search) {
+      search.addEventListener("input", function () {
+        searchQuery = search.value || "";
+        render();
+      });
+    }
     document.addEventListener("assure:run-created", function () {
       load();
     });

@@ -5,6 +5,9 @@
   "use strict";
 
   function workspaceId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
     return global.__ASSURE_PROJECT_ID__ || "default";
   }
 

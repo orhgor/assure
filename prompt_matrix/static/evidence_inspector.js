@@ -100,7 +100,10 @@
 
   function init() {
     drawer = $("evidence-inspector-drawer");
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId =
+      global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function"
+        ? global.AssureFounderMode.getWorkspaceId()
+        : global.__ASSURE_PROJECT_ID__ || "default";
     var closeBtn = $("evidence-inspector-close");
     var gotoBtn = $("evidence-inspector-goto");
     if (closeBtn) closeBtn.addEventListener("click", close);
