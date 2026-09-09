@@ -1714,6 +1714,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_locks_routes(app)
 
     try:
+        from .routers.redhat_routes import register_redhat_routes
+    except ImportError:
+        from routers.redhat_routes import register_redhat_routes
+    register_redhat_routes(app)
+
+    try:
         from .middleware_activity import register_activity_audit_middleware
     except ImportError:
         from middleware_activity import register_activity_audit_middleware

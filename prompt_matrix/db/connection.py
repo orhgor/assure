@@ -16,7 +16,26 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 23
+_SCHEMA_VERSION = 24
+
+
+def _migrate_v24(db: sqlite3.Connection) -> None:
+    """Red-Hat multi-pass audit live telemetry for founder drawer polling."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_audit_telemetry (
+            project_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL DEFAULT '',
+            run_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            pass1_complete INTEGER NOT NULL DEFAULT 0,
+            pass2_running INTEGER NOT NULL DEFAULT 0,
+            findings_json TEXT NOT NULL DEFAULT '[]',
+            error TEXT NOT NULL DEFAULT '',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
 
 
 def _migrate_v23(db: sqlite3.Connection) -> None:
@@ -900,6 +919,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v22(db)
     if current < 23:
         _migrate_v23(db)
+    if current < 24:
+        _migrate_v24(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

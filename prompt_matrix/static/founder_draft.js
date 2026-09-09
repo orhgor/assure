@@ -329,6 +329,9 @@
       var detail = (ev && ev.detail) || {};
       syncDraftWithRuns(detail.runs || []);
     });
+    document.addEventListener("assure:redhat-fix-applied", function () {
+      scheduleSave();
+    });
 
     if (
       (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||

@@ -10,6 +10,14 @@
     var redHatBtn = doc.getElementById("executeRedHatBtn");
     if (!redHatBtn) return;
     redHatBtn.addEventListener("click", function () {
+      if (
+        document.body.classList.contains("founder-workbench") &&
+        !document.body.classList.contains("legacy-workbench") &&
+        global.AssureRedhatDrawer &&
+        typeof global.AssureRedhatDrawer.triggerRedHatAudit === "function"
+      ) {
+        return;
+      }
       var mgr = global.__assureJdf;
       if (!mgr || typeof mgr.runRedhatAnalysis !== "function") return;
       var focus =
