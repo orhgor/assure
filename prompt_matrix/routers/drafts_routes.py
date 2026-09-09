@@ -43,7 +43,19 @@ def register_drafts_routes(app) -> None:
             return jsonify({"ok": False, "error": str(exc)}), 400
         if not payload.workspace_id.strip():
             return jsonify({"ok": False, "error": "workspace_id is required"}), 400
+        previous = fetch_draft(payload.workspace_id)
+        previous_jdf = (previous or {}).get("content") if previous else None
         draft = upsert_draft(workspace_id=payload.workspace_id, content=payload.content)
+        try:
+            from ..signals import draft_changed
+        except ImportError:
+            from signals import draft_changed
+        draft_changed.send(
+            "drafts_routes",
+            project_id=payload.workspace_id,
+            current_jdf=payload.content,
+            previous_jdf=previous_jdf,
+        )
         return jsonify({"ok": True, "draft": draft})
 
     @app.get("/api/drafts")
@@ -71,7 +83,19 @@ def register_drafts_routes(app) -> None:
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
         workspace_id = project_id.strip() or "founder"
+        previous = fetch_draft(workspace_id)
+        previous_jdf = (previous or {}).get("content") if previous else None
         upsert_draft(workspace_id=workspace_id, content=tree)
+        try:
+            from ..signals import draft_changed
+        except ImportError:
+            from signals import draft_changed
+        draft_changed.send(
+            "drafts_routes",
+            project_id=workspace_id,
+            current_jdf=tree,
+            previous_jdf=previous_jdf,
+        )
         save_jdf_revision(
             project_id,
             tree,

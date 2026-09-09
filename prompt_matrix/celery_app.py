@@ -19,6 +19,7 @@ celery_app = Celery(
         "prompt_matrix.tasks.llm_tasks",
         "prompt_matrix.tasks.substrate_tasks",
         "prompt_matrix.tasks.compile_tasks",
+        "prompt_matrix.tasks.redhat",
     ],
 )
 

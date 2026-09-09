@@ -16,7 +16,33 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 22
+_SCHEMA_VERSION = 23
+
+
+def _migrate_v23(db: sqlite3.Connection) -> None:
+    """Multi-pass Red-Hat — block hash cache and audit concurrency locks."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_cache (
+            block_hash TEXT PRIMARY KEY,
+            findings_json TEXT NOT NULL,
+            pass1_model TEXT NOT NULL DEFAULT '',
+            pass2_model TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_redhat_cache_hash ON redhat_cache(block_hash)")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_audit_locks (
+            project_id TEXT PRIMARY KEY,
+            active_task_id TEXT NOT NULL DEFAULT '',
+            generation INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
 
 
 def _migrate_v22(db: sqlite3.Connection) -> None:
@@ -872,6 +898,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v21(db)
     if current < 22:
         _migrate_v22(db)
+    if current < 23:
+        _migrate_v23(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

@@ -283,6 +283,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from db.connection import init_db
     init_db()
     try:
+        from .signals import connect_redhat_signals
+    except ImportError:
+        from signals import connect_redhat_signals
+    connect_redhat_signals()
+    try:
         from .cloud_billing import load_cloud_env
     except ImportError:
         from cloud_billing import load_cloud_env
