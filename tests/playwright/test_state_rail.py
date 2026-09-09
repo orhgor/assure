@@ -140,11 +140,11 @@ def test_shortcuts_suppressed_in_tiptap(page: Page, base_url: str):
     )
     editor = page.locator("#founder-draft-editor .ProseMirror")
     editor.click()
-    editor.type("typing should not open palette")
+    editor.type("typing should not trigger rail filters")
     page.keyboard.press("Shift+2")
     expect(page.locator("#command-bar-overlay")).to_be_hidden()
     page.keyboard.press("Meta+K")
-    expect(page.locator("#command-bar-overlay")).to_be_hidden()
+    expect(page.locator("#command-bar-overlay")).to_be_visible(timeout=5_000)
 
 
 def test_shortcuts_work_outside_editor(page: Page, base_url: str):

@@ -1,60 +1,33 @@
 /**
- * Founder workbench — inline accept/reject diff blocks before draft merge.
+ * Founder workbench — TipTap suggestion nodes for inline accept/reject diffs.
  */
 (function (global) {
   "use strict";
 
   var pending = null;
 
-  function $(id) {
-    return document.getElementById(id);
-  }
-
   function translate(key, fallback) {
     if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
     return fallback || key;
   }
 
-  function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+  function editorApi() {
+    return global.AssureTiptapEditor;
   }
 
-  function hostEl() {
-    return $("founder-inline-diff");
-  }
-
-  function clear() {
+  function clearPending() {
     pending = null;
-    var host = hostEl();
-    if (host) {
-      host.hidden = true;
-      host.innerHTML = "";
-    }
   }
 
-  function renderBlock(block, index) {
-    return (
-      '<div class="founder-diff-block" data-diff-index="' +
-      index +
-      '" tabindex="0">' +
-      '<p class="founder-diff-label hint">' +
-      translate("founder.diff.review", "Review change") +
-      " · ⌘↵ " +
-      translate("founder.diff.accept", "Accept") +
-      " · ⌫ " +
-      translate("founder.diff.reject", "Reject") +
-      "</p>" +
-      '<div class="founder-diff-remove">' +
-      esc(block.original) +
-      "</div>" +
-      '<div class="founder-diff-add">' +
-      esc(block.proposed) +
-      "</div>" +
-      "</div>"
-    );
+  function getDraftPlainText() {
+    var api = editorApi();
+    var ed = api && api.getEditor && api.getEditor();
+    if (ed) {
+      try {
+        return ed.getText().trim();
+      } catch (_) {}
+    }
+    return "";
   }
 
   function showDiff(options) {
@@ -65,74 +38,70 @@
       if (typeof options.onAccept === "function") options.onAccept(proposed);
       return false;
     }
-    pending = {
-      original: original,
-      proposed: proposed,
-      onAccept: options.onAccept,
-      onReject: options.onReject,
-      blocks: [{ original: original, proposed: proposed }],
-    };
-    var host = hostEl();
-    if (!host) {
+    var api = editorApi();
+    if (!api || typeof api.insertSuggestion !== "function") {
       if (typeof options.onAccept === "function") options.onAccept(proposed);
       return false;
     }
-    host.innerHTML = pending.blocks.map(renderBlock).join("");
-    host.hidden = false;
-    var first = host.querySelector(".founder-diff-block");
-    if (first && first.focus) first.focus();
+    var suggestionId = api.insertSuggestion({
+      originalText: original,
+      newText: proposed,
+    });
+    if (!suggestionId) {
+      if (typeof options.onAccept === "function") options.onAccept(proposed);
+      return false;
+    }
+    pending = {
+      suggestionId: suggestionId,
+      onAccept: options.onAccept,
+      onReject: options.onReject,
+    };
     return true;
   }
 
-  function acceptBlock(index) {
-    if (!pending) return;
-    var block = pending.blocks[index];
-    if (!block) return;
-    if (typeof pending.onAccept === "function") pending.onAccept(block.proposed);
-    clear();
+  function resolveSuggestionId(explicitId) {
+    var api = editorApi();
+    if (!api) return null;
+    if (explicitId) return explicitId;
+    if (pending && pending.suggestionId) return pending.suggestionId;
+    if (typeof api.getFocusedSuggestionId === "function") return api.getFocusedSuggestionId();
+    return null;
   }
 
-  function rejectBlock(index) {
-    if (!pending) return;
-    var block = pending.blocks[index];
-    if (!block) return;
-    if (typeof pending.onReject === "function") pending.onReject(block.original);
-    clear();
-  }
-
-  function bindKeys() {
-    document.addEventListener(
-      "keydown",
-      function (e) {
-        if (!pending) return;
-        var host = hostEl();
-        if (!host || host.hidden) return;
-        var focused = host.querySelector(".founder-diff-block:focus") || host.querySelector(".founder-diff-block");
-        var index = focused ? parseInt(focused.getAttribute("data-diff-index") || "0", 10) : 0;
-        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-          e.preventDefault();
-          acceptBlock(index);
-          return;
-        }
-        if (e.key === "Backspace" && document.activeElement && host.contains(document.activeElement)) {
-          e.preventDefault();
-          rejectBlock(index);
-        }
-      },
-      true
-    );
-  }
-
-  function getDraftPlainText() {
-    var editorApi = global.AssureTiptapEditor;
-    var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
-    if (ed) {
-      try {
-        return ed.getText().trim();
-      } catch (_) {}
+  function acceptSuggestion(explicitId) {
+    var id = resolveSuggestionId(explicitId);
+    if (!id) return false;
+    var api = editorApi();
+    var callbacks = pending && pending.suggestionId === id ? pending : null;
+    if (api && typeof api.acceptSuggestion === "function") {
+      api.acceptSuggestion(id, { skipContentReplace: !!(callbacks && callbacks.onAccept) });
     }
-    var root = $("founder-draft-editor");
-    return root ? (root.textContent || "").trim() : "";
+    if (callbacks && typeof callbacks.onAccept === "function") {
+      callbacks.onAccept();
+    }
+    if (pending && pending.suggestionId === id) clearPending();
+    return true;
+  }
+
+  function rejectSuggestion(explicitId) {
+    var id = resolveSuggestionId(explicitId);
+    if (!id) return false;
+    var api = editorApi();
+    var callbacks = pending && pending.suggestionId === id ? pending : null;
+    if (api && typeof api.rejectSuggestion === "function") {
+      api.rejectSuggestion(id);
+    }
+    if (callbacks && typeof callbacks.onReject === "function") {
+      callbacks.onReject();
+    }
+    if (pending && pending.suggestionId === id) clearPending();
+    return true;
+  }
+
+  function handleEscape() {
+    if (!editorApi() || !editorApi().hasSuggestion || !editorApi().hasSuggestion()) return false;
+    rejectSuggestion();
+    return true;
   }
 
   function resolveFinding(runId, findingId) {
@@ -199,9 +168,37 @@
           })
         );
       },
-      onReject: function () {
-        clear();
+      onReject: function () {},
+    });
+  }
+
+  function bindKeys() {
+    document.addEventListener(
+      "keydown",
+      function (e) {
+        if (!editorApi() || !editorApi().hasSuggestion || !editorApi().hasSuggestion()) return;
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          acceptSuggestion();
+          return;
+        }
+        if (e.key === "Escape" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          var overlay = document.getElementById("command-bar-overlay");
+          if (overlay && !overlay.hidden) return;
+          if (global.AssureWorkbenchPanes && global.AssureWorkbenchPanes.isRightOpen && global.AssureWorkbenchPanes.isRightOpen()) {
+            return;
+          }
+          e.preventDefault();
+          rejectSuggestion();
+        }
       },
+      true
+    );
+
+    document.addEventListener("assure:suggestion-action", function (ev) {
+      var detail = (ev && ev.detail) || {};
+      if (detail.action === "accept") acceptSuggestion(detail.suggestionId);
+      if (detail.action === "reject") rejectSuggestion(detail.suggestionId);
     });
   }
 
@@ -218,11 +215,14 @@
   global.AssureFounderInlineDiff = {
     init: init,
     showDiff: showDiff,
-    clear: clear,
+    clear: clearPending,
     getDraftPlainText: getDraftPlainText,
     hasPending: function () {
-      return !!pending;
+      return !!(pending || (editorApi() && editorApi().hasSuggestion && editorApi().hasSuggestion()));
     },
+    acceptSuggestion: acceptSuggestion,
+    rejectSuggestion: rejectSuggestion,
+    handleEscape: handleEscape,
   };
 
   document.addEventListener("DOMContentLoaded", init);

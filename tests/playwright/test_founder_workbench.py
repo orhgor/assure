@@ -231,7 +231,10 @@ def test_default_founder_shell(page: Page, base_url: str):
         "() => { const p = document.getElementById('founder-draft-placeholder'); return p && !p.hidden; }",
         timeout=15_000,
     )
-    expect(page.locator("#founder-draft-placeholder")).to_contain_text("⌘K")
+    expect(page.locator("#founder-draft-placeholder")).to_contain_text("investigating or drafting")
+    expect(page.locator('#state-rail [data-rail="draft"]')).to_have_attribute(
+        "title", re.compile(r"⌘K")
+    )
     expect(page.locator("#left-pane #generate-compile-btn")).to_have_count(0)
     expect(page.locator("#left-pane #panel-draft")).to_have_count(0)
     expect(page.locator("#founder-legacy-park #panel-draft")).to_have_count(1)

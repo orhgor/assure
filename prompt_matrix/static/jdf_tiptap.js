@@ -504,6 +504,118 @@
       },
     });
 
+    var Suggestion = T.Node.create({
+      name: "suggestion",
+      group: "block",
+      atom: true,
+      selectable: true,
+      draggable: false,
+      addAttributes: function () {
+        return {
+          suggestionId: { default: "" },
+          originalText: { default: "" },
+          newText: { default: "" },
+        };
+      },
+      parseHTML: function () {
+        return [{ tag: "div.tiptap-suggestion" }];
+      },
+      renderHTML: function (_ref) {
+        return [
+          "div",
+          T.mergeAttributes(_ref.HTMLAttributes, {
+            class: "tiptap-suggestion",
+            "data-suggestion-id": _ref.node.attrs.suggestionId || "",
+          }),
+        ];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var node = props.node;
+          var dom = document.createElement("div");
+          dom.className = "tiptap-suggestion";
+          dom.setAttribute("data-suggestion-id", node.attrs.suggestionId || "");
+          dom.setAttribute("tabindex", "0");
+          dom.setAttribute("role", "group");
+          dom.setAttribute("aria-label", "Suggested edit");
+
+          var actions = document.createElement("div");
+          actions.className = "tiptap-suggestion-actions";
+
+          var acceptBtn = document.createElement("button");
+          acceptBtn.type = "button";
+          acceptBtn.className = "tiptap-suggestion-accept";
+          acceptBtn.setAttribute("aria-label", "Accept suggestion");
+          acceptBtn.title = "Accept (⌘↵)";
+          acceptBtn.textContent = "✓";
+
+          var rejectBtn = document.createElement("button");
+          rejectBtn.type = "button";
+          rejectBtn.className = "tiptap-suggestion-reject";
+          rejectBtn.setAttribute("aria-label", "Reject suggestion");
+          rejectBtn.title = "Reject (Esc)";
+          rejectBtn.textContent = "✕";
+
+          var removeEl = document.createElement("div");
+          removeEl.className = "tiptap-suggestion-remove";
+          removeEl.textContent = node.attrs.originalText || "";
+
+          var addEl = document.createElement("div");
+          addEl.className = "tiptap-suggestion-add";
+          addEl.textContent = node.attrs.newText || "";
+
+          actions.appendChild(acceptBtn);
+          actions.appendChild(rejectBtn);
+          dom.appendChild(actions);
+          dom.appendChild(removeEl);
+          dom.appendChild(addEl);
+
+          function dispatch(action) {
+            document.dispatchEvent(
+              new CustomEvent("assure:suggestion-action", {
+                detail: {
+                  action: action,
+                  suggestionId: node.attrs.suggestionId || "",
+                },
+              })
+            );
+          }
+
+          acceptBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("accept");
+          });
+          rejectBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("reject");
+          });
+
+          return {
+            dom: dom,
+            update: function (updated) {
+              if (updated.type !== node.type) return false;
+              node = updated;
+              dom.setAttribute("data-suggestion-id", updated.attrs.suggestionId || "");
+              removeEl.textContent = updated.attrs.originalText || "";
+              addEl.textContent = updated.attrs.newText || "";
+              return true;
+            },
+            selectNode: function () {
+              dom.classList.add("is-selected");
+            },
+            deselectNode: function () {
+              dom.classList.remove("is-selected");
+            },
+            stopEvent: function () {
+              return true;
+            },
+          };
+        };
+      },
+    });
+
     var LockPill = T.Node.create({
       name: "lockPill",
       group: "inline",
@@ -643,6 +755,7 @@
       JdfParagraph: JdfParagraph,
       JdfCallout: JdfCallout,
       JdfTable: JdfTable,
+      Suggestion: Suggestion,
       LockPill: LockPill,
       LockDecorations: LockDecorations,
       ConfidenceDecorations: ConfidenceDecorations,
@@ -671,6 +784,7 @@
     ];
     if (opts.founderMode) {
       list.push(ext.LockPill);
+      list.push(ext.Suggestion);
     } else {
       list.push(ext.LockDecorations);
     }
@@ -806,6 +920,96 @@
       });
     });
     return T.DecorationSet.create(doc, decorations);
+  }
+
+  function splitParagraphNodes(text) {
+    var raw = String(text || "").trim();
+    if (!raw) return [];
+    return raw.split(/\n\n+/).map(function (line) {
+      return {
+        type: "jdfParagraph",
+        attrs: { nodeId: "", gutter: "unverified" },
+        content: line ? [{ type: "text", text: line }] : [],
+      };
+    });
+  }
+
+  function findSuggestionPos(suggestionId) {
+    if (!editor || editor.isDestroyed || !suggestionId) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion" && node.attrs.suggestionId === suggestionId) {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function findFirstSuggestionPos() {
+    if (!editor || editor.isDestroyed) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion") {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function removeSuggestionNode(suggestionId) {
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function acceptSuggestionNode(suggestionId, options) {
+    options = options || {};
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      if (options.skipContentReplace) {
+        return removeSuggestionNode(suggestionId);
+      }
+      var paras = splitParagraphNodes(node.attrs.newText);
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContentAt(pos, paras.length ? paras : [{ type: "jdfParagraph", attrs: { nodeId: "", gutter: "unverified" }, content: [] }])
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function rejectSuggestionNode(suggestionId) {
+    return removeSuggestionNode(suggestionId);
+  }
+
+  function getDocumentContextAst() {
+    if (!editor || editor.isDestroyed) return [];
+    try {
+      var json = editor.getJSON();
+      return (json && json.content) || [];
+    } catch (_) {
+      return [];
+    }
   }
 
   var editor = null;
@@ -1009,5 +1213,50 @@
         return false;
       }
     },
+    insertSuggestion: function (opts) {
+      opts = opts || {};
+      if (!editor || editor.isDestroyed) return null;
+      var id = "sg-" + Math.random().toString(36).slice(2, 10);
+      try {
+        editor
+          .chain()
+          .focus("end")
+          .insertContent({
+            type: "suggestion",
+            attrs: {
+              suggestionId: id,
+              originalText: String(opts.originalText || ""),
+              newText: String(opts.newText || ""),
+            },
+          })
+          .run();
+        return id;
+      } catch (_) {
+        return null;
+      }
+    },
+    acceptSuggestion: acceptSuggestionNode,
+    rejectSuggestion: rejectSuggestionNode,
+    findSuggestionPos: findSuggestionPos,
+    hasSuggestion: function () {
+      return findFirstSuggestionPos() != null;
+    },
+    getFocusedSuggestionId: function () {
+      if (!editor || editor.isDestroyed) return null;
+      var sel = editor.state.selection;
+      var node = sel.node;
+      if (node && node.type && node.type.name === "suggestion") {
+        return node.attrs.suggestionId || null;
+      }
+      var $pos = sel.$from;
+      if ($pos && $pos.parent && $pos.parent.type.name === "suggestion") {
+        return $pos.parent.attrs.suggestionId || null;
+      }
+      var pos = findFirstSuggestionPos();
+      if (pos == null) return null;
+      var at = editor.state.doc.nodeAt(pos);
+      return at ? at.attrs.suggestionId || null : null;
+    },
+    getDocumentContextAst: getDocumentContextAst,
   };
 })(typeof window !== "undefined" ? window : this);

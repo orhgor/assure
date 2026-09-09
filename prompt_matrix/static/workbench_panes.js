@@ -4,9 +4,11 @@
 (function (global) {
   "use strict";
 
+  var BREAKPOINT = 1440;
   var leftOpen = true;
   var rightOpen = false;
   var sidebarTab = "runs";
+  var leftBeforeResponsive = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -28,6 +30,10 @@
     return document.querySelector(".app-container.founder-workbench");
   }
 
+  function isNarrowViewport() {
+    return window.innerWidth < BREAKPOINT;
+  }
+
   function isTypingTarget() {
     if (global.AssureStateRail && typeof global.AssureStateRail.isTypingTarget === "function") {
       return global.AssureStateRail.isTypingTarget();
@@ -40,11 +46,16 @@
   }
 
   function applyGridClasses() {
+    if (rightOpen && isNarrowViewport() && leftOpen) {
+      leftBeforeResponsive = true;
+      leftOpen = false;
+    }
     var root = container();
     if (!root) return;
     root.classList.toggle("pane-left-closed", !leftOpen);
     root.classList.toggle("pane-right-open", rightOpen);
     root.classList.toggle("pane-left-open", leftOpen);
+    root.classList.toggle("pane-narrow", isNarrowViewport());
     var left = $("left-pane");
     if (left) {
       left.setAttribute("aria-hidden", leftOpen ? "false" : "true");
@@ -61,9 +72,25 @@
     }
   }
 
+  function enforceResponsiveLeft() {
+    if (!isFounderShell()) return;
+    if (rightOpen && isNarrowViewport()) {
+      if (leftOpen) {
+        leftBeforeResponsive = true;
+        leftOpen = false;
+      }
+    } else if (!rightOpen && leftBeforeResponsive) {
+      leftOpen = true;
+      leftBeforeResponsive = null;
+    }
+    applyGridClasses();
+  }
+
   function toggleLeft(force) {
-    if (typeof force === "boolean") leftOpen = force;
-    else leftOpen = !leftOpen;
+    var next = typeof force === "boolean" ? force : !leftOpen;
+    if (next && rightOpen && isNarrowViewport()) return false;
+    leftOpen = next;
+    if (leftOpen) leftBeforeResponsive = null;
     applyGridClasses();
     return leftOpen;
   }
@@ -71,13 +98,24 @@
   function toggleRight(force) {
     if (typeof force === "boolean") rightOpen = force;
     else rightOpen = !rightOpen;
-    applyGridClasses();
+    if (rightOpen) enforceResponsiveLeft();
+    else {
+      if (leftBeforeResponsive) {
+        leftOpen = true;
+        leftBeforeResponsive = null;
+      }
+      applyGridClasses();
+    }
     if (rightOpen) refreshDrawerBody();
     return rightOpen;
   }
 
   function closeRight() {
     rightOpen = false;
+    if (leftBeforeResponsive) {
+      leftOpen = true;
+      leftBeforeResponsive = null;
+    }
     applyGridClasses();
   }
 
@@ -186,9 +224,15 @@
       "keydown",
       function (e) {
         if (!isFounderShell()) return;
-        if (e.key === "Escape" && rightOpen) {
-          e.preventDefault();
-          closeRight();
+        if (e.key === "Escape") {
+          if (global.AssureFounderInlineDiff && global.AssureFounderInlineDiff.handleEscape()) {
+            e.preventDefault();
+            return;
+          }
+          if (rightOpen) {
+            e.preventDefault();
+            closeRight();
+          }
           return;
         }
         if (!e.metaKey && !e.ctrlKey) return;
@@ -207,6 +251,13 @@
       },
       true
     );
+  }
+
+  function bindResize() {
+    window.addEventListener("resize", function () {
+      if (!isFounderShell()) return;
+      enforceResponsiveLeft();
+    });
   }
 
   function bindDrawerClose() {
@@ -229,6 +280,7 @@
     bindHotkeys();
     bindDrawerClose();
     bindSidebarTabs();
+    bindResize();
     document.addEventListener("assure:runs-updated", function () {
       if (rightOpen) refreshDrawerBody();
     });
@@ -245,6 +297,7 @@
     getSidebarTab: getSidebarTab,
     openAuditDrawer: openAuditDrawer,
     refreshDrawerBody: refreshDrawerBody,
+    isNarrowViewport: isNarrowViewport,
   };
 
   document.addEventListener("DOMContentLoaded", init);

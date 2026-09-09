@@ -185,6 +185,7 @@
             </button>
           </nav>
           <aside class="left-pane" id="left-pane">
+            <div class="left-pane-inner">
             <div class="founder-sidebar-head runs-stack-header">
               <div class="founder-sidebar-tabs" role="tablist" aria-label="{{ gettext('Sidebar') }}" data-i18n-aria="founder.sidebar.label">
                 <button type="button" class="founder-sidebar-tab is-active" role="tab" data-sidebar-tab="runs" aria-selected="true" data-i18n="founder.sidebar.runs">{{ gettext('Runs') }}</button>
@@ -632,6 +633,7 @@
             </div>
             <span class="jdf-stream-status" id="jdf-stream-status" aria-live="polite"></span>
             </div><!-- #view-surgical -->
+            </div><!-- .left-pane-inner -->
           </aside>
           <div class="pane-splitter" id="pane-splitter" role="separator" tabindex="0"
                aria-orientation="vertical" aria-valuemin="22" aria-valuemax="68" aria-valuenow="42"
@@ -731,7 +733,6 @@
                     <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
                   </div>
                 </div>
-                <div id="founder-inline-diff" class="founder-inline-diff" hidden aria-live="polite"></div>
                 <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
                 <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
               </div>

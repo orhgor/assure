@@ -59,16 +59,56 @@
     activeStream = null;
   }
 
-  function open() {
+  function captureInvokeContext() {
+    var ctx = {
+      selected_text: "",
+      full_document_context: [],
+      active_source_ids: [],
+    };
+    if (global.AssureTiptapEditor) {
+      if (typeof global.AssureTiptapEditor.getSelectedTextRange === "function") {
+        var range = global.AssureTiptapEditor.getSelectedTextRange();
+        ctx.selected_text = (range && range.text) || "";
+      }
+      if (typeof global.AssureTiptapEditor.getDocumentContextAst === "function") {
+        ctx.full_document_context = global.AssureTiptapEditor.getDocumentContextAst() || [];
+      }
+    }
+    if (global.AssureSubstrateVault && typeof global.AssureSubstrateVault.selectedIncludedIds === "function") {
+      ctx.active_source_ids = global.AssureSubstrateVault.selectedIncludedIds() || [];
+    }
+    try {
+      console.info("[Assure] context-aware invoke payload", ctx);
+    } catch (_) {}
+    return ctx;
+  }
+
+  function open(options) {
+    options = options || {};
     if (!overlay) return;
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     if (input) {
-      input.value = "";
+      input.value = options.prefill || "";
       input.focus();
+      if (options.prefill) {
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
     }
     pendingFiles = [];
     setStatus("");
+  }
+
+  function openWithSelectionContext() {
+    var ctx = captureInvokeContext();
+    if (!ctx.selected_text) {
+      var ed =
+        global.AssureTiptapEditor && global.AssureTiptapEditor.getEditor && global.AssureTiptapEditor.getEditor();
+      if (ed && !ed.state.selection.empty) {
+        ctx.selected_text = ed.state.doc.textBetween(ed.state.selection.from, ed.state.selection.to, "\n");
+      }
+    }
+    open({ prefill: ctx.selected_text || "" });
   }
 
   function close() {
@@ -340,7 +380,6 @@
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
     });
     document.addEventListener("keydown", function (e) {
-      if (isTypingTarget()) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey) {
         var founderOn =
           global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"
@@ -349,13 +388,22 @@
         if (founderOn) {
           e.preventDefault();
           e.stopPropagation();
-          if (overlay && overlay.hidden) open();
+          if (!overlay || overlay.hidden) openWithSelectionContext();
           else close();
+          return;
         }
       }
+      if (isTypingTarget()) return;
     }, true);
   }
 
-  global.AssureCommandBar = { open: open, close: close, submit: submitDirective, init: init };
+  global.AssureCommandBar = {
+    open: open,
+    openWithSelectionContext: openWithSelectionContext,
+    captureInvokeContext: captureInvokeContext,
+    close: close,
+    submit: submitDirective,
+    init: init,
+  };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

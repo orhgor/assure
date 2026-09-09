@@ -87,6 +87,26 @@ def test_toggle_right(page: Page, base_url: str):
     expect(container).not_to_have_class(re.compile(r"pane-right-open"), timeout=5_000)
 
 
+def test_responsive_collapse(page: Page, base_url: str):
+    page.route(
+        RUNS_LIST_RE,
+        lambda route: route.fulfill(
+            content_type="application/json",
+            body=json.dumps({"ok": True, "runs": [dict(SAMPLE_RUN)], "count": 1}),
+        ),
+    )
+    goto_founder_workbench(page, base_url)
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.evaluate("() => window.dispatchEvent(new Event('resize'))")
+    _dismiss_overlays(page)
+    container = page.locator(".app-container.founder-workbench")
+    expect(container).to_have_class(re.compile(r"pane-left-open"))
+    page.locator(".right-pane").click(position={"x": 200, "y": 200})
+    page.keyboard.press("Meta+I")
+    expect(container).to_have_class(re.compile(r"pane-right-open"), timeout=5_000)
+    expect(container).to_have_class(re.compile(r"pane-left-closed"), timeout=5_000)
+
+
 def test_inline_diff(page: Page, base_url: str):
     page.route(
         RUNS_LIST_RE,
@@ -105,31 +125,32 @@ def test_inline_diff(page: Page, base_url: str):
     editor.type("Existing draft paragraph.")
     expect(page.locator(".run-card")).to_have_count(1, timeout=15_000)
     page.locator(".run-btn-draft").first.click()
-    diff = page.locator("#founder-inline-diff")
-    expect(diff).to_be_visible(timeout=5_000)
-    expect(diff.locator(".founder-diff-remove")).to_contain_text("Existing draft paragraph")
-    expect(diff.locator(".founder-diff-add")).to_contain_text("Revenue reached $12M in Q3.")
-    diff.locator(".founder-diff-block").click()
+    suggestion = page.locator(".tiptap-suggestion")
+    expect(suggestion).to_be_visible(timeout=5_000)
+    expect(suggestion.locator(".tiptap-suggestion-remove")).to_contain_text(
+        "Existing draft paragraph"
+    )
+    expect(suggestion.locator(".tiptap-suggestion-add")).to_contain_text(
+        "Revenue reached $12M in Q3."
+    )
+    suggestion.click()
     page.keyboard.press("Meta+Enter")
-    expect(diff).to_be_hidden(timeout=5_000)
+    expect(suggestion).to_have_count(0, timeout=5_000)
     expect(editor).to_contain_text("Revenue reached $12M in Q3.", timeout=5_000)
 
     editor.click()
     editor.press("Control+A")
     editor.type("Another baseline draft.")
     page.locator(".run-btn-draft").first.click()
-    expect(diff).to_be_visible(timeout=5_000)
-    diff.locator(".founder-diff-block").click()
-    page.keyboard.press("Backspace")
-    expect(diff).to_be_hidden(timeout=5_000)
+    expect(page.locator(".tiptap-suggestion")).to_be_visible(timeout=5_000)
+    page.keyboard.press("Escape")
+    expect(page.locator(".tiptap-suggestion")).to_have_count(0, timeout=5_000)
     expect(editor).to_contain_text("Another baseline draft.", timeout=5_000)
 
 
 def test_command_palette_polish(page: Page, base_url: str):
     goto_founder_workbench(page, base_url)
-    _dismiss_overlays(page)
-    page.locator("body").click(position={"x": 10, "y": 10})
-    page.keyboard.press("Meta+K")
+    page.evaluate("() => window.AssureCommandBar && window.AssureCommandBar.open()")
     modal = page.locator(".command-bar-modal")
     expect(modal).to_be_visible(timeout=5_000)
     styles = page.evaluate(
@@ -150,3 +171,37 @@ def test_command_palette_polish(page: Page, base_url: str):
     assert "25px 50px" in styles["boxShadow"]
     assert styles["backdropFilter"] and "blur" in styles["backdropFilter"]
     assert styles["inputFontSize"] == "18px"
+
+
+def test_context_aware_invoke(page: Page, base_url: str):
+    goto_founder_workbench(page, base_url)
+    page.wait_for_function(
+        "() => document.querySelector('#founder-draft-editor .ProseMirror')",
+        timeout=15_000,
+    )
+    editor = page.locator("#founder-draft-editor .ProseMirror")
+    editor.click()
+    editor.type("Selected paragraph for investigation.")
+    selected = page.evaluate(
+        """() => {
+          const api = window.AssureTiptapEditor;
+          const ed = api && api.getEditor && api.getEditor();
+          if (ed) ed.chain().focus().selectAll().run();
+          return api && api.getSelectedTextRange ? api.getSelectedTextRange() : null;
+        }"""
+    )
+    assert selected and selected.get("text")
+    logs: list[str] = []
+
+    def on_console(msg):
+        if "context-aware invoke payload" in msg.text:
+            logs.append(msg.text)
+
+    page.on("console", on_console)
+    page.keyboard.press("Meta+K")
+    expect(page.locator("#command-bar-overlay")).to_be_visible(timeout=5_000)
+    expect(page.locator("#command-bar-input")).to_have_value(
+        "Selected paragraph for investigation."
+    )
+    page.wait_for_timeout(300)
+    assert any("context-aware invoke payload" in line for line in logs)

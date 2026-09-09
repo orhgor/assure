@@ -9271,7 +9271,7 @@ body.founder-workbench:not(.legacy-workbench) #sidebar-backdrop {
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .app-container,
 body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench {
   display: grid !important;
-  grid-template-columns: 48px 320px minmax(0, 1fr) 0px;
+  grid-template-columns: 48px 320px minmax(400px, 1fr) 0px;
   transition: grid-template-columns 0.2s ease;
   flex: 1 1 auto;
   min-height: 0;
@@ -9282,15 +9282,34 @@ body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench {
 }
 
 body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench.pane-left-closed {
-  grid-template-columns: 48px 0px minmax(0, 1fr) 0px;
+  grid-template-columns: 48px 0px minmax(400px, 1fr) 0px;
 }
 
 body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench.pane-right-open {
-  grid-template-columns: 48px 320px minmax(0, 1fr) 400px;
+  grid-template-columns: 48px 320px minmax(400px, 1fr) 400px;
 }
 
 body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench.pane-left-closed.pane-right-open {
-  grid-template-columns: 48px 0px minmax(0, 1fr) 400px;
+  grid-template-columns: 48px 0px minmax(400px, 1fr) 400px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .left-pane-inner {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.founder-workbench:not(.legacy-workbench) .left-pane-inner .runs-stack-list,
+body.founder-workbench:not(.legacy-workbench) .left-pane-inner .founder-sidebar-tab,
+body.founder-workbench:not(.legacy-workbench) .left-pane-inner .run-card,
+body.founder-workbench:not(.legacy-workbench) .left-pane-inner .substrate-vault-list {
+  white-space: normal;
 }
 
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .state-rail,
@@ -9452,29 +9471,55 @@ body.founder-workbench:not(.legacy-workbench) #runs-stack.founder-panel .runs-st
   padding: 8px 10px;
 }
 
-.founder-inline-diff {
-  margin: 0 0 12px;
-  padding: 12px;
+.tiptap-suggestion {
+  position: relative;
+  margin: 12px 0;
+  padding: 12px 12px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #f8fafc;
-}
-
-.founder-diff-block {
   outline: none;
 }
 
-.founder-diff-block:focus {
+.tiptap-suggestion.is-selected,
+.tiptap-suggestion:focus {
   box-shadow: 0 0 0 2px #3b82f6;
-  border-radius: 6px;
 }
 
-.founder-diff-label {
-  margin: 0 0 8px;
-  font-size: 12px;
+.tiptap-suggestion-actions {
+  position: absolute;
+  top: -12px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
 }
 
-.founder-diff-remove {
+.tiptap-suggestion-accept,
+.tiptap-suggestion-reject {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.tiptap-suggestion-accept:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #16a34a;
+}
+
+.tiptap-suggestion-reject:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.tiptap-suggestion-remove {
   background: #fecaca;
   color: #dc2626;
   text-decoration: line-through;
@@ -9482,14 +9527,16 @@ body.founder-workbench:not(.legacy-workbench) #runs-stack.founder-panel .runs-st
   border-radius: 6px;
   margin-bottom: 6px;
   white-space: pre-wrap;
+  font-size: 14px;
 }
 
-.founder-diff-add {
+.tiptap-suggestion-add {
   background: #bbf7d0;
   color: #16a34a;
   padding: 8px 10px;
   border-radius: 6px;
   white-space: pre-wrap;
+  font-size: 14px;
 }
 
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout #pane-splitter {
@@ -9564,7 +9611,7 @@ body.founder-mode-active .app-content {
 
 body.founder-mode-active .app-container {
   display: grid !important;
-  grid-template-columns: 48px 320px minmax(0, 1fr) 0px;
+  grid-template-columns: 48px 320px minmax(400px, 1fr) 0px;
   flex-direction: row !important;
   flex: 1 1 auto;
   width: 100%;
