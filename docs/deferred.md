@@ -27,6 +27,7 @@ Visual audit logged **2026-09-10** against [visual-checklist.md](./visual-checkl
 | 2026-09-10 | **Surface — code block styling in Main** — TipTap `pre` blocks use dark rail background inside white canvas; pasted/plain text can appear as executive “dark card” | Convergence |
 | 2026-09-10 | **Surface — state rail active affordance** — gear icon highlighted while document view is active; active nav state ambiguous | Convergence |
 | 2026-09-10 | **Surface — evidence drawer unaudited** — `#drawer-evidence` hidden at audit time; needs Convergence pass when lock-pill inspect path is wired in UI | Convergence |
+| 2026-09-10 | **Compare-pane overlay (`compare_pane.js`)** — prompt spec overlay; golden path uses existing `.staging-canvas` + `orchestrator.js` | Use frozen shell; `/api/runs/compare` wired for future overlay |
 
 ### Automated Codebase Audit Findings (Pending Human Review)
 

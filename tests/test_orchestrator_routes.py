@@ -12,6 +12,10 @@ from tests.test_founder_restore import _reset_db_path
 @pytest.fixture()
 def founder_client(tmp_path, monkeypatch):
     _reset_db_path(monkeypatch, tmp_path / "history.sqlite")
+    monkeypatch.setattr(
+        "prompt_matrix.routers.orchestrator_routes._provider_keys_configured",
+        lambda: False,
+    )
     from prompt_matrix.db.connection import init_db
     from prompt_matrix.web import create_app
 

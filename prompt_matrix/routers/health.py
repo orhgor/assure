@@ -126,6 +126,11 @@ def health_check():
     except ImportError:
         from llm.orchestrator import orchestrator_model_pairs, use_free_models
     status["use_free_models"] = use_free_models()
+    try:
+        from ..llm.orchestrator import get_active_model_stack
+    except ImportError:
+        from llm.orchestrator import get_active_model_stack
+    status["stack"] = get_active_model_stack()
     if use_free_models():
         status["orchestrator_models"] = {
             key: pair.get("litellm_model") or "" for key, pair in orchestrator_model_pairs().items()

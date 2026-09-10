@@ -1726,6 +1726,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_orchestrator_routes(app)
 
     try:
+        from .routers.compare_routes import register_compare_routes
+    except ImportError:
+        from routers.compare_routes import register_compare_routes
+    register_compare_routes(app)
+
+    try:
         from .routers.polish_routes import register_polish_routes
     except ImportError:
         from routers.polish_routes import register_polish_routes

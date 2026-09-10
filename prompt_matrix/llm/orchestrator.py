@@ -1,4 +1,4 @@
-"""LiteLLM Router for node-type-aware model selection."""
+"""LiteLLM Router + Difference Engine model-pair selection (staging free stack)."""
 
 from __future__ import annotations
 
@@ -10,35 +10,18 @@ try:
 except ImportError:  # pragma: no cover
     Router = None  # type: ignore[misc, assignment]
 
-# Staging free stack — Gemini + DeepSeek (no paid Claude on left pane).
-# Keys match Difference Engine UI slots (claude / deepseek).
-FREE_MODEL_PAIRS: dict[str, dict[str, str]] = {
-    "claude": {
-        "name": "Gemini 2.0 Flash",
-        "litellm_model": "gemini/gemini-2.0-flash",
-        "provider": "gemini",
-    },
-    "deepseek": {
-        "name": "DeepSeek V3",
-        "litellm_model": "deepseek/deepseek-chat",
-        "provider": "deepseek",
-    },
-}
+# Two genuinely different providers — required for the diff engine.
+FREE_MODEL_PAIRS: list[tuple[str, str]] = [
+    ("gemini/gemini-2.5-flash", "deepseek/deepseek-chat"),
+    ("groq/llama-3.3-70b-versatile", "gemini/gemini-2.5-flash"),
+]
 
-_DEFAULT_MODEL_PAIRS: dict[str, dict[str, str]] = {
-    "claude": {
-        "name": "Claude 3.5 Sonnet",
-        "litellm_model": "anthropic/claude-3-5-sonnet-20240620",
-        "provider": "claude",
-    },
-    "deepseek": {
-        "name": "DeepSeek V3",
-        "litellm_model": "deepseek/deepseek-chat",
-        "provider": "deepseek",
-    },
-}
+PRODUCTION_MODEL_PAIRS: list[tuple[str, str]] = [
+    ("anthropic/claude-sonnet-4-5", "deepseek/deepseek-chat"),
+    ("openai/gpt-4o", "anthropic/claude-sonnet-4-5"),
+]
 
-_paid_model_list = [
+_paid_router_models = [
     {
         "model_name": "text-reasoning",
         "litellm_params": {
@@ -67,15 +50,47 @@ _assure_router: Any | None = None
 
 
 def use_free_models() -> bool:
-    """True when ASSURE_USE_FREE_MODELS is set (staging compose default)."""
-    return os.getenv("ASSURE_USE_FREE_MODELS", "").strip().lower() in ("1", "true", "yes")
+    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+
+
+def get_compare_pair(index: int = 0) -> tuple[str, str]:
+    pairs = FREE_MODEL_PAIRS if use_free_models() else PRODUCTION_MODEL_PAIRS
+    return pairs[index % len(pairs)]
+
+
+def get_active_model_stack() -> str:
+    return "free" if use_free_models() else "production"
+
+
+def display_name_for_model(model: str) -> str:
+    slug = str(model or "").split("/")[-1]
+    labels = {
+        "gemini-2.5-flash": "Gemini 2.5 Flash",
+        "gemini-2.0-flash": "Gemini 2.0 Flash",
+        "deepseek-chat": "DeepSeek V3",
+        "deepseek-reasoner": "DeepSeek Reasoner",
+        "llama-3.3-70b-versatile": "Llama 3.3 70B",
+        "claude-sonnet-4-5": "Claude Sonnet 4.5",
+        "gpt-4o": "GPT-4o",
+    }
+    return labels.get(slug, slug.replace("-", " ").title())
 
 
 def orchestrator_model_pairs() -> dict[str, dict[str, str]]:
-    """Side-by-side orchestrator slots → display name + LiteLLM id."""
-    if use_free_models():
-        return dict(FREE_MODEL_PAIRS)
-    return dict(_DEFAULT_MODEL_PAIRS)
+    """UI slot keys (claude/deepseek) → model metadata for /health."""
+    model_a, model_b = get_compare_pair()
+    return {
+        "claude": {
+            "name": display_name_for_model(model_a),
+            "litellm_model": model_a,
+            "provider": model_a.split("/")[0],
+        },
+        "deepseek": {
+            "name": display_name_for_model(model_b),
+            "litellm_model": model_b,
+            "provider": model_b.split("/")[0],
+        },
+    }
 
 
 def _gemini_api_key() -> str | None:
@@ -84,9 +99,14 @@ def _gemini_api_key() -> str | None:
 
 def _build_model_list() -> list[dict[str, Any]]:
     if not use_free_models():
-        return _paid_model_list
-    gemini = FREE_MODEL_PAIRS["claude"]["litellm_model"]
-    deepseek = FREE_MODEL_PAIRS["deepseek"]["litellm_model"]
+        return _paid_router_models
+    model_a, model_b = get_compare_pair()
+    gemini = model_a if model_a.startswith("gemini/") else model_b
+    deepseek = model_b if model_b.startswith("deepseek/") else model_a
+    if not gemini.startswith("gemini/"):
+        gemini = "gemini/gemini-2.5-flash"
+    if not deepseek.startswith("deepseek/"):
+        deepseek = "deepseek/deepseek-chat"
     return [
         {
             "model_name": "text-reasoning",
@@ -98,17 +118,11 @@ def _build_model_list() -> list[dict[str, Any]]:
         },
         {
             "model_name": "table-parsing",
-            "litellm_params": {
-                "model": gemini,
-                "api_key": _gemini_api_key(),
-            },
+            "litellm_params": {"model": gemini, "api_key": _gemini_api_key()},
         },
         {
             "model_name": "vision-analysis",
-            "litellm_params": {
-                "model": gemini,
-                "api_key": _gemini_api_key(),
-            },
+            "litellm_params": {"model": gemini, "api_key": _gemini_api_key()},
         },
     ]
 

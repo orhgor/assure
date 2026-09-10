@@ -131,3 +131,62 @@ def get_ast_deltas(
             )
 
     return deltas
+
+
+def text_diff_for_compare(text_a: str, text_b: str) -> list[dict[str, Any]]:
+    """Highlight divergent spans between two plain-text model outputs."""
+    left = str(text_a or "")
+    right = str(text_b or "")
+    if left == right:
+        return []
+    start = 0
+    max_start = min(len(left), len(right))
+    while start < max_start and left[start] == right[start]:
+        start += 1
+    end_left = len(left) - 1
+    end_right = len(right) - 1
+    while end_left >= start and end_right >= start and left[end_left] == right[end_right]:
+        end_left -= 1
+        end_right -= 1
+    highlight_a = left[start : end_left + 1].strip()
+    highlight_b = right[start : end_right + 1].strip()
+    if not highlight_a and not highlight_b:
+        return []
+    return [
+        {
+            "node_id": "compare-01",
+            "path": "text",
+            "type": "changed",
+            "a_text": highlight_a,
+            "b_text": highlight_b,
+        }
+    ]
+
+
+def ast_diff_for_compare(
+    jdf_a: dict[str, Any] | None, jdf_b: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Adapter: JDF trees or {text} payloads → compare-pane divergence shape."""
+    if isinstance(jdf_a, dict) and isinstance(jdf_b, dict):
+        if jdf_a.get("body") or jdf_b.get("body"):
+            deltas = get_ast_deltas(jdf_a, jdf_b)
+            out: list[dict[str, Any]] = []
+            for row in deltas:
+                change = str(row.get("change") or "modified")
+                mapped = "changed" if change == "modified" else change
+                if mapped == "deleted":
+                    mapped = "removed"
+                out.append(
+                    {
+                        "node_id": str(row.get("node_id") or ""),
+                        "path": f"body.{row.get('node_id') or ''}",
+                        "type": mapped,
+                        "a_text": str(row.get("text") or "") if mapped != "added" else "",
+                        "b_text": str(row.get("text") or "") if mapped != "removed" else "",
+                    }
+                )
+            return out
+        text_a = str(jdf_a.get("text") or "")
+        text_b = str(jdf_b.get("text") or "")
+        return text_diff_for_compare(text_a, text_b)
+    return text_diff_for_compare(str(jdf_a or ""), str(jdf_b or ""))

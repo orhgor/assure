@@ -30,8 +30,8 @@ def test_use_free_models_staging_flag(orchestrator_module, monkeypatch) -> None:
     orchestrator_module._assure_router = None
     assert orchestrator_module.use_free_models() is True
     pairs = orchestrator_module.orchestrator_model_pairs()
-    assert pairs["claude"]["litellm_model"] == "gemini/gemini-2.0-flash"
+    assert pairs["claude"]["litellm_model"] == "gemini/gemini-2.5-flash"
     assert pairs["deepseek"]["litellm_model"] == "deepseek/deepseek-chat"
     model_list = orchestrator_module._build_model_list()
     assert model_list[0]["litellm_params"]["model"] == "deepseek/deepseek-chat"
-    assert model_list[1]["litellm_params"]["model"] == "gemini/gemini-2.0-flash"
+    assert model_list[1]["litellm_params"]["model"] == "gemini/gemini-2.5-flash"
