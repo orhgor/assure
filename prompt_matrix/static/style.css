@@ -9858,6 +9858,7 @@ body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench.p
 body.founder-workbench:not(.legacy-workbench) #assure-app.founder-shell-layout .right-pane,
 body.founder-workbench:not(.legacy-workbench) .app-container.founder-workbench .right-pane {
   grid-column: 3;
+  min-height: 0;
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
