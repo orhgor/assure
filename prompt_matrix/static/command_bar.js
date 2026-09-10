@@ -1,5 +1,7 @@
 /**
- * Founder workbench — global command bar (⌘K) with Auto-Compiler SSE streaming.
+ * Founder workbench — global command bar (⌘K).
+ * Founder mode routes to Difference Engine (POST /api/runs/compare via AssureOrchestrator).
+ * Legacy workbench keeps Auto-Compiler SSE streaming (POST /api/runs).
  */
 (function (global) {
   "use strict";
@@ -286,6 +288,73 @@
     });
   }
 
+  function isFounderShell() {
+    var founderOn =
+      global.AssureFounderMode && typeof global.AssureFounderMode.isEnabled === "function"
+        ? global.AssureFounderMode.isEnabled()
+        : document.body.classList.contains("founder-workbench");
+    return founderOn && !document.body.classList.contains("legacy-workbench");
+  }
+
+  function mergedSourceIds(uploadedIds) {
+    var ctx = captureInvokeContext();
+    var fromVault = ctx.active_source_ids || [];
+    var merged = (uploadedIds || []).slice();
+    fromVault.forEach(function (id) {
+      if (merged.indexOf(id) === -1) merged.push(id);
+    });
+    return merged;
+  }
+
+  function buildIntent(directive, options) {
+    var text = String(directive || "").trim();
+    var selected = String((options && options.selected_text) || "").trim();
+    if (selected) {
+      text = text + "\n\n---\nSelected:\n" + selected;
+    }
+    return text;
+  }
+
+  function runCompareDirective(directive, sourceIds, options) {
+    options = options || {};
+    if (submitting) return Promise.resolve();
+    submitting = true;
+    var statusMsg = translate("command.bar.running_compare", "Running compare…");
+    setStatus(statusMsg);
+    setPipelineStatus(statusMsg);
+    global.__assureActiveSourceIds = mergedSourceIds(sourceIds);
+    var intent = buildIntent(directive, options);
+    var run =
+      global.AssureComparePane && typeof global.AssureComparePane.run === "function"
+        ? global.AssureComparePane.run.bind(global.AssureComparePane)
+        : global.AssureOrchestrator && typeof global.AssureOrchestrator.run === "function"
+          ? global.AssureOrchestrator.run
+          : null;
+    if (!run) {
+      submitting = false;
+      var unavailable = "Compare engine unavailable";
+      setStatus(unavailable);
+      toast(unavailable, "error");
+      return Promise.reject(new Error(unavailable));
+    }
+    return run(intent)
+      .then(function () {
+        close();
+        pendingFiles = [];
+      })
+      .catch(function (err) {
+        close();
+        var msg = String((err && err.message) || err);
+        setStatus(msg);
+        toast(msg, "error");
+        throw err;
+      })
+      .finally(function () {
+        submitting = false;
+        setPipelineStatus("");
+      });
+  }
+
   function runDirective(directive, sourceIds) {
     if (submitting) return Promise.resolve();
     submitting = true;
@@ -312,6 +381,9 @@
     }
     var chain = pendingFiles.length ? uploadFiles(pendingFiles) : Promise.resolve([]);
     chain.then(function (sourceIds) {
+      if (isFounderShell()) {
+        return runCompareDirective(directive, sourceIds);
+      }
       return runDirective(directive, sourceIds);
     });
   }
@@ -320,10 +392,10 @@
     options = options || {};
     var text = String(directive || "").trim();
     if (!text) return Promise.resolve();
-    var selected = String(options.selected_text || "").trim();
-    if (selected) {
-      text = text + "\n\n---\nSelected:\n" + selected;
+    if (isFounderShell()) {
+      return runCompareDirective(text, options.source_ids || [], options);
     }
+    text = buildIntent(text, options);
     if (global.AssureFounderDraft && typeof global.AssureFounderDraft.beginStreaming === "function") {
       global.AssureFounderDraft.beginStreaming();
     }

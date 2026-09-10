@@ -18,7 +18,9 @@ try:
     from ..services.lock_metadata import enrich_extracted_locks
     from ..services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
     from ..services.parser import extract_claims_from_stream
+    from ..llm.orchestrator import use_free_models
     from ..services.perplexity_agent import (
+        perplexity_available,
         stream_perplexity_agent,
         web_sources_from_text,
     )
@@ -34,7 +36,12 @@ except ImportError:
     from services.lock_metadata import enrich_extracted_locks
     from services.orchestrator import done_sse, orchestrate_sourced_run, typed_sse
     from services.parser import extract_claims_from_stream
-    from services.perplexity_agent import stream_perplexity_agent, web_sources_from_text
+    from llm.orchestrator import use_free_models
+    from services.perplexity_agent import (
+        perplexity_available,
+        stream_perplexity_agent,
+        web_sources_from_text,
+    )
     from services.prompt_compiler import compile_prompt
     from services.router import route_intent
     from services.verifier import claims_from_text, verify_claims
@@ -73,12 +80,24 @@ def _verify_locks(locks: list[dict[str, Any]], draft_text: str) -> dict[str, Any
 
 
 def _litellm_model_name(model: str) -> str:
+    slug = str(model or "gemini").strip().lower()
+    if use_free_models():
+        try:
+            from ..cost_router import rewrite_send_id
+            from ..llm.orchestrator import get_compare_pair
+        except ImportError:
+            from cost_router import rewrite_send_id
+            from llm.orchestrator import get_compare_pair
+        pair_a, pair_b = get_compare_pair()
+        if slug in ("deepseek", "deepseek-chat"):
+            return rewrite_send_id(pair_b) or pair_b
+        return rewrite_send_id(pair_a) or pair_a
     mapping = {
         "gemini": "gemini/gemini-1.5-pro",
         "claude": "anthropic/claude-sonnet-4-5",
         "deepseek": "deepseek/deepseek-chat",
     }
-    return mapping.get(model, model)
+    return mapping.get(slug, model)
 
 
 def _claims_for_verification(text: str) -> list[str]:
@@ -92,36 +111,50 @@ def _stream_litellm(prompt: str, *, model: str) -> Iterator[str]:
     import litellm
 
     try:
+        from ..config.system_prompt import COMPARE_FREE_INSTRUCTION
         from ..keys import litellm_kwargs_for
+        from ..litellm_runner import completion_limits
     except ImportError:
+        from config.system_prompt import COMPARE_FREE_INSTRUCTION
         from keys import litellm_kwargs_for
+        from litellm_runner import completion_limits
 
+    litellm_model = _litellm_model_name(model)
+    system_content = (
+        COMPARE_FREE_INSTRUCTION if use_free_models() else "Follow the compiled prompt exactly."
+    )
     messages = [
-        {"role": "system", "content": "Follow the compiled prompt exactly."},
+        {"role": "system", "content": system_content},
         {"role": "user", "content": prompt},
     ]
     kwargs: dict[str, Any] = {}
+    provider_slug = litellm_model.split("/")[-1]
     try:
-        kwargs = litellm_kwargs_for(model.split("/")[-1])
+        kwargs = litellm_kwargs_for(provider_slug)
     except Exception:
         pass
-    stream = litellm.completion(
-        model=_litellm_model_name(model),
-        messages=messages,
-        max_tokens=2048,
-        temperature=0.3,
-        stream=True,
-        **kwargs,
-    )
-    for chunk in stream:
-        choice = chunk.choices[0] if chunk.choices else None
-        delta = ""
-        if choice is not None:
-            content = getattr(getattr(choice, "delta", None), "content", None)
-            if content:
-                delta = str(content)
-        if delta:
-            yield delta
+    _max_tokens, timeout_sec = completion_limits(intent="comparison", model=litellm_model)
+    try:
+        stream = litellm.completion(
+            model=litellm_model,
+            messages=messages,
+            max_tokens=min(_max_tokens, 2048),
+            temperature=0.3,
+            timeout=timeout_sec,
+            stream=True,
+            **kwargs,
+        )
+        for chunk in stream:
+            choice = chunk.choices[0] if chunk.choices else None
+            delta = ""
+            if choice is not None:
+                content = getattr(getattr(choice, "delta", None), "content", None)
+                if content:
+                    delta = str(content)
+            if delta:
+                yield delta
+    except Exception as exc:
+        yield f"[Model error: {exc}]\n"
 
 
 def _verification_worker(
@@ -165,6 +198,20 @@ def run_auto_compiler_pipeline(
         yield done_sse()
         return
 
+    try:
+        from ..keys import key_present, load_keys, missing_key_message
+    except ImportError:
+        from keys import key_present, load_keys, missing_key_message
+    load_keys()
+    provider_key = str(model or "gemini").strip().lower()
+    if provider_key not in ("gemini", "deepseek", "claude", "kimi", "ollama"):
+        provider_key = "gemini"
+    if not key_present(provider_key):
+        msg = missing_key_message(provider_key) or f"No API key configured for {provider_key}."
+        yield typed_sse("error", {"ok": False, "error": msg, "request_id": rid})
+        yield done_sse()
+        return
+
     t0 = time.perf_counter()
     intent_type = classify_intent(text)
     sources = detect_sources(text, ws, explicit_source_ids=source_ids or None)
@@ -184,9 +231,14 @@ def run_auto_compiler_pipeline(
         },
     )
 
-    compiled_prompt = compile_prompt(text, intent_type, sources)
+    if use_free_models() and not sources and not (source_ids or []):
+        compiled_prompt = text
+    else:
+        compiled_prompt = compile_prompt(text, intent_type, sources)
     sources_block = PromptCompiler.format_sources_from_rows(sources)
-    use_web = not sources and not (source_ids or [])
+    use_web = (
+        not sources and not (source_ids or []) and perplexity_available() and not use_free_models()
+    )
     model_used = "perplexity-agent" if use_web else model
 
     yield typed_sse(

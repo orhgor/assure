@@ -767,27 +767,9 @@
                   <div id="jdf-render-target" class="jdf-tree founder-legacy-canvas" role="tree" hidden></div>
                 </div>
                 <aside class="founder-staging-pane" aria-label="{{ gettext('AI Staging Area') }}">
-                  <div class="staging-canvas">
-                    <div class="staging-canvas-row">
-                      <div class="model-pane p-4" data-model="claude">
-                        <header class="model-pane-header">Claude 3.5</header>
-                        <p class="model-pane-text">The commercial property policy sets a per-occurrence liability limit of $2,000,000 for bodily injury and property damage combined.</p>
-                        <p class="diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group">
-                          The aggregate renewal cap is calculated at $5,000,000 across all Boston locations.
-                          <button type="button" class="push-to-main-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-blue-600 text-white text-xs px-2 py-1 rounded">Add to Main</button>
-                        </p>
-                        <p class="model-pane-text">Both figures require endorsement review before binding.</p>
-                      </div>
-                      <div class="model-pane p-4" data-model="deepseek">
-                        <header class="model-pane-header">DeepSeek V3</header>
-                        <p class="model-pane-text">The commercial property policy sets a per-occurrence liability limit of $2,000,000 for bodily injury and property damage combined.</p>
-                        <p class="diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group">
-                          The aggregate renewal cap is calculated at $4,500,000 across all Boston locations.
-                          <button type="button" class="push-to-main-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-blue-600 text-white text-xs px-2 py-1 rounded">Add to Main</button>
-                        </p>
-                        <p class="model-pane-text">Both figures require endorsement review before binding.</p>
-                      </div>
-                    </div>
+                  <p id="compare-pane-empty" class="compare-pane-empty hint" data-i18n="founder.compare.empty">{{ gettext('Run Investigate (⌘K) to compare two models side-by-side.') }}</p>
+                  <div id="compare-pane" class="compare-pane-shell hidden" hidden aria-hidden="true" role="region" aria-label="{{ gettext('Compare models') }}">
+                    <div class="staging-canvas"></div>
                   </div>
                 </aside>
               </div>
@@ -1399,6 +1381,7 @@
   <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='orchestrator.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='compare_pane.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='operator_prompt.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_panes.js') }}?v={{ js_version|default('assure-21') }}"></script>

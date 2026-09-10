@@ -269,7 +269,17 @@
     if (document.body.dataset.operatorPromptKeys === "1") return;
     document.body.dataset.operatorPromptKeys = "1";
     document.addEventListener("keydown", function (e) {
-      if (e.key !== "Escape" || !shell || shell.classList.contains("hidden")) return;
+      if (e.key !== "Escape") return;
+      if (
+        global.AssureComparePane &&
+        typeof global.AssureComparePane.isOpen === "function" &&
+        global.AssureComparePane.isOpen()
+      ) {
+        e.preventDefault();
+        global.AssureComparePane.close();
+        return;
+      }
+      if (!shell || shell.classList.contains("hidden")) return;
       e.preventDefault();
       hideOperatorPrompt(true);
     });

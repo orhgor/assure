@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+from concurrent import futures
 
 from flask import Response, jsonify, request, stream_with_context
 from pydantic import BaseModel, ConfigDict, Field
@@ -56,6 +58,24 @@ def _wants_sse(payload: RunCreatePayload) -> bool:
     return "text/event-stream" in accept
 
 
+def _run_timeout_seconds() -> int:
+    raw = (os.environ.get("ASSURE_RUN_TIMEOUT_SECONDS") or "90").strip()
+    try:
+        return max(10, int(raw))
+    except ValueError:
+        return 90
+
+
+def _create_run_with_timeout(**kwargs):
+    timeout = _run_timeout_seconds()
+    with futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(create_run_from_directive, **kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except futures.TimeoutError as exc:
+            raise TimeoutError(f"Run timed out after {timeout}s") from exc
+
+
 def register_runs_routes(app) -> None:
     @app.post("/api/runs")
     def create_run():
@@ -90,14 +110,16 @@ def register_runs_routes(app) -> None:
             return Response(stream_with_context(generate()), headers=headers)
 
         try:
-            run = create_run_from_directive(
-                payload.directive,
+            run = _create_run_with_timeout(
+                directive=payload.directive,
                 workspace_id=payload.workspace_id,
                 source_ids=payload.source_ids,
                 model=payload.model,
             )
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
+        except TimeoutError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 504
         except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
         return jsonify({"ok": True, "run": run}), 201

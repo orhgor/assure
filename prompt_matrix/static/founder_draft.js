@@ -127,6 +127,19 @@
     return saveDraftNow() || Promise.resolve();
   }
 
+  function editorIsMounted() {
+    var editorApi = global.AssureTiptapEditor;
+    return !!(editorApi && editorApi.getEditor && editorApi.getEditor());
+  }
+
+  /** Mount empty TipTap before draft fetch — ProseMirror must exist on DOMContentLoaded. */
+  function ensureEditorMounted() {
+    if (!isFounderShell() || editorIsMounted()) return;
+    var blank = emptyDoc();
+    blank.meta.founder_blank = true;
+    mountEditor(blank);
+  }
+
   function mountEditor(tree) {
     var root = $("founder-draft-editor");
     var editorApi = global.AssureTiptapEditor;
@@ -244,8 +257,20 @@
     return true;
   }
 
+  function hydrateEditorFromDraft(content) {
+    var editorApi = global.AssureTiptapEditor;
+    draftTree = content;
+    if (editorIsMounted() && editorApi && typeof editorApi.setContentFromJdf === "function") {
+      editorApi.setContentFromJdf(content);
+      updatePlaceholder();
+      return;
+    }
+    mountEditor(content);
+  }
+
   function loadDraft() {
     if (!isFounderShell()) return Promise.resolve();
+    ensureEditorMounted();
     return fetch("/api/drafts?workspace_id=" + encodeURIComponent(workspaceId), {
       credentials: "same-origin",
     })
@@ -255,7 +280,7 @@
       .then(function (data) {
         var content = (data.draft && data.draft.content) || null;
         if (content && content.body && content.body.length) {
-          mountEditor(content);
+          hydrateEditorFromDraft(content);
           return;
         }
         resetToEmpty();
@@ -421,6 +446,7 @@
 
   global.AssureFounderDraft = {
     init: init,
+    ensureEditorMounted: ensureEditorMounted,
     appendRun: appendRun,
     loadDraft: loadDraft,
     applyRestoredDocument: applyRestoredDocument,

@@ -6,7 +6,19 @@ import os
 
 from celery import Celery
 
-_broker = (os.environ.get("CELERY_BROKER_URL") or "sqs://").strip()
+
+def celery_broker_disabled() -> bool:
+    raw = os.environ.get("CELERY_BROKER_URL")
+    if raw is not None and not str(raw).strip():
+        return True
+    return os.environ.get("CELERY_DISABLED", "").strip().lower() in ("1", "true", "yes")
+
+
+_broker = (
+    "memory://"
+    if celery_broker_disabled()
+    else (os.environ.get("CELERY_BROKER_URL") or "sqs://").strip()
+)
 _result_backend = (
     os.environ.get("CELERY_RESULT_BACKEND") or "db+sqlite:///data/celery-results.sqlite"
 ).strip()
@@ -43,7 +55,10 @@ celery_app.conf.update(
     },
 )
 
-if os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("1", "true", "yes"):
+_eager = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("1", "true", "yes")
+if celery_broker_disabled():
+    _eager = True
+if _eager:
     celery_app.conf.task_always_eager = True
     celery_app.conf.task_eager_propagates = True
     celery_app.conf.task_store_eager_result = True

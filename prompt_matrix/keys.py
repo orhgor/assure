@@ -42,6 +42,11 @@ PROVIDER_LABEL = {
 def load_keys() -> None:
     if load_dotenv is not None:
         load_dotenv(ENV_PATH, override=False)
+        repo_root = Path(__file__).resolve().parent.parent
+        env_profile = (os.environ.get("ASSURE_ENV") or "").strip().lower()
+        if env_profile == "staging":
+            load_dotenv(repo_root / ".env.staging", override=False)
+        load_dotenv(repo_root / ".env", override=False)
         if Path.cwd() != PACKAGE_DIR:
             load_dotenv(Path.cwd() / ".env", override=False)
 

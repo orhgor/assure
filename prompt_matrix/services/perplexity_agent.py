@@ -29,11 +29,7 @@ def _agent_tools() -> list[dict[str, str]]:
 def stream_perplexity_agent(prompt: str) -> Iterator[str]:
     """Stream text deltas from Perplexity Agent API (web_search + fetch_url)."""
     if not perplexity_available():
-        yield (
-            "[Web research unavailable — set PERPLEXITY_API_KEY. "
-            "Drafting from intent only; attach vault sources for grounding.]\n\n"
-        )
-        yield prompt[:1200]
+        yield "[Web research unavailable in this environment. Answer from the user prompt only.]\n"
         return
 
     try:

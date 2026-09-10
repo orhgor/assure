@@ -1,8 +1,19 @@
 /**
  * Difference Engine orchestrator — POST intent, render Claude + DeepSeek staging panes.
+ * Safety: error strings must never merge into Main (see user-journey.mdc).
  */
 (function (global) {
   "use strict";
+
+  var ERROR_MARKERS = [
+    "error:",
+    "error ",
+    "run aborted",
+    "timeout",
+    "failed",
+    "exception",
+    "traceback",
+  ];
 
   function workspaceId() {
     if (global.AssureFounderDraft && typeof global.AssureFounderDraft.getWorkspaceId === "function") {
@@ -17,8 +28,21 @@
   function orchestrateUrl() {
     return "/api/projects/" + encodeURIComponent(workspaceId()) + "/orchestrate";
   }
+
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
+  }
+
+  function toast(message, kind) {
+    if (global.AssureToast && typeof global.AssureToast.show === "function") {
+      global.AssureToast.show(message, kind || "error");
+    }
+  }
+
   var DIFF_HIGHLIGHT_CLASS =
     "diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group";
+  var UNSAFE_HIGHLIGHT_CLASS = "compare-unsafe-highlight model-pane-text p-2 my-2";
   var PUSH_BTN_CLASS =
     "push-to-main-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-blue-600 text-white text-xs px-2 py-1 rounded";
   var submitting = false;
@@ -48,7 +72,62 @@
       .replace(/"/g, "&quot;");
   }
 
+  function isErrorLikeText(text) {
+    var lower = String(text || "").trim().toLowerCase();
+    if (!lower) return false;
+    for (var i = 0; i < ERROR_MARKERS.length; i += 1) {
+      if (lower.indexOf(ERROR_MARKERS[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function isSafeToMerge(text) {
+    var raw = String(text || "").trim();
+    return raw.length > 0 && !isErrorLikeText(raw);
+  }
+
+  function isSafeDivergence(d) {
+    if (!d) return false;
+    var text = String(d.a_text || d.b_text || "").trim();
+    return isSafeToMerge(text);
+  }
+
+  function modelHasFailed(model) {
+    if (!model) return true;
+    if (model.error) return true;
+    var text = String(model.text || "").trim();
+    if (!text) return true;
+    return isErrorLikeText(text);
+  }
+
+  function modelDisplayName(value, fallback) {
+    if (!value) return fallback || "";
+    if (typeof value === "string") {
+      var slash = value.lastIndexOf("/");
+      return slash >= 0 ? value.slice(slash + 1) : value;
+    }
+    return value.name || value.model || fallback || "";
+  }
+
+  function compareLoadingLabel(models) {
+    if (models && models.claude && models.deepseek) {
+      return (
+        "Running " +
+        modelDisplayName(models.claude, "Model A") +
+        " + " +
+        modelDisplayName(models.deepseek, "Model B") +
+        "…"
+      );
+    }
+    return "Running compare…";
+  }
+
   function stagingCanvas() {
+    var pane = document.getElementById("compare-pane");
+    if (pane && !pane.hidden && !pane.classList.contains("hidden")) {
+      var inner = pane.querySelector(".staging-canvas");
+      if (inner) return inner;
+    }
     return document.querySelector(".staging-canvas");
   }
 
@@ -71,12 +150,37 @@
     return row;
   }
 
-  function showStagingLoading() {
+  var freeStackCache = null;
+  var orchestratorModels = null;
+
+  function fetchHealthFlags() {
+    if (freeStackCache !== null) {
+      return Promise.resolve({ useFree: freeStackCache, models: orchestratorModels });
+    }
+    return fetch("/health")
+      .then(function (response) {
+        return response.json();
+      })
+      .then(function (data) {
+        freeStackCache = !!data.use_free_models;
+        orchestratorModels = data.orchestrator_models || null;
+        return { useFree: freeStackCache, models: orchestratorModels };
+      })
+      .catch(function () {
+        freeStackCache = false;
+        orchestratorModels = null;
+        return { useFree: false, models: null };
+      });
+  }
+
+  function showStagingLoading(label) {
     var canvas = stagingCanvas();
     if (!canvas) return;
     canvas.innerHTML =
       '<div class="staging-canvas-loading" aria-live="polite" aria-busy="true">' +
-      '<p class="model-pane-text">Running Claude + DeepSeek…</p>' +
+      '<p class="model-pane-text">' +
+      escapeHtml(label || "Running compare…") +
+      "</p>" +
       "</div>";
   }
 
@@ -120,9 +224,65 @@
     };
   }
 
+  function renderPaneError(modelKey, model) {
+    var pane = paneEl(modelKey);
+    if (!pane) return;
+    pane.classList.add("is-compare-error");
+    var name = escapeHtml(model.name || modelKey);
+    var err = escapeHtml(model.error || model.text || translate("founder.compare.unknown_error", "Unknown error"));
+    pane.innerHTML =
+      '<header class="model-pane-header">' +
+      name +
+      "</header>" +
+      '<div class="compare-error-card" role="alert">' +
+      '<div class="compare-error-title">' +
+      name +
+      " " +
+      escapeHtml(translate("founder.compare.failed_label", "failed")) +
+      "</div>" +
+      '<div class="compare-error-body">' +
+      err +
+      "</div>" +
+      '<div class="compare-error-hint" data-i18n="founder.compare.error_hint">' +
+      escapeHtml(
+        translate(
+          "founder.compare.error_hint",
+          "This model failed. No content can be merged from this column."
+        )
+      ) +
+      "</div></div>";
+  }
+
+  function renderHighlightBlock(highlight, mergeable) {
+    if (!highlight) return "";
+    if (mergeable) {
+      return (
+        '<p class="' +
+        DIFF_HIGHLIGHT_CLASS +
+        '">' +
+        escapeHtml(highlight) +
+        '<button type="button" class="' +
+        PUSH_BTN_CLASS +
+        '">' +
+        escapeHtml(translate("founder.compare.add_to_main", "Add to Main")) +
+        "</button></p>"
+      );
+    }
+    return (
+      '<p class="' +
+      UNSAFE_HIGHLIGHT_CLASS +
+      '" title="' +
+      escapeHtml(translate("founder.compare.unsafe_block", "Unsafe to merge")) +
+      '">' +
+      escapeHtml(highlight) +
+      "</p>"
+    );
+  }
+
   function renderPane(modelKey, model, regions) {
     var pane = paneEl(modelKey);
     if (!pane || !model) return;
+    pane.classList.remove("is-compare-error");
     var region = regions[modelKey === "claude" ? "left" : "right"];
     var header = escapeHtml(model.name || modelKey);
     var html = '<header class="model-pane-header">' + header + "</header>";
@@ -130,17 +290,24 @@
       html += '<p class="model-pane-text">' + escapeHtml(region.prefix) + "</p>";
     }
     if (region.highlight) {
-      html +=
-        '<p class="' +
-        DIFF_HIGHLIGHT_CLASS +
-        '">' +
-        escapeHtml(region.highlight) +
-        '<button type="button" class="' +
-        PUSH_BTN_CLASS +
-        '">Add to Main</button></p>';
+      html += renderHighlightBlock(region.highlight, isSafeToMerge(region.highlight));
     }
     if (region.suffix) {
       html += '<p class="model-pane-text">' + escapeHtml(region.suffix) + "</p>";
+    }
+    pane.innerHTML = html;
+  }
+
+  function renderPaneSuccessOnly(modelKey, model) {
+    var pane = paneEl(modelKey);
+    if (!pane || !model) return;
+    pane.classList.remove("is-compare-error");
+    var text = String(model.text || "").trim();
+    var html = '<header class="model-pane-header">' + escapeHtml(model.name || modelKey) + "</header>";
+    if (isSafeToMerge(text)) {
+      html += renderHighlightBlock(text, true);
+    } else {
+      html += '<p class="model-pane-text">' + escapeHtml(text) + "</p>";
     }
     pane.innerHTML = html;
   }
@@ -150,9 +317,22 @@
     var models = (payload && payload.models) || {};
     var claude = models.claude || {};
     var deepseek = models.deepseek || {};
-    var regions = diffRegions(claude.text, deepseek.text);
-    renderPane("claude", claude, regions);
-    renderPane("deepseek", deepseek, regions);
+    var claudeFailed = modelHasFailed(claude);
+    var deepseekFailed = modelHasFailed(deepseek);
+
+    if (claudeFailed) renderPaneError("claude", claude);
+    if (deepseekFailed) renderPaneError("deepseek", deepseek);
+
+    if (!claudeFailed && !deepseekFailed) {
+      var regions = diffRegions(claude.text, deepseek.text);
+      renderPane("claude", claude, regions);
+      renderPane("deepseek", deepseek, regions);
+    } else if (!claudeFailed) {
+      renderPaneSuccessOnly("claude", claude);
+    } else if (!deepseekFailed) {
+      renderPaneSuccessOnly("deepseek", deepseek);
+    }
+
     var canvas = stagingCanvas();
     if (canvas) canvas.scrollTop = 0;
   }
@@ -180,7 +360,7 @@
 
   function appendToMainDocument(text) {
     var raw = String(text || "").trim();
-    if (!raw) return false;
+    if (!raw || !isSafeToMerge(raw)) return false;
     var api = global.AssureTiptapEditor;
     var ed = getMainEditor();
     if (!ed) return false;
@@ -205,7 +385,7 @@
 
   function markButtonInjected(button) {
     if (!button) return;
-    button.textContent = "Injected";
+    button.textContent = translate("founder.compare.injected", "Injected");
     button.disabled = true;
     button.setAttribute("aria-disabled", "true");
     button.dataset.injected = "1";
@@ -216,8 +396,18 @@
 
   function onPushToMain(button) {
     if (!button || button.disabled || button.dataset.injected === "1") return;
+    if (button.closest(".is-compare-error")) return;
     var text = extractMergeText(button);
-    if (!text) return;
+    if (!isSafeToMerge(text)) {
+      toast(
+        translate(
+          "founder.compare.merge_blocked",
+          "This block cannot be merged — it contains an error or unsafe content."
+        ),
+        "error"
+      );
+      return;
+    }
     var ok = appendToMainDocument(text);
     if (!ok) return;
     markButtonInjected(button);
@@ -277,14 +467,76 @@
     });
   }
 
+  function postCompare(intent) {
+    var sourceIds = global.__assureActiveSourceIds || [];
+    return fetch("/api/runs/compare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intent: intent, source_ids: sourceIds }),
+    }).then(function (response) {
+      return response.json().then(function (body) {
+        if (!response.ok) {
+          throw new Error((body && body.error) || "Compare request failed");
+        }
+        return body;
+      });
+    });
+  }
+
+  function normalizeComparePayload(data) {
+    if (!data) return data;
+    if (data.models && data.models.claude && data.models.deepseek) {
+      return data;
+    }
+    var models = data.models || {};
+    var modelA = data.model_a || {};
+    var modelB = data.model_b || {};
+    return {
+      status: data.status || "success",
+      stack: data.stack,
+      models: {
+        claude: {
+          name: (models.claude && models.claude.name) || modelA.name || "Model A",
+          text: (models.claude && models.claude.text) || modelA.text || "",
+          error: (models.claude && models.claude.error) || modelA.error || null,
+        },
+        deepseek: {
+          name: (models.deepseek && models.deepseek.name) || modelB.name || "Model B",
+          text: (models.deepseek && models.deepseek.text) || modelB.text || "",
+          error: (models.deepseek && models.deepseek.error) || modelB.error || null,
+        },
+      },
+    };
+  }
+
   function runIntent(intent) {
     var value = String(intent || "").trim();
     if (!value) return Promise.reject(new Error("Intent is required"));
     if (submitting) return Promise.resolve();
     submitting = true;
-    showStagingLoading();
-    return postOrchestrate(value)
+    return fetchHealthFlags()
+      .then(function (flags) {
+        if (
+          flags.useFree &&
+          global.AssureComparePane &&
+          typeof global.AssureComparePane.run === "function"
+        ) {
+          return global.AssureComparePane.run(value, global.__assureActiveSourceIds || []);
+        }
+        showStagingLoading(compareLoadingLabel(flags.models));
+        var request = flags.useFree
+          ? postCompare(value).then(normalizeComparePayload)
+          : postOrchestrate(value);
+        return request;
+      })
       .then(function (payload) {
+        if (
+          global.AssureComparePane &&
+          typeof global.AssureComparePane.isOpen === "function" &&
+          global.AssureComparePane.isOpen()
+        ) {
+          return payload;
+        }
         if (!payload || payload.status !== "success") {
           throw new Error((payload && payload.error) || "Orchestrator returned an error");
         }
@@ -296,13 +548,22 @@
         return payload;
       })
       .catch(function (err) {
+        if (
+          global.AssureComparePane &&
+          typeof global.AssureComparePane.isOpen === "function" &&
+          global.AssureComparePane.isOpen()
+        ) {
+          throw err;
+        }
         clearStagingLoading();
         ensureStagingRow();
-        var claudePane = paneEl("claude");
-        var deepseekPane = paneEl("deepseek");
-        var msg = escapeHtml(String((err && err.message) || err));
-        if (claudePane) claudePane.innerHTML = '<p class="model-pane-text">' + msg + "</p>";
-        if (deepseekPane) deepseekPane.innerHTML = '<p class="model-pane-text">' + msg + "</p>";
+        var failed = {
+          name: "Compare",
+          error: String((err && err.message) || err),
+          text: "",
+        };
+        renderPaneError("claude", failed);
+        renderPaneError("deepseek", failed);
         throw err;
       })
       .finally(function () {
@@ -363,6 +624,10 @@
     handleSubmit: onSubmit,
     appendToMainDocument: appendToMainDocument,
     pushToMain: onPushToMain,
+    isSafeToMerge: isSafeToMerge,
+    isErrorLikeText: isErrorLikeText,
+    isSafeDivergence: isSafeDivergence,
+    modelHasFailed: modelHasFailed,
   };
 
   document.addEventListener("DOMContentLoaded", init);

@@ -24,9 +24,11 @@ def _revoke_task(task_id: str | None) -> None:
     if not task_id:
         return
     try:
-        from prompt_matrix.celery_app import celery_app
+        from prompt_matrix.celery_app import celery_app, celery_broker_disabled
     except ImportError:
-        from celery_app import celery_app
+        from celery_app import celery_app, celery_broker_disabled
+    if celery_broker_disabled():
+        return
     try:
         celery_app.control.revoke(task_id, terminate=True)
     except Exception:
@@ -63,6 +65,13 @@ def schedule_redhat_multipass(
             _debounce_timers[project_id] = timer
             timer.daemon = True
             timer.start()
+        return None
+
+    try:
+        from prompt_matrix.celery_app import celery_broker_disabled
+    except ImportError:
+        from celery_app import celery_broker_disabled
+    if celery_broker_disabled():
         return None
 
     try:
