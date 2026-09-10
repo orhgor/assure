@@ -232,8 +232,17 @@
   }
 
   function handleSubmit() {
-    if (!input || submitting || !activeEditor) return;
-    if (isFounderShell()) return;
+    if (!input || submitting) return;
+    if (isFounderShell()) {
+      if (
+        global.AssureOrchestrator &&
+        typeof global.AssureOrchestrator.handleSubmit === "function"
+      ) {
+        global.AssureOrchestrator.handleSubmit();
+      }
+      return;
+    }
+    if (!activeEditor) return;
     var intent = input.value.trim();
     if (!intent) return;
     submitOperatorIntent(intent, activeEditor);

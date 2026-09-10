@@ -4,7 +4,19 @@
 (function (global) {
   "use strict";
 
-  var ORCHESTRATE_URL = "/api/projects/founder/orchestrate";
+  function workspaceId() {
+    if (global.AssureFounderDraft && typeof global.AssureFounderDraft.getWorkspaceId === "function") {
+      return global.AssureFounderDraft.getWorkspaceId();
+    }
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
+    return global.__ASSURE_PROJECT_ID__ || "founder";
+  }
+
+  function orchestrateUrl() {
+    return "/api/projects/" + encodeURIComponent(workspaceId()) + "/orchestrate";
+  }
   var DIFF_HIGHLIGHT_CLASS =
     "diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group";
   var PUSH_BTN_CLASS =
@@ -174,7 +186,6 @@
     if (!ed) return false;
     try {
       if (api && typeof api.insertAtCursor === "function") {
-        ed.chain().focus("end").run();
         var prefix = ed.getText().trim().length > 0 ? "\n\n" : "";
         return api.insertAtCursor(prefix + raw);
       }
@@ -252,7 +263,7 @@
   }
 
   function postOrchestrate(intent) {
-    return fetch(ORCHESTRATE_URL, {
+    return fetch(orchestrateUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ intent: intent }),
