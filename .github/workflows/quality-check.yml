@@ -26,29 +26,35 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest requests python-dotenv pytest-playwright pymupdf
+          pip install pytest requests pytest-playwright pymupdf
           playwright install chromium --with-deps
 
-      - name: Load env for key audit (self-hosted)
+      - name: Source staging env
         run: |
-          if [ -f .env.production ]; then
-            set -a
-            # shellcheck disable=SC1091
-            source .env.production
-            set +a
+          ENV_FILE=""
+          if [ -f .env.staging ]; then
+            ENV_FILE=".env.staging"
+          elif [ -f /home/ubuntu/assure/.env.staging ]; then
+            ENV_FILE="/home/ubuntu/assure/.env.staging"
           fi
-          if [ -f prompt_matrix/.env ]; then
+          if [ -n "$ENV_FILE" ]; then
             set -a
-            # shellcheck disable=SC1091
-            source prompt_matrix/.env
+            # shellcheck disable=SC1090
+            source "$ENV_FILE"
             set +a
           fi
         shell: bash
 
-      - name: API key audit
-        run: pytest tests/quality_check/test_api_keys.py -v
+      - name: API key audit (staging tier)
         env:
-          QUALITY_CHECK_STRICT: ${{ vars.QUALITY_CHECK_STRICT || '0' }}
+          QUALITY_CHECK_ENV: staging
+          QUALITY_CHECK_STRICT: "1"
+        run: |
+          PY=pytest
+          if [ -x /home/ubuntu/assure/.venv-qc/bin/pytest ]; then
+            PY=/home/ubuntu/assure/.venv-qc/bin/pytest
+          fi
+          $PY tests/quality_check/test_api_keys.py -v
 
       - name: Backend smoke tests
         run: pytest tests/quality_check/test_backend_endpoints.py -v
