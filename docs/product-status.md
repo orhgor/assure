@@ -10,7 +10,7 @@
 | Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
 | **Production** | `main` @ `f4e2d20` | **healthy** — `f4e2d20`, UI `assure-127`, ~9.9 GB disk free |
-| **Staging** | `staging` @ `cb865f2` (+ orchestrator/polish PR pending deploy) | **healthy** — `87753ea`, UI `assure-138`, ~12.7 GB disk free |
+| **Staging** | `staging` @ `25bd267` (PR #44) | **healthy** — deploy pending; live `87753ea`, UI `assure-138`, ~12.7 GB disk free |
 
 **Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
 **Tests (local HEAD):** orchestrator + polish route tests **5/5**; frozen-shell quality check **5/5**; golden path E2E fails at Step 5+ (Red-Hat / full-scan not built).
@@ -22,7 +22,7 @@
 | :--- | :--- | :--- |
 | **#41** | API key env tiers | `test_api_keys.py` — always-required vs production-only keys in quality-check CI |
 | **#42–#43** | v1.0 execution docs | `user-experience.md`, `ship-timeline.md`, `frozen-shell.md`, Day 1 shell tests, Day 2 golden path spec |
-| **(pending)** | Sprint 1 + 2 — Difference Engine + Polish Main | `POST /api/projects/<id>/orchestrate`, `POST /api/projects/<id>/polish`, staging 60/40 shell, `.main-polish-btn`, click-to-merge |
+| **#44** | Sprint 1 + 2 — Difference Engine + Polish Main | `POST /api/projects/<id>/orchestrate`, `POST /api/projects/<id>/polish`, staging 60/40 shell, `.main-polish-btn`, click-to-merge |
 
 ### v1.0 sprint progress (founder workbench)
 
