@@ -12,8 +12,9 @@ except ImportError:  # pragma: no cover
 
 # Two genuinely different providers — required for the diff engine.
 FREE_MODEL_PAIRS: list[tuple[str, str]] = [
-    ("gemini/gemini-2.5-flash", "deepseek/deepseek-chat"),
-    ("groq/llama-3.3-70b-versatile", "gemini/gemini-2.5-flash"),
+    # gemini-2.5-flash returns 404 for new API keys (2026-03); 2.0-flash is free-tier stable.
+    ("gemini/gemini-2.0-flash", "deepseek/deepseek-chat"),
+    ("groq/llama-3.3-70b-versatile", "gemini/gemini-2.0-flash"),
 ]
 
 PRODUCTION_MODEL_PAIRS: list[tuple[str, str]] = [
@@ -104,7 +105,7 @@ def _build_model_list() -> list[dict[str, Any]]:
     gemini = model_a if model_a.startswith("gemini/") else model_b
     deepseek = model_b if model_b.startswith("deepseek/") else model_a
     if not gemini.startswith("gemini/"):
-        gemini = "gemini/gemini-2.5-flash"
+        gemini = "gemini/gemini-2.0-flash"
     if not deepseek.startswith("deepseek/"):
         deepseek = "deepseek/deepseek-chat"
     return [
