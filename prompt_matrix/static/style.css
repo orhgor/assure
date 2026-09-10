@@ -10885,21 +10885,6 @@ body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
   cursor: default;
 }
 
-/* Founder draft column — Phase 1 layout (assure-128) */
-body.founder-workbench:not(.legacy-workbench) .founder-draft-shell {
-  max-width: 800px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 24px 48px;
-  box-sizing: border-box;
-}
-
-body.founder-workbench:not(.legacy-workbench) #canvas-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
 /* Hybrid AST — TipTap code blocks (Highlight.js CDN, assure-132) */
 .founder-workbench .ProseMirror pre {
   background: #1e293b !important;

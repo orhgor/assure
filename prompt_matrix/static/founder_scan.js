@@ -54,6 +54,7 @@
     if (!btn) return;
     btn.disabled = !!busy;
     btn.classList.toggle("is-busy", !!busy);
+    btn.setAttribute("aria-busy", busy ? "true" : "false");
     if (busy) {
       btn.dataset.busyLabel = btn.textContent;
       btn.textContent = translate("founder.scan.running", "Scanning document...");

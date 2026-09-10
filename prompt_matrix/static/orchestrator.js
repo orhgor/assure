@@ -34,6 +34,17 @@
     return fallback || key;
   }
 
+  function translatef(key, fallback, params) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, params || {});
+    }
+    var out = translate(key, fallback);
+    Object.keys(params || {}).forEach(function (k) {
+      out = out.replace("{" + k + "}", String(params[k]));
+    });
+    return out;
+  }
+
   function toast(message, kind) {
     if (global.AssureToast && typeof global.AssureToast.show === "function") {
       global.AssureToast.show(message, kind || "error");
@@ -111,15 +122,18 @@
 
   function compareLoadingLabel(models) {
     if (models && models.claude && models.deepseek) {
-      return (
-        "Running " +
-        modelDisplayName(models.claude, "Model A") +
-        " + " +
-        modelDisplayName(models.deepseek, "Model B") +
-        "…"
-      );
+      return translatef("founder.compare.running_pair", "Running {model_a} + {model_b}…", {
+        model_a: modelDisplayName(
+          models.claude,
+          translate("founder.compare.model_a_default", "Model A")
+        ),
+        model_b: modelDisplayName(
+          models.deepseek,
+          translate("founder.compare.model_b_default", "Model B")
+        ),
+      });
     }
-    return "Running compare…";
+    return translate("command.bar.running_compare", "Running compare…");
   }
 
   function stagingCanvas() {
@@ -496,12 +510,18 @@
       stack: data.stack,
       models: {
         claude: {
-          name: (models.claude && models.claude.name) || modelA.name || "Model A",
+          name:
+            (models.claude && models.claude.name) ||
+            modelA.name ||
+            translate("founder.compare.model_a_default", "Model A"),
           text: (models.claude && models.claude.text) || modelA.text || "",
           error: (models.claude && models.claude.error) || modelA.error || null,
         },
         deepseek: {
-          name: (models.deepseek && models.deepseek.name) || modelB.name || "Model B",
+          name:
+            (models.deepseek && models.deepseek.name) ||
+            modelB.name ||
+            translate("founder.compare.model_b_default", "Model B"),
           text: (models.deepseek && models.deepseek.text) || modelB.text || "",
           error: (models.deepseek && models.deepseek.error) || modelB.error || null,
         },
@@ -511,7 +531,11 @@
 
   function runIntent(intent) {
     var value = String(intent || "").trim();
-    if (!value) return Promise.reject(new Error("Intent is required"));
+    if (!value) {
+      return Promise.reject(
+        new Error(translate("founder.compare.intent_required", "Intent is required"))
+      );
+    }
     if (submitting) return Promise.resolve();
     submitting = true;
     return fetchHealthFlags()

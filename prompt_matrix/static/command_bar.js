@@ -50,8 +50,18 @@
     }
   }
 
+  function setSubmitUiBusy(on) {
+    var modal = overlay && overlay.querySelector(".command-bar-modal");
+    if (modal) modal.classList.toggle("is-busy", !!on);
+    if (input) {
+      input.disabled = !!on;
+      input.setAttribute("aria-busy", on ? "true" : "false");
+    }
+  }
+
   function clearBusy() {
     submitting = false;
+    setSubmitUiBusy(false);
     setPipelineStatus("");
     if (activeStream && typeof activeStream.abort === "function") {
       try {
@@ -319,6 +329,7 @@
     options = options || {};
     if (submitting) return Promise.resolve();
     submitting = true;
+    setSubmitUiBusy(true);
     var statusMsg = translate("command.bar.running_compare", "Running compare…");
     setStatus(statusMsg);
     setPipelineStatus(statusMsg);
@@ -332,9 +343,13 @@
           : null;
     if (!run) {
       submitting = false;
-      var unavailable = "Compare engine unavailable";
+      var unavailable = translate(
+        "command.bar.compare_unavailable",
+        "Compare engine unavailable"
+      );
       setStatus(unavailable);
       toast(unavailable, "error");
+      setSubmitUiBusy(false);
       return Promise.reject(new Error(unavailable));
     }
     return run(intent)
@@ -351,6 +366,7 @@
       })
       .finally(function () {
         submitting = false;
+        setSubmitUiBusy(false);
         setPipelineStatus("");
       });
   }
@@ -358,6 +374,7 @@
   function runDirective(directive, sourceIds) {
     if (submitting) return Promise.resolve();
     submitting = true;
+    setSubmitUiBusy(true);
     setStatus(translate("command.bar.running", "Running verification…"));
     setPipelineStatus(translate("command.bar.running", "Running verification…"));
     return submitDirectiveStream(directive, sourceIds || [])
@@ -370,6 +387,7 @@
       })
       .finally(function () {
         submitting = false;
+        setSubmitUiBusy(false);
       });
   }
 
@@ -413,7 +431,11 @@
       fileInput.addEventListener("change", function () {
         pendingFiles = Array.from(fileInput.files || []);
         if (statusEl && pendingFiles.length) {
-          statusEl.textContent = pendingFiles.length + " file(s) attached";
+          statusEl.textContent = translatef(
+            "command.bar.files_attached",
+            "{count} file(s) attached",
+            { count: pendingFiles.length }
+          );
         }
       });
     }
@@ -429,7 +451,11 @@
       zone.classList.remove("is-dragover");
       pendingFiles = Array.from(e.dataTransfer.files || []);
       if (statusEl && pendingFiles.length) {
-        statusEl.textContent = pendingFiles.length + " file(s) attached";
+        statusEl.textContent = translatef(
+          "command.bar.files_attached",
+          "{count} file(s) attached",
+          { count: pendingFiles.length }
+        );
       }
     });
   }

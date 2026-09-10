@@ -114,6 +114,8 @@ BATCH2=(
 BATCH3=(
   prompt_matrix/static/orchestrator.js
   prompt_matrix/static/command_bar.js
+)
+BATCH3B=(
   prompt_matrix/static/operator_prompt.js
   scripts/aws/patch-staging-canvas-empty.py
 )
@@ -122,11 +124,23 @@ BATCH4=(
   prompt_matrix/static/compare_pane.js
   prompt_matrix/static/compare_pane.css
 )
+BATCH4B=(
+  prompt_matrix/static/founder_workbench.css
+  prompt_matrix/static/founder_polish.js
+  prompt_matrix/static/founder_scan.js
+)
+BATCH4C=(
+  prompt_matrix/templates/base.html
+  prompt_matrix/ui_cache.py
+)
 
 SYNC1="$(build_sync_script "${BATCH1[@]}")"
 SYNC2="$(build_sync_script "${BATCH2[@]}")"
 SYNC3="$(build_sync_script "${BATCH3[@]}")"
+SYNC3B="$(build_sync_script "${BATCH3B[@]}")"
 SYNC4="$(build_sync_script "${BATCH4[@]}")"
+SYNC4B="$(build_sync_script "${BATCH4B[@]}")"
+SYNC4C="$(build_sync_script "${BATCH4C[@]}")"
 INSTALL="$(mktemp)"
 cat > "$INSTALL" <<'EOF'
 #!/usr/bin/env bash
@@ -137,12 +151,15 @@ chown -R ubuntu:ubuntu /home/ubuntu/assure
 sudo -u ubuntu env ASSURE_ENVIRONMENT=staging ASSURE_ROOT=/home/ubuntu/assure bash scripts/aws/install-lean-service.sh
 EOF
 
-trap 'rm -f "$SYNC1" "$SYNC2" "$SYNC3" "$SYNC4" "$INSTALL"' EXIT
+trap 'rm -f "$SYNC1" "$SYNC2" "$SYNC3" "$SYNC3B" "$SYNC4" "$SYNC4B" "$SYNC4C" "$INSTALL"' EXIT
 
 _send_ssm "sync batch 1" "$SYNC1"
 _send_ssm "sync batch 2" "$SYNC2"
-_send_ssm "sync static js + staging patch" "$SYNC3"
-_send_ssm "sync founder_draft.js" "$SYNC4"
+_send_ssm "sync orchestrator + command_bar" "$SYNC3"
+_send_ssm "sync operator_prompt + staging patch" "$SYNC3B"
+_send_ssm "sync founder draft + compare pane" "$SYNC4"
+_send_ssm "sync founder workbench css + actions" "$SYNC4B"
+_send_ssm "sync base template + ui cache" "$SYNC4C"
 PATCH="$(mktemp)"
 cat > "$PATCH" <<'EOF'
 #!/usr/bin/env bash
@@ -175,7 +192,7 @@ for i in \$(seq 1 30); do
 done
 exit 1
 EOF
-  trap 'rm -f "$SYNC1" "$SYNC2" "$SYNC3" "$SYNC4" "$INSTALL" "$RESTART"' EXIT
+  trap 'rm -f "$SYNC1" "$SYNC2" "$SYNC3" "$SYNC3B" "$SYNC4" "$SYNC4B" "$SYNC4C" "$INSTALL" "$RESTART"' EXIT
   _send_ssm "restart native service" "$RESTART"
 else
   _send_ssm "install native service" "$INSTALL"

@@ -190,6 +190,12 @@
       delete draftTree.meta.founder_blank;
     }
     updatePlaceholder();
+    window.requestAnimationFrame(function () {
+      updatePlaceholder();
+      try {
+        if (ed && ed.view) ed.commands.focus("end");
+      } catch (_) {}
+    });
     window.setTimeout(updatePlaceholder, 100);
   }
 
@@ -416,6 +422,30 @@
     }
   }
 
+  function whenTiptapReady(cb) {
+    if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.mount === "function") {
+      cb();
+      return;
+    }
+    var tries = 0;
+    var timer = window.setInterval(function () {
+      tries += 1;
+      if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.mount === "function") {
+        window.clearInterval(timer);
+        cb();
+      } else if (tries > 60) {
+        window.clearInterval(timer);
+      }
+    }, 25);
+  }
+
+  function bootFounderDraft() {
+    whenTiptapReady(function () {
+      ensureEditorMounted();
+      loadDraft();
+    });
+  }
+
   function init() {
     workspaceId = resolveWorkspaceId();
     if (isFounderShell()) {
@@ -440,7 +470,7 @@
       (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||
       document.body.classList.contains("founder-workbench")
     ) {
-      loadDraft();
+      bootFounderDraft();
     }
   }
 

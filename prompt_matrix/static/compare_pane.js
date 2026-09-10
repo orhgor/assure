@@ -21,6 +21,17 @@
     return fallback || key;
   }
 
+  function translatef(key, fallback, params) {
+    if (typeof global.__assureTf === "function") {
+      return global.__assureTf(key, fallback, params || {});
+    }
+    var out = translate(key, fallback);
+    Object.keys(params || {}).forEach(function (k) {
+      out = out.replace("{" + k + "}", String(params[k]));
+    });
+    return out;
+  }
+
   function toast(message, kind) {
     if (global.AssureToast && typeof global.AssureToast.show === "function") {
       global.AssureToast.show(message, kind || "error");
@@ -168,13 +179,20 @@
       stack: data.stack,
       models: {
         claude: {
-          name: (models.claude && models.claude.name) || modelA.name || modelA.model || "Model A",
+          name:
+            (models.claude && models.claude.name) ||
+            modelA.name ||
+            modelA.model ||
+            translate("founder.compare.model_a_default", "Model A"),
           text: (models.claude && models.claude.text) || modelA.text || "",
           error: (models.claude && models.claude.error) || modelA.error || null,
         },
         deepseek: {
           name:
-            (models.deepseek && models.deepseek.name) || modelB.name || modelB.model || "Model B",
+            (models.deepseek && models.deepseek.name) ||
+            modelB.name ||
+            modelB.model ||
+            translate("founder.compare.model_b_default", "Model B"),
           text: (models.deepseek && models.deepseek.text) || modelB.text || "",
           error: (models.deepseek && models.deepseek.error) || modelB.error || null,
         },
@@ -205,7 +223,11 @@
 
   function run(intent, sourceIds) {
     var value = String(intent || "").trim();
-    if (!value) return Promise.reject(new Error("Intent is required"));
+    if (!value) {
+      return Promise.reject(
+        new Error(translate("founder.compare.intent_required", "Intent is required"))
+      );
+    }
     if (submitting) return Promise.resolve();
     submitting = true;
 
@@ -222,7 +244,12 @@
       .then(function (response) {
         return response.json().then(function (body) {
           if (!response.ok) {
-            throw new Error((body && body.error) || "Compare endpoint returned " + response.status);
+            throw new Error(
+              (body && body.error) ||
+                translatef("founder.compare.endpoint_status", "Compare endpoint returned {status}", {
+                  status: response.status,
+                })
+            );
           }
           return body;
         });
@@ -230,7 +257,10 @@
       .then(function (data) {
         var payload = normalizePayload(data);
         if (!payload || payload.status !== "success") {
-          throw new Error((payload && payload.error) || "Compare returned an error");
+          throw new Error(
+            (payload && payload.error) ||
+              translate("founder.compare.compare_error", "Compare returned an error")
+          );
         }
         var claude = (payload.models && payload.models.claude) || {};
         var deepseek = (payload.models && payload.models.deepseek) || {};
