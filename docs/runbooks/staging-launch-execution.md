@@ -1,8 +1,8 @@
 # Staging recovery & launch execution (2026-09-09)
 
-**Status:** Staging EC2 unavailable until disk is cleared today. Production marketing on R2; production workbench healthy.
+**Status:** **Recovered 2026-09-10** — staging `/health` 200, ~9.6 GB disk free, free-model stack deployed. Production marketing on R2; production workbench healthy.
 
-**Instance:** `i-03e39eccc57572191` · **Git target:** `staging` @ `fe73790` · **UI cache:** `assure-127` (workbench), `landing.css?v=59` / `landing.js?v=45` (marketing)
+**Instance:** `i-03e39eccc57572191` · **Git target:** `staging` @ `3cb82a7` · **UI cache:** `assure-140` (workbench)
 
 Execute phases **in order**. Do not run Phase 4 QA until Phases 1–2 are done.
 
@@ -10,7 +10,7 @@ Execute phases **in order**. Do not run Phase 4 QA until Phases 1–2 are done.
 
 ## Phase 1 — Unblock staging infrastructure
 
-**Goal:** `https://staging.getassureai.com/health` → 200 with `build_sha` from `fe73790` lineage.
+**Goal:** `https://staging.getassureai.com/health` → 200 with UI `assure-140`+ and `stack: free` when testing Difference Engine.
 
 | Step | Command / action |
 |------|------------------|

@@ -2,10 +2,10 @@
 
 **Purpose:** Single document for launch readiness, market assessment, positioning, feature inventory, and development history.
 **Product:** Assure (workbench) · **Engine:** PEM (`prompt_matrix`)
-**Last updated:** 2026-09-09
-**Decision:** **GO (production)** — marketing on R2; workbench at `1d6bf798` (prod UI `assure-122`). Staging EC2 **502** (disk full) — execute [staging-launch-execution.md](./runbooks/staging-launch-execution.md) when box is available.
-**Tests:** **654** pytest collected locally; Playwright founder suite 15/15 on PR #30
-**Live site:** https://getassureai.com/ · `main` @ `1d6bf79` · staging git @ `fe73790` (not deployed)
+**Last updated:** 2026-09-10
+**Decision:** **GO (production)** — marketing on R2; workbench at `f4e2d20` (prod UI `assure-127`). **Staging healthy** — `3cb82a7`, UI `assure-140`, free-model Difference Engine live.
+**Tests:** pytest + free-stack/compare route tests green; golden path E2E stops at Step 5+
+**Live site:** https://getassureai.com/ · https://staging.getassureai.com/app?view=founder
 
 ---
 
