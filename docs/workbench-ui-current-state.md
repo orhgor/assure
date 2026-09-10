@@ -1,13 +1,13 @@
 # Assure Workbench — Current UI State
 
 **Purpose:** Baseline for the next UI propagation prompt (revise, add, enhance).
-**Branch / deploy snapshot:** Git `staging` @ `fe73790` (PRs #30–#32). **Production live** `1d6bf798` / `assure-122`. **Staging EC2** **502** (disk full — founder shell not deployed).
+**Branch / deploy snapshot:** Git `staging` @ `3cb82a7` (PRs #46–#51). **Production live** `f4e2d20` / `assure-127`. **Staging EC2** **healthy** — UI `assure-140`, free stack (`gemini-3.6-flash` + DeepSeek), ~9.6 GB disk free.
 **Live inventory (product):** `docs/product-status.md` (current snapshot) · `docs/assure-ai-all-functions.md` §3.
 
 ### Planned next — research synthesis (PR 1 / PR 2)
 
 **Spec:** [runbooks/research-synthesis-pr1-pr2.md](./runbooks/research-synthesis-pr1-pr2.md)
-**Blocked on:** staging EC2 disk recovery ([staging-launch-execution.md](./runbooks/staging-launch-execution.md) Phase 1).
+**Blocked on:** golden path Steps 5–10 (Red-Hat multi-pass, benchmark, export complete). Staging infra recovered 2026-09-10.
 
 | Gap today | PR 1 fix | Persistence |
 |-----------|----------|-------------|
