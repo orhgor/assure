@@ -8,7 +8,12 @@
   var saveInFlight = null;
   var z3FallbackTimer = null;
   var workspaceId = "founder";
-  var draftTree = { body: [] };
+  var draftTree = {
+    document_id: "draft-founder",
+    meta: { project_id: "founder", source: "founder_draft" },
+    truth_ledger: {},
+    body: [],
+  };
   var streamingLockIndex = 0;
   var streamingActive = false;
   var activeRunId = null;
@@ -141,6 +146,15 @@
     });
     if (global.AssureOperatorPrompt && typeof global.AssureOperatorPrompt.init === "function") {
       global.AssureOperatorPrompt.init();
+    }
+    if (global.AssureOrchestrator && typeof global.AssureOrchestrator.init === "function") {
+      global.AssureOrchestrator.init();
+    }
+    if (global.AssureFounderPolish && typeof global.AssureFounderPolish.init === "function") {
+      global.AssureFounderPolish.init();
+    }
+    if (global.AssureFounderScan && typeof global.AssureFounderScan.init === "function") {
+      global.AssureFounderScan.init();
     }
     var ed = editorApi.getEditor && editorApi.getEditor();
     if (ed && isBlank) {

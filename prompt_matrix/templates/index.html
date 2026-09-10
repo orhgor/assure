@@ -755,11 +755,13 @@
                       <h3 class="jdf-pane-title founder-draft-title" id="founder-document-title" data-i18n="founder.document.untitled">{{ gettext('Untitled Document') }}</h3>
                       <div class="founder-draft-actions">
                         <button type="button" class="btn btn-outline btn-sm main-polish-btn" id="btn-polish-main" data-i18n="founder.polish.main">{{ gettext('Polish Main') }}</button>
+                        <button type="button" class="btn btn-outline btn-sm full-context-scan-btn" id="btn-full-context-scan" data-i18n="founder.scan.main">{{ gettext('Full-Context Scan') }}</button>
                         <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
                       </div>
                     </div>
                     <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
                     <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
+                    <div class="full-context-results" hidden aria-hidden="true"></div>
                   </div>
                   <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
                   <div id="jdf-render-target" class="jdf-tree founder-legacy-canvas" role="tree" hidden></div>
@@ -1407,6 +1409,7 @@
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_inline_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_polish.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_scan.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>

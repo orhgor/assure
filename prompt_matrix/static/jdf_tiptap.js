@@ -225,15 +225,17 @@
         return;
       }
       if (node.type === "codeBlock") {
-        var codeId = (node.attrs && node.attrs.nodeId) || newNodeId("cb");
+        var codeText = textContent(node).trim();
+        if (!codeText) return;
+        var codeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
         var oldCode = lookupOld(previousTree, codeId);
         current.children.push({
-          type: "code_block",
+          type: "paragraph",
           id: codeId,
-          language: String((node.attrs && node.attrs.language) || ""),
-          content: textContent(node),
+          content: codeText,
           annotations: (oldCode && oldCode.annotations) || { redhat: [], z3: [] },
-          meta: Object.assign({}, (oldCode && oldCode.meta) || {}),
+          meta: Object.assign({}, (oldCode && oldCode.meta) || {}, { lock_pills: [] }),
+          provenance: (oldCode && oldCode.provenance) || [],
         });
         return;
       }
@@ -296,8 +298,12 @@
       current.children.push(child);
     });
 
+    var projectId =
+      (meta && meta.project_id) ||
+      (previousTree.meta && previousTree.meta.project_id) ||
+      "founder";
     return {
-      document_id: previousTree.document_id,
+      document_id: previousTree.document_id || "draft-" + projectId,
       meta: meta,
       truth_ledger: previousTree.truth_ledger || {},
       body: body,
@@ -1362,7 +1368,9 @@
       });
       try {
         var before = editor.getText();
-        editor.chain().focus().insertContent(nodes).run();
+        var endPos = editor.state.doc.content.size;
+        var payload = nodes.length === 1 ? nodes[0] : nodes;
+        editor.chain().focus().insertContentAt(endPos, payload).run();
         return editor.getText() !== before;
       } catch (_) {
         return false;

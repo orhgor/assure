@@ -1732,6 +1732,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_polish_routes(app)
 
     try:
+        from .routers.scan_routes import register_scan_routes
+    except ImportError:
+        from routers.scan_routes import register_scan_routes
+    register_scan_routes(app)
+
+    try:
         from .middleware_activity import register_activity_audit_middleware
     except ImportError:
         from middleware_activity import register_activity_audit_middleware
