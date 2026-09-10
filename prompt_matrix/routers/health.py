@@ -122,6 +122,15 @@ def health_check():
         "jdf_workbench": True,
     }
     try:
+        from ..llm.orchestrator import orchestrator_model_pairs, use_free_models
+    except ImportError:
+        from llm.orchestrator import orchestrator_model_pairs, use_free_models
+    status["use_free_models"] = use_free_models()
+    if use_free_models():
+        status["orchestrator_models"] = {
+            key: pair.get("litellm_model") or "" for key, pair in orchestrator_model_pairs().items()
+        }
+    try:
         from ..upload_limits import limits_snapshot
     except ImportError:
         from upload_limits import limits_snapshot
