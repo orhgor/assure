@@ -4,14 +4,16 @@
 
 **Rule:** If a day slips, cut scope — do **not** extend the timeline. Defer to [deferred.md](./deferred.md).
 
+**Day 2 gate: PASS** — `npx playwright test tests/e2e/golden_path.spec.js` runs; Steps 1–2 pass; Step 3 fails waiting for `.staging-canvas` (Difference Engine not built).
+
 ---
 
 ## Daily gates
 
 | Day | Deliverable | Green gate |
 | --- | --- | --- |
-| **Day 1** | 3-pane layout frozen | Resize window → no break. State rail always 48px. |
-| **Day 2** | Golden path test written (fails) | Test runs. First failure logged. |
+| **Day 1** | 3-pane layout frozen | Resize window → no break. State rail always 48px. **✅ PASS** |
+| **Day 2** | Golden path test written (fails) | Test runs. First failure logged. **✅ PASS** — fails at Step 3 (`.staging-canvas` missing) |
 | **Day 7** | Sprint 1 done — Difference Engine | Test step 3 passes (side-by-side diff). |
 | **Day 14** | Sprint 2 done — Hybrid Merge + Polish | Test steps 4–6 pass. |
 | **Day 21** | Sprint 3 done — Full-scan + Benchmark | Test steps 7–9 pass. |
