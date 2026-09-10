@@ -166,7 +166,8 @@ Still true:
 | Styles | `prompt_matrix/static/style.css` |
 | Stepper | `prompt_matrix/static/workbench_stepper.js` |
 | Founder shell / state rail | `prompt_matrix/static/founder_shell.js`, `state_rail.js`, `runs_stack.js` |
-| Orchestrator / command bar | `prompt_matrix/services/orchestrator.py`, `static/command_bar.js` |
+| Orchestrator / command bar | `prompt_matrix/services/orchestrator.py`, `static/command_bar.js`, `static/orchestrator.js`, `routers/orchestrator_routes.py` |
+| Polish Main | `prompt_matrix/services/polish_document.py`, `static/founder_polish.js`, `routers/polish_routes.py` |
 | Compile / SSE / dock | `prompt_matrix/static/generate.js` |
 | Nav | `prompt_matrix/static/app_nav.js` |
 | Analytics | `prompt_matrix/static/analytics.js` (`templates/analytics.html` leftover) |

@@ -748,18 +748,47 @@
             </div>
             <div id="canvas-analytics-view" class="canvas-analytics-view" hidden></div>
             <div class="jdf-card canvas-stage" id="canvas-stage">
-              <div id="founder-draft-shell" class="founder-draft-shell">
-                <div class="founder-draft-header">
-                  <h3 class="jdf-pane-title founder-draft-title" id="founder-document-title" data-i18n="founder.document.untitled">{{ gettext('Untitled Document') }}</h3>
-                  <div class="founder-draft-actions">
-                    <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
+              <div class="founder-canvas-split">
+                <div class="founder-main-pane">
+                  <div id="founder-draft-shell" class="founder-draft-shell">
+                    <div class="founder-draft-header">
+                      <h3 class="jdf-pane-title founder-draft-title" id="founder-document-title" data-i18n="founder.document.untitled">{{ gettext('Untitled Document') }}</h3>
+                      <div class="founder-draft-actions">
+                        <button type="button" class="btn btn-outline btn-sm main-polish-btn" id="btn-polish-main" data-i18n="founder.polish.main">{{ gettext('Polish Main') }}</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="founder-attach-sources" data-i18n="founder.attach_sources">{{ gettext('Attach Sources') }}</button>
+                      </div>
+                    </div>
+                    <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
+                    <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
                   </div>
+                  <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
+                  <div id="jdf-render-target" class="jdf-tree founder-legacy-canvas" role="tree" hidden></div>
                 </div>
-                <p id="founder-draft-placeholder" class="founder-draft-placeholder hint" data-i18n="founder.draft.placeholder">{{ gettext('What are we investigating or drafting?') }}</p>
-                <div id="founder-draft-editor" class="founder-draft-editor jdf-tiptap-host"></div>
+                <aside class="founder-staging-pane" aria-label="{{ gettext('AI Staging Area') }}">
+                  <div class="staging-canvas">
+                    <div class="staging-canvas-row">
+                      <div class="model-pane p-4" data-model="claude">
+                        <header class="model-pane-header">Claude 3.5</header>
+                        <p class="model-pane-text">The commercial property policy sets a per-occurrence liability limit of $2,000,000 for bodily injury and property damage combined.</p>
+                        <p class="diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group">
+                          The aggregate renewal cap is calculated at $5,000,000 across all Boston locations.
+                          <button type="button" class="push-to-main-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-blue-600 text-white text-xs px-2 py-1 rounded">Add to Main</button>
+                        </p>
+                        <p class="model-pane-text">Both figures require endorsement review before binding.</p>
+                      </div>
+                      <div class="model-pane p-4" data-model="deepseek">
+                        <header class="model-pane-header">DeepSeek V3</header>
+                        <p class="model-pane-text">The commercial property policy sets a per-occurrence liability limit of $2,000,000 for bodily injury and property damage combined.</p>
+                        <p class="diff-highlight bg-yellow-500/20 text-yellow-200 border-l-2 border-yellow-500 p-2 my-2 relative group">
+                          The aggregate renewal cap is calculated at $4,500,000 across all Boston locations.
+                          <button type="button" class="push-to-main-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-blue-600 text-white text-xs px-2 py-1 rounded">Add to Main</button>
+                        </p>
+                        <p class="model-pane-text">Both figures require endorsement review before binding.</p>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
               </div>
-              <div id="zero-state-dashboard" class="zero-state-dashboard" hidden aria-hidden="true"></div>
-              <div id="jdf-render-target" class="jdf-tree founder-legacy-canvas" role="tree" hidden></div>
             </div>
             <aside id="reasoning-graph-drawer" class="reasoning-graph-drawer" hidden>
               <div class="reasoning-graph-header">
@@ -797,10 +826,11 @@
               <span class="operator-prompt-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
               </span>
-              <input type="text" id="operator-prompt-input" class="operator-prompt-input"
+              <input type="text" id="operator-prompt-input" class="operator-prompt-input orchestrator-input"
                      autocomplete="off" spellcheck="false"
                      data-i18n-placeholder="operator.prompt.placeholder_draft"
                      placeholder="{{ gettext('Draft intent...') }}">
+              <button type="button" class="orchestrator-submit" aria-label="{{ gettext('Run orchestrator') }}" data-i18n-aria="founder.orchestrator.submit">→</button>
               <span class="operator-prompt-esc" aria-hidden="true"><kbd>ESC</kbd> <span data-i18n="operator.prompt.esc">{{ gettext('to cancel') }}</span></span>
             </div>
             <div id="operator-prompt-loading" class="operator-prompt-loading hidden" hidden aria-live="polite">
@@ -1366,6 +1396,7 @@
   <script src="{{ url_for('static', filename='workbench_ux.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_palette.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='command_bar.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='orchestrator.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='operator_prompt.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='state_rail.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_panes.js') }}?v={{ js_version|default('assure-21') }}"></script>
@@ -1375,6 +1406,7 @@
   <script src="{{ url_for('static', filename='runs_stack.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_draft.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_inline_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='founder_polish.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>

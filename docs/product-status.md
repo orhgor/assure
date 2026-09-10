@@ -1,51 +1,53 @@
 # Assure — full product status
 
-**Date:** 2026-09-09
-**GitHub Actions:** included cap is **3,000 minutes**. Policy: [github-actions-minutes.md](./github-actions-minutes.md). **Deploy jobs still fail** on billing/spending limit (`ubuntu-latest`). Self-hosted runner `assure-staging-ec2` is **offline** (staging EC2 disk full).
+**Date:** 2026-09-10
+**GitHub Actions:** included cap is **3,000 minutes**. Policy: [github-actions-minutes.md](./github-actions-minutes.md). Deploy via SSM to EC2 when Actions billing blocks `ubuntu-latest`.
 
-**Execution plan (when EC2 is back):** [runbooks/staging-launch-execution.md](./runbooks/staging-launch-execution.md) — Phase 1 infra → Phase 2 Stack B → Phases 3–6 QA/deploy.
+**v1.0 execution:** [user-experience.md](./user-experience.md) · [ship-timeline.md](./ship-timeline.md) · [frozen-shell.md](./frozen-shell.md) · golden path `tests/e2e/golden_path.spec.js`
 
-**Next workbench epic (after EC2):** [runbooks/research-synthesis-pr1-pr2.md](./runbooks/research-synthesis-pr1-pr2.md) — PR 1 (backend + iterate/verify/history) then PR 2 (compare/merge). **SQLite required** — no browser-only draft history.
-
-## Current snapshot (2026-09-09)
+## Current snapshot (2026-09-10)
 
 | Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
-| **Production** | `main` @ `1d6bf79` (v3.2.0 groundrails promote) | **healthy** — `1d6bf798`, UI `assure-122`, ~10.6 GB disk free |
-| **Staging** | `staging` @ `fe73790` (PRs #30–#32 merged) | **502** — EC2 disk full; app container down. Git has UI polish + orchestrator; **not deployed** |
+| **Production** | `main` @ `f4e2d20` | **healthy** — `f4e2d20`, UI `assure-127`, ~9.9 GB disk free |
+| **Staging** | `staging` @ `cb865f2` (+ orchestrator/polish PR pending deploy) | **healthy** — `87753ea`, UI `assure-138`, ~12.7 GB disk free |
 
 **Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
-**Tests (local HEAD):** **654** pytest collected; Playwright founder suite **15/15** on PR #30 merge.
+**Tests (local HEAD):** orchestrator + polish route tests **5/5**; frozen-shell quality check **5/5**; golden path E2E fails at Step 5+ (Red-Hat / full-scan not built).
 **Auth:** Clerk **not configured** on production (`/api/auth/config` → `configured: false`). No workbench sign-in required.
 
-### Recent merges on `staging` (not live on EC2 yet)
+### Recent merges on `staging`
 
-| PR | Theme | UI cache |
+| PR | Theme | Notes |
 | :--- | :--- | :--- |
-| **#30** Final UI polish | 48px `#state-rail`, `#runs-stack` filters, guarded ⌘K / Shift+1–5, button hierarchy | `assure-124` |
-| **#31** Auto-compiler | `PromptCompiler`, `generate_run_stream`, `verification_complete` SSE, `POST /api/runs/execute` | `assure-124` |
-| **#32** Deploy resilience | `deploy-staging.yml` / `cd-staging.yml` on `ubuntu-latest` (self-hosted runner offline) | — |
+| **#41** | API key env tiers | `test_api_keys.py` — always-required vs production-only keys in quality-check CI |
+| **#42–#43** | v1.0 execution docs | `user-experience.md`, `ship-timeline.md`, `frozen-shell.md`, Day 1 shell tests, Day 2 golden path spec |
+| **(pending)** | Sprint 1 + 2 — Difference Engine + Polish Main | `POST /api/projects/<id>/orchestrate`, `POST /api/projects/<id>/polish`, staging 60/40 shell, `.main-polish-btn`, click-to-merge |
 
-### Workbench (git `staging`; production still pre–founder shell)
+### v1.0 sprint progress (founder workbench)
 
 | Item | Status |
 | :--- | :--- |
-| Founder shell — state rail + runs stack | ✅ On `staging` git (`state_rail.js`, `runs_stack.js`); ❌ not on live prod (`assure-122`) |
-| Orchestrator SSE + lock pills | ✅ On `staging` git (`orchestrator.py`, `command_bar.js`); ❌ not deployed |
-| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ Production |
-| Document Lifecycle stepper | ✅ Production |
-| Provenance ⓘ drawer | ✅ Production |
-| Wow effects | ✅ Production — still **not unified** with gutters/overlay |
-| Full Audit as verify-only | ❌ Still re-runs compile stream |
+| Frozen shell (48px \| 320px \| 60/40 main+staging) | ✅ Day 1 gate — `tests/quality_check/test_frozen_shell.py` |
+| Golden path E2E (10 steps) | ✅ Day 2 gate written; Steps 1–4 pass after Sprint 1 merge; Steps 5–10 pending |
+| `POST /api/projects/<id>/orchestrate` | ✅ Mock Claude + DeepSeek JSON; `orchestrator.js` renders staging panes + diff highlights |
+| Click-to-merge (`.push-to-main-btn`) | ✅ Injects diff text into Main via `AssureTiptapEditor.insertAtCursor` |
+| `POST /api/projects/<id>/polish` | ✅ Grammar/flow rewrite; `strict_preservation` for lock pills; 422 if altered |
+| Polish Main button (`.main-polish-btn`) | ✅ `founder_polish.js` — inline diff preview via `AssureFounderInlineDiff` |
+| Red-Hat pass 2 (`.redhat-audit-btn`) | ❌ Sprint 3 — golden path Step 5 |
+| Full-context scan / benchmark / local fix | ❌ Sprint 3 — golden path Steps 7–9 |
+| Export complete (`.export-complete`) | ❌ Sprint 3 — golden path Step 10 |
 
-### Staging EC2 recovery (blocked)
+### Workbench (staging vs production)
 
-| Blocker | Detail |
-| :--- | :--- |
-| **Disk** | Console: `No space left on device`; SSM `RunShellScript` fails instantly on `i-03e39eccc57572191` |
-| **IAM** | Deploy user cannot `RebootInstances`, `ModifyVolume`, or self-update IAM |
-| **GHA billing** | `App Docker (Staging)` and `Deploy to Staging` fail in ~5s on spending limit |
-| **Fix path** | [staging-launch-execution.md](./runbooks/staging-launch-execution.md) Phase 1: cleanup → `flask prune-cache` → `redeploy-app.sh` → restart `actions-runner` |
+| Item | Staging | Production |
+| :--- | :--- | :--- |
+| Founder shell — state rail + runs stack | ✅ | ❌ (`assure-127`) |
+| Orchestrator staging panes + polish | ✅ (after PR merge) | ❌ |
+| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ | ✅ |
+| Document Lifecycle stepper | ✅ | ✅ |
+| Provenance ⓘ drawer | ✅ | ✅ |
+| Full Audit as verify-only | ❌ Still re-runs compile stream | ❌ |
 
 **Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Workbench catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md) · **Webpage catalog:** [webpage-all-content.md](./webpage-all-content.md)
 
