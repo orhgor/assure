@@ -10,7 +10,7 @@
 
 **Sprint 2 Step 6 (Polish Main) — merged 2026-09-10:** `POST /api/projects/<id>/polish`, `.main-polish-btn`, lock-pill `strict_preservation`, inline diff preview. Golden path Step 6 blocked until Step 5 (Red-Hat) exists.
 
-**Full-context scan — merged PR #46:** `POST /api/projects/<id>/scan`, `founder_scan.js`. Golden path Step 7 wiring on staging; E2E not green yet.
+**Scope cut (2026-09-10):** v1.0 ship gate = **Steps 1–4 only**. Steps 5–10 → [deferred.md § v1.1 backlog](./deferred.md). PR #46 scan code may exist on staging; not in v1.0 validation.
 
 ---
 
@@ -20,12 +20,12 @@
 | --- | --- | --- |
 | **Day 1** | 3-pane layout frozen | Resize window → no break. State rail always 48px. **✅ PASS** |
 | **Day 2** | Golden path test written (fails) | Test runs. First failure logged. **✅ PASS** |
-| **Day 7** | Sprint 1 done — Difference Engine | Test steps 3–4 pass (side-by-side diff + click-to-merge). **🟡 PARTIAL** — staging live with free stack; E2E Steps 3–4 need hard-refresh verify on `staging.getassureai.com` |
-| **Day 14** | Sprint 2 done — Hybrid Merge + Polish | Test steps 4–6 pass. **🟡 PARTIAL** — polish route + button merged; Step 6 blocked on Red-Hat (Step 5) |
-| **Day 21** | Sprint 3 done — Full-scan + Benchmark | Test steps 7–9 pass. |
+| **Day 7** | Sprint 1 done — Difference Engine | Test steps 3–4 pass (side-by-side diff + click-to-merge). **🟡 VERIFY** — staging live (`3cb82a7`, free stack); run E2E Steps 1–4 on `staging.getassureai.com` |
+| **Day 14** | ~~Sprint 2 polish + Red-Hat~~ | **Deferred v1.1** — Steps 5–6 not v1.0 gate |
+| **Day 21** | ~~Sprint 3 scan + benchmark~~ | **Deferred v1.1** — Steps 7–9 not v1.0 gate |
 | **Day 22–24** | Visual + copy convergence | [visual-checklist.md](./visual-checklist.md) 100% ✅ |
-| **Day 25** | ICP demo | One real user completes golden path unaided. |
-| **Day 26** | Ship v1.0 | Tag, deploy, announcement. |
+| **Day 25** | ICP demo | One real user completes **Steps 1–4** unaided (orchestrate → diff → merge). |
+| **Day 26** | Ship v1.0 | Tag, deploy, announcement — **Steps 1–4 green**; v1.1 backlog unchanged. |
 | **Day 27+** | Deferred list only | Nothing new. Only [deferred.md](./deferred.md). |
 
 ---

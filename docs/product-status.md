@@ -3,18 +3,19 @@
 **Date:** 2026-09-10
 **GitHub Actions:** included cap is **3,000 minutes**. Policy: [github-actions-minutes.md](./github-actions-minutes.md). Deploy via SSM to EC2 when Actions billing blocks `ubuntu-latest`.
 
-**v1.0 execution:** [user-experience.md](./user-experience.md) · [ship-timeline.md](./ship-timeline.md) · [frozen-shell.md](./frozen-shell.md) · golden path `tests/e2e/golden_path.spec.js`
+**v1.0 execution:** [user-experience.md](./user-experience.md) · [ship-timeline.md](./ship-timeline.md) · [frozen-shell.md](./frozen-shell.md) · golden path **Steps 1–4 only** → `tests/e2e/golden_path.spec.js`. Steps 5–10 → [deferred.md § v1.1 backlog](./deferred.md).
 
 ## Current snapshot (2026-09-10)
 
 | Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
 | **Production** | `main` @ `f4e2d20` | **healthy** — `f4e2d20`, UI `assure-127`, ~9.9 GB disk free, production model stack |
-| **Staging** | `staging` @ `3cb82a7` (PR #51) | **healthy** — UI `assure-140`, ~9.6 GB disk free, **`stack: free`** (`ASSURE_USE_FREE_MODELS=1`) |
+| **Staging** | `staging` @ `3cb82a7` (PR #51; includes **#46**) | **healthy** — EC2 git `3cb82a7`, UI `assure-140`, ~9.6 GB disk (80% used), container **healthy**, **`stack: free`** |
 
 **Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app?view=founder`
 **Staging free stack (live):** `gemini/gemini-3.6-flash` + `deepseek/deepseek-chat` — keys wired in `.env.staging` on EC2; `POST /api/runs/compare` verified both models respond.
-**Tests (local HEAD):** free-stack + compare route tests **8/8**; frozen-shell quality check **5/5**; golden path E2E fails at Step 5+ (Red-Hat multi-pass not complete).
+**Tests (local HEAD):** free-stack + compare route tests **8/8**; frozen-shell quality check **5/5**; **v1.0 E2E gate = Steps 1–4 only** (Steps 5–10 deferred to v1.1).
+**Staging SSM health (2026-09-10):** loopback `/health` ok; `assure-assure-app-1` running; CPU ~0.1%, mem ~122 MiB / 1.5 GiB; providers gemini + deepseek connected. **No redeploy required** — box matches PR #46+ lineage; origin `8f4bf0f` (PR #52 docs-only) not on box yet.
 **Auth:** Clerk **not configured** on production (`/api/auth/config` → `configured: false`). No workbench sign-in required.
 
 ### Recent merges on `staging`
@@ -28,20 +29,19 @@
 | **#47** | Self-hosted CI | Deploy to Staging + App Docker (Staging) use `[self-hosted, staging]` — no paid `ubuntu-latest` |
 | **#48–#51** | Free-model Difference Engine | `ASSURE_USE_FREE_MODELS=1`, `get_compare_pair()`, `POST /api/runs/compare`, live orchestrate when keys present, `ast_diff_for_compare`, UI `assure-140` |
 
-### v1.0 sprint progress (founder workbench)
+### v1.0 sprint progress (founder workbench) — **Steps 1–4 ship gate**
 
 | Item | Status |
 | :--- | :--- |
 | Frozen shell (48px \| 320px \| 60/40 main+staging) | ✅ Day 1 gate — `tests/quality_check/test_frozen_shell.py` |
-| Golden path E2E (10 steps) | ✅ Day 2 gate written; Steps 1–4 pass after Sprint 1 merge; Steps 5–10 pending |
-| `POST /api/projects/<id>/orchestrate` | ✅ Staging: **live** Gemini 3.6 Flash + DeepSeek when keys set; mock fallback for CI/offline |
-| `POST /api/runs/compare` | ✅ Parallel two-model dispatch; partial failure → inline error card per column |
-| Click-to-merge (`.push-to-main-btn`) | ✅ Injects diff text into Main via `AssureTiptapEditor.insertAtCursor` |
-| `POST /api/projects/<id>/polish` | ✅ Grammar/flow rewrite; `strict_preservation` for lock pills; 422 if altered |
-| Polish Main button (`.main-polish-btn`) | ✅ `founder_polish.js` — inline diff preview via `AssureFounderInlineDiff` |
-| Red-Hat pass 2 (`.redhat-audit-btn`) | 🟡 Sprint 3 — drawer + routes exist; golden path Step 5 not green |
-| Full-context scan (`POST /api/projects/<id>/scan`) | ✅ PR #46 on staging; benchmark / local fix still pending (Steps 8–9) |
-| Export complete (`.export-complete`) | ❌ Sprint 3 — golden path Step 10 |
+| Golden path E2E Steps 1–4 | ✅ v1.0 validation scope — orchestrator, diff, click-to-merge |
+| Step 2 — ⌘K orchestrator intent | ✅ `operator_prompt.js` → orchestrate / compare on staging |
+| Step 3 — side-by-side diff | ✅ `.staging-canvas`, two model panes, `.diff-highlight` |
+| Step 4 — click-to-merge | ✅ `.push-to-main-btn` → Main document |
+| `POST /api/projects/<id>/orchestrate` | ✅ Staging: **live** Gemini 3.6 Flash + DeepSeek when keys set |
+| `POST /api/runs/compare` | ✅ Parallel two-model dispatch |
+
+**v1.1 backlog (not v1.0 gate):** Steps 5–10 — Red-Hat multi-pass, polish gate, full-context scan UI, benchmark, local fix, export dossier. See [deferred.md § v1.1 backlog](./deferred.md).
 
 ### Workbench (staging vs production)
 
