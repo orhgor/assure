@@ -2,6 +2,23 @@
 
 Everything that is **not** on the golden path goes here. No exceptions during Execution Mode (Days 1–26).
 
+**v1.0 scope cut (2026-09-10):** Ship gate is **Golden Path Steps 1–4 only** (⌘K orchestrator → Difference Engine side-by-side diff → click-to-merge). Steps 5–10 move to **v1.1 backlog** below — do not block Day 25 ICP demo or Day 26 tag on audit/benchmark/export work.
+
+## v1.1 backlog — Golden Path Steps 5–10 (deferred from v1.0)
+
+Source: [user-experience.md](./user-experience.md) steps 5–10. Code may exist on `staging` (e.g. PR #46 scan routes); **not in v1.0 validation or ship gate**.
+
+| Step | User story (summary) | v1.0 status | v1.1 target |
+| --- | --- | --- | --- |
+| **5** | Red-Hat analysis ≥2 passes on compiled responses | Deferred | Sprint A — `.redhat-audit-btn`, pass-2 telemetry, drawer |
+| **6** | Grammar/flow polish on Main without losing verified locks | Deferred | Sprint A — `.main-polish-btn` (route exists; not v1.0 gate) |
+| **7** | Full-context scan for verifiable issues, numbers, citations | Deferred | Sprint B — `POST /api/projects/<id>/scan`, `.full-context-scan-btn` |
+| **8** | Benchmark vs standard works; targeted enhancement | Deferred | Sprint B — `.benchmark-compare-btn`, results panel |
+| **9** | Local fix — rewrite/reconfigure selected Main regions | Deferred | Sprint B — `.local-fix-btn`, Fix Locally panel |
+| **10** | Export verified dossier (final ship artifact) | Deferred | Sprint C — `.export-complete`, dossier PDF/JDF bundle |
+
+**Validation rule:** `tests/e2e/golden_path.spec.js` — v1.0 runs Steps 1–4 only; full 10-step spec tagged `@v1.1` and skipped until backlog cleared.
+
 Visual audit logged **2026-09-10** against [visual-checklist.md](./visual-checklist.md) Executive-Grade Standard (local founder workbench @ `127.0.0.1:8801/app`, 1920×1080).
 
 | Date | Item | Reason deferred |
