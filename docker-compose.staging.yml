@@ -9,6 +9,7 @@ services:
     environment:
       ENVIRONMENT: staging
       ASSURE_ENV: staging
+      ASSURE_USE_FREE_MODELS: "1"
       DATABASE_PATH: /app/data/history.sqlite
       PORT: "8765"
       PYTHONUNBUFFERED: "1"

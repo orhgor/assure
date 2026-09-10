@@ -10,7 +10,35 @@ try:
 except ImportError:  # pragma: no cover
     Router = None  # type: ignore[misc, assignment]
 
-_model_list = [
+# Staging free stack — Gemini + DeepSeek (no paid Claude on left pane).
+# Keys match Difference Engine UI slots (claude / deepseek).
+FREE_MODEL_PAIRS: dict[str, dict[str, str]] = {
+    "claude": {
+        "name": "Gemini 2.0 Flash",
+        "litellm_model": "gemini/gemini-2.0-flash",
+        "provider": "gemini",
+    },
+    "deepseek": {
+        "name": "DeepSeek V3",
+        "litellm_model": "deepseek/deepseek-chat",
+        "provider": "deepseek",
+    },
+}
+
+_DEFAULT_MODEL_PAIRS: dict[str, dict[str, str]] = {
+    "claude": {
+        "name": "Claude 3.5 Sonnet",
+        "litellm_model": "anthropic/claude-3-5-sonnet-20240620",
+        "provider": "claude",
+    },
+    "deepseek": {
+        "name": "DeepSeek V3",
+        "litellm_model": "deepseek/deepseek-chat",
+        "provider": "deepseek",
+    },
+}
+
+_paid_model_list = [
     {
         "model_name": "text-reasoning",
         "litellm_params": {
@@ -23,19 +51,66 @@ _model_list = [
         "model_name": "table-parsing",
         "litellm_params": {
             "model": "gemini/gemini-1.5-pro",
-            "api_key": os.getenv("GEMINI_API_KEY"),
+            "api_key": os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
         },
     },
     {
         "model_name": "vision-analysis",
         "litellm_params": {
             "model": "anthropic/claude-3-5-sonnet-20240620",
-            "api_key": os.getenv("ANTHROPIC_API_KEY"),
+            "api_key": os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY"),
         },
     },
 ]
 
 _assure_router: Any | None = None
+
+
+def use_free_models() -> bool:
+    """True when ASSURE_USE_FREE_MODELS is set (staging compose default)."""
+    return os.getenv("ASSURE_USE_FREE_MODELS", "").strip().lower() in ("1", "true", "yes")
+
+
+def orchestrator_model_pairs() -> dict[str, dict[str, str]]:
+    """Side-by-side orchestrator slots → display name + LiteLLM id."""
+    if use_free_models():
+        return dict(FREE_MODEL_PAIRS)
+    return dict(_DEFAULT_MODEL_PAIRS)
+
+
+def _gemini_api_key() -> str | None:
+    return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+
+def _build_model_list() -> list[dict[str, Any]]:
+    if not use_free_models():
+        return _paid_model_list
+    gemini = FREE_MODEL_PAIRS["claude"]["litellm_model"]
+    deepseek = FREE_MODEL_PAIRS["deepseek"]["litellm_model"]
+    return [
+        {
+            "model_name": "text-reasoning",
+            "litellm_params": {
+                "model": deepseek,
+                "api_key": os.getenv("DEEPSEEK_API_KEY"),
+                "max_tokens": 4096,
+            },
+        },
+        {
+            "model_name": "table-parsing",
+            "litellm_params": {
+                "model": gemini,
+                "api_key": _gemini_api_key(),
+            },
+        },
+        {
+            "model_name": "vision-analysis",
+            "litellm_params": {
+                "model": gemini,
+                "api_key": _gemini_api_key(),
+            },
+        },
+    ]
 
 
 def get_router() -> Any:
@@ -45,7 +120,7 @@ def get_router() -> Any:
     if Router is None:
         raise RuntimeError("litellm Router unavailable")
     _assure_router = Router(
-        model_list=_model_list,
+        model_list=_build_model_list(),
         routing_strategy="latency-based-routing",
         num_retries=3,
         allowed_fails=2,
