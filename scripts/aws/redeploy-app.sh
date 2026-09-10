@@ -17,6 +17,8 @@ GHCR_PULL_RETRIES="${ASSURE_GHCR_PULL_RETRIES:-5}"
 GHCR_PULL_WAIT_SEC="${ASSURE_GHCR_PULL_WAIT_SEC:-30}"
 STATE_FILE="${ASSURE_DEPLOY_STATE:-/tmp/assure-last-deploy.txt}"
 HEALTH_URL="${ASSURE_HEALTH_URL:-http://127.0.0.1:8765/health}"
+DEPLOY_LOG="${ASSURE_DEPLOY_LOG:-/var/log/assure-deploy.log}"
+SSM_BACKGROUND="${ASSURE_SSM_BACKGROUND:-0}"
 DEPLOY_TAG=""
 
 usage() {
@@ -184,10 +186,38 @@ echo "==> Stop assure-app (keep volumes)"
 "${COMPOSE_GHCR[@]}" stop assure-app || true
 remove_stale_app_container
 
+start_assure_app() {
+  local mode="$1"
+  if [[ "$SSM_BACKGROUND" == "1" ]]; then
+    echo "==> Start assure-app in background (SSM mode, log → ${DEPLOY_LOG})"
+    sudo mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null || true
+    sudo touch "$DEPLOY_LOG" 2>/dev/null || true
+    sudo chmod 666 "$DEPLOY_LOG" 2>/dev/null || true
+    {
+      echo "=== $(date -Is) redeploy start ${ASSURE_IMAGE} (${mode}) ==="
+      if [[ "$mode" == "ghcr" ]]; then
+        "${COMPOSE_GHCR[@]}" up -d --no-build --pull never --force-recreate assure-app
+      else
+        "${COMPOSE[@]}" up -d --force-recreate assure-app
+      fi
+      echo "=== $(date -Is) compose up finished ==="
+    } >>"$DEPLOY_LOG" 2>&1 &
+    disown 2>/dev/null || true
+    echo "    ASSURE_DEPLOY_BACKGROUND=1"
+    return 0
+  fi
+  if [[ "$mode" == "ghcr" ]]; then
+    echo "==> Start assure-app (pull-only, no build)"
+    "${COMPOSE_GHCR[@]}" up -d --no-build --pull never --force-recreate assure-app
+  else
+    echo "==> Start assure-app (EC2 build)"
+    "${COMPOSE[@]}" up -d --force-recreate assure-app
+  fi
+}
+
 echo "==> Pull ${ASSURE_IMAGE}"
 if pull_image_with_retry "$ASSURE_IMAGE"; then
-  echo "==> Start assure-app (pull-only, no build)"
-  "${COMPOSE_GHCR[@]}" up -d --no-build --pull never --force-recreate assure-app
+  start_assure_app ghcr
 else
   echo "WARN: GHCR pull failed after ${GHCR_PULL_RETRIES} attempts (add GHCR_TOKEN with read:packages to .env.production)."
   if [[ "${ASSURE_DEPLOY_PULL_ONLY:-}" == "1" ]]; then
@@ -199,11 +229,24 @@ else
     echo "ERROR: only ${free_gb}GB free on / — need >= ${MIN_DISK_GB_FOR_BUILD}GB for EC2 fallback build." >&2
     exit 1
   fi
+  if [[ "$SSM_BACKGROUND" == "1" ]]; then
+    echo "ERROR: GHCR pull failed and SSM background mode forbids on-box build." >&2
+    exit 1
+  fi
   echo "==> Fallback: build on EC2 (slow, ARM64; ${free_gb}GB free)"
   export DOCKER_DEFAULT_PLATFORM=linux/arm64
   remove_stale_app_container
   DOCKER_BUILDKIT=1 "${COMPOSE[@]}" build --build-arg "ASSURE_BUILD_SHA=${FULL_SHA}" assure-app
-  "${COMPOSE[@]}" up -d --force-recreate assure-app
+  start_assure_app local
+fi
+
+if [[ "$SSM_BACKGROUND" == "1" ]]; then
+  echo "==> SSM background mode — skipping inline health/exec checks"
+  write_deploy_state "${PREVIOUS_IMAGE:-unknown}" "$ASSURE_IMAGE"
+  echo ""
+  echo "Done (background). Image: ${ASSURE_IMAGE}"
+  echo "Tail: ${DEPLOY_LOG}"
+  exit 0
 fi
 
 echo "==> Wait for health"
