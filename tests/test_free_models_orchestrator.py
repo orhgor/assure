@@ -30,8 +30,13 @@ def test_use_free_models_staging_flag(orchestrator_module, monkeypatch) -> None:
     orchestrator_module._assure_router = None
     assert orchestrator_module.use_free_models() is True
     pairs = orchestrator_module.orchestrator_model_pairs()
-    assert pairs["claude"]["litellm_model"] == "gemini/gemini-3.6-flash"
-    assert pairs["deepseek"]["litellm_model"] == "deepseek/deepseek-chat"
+    assert pairs["claude"]["litellm_model"] == "openrouter/google/gemma-4-26b-a4b-it:free"
+    assert pairs["deepseek"]["litellm_model"] == "openrouter/nvidia/nemotron-3.5-lightning:free"
+    assert pairs["claude"]["family"] != pairs["deepseek"]["family"]
     model_list = orchestrator_module._build_model_list()
-    assert model_list[0]["litellm_params"]["model"] == "deepseek/deepseek-chat"
-    assert model_list[1]["litellm_params"]["model"] == "gemini/gemini-3.6-flash"
+    models = {row["litellm_params"]["model"] for row in model_list}
+    assert "openrouter/google/gemma-4-26b-a4b-it:free" in models
+    assert "openrouter/nvidia/nemotron-3.5-lightning:free" in models
+    names = {row["model_name"] for row in model_list}
+    assert "text-reasoning" in names
+    assert "table-parsing" in names

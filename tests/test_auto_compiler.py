@@ -25,6 +25,13 @@ from prompt_matrix.services.prompt_compiler import compile_prompt
 from prompt_matrix.services.verifier import claims_from_text, verify_claims
 
 
+@pytest.fixture(autouse=True)
+def fake_provider_keys(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("ASSURE_USE_FREE_MODELS", "1")
+    yield
+
+
 def test_classify_intent_extract():
     assert classify_intent("Extract revenue figures from the brief") == "extract"
 

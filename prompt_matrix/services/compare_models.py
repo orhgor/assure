@@ -3,22 +3,40 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 try:
     from ..config.system_prompt import COMPARE_FREE_INSTRUCTION
     from ..cost_router import rewrite_send_id
+    from ..keys import litellm_kwargs_for, provider_slug_for_litellm
     from ..lib.ast_diff import text_diff_for_compare
-    from ..llm.orchestrator import display_name_for_model, get_compare_pair
+    from ..llm.orchestrator import (
+        display_name_for_model,
+        family_of,
+        free_pairs_different_families,
+        get_compare_pair,
+        timeout_for,
+        use_free_models,
+    )
     from ..litellm_runner import call_model
 except ImportError:
     from config.system_prompt import COMPARE_FREE_INSTRUCTION
     from cost_router import rewrite_send_id
+    from keys import litellm_kwargs_for, provider_slug_for_litellm
     from lib.ast_diff import text_diff_for_compare
-    from llm.orchestrator import display_name_for_model, get_compare_pair
+    from llm.orchestrator import (
+        display_name_for_model,
+        family_of,
+        free_pairs_different_families,
+        get_compare_pair,
+        timeout_for,
+        use_free_models,
+    )
     from litellm_runner import call_model
 
+log = logging.getLogger(__name__)
 _POOL = ThreadPoolExecutor(max_workers=2)
 
 
@@ -40,15 +58,20 @@ def run_single_model(
     """Call one LiteLLM model; return normalized compare payload."""
     messages = _intent_messages(intent, source_ids)
     litellm_model = rewrite_send_id(model) or model
+    kwargs = litellm_kwargs_for(provider_slug_for_litellm(litellm_model))
     text = call_model(
         litellm_model,
         messages,
         intent="comparison",
         skip_language_guard=True,
+        timeout=timeout_for(litellm_model),
+        **kwargs,
     )
     if str(text or "").startswith("ERROR:"):
         raise RuntimeError(str(text))
     body = str(text or "").strip()
+    if not body:
+        raise RuntimeError(f"Empty response from {model}")
     return {
         "model": model,
         "name": display_name_for_model(model),
@@ -78,31 +101,73 @@ def _model_slot(result: dict[str, Any], model_id: str) -> dict[str, Any]:
     }
 
 
+def _pair_succeeded(result_a: dict[str, Any], result_b: dict[str, Any]) -> bool:
+    return bool((result_a.get("text") or "").strip()) and bool((result_b.get("text") or "").strip())
+
+
+def _finalize_pair(
+    model_a: str,
+    model_b: str,
+    result_a: dict[str, Any],
+    result_b: dict[str, Any],
+) -> dict[str, Any]:
+    if result_a.get("text") and result_b.get("text"):
+        divergences = text_diff_for_compare(result_a["text"], result_b["text"])
+        result_a["jdf"] = {"text": result_a["text"], "divergences": divergences}
+        result_b["jdf"] = {"text": result_b["text"], "divergences": divergences}
+    return {
+        "model_a": result_a,
+        "model_b": result_b,
+        "pair": (model_a, model_b),
+        "families": (family_of(model_a), family_of(model_b)),
+        "models": {
+            "claude": _model_slot(result_a, model_a),
+            "deepseek": _model_slot(result_b, model_b),
+        },
+    }
+
+
+def _candidate_pairs(pair_index: int) -> list[tuple[str, str]]:
+    if use_free_models():
+        pairs = free_pairs_different_families()
+        if not pairs:
+            raise RuntimeError(
+                "No free model pair has two different families. "
+                "Diff engine cannot produce divergence."
+            )
+        # Start at pair_index, then wrap through the rest for fallback.
+        return pairs[pair_index:] + pairs[:pair_index]
+    model_a, model_b = get_compare_pair(pair_index)
+    return [(model_a, model_b)]
+
+
 def run_compare_pair(
     intent: str,
     source_ids: list[str] | None = None,
     *,
     pair_index: int = 0,
 ) -> dict[str, Any]:
-    model_a, model_b = get_compare_pair(pair_index)
-    fut_a = _POOL.submit(_safe_model, model_a, intent, source_ids)
-    fut_b = _POOL.submit(_safe_model, model_b, intent, source_ids)
-    result_a = fut_a.result()
-    result_b = fut_b.result()
-
-    if result_a.get("text") and result_b.get("text"):
-        divergences = text_diff_for_compare(result_a["text"], result_b["text"])
-        result_a["jdf"] = {"text": result_a["text"], "divergences": divergences}
-        result_b["jdf"] = {"text": result_b["text"], "divergences": divergences}
-
-    return {
-        "model_a": result_a,
-        "model_b": result_b,
-        "models": {
-            "claude": _model_slot(result_a, model_a),
-            "deepseek": _model_slot(result_b, model_b),
-        },
-    }
+    last_error = "All free pairs failed. Check API keys and rate limits."
+    for idx, (model_a, model_b) in enumerate(_candidate_pairs(pair_index)):
+        if family_of(model_a) == family_of(model_b):
+            log.warning("[free-stack] skipping same-family pair %s vs %s", model_a, model_b)
+            continue
+        fut_a = _POOL.submit(_safe_model, model_a, intent, source_ids)
+        fut_b = _POOL.submit(_safe_model, model_b, intent, source_ids)
+        result_a = fut_a.result()
+        result_b = fut_b.result()
+        if _pair_succeeded(result_a, result_b):
+            if idx > 0:
+                log.warning("[free-stack] fell back to pair index offset %s", idx)
+            return _finalize_pair(model_a, model_b, result_a, result_b)
+        last_error = (
+            f"pair failed ({model_a} / {model_b}): "
+            f"{result_a.get('error') or 'ok'} | {result_b.get('error') or 'ok'}"
+        )
+        log.warning("[free-stack] %s — trying next", last_error)
+        if not use_free_models():
+            return _finalize_pair(model_a, model_b, result_a, result_b)
+    raise RuntimeError(last_error)
 
 
 async def run_compare_pair_async(
@@ -112,22 +177,24 @@ async def run_compare_pair_async(
     pair_index: int = 0,
 ) -> dict[str, Any]:
     loop = asyncio.get_event_loop()
-    model_a, model_b = get_compare_pair(pair_index)
-    result_a, result_b = await asyncio.gather(
-        loop.run_in_executor(_POOL, _safe_model, model_a, intent, source_ids),
-        loop.run_in_executor(_POOL, _safe_model, model_b, intent, source_ids),
-    )
-
-    if result_a.get("text") and result_b.get("text"):
-        divergences = text_diff_for_compare(result_a["text"], result_b["text"])
-        result_a["jdf"] = {"text": result_a["text"], "divergences": divergences}
-        result_b["jdf"] = {"text": result_b["text"], "divergences": divergences}
-
-    return {
-        "model_a": result_a,
-        "model_b": result_b,
-        "models": {
-            "claude": _model_slot(result_a, model_a),
-            "deepseek": _model_slot(result_b, model_b),
-        },
-    }
+    last_error = "All free pairs failed. Check API keys and rate limits."
+    for idx, (model_a, model_b) in enumerate(_candidate_pairs(pair_index)):
+        if family_of(model_a) == family_of(model_b):
+            log.warning("[free-stack] skipping same-family pair %s vs %s", model_a, model_b)
+            continue
+        result_a, result_b = await asyncio.gather(
+            loop.run_in_executor(_POOL, _safe_model, model_a, intent, source_ids),
+            loop.run_in_executor(_POOL, _safe_model, model_b, intent, source_ids),
+        )
+        if _pair_succeeded(result_a, result_b):
+            if idx > 0:
+                log.warning("[free-stack] fell back to pair index offset %s", idx)
+            return _finalize_pair(model_a, model_b, result_a, result_b)
+        last_error = (
+            f"pair failed ({model_a} / {model_b}): "
+            f"{result_a.get('error') or 'ok'} | {result_b.get('error') or 'ok'}"
+        )
+        log.warning("[free-stack] %s — trying next", last_error)
+        if not use_free_models():
+            return _finalize_pair(model_a, model_b, result_a, result_b)
+    raise RuntimeError(last_error)

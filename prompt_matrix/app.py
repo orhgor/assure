@@ -35,6 +35,11 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_import_path()
     os.environ.setdefault("ASSURE_QUIET_START", "1")
 
+    if os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip() in ("1", "true", "yes", "TRUE", "YES"):
+        from prompt_matrix.llm.orchestrator import log_free_pair_at_startup
+
+        log_free_pair_at_startup()
+
     cli_argv = list(argv if argv is not None else sys.argv[1:])
     if not cli_argv and (
         os.environ.get("ASSURE_DAEMON", "").strip().lower() in ("1", "true", "yes")

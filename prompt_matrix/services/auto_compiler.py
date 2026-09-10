@@ -112,11 +112,11 @@ def _stream_litellm(prompt: str, *, model: str) -> Iterator[str]:
 
     try:
         from ..config.system_prompt import COMPARE_FREE_INSTRUCTION
-        from ..keys import litellm_kwargs_for
+        from ..keys import litellm_kwargs_for, provider_slug_for_litellm
         from ..litellm_runner import completion_limits
     except ImportError:
         from config.system_prompt import COMPARE_FREE_INSTRUCTION
-        from keys import litellm_kwargs_for
+        from keys import litellm_kwargs_for, provider_slug_for_litellm
         from litellm_runner import completion_limits
 
     litellm_model = _litellm_model_name(model)
@@ -128,9 +128,8 @@ def _stream_litellm(prompt: str, *, model: str) -> Iterator[str]:
         {"role": "user", "content": prompt},
     ]
     kwargs: dict[str, Any] = {}
-    provider_slug = litellm_model.split("/")[-1]
     try:
-        kwargs = litellm_kwargs_for(provider_slug)
+        kwargs = litellm_kwargs_for(provider_slug_for_litellm(litellm_model))
     except Exception:
         pass
     _max_tokens, timeout_sec = completion_limits(intent="comparison", model=litellm_model)
@@ -204,7 +203,24 @@ def run_auto_compiler_pipeline(
         from keys import key_present, load_keys, missing_key_message
     load_keys()
     provider_key = str(model or "gemini").strip().lower()
-    if provider_key not in ("gemini", "deepseek", "claude", "kimi", "ollama"):
+    if use_free_models():
+        try:
+            from ..keys import provider_slug_for_litellm
+            from ..llm.orchestrator import get_compare_pair
+        except ImportError:
+            from keys import provider_slug_for_litellm
+            from llm.orchestrator import get_compare_pair
+        pair_a, _ = get_compare_pair()
+        provider_key = provider_slug_for_litellm(pair_a)
+    elif provider_key not in (
+        "gemini",
+        "deepseek",
+        "claude",
+        "kimi",
+        "ollama",
+        "groq",
+        "openrouter",
+    ):
         provider_key = "gemini"
     if not key_present(provider_key):
         msg = missing_key_message(provider_key) or f"No API key configured for {provider_key}."

@@ -51,6 +51,7 @@ def _provider_keys_configured() -> bool:
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
 
     def _has_key(model: str) -> bool:
         provider = model.split("/")[0].lower()
@@ -64,6 +65,8 @@ def _provider_keys_configured() -> bool:
             return bool(openai_key)
         if provider == "groq":
             return bool(groq_key)
+        if provider == "openrouter":
+            return bool(openrouter_key)
         return False
 
     if use_free_models():

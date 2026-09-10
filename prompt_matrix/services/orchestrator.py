@@ -49,13 +49,13 @@ def default_token_stream(messages: list[dict[str, str]], model: str) -> Iterator
     import litellm
 
     try:
-        from ..keys import litellm_kwargs_for
+        from ..keys import litellm_kwargs_for, provider_slug_for_litellm
     except ImportError:
-        from keys import litellm_kwargs_for
+        from keys import litellm_kwargs_for, provider_slug_for_litellm
 
     kwargs: dict[str, Any] = {}
     try:
-        kwargs = litellm_kwargs_for(model.split("/")[-1])
+        kwargs = litellm_kwargs_for(provider_slug_for_litellm(model))
     except Exception:
         pass
     stream = litellm.completion(

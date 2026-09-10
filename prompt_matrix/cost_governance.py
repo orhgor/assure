@@ -24,9 +24,13 @@ except ImportError:
 def _litellm_api_kwargs(model: str) -> dict:
     """Return {api_key: ...} for the model's provider, reading BYOK from Flask g if available."""
     prefix = model.split("/")[0] if "/" in model else model
-    provider = {"anthropic": "claude", "deepseek": "deepseek", "gemini": "gemini"}.get(
-        prefix, prefix
-    )
+    provider = {
+        "anthropic": "claude",
+        "deepseek": "deepseek",
+        "gemini": "gemini",
+        "groq": "groq",
+        "openrouter": "openrouter",
+    }.get(prefix, prefix)
     try:
         try:
             from .keys import litellm_kwargs_for

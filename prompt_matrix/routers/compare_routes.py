@@ -7,10 +7,10 @@ import asyncio
 from flask import jsonify, request
 
 try:
-    from ..llm.orchestrator import get_active_model_stack
+    from ..llm.orchestrator import family_of, get_active_model_stack, get_compare_pair
     from ..services.compare_models import run_compare_pair_async
 except ImportError:
-    from llm.orchestrator import get_active_model_stack
+    from llm.orchestrator import family_of, get_active_model_stack, get_compare_pair
     from services.compare_models import run_compare_pair_async
 
 
@@ -38,19 +38,42 @@ def register_compare_routes(app) -> None:
             source_ids = []
 
         try:
+            model_a, model_b = get_compare_pair()
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
+        fam_a, fam_b = family_of(model_a), family_of(model_b)
+        if fam_a == fam_b:
+            return jsonify(
+                {
+                    "error": "Free stack requires two different model families for diff",
+                    "model_a": model_a,
+                    "model_b": model_b,
+                    "family_a": fam_a,
+                    "family_b": fam_b,
+                }
+            ), 500
+
+        try:
             result = asyncio.run(run_compare_pair_async(intent, source_ids))
         except Exception as exc:
             return jsonify({"error": f"orchestrator failed: {exc}"}), 500
 
-        model_a = _normalize_model_result(result.get("model_a") or {}, "model_a")
-        model_b = _normalize_model_result(result.get("model_b") or {}, "model_b")
+        used_a = (result.get("pair") or (model_a, model_b))[0]
+        used_b = (result.get("pair") or (model_a, model_b))[1]
+        model_a_out = _normalize_model_result(result.get("model_a") or {}, used_a)
+        model_b_out = _normalize_model_result(result.get("model_b") or {}, used_b)
 
         return jsonify(
             {
                 "status": "success",
                 "stack": get_active_model_stack(),
-                "model_a": model_a,
-                "model_b": model_b,
+                "model_a": model_a_out,
+                "model_b": model_b_out,
                 "models": result.get("models") or {},
+                "families": {
+                    "claude": family_of(used_a),
+                    "deepseek": family_of(used_b),
+                },
             }
         ), 200

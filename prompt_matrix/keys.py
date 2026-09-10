@@ -29,6 +29,8 @@ PROVIDER_ENV = {
     "gemini": "GEMINI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 PROVIDER_LABEL = {
@@ -36,7 +38,21 @@ PROVIDER_LABEL = {
     "gemini": "Google Gemini",
     "deepseek": "DeepSeek",
     "kimi": "Kimi",
+    "groq": "Groq",
+    "openrouter": "OpenRouter",
 }
+
+
+def provider_slug_for_litellm(model: str) -> str:
+    """Map a LiteLLM model id (provider/model) to keys.py provider slug."""
+    prefix = str(model or "").split("/")[0].lower()
+    return {
+        "anthropic": "claude",
+        "deepseek": "deepseek",
+        "gemini": "gemini",
+        "groq": "groq",
+        "openrouter": "openrouter",
+    }.get(prefix, prefix)
 
 
 def load_keys() -> None:
@@ -189,6 +205,11 @@ def litellm_kwargs_for(target: str) -> dict:
         extra["api_key"] = api_key
     if target == "kimi":
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
+    if target == "openrouter":
+        extra["api_base"] = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
+        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com")
+        title = os.environ.get("OPENROUTER_APP_TITLE", "Assure AI")
+        extra["extra_headers"] = {"HTTP-Referer": referer, "X-Title": title}
     if target == "claude":
         workspace = anthropic_workspace_id()
         if workspace:

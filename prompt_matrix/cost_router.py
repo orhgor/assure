@@ -62,6 +62,18 @@ MODEL_ALIASES = {
     "gemini/gemini-2.5-pro": "gemini-1.5-pro",
     "deepseek/deepseek-chat": "deepseek-chat",
     "moonshot/kimi-k2.5": "kimi-moonshot-v1",
+    "groq/llama-3.3-70b-versatile": "deepseek-chat",
+    "openrouter/meta-llama/llama-3.3-70b-instruct:free": "deepseek-chat",
+    "groq/llama-4-scout-17b-16e-instruct": "deepseek-chat",
+    "openrouter/mistralai/mistral-small-3.1-24b-instruct:free": "deepseek-chat",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "deepseek-chat",
+    "openrouter/nvidia/nemotron-3-super-120b-a12b:free": "deepseek-chat",
+    "openrouter/nvidia/nemotron-3.5-lightning:free": "deepseek-chat",
+    "openrouter/nex-agi/nex-n2.5-mini:free": "deepseek-chat",
+    "openrouter/liquid/lfm-2.5-2.6b:free": "deepseek-chat",
+    "openrouter/poolside/laguna-xs-2.1:free": "deepseek-chat",
+    "openrouter/google/gemma-4-26b-a4b-it:free": "deepseek-chat",
+    "openrouter/google/gemma-4-31b-it:free": "deepseek-chat",
 }
 
 TARGET_FOR = {

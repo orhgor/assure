@@ -110,6 +110,30 @@ body.founder-workbench:not(.legacy-workbench) .compare-label {
   color: var(--founder-muted);
 }
 
+body.founder-workbench:not(.legacy-workbench) .badge-free,
+.founder-workbench .badge-free {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+body.founder-workbench:not(.legacy-workbench) .badge-paid,
+.founder-workbench .badge-paid {
+  background: #0f172a;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
 body.founder-workbench:not(.legacy-workbench) .compare-close-btn {
   background: var(--founder-surface);
   border-color: var(--founder-border);

@@ -279,7 +279,9 @@
           if (root) {
             root.innerHTML =
               '<div class="compare-header">' +
-              '<span class="compare-label">' +
+              '<span class="compare-label ' +
+              (payload.stack === "free" ? "badge-free" : "badge-paid") +
+              '">' +
               escapeHtml(
                 payload.stack === "free"
                   ? translate("founder.compare.free_stack", "FREE STACK")

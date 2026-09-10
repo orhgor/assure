@@ -25,8 +25,8 @@ def test_free_stack_selection(orchestrator_module, monkeypatch) -> None:
     model_a, model_b = orchestrator_module.get_compare_pair()
     assert model_a != model_b, "Free stack must use two different models"
     assert orchestrator_module.get_active_model_stack() == "free"
-    assert model_a == "gemini/gemini-3.6-flash"
-    assert model_b == "deepseek/deepseek-chat"
+    assert model_a == "openrouter/google/gemma-4-26b-a4b-it:free"
+    assert model_b == "openrouter/nvidia/nemotron-3.5-lightning:free"
 
 
 def test_production_stack_selection(orchestrator_module, monkeypatch) -> None:
