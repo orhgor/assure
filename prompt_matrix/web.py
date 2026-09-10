@@ -629,17 +629,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     def _workspace_page():
         try:
-            from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from .db.jdf_repository import DEFAULT_PROJECT_ID
         except ImportError:
-            from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from db.jdf_repository import DEFAULT_PROJECT_ID
         project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
-        initial_jdf = fetch_latest_jdf_or_empty(project_id)
         return _page(
             "index.html",
             "compose",
             initial_pane="compose",
             include_pk=True,
-            initial_jdf=initial_jdf,
+            initial_jdf=None,
             project_id=project_id,
         )
 
