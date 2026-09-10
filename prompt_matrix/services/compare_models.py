@@ -7,10 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 try:
+    from ..cost_router import rewrite_send_id
     from ..lib.ast_diff import text_diff_for_compare
     from ..llm.orchestrator import display_name_for_model, get_compare_pair
     from ..litellm_runner import call_model
 except ImportError:
+    from cost_router import rewrite_send_id
     from lib.ast_diff import text_diff_for_compare
     from llm.orchestrator import display_name_for_model, get_compare_pair
     from litellm_runner import call_model
@@ -32,7 +34,8 @@ def run_single_model(
 ) -> dict[str, Any]:
     """Call one LiteLLM model; return normalized compare payload."""
     messages = _intent_messages(intent, source_ids)
-    text = call_model(model, messages, intent="comparison")
+    litellm_model = rewrite_send_id(model) or model
+    text = call_model(litellm_model, messages, intent="comparison")
     if str(text or "").startswith("ERROR:"):
         raise RuntimeError(str(text))
     body = str(text or "").strip()
