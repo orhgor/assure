@@ -1720,6 +1720,18 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_redhat_routes(app)
 
     try:
+        from .routers.orchestrator_routes import register_orchestrator_routes
+    except ImportError:
+        from routers.orchestrator_routes import register_orchestrator_routes
+    register_orchestrator_routes(app)
+
+    try:
+        from .routers.polish_routes import register_polish_routes
+    except ImportError:
+        from routers.polish_routes import register_polish_routes
+    register_polish_routes(app)
+
+    try:
         from .middleware_activity import register_activity_audit_middleware
     except ImportError:
         from middleware_activity import register_activity_audit_middleware

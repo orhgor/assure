@@ -233,6 +233,7 @@
 
   function handleSubmit() {
     if (!input || submitting || !activeEditor) return;
+    if (isFounderShell()) return;
     var intent = input.value.trim();
     if (!intent) return;
     submitOperatorIntent(intent, activeEditor);

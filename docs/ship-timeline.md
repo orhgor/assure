@@ -4,7 +4,11 @@
 
 **Rule:** If a day slips, cut scope — do **not** extend the timeline. Defer to [deferred.md](./deferred.md).
 
-**Day 2 gate: PASS** — `npx playwright test tests/e2e/golden_path.spec.js` runs; Steps 1–2 pass; Step 3 fails waiting for `.staging-canvas` (Difference Engine not built).
+**Day 2 gate: PASS** — `npx playwright test tests/e2e/golden_path.spec.js` runs; Steps 1–2 pass on `cb865f2`.
+
+**Sprint 1 (Difference Engine) — merged 2026-09-10:** `POST /api/projects/<id>/orchestrate`, `.staging-canvas` with Claude/DeepSeek panes, `.diff-highlight`, `.push-to-main-btn` click-to-merge. Golden path Steps 3–4 expected **PASS** after deploy.
+
+**Sprint 2 Step 6 (Polish Main) — merged 2026-09-10:** `POST /api/projects/<id>/polish`, `.main-polish-btn`, lock-pill `strict_preservation`, inline diff preview. Golden path Step 6 blocked until Step 5 (Red-Hat) exists.
 
 ---
 
@@ -13,9 +17,9 @@
 | Day | Deliverable | Green gate |
 | --- | --- | --- |
 | **Day 1** | 3-pane layout frozen | Resize window → no break. State rail always 48px. **✅ PASS** |
-| **Day 2** | Golden path test written (fails) | Test runs. First failure logged. **✅ PASS** — fails at Step 3 (`.staging-canvas` missing) |
-| **Day 7** | Sprint 1 done — Difference Engine | Test step 3 passes (side-by-side diff). |
-| **Day 14** | Sprint 2 done — Hybrid Merge + Polish | Test steps 4–6 pass. |
+| **Day 2** | Golden path test written (fails) | Test runs. First failure logged. **✅ PASS** |
+| **Day 7** | Sprint 1 done — Difference Engine | Test steps 3–4 pass (side-by-side diff + click-to-merge). **🟡 PARTIAL** — code merged; verify on staging after deploy |
+| **Day 14** | Sprint 2 done — Hybrid Merge + Polish | Test steps 4–6 pass. **🟡 PARTIAL** — polish route + button merged; Step 6 blocked on Red-Hat (Step 5) |
 | **Day 21** | Sprint 3 done — Full-scan + Benchmark | Test steps 7–9 pass. |
 | **Day 22–24** | Visual + copy convergence | [visual-checklist.md](./visual-checklist.md) 100% ✅ |
 | **Day 25** | ICP demo | One real user completes golden path unaided. |

@@ -10164,7 +10164,191 @@ body.founder-workbench:not(.legacy-workbench) .jdf-workbench .right-pane .jdf-ca
 }
 
 body.founder-workbench:not(.legacy-workbench) #founder-draft-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+/* Founder canvas: 60% Main document + 40% Difference Engine staging (column 3 only) */
+body.founder-workbench:not(.legacy-workbench) .founder-canvas-split {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
   height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-main-pane {
+  flex: 0 0 60%;
+  min-width: 0;
+  max-width: 60%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.founder-workbench:not(.legacy-workbench) .founder-staging-pane {
+  flex: 0 0 40%;
+  min-width: 0;
+  max-width: 40%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+}
+
+body.founder-workbench:not(.legacy-workbench) .staging-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #1e293b;
+}
+
+body.founder-workbench:not(.legacy-workbench) .staging-canvas-row {
+  display: flex;
+  min-height: 100%;
+  height: 100%;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane {
+  flex: 0 0 50%;
+  min-width: 0;
+  max-width: 50%;
+  box-sizing: border-box;
+  overflow: auto;
+  color: #e2e8f0;
+  font-size: 15px;
+  line-height: 1.5;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane:last-child {
+  border-right: none;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane-header {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane-text {
+  margin: 0 0 12px;
+  color: #cbd5e1;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .p-4 {
+  padding: 16px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .my-2 {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .relative {
+  position: relative;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .absolute {
+  position: absolute;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .top-1 {
+  top: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .right-1 {
+  right: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .p-2 {
+  padding: 8px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .border-l-2 {
+  border-left-width: 2px;
+  border-left-style: solid;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .border-yellow-500 {
+  border-left-color: #f59e0b;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .bg-yellow-500\/20,
+body.founder-workbench:not(.legacy-workbench) .model-pane .bg-yellow-500/20 {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .text-yellow-200 {
+  color: #fde68a;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .text-white {
+  color: #ffffff;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .text-xs {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .px-2 {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .py-1 {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .rounded {
+  border-radius: 4px;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .bg-blue-600 {
+  background: #2563eb;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .opacity-0 {
+  opacity: 0;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .diff-highlight {
+  border-radius: 0 4px 4px 0;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .diff-highlight.group:hover .push-to-main-btn,
+body.founder-workbench:not(.legacy-workbench) .model-pane .diff-highlight.group:focus-within .push-to-main-btn {
+  opacity: 1;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .push-to-main-btn {
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s ease-out, background 0.15s ease-out;
+}
+
+body.founder-workbench:not(.legacy-workbench) .model-pane .push-to-main-btn:hover {
+  background: #3b82f6;
+}
+
+body:not(.founder-workbench) .founder-staging-pane {
+  display: none !important;
+}
+
+body:not(.founder-workbench) .founder-main-pane {
+  flex: 1 1 100% !important;
+  max-width: 100% !important;
 }
 
 /* Founder mode: collapse legacy sidebar track — two-pane Runs Stack + Active Draft only */
