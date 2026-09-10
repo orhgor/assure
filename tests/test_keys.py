@@ -6,7 +6,15 @@ import os
 import unittest
 from unittest.mock import patch
 
-from prompt_matrix.keys import anthropic_workspace_id, key_present, litellm_kwargs_for
+from prompt_matrix.keys import (
+    ORCHESTRATOR_ENV_MAP,
+    ORCHESTRATOR_ENV_MAP_KEYS,
+    anthropic_workspace_id,
+    key_present,
+    litellm_kwargs_for,
+    provider_slug_for_litellm,
+)
+from prompt_matrix.llm import orchestrator as orch_mod
 from prompt_matrix.web import create_app
 
 
@@ -67,6 +75,75 @@ class ClaudeKeyTests(unittest.TestCase):
             compose = client.get("/app")
             self.assertEqual(compose.status_code, 302)
             self.assertIn("/signin", compose.headers.get("Location", ""))
+
+
+class ProviderSlugForLitellmTests(unittest.TestCase):
+    def test_openrouter_uses_first_segment_not_vendor(self):
+        self.assertEqual(
+            provider_slug_for_litellm("openrouter/anthropic/claude-3.5-sonnet"),
+            "openrouter",
+        )
+        self.assertEqual(
+            provider_slug_for_litellm("openrouter/nvidia/llama-3.3-70b-instruct:free"),
+            "openrouter",
+        )
+
+    def test_provider_prefixed_models(self):
+        self.assertEqual(
+            provider_slug_for_litellm("anthropic/claude-3-5-sonnet"),
+            "claude",
+        )
+
+    def test_bare_and_unknown(self):
+        self.assertIsNone(provider_slug_for_litellm("gpt-4o"))
+        self.assertIsNone(provider_slug_for_litellm("ollama/llama3"))
+        self.assertIsNone(provider_slug_for_litellm("totally-unknown-model"))
+        self.assertIsNone(provider_slug_for_litellm(""))
+        self.assertIsNone(provider_slug_for_litellm(None))
+
+    def test_returned_slugs_match_orchestrator_env_map(self):
+        # Prove orchestrator consumes the shared map (not a divergent local dict).
+        self.assertIs(orch_mod.ORCHESTRATOR_ENV_MAP, ORCHESTRATOR_ENV_MAP)
+        self.assertEqual(set(ORCHESTRATOR_ENV_MAP), ORCHESTRATOR_ENV_MAP_KEYS)
+
+        samples = (
+            "openrouter/anthropic/claude-3.5-sonnet",
+            "openrouter/nvidia/llama-3.3-70b-instruct:free",
+            "anthropic/claude-3-5-sonnet",
+            "gemini/gemini-1.5-flash",
+            "google/gemini-1.5-pro",
+            "deepseek/deepseek-chat",
+            "groq/llama-3.3-70b-versatile",
+            "claude-3-5-sonnet",
+            "gemini-1.5-flash",
+        )
+        for model in samples:
+            slug = provider_slug_for_litellm(model)
+            if slug is None:
+                continue
+            self.assertIn(slug, orch_mod.ORCHESTRATOR_ENV_MAP)
+            self.assertTrue(slug in ORCHESTRATOR_ENV_MAP_KEYS or slug == "openrouter")
+
+    def test_api_key_env_attaches_openrouter_and_claude(self):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENROUTER_API_KEY": "sk-or-test",
+                "ANTHROPIC_API_KEY": "sk-ant-test",
+            },
+            clear=False,
+        ):
+            self.assertEqual(
+                orch_mod._api_key_env_for_model("openrouter/nvidia/llama-3.1-70b"),
+                "sk-or-test",
+            )
+            self.assertEqual(
+                orch_mod._api_key_env_for_model("anthropic/claude-3-5-sonnet"),
+                "sk-ant-test",
+            )
+            params = orch_mod._litellm_params_for("openrouter/nvidia/llama-3.1-70b")
+            self.assertEqual(params.get("api_key"), "sk-or-test")
+            self.assertIn("extra_headers", params)
 
 
 if __name__ == "__main__":

@@ -197,6 +197,56 @@ def save_anthropic_workspace_id(workspace_id: str) -> None:
         _append_env("ANTHROPIC_WORKSPACE_ID", value)
 
 
+# First path segment of a LiteLLM model id → slug used by orchestrator env_map /
+# api_key_for / save_provider_key vocabulary (where overlapping).
+_LITELLM_SLUG_ALIASES: dict[str, str] = {
+    "anthropic": "claude",
+    "gemini": "gemini",
+    "google": "gemini",
+    "deepseek": "deepseek",
+    "moonshot": "kimi",
+    "openrouter": "openrouter",
+    "groq": "groq",
+}
+
+# Bare model ids (no slash). Longer / more specific prefixes first.
+# slug may be None when the vendor is not in the keys/orchestrator vocabulary.
+_BARE_MODEL_PREFIXES: tuple[tuple[str, str | None], ...] = (
+    ("claude", "claude"),
+    ("gemini", "gemini"),
+    ("deepseek", "deepseek"),
+    ("moonshot", "kimi"),
+    ("kimi", "kimi"),
+    ("gpt-", None),
+)
+
+# Single source of truth for orchestrator._api_key_env_for_model.
+# keys.py and llm/orchestrator.py are a coupled deploy unit — ship together.
+ORCHESTRATOR_ENV_MAP: dict[str, str] = {
+    "claude": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
+ORCHESTRATOR_ENV_MAP_KEYS = frozenset(ORCHESTRATOR_ENV_MAP)
+
+
+def provider_slug_for_litellm(model: str | None) -> str | None:
+    """Map a LiteLLM model id to the slug recognized by api_key_for / save_provider_key
+    (and by orchestrator's provider env_map). Returns None for unknown models — never
+    invent a default slug."""
+    if not model:
+        return None
+    head = str(model).split("/", 1)[0].strip().lower()
+    if "/" in str(model):
+        return _LITELLM_SLUG_ALIASES.get(head)  # no default
+    for prefix, slug in _BARE_MODEL_PREFIXES:
+        if head.startswith(prefix):
+            return slug
+    return None
+
+
 def litellm_kwargs_for(target: str) -> dict:
     """API key plus Claude workspace header. Never log the values."""
     extra: dict = {}

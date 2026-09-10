@@ -12,11 +12,20 @@ except ImportError:  # pragma: no cover
     Router = None  # type: ignore[misc, assignment]
 
 try:
-    from ..keys import provider_slug_for_litellm
+    from ..keys import ORCHESTRATOR_ENV_MAP, provider_slug_for_litellm
 except ImportError:
-    from keys import provider_slug_for_litellm
+    from keys import ORCHESTRATOR_ENV_MAP, provider_slug_for_litellm
 
 log = logging.getLogger(__name__)
+
+# Fail fast if someone reintroduces a divergent env_map in this module.
+assert set(ORCHESTRATOR_ENV_MAP) == {
+    "claude",
+    "gemini",
+    "deepseek",
+    "groq",
+    "openrouter",
+}
 
 # Longer keys first — family_of() scans with substring match.
 FAMILY_PREFIXES: dict[str, str] = {
@@ -214,14 +223,7 @@ def orchestrator_model_pairs() -> dict[str, dict[str, str]]:
 
 def _api_key_env_for_model(model: str) -> str | None:
     slug = provider_slug_for_litellm(model)
-    env_map = {
-        "claude": "ANTHROPIC_API_KEY",
-        "gemini": "GEMINI_API_KEY",
-        "deepseek": "DEEPSEEK_API_KEY",
-        "groq": "GROQ_API_KEY",
-        "openrouter": "OPENROUTER_API_KEY",
-    }
-    env_name = env_map.get(slug)
+    env_name = ORCHESTRATOR_ENV_MAP.get(slug) if slug else None
     if not env_name:
         return None
     if slug == "gemini":
