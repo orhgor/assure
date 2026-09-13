@@ -272,7 +272,8 @@ class WorkflowTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("branches: [staging]", staging)
-        self.assertIn("branches: [main]", production)
+        self.assertIn("workflow_dispatch:", production)
+        self.assertNotIn("branches: [main]", production)
         self.assertIn("ssm-redeploy-and-wait.sh", staging)
         self.assertIn("ssm-redeploy-and-wait.sh", production)
         self.assertIn("AWS_ACCESS_KEY_ID", staging)
