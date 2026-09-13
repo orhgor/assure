@@ -251,6 +251,28 @@
       return wrapper;
     }
 
+    function renderConfidenceLegend() {
+      var legend = document.createElement("div");
+      legend.className = "conf-legend";
+      var items = [
+        { dot: "green",  label: "Verified in source" },
+        { dot: "yellow", label: "Partial match" },
+        { dot: "red",    label: "Not verified" },
+      ];
+      for (var i = 0; i < items.length; i++) {
+        var item = document.createElement("span");
+        item.className = "conf-legend-item";
+        var dot = document.createElement("span");
+        dot.className = "conf-legend-dot " + items[i].dot;
+        var text = document.createElement("span");
+        text.textContent = items[i].label;
+        item.appendChild(dot);
+        item.appendChild(text);
+        legend.appendChild(item);
+      }
+      return legend;
+    }
+
     function renderJdfDocument(doc) {
       if (!doc || !doc.body || !Array.isArray(doc.body)) return;
       if (!docSurface) return;
@@ -263,8 +285,9 @@
         docSurface.appendChild(draft);
         draftEl = draft;
       }
-      // Clear existing children
+      // Clear existing children, then prepend the confidence legend.
       while (draft.firstChild) draft.removeChild(draft.firstChild);
+      draft.appendChild(renderConfidenceLegend());
       for (var i = 0; i < doc.body.length; i++) {
         var nodeEl = renderJdfNode(doc.body[i]);
         if (nodeEl) draft.appendChild(nodeEl);
@@ -363,6 +386,9 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
       }
+      function escapeAttr(s) {
+        return escapeHtml(s).replace(/"/g, "&quot;");
+      }
 
       var nodeIds = Object.keys(byNode);
       for (var n = 0; n < nodeIds.length; n++) {
@@ -400,12 +426,17 @@
           if (sp.score > 0.8) confClass += "conf-green";
           else if (sp.score >= 0.4) confClass += "conf-yellow";
           else confClass += "conf-red";
-          var wrapped = '<span class="' + confClass + '">' + escapeHtml(text.slice(start, end)) + "</span>";
+          var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) + '" title="' + escapeAttr(sp.reason || "") + '">' + escapeHtml(text.slice(start, end)) + "</span>";
           html = wrapped + plain + html;
           ptr = start;
         }
         html = escapeHtml(text.slice(0, ptr)) + html;
         textEl.innerHTML = html;
+        // Make each new span clickable to open the Evidence drawer.
+        var createdSpans = textEl.querySelectorAll(".conf-span");
+        for (var csp = 0; csp < createdSpans.length; csp++) {
+          createdSpans[csp].addEventListener("click", handleConfidenceClick);
+        }
       }
     }
 
@@ -1023,6 +1054,97 @@
       renderEvidenceDrawer(evidence);
       openRight();
       setMode("evidence");
+    }
+
+    function findJdfNodeById(nodeId) {
+      if (!currentJdfDocument) return null;
+      function find(nodes) {
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (n.id === nodeId) return n;
+          if (n.children && Array.isArray(n.children)) {
+            var found = find(n.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+      return find(currentJdfDocument.body || []);
+    }
+
+    function handleConfidenceClick(e) {
+      var span = e.currentTarget;
+      var nodeId = span.getAttribute("data-node-id");
+      if (!nodeId) return;
+      var reason = span.getAttribute("title") || "";
+      var wrapper = document.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      var textEl = wrapper ? wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout") : null;
+      var preview = textEl ? (textEl.textContent || "") : "";
+      if (preview.length > 100) preview = preview.slice(0, 100) + "\u2026";
+      var node = findJdfNodeById(nodeId);
+      renderConfidenceEvidence(nodeId, reason, preview, node);
+      currentEvidence = { kind: "confidence", nodeId: nodeId, data: { reason: reason } };
+      openRight();
+      setMode("evidence");
+    }
+
+    function renderConfidenceEvidence(nodeId, reason, preview, node) {
+      if (!evidenceBodyEl) return;
+      while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
+      var header = document.createElement("div");
+      header.className = "evidence-header";
+      header.textContent = "Confidence \u00b7 " + nodeId;
+      evidenceBodyEl.appendChild(header);
+      var content = document.createElement("div");
+      content.className = "evidence-content";
+      if (reason) {
+        var reasonField = document.createElement("div");
+        reasonField.className = "evidence-field";
+        var reasonLabel = document.createElement("div");
+        reasonLabel.className = "evidence-label";
+        reasonLabel.textContent = "Reason";
+        var reasonValue = document.createElement("div");
+        reasonValue.className = "evidence-value";
+        reasonValue.textContent = reason;
+        reasonField.appendChild(reasonLabel);
+        reasonField.appendChild(reasonValue);
+        content.appendChild(reasonField);
+      }
+      if (preview) {
+        var previewField = document.createElement("div");
+        previewField.className = "evidence-field";
+        var previewLabel = document.createElement("div");
+        previewLabel.className = "evidence-label";
+        previewLabel.textContent = "Node preview";
+        var previewValue = document.createElement("div");
+        previewValue.className = "evidence-blockquote";
+        previewValue.textContent = preview;
+        previewField.appendChild(previewLabel);
+        previewField.appendChild(previewValue);
+        content.appendChild(previewField);
+      }
+      // Source chip when the node carries provenance — opens the cite view.
+      if (node && node.meta && node.meta.provenance) {
+        var prov = node.meta.provenance;
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip chip-cite";
+        chip.textContent = getChipIcon("cite");
+        chip.title = prov.source_name || "Source";
+        chip.addEventListener("click", function () {
+          renderEvidenceDrawer({
+            kind: "cite",
+            nodeId: nodeId,
+            data: {
+              source_name: prov.source_name || "",
+              page_number: prov.page_number,
+              extracted_quote: prov.excerpt || prov.extracted_quote || ""
+            }
+          });
+        });
+        content.appendChild(chip);
+      }
+      evidenceBodyEl.appendChild(content);
     }
 
     function renderEvidenceDrawer(ev) {

@@ -1363,3 +1363,36 @@ body.collapsed .pane-left {
   outline: none;
   border-color: var(--accent);
 }
+
+/* ---- Confidence legend (always visible above the doc) ---- */
+.conf-legend {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 8px 0 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.conf-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.conf-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.conf-legend-dot.green  { background: #10b981; }
+.conf-legend-dot.yellow { background: #f59e0b; }
+.conf-legend-dot.red    { background: #dc2626; }
+
+/* ---- Confidence spans are interactive ---- */
+.conf-span {
+  cursor: pointer;
+}
+.conf-span:hover {
+  outline: 1px solid var(--trust-blue);
+}
