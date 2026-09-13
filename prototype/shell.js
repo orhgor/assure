@@ -273,8 +273,19 @@
       return legend;
     }
 
-    function renderJdfDocument(doc) {
+    function renderJdfDocument(doc, targetEl) {
       if (!doc || !doc.body || !Array.isArray(doc.body)) return;
+      if (targetEl) {
+        // Alternate surface (compare column): clear it and populate with
+        // JDF nodes. Does NOT touch the center-doc globals.
+        while (targetEl.firstChild) targetEl.removeChild(targetEl.firstChild);
+        targetEl.appendChild(renderConfidenceLegend());
+        for (var j = 0; j < doc.body.length; j++) {
+          var nodeElAlt = renderJdfNode(doc.body[j]);
+          if (nodeElAlt) targetEl.appendChild(nodeElAlt);
+        }
+        return;
+      }
       if (!docSurface) return;
       if (docEmpty) docEmpty.style.display = "none";
       // Do NOT remove existing draftEl — it contains the streamed text.
@@ -302,11 +313,12 @@
       return "";
     }
 
-    function addEvidenceChips(doc) {
+    function addEvidenceChips(doc, targetEl) {
       if (!doc || !doc.body || !Array.isArray(doc.body)) return;
+      var rootEl = targetEl || draftEl;
       function processNode(node) {
         if (!node || !node.id) return;
-        var wrapper = draftEl ? draftEl.querySelector('.jdf-node[data-node-id="' + node.id + '"]') : null;
+        var wrapper = rootEl ? rootEl.querySelector('.jdf-node[data-node-id="' + node.id + '"]') : null;
         if (!wrapper) return;
         if (node.annotations && node.annotations.z3 && Array.isArray(node.annotations.z3)) {
           for (var i = 0; i < node.annotations.z3.length; i++) {
@@ -355,13 +367,13 @@
         }
       }
       for (var i = 0; i < doc.body.length; i++) processNode(doc.body[i]);
-      if (draftEl) {
-        var chips = draftEl.querySelectorAll(".chip");
+      if (rootEl) {
+        var chips = rootEl.querySelectorAll(".chip");
         for (var c = 0; c < chips.length; c++) chips[c].addEventListener("click", handleChipClick);
       }
     }
 
-    function applyConfidenceSpans(doc) {
+    function applyConfidenceSpans(doc, targetEl) {
       if (!doc) return;
       // Confidence spans use field names startChar / endChar / nodeId
       // (NOT start / end / node_id). Prefer camelCase, fall back to
@@ -369,6 +381,9 @@
       var spans = doc.confidenceSpans || doc.confidence_spans ||
                   (doc.meta && (doc.meta.confidenceSpans || doc.meta.confidence_spans));
       if (!spans || !Array.isArray(spans) || spans.length === 0) return;
+      // Scope node lookups to the target surface (compare column) when
+      // provided; otherwise fall back to the whole document.
+      var scopeEl = targetEl || document;
 
       // Group spans by nodeId so each node's text is rebuilt once.
       var byNode = {};
@@ -393,7 +408,7 @@
       var nodeIds = Object.keys(byNode);
       for (var n = 0; n < nodeIds.length; n++) {
         var nodeId = nodeIds[n];
-        var wrapper = document.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+        var wrapper = scopeEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
         if (!wrapper) continue;
         var textEl = wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout");
         if (!textEl) continue;
@@ -710,6 +725,9 @@
       text.value = "";
       try { window.sessionStorage.setItem("assure_last_intent", v); } catch (_) {}
       compareDataLoaded = false;
+      // A new intent invalidates any in-flight compare — abort both streams.
+      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
+      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
       if (runInProgress) {
         // A run is already active — abort and start fresh, no panel.
         runDraft(v);
@@ -916,7 +934,6 @@
     // ---------------------------------------------------------------
     var LAST_INTENT_KEY = "assure_last_intent";
     var PINS_KEY = "assure_pins";
-    var COMPARE_URL = "/api/runs/compare";
 
     var pipelineModeEl = document.getElementById("pipeline-mode");
     var compareModeEl  = document.getElementById("compare-mode");
@@ -928,6 +945,11 @@
     var modeTabs = document.querySelectorAll(".mode-tab");
     var compareInFlight = false;
     var compareDataLoaded = false;
+    var compareAbortA = null;       // AbortController for stream A (Claude)
+    var compareAbortB = null;       // AbortController for stream B (DeepSeek)
+    var lastCompareJdfA = null;     // most recent JDF rendered into column A
+    var lastCompareJdfB = null;     // most recent JDF rendered into column B
+    var compareStreamsDone = 0;     // number of compare streams finished/errored
 
     function setMode(name) {
       if (!pipelineModeEl || !compareModeEl || !evidenceModeEl) return;
@@ -987,34 +1009,22 @@
       div.textContent = text;
       compareBodyEl.appendChild(div);
     }
-    function compareBuildCol(slotKey, slot) {
-      // slot: {model, text, error} or partial. slotKey: "claude" | "deepseek"
-      var safe = (slot && typeof slot === "object") ? slot : {};
-      var modelId = safe.model || "";
-      var err     = (typeof safe.error === "string" && safe.error.length > 0) ? safe.error : null;
-      var txt     = (!err && typeof safe.text  === "string") ? safe.text  : "";
-      var title = (slotKey === "claude") ? "CLAUDE" : "DEEPSEEK";
-
+    function compareColumnShell(key, modelId) {
+      // key: "claude" | "deepseek" — used for the column title.
+      var title = (key === "claude") ? "CLAUDE" : "DEEPSEEK";
       var col = document.createElement("div");
       col.className = "compare-col";
 
       var head = document.createElement("div");
       head.className = "compare-col-head";
-      var t1 = document.createElement("div"); t1.className = "compare-col-title";  t1.textContent = title;
+      var t1 = document.createElement("div"); t1.className = "compare-col-title"; t1.textContent = title;
       var t2 = document.createElement("div"); t2.className = "compare-col-model"; t2.textContent = modelId || "\u2014";
       head.appendChild(t1); head.appendChild(t2);
       col.appendChild(head);
 
       var body = document.createElement("div");
       body.className = "compare-col-body";
-      if (err) {
-        body.classList.add("is-error");
-        body.textContent = "Failed: " + err;
-      } else if (txt) {
-        body.textContent = txt;
-      } else {
-        body.textContent = "\u2014";
-      }
+      body.textContent = "\u2026";
       col.appendChild(body);
 
       var acts = document.createElement("div");
@@ -1023,57 +1033,161 @@
       btnAccept.type = "button";
       btnAccept.className = "compare-btn";
       btnAccept.textContent = "Accept";
-      if (err) btnAccept.setAttribute("disabled", "disabled");
-      btnAccept.addEventListener("click", function () {
-        if (!docSurface) return;
-        // Replace center document content entirely (do not append)
-        if (docEmpty) docEmpty.style.display = "none";
-        if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
-        draftEl = document.createElement("div");
-        draftEl.className = "doc-draft";
-        draftEl.textContent = txt || "";
-        docSurface.appendChild(draftEl);
-        // Remove prior errors in center doc
-        var oldErrs = docSurface.querySelectorAll(".doc-error");
-        for (var i = 0; i < oldErrs.length; i++) oldErrs[i].remove();
-        docSurface.scrollTop = 0;
-        setMode("pipeline");
-      });
+      btnAccept.setAttribute("disabled", "disabled");
+      btnAccept.addEventListener("click", function () { acceptCompareColumn(col); });
       var btnPin = document.createElement("button");
       btnPin.type = "button";
       btnPin.className = "compare-btn";
       btnPin.textContent = "Pin";
       btnPin.addEventListener("click", function () {
-        var pinText = err ? ("Failed: " + err) : (txt || "");
-        appendPin(pinText, modelId);
+        var doc = col.__jdf;
+        var pinText = (doc && doc.draft_text) ? doc.draft_text
+          : (doc && Array.isArray(doc.body) ? JSON.stringify(doc.body) : "");
+        appendPin(pinText || (modelId + " \u2014 nothing to pin yet"), modelId);
       });
       acts.appendChild(btnAccept);
       acts.appendChild(btnPin);
       col.appendChild(acts);
+
+      col.__key = key;
+      col.__modelId = modelId;
+      col.__jdf = null;
+      col.__rendered = false;
+      col.__textNode = null;
+      col.__acceptBtn = btnAccept;
+      col.__body = body;
       return col;
     }
-    function compareRenderGrid(models) {
-      // models: {claude, deepseek}. If both errored → show combined banner + grid still.
-      compareClear();
-      var claude    = (models && models.claude)    || {};
-      var deepseek  = (models && models.deepseek)  || {};
-      var cErr = (typeof claude.error   === "string" && claude.error.length   > 0);
-      var dErr = (typeof deepseek.error === "string" && deepseek.error.length > 0);
-      if (cErr && dErr) {
-        var banner = document.createElement("div");
-        banner.className = "compare-message is-error";
-        banner.textContent = "Both models failed.";
-        compareBodyEl.appendChild(banner);
+
+    function compareAppendToken(col, delta) {
+      if (!col || col.__rendered || !col.__body) return;
+      if (!col.__textNode) {
+        col.__body.textContent = "";
+        col.__textNode = document.createTextNode("");
+        col.__body.appendChild(col.__textNode);
       }
-      var grid = document.createElement("div");
-      grid.className = "compare-grid";
-      grid.appendChild(compareBuildCol("claude",   claude));
-      grid.appendChild(compareBuildCol("deepseek", deepseek));
-      compareBodyEl.appendChild(grid);
+      col.__textNode.nodeValue += delta;
+    }
+
+    function compareShowError(col, msg) {
+      if (!col || !col.__body) return;
+      col.__body.classList.add("is-error");
+      col.__body.textContent = (msg || "Compare stream failed.");
+      if (col.__acceptBtn) col.__acceptBtn.setAttribute("disabled", "disabled");
+    }
+
+    function acceptCompareColumn(col) {
+      var doc = (col && col.__jdf) || null;
+      if (!docSurface) return;
+      // 1. Clear the center document.
+      clearDocument();
+      if (docEmpty) docEmpty.style.display = "none";
+      if (!doc || !doc.body || !Array.isArray(doc.body)) {
+        setMode("pipeline");
+        return;
+      }
+      // Re-render the JDF object fresh into the center (targetEl null →
+      // center path, which re-wires draftEl + currentJdfDocument so all
+      // event listeners + interactions work). Do NOT paste text or copy
+      // the column's innerHTML.
+      renderJdfDocument(doc);
+      applyConfidenceSpans(doc);
+      addEvidenceChips(doc);
+      var oldErrs = docSurface.querySelectorAll(".doc-error");
+      for (var i = 0; i < oldErrs.length; i++) oldErrs[i].remove();
+      docSurface.scrollTop = 0;
+      setMode("pipeline");
+    }
+
+    function compareStreamFinished() {
+      compareStreamsDone += 1;
+      // Only re-enable the tab once BOTH streams finish (or error). A
+      // failing stream must not block the healthy sibling.
+      if (compareStreamsDone >= 2) setCompareDisabled(false);
+    }
+    function compareStreamSide(col, modelId, storeKey) {
+      // storeKey: "A" | "B" — writes lastCompareJdfA/B.
+      var controller = new AbortController();
+      var intent;
+      try { intent = window.sessionStorage.getItem(LAST_INTENT_KEY); } catch (_) { intent = null; }
+      if (!intent) { compareShowError(col, "No stored intent."); return controller; }
+
+      var parser = parseSseLoop(
+        function (event, data) {
+          if (event === "[DONE]") return;
+          if (!data || typeof data !== "object") return;
+          var t = data.type || event;
+          if (t === "token" && typeof data.delta === "string") {
+            compareAppendToken(col, data.delta);
+          } else if (t === "status") {
+            if (data.stage === "model" && data.model && col.__modelId) {
+              var mt = col.querySelector(".compare-col-model");
+              if (mt) mt.textContent = data.model;
+            }
+          } else if (t === "compiled") {
+            var doc = data.document;
+            if (doc && doc.body && Array.isArray(doc.body)) {
+              col.__jdf = doc;
+              if (storeKey === "A") lastCompareJdfA = doc;
+              else lastCompareJdfB = doc;
+              col.__rendered = true;
+              renderJdfDocument(doc, col.__body);
+              if (col.__acceptBtn) col.__acceptBtn.removeAttribute("disabled");
+            }
+          } else if (t === "verified") {
+            if (data.document) {
+              applyConfidenceSpans(data.document, col.__body);
+              addEvidenceChips(data.document, col.__body);
+            }
+          } else if (t === "error") {
+            compareShowError(col, data.error || "Compare stream error.");
+          }
+        },
+        function () { compareStreamFinished(); },
+        function (err) {
+          compareShowError(col, String(err && err.message ? err.message : err));
+          compareStreamFinished();
+        }
+      );
+
+      ensureProjectId()
+        .then(function (projectId) {
+          var url = "/api/projects/" + encodeURIComponent(projectId) + "/draft/stream";
+          return fetch(url, {
+            method: "POST",
+            signal: controller.signal,
+            headers: { "Content-Type": "application/json", "Accept": "text/event-stream, application/json" },
+            body: JSON.stringify({ intent: intent, compileType: "full", target_ai: modelId }),
+          });
+        })
+        .then(function (resp) {
+          if (!resp.ok) {
+            return resp.text().then(function (t) { throw new Error(t || ("HTTP " + resp.status)); });
+          }
+          if (!resp.body) throw new Error("Response body unavailable.");
+          var reader = resp.body.getReader();
+          var decoder = new TextDecoder("utf-8");
+          function loop() {
+            return reader.read().then(function (chunk) {
+              if (chunk.done) { parser.end(); return; }
+              var str = decoder.decode(chunk.value || new Uint8Array(0), { stream: true });
+              parser.feed(str);
+              return loop();
+            });
+          }
+          return loop();
+        })
+        .catch(function (err) {
+          if (err && err.name === "AbortError") { compareStreamFinished(); return; }
+          compareShowError(col, String(err && err.message ? err.message : err));
+          compareStreamFinished();
+        });
+
+      return controller;
     }
 
     // ---------------------------------------------------------------
-    // Compare request
+    // Compare — two parallel draft/stream SSE requests (Claude + DeepSeek)
     // ---------------------------------------------------------------
     function runCompare() {
       if (!compareBodyEl) return;
@@ -1084,32 +1198,28 @@
         compareMessage("Run a draft first, then compare.");
         return;
       }
+      // Abort any prior compare streams before starting fresh.
+      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
+      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+
       setCompareDisabled(true);
-      compareMessage("Running compare\u2026", "is-loading");
-      fetch(COMPARE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: JSON.stringify({ intent: stored }),
-      }).then(function (resp) {
-        if (!resp.ok) {
-          throw new Error("HTTP " + resp.status);
-        }
-        return resp.json();
-      }).then(function (j) {
-        if (!j || typeof j !== "object") throw new Error("bad compare payload");
-        var models = (typeof j.models === "object" && j.models) ? j.models : {};
-        // Prefer j.models.claude / .deepseek per the task spec — never model_a / model_b.
-        compareRenderGrid(models);
-        compareDataLoaded = true;
-      }).catch(function (err) {
-        try { console.error("[shell] compare failed:", err); } catch (_) {}
-        compareMessage("Compare request failed.", "is-error");
-      }).then(function () {
-        setCompareDisabled(false);
-      });
+      compareStreamsDone = 0;
+      compareClear();
+      lastCompareJdfA = null;
+      lastCompareJdfB = null;
+
+      var grid = document.createElement("div");
+      grid.className = "compare-grid";
+      compareBodyEl.appendChild(grid);
+
+      var colA = compareColumnShell("claude", "anthropic/claude-sonnet-4-5");
+      var colB = compareColumnShell("deepseek", "deepseek/deepseek-chat");
+      grid.appendChild(colA);
+      grid.appendChild(colB);
+
+      compareDataLoaded = true;         // do not refire on tab re-click
+      compareAbortA = compareStreamSide(colA, "anthropic/claude-sonnet-4-5", "A");
+      compareAbortB = compareStreamSide(colB, "deepseek/deepseek-chat", "B");
     }
 
     // ---------------------------------------------------------------
