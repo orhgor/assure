@@ -83,13 +83,19 @@ def schedule_redhat_multipass(
 
     generation, prev_task = bump_generation(project_id)
     _revoke_task(prev_task)
-    async_result = run_redhat_multipass_task.delay(
-        project_id,
-        current_jdf,
-        previous_jdf,
-        run_id,
-        generation,
-    )
+    try:
+        async_result = run_redhat_multipass_task.delay(
+            project_id,
+            current_jdf,
+            previous_jdf,
+            run_id,
+            generation,
+        )
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("[redhat] task scheduling failed (non-fatal): %s", exc)
+        return None
     return str(async_result.id or "") or None
 
 
