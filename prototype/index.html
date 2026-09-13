@@ -6,10 +6,30 @@
   <title>Assure AI — Shell Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shell.css">
 </head>
 <body class="right-hidden">
+  <!-- ============================================================= -->
+  <!-- TOP HEADER BAR (48px, full width, over rail+panes)            -->
+  <!-- ============================================================= -->
+  <header class="app-header" role="banner">
+    <div class="app-header-left">
+      <span class="app-logo-mark" aria-hidden="true"></span>
+      <nav class="app-breadcrumb" aria-label="Breadcrumb">
+        <span class="crumb crumb-strong">Assure</span>
+        <span class="crumb-sep" aria-hidden="true">·</span>
+        <span class="crumb">Draft</span>
+        <span class="crumb-sep" aria-hidden="true">·</span>
+        <span class="crumb crumb-muted">Untitled</span>
+      </nav>
+    </div>
+    <div class="app-header-center" aria-hidden="true"></div>
+    <div class="app-header-right">
+      <button type="button" class="btn-secondary" disabled>Export</button>
+    </div>
+  </header>
+
   <div class="app-shell">
 
     <!-- ============================================================= -->
@@ -47,6 +67,24 @@
       </nav>
 
       <div class="rail-footer">
+        <button type="button" class="rail-btn" id="theme-toggle" data-theme="light" title="Toggle theme (light/dark)" aria-label="Toggle theme">
+          <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="m4.93 4.93 1.41 1.41"></path>
+            <path d="m17.66 17.66 1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="m6.34 17.66-1.41 1.41"></path>
+            <path d="m19.07 4.93-1.41 1.41"></path>
+          </svg>
+          <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
         <button type="button" class="rail-btn" data-rail-btn="settings" title="Settings">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -72,11 +110,11 @@
       </header>
       <div class="pane-body">
         <section class="pane-section">
-          <p class="empty-hint">No versions yet</p>
+          <p class="empty-hint">Your versions appear here after your first draft.</p>
         </section>
-        <section class="pane-section">
+        <section class="pane-section" id="pinned-list">
           <h3 class="section-header">PINNED</h3>
-          <p class="empty-hint">No pinned answers</p>
+          <p class="empty-hint">Pin a response to keep it here.</p>
         </section>
       </div>
     </aside>
@@ -86,8 +124,10 @@
     <!-- ============================================================= -->
     <main class="center" aria-label="Workspace">
       <section class="doc-surface" aria-label="Document">
-        <div class="doc-empty">
-          <p>Write your draft here, or use the input below.</p>
+        <div class="empty-hero" id="doc-empty-hero">
+          <h2>Start a new draft</h2>
+          <p>Type an intent below or choose a template.</p>
+          <button type="button" class="btn-primary">New draft</button>
         </div>
       </section>
 
@@ -113,9 +153,12 @@
     <!-- ============================================================= -->
     <!-- RIGHT PANE (400px, collapsible, hidden by default)           -->
     <!-- ============================================================= -->
-    <aside class="pane pane-right" aria-label="Pipeline stages" id="pane-right">
+    <aside class="pane pane-right" aria-label="Pipeline & Compare" id="pane-right">
       <header class="pane-header">
-        <h2 class="pane-title">PIPELINE</h2>
+        <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
+          <button type="button" class="mode-tab is-active" data-mode="pipeline" role="tab" aria-selected="true">Pipeline</button>
+          <button type="button" class="mode-tab" data-mode="compare" role="tab" aria-selected="false">Compare</button>
+        </div>
         <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -124,19 +167,26 @@
           </svg>
         </button>
       </header>
-      <div class="pane-body pipeline-body">
-        <ul class="stage-list" role="list">
-          <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
-          <li class="stage-row" data-stage="Drafting"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Drafting</span></li>
-          <li class="stage-row" data-stage="Lock Inference"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Lock Inference</span></li>
-          <li class="stage-row" data-stage="Compile"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Compile</span></li>
-          <li class="stage-row" data-stage="Math Check"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Math Check</span></li>
-          <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
-          <li class="stage-row" data-stage="Complete"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Complete</span></li>
-        </ul>
-        <section class="output-area">
-          <p class="empty-hint">Model outputs will appear here.</p>
-        </section>
+      <div id="pipeline-mode" class="pane-mode">
+        <div class="pane-body pipeline-body">
+          <ul class="stage-list" role="list">
+            <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
+            <li class="stage-row" data-stage="Drafting"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Drafting</span></li>
+            <li class="stage-row" data-stage="Lock Inference"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Lock Inference</span></li>
+            <li class="stage-row" data-stage="Compile"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Compile</span></li>
+            <li class="stage-row" data-stage="Math Check"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Math Check</span></li>
+            <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
+            <li class="stage-row" data-stage="Complete"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Complete</span></li>
+          </ul>
+          <section class="output-area">
+            <p class="empty-hint">Model outputs will appear here.</p>
+          </section>
+        </div>
+      </div>
+      <div id="compare-mode" class="pane-mode" style="display:none;">
+        <div class="pane-body compare-body" id="compare-body">
+          <p class="empty-hint">Run a draft first, then compare.</p>
+        </div>
       </div>
     </aside>
 
