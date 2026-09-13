@@ -425,6 +425,65 @@ body.collapsed .pane-left {
   letter-spacing: 0.01em;
 }
 
+/* Stage row state classes (applied to <li class="stage-row"> parent) */
+.stage-row.active .stage-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: stage-active-pulse 1.4s ease-in-out infinite;
+}
+.stage-row.active .stage-name {
+  color: var(--text-primary);
+}
+
+.stage-row.done .stage-dot {
+  background: #22c55e;
+}
+.stage-row.done .stage-name {
+  color: #86efac;
+}
+
+.stage-row.failed .stage-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
+}
+.stage-row.failed .stage-name {
+  color: #fca5a5;
+}
+
+@keyframes stage-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
+  50%      { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.12); }
+}
+
+/* Document / draft text area for rendered token stream */
+.doc-draft {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 0 40px;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  min-height: 200px;
+}
+
+.doc-error {
+  width: 100%;
+  max-width: 720px;
+  margin: 24px auto 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-card);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
 .output-area {
   margin-top: auto;
   flex: 1 1 auto;
