@@ -19,9 +19,13 @@ _broker = (
     if celery_broker_disabled()
     else (os.environ.get("CELERY_BROKER_URL") or "sqs://").strip()
 )
-_result_backend = (
-    os.environ.get("CELERY_RESULT_BACKEND") or "db+sqlite:///data/celery-results.sqlite"
-).strip()
+try:
+    from .history import _resolve_db_path
+except ImportError:
+    from history import _resolve_db_path
+_data_dir = _resolve_db_path().parent
+_default_backend = f"db+sqlite:///{_data_dir / 'celery-results.sqlite'}"
+_result_backend = (os.environ.get("CELERY_RESULT_BACKEND") or _default_backend).strip()
 
 celery_app = Celery(
     "assure",
