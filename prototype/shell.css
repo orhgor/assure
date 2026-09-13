@@ -1396,3 +1396,159 @@ body.collapsed .pane-left {
 .conf-span:hover {
   outline: 1px solid var(--trust-blue);
 }
+
+/* =========================================================
+   Intent Compilation panel (above the document)
+   ========================================================= */
+#intent-panel-slot {
+  display: block;
+  flex-shrink: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+#intent-panel-slot:empty {
+  padding: 0;
+  margin: 0;
+}
+
+.intent-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+.intent-panel-title {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+.intent-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.intent-section-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.intent-ask {
+  border-left: 2px solid var(--border);
+  padding: 8px 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border-radius: 0 4px 4px 0;
+  font-family: var(--font-body);
+  line-height: var(--lh-body);
+}
+.intent-prompt {
+  margin: 0;
+  padding: 12px;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.intent-checks {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  line-height: var(--lh-body);
+}
+.intent-routed {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.intent-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.intent-action {
+  height: 30px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 0 16px;
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+.intent-action.cancel {
+  color: var(--text-muted);
+}
+.intent-action:hover {
+  border-color: var(--trust-blue);
+  color: var(--trust-blue);
+}
+.intent-action.primary {
+  background: var(--trust-blue);
+  color: #fff;
+  border-color: var(--trust-blue);
+}
+.intent-loading {
+  font-size: 13px;
+  color: var(--text-muted);
+  animation: intent-pulse 1.4s ease-out infinite;
+  font-family: var(--font-body);
+  margin: 8px 0;
+}
+.intent-failure {
+  font-size: 13px;
+  color: var(--danger-text);
+  font-family: var(--font-body);
+  margin: 8px 0;
+}
+@keyframes intent-pulse {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1.0; }
+}
+.intent-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.intent-summary-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+}
+.intent-summary-view {
+  border: none;
+  background: transparent;
+  color: var(--trust-blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-body);
+  text-decoration: underline;
+  padding: 2px 6px;
+}
