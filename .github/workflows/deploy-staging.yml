@@ -18,7 +18,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
     timeout-minutes: 20
     environment: staging
     steps:
@@ -51,7 +51,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
     timeout-minutes: 15
     environment: staging
     steps:

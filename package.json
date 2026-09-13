@@ -16,6 +16,7 @@
     "@uurtech/jdf": "^0.1.25"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@uurtech/jdf-cli": "^0.1.25",
     "commander": "^13.1.0",
     "esbuild": "^0.25.9",

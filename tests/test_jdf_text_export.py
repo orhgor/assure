@@ -27,6 +27,29 @@ def test_jdf_to_markdown_headings_and_callout() -> None:
     assert "> Burn is 220k." in md
 
 
+def test_jdf_to_html_code_block() -> None:
+    tree = {
+        "meta": {"title": "Code"},
+        "body": [
+            {
+                "type": "section",
+                "title": "Main",
+                "children": [
+                    {
+                        "type": "code_block",
+                        "language": "python",
+                        "content": "x = 1",
+                    }
+                ],
+            }
+        ],
+    }
+    out = jdf_to_html(tree)
+    assert '<code class="language-python">' in out
+    assert "x = 1" in out
+    assert '<span class="code-lang-label">python</span>' in out
+
+
 def test_jdf_to_html_escapes() -> None:
     tree = {
         "meta": {"title": "A <B>"},

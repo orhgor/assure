@@ -10,6 +10,7 @@ from flask import jsonify, request
 from pydantic import BaseModel, ConfigDict
 
 try:
+    from ..db.drafts_repository import upsert_draft
     from ..db.document_lock_repository import is_version_locked
     from ..db.jdf_repository import (
         RevisionConflict,
@@ -35,6 +36,7 @@ try:
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
+    from db.drafts_repository import upsert_draft
     from db.document_lock_repository import is_version_locked
     from db.jdf_repository import (
         RevisionConflict,
@@ -59,6 +61,13 @@ except ImportError:
     )
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
+
+
+class RestoreJDFPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    version: int
+    workspace_id: str | None = None
 
 
 class SaveJDFPayload(BaseModel):
@@ -132,7 +141,40 @@ def register_jdf_routes(app) -> None:
     @project_ownership_required
     def get_project_history(project_id: str):
         revisions = list_jdf_revisions(project_id)
-        return jsonify({"ok": True, "revisions": revisions, "count": len(revisions)})
+        history = [
+            {
+                "version": row["version"],
+                "timestamp": row.get("created_at"),
+                "mutation_type": row.get("mutation_type"),
+                "change_summary": row.get("change_summary"),
+            }
+            for row in revisions
+        ]
+        return jsonify(
+            {
+                "ok": True,
+                "revisions": revisions,
+                "history": history,
+                "count": len(revisions),
+            }
+        )
+
+    @app.post("/api/projects/<project_id>/restore")
+    @project_ownership_required
+    def restore_project_version(project_id: str):
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = RestoreJDFPayload.model_validate(data)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        if payload.version < 1:
+            return jsonify({"ok": False, "error": "version must be a positive integer"}), 400
+        doc = fetch_jdf_at_version(project_id, payload.version)
+        if doc is None:
+            return jsonify({"ok": False, "error": f"version {payload.version} not found"}), 404
+        workspace_id = (payload.workspace_id or project_id).strip() or project_id
+        upsert_draft(workspace_id=workspace_id, content=doc)
+        return jsonify({"ok": True, "document": doc, "version": payload.version})
 
     @app.get("/api/projects/<project_id>/jdf")
     @project_ownership_required

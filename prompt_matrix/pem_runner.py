@@ -17,11 +17,20 @@ TOOL_AVAILABILITY: dict[str, bool] = {
 _PREFLIGHT: dict[str, Any] | None = None
 
 
+def _quiet_startup() -> bool:
+    import os
+
+    if os.environ.get("ASSURE_QUIET_START", "").strip().lower() in ("1", "true", "yes"):
+        return True
+    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+
+
 def preflight_check(stream: TextIO | None = None) -> dict[str, Any]:
     """Force standalone PEM to admit it has no live search before the first system message."""
     out = stream if stream is not None else sys.stderr
-    print("PEM Standalone Mode: LIVE SEARCH = DISABLED", file=out, flush=True)
-    print("Injecting hallucination firewall into LLM system prompt...", file=out, flush=True)
+    if not _quiet_startup():
+        print("PEM Standalone Mode: LIVE SEARCH = DISABLED", file=out, flush=True)
+        print("Injecting hallucination firewall into LLM system prompt...", file=out, flush=True)
     return {
         "tool_availability": {
             "web_search": False,
@@ -43,6 +52,13 @@ def ensure_preflight(*, announce: bool = True) -> dict[str, Any]:
 
 
 def tool_availability_lines() -> str:
+    import os
+
+    if os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes"):
+        return (
+            "- Compare mode: answer the user intent directly. No web search. "
+            "Do not refuse for missing uploaded sources unless the user required a specific document.\n"
+        )
     tools = ensure_preflight(announce=False)["tool_availability"]
     return (
         "- tool_availability: "

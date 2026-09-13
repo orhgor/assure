@@ -129,6 +129,13 @@
 
   function resolveDocumentTitle() {
     var pid = String(global.__ASSURE_PROJECT_ID__ || "default").trim();
+    var founderWs =
+      global.AssureFounderMode && global.AssureFounderMode.FOUNDER_WORKSPACE_ID
+        ? global.AssureFounderMode.FOUNDER_WORKSPACE_ID
+        : "founder";
+    if (pid === founderWs) {
+      return translate("founder.document.untitled", "Untitled Document");
+    }
     var title = "";
     if (global.AssureProjects && typeof global.AssureProjects.titleFor === "function") {
       title = global.AssureProjects.titleFor(pid) || "";
@@ -220,6 +227,10 @@
   }
 
   function openSourcesDrawer() {
+    if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.setSidebarTab === "function") {
+      global.AssureWorkbenchPanes.setSidebarTab("sources");
+      return;
+    }
     var panel = $("panel-sources");
     if (!panel) return;
     document.body.classList.add("sources-drawer-open");

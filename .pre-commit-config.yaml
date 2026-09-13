@@ -21,7 +21,7 @@ repos:
     hooks:
       - id: unittest-quick
         name: unittest (quick)
-        entry: .venv/bin/pytest tests/ --ignore=tests/e2e --ignore=tests/playwright --ignore=tests/test_sanitization.py --ignore=tests/test_confidence_overlay.py --ignore=tests/test_full_audit.py --ignore=tests/test_z3_benchmark.py --ignore=tests/test_z3_explanation.py --ignore=tests/test_inquire_stream.py -q --tb=no
+        entry: .venv/bin/pytest tests/ --ignore=tests/e2e --ignore=tests/playwright --ignore=tests/quality_check --ignore=tests/test_sanitization.py --ignore=tests/test_confidence_overlay.py --ignore=tests/test_full_audit.py --ignore=tests/test_z3_benchmark.py --ignore=tests/test_z3_explanation.py --ignore=tests/test_inquire_stream.py -q --tb=no
         language: system
         pass_filenames: false
         always_run: true

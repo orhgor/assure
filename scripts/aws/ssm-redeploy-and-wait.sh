@@ -62,9 +62,18 @@ sudo -u ubuntu git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin
 sudo -u ubuntu git fetch origin ${GIT_BRANCH}
 sudo -u ubuntu git checkout -B ${GIT_BRANCH} origin/${GIT_BRANCH}
 sudo -u ubuntu git log -1 --oneline
-sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' ASSURE_DEPLOY_BRANCH='${GIT_BRANCH}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
+sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' ASSURE_DEPLOY_BRANCH='${GIT_BRANCH}' ASSURE_SSM_BACKGROUND=1 ASSURE_DEPLOY_PULL_ONLY=1 bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
 echo ---HEALTH---
-curl -sf http://127.0.0.1:8765/health || true
+for i in \$(seq 1 30); do
+  if curl -sf http://127.0.0.1:8765/health >/tmp/assure-ssm-health.json 2>/dev/null && [[ -s /tmp/assure-ssm-health.json ]]; then
+    cat /tmp/assure-ssm-health.json
+    exit 0
+  fi
+  sleep 4
+done
+echo HEALTH_TIMEOUT
+tail -20 /var/log/assure-deploy.log 2>/dev/null || true
+exit 1
 SCRIPT
 
 B64="$(base64 < "$BODY" | tr -d '\n')"
@@ -83,8 +92,8 @@ CMD_ID="$(aws ssm send-command \
 echo "Command ID: $CMD_ID"
 echo "Polling..."
 
-POLL_SEC="${ASSURE_SSM_POLL_SEC:-15}"
-POLL_MAX="${ASSURE_SSM_POLL_MAX:-40}"
+POLL_SEC="${ASSURE_SSM_POLL_SEC:-10}"
+POLL_MAX="${ASSURE_SSM_POLL_MAX:-24}"
 STATUS="Pending"
 
 for i in $(seq 1 "$POLL_MAX"); do
@@ -133,17 +142,22 @@ if [[ "${SSM_STRICT_HEALTH:-}" == "1" ]]; then
   curl -sf "https://getassureai.com/health" >/dev/null || exit 1
 fi
 
-if curl -sf "https://getassureai.com/health" | python3 -c "
+PUBLIC_HEALTH_URL="${ASSURE_PUBLIC_HEALTH_URL:-https://staging.getassureai.com/health}"
+if [[ "$GIT_BRANCH" == "main" ]]; then
+  PUBLIC_HEALTH_URL="${ASSURE_PUBLIC_HEALTH_URL:-https://getassureai.com/health}"
+fi
+if curl -sf "$PUBLIC_HEALTH_URL" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 ui = d.get('ui') or {}
 print('=== Public health ===')
+print('url:', sys.argv[1] if len(sys.argv) > 1 else '')
 print('build_sha:', d.get('build_sha'))
 print('css_version:', ui.get('css_version'))
 print('js_version:', ui.get('js_version'))
 print('status:', d.get('status'))
-" 2>/dev/null; then
-  echo "Hard refresh https://getassureai.com (Cmd+Shift+R)."
+" "$PUBLIC_HEALTH_URL" 2>/dev/null; then
+  echo "Hard refresh ${PUBLIC_HEALTH_URL%/health} (Cmd+Shift+R)."
 else
-  echo "Public /health not reachable yet (tunnel may be warming up)." >&2
+  echo "Public /health not reachable yet (tunnel may be warming up): ${PUBLIC_HEALTH_URL}" >&2
 fi

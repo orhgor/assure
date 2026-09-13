@@ -123,6 +123,17 @@
           });
           return;
         }
+        if (ntype === "code_block" || ntype === "codeBlock") {
+          var codeText = String(node.content || "");
+          content.push({
+            type: "codeBlock",
+            attrs: {
+              language: String(node.language || node.lang || ""),
+            },
+            content: codeText ? [{ type: "text", text: codeText }] : [],
+          });
+          return;
+        }
         var para = paragraphJson(node.content || "");
         var lockPills = (node.meta && node.meta.lock_pills) || [];
         if (lockPills.length) {
@@ -213,6 +224,21 @@
         current.children.push(payload);
         return;
       }
+      if (node.type === "codeBlock") {
+        var codeText = textContent(node).trim();
+        if (!codeText) return;
+        var codeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
+        var oldCode = lookupOld(previousTree, codeId);
+        current.children.push({
+          type: "paragraph",
+          id: codeId,
+          content: codeText,
+          annotations: (oldCode && oldCode.annotations) || { redhat: [], z3: [] },
+          meta: Object.assign({}, (oldCode && oldCode.meta) || {}, { lock_pills: [] }),
+          provenance: (oldCode && oldCode.provenance) || [],
+        });
+        return;
+      }
       var nodeId = (node.attrs && node.attrs.nodeId) || newNodeId("p");
       var old = lookupOld(previousTree, nodeId);
       var isCallout = node.type === "jdfCallout";
@@ -272,8 +298,12 @@
       current.children.push(child);
     });
 
+    var projectId =
+      (meta && meta.project_id) ||
+      (previousTree.meta && previousTree.meta.project_id) ||
+      "founder";
     return {
-      document_id: previousTree.document_id,
+      document_id: previousTree.document_id || "draft-" + projectId,
       meta: meta,
       truth_ledger: previousTree.truth_ledger || {},
       body: body,
@@ -504,6 +534,118 @@
       },
     });
 
+    var Suggestion = T.Node.create({
+      name: "suggestion",
+      group: "block",
+      atom: true,
+      selectable: true,
+      draggable: false,
+      addAttributes: function () {
+        return {
+          suggestionId: { default: "" },
+          originalText: { default: "" },
+          newText: { default: "" },
+        };
+      },
+      parseHTML: function () {
+        return [{ tag: "div.tiptap-suggestion" }];
+      },
+      renderHTML: function (_ref) {
+        return [
+          "div",
+          T.mergeAttributes(_ref.HTMLAttributes, {
+            class: "tiptap-suggestion",
+            "data-suggestion-id": _ref.node.attrs.suggestionId || "",
+          }),
+        ];
+      },
+      addNodeView: function () {
+        return function (props) {
+          var node = props.node;
+          var dom = document.createElement("div");
+          dom.className = "tiptap-suggestion";
+          dom.setAttribute("data-suggestion-id", node.attrs.suggestionId || "");
+          dom.setAttribute("tabindex", "0");
+          dom.setAttribute("role", "group");
+          dom.setAttribute("aria-label", "Suggested edit");
+
+          var actions = document.createElement("div");
+          actions.className = "tiptap-suggestion-actions";
+
+          var acceptBtn = document.createElement("button");
+          acceptBtn.type = "button";
+          acceptBtn.className = "tiptap-suggestion-accept";
+          acceptBtn.setAttribute("aria-label", "Accept suggestion");
+          acceptBtn.title = "Accept (⌘↵)";
+          acceptBtn.textContent = "✓";
+
+          var rejectBtn = document.createElement("button");
+          rejectBtn.type = "button";
+          rejectBtn.className = "tiptap-suggestion-reject";
+          rejectBtn.setAttribute("aria-label", "Reject suggestion");
+          rejectBtn.title = "Reject (Esc)";
+          rejectBtn.textContent = "✕";
+
+          var removeEl = document.createElement("div");
+          removeEl.className = "tiptap-suggestion-remove";
+          removeEl.textContent = node.attrs.originalText || "";
+
+          var addEl = document.createElement("div");
+          addEl.className = "tiptap-suggestion-add";
+          addEl.textContent = node.attrs.newText || "";
+
+          actions.appendChild(acceptBtn);
+          actions.appendChild(rejectBtn);
+          dom.appendChild(actions);
+          dom.appendChild(removeEl);
+          dom.appendChild(addEl);
+
+          function dispatch(action) {
+            document.dispatchEvent(
+              new CustomEvent("assure:suggestion-action", {
+                detail: {
+                  action: action,
+                  suggestionId: node.attrs.suggestionId || "",
+                },
+              })
+            );
+          }
+
+          acceptBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("accept");
+          });
+          rejectBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dispatch("reject");
+          });
+
+          return {
+            dom: dom,
+            update: function (updated) {
+              if (updated.type !== node.type) return false;
+              node = updated;
+              dom.setAttribute("data-suggestion-id", updated.attrs.suggestionId || "");
+              removeEl.textContent = updated.attrs.originalText || "";
+              addEl.textContent = updated.attrs.newText || "";
+              return true;
+            },
+            selectNode: function () {
+              dom.classList.add("is-selected");
+            },
+            deselectNode: function () {
+              dom.classList.remove("is-selected");
+            },
+            stopEvent: function () {
+              return true;
+            },
+          };
+        };
+      },
+    });
+
     var LockPill = T.Node.create({
       name: "lockPill",
       group: "inline",
@@ -563,10 +705,15 @@
           span.addEventListener("click", function (e) {
             e.preventDefault();
             e.stopPropagation();
+            var hash = node.attrs.lockHash || "";
+            if (typeof global.openEvidenceDrawer === "function") {
+              global.openEvidenceDrawer(hash, e);
+              return;
+            }
             document.dispatchEvent(
               new CustomEvent("assure:lock-pill-click", {
                 detail: {
-                  lockHash: node.attrs.lockHash,
+                  lockHash: hash,
                   sourceId: node.attrs.sourceId,
                   pageCoordinates: coords,
                   lockIndex: node.attrs.lockIndex,
@@ -639,14 +786,86 @@
       },
     });
 
+    var OperatorPromptHotkey = T.Extension.create({
+      name: "operatorPromptHotkey",
+      priority: 2000,
+      addProseMirrorPlugins: function () {
+        return [
+          new T.Plugin({
+            props: {
+              handleKeyDown: function (_view, event) {
+                if (!(event.metaKey || event.ctrlKey) || event.shiftKey) return false;
+                if (String(event.key || "").toLowerCase() !== "k") return false;
+                event.preventDefault();
+                event.stopPropagation();
+                var ed =
+                  global.AssureTiptapEditor &&
+                  global.AssureTiptapEditor.getEditor &&
+                  global.AssureTiptapEditor.getEditor();
+                if (ed && typeof global.showOperatorPrompt === "function") {
+                  global.showOperatorPrompt(ed);
+                  return true;
+                }
+                if (
+                  ed &&
+                  global.AssureOperatorPrompt &&
+                  typeof global.AssureOperatorPrompt.openAtSelection === "function"
+                ) {
+                  global.AssureOperatorPrompt.openAtSelection(ed);
+                  return true;
+                }
+                return false;
+              },
+            },
+          }),
+        ];
+      },
+    });
+
+    var CodeFenceBridge = T.Extension.create({
+      name: "codeFenceBridge",
+      priority: 1000,
+      addProseMirrorPlugins: function () {
+        return [
+          new T.Plugin({
+            props: {
+              handleTextInput: function (view, _from, _to, text) {
+                if (text !== " " && text !== "\n") return false;
+                var state = view.state;
+                var $from = state.selection.$from;
+                var block = $from.parent;
+                if (!block.isTextblock || block.type.name === "codeBlock") return false;
+                var prior = block.textBetween(0, $from.parentOffset, undefined, "\0");
+                var match = prior.match(/^```([a-zA-Z0-9_-]+)$/) || prior.match(/^~~~([a-zA-Z0-9_-]+)$/);
+                var plain = prior === "```" || prior === "~~~";
+                if (!match && !plain) return false;
+                var lang = match ? match[1] : "";
+                var codeBlock = state.schema.nodes.codeBlock;
+                if (!codeBlock) return false;
+                var tr = state.tr;
+                var start = $from.start();
+                tr.delete(start, $from.pos);
+                tr.setBlockType(start, start, codeBlock, { language: lang });
+                view.dispatch(tr);
+                return true;
+              },
+            },
+          }),
+        ];
+      },
+    });
+
     return {
       JdfParagraph: JdfParagraph,
       JdfCallout: JdfCallout,
       JdfTable: JdfTable,
+      Suggestion: Suggestion,
       LockPill: LockPill,
       LockDecorations: LockDecorations,
       ConfidenceDecorations: ConfidenceDecorations,
       HeadingId: HeadingId,
+      CodeFenceBridge: CodeFenceBridge,
+      OperatorPromptHotkey: OperatorPromptHotkey,
       confidencePluginKey: confidencePluginKey,
     };
   }
@@ -660,7 +879,9 @@
         bulletList: false,
         orderedList: false,
         listItem: false,
-        codeBlock: false,
+        codeBlock: {
+          languageClassPrefix: "language-",
+        },
         blockquote: false,
         horizontalRule: false,
       }),
@@ -668,9 +889,12 @@
       ext.JdfParagraph,
       ext.JdfCallout,
       ext.JdfTable,
+      ext.CodeFenceBridge,
     ];
     if (opts.founderMode) {
       list.push(ext.LockPill);
+      list.push(ext.Suggestion);
+      list.push(ext.OperatorPromptHotkey);
     } else {
       list.push(ext.LockDecorations);
     }
@@ -808,9 +1032,181 @@
     return T.DecorationSet.create(doc, decorations);
   }
 
+  function splitParagraphNodes(text) {
+    var raw = String(text || "").trim();
+    if (!raw) return [];
+    return raw.split(/\n\n+/).map(function (line) {
+      return {
+        type: "jdfParagraph",
+        attrs: { nodeId: "", gutter: "unverified" },
+        content: line ? [{ type: "text", text: line }] : [],
+      };
+    });
+  }
+
+  function findSuggestionPos(suggestionId) {
+    if (!editor || editor.isDestroyed || !suggestionId) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion" && node.attrs.suggestionId === suggestionId) {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function findFirstSuggestionPos() {
+    if (!editor || editor.isDestroyed) return null;
+    var found = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.type.name === "suggestion") {
+        found = pos;
+        return false;
+      }
+    });
+    return found;
+  }
+
+  function removeSuggestionNode(suggestionId) {
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function acceptSuggestionNode(suggestionId, options) {
+    options = options || {};
+    var pos = findSuggestionPos(suggestionId);
+    if (pos == null || !editor || editor.isDestroyed) return false;
+    var node = editor.state.doc.nodeAt(pos);
+    if (!node) return false;
+    try {
+      if (options.skipContentReplace) {
+        return removeSuggestionNode(suggestionId);
+      }
+      var paras = splitParagraphNodes(node.attrs.newText);
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContentAt(pos, paras.length ? paras : [{ type: "jdfParagraph", attrs: { nodeId: "", gutter: "unverified" }, content: [] }])
+        .run();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function rejectSuggestionNode(suggestionId) {
+    return removeSuggestionNode(suggestionId);
+  }
+
+  function getDocumentContextAst() {
+    if (!editor || editor.isDestroyed) return [];
+    try {
+      var json = editor.getJSON();
+      return (json && json.content) || [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function findBlockByNodeId(nodeId) {
+    if (!editor || editor.isDestroyed || !nodeId) return null;
+    var hit = null;
+    editor.state.doc.descendants(function (node, pos) {
+      if (node.attrs && node.attrs.nodeId === nodeId) {
+        hit = { pos: pos, node: node };
+        return false;
+      }
+    });
+    return hit;
+  }
+
+  function parsePatchToInlineContent(patchHTML) {
+    var raw = String(patchHTML || "").trim();
+    if (!raw) return [];
+    var div = document.createElement("div");
+    div.innerHTML = raw;
+    var parts = [];
+    div.querySelectorAll(".diff-add").forEach(function (el) {
+      var text = String(el.textContent || "").trim();
+      if (text) parts.push({ type: "text", text: " " + text });
+    });
+    if (!parts.length) {
+      var plain = String(div.textContent || "").trim();
+      if (plain) parts.push({ type: "text", text: " " + plain });
+    }
+    return parts;
+  }
+
+  function applyRedHatFix(blockHash, patchHTML, buttonElement, nodeId) {
+    if (!editor || editor.isDestroyed) return false;
+    var loc = findBlockByNodeId(nodeId);
+    if (!loc && blockHash) {
+      editor.state.doc.descendants(function (node, pos) {
+        if (loc || !node.isBlock) return;
+        loc = { pos: pos, node: node };
+      });
+    }
+    if (!loc) return false;
+    var inline = parsePatchToInlineContent(patchHTML);
+    if (!inline.length) return false;
+    var insertPos = loc.pos + loc.node.nodeSize - 1;
+    try {
+      editor.chain().focus().insertContentAt(insertPos, inline).run();
+    } catch (_) {
+      return false;
+    }
+    if (buttonElement) {
+      buttonElement.disabled = true;
+      buttonElement.classList.add("is-applied");
+      buttonElement.textContent =
+        typeof global.__assureT === "function"
+          ? global.__assureT("founder.redhat.applied", "Applied ✓")
+          : "Applied ✓";
+    }
+    document.dispatchEvent(
+      new CustomEvent("assure:redhat-fix-applied", {
+        detail: { blockHash: blockHash, nodeId: nodeId || "" },
+      })
+    );
+    return true;
+  }
+
   var editor = null;
   var saveTimer = null;
+  var codeBlockTimer = null;
   var confidencePluginKeyRef = null;
+
+  function scheduleCodeBlockDecorations(rootEl) {
+    if (codeBlockTimer) clearTimeout(codeBlockTimer);
+    codeBlockTimer = setTimeout(function () {
+      var run = function () {
+        if (global.AssureCodeBlocks && typeof global.AssureCodeBlocks.decorate === "function") {
+          global.AssureCodeBlocks.decorate(rootEl || document);
+        }
+      };
+      if (typeof global.requestAnimationFrame === "function") {
+        global.requestAnimationFrame(function () {
+          global.requestAnimationFrame(run);
+        });
+      } else {
+        run();
+      }
+    }, 0);
+  }
 
   function applyConfidenceToTipTap() {
     if (!editor || editor.isDestroyed || !confidencePluginKeyRef) return;
@@ -883,6 +1279,7 @@
         attributes: { class: "jdf-tiptap-doc", role: "tree" },
       },
       onUpdate: function () {
+        scheduleCodeBlockDecorations(rootEl);
         if (onUpdateExternal) {
           onUpdateExternal(editor);
           return;
@@ -902,6 +1299,7 @@
       },
     });
       rootEl.classList.add("is-tiptap");
+      scheduleCodeBlockDecorations(rootEl);
       if (typeof global.initializeEditorSyncBridge === "function") {
         global.initializeEditorSyncBridge(editor);
       }
@@ -934,6 +1332,20 @@
     getEditor: function () {
       return editor;
     },
+    setContentFromJdf: function (tree) {
+      if (!editor || editor.isDestroyed || !tree) return false;
+      try {
+        var json = jdfToTiptap(tree, false);
+        editor.commands.setContent(purifyTiptapDoc(json), false);
+        applyConfidenceToTipTap();
+        scheduleCodeBlockDecorations(
+          document.querySelector("#founder-draft-editor") || document
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
+    },
     getSelectedTextRange: function () {
       if (!editor) {
         return { from: 0, to: 0, text: "", empty: true };
@@ -956,7 +1368,9 @@
       });
       try {
         var before = editor.getText();
-        editor.chain().focus().insertContent(nodes).run();
+        var endPos = editor.state.doc.content.size;
+        var payload = nodes.length === 1 ? nodes[0] : nodes;
+        editor.chain().focus().insertContentAt(endPos, payload).run();
         return editor.getText() !== before;
       } catch (_) {
         return false;
@@ -1009,5 +1423,53 @@
         return false;
       }
     },
+    insertSuggestion: function (opts) {
+      opts = opts || {};
+      if (!editor || editor.isDestroyed) return null;
+      var id = "sg-" + Math.random().toString(36).slice(2, 10);
+      try {
+        editor
+          .chain()
+          .focus("end")
+          .insertContent({
+            type: "suggestion",
+            attrs: {
+              suggestionId: id,
+              originalText: String(opts.originalText || ""),
+              newText: String(opts.newText || ""),
+            },
+          })
+          .run();
+        return id;
+      } catch (_) {
+        return null;
+      }
+    },
+    acceptSuggestion: acceptSuggestionNode,
+    rejectSuggestion: rejectSuggestionNode,
+    findSuggestionPos: findSuggestionPos,
+    hasSuggestion: function () {
+      return findFirstSuggestionPos() != null;
+    },
+    getFocusedSuggestionId: function () {
+      if (!editor || editor.isDestroyed) return null;
+      var sel = editor.state.selection;
+      var node = sel.node;
+      if (node && node.type && node.type.name === "suggestion") {
+        return node.attrs.suggestionId || null;
+      }
+      var $pos = sel.$from;
+      if ($pos && $pos.parent && $pos.parent.type.name === "suggestion") {
+        return $pos.parent.attrs.suggestionId || null;
+      }
+      var pos = findFirstSuggestionPos();
+      if (pos == null) return null;
+      var at = editor.state.doc.nodeAt(pos);
+      return at ? at.attrs.suggestionId || null : null;
+    },
+    getDocumentContextAst: getDocumentContextAst,
+    applyRedHatFix: applyRedHatFix,
   };
+
+  global.applyRedHatFix = applyRedHatFix;
 })(typeof window !== "undefined" ? window : this);

@@ -53,6 +53,24 @@ def _new_connection() -> sqlite3.Connection:
     return conn
 
 
+def _release_connection(conn: sqlite3.Connection | None) -> None:
+    """Return a pooled checkout to SQLAlchemy; plain close for direct sqlite3."""
+    if conn is None:
+        return
+    try:
+        from .db.pool import connection_is_pooled, release_dbapi_connection
+
+        if connection_is_pooled(conn):
+            release_dbapi_connection(conn)
+            return
+    except Exception:
+        pass
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
 def get_db() -> sqlite3.Connection:
     """Request-scoped SQLite handle in Flask; standalone connection elsewhere."""
     try:
@@ -76,15 +94,7 @@ def close_db(e=None) -> None:
         if has_app_context():
             db = g.pop("db", None)
             if db is not None:
-                try:
-                    from .db.pool import connection_is_pooled, release_dbapi_connection
-
-                    if connection_is_pooled(db):
-                        release_dbapi_connection(db)
-                    else:
-                        db.close()
-                except Exception:
-                    db.close()
+                _release_connection(db)
     except ImportError:
         pass
 
@@ -129,7 +139,7 @@ def upsert_user_subscription(clerk_user_id: str, tier: str) -> None:
         db.commit()
     finally:
         if standalone:
-            db.close()
+            _release_connection(db)
 
 
 def history_enabled(flag: bool = False) -> bool:
@@ -169,7 +179,7 @@ def migrate_to_full_storage() -> None:
         )
         conn.commit()
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def store_full_run(
@@ -207,7 +217,7 @@ def store_full_run(
         )
         conn.commit()
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def record_run(
@@ -278,7 +288,7 @@ def record_run(
         conn.commit()
         return int(cur.lastrowid)
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def prune_old_executions(days: int) -> None:
@@ -297,7 +307,7 @@ def prune_old_executions(days: int) -> None:
         conn.execute("DELETE FROM executions WHERE timestamp < ?", (cutoff,))
         conn.commit()
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def _ensure_sends_table(conn: sqlite3.Connection) -> None:
@@ -312,6 +322,17 @@ def _ensure_sends_table(conn: sqlite3.Connection) -> None:
 
 
 def count_sends_today() -> int:
+    try:
+        from flask import has_app_context
+
+        if has_app_context():
+            conn = get_db()
+            _ensure_sends_table(conn)
+            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            row = conn.execute("SELECT count FROM daily_sends WHERE day = ?", (day,)).fetchone()
+            return int(row[0]) if row else 0
+    except ImportError:
+        pass
     conn = _new_connection()
     try:
         _ensure_sends_table(conn)
@@ -319,10 +340,28 @@ def count_sends_today() -> int:
         row = conn.execute("SELECT count FROM daily_sends WHERE day = ?", (day,)).fetchone()
         return int(row[0]) if row else 0
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def record_send() -> None:
+    try:
+        from flask import has_app_context
+
+        if has_app_context():
+            conn = get_db()
+            _ensure_sends_table(conn)
+            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            conn.execute(
+                """
+                INSERT INTO daily_sends (day, count) VALUES (?, 1)
+                ON CONFLICT(day) DO UPDATE SET count = count + 1
+                """,
+                (day,),
+            )
+            conn.commit()
+            return
+    except ImportError:
+        pass
     conn = _new_connection()
     try:
         _ensure_sends_table(conn)
@@ -336,7 +375,7 @@ def record_send() -> None:
         )
         conn.commit()
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def _ensure_executions(conn: sqlite3.Connection) -> None:
@@ -537,7 +576,7 @@ def list_works(
                 ).fetchall():
                     previews[digest] = (text or "").strip()
     finally:
-        conn.close()
+        _release_connection(conn)
     now = datetime.now(timezone.utc)
     buckets = {"today": [], "yesterday": [], "week": [], "older": []}
     for row in rows:
@@ -580,7 +619,7 @@ def get_work(item_id: int, *, full: bool, days: int | None = None) -> dict | Non
         item["full"] = full
         return item
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def get_run_by_hash(run_hash: str) -> dict | None:
@@ -622,7 +661,7 @@ def get_run_by_hash(run_hash: str) -> dict | None:
             "created_at": (exe["timestamp"] if exe else ver["timestamp"]),
         }
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def diff_runs(left_hash: str, right_hash: str) -> str:
@@ -673,7 +712,7 @@ def delete_work(item_id: int) -> bool:
         conn.commit()
         return True
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def clear_works() -> int:
@@ -689,7 +728,7 @@ def clear_works() -> int:
         conn.commit()
         return int(cur.rowcount)
     finally:
-        conn.close()
+        _release_connection(conn)
 
 
 def export_work(item: dict, fmt: str) -> tuple[bytes, str, str]:
@@ -874,4 +913,4 @@ def usage_summary(*, days: int = 30) -> dict:
             "latency": None,
         }
     finally:
-        conn.close()
+        _release_connection(conn)

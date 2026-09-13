@@ -18,6 +18,10 @@ def pytest_configure(config):
         "markers",
         "playwright: browser-driven Assure workbench simulation (requires pytest-playwright)",
     )
+    config.addinivalue_line(
+        "markers",
+        "quality_check: unified pre-promotion quality gate (API, backend, UI, design, visual)",
+    )
     if os.environ.get("CI"):
         try:
             import z3

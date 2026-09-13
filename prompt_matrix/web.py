@@ -283,6 +283,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from db.connection import init_db
     init_db()
     try:
+        from .signals import connect_redhat_signals
+    except ImportError:
+        from signals import connect_redhat_signals
+    connect_redhat_signals()
+    try:
         from .cloud_billing import load_cloud_env
     except ImportError:
         from cloud_billing import load_cloud_env
@@ -624,17 +629,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     def _workspace_page():
         try:
-            from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from .db.jdf_repository import DEFAULT_PROJECT_ID
         except ImportError:
-            from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from db.jdf_repository import DEFAULT_PROJECT_ID
         project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
-        initial_jdf = fetch_latest_jdf_or_empty(project_id)
         return _page(
             "index.html",
             "compose",
             initial_pane="compose",
             include_pk=True,
-            initial_jdf=initial_jdf,
+            initial_jdf=None,
             project_id=project_id,
         )
 
@@ -1701,6 +1705,42 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from routers.drafts_routes import register_drafts_routes
     register_runs_routes(app)
     register_drafts_routes(app)
+
+    try:
+        from .routers.locks_routes import register_locks_routes
+    except ImportError:
+        from routers.locks_routes import register_locks_routes
+    register_locks_routes(app)
+
+    try:
+        from .routers.redhat_routes import register_redhat_routes
+    except ImportError:
+        from routers.redhat_routes import register_redhat_routes
+    register_redhat_routes(app)
+
+    try:
+        from .routers.orchestrator_routes import register_orchestrator_routes
+    except ImportError:
+        from routers.orchestrator_routes import register_orchestrator_routes
+    register_orchestrator_routes(app)
+
+    try:
+        from .routers.compare_routes import register_compare_routes
+    except ImportError:
+        from routers.compare_routes import register_compare_routes
+    register_compare_routes(app)
+
+    try:
+        from .routers.polish_routes import register_polish_routes
+    except ImportError:
+        from routers.polish_routes import register_polish_routes
+    register_polish_routes(app)
+
+    try:
+        from .routers.scan_routes import register_scan_routes
+    except ImportError:
+        from routers.scan_routes import register_scan_routes
+    register_scan_routes(app)
 
     try:
         from .middleware_activity import register_activity_audit_middleware

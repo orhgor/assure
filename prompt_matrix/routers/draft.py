@@ -590,6 +590,18 @@ def run_draft_pipeline(
         document=verified_doc,
     )
     yield _typed_sse("verified", verified_payload)
+    try:
+        from ..db.jdf_repository import fetch_latest_jdf
+        from ..signals import z3_verified
+    except ImportError:
+        from db.jdf_repository import fetch_latest_jdf
+        from signals import z3_verified
+    z3_verified.send(
+        "draft_stream",
+        project_id=project_id,
+        current_jdf=verified_doc,
+        previous_jdf=fetch_latest_jdf(project_id),
+    )
 
     compiled_payload = {
         "document": doc_dict,

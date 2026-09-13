@@ -33,9 +33,27 @@ When the intent is research, the FINAL output must be split into:
 STANDALONE_MARKER = "You are the PEM (Prompt Execution Matrix) orchestration engine."
 RESEARCH_FORMAT_MARKER = "**RESEARCH OUTPUT:**"
 
+# Difference Engine (free stack): raw intent only — no web-search / missing-source boilerplate.
+COMPARE_FREE_INSTRUCTION = """
+Answer the user's intent in clear plain prose. No JSON wrapper.
+Do not mention web search, Perplexity, or missing uploaded files unless the user explicitly asked for sources you do not have.
+If a fact is not in the prompt, answer from general knowledge or state briefly that you cannot verify it.
+""".strip()
+
+
+def _use_free_models() -> bool:
+    import os
+
+    return os.environ.get("ASSURE_USE_FREE_MODELS", "0").strip().lower() in ("1", "true", "yes")
+
 
 def apply_base_instruction(prompt: str, intent: str = "") -> str:
     text = prompt.rstrip()
+    intent_name = (intent or "").strip().lower()
+    if intent_name == "comparison" and _use_free_models():
+        if "Answer the user's intent in clear plain prose" not in text:
+            text = text + "\n\n" + COMPARE_FREE_INSTRUCTION
+        return text + "\n"
     if STANDALONE_MARKER not in text:
         text = text + "\n\n" + PEM_BASE_INSTRUCTION
     if (intent or "").strip().lower() == "research" and RESEARCH_FORMAT_MARKER not in text:

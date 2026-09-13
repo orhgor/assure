@@ -5,13 +5,35 @@
   "use strict";
 
   var saveTimer = null;
-  var workspaceId = "default";
-  var draftTree = { body: [] };
+  var saveInFlight = null;
+  var z3FallbackTimer = null;
+  var workspaceId = "founder";
+  var draftTree = {
+    document_id: "draft-founder",
+    meta: { project_id: "founder", source: "founder_draft" },
+    truth_ledger: {},
+    body: [],
+  };
   var streamingLockIndex = 0;
   var streamingActive = false;
+  var activeRunId = null;
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function resolveWorkspaceId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
+    return global.__ASSURE_PROJECT_ID__ || "default";
+  }
+
+  function isFounderShell() {
+    return (
+      document.body.classList.contains("founder-workbench") &&
+      !document.body.classList.contains("legacy-workbench")
+    );
   }
 
   function emptyDoc() {
@@ -23,24 +45,99 @@
     };
   }
 
-  function scheduleSave() {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveDraft, 800);
+  function translate(key, fallback) {
+    if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+    return fallback || key;
   }
 
-  function saveDraft() {
+  function showSync(text, hideAfter) {
+    if (global.AssureWorkbenchPanes && typeof global.AssureWorkbenchPanes.showSyncStatus === "function") {
+      global.AssureWorkbenchPanes.showSyncStatus(text, hideAfter);
+    } else if (typeof global.showSyncStatus === "function") {
+      global.showSyncStatus(text, hideAfter);
+    }
+  }
+
+  function afterDraftSaved() {
+    showSync(translate("founder.sync.z3_verifying", "Z3 Verifying..."));
+    if (z3FallbackTimer) clearTimeout(z3FallbackTimer);
+    z3FallbackTimer = setTimeout(function () {
+      document.dispatchEvent(new CustomEvent("assure:z3-verified"));
+    }, 2500);
+  }
+
+  function saveDraftNow() {
+    if (saveInFlight) return saveInFlight;
     var editorApi = global.AssureTiptapEditor;
     var ed = editorApi && editorApi.getEditor && editorApi.getEditor();
-    if (!editorApi || !ed || !editorApi.tiptapToJdf) return;
+    if (!editorApi || !ed || !editorApi.tiptapToJdf) return Promise.resolve();
     try {
       draftTree = editorApi.tiptapToJdf(ed.getJSON(), draftTree) || draftTree;
-    } catch (_) {}
-    fetch("/api/drafts", {
-      method: "PUT",
+    } catch (_) {
+      return Promise.resolve();
+    }
+    var url;
+    var method;
+    var body;
+    if (isFounderShell()) {
+      url = "/api/projects/" + encodeURIComponent(workspaceId) + "/draft";
+      method = "POST";
+      body = JSON.stringify({ content: draftTree });
+    } else {
+      url = "/api/drafts";
+      method = "PUT";
+      body = JSON.stringify({ workspace_id: workspaceId, content: draftTree });
+    }
+    saveInFlight = fetch(url, {
+      method: method,
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspace_id: workspaceId, content: draftTree }),
-    }).catch(function () {});
+      body: body,
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { ok: res.ok && data.ok !== false, data: data };
+        });
+      })
+      .then(function (result) {
+        if (result.ok && isFounderShell()) afterDraftSaved();
+        return result;
+      })
+      .catch(function () {})
+      .finally(function () {
+        saveInFlight = null;
+      });
+    return saveInFlight;
+  }
+
+  function scheduleSave() {
+    showSync(translate("founder.sync.saving", "Saving..."));
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      saveDraftNow();
+    }, 800);
+  }
+
+  function flushSave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    return saveDraftNow() || Promise.resolve();
+  }
+
+  function editorIsMounted() {
+    var editorApi = global.AssureTiptapEditor;
+    return !!(editorApi && editorApi.getEditor && editorApi.getEditor());
+  }
+
+  /** Mount empty TipTap before draft fetch — ProseMirror must exist on DOMContentLoaded. */
+  function ensureEditorMounted() {
+    if (!isFounderShell() || editorIsMounted()) return;
+    var blank = emptyDoc();
+    blank.meta.founder_blank = true;
+    mountEditor(blank);
   }
 
   function mountEditor(tree) {
@@ -60,15 +157,45 @@
         scheduleSave();
       },
     });
+    if (global.AssureOperatorPrompt && typeof global.AssureOperatorPrompt.init === "function") {
+      global.AssureOperatorPrompt.init();
+    }
+    if (global.AssureOrchestrator && typeof global.AssureOrchestrator.init === "function") {
+      global.AssureOrchestrator.init();
+    }
+    if (global.AssureFounderPolish && typeof global.AssureFounderPolish.init === "function") {
+      global.AssureFounderPolish.init();
+    }
+    if (global.AssureFounderScan && typeof global.AssureFounderScan.init === "function") {
+      global.AssureFounderScan.init();
+    }
     var ed = editorApi.getEditor && editorApi.getEditor();
     if (ed && isBlank) {
       try {
-        ed.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] }, false);
+        ed.commands.setContent(
+          {
+            type: "doc",
+            content: [
+              {
+                type: "jdfParagraph",
+                attrs: { nodeId: "", gutter: "unverified" },
+                content: [],
+              },
+            ],
+          },
+          false
+        );
       } catch (_) {}
       draftTree = emptyDoc();
       delete draftTree.meta.founder_blank;
     }
     updatePlaceholder();
+    window.requestAnimationFrame(function () {
+      updatePlaceholder();
+      try {
+        if (ed && ed.view) ed.commands.focus("end");
+      } catch (_) {}
+    });
     window.setTimeout(updatePlaceholder, 100);
   }
 
@@ -100,7 +227,56 @@
     placeholder.hidden = draftHasContent();
   }
 
+  function resetToEmpty() {
+    activeRunId = null;
+    draftTree = emptyDoc();
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && editorApi.clearForStreaming) {
+      editorApi.clearForStreaming();
+    }
+    mountEditor(emptyDoc());
+  }
+
+  function applyRestoredDocument(document, version) {
+    if (!document || typeof document !== "object") return false;
+    draftTree = document;
+    streamingActive = false;
+    var editorApi = global.AssureTiptapEditor;
+    if (editorApi && typeof editorApi.setContentFromJdf === "function") {
+      editorApi.setContentFromJdf(document);
+    } else if (editorApi && typeof editorApi.mount === "function") {
+      mountEditor(document);
+    } else {
+      return false;
+    }
+    updatePlaceholder();
+    scheduleSave();
+    if (version != null && global.AssureToast && typeof global.AssureToast.show === "function") {
+      var msg =
+        typeof global.__assureTf === "function"
+          ? global.__assureTf("founder.versions.restored", "Draft restored to version {version}", {
+              version: version,
+            })
+          : "Draft restored to version " + version;
+      global.AssureToast.show(msg, "success");
+    }
+    return true;
+  }
+
+  function hydrateEditorFromDraft(content) {
+    var editorApi = global.AssureTiptapEditor;
+    draftTree = content;
+    if (editorIsMounted() && editorApi && typeof editorApi.setContentFromJdf === "function") {
+      editorApi.setContentFromJdf(content);
+      updatePlaceholder();
+      return;
+    }
+    mountEditor(content);
+  }
+
   function loadDraft() {
+    if (!isFounderShell()) return Promise.resolve();
+    ensureEditorMounted();
     return fetch("/api/drafts?workspace_id=" + encodeURIComponent(workspaceId), {
       credentials: "same-origin",
     })
@@ -108,12 +284,31 @@
         return r.json();
       })
       .then(function (data) {
-        var content = (data.draft && data.draft.content) || emptyDoc();
-        mountEditor(content);
+        var content = (data.draft && data.draft.content) || null;
+        if (content && content.body && content.body.length) {
+          hydrateEditorFromDraft(content);
+          return;
+        }
+        resetToEmpty();
       })
       .catch(function () {
-        mountEditor(emptyDoc());
+        resetToEmpty();
       });
+  }
+
+  function syncDraftWithRuns(runs) {
+    if (!isFounderShell() || streamingActive) return;
+    var list = runs || [];
+    if (!list.length) {
+      if (!draftHasContent()) resetToEmpty();
+      return;
+    }
+    if (activeRunId) {
+      var still = list.some(function (r) {
+        return r.id === activeRunId;
+      });
+      if (!still && !draftHasContent()) resetToEmpty();
+    }
   }
 
   function runParagraphText(run) {
@@ -130,6 +325,7 @@
   function beginStreaming() {
     streamingActive = true;
     streamingLockIndex = 0;
+    activeRunId = null;
     var editorApi = global.AssureTiptapEditor;
     if (editorApi && editorApi.clearForStreaming) {
       editorApi.clearForStreaming();
@@ -169,6 +365,8 @@
   }
 
   function appendRun(run) {
+    if (!run) return;
+    activeRunId = run.id || null;
     var text = runParagraphText(run);
     var locks = run.extracted_locks || [];
     var editorApi = global.AssureTiptapEditor;
@@ -224,28 +422,77 @@
     }
   }
 
+  function whenTiptapReady(cb) {
+    if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.mount === "function") {
+      cb();
+      return;
+    }
+    var tries = 0;
+    var timer = window.setInterval(function () {
+      tries += 1;
+      if (global.AssureTiptapEditor && typeof global.AssureTiptapEditor.mount === "function") {
+        window.clearInterval(timer);
+        cb();
+      } else if (tries > 60) {
+        window.clearInterval(timer);
+      }
+    }, 25);
+  }
+
+  function bootFounderDraft() {
+    whenTiptapReady(function () {
+      ensureEditorMounted();
+      loadDraft();
+    });
+  }
+
   function init() {
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId = resolveWorkspaceId();
+    if (isFounderShell()) {
+      global.__ASSURE_PROJECT_ID__ = workspaceId;
+    }
+
     document.addEventListener("assure:project", function (ev) {
+      if (isFounderShell()) return;
       workspaceId = (ev.detail && ev.detail.projectId) || workspaceId;
       loadDraft();
     });
+
+    document.addEventListener("assure:runs-updated", function (ev) {
+      var detail = (ev && ev.detail) || {};
+      syncDraftWithRuns(detail.runs || []);
+    });
+    document.addEventListener("assure:redhat-fix-applied", function () {
+      scheduleSave();
+    });
+
     if (
       (global.AssureFounderMode && global.AssureFounderMode.isEnabled()) ||
       document.body.classList.contains("founder-workbench")
     ) {
-      loadDraft();
+      bootFounderDraft();
     }
   }
 
   global.AssureFounderDraft = {
     init: init,
+    ensureEditorMounted: ensureEditorMounted,
     appendRun: appendRun,
     loadDraft: loadDraft,
+    applyRestoredDocument: applyRestoredDocument,
+    getDraftTree: function () {
+      return draftTree;
+    },
+    resetToEmpty: resetToEmpty,
     beginStreaming: beginStreaming,
     appendStreamToken: appendStreamToken,
     insertStreamLock: insertStreamLock,
     finishStreaming: finishStreaming,
+    flushSave: flushSave,
+    saveDraftNow: saveDraftNow,
+    getWorkspaceId: function () {
+      return workspaceId;
+    },
   };
   document.addEventListener("DOMContentLoaded", init);
 })(window);

@@ -1,9 +1,10 @@
 # Assure — Webpage & marketing (master reference)
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 **Live marketing:** https://getassureai.com (R2 + Cloudflare Worker)
 **Live workbench:** https://app.getassureai.com/app (EC2 via Tunnel)
-**Production `/health`:** `1d6bf798`, UI workbench `assure-124`, landing cache `landing.css?v=58` / `landing-pilot.js?v=44`
+**Production `/health`:** `f4e2d20`, UI workbench `assure-127`
+**Staging `/health`:** UI `assure-140`, `stack: free` (Gemini 3.6 Flash + DeepSeek)
 
 This document inventories **every public webpage surface** — live routes, templates, static export, copy sources, APIs, analytics, and deploy paths. It is the webpage counterpart to [assure-ai-all-functions.md](./assure-ai-all-functions.md) (workbench).
 
@@ -46,7 +47,7 @@ Workbench + API
 |---------|---------------|-----|
 | **Marketing (static)** | R2 + Worker routes | `https://getassureai.com/` |
 | **Workbench (Flask)** | AWS EC2 production (`i-09d0ad0b561113abe`) | `https://app.getassureai.com/app` |
-| **Staging (full stack)** | AWS EC2 staging (`i-03e39eccc57572191`) | `https://staging.getassureai.com/` — **502** (disk full; SSM RunShellScript fails) |
+| **Staging (full stack)** | AWS EC2 staging (`i-03e39eccc57572191`) | `https://staging.getassureai.com/` — **healthy** (UI `assure-140`, free-model stack) |
 
 ### Three code paths (do not confuse)
 
@@ -345,7 +346,7 @@ Browser → getassureai.com
 | `https://getassureai.com/privacy` | R2 static |
 | `https://getassureai.com/app` | 302 → `app.getassureai.com/app` |
 | `https://app.getassureai.com/app` | EC2 Flask workbench |
-| `https://staging.getassureai.com/` | Staging EC2 — **502** (disk full) |
+| `https://staging.getassureai.com/` | Staging EC2 — healthy, UI `assure-140` |
 
 **Marketing deploy (production):**
 

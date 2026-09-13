@@ -123,3 +123,26 @@ def test_post_api_runs_requires_directive(wb_client):
     res = wb_client.post("/api/runs", json={"directive": "  "})
     assert res.status_code == 400
     assert res.get_json()["ok"] is False
+
+
+def test_post_api_runs_timeout(wb_client, monkeypatch):
+    def _timeout(**_kwargs):
+        raise TimeoutError("Run timed out after 1s")
+
+    monkeypatch.setattr(
+        "prompt_matrix.routers.runs_routes._create_run_with_timeout",
+        _timeout,
+    )
+    res = wb_client.post(
+        "/api/runs",
+        json={"directive": "what is session physiology", "workspace_id": "founder"},
+    )
+    assert res.status_code == 504
+    assert "timed out" in res.get_json()["error"].lower()
+
+
+def test_celery_broker_disabled_when_empty(monkeypatch):
+    monkeypatch.setenv("CELERY_BROKER_URL", "")
+    from prompt_matrix.celery_app import celery_broker_disabled
+
+    assert celery_broker_disabled() is True

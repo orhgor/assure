@@ -1,9 +1,9 @@
 # Assure AI — All Functions
 
-**Production git:** `main` @ `1d6bf79` (v3.2.0). **Live EC2:** `1d6bf798`, UI `assure-122`, healthy.
-**Staging git:** `staging` @ `fe73790` (PRs #30–#32). **Live EC2:** **502** — disk full; code not deployed.
+**Production git:** `main` @ `f4e2d20`. **Live EC2:** `f4e2d20`, UI `assure-127`, healthy.
+**Staging git:** `staging` @ `3cb82a7` (PRs #46–#51). **Live EC2:** healthy, UI `assure-140`, free stack (Gemini 3.6 Flash + DeepSeek).
 **Stack:** Flask · Vanilla JS · TipTap · SQLite · JDF (JSON Document Format)
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-10
 
 This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and release planning—not a marketing brochure.
 
@@ -43,7 +43,7 @@ This document inventories every major product function as implemented in the cod
 | **All Functions reference** | ✅ Doc | This file (`docs/assure-ai-all-functions.md`) |
 | **Tests (pytest)** | ✅ Green | 422+ pass (incl. 8 new v1.5 test modules) |
 | **Tests (Playwright)** | ✅ Green locally | 22/22 pass; lock UI uses API + reload (no `refreshLockState` race) |
-| **Deploy staging** | 🔴 Down | EC2 disk full → **502**; git at `fe73790` / `assure-124` not on box |
+| **Deploy staging** | ✅ Live | On-box Docker build; `ASSURE_USE_FREE_MODELS=1`; ~9.6 GB disk free |
 
 **Branch:** `feat/v1.5-enterprise-compliance` → merged **`staging`** @ `c5d979a` (+ lock-test fixes `0629e66`, `bc7515c`)
 
@@ -588,8 +588,8 @@ DOCX optional **References / citations** section via project setting `show_citat
 | Milestone | Branch / SHA | Environment | UI cache |
 |-----------|--------------|-------------|----------|
 | v1.4.0 | `main` / `ee6a9ee` | Production (historical) | `assure-96` |
-| v3.2.0 groundrails | `main` / `1d6bf79` | **Production live** | `assure-122` |
-| Founder UI + orchestrator | `staging` / `fe73790` (PRs #30–#32) | Git only — staging EC2 **502** | `assure-124` |
+| v3.2.0 groundrails | `main` / `f4e2d20` | **Production live** | `assure-127` |
+| Founder UI + orchestrator + free stack | `staging` / `3cb82a7` (PRs #46–#51) | **Staging live** | `assure-140` |
 | UI revision sprint | `36e532a` (PR #6) | Superseded on `staging` git | — |
 
 ---

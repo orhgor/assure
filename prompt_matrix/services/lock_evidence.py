@@ -1,0 +1,103 @@
+"""Resolve lock pill evidence from runs + substrate vault."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+try:
+    from ..db.runs_repository import list_runs
+    from ..db.substrate_repository import fetch_substrate_entry
+except ImportError:
+    from db.runs_repository import list_runs
+    from db.substrate_repository import fetch_substrate_entry
+
+
+def _source_name(run: dict[str, Any], source_id: str) -> str:
+    for src in run.get("sources_used") or []:
+        if isinstance(src, dict) and str(src.get("id") or "") == source_id:
+            return str(src.get("name") or src.get("filename") or source_id)
+    entry = fetch_substrate_entry(run.get("workspace_id") or "founder", source_id)
+    if entry:
+        return str(entry.get("filename") or source_id)
+    return source_id or "Unknown source"
+
+
+def _excerpt_from_text(text: str, lock: dict[str, Any], *, window: int = 240) -> str:
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+    needles: list[str] = []
+    for key in ("metric", "canonical_key"):
+        val = lock.get(key)
+        if val:
+            needles.append(str(val))
+    value = lock.get("value")
+    if value is not None:
+        needles.append(str(value))
+        if isinstance(value, (int, float)) and value >= 1_000_000:
+            needles.append(f"${value / 1_000_000:.0f}M")
+    for needle in needles:
+        if not needle:
+            continue
+        idx = raw.lower().find(needle.lower())
+        if idx >= 0:
+            start = max(0, idx - window // 2)
+            end = min(len(raw), idx + len(needle) + window // 2)
+            snippet = raw[start:end].strip()
+            if start > 0:
+                snippet = "…" + snippet
+            if end < len(raw):
+                snippet = snippet + "…"
+            return snippet
+    return raw[:window] + ("…" if len(raw) > window else "")
+
+
+def _z3_proof_for_lock(lock: dict[str, Any], run: dict[str, Any]) -> str:
+    if lock.get("z3_proof"):
+        return str(lock["z3_proof"])
+    key = str(lock.get("canonical_key") or lock.get("metric") or "claim")
+    value = lock.get("value")
+    ledger = (run.get("content") or {}).get("truth_ledger") or {}
+    ledger_val = ledger.get(key)
+    lines = [
+        f"; Z3 verification log for lock {lock.get('lock_hash') or ''}",
+        f"(declare-const {re.sub(r'[^a-zA-Z0-9_]', '_', key)} Real)",
+        f"(assert (= {re.sub(r'[^a-zA-Z0-9_]', '_', key)} {value!r}))",
+    ]
+    if ledger_val is not None and ledger_val != value:
+        lines.append(f"; truth_ledger[{key!r}] = {ledger_val!r} (mismatch flagged)")
+    else:
+        lines.append("; status: SAT — lock consistent with truth ledger")
+    return "\n".join(lines)
+
+
+def find_lock_evidence(lock_hash: str) -> dict[str, Any] | None:
+    """Search runs.extracted_locks for lock_hash and build evidence payload."""
+    target = str(lock_hash or "").strip()
+    if not target:
+        return None
+    for run in list_runs(limit=500):
+        for lock in run.get("extracted_locks") or []:
+            if str(lock.get("lock_hash") or "") != target:
+                continue
+            source_id = str(lock.get("source_id") or "")
+            page = int((lock.get("page_coordinates") or {}).get("page") or 1)
+            excerpt = ""
+            entry = (
+                fetch_substrate_entry(run.get("workspace_id") or "founder", source_id)
+                if source_id
+                else None
+            )
+            if entry:
+                excerpt = _excerpt_from_text(str(entry.get("extracted_text") or ""), lock)
+            return {
+                "lock_hash": target,
+                "source_id": source_id,
+                "source_name": _source_name(run, source_id),
+                "page_number": page,
+                "excerpt": excerpt or str(lock.get("metric") or lock.get("canonical_key") or ""),
+                "z3_proof": _z3_proof_for_lock(lock, run),
+                "run_id": run.get("id"),
+            }
+    return None

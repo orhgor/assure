@@ -393,13 +393,15 @@
             var founderOn =
               document.body.classList.contains("founder-workbench") &&
               !document.body.classList.contains("legacy-workbench");
-            if (
-              founderOn &&
-              global.AssureCommandBar &&
-              typeof global.AssureCommandBar.open === "function"
-            ) {
-              global.AssureCommandBar.open();
-              return;
+            if (founderOn && global.AssureCommandBar) {
+              if (typeof global.AssureCommandBar.openWithSelectionContext === "function") {
+                global.AssureCommandBar.openWithSelectionContext();
+                return;
+              }
+              if (typeof global.AssureCommandBar.open === "function") {
+                global.AssureCommandBar.open();
+                return;
+              }
             }
             if (global.AssureCommandPalette && typeof global.AssureCommandPalette.open === "function") {
               global.AssureCommandPalette.open();

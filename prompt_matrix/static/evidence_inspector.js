@@ -24,8 +24,17 @@
   }
 
   function open(detail) {
-    if (!drawer) return;
     detail = detail || {};
+    if (
+      document.body.classList.contains("founder-workbench") &&
+      !document.body.classList.contains("legacy-workbench") &&
+      global.AssureEvidenceDrawer &&
+      typeof global.AssureEvidenceDrawer.open === "function"
+    ) {
+      global.AssureEvidenceDrawer.open(detail);
+      return;
+    }
+    if (!drawer) return;
     drawer.hidden = false;
     drawer.setAttribute("aria-hidden", "false");
     $("evidence-inspector-hash").textContent = detail.lockHash || "—";
@@ -100,7 +109,10 @@
 
   function init() {
     drawer = $("evidence-inspector-drawer");
-    workspaceId = global.__ASSURE_PROJECT_ID__ || "default";
+    workspaceId =
+      global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function"
+        ? global.AssureFounderMode.getWorkspaceId()
+        : global.__ASSURE_PROJECT_ID__ || "default";
     var closeBtn = $("evidence-inspector-close");
     var gotoBtn = $("evidence-inspector-goto");
     if (closeBtn) closeBtn.addEventListener("click", close);

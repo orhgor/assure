@@ -1,8 +1,8 @@
 # Assure AI — Insurance Demo Environment
 
 **Audience:** Boston-based real estate insurance company
-**Product version:** v3.2.0 production (`1d6bf79`, UI `assure-122`)
-**Last verified:** 2026-09-08
+**Product version:** production (`f4e2d20`, UI `assure-127`); staging golden-path (`3cb82a7`, UI `assure-140`)
+**Last verified:** 2026-09-10
 
 ---
 
@@ -10,10 +10,10 @@
 
 | Environment | URL | `build_sha` | Recommendation |
 |-------------|-----|-------------|----------------|
-| **Production** | https://getassureai.com/app | `1d6bf798` | **Primary demo** — healthy, ~10.6 GB disk free |
-| **Staging** | https://staging.getassureai.com/app | — | 🔴 **502** — EC2 disk full; use production for demos |
+| **Production** | https://getassureai.com/app | `f4e2d20` | **Primary demo** — healthy, ~9.9 GB disk free |
+| **Staging** | https://staging.getassureai.com/app?view=founder | `3cb82a7` | **Golden path / free stack** — Gemini 3.6 Flash + DeepSeek live |
 
-Use **production** for live meetings until staging EC2 is recovered (`free-disk-cleanup.sh` + redeploy).
+Use **production** for stable ICP demos; use **staging** for Difference Engine (⌘K two-model compare) without burning paid API budget.
 
 ---
 

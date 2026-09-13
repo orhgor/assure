@@ -1,0 +1,114 @@
+=== prompt_matrix/routers/__init__.py ===
+=== prompt_matrix/routers/adoption_routes.py ===
+42:    @app.post("/api/projects/<project_id>/infer-locks")
+128:    @app.post("/api/projects/<project_id>/apply-locks")
+174:    @app.get("/api/projects/<project_id>/export-audit")
+=== prompt_matrix/routers/analytics.py ===
+16:    @app.get("/api/analytics/z3-health")
+35:    @app.get("/api/analytics/redhat-critiques")
+48:    @app.get("/api/analytics/compliance-velocity")
+62:    @app.get("/analytics")
+=== prompt_matrix/routers/async_tasks_routes.py ===
+44:    @app.post("/api/tasks/compile")
+65:    @app.post("/api/tasks/render")
+92:    @app.post("/api/projects/<project_id>/tasks/ground")
+108:    @app.get("/api/tasks/<task_id>")
+113:    @app.post("/api/projects/<project_id>/compile/safe")
+=== prompt_matrix/routers/comment_routes.py ===
+23:    @app.get("/api/projects/<project_id>/comments")
+30:    @app.post("/api/projects/<project_id>/comments")
+49:    @app.delete("/api/projects/<project_id>/comments/<comment_id>")
+=== prompt_matrix/routers/compare_routes.py ===
+30:    @app.post("/api/runs/compare")
+=== prompt_matrix/routers/compliance_routes.py ===
+47:    @app.get("/api/projects/<project_id>/sign-offs")
+52:    @app.post("/api/projects/<project_id>/sign-off")
+69:    @app.post("/api/projects/<project_id>/nodes/<node_id>/sign-off")
+87:    @app.post("/api/projects/<project_id>/lock")
+105:    @app.get("/api/projects/<project_id>/lock")
+=== prompt_matrix/routers/conflict_routes.py ===
+18:    @app.get("/api/projects/<project_id>/conflicts")
+=== prompt_matrix/routers/draft.py ===
+823:    @app.post("/api/projects/<project_id>/draft/stream")
+914:    @app.post("/api/projects/<project_id>/draft/redhat/stream")
+=== prompt_matrix/routers/drafts_routes.py ===
+38:    @app.put("/api/drafts")
+61:    @app.get("/api/drafts")
+69:    @app.post("/api/projects/<project_id>/draft")
+=== prompt_matrix/routers/export_routes.py ===
+44:    @app.get("/api/projects/<project_id>/export")
+=== prompt_matrix/routers/feedback_routes.py ===
+152:    @app.post("/api/feedback")
+192:    @app.post("/api/tester-feedback")
+196:    @app.get("/api/backstage/feedback")
+201:    @app.get("/api/backstage/actions-budget")
+205:    @app.get("/backstage")
+=== prompt_matrix/routers/ground_routes.py ===
+24:    @app.post("/api/projects/<project_id>/nodes/<node_id>/ground")
+=== prompt_matrix/routers/health.py ===
+=== prompt_matrix/routers/import_config_routes.py ===
+36:    @app.post("/api/projects/<project_id>/import-config")
+80:    @app.get("/api/audit-log")
+=== prompt_matrix/routers/inquire_stream.py ===
+457:    @app.post("/api/projects/<project_id>/inquire/stream")
+=== prompt_matrix/routers/jdf_routes.py ===
+140:    @app.get("/api/projects/<project_id>/history")
+162:    @app.post("/api/projects/<project_id>/restore")
+179:    @app.get("/api/projects/<project_id>/jdf")
+198:    @app.put("/api/projects/<project_id>/jdf")
+284:    @app.post("/api/projects/<project_id>/import-pdf")
+336:    @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
+344:    @app.post("/api/projects/<project_id>/nodes/<node_id>/restore")
+=== prompt_matrix/routers/locks_routes.py ===
+14:    @app.get("/api/locks/<lock_hash>/evidence")
+=== prompt_matrix/routers/omp_routes.py ===
+14:    @app.post("/api/omp/remember")
+30:    @app.get("/api/omp/recall")
+40:    @app.get("/api/omp/memories")
+=== prompt_matrix/routers/orchestrator_routes.py ===
+97:    @app.post("/api/projects/<project_id>/orchestrate")
+=== prompt_matrix/routers/polish_routes.py ===
+26:    @app.post("/api/projects/<project_id>/polish")
+=== prompt_matrix/routers/project_routes.py ===
+133:    @app.get("/api/projects")
+154:    @app.post("/api/projects")
+219:    @app.patch("/api/projects/<project_id>")
+234:    @app.delete("/api/projects/<project_id>")
+244:    @app.get("/api/projects/<project_id>/files")
+249:    @app.put("/api/projects/<project_id>/files")
+266:    @app.get("/api/projects/<project_id>/settings")
+272:    @app.put("/api/projects/<project_id>/settings")
+=== prompt_matrix/routers/project_templates.py ===
+14:    @app.get("/api/project-templates")
+=== prompt_matrix/routers/prompt_routes.py ===
+53:    @app.get("/api/prompts")
+59:    @app.get("/api/prompts/<prompt_id>")
+66:    @app.post("/api/prompts")
+83:    @app.put("/api/prompts/<prompt_id>")
+101:    @app.delete("/api/prompts/<prompt_id>")
+=== prompt_matrix/routers/redhat_routes.py ===
+44:    @app.post("/api/projects/<project_id>/redhat/auto")
+88:    @app.get("/api/projects/<project_id>/redhat/status")
+=== prompt_matrix/routers/refine_node.py ===
+72:    @app.post("/api/projects/<project_id>/refine-node")
+77:    @app.post("/refine-node")
+=== prompt_matrix/routers/runs_routes.py ===
+80:    @app.post("/api/runs")
+127:    @app.post("/api/runs/execute")
+167:    @app.get("/api/runs")
+180:    @app.get("/api/runs/<run_id>")
+187:    @app.post("/api/runs/<run_id>/redhat")
+201:    @app.patch("/api/runs/<run_id>/findings/<finding_id>")
+229:    @app.delete("/api/runs/<run_id>")
+235:    @app.get("/api/runs/<run_id>/contradictions")
+=== prompt_matrix/routers/sandbox.py ===
+112:    @app.post("/api/sandbox/verify")
+=== prompt_matrix/routers/scan_routes.py ===
+25:    @app.post("/api/projects/<project_id>/scan")
+=== prompt_matrix/routers/substrate.py ===
+201:    @app.post("/api/substrate")
+266:    @app.post("/api/projects/<project_id>/substrate/upload")
+348:    @app.get("/api/projects/<project_id>/substrate")
+374:    @app.get("/api/projects/<project_id>/substrate/<file_id>")
+393:    @app.delete("/api/projects/<project_id>/substrate/<file_id>")
+410:    @app.patch("/api/projects/<project_id>/substrate/<file_id>")
