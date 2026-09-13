@@ -17,6 +17,7 @@ except ImportError:
     from history import _apply_pragmas, _resolve_db_path
 
 _engine: Engine | None = None
+_engine_db_path: str | None = None
 _engine_lock = threading.Lock()
 _pool_holders: dict[int, Any] = {}
 _pool_holders_lock = threading.Lock()
@@ -30,14 +31,22 @@ def _sqlite_url(db_path: Path) -> str:
 
 
 def get_engine() -> Engine:
-    """Return the process-wide QueuePool engine (lazy singleton)."""
-    global _engine
-    if _engine is not None:
+    """Return the QueuePool engine, rebuilt when DATABASE_PATH changes.
+
+    The engine is cached per-process, but compared on every call against
+    the currently resolved DB path. If the path diverges (e.g. a test
+    rebinds history.DB_PATH or the runtime override changes), a fresh engine
+    is constructed for the new path; the old engine is left to GC so any
+    in-flight borrowed connections remain valid until released.
+    """
+    global _engine, _engine_db_path
+    current = str(_resolve_db_path())
+    if _engine is not None and _engine_db_path == current:
         return _engine
     with _engine_lock:
-        if _engine is not None:
+        if _engine is not None and _engine_db_path == current:
             return _engine
-        db_path = _resolve_db_path()
+        db_path = Path(current)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         eng = create_engine(
             _sqlite_url(db_path),
@@ -54,6 +63,7 @@ def get_engine() -> Engine:
             _apply_pragmas(dbapi_conn)
 
         _engine = eng
+        _engine_db_path = current
         return _engine
 
 
@@ -93,8 +103,9 @@ def connection_is_pooled(conn: sqlite3.Connection | None) -> bool:
 
 def reset_engine_for_tests() -> None:
     """Dispose pool between tests (call from fixtures when DATABASE_PATH changes)."""
-    global _engine
+    global _engine, _engine_db_path
     with _engine_lock:
         if _engine is not None:
             _engine.dispose()
             _engine = None
+        _engine_db_path = None
