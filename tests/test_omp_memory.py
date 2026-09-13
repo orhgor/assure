@@ -117,7 +117,7 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
     def fail_stream(*_a, **_k):
         raise AssertionError("Claude must not run on cache hit")
 
-    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fail_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
 
     class _Gov:
         class _Acct:

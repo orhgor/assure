@@ -319,15 +319,16 @@ def _replay_cached_compile(
     yield _done_sse()
 
 
-def _stream_claude(
+def _stream_model(
     gov: CostGovernor,
     messages: list[dict[str, str]],
     *,
+    target_ai: str | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> Iterator[str | tuple[str, int, int, str]]:
     """Yield typed token SSE frames, then (full_text, in_tok, out_tok, model_id)."""
     policy = gov.policy_for(TaskType.DEEP_SYNTHESIS)
-    model = policy.litellm_model or DRAFT_MODEL
+    model = target_ai or policy.litellm_model or DRAFT_MODEL
     max_out = policy.max_output_tokens
 
     try:
@@ -339,14 +340,20 @@ def _stream_claude(
             from services.language_guard import guard_messages, resolve_request_locale
 
         try:
-            from ..keys import litellm_kwargs_for
+            from ..keys import litellm_kwargs_for, provider_slug_for_litellm
         except ImportError:
-            from keys import litellm_kwargs_for
+            from keys import litellm_kwargs_for, provider_slug_for_litellm
 
         guarded = guard_messages(messages, locale=resolve_request_locale())
+        _slug = provider_slug_for_litellm(model)
+        if _slug is None:
+            raise RuntimeError(
+                f"Unknown provider for model id: {model!r}. "
+                "target_ai must be a known provider/model string."
+            )
         _api_kwargs: dict = {}
         try:
-            _api_kwargs = litellm_kwargs_for("claude")
+            _api_kwargs = litellm_kwargs_for(_slug)
         except Exception:
             pass
         stream = litellm.completion(
@@ -385,6 +392,7 @@ def run_draft_pipeline(
     intent: str,
     context: str | None = None,
     substrate_file_ids: list[str] | None = None,
+    target_ai: str | None = None,
     governor: CostGovernor | None = None,
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
@@ -439,17 +447,24 @@ def run_draft_pipeline(
         yield _done_sse()
         return
 
+    _draft_model = target_ai or DRAFT_MODEL
     yield _typed_sse(
-        "status", {"stage": "model", "message": "Drafting with Claude…", "model": DRAFT_MODEL}
+        "status",
+        {"stage": "model", "message": f"Drafting with {_draft_model}…", "model": _draft_model},
     )
 
     full_text = ""
     in_tok = 0
     out_tok = 0
-    model_id = DRAFT_MODEL
+    model_id = _draft_model
 
     try:
-        for item in _stream_claude(gov, messages, cancel_check=cancel_check):
+        for item in _stream_model(
+            gov,
+            messages,
+            target_ai=target_ai,
+            cancel_check=cancel_check,
+        ):
             if isinstance(item, str):
                 if '"type": "error"' in item:
                     yield item
@@ -840,6 +855,7 @@ def register_draft_routes(app) -> None:
                     "source_ids": data.get("source_ids") or [],
                     "compileType": data.get("compileType") or data.get("compile_type") or "full",
                     "content": data.get("content"),
+                    "target_ai": data.get("target_ai"),
                 }
             )
         except Exception as exc:
@@ -891,6 +907,7 @@ def register_draft_routes(app) -> None:
                     intent=intent,
                     context=payload.context,
                     substrate_file_ids=payload.substrate_file_ids,
+                    target_ai=(payload.target_ai or None),
                     request_id=request_id,
                     cancel_check=cancel_check,
                 )

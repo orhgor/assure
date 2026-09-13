@@ -578,11 +578,14 @@
         markDone("Verify");
         markActive("Complete");
         markDone("Complete");
+        runInProgress = false;
+        clearIntentSlot();
       } else if (event === "error") {
         var active = findActiveStage() || STAGE_ORDER[
           (currentStageIndex >= 0) ? currentStageIndex : 0
         ];
         markFailed(active);
+        runInProgress = false;
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
         appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
@@ -691,6 +694,15 @@
     // ---------------------------------------------------------------
     // Docked input submit wiring
     // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // Intent Compilation panel — two-step submit (preview, then Run)
+    // ---------------------------------------------------------------
+    var pendingIntent = null;     // raw user ask, waiting for Run
+    var intentPanelOpen = false;
+    var lastCompile = null;       // last /api/preview response
+    var runInProgress = false;    // a draft/stream is actively running
+    var healthSnapshot = null;    // last /health JSON when available
+
     function submitIntent() {
       if (!text) return;
       var v = String(text.value || "").trim();
@@ -698,7 +710,205 @@
       text.value = "";
       try { window.sessionStorage.setItem("assure_last_intent", v); } catch (_) {}
       compareDataLoaded = false;
-      runDraft(v);
+      if (runInProgress) {
+        // A run is already active — abort and start fresh, no panel.
+        runDraft(v);
+        return;
+      }
+      beginIntentCompile(v);
+    }
+
+    function beginIntentCompile(raw) {
+      pendingIntent = raw;
+      intentPanelOpen = true;
+      lastCompile = null;
+      renderIntentLoading(raw);
+      // Preview + health read in parallel; both are fallible, so catch.
+      var previewP = jsonPost("/api/preview", { intent: raw })
+        .then(function (resp) {
+          if (!resp.ok) throw new Error("preview HTTP " + resp.status);
+          return resp.json();
+        });
+      var healthP = fetch("/health")
+        .then(function (r) {
+          if (r.status !== 200) return null;
+          try { return r.json(); } catch (_) { return null; }
+        })
+        .catch(function () { return null; });
+      Promise.all([previewP, healthP])
+        .then(function (arr) {
+          lastCompile = arr[0];
+          renderIntentPanel(pendingIntent, arr[0], arr[1]);
+        })
+        .catch(function (err) {
+          renderIntentFailure(pendingIntent);
+          try { console.error("[shell] preview error:", err && err.message ? err.message : err); } catch (_) {}
+        });
+    }
+
+    function runPendingIntent() {
+      if (!pendingIntent) return;
+      var raw = pendingIntent;
+      intentPanelOpen = false;
+      renderIntentSummary(raw);
+      runInProgress = true;
+      runDraft(raw); // ORIGINAL raw ask, NOT the compiled prompt
+    }
+
+    function runAnyIntent(raw) {
+      if (!raw) return;
+      intentPanelOpen = false;
+      clearIntentSlot();
+      runInProgress = true;
+      runDraft(raw);
+    }
+
+    function cancelIntent() {
+      if (pendingIntent && text) text.value = pendingIntent;
+      pendingIntent = null;
+      intentPanelOpen = false;
+      lastCompile = null;
+      clearIntentSlot();
+    }
+
+    function expandIntentPanel() {
+      if (!pendingIntent) return;
+      intentPanelOpen = true;
+      if (lastCompile) renderIntentPanel(pendingIntent, lastCompile, healthSnapshot);
+      else renderIntentFailure(pendingIntent);
+    }
+
+    function clearIntentSlot() {
+      if (!intentPanelSlot) return;
+      while (intentPanelSlot.firstChild) intentPanelSlot.removeChild(intentPanelSlot.firstChild);
+    }
+
+    function makeIntentPanelShell(titleText) {
+      clearIntentSlot();
+      var panel = document.createElement("div");
+      panel.className = "intent-panel";
+      var title = document.createElement("h3");
+      title.className = "intent-panel-title";
+      title.textContent = titleText;
+      panel.appendChild(title);
+      return panel;
+    }
+
+    function appendIntentSection(panel, labelText, bodyEl) {
+      var section = document.createElement("div");
+      section.className = "intent-section";
+      var label = document.createElement("span");
+      label.className = "intent-section-label";
+      label.textContent = labelText;
+      section.appendChild(label);
+      section.appendChild(bodyEl);
+      panel.appendChild(section);
+    }
+
+    function makeCancelButton() {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "intent-action cancel";
+      b.textContent = "Cancel";
+      b.addEventListener("click", cancelIntent);
+      return b;
+    }
+
+    function makeActionButton(label, handler) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "intent-action";
+      b.textContent = label;
+      if (label === "Run" || label === "Run anyway") b.classList.add("primary");
+      b.addEventListener("click", handler);
+      return b;
+    }
+
+    function renderIntentLoading(raw) {
+      if (!intentPanelSlot) return;
+      var panel = makeIntentPanelShell("INTENT COMPILATION");
+      var loading = document.createElement("p");
+      loading.className = "intent-loading";
+      loading.textContent = "Compiling intent\u2026";
+      panel.appendChild(loading);
+      var footer = document.createElement("div");
+      footer.className = "intent-actions";
+      footer.appendChild(makeCancelButton());
+      panel.appendChild(footer);
+      intentPanelSlot.appendChild(panel);
+    }
+
+    function renderIntentFailure(raw) {
+      if (!intentPanelSlot) return;
+      var panel = makeIntentPanelShell("INTENT COMPILATION");
+      var msg = document.createElement("p");
+      msg.className = "intent-failure";
+      msg.textContent = "Could not compile intent.";
+      panel.appendChild(msg);
+      var footer = document.createElement("div");
+      footer.className = "intent-actions";
+      footer.appendChild(makeActionButton("Run anyway", function () { runAnyIntent(raw); }));
+      footer.appendChild(makeCancelButton());
+      panel.appendChild(footer);
+      intentPanelSlot.appendChild(panel);
+    }
+
+    function renderIntentPanel(raw, data, health) {
+      if (!intentPanelSlot) return;
+      healthSnapshot = (health && typeof health === "object") ? health : null;
+      var panel = makeIntentPanelShell("INTENT COMPILATION");
+      var askBody = document.createElement("blockquote");
+      askBody.className = "intent-ask";
+      askBody.textContent = raw;
+      appendIntentSection(panel, "YOUR ASK", askBody);
+      var promptBody = document.createElement("pre");
+      promptBody.className = "intent-prompt";
+      promptBody.textContent = (data && data.prompt) || "";
+      appendIntentSection(panel, "COMPILED PROMPT", promptBody);
+      // ROUTED TO — shown only when /health supplies orchestrator_models.
+      var om = healthSnapshot ? healthSnapshot.orchestrator_models : null;
+      if (om && typeof om === "object") {
+        var routedBody = document.createElement("div");
+        routedBody.className = "intent-routed";
+        var any = false;
+        for (var kk in om) {
+          if (Object.prototype.hasOwnProperty.call(om, kk) && om[kk]) {
+            var row = document.createElement("div");
+            row.textContent = String(kk) + ": " + String(om[kk]);
+            routedBody.appendChild(row);
+            any = true;
+          }
+        }
+        if (any) appendIntentSection(panel, "ROUTED TO", routedBody);
+      }
+      var checksBody = document.createElement("p");
+      checksBody.className = "intent-checks";
+      checksBody.textContent = "Z3 numeric \u00b7 Red-Hat \u00b7 Provenance \u00b7 Confidence";
+      appendIntentSection(panel, "VERIFICATION CHECKS", checksBody);
+      var footer = document.createElement("div");
+      footer.className = "intent-actions";
+      footer.appendChild(makeCancelButton());
+      footer.appendChild(makeActionButton("Run", runPendingIntent));
+      panel.appendChild(footer);
+      intentPanelSlot.appendChild(panel);
+    }
+
+    function renderIntentSummary(raw) {
+      if (!intentPanelSlot) return;
+      clearIntentSlot();
+      var bar = document.createElement("div");
+      bar.className = "intent-summary";
+      var textEl = document.createElement("span");
+      textEl.className = "intent-summary-text";
+      textEl.textContent = "\u2713 Intent compiled \u00b7 4 checks";
+      var viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "intent-summary-view";
+      viewBtn.textContent = "view";
+      viewBtn.addEventListener("click", expandIntentPanel);
+      bar.appendChild(textEl);
+      bar.appendChild(viewBtn);
+      intentPanelSlot.appendChild(bar);
     }
 
     // ---------------------------------------------------------------
@@ -713,6 +923,7 @@
     var evidenceModeEl = document.getElementById("evidence-mode");
     var compareBodyEl  = document.getElementById("compare-body");
     var evidenceBodyEl = document.getElementById("evidence-body");
+    var intentPanelSlot = document.getElementById("intent-panel-slot");
     var pinnedListEl   = document.getElementById("pinned-list");
     var modeTabs = document.querySelectorAll(".mode-tab");
     var compareInFlight = false;

@@ -50,7 +50,7 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     """Draft pipeline ends at "verified" (Math Check gate). Red-Hat is
     opt-in and never runs automatically — see test_run_redhat_pipeline."""
 
-    def fake_stream(_gov, _messages, *, cancel_check=None):
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
         yield 'event: token\ndata: {"type": "token", "delta": "Hello"}\n\n'
         yield ("Hello world with Revenue=100", 10, 5, "anthropic/claude-3-5-sonnet-20241022")
 
@@ -62,7 +62,7 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     def fail_if_called_redhat(*_a, **_k):
         raise AssertionError("run_redhat_audit must not be called by run_draft_pipeline")
 
-    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", fail_if_called_redhat)
 
@@ -104,7 +104,7 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     """OMP compile cache should skip the LLM when a prior result exists."""
 
     def fail_stream(*_a, **_k):
-        raise AssertionError("_stream_claude must not run on cache hit")
+        raise AssertionError("_stream_model must not run on cache hit")
 
     cached = {
         "draft_text": "Cached draft.",
@@ -140,7 +140,7 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
         },
     }
 
-    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fail_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
     wrapped = {
         "compiled": {
             "document": cached["document"],
