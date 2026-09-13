@@ -158,6 +158,7 @@
         <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
           <button type="button" class="mode-tab is-active" data-mode="pipeline" role="tab" aria-selected="true">Pipeline</button>
           <button type="button" class="mode-tab" data-mode="compare" role="tab" aria-selected="false">Compare</button>
+          <button type="button" class="mode-tab" data-mode="evidence" role="tab" aria-selected="false">Evidence</button>
         </div>
         <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
@@ -186,6 +187,11 @@
       <div id="compare-mode" class="pane-mode" style="display:none;">
         <div class="pane-body compare-body" id="compare-body">
           <p class="empty-hint">Run a draft first, then compare.</p>
+        </div>
+      </div>
+      <div id="evidence-mode" class="pane-mode" style="display:none;">
+        <div class="pane-body evidence-body" id="evidence-body">
+          <p class="empty-hint">Click a chip in the document to view proof.</p>
         </div>
       </div>
     </aside>
