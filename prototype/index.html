@@ -44,10 +44,16 @@
       </div>
 
       <nav class="rail-nav" aria-label="Primary">
-        <button type="button" class="rail-btn" data-rail-btn="folder" title="Substrate Vault">
+        <button type="button" class="rail-btn" data-rail-btn="folder" title="Sources (Substrate Vault)">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail-btn="sparkle" title="Compiler">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path>
           </svg>
         </button>
         <button type="button" class="rail-btn" data-rail-btn="activity" title="Pipeline">
@@ -56,12 +62,25 @@
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </button>
-        <button type="button" class="rail-btn" data-rail-btn="history" title="Time Machine">
+        <button type="button" class="rail-btn" data-rail-btn="history" title="History">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
             <polyline points="3 3 3 8 8 8"></polyline>
             <polyline points="12 7 12 12 15 15"></polyline>
+          </svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail-btn="shield" title="Evidence">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l7 3v6c0 5-3.5 8.5-7 11-3.5-2.5-7-6-7-11V5z"></path>
+          </svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail-btn="swap" title="Compare">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h13l-3-3"></path>
+            <path d="M20 17H7l3 3"></path>
           </svg>
         </button>
       </nav>
@@ -98,9 +117,14 @@
     <!-- ============================================================= -->
     <!-- LEFT PANE (260px, collapsible, starts open)                   -->
     <!-- ============================================================= -->
-    <aside class="pane pane-left" aria-label="Time Machine">
+    <aside class="pane pane-left" aria-label="Sources & Compiler">
       <header class="pane-header">
-        <h2 class="pane-title">TIME MACHINE</h2>
+        <div class="mode-toggle" role="tablist" aria-label="Left pane mode">
+          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false">Sources</button>
+          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true">Compiler</button>
+          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false">Pipeline</button>
+          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false">History</button>
+        </div>
         <button type="button" class="pane-collapse" id="left-collapse" aria-label="Collapse left pane" title="Collapse">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -108,14 +132,46 @@
           </svg>
         </button>
       </header>
-      <div class="pane-body">
-        <section class="pane-section">
+
+      <div id="left-sources" class="pane-mode" style="display:none;">
+        <div class="pane-body">
+          <p class="empty-hint">The substrate vault is read-only in this shell.</p>
+          <button type="button" class="btn-secondary" disabled>Upload source document</button>
+        </div>
+      </div>
+
+      <div id="left-compiler" class="pane-mode">
+        <div class="pane-body compiler-body">
+          <div class="compiler-label">YOUR ASK</div>
+          <div id="compiler-ask" class="compiler-ask"></div>
+          <div class="compiler-label">COMPILED PROMPT</div>
+          <div id="compiler-prompt" class="compiler-prompt"></div>
+          <div class="compiler-label">ROUTED TO</div>
+          <div id="compiler-route" class="compiler-route"></div>
+        </div>
+      </div>
+
+      <div id="left-pipeline" class="pane-mode" style="display:none;">
+        <div class="pane-body pipeline-body">
+          <ul class="stage-list" role="list">
+            <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
+            <li class="stage-row" data-stage="Drafting"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Drafting</span></li>
+            <li class="stage-row" data-stage="Lock Inference"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Lock Inference</span></li>
+            <li class="stage-row" data-stage="Compile"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Compile</span></li>
+            <li class="stage-row" data-stage="Math Check"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Math Check</span></li>
+            <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
+            <li class="stage-row" data-stage="Complete"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Complete</span></li>
+          </ul>
+          <section class="output-area">
+            <p class="empty-hint">Model outputs will appear here.</p>
+          </section>
+        </div>
+      </div>
+
+      <div id="left-history" class="pane-mode" style="display:none;">
+        <div class="pane-body">
           <p class="empty-hint">Your versions appear here after your first draft.</p>
-        </section>
-        <section class="pane-section" id="pinned-list">
-          <h3 class="section-header">PINNED</h3>
-          <p class="empty-hint">Pin a response to keep it here.</p>
-        </section>
+        </div>
       </div>
     </aside>
 
@@ -156,12 +212,11 @@
     <!-- ============================================================= -->
     <!-- RIGHT PANE (400px, collapsible, hidden by default)           -->
     <!-- ============================================================= -->
-    <aside class="pane pane-right" aria-label="Pipeline & Compare" id="pane-right">
+    <aside class="pane pane-right" aria-label="Evidence & Compare" id="pane-right">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
-          <button type="button" class="mode-tab is-active" data-mode="pipeline" role="tab" aria-selected="true">Pipeline</button>
-          <button type="button" class="mode-tab" data-mode="compare" role="tab" aria-selected="false">Compare</button>
-          <button type="button" class="mode-tab" data-mode="evidence" role="tab" aria-selected="false">Evidence</button>
+          <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true">Evidence</button>
+          <button type="button" class="mode-tab" data-right-tab="compare" role="tab" aria-selected="false">Compare</button>
         </div>
         <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
@@ -171,30 +226,14 @@
           </svg>
         </button>
       </header>
-      <div id="pipeline-mode" class="pane-mode">
-        <div class="pane-body pipeline-body">
-          <ul class="stage-list" role="list">
-            <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
-            <li class="stage-row" data-stage="Drafting"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Drafting</span></li>
-            <li class="stage-row" data-stage="Lock Inference"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Lock Inference</span></li>
-            <li class="stage-row" data-stage="Compile"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Compile</span></li>
-            <li class="stage-row" data-stage="Math Check"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Math Check</span></li>
-            <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
-            <li class="stage-row" data-stage="Complete"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Complete</span></li>
-          </ul>
-          <section class="output-area">
-            <p class="empty-hint">Model outputs will appear here.</p>
-          </section>
-        </div>
-      </div>
-      <div id="compare-mode" class="pane-mode" style="display:none;">
-        <div class="pane-body compare-body" id="compare-body">
-          <p class="empty-hint">Run a draft first, then compare.</p>
-        </div>
-      </div>
-      <div id="evidence-mode" class="pane-mode" style="display:none;">
+      <div id="right-evidence" class="pane-mode">
         <div class="pane-body evidence-body" id="evidence-body">
           <p class="empty-hint">Click a chip in the document to view proof.</p>
+        </div>
+      </div>
+      <div id="right-compare" class="pane-mode" style="display:none;">
+        <div class="pane-body compare-body" id="compare-body">
+          <p class="empty-hint">Run a draft first, then compare.</p>
         </div>
       </div>
     </aside>

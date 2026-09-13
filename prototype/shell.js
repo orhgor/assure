@@ -21,6 +21,14 @@
     var text = document.getElementById("dock-text");
     var submit = document.getElementById("dock-submit");
 
+    var newDraftBtn = docEmpty ? docEmpty.querySelector(".btn-primary") : null;
+    if (newDraftBtn && text) {
+      newDraftBtn.addEventListener("click", function () {
+        text.focus();
+        try { text.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
+      });
+    }
+
     // ---------------------------------------------------------------
     // Left / right pane toggles (from phase 1)
     // ---------------------------------------------------------------
@@ -34,12 +42,20 @@
     function openRight() { body.classList.remove("right-hidden"); }
     function closeRight() { body.classList.add("right-hidden"); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
+    function openLeft() { body.classList.remove("collapsed"); }
 
+    // Rail icons open the correct tab in the left (generation) or right
+    // (verification) column. leftGroupSetTab / rightGroupSetTab are declared
+    // below (hoisted). Theme + settings buttons are untouched.
     document.querySelectorAll("[data-rail-btn]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var kind = btn.getAttribute("data-rail-btn");
-        if (kind === "activity") openRight();
-        else if (kind === "history") body.classList.toggle("collapsed");
+        if (kind === "folder")        leftGroupSetTab("sources");
+        else if (kind === "sparkle")  leftGroupSetTab("compiler");
+        else if (kind === "activity") leftGroupSetTab("pipeline");
+        else if (kind === "history")  leftGroupSetTab("history");
+        else if (kind === "shield")   rightGroupSetTab("evidence");
+        else if (kind === "swap")     rightGroupSetTab("compare");
       });
     });
 
@@ -581,13 +597,26 @@
       } else if (event === "compiled") {
         markDone("Lock Inference");
         transitionTo("Compile");
-        if (data && data.document) renderJdfDocument(data.document);
+        if (data && data.document) {
+          var cdoc = data.document;
+          if (cdoc && cdoc.body && Array.isArray(cdoc.body)) {
+            renderJdfDocument(cdoc);
+          } else {
+            // Parse failure: never replace the document with raw text.
+            try { console.error("[shell] compiled event missing parseable doc.body"); } catch (_) {}
+          }
+        }
       } else if (event === "verified") {
         markDone("Math Check");
         transitionTo("Verify");
         if (data && data.document) {
-          addEvidenceChips(data.document);
-          applyConfidenceSpans(data.document);
+          var vdoc = data.document;
+          if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
+            addEvidenceChips(vdoc);
+            applyConfidenceSpans(vdoc);
+          } else {
+            try { console.error("[shell] verified event missing parseable doc.body"); } catch (_) {}
+          }
         }
       } else if (event === "complete") {
         markDone("Verify");
@@ -728,40 +757,66 @@
       // A new intent invalidates any in-flight compare — abort both streams.
       if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
       if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
-      if (runInProgress) {
-        // A run is already active — abort and start fresh, no panel.
-        runDraft(v);
-        return;
-      }
       beginIntentCompile(v);
+    }
+
+    var PREVIEW_TARGET = "claude";                       // for /api/preview only (bare slug)
+    var COMPILE_MODEL  = "anthropic/claude-sonnet-4-5";  // for /draft/stream only (full id)
+
+    function getCompilerAskEl()    { return document.getElementById("compiler-ask"); }
+    function getCompilerPromptEl() { return document.getElementById("compiler-prompt"); }
+    function getCompilerRouteEl()  { return document.getElementById("compiler-route"); }
+    function populateCompilerAsk(text) {
+      var el = getCompilerAskEl();
+      if (el) el.textContent = text || "";
+    }
+    function setCompilerPrompt(text) {
+      var el = getCompilerPromptEl();
+      if (el) el.textContent = text || "";
+    }
+    function populateCompilerRoute(text) {
+      var el = getCompilerRouteEl();
+      if (el) el.textContent = text || "";
+    }
+    function renderCompilerRouteFrom(j) {
+      var route = (j && j.target_ai) ? String(j.target_ai) : "";
+      var intent = (j && j.intent) ? String(j.intent) : "";
+      populateCompilerRoute(intent ? (intent + (route ? " \u00b7 " + route : "")) : route);
     }
 
     function beginIntentCompile(raw) {
       pendingIntent = raw;
       intentPanelOpen = true;
       lastCompile = null;
-      renderIntentLoading(raw);
-      // Preview + health read in parallel; both are fallible, so catch.
-      var previewP = jsonPost("/api/preview", { intent: raw })
+      // The compiler panel lives in the new COMPILER tab (right pane).
+      setMode("compiler");
+      populateCompilerAsk(raw);
+      setCompilerPrompt("Compiling\u2026");
+      populateCompilerRoute("");
+      // Preview + draft stream run in parallel; do not wait for preview.
+      // Payload is exactly {task, target_ai} — the backend calls
+      // detect_intent(task) when intent is absent (web.py:1142), so we
+      // intentionally omit the intent key.
+      jsonPost("/api/preview", { task: raw, target_ai: PREVIEW_TARGET })
         .then(function (resp) {
           if (!resp.ok) throw new Error("preview HTTP " + resp.status);
           return resp.json();
-        });
-      var healthP = fetch("/health")
-        .then(function (r) {
-          if (r.status !== 200) return null;
-          try { return r.json(); } catch (_) { return null; }
         })
-        .catch(function () { return null; });
-      Promise.all([previewP, healthP])
-        .then(function (arr) {
-          lastCompile = arr[0];
-          renderIntentPanel(pendingIntent, arr[0], arr[1]);
+        .then(function (j) {
+          lastCompile = j || null;
+          if (j && typeof j.prompt === "string" && j.prompt.length > 0) {
+            setCompilerPrompt(j.prompt);
+          } else {
+            setCompilerPrompt("(compiler unavailable)");
+          }
+          renderCompilerRouteFrom(j);
         })
         .catch(function (err) {
-          renderIntentFailure(pendingIntent);
+          setCompilerPrompt("(compiler unavailable)");
           try { console.error("[shell] preview error:", err && err.message ? err.message : err); } catch (_) {}
         });
+      // Fire the draft/stream now, in parallel.
+      runPendingIntent();
     }
 
     function runPendingIntent() {
@@ -792,8 +847,14 @@
     function expandIntentPanel() {
       if (!pendingIntent) return;
       intentPanelOpen = true;
-      if (lastCompile) renderIntentPanel(pendingIntent, lastCompile, healthSnapshot);
-      else renderIntentFailure(pendingIntent);
+      setMode("compiler");
+      populateCompilerAsk(pendingIntent);
+      if (lastCompile && typeof lastCompile.prompt === "string" && lastCompile.prompt.length > 0) {
+        setCompilerPrompt(lastCompile.prompt);
+        renderCompilerRouteFrom(lastCompile);
+      } else {
+        setCompilerPrompt("(compiler unavailable)");
+      }
     }
 
     function clearIntentSlot() {
@@ -930,19 +991,23 @@
     }
 
     // ---------------------------------------------------------------
-    // Phase 3 — Right-pane mode toggle (Pipeline / Compare)
+    // Two independent tab groups:
+    //   left  — Sources | Compiler | Pipeline | History  (generation)
+    //   right — Evidence | Compare                       (verification)
     // ---------------------------------------------------------------
     var LAST_INTENT_KEY = "assure_last_intent";
     var PINS_KEY = "assure_pins";
 
-    var pipelineModeEl = document.getElementById("pipeline-mode");
-    var compareModeEl  = document.getElementById("compare-mode");
-    var evidenceModeEl = document.getElementById("evidence-mode");
+    var leftSourcesEl  = document.getElementById("left-sources");
+    var leftCompilerEl = document.getElementById("left-compiler");
+    var leftPipelineEl = document.getElementById("left-pipeline");
+    var leftHistoryEl  = document.getElementById("left-history");
+    var evidenceModeEl = document.getElementById("right-evidence");
+    var compareModeEl  = document.getElementById("right-compare");
     var compareBodyEl  = document.getElementById("compare-body");
     var evidenceBodyEl = document.getElementById("evidence-body");
     var intentPanelSlot = document.getElementById("intent-panel-slot");
-    var pinnedListEl   = document.getElementById("pinned-list");
-    var modeTabs = document.querySelectorAll(".mode-tab");
+    var pinnedListEl   = document.getElementById("pinned-list"); // removed; helpers no-op
     var compareInFlight = false;
     var compareDataLoaded = false;
     var compareAbortA = null;       // AbortController for stream A (Claude)
@@ -951,24 +1016,23 @@
     var lastCompareJdfB = null;     // most recent JDF rendered into column B
     var compareStreamsDone = 0;     // number of compare streams finished/errored
 
-    function setMode(name) {
-      if (!pipelineModeEl || !compareModeEl || !evidenceModeEl) return;
-      if (name === "compare") {
-        pipelineModeEl.style.display = "none";
-        compareModeEl.style.display  = "block";
-        evidenceModeEl.style.display = "none";
-      } else if (name === "evidence") {
-        pipelineModeEl.style.display = "none";
-        compareModeEl.style.display  = "none";
-        evidenceModeEl.style.display = "block";
-      } else {
-        compareModeEl.style.display  = "none";
-        evidenceModeEl.style.display = "none";
-        pipelineModeEl.style.display = "block";
-      }
-      modeTabs.forEach(function (t) {
-        var tm = t.getAttribute("data-mode");
-        if (tm === name) {
+    var LEFT_TABPANE = {
+      sources:   leftSourcesEl,
+      compiler:  leftCompilerEl,
+      pipeline:  leftPipelineEl,
+      history:   leftHistoryEl,
+    };
+    var RIGHT_TABPANE = {
+      evidence: evidenceModeEl,
+      compare:  compareModeEl,
+    };
+
+    function openLeftPane() { body.classList.remove("collapsed"); }
+    function openRightPane() { openRight(); }
+
+    function _syncTabActive(list, attr, activeName) {
+      list.forEach(function (t) {
+        if (t.getAttribute(attr) === activeName) {
           t.classList.add("is-active");
           t.setAttribute("aria-selected", "true");
         } else {
@@ -977,20 +1041,61 @@
         }
       });
     }
+
+    function leftGroupSetTab(name) {
+      var panels = LEFT_TABPANE;
+      if (!Object.prototype.hasOwnProperty.call(panels, name)) {
+        var keys = Object.keys(panels);
+        name = keys.length ? keys[0] : name;
+      }
+      Object.keys(panels).forEach(function (k) {
+        if (panels[k]) panels[k].style.display = (k === name) ? "block" : "none";
+      });
+      _syncTabActive(document.querySelectorAll("[data-left-tab]"), "data-left-tab", name);
+      openLeftPane();
+      return name;
+    }
+
+    function rightGroupSetTab(name) {
+      var panels = RIGHT_TABPANE;
+      if (!Object.prototype.hasOwnProperty.call(panels, name)) {
+        var keys = Object.keys(panels);
+        name = keys.length ? keys[0] : name;
+      }
+      Object.keys(panels).forEach(function (k) {
+        if (panels[k]) panels[k].style.display = (k === name) ? "block" : "none";
+      });
+      _syncTabActive(document.querySelectorAll("[data-right-tab]"), "data-right-tab", name);
+      openRight();
+      return name;
+    }
+
+    // Backward-compatible dispatch used by existing flows.
+    function setMode(name) {
+      if (name === "evidence" || name === "compare") {
+        rightGroupSetTab(name);
+        return;
+      }
+      leftGroupSetTab(name);
+    }
+
     function setCompareDisabled(disabled) {
       compareInFlight = !!disabled;
-      modeTabs.forEach(function (t) {
-        if (t.getAttribute("data-mode") === "compare") {
-          if (disabled) t.classList.add("is-disabled");
-          else          t.classList.remove("is-disabled");
-        }
+      document.querySelectorAll("[data-right-tab=\"compare\"]").forEach(function (t) {
+        if (disabled) t.classList.add("is-disabled");
+        else          t.classList.remove("is-disabled");
       });
     }
-    modeTabs.forEach(function (t) {
+
+    document.querySelectorAll("[data-left-tab]").forEach(function (t) {
+      t.addEventListener("click", function () {
+        leftGroupSetTab(t.getAttribute("data-left-tab"));
+      });
+    });
+    document.querySelectorAll("[data-right-tab]").forEach(function (t) {
       t.addEventListener("click", function () {
         if (t.classList.contains("is-disabled")) return;
-        var name = t.getAttribute("data-mode");
-        setMode(name);
+        var name = rightGroupSetTab(t.getAttribute("data-right-tab"));
         if (name === "compare" && !compareDataLoaded) runCompare();
       });
     });
