@@ -101,8 +101,8 @@ def _model_slot(result: dict[str, Any], model_id: str) -> dict[str, Any]:
     }
 
 
-def _pair_succeeded(result_a: dict[str, Any], result_b: dict[str, Any]) -> bool:
-    return bool((result_a.get("text") or "").strip()) and bool((result_b.get("text") or "").strip())
+def _pair_has_usable_result(result_a: dict[str, Any], result_b: dict[str, Any]) -> bool:
+    return bool((result_a.get("text") or "").strip()) or bool((result_b.get("text") or "").strip())
 
 
 def _finalize_pair(
@@ -115,6 +115,10 @@ def _finalize_pair(
         divergences = text_diff_for_compare(result_a["text"], result_b["text"])
         result_a["jdf"] = {"text": result_a["text"], "divergences": divergences}
         result_b["jdf"] = {"text": result_b["text"], "divergences": divergences}
+    elif result_a.get("text"):
+        result_a["jdf"] = {"text": result_a["text"], "divergences": []}
+    elif result_b.get("text"):
+        result_b["jdf"] = {"text": result_b["text"], "divergences": []}
     return {
         "model_a": result_a,
         "model_b": result_b,
@@ -156,7 +160,7 @@ def run_compare_pair(
         fut_b = _POOL.submit(_safe_model, model_b, intent, source_ids)
         result_a = fut_a.result()
         result_b = fut_b.result()
-        if _pair_succeeded(result_a, result_b):
+        if _pair_has_usable_result(result_a, result_b):
             if idx > 0:
                 log.warning("[free-stack] fell back to pair index offset %s", idx)
             return _finalize_pair(model_a, model_b, result_a, result_b)
@@ -186,7 +190,7 @@ async def run_compare_pair_async(
             loop.run_in_executor(_POOL, _safe_model, model_a, intent, source_ids),
             loop.run_in_executor(_POOL, _safe_model, model_b, intent, source_ids),
         )
-        if _pair_succeeded(result_a, result_b):
+        if _pair_has_usable_result(result_a, result_b):
             if idx > 0:
                 log.warning("[free-stack] fell back to pair index offset %s", idx)
             return _finalize_pair(model_a, model_b, result_a, result_b)
