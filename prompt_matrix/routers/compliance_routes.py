@@ -34,7 +34,7 @@ except ImportError:
 
 
 class SignOffPayload(BaseModel):
-    status: Literal["approved", "rejected", "pending"]
+    status: Literal["approved", "rejected", "pending"] = "approved"
     reviewer_name: str | None = None
     comment: str | None = None
 
