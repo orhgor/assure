@@ -78,7 +78,9 @@ LOCK_MODEL = "deepseek/deepseek-chat"
 
 _DRAFT_SYSTEM = (
     "You are Assure document engineering. Draft clear, structured prose for a business document. "
-    "Use markdown headings (## Section) for major sections. Include specific numbers where appropriate."
+    "Use markdown headings (## Section) for major sections. Include specific numbers where appropriate. "
+    "Do NOT use inline markdown formatting such as bold (**), italics, or code blocks. "
+    "Output plain text under your headings."
 )
 
 CancelCheck = Callable[[], bool]
@@ -544,7 +546,7 @@ def run_draft_pipeline(
 
     document = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
     doc_dict = document_to_dict(document)
-    if substrate_rows and locks:
+    if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
 
     yield _typed_sse(
@@ -603,7 +605,39 @@ def run_draft_pipeline(
         z3_results=z3_results,
         redhat_critiques=[],
         document=verified_doc,
+        has_substrate=bool(substrate_rows),
     )
+    # Persist the gate block with the project's stored compile so exports can
+    # read it (projects.last_compiled_json — no new table). Red-Hat runs
+    # post-compile via /draft/redhat/stream and is NOT reflected here.
+    try:
+        from ..history import get_db
+        from ..db.connection import init_db
+    except ImportError:
+        from history import get_db
+        from db.connection import init_db
+    try:
+        init_db()
+        _pdb = get_db()
+        _row = _pdb.execute(
+            "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
+        ).fetchone()
+        _data = json.loads(_row[0]) if (_row and _row[0]) else {}
+        if isinstance(_data, dict):
+            _data["gate"] = {
+                "gate_status": verified_payload.get("gate_status"),
+                "z3_status": verified_payload.get("z3_status"),
+                "unverified": verified_payload.get("unverified"),
+                "unverified_reason": verified_payload.get("unverified_reason"),
+                "provenance_stats": verified_payload.get("provenance_stats") or {},
+            }
+            _pdb.execute(
+                "UPDATE projects SET last_compiled_json = ? WHERE id = ?",
+                (json.dumps(_data), project_id),
+            )
+            _pdb.commit()
+    except Exception:
+        pass
     yield _typed_sse("verified", verified_payload)
     try:
         from ..db.jdf_repository import fetch_latest_jdf
