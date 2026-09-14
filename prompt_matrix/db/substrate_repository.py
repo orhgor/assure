@@ -167,15 +167,22 @@ def fetch_substrate_entries_by_ids(project_id: str, file_ids: list[str]) -> list
     init_db()
     db = get_db()
     placeholders = ",".join("?" for _ in file_ids)
-    rows = db.execute(
-        f"""
-        SELECT id, filename, extracted_text
+    cols = {r[1] for r in db.execute(
+        "PRAGMA table_info(substrate_vault)").fetchall()}
+    has_pages = "page_count" in cols
+    page_expr = "page_count" if has_pages else "NULL as page_count"
+    sql = f"""
+        SELECT id, filename, extracted_text, {page_expr}
         FROM substrate_vault
         WHERE project_id = ? AND id IN ({placeholders})
-        """,
-        (project_id, *file_ids),
-    ).fetchall()
-    return [{"id": row[0], "filename": row[1], "extracted_text": row[2] or ""} for row in rows]
+    """
+    rows = db.execute(sql, (project_id, *file_ids)).fetchall()
+    return [
+        {"id": row[0], "filename": row[1],
+         "extracted_text": row[2] or "",
+         "page_count": row[3]}
+        for row in rows
+    ]
 
 
 def list_included_vault_text(project_id: str) -> list[dict[str, Any]]:

@@ -77,12 +77,14 @@ def build_node_provenance_meta(
     if not content:
         return None
     row = _provenance_row(node)
+    if not row:
+        return None
     checked = check_claim(
         content[:500],
         context=content,
         ledger=ledger if isinstance(ledger, dict) else {},
-        source_label=str((row or {}).get("source_name") or "source"),
-        source_id=str((row or {}).get("source_id") or ""),
+        source_label=str(row.get("source_name") or ""),
+        source_id=str(row.get("source_id") or ""),
     )
     prov = dict(checked.get("provenance") or {})
     if row:

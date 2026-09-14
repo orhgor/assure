@@ -759,81 +759,107 @@ def _numeric_string_forms(value: float) -> list[str]:
     return [f for f in forms if f and len(f) >= 2]
 
 
+def _tokenize(text):
+    import re
+    text = re.sub(r"[^\w\s]", " ", str(text or "").lower())
+    STOP = {"a","an","the","of","and","or","to","in","on","for","is",
+            "are","was","were","be","by","with","as","at","this","that",
+            "it","its","from","but","shall","will","may","any","all"}
+    return {t for t in text.split() if len(t) > 2 and t not in STOP}
+
+
+def _split_sentences(text):
+    import re
+    return [p.strip() for p in re.split(r"[.!?\n]+", str(text or ""))
+            if p.strip()]
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],
     substrate_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Best-effort provenance stamping for the Substrate Vault.
-
-    If a lock's numeric value shows up in both a substrate file's extracted
-    text and a paragraph's content, attach a ``JDFProvenance`` entry naming
-    that file to that paragraph. This is a text-match heuristic — the same
-    rigor ``apply_z3_violations_to_tree`` already uses for locating the node
-    a violation belongs to — not claim-level NLP attribution.
+    # TODO(v1.1): lexical overlap anchors provenance by wording
+    # similarity, not claim truthfulness. A paragraph that says
+    # "3x" can anchor to source "2x" because they share many
+    # tokens. Add a numeric-contradiction check: if the claim
+    # contains a number that differs from any number in the
+    # matched quote, mark provenance status="contradiction"
+    # instead of "matched".
+    """Best-effort provenance: for each paragraph, find the substrate
+    sentence with the highest token-overlap coefficient. Stamp the
+    real filename, source_id, page, and quote onto node["provenance"].
     """
-    if not locks or not substrate_rows:
+    if not substrate_rows:
         return tree
     mutated = document_to_dict(tree)
 
-    for lock in locks:
-        try:
-            value = float(lock.get("value"))
-        except (TypeError, ValueError):
+    # Precompute source sentences >= 8 content tokens.
+    source_sentences = []
+    for row in substrate_rows:
+        text = str(row.get("extracted_text") or "")
+        for sent in _split_sentences(text):
+            toks = _tokenize(sent)
+            if len(toks) >= 8:
+                source_sentences.append((row, sent, toks))
+
+    if not source_sentences:
+        return mutated
+
+    # Materialize — splicing during generator iteration skips siblings.
+    for node in list(flatten_nodes(mutated)):
+        if node.get("type") != "paragraph":
             continue
-        value_forms = _numeric_string_forms(value)
-        if not value_forms:
+        content = str(node.get("content") or "").strip()
+        if not content:
+            continue
+        content_toks = _tokenize(content)
+        if len(content_toks) < 8:
             continue
 
-        matched_row: dict[str, Any] | None = None
-        matched_quote = ""
-        for row in substrate_rows:
-            text = str(row.get("extracted_text") or "")
-            for form in value_forms:
-                idx = text.find(form)
-                if idx >= 0:
-                    matched_row = row
-                    start = max(0, idx - 40)
-                    end = min(len(text), idx + len(form) + 40)
-                    matched_quote = text[start:end].strip()
-                    break
-            if matched_row:
-                break
-        if not matched_row:
-            continue
-
-        target_id: str | None = None
-        for node in flatten_nodes(mutated):
-            if node.get("type") != "paragraph":
+        best_score = 0.0
+        best_row = None
+        best_sent = ""
+        for row, sent, sent_toks in source_sentences:
+            inter = len(content_toks & sent_toks)
+            if inter < 6:
                 continue
-            content = str(node.get("content") or "")
-            if any(form in content for form in value_forms):
-                target_id = str(node.get("id"))
-                break
-        if not target_id:
+            score = inter / min(len(content_toks), len(sent_toks))
+            if score > best_score:
+                best_score = score
+                best_row = row
+                best_sent = sent
+
+        if best_score < 0.60 or best_row is None:
             continue
 
-        node = get_node_by_id(mutated, target_id)
-        if not node:
+        node_id = str(node.get("id") or "")
+        if not node_id:
             continue
-        node = copy.deepcopy(node)
-        existing = node.get("provenance") or []
-        source_id = str(matched_row.get("id") or "")
-        if any(isinstance(p, dict) and p.get("source_id") == source_id for p in existing):
+        node_copy = copy.deepcopy(node)
+        existing = node_copy.get("provenance") or []
+        source_id = str(best_row.get("id") or "")
+        if any(isinstance(p, dict) and p.get("source_id") == source_id
+               for p in existing):
             continue
-        existing.append(
-            {
-                "source_type": "internal_doc",
-                "source_name": matched_row.get("filename") or "",
-                "url_or_doi": "",
-                "source_id": source_id,
-                "page_number": "",
-                "extracted_quote": matched_quote,
-                "accessed_date": "",
-            }
-        )
-        node["provenance"] = existing
-        mutated, _ = splice_node(mutated, target_id, node)
+
+        page_val = best_row.get("page_count")
+        try:
+            page_str = str(int(page_val)) if page_val else ""
+        except (TypeError, ValueError):
+            page_str = ""
+
+        existing.append({
+            "source_type": "internal_doc",
+            "source_name": best_row.get("filename") or "",
+            "url_or_doi": "",
+            "source_id": source_id,
+            "page_number": page_str,
+            "extracted_quote": best_sent[:280].strip(),
+            "accessed_date": "",
+        })
+        node_copy["provenance"] = existing
+        mutated, _ = splice_node(mutated, node_id, node_copy)
 
     return mutated
 
