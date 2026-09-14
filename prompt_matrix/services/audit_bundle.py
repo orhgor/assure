@@ -174,5 +174,4 @@ def export_audit_bundle_pdf(
     pdf = _pdf_via_playwright(html_body)
     if pdf:
         return pdf
-    md = jdf_to_markdown(tree)
-    return _pdf_via_simple({"meta": {"title": f"Audit-{project_id}"}, "body": []})
+    return _pdf_via_simple(tree)
