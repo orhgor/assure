@@ -24,8 +24,95 @@
     var newDraftBtn = docEmpty ? docEmpty.querySelector(".btn-primary") : null;
     if (newDraftBtn && text) {
       newDraftBtn.addEventListener("click", function () {
+        // New draft: clear + focus the dock, open the Compiler tab. Do NOT
+        // clear uploaded sources or the center document.
+        text.value = "";
         text.focus();
         try { text.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
+        leftGroupSetTab("compiler");
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // Source Vault upload (SOURCES tab) — .txt / .md only locally
+    // ---------------------------------------------------------------
+    var sourceIds = [];   // uploaded substrate file ids (module-level)
+    function sourceUploadError(msg) {
+      try {
+        var el = document.getElementById("source-list");
+        if (el) {
+          var row = document.createElement("div");
+          row.className = "source-item is-error";
+          row.textContent = msg;
+          el.appendChild(row);
+        }
+      } catch (_) {}
+      try { console.error("[shell] source upload:", msg); } catch (_) {}
+    }
+    function appendSourceItem(name, id) {
+      var el = document.getElementById("source-list");
+      if (!el) return;
+      var row = document.createElement("div");
+      row.className = "source-item";
+      row.textContent = name;
+      row.setAttribute("data-source-id", id || "");
+      el.appendChild(row);
+    }
+    function readFileAsText(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(reader.result || ""); };
+        reader.onerror = function () { reject(new Error("Could not read file.")); };
+        reader.readAsText(file);
+      });
+    }
+    function handleSourceFile(file) {
+      if (!file) return;
+      var name = file.name || "source.txt";
+      if (!/\.(txt|md)$/i.test(name)) {
+        sourceUploadError(
+          "Only .txt or .md are supported in this shell. PDF and DOCX need Textract, which is not wired locally."
+        );
+        var fi = document.getElementById("source-file-input");
+        if (fi) fi.value = "";
+        return;
+      }
+      readFileAsText(file)
+        .then(function (txt) {
+          if (!txt || !String(txt).trim()) throw new Error("File is empty.");
+          return ensureProjectId().then(function (pid) {
+            return jsonPost("/api/substrate", {
+              projectId: pid,
+              filename: name,
+              pageCount: 1,
+              text: String(txt),
+            });
+          });
+        })
+        .then(function (resp) {
+          if (!resp.ok) return resp.text().then(function (t) { throw new Error(t || ("HTTP " + resp.status)); });
+          return resp.json();
+        })
+        .then(function (j) {
+          if (!j || !j.id) throw new Error("No file id returned.");
+          sourceIds.push(String(j.id));
+          appendSourceItem(name, String(j.id));
+        })
+        .catch(function (err) {
+          sourceUploadError(String(err && err.message ? err.message : err));
+        })
+        .then(function () {
+          var fi = document.getElementById("source-file-input");
+          if (fi) fi.value = "";
+        });
+    }
+    var sourceUploadBtn = document.getElementById("source-upload-btn");
+    var sourceFileInput = document.getElementById("source-file-input");
+    if (sourceUploadBtn && sourceFileInput) {
+      sourceUploadBtn.addEventListener("click", function () { sourceFileInput.click(); });
+      sourceFileInput.addEventListener("change", function () {
+        var f = sourceFileInput.files && sourceFileInput.files[0];
+        if (f) handleSourceFile(f);
       });
     }
 
@@ -466,11 +553,13 @@
           var start = parseInt(sp.startChar, 10);
           var end = parseInt(sp.endChar, 10);
           var plain = escapeHtml(text.slice(end, ptr));
-          var confClass = "conf-span ";
-          if (sp.score > 0.8) confClass += "conf-green";
-          else if (sp.score >= 0.4) confClass += "conf-yellow";
-          else confClass += "conf-red";
-          var title = provTitle || String(sp.reason || "");
+          var confClass = "conf-span";
+          if (prov0) {
+            if (sp.score > 0.8) confClass += " conf-green";
+            else if (sp.score >= 0.4) confClass += " conf-yellow";
+            else confClass += " conf-red";
+          }
+          var title = prov0 ? (provTitle || String(sp.reason || "")) : "(no source matched)";
           var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) +
             '" data-score="' + escapeAttr(String(sp.score)) + '" title="' + escapeAttr(title) + '">' +
             escapeHtml(text.slice(start, end)) + "</span>";
@@ -626,6 +715,7 @@
         markDone("Math Check");
         transitionTo("Verify");
         if (data && data.document) {
+          currentJdfDocument = data.document;
           var vdoc = data.document;
           if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
             addEvidenceChips(vdoc);
@@ -713,7 +803,7 @@
               "Content-Type": "application/json",
               "Accept": "text/event-stream, application/json",
             },
-            body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE }),
+            body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: sourceIds }),
           });
         })
         .then(function (resp) {
@@ -770,6 +860,7 @@
       text.value = "";
       try { window.sessionStorage.setItem("assure_last_intent", v); } catch (_) {}
       compareDataLoaded = false;
+      compareClear();
       // A new intent invalidates any in-flight compare — abort both streams.
       if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
       if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
@@ -1278,7 +1369,7 @@
             method: "POST",
             signal: controller.signal,
             headers: { "Content-Type": "application/json", "Accept": "text/event-stream, application/json" },
-            body: JSON.stringify({ intent: intent, compileType: "full", target_ai: modelId }),
+            body: JSON.stringify({ intent: intent, compileType: "full", target_ai: modelId, substrate_file_ids: sourceIds }),
           });
         })
         .then(function (resp) {
