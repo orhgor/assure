@@ -770,8 +770,21 @@ def _tokenize(text):
 
 def _split_sentences(text):
     import re
-    return [p.strip() for p in re.split(r"[.!?\n]+", str(text or ""))
-            if p.strip()]
+    text = str(text or "")
+    pieces = re.split(r"(--- Page \d+ ---)", text)
+    out = []
+    current_page = None
+    for piece in pieces:
+        m = re.match(r"--- Page (\d+) ---", piece.strip())
+        if m:
+            current_page = int(m.group(1))
+            continue
+        for sent in re.split(r"[.!?\n]+", piece):
+            s = sent.strip()
+            if not s:
+                continue
+            out.append((s, current_page))
+    return out
 
 
 def attach_substrate_provenance_to_tree(
@@ -798,10 +811,10 @@ def attach_substrate_provenance_to_tree(
     source_sentences = []
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
-        for sent in _split_sentences(text):
+        for sent, sent_page in _split_sentences(text):
             toks = _tokenize(sent)
             if len(toks) >= 8:
-                source_sentences.append((row, sent, toks))
+                source_sentences.append((row, sent, toks, sent_page))
 
     if not source_sentences:
         return mutated
@@ -820,7 +833,8 @@ def attach_substrate_provenance_to_tree(
         best_score = 0.0
         best_row = None
         best_sent = ""
-        for row, sent, sent_toks in source_sentences:
+        best_page = None
+        for row, sent, sent_toks, sent_page in source_sentences:
             inter = len(content_toks & sent_toks)
             if inter < 6:
                 continue
@@ -829,6 +843,7 @@ def attach_substrate_provenance_to_tree(
                 best_score = score
                 best_row = row
                 best_sent = sent
+                best_page = sent_page
 
         if best_score < 0.60 or best_row is None:
             continue
@@ -843,7 +858,7 @@ def attach_substrate_provenance_to_tree(
                for p in existing):
             continue
 
-        page_val = best_row.get("page_count")
+        page_val = best_page if best_page is not None else best_row.get("page_count")
         try:
             page_str = str(int(page_val)) if page_val else ""
         except (TypeError, ValueError):
