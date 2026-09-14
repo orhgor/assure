@@ -39,6 +39,7 @@ def build_situational_awareness(
         from pem_runner import ensure_preflight, tool_availability_lines
     ensure_preflight(announce=False)
     return f"""{SITUATIONAL_MARKER}
+The user asked: {task}
 - Environment: Local CLI (NO @Web, NO live browsing).
 {tool_availability_lines()}
 - Case and domain: only the user's task and uploaded files. Do not assume a product, industry, or prior case.
@@ -51,8 +52,7 @@ Any mention of external facts not in the uploaded file (stats, dates, publicatio
 If you do not know, write EXACTLY: "Data not available."
 
 === YOUR TASK ===
-Follow the user's instruction strictly. {_output_rule(intent)}
-The user asked: {task}"""
+Follow the user's instruction strictly. {_output_rule(intent)}"""
 
 
 def build_final_prompt(
