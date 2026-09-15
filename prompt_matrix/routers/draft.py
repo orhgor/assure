@@ -167,7 +167,14 @@ def verify_locks(
     locks: list[dict[str, Any]],
     draft_text: str,
 ) -> dict[str, Any]:
-    """Z3 verification of inferred locks against draft metrics (Stage 4)."""
+    """Z3 verification of inferred locks against draft metrics (Stage 4).
+
+    Status is derived from the locks themselves so a run with 0 verified
+    locks cannot report PASS:
+      - any lock failed to parse        -> VIOLATION
+      - no lock verified successfully   -> SKIPPED
+      - at least one lock verified      -> PASS/VIOLATION from validate_entities
+    """
     truth = TruthLedgerEngine()
     lock_results: list[dict[str, Any]] = []
 
@@ -182,14 +189,29 @@ def verify_locks(
         except (TypeError, ValueError):
             lock_results.append({"key": key, "ok": False, "error": "invalid value"})
 
+    locks_ok = sum(1 for r in lock_results if r.get("ok"))
+    locks_bad = sum(1 for r in lock_results if not r.get("ok"))
+
     metrics = _parse_metrics(draft_text)
-    ok, violations = truth.validate_entities(metrics) if metrics else (True, [])
+
+    if locks_bad > 0:
+        status = "VIOLATION"
+        violations = [
+            {"key": r["key"], "error": r.get("error")} for r in lock_results if not r.get("ok")
+        ]
+    elif locks_ok == 0:
+        status = "SKIPPED"
+        violations = []
+    else:
+        ok, violations = truth.validate_entities(metrics) if metrics else (True, [])
+        status = "PASS" if ok else "VIOLATION"
 
     return {
-        "status": "PASS" if ok else "VIOLATION",
+        "status": status,
         "violations": violations,
         "lock_results": lock_results,
-        "locks_verified": len(lock_results),
+        "locks_verified": locks_ok,
+        "locks_rejected": locks_bad,
         "metrics_checked": len(metrics),
     }
 
