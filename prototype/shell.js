@@ -11,6 +11,42 @@
     "Complete",
   ];
   var STORAGE_KEY = "assure_project";
+
+  // ---------------------------------------------------------------
+  // SHELL — single source of truth for UI state (pure refactor base).
+  // Subsystems migrate onto this one at a time; none are migrated yet.
+  // ---------------------------------------------------------------
+  var SHELL = {
+    project:  { id: null, title: "" },
+    sources:  [],
+    streams:  { draft: null, compareA: null, compareB: null },
+    compare:  { a: null, b: null, inflight: false, loaded: false },
+    document: { current: null, mode: "empty" },
+    compiler: { ask: "", prompt: "", route: "" },
+    pipeline: { activeIndex: null },
+    ui: {
+      leftTab: "sources",
+      rightTab: "evidence",
+      selection: { nodeId: null, evidence: null },
+    },
+  };
+
+  function setShell(path, value) {
+    var parts = path.split(".");
+    var target = SHELL;
+    for (var i = 0; i < parts.length - 1; i++) {
+      if (!target[parts[i]]) target[parts[i]] = {};
+      target = target[parts[i]];
+    }
+    target[parts[parts.length - 1]] = value;
+    if (typeof _syncShellPathToDom === "function") {
+      _syncShellPathToDom(path, value);
+    }
+  }
+
+  function _syncShellPathToDom(path, value) {
+    // TODO: per-path DOM sync during migration steps
+  }
   var DRAFT_TYPE = "full";
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -29,9 +65,12 @@
         if (hasDraft && !window.confirm("Start a new draft? Your current draft will be lost.")) { return; }
         // 1. abort everything in flight (abort BEFORE clearing, so no late
         //    callback rewrites the canvas).
-        if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
-        if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
-        if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+        if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
+        setShell("streams.draft", null);
+        if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
+        setShell("streams.compareA", null);
+        if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
+        setShell("streams.compareB", null);
         // 2. reset canvas + stages (restores the empty hero, nulls
         //    currentJdfDocument via clearDocument). Does NOT clear uploaded
         //    sources or reload the page.
@@ -908,9 +947,12 @@
       if (!id) return;
       try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
       if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
-      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
-      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
-      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+      if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
+      setShell("streams.draft", null);
+      if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
+      setShell("streams.compareA", null);
+      if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
+      setShell("streams.compareB", null);
       resetStages();
       clearDocument();
       populateCompilerAsk("");
@@ -952,9 +994,9 @@
 
     function runDraft(intent) {
       // Abort any previous center draft stream, then start a fresh one.
-      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} }
-      draftAbort = new AbortController();
-      var thisRequest = draftAbort;
+      if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
+      setShell("streams.draft", new AbortController());
+      var thisRequest = SHELL.streams.draft;
       resetStages();
       clearDocument();
       currentStageIndex = -1;
@@ -980,7 +1022,7 @@
               "Accept": "text/event-stream, application/json",
             },
             body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: sourceIds }),
-            signal: draftAbort.signal,
+            signal: SHELL.streams.draft.signal,
           });
         })
         .then(function (resp) {
@@ -1000,13 +1042,13 @@
           function loop() {
             // Stale guard: if a newer intent started, stop feeding this one
             // so late tokens can't pollute the fresh canvas.
-            if (thisRequest !== draftAbort) return undefined;
+            if (thisRequest !== SHELL.streams.draft) return undefined;
             return reader.read().then(function (chunk) {
               if (chunk.done) {
                 parser.end();
                 return;
               }
-              if (thisRequest !== draftAbort) return;
+              if (thisRequest !== SHELL.streams.draft) return;
               var str = decoder.decode(chunk.value || new Uint8Array(0), { stream: true });
               parser.feed(str);
               return loop();
@@ -1051,9 +1093,12 @@
       compareDataLoaded = false;
       compareClear();
       // A new intent invalidates any in-flight compare — abort both streams.
-      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
-      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
-      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
+      if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
+      setShell("streams.compareA", null);
+      if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
+      setShell("streams.compareB", null);
+      if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
+      setShell("streams.draft", null);
       beginIntentCompile(v);
     }
 
@@ -1307,9 +1352,6 @@
     var pinnedListEl   = document.getElementById("pinned-list"); // removed; helpers no-op
     var compareInFlight = false;
     var compareDataLoaded = false;
-    var compareAbortA = null;       // AbortController for stream A (Claude)
-    var compareAbortB = null;       // AbortController for stream B (DeepSeek)
-    var draftAbort = null;          // AbortController for the center draft stream
     var lastCompareJdfA = null;     // most recent JDF rendered into column A
     var lastCompareJdfB = null;     // most recent JDF rendered into column B
     var compareStreamsDone = 0;     // number of compare streams finished/errored
@@ -1602,8 +1644,10 @@
         return;
       }
       // Abort any prior compare streams before starting fresh.
-      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
-      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+      if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
+      setShell("streams.compareA", null);
+      if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
+      setShell("streams.compareB", null);
 
       setCompareDisabled(true);
       compareStreamsDone = 0;
@@ -1621,8 +1665,8 @@
       grid.appendChild(colB);
 
       compareDataLoaded = true;         // do not refire on tab re-click
-      compareAbortA = compareStreamSide(colA, "anthropic/claude-sonnet-4-5", "A");
-      compareAbortB = compareStreamSide(colB, "deepseek/deepseek-chat", "B");
+      setShell("streams.compareA", compareStreamSide(colA, "anthropic/claude-sonnet-4-5", "A"));
+      setShell("streams.compareB", compareStreamSide(colB, "deepseek/deepseek-chat", "B"));
     }
 
     // ---------------------------------------------------------------
