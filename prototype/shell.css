@@ -1837,3 +1837,40 @@ body.collapsed #resize-left       { display: none; }
 body.right-hidden #resize-right   { display: none; }
 body.collapsed.right-hidden #resize-left,
 body.collapsed.right-hidden #resize-right { display: none; }
+
+/* =============================================================
+   Verification laser — a single horizontal sweep across the rendered
+   document, fired once per compile. Anchored to .doc-draft (not
+   .doc-surface, which also holds the banner + empty hero).
+   ============================================================= */
+.doc-draft {
+  position: relative;   /* anchor for the absolutely-positioned laser */
+}
+
+.verification-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  box-shadow: 0 0 12px 2px var(--accent);
+  pointer-events: none;
+  /* 40 = above document content (0), below pane resizers (50). */
+  z-index: 40;
+  will-change: transform, opacity;
+  animation: laser-sweep 1.8s ease-out forwards;
+}
+@keyframes laser-sweep {
+  0%   { transform: translateY(0);                            opacity: 0; }
+  10%  {                                                      opacity: 1; }
+  90%  {                                                      opacity: 1; }
+  100% { transform: translateY(var(--laser-distance, 600px)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .verification-laser { animation-duration: 0.001s; opacity: 0; }
+}

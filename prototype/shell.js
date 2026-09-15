@@ -1108,6 +1108,12 @@
               var surface = document.querySelector(".doc-surface");
               if (surface) surface.insertBefore(banner, surface.firstChild);
             }
+            // Verification laser: one horizontal sweep across the rendered
+            // document, per compile. Anchored to .doc-draft (not .doc-surface,
+            // which also holds the banner + empty hero).
+            if (window.runLaserSweep) {
+              runLaserSweep(document.querySelector(".doc-draft"));
+            }
           } else {
             try { console.error("[shell] verified event missing parseable doc.body"); } catch (_) {}
           }
