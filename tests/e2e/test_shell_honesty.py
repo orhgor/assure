@@ -129,14 +129,25 @@ def test_substrate_count_agrees_ui_post_vault(
     active_project,
     browser_page,
     fire_intent,
-    wait_for_render,
     capture_draft_stream,
     read_substrate_count,
+    read_revision_count,
 ):
     pid = active_project
-    payload = capture_draft_stream()
-    fire_intent("summarize the key CPT codes")
-    wait_for_render()
+    # Unique intent forces a fresh compile (pipeline_cache won't hit).
+    unique_intent = "summarize the key CPT codes " + uuid.uuid4().hex[:8]
+    before = read_revision_count(pid)
+    with browser_page.expect_response("**/draft/stream", timeout=120000):
+        fire_intent(unique_intent)
+    # Deterministic DB poll (same pattern as test_revision_count_agrees_ui_db):
+    # wait until the fresh compile persists a revision instead of DOM-polling.
+    after = before
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        after = read_revision_count(pid)
+        if after > before:
+            break
+        time.sleep(1)
     payload = capture_draft_stream()  # read after the compile POST fires
     sent_ids = payload.get("substrate_file_ids") or []
     ui_ids = [
