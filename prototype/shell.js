@@ -28,6 +28,7 @@
       leftTab: "sources",
       rightTab: "evidence",
       selection: { nodeId: null, evidence: null },
+      modal: null,
       layout: { leftWidth: 320, rightWidth: 480, leftCollapsed: false, rightCollapsed: false },
     },
   };
@@ -141,6 +142,16 @@
       if (value) docBodyEl.classList.add("right-hidden");
       else       docBodyEl.classList.remove("right-hidden");
       try { localStorage.setItem("assure.right_collapsed", value ? "1" : "0"); } catch (_) {}
+    } else if (path === "ui.modal") {
+      var layer = document.getElementById("modal-layer");
+      if (!layer) return;
+      if (!value) {
+        layer.hidden = true;
+        layer.innerHTML = "";
+        return;
+      }
+      layer.hidden = false;
+      layer.innerHTML = "<div class='modal'>Modal: " + value + "</div>";
     }
   }
 
@@ -316,6 +327,20 @@
       } else if (k === "j") {
         e.preventDefault();
         setShell("ui.layout.rightCollapsed", !SHELL.ui.layout.rightCollapsed);
+      }
+    });
+
+    // ESC closes any open modal. Separate listener — the Cmd/B handler
+    // guards on metaKey/ctrlKey and would never see bare ESC.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      var t = e.target;
+      if (t && (t.isContentEditable
+                || t.tagName === "INPUT"
+                || t.tagName === "TEXTAREA")) return;
+      if (SHELL.ui.modal) {
+        e.preventDefault();
+        setShell("ui.modal", null);
       }
     });
 

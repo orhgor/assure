@@ -1795,6 +1795,37 @@ body.collapsed .pane-left {
   background: rgba(99, 102, 241, 0.08);
 }
 
+/* =============================================================
+   Modal layer — top-level overlay for shortcuts / reasoning graph /
+   approval / templates / sign-off (z-index 200, above panes=50).
+   ============================================================= */
+.modal-layer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.modal-layer[hidden] { display: none; }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 720px;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .rail-right {
   border-right: none;
   border-left: var(--border-1);
