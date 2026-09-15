@@ -35,6 +35,14 @@
   var compilerAskEl = null;
   var compilerPromptEl = null;
   var compilerRouteEl = null;
+  var projectCurrentNameEl = null;
+  var leftSourcesEl = null;
+  var leftCompilerEl = null;
+  var leftPipelineEl = null;
+  var leftHistoryEl = null;
+  var evidenceModeEl = null;
+  var compareModeEl = null;
+  var docBodyEl = null;
 
   function setShell(path, value) {
     var parts = path.split(".");
@@ -62,12 +70,47 @@
       if (compilerPromptEl) compilerPromptEl.textContent = value;
     } else if (path === "compiler.route") {
       if (compilerRouteEl) compilerRouteEl.textContent = value;
+    } else if (path === "project.id") {
+      try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
+    } else if (path === "project.title") {
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
+    } else if (path === "ui.leftTab") {
+      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl };
+      Object.keys(lp).forEach(function (k) {
+        if (lp[k]) lp[k].style.display = (k === value) ? "block" : "none";
+      });
+      document.querySelectorAll("[data-left-tab]").forEach(function (t) {
+        if (t.getAttribute("data-left-tab") === value) {
+          t.classList.add("is-active");
+          t.setAttribute("aria-selected", "true");
+        } else {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        }
+      });
+      if (docBodyEl) docBodyEl.classList.remove("collapsed");
+    } else if (path === "ui.rightTab") {
+      var rp = { evidence: evidenceModeEl, compare: compareModeEl };
+      Object.keys(rp).forEach(function (k) {
+        if (rp[k]) rp[k].style.display = (k === value) ? "block" : "none";
+      });
+      document.querySelectorAll("[data-right-tab]").forEach(function (t) {
+        if (t.getAttribute("data-right-tab") === value) {
+          t.classList.add("is-active");
+          t.setAttribute("aria-selected", "true");
+        } else {
+          t.classList.remove("is-active");
+          t.setAttribute("aria-selected", "false");
+        }
+      });
+      if (docBodyEl) docBodyEl.classList.remove("right-hidden");
     }
   }
   var DRAFT_TYPE = "full";
 
   document.addEventListener("DOMContentLoaded", function () {
     var body = document.body;
+    docBodyEl = body;
     var docSurface = document.querySelector(".doc-surface");
     docEmpty = docSurface ? docSurface.querySelector(".empty-hero") : null;
     compilerAskEl    = document.getElementById("compiler-ask");
@@ -113,7 +156,6 @@
     // ---------------------------------------------------------------
     // Source Vault upload (SOURCES tab) — .txt / .md only locally
     // ---------------------------------------------------------------
-    var sourceIds = [];   // uploaded substrate file ids (module-level)
     function sourceUploadError(msg) {
       try {
         var el = document.getElementById("source-list");
@@ -172,7 +214,7 @@
         })
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
-          sourceIds.push(String(j.id));
+          setShell("sources", SHELL.sources.concat([String(j.id)]));
           appendSourceItem(name, String(j.id));
         })
         .catch(function (err) {
@@ -859,7 +901,10 @@
 
     function ensureProjectId() {
       try {
-        var existing = window.localStorage.getItem(STORAGE_KEY);
+        var existing = SHELL.project.id || null;
+        if (!existing) {
+          try { existing = window.localStorage.getItem(STORAGE_KEY); } catch (_) { existing = null; }
+        }
         if (existing && typeof existing === "string" && existing.length > 0) {
           return Promise.resolve(existing);
         }
@@ -873,6 +918,7 @@
           var id = j && j.id;
           if (!id) throw new Error("projects returned no id");
           try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+          setShell("project.id", id);
           return id;
         });
     }
@@ -882,7 +928,7 @@
     // ---------------------------------------------------------------
     var projectSwitcherBtn = document.getElementById("project-switcher");
     var projectSwitcherPanel = document.getElementById("project-switcher-panel");
-    var projectCurrentNameEl = document.getElementById("project-current-name");
+    projectCurrentNameEl = document.getElementById("project-current-name");
     var projectNewBtn = document.getElementById("project-new-btn");
     var projectListEl = document.getElementById("project-list");
 
@@ -916,8 +962,8 @@
           var projects = (j && j.projects) || [];
           var totalProjects = projects.length;
           projects = projects.slice(0, 10);
-          var active = "";
-          try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {}
+          var active = SHELL.project.id || "";
+          if (!active) { try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {} }
           projects.forEach(function (p) {
             var row = document.createElement("button");
             row.type = "button";
@@ -950,8 +996,8 @@
         });
     }
     function _refreshProjectName() {
-      var active = "";
-      try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {}
+      var active = SHELL.project.id || "";
+      if (!active) { try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {} }
       if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "Untitled"; return; }
       fetch("/api/projects")
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -969,7 +1015,7 @@
         .then(function (r) { return r.ok ? r.json() : { files: [] }; })
         .then(function (j) {
           var rows = (j && j.files) || [];
-          sourceIds = rows.map(function (f) { return f.id; });
+          setShell("sources", rows.map(function (f) { return f.id; }));
           var el = document.getElementById("source-list");
           if (el) {
             while (el.firstChild) el.removeChild(el.firstChild);
@@ -1046,6 +1092,7 @@
           var id = j && j.id;
           if (!id) throw new Error("no project id");
           try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+          setShell("project.id", id);
           _closeProjectPanel();
           _switchProject(id, (j && j.title) || title);
         })
@@ -1067,8 +1114,8 @@
     });
     _refreshProjectName();
 
-    // T2: populate sourceIds on init so compiles after reload carry
-    // real substrate_file_ids. S0.5 will migrate this to SHELL.sources.
+    // T2: populate SHELL.sources on init so compiles after reload carry
+    // real substrate_file_ids (S0.5 — currently via sourceIds, now SHELL.sources).
     var initId = SHELL.project.id;
     if (!initId) {
       try { initId = window.localStorage.getItem(STORAGE_KEY); } catch (_) { initId = null; }
@@ -1121,7 +1168,7 @@
               "Content-Type": "application/json",
               "Accept": "text/event-stream, application/json",
             },
-            body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: sourceIds }),
+            body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: SHELL.sources }),
             signal: SHELL.streams.draft.signal,
           });
         })
@@ -1428,12 +1475,12 @@
     var LAST_INTENT_KEY = "assure_last_intent";
     var PINS_KEY = "assure_pins";
 
-    var leftSourcesEl  = document.getElementById("left-sources");
-    var leftCompilerEl = document.getElementById("left-compiler");
-    var leftPipelineEl = document.getElementById("left-pipeline");
-    var leftHistoryEl  = document.getElementById("left-history");
-    var evidenceModeEl = document.getElementById("right-evidence");
-    var compareModeEl  = document.getElementById("right-compare");
+    leftSourcesEl  = document.getElementById("left-sources");
+    leftCompilerEl = document.getElementById("left-compiler");
+    leftPipelineEl = document.getElementById("left-pipeline");
+    leftHistoryEl  = document.getElementById("left-history");
+    evidenceModeEl = document.getElementById("right-evidence");
+    compareModeEl  = document.getElementById("right-compare");
     var compareBodyEl  = document.getElementById("compare-body");
     var evidenceBodyEl = document.getElementById("evidence-body");
     var intentPanelSlot = document.getElementById("intent-panel-slot");
@@ -1455,47 +1502,16 @@
       compare:  compareModeEl,
     };
 
-    function openLeftPane() { body.classList.remove("collapsed"); }
-    function openRightPane() { openRight(); }
-
-    function _syncTabActive(list, attr, activeName) {
-      list.forEach(function (t) {
-        if (t.getAttribute(attr) === activeName) {
-          t.classList.add("is-active");
-          t.setAttribute("aria-selected", "true");
-        } else {
-          t.classList.remove("is-active");
-          t.setAttribute("aria-selected", "false");
-        }
-      });
-    }
-
     function leftGroupSetTab(name) {
-      var panels = LEFT_TABPANE;
-      if (!Object.prototype.hasOwnProperty.call(panels, name)) {
-        var keys = Object.keys(panels);
-        name = keys.length ? keys[0] : name;
-      }
-      Object.keys(panels).forEach(function (k) {
-        if (panels[k]) panels[k].style.display = (k === name) ? "block" : "none";
-      });
-      _syncTabActive(document.querySelectorAll("[data-left-tab]"), "data-left-tab", name);
-      openLeftPane();
-      return name;
+      var resolved = LEFT_TABPANE[name] ? name : "sources";
+      setShell("ui.leftTab", resolved);
+      return resolved;
     }
 
     function rightGroupSetTab(name) {
-      var panels = RIGHT_TABPANE;
-      if (!Object.prototype.hasOwnProperty.call(panels, name)) {
-        var keys = Object.keys(panels);
-        name = keys.length ? keys[0] : name;
-      }
-      Object.keys(panels).forEach(function (k) {
-        if (panels[k]) panels[k].style.display = (k === name) ? "block" : "none";
-      });
-      _syncTabActive(document.querySelectorAll("[data-right-tab]"), "data-right-tab", name);
-      openRight();
-      return name;
+      var resolved = RIGHT_TABPANE[name] ? name : "evidence";
+      setShell("ui.rightTab", resolved);
+      return resolved;
     }
 
     // Backward-compatible dispatch used by existing flows.
@@ -1692,7 +1708,7 @@
             method: "POST",
             signal: controller.signal,
             headers: { "Content-Type": "application/json", "Accept": "text/event-stream, application/json" },
-            body: JSON.stringify({ intent: intent, compileType: "full", target_ai: modelId, substrate_file_ids: sourceIds }),
+            body: JSON.stringify({ intent: intent, compileType: "full", target_ai: modelId, substrate_file_ids: SHELL.sources }),
           });
         })
         .then(function (resp) {
@@ -1878,8 +1894,6 @@
     // ---------------------------------------------------------------
     // PHASE 4: Evidence drawer + surgical actions
     // ---------------------------------------------------------------
-    var currentEvidence = null;
-
     function handleChipClick(e) {
       var chip = e.currentTarget;
       var nodeId = chip.getAttribute("data-node-id");
@@ -1908,7 +1922,7 @@
         evidence = { kind: "redhat", nodeId: nodeId, data: node.annotations.redhat[index], index: index };
       }
       if (!evidence) return;
-      currentEvidence = evidence;
+      setShell("ui.selection.evidence", evidence);
       renderEvidenceDrawer(evidence);
       openRight();
       setMode("evidence");
@@ -1941,7 +1955,7 @@
       var tree = (host && host.__jdfDoc) ? host.__jdfDoc : SHELL.document.current;
       var node = findJdfNodeById(nodeId, tree);
       renderConfidenceEvidence(span, node);
-      currentEvidence = { kind: "confidence", nodeId: nodeId, data: {} };
+      setShell("ui.selection.evidence", { kind: "confidence", nodeId: nodeId, data: {} });
       openRight();
       setMode("evidence");
     }
