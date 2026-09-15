@@ -942,23 +942,57 @@
       })
       .catch(function () {});
     }
+    var _switchToken = 0;
     function _switchProject(id, title) {
       _closeProjectPanel();
       if (!id) return;
-      try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
-      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
+      var myToken = ++_switchToken;
+      // B) abort in-flight streams
       if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
       setShell("streams.draft", null);
       if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
       setShell("streams.compareA", null);
       if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
       setShell("streams.compareB", null);
-      resetStages();
-      clearDocument();
-      populateCompilerAsk("");
-      setCompilerPrompt("");
-      populateCompilerRoute("");
-      leftGroupSetTab("compiler");
+      // C) persist active project
+      try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
+      setShell("project.id", id);
+      setShell("project.title", title || "");
+      // D) fetch target project's latest document (parallel with E)
+      fetch("/api/projects/" + encodeURIComponent(id) + "/jdf")
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (res) {
+          if (myToken !== _switchToken) return;   // stale-switch guard
+          var doc = (res && res.document) || null;
+          var empty = !(doc && Array.isArray(doc.body) && doc.body.length);
+          if (!empty) {
+            renderJdfDocument(doc);
+            setShell("document.current", doc);
+            setShell("document.mode", "ready");
+          } else {
+            resetStages();
+            clearDocument();
+            setShell("document.mode", "empty");
+          }
+          // compiler panel is per-project — always reset (JDF carries no meta.ask)
+          populateCompilerAsk("");
+          setCompilerPrompt("");
+          populateCompilerRoute("");
+          leftGroupSetTab("compiler");
+        })
+        .catch(function (err) {
+          if (myToken !== _switchToken) return;
+          console.error("[switchProject] failed", id, err);
+          resetStages();
+          clearDocument();
+          setShell("document.mode", "empty");
+          populateCompilerAsk("");
+          setCompilerPrompt("");
+          populateCompilerRoute("");
+          leftGroupSetTab("compiler");
+        });
+      // E) reload source list for the target (parallel)
       _loadProjectSourceList(id);
     }
     function _createNewProject() {
