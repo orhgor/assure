@@ -1627,3 +1627,18 @@ Allowed accents: `#3b82f6`, `#10b981`, `#f59e0b`. Allowed backgrounds: white, `#
 | `prompt_matrix/i18n.py` | 3113 | absence-only-empty | `No se pudo cargar el catálogo` | "error.catalog": "No se pudo cargar el catálogo", |
 | `prompt_matrix/i18n.py` | 3114 | absence-only-empty | `No se pudieron cargar las clases` | "error.classes": "No se pudieron cargar las clases", |
 | `prompt_matrix/i18n.py` | 5641 | non-action-dismiss | `OK` | "projects.vitals.redhat_clear": "Test de stress OK", |
+
+## Commit hygiene — 2026-09-15
+
+b94ced7 ("populate sourceIds on page load") contains S0.1 + S0.3 + S0.4
++ T2. Five logical changes were pending in the working tree when
+T2 was committed. Prevention: run `git status` before each commit
+and stage only the specific file(s) the current task touches.
+
+## Hook false positive — 2026-09-15
+
+Some pre-commit step logs `Failed to parse prototype/shell.js:1:14:
+Expected ')', found '{'`. Line 1 of shell.js is `(function () {` — an
+IIFE wrapper. The parser is likely an ESM-mode JSX plugin that
+rejects classic-script syntax. Non-blocking; the commit succeeds.
+Investigate the hook config when time permits.
