@@ -28,7 +28,7 @@
       leftTab: "sources",
       rightTab: "evidence",
       selection: { nodeId: null, evidence: null },
-      layout: { leftWidth: 320, rightWidth: 480 },
+      layout: { leftWidth: 320, rightWidth: 480, leftCollapsed: false, rightCollapsed: false },
     },
   };
 
@@ -106,7 +106,7 @@
           t.setAttribute("aria-selected", "false");
         }
       });
-      if (docBodyEl) docBodyEl.classList.remove("collapsed");
+      setShell("ui.layout.leftCollapsed", false);
     } else if (path === "ui.rightTab") {
       document.querySelectorAll("[data-right-tab]").forEach(function (t) {
         if (t.getAttribute("data-right-tab") === value) {
@@ -117,7 +117,7 @@
           t.setAttribute("aria-selected", "false");
         }
       });
-      if (docBodyEl) docBodyEl.classList.remove("right-hidden");
+      setShell("ui.layout.rightCollapsed", false);
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.selection.nodeId") {
@@ -133,6 +133,14 @@
       document.documentElement.style.setProperty("--left-w", value + "px");
     } else if (path === "ui.layout.rightWidth") {
       document.documentElement.style.setProperty("--right-w", value + "px");
+    } else if (path === "ui.layout.leftCollapsed") {
+      if (value) docBodyEl.classList.add("collapsed");
+      else       docBodyEl.classList.remove("collapsed");
+      try { localStorage.setItem("assure.left_collapsed", value ? "1" : "0"); } catch (_) {}
+    } else if (path === "ui.layout.rightCollapsed") {
+      if (value) docBodyEl.classList.add("right-hidden");
+      else       docBodyEl.classList.remove("right-hidden");
+      try { localStorage.setItem("assure.right_collapsed", value ? "1" : "0"); } catch (_) {}
     }
   }
 
@@ -275,14 +283,33 @@
     var leftCollapse = document.getElementById("left-collapse");
     if (leftCollapse) {
       leftCollapse.addEventListener("click", function () {
-        body.classList.toggle("collapsed");
+        setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
       });
     }
     var rightClose = document.getElementById("right-close");
-    function openRight() { body.classList.remove("right-hidden"); }
-    function closeRight() { body.classList.add("right-hidden"); }
+    function openRight() { setShell("ui.layout.rightCollapsed", false); }
+    function closeRight() { setShell("ui.layout.rightCollapsed", true); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
-    function openLeft() { body.classList.remove("collapsed"); }
+    function openLeft() { setShell("ui.layout.leftCollapsed", false); }
+
+    // Cmd+B / Cmd+J collapse toggles (workbench shortcuts). Input guard:
+    // never toggle while the user is typing in a field.
+    document.addEventListener("keydown", function (e) {
+      var t = e.target;
+      if (t && (t.isContentEditable
+                || t.tagName === "INPUT"
+                || t.tagName === "TEXTAREA")) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.shiftKey) return;   // L1c owns Cmd+Shift+*
+      var k = (e.key || "").toLowerCase();
+      if (k === "b") {
+        e.preventDefault();
+        setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+      } else if (k === "j") {
+        e.preventDefault();
+        setShell("ui.layout.rightCollapsed", !SHELL.ui.layout.rightCollapsed);
+      }
+    });
 
     // ---------------------------------------------------------------
     // Pane resizers (left / center / right). Width lives in
@@ -1329,8 +1356,15 @@
     });
     _refreshProjectName();
 
-    // S1: right inspector visible on load with the empty state.
-    openRight();
+    // S1: restore persisted pane collapse state (default false → both panes
+    // visible on first-ever load), then render. _applyRightView() draws the
+    // right pane's inner state independent of the collapse classes.
+    try {
+      SHELL.ui.layout.leftCollapsed  = localStorage.getItem("assure.left_collapsed")  === "1";
+      SHELL.ui.layout.rightCollapsed = localStorage.getItem("assure.right_collapsed") === "1";
+    } catch (_) {}
+    setShell("ui.layout.leftCollapsed",  SHELL.ui.layout.leftCollapsed);
+    setShell("ui.layout.rightCollapsed", SHELL.ui.layout.rightCollapsed);
     _applyRightView();
 
     // T2: populate SHELL.sources on init so compiles after reload carry
@@ -1366,6 +1400,11 @@
       resetStages();
       clearDocument();
       currentStageIndex = -1;
+      // Opens the right pane when a compile starts. Note: this
+      // re-expands a user-collapsed pane on every compile. If that
+      // feels wrong in use, change to: only expand when
+      // SHELL.ui.layout.rightCollapsed is false OR when the user is
+      // in Compare mode.
       openRight();
       var parser = parseSseLoop(
         handleEvent,
