@@ -31,9 +31,27 @@ def omp_cache_enabled() -> bool:
     return os.getenv("PEM_OMP_CACHE", "1").strip() not in {"0", "false", "no"}
 
 
-def compile_cache_key(project_id: str, source: str) -> str:
-    digest = hashlib.sha256((source or "").encode("utf-8")).hexdigest()[:8]
-    pid = sanitize_omp_tag(project_id, max_len=32)
+PIPELINE_VERSION = 3
+
+
+def compile_cache_key(
+    project_id: str,
+    source_text: str,
+    target_ai: str = "",
+    version: int = PIPELINE_VERSION,
+) -> str:
+    # Stable order: project_id | source_text | target_ai | str(version)
+    digest = hashlib.sha256(
+        "|".join(
+            [
+                str(project_id or ""),
+                str(source_text or ""),
+                str(target_ai or ""),
+                str(version),
+            ]
+        ).encode("utf-8")
+    ).hexdigest()[:8]
+    pid = sanitize_omp_tag(project_id or "", max_len=32)
     return f"ast:{pid}:{digest}"
 
 

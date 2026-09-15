@@ -411,7 +411,9 @@ def run_draft_pipeline(
     combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
     messages = _draft_messages(intent, combined_context)
     cache_key = compile_cache_key(
-        project_id, _compile_source_text(intent, context, substrate_context)
+        project_id,
+        _compile_source_text(intent, context, substrate_context),
+        target_ai=(target_ai or DRAFT_MODEL),
     )
     cached: dict[str, Any] | None = None
     try:
@@ -919,6 +921,7 @@ def register_draft_routes(app) -> None:
             peek_key = compile_cache_key(
                 project_id,
                 _compile_source_text(intent, payload.context, _build_substrate_context(rows)),
+                target_ai=(payload.target_ai or DRAFT_MODEL),
             )
             peek = load_ast_cache(peek_key)
             cached_hit = bool(isinstance(peek, dict) and peek.get("compiled"))
