@@ -311,9 +311,9 @@
       el.addEventListener("pointermove", function (e) {
         if (!dragging) return;
         var delta = e.clientX - startX;
-        var rail = _railPx();
+        var railTotal = 2 * _railPx();  // two rails (left + right)
         var other = side === "left" ? SHELL.ui.layout.rightWidth : SHELL.ui.layout.leftWidth;
-        var maxForSide = window.innerWidth - rail - other - MIN_CENTER;
+        var maxForSide = window.innerWidth - railTotal - other - MIN_CENTER;
         var next;
         if (side === "left") {
           next = Math.min(maxForSide, Math.max(MIN_LEFT, startWidth + delta));
@@ -351,6 +351,12 @@
         var next = cur;
         if (e.key === "ArrowLeft")  next = side === "left" ? cur - step : cur + step;
         if (e.key === "ArrowRight") next = side === "left" ? cur + step : cur - step;
+        // Clamp keyboard moves to the same min/max as pointer drags.
+        var railTotal = 2 * _railPx();
+        var other = side === "left" ? SHELL.ui.layout.rightWidth : SHELL.ui.layout.leftWidth;
+        var maxForSide = window.innerWidth - railTotal - other - MIN_CENTER;
+        var minForSide = side === "left" ? MIN_LEFT : MIN_RIGHT;
+        next = Math.min(maxForSide, Math.max(minForSide, next));
         if (next !== cur) {
           e.preventDefault();
           setShell(side === "left" ? "ui.layout.leftWidth" : "ui.layout.rightWidth", next);

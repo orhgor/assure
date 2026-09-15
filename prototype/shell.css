@@ -337,7 +337,8 @@ button {
     var(--rail-w)
     var(--left-w, 320px)
     1fr
-    var(--right-w, 480px);
+    var(--right-w, 480px)
+    var(--rail-w);
   grid-template-rows: 100%;
   width: 100%;
   height: 100%;
@@ -352,7 +353,8 @@ body.collapsed .app-shell {
     var(--rail-w)
     0px
     1fr
-    var(--right-w, 480px);
+    var(--right-w, 480px)
+    var(--rail-w);
 }
 
 /* Hidden right: set column to 0, close drawer completely */
@@ -361,7 +363,8 @@ body.right-hidden .app-shell {
     var(--rail-w)
     var(--left-w, 320px)
     1fr
-    0px;
+    0px
+    var(--rail-w);
 }
 
 body.collapsed.right-hidden .app-shell {
@@ -369,7 +372,8 @@ body.collapsed.right-hidden .app-shell {
     var(--rail-w)
     0px
     1fr
-    0px;
+    0px
+    var(--rail-w);
 }
 
 /* =============================================================
@@ -1791,6 +1795,11 @@ body.collapsed .pane-left {
   background: rgba(99, 102, 241, 0.08);
 }
 
+.rail-right {
+  border-right: none;
+  border-left: var(--border-1);
+}
+
 /* =============================================================
    Pane resizers (drag handles between left/center and center/right).
    Absolutely positioned inside .app-shell so CSS Grid does NOT
@@ -1811,7 +1820,7 @@ body.collapsed .pane-left {
   transition: background 0.15s ease-out;
 }
 #resize-left  { left: calc(var(--rail-w) + var(--left-w, 320px) - 3px); }
-#resize-right { right: calc(var(--right-w, 480px) - 3px); }
+#resize-right { right: calc(var(--rail-w) + var(--right-w, 480px) - 3px); }
 .pane-resizer:hover,
 .pane-resizer.dragging,
 .pane-resizer:focus-visible {

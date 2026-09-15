@@ -45,7 +45,7 @@
     <!-- ============================================================= -->
     <!-- ICON RAIL (48px, always on)                                   -->
     <!-- ============================================================= -->
-    <aside class="rail" aria-label="Navigation rail">
+    <aside class="rail rail-left" aria-label="Navigation rail">
       <div class="rail-logo" title="Assure AI">
         <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
           <text x="16" y="22" text-anchor="middle" fill="#ffffff"
@@ -78,19 +78,6 @@
             <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
             <polyline points="3 3 3 8 8 8"></polyline>
             <polyline points="12 7 12 12 15 15"></polyline>
-          </svg>
-        </button>
-        <button type="button" class="rail-btn" data-rail-btn="shield" title="Evidence">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l7 3v6c0 5-3.5 8.5-7 11-3.5-2.5-7-6-7-11V5z"></path>
-          </svg>
-        </button>
-        <button type="button" class="rail-btn" data-rail-btn="swap" title="Compare">
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 7h13l-3-3"></path>
-            <path d="M20 17H7l3 3"></path>
           </svg>
         </button>
       </nav>
@@ -259,6 +246,24 @@
           <p class="empty-hint">Run a draft first, then compare.</p>
         </div>
       </div>
+    </aside>
+
+    <aside class="rail rail-right" aria-label="Right pane rail">
+      <nav class="rail-nav" aria-label="Right pane">
+        <button type="button" class="rail-btn" data-rail-btn="shield" title="Evidence">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l7 3v6c0 5-3.5 8.5-7 11-3.5-2.5-7-6-7-11V5z"></path>
+          </svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail-btn="swap" title="Compare">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h13l-3-3"></path>
+            <path d="M20 17H7l3 3"></path>
+          </svg>
+        </button>
+      </nav>
     </aside>
 
     <div class="pane-resizer" id="resize-left"  role="separator"
