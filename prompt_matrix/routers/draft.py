@@ -573,6 +573,20 @@ def run_draft_pipeline(
     if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
 
+    # Persist the compiled JDF tree to jdf_revisions so export/history/versions
+    # read a real document. Runs after provenance is attached, before the
+    # compiled SSE event (cache hits return earlier and replay the identical
+    # tree, so they intentionally skip this save). Truth ledger is carried
+    # inside doc_dict["truth_ledger"], so no separate kwarg is needed.
+    try:
+        from ..db.jdf_repository import save_jdf_revision
+    except ImportError:
+        from db.jdf_repository import save_jdf_revision
+    try:
+        save_jdf_revision(project_id, doc_dict, mutation_type="compile")
+    except Exception as exc:
+        _log.warning("[jdf-persist] failed for %s: %s", project_id, exc)
+
     yield _typed_sse(
         "compiled",
         {
