@@ -623,21 +623,22 @@ def run_draft_pipeline(
             "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
         ).fetchone()
         _data = json.loads(_row[0]) if (_row and _row[0]) else {}
-        if isinstance(_data, dict):
-            _data["gate"] = {
-                "gate_status": verified_payload.get("gate_status"),
-                "z3_status": verified_payload.get("z3_status"),
-                "unverified": verified_payload.get("unverified"),
-                "unverified_reason": verified_payload.get("unverified_reason"),
-                "provenance_stats": verified_payload.get("provenance_stats") or {},
-            }
-            _pdb.execute(
-                "UPDATE projects SET last_compiled_json = ? WHERE id = ?",
-                (json.dumps(_data), project_id),
-            )
-            _pdb.commit()
-    except Exception:
-        pass
+        if not isinstance(_data, dict):
+            _data = {}
+        _data["gate"] = {
+            "gate_status": verified_payload.get("gate_status"),
+            "z3_status": verified_payload.get("z3_status"),
+            "unverified": verified_payload.get("unverified"),
+            "unverified_reason": verified_payload.get("unverified_reason"),
+            "provenance_stats": verified_payload.get("provenance_stats") or {},
+        }
+        _pdb.execute(
+            "UPDATE projects SET last_compiled_json = ? WHERE id = ?",
+            (json.dumps(_data), project_id),
+        )
+        _pdb.commit()
+    except Exception as exc:
+        _log.warning("[gate-persist] failed for %s: %s", project_id, exc)
     yield _typed_sse("verified", verified_payload)
     try:
         from ..db.jdf_repository import fetch_latest_jdf
