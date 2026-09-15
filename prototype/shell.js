@@ -1026,6 +1026,23 @@
     });
     _refreshProjectName();
 
+    // Export (top bar) → audit PDF download for the active project.
+    var exportBtn = document.getElementById("export-btn");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", function () {
+        var id = SHELL.project.id;
+        if (!id) {
+          try { id = window.localStorage.getItem(STORAGE_KEY); } catch (_) { id = null; }
+        }
+        if (!id) {
+          console.warn("[export] no active project");
+          return;
+        }
+        window.location.href =
+          "/api/projects/" + encodeURIComponent(id) + "/export?format=audit-pdf";
+      });
+    }
+
     function runDraft(intent) {
       // Abort any previous center draft stream, then start a fresh one.
       if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
