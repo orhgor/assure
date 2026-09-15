@@ -1550,19 +1550,9 @@
       // Payload is exactly {task, target_ai} — the backend calls
       // detect_intent(task) when intent is absent (web.py:1142), so we
       // intentionally omit the intent key.
-      jsonPost("/api/preview", { task: raw, target_ai: PREVIEW_TARGET })
-        .then(function (resp) {
-          if (!resp.ok) throw new Error("preview HTTP " + resp.status);
-          return resp.json();
-        })
+      jsonPost("/api/compile-system", {})
         .then(function (j) {
-          lastCompile = j || null;
-          if (j && typeof j.prompt === "string" && j.prompt.length > 0) {
-            setCompilerPrompt(j.prompt);
-          } else {
-            setCompilerPrompt("(compiler unavailable)");
-          }
-          renderCompilerRouteFrom(j);
+          if (j && j.prompt) setCompilerPrompt(j.prompt);
         })
         .catch(function (err) {
           setCompilerPrompt("(compiler unavailable)");

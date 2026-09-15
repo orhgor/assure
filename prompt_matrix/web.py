@@ -1164,6 +1164,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
             }
         )
 
+    @app.post("/api/compile-system")
+    def compile_system_view():
+        """Static system message the compile path sends. Consumed by
+        the prototype shell panel so it can show the model what the
+        model receives. No body, no params; always the same string."""
+        from .routers.draft import _COMPILE_SYSTEM
+
+        return jsonify({"prompt": _COMPILE_SYSTEM})
+
     @app.post("/api/render")
     @login_required
     def render_view():

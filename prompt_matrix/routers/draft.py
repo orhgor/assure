@@ -76,12 +76,31 @@ _log = logging.getLogger(__name__)
 DRAFT_MODEL = "anthropic/claude-sonnet-4-5"
 LOCK_MODEL = "deepseek/deepseek-chat"
 
+try:
+    from ..config.system_prompt import PEM_BASE_INSTRUCTION, _PEM_DOMAIN
+except ImportError:
+    from config.system_prompt import PEM_BASE_INSTRUCTION, _PEM_DOMAIN
+
+# _DRAFT_SYSTEM kept (unreferenced) for one week as a rollback path if
+# _COMPILE_SYSTEM (the merged prompt) regresses output quality.
 _DRAFT_SYSTEM = (
-    "You are Assure document engineering. Draft clear, structured prose for a business document. "
-    "Use markdown headings (## Section) for major sections. Include specific numbers where appropriate. "
-    "Do NOT use inline markdown formatting such as bold (**), italics, or code blocks. "
+    "You are Assure document engineering, grounded in the "
+    "user's uploaded sources. No live internet, no invented "
+    "statistics or dates; if data is not in the sources, say so. "
+    "Draft clear, structured prose for a business document. "
+    "Use markdown headings (## Section) for major sections. "
+    "Include specific numbers where appropriate. "
+    "Do NOT use inline markdown formatting such as bold (**), "
+    "italics, or code blocks. "
     "Output plain text under your headings."
 )
+
+# The compile path sends domain guidance + _DRAFT_SYSTEM's output constraints.
+# Excluded pieces: ROLE (absorbed into _DRAFT_SYSTEM), PHASES (single-shot compile
+# has no phases), GROUNDING (covered by _DRAFT_SYSTEM), OUTPUT (references a
+# dialect prompt the compile path doesn't have). Static — the per-task ask and
+# sources live in the user message.
+_COMPILE_SYSTEM = (_PEM_DOMAIN.rstrip() + "\n\n---\n\n" + _DRAFT_SYSTEM.rstrip()).strip()
 
 CancelCheck = Callable[[], bool]
 
@@ -132,7 +151,7 @@ def _draft_messages(intent: str, context: str | None) -> list[dict[str, str]]:
     if context and context.strip():
         parts.append(f"Additional context:\n{context.strip()}")
     return [
-        {"role": "system", "content": _DRAFT_SYSTEM},
+        {"role": "system", "content": _COMPILE_SYSTEM},
         {"role": "user", "content": "\n\n".join(parts)},
     ]
 
