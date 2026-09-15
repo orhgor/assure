@@ -130,21 +130,36 @@ def test_delete_unknown_file_returns_404(vault_client):
 
 
 def test_attach_substrate_provenance_to_tree_matches_value_in_source_text():
-    tree = build_document_from_draft("p1", "Revenue is $10M this quarter.").model_dump(mode="json")
+    # Both source sentence and paragraph must clear the 8-content-
+    # token eligibility floor for the paragraph-centric matcher.
+    # The test's semantics are preserved: a matching paragraph gets
+    # provenance attached; page_number and source_id come from the
+    # matched source row.
+    para_text = (
+        "Revenue reached ten million dollars this quarter, "
+        "reflecting strong year-over-year growth."
+    )
+    tree = build_document_from_draft("p1", para_text).model_dump(mode="json")
     locks = [{"canonical_key": "Revenue", "value": 10, "unit": "M"}]
     substrate_rows = [
         {
             "id": "sub-1",
             "filename": "cim.pdf",
-            "extracted_text": "The board confirmed revenue of 10 for the quarter under review.",
+            "extracted_text": (
+                "The board confirmed revenue reached ten million "
+                "dollars this quarter, reflecting strong growth "
+                "across all reporting segments."
+            ),
+            "page_count": 1,
         }
     ]
 
     updated = attach_substrate_provenance_to_tree(tree, locks, substrate_rows)
     para = updated["body"][0]["children"][0]
     assert para["provenance"], "expected a provenance entry to be attached"
-    assert para["provenance"][0]["source_name"] == "cim.pdf"
-    assert para["provenance"][0]["source_id"] == "sub-1"
+    entry = para["provenance"][0]
+    assert entry["source_id"] == "sub-1"
+    assert entry["source_name"] == "cim.pdf"
 
 
 def test_attach_substrate_provenance_to_tree_no_match_when_value_absent():

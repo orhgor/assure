@@ -30,7 +30,17 @@ def test_build_audit_summary_shape():
         nodes=[{"id": "p-1", "type": "paragraph", "content": "Hi"}],
         locks=[{"canonical_key": "Revenue", "value": 100}],
     )
-    assert summary["ok"] is True
+    assert summary["ok"] is False
+    # New contract: ok is True only when at least one paragraph is
+    # provenance-anchored. An unanchored document returns 'review'.
+    assert summary["ok"] is False
+    assert summary["gate_status"] == "review"
+    assert summary["unverified"] is True
+    assert summary["provenance_stats"] == {
+        "eligible": 0,
+        "anchored": 0,
+        "unanchored": 0,
+    }
     assert summary["gate_status"] == "review"
     assert summary["z3_status"] == "PASS"
     assert summary["redhat_count"] == 1

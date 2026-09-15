@@ -94,7 +94,10 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     assert verified["z3_status"] == "PASS"
     assert verified["redhat_count"] == 0
     assert verified["redhat_critiques"] == []
-    assert verified["gate_status"] == "pass"
+    # No substrate in this fixture → nothing is anchored → honest gate
+    # returns 'review' instead of the old unconditional 'pass'.
+    assert verified["gate_status"] == "review"
+    assert verified["ok"] is False
     assert "document" in verified
 
     assert any(f.strip() == "data: [DONE]" for f in frames)
