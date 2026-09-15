@@ -272,6 +272,8 @@
         if (!r) return;
         r.classList.remove("active", "done", "failed");
       });
+      var banner = document.querySelector(".doc-ungrounded-banner");
+      if (banner) banner.remove();
     }
     function findActiveStage() {
       for (var i = 0; i < STAGE_ORDER.length; i++) {
@@ -334,6 +336,8 @@
       currentJdfDocument = null;
       var existing = docSurface ? docSurface.querySelectorAll(".doc-error") : [];
       for (var i = 0; i < existing.length; i++) existing[i].remove();
+      var banner = document.querySelector(".doc-ungrounded-banner");
+      if (banner) banner.remove();
     }
 
     // ---------------------------------------------------------------
@@ -797,6 +801,24 @@
           if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
             addEvidenceChips(vdoc);
             applyConfidenceSpans(vdoc);
+
+            // Unclear whether provenance_stats lives top-level or nested —
+            // check the SSE payload; use the real location.
+            var stats = data.provenance_stats || null;
+            if (!stats && data.document && data.document.meta) {
+              stats = data.document.meta.provenance_stats || null;
+            }
+
+            var existingBanner = document.querySelector(".doc-ungrounded-banner");
+            if (existingBanner) existingBanner.remove();
+
+            if (stats && stats.anchored === 0) {
+              var banner = document.createElement("div");
+              banner.className = "doc-ungrounded-banner";
+              banner.textContent = "This document is ungrounded — none of its claims match the uploaded sources. Verify before use.";
+              var surface = document.querySelector(".doc-surface");
+              if (surface) surface.insertBefore(banner, surface.firstChild);
+            }
           } else {
             try { console.error("[shell] verified event missing parseable doc.body"); } catch (_) {}
           }
