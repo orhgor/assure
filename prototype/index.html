@@ -232,12 +232,14 @@
     <!-- ============================================================= -->
     <!-- RIGHT PANE (400px, collapsible, hidden by default)           -->
     <!-- ============================================================= -->
-    <aside class="pane pane-right" aria-label="Evidence & Compare" id="pane-right">
+    <aside class="pane pane-right" aria-label="Inspector & Compare" id="pane-right">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
           <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true">Evidence</button>
-          <button type="button" class="mode-tab" data-right-tab="compare" role="tab" aria-selected="false">Compare</button>
+          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false">Z3</button>
+          <button type="button" class="mode-tab" data-right-tab="redhat" role="tab" aria-selected="false">Red-Hat</button>
         </div>
+        <button type="button" id="compare-toggle" title="Compare">⇄</button>
         <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -246,10 +248,11 @@
           </svg>
         </button>
       </header>
-      <div id="right-evidence" class="pane-mode">
-        <div class="pane-body evidence-body" id="evidence-body">
-          <p class="empty-hint">Click a chip in the document to view proof.</p>
-        </div>
+      <div id="right-inspector" class="pane-mode">
+        <div class="inspector-empty" id="inspector-empty">Click a paragraph to inspect.</div>
+        <div id="right-evidence" class="pane-body" hidden></div>
+        <div id="right-z3" class="pane-body" hidden></div>
+        <div id="right-redhat" class="pane-body" hidden></div>
       </div>
       <div id="right-compare" class="pane-mode" style="display:none;">
         <div class="pane-body compare-body" id="compare-body">
