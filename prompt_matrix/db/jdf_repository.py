@@ -242,6 +242,15 @@ def save_jdf_revision(
     else:
         tree = parse_document(document).model_dump(mode="json")
 
+    if change_summary is None:
+        try:
+            body = tree.get("body") if isinstance(tree, dict) else None
+            first = body[0] if body and isinstance(body, list) else {}
+            title = first.get("title") if isinstance(first, dict) else ""
+            change_summary = str(title)[:120] if title else None
+        except Exception:
+            change_summary = None
+
     row = db.execute(
         "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
         (project_id,),

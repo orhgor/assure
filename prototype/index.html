@@ -157,7 +157,10 @@
           <div class="compiler-label">YOUR ASK</div>
           <div id="compiler-ask" class="compiler-ask"></div>
           <div class="compiler-label">COMPILED PROMPT</div>
-          <div id="compiler-prompt" class="compiler-prompt"></div>
+          <details id="compiler-prompt-details" class="compiler-prompt-details">
+            <summary id="compiler-prompt-summary">—</summary>
+            <pre id="compiler-prompt" class="compiler-prompt"></pre>
+          </details>
           <div class="compiler-label">ROUTED TO</div>
           <div id="compiler-route" class="compiler-route"></div>
         </div>
@@ -199,6 +202,12 @@
           <h2>Start a new draft</h2>
           <p>Type an intent below or choose a template.</p>
           <button type="button" class="btn-primary" id="new-draft-btn">New draft</button>
+        </div>
+        <div id="version-chip" class="version-chip" hidden>
+          <button type="button" id="version-prev" class="version-arrow" aria-label="Previous version">◀</button>
+          <button type="button" id="version-label" class="version-label">v— of —</button>
+          <button type="button" id="version-next" class="version-arrow" aria-label="Next version">▶</button>
+          <div id="version-dropdown" class="version-dropdown" hidden></div>
         </div>
       </section>
 

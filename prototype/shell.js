@@ -21,7 +21,7 @@
     sources:  [],
     streams:  { draft: null, compareA: null, compareB: null },
     compare:  { a: null, b: null, inflight: false, loaded: false },
-    document: { current: null, mode: "empty" },
+    document: { current: null, mode: "empty", versions: { list: [], current: null } },
     compiler: { ask: "", prompt: "", route: "" },
     pipeline: { activeIndex: null },
     ui: {
@@ -35,6 +35,8 @@
   var compilerAskEl = null;
   var compilerPromptEl = null;
   var compilerRouteEl = null;
+  var compilerPromptSummaryEl = null;
+  var compilerPromptDetailsEl = null;
   var projectCurrentNameEl = null;
   var leftSourcesEl = null;
   var leftCompilerEl = null;
@@ -43,6 +45,11 @@
   var evidenceModeEl = null;
   var compareModeEl = null;
   var docBodyEl = null;
+  var versionChipEl = null;
+  var versionPrevEl = null;
+  var versionNextEl = null;
+  var versionLabelEl = null;
+  var versionDropdownEl = null;
 
   function setShell(path, value) {
     var parts = path.split(".");
@@ -68,8 +75,10 @@
       if (compilerAskEl) compilerAskEl.textContent = value;
     } else if (path === "compiler.prompt") {
       if (compilerPromptEl) compilerPromptEl.textContent = value;
+      _refreshCompilerPromptSummary();
     } else if (path === "compiler.route") {
       if (compilerRouteEl) compilerRouteEl.textContent = value;
+      _refreshCompilerPromptSummary();
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
@@ -106,6 +115,19 @@
       if (docBodyEl) docBodyEl.classList.remove("right-hidden");
     }
   }
+
+  function _refreshCompilerPromptSummary() {
+    if (!compilerPromptSummaryEl) return;
+    var prompt = SHELL.compiler.prompt || "";
+    if (!prompt) {
+      compilerPromptSummaryEl.textContent = "—";
+      return;
+    }
+    var route = SHELL.compiler.route || "";
+    var n = (SHELL.sources && SHELL.sources.length) || 0;
+    var src = n + " source" + (n === 1 ? "" : "s");
+    compilerPromptSummaryEl.textContent = route ? (route + " · " + src) : src;
+  }
   var DRAFT_TYPE = "full";
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -116,6 +138,18 @@
     compilerAskEl    = document.getElementById("compiler-ask");
     compilerPromptEl = document.getElementById("compiler-prompt");
     compilerRouteEl  = document.getElementById("compiler-route");
+    compilerPromptSummaryEl = document.getElementById("compiler-prompt-summary");
+    compilerPromptDetailsEl = document.getElementById("compiler-prompt-details");
+    versionChipEl     = document.getElementById("version-chip");
+    versionPrevEl     = document.getElementById("version-prev");
+    versionNextEl     = document.getElementById("version-next");
+    versionLabelEl    = document.getElementById("version-label");
+    versionDropdownEl = document.getElementById("version-dropdown");
+    if (versionPrevEl) versionPrevEl.addEventListener("click", function () { _versionStep(-1); });
+    if (versionNextEl) versionNextEl.addEventListener("click", function () { _versionStep(1); });
+    if (versionLabelEl) versionLabelEl.addEventListener("click", function () {
+      if (versionDropdownEl) versionDropdownEl.hidden = !versionDropdownEl.hidden;
+    });
     var wrap = document.getElementById("dock-input-wrap");
     var text = document.getElementById("dock-text");
     var submit = document.getElementById("dock-submit");
@@ -215,6 +249,9 @@
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
           setShell("sources", SHELL.sources.concat([String(j.id)]));
+          if (typeof _refreshCompilerPromptSummary === "function") {
+            _refreshCompilerPromptSummary();
+          }
           appendSourceItem(name, String(j.id));
         })
         .catch(function (err) {
@@ -380,6 +417,97 @@
       for (var i = 0; i < existing.length; i++) existing[i].remove();
       var banner = document.querySelector(".doc-ungrounded-banner");
       if (banner) banner.remove();
+      if (versionChipEl) versionChipEl.hidden = true;
+      SHELL.document.versions = { list: [], current: null };
+    }
+
+    function _activeProjectId() {
+      var pid = SHELL.project.id || null;
+      if (!pid) { try { pid = window.localStorage.getItem(STORAGE_KEY) || null; } catch (_) { pid = null; } }
+      return pid;
+    }
+    function _loadVersionHistory(projectId, opts) {
+      fetch("/api/projects/" + encodeURIComponent(projectId) + "/history")
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (res) {
+          var list = (res && res.revisions) || [];
+          list.sort(function (a, b) { return (b.version || 0) - (a.version || 0); });
+          SHELL.document.versions = SHELL.document.versions || { list: [], current: null };
+          SHELL.document.versions.list = list;
+          if (list.length) {
+            if (opts && opts.current === "latest") {
+              SHELL.document.versions.current = list[0].version;
+            } else if (opts && opts.current != null) {
+              SHELL.document.versions.current = opts.current;
+            } else if (!SHELL.document.versions.current) {
+              SHELL.document.versions.current = list[0].version;
+            }
+          }
+          _renderVersionChip();
+        })
+        .catch(function () {});
+    }
+    function _renderVersionChip() {
+      var versions = SHELL.document.versions || { list: [], current: null };
+      var list = versions.list || [];
+      if (!versionChipEl || list.length < 2) {
+        if (versionChipEl) versionChipEl.hidden = true;
+        if (versionDropdownEl) versionDropdownEl.hidden = true;
+        return;
+      }
+      versionChipEl.hidden = false;
+      var current = versions.current;
+      var idx = -1;
+      for (var i = 0; i < list.length; i++) { if (list[i].version === current) { idx = i; break; } }
+      if (idx < 0) idx = 0;
+      if (versionLabelEl) versionLabelEl.textContent = "v" + current + " of " + list.length;
+      if (versionPrevEl) versionPrevEl.disabled = (idx >= list.length - 1);
+      if (versionNextEl) versionNextEl.disabled = (idx <= 0);
+      if (versionDropdownEl) {
+        while (versionDropdownEl.firstChild) versionDropdownEl.removeChild(versionDropdownEl.firstChild);
+        for (var j = 0; j < list.length; j++) {
+          var rr = list[j];
+          var row = document.createElement("button");
+          row.type = "button";
+          row.className = "version-row" + (rr.version === current ? " is-current" : "");
+          var label = rr.change_summary || ("v" + rr.version);
+          var t = _projectRelativeTime(rr.created_at || rr.timestamp);
+          row.textContent = "v" + rr.version + " · " + label + " · " + t;
+          row.setAttribute("data-version", String(rr.version));
+          row.addEventListener("click", function () {
+            _jumpToVersion(parseInt(this.getAttribute("data-version"), 10));
+          });
+          versionDropdownEl.appendChild(row);
+        }
+      }
+    }
+    function _versionStep(dir) {
+      var versions = SHELL.document.versions || { list: [], current: null };
+      var list = versions.list || [];
+      var idx = -1;
+      for (var i = 0; i < list.length; i++) { if (list[i].version === versions.current) { idx = i; break; } }
+      if (idx < 0) return;
+      var target = null;
+      if (dir < 0 && idx < list.length - 1) target = list[idx + 1];   // ◀ older = higher index (lower version number)
+      if (dir > 0 && idx > 0) target = list[idx - 1];                  // ▶ newer = lower index (higher version number)
+      if (target) _jumpToVersion(target.version);
+    }
+    function _jumpToVersion(n) {
+      var pid = _activeProjectId();
+      if (!pid) return;
+      SHELL.document.versions.current = n;
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/jdf?version=" + encodeURIComponent(n))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (res) {
+          var doc = res && res.document;
+          if (!doc) return;
+          renderJdfDocument(doc);
+          setShell("document.mode", "ready");
+          setShell("document.current", doc);
+          _renderVersionChip();
+          if (versionDropdownEl) versionDropdownEl.hidden = true;
+        })
+        .catch(function () {});
     }
 
     // ---------------------------------------------------------------
@@ -864,6 +992,8 @@
           } else {
             try { console.error("[shell] verified event missing parseable doc.body"); } catch (_) {}
           }
+          var _vid = _activeProjectId();
+          if (_vid) _loadVersionHistory(_vid, { current: "latest" });
         }
       } else if (event === "complete") {
         markDone("Verify");
@@ -1062,6 +1192,7 @@
             resetStages();
             clearDocument();
           }
+          _loadVersionHistory(id, { current: null });
           // compiler panel is per-project — always reset (JDF carries no meta.ask)
           populateCompilerAsk("");
           setCompilerPrompt("");

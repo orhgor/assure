@@ -1568,9 +1568,6 @@ body.collapsed .pane-left {
 .source-item.is-error {
   color: #b3261e;
 }
-#compiler-prompt {
-  white-space: pre-wrap;
-}
 #dock-text.dock-pulse {
   animation: dock-pulse-anim 600ms ease-out;
   box-shadow: 0 0 0 4px var(--accent-soft);
@@ -1675,4 +1672,93 @@ body.collapsed .pane-left {
   margin: 16px;
   font-size: 14px;
   line-height: 1.4;
+}
+
+.compiler-prompt-details {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  margin: 4px 0 12px;
+}
+.compiler-prompt-details > summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  list-style: none;
+  user-select: none;
+}
+.compiler-prompt-details > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease-out;
+}
+.compiler-prompt-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+#compiler-prompt {
+  white-space: pre-wrap;
+  padding: 12px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.version-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  position: relative;
+}
+.version-arrow {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: inherit;
+  font-size: 11px;
+}
+.version-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.version-label {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 10px;
+  cursor: pointer;
+  color: inherit;
+  font-size: 12px;
+}
+.version-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 260px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-surface, #fff);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  z-index: 20;
+}
+.version-row {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.version-row:last-child { border-bottom: none; }
+.version-row:hover { background: var(--bg-hover, #f1f5f9); }
+.version-row.is-current {
+  font-weight: 600;
+  color: var(--accent);
 }
