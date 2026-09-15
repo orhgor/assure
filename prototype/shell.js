@@ -154,39 +154,6 @@
     var text = document.getElementById("dock-text");
     var submit = document.getElementById("dock-submit");
 
-    var newDraftBtn = docEmpty ? docEmpty.querySelector(".btn-primary") : null;
-    if (newDraftBtn && text) {
-      newDraftBtn.addEventListener("click", function () {
-        // 0. Guard: a draft on screen is destructive to replace — confirm.
-        var hasDraft = !!(SHELL.document.current || draftEl);
-        if (hasDraft && !window.confirm("Start a new draft? Your current draft will be lost.")) { return; }
-        // 1. abort everything in flight (abort BEFORE clearing, so no late
-        //    callback rewrites the canvas).
-        if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
-        setShell("streams.draft", null);
-        if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
-        setShell("streams.compareA", null);
-        if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
-        setShell("streams.compareB", null);
-        // 2. reset canvas + stages (restores the empty hero, nulls
-        //    currentJdfDocument via clearDocument). Does NOT clear uploaded
-        //    sources or reload the page.
-        resetStages();
-        clearDocument();
-        // 3. reset compiler panel fields (YOUR ASK / COMPILED PROMPT / ROUTED TO).
-        populateCompilerAsk("");
-        setCompilerPrompt("");
-        populateCompilerRoute("");
-        // 4. switch to the Compiler tab + reset the dock.
-        leftGroupSetTab("compiler");
-        text.value = "";
-        text.focus();
-        try { text.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
-        text.classList.add("dock-pulse");
-        setTimeout(function () { text.classList.remove("dock-pulse"); }, 700);
-      });
-    }
-
     // ---------------------------------------------------------------
     // Source Vault upload (SOURCES tab) — .txt / .md only locally
     // ---------------------------------------------------------------
