@@ -59,6 +59,11 @@ def register_export_routes(app) -> None:
         include_citations = include_citations_raw not in ("0", "false", "no")
         if fmt == "json":
             tree = fetch_latest_jdf_or_empty(project_id)
+            try:
+                from ..services.audit_bundle import compute_export_gate
+            except ImportError:
+                from services.audit_bundle import compute_export_gate
+            gate = compute_export_gate(project_id, tree)
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,
@@ -68,7 +73,23 @@ def register_export_routes(app) -> None:
                 duration_ms=duration_ms,
                 details={"format": fmt},
             )
-            return jsonify({"ok": True, "document": tree})
+            # NOTE: the outer "ok" here is REQUEST success, not the verification
+            # gate. The gate is surfaced separately under gate_status.
+            return jsonify(
+                {
+                    "ok": True,
+                    "document": tree,
+                    "gate_status": gate["gate_status"],
+                    "z3_status": gate["z3_status"],
+                    "unverified": gate["unverified"],
+                    "unverified_reason": gate["unverified_reason"],
+                    "provenance_stats": {
+                        "eligible": gate["eligible"],
+                        "anchored": gate["anchored"],
+                        "unanchored": gate["unanchored"],
+                    },
+                }
+            )
 
         tree = fetch_latest_jdf_or_empty(project_id)
         filename_base = _doc_title(tree)

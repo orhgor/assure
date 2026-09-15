@@ -573,6 +573,17 @@ def attach_z3_annotation(
     return splice_node(tree, node_id, node)
 
 
+def _strip_inline_markdown(text: str) -> str:
+    """Remove inline markdown artifacts so JDF node strings are plain text
+    (provenance exact-matching sees clean source copy)."""
+    t = str(text or "")
+    t = t.replace("**", "").replace("__", "")  # bold
+    t = t.replace("*", " ").replace("_", " ")  # italics / emphasis
+    t = t.replace("`", "")  # code spans / backticks
+    t = re.sub(r"^#{1,6}\s*", "", t)  # leading '#' remnants
+    return re.sub(r"\s{2,}", " ", t).strip()
+
+
 def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
     """Convert draft prose into validated section/paragraph AST fragments."""
     stripped = (text or "").strip()
@@ -606,13 +617,13 @@ def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
         heading = re.match(r"^(#{1,3})\s+(.+)$", block)
         if heading:
             _flush_section()
-            current_title = heading.group(2).strip()
+            current_title = _strip_inline_markdown(heading.group(2))
             continue
         current_children.append(
             {
                 "type": "paragraph",
                 "id": new_node_id("para"),
-                "content": block,
+                "content": _strip_inline_markdown(block),
                 "entities_referenced": [],
                 "meta": {"source": "generate_draft"},
                 "annotations": empty_annotations(),
@@ -631,7 +642,7 @@ def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
                     {
                         "type": "paragraph",
                         "id": new_node_id("para"),
-                        "content": stripped,
+                        "content": _strip_inline_markdown(stripped),
                         "entities_referenced": [],
                         "meta": {"source": "generate_draft"},
                         "annotations": empty_annotations(),
@@ -761,15 +772,46 @@ def _numeric_string_forms(value: float) -> list[str]:
 
 def _tokenize(text):
     import re
+
     text = re.sub(r"[^\w\s]", " ", str(text or "").lower())
-    STOP = {"a","an","the","of","and","or","to","in","on","for","is",
-            "are","was","were","be","by","with","as","at","this","that",
-            "it","its","from","but","shall","will","may","any","all"}
+    STOP = {
+        "a",
+        "an",
+        "the",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "on",
+        "for",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "by",
+        "with",
+        "as",
+        "at",
+        "this",
+        "that",
+        "it",
+        "its",
+        "from",
+        "but",
+        "shall",
+        "will",
+        "may",
+        "any",
+        "all",
+    }
     return {t for t in text.split() if len(t) > 2 and t not in STOP}
 
 
 def _split_sentences(text):
     import re
+
     text = str(text or "")
     pieces = re.split(r"(--- Page \d+ ---)", text)
     out = []
@@ -854,8 +896,7 @@ def attach_substrate_provenance_to_tree(
         node_copy = copy.deepcopy(node)
         existing = node_copy.get("provenance") or []
         source_id = str(best_row.get("id") or "")
-        if any(isinstance(p, dict) and p.get("source_id") == source_id
-               for p in existing):
+        if any(isinstance(p, dict) and p.get("source_id") == source_id for p in existing):
             continue
 
         page_val = best_page if best_page is not None else best_row.get("page_count")
@@ -864,15 +905,17 @@ def attach_substrate_provenance_to_tree(
         except (TypeError, ValueError):
             page_str = ""
 
-        existing.append({
-            "source_type": "internal_doc",
-            "source_name": best_row.get("filename") or "",
-            "url_or_doi": "",
-            "source_id": source_id,
-            "page_number": page_str,
-            "extracted_quote": best_sent[:280].strip(),
-            "accessed_date": "",
-        })
+        existing.append(
+            {
+                "source_type": "internal_doc",
+                "source_name": best_row.get("filename") or "",
+                "url_or_doi": "",
+                "source_id": source_id,
+                "page_number": page_str,
+                "extracted_quote": best_sent[:280].strip(),
+                "accessed_date": "",
+            }
+        )
         node_copy["provenance"] = existing
         mutated, _ = splice_node(mutated, node_id, node_copy)
 

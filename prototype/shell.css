@@ -1552,3 +1552,19 @@ body.collapsed .pane-left {
   text-decoration: underline;
   padding: 2px 6px;
 }
+/* ---------------------------------------------------------------------
+   Source Vault upload list (SOURCES tab)
+   --------------------------------------------------------------------- */
+.source-list {
+  display: block;
+  margin-top: 8px;
+}
+.source-item {
+  font-size: 12px;
+  font-family: var(--font-body, inherit);
+  color: var(--text-color, currentColor);
+  padding: 2px 6px;
+}
+.source-item.is-error {
+  color: #b3261e;
+}

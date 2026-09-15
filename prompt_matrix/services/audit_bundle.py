@@ -24,6 +24,146 @@ def _esc(text: str) -> str:
     return html.escape(str(text or ""))
 
 
+def _walk_nodes(tree: dict[str, Any]):
+    for section in tree.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        yield section
+        for child in section.get("children") or []:
+            if isinstance(child, dict):
+                yield child
+
+
+def _derive_z3_from_tree(tree: dict[str, Any]) -> str:
+    has_viol = False
+    has_pass = False
+    for node in _walk_nodes(tree):
+        for z in (node.get("annotations") or {}).get("z3") or []:
+            if (z or {}).get("status") == "violation":
+                has_viol = True
+            elif (z or {}).get("status") == "pass":
+                has_pass = True
+    if has_viol:
+        return "VIOLATION"
+    if has_pass:
+        return "PASS"
+    return "SKIPPED"
+
+
+def _derive_redhat_count(tree: dict[str, Any]) -> int:
+    total = 0
+    for node in _walk_nodes(tree):
+        total += len((node.get("annotations") or {}).get("redhat") or [])
+    return total
+
+
+def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
+    stats = g.get("provenance_stats") or g
+    eligible = int(stats.get("eligible") or 0)
+    anchored = int(stats.get("anchored") or 0)
+    unanchored = int(stats.get("unanchored") or (eligible - anchored))
+    return {
+        "gate_status": str(g.get("gate_status") or "review"),
+        "z3_status": str(g.get("z3_status") or "SKIPPED"),
+        "redhat_count": int(g.get("redhat_count") or 0),
+        "unverified": bool(g.get("unverified")),
+        "unverified_reason": str(g.get("unverified_reason") or ""),
+        "eligible": eligible,
+        "anchored": anchored,
+        "unanchored": unanchored,
+        "has_substrate": bool(g.get("has_substrate", False)),
+        "provenance_stats": {
+            "eligible": eligible,
+            "anchored": anchored,
+            "unanchored": unanchored,
+        },
+    }
+
+
+def _read_persisted_gate(project_id: str) -> dict[str, Any] | None:
+    try:
+        from ..history import get_db
+        from ..db.connection import init_db
+    except ImportError:
+        from history import get_db
+        from db.connection import init_db
+    try:
+        init_db()
+        db = get_db()
+        row = db.execute(
+            "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
+        ).fetchone()
+        if not row or not row[0]:
+            return None
+        data = json.loads(row[0])
+        gate = (data or {}).get("gate")
+        return _normalize_gate(gate) if isinstance(gate, dict) else None
+    except Exception:
+        return None
+
+
+def compute_export_gate(
+    project_id: str,
+    tree: dict[str, Any],
+    *,
+    z3_results: dict[str, Any] | None = None,
+    redhat_critiques: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Recompute the verification gate for an export. No persistence added."""
+    # Prefer the gate block persisted at compile time; compute only as a
+    # fallback for revisions (pre-fix docs) without a persisted block.
+    persisted = _read_persisted_gate(project_id)
+    if persisted is not None:
+        return persisted
+    try:
+        from ..services.audit_summary import _eligible_and_anchored, compute_gate_status
+    except ImportError:
+        from services.audit_summary import _eligible_and_anchored, compute_gate_status
+    try:
+        from ..db.substrate_repository import list_substrate_for_project
+    except ImportError:
+        from db.substrate_repository import list_substrate_for_project
+
+    eligible, anchored = _eligible_and_anchored(tree)
+    z3_status = str((z3_results or {}).get("status") or _derive_z3_from_tree(tree) or "SKIPPED")
+    redhat_count = (
+        len(redhat_critiques) if redhat_critiques is not None else _derive_redhat_count(tree)
+    )
+    has_substrate = bool(list_substrate_for_project(project_id))
+
+    if anchored == 0:
+        gate_status = "review"
+        unverified = True
+        if has_substrate:
+            reason = f"0 of {eligible} claims matched any source sentence."
+        else:
+            reason = "No sources included in this compile — output is ungrounded."
+    else:
+        gate_status = compute_gate_status(z3_status, redhat_count)
+        unverified = False
+        reason = ""
+
+    return {
+        "gate_status": gate_status,
+        "z3_status": z3_status,
+        "redhat_count": redhat_count,
+        "unverified": unverified,
+        "unverified_reason": reason,
+        "eligible": eligible,
+        "anchored": anchored,
+        "unanchored": eligible - anchored,
+        "has_substrate": has_substrate,
+    }
+
+
+def gate_markdown(project_id: str, tree: dict[str, Any], gate: dict[str, Any]) -> str:
+    lines = [f"Verification Gate: {gate.get('gate_status')}"]
+    if gate.get("unverified"):
+        lines.append(gate.get("unverified_reason") or "")
+        lines.append(f"Claims anchored: {gate.get('anchored')} of {gate.get('eligible')}")
+    return "\n".join(l for l in lines if l)
+
+
 def build_audit_bundle_html(
     project_id: str,
     tree: dict[str, Any],
@@ -53,6 +193,19 @@ def build_audit_bundle_html(
     toc_html = "".join(f"<li>{_esc(item)}</li>" for item in toc_items)
 
     doc_html = jdf_to_html(tree)
+    gate = compute_export_gate(
+        project_id, tree, z3_results=z3_results, redhat_critiques=redhat_critiques
+    )
+    gate_html = (
+        "<h1>0. Verification Gate</h1>"
+        + f"<p><strong>Gate: {_esc(gate['gate_status'])}</strong></p>"
+        + (f"<p>{_esc(gate['unverified_reason'])}</p>" if gate.get("unverified") else "")
+        + (
+            f"<p>Claims anchored: {gate['anchored']} of {gate['eligible']}</p>"
+            if gate.get("unverified")
+            else ""
+        )
+    )
     z3_rows = ""
     for span in spans[:50]:
         z3_rows += (
@@ -118,6 +271,8 @@ th {{ background: #f5f5f5; }}
 <h1>Table of Contents</h1>
 <ol class="toc">{toc_html}</ol>
 
+{gate_html}
+
 <h1>1. Executive Summary</h1>
 <p>This report bundles the verified JDF document, Z3 verification results, Red-Hat critique,
 sign-off records, and document lock hash for compliance review.</p>
@@ -174,4 +329,16 @@ def export_audit_bundle_pdf(
     pdf = _pdf_via_playwright(html_body)
     if pdf:
         return pdf
-    return _pdf_via_simple(tree)
+    # Fallback text PDF — surface the gate at the top so the exported artifact
+    # reflects verification state even without an HTML renderer.
+    gate = compute_export_gate(
+        project_id, tree, z3_results=z3_results, redhat_critiques=redhat_critiques
+    )
+    prefix = gate_markdown(project_id, tree, gate)
+    md = jdf_to_markdown(tree)
+    body = (prefix + "\n\n" + md) if prefix else md
+    try:
+        from ..history import _simple_pdf
+    except ImportError:
+        from history import _simple_pdf
+    return _simple_pdf(f"Audit-{project_id}", body)

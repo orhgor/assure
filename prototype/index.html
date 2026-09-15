@@ -135,8 +135,10 @@
 
       <div id="left-sources" class="pane-mode" style="display:none;">
         <div class="pane-body">
-          <p class="empty-hint">The substrate vault is read-only in this shell.</p>
-          <button type="button" class="btn-secondary" disabled>Upload source document</button>
+          <p class="empty-hint">Upload a .txt or .md to ground this project.</p>
+          <button type="button" class="btn-secondary" id="source-upload-btn">Upload source document</button>
+          <input type="file" id="source-file-input" accept=".txt,.md,text/plain,text/markdown" style="display:none;">
+          <div id="source-list" class="source-list"></div>
         </div>
       </div>
 
@@ -186,7 +188,7 @@
         <div class="empty-hero" id="doc-empty-hero">
           <h2>Start a new draft</h2>
           <p>Type an intent below or choose a template.</p>
-          <button type="button" class="btn-primary">New draft</button>
+          <button type="button" class="btn-primary" id="new-draft-btn">New draft</button>
         </div>
       </section>
 
