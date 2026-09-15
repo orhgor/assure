@@ -305,6 +305,14 @@
       if (k === "b") {
         e.preventDefault();
         setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+      } else if (k === "." || k === ">") {
+        e.preventDefault();
+        var bothCollapsed =
+          SHELL.ui.layout.leftCollapsed &&
+          SHELL.ui.layout.rightCollapsed;
+        var target = !bothCollapsed;
+        setShell("ui.layout.leftCollapsed",  target);
+        setShell("ui.layout.rightCollapsed", target);
       } else if (k === "j") {
         e.preventDefault();
         setShell("ui.layout.rightCollapsed", !SHELL.ui.layout.rightCollapsed);
@@ -1405,6 +1413,10 @@
       // feels wrong in use, change to: only expand when
       // SHELL.ui.layout.rightCollapsed is false OR when the user is
       // in Compare mode.
+      // Note: this re-expands the right pane even during focus mode
+      // (both panes collapsed). If that feels wrong in use, gate
+      // this call on: !(SHELL.ui.layout.leftCollapsed &&
+      // SHELL.ui.layout.rightCollapsed).
       openRight();
       var parser = parseSseLoop(
         handleEvent,
