@@ -1568,3 +1568,6 @@ body.collapsed .pane-left {
 .source-item.is-error {
   color: #b3261e;
 }
+#compiler-prompt {
+  white-space: pre-wrap;
+}
