@@ -1762,3 +1762,30 @@ body.collapsed .pane-left {
   font-weight: 600;
   color: var(--accent);
 }
+
+.jdf-node.is-selected {
+  border-left: 4px solid var(--accent);
+  background: rgba(99, 102, 241, 0.06);
+  margin-left: -4px;
+  padding-left: 12px;
+}
+.inspector-empty {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+#compare-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+#compare-toggle.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.08);
+}

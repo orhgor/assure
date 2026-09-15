@@ -50,6 +50,14 @@
   var versionNextEl = null;
   var versionLabelEl = null;
   var versionDropdownEl = null;
+  var z3ModeEl = null;
+  var redhatModeEl = null;
+  var inspectorEmptyEl = null;
+  var rightInspectorEl = null;
+  var compareToggleEl = null;
+  var rightModeToggleEl = null;
+  var _applyRightViewFn = null;
+  var inspectorCompareActive = false;
 
   function setShell(path, value) {
     var parts = path.split(".");
@@ -99,10 +107,6 @@
       });
       if (docBodyEl) docBodyEl.classList.remove("collapsed");
     } else if (path === "ui.rightTab") {
-      var rp = { evidence: evidenceModeEl, compare: compareModeEl };
-      Object.keys(rp).forEach(function (k) {
-        if (rp[k]) rp[k].style.display = (k === value) ? "block" : "none";
-      });
       document.querySelectorAll("[data-right-tab]").forEach(function (t) {
         if (t.getAttribute("data-right-tab") === value) {
           t.classList.add("is-active");
@@ -113,6 +117,17 @@
         }
       });
       if (docBodyEl) docBodyEl.classList.remove("right-hidden");
+      inspectorCompareActive = false;
+      if (_applyRightViewFn) _applyRightViewFn();
+    } else if (path === "ui.selection.nodeId") {
+      var prevSel = document.querySelector(".doc-draft .jdf-node.is-selected");
+      if (prevSel) prevSel.classList.remove("is-selected");
+      if (value) {
+        var selEl = document.querySelector('.doc-draft .jdf-node[data-node-id="' + String(value) + '"]');
+        if (selEl) selEl.classList.add("is-selected");
+      }
+      inspectorCompareActive = false;
+      if (_applyRightViewFn) _applyRightViewFn();
     }
   }
 
@@ -265,7 +280,7 @@
         else if (kind === "activity") leftGroupSetTab("pipeline");
         else if (kind === "history")  leftGroupSetTab("history");
         else if (kind === "shield")   rightGroupSetTab("evidence");
-        else if (kind === "swap")     rightGroupSetTab("compare");
+        else if (kind === "swap")     _toggleCompareView();
       });
     });
 
@@ -1212,6 +1227,10 @@
     });
     _refreshProjectName();
 
+    // S1: right inspector visible on load with the empty state.
+    openRight();
+    _applyRightView();
+
     // T2: populate SHELL.sources on init so compiles after reload carry
     // real substrate_file_ids (S0.5 — currently via sourceIds, now SHELL.sources).
     var initId = SHELL.project.id;
@@ -1579,8 +1598,25 @@
     leftHistoryEl  = document.getElementById("left-history");
     evidenceModeEl = document.getElementById("right-evidence");
     compareModeEl  = document.getElementById("right-compare");
+    z3ModeEl         = document.getElementById("right-z3");
+    redhatModeEl     = document.getElementById("right-redhat");
+    inspectorEmptyEl = document.getElementById("inspector-empty");
+    rightInspectorEl = document.getElementById("right-inspector");
+    compareToggleEl  = document.getElementById("compare-toggle");
+    rightModeToggleEl = document.querySelector("#pane-right .mode-toggle");
+    _applyRightViewFn = _applyRightView;
     var compareBodyEl  = document.getElementById("compare-body");
-    var evidenceBodyEl = document.getElementById("evidence-body");
+    var evidenceBodyEl = evidenceModeEl;
+    if (docSurface) docSurface.addEventListener("click", function (e) {
+      if (e.target.closest(".jdf-span")) return;
+      if (e.target.closest(".jdf-chip")) return;
+      var nodeEl = e.target.closest("[data-node-id]");
+      setShell("ui.selection.nodeId", nodeEl ? nodeEl.getAttribute("data-node-id") : null);
+    });
+    if (compareToggleEl) compareToggleEl.addEventListener("click", function () {
+      if (compareInFlight) return;
+      _toggleCompareView();
+    });
     var intentPanelSlot = document.getElementById("intent-panel-slot");
     var pinnedListEl   = document.getElementById("pinned-list"); // removed; helpers no-op
     var compareInFlight = false;
@@ -1597,7 +1633,8 @@
     };
     var RIGHT_TABPANE = {
       evidence: evidenceModeEl,
-      compare:  compareModeEl,
+      z3:     z3ModeEl,
+      redhat: redhatModeEl,
     };
 
     function leftGroupSetTab(name) {
@@ -1614,19 +1651,17 @@
 
     // Backward-compatible dispatch used by existing flows.
     function setMode(name) {
-      if (name === "evidence" || name === "compare") {
-        rightGroupSetTab(name);
-        return;
-      }
+      if (name === "compare") { _toggleCompareView(); return; }
+      if (name === "evidence") { rightGroupSetTab("evidence"); return; }
       leftGroupSetTab(name);
     }
 
     function setCompareDisabled(disabled) {
       compareInFlight = !!disabled;
-      document.querySelectorAll("[data-right-tab=\"compare\"]").forEach(function (t) {
-        if (disabled) t.classList.add("is-disabled");
-        else          t.classList.remove("is-disabled");
-      });
+      if (compareToggleEl) {
+        if (disabled) compareToggleEl.classList.add("is-disabled");
+        else          compareToggleEl.classList.remove("is-disabled");
+      }
     }
 
     document.querySelectorAll("[data-left-tab]").forEach(function (t) {
@@ -1637,8 +1672,7 @@
     document.querySelectorAll("[data-right-tab]").forEach(function (t) {
       t.addEventListener("click", function () {
         if (t.classList.contains("is-disabled")) return;
-        var name = rightGroupSetTab(t.getAttribute("data-right-tab"));
-        if (name === "compare" && !compareDataLoaded) runCompare();
+        rightGroupSetTab(t.getAttribute("data-right-tab"));
       });
     });
 
@@ -2020,6 +2054,7 @@
         evidence = { kind: "redhat", nodeId: nodeId, data: node.annotations.redhat[index], index: index };
       }
       if (!evidence) return;
+      setShell("ui.selection.nodeId", nodeId);
       setShell("ui.selection.evidence", evidence);
       renderEvidenceDrawer(evidence);
       openRight();
@@ -2052,6 +2087,7 @@
       var host = span.closest(".compare-col-body, .doc-draft, .doc-surface");
       var tree = (host && host.__jdfDoc) ? host.__jdfDoc : SHELL.document.current;
       var node = findJdfNodeById(nodeId, tree);
+      setShell("ui.selection.nodeId", nodeId);
       renderConfidenceEvidence(span, node);
       setShell("ui.selection.evidence", { kind: "confidence", nodeId: nodeId, data: {} });
       openRight();
@@ -2132,6 +2168,144 @@
       var scoreText = (score <= 1) ? (Math.round(score * 100) + "%") : String(score);
       foot.textContent = "Verification score: " + scoreText;
       evidenceBodyEl.appendChild(foot);
+    }
+
+    function _setInspectorPane(active) {
+      var panes = { evidence: evidenceModeEl, z3: z3ModeEl, redhat: redhatModeEl };
+      Object.keys(panes).forEach(function (k) {
+        if (panes[k]) panes[k].style.display = (k === active) ? "block" : "none";
+      });
+    }
+    function renderEvidencePanel(node) {
+      if (!evidenceBodyEl) return;
+      while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
+      var prov = node.provenance;
+      if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
+      if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+      var p0 = prov[0] || null;
+      var header = document.createElement("div");
+      header.className = "evidence-header";
+      if (!p0) {
+        header.textContent = "Evidence · no source matched";
+        evidenceBodyEl.appendChild(header);
+        var empty = document.createElement("div");
+        empty.className = "evidence-content";
+        var emptyMsg = document.createElement("p");
+        emptyMsg.className = "evidence-value";
+        emptyMsg.textContent = "No source matched this paragraph";
+        empty.appendChild(emptyMsg);
+        evidenceBodyEl.appendChild(empty);
+        return;
+      }
+      var srcName = String(p0.source_name || "");
+      var pageStr = (p0.page_number != null && p0.page_number !== "") ? String(p0.page_number) : "";
+      header.textContent = "Evidence · " + (srcName || "source") + (pageStr ? " · page " + pageStr : "");
+      evidenceBodyEl.appendChild(header);
+      var content = document.createElement("div");
+      content.className = "evidence-content";
+      var excerpt = String(p0.excerpt || p0.extracted_quote || "");
+      if (excerpt) {
+        var quote = document.createElement("blockquote");
+        quote.className = "evidence-blockquote";
+        quote.textContent = excerpt;
+        content.appendChild(quote);
+      }
+      function field(label, value) {
+        var s = String(value == null ? "" : value);
+        if (!s) return;
+        var f = document.createElement("div");
+        f.className = "evidence-field";
+        var l = document.createElement("div"); l.className = "evidence-label"; l.textContent = label;
+        var v = document.createElement("div"); v.className = "evidence-value"; v.textContent = s;
+        f.appendChild(l); f.appendChild(v); content.appendChild(f);
+      }
+      field("Source", srcName);
+      if (pageStr) field("Page", pageStr);
+      field("Rule", p0.rule);
+      field("Confidence", p0.confidence);
+      evidenceBodyEl.appendChild(content);
+    }
+    function renderZ3Panel(node) {
+      var el = z3ModeEl; if (!el) return;
+      while (el.firstChild) el.removeChild(el.firstChild);
+      var z3 = (node.annotations && node.annotations.z3) || [];
+      var wrap = document.createElement("div"); wrap.className = "evidence-content";
+      if (!z3.length) {
+        var p = document.createElement("p"); p.className = "evidence-value";
+        p.textContent = "No Z3 findings for this node."; wrap.appendChild(p);
+        el.appendChild(wrap); return;
+      }
+      var list = document.createElement("ul");
+      z3.forEach(function (z) {
+        var li = document.createElement("li");
+        var parts = [];
+        if (z.status) parts.push(z.status);
+        if (z.canonical_key) parts.push(z.canonical_key);
+        if (z.message) parts.push(z.message);
+        li.textContent = parts.join(" — ");
+        list.appendChild(li);
+      });
+      wrap.appendChild(list); el.appendChild(wrap);
+    }
+    function renderRedhatPanel(node) {
+      var el = redhatModeEl; if (!el) return;
+      while (el.firstChild) el.removeChild(el.firstChild);
+      var rh = (node.annotations && node.annotations.redhat) || [];
+      var wrap = document.createElement("div"); wrap.className = "evidence-content";
+      if (!rh.length) {
+        var p = document.createElement("p"); p.className = "evidence-value";
+        p.textContent = "No Red-Hat findings for this node."; wrap.appendChild(p);
+        el.appendChild(wrap); return;
+      }
+      var list = document.createElement("ul");
+      rh.forEach(function (r) {
+        var li = document.createElement("li");
+        var parts = [];
+        if (r.severity) parts.push(r.severity);
+        var body = r.text || r.message || r.critique || "";
+        if (body) parts.push(String(body));
+        li.textContent = parts.join(" — ");
+        list.appendChild(li);
+      });
+      wrap.appendChild(list); el.appendChild(wrap);
+    }
+    function _applyRightView() {
+      var insp = rightInspectorEl;
+      var cmp = compareModeEl;
+      if (inspectorCompareActive) {
+        if (rightModeToggleEl) rightModeToggleEl.style.display = "none";
+        if (insp) insp.style.display = "none";
+        if (cmp) cmp.style.display = "block";
+        if (compareToggleEl) compareToggleEl.classList.add("is-active");
+        return;
+      }
+      if (rightModeToggleEl) rightModeToggleEl.style.display = "";
+      if (compareToggleEl) compareToggleEl.classList.remove("is-active");
+      if (insp) insp.style.display = "block";
+      if (cmp) cmp.style.display = "none";
+      var nodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+      var emptyEl = inspectorEmptyEl;
+      if (!nodeId) {
+        if (emptyEl) emptyEl.style.display = "";
+        _setInspectorPane(null);
+        return;
+      }
+      var node = (SHELL.document.current) ? findJdfNodeById(nodeId, SHELL.document.current) : null;
+      if (!node) {
+        if (emptyEl) emptyEl.style.display = "";
+        _setInspectorPane(null);
+        return;
+      }
+      if (emptyEl) emptyEl.style.display = "none";
+      renderEvidencePanel(node);
+      renderZ3Panel(node);
+      renderRedhatPanel(node);
+      _setInspectorPane(SHELL.ui.rightTab || "evidence");
+    }
+    function _toggleCompareView() {
+      inspectorCompareActive = !inspectorCompareActive;
+      if (inspectorCompareActive && !compareDataLoaded) runCompare();
+      _applyRightView();
     }
 
     function renderEvidenceDrawer(ev) {
