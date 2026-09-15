@@ -67,8 +67,8 @@
 
   /* Layout */
   --rail-w:       48px;
-  --left-w:       260px;
-  --right-w:      400px;
+  --left-w:       320px;
+  --right-w:      480px;
   --dock-h:       84px;
   --header-h:     48px;
 
@@ -330,13 +330,14 @@ button {
    ============================================================= */
 
 .app-shell {
+  position: relative;
   flex: 1 1 auto;
   display: grid;
   grid-template-columns:
     var(--rail-w)
-    var(--left-w)
+    var(--left-w, 320px)
     1fr
-    var(--right-w);
+    var(--right-w, 480px);
   grid-template-rows: 100%;
   width: 100%;
   height: 100%;
@@ -351,14 +352,14 @@ body.collapsed .app-shell {
     var(--rail-w)
     0px
     1fr
-    var(--right-w);
+    var(--right-w, 480px);
 }
 
 /* Hidden right: set column to 0, close drawer completely */
 body.right-hidden .app-shell {
   grid-template-columns:
     var(--rail-w)
-    var(--left-w)
+    var(--left-w, 320px)
     1fr
     0px;
 }
@@ -1789,3 +1790,41 @@ body.collapsed .pane-left {
   color: var(--accent);
   background: rgba(99, 102, 241, 0.08);
 }
+
+/* =============================================================
+   Pane resizers (drag handles between left/center and center/right).
+   Absolutely positioned inside .app-shell so CSS Grid does NOT
+   auto-place them into a grid track.
+   The left offset uses --rail-w so the rail width and the resizer
+   stay in sync; if the rail width ever changes, both update together.
+   ============================================================= */
+.pane-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  z-index: 50;
+  cursor: col-resize;
+  background: transparent;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.15s ease-out;
+}
+#resize-left  { left: calc(var(--rail-w) + var(--left-w, 320px) - 3px); }
+#resize-right { right: calc(var(--right-w, 480px) - 3px); }
+.pane-resizer:hover,
+.pane-resizer.dragging,
+.pane-resizer:focus-visible {
+  background: var(--accent);
+}
+
+/* During a drag the column transition would rubber-band the pane behind
+   the cursor; kill it for drags only (keyboard moves keep the smooth
+   transition). */
+body.resizing .app-shell { transition: none; }
+
+/* Hide the resizer when its pane is collapsed. */
+body.collapsed #resize-left       { display: none; }
+body.right-hidden #resize-right   { display: none; }
+body.collapsed.right-hidden #resize-left,
+body.collapsed.right-hidden #resize-right { display: none; }

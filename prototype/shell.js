@@ -28,6 +28,7 @@
       leftTab: "sources",
       rightTab: "evidence",
       selection: { nodeId: null, evidence: null },
+      layout: { leftWidth: 320, rightWidth: 480 },
     },
   };
 
@@ -128,6 +129,10 @@
       }
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
+    } else if (path === "ui.layout.leftWidth") {
+      document.documentElement.style.setProperty("--left-w", value + "px");
+    } else if (path === "ui.layout.rightWidth") {
+      document.documentElement.style.setProperty("--right-w", value + "px");
     }
   }
 
@@ -148,6 +153,16 @@
   document.addEventListener("DOMContentLoaded", function () {
     var body = document.body;
     docBodyEl = body;
+    // Restore persisted pane widths (before first render) so the grid
+    // reflects them from the start.
+    try {
+      var lw = parseInt(localStorage.getItem("assure.left_w"), 10);
+      if (!isNaN(lw)) SHELL.ui.layout.leftWidth  = Math.min(600, Math.max(200, lw));
+      var rw = parseInt(localStorage.getItem("assure.right_w"), 10);
+      if (!isNaN(rw)) SHELL.ui.layout.rightWidth = Math.min(720, Math.max(320, rw));
+    } catch (_) {}
+    setShell("ui.layout.leftWidth",  SHELL.ui.layout.leftWidth);
+    setShell("ui.layout.rightWidth", SHELL.ui.layout.rightWidth);
     var docSurface = document.querySelector(".doc-surface");
     docEmpty = docSurface ? docSurface.querySelector(".empty-hero") : null;
     compilerAskEl    = document.getElementById("compiler-ask");
@@ -268,6 +283,87 @@
     function closeRight() { body.classList.add("right-hidden"); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
     function openLeft() { body.classList.remove("collapsed"); }
+
+    // ---------------------------------------------------------------
+    // Pane resizers (left / center / right). Width lives in
+    // SHELL.ui.layout and is reflected by CSS variables; no library.
+    // ---------------------------------------------------------------
+    var _railFallback = 48;
+    function _railPx() {
+      var raw = parseInt(window.getComputedStyle(document.documentElement).getPropertyValue("--rail-w"), 10);
+      return isNaN(raw) ? _railFallback : raw;
+    }
+    function _wireResizer(el, side) {
+      if (!el) return;
+      var startX = 0, startWidth = 0, dragging = false;
+      var MIN_LEFT = 200, MIN_RIGHT = 320, MIN_CENTER = 400;
+
+      el.addEventListener("pointerdown", function (e) {
+        dragging = true;
+        startX = e.clientX;
+        startWidth = side === "left" ? SHELL.ui.layout.leftWidth : SHELL.ui.layout.rightWidth;
+        el.classList.add("dragging");
+        document.body.classList.add("resizing");
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+      });
+
+      el.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        var delta = e.clientX - startX;
+        var rail = _railPx();
+        var other = side === "left" ? SHELL.ui.layout.rightWidth : SHELL.ui.layout.leftWidth;
+        var maxForSide = window.innerWidth - rail - other - MIN_CENTER;
+        var next;
+        if (side === "left") {
+          next = Math.min(maxForSide, Math.max(MIN_LEFT, startWidth + delta));
+          setShell("ui.layout.leftWidth", next);
+        } else {
+          next = Math.min(maxForSide, Math.max(MIN_RIGHT, startWidth - delta));
+          setShell("ui.layout.rightWidth", next);
+        }
+      });
+
+      el.addEventListener("pointerup", function (e) {
+        if (!dragging) return;
+        dragging = false;
+        el.classList.remove("dragging");
+        document.body.classList.remove("resizing");
+        try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        try {
+          localStorage.setItem(
+            side === "left" ? "assure.left_w" : "assure.right_w",
+            String(side === "left" ? SHELL.ui.layout.leftWidth : SHELL.ui.layout.rightWidth)
+          );
+        } catch (_) {}
+      });
+
+      el.addEventListener("pointercancel", function () {
+        dragging = false;
+        el.classList.remove("dragging");
+        document.body.classList.remove("resizing");
+      });
+
+      // Keyboard accessibility: arrow keys 8px (32px with Shift).
+      el.addEventListener("keydown", function (e) {
+        var step = e.shiftKey ? 32 : 8;
+        var cur = side === "left" ? SHELL.ui.layout.leftWidth : SHELL.ui.layout.rightWidth;
+        var next = cur;
+        if (e.key === "ArrowLeft")  next = side === "left" ? cur - step : cur + step;
+        if (e.key === "ArrowRight") next = side === "left" ? cur + step : cur - step;
+        if (next !== cur) {
+          e.preventDefault();
+          setShell(side === "left" ? "ui.layout.leftWidth" : "ui.layout.rightWidth", next);
+          try {
+            localStorage.setItem(
+              side === "left" ? "assure.left_w" : "assure.right_w", String(next)
+            );
+          } catch (_) {}
+        }
+      });
+    }
+    _wireResizer(document.getElementById("resize-left"),  "left");
+    _wireResizer(document.getElementById("resize-right"), "right");
 
     // Rail icons open the correct tab in the left (generation) or right
     // (verification) column. leftGroupSetTab / rightGroupSetTab are declared
