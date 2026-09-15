@@ -1571,3 +1571,97 @@ body.collapsed .pane-left {
 #compiler-prompt {
   white-space: pre-wrap;
 }
+#dock-text.dock-pulse {
+  animation: dock-pulse-anim 600ms ease-out;
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+@keyframes dock-pulse-anim {
+  0%   { box-shadow: 0 0 0 0px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 8px rgba(0, 0, 0, 0); }
+}
+/* Project switcher (top bar dropdown) */
+.project-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+}
+.project-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-card);
+  padding: 4px 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  cursor: pointer;
+}
+.project-switcher-btn:hover {
+  border-color: var(--accent);
+}
+.project-switcher-btn svg {
+  color: var(--text-muted);
+}
+.project-switcher-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 300px;
+  max-width: 360px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 40;
+  padding: 6px;
+}
+.project-new-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.project-new-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.project-list {
+  max-height: 320px;
+  overflow: auto;
+}
+.project-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.project-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.project-row.is-active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.project-row-title {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.project-row-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}

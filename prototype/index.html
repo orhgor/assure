@@ -16,6 +16,16 @@
   <header class="app-header" role="banner">
     <div class="app-header-left">
       <span class="app-logo-mark" aria-hidden="true"></span>
+      <div class="project-switcher">
+        <button type="button" id="project-switcher" class="project-switcher-btn" aria-haspopup="true" aria-expanded="false" title="Switch project">
+          <span id="project-current-name">Untitled</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div id="project-switcher-panel" class="project-switcher-panel" hidden>
+          <button type="button" id="project-new-btn" class="project-new-btn">+ New project</button>
+          <div id="project-list" class="project-list"></div>
+        </div>
+      </div>
       <nav class="app-breadcrumb" aria-label="Breadcrumb">
         <span class="crumb crumb-strong">Assure</span>
         <span class="crumb-sep" aria-hidden="true">·</span>

@@ -24,12 +24,30 @@
     var newDraftBtn = docEmpty ? docEmpty.querySelector(".btn-primary") : null;
     if (newDraftBtn && text) {
       newDraftBtn.addEventListener("click", function () {
-        // New draft: clear + focus the dock, open the Compiler tab. Do NOT
-        // clear uploaded sources or the center document.
+        // 0. Guard: a draft on screen is destructive to replace — confirm.
+        var hasDraft = !!(currentJdfDocument || draftEl);
+        if (hasDraft && !window.confirm("Start a new draft? Your current draft will be lost.")) { return; }
+        // 1. abort everything in flight (abort BEFORE clearing, so no late
+        //    callback rewrites the canvas).
+        if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
+        if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
+        if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+        // 2. reset canvas + stages (restores the empty hero, nulls
+        //    currentJdfDocument via clearDocument). Does NOT clear uploaded
+        //    sources or reload the page.
+        resetStages();
+        clearDocument();
+        // 3. reset compiler panel fields (YOUR ASK / COMPILED PROMPT / ROUTED TO).
+        populateCompilerAsk("");
+        setCompilerPrompt("");
+        populateCompilerRoute("");
+        // 4. switch to the Compiler tab + reset the dock.
+        leftGroupSetTab("compiler");
         text.value = "";
         text.focus();
         try { text.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (_) {}
-        leftGroupSetTab("compiler");
+        text.classList.add("dock-pulse");
+        setTimeout(function () { text.classList.remove("dock-pulse"); }, 700);
       });
     }
 
@@ -778,7 +796,165 @@
         });
     }
 
+    // ---------------------------------------------------------------
+    // Project switcher (top bar dropdown)
+    // ---------------------------------------------------------------
+    var projectSwitcherBtn = document.getElementById("project-switcher");
+    var projectSwitcherPanel = document.getElementById("project-switcher-panel");
+    var projectCurrentNameEl = document.getElementById("project-current-name");
+    var projectNewBtn = document.getElementById("project-new-btn");
+    var projectListEl = document.getElementById("project-list");
+
+    function _projectRelativeTime(ts) {
+      if (!ts) return "never";
+      var s = String(ts);
+      var t = new Date(s.indexOf("T") >= 0 ? s : (s.replace(" ", "T") + "Z"));
+      var diff = (Date.now() - (t ? t.getTime() : Date.now())) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      return Math.floor(diff / 86400) + "d ago";
+    }
+    function _openProjectPanel() {
+      if (!projectSwitcherPanel) return;
+      projectSwitcherPanel.hidden = false;
+      if (projectSwitcherBtn) projectSwitcherBtn.setAttribute("aria-expanded", "true");
+      _loadProjectsList();
+    }
+    function _closeProjectPanel() {
+      if (!projectSwitcherPanel) return;
+      projectSwitcherPanel.hidden = true;
+      if (projectSwitcherBtn) projectSwitcherBtn.setAttribute("aria-expanded", "false");
+    }
+    function _loadProjectsList() {
+      if (!projectListEl) return;
+      fetch("/api/projects")
+        .then(function (resp) { if (!resp.ok) throw new Error("projects GET " + resp.status); return resp.json(); })
+        .then(function (j) {
+          while (projectListEl.firstChild) projectListEl.removeChild(projectListEl.firstChild);
+          var projects = (j && j.projects) || [];
+          var totalProjects = projects.length;
+          projects = projects.slice(0, 10);
+          var active = "";
+          try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {}
+          projects.forEach(function (p) {
+            var row = document.createElement("button");
+            row.type = "button";
+            row.className = "project-row" + (p.id === active ? " is-active" : "");
+            var title = document.createElement("span");
+            title.className = "project-row-title";
+            title.textContent = p.title || p.id;
+            var meta = document.createElement("span");
+            meta.className = "project-row-meta";
+            meta.textContent = (p.source_count || 0) + " sources \u00b7 last modified " + _projectRelativeTime(p.updated_at);
+            row.title = p.id;
+            row.addEventListener("click", function () { _switchProject(p.id, p.title); });
+            row.appendChild(title);
+            row.appendChild(meta);
+            projectListEl.appendChild(row);
+          });
+          if (totalProjects > projects.length) {
+            var more = document.createElement("div");
+            more.className = "project-list-more project-row-meta";
+            more.textContent = "Showing 10 of " + totalProjects + " — older projects hidden";
+            projectListEl.appendChild(more);
+          }
+        })
+        .catch(function () {
+          while (projectListEl.firstChild) projectListEl.removeChild(projectListEl.firstChild);
+          var row = document.createElement("div");
+          row.className = "project-row";
+          row.textContent = "Could not load projects.";
+          projectListEl.appendChild(row);
+        });
+    }
+    function _refreshProjectName() {
+      var active = "";
+      try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {}
+      if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "Untitled"; return; }
+      fetch("/api/projects")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var projects = (j && j.projects) || [];
+          var found = null;
+          for (var i = 0; i < projects.length; i++) { if (projects[i].id === active) { found = projects[i]; break; } }
+          if (found && projectCurrentNameEl) projectCurrentNameEl.textContent = found.title || "Untitled";
+        })
+        .catch(function () {});
+    }
+    function _loadProjectSourceList(id) {
+      if (!id) return;
+      fetch("/api/projects/" + encodeURIComponent(id) + "/substrate")
+        .then(function (r) { return r.ok ? r.json() : { files: [] }; })
+        .then(function (j) {
+          var rows = (j && j.files) || [];
+          sourceIds = rows.map(function (f) { return f.id; });
+          var el = document.getElementById("source-list");
+          if (el) {
+            while (el.firstChild) el.removeChild(el.firstChild);
+            rows.forEach(function (f) {
+              var d = document.createElement("div");
+            d.className = "source-item";
+            d.textContent = f.filename || "";
+            d.setAttribute("data-source-id", f.id || "");
+            el.appendChild(d);
+          });
+        }
+      })
+      .catch(function () {});
+    }
+    function _switchProject(id, title) {
+      _closeProjectPanel();
+      if (!id) return;
+      try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
+      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
+      if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
+      if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+      resetStages();
+      clearDocument();
+      populateCompilerAsk("");
+      setCompilerPrompt("");
+      populateCompilerRoute("");
+      leftGroupSetTab("compiler");
+      _loadProjectSourceList(id);
+    }
+    function _createNewProject() {
+      var name = window.prompt("New project name", "Untitled");
+      if (name === null) return;
+      var title = String(name || "").trim() || "Untitled";
+      jsonPost("/api/projects", { title: title })
+        .then(function (resp) { if (!resp.ok) throw new Error("projects POST " + resp.status); return resp.json(); })
+        .then(function (j) {
+          var id = j && j.id;
+          if (!id) throw new Error("no project id");
+          try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
+          _closeProjectPanel();
+          _switchProject(id, (j && j.title) || title);
+        })
+        .catch(function (err) { try { console.error("[shell] new project failed:", err); } catch (_) {} });
+    }
+    if (projectSwitcherBtn) {
+      projectSwitcherBtn.addEventListener("click", function () {
+        if (projectSwitcherPanel && projectSwitcherPanel.hidden) _openProjectPanel();
+        else _closeProjectPanel();
+      });
+    }
+    if (projectNewBtn) projectNewBtn.addEventListener("click", _createNewProject);
+    document.addEventListener("click", function (e) {
+      if (!projectSwitcherPanel || projectSwitcherPanel.hidden) return;
+      var t = e.target;
+      if (projectSwitcherBtn && projectSwitcherBtn.contains(t)) return;
+      if (projectSwitcherPanel.contains(t)) return;
+      _closeProjectPanel();
+    });
+    _refreshProjectName();
+
     function runDraft(intent) {
+      // Abort any previous center draft stream, then start a fresh one.
+      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} }
+      draftAbort = new AbortController();
+      var thisRequest = draftAbort;
       resetStages();
       clearDocument();
       currentStageIndex = -1;
@@ -804,6 +980,7 @@
               "Accept": "text/event-stream, application/json",
             },
             body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: sourceIds }),
+            signal: draftAbort.signal,
           });
         })
         .then(function (resp) {
@@ -821,19 +998,31 @@
           var reader = resp.body.getReader();
           var decoder = new TextDecoder("utf-8");
           function loop() {
+            // Stale guard: if a newer intent started, stop feeding this one
+            // so late tokens can't pollute the fresh canvas.
+            if (thisRequest !== draftAbort) return undefined;
             return reader.read().then(function (chunk) {
               if (chunk.done) {
                 parser.end();
                 return;
               }
+              if (thisRequest !== draftAbort) return;
               var str = decoder.decode(chunk.value || new Uint8Array(0), { stream: true });
               parser.feed(str);
               return loop();
+            }).catch(function (err) {
+              // Abort is intentional — exit quietly, no error event.
+              if (err && err.name === "AbortError") return;
+              throw err;
             });
           }
           return loop();
         })
         .catch(function (err) {
+          // A clean abort must not surface as an error or rewrite the canvas.
+          if (err && err.name === "AbortError") {
+            return;
+          }
           if (!started) {
             resetStages();
           }
@@ -864,6 +1053,7 @@
       // A new intent invalidates any in-flight compare — abort both streams.
       if (compareAbortA) { try { compareAbortA.abort(); } catch (_) {} compareAbortA = null; }
       if (compareAbortB) { try { compareAbortB.abort(); } catch (_) {} compareAbortB = null; }
+      if (draftAbort) { try { draftAbort.abort(); } catch (_) {} draftAbort = null; }
       beginIntentCompile(v);
     }
 
@@ -1119,6 +1309,7 @@
     var compareDataLoaded = false;
     var compareAbortA = null;       // AbortController for stream A (Claude)
     var compareAbortB = null;       // AbortController for stream B (DeepSeek)
+    var draftAbort = null;          // AbortController for the center draft stream
     var lastCompareJdfA = null;     // most recent JDF rendered into column A
     var lastCompareJdfB = null;     // most recent JDF rendered into column B
     var compareStreamsDone = 0;     // number of compare streams finished/errored

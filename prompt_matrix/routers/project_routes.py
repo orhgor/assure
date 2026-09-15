@@ -126,6 +126,7 @@ def _dashboard_payload(
         "redhat_count": counts["redhat_count"],
         "z3_violations": counts["z3_violations"],
         "status": status,
+        "source_count": int(row[7] or 0) if len(row) > 7 else 0,
     }
 
 
@@ -143,7 +144,9 @@ def register_project_routes(app) -> None:
                     ORDER BY r.version DESC LIMIT 1) as truth_ledger,
                    (SELECT r.jdf_tree FROM jdf_revisions r
                     WHERE r.project_id = p.id
-                    ORDER BY r.version DESC LIMIT 1) as jdf_tree
+                    ORDER BY r.version DESC LIMIT 1) as jdf_tree,
+                   (SELECT COUNT(*) FROM substrate_vault sv
+                    WHERE sv.project_id = p.id) as source_count
             FROM projects p
             ORDER BY p.updated_at DESC, p.title ASC
             """
