@@ -31,6 +31,11 @@
     },
   };
 
+  var docEmpty = null;
+  var compilerAskEl = null;
+  var compilerPromptEl = null;
+  var compilerRouteEl = null;
+
   function setShell(path, value) {
     var parts = path.split(".");
     var target = SHELL;
@@ -45,14 +50,29 @@
   }
 
   function _syncShellPathToDom(path, value) {
-    // TODO: per-path DOM sync during migration steps
+    if (path === "document.current") {
+      // no-op — renderJdfDocument renders; caller sets current explicitly
+    } else if (path === "document.mode") {
+      if (docEmpty) {
+        docEmpty.style.display = (value === "empty") ? "" : "none";
+      }
+    } else if (path === "compiler.ask") {
+      if (compilerAskEl) compilerAskEl.textContent = value;
+    } else if (path === "compiler.prompt") {
+      if (compilerPromptEl) compilerPromptEl.textContent = value;
+    } else if (path === "compiler.route") {
+      if (compilerRouteEl) compilerRouteEl.textContent = value;
+    }
   }
   var DRAFT_TYPE = "full";
 
   document.addEventListener("DOMContentLoaded", function () {
     var body = document.body;
     var docSurface = document.querySelector(".doc-surface");
-    var docEmpty = docSurface ? docSurface.querySelector(".empty-hero") : null;
+    docEmpty = docSurface ? docSurface.querySelector(".empty-hero") : null;
+    compilerAskEl    = document.getElementById("compiler-ask");
+    compilerPromptEl = document.getElementById("compiler-prompt");
+    compilerRouteEl  = document.getElementById("compiler-route");
     var wrap = document.getElementById("dock-input-wrap");
     var text = document.getElementById("dock-text");
     var submit = document.getElementById("dock-submit");
@@ -61,7 +81,7 @@
     if (newDraftBtn && text) {
       newDraftBtn.addEventListener("click", function () {
         // 0. Guard: a draft on screen is destructive to replace — confirm.
-        var hasDraft = !!(currentJdfDocument || draftEl);
+        var hasDraft = !!(SHELL.document.current || draftEl);
         if (hasDraft && !window.confirm("Start a new draft? Your current draft will be lost.")) { return; }
         // 1. abort everything in flight (abort BEFORE clearing, so no late
         //    callback rewrites the canvas).
@@ -285,7 +305,7 @@
     var draftEl = null;
     var currentJdfDocument = null;
     function ensureDraftArea() {
-      if (docSurface && docEmpty) docEmpty.style.display = "none";
+      setShell("document.mode", "streaming");
       if (draftEl) return draftEl;
       if (!docSurface) return null;
       draftEl = document.createElement("div");
@@ -308,7 +328,7 @@
       docSurface.scrollTop = docSurface.scrollHeight;
     }
     function clearDocument() {
-      if (docEmpty) docEmpty.style.display = "";
+      setShell("document.mode", "empty");
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
       currentJdfDocument = null;
@@ -448,7 +468,6 @@
         return;
       }
       if (!docSurface) return;
-      if (docEmpty) docEmpty.style.display = "none";
       // Do NOT remove existing draftEl — it contains the streamed text.
       // Instead, clear its content and re-populate with JDF nodes.
       var draft = draftEl || document.createElement("div");
@@ -464,7 +483,6 @@
         var nodeEl = renderJdfNode(doc.body[i]);
         if (nodeEl) draft.appendChild(nodeEl);
       }
-      currentJdfDocument = doc;
     }
 
     function getChipIcon(kind, status) {
@@ -762,6 +780,7 @@
         if (data && data.document) {
           var cdoc = data.document;
           if (cdoc && cdoc.body && Array.isArray(cdoc.body)) {
+            setShell("document.mode", "streaming");
             renderJdfDocument(cdoc);
           } else {
             // Parse failure: never replace the document with raw text.
@@ -772,7 +791,8 @@
         markDone("Math Check");
         transitionTo("Verify");
         if (data && data.document) {
-          currentJdfDocument = data.document;
+          setShell("document.current", data.document);
+          setShell("document.mode", "ready");
           var vdoc = data.document;
           if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
             addEvidenceChips(vdoc);
@@ -967,13 +987,12 @@
           var doc = (res && res.document) || null;
           var empty = !(doc && Array.isArray(doc.body) && doc.body.length);
           if (!empty) {
-            renderJdfDocument(doc);
-            setShell("document.current", doc);
             setShell("document.mode", "ready");
+            setShell("document.current", doc);
+            renderJdfDocument(doc);
           } else {
             resetStages();
             clearDocument();
-            setShell("document.mode", "empty");
           }
           // compiler panel is per-project — always reset (JDF carries no meta.ask)
           populateCompilerAsk("");
@@ -1025,6 +1044,14 @@
       _closeProjectPanel();
     });
     _refreshProjectName();
+
+    // T2: populate sourceIds on init so compiles after reload carry
+    // real substrate_file_ids. S0.5 will migrate this to SHELL.sources.
+    var initId = SHELL.project.id;
+    if (!initId) {
+      try { initId = window.localStorage.getItem(STORAGE_KEY); } catch (_) { initId = null; }
+    }
+    if (initId) _loadProjectSourceList(initId);
 
     // Export (top bar) → audit PDF download for the active project.
     var exportBtn = document.getElementById("export-btn");
@@ -1156,21 +1183,9 @@
     var PREVIEW_TARGET = "claude";                       // for /api/preview only (bare slug)
     var COMPILE_MODEL  = "anthropic/claude-sonnet-4-5";  // for /draft/stream only (full id)
 
-    function getCompilerAskEl()    { return document.getElementById("compiler-ask"); }
-    function getCompilerPromptEl() { return document.getElementById("compiler-prompt"); }
-    function getCompilerRouteEl()  { return document.getElementById("compiler-route"); }
-    function populateCompilerAsk(text) {
-      var el = getCompilerAskEl();
-      if (el) el.textContent = text || "";
-    }
-    function setCompilerPrompt(text) {
-      var el = getCompilerPromptEl();
-      if (el) el.textContent = text || "";
-    }
-    function populateCompilerRoute(text) {
-      var el = getCompilerRouteEl();
-      if (el) el.textContent = text || "";
-    }
+    function populateCompilerAsk(v)  { setShell("compiler.ask", v || ""); }
+    function setCompilerPrompt(v)    { setShell("compiler.prompt", v || ""); }
+    function populateCompilerRoute(v){ setShell("compiler.route", v || ""); }
     function renderCompilerRouteFrom(j) {
       var route = (j && j.target_ai) ? String(j.target_ai) : "";
       var intent = (j && j.intent) ? String(j.intent) : "";
@@ -1582,6 +1597,8 @@
         setMode("pipeline");
         return;
       }
+      setShell("document.mode", "ready");
+      setShell("document.current", doc);
       // Re-render the JDF object fresh into the center (targetEl null →
       // center path, which re-wires draftEl + currentJdfDocument so all
       // event listeners + interactions work). Do NOT paste text or copy
@@ -1846,7 +1863,7 @@
       var nodeId = chip.getAttribute("data-node-id");
       var kind = chip.getAttribute("data-kind");
       var index = parseInt(chip.getAttribute("data-index"), 10);
-      if (!currentJdfDocument || !nodeId || !kind || isNaN(index)) return;
+      if (!SHELL.document.current || !nodeId || !kind || isNaN(index)) return;
       function findNode(nodes) {
         for (var i = 0; i < nodes.length; i++) {
           var n = nodes[i];
@@ -1858,7 +1875,7 @@
         }
         return null;
       }
-      var node = findNode(currentJdfDocument.body || []);
+      var node = findNode(SHELL.document.current.body || []);
       if (!node) return;
       var evidence = null;
       if (kind === "z3" && node.annotations && node.annotations.z3 && node.annotations.z3[index]) {
@@ -1876,7 +1893,7 @@
     }
 
     function findJdfNodeById(nodeId, tree) {
-      var root = tree || currentJdfDocument;
+      var root = tree || SHELL.document.current;
       if (!root) return null;
       function find(nodes) {
         for (var i = 0; i < nodes.length; i++) {
@@ -1899,7 +1916,7 @@
       // Resolve the owning tree: a compare column keeps its own doc on
       // __jdfDoc; otherwise fall back to the center/accepted document.
       var host = span.closest(".compare-col-body, .doc-draft, .doc-surface");
-      var tree = (host && host.__jdfDoc) ? host.__jdfDoc : currentJdfDocument;
+      var tree = (host && host.__jdfDoc) ? host.__jdfDoc : SHELL.document.current;
       var node = findJdfNodeById(nodeId, tree);
       renderConfidenceEvidence(span, node);
       currentEvidence = { kind: "confidence", nodeId: nodeId, data: {} };
