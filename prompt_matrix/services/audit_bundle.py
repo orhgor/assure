@@ -12,12 +12,10 @@ try:
     from ..db.document_lock_repository import latest_lock
     from ..db.sign_off_repository import list_sign_offs
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
-    from ..services.confidence_spans import build_confidence_spans
 except ImportError:
     from db.document_lock_repository import latest_lock
     from db.sign_off_repository import list_sign_offs
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
-    from services.confidence_spans import build_confidence_spans
 
 
 def _esc(text: str) -> str:
@@ -177,44 +175,82 @@ def build_audit_bundle_html(
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "local").strip()
     sign_offs = list_sign_offs(project_id)
     lock = latest_lock(project_id)
-    z3 = z3_results or {}
     redhat = redhat_critiques or []
-    spans = build_confidence_spans(tree, z3_results=z3)
 
+    # FIX 4 — TOC: toc_items carry no numbers; the <ol> is the single source
+    # of numbering. Entries are newline-separated so they don't mash together.
     toc_items = [
-        "1. Executive Summary",
-        "2. Document Body",
-        "3. Z3 Verification Results",
-        "4. Red-Hat Critique",
-        "5. Sign-Offs",
-        "6. Document Lock",
-        "7. Appendix",
+        "Executive Summary",
+        "Document Body",
+        "Z3 Verification Results",
+        "Red-Hat Critique",
+        "Sign-Offs",
+        "Document Lock",
+        "Appendix",
     ]
-    toc_html = "".join(f"<li>{_esc(item)}</li>" for item in toc_items)
+    toc_html = "".join(f"<li>{_esc(item)}</li>\n" for item in toc_items)
 
-    doc_html = jdf_to_html(tree)
-    gate = compute_export_gate(
-        project_id, tree, z3_results=z3_results, redhat_critiques=redhat_critiques
-    )
-    gate_html = (
-        "<h1>0. Verification Gate</h1>"
-        + f"<p><strong>Gate: {_esc(gate['gate_status'])}</strong></p>"
-        + (f"<p>{_esc(gate['unverified_reason'])}</p>" if gate.get("unverified") else "")
-        + (
-            f"<p>Claims anchored: {gate['anchored']} of {gate['eligible']}</p>"
-            if gate.get("unverified")
-            else ""
+    # Gate / Z3 data comes solely from the persisted last_compiled_json row via
+    # the existing helpers (the route passes only (project_id, tree)). Use the
+    # fallback recompute only for revisions without a persisted gate block.
+    persisted_gate = _read_persisted_gate(project_id)
+    gate_has_block = persisted_gate is not None
+    gate = (
+        persisted_gate
+        if gate_has_block
+        else compute_export_gate(
+            project_id, tree, z3_results=z3_results, redhat_critiques=redhat_critiques
         )
     )
-    z3_rows = ""
-    for span in spans[:50]:
-        z3_rows += (
-            f"<tr><td>{_esc(span.get('text', '')[:80])}</td>"
-            f"<td>{span.get('confidence', '')}</td>"
-            f"<td>{_esc(span.get('reason', ''))}</td></tr>"
+
+    # FIX 5 — Document Body: say so when there is no body (never fall back to
+    # the project id / a title).
+    body_nodes = tree.get("body") or []
+    doc_html = jdf_to_html(tree) if body_nodes else "<p><em>No document body recorded.</em></p>"
+
+    # FIX 3 — Verification Gate: always populated, never empty.
+    if not gate_has_block:
+        gate_html = (
+            "<h1>0. Verification Gate</h1>\n" "<p>No verification run for this document.</p>"
         )
-    if not z3_rows:
-        z3_rows = f"<tr><td colspan='3'>Status: {_esc(z3.get('status', 'N/A'))}</td></tr>"
+    else:
+        gate_status = gate.get("gate_status") or "review"
+        anchored = gate.get("anchored", 0)
+        eligible = gate.get("eligible", 0)
+        gate_html = (
+            "<h1>0. Verification Gate</h1>\n"
+            f"<p><strong>Gate: {_esc(str(gate_status))}</strong></p>\n"
+            f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>"
+        )
+        reason = gate.get("unverified_reason") or ""
+        if reason:
+            gate_html += f"\n<p>{_esc(reason)}</p>"
+
+    # FIX 2 — Z3 Verification Results: gate-level status, not a confidence span
+    # table. Lock / metric / violation detail is rendered only when the persisted
+    # gate actually carries it (the persisted gate stores z3_status today).
+    if not gate_has_block:
+        z3_render = "<p>No Z3 run recorded for this document.</p>"
+    else:
+        z3_status = gate.get("z3_status") or "N/A"
+        z3_render = f"<p><strong>Status:</strong> {_esc(str(z3_status))}</p>"
+        z3_metrics = [
+            ("Locks verified", gate.get("locks_verified")),
+            ("Locks rejected", gate.get("locks_rejected")),
+            ("Metrics checked", gate.get("metrics_checked")),
+        ]
+        present = [(label, val) for label, val in z3_metrics if val is not None]
+        if present:
+            z3_render += (
+                "\n<ul>\n"
+                + "\n".join(f"<li>{_esc(label)}: {_esc(str(val))}</li>" for label, val in present)
+                + "\n</ul>"
+            )
+        violations = gate.get("violations") or []
+        if violations:
+            z3_render += (
+                "\n<ul>\n" + "\n".join(f"<li>{_esc(str(v))}</li>" for v in violations) + "\n</ul>"
+            )
 
     redhat_html = ""
     for item in redhat[:20]:
@@ -276,7 +312,7 @@ th {{ background: #f5f5f5; }}
 <h1>1. Executive Summary</h1>
 <p>This report bundles the verified JDF document, Z3 verification results, Red-Hat critique,
 sign-off records, and document lock hash for compliance review.</p>
-<p>Z3 status: <strong>{_esc(z3.get('status', 'N/A'))}</strong>.
+<p>Z3 status: <strong>{_esc(gate.get('z3_status') or 'N/A')}</strong>.
 Red-Hat items: <strong>{len(redhat)}</strong>.
 Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
 
@@ -284,10 +320,7 @@ Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
 {doc_html}
 
 <h1>3. Z3 Verification Results</h1>
-<table>
-<thead><tr><th>Span</th><th>Confidence</th><th>Explanation</th></tr></thead>
-<tbody>{z3_rows}</tbody>
-</table>
+{z3_render}
 
 <h1>4. Red-Hat Critique</h1>
 <ul>{redhat_html}</ul>
