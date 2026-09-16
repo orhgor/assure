@@ -140,6 +140,7 @@
         var selEl = document.querySelector('.doc-draft .jdf-node[data-node-id="' + String(value) + '"]');
         if (selEl) selEl.classList.add("is-selected");
       }
+      _loadNodeHistory(value);
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.layout.leftWidth") {
@@ -2639,6 +2640,40 @@
         list.appendChild(li);
       });
       wrap.appendChild(list); el.appendChild(wrap);
+    }
+    function _loadNodeHistory(nodeId) {
+      var details = document.getElementById("right-node-history");
+      var list = document.getElementById("right-node-history-list");
+      if (!details || !list) return;
+      if (!nodeId) {
+        list.innerHTML = "";
+        details.open = false;
+        return;
+      }
+      var pid = _sourceProjectId && _sourceProjectId() || (function () {
+        try { return window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) { return ""; }
+      })();
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/nodes/" + encodeURIComponent(nodeId) + "/history")
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (j) {
+          var l = document.getElementById("right-node-history-list");
+          if (!l) return;
+          l.innerHTML = "";
+          var revs = (j && j.revisions) || [];
+          if (!revs.length) {
+            l.innerHTML = "<li class='empty-hint'>No prior revisions.</li>";
+            return;
+          }
+          revs.forEach(function (r) {
+            var li = document.createElement("li");
+            li.textContent = "v" + r.version + " \u00b7 " + (r.timestamp || "\u2014");
+            l.appendChild(li);
+          });
+        })
+        .catch(function () {
+          var l = document.getElementById("right-node-history-list");
+          if (l) l.innerHTML = "<li class='empty-hint'>No prior revisions.</li>";
+        });
     }
     function _applyRightView() {
       var insp = rightInspectorEl;

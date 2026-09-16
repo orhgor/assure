@@ -1831,6 +1831,34 @@ body.collapsed .pane-left {
   font-size: 13px;
   text-align: center;
 }
+.inspector-node-history {
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+}
+.inspector-node-history > summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.inspector-node-history > ul {
+  list-style: none;
+  padding: 8px 12px;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.inspector-node-history li {
+  padding: 6px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.inspector-node-history li:last-child {
+  border-bottom: none;
+}
 #compare-toggle {
   background: transparent;
   border: 1px solid var(--border);
