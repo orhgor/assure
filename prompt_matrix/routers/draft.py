@@ -423,12 +423,18 @@ def _stream_model(
             _api_kwargs = litellm_kwargs_for(_slug)
         except Exception:
             pass
+        try:
+            from ..services.pricing import compute_usd
+        except ImportError:
+            from services.pricing import compute_usd
+        _measure_t0 = time.time()
         stream = litellm.completion(
             model=model,
             messages=guarded,
             max_tokens=max_out,
             temperature=0.4,
             stream=True,
+            stream_options={"include_usage": True},
             # Fallback handled at the provider layer (OpenRouter) later.
             **_api_kwargs,
         )
@@ -444,9 +450,25 @@ def _stream_model(
             if delta:
                 full += delta
                 yield _typed_sse("token", {"delta": delta})
+        # litellm streaming returns usage on the final chunk (only when
+        # stream_options include_usage=True). Never crash if it's absent.
+        _usage = getattr(chunk, "usage", None)
+        _measure: dict[str, Any] = {
+            "model": model,
+            "input_tokens": getattr(_usage, "prompt_tokens", None) if _usage else None,
+            "output_tokens": getattr(_usage, "completion_tokens", None) if _usage else None,
+            "cache_read": getattr(_usage, "cache_read_input_tokens", 0) if _usage else 0,
+            "duration_ms": int((time.time() - _measure_t0) * 1000),
+        }
+        _measure["usd"] = compute_usd(
+            model,
+            _measure["input_tokens"],
+            _measure["output_tokens"],
+            _measure["cache_read"],
+        )
         in_tok = gov.accountant.count_messages(guarded)
         out_tok = gov.accountant.count(full)
-        yield (full, in_tok, out_tok, model)
+        yield (full, in_tok, out_tok, model, _measure)
     except DraftCancelledError:
         raise
     except Exception as exc:
@@ -527,6 +549,7 @@ def run_draft_pipeline(
     in_tok = 0
     out_tok = 0
     model_id = _draft_model
+    _measure: dict[str, Any] = {}
 
     try:
         for item in _stream_model(
@@ -542,7 +565,10 @@ def run_draft_pipeline(
                     return
                 yield item
             else:
-                full_text, in_tok, out_tok, model_id = item
+                if len(item) >= 5:
+                    full_text, in_tok, out_tok, model_id, _measure = item
+                else:
+                    full_text, in_tok, out_tok, model_id = item
     except DraftCancelledError:
         audit.log_audit(rid, project_id, "DRAFT_STREAM", success=False, error_message="cancelled")
         return
@@ -569,6 +595,7 @@ def run_draft_pipeline(
             "output_tokens": out_tok,
             "model_id": model_id,
             "task_type": TaskType.DEEP_SYNTHESIS.value,
+            "measure": _measure,
         },
     )
 
@@ -713,6 +740,7 @@ def run_draft_pipeline(
             "unverified": verified_payload.get("unverified"),
             "unverified_reason": verified_payload.get("unverified_reason"),
             "provenance_stats": verified_payload.get("provenance_stats") or {},
+            "measure": _measure,
         }
         _pdb.execute(
             "UPDATE projects SET last_compiled_json = ? WHERE id = ?",
