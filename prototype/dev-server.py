@@ -10,9 +10,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = HERE
-UPSTREAM_BASE = "http://localhost:8899"
+UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "http://localhost:8899")
 HOST = "0.0.0.0"
-PORT = 8990
+PORT = int(os.environ.get("PORT", "8990"))
 
 FORWARD_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 
