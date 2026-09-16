@@ -85,6 +85,7 @@ except ImportError:
 PACKAGE_DIR = resource_dir()
 STATIC_DIR = PACKAGE_DIR / "static"
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
+PROTOTYPE_DIR = PACKAGE_DIR.parent / "prototype"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_BASIC_USER = "admin"
@@ -626,6 +627,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @app.get("/favicon.svg")
     def favicon():
         return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
+
+    @app.route("/workbench/")
+    def workbench_index():
+        return send_from_directory(str(PROTOTYPE_DIR), "index.html")
+
+    @app.route("/workbench/<path:filename>")
+    def workbench_static(filename):
+        return send_from_directory(str(PROTOTYPE_DIR), filename)
 
     @app.get("/architecture")
     def architecture_page():
