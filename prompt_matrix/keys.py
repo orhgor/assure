@@ -60,10 +60,17 @@ def load_keys() -> None:
         load_dotenv(ENV_PATH, override=False)
         repo_root = Path(__file__).resolve().parent.parent
         env_profile = (os.environ.get("ASSURE_ENV") or "").strip().lower()
+        # Precedence: .env.staging > .env.local > .env. Load lower-priority
+        # files first with override=True so a later file wins per key.
+        for name in (".env", ".env.local"):
+            f = repo_root / name
+            if f.exists():
+                load_dotenv(f, override=True)
         if env_profile == "staging":
-            load_dotenv(repo_root / ".env.staging", override=False)
-        load_dotenv(repo_root / ".env", override=False)
-        if Path.cwd() != PACKAGE_DIR:
+            f = repo_root / ".env.staging"
+            if f.exists():
+                load_dotenv(f, override=True)
+        if Path.cwd() != PACKAGE_DIR and (Path.cwd() / ".env").exists():
             load_dotenv(Path.cwd() / ".env", override=False)
 
 

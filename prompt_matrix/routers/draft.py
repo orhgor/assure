@@ -74,9 +74,30 @@ except ImportError:
 
 _log = logging.getLogger(__name__)
 
-FREE = os.environ.get("ASSURE_USE_FREE_MODELS") == "1"
-DRAFT_MODEL = "gemini/gemini-2.0-flash" if FREE else "anthropic/claude-sonnet-4-5"
-DRAFT_MODELS_FALLBACK = ["gemini/gemini-2.0-flash", "deepseek/deepseek-chat"] if FREE else None
+# Draft model selection. Default to whichever free provider key is present so
+# Sonnet is never the implicit fallback. Priority: OpenRouter > Gemini > DeepSeek.
+if os.environ.get("OPENROUTER_API_KEY"):
+    DRAFT_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+    DRAFT_MODELS_FALLBACK = [
+        "openrouter/anthropic/claude-sonnet-4.5",
+        "openrouter/deepseek/deepseek-chat",
+    ]
+elif os.environ.get("GEMINI_API_KEY"):
+    DRAFT_MODEL = "gemini/gemini-2.0-flash"
+    DRAFT_MODELS_FALLBACK = [
+        "gemini/gemini-2.0-flash",
+        "deepseek/deepseek-chat",
+    ]
+elif os.environ.get("DEEPSEEK_API_KEY"):
+    DRAFT_MODEL = "deepseek/deepseek-chat"
+    DRAFT_MODELS_FALLBACK = ["deepseek/deepseek-chat"]
+else:
+    # None set: keep the ASSURE_USE_FREE_MODELS=1 branch reading gemini first.
+    _use_free = os.environ.get("ASSURE_USE_FREE_MODELS") == "1"
+    DRAFT_MODEL = "gemini/gemini-2.0-flash" if _use_free else "anthropic/claude-sonnet-4-5"
+    DRAFT_MODELS_FALLBACK = (
+        ["gemini/gemini-2.0-flash", "deepseek/deepseek-chat"] if _use_free else None
+    )
 LOCK_MODEL = "deepseek/deepseek-chat"
 
 try:
@@ -408,7 +429,7 @@ def _stream_model(
             max_tokens=max_out,
             temperature=0.4,
             stream=True,
-            models=(DRAFT_MODELS_FALLBACK if not target_ai else None),
+            # Fallback handled at the provider layer (OpenRouter) later.
             **_api_kwargs,
         )
         full = ""
