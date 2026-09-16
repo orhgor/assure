@@ -138,7 +138,7 @@ def test_rephrase_updates_single_node(browser_page, active_project, stub_compile
         pass
     browser_page.wait_for_function(
         "() => { var t = document.querySelector('.doc-draft .jdf-node[data-node-id=\"n1\"] .jdf-p');"
-        " return t && t.textContent.indexOf('hundred') >= 0; }"
+        " return t && t.textContent.indexOf('Quarterly revenue') >= 0; }"
     )
 
     after = browser_page.evaluate(
