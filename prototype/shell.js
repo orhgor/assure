@@ -44,6 +44,7 @@
   var leftCompilerEl = null;
   var leftPipelineEl = null;
   var leftHistoryEl = null;
+  var leftReferencesEl = null;
   var evidenceModeEl = null;
   var compareModeEl = null;
   var docBodyEl = null;
@@ -104,7 +105,7 @@
     } else if (path === "project.title") {
       if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
     } else if (path === "ui.leftTab") {
-      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl };
+      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl, references: leftReferencesEl };
       Object.keys(lp).forEach(function (k) {
         if (lp[k]) lp[k].style.display = (k === value) ? "block" : "none";
       });
@@ -1794,6 +1795,7 @@
     leftCompilerEl = document.getElementById("left-compiler");
     leftPipelineEl = document.getElementById("left-pipeline");
     leftHistoryEl  = document.getElementById("left-history");
+    leftReferencesEl = document.getElementById("left-references");
     evidenceModeEl = document.getElementById("right-evidence");
     compareModeEl  = document.getElementById("right-compare");
     z3ModeEl         = document.getElementById("right-z3");
@@ -1828,6 +1830,7 @@
       compiler:  leftCompilerEl,
       pipeline:  leftPipelineEl,
       history:   leftHistoryEl,
+      references: leftReferencesEl,
     };
     var RIGHT_TABPANE = {
       evidence: evidenceModeEl,

@@ -145,6 +145,13 @@
               <polyline points="12 7 12 12 15 15"></polyline>
             </svg>
           </button>
+          <button type="button" class="mode-tab" data-left-tab="references" role="tab" aria-selected="false" title="References">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="6" width="16" height="12" rx="1"></rect>
+              <line x1="12" y1="6" x2="12" y2="18"></line>
+            </svg>
+          </button>
         </div>
         <button type="button" class="pane-collapse" id="left-collapse" aria-label="Collapse left pane" title="Collapse">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
@@ -197,6 +204,13 @@
       <div id="left-history" class="pane-mode" style="display:none;">
         <div class="pane-body">
           <p class="empty-hint">Your versions appear here after your first draft.</p>
+        </div>
+      </div>
+
+      <div id="left-references" class="pane-mode" style="display:none;">
+        <div class="pane-body">
+          <p class="empty-hint">Reference documents are checked against incoming files. Upload a reference to start.</p>
+          <div id="reference-list" class="source-list"></div>
         </div>
       </div>
     </aside>
