@@ -119,10 +119,32 @@
     <aside class="pane pane-left" aria-label="Sources & Compiler">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Left pane mode">
-          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false">Sources</button>
-          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true">Compiler</button>
-          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false">Pipeline</button>
-          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false">History</button>
+          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false" title="Sources">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true" title="Compiler">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path>
+            </svg>
+          </button>
+          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false" title="Pipeline">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </button>
+          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false" title="History">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+              <polyline points="3 3 3 8 8 8"></polyline>
+              <polyline points="12 7 12 12 15 15"></polyline>
+            </svg>
+          </button>
         </div>
         <button type="button" class="pane-collapse" id="left-collapse" aria-label="Collapse left pane" title="Collapse">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
