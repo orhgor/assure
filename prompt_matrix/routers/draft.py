@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 import uuid
@@ -73,7 +74,9 @@ except ImportError:
 
 _log = logging.getLogger(__name__)
 
-DRAFT_MODEL = "anthropic/claude-sonnet-4-5"
+FREE = os.environ.get("ASSURE_USE_FREE_MODELS") == "1"
+DRAFT_MODEL = "gemini/gemini-2.0-flash" if FREE else "anthropic/claude-sonnet-4-5"
+DRAFT_MODELS_FALLBACK = ["gemini/gemini-2.0-flash", "deepseek/deepseek-chat"] if FREE else None
 LOCK_MODEL = "deepseek/deepseek-chat"
 
 try:
@@ -405,6 +408,7 @@ def _stream_model(
             max_tokens=max_out,
             temperature=0.4,
             stream=True,
+            models=(DRAFT_MODELS_FALLBACK if not target_ai else None),
             **_api_kwargs,
         )
         full = ""
