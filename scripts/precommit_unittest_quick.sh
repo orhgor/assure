@@ -10,11 +10,7 @@ set -o pipefail
 LOG=$(mktemp)
 trap 'rm -f "$LOG"' EXIT
 
-# -m "not e2e and not integration": the quick gate is a local/offline unit
-# suite. Live-production smoke tests (@pytest.mark.integration in
-# test_production_v15_smoke.py) hit https://getassureai.com via urllib and
-# must run in CI/deploy, not in a local pre-commit hook. Excluding the
-# integration mark is part of the formalized pre-commit exception policy.
+# -m "not e2e": exclude end-to-end Playwright tests from the local quick gate.
 .venv/bin/pytest tests/ \
   --ignore=tests/e2e \
   --ignore=tests/playwright \
@@ -25,7 +21,7 @@ trap 'rm -f "$LOG"' EXIT
   --ignore=tests/test_z3_benchmark.py \
   --ignore=tests/test_z3_explanation.py \
   --ignore=tests/test_inquire_stream.py \
-  -q --tb=no -m "not e2e and not integration" 2>&1 | tee "$LOG"
+  -q --tb=no -m "not e2e" 2>&1 | tee "$LOG"
 rc=${PIPESTATUS[0]}
 
 if [ "$rc" -ne 0 ] && grep -q "test_run_compare_pair_failed_model_has_empty_text" "$LOG"; then
