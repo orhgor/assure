@@ -1694,6 +1694,30 @@ body.collapsed .pane-left {
   color: var(--text-muted);
   font-size: 11px;
 }
+.project-row-actions {
+  display: none;
+  gap: 6px;
+  margin-top: 2px;
+}
+.project-row:hover .project-row-actions {
+  display: inline-flex;
+}
+.project-rename,
+.project-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 5px;
+  line-height: 1;
+}
+.project-rename:hover {
+  color: var(--accent);
+}
+.project-delete:hover {
+  color: #ef4444;
+}
 
 .doc-ungrounded-banner {
   background: #fef3c7;

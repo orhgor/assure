@@ -1358,9 +1358,9 @@
           var active = SHELL.project.id || "";
           if (!active) { try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {} }
           projects.forEach(function (p) {
-            var row = document.createElement("button");
-            row.type = "button";
+            var row = document.createElement("div");
             row.className = "project-row" + (p.id === active ? " is-active" : "");
+            row.setAttribute("data-project-id", p.id);
             var title = document.createElement("span");
             title.className = "project-row-title";
             title.textContent = p.title || p.id;
@@ -1369,8 +1369,35 @@
             meta.textContent = (p.source_count || 0) + " sources \u00b7 last modified " + _projectRelativeTime(p.updated_at);
             row.title = p.id;
             row.addEventListener("click", function () { _switchProject(p.id, p.title); });
+
+            var actions = document.createElement("span");
+            actions.className = "project-row-actions";
+            var renameBtn = document.createElement("button");
+            renameBtn.type = "button";
+            renameBtn.className = "project-rename";
+            renameBtn.title = "Rename";
+            renameBtn.setAttribute("aria-label", "Rename project");
+            renameBtn.textContent = "\u270e";
+            renameBtn.addEventListener("click", function (ev) {
+              ev.stopPropagation();
+              _renameProject(p.id, p.title || p.id, title);
+            });
+            var deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "project-delete";
+            deleteBtn.title = "Delete";
+            deleteBtn.setAttribute("aria-label", "Delete project");
+            deleteBtn.textContent = "\u00d7";
+            deleteBtn.addEventListener("click", function (ev) {
+              ev.stopPropagation();
+              _deleteProject(p.id, row);
+            });
+            actions.appendChild(renameBtn);
+            actions.appendChild(deleteBtn);
+
             row.appendChild(title);
             row.appendChild(meta);
+            row.appendChild(actions);
             projectListEl.appendChild(row);
           });
           if (totalProjects > projects.length) {
@@ -1387,6 +1414,49 @@
           row.textContent = "Could not load projects.";
           projectListEl.appendChild(row);
         });
+    }
+    function _activeProjectId() {
+      try { return SHELL.project.id || window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) { return SHELL.project.id || ""; }
+    }
+    function _renameProject(id, currentTitle, titleEl) {
+      var name = window.prompt("Rename project:", currentTitle);
+      if (name === null) return;
+      name = String(name || "").trim();
+      if (!name) return;
+      fetch("/api/projects/" + encodeURIComponent(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: name }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("projects PATCH " + r.status);
+          if (titleEl) titleEl.textContent = name;
+          if (id === _activeProjectId()) setShell("project.title", name);
+        })
+        .catch(function (err) { try { console.warn("[shell] rename project failed:", err); } catch (_) {} });
+    }
+    function _deleteProject(id, row) {
+      if (!window.confirm("Delete this project? This cannot be undone.")) return;
+      var wasActive = id === _activeProjectId();
+      fetch("/api/projects/" + encodeURIComponent(id), { method: "DELETE" })
+        .then(function (r) {
+          if (!r.ok) throw new Error("projects DELETE " + r.status);
+          if (row && row.parentNode) row.parentNode.removeChild(row);
+          if (wasActive) {
+            fetch("/api/projects")
+              .then(function (resp) { return resp.ok ? resp.json() : { projects: [] }; })
+              .then(function (j) {
+                var projects = (j && j.projects) || [];
+                if (projects.length) {
+                  _switchProject(projects[0].id, projects[0].title);
+                } else {
+                  _createNewProject();
+                }
+              })
+              .catch(function () { _createNewProject(); });
+          }
+        })
+        .catch(function (err) { try { console.warn("[shell] delete project failed:", err); } catch (_) {} });
     }
     function _refreshProjectName() {
       var active = SHELL.project.id || "";
