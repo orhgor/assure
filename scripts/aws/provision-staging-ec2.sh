@@ -14,7 +14,7 @@ export TUNNEL_NAME="${TUNNEL_NAME:-assure-staging}"
 export APP_HOST="${APP_HOST:-staging.getassureai.com}"
 export ASSURE_GIT_REF="${ASSURE_GIT_REF:-staging}"
 export GIT_BRANCH="${GIT_BRANCH:-staging}"
-export CLOUD_INIT_OUTPUT="${CLOUD_INIT_OUTPUT:-$ROOT/scripts/aws/cloud_init.staging.sh}"
+export CLOUD_INIT_OUTPUT="${CLOUD_INIT_OUTPUT:-$ROOT/scripts/aws/cloud_init.sh}"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "Missing $ENV_FILE — copy from .env.production and set staging tunnel vars." >&2

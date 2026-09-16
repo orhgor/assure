@@ -10,7 +10,7 @@ services:
       ENVIRONMENT: development
       PORT: "8765"
       PYTHONUNBUFFERED: "1"
-      STRIPE_WEBHOOK_SECRET: whsec_test_secret_for_local_validation
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

@@ -317,13 +317,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
         CORS(
             app,
-            origins=[
-                "https://getassureai.com",
-                "https://www.getassureai.com",
-                "https://app.getassureai.com",
-                "http://127.0.0.1:8765",
-                "http://localhost:8765",
-            ],
+            origins=os.environ.get(
+                "CORS_ORIGINS", "http://localhost:8765,http://127.0.0.1:8765"
+            ).split(","),
             allow_headers=[
                 "Content-Type",
                 "Authorization",
