@@ -13,6 +13,28 @@
   var STORAGE_KEY = "assure_project";
 
   // ---------------------------------------------------------------
+  // SSE failure instrumentation (staging diagnostics). Logs only —
+  // no retry/behavior change, no UI, no toasts.
+  // "tokensReceived" is the number of characters decoded from the SSE
+  // body before the stream failed (a token proxy, uniform across all
+  // four streaming call sites).
+  // ---------------------------------------------------------------
+  function logSseFailure(endpoint, startedAt, tokensReceived, err, wasAbort) {
+    var failedAt = Date.now();
+    var payload = {
+      endpoint: endpoint,
+      startedAt: new Date(startedAt).toISOString(),
+      failedAt: new Date(failedAt).toISOString(),
+      durationMs: Math.max(0, Math.round(failedAt - startedAt)),
+      tokensReceived: tokensReceived,
+      errorName: (err && err.name) || null,
+      errorMessage: (err && err.message) || (err ? String(err) : "unknown"),
+      wasAbort: !!wasAbort,
+    };
+    try { console.warn("[sse-failure]", payload); } catch (_) {}
+  }
+
+  // ---------------------------------------------------------------
   // SHELL — single source of truth for UI state (pure refactor base).
   // Subsystems migrate onto this one at a time; none are migrated yet.
   // ---------------------------------------------------------------
@@ -1055,6 +1077,9 @@
       };
       var pendingNode = null;
       var blamed = null;
+      var sseStartedAt = Date.now();
+      var sseTokens = 0;
+      var sseEndpoint = "/api/projects/" + encodeURIComponent(pid) + "/inquire/stream";
 
       function finish(success, node) {
         __rephraseBusy = false;
@@ -1087,34 +1112,43 @@
         }
       }
 
-      jsonPost("/api/projects/" + encodeURIComponent(pid) + "/inquire/stream", body).then(function (resp) {
-        if (!resp.ok || !resp.body) { blamed = "Rewrite failed (" + resp.status + ")"; finish(false, null); return; }
+      jsonPost(sseEndpoint, body).then(function (resp) {
+        if (!resp.ok || !resp.body) {
+          blamed = "Rewrite failed (" + resp.status + ")";
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("HTTP " + resp.status + " — no body"), false);
+          finish(false, null);
+          return;
+        }
         var reader = resp.body.getReader();
         var decoder = new TextDecoder();
         var buffer = "";
         function pump() {
           return reader.read().then(function (result) {
             if (result.done) { finish(!!pendingNode, pendingNode); return; }
-            buffer += decoder.decode(result.value, { stream: true });
+            var str = decoder.decode(result.value, { stream: true });
+            sseTokens += str.length;
+            buffer += str;
             var frames = buffer.split(/\n\n/);
             buffer = frames.pop();
             for (var i = 0; i < frames.length; i++) {
               (function (f) {
                 _handleRephraseFrame(f, function (kind, val) {
                   if (kind === "node") pendingNode = val;
-                  else if (kind === "error") blamed = val;
+                  else if (kind === "error") { blamed = val; logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error(String(val)), false); }
                 });
               })(frames[i]);
             }
             return pump();
           }).catch(function (e) {
             blamed = (e && e.message) || "Stream error";
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
             finish(false, null);
           });
         }
         return pump();
       }).catch(function (e) {
         blamed = (e && e.message) || "Network error";
+        logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
         finish(false, null);
       });
     }
@@ -1866,13 +1900,18 @@
           var active = findActiveStage() || STAGE_ORDER[Math.max(0, currentStageIndex)];
           markFailed(active);
           appendDocError(String(err && err.message ? err.message : err));
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           try { console.error("[shell] stream parse error:", err); } catch (_) {}
         }
       );
       var started = false;
+      var sseEndpoint = "";
+      var sseStartedAt = Date.now();
+      var sseTokens = 0;
       return ensureProjectId()
         .then(function (projectId) {
           var url = "/api/projects/" + encodeURIComponent(projectId) + "/draft/stream";
+          sseEndpoint = url;
           return fetch(url, {
             method: "POST",
             headers: {
@@ -1887,11 +1926,13 @@
           started = true;
           if (!resp.ok) {
             return resp.text().then(function (t) {
+              logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("HTTP " + resp.status), false);
               try { var j = JSON.parse(t); handleEvent("error", j); return; }
               catch (_) { handleEvent("error", { ok: false, error: t || "HTTP " + resp.status }); }
             });
           }
           if (!resp.body) {
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("Response body unavailable."), false);
             handleEvent("error", { ok: false, error: "Response body unavailable." });
             return;
           }
@@ -1908,11 +1949,12 @@
               }
               if (thisRequest !== SHELL.streams.draft) return;
               var str = decoder.decode(chunk.value || new Uint8Array(0), { stream: true });
+              sseTokens += str.length;
               parser.feed(str);
               return loop();
             }).catch(function (err) {
               // Abort is intentional — exit quietly, no error event.
-              if (err && err.name === "AbortError") return;
+              if (err && err.name === "AbortError") { logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, true); return; }
               throw err;
             });
           }
@@ -1921,8 +1963,10 @@
         .catch(function (err) {
           // A clean abort must not surface as an error or rewrite the canvas.
           if (err && err.name === "AbortError") {
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, true);
             return;
           }
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           if (!started) {
             resetStages();
           }
@@ -2391,6 +2435,9 @@
       try { intent = window.sessionStorage.getItem(LAST_INTENT_KEY); } catch (_) { intent = null; }
       if (!intent) { compareShowError(col, "No stored intent."); return controller; }
 
+      var sseEndpoint = "";
+      var sseStartedAt = Date.now();
+      var sseTokens = 0;
       var parser = parseSseLoop(
         function (event, data) {
           if (event === "[DONE]") return;
@@ -2419,11 +2466,13 @@
               addEvidenceChips(data.document, col.__body);
             }
           } else if (t === "error") {
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error(data.error || "Compare stream error."), false);
             compareShowError(col, data.error || "Compare stream error.");
           }
         },
         function () { compareStreamFinished(); },
         function (err) {
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           compareShowError(col, String(err && err.message ? err.message : err));
           compareStreamFinished();
         }
@@ -2432,6 +2481,7 @@
       ensureProjectId()
         .then(function (projectId) {
           var url = "/api/projects/" + encodeURIComponent(projectId) + "/draft/stream";
+          sseEndpoint = url;
           return fetch(url, {
             method: "POST",
             signal: controller.signal,
@@ -2450,6 +2500,7 @@
             return reader.read().then(function (chunk) {
               if (chunk.done) { parser.end(); return; }
               var str = decoder.decode(chunk.value || new Uint8Array(0), { stream: true });
+              sseTokens += str.length;
               parser.feed(str);
               return loop();
             });
@@ -2457,7 +2508,8 @@
           return loop();
         })
         .catch(function (err) {
-          if (err && err.name === "AbortError") { compareStreamFinished(); return; }
+          if (err && err.name === "AbortError") { logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, true); compareStreamFinished(); return; }
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           compareShowError(col, String(err && err.message ? err.message : err));
           compareStreamFinished();
         });
@@ -3117,13 +3169,17 @@
     }
 
     function performRevision(nodeId, findingText) {
+      var sseStartedAt = Date.now();
+      var sseTokens = 0;
+      var sseEndpoint = "";
       ensureProjectId().then(function (projectId) {
         var url = "/api/projects/" + projectId + "/inquire/stream";
+        sseEndpoint = url;
         var body = { intent: findingText, target_node_id: nodeId };
         return jsonPost(url, body);
       }).then(function (resp) {
-        if (!resp.ok) throw new Error("Revise failed: " + resp.status);
-        if (!resp.body) throw new Error("No stream body");
+        if (!resp.ok) { var rerr = new Error("Revise failed: " + resp.status); logSseFailure(sseEndpoint, sseStartedAt, sseTokens, rerr, false); throw rerr; }
+        if (!resp.body) { var nerr = new Error("No stream body"); logSseFailure(sseEndpoint, sseStartedAt, sseTokens, nerr, false); throw nerr; }
         var reader = resp.body.getReader();
         var decoder = new TextDecoder();
         var preview = document.createElement("div");
@@ -3146,14 +3202,17 @@
               return;
             }
             var chunk = decoder.decode(result.value, { stream: true });
+            sseTokens += chunk.length;
             preview.textContent += chunk;
             read();
           }).catch(function (err) {
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, !!(err && err.name === "AbortError"));
             alert("Stream read error: " + (err.message || err));
           });
         }
         read();
       }).catch(function (err) {
+        logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, !!(err && err.name === "AbortError"));
         alert("Revision error: " + (err.message || err));
       });
     }
