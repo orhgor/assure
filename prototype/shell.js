@@ -21,7 +21,7 @@
     sources:  [],
     streams:  { draft: null, compareA: null, compareB: null },
     compare:  { a: null, b: null, inflight: false, loaded: false },
-    document: { current: null, mode: "empty", versions: { list: [], current: null } },
+    document: { current: null, mode: "empty", versions: { list: [], current: null }, signoff: { status: "draft" } },
     compiler: { ask: "", prompt: "", route: "" },
     pipeline: { activeIndex: null },
     ui: {
@@ -80,6 +80,16 @@
     } else if (path === "document.mode") {
       if (docEmpty) {
         docEmpty.style.display = (value === "empty") ? "" : "none";
+      }
+    } else if (path === "document.signoff.status") {
+      var el = document.getElementById("signoff-indicator");
+      if (!el) return;
+      if (value === "signed") {
+        el.textContent = "\u25cf Signed";
+        el.classList.add("is-signed");
+      } else {
+        el.textContent = "\u25cf Draft";
+        el.classList.remove("is-signed");
       }
     } else if (path === "compiler.ask") {
       if (compilerAskEl) compilerAskEl.textContent = value;
@@ -1289,6 +1299,18 @@
         })
         .catch(function () {});
     }
+    function _refreshSignoff(projectId) {
+      var id = projectId || SHELL.project.id || null;
+      if (!id) { try { id = window.localStorage.getItem(STORAGE_KEY) || null; } catch (_) { id = null; } }
+      if (!id) return;
+      fetch("/api/projects/" + encodeURIComponent(id) + "/sign-offs")
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (j) {
+          var signed = (j.sign_offs || []).some(function (s) { return s.status === "approved"; });
+          setShell("document.signoff.status", signed ? "signed" : "draft");
+        })
+        .catch(function () {});
+    }
     function _loadProjectSourceList(id) {
       if (!id) return;
       fetch("/api/projects/" + encodeURIComponent(id) + "/substrate")
@@ -1343,6 +1365,7 @@
             clearDocument();
           }
           _loadVersionHistory(id, { current: null });
+          _refreshSignoff(id);
           // compiler panel is per-project — always reset (JDF carries no meta.ask)
           populateCompilerAsk("");
           setCompilerPrompt("");
@@ -1394,6 +1417,7 @@
       _closeProjectPanel();
     });
     _refreshProjectName();
+    _refreshSignoff();
 
     // S1: restore persisted pane collapse state (default false → both panes
     // visible on first-ever load), then render. _applyRightView() draws the

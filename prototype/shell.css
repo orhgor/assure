@@ -1826,6 +1826,19 @@ body.collapsed .pane-left {
   margin-bottom: 16px;
 }
 
+/* Sign-off status indicator in the top bar. */
+.signoff-indicator {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.signoff-indicator.is-signed {
+  color: #10b981;
+  border-color: #10b981;
+}
+
 .rail-right {
   border-right: none;
   border-left: var(--border-1);
