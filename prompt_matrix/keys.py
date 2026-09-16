@@ -60,18 +60,20 @@ def load_keys() -> None:
         load_dotenv(ENV_PATH, override=False)
         repo_root = Path(__file__).resolve().parent.parent
         env_profile = (os.environ.get("ASSURE_ENV") or "").strip().lower()
-        # Load .env, .env.local, .env.staging with override=False: values already
-        # present in os.environ (e.g. the shell) always win, and these files only
-        # fill gaps. Never override=True here — it mutates os.environ process-wide
-        # and leaks values (like ASSURE_USE_FREE_MODELS) into later tests.
+        # Precedence: shell env > .env.staging > .env.local > .env. Capture the
+        # shell env, apply files with override=True so the later file wins in file
+        # order, then re-apply the shell env on top so the shell always wins and
+        # file-loaded values never override a caller's pre-set environment.
+        _shell_env = dict(os.environ)
         for name in (".env", ".env.local"):
             f = repo_root / name
             if f.exists():
-                load_dotenv(f, override=False)
+                load_dotenv(f, override=True)
         if env_profile == "staging":
             f = repo_root / ".env.staging"
             if f.exists():
-                load_dotenv(f, override=False)
+                load_dotenv(f, override=True)
+        os.environ.update(_shell_env)
         if Path.cwd() != PACKAGE_DIR and (Path.cwd() / ".env").exists():
             load_dotenv(Path.cwd() / ".env", override=False)
 
