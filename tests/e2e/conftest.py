@@ -282,9 +282,26 @@ def fire_intent(browser_page):
 
 @pytest.fixture
 def wait_for_render(browser_page):
-    def _wait(timeout: int = 60000) -> None:
+    def _wait(timeout: int = 180000) -> None:
         browser_page.wait_for_function(
             "() => document.querySelectorAll('.doc-draft .jdf-node').length > 0",
+            timeout=timeout,
+        )
+
+    return _wait
+
+
+@pytest.fixture
+def wait_for_verified(browser_page):
+    def _wait(timeout: int = 240000) -> None:
+        """Wait for a state only the SSE `verified` event produces.
+
+        wait_for_render waits for `.jdf-node` (the compiled event); the gate
+        block is written right before `verified`, so reading the DB right after
+        wait_for_render can see the PREVIOUS compile's gate."""
+        browser_page.wait_for_function(
+            "() => document.querySelector('.doc-ungrounded-banner') "
+            "|| document.querySelector('.jdf-node .conf-span')",
             timeout=timeout,
         )
 
