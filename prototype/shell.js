@@ -163,7 +163,28 @@
         return;
       }
       layer.hidden = false;
-      layer.innerHTML = "<div class='modal'>Modal: " + value + "</div>";
+      if (value === "shortcuts") {
+        layer.innerHTML =
+          '<div class="modal">' +
+            '<div class="modal-header">' +
+              '<h2>Keyboard shortcuts</h2>' +
+              '<button type="button" id="modal-close">✕</button>' +
+            '</div>' +
+            '<ul class="shortcut-list">' +
+              '<li><kbd>Cmd+B</kbd> Toggle left pane</li>' +
+              '<li><kbd>Cmd+J</kbd> Toggle right pane</li>' +
+              '<li><kbd>Cmd+.</kbd> Focus mode</li>' +
+              '<li><kbd>?</kbd> This dialog</li>' +
+              '<li><kbd>Enter</kbd> Submit ask</li>' +
+              '<li><kbd>Esc</kbd> Cancel / close</li>' +
+            '</ul>' +
+          '</div>';
+        document.getElementById("modal-close").addEventListener(
+          "click", function () { setShell("ui.modal", null); }
+        );
+      } else {
+        layer.innerHTML = "<div class='modal'>Modal: " + value + "</div>";
+      }
     }
   }
 
@@ -354,6 +375,19 @@
         e.preventDefault();
         setShell("ui.modal", null);
       }
+    });
+
+    // "?" opens the keyboard-shortcuts modal. Separate listener — the
+    // Cmd/B handler requires metaKey and the ESC handler only closes.
+    // Guarded so the char still types normally in editable fields.
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "?") return;
+      var t = e.target;
+      if (t && (t.isContentEditable
+                || t.tagName === "INPUT"
+                || t.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      setShell("ui.modal", "shortcuts");
     });
 
     // ---------------------------------------------------------------

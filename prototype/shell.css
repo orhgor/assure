@@ -1835,6 +1835,26 @@ body.collapsed .pane-left {
   margin-bottom: 16px;
 }
 
+.shortcut-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.shortcut-list li {
+  padding: 6px 0;
+  font-size: 13px;
+}
+.shortcut-list kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  margin-right: 8px;
+  background: var(--bg-body);
+}
+
 /* Sign-off status indicator in the top bar. */
 .signoff-indicator {
   font-size: 12px;
