@@ -141,6 +141,7 @@
         if (selEl) selEl.classList.add("is-selected");
       }
       _loadNodeHistory(value);
+      _attachNodeRephrase(value);
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.layout.leftWidth") {
@@ -915,6 +916,173 @@
         var nodeEl = renderJdfNode(doc.body[i]);
         if (nodeEl) draft.appendChild(nodeEl);
       }
+    }
+
+    // ---------------------------------------------------------------
+    // Inline node rephrase: rewrite only the selected paragraph.
+    // ---------------------------------------------------------------
+    var __rephraseBusy = false;
+    function _replaceNodeInTree(nodes, nodeId, newNode) {
+      if (!Array.isArray(nodes)) return false;
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i] && nodes[i].id === nodeId) { nodes[i] = newNode; return true; }
+        if (nodes[i] && nodes[i].children && _replaceNodeInTree(nodes[i].children, nodeId, newNode)) return true;
+      }
+      return false;
+    }
+    function _rephraseRenderNode(nodeId, newNode) {
+      if (!draftEl || !newNode || !newNode.type) return;
+      var old = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      if (!old) return;
+      var fresh = renderJdfNode(newNode);
+      if (!fresh) return;
+      if (old.classList.contains("is-selected")) fresh.classList.add("is-selected");
+      if (old.classList.contains("is-rephrasing")) fresh.classList.add("is-rephrasing");
+      try { addEvidenceChips({ body: [newNode] }, fresh); } catch (_) {}
+      old.replaceWith(fresh);
+    }
+    function _removeNodeRephrase() {
+      if (!draftEl) return;
+      var existing = draftEl.querySelector(".node-rephrase");
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+    }
+
+    function _attachNodeRephrase(nodeId) {
+      _removeNodeRephrase();
+      __rephraseBusy = false;
+      if (!nodeId || !draftEl) return;
+      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      if (!wrapper) return;
+      var editor = document.createElement("div");
+      editor.className = "node-rephrase";
+      var input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "Rephrase this paragraph…";
+      input.setAttribute("aria-label", "Rephrase this paragraph");
+      var submit = document.createElement("button");
+      submit.type = "button"; submit.setAttribute("data-action", "submit"); submit.textContent = "Rewrite";
+      var cancel = document.createElement("button");
+      cancel.type = "button"; cancel.setAttribute("data-action", "cancel"); cancel.textContent = "Cancel";
+      editor.appendChild(input); editor.appendChild(submit); editor.appendChild(cancel);
+      wrapper.insertBefore(editor, wrapper.firstChild);
+
+      function doSubmit() {
+        var v = input.value || "";
+        if (!v.trim() || __rephraseBusy) return;
+        _submitRephrase(nodeId, v.trim(), editor, input);
+      }
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { e.preventDefault(); _removeNodeRephrase(); }
+        else if (e.key === "Enter") {
+          e.preventDefault();
+          doSubmit();
+        }
+      });
+      submit.addEventListener("click", doSubmit);
+      cancel.addEventListener("click", function () { _removeNodeRephrase(); });
+      input.focus();
+    }
+    function _handleRephraseFrame(frame, cb) {
+      if (!frame) return;
+      var ev = ""; var dataStr = "";
+      frame.split(/\r?\n/).forEach(function (line) {
+        if (line.indexOf("event:") === 0) ev = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataStr += line.slice(5).trim();
+      });
+      if (!ev || !dataStr) return;
+      var data = null;
+      try { data = JSON.parse(dataStr); } catch (_) { return; }
+      if (!data || typeof data !== "object") return;
+      if (ev === "jdf_node_ready" && data.node) {
+        cb("node", data.node);
+      } else if (ev === "complete") {
+        if (data.ok) cb("ok", null);
+        else cb("error", (data.error) || "Rewrite failed");
+      } else if (ev === "token") {
+        cb("token", data.delta != null ? String(data.delta) : "");
+      }
+    }
+
+    function _submitRephrase(nodeId, promptText, editor, inputEl) {
+      var pid = _activeProjectId();
+      if (!pid) return;
+      __rephraseBusy = true;
+      if (inputEl) inputEl.disabled = true;
+      var wrapper = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      if (wrapper) wrapper.classList.add("is-rephrasing");
+      var doc = SHELL.document.current || null;
+      var body = {
+        user_intent: promptText,
+        target_node_id: nodeId,
+        project_id: pid,
+        substrate_file_ids: (SHELL.sources || []).slice(),
+        run_redhat: false,
+        document: doc,
+      };
+      var pendingNode = null;
+      var blamed = null;
+
+      function finish(success, node) {
+        __rephraseBusy = false;
+        var w = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+        if (w) w.classList.remove("is-rephrasing");
+        if (success && node) {
+          if (SHELL.document.current) _replaceNodeInTree(SHELL.document.current.body || [], nodeId, node);
+          _rephraseRenderNode(nodeId, node);
+          var fresh = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+          if (fresh) {
+            fresh.classList.add("rh-fade");
+            setTimeout(function () { fresh.classList.remove("rh-fade"); }, 900);
+          }
+          _removeNodeRephrase();
+          var pid2 = _activeProjectId();
+          if (pid2) { _loadNodeHistory(nodeId); _loadVersionHistory(pid2, { current: "latest" }); }
+        } else {
+          var orig = (SHELL.document.current) ? findJdfNodeById(nodeId, SHELL.document.current) : null;
+          if (orig) _rephraseRenderNode(nodeId, orig);
+          if (inputEl) inputEl.disabled = false;
+          if (editor) {
+            var prior = editor.querySelector(".node-rephrase-error");
+            if (prior) editor.removeChild(prior);
+            var errEl = document.createElement("div");
+            errEl.className = "node-rephrase-error";
+            errEl.textContent = blamed || "Rewrite failed.";
+            editor.appendChild(errEl);
+            if (inputEl) inputEl.focus();
+          }
+        }
+      }
+
+      jsonPost("/api/projects/" + encodeURIComponent(pid) + "/inquire/stream", body).then(function (resp) {
+        if (!resp.ok || !resp.body) { blamed = "Rewrite failed (" + resp.status + ")"; finish(false, null); return; }
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+        function pump() {
+          return reader.read().then(function (result) {
+            if (result.done) { finish(!!pendingNode, pendingNode); return; }
+            buffer += decoder.decode(result.value, { stream: true });
+            var frames = buffer.split(/\n\n/);
+            buffer = frames.pop();
+            for (var i = 0; i < frames.length; i++) {
+              (function (f) {
+                _handleRephraseFrame(f, function (kind, val) {
+                  if (kind === "node") pendingNode = val;
+                  else if (kind === "error") blamed = val;
+                });
+              })(frames[i]);
+            }
+            return pump();
+          }).catch(function (e) {
+            blamed = (e && e.message) || "Stream error";
+            finish(false, null);
+          });
+        }
+        return pump();
+      }).catch(function (e) {
+        blamed = (e && e.message) || "Network error";
+        finish(false, null);
+      });
     }
 
     function getChipIcon(kind, status) {

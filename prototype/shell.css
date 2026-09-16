@@ -2017,3 +2017,77 @@ body.collapsed.right-hidden #resize-right { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .verification-laser { animation-duration: 0.001s; opacity: 0; }
 }
+/* ----------------------------------------------------------------
+   Inline node rephrase
+---------------------------------------------------------------- */
+.node-rephrase {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin: 4px 0 8px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(120, 130, 150, 0.4);
+  border-radius: 6px;
+}
+.node-rephrase input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline: none;
+}
+.node-rephrase input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.node-rephrase button {
+  padding: 4px 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface, #ffffff);
+  border: 1px solid rgba(120, 130, 150, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.node-rephrase button[data-action="submit"] {
+  background: var(--accent);
+  border-color: transparent;
+  color: #ffffff;
+}
+.node-rephrase-error {
+  flex-basis: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #ef4444;
+}
+.jdf-node.is-rephrasing { position: relative; }
+.jdf-node.is-rephrasing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-softest) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: rh-shimmer 1.2s linear infinite;
+}
+@keyframes rh-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.jdf-node.rh-fade { animation: rh-fade 0.9s ease; }
+@keyframes rh-fade {
+  0%   { background: rgba(16, 185, 129, 0.35); }
+  100% { background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jdf-node.is-rephrasing::after { animation: none; }
+  .jdf-node.rh-fade { animation: none; }
+}
