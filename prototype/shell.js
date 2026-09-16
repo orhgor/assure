@@ -251,14 +251,81 @@
       } catch (_) {}
       try { console.error("[shell] source upload:", msg); } catch (_) {}
     }
+    function _sourceProjectId() {
+      try {
+        return SHELL.project.id || window.localStorage.getItem(STORAGE_KEY) || "";
+      } catch (_) { return SHELL.project.id || ""; }
+    }
+    function _isSourceIncluded(id) {
+      var src = SHELL.sources || [];
+      return src.some(function (s) { return String(s) === String(id); });
+    }
+    function _patchSourceIncluded(id, included, checkboxEl) {
+      fetch("/api/projects/" + encodeURIComponent(_sourceProjectId()) + "/substrate/" + encodeURIComponent(id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ included: included }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("PATCH substrate " + r.status);
+          var src = (SHELL.sources || []).map(String);
+          if (included) {
+            if (src.indexOf(String(id)) < 0) src.push(String(id));
+          } else {
+            src = src.filter(function (s) { return s !== String(id); });
+          }
+          setShell("sources", src);
+          if (typeof _refreshCompilerPromptSummary === "function") _refreshCompilerPromptSummary();
+        })
+        .catch(function (err) {
+          if (checkboxEl) checkboxEl.checked = !included;
+          try { console.warn("[shell] source toggling failed:", err); } catch (_) {}
+        });
+    }
+    function _removeSource(id, row) {
+      if (!window.confirm("Remove this source?")) return;
+      fetch("/api/projects/" + encodeURIComponent(_sourceProjectId()) + "/substrate/" + encodeURIComponent(id), {
+        method: "DELETE",
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("DELETE substrate " + r.status);
+          setShell("sources", (SHELL.sources || []).map(String).filter(function (s) { return s !== String(id); }));
+          if (typeof _refreshCompilerPromptSummary === "function") _refreshCompilerPromptSummary();
+          if (row && row.parentNode) row.parentNode.removeChild(row);
+        })
+        .catch(function (err) {
+          try { console.warn("[shell] source remove failed:", err); } catch (_) {}
+        });
+    }
+    function _buildSourceRow(name, id) {
+      var row = document.createElement("div");
+      row.className = "source-item";
+      row.setAttribute("data-source-id", String(id || ""));
+      var label = document.createElement("label");
+      label.className = "source-include";
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.setAttribute("data-source-id", String(id || ""));
+      cb.checked = _isSourceIncluded(id);
+      label.appendChild(cb);
+      var nameEl = document.createElement("span");
+      nameEl.textContent = name || "";
+      var rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "source-remove";
+      rm.setAttribute("aria-label", "Remove source");
+      rm.textContent = "\u00d7";
+      cb.addEventListener("change", function () { _patchSourceIncluded(id, cb.checked, cb); });
+      rm.addEventListener("click", function () { _removeSource(id, row); });
+      row.appendChild(label);
+      row.appendChild(nameEl);
+      row.appendChild(rm);
+      return row;
+    }
     function appendSourceItem(name, id) {
       var el = document.getElementById("source-list");
       if (!el) return;
-      var row = document.createElement("div");
-      row.className = "source-item";
-      row.textContent = name;
-      row.setAttribute("data-source-id", id || "");
-      el.appendChild(row);
+      el.appendChild(_buildSourceRow(name, id));
     }
     function readFileAsText(file) {
       return new Promise(function (resolve, reject) {
@@ -1358,12 +1425,8 @@
           if (el) {
             while (el.firstChild) el.removeChild(el.firstChild);
             rows.forEach(function (f) {
-              var d = document.createElement("div");
-            d.className = "source-item";
-            d.textContent = f.filename || "";
-            d.setAttribute("data-source-id", f.id || "");
-            el.appendChild(d);
-          });
+              el.appendChild(_buildSourceRow(f.filename || "", f.id));
+            });
         }
       })
       .catch(function () {});
