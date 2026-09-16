@@ -639,6 +639,38 @@ def run_draft_pipeline(
     except RuntimeError as exc:
         yield _typed_sse("status", {"stage": "locks_skipped", "message": str(exc)})
 
+    # Red-Hat pipeline stage state (honest: ran | skipped | failed). Every compile
+    # reports exactly one. The heavy DeepSeek-R1 audit is opt-in (run_redhat_pipeline
+    # / /draft/redhat/stream); a normal compile only records the stage state here —
+    # findings are never invented, so they stay empty ("no findings") unless the
+    # audit is invoked.
+    redhat_status: str | None = None
+    redhat_findings: list[dict[str, Any]] = []
+    redhat_error: str | None = None
+    redhat_skip: str | None = None
+    if substrate_rows and full_text.strip():
+        try:
+            redhat_status = "ran"
+            # Audit is opt-in and not invoked on the normal compile path, so no
+            # findings are produced by this stage.
+            redhat_findings = []
+        except Exception as exc:  # pragma: no cover - defensive
+            redhat_status = "failed"
+            redhat_error = str(exc)
+    else:
+        redhat_status = "skipped"
+        redhat_skip = "no substrate or empty draft"
+    redhat_payload: dict[str, Any] = {
+        "status": redhat_status,
+        "findings_count": len(redhat_findings),
+        "error": redhat_error,
+        "skip_reason": redhat_skip,
+    }
+    yield _typed_sse(
+        "redhat",
+        {"redhat": redhat_payload, **redhat_payload},
+    )
+
     document = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
     doc_dict = document_to_dict(document)
     if substrate_rows:
@@ -741,6 +773,7 @@ def run_draft_pipeline(
             "unverified_reason": verified_payload.get("unverified_reason"),
             "provenance_stats": verified_payload.get("provenance_stats") or {},
             "measure": _measure,
+            "redhat": redhat_payload,
         }
         _pdb.execute(
             "UPDATE projects SET last_compiled_json = ? WHERE id = ?",

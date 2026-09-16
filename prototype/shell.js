@@ -1206,6 +1206,20 @@
         }
       } else if (event === "token" && data && typeof data.delta === "string") {
         appendDraftText(data.delta);
+      } else if (event === "redhat" && data && typeof data === "object") {
+        // Red-Hat pipeline stage state for this compile (ran | skipped | failed).
+        var _rh = (data && data.redhat && typeof data.redhat === "object") ? data.redhat : data;
+        __redhatState = {
+          status: _rh.status || null,
+          findings_count: _rh.findings_count || 0,
+          error: _rh.error || null,
+          skip_reason: _rh.skip_reason || null,
+          findings: _rh.findings && Array.isArray(_rh.findings) ? _rh.findings : null,
+        };
+        var selNodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+        var selNode = (selNodeId && SHELL.document.current) ?
+          findJdfNodeById(selNodeId, SHELL.document.current) : null;
+        renderRedhatPanel(selNode || null);
       } else if (event === "compiled") {
         markDone("Lock Inference");
         transitionTo("Compile");
@@ -2619,17 +2633,53 @@
       });
       wrap.appendChild(list); el.appendChild(wrap);
     }
+    var __redhatState = null;
     function renderRedhatPanel(node) {
       var el = redhatModeEl; if (!el) return;
       while (el.firstChild) el.removeChild(el.firstChild);
-      var rh = (node.annotations && node.annotations.redhat) || [];
       var wrap = document.createElement("div"); wrap.className = "evidence-content";
-      if (!rh.length) {
+      var st = __redhatState || null;
+      if (st && st.status) {
         var p = document.createElement("p"); p.className = "evidence-value";
-        p.textContent = "No Red-Hat findings for this node."; wrap.appendChild(p);
+        if (st.status === "failed") {
+          p.textContent = "Red-Hat failed: " + (st.error || "unknown error");
+          wrap.appendChild(p); el.appendChild(wrap); return;
+        }
+        if (st.status === "skipped") {
+          p.textContent = "Red-Hat skipped: " + (st.skip_reason || "no reason");
+          wrap.appendChild(p); el.appendChild(wrap); return;
+        }
+        // ran
+        var findings = st.findings && st.findings.length ? st.findings :
+          (node && node.annotations && node.annotations.redhat) || [];
+        if (findings.length) {
+          var list = document.createElement("ul");
+          findings.forEach(function (r) {
+            if (!r) return;
+            var li = document.createElement("li");
+            var parts = [];
+            if (r.severity) parts.push(r.severity);
+            var body = r.text || r.message || r.critique ||
+              (typeof r === "string" ? r : "");
+            if (body) parts.push(String(body));
+            li.textContent = parts.join(" — ");
+            list.appendChild(li);
+          });
+          wrap.appendChild(list);
+        } else {
+          p.textContent = "Red-Hat ran, no findings";
+          wrap.appendChild(p);
+        }
         el.appendChild(wrap); return;
       }
-      var list = document.createElement("ul");
+      // No pipeline state yet — fall back to per-node annotations.
+      var rh = (node && node.annotations && node.annotations.redhat) || [];
+      if (!rh.length) {
+        var p0 = document.createElement("p"); p0.className = "evidence-value";
+        p0.textContent = "No Red-Hat findings for this node."; wrap.appendChild(p0);
+        el.appendChild(wrap); return;
+      }
+      var list0 = document.createElement("ul");
       rh.forEach(function (r) {
         var li = document.createElement("li");
         var parts = [];
@@ -2637,9 +2687,9 @@
         var body = r.text || r.message || r.critique || "";
         if (body) parts.push(String(body));
         li.textContent = parts.join(" — ");
-        list.appendChild(li);
+        list0.appendChild(li);
       });
-      wrap.appendChild(list); el.appendChild(wrap);
+      wrap.appendChild(list0); el.appendChild(wrap);
     }
     function _loadNodeHistory(nodeId) {
       var details = document.getElementById("right-node-history");
