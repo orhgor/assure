@@ -1,0 +1,53 @@
+// Prototype shell smoke test — asserts the live shell loads clean.
+// Selectors are taken verbatim from prototype/index.html / are bound by
+// prototype/shell.js (do NOT rename assets or selectors).
+const { test, expect } = require("@playwright/test");
+
+test("prototype shell loads clean (no console errors, no failed requests, no sse-failure)", async ({ page }) => {
+  const consoleErrors = [];
+  const sseFailures = [];
+  const requestFailures = [];
+
+  // Collect console errors, "[sse-failure]" warnings, and network failures.
+  page.on("console", (msg) => {
+    const text = msg.text || "";
+    if (text.includes("[sse-failure]")) {
+      sseFailures.push(text);
+    } else if (msg.type === "error") {
+      consoleErrors.push(text);
+    }
+  });
+  page.on("requestfailed", (req) => {
+    requestFailures.push(
+      `${(req.method || "").toUpperCase()} ${req.url} :: ${req.failure || "unknown"}`
+    );
+  });
+
+  await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
+
+  // Root container from prototype/index.html (`<div class="app-shell">`).
+  const shell = page.locator(".app-shell");
+  await expect(shell).toBeVisible({ timeout: 30_000 });
+
+  // Elements that shell.js actually binds on DOMContentLoaded.
+  await expect(page.locator("header.app-header")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#dock-text")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#theme-toggle")).toBeVisible({ timeout: 30_000 });
+
+  // Give async work (e.g. ensureProjectId -> /api/projects) a moment to settle.
+  await page.waitForTimeout(2500);
+
+  // Assert zero of each category.
+  expect(
+    consoleErrors,
+    `unexpected console errors:\n${JSON.stringify(consoleErrors, null, 2)}`
+  ).toEqual([]);
+  expect(
+    requestFailures,
+    `unexpected failed requests:\n${JSON.stringify(requestFailures, null, 2)}`
+  ).toEqual([]);
+  expect(
+    sseFailures,
+    `unexpected [sse-failure] warnings:\n${JSON.stringify(sseFailures, null, 2)}`
+  ).toEqual([]);
+});
