@@ -1599,6 +1599,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_jdf_routes(app)
 
     try:
+        from .routers.jdf_memory_routes import register_jdf_memory_routes
+    except ImportError:
+        from routers.jdf_memory_routes import register_jdf_memory_routes
+    register_jdf_memory_routes(app)
+
+    try:
         from .routers.export_routes import register_export_routes
     except ImportError:
         from routers.export_routes import register_export_routes

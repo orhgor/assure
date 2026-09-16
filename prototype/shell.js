@@ -413,6 +413,97 @@
     }
 
     // ---------------------------------------------------------------
+    // JDF ingest + search (MVP). No toast helper exists — use panel div.
+    // FIX 1 made the routes project-scoped: /api/projects/<id>/jdf/*
+    // ---------------------------------------------------------------
+    function jdfMessage(text, isErr) {
+      var panel = document.getElementById("dock-search-results");
+      if (!panel) return;
+      panel.hidden = false;
+      var row = document.createElement("div");
+      row.textContent = text;
+      if (isErr) { try { row.style.color = "#e5484d"; } catch (_) {} }
+      panel.appendChild(row);
+    }
+    function jdfProjectBase() {
+      var pid = "";
+      try { pid = _sourceProjectId() || ""; } catch (_) {}
+      return "/api/projects/" + encodeURIComponent(pid || "default") + "/jdf";
+    }
+    var jdfIngestBtn = document.getElementById("dock-ingest");
+    var jdfIngestFile = document.getElementById("dock-ingest-file");
+    if (jdfIngestBtn && jdfIngestFile) {
+      jdfIngestBtn.addEventListener("click", function () { jdfIngestFile.click(); });
+      jdfIngestFile.addEventListener("change", function () {
+        var f = jdfIngestFile.files && jdfIngestFile.files[0];
+        if (!f) return;
+        var panel = document.getElementById("dock-search-results");
+        if (panel) { panel.hidden = false; panel.innerHTML = ""; }
+        jdfMessage("Converting → Chunking → Indexing…", false);
+        var fd = new FormData();
+        fd.append("file", f);
+        fetch(jdfProjectBase() + "/ingest", { method: "POST", body: fd })
+          .then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (j) {
+              return { ok: res.ok, status: res.status, j: j };
+            });
+          })
+          .then(function (r) {
+            if (r.ok && r.j && r.j.ok) {
+              jdfMessage("Indexed " + (r.j.chunks_stored || 0) + " chunks from " + f.name, false);
+            } else {
+              jdfMessage(String((r.j && r.j.error) || ("Ingest failed (HTTP " + r.status + ")")), true);
+            }
+            jdfIngestFile.value = "";
+          })
+          .catch(function (err) {
+            jdfMessage(String(err && err.message ? err.message : err), true);
+          });
+      });
+    }
+    var jdfSearch = document.getElementById("dock-search");
+    if (jdfSearch) {
+      jdfSearch.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        var q = jdfSearch.value.trim();
+        var panel = document.getElementById("dock-search-results");
+        if (panel) { panel.hidden = false; panel.innerHTML = ""; }
+        if (!q) { jdfMessage("Enter a query", false); return; }
+        fetch(jdfProjectBase() + "/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q }),
+        })
+          .then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (j) {
+              return { ok: res.ok, status: res.status, j: j };
+            });
+          })
+          .then(function (r) {
+            if (!r.ok) {
+              jdfMessage(String((r.j && r.j.error) || ("Search failed (HTTP " + r.status + ")")), true);
+              return;
+            }
+            var results = (r.j && r.j.results) || [];
+            if (!results.length) { jdfMessage("No matches", false); return; }
+            results.forEach(function (it) {
+              if (!panel) return;
+              var head = document.createElement("div");
+              head.textContent = "• " + String(it.doc_id || "doc");
+              var snippet = String(it.text || "");
+              var body = document.createElement("div");
+              body.textContent = snippet.length > 160 ? snippet.slice(0, 160) + "…" : snippet;
+              panel.appendChild(head);
+              panel.appendChild(body);
+            });
+          })
+          .catch(function (err) {
+            jdfMessage(String(err && err.message ? err.message : err), true);
+          });
+      });
+    }
+
+    // ---------------------------------------------------------------
     // Left / right pane toggles (from phase 1)
     // ---------------------------------------------------------------
     var leftCollapse = document.getElementById("left-collapse");

@@ -1,0 +1,158 @@
+"""Store JDF documents + chunks. SQLite full doc, OMP chunk index."""
+import hashlib
+import json
+import logging
+
+from .omp_memory import safe_omp_remember
+
+try:
+    from ..omp_client import omp_recall
+except ImportError:
+    from omp_client import omp_recall
+
+try:
+    from ..db.connection import init_db
+    from ..history import get_db
+except ImportError:
+    from db.connection import init_db
+    from history import get_db
+
+log = logging.getLogger(__name__)
+
+DEFAULT_TENANT = "default"
+
+
+class OmpUnavailable(RuntimeError):
+    """OMP responded but refused every chunk write (or is down)."""
+
+
+_JDF_DOCS_DDL = """
+CREATE TABLE IF NOT EXISTS jdf_documents (
+    doc_id TEXT PRIMARY KEY,
+    doc_hash TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    jdf_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT (datetime('now'))
+);
+"""
+
+
+def _ensure_jdf_documents_table() -> None:
+    init_db()
+    db = get_db()
+    db.execute(_JDF_DOCS_DDL)
+    db.commit()
+
+
+def _persist_jdf_document(doc_id: str, doc_hash: str, jdf_dict: dict, tenant_id: str) -> None:
+    """Durably store the full JDF JSON (FIX 2). The minimal jdf_documents table is
+    used (not save_jdf_revision) because jdf-cli output ({$jdf,meta,pages}) does not
+    match the app JDF schema that parse_document() requires."""
+    _ensure_jdf_documents_table()
+    db = get_db()
+    db.execute(
+        """
+        INSERT INTO jdf_documents (doc_id, doc_hash, tenant_id, jdf_json)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(doc_id) DO UPDATE SET
+            doc_hash = excluded.doc_hash,
+            tenant_id = excluded.tenant_id,
+            jdf_json = excluded.jdf_json,
+            created_at = datetime('now')
+        """,
+        (doc_id, doc_hash, tenant_id, json.dumps(jdf_dict, ensure_ascii=False)),
+    )
+    db.commit()
+
+
+def _doc_hash(jdf_dict: dict) -> str:
+    return hashlib.sha256(repr(sorted(jdf_dict.items())).encode()).hexdigest()[:16]
+
+
+def _parse_chunk_content(memory) -> dict | None:
+    """OMP stores chunk payloads as JSON-string `content`; return the dict or None."""
+    if not isinstance(memory, dict):
+        return None
+    content = memory.get("content")
+    if not content:
+        return None
+    if isinstance(content, dict):
+        return content
+    try:
+        parsed = json.loads(content)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _search_raw(query: str) -> list[dict]:
+    raw = omp_recall(query)
+    if not isinstance(raw, dict):
+        return []
+    memories = raw.get("memories") or raw.get("results") or []
+    return memories if isinstance(memories, list) else []
+
+
+def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=DEFAULT_TENANT):
+    doc_hash = _doc_hash(jdf_dict)
+    # FIX 2: persist the full JDF durably before touching OMP.
+    _persist_jdf_document(doc_id, doc_hash, jdf_dict, tenant_id)
+    stored = 0
+    for idx, chunk in enumerate(chunks):
+        text = (chunk.get("text") or chunk.get("content") or "").strip()
+        if not text:
+            continue
+        payload = {
+            "kind": "jdf_chunk",
+            "tenant": tenant_id,
+            "doc_id": doc_id,
+            "doc_hash": doc_hash,
+            "chunk_idx": idx,
+            "text": text[:8000],
+            "meta": {
+                k: v
+                for k, v in chunk.items()
+                if k not in ("text", "content") and isinstance(v, (str, int, float, bool))
+            },
+        }
+        key = f"jdf:{tenant_id}:{doc_id}:{idx}"
+        if safe_omp_remember(key, payload):
+            stored += 1
+    log.info(
+        "[jdf] stored doc=%s tenant=%s chunks=%d stored=%d",
+        doc_id, tenant_id, len(chunks), stored,
+    )
+    if len(chunks) > 0 and stored == 0:  # FIX 4
+        raise OmpUnavailable(f"0/{len(chunks)} chunks written to OMP")
+    return {
+        "doc_id": doc_id,
+        "chunks_total": len(chunks),
+        "chunks_stored": stored,
+        "doc_hash": doc_hash,
+    }
+
+
+def search_jdf_chunks(query: str, tenant_id=DEFAULT_TENANT, limit: int = 20):
+    out = []
+    for memory in _search_raw(query):
+        parsed = _parse_chunk_content(memory)
+        if not parsed:
+            continue
+        if parsed.get("kind") != "jdf_chunk":
+            continue
+        if parsed.get("tenant") != tenant_id:
+            continue
+        out.append(parsed)
+    return out[:limit]
+
+
+def get_doc_chunks(doc_id: str, tenant_id=DEFAULT_TENANT):
+    q = f"jdf:{tenant_id}:{doc_id}"
+    out = []
+    for memory in _search_raw(q):
+        parsed = _parse_chunk_content(memory)
+        if not parsed:
+            continue
+        if parsed.get("doc_id") == doc_id:
+            out.append(parsed)
+    return out
