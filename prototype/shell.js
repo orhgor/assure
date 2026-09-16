@@ -45,6 +45,7 @@
   var leftPipelineEl = null;
   var leftHistoryEl = null;
   var leftReferencesEl = null;
+  var leftTemplatesEl = null;
   var evidenceModeEl = null;
   var compareModeEl = null;
   var docBodyEl = null;
@@ -105,7 +106,7 @@
     } else if (path === "project.title") {
       if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
     } else if (path === "ui.leftTab") {
-      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl, references: leftReferencesEl };
+      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl, references: leftReferencesEl, templates: leftTemplatesEl };
       Object.keys(lp).forEach(function (k) {
         if (lp[k]) lp[k].style.display = (k === value) ? "block" : "none";
       });
@@ -1796,6 +1797,7 @@
     leftPipelineEl = document.getElementById("left-pipeline");
     leftHistoryEl  = document.getElementById("left-history");
     leftReferencesEl = document.getElementById("left-references");
+    leftTemplatesEl = document.getElementById("left-templates");
     evidenceModeEl = document.getElementById("right-evidence");
     compareModeEl  = document.getElementById("right-compare");
     z3ModeEl         = document.getElementById("right-z3");
@@ -1831,6 +1833,7 @@
       pipeline:  leftPipelineEl,
       history:   leftHistoryEl,
       references: leftReferencesEl,
+      templates:  leftTemplatesEl,
     };
     var RIGHT_TABPANE = {
       evidence: evidenceModeEl,
