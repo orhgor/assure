@@ -70,3 +70,4 @@ worker/node_modules/
 # One-off scripts (local)
 scripts/apply_jobs_copy.py
 CLINE_RULES.md
+test-results/
