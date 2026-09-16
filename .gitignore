@@ -71,3 +71,4 @@ worker/node_modules/
 scripts/apply_jobs_copy.py
 CLINE_RULES.md
 test-results/
+test-results/
