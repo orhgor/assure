@@ -102,10 +102,28 @@ test("Golden Path — v1.0 E2E (Steps 1–4)", async ({ page }) => {
   await test.step("Step 3: Claude + DeepSeek panes with diff highlights", async () => {
     const staging = page.locator(SEL.stagingCanvas);
     await expect(staging).toBeVisible({ timeout: 30_000 });
-    // Live compare on staging can take 20–90s (two model calls).
+
     await expect(page.locator(SEL.claudePane)).toBeVisible({ timeout: 120_000 });
     await expect(page.locator(SEL.deepseekPane)).toBeVisible({ timeout: 120_000 });
-    await expect(page.locator(SEL.diffHighlight).first()).toBeVisible({ timeout: 30_000 });
+
+    // Staging live compare runs two model calls (60-180s). Wait for both
+    // panes to contain real text, not the "waiting" placeholder.
+    await page.waitForFunction(
+      () => {
+        const c = document.querySelector('.staging-canvas .model-pane[data-model="claude"]');
+        const d = document.querySelector('.staging-canvas .model-pane[data-model="deepseek"]');
+        if (!c || !d) return false;
+        const cText = (c.textContent || "").trim();
+        const dText = (d.textContent || "").trim();
+        return (
+          cText.length > 20 && dText.length > 20 &&
+          !/waiting/i.test(cText) && !/waiting/i.test(dText)
+        );
+      },
+      { timeout: 180_000 }
+    );
+
+    await expect(page.locator(SEL.diffHighlight).first()).toBeVisible({ timeout: 120_000 });
   });
 
   // Step 4 — Hybrid merge: push highlighted block to Main document
