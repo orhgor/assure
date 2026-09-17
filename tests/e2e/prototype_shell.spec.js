@@ -1,6 +1,11 @@
 // Prototype shell smoke test — asserts the live shell loads clean.
 // Selectors are taken verbatim from prototype/index.html / are bound by
 // prototype/shell.js (do NOT rename assets or selectors).
+//
+// golden_path.spec.js is NOT expected to fail here: it targets /app (the legacy
+// founder workbench, absent from this host) and probes that path, skipping only
+// where the surface is missing. It runs wherever /app returns 200 — locally and
+// on staging.getassureai.com, not on prototype.getassureai.com.
 const { test, expect } = require("@playwright/test");
 
 test("prototype shell loads clean (no console errors, no failed requests, no sse-failure)", async ({ page }) => {

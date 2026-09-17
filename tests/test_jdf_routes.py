@@ -1,6 +1,7 @@
 """Tests for JDF memory routes (project-scoped ingest/search/health)."""
 import io
 import json
+import sys
 
 import pytest
 from flask import Flask
@@ -94,6 +95,40 @@ def test_search_ok(client):
     body = res.get_json()
     assert body["count"] == 1
     assert body["results"][0]["doc_id"] == "a.pdf"
+
+
+def test_health_ok_when_jdf_binary_resolves(client, monkeypatch):
+    """200 + ok:true when JDF_BIN points at a binary that exists on disk."""
+    monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", sys.executable)
+    res = client.get("/api/projects/p1/jdf/health")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True, "status 200 must not carry ok:false"
+    assert body["jdf_bin"] == sys.executable
+    assert body["project_id"] == "p1"
+
+
+def test_health_503_when_jdf_binary_unresolvable(client, monkeypatch):
+    """503 + ok:false when neither JDF_BIN nor PATH yields a jdf binary."""
+    monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", "/nonexistent/bin/jdf")
+    monkeypatch.setattr(jdf_memory_routes.shutil, "which", lambda name: None)
+    res = client.get("/api/projects/p1/jdf/health")
+    assert res.status_code == 503
+    body = res.get_json()
+    assert body["ok"] is False, "status 503 must not carry ok:true"
+    assert body["jdf_bin"] == "/nonexistent/bin/jdf"
+    assert body["project_id"] == "p1"
+
+
+def test_health_ok_when_path_fallback_resolves_jdf_binary(client, monkeypatch):
+    """A configured JDF_BIN that is stale (gone) still resolves via PATH."""
+    monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", "/nonexistent/bin/jdf")
+    monkeypatch.setattr(jdf_memory_routes.shutil, "which", lambda name: "/usr/bin/jdf")
+    res = client.get("/api/projects/p1/jdf/health")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True
+    assert body["jdf_bin"] == "/nonexistent/bin/jdf"
 
 
 def test_ingest_omp_unavailable(client, monkeypatch):

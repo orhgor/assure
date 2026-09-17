@@ -76,6 +76,26 @@ async function gotoFounderWorkbench(page) {
   // );
 }
 
+/**
+ * The legacy founder workbench is served at /app, and whether that surface
+ * exists is a property of the host — not of the host being localhost. The
+ * local dev server and staging.getassureai.com both serve /app (200);
+ * prototype.getassureai.com has no /app route (404). Gating on a local-host
+ * regex therefore skips staging by mistake, so probe the resolved
+ * `use.baseURL` (playwright.config.js takes it from ASSURE_BASE_URL, falling
+ * back to the local dev server) instead of guessing from its shape.
+ */
+const LEGACY_SURFACE_SKIP =
+  "targets the legacy /app surface — not present on this base URL";
+
+test.beforeEach(async ({ request, baseURL }) => {
+  if (!baseURL) return; // nothing configured to probe — run, don't hide
+  // Redirects are followed here, exactly as they are by the page.goto("/app")
+  // these tests perform, so this status is the one the test itself would see.
+  const res = await request.get(new URL("/app", baseURL).toString());
+  test.skip(res.status() !== 200, LEGACY_SURFACE_SKIP);
+});
+
 test("Golden Path — v1.0 E2E (Steps 1–4)", async ({ page }) => {
   // Step 1 — Start workbook / Main document ready
   await test.step("Step 1: Main document is open", async () => {
