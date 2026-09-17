@@ -846,6 +846,19 @@ body.collapsed .pane-left {
   color: var(--danger-text);
 }
 
+/* Skipped (markSkipped in shell.js): a stage that legitimately ran nothing —
+   e.g. Math Check with no "key: value" metrics. Stays on the idle dot colour
+   (skipped != failed), with a ring + italics to separate it from a row that
+   has simply not started. The reason lives in the row's title attribute. */
+.stage-row.skipped .stage-dot {
+  background: var(--dot-idle);
+  box-shadow: inset 0 0 0 1px var(--text-muted);
+}
+.stage-row.skipped .stage-name {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 @keyframes stage-active-pulse {
   0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
   50%      { box-shadow: 0 0 0 5px var(--accent-softest); }

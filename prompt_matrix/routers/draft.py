@@ -212,11 +212,12 @@ def verify_locks(
 ) -> dict[str, Any]:
     """Z3 verification of inferred locks against draft metrics (Stage 4).
 
-    Status is derived from the locks themselves so a run with 0 verified
-    locks cannot report PASS:
+    Status is derived from the work actually performed, so a run that checked
+    nothing cannot report PASS:
       - any lock failed to parse        -> VIOLATION
-      - no lock verified successfully   -> SKIPPED
-      - at least one lock verified      -> PASS/VIOLATION from validate_entities
+      - no lock verified successfully   -> SKIPPED, 0 locks
+      - no ``key: value`` metric in the draft -> SKIPPED, 0 checks
+      - at least one metric checked     -> PASS/VIOLATION from validate_entities
     """
     truth = TruthLedgerEngine()
     lock_results: list[dict[str, Any]] = []
@@ -242,12 +243,25 @@ def verify_locks(
         violations = [
             {"key": r["key"], "error": r.get("error")} for r in lock_results if not r.get("ok")
         ]
+        skip_reason = None
     elif locks_ok == 0:
         status = "SKIPPED"
         violations = []
+        skip_reason = "no locks inferred from the draft"
+    elif not metrics:
+        # Locks made it into the ledger but the draft carries no ``key: value``
+        # metric (prose citing "$5,000,000" has no key label, so _parse_metrics
+        # finds nothing). Zero checks run is not a pass.
+        status = "SKIPPED"
+        violations = []
+        skip_reason = (
+            "no metric of the form 'key: value' in the draft, so the "
+            f"{locks_ok} inferred lock(s) could not be checked"
+        )
     else:
-        ok, violations = truth.validate_entities(metrics) if metrics else (True, [])
+        ok, violations = truth.validate_entities(metrics)
         status = "PASS" if ok else "VIOLATION"
+        skip_reason = None
 
     return {
         "status": status,
@@ -256,6 +270,7 @@ def verify_locks(
         "locks_verified": locks_ok,
         "locks_rejected": locks_bad,
         "metrics_checked": len(metrics),
+        "skip_reason": skip_reason,
     }
 
 
@@ -639,27 +654,15 @@ def run_draft_pipeline(
     except RuntimeError as exc:
         yield _typed_sse("status", {"stage": "locks_skipped", "message": str(exc)})
 
-    # Red-Hat pipeline stage state (honest: ran | skipped | failed). Every compile
-    # reports exactly one. The heavy DeepSeek-R1 audit is opt-in (run_redhat_pipeline
-    # / /draft/redhat/stream); a normal compile only records the stage state here —
-    # findings are never invented, so they stay empty ("no findings") unless the
-    # audit is invoked.
-    redhat_status: str | None = None
+    # Red-Hat pipeline stage state (ran | skipped | failed). The heavy adversarial
+    # audit is opt-in (run_redhat_pipeline / POST /draft/redhat/stream) and this
+    # stream never calls it, so the honest state for every compile is "skipped":
+    # nothing was executed here, and reporting "ran" claimed a pass no audit
+    # backed. Findings are never invented, so they stay empty.
+    redhat_status = "skipped"
+    redhat_skip = "no Red-Hat audit was requested for this compile"
     redhat_findings: list[dict[str, Any]] = []
     redhat_error: str | None = None
-    redhat_skip: str | None = None
-    if substrate_rows and full_text.strip():
-        try:
-            redhat_status = "ran"
-            # Audit is opt-in and not invoked on the normal compile path, so no
-            # findings are produced by this stage.
-            redhat_findings = []
-        except Exception as exc:  # pragma: no cover - defensive
-            redhat_status = "failed"
-            redhat_error = str(exc)
-    else:
-        redhat_status = "skipped"
-        redhat_skip = "no substrate or empty draft"
     redhat_payload: dict[str, Any] = {
         "status": redhat_status,
         "findings_count": len(redhat_findings),
@@ -821,10 +824,11 @@ def run_draft_pipeline(
     except Exception:
         pass
 
-    # Hybrid compile gate: the pipeline ends here. Docking is unblocked now
-    # that Math Check has passed. The Stress Test (Red-Hat, DeepSeek-Reasoner)
-    # is opt-in and slow — it only runs if the user explicitly asks for it,
-    # via a separate call to run_redhat_pipeline / /draft/redhat/stream.
+    # Hybrid compile gate: the pipeline ends here and the gate state
+    # (pass | review | blocked, from z3 status + Red-Hat count) travels in
+    # verified_payload — it is never assumed. The Stress Test (Red-Hat,
+    # DeepSeek-Reasoner) is opt-in and slow: this stream does not run it, so
+    # it is not part of this compile's result.
     duration_ms = int((time.perf_counter() - start) * 1000)
     audit.log_audit(
         rid,

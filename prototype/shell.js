@@ -766,7 +766,8 @@
       STAGE_ORDER.forEach(function (n) {
         var r = stageRow(n);
         if (!r) return;
-        r.classList.remove("active", "done", "failed");
+        r.classList.remove("active", "done", "failed", "skipped");
+        r.removeAttribute("title");
       });
       var banner = document.querySelector(".doc-ungrounded-banner");
       if (banner) banner.remove();
@@ -781,20 +782,35 @@
     function markDone(name) {
       var r = stageRow(name);
       if (!r) return;
+      r.classList.remove("skipped");
+      r.removeAttribute("title");
       r.classList.remove("active", "failed");
       r.classList.add("done");
     }
     function markActive(name) {
       var r = stageRow(name);
       if (!r) return;
+      r.classList.remove("skipped");
+      r.removeAttribute("title");
       r.classList.remove("done", "failed");
       r.classList.add("active");
     }
     function markFailed(name) {
       var r = stageRow(name);
       if (!r) return;
+      r.classList.remove("skipped");
+      r.removeAttribute("title");
       r.classList.remove("active", "done");
       r.classList.add("failed");
+    }
+    // A stage that had nothing to check is neither done nor failed: a green
+    // dot would claim a pass that never ran (Math Check with 0 metrics).
+    function markSkipped(name, reason) {
+      var r = stageRow(name);
+      if (!r) return;
+      r.classList.remove("active", "done", "failed");
+      r.classList.add("skipped");
+      r.setAttribute("title", name + " skipped: " + (reason || "no checks ran"));
     }
 
     // ---------------------------------------------------------------
@@ -1055,9 +1071,13 @@
       var legend = document.createElement("div");
       legend.className = "conf-legend";
       var items = [
-        { dot: "green",  label: "Verified in source" },
-        { dot: "yellow", label: "Partial match" },
-        { dot: "red",    label: "Not verified" },
+        // The dot colour tracks the span score, which comes from the numeric
+        // truth-ledger check (0.92 = the figure matches a locked value,
+        // 0.5 = nothing numeric was checkable, 0.25/0.15 = contradicts the
+        // locked value). It is not source verification.
+        { dot: "green",  label: "Figure matches ledger lock" },
+        { dot: "yellow", label: "Not numerically checked" },
+        { dot: "red",    label: "Contradicts ledger lock" },
       ];
       for (var i = 0; i < items.length; i++) {
         var item = document.createElement("span");
@@ -1925,7 +1945,13 @@
           }
         }
       } else if (event === "verified") {
-        markDone("Math Check");
+        // A zero-check Math Check is not a pass: the server reports SKIPPED
+        // when no "key: value" metric was in the draft, and a green done dot
+        // would claim a verification that never ran.
+        var _z3r = (data && (data.z3_results || data.z3 || null)) || {};
+        var _z3s = String((data && data.z3_status) || _z3r.status || "").toUpperCase();
+        if (_z3s === "SKIPPED") markSkipped("Math Check", _z3r.skip_reason || "no metrics to check");
+        else markDone("Math Check");
         transitionTo("Verify");
         if (data && data.document) {
           setShell("document.current", data.document);
@@ -2528,9 +2554,18 @@
           if (typeof j.prompt === "string" && j.prompt.length > 0) {
             setCompilerPrompt(j.prompt);
           }
+          // The bar is painted before this promise settles, so the tick only
+          // becomes true once the prompt actually came back. No count and no
+          // check result: the pipeline stages report those.
+          if (intentSummaryTextEl) {
+            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+          }
         })
         .catch(function (err) {
           setCompilerPrompt("(compiler unavailable)");
+          if (intentSummaryTextEl) {
+            intentSummaryTextEl.textContent = "Intent compiler unavailable \u00b7 checks run in the pipeline";
+          }
           try { console.error("[shell] preview error:", err && err.message ? err.message : err); } catch (_) {}
         });
       // Fire the draft/stream now, in parallel.
@@ -2579,6 +2614,7 @@
     function clearIntentSlot() {
       if (!intentPanelSlot) return;
       while (intentPanelSlot.firstChild) intentPanelSlot.removeChild(intentPanelSlot.firstChild);
+      intentSummaryTextEl = null;
     }
 
     function makeIntentPanelShell(titleText) {
@@ -2681,8 +2717,8 @@
       }
       var checksBody = document.createElement("p");
       checksBody.className = "intent-checks";
-      checksBody.textContent = "Z3 numeric \u00b7 Red-Hat \u00b7 Provenance \u00b7 Confidence";
-      appendIntentSection(panel, "VERIFICATION CHECKS", checksBody);
+      checksBody.textContent = "Will attempt on Run: Z3 numeric gate (needs a \u201ckey: value\u201d metric) \u00b7 provenance anchoring (needs selected sources) \u00b7 confidence spans. Red-Hat audit is opt-in and does not run on compile.";
+      appendIntentSection(panel, "CHECKS PLANNED", checksBody);
       var footer = document.createElement("div");
       footer.className = "intent-actions";
       footer.appendChild(makeCancelButton());
@@ -2691,6 +2727,9 @@
       intentPanelSlot.appendChild(panel);
     }
 
+    // The intent bar's text node, so beginIntentCompile can flip it once the
+    // compile-system promise settles (the bar is drawn before that).
+    var intentSummaryTextEl = null;
     function renderIntentSummary(raw) {
       if (!intentPanelSlot) return;
       clearIntentSlot();
@@ -2698,7 +2737,11 @@
       bar.className = "intent-summary";
       var textEl = document.createElement("span");
       textEl.className = "intent-summary-text";
-      textEl.textContent = "\u2713 Intent compiled \u00b7 4 checks";
+      // Not a result: the intent prompt may still be in flight, and the
+      // verification checks run (or skip) later in the pipeline, where the
+      // per-stage rows report their real state.
+      textEl.textContent = "\u2026 Compiling intent";
+      intentSummaryTextEl = textEl;
       var viewBtn = document.createElement("button");
       viewBtn.type = "button";
       viewBtn.className = "intent-summary-view";
@@ -2737,6 +2780,11 @@
     if (docSurface) docSurface.addEventListener("click", function (e) {
       if (e.target.closest(".jdf-span")) return;
       if (e.target.closest(".jdf-chip")) return;
+      // A confidence span owns its click (handleConfidenceClick paints the
+      // ledger-check drawer). Without this guard the surface delegate
+      // re-selected the node right after, whose _applyRightView redraw of
+      // #right-evidence cleared the drawer in the same tick.
+      if (e.target.closest(".conf-span")) return;
       var nodeEl = e.target.closest("[data-node-id]");
       var nid = nodeEl ? nodeEl.getAttribute("data-node-id") : null;
       setShell("ui.selection.nodeId", nid);
@@ -3233,10 +3281,14 @@
       var tree = (host && host.__jdfDoc) ? host.__jdfDoc : SHELL.document.current;
       var node = findJdfNodeById(nodeId, tree);
       setShell("ui.selection.nodeId", nodeId);
-      renderConfidenceEvidence(span, node);
       setShell("ui.selection.evidence", { kind: "confidence", nodeId: nodeId, data: {} });
       openRight();
       setMode("evidence");
+      // Paint the drawer LAST. setMode -> rightGroupSetTab -> _applyRightView
+      // re-renders #right-evidence for the selected node, so a drawer written
+      // before it (as this used to) was cleared in the same tick and never
+      // reached the screen.
+      renderConfidenceEvidence(span, node);
     }
 
     function renderConfidenceEvidence(span, node) {
@@ -3311,7 +3363,7 @@
       var foot = document.createElement("div");
       foot.className = "evidence-footer";
       var scoreText = (score <= 1) ? (Math.round(score * 100) + "%") : String(score);
-      foot.textContent = "Verification score: " + scoreText;
+      foot.textContent = "Ledger check score: " + scoreText;
       evidenceBodyEl.appendChild(foot);
     }
 

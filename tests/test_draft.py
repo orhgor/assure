@@ -39,11 +39,27 @@ def test_draft_text_to_sections_plain():
     os.environ.get("CI") == "true",
     reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
 )
-def test_verify_locks_pass():
+def test_verify_locks_pass_requires_a_checked_metric():
     locks = [{"canonical_key": "Revenue", "value": 12_000_000, "metric": "ARR"}]
-    result = verify_locks(locks, "Revenue ARR is $12M this quarter.")
+    result = verify_locks(locks, "Revenue: 12000000 this quarter.")
     assert result["status"] == "PASS"
     assert result["locks_verified"] == 1
+    assert result["metrics_checked"] == 1
+
+
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
+)
+def test_verify_locks_zero_metrics_is_skipped_not_pass():
+    """A lock with no ``key: value`` metric in the draft checks nothing, so the
+    gate must not report PASS over zero checks (it used to)."""
+    locks = [{"canonical_key": "Revenue", "value": 12_000_000, "metric": "ARR"}]
+    result = verify_locks(locks, "Revenue ARR is $12M this quarter.")
+    assert result["status"] == "SKIPPED"
+    assert result["metrics_checked"] == 0
+    assert result["locks_verified"] == 1
+    assert "key: value" in result["skip_reason"]
 
 
 def test_run_draft_pipeline_progressive(monkeypatch):
@@ -87,6 +103,13 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     assert "document" in compiled
     assert compiled["node_count"] >= 1
     assert "locks" in compiled
+
+    # The compile stream never runs the Red-Hat audit, so its stage frame must
+    # say skipped — it used to claim "ran" with zero findings behind it.
+    redhat = next(data for _ev, data in events if data.get("type") == "redhat")
+    assert redhat["status"] == "skipped"
+    assert redhat["findings_count"] == 0
+    assert redhat["skip_reason"]
 
     # "verified" is the hybrid dock gate: Z3 has run, Red-Hat has not (and
     # will not, unless the user opts in via run_redhat_pipeline).
