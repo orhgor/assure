@@ -1723,6 +1723,13 @@
         } else if (stage === "model") {
           markDone("Preflight");
           transitionTo("Drafting");
+          // status{stage:"model"} carries the model the compile path routed to
+          // (draft.py:543-546). This frame is the only client-reachable source
+          // for ROUTED TO; /api/compile-system answers {prompt} alone.
+          if (data.model) {
+            __lastRunModel = String(data.model);
+            _renderCompilerRoute();
+          }
         } else if (stage === "locks") {
           markDone("Drafting");
           transitionTo("Lock Inference");
@@ -1743,6 +1750,8 @@
           skip_reason: _rh.skip_reason || null,
           findings: _rh.findings && Array.isArray(_rh.findings) ? _rh.findings : null,
         };
+        __lastRunRedhat = _rh.status ? String(_rh.status) : "";
+        _renderCompilerRoute();
         var selNodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
         var selNode = (selNodeId && SHELL.document.current) ?
           findJdfNodeById(selNodeId, SHELL.document.current) : null;
@@ -1801,6 +1810,9 @@
         runInProgress = false;
         clearIntentSlot();
         _clearCompilerPromptIfStale();
+        // The run is over: bring the retained stage rows back into view.
+        // beginIntentCompile had forced the left pane onto the COMPILER tab.
+        leftGroupSetTab("pipeline");
       } else if (event === "error") {
         var active = findActiveStage() || STAGE_ORDER[
           (currentStageIndex >= 0) ? currentStageIndex : 0
@@ -2169,6 +2181,8 @@
       resetStages();
       clearDocument();
       currentStageIndex = -1;
+      __lastRunModel = "";
+      __lastRunRedhat = "";
       // Opens the right pane when a compile starts. Note: this
       // re-expands a user-collapsed pane on every compile. If that
       // feels wrong in use, change to: only expand when
@@ -2268,7 +2282,7 @@
     // ---------------------------------------------------------------
     var pendingIntent = null;     // raw user ask, waiting for Run
     var intentPanelOpen = false;
-    var lastCompile = null;       // last /api/preview response
+    var lastCompile = null;       // last /api/compile-system response
     var runInProgress = false;    // a draft/stream is actively running
     var healthSnapshot = null;    // last /health JSON when available
 
@@ -2303,10 +2317,14 @@
     function _clearCompilerPromptIfStale() {
       if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
     }
-    function renderCompilerRouteFrom(j) {
-      var route = (j && j.target_ai) ? String(j.target_ai) : "";
-      var intent = (j && j.intent) ? String(j.intent) : "";
-      populateCompilerRoute(intent ? (intent + (route ? " \u00b7 " + route : "")) : route);
+    // ROUTED TO — the model this compile was routed to plus the Red-Hat pass
+    // state, both taken from the draft stream itself. /api/compile-system
+    // answers {prompt} only (web.py:1180-1187), so it can supply neither.
+    function _renderCompilerRoute() {
+      var parts = [];
+      if (__lastRunModel) parts.push(__lastRunModel);
+      if (__lastRunRedhat) parts.push("Red-Hat " + __lastRunRedhat);
+      populateCompilerRoute(parts.join(" \u00b7 "));
     }
 
     function beginIntentCompile(raw) {
@@ -2329,7 +2347,6 @@
           lastCompile = j;
           if (typeof j.prompt === "string" && j.prompt.length > 0) {
             setCompilerPrompt(j.prompt);
-            renderCompilerRouteFrom(j);
           }
         })
         .catch(function (err) {
@@ -2373,10 +2390,10 @@
       populateCompilerAsk(pendingIntent);
       if (lastCompile && typeof lastCompile.prompt === "string" && lastCompile.prompt.length > 0) {
         setCompilerPrompt(lastCompile.prompt);
-        renderCompilerRouteFrom(lastCompile);
       } else {
         setCompilerPrompt("(compiler unavailable)");
       }
+      _renderCompilerRoute();
     }
 
     function clearIntentSlot() {
@@ -3218,6 +3235,11 @@
       wrap.appendChild(list); el.appendChild(wrap);
     }
     var __redhatState = null;
+    // ROUTED TO inputs for the last draft run (left COMPILER pane). Runtime
+    // facts from the stream — reset at run start so the pane can never show a
+    // previous run's model or Red-Hat pass state.
+    var __lastRunModel = "";
+    var __lastRunRedhat = "";
     function renderRedhatPanel(node) {
       var el = redhatModeEl; if (!el) return;
       while (el.firstChild) el.removeChild(el.firstChild);
