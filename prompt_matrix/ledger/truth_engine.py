@@ -217,16 +217,21 @@ class TruthLedgerEngine:
         return dict(self._locks)
 
     def close(self) -> None:
+        """Return the solver to the pool. Call explicitly, on the owning thread."""
         if self._released:
             return
-        _return_z3_solver(self._solver)
         self._released = True
+        _return_z3_solver(self._solver)
 
     def __del__(self) -> None:
-        try:
-            self.close()
-        except Exception:
-            pass
+        # Deliberately does NOT touch z3. A finalizer can run inside a garbage
+        # collection (observed: z3core's Z3_solver_reset segfaults when reached
+        # from a GC pass triggered by unrelated allocation — e.g. while Flask
+        # compiles a route builder during app creation). A segfault is not an
+        # exception, so the try/except in the pool cannot catch it. The pooled
+        # solver is returned only by an explicit close(); the engine dropping
+        # its reference is enough here.
+        self._released = True
 
 
 def run_z3_verification(
