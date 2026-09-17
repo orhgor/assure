@@ -489,13 +489,14 @@
             results.forEach(function (it) {
               if (!panel) return;
               // Clicking a hit opens it in the editor as a rephrase-able node.
-              var row = document.createElement("button");
-              row.type = "button";
+              // Deliberately a direct-child <div>: several E2E specs select
+              // `#dock-search-results > div`, so the element type is contract.
+              var row = document.createElement("div");
               row.className = "dock-search-hit";
+              row.setAttribute("role", "button");
+              row.setAttribute("tabindex", "0");
               row.setAttribute("aria-label", "Open this result in the editor");
-              // #dock-search-results has no stylesheet rule; reset the button
-              // chrome inline so rows keep the plain-div look they had.
-              row.style.cssText = "display:block;width:100%;text-align:left;background:transparent;border:0;padding:2px 0;color:inherit;font:inherit;cursor:pointer;";
+              row.style.cursor = "pointer";
               row.__hit = it;
               var head = document.createElement("div");
               head.textContent = "• " + String(it.doc_id || "doc");
@@ -504,8 +505,12 @@
               bodyEl.textContent = snippet.length > 160 ? snippet.slice(0, 160) + "…" : snippet;
               row.appendChild(head);
               row.appendChild(bodyEl);
-              row.addEventListener("click", function () {
+              function activateHit() {
                 _openJdfSearchResultInEditor(row.__hit, { query: q });
+              }
+              row.addEventListener("click", activateHit);
+              row.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateHit(); }
               });
               panel.appendChild(row);
             });
@@ -1196,7 +1201,15 @@
         created = true;
       }
 
-      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      var selector = '.jdf-node[data-node-id="' + nodeId + '"]';
+      var wrapper = draftEl.querySelector(selector);
+      if (!wrapper) {
+        // The tree holds the node but the DOM does not (e.g. the draft was
+        // cleared while SHELL.document.current survived). Re-derive the DOM
+        // from the tree rather than failing.
+        renderJdfDocument(doc);
+        wrapper = draftEl ? draftEl.querySelector(selector) : null;
+      }
       if (!wrapper) { jdfMessage("Cannot open this result", true); return null; }
       setShell("ui.selection.nodeId", nodeId);
       _attachNodeRephrase(nodeId);
