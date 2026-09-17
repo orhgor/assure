@@ -26,8 +26,10 @@ class OmpUnavailable(RuntimeError):
     """OMP responded but refused every chunk write (or is down)."""
 
 
-_JDF_DOCS_DDL = """
-CREATE TABLE IF NOT EXISTS jdf_documents (
+# -- jdf-cli format store (distinct from jdf_documents which holds
+# -- PyMuPDF-JDF revisions via save_jdf_revision)
+_JDF_CLI_DOCS_DDL = """
+CREATE TABLE IF NOT EXISTS jdf_cli_documents (
     doc_id TEXT PRIMARY KEY,
     doc_hash TEXT NOT NULL,
     tenant_id TEXT NOT NULL,
@@ -37,22 +39,22 @@ CREATE TABLE IF NOT EXISTS jdf_documents (
 """
 
 
-def _ensure_jdf_documents_table() -> None:
+def _ensure_jdf_cli_documents_table() -> None:
     init_db()
     db = get_db()
-    db.execute(_JDF_DOCS_DDL)
+    db.execute(_JDF_CLI_DOCS_DDL)
     db.commit()
 
 
 def _persist_jdf_document(doc_id: str, doc_hash: str, jdf_dict: dict, tenant_id: str) -> None:
-    """Durably store the full JDF JSON (FIX 2). The minimal jdf_documents table is
-    used (not save_jdf_revision) because jdf-cli output ({$jdf,meta,pages}) does not
-    match the app JDF schema that parse_document() requires."""
-    _ensure_jdf_documents_table()
+    """Durably store the full JDF JSON (FIX 2). The minimal jdf_cli_documents table is
+    used (not save_jdf_revision / jdf_documents) because jdf-cli output ({$jdf,meta,pages})
+    does not match the app JDF schema that parse_document() requires."""
+    _ensure_jdf_cli_documents_table()
     db = get_db()
     db.execute(
         """
-        INSERT INTO jdf_documents (doc_id, doc_hash, tenant_id, jdf_json)
+        INSERT INTO jdf_cli_documents (doc_id, doc_hash, tenant_id, jdf_json)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(doc_id) DO UPDATE SET
             doc_hash = excluded.doc_hash,

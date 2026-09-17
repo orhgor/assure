@@ -115,3 +115,30 @@ def test_auth_required_unauthenticated(client, monkeypatch):
         "/api/projects/p1/jdf/ingest", data=_pdf(), content_type="multipart/form-data"
     )
     assert res.status_code in (401, 403)
+
+
+def test_ingest_uses_dedicated_table(monkeypatch):
+    """FIX: jdf-cli docs go in jdf_cli_documents, never the existing jdf_documents
+    (which holds PyMuPDF-JDF revisions via save_jdf_revision)."""
+    import prompt_matrix.services.jdf_memory as jm
+
+    sql_calls = []
+
+    class FakeDb:
+        def execute(self, sql, params=()):
+            sql_calls.append(str(sql))
+            return self
+
+        def commit(self):
+            pass
+
+    fake_db = FakeDb()
+    monkeypatch.setattr(jm, "init_db", lambda: None)
+    monkeypatch.setattr(jm, "get_db", lambda: fake_db)
+
+    jm._persist_jdf_document("doc1", "abc123", {"$jdf": "1.0", "pages": []}, "default")
+
+    inserts = [s for s in sql_calls if "INSERT" in s]
+    assert inserts, "no INSERT captured"
+    assert "INSERT INTO jdf_cli_documents" in "\n".join(inserts)
+    assert "INSERT INTO jdf_documents" not in "\n".join(inserts)
