@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+
+from prompt_matrix.models.jdf import attach_substrate_provenance_to_tree, build_document_from_draft
 from prompt_matrix.services.audit_summary import (
     build_audit_summary,
     compute_gate_status,
@@ -61,3 +64,67 @@ def test_normalize_audit_payload_legacy_redhat_results():
     assert payload["ok"] is False
     assert payload["redhat_count"] == 1
     assert payload["redhat_critiques"][0]["title"] == "t"
+
+
+# ---------------------------------------------------------------------------
+# Both directions of the grounding gate against the demo fixture. The shell shows
+# the ungrounded banner iff provenance_stats.anchored == 0, so `anchored` and
+# `unverified_reason` are the customer-visible contract.
+# ---------------------------------------------------------------------------
+
+
+def _policy_document(text: str) -> dict:
+    from pathlib import Path
+
+    from pypdf import PdfReader
+
+    pdf = Path(__file__).parent / "fixtures" / "policy-sample.pdf"
+    source = "\n".join(page.extract_text() or "" for page in PdfReader(str(pdf)).pages)
+    rows = [{"id": "sub-policy", "filename": "policy-sample.pdf", "extracted_text": source}]
+    tree = build_document_from_draft("p1", text).model_dump(mode="json")
+    return attach_substrate_provenance_to_tree(tree, [], rows)
+
+
+def _passing_z3() -> dict:
+    return {"status": "PASS", "violations": [], "lock_results": []}
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "The policy establishes a combined single limit of $5,000,000 for liability coverage.",
+        # The minimal demo document: one paragraph quoting the source verbatim.
+        "The policy liability limit is set at $5,000,000 for combined single limit.",
+    ],
+)
+def test_gate_anchors_policy_restatement(claim):
+    doc = _policy_document(claim)
+    summary = build_audit_summary(
+        z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
+    )
+    assert summary["provenance_stats"] == {"eligible": 1, "anchored": 1, "unanchored": 0}
+    # Anchored branch leaves the unverified fields unset — the shell shows the
+    # ungrounded banner only when anchored == 0.
+    assert not summary.get("unverified")
+    assert not summary.get("unverified_reason")
+    assert summary["gate_status"] == "pass"
+    assert summary["ok"] is True
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "The policy includes $250,000 of cyber coverage for the insured's network operations.",
+        "Cyber coverage of $250,000 applies to network operations.",
+    ],
+)
+def test_gate_refuses_unsupported_claim(claim):
+    doc = _policy_document(claim)
+    summary = build_audit_summary(
+        z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
+    )
+    assert summary["provenance_stats"] == {"eligible": 1, "anchored": 0, "unanchored": 1}
+    assert summary["unverified"] is True
+    assert summary["unverified_reason"] == "0 of 1 claims matched any source sentence."
+    assert summary["gate_status"] == "review"
+    assert summary["ok"] is False

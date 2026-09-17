@@ -11,7 +11,7 @@ try:
         build_macro_appendix,
     )
     from .provenance_meta import attach_provenance_meta_to_tree
-    from ..models.jdf import _tokenize
+    from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 except ImportError:
     from services.confidence_spans import (
         attach_confidence_spans_to_document,
@@ -19,12 +19,9 @@ except ImportError:
         build_macro_appendix,
     )
     from services.provenance_meta import attach_provenance_meta_to_tree
-    from models.jdf import _tokenize
+    from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 
 GateStatus = Literal["pass", "blocked", "review"]
-
-
-_SOURCE_WORD_FLOOR = 8
 
 
 def _walk_nodes(document: dict[str, Any]):
@@ -38,17 +35,19 @@ def _walk_nodes(document: dict[str, Any]):
 
 
 def _eligible_and_anchored(document: dict[str, Any]) -> tuple[int, int]:
-    """Count paragraph nodes (>=8 content tokens) and how many are anchored.
+    """Count paragraph nodes (>= _MIN_CLAIM_TOKENS content tokens) and how many are
+    anchored.
 
-    Same eligibility floor as the substrate sentence matcher: paragraph-type
-    nodes with >= 8 content tokens. Headers/stubs are excluded.
+    Same claim floor as the substrate matcher in models/jdf.py, so a paragraph the
+    gate counts is a paragraph the matcher was allowed to anchor. Headers/stubs are
+    excluded.
     """
     eligible = 0
     anchored = 0
     for node in _walk_nodes(document):
         if str(node.get("type") or "") != "paragraph":
             continue
-        if len(_tokenize(str(node.get("content") or ""))) < _SOURCE_WORD_FLOOR:
+        if len(_tokenize(str(node.get("content") or ""))) < _MIN_CLAIM_TOKENS:
             continue
         eligible += 1
         meta = node.get("meta") or {}

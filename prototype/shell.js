@@ -1079,11 +1079,11 @@
     // ingest, node rewrite) instead of being a write-once snapshot that
     // drifts from the cite chips and the source summary.
     // Anchoring mirrors prompt_matrix/services/audit_summary.py
-    // (_eligible_and_anchored): paragraph nodes with >= 8 content tokens
-    // (models/jdf.py _tokenize — tokens are >2 chars and not stopwords) and
-    // anchored iff node.meta.provenance or node.provenance. When the caller
-    // supplies the server's provenance_stats, that wins (DB parity with the
-    // persisted gate).
+    // (_eligible_and_anchored): paragraph nodes with >= _MIN_CLAIM_TOKENS
+    // content tokens (models/jdf.py _tokenize — tokens are >2 chars and not
+    // stopwords, counted as a set) and anchored iff node.meta.provenance or
+    // node.provenance. When the caller supplies the server's
+    // provenance_stats, that wins (DB parity with the persisted gate).
     // ---------------------------------------------------------------
     var _ANCHOR_STOPWORDS = {
       a: 1, an: 1, the: 1, of: 1, and: 1, or: 1, to: 1, in: 1, on: 1, for: 1,
@@ -1091,13 +1091,23 @@
       this: 1, that: 1, it: 1, its: 1, from: 1, but: 1, shall: 1, will: 1,
       may: 1, any: 1, all: 1,
     };
-    var _ANCHOR_WORD_FLOOR = 8;
+    // Same constant as the server: models/jdf._MIN_CLAIM_TOKENS ==
+    // _MIN_ANCHOR_OVERLAP == 4. The old hardcoded 8 was the pre-fix paragraph
+    // floor; a policy whose sentences run 6-7 content tokens (the demo
+    // fixture) was excluded by it, so the fallback counted 0 anchored on a
+    // document the server had just grounded.
+    var _ANCHOR_WORD_FLOOR = 4;
+    // models/jdf._tokenize returns a set, so the floor compares UNIQUE content
+    // tokens: counting duplicates would let one repeated word clear a floor
+    // the server never accepted.
     function _anchorContentTokens(content) {
       var words = String(content == null ? "" : content)
         .replace(/[^\w\s]/g, " ").toLowerCase().split(/\s+/);
+      var seen = {};
       var n = 0;
       for (var i = 0; i < words.length; i++) {
-        if (words[i].length > 2 && !_ANCHOR_STOPWORDS[words[i]]) n++;
+        var w = words[i];
+        if (w.length > 2 && !_ANCHOR_STOPWORDS[w] && !seen[w]) { seen[w] = 1; n++; }
       }
       return n;
     }
@@ -1214,6 +1224,10 @@
         setShell("document.mode", "ready");
         setShell("document.current", doc);
         renderJdfDocument(doc);
+        // Deliberately no applyConfidenceSpans/addEvidenceChips here: those read
+        // meta.confidenceSpans / meta.provenance.excerpt, which only the live
+        // compile payload carries — save_jdf_revision persists meta without
+        // them, so calling them on a fetched document is a no-op.
         _loadVersionHistory(projectId, { current: null });
         _refreshSignoff(projectId);
         _syncUngroundedBanner(null);

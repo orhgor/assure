@@ -829,15 +829,39 @@ def _split_sentences(text):
     return out
 
 
-# A source sentence can only anchor a paragraph that shares this many content
-# tokens with it, so this is the shortest source sentence that can ever match —
-# it is not the paragraph floor. The demo document is why: its sentences are 7
-# and 6 content tokens ("The policy liability limit is set at $5,000,000 for
-# combined single limit."), so with a source floor of 8 no source sentence was
-# eligible at all and a paragraph quoting the source verbatim still came back
-# without provenance (audit_summary then reported eligible=3 anchored=0 and the
-# compile stayed "ungrounded" with a real source attached).
-_MIN_ANCHOR_OVERLAP = 6
+# Anchor rule, shared with the gate counter in services/audit_summary.py:
+#   * a paragraph is claim-eligible at >= _MIN_CLAIM_TOKENS content tokens,
+#   * a source sentence is eligible at >= _MIN_ANCHOR_OVERLAP content tokens, and
+#   * a source sentence anchors the paragraph when they share >= _MIN_ANCHOR_OVERLAP
+#     content tokens AND those shared tokens cover >= _MIN_ANCHOR_COEFFICIENT of the
+#     shorter of the two texts.
+# _MIN_ANCHOR_OVERLAP is the minimum evidence mass for an anchor, so it also bounds
+# the shortest text on either side that can anchor: a paragraph below it can never
+# reach the overlap, and a source sentence below it can never supply it. Both floors
+# used to be a hardcoded 8 while the overlap floor was 6, which made the overlap
+# constant dead code: no source sentence shorter than 8 content tokens was even
+# considered, and no paragraph shorter than 8 was either. A policy whose sentences
+# are 7 and 6 content tokens ("The policy liability limit is set at $5,000,000 for
+# combined single limit.") therefore reported every compile ungrounded, including a
+# draft that quoted it verbatim — which is exactly how a grounded demo document got
+# stamped "none of its claims match the uploaded sources".
+_MIN_CLAIM_TOKENS = 4
+_MIN_ANCHOR_OVERLAP = 4
+_MIN_ANCHOR_COEFFICIENT = 0.60
+
+_NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _numbers(text: str) -> set[str]:
+    """Numeric values in text, normalized so $5,000,000 == 5000000.0 == 5,000,000."""
+    out: set[str] = set()
+    for raw in _NUM_RE.findall(str(text or "")):
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        out.add(f"{value:.6f}".rstrip("0").rstrip("."))
+    return out
 
 
 def attach_substrate_provenance_to_tree(
@@ -845,13 +869,11 @@ def attach_substrate_provenance_to_tree(
     locks: list[dict[str, Any]],
     substrate_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    # TODO(v1.1): lexical overlap anchors provenance by wording
-    # similarity, not claim truthfulness. A paragraph that says
-    # "3x" can anchor to source "2x" because they share many
-    # tokens. Add a numeric-contradiction check: if the claim
-    # contains a number that differs from any number in the
-    # matched quote, mark provenance status="contradiction"
-    # instead of "matched".
+    # TODO(v1.1): lexical overlap anchors provenance by wording similarity, not
+    # claim truthfulness. Numbers are checked (a paragraph may not cite a figure
+    # its matched sentence does not carry), but a paragraph that drops or flips a
+    # negation can still anchor to the sentence it contradicts. Add a
+    # contradiction status for those cases.
     """Best-effort provenance: for each paragraph, find the substrate
     sentence with the highest token-overlap coefficient. Stamp the
     real filename, source_id, page, and quote onto node["provenance"].
@@ -860,14 +882,14 @@ def attach_substrate_provenance_to_tree(
         return tree
     mutated = document_to_dict(tree)
 
-    # Precompute source sentences >= 8 content tokens.
+    # Precompute source sentences that carry enough content tokens to anchor.
     source_sentences = []
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
         for sent, sent_page in _split_sentences(text):
             toks = _tokenize(sent)
-            if len(toks) >= 8:
-                source_sentences.append((row, sent, toks, sent_page))
+            if len(toks) >= _MIN_ANCHOR_OVERLAP:
+                source_sentences.append((row, sent, toks, sent_page, _numbers(sent)))
 
     if not source_sentences:
         return mutated
@@ -880,16 +902,22 @@ def attach_substrate_provenance_to_tree(
         if not content:
             continue
         content_toks = _tokenize(content)
-        if len(content_toks) < 8:
+        if len(content_toks) < _MIN_CLAIM_TOKENS:
             continue
+        claim_numbers = _numbers(content)
 
         best_score = 0.0
         best_row = None
         best_sent = ""
         best_page = None
-        for row, sent, sent_toks, sent_page in source_sentences:
+        for row, sent, sent_toks, sent_page, sent_numbers in source_sentences:
+            # A figure the source sentence does not carry cannot be vouched for by
+            # that sentence. Without this, lexical overlap anchors a fabricated
+            # "$250,000" to a source "$5,000,000" — both tokenize to "000".
+            if claim_numbers - sent_numbers:
+                continue
             inter = len(content_toks & sent_toks)
-            if inter < 6:
+            if inter < _MIN_ANCHOR_OVERLAP:
                 continue
             score = inter / min(len(content_toks), len(sent_toks))
             if score > best_score:
@@ -898,7 +926,7 @@ def attach_substrate_provenance_to_tree(
                 best_sent = sent
                 best_page = sent_page
 
-        if best_score < 0.60 or best_row is None:
+        if best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None:
             continue
 
         node_id = str(node.get("id") or "")
