@@ -77,9 +77,9 @@ _log = logging.getLogger(__name__)
 # Draft model selection. Default to whichever free provider key is present so
 # Sonnet is never the implicit fallback. Priority: OpenRouter > Gemini > DeepSeek.
 if os.environ.get("OPENROUTER_API_KEY"):
-    DRAFT_MODEL = "openrouter/anthropic/claude-sonnet-4.5"
+    DRAFT_MODEL = "openrouter/z-ai/glm-5.3-flash:floor"
     DRAFT_MODELS_FALLBACK = [
-        "openrouter/anthropic/claude-sonnet-4.5",
+        "openrouter/z-ai/glm-5.3-flash:floor",
         "openrouter/deepseek/deepseek-chat",
     ]
 elif os.environ.get("GEMINI_API_KEY"):
