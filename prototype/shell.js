@@ -488,13 +488,26 @@
             if (!results.length) { jdfMessage("No matches", false); return; }
             results.forEach(function (it) {
               if (!panel) return;
+              // Clicking a hit opens it in the editor as a rephrase-able node.
+              var row = document.createElement("button");
+              row.type = "button";
+              row.className = "dock-search-hit";
+              row.setAttribute("aria-label", "Open this result in the editor");
+              // #dock-search-results has no stylesheet rule; reset the button
+              // chrome inline so rows keep the plain-div look they had.
+              row.style.cssText = "display:block;width:100%;text-align:left;background:transparent;border:0;padding:2px 0;color:inherit;font:inherit;cursor:pointer;";
+              row.__hit = it;
               var head = document.createElement("div");
               head.textContent = "• " + String(it.doc_id || "doc");
               var snippet = String(it.text || "");
-              var body = document.createElement("div");
-              body.textContent = snippet.length > 160 ? snippet.slice(0, 160) + "…" : snippet;
-              panel.appendChild(head);
-              panel.appendChild(body);
+              var bodyEl = document.createElement("div");
+              bodyEl.textContent = snippet.length > 160 ? snippet.slice(0, 160) + "…" : snippet;
+              row.appendChild(head);
+              row.appendChild(bodyEl);
+              row.addEventListener("click", function () {
+                _openJdfSearchResultInEditor(row.__hit, { query: q });
+              });
+              panel.appendChild(row);
             });
           })
           .catch(function (err) {
@@ -1094,6 +1107,103 @@
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
     }
 
+    // ---------------------------------------------------------------
+    // Search → editor bridge. A JDF search hit is a jdf-cli chunk
+    // ({doc_id, doc_hash, chunk_idx, text, meta}) with no app node id, so the
+    // id is derived deterministically — the same hit always maps to the same
+    // node — and namespaced `src-` to stay clear of server node ids. `doc_id`
+    // is a raw filename, so every id fragment is slugged: all node lookups in
+    // this file interpolate ids into querySelector unescaped.
+    // ---------------------------------------------------------------
+    function _slugNodeIdPart(raw) {
+      var s = String(raw == null ? "" : raw).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      s = s.replace(/^-+/, "").replace(/-+$/, "");
+      return s.slice(0, 48) || "x";
+    }
+    function _jdfHitNodeId(hit) {
+      var idx = (hit && hit.chunk_idx != null) ? hit.chunk_idx
+        : ((hit && hit.meta && hit.meta.id != null) ? hit.meta.id : "0");
+      var id = "src-" + _slugNodeIdPart(hit && hit.doc_id) + "-" + _slugNodeIdPart(idx);
+      var hash = _slugNodeIdPart((hit && hit.doc_hash) || "");
+      return hash === "x" ? id : id + "-" + hash.slice(0, 6);
+    }
+    // Content nodes belong in a section's `children`: _replaceNodeInTree and
+    // findJdfNodeById recurse body -> children, and aperture.py /
+    // jdf_repository._find_block_json_path assume `body` holds blocks only.
+    function _targetSectionForInsert(doc) {
+      var sections = (doc && doc.body) || [];
+      var last = null;
+      for (var i = 0; i < sections.length; i++) if (sections[i]) last = sections[i];
+      var selId = SHELL.ui.selection.nodeId;
+      if (!selId) return last;
+      for (var k = 0; k < sections.length; k++) {
+        var sec = sections[k];
+        if (!sec) continue;
+        if (sec.id === selId) return sec;
+        var kids = sec.children;
+        if (kids && Array.isArray(kids)) {
+          for (var m = 0; m < kids.length; m++) if (kids[m] && kids[m].id === selId) return sec;
+        }
+      }
+      return last;
+    }
+    function _openJdfSearchResultInEditor(hit, opts) {
+      var text = String((hit && hit.text) || "").trim();
+      if (!text) { jdfMessage("Cannot open this result", true); return null; }
+      if (!draftEl) ensureDraftArea();
+      if (!draftEl) { jdfMessage("Cannot open this result", true); return null; }
+
+      var nodeId = _jdfHitNodeId(hit);
+      var doc = SHELL.document.current;
+      if (!doc) {
+        // Cold shell: _submitRephrase posts SHELL.document.current, so leaving
+        // it null makes target_node_id unresolvable server-side.
+        doc = { body: [] };
+        setShell("document.current", doc);
+      }
+
+      var created = false;
+      if (!findJdfNodeById(nodeId, doc)) {
+        var node = {
+          id: nodeId,
+          type: "paragraph",
+          content: text,
+          meta: {
+            provenance: [{
+              kind: "jdf_search",
+              doc_id: (hit && hit.doc_id) || "",
+              doc_hash: (hit && hit.doc_hash) || "",
+              chunk_idx: (hit && hit.chunk_idx != null) ? hit.chunk_idx : null,
+              chunk_id: (hit && hit.meta && hit.meta.id != null) ? hit.meta.id : "",
+              query: (opts && opts.query) || "",
+            }],
+          },
+        };
+        var section = _targetSectionForInsert(doc);
+        if (!section) {
+          section = { id: "sec-src-inbox", type: "section", title: "Imported Sources", children: [] };
+          if (!Array.isArray(doc.body)) doc.body = [];
+          doc.body.push(section);
+        }
+        if (!Array.isArray(section.children)) section.children = [];
+        section.children.push(node);
+        var host = section.id
+          ? draftEl.querySelector('.jdf-node[data-node-id="' + section.id + '"]')
+          : null;
+        var fresh = host ? renderJdfNode(node) : null;
+        if (fresh) host.appendChild(fresh);
+        else renderJdfDocument(doc);   // section not on screen yet (cold shell)
+        created = true;
+      }
+
+      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      if (!wrapper) { jdfMessage("Cannot open this result", true); return null; }
+      setShell("ui.selection.nodeId", nodeId);
+      _attachNodeRephrase(nodeId);
+      try { wrapper.scrollIntoView({ block: "center" }); } catch (_) {}
+      return { nodeId: nodeId, created: created };
+    }
+
     function _attachNodeRephrase(nodeId) {
       _removeNodeRephrase();
       __rephraseBusy = false;
@@ -1190,6 +1300,11 @@
         } else {
           var orig = (SHELL.document.current) ? findJdfNodeById(nodeId, SHELL.document.current) : null;
           if (orig) _rephraseRenderNode(nodeId, orig);
+          // _rephraseRenderNode swaps the wrapper, which detaches the editor
+          // (taking any pending prompt and error with it). Move it back onto
+          // the fresh wrapper so the user can read the failure and retry.
+          var host = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+          if (host && editor && !host.contains(editor)) host.insertBefore(editor, host.firstChild);
           if (inputEl) inputEl.disabled = false;
           if (editor) {
             var prior = editor.querySelector(".node-rephrase-error");
