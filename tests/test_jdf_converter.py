@@ -4,9 +4,21 @@ import subprocess
 
 from prompt_matrix.services.jdf_converter import (
     JdfConversionError,
+    chunks_to_text,
     jdf_to_chunks,
     pdf_to_jdf,
 )
+
+
+def test_chunks_to_text_keeps_order_and_skips_empty_chunks():
+    """The vault stores this text: order is the document, empty chunks are not."""
+    chunks = [
+        {"id": "p1e0", "text": "POLICY SAMPLE"},
+        {"id": "p1e1", "text": ""},
+        {"id": "p1e2", "content": "liability limit $5,000,000"},
+    ]
+    assert chunks_to_text(chunks) == "POLICY SAMPLE\n\nliability limit $5,000,000"
+    assert chunks_to_text([]) == ""
 
 
 def test_pdf_to_jdf_parses_written_file(monkeypatch):

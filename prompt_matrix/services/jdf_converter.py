@@ -42,6 +42,17 @@ def pdf_to_jdf(pdf_bytes: bytes) -> dict:
                 pass
 
 
+def chunks_to_text(chunks: list[dict]) -> str:
+    """The document text of a chunk list, in order — what a vault entry stores.
+
+    The ingest converts and chunks a PDF but never keeps the extraction on its
+    own, so the chunks are the only copy of the text: joining their `text` in
+    the order jdf-cli emitted them reproduces the document.
+    """
+    parts = [str(c.get("text") or c.get("content") or "").strip() for c in chunks or []]
+    return "\n\n".join(p for p in parts if p)
+
+
 def jdf_to_chunks(jdf_dict: dict, strategy: str = "section") -> list[dict]:
     with tempfile.NamedTemporaryFile(suffix=".jdf", delete=False, mode="w") as f:
         json.dump(jdf_dict, f)

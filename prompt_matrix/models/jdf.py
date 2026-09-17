@@ -829,6 +829,17 @@ def _split_sentences(text):
     return out
 
 
+# A source sentence can only anchor a paragraph that shares this many content
+# tokens with it, so this is the shortest source sentence that can ever match —
+# it is not the paragraph floor. The demo document is why: its sentences are 7
+# and 6 content tokens ("The policy liability limit is set at $5,000,000 for
+# combined single limit."), so with a source floor of 8 no source sentence was
+# eligible at all and a paragraph quoting the source verbatim still came back
+# without provenance (audit_summary then reported eligible=3 anchored=0 and the
+# compile stayed "ungrounded" with a real source attached).
+_MIN_ANCHOR_OVERLAP = 6
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],

@@ -158,7 +158,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         forms=extracted.get("forms") or [],
         file_size_bytes=len(file_bytes),
     )
-    _index_vault_file(project_id, entry)
+    remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
     return {
         "ok": True,
         "id": entry["id"],
@@ -170,18 +170,6 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
         "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
     }
-
-
-def _index_vault_file(project_id: str, entry: dict) -> None:
-    try:
-        remember_vault_file(
-            project_id,
-            str(entry.get("id") or ""),
-            filename=str(entry.get("filename") or ""),
-            text=str(entry.get("extracted_text") or ""),
-        )
-    except Exception:
-        pass
 
 
 class SubstrateIngestPayload(BaseModel):
@@ -265,7 +253,7 @@ def register_substrate_routes(app) -> None:
             )
             return jsonify({"ok": False, "error": "Database write failed."}), 500
 
-        _index_vault_file(project_id, {**edge_row, "filename": filename, "extracted_text": text})
+        remember_vault_file(project_id, str(edge_row["id"]), filename=filename, text=text)
 
         audit.log_audit(
             request_id,

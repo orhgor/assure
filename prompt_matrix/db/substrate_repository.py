@@ -93,6 +93,77 @@ def save_substrate_entry(
     }
 
 
+def upsert_substrate_entry(
+    project_id: str,
+    *,
+    filename: str,
+    page_count: int,
+    extracted_text: str,
+    tables: list[dict[str, Any]] | None = None,
+    forms: list[dict[str, Any]] | None = None,
+    file_size_bytes: int = 0,
+) -> dict[str, Any]:
+    """Persist an extraction as this project's row for `filename`, replacing its text.
+
+    The JDF ingest runs on every upload of a file, so keying the row on the
+    filename keeps one entry — and one id, which the shell posts back as
+    substrate_file_ids — instead of stacking a new row per upload. A row created
+    by a vault upload of the same name is the same document in this project, so
+    it is reused rather than duplicated.
+    """
+    init_db()
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT id FROM substrate_vault
+        WHERE project_id = ? AND filename = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (project_id, filename),
+    ).fetchone()
+    if not row:
+        return save_substrate_entry(
+            project_id,
+            filename=filename,
+            page_count=page_count,
+            extracted_text=extracted_text,
+            tables=tables,
+            forms=forms,
+            file_size_bytes=file_size_bytes,
+        )
+    vault_id = str(row[0])
+    db.execute(
+        """
+        UPDATE substrate_vault
+        SET page_count = ?, extracted_text = ?, tables_json = ?, forms_json = ?,
+            file_size_bytes = ?
+        WHERE project_id = ? AND id = ?
+        """,
+        (
+            int(page_count),
+            extracted_text or "",
+            json.dumps(tables or []),
+            json.dumps(forms or []),
+            int(file_size_bytes or 0),
+            project_id,
+            vault_id,
+        ),
+    )
+    db.commit()
+    invalidate_workspace_cache(project_id)
+    return {
+        "id": vault_id,
+        "project_id": project_id,
+        "filename": filename,
+        "page_count": int(page_count),
+        "extracted_text": extracted_text or "",
+        "tables": tables or [],
+        "forms": forms or [],
+        "file_size_bytes": int(file_size_bytes or 0),
+    }
+
+
 def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
     """List vault entries for a project (no extracted_text — keep the list light)."""
     init_db()

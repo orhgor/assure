@@ -1847,6 +1847,17 @@ body.collapsed .pane-left {
 #intent-panel-slot:not(:empty) ~ .doc-surface .doc-ungrounded-banner {
   top: 40px;
 }
+/* #version-chip is the first flow item of that same top band (24px surface
+   padding + its own 8px top margin). With two or more versions its box is
+   51px tall, so at the 12px anchor the banner covered the chip entirely:
+   elementFromPoint at the chip's centre returned the banner and the click
+   never reached #version-dropdown. Same resolution as the slot above — drop
+   the banner below the other top-band content: 24 + 8 + 51 + 9 = 92px
+   clears the chip and leaves the warning's own text uncovered. A hidden chip
+   (fewer than two versions) keeps the original 12px anchor. */
+.doc-surface:has(#version-chip:not([hidden])) > .doc-ungrounded-banner {
+  top: 92px;
+}
 
 .compiler-prompt-details {
   border: 1px solid var(--border);
@@ -1922,7 +1933,11 @@ body.collapsed .pane-left {
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  z-index: 20;
+  /* 41 = above the .doc-surface overlays (ungrounded banner + verification
+     laser, both 40), below the intent slot (45) / resizers (50). The menu
+     opens downward out of the chip into the band the banner occupies; at 20
+     the banner painted over the first rows and swallowed their clicks. */
+  z-index: 41;
 }
 .version-row {
   padding: 8px 12px;

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 from prompt_matrix.omp_client import (
+    omp_delete_memory,
     omp_list_memories,
     omp_recall,
     omp_remember,
@@ -135,3 +136,44 @@ def test_safe_omp_recall_parses_json_content():
 def test_safe_omp_remember_never_raises():
     with patch("prompt_matrix.omp_client._request", side_effect=TimeoutError("slow")):
         safe_omp_remember("k", {"ok": True}, tags=["ast"])
+
+
+def test_delete_memory_targets_the_row_id():
+    """OMP deletes by id — the key this app writes is only a tag."""
+    captured: dict = {}
+
+    def fake_request(method, path, **_kwargs):
+        captured["method"] = method
+        captured["path"] = path
+        return {"ok": True, "status": 204}
+
+    with patch("prompt_matrix.omp_client._request", side_effect=fake_request):
+        assert omp_delete_memory("mem_ab12") is True
+    assert captured == {"method": "DELETE", "path": "/v1/memories/mem_ab12"}
+
+
+def test_delete_memory_reports_failure():
+    with patch(
+        "prompt_matrix.omp_client._request",
+        return_value={"error": "memory_not_found", "status": 404},
+    ):
+        assert omp_delete_memory("mem_gone") is False
+    assert omp_delete_memory("") is False
+
+
+def test_list_memories_pages_a_namespace():
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=5):
+        captured["url"] = req.full_url
+        return _Resp({"memories": [], "total": 0})
+
+    with patch("prompt_matrix.omp_client.urllib.request.urlopen", side_effect=fake_urlopen):
+        with patch(
+            "prompt_matrix.omp_client._get_headers",
+            return_value={"Content-Type": "application/json"},
+        ):
+            omp_list_memories(limit=200, offset=400)
+    assert "limit=200" in captured["url"]
+    assert "offset=400" in captured["url"]
+    assert "namespace=project%3Aprompt-matrix" in captured["url"]

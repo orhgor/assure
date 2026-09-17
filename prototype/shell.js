@@ -123,6 +123,11 @@
     } else if (path === "compiler.route") {
       if (compilerRouteEl) compilerRouteEl.textContent = value;
       _refreshCompilerPromptSummary();
+    } else if (path === "sources") {
+      // The grounding list is what the compiler summary counts ("route · N
+      // sources") and what every compile posts as substrate_file_ids, so the
+      // visible count must follow any write to it (upload, ingest, remove).
+      _refreshCompilerPromptSummary();
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
@@ -424,10 +429,16 @@
       if (isErr) { try { row.style.color = "#e5484d"; } catch (_) {} }
       panel.appendChild(row);
     }
-    function jdfProjectBase() {
-      var pid = "";
-      try { pid = _sourceProjectId() || ""; } catch (_) {}
-      return "/api/projects/" + encodeURIComponent(pid || "default") + "/jdf";
+    // The dock's ingest and search are project-scoped server routes, and the
+    // tenant "default" project is not the session project: a compile mints
+    // `shell-proto-XXXXXX` via ensureProjectId(), so an upload that fell back
+    // to "default" would index text (and, server-side, attach the substrate
+    // entry) to a project the source panel, the compile and the search never
+    // look at. Resolve the session project the same way the compile does.
+    function jdfProject() {
+      return ensureProjectId().then(function (pid) {
+        return { pid: pid, base: "/api/projects/" + encodeURIComponent(pid) + "/jdf" };
+      });
     }
     var jdfIngestBtn = document.getElementById("dock-ingest");
     var jdfIngestFile = document.getElementById("dock-ingest-file");
@@ -441,7 +452,12 @@
         jdfMessage("Converting → Chunking → Indexing…", false);
         var fd = new FormData();
         fd.append("file", f);
-        fetch(jdfProjectBase() + "/ingest", { method: "POST", body: fd })
+        var ingestPid = "";
+        jdfProject()
+          .then(function (p) {
+            ingestPid = p.pid;
+            return fetch(p.base + "/ingest", { method: "POST", body: fd });
+          })
           .then(function (res) {
             return res.json().catch(function () { return {}; }).then(function (j) {
               return { ok: res.ok, status: res.status, j: j };
@@ -450,6 +466,11 @@
           .then(function (r) {
             if (r.ok && r.j && r.j.ok) {
               jdfMessage("Indexed " + (r.j.chunks_stored || 0) + " chunks from " + f.name, false);
+              // The ingest also lands a substrate entry for this project, so
+              // re-read the project's sources from the server: SHELL.sources is
+              // what the next compile posts as substrate_file_ids and what the
+              // compiler summary counts. Ids come from /substrate verbatim.
+              _loadProjectSourceList(ingestPid);
               // New sources change the grounding surface the banner speaks
               // about — re-derive it instead of leaving a stale snapshot.
               _syncUngroundedBanner(null);
@@ -460,6 +481,7 @@
           })
           .catch(function (err) {
             jdfMessage(String(err && err.message ? err.message : err), true);
+            jdfIngestFile.value = "";
           });
       });
     }
@@ -471,11 +493,14 @@
         var panel = document.getElementById("dock-search-results");
         if (panel) { panel.hidden = false; panel.innerHTML = ""; }
         if (!q) { jdfMessage("Enter a query", false); return; }
-        fetch(jdfProjectBase() + "/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: q }),
-        })
+        jdfProject()
+          .then(function (p) {
+            return fetch(p.base + "/search", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: q }),
+            });
+          })
           .then(function (res) {
             return res.json().catch(function () { return {}; }).then(function (j) {
               return { ok: res.ok, status: res.status, j: j };
@@ -1120,6 +1145,83 @@
       if (surface) surface.insertBefore(banner, surface.firstChild);
     }
 
+    // ---------------------------------------------------------------
+    // Document hydration. The server owns the persisted JDF for a project:
+    // GET /api/projects/<pid>/jdf -> {ok, document:{document_id, meta,
+    // truth_ledger, body}}. A cold shell holds no document at all, and the
+    // routes that take a `document` (rewrite/inquire) require a well-formed
+    // JDFDocumentTree — posting {body: []} fails with
+    // "1 validation error for JDFDocumentTree document_id Field required".
+    // So read the real document back instead of seeding an empty one.
+    // ---------------------------------------------------------------
+    function _documentIdFor(projectId) { return "doc-" + projectId; }
+    function _blankDocument(projectId) {
+      // Same id/meta the server mints for an unsaved project
+      // (db/jdf_repository.empty_document), so a first write is the same doc.
+      return {
+        document_id: _documentIdFor(projectId),
+        meta: { project_id: projectId },
+        truth_ledger: {},
+        body: [],
+      };
+    }
+    var __hydrating = {};
+    // Resolves with the document the shell should work against. Adopts the
+    // fetched document as SHELL.document.current unless the shell already
+    // holds nodes of its own (in-flight edits win over the last save).
+    function _hydrateProjectDocument(projectId) {
+      var local = SHELL.document.current;
+      function fallback() {
+        if (local && Array.isArray(local.body)) {
+          if (!local.document_id) local.document_id = _documentIdFor(projectId);
+          return local;
+        }
+        return _blankDocument(projectId);
+      }
+      if (!projectId) return Promise.resolve(fallback());
+      if (__hydrating[projectId]) return __hydrating[projectId];
+      var p = fetch("/api/projects/" + encodeURIComponent(projectId) + "/jdf")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (res) {
+          var doc = (res && res.document) || null;
+          if (!doc || !Array.isArray(doc.body)) return fallback();
+          if (!doc.document_id) doc.document_id = _documentIdFor(projectId);
+          if (!doc.meta) doc.meta = { project_id: projectId };
+          var localHasNodes = !!(local && Array.isArray(local.body) && local.body.length);
+          if (localHasNodes) {
+            if (!local.document_id) local.document_id = _documentIdFor(projectId);
+            return local;
+          }
+          setShell("document.current", doc);
+          return doc;
+        })
+        .catch(function () { return fallback(); })
+        .then(function (doc) {
+          delete __hydrating[projectId];
+          return doc;
+        });
+      __hydrating[projectId] = p;
+      return p;
+    }
+    // Reload path: re-render the persisted document, its version stepper and
+    // the right pane, so a refresh does not drop back to the first-run state.
+    function _restoreProjectDocument(projectId) {
+      if (!projectId) return Promise.resolve(false);
+      return _hydrateProjectDocument(projectId).then(function (doc) {
+        if (!doc || !Array.isArray(doc.body) || !doc.body.length) return false;
+        // A compile started before the boot GET resolved owns the surface now.
+        if (SHELL.streams.draft) return false;
+        setShell("document.mode", "ready");
+        setShell("document.current", doc);
+        renderJdfDocument(doc);
+        _loadVersionHistory(projectId, { current: null });
+        _refreshSignoff(projectId);
+        _syncUngroundedBanner(null);
+        _applyRightView();
+        return true;
+      });
+    }
+
     function renderJdfDocument(doc, targetEl) {
       if (!doc || !doc.body || !Array.isArray(doc.body)) return;
       if (targetEl) {
@@ -1226,15 +1328,17 @@
       if (!text) { jdfMessage("Cannot open this result", true); return null; }
       if (!draftEl) ensureDraftArea();
       if (!draftEl) { jdfMessage("Cannot open this result", true); return null; }
+      // The rewrite POSTs SHELL.document.current back to the server, where it
+      // is parsed as a JDFDocumentTree (document_id required). Adopt the
+      // project's persisted document — real id, real body — before splicing
+      // the hit in, so a cold shell never posts a bare {body: []}.
+      return _hydrateProjectDocument(_activeProjectId()).then(function (doc) {
+        return _insertSearchResultNode(hit, text, doc, opts);
+      });
+    }
 
+    function _insertSearchResultNode(hit, text, doc, opts) {
       var nodeId = _jdfHitNodeId(hit);
-      var doc = SHELL.document.current;
-      if (!doc) {
-        // Cold shell: _submitRephrase posts SHELL.document.current, so leaving
-        // it null makes target_node_id unresolvable server-side.
-        doc = { body: [] };
-        setShell("document.current", doc);
-      }
 
       var created = false;
       if (!findJdfNodeById(nodeId, doc)) {
@@ -1350,6 +1454,9 @@
       var wrapper = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
       if (wrapper) wrapper.classList.add("is-rephrasing");
       var doc = SHELL.document.current || null;
+      // The server parses this as a JDFDocumentTree: document_id is required,
+      // and an id-less tree is rejected with a validation error.
+      if (doc && !doc.document_id) doc.document_id = _documentIdFor(pid);
       var body = {
         user_intent: promptText,
         target_node_id: nodeId,
@@ -2166,7 +2273,13 @@
     if (!initId) {
       try { initId = window.localStorage.getItem(STORAGE_KEY); } catch (_) { initId = null; }
     }
-    if (initId) _loadProjectSourceList(initId);
+    if (initId) {
+      _loadProjectSourceList(initId);
+      // Reload: the server still holds the document, the version list and the
+      // drafting state. Draw them back instead of leaving the first-run empty
+      // hero in place.
+      _restoreProjectDocument(initId);
+    }
 
     // Export (top bar) → audit PDF download for the active project.
     var exportBtn = document.getElementById("export-btn");
