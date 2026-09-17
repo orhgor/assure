@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextvars
+import copy
 import json
 import os
 import re
@@ -27,11 +28,13 @@ try:
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
+        document_to_dict,
         empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
         parse_document,
+        splice_node,
     )
 except ImportError:
     from compiler.aperture import build_aperture_context
@@ -46,11 +49,13 @@ except ImportError:
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
+        document_to_dict,
         empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
         parse_document,
+        splice_node,
     )
 
 _METRIC_RE = re.compile(
@@ -186,6 +191,70 @@ def resolve_active_document(
     if stored:
         return parse_document(stored)
     return _default_document(project_id)
+
+
+def _mutate_node_in_tree(
+    tree: JDFDocumentTree | dict[str, Any], node_id: str, node: dict[str, Any]
+) -> tuple[dict[str, Any], bool]:
+    """Replace node_id in a copy of the tree (section child or top-level block)."""
+    doc = document_to_dict(tree)
+    mutated, found = splice_node(doc, node_id, node)
+    if found:
+        return mutated, True
+    for index, block in enumerate(mutated.get("body") or []):
+        if isinstance(block, dict) and block.get("id") == node_id:
+            mutated["body"][index] = copy.deepcopy(node)
+            return mutated, True
+    return mutated, False
+
+
+def persist_surgical_rewrite(
+    project_id: str,
+    tree: JDFDocumentTree | dict[str, Any],
+    *,
+    node_id: str,
+    node: dict[str, Any],
+    change_summary: str | None = None,
+    expected_version: int | None = None,
+) -> dict[str, Any]:
+    """Snapshot a surgical rewrite into the tree the pipeline ran against.
+
+    Uses ``save_jdf_revision`` (document revision + node snapshot), the same path the
+    rest of the app takes. Never raises: a failed/conflicting write is reported back to
+    the SSE stream so it can surface in the final frame instead of killing the stream.
+    """
+    try:
+        from ..db.jdf_repository import RevisionConflict, save_jdf_revision
+    except ImportError:
+        from db.jdf_repository import RevisionConflict, save_jdf_revision
+
+    mutated, found = _mutate_node_in_tree(tree, node_id, node)
+    if not found:
+        return {"persisted": False, "persist_error": f"target node not found: {node_id}"}
+
+    try:
+        result = save_jdf_revision(
+            project_id,
+            mutated,
+            mutation_type="surgical_rewrite",
+            target_node_id=node_id,
+            change_summary=change_summary,
+            expected_version=expected_version,
+        )
+    except RevisionConflict as exc:
+        return {
+            "persisted": False,
+            "persist_conflict": True,
+            "persist_error": str(exc),
+            "latest_version": exc.latest_version,
+        }
+    except Exception as exc:  # a persistence failure must not abort the stream
+        return {"persisted": False, "persist_error": str(exc)}
+    return {
+        "persisted": True,
+        "version": result.get("version"),
+        "revision_id": result.get("revision_id"),
+    }
 
 
 def _build_messages(user_intent: str, aperture: dict[str, Any] | None) -> list[dict[str, str]]:
@@ -473,6 +542,16 @@ def run_inquire_pipeline(
         },
     )
 
+    persist_info: dict[str, Any] = {}
+    if is_mutation and result.ok:
+        persist_info = persist_surgical_rewrite(
+            project_id,
+            tree,
+            node_id=node_id,
+            node=node,
+            change_summary=f"Surgical rewrite: {user_intent.strip()[:120]}",
+        )
+
     usage_payload = _record_llm_usage(
         gov,
         project_id,
@@ -499,6 +578,7 @@ def run_inquire_pipeline(
             "retries": result.retries,
             "model_id": result.model_id,
             "request_id": rid,
+            **persist_info,
         },
     )
 
