@@ -114,20 +114,20 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="deepseek/deepseek-chat",
     ),
-    # Deep synthesis → Claude Sonnet 4.5 (premium narrative flow)
+    # Deep synthesis → GLM 5.3 Flash via OpenRouter (:floor = cheapest provider)
     TaskType.DEEP_SYNTHESIS: ModelPolicy(
-        model_id="anthropic/claude-sonnet-4-5",
+        model_id="z-ai/glm-5.3-flash",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.DEEP_SYNTHESIS],
         max_output_tokens=2048,
         caching=False,
-        litellm_model="anthropic/claude-sonnet-4-5",
+        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
     ),
     TaskType.MACRO_AUDIT: ModelPolicy(
-        model_id="anthropic/claude-sonnet-4-5",
+        model_id="z-ai/glm-5.3-flash",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.MACRO_AUDIT],
         max_output_tokens=2048,
         caching=False,
-        litellm_model="anthropic/claude-sonnet-4-5",
+        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
     ),
     # Red-Hat adversary → DeepSeek-R1 (CoT reasoning; headroom for hidden reasoning tokens)
     TaskType.REDHAT: ModelPolicy(
