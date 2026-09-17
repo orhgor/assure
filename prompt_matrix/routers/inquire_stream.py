@@ -10,6 +10,7 @@ import re
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from typing import Any, Callable, Generator, Iterator
 
 from flask import Response, request, stream_with_context
@@ -333,6 +334,35 @@ def _record_llm_usage(
     }
 
 
+# Request-scoped Z3 ledgers, held for as long as the stream that owns them lives.
+_LIVE_LEDGERS: set[TruthLedgerEngine] = set()
+
+
+@contextmanager
+def _open_ledger() -> Iterator[TruthLedgerEngine]:
+    """Request-scoped Z3 ledger, released by the index instead of by the collector.
+
+    `ledger.truth_engine` pools its solvers: close() resets the solver and appends it to a
+    module-level pool for the next request. A pooled solver is only sound while its wrapper
+    is still reachable, and CPython runs the finalizers of a whole cyclic-garbage set: an
+    engine closed from __del__ can hand its solver to the pool, and that solver's own
+    __del__ still runs in the same pass, dec-refing the native solver the pool now points
+    at. The next borrow then resets freed memory (SIGSEGV). A streaming response is the
+    worst case, because an aborted stream finalizes its generator through the cycle
+    collector. Keeping the ledger reachable here means close() always runs from a plain
+    finally: on stream end, on error, and on client disconnect alike.
+    """
+    ledger = TruthLedgerEngine()
+    _LIVE_LEDGERS.add(ledger)
+    try:
+        yield ledger
+    finally:
+        try:
+            ledger.close()
+        finally:
+            _LIVE_LEDGERS.discard(ledger)
+
+
 def run_inquire_pipeline(
     project_id: str,
     *,
@@ -342,9 +372,14 @@ def run_inquire_pipeline(
     document: JDFDocumentTree | dict[str, Any] | None = None,
     incoming_metrics: list[list[Any]] | None = None,
     governor: CostGovernor | None = None,
+    ledger: TruthLedgerEngine | None = None,
     request_id: str | None = None,
 ) -> Iterator[str]:
-    """Yield SSE frames for the inquire pipeline. No blocking sleep."""
+    """Yield SSE frames for the inquire pipeline. No blocking sleep.
+
+    `ledger` is owned by the caller (`_open_ledger`): it has to stay reachable for the
+    whole stream and be closed from a plain finally, never from a GC finalizer.
+    """
     rid = request_id or str(uuid.uuid4())
     start_time = time.perf_counter()
     audit = get_audit_logger()
@@ -370,7 +405,7 @@ def run_inquire_pipeline(
 
     tree = resolve_active_document(project_id, document)
 
-    truth = TruthLedgerEngine()
+    truth = ledger or TruthLedgerEngine()
     truth.load_from_document(tree)
     for pair in incoming_metrics or []:
         if len(pair) >= 2:
@@ -639,15 +674,17 @@ def register_inquire_routes(app) -> None:
             start_time = time.perf_counter()
             audit = get_audit_logger()
             try:
-                yield from run_inquire_pipeline(
-                    project_id,
-                    user_intent=payload.user_intent.strip(),
-                    target_node_id=(payload.target_node_id or "").strip() or None,
-                    run_redhat=payload.run_redhat,
-                    document=payload.document,
-                    incoming_metrics=payload.incoming_metrics,
-                    request_id=request_id,
-                )
+                with _open_ledger() as ledger:
+                    yield from run_inquire_pipeline(
+                        project_id,
+                        user_intent=payload.user_intent.strip(),
+                        target_node_id=(payload.target_node_id or "").strip() or None,
+                        run_redhat=payload.run_redhat,
+                        document=payload.document,
+                        incoming_metrics=payload.incoming_metrics,
+                        ledger=ledger,
+                        request_id=request_id,
+                    )
             except (BudgetExhaustedError, QuotaExceededError) as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
