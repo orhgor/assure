@@ -2780,17 +2780,15 @@
     if (docSurface) docSurface.addEventListener("click", function (e) {
       if (e.target.closest(".jdf-span")) return;
       if (e.target.closest(".jdf-chip")) return;
-      // A confidence span owns its click (handleConfidenceClick paints the
-      // ledger-check drawer). Without this guard the surface delegate
-      // re-selected the node right after, whose _applyRightView redraw of
-      // #right-evidence cleared the drawer in the same tick.
-      if (e.target.closest(".conf-span")) return;
       var nodeEl = e.target.closest("[data-node-id]");
       var nid = nodeEl ? nodeEl.getAttribute("data-node-id") : null;
-      setShell("ui.selection.nodeId", nid);
-      // The rephrase editor + node history live in this DOMContentLoaded scope
-      // (SHELL state setter is the outer IIFE and can't reach them), so the
-      // DOM work happens here where both are visible.
+      // A confidence span owns its click: handleConfidenceClick paints the
+      // ledger-check drawer, and re-selecting here would redraw
+      // #right-evidence and clear that drawer in the same tick. The doc-side
+      // work below still has to run for it — the rephrase editor + node
+      // history live in this DOMContentLoaded scope, so the outer IIFE's
+      // ui.selection.nodeId sync cannot reach them (typeof-guarded no-op).
+      if (!e.target.closest(".conf-span")) setShell("ui.selection.nodeId", nid);
       if (nid) {
         if (typeof _attachNodeRephrase === "function") _attachNodeRephrase(nid);
         if (typeof _loadNodeHistory === "function") _loadNodeHistory(nid);
