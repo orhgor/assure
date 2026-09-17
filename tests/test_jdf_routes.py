@@ -569,3 +569,78 @@ def test_prune_spares_other_tenants_and_documents(monkeypatch, tmp_path):
     jm.remember_jdf_document("policy.pdf", {"$jdf": "1.0.0"}, chunks, tenant_id="t1")
 
     assert len(store.rows) == 3
+
+
+# ---------------------------------------------------------------------------
+# Compile → persisted revision: the tree stored for a compile must be the AUDITED
+# document (the one streamed in `verified`), because only that one carries
+# meta.confidenceSpans. Regression: the compile save used to persist the
+# pre-audit document, so GET /jdf returned a tree with no spans and the
+# confidence overlay could not be restored after a reload.
+# ---------------------------------------------------------------------------
+
+
+def test_compile_persists_audited_confidence_spans(monkeypatch, tmp_path):
+    from tests.test_draft import _FakeGovernor
+    from tests.test_founder_restore import _reset_db_path
+
+    _reset_db_path(monkeypatch, tmp_path / "compile_spans.sqlite")
+    monkeypatch.setenv("PEM_OMP_CACHE", "0")
+    monkeypatch.setenv("ASSURE_JDF_DIR", str(tmp_path / "jdf"))
+
+    from prompt_matrix.db.connection import init_db
+    from prompt_matrix.db.jdf_repository import current_document_version
+    from prompt_matrix.routers import draft as draft_mod
+    from prompt_matrix.web import create_app
+
+    init_db()
+    client = create_app(require_auth=False).test_client()
+
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
+        yield ("Revenue is 100 per CMS Bulletin p.4.", 10, 5, "test/draft-model")
+
+    def fake_locks(_text):
+        return [
+            {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
+        ], "test/lock-model"
+
+    monkeypatch.setattr(draft_mod, "_stream_model", fake_stream)
+    monkeypatch.setattr(draft_mod, "run_lock_inference", fake_locks)
+
+    project_id = "compile-spans"
+    version_before = current_document_version(project_id)
+
+    events: list[dict] = []
+    for frame in draft_mod.run_draft_pipeline(
+        project_id, intent="Summarize revenue.", governor=_FakeGovernor()
+    ):
+        for line in frame.strip().split("\n"):
+            if line.startswith("data: ") and line[6:].strip() != "[DONE]":
+                events.append(json.loads(line[6:]))
+
+    verified = next(e for e in events if e.get("type") == "verified")
+    streamed = verified["document"]
+    streamed_doc_spans = streamed["meta"]["confidenceSpans"]
+    streamed_node_spans = {
+        child["id"]: child["meta"]["confidenceSpans"]
+        for section in streamed["body"]
+        for child in section.get("children") or []
+        if (child.get("meta") or {}).get("confidenceSpans")
+    }
+    assert streamed_doc_spans, "fixture must produce document-level spans"
+    assert streamed_node_spans, "fixture must produce node-level spans"
+
+    # One compile = exactly one revision.
+    assert current_document_version(project_id) == version_before + 1
+
+    res = client.get(f"/api/projects/{project_id}/jdf")
+    assert res.status_code == 200
+    persisted = res.get_json()["document"]
+    assert persisted["meta"]["confidenceSpans"] == streamed_doc_spans
+    persisted_node_spans = {
+        child["id"]: child["meta"]["confidenceSpans"]
+        for section in persisted["body"]
+        for child in section.get("children") or []
+        if (child.get("meta") or {}).get("confidenceSpans")
+    }
+    assert persisted_node_spans == streamed_node_spans

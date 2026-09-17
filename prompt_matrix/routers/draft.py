@@ -676,20 +676,9 @@ def run_draft_pipeline(
     if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
 
-    # Persist the compiled JDF tree to jdf_revisions so export/history/versions
-    # read a real document. Runs after provenance is attached, before the
-    # compiled SSE event (cache hits return earlier and replay the identical
-    # tree, so they intentionally skip this save). Truth ledger is carried
-    # inside doc_dict["truth_ledger"], so no separate kwarg is needed.
-    try:
-        from ..db.jdf_repository import save_jdf_revision
-    except ImportError:
-        from db.jdf_repository import save_jdf_revision
-    try:
-        save_jdf_revision(project_id, doc_dict, mutation_type="compile")
-    except Exception as exc:
-        _log.warning("[jdf-persist] failed for %s: %s", project_id, exc)
-
+    # The JDF tree is NOT persisted here: this is the pre-audit document. The
+    # single compile revision is saved further down, once Math Check and the
+    # confidence audit have attached their metadata (see "[jdf-persist]").
     yield _typed_sse(
         "compiled",
         {
@@ -748,6 +737,25 @@ def run_draft_pipeline(
         document=verified_doc,
         has_substrate=bool(substrate_rows),
     )
+    # Persist the AUDITED jdf tree — the exact document streamed in `verified` —
+    # so export/history/versions read a real document that carries
+    # meta.confidenceSpans (document level and per node) and survives a reload.
+    # Saving here (instead of the pre-audit tree) keeps one compile = exactly one
+    # revision: this is the only save on the draft path, and cache hits return
+    # earlier and intentionally skip it. Truth ledger is carried inside
+    # document["truth_ledger"], so no separate kwarg is needed.
+    try:
+        from ..db.jdf_repository import save_jdf_revision
+    except ImportError:
+        from db.jdf_repository import save_jdf_revision
+    try:
+        save_jdf_revision(
+            project_id,
+            verified_payload.get("document") or verified_doc,
+            mutation_type="compile",
+        )
+    except Exception as exc:
+        _log.warning("[jdf-persist] failed for %s: %s", project_id, exc)
     # Persist the gate block with the project's stored compile so exports can
     # read it (projects.last_compiled_json — no new table). Red-Hat runs
     # post-compile via /draft/redhat/stream and is NOT reflected here.

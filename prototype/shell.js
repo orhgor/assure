@@ -1224,10 +1224,16 @@
         setShell("document.mode", "ready");
         setShell("document.current", doc);
         renderJdfDocument(doc);
-        // Deliberately no applyConfidenceSpans/addEvidenceChips here: those read
-        // meta.confidenceSpans / meta.provenance.excerpt, which only the live
-        // compile payload carries — save_jdf_revision persists meta without
-        // them, so calling them on a fetched document is a no-op.
+        // The persisted tree is the audited document: it carries
+        // meta.confidenceSpans (document level) plus per-node
+        // meta.confidenceSpans / meta.provenance, so the boot renderer paints
+        // the same overlay the verified SSE frame and acceptCompareColumn do
+        // (same two calls, same order). Reload is no longer second class: the
+        // highlights and the evidence chips survive it without a fresh
+        // compile. Nothing is fabricated — a node without real spans renders
+        // unhighlighted.
+        applyConfidenceSpans(doc);
+        addEvidenceChips(doc);
         _loadVersionHistory(projectId, { current: null });
         _refreshSignoff(projectId);
         _syncUngroundedBanner(null);
@@ -1632,14 +1638,41 @@
       }
     }
 
+    // Persisted trees denormalize the spans onto the nodes too
+    // (build_confidence_spans writes node.meta.confidenceSpans). Rebuild the
+    // document-level array from those copies when the document-level one is
+    // absent, so a hydrated document highlights exactly like the live payload.
+    // Never invents a score: a node without spans contributes nothing.
+    function _nodeConfidenceSpans(doc) {
+      var out = [];
+      function walk(node) {
+        if (!node) return;
+        var own = node.meta && (node.meta.confidenceSpans || node.meta.confidence_spans);
+        if (Array.isArray(own)) {
+          for (var i = 0; i < own.length; i++) out.push(own[i]);
+        }
+        if (node.children && Array.isArray(node.children)) {
+          for (var c = 0; c < node.children.length; c++) walk(node.children[c]);
+        }
+      }
+      var body = (doc && doc.body) || [];
+      for (var b = 0; b < body.length; b++) walk(body[b]);
+      return out;
+    }
+
     function applyConfidenceSpans(doc, targetEl) {
       if (!doc) return;
       // Confidence spans use field names startChar / endChar / nodeId
       // (NOT start / end / node_id). Prefer camelCase, fall back to
       // snake_case; both duplicate the same array on the live payload.
+      // GET /api/projects/<pid>/jdf returns the persisted tree, which carries
+      // the same array under meta.confidenceSpans (document level) and, for
+      // nodes with spans, under node.meta.confidenceSpans — so a boot-hydrated
+      // document is renderable with no fresh compile.
       var spans = doc.confidenceSpans || doc.confidence_spans ||
                   (doc.meta && (doc.meta.confidenceSpans || doc.meta.confidence_spans));
-      if (!spans || !Array.isArray(spans) || spans.length === 0) return;
+      if (!Array.isArray(spans) || spans.length === 0) spans = _nodeConfidenceSpans(doc);
+      if (!Array.isArray(spans) || spans.length === 0) return;
       // Scope node lookups to the target surface (compare column) when
       // provided; otherwise fall back to the whole document.
       var scopeEl = targetEl || document;
