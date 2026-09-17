@@ -450,6 +450,9 @@
           .then(function (r) {
             if (r.ok && r.j && r.j.ok) {
               jdfMessage("Indexed " + (r.j.chunks_stored || 0) + " chunks from " + f.name, false);
+              // New sources change the grounding surface the banner speaks
+              // about — re-derive it instead of leaving a stale snapshot.
+              _syncUngroundedBanner(null);
             } else {
               jdfMessage(String((r.j && r.j.error) || ("Ingest failed (HTTP " + r.status + ")")), true);
             }
@@ -810,11 +813,6 @@
       SHELL.document.versions = { list: [], current: null };
     }
 
-    function _activeProjectId() {
-      var pid = SHELL.project.id || null;
-      if (!pid) { try { pid = window.localStorage.getItem(STORAGE_KEY) || null; } catch (_) { pid = null; } }
-      return pid;
-    }
     function _loadVersionHistory(projectId, opts) {
       fetch("/api/projects/" + encodeURIComponent(projectId) + "/history")
         .then(function (r) { return r.ok ? r.json() : {}; })
@@ -1048,6 +1046,74 @@
         legend.appendChild(item);
       }
       return legend;
+    }
+
+    // ---------------------------------------------------------------
+    // Grounding banner. It describes live document state, so it is derived
+    // here and re-derived whenever the document changes (verified frame,
+    // ingest, node rewrite) instead of being a write-once snapshot that
+    // drifts from the cite chips and the source summary.
+    // Anchoring mirrors prompt_matrix/services/audit_summary.py
+    // (_eligible_and_anchored): paragraph nodes with >= 8 content tokens
+    // (models/jdf.py _tokenize — tokens are >2 chars and not stopwords) and
+    // anchored iff node.meta.provenance or node.provenance. When the caller
+    // supplies the server's provenance_stats, that wins (DB parity with the
+    // persisted gate).
+    // ---------------------------------------------------------------
+    var _ANCHOR_STOPWORDS = {
+      a: 1, an: 1, the: 1, of: 1, and: 1, or: 1, to: 1, in: 1, on: 1, for: 1,
+      is: 1, are: 1, was: 1, were: 1, be: 1, by: 1, with: 1, as: 1, at: 1,
+      this: 1, that: 1, it: 1, its: 1, from: 1, but: 1, shall: 1, will: 1,
+      may: 1, any: 1, all: 1,
+    };
+    var _ANCHOR_WORD_FLOOR = 8;
+    function _anchorContentTokens(content) {
+      var words = String(content == null ? "" : content)
+        .replace(/[^\w\s]/g, " ").toLowerCase().split(/\s+/);
+      var n = 0;
+      for (var i = 0; i < words.length; i++) {
+        if (words[i].length > 2 && !_ANCHOR_STOPWORDS[words[i]]) n++;
+      }
+      return n;
+    }
+    function _derivedAnchoredCount(doc) {
+      var anchored = 0;
+      var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
+      for (var s = 0; s < sections.length; s++) {
+        if (!sections[s] || typeof sections[s] !== "object") continue;
+        var group = [sections[s]];
+        if (Array.isArray(sections[s].children)) group = group.concat(sections[s].children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || typeof node !== "object") continue;
+          if (String(node.type || "") !== "paragraph") continue;
+          if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
+          var meta = node.meta || {};
+          if (meta.provenance || node.provenance) anchored++;
+        }
+      }
+      return anchored;
+    }
+    function _syncUngroundedBanner(stats) {
+      var show;
+      if (stats && typeof stats === "object" && typeof stats.anchored === "number") {
+        show = (stats.anchored === 0);
+      } else {
+        var doc = SHELL.document.current;
+        if (!doc || !Array.isArray(doc.body)) return;
+        show = (_derivedAnchoredCount(doc) === 0);
+      }
+      // At most one banner, always.
+      var existing = document.querySelectorAll(".doc-ungrounded-banner");
+      for (var i = 0; i < existing.length; i++) {
+        if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
+      }
+      if (!show) return;
+      var banner = document.createElement("div");
+      banner.className = "doc-ungrounded-banner";
+      banner.textContent = "This document is ungrounded — none of its claims match the uploaded sources. Verify before use.";
+      var surface = document.querySelector(".doc-surface");
+      if (surface) surface.insertBefore(banner, surface.firstChild);
     }
 
     function renderJdfDocument(doc, targetEl) {
@@ -1307,6 +1373,9 @@
             setTimeout(function () { fresh.classList.remove("rh-fade"); }, 900);
           }
           _removeNodeRephrase();
+          // The rewritten node carries its own provenance (or none): the
+          // banner must follow it, not the last verified snapshot.
+          _syncUngroundedBanner(null);
           var pid2 = _activeProjectId();
           if (pid2) { _loadNodeHistory(nodeId); _loadVersionHistory(pid2, { current: "latest" }); }
         } else {
@@ -1677,6 +1746,7 @@
       } else if (event === "compiled") {
         markDone("Lock Inference");
         transitionTo("Compile");
+        _clearCompilerPromptIfStale();
         if (data && data.document) {
           var cdoc = data.document;
           if (cdoc && cdoc.body && Array.isArray(cdoc.body)) {
@@ -1705,16 +1775,9 @@
               stats = data.document.meta.provenance_stats || null;
             }
 
-            var existingBanner = document.querySelector(".doc-ungrounded-banner");
-            if (existingBanner) existingBanner.remove();
-
-            if (stats && stats.anchored === 0) {
-              var banner = document.createElement("div");
-              banner.className = "doc-ungrounded-banner";
-              banner.textContent = "This document is ungrounded — none of its claims match the uploaded sources. Verify before use.";
-              var surface = document.querySelector(".doc-surface");
-              if (surface) surface.insertBefore(banner, surface.firstChild);
-            }
+            // Verified frame: the persisted stats are authoritative (DB parity
+            // with the gate block the honesty test reads).
+            _syncUngroundedBanner(stats);
             // Verification laser: one horizontal sweep across the rendered
             // document, per compile. Anchored to .doc-draft (not .doc-surface,
             // which also holds the banner + empty hero).
@@ -1733,6 +1796,7 @@
         markDone("Complete");
         runInProgress = false;
         clearIntentSlot();
+        _clearCompilerPromptIfStale();
       } else if (event === "error") {
         var active = findActiveStage() || STAGE_ORDER[
           (currentStageIndex >= 0) ? currentStageIndex : 0
@@ -2209,6 +2273,7 @@
       var v = String(text.value || "").trim();
       if (!v) return;
       text.value = "";
+      _syncDockSubmit();
       try { window.sessionStorage.setItem("assure_last_intent", v); } catch (_) {}
       compareDataLoaded = false;
       compareClear();
@@ -2228,6 +2293,12 @@
     function populateCompilerAsk(v)  { setShell("compiler.ask", v || ""); }
     function setCompilerPrompt(v)    { setShell("compiler.prompt", v || ""); }
     function populateCompilerRoute(v){ setShell("compiler.route", v || ""); }
+    // The compile-system fetch is the only writer of this placeholder, and it
+    // races the draft stream. If the pipeline finishes first, clear it so the
+    // panel cannot sit on "Compiling…" forever.
+    function _clearCompilerPromptIfStale() {
+      if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
+    }
     function renderCompilerRouteFrom(j) {
       var route = (j && j.target_ai) ? String(j.target_ai) : "";
       var intent = (j && j.intent) ? String(j.intent) : "";
@@ -2244,12 +2315,18 @@
       setCompilerPrompt("Compiling\u2026");
       populateCompilerRoute("");
       // Preview + draft stream run in parallel; do not wait for preview.
-      // Payload is exactly {task, target_ai} — the backend calls
-      // detect_intent(task) when intent is absent (web.py:1142), so we
-      // intentionally omit the intent key.
+      // /api/compile-system takes no body and answers {prompt} (web.py).
       jsonPost("/api/compile-system", {})
+        .then(function (res) { return res.json(); })
         .then(function (j) {
-          if (j && j.prompt) setCompilerPrompt(j.prompt);
+          if (!j || typeof j !== "object") return;
+          // Remembered so re-opening the COMPILER tab (expandIntentPanel)
+          // can restore the prompt that was actually compiled against.
+          lastCompile = j;
+          if (typeof j.prompt === "string" && j.prompt.length > 0) {
+            setCompilerPrompt(j.prompt);
+            renderCompilerRouteFrom(j);
+          }
         })
         .catch(function (err) {
           setCompilerPrompt("(compiler unavailable)");
@@ -2278,6 +2355,7 @@
 
     function cancelIntent() {
       if (pendingIntent && text) text.value = pendingIntent;
+      _syncDockSubmit();
       pendingIntent = null;
       intentPanelOpen = false;
       lastCompile = null;
@@ -3036,11 +3114,33 @@
       evidenceBodyEl.appendChild(foot);
     }
 
+    // Single owner of pane reveal. index.html authors `hidden` on all three
+    // bodies while `.pane-body` sets `display: flex`, so clearing only the
+    // inline display (as this used to) leaves the pane invisible even when
+    // the tab strip has flipped is-active. Set both, together.
     function _setInspectorPane(active) {
       var panes = { evidence: evidenceModeEl, z3: z3ModeEl, redhat: redhatModeEl };
       Object.keys(panes).forEach(function (k) {
-        if (panes[k]) panes[k].style.display = (k === active) ? "block" : "none";
+        if (!panes[k]) return;
+        var on = (k === active);
+        panes[k].hidden = !on;
+        panes[k].style.display = on ? "block" : "none";
       });
+    }
+    // No node selected: the active tab still owns the pane, so keep it
+    // revealed with a styled hint rather than a blank (or stale) body. The
+    // real panel renderers are deliberately not called with a null node.
+    function _renderInspectorIdlePane() {
+      var tab = SHELL.ui.rightTab || "evidence";
+      var body = (tab === "z3") ? z3ModeEl : (tab === "redhat") ? redhatModeEl : evidenceModeEl;
+      if (!body) return;
+      while (body.firstChild) body.removeChild(body.firstChild);
+      var hint = document.createElement("p");
+      hint.className = "empty-hint";
+      hint.textContent = "No paragraph selected — " +
+        (tab === "z3" ? "Z3 findings" : (tab === "redhat" ? "Red-Hat findings" : "evidence")) +
+        " appear here.";
+      body.appendChild(hint);
     }
     function renderEvidencePanel(node) {
       if (!evidenceBodyEl) return;
@@ -3189,13 +3289,15 @@
       var emptyEl = inspectorEmptyEl;
       if (!nodeId) {
         if (emptyEl) emptyEl.style.display = "";
-        _setInspectorPane(null);
+        _setInspectorPane(SHELL.ui.rightTab || "evidence");
+        _renderInspectorIdlePane();
         return;
       }
       var node = (SHELL.document.current) ? findJdfNodeById(nodeId, SHELL.document.current) : null;
       if (!node) {
         if (emptyEl) emptyEl.style.display = "";
-        _setInspectorPane(null);
+        _setInspectorPane(SHELL.ui.rightTab || "evidence");
+        _renderInspectorIdlePane();
         return;
       }
       if (emptyEl) emptyEl.style.display = "none";
@@ -3446,7 +3548,15 @@
       renderEvidenceDrawer(ev);
     }
 
+    // Send is only meaningful with a non-empty ask. The click/keydown paths
+    // keep their own guards (submitIntent) as defense.
+    function _syncDockSubmit() {
+      if (!submit || !text) return;
+      submit.disabled = !String(text.value || "").trim();
+    }
     if (text) {
+      text.addEventListener("input", _syncDockSubmit);
+      text.addEventListener("keyup", _syncDockSubmit);
       text.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
           e.preventDefault();
@@ -3454,6 +3564,7 @@
         }
       });
     }
+    _syncDockSubmit();
     if (submit) {
       submit.addEventListener("click", function () { submitIntent(); });
     }
