@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
+import os
 import re
+import threading
 import time
 import uuid
-from typing import Any, Generator, Iterator
+from typing import Any, Callable, Generator, Iterator
 
-from flask import Response, request
+from flask import Response, request, stream_with_context
 from pydantic import BaseModel, ConfigDict, Field
 
 try:
@@ -67,6 +70,65 @@ class InquiryPayload(BaseModel):
 
 def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+# The edge closes an idle streaming connection at ~100s; keep bytes flowing and end
+# the stream ourselves before then. Comment frames are ignored by the SSE parsers.
+_KEEPALIVE_INTERVAL_SECONDS = 12.0
+_KEEPALIVE_FRAME = ": keepalive\n\n"
+DEFAULT_STREAM_DEADLINE_SECONDS = 90.0
+
+
+class StreamDeadlineExceeded(RuntimeError):
+    """A model phase outlived the SSE stream deadline (Cloudflare 524 guard)."""
+
+
+def _stream_deadline_seconds() -> float:
+    raw = (os.environ.get("INQUIRE_STREAM_DEADLINE_SECONDS") or "").strip()
+    try:
+        return float(raw) if raw else DEFAULT_STREAM_DEADLINE_SECONDS
+    except ValueError:
+        return DEFAULT_STREAM_DEADLINE_SECONDS
+
+
+def _blocking_with_keepalive(
+    fn: Callable[[], Any],
+    *,
+    deadline_at: float,
+    phase: str,
+) -> Generator[str, None, Any]:
+    """Run a blocking model call on a worker thread, yielding SSE keepalive comments.
+
+    The worker inherits a copy of the caller's context variables, so Flask's request
+    context (BYOK keys, locale, request id) stays visible to the governor. Raises
+    StreamDeadlineExceeded once the overall stream deadline passes, so the client gets
+    a `complete` frame instead of a silently dead connection.
+    """
+    box: dict[str, Any] = {}
+    done = threading.Event()
+    ctx = contextvars.copy_context()
+
+    def _worker() -> None:
+        try:
+            box["result"] = ctx.run(fn)
+        except BaseException as exc:  # surfaced on the request thread below
+            box["error"] = exc
+        finally:
+            done.set()
+
+    threading.Thread(target=_worker, name=f"inquire-{phase}", daemon=True).start()
+    while not done.is_set():
+        remaining = deadline_at - time.monotonic()
+        if remaining <= 0:
+            raise StreamDeadlineExceeded(
+                f"{phase} phase exceeded the {_stream_deadline_seconds():g}s stream deadline"
+            )
+        if done.wait(min(_KEEPALIVE_INTERVAL_SECONDS, remaining)):
+            break
+        yield _KEEPALIVE_FRAME
+    if "error" in box:
+        raise box["error"]
+    return box.get("result")
 
 
 def _status_payload(stage: str, **extra: Any) -> dict[str, Any]:
@@ -216,6 +278,7 @@ def run_inquire_pipeline(
     """Yield SSE frames for the inquire pipeline. No blocking sleep."""
     rid = request_id or str(uuid.uuid4())
     start_time = time.perf_counter()
+    deadline_at = time.monotonic() + _stream_deadline_seconds()
     audit = get_audit_logger()
     gov = governor or CostGovernor()
 
@@ -292,13 +355,17 @@ def run_inquire_pipeline(
 
     yield _sse("status", _status_payload("model", task_type=task_type.value))
 
-    result = gov.execute_with_retry_budget(
-        project_id,
-        task_type,
-        messages,
-        validate_fn=_validate,
-        build_node_fn=lambda text: _paragraph_node(node_id, text),
-        defer_budget_record=True,
+    result = yield from _blocking_with_keepalive(
+        lambda: gov.execute_with_retry_budget(
+            project_id,
+            task_type,
+            messages,
+            validate_fn=_validate,
+            build_node_fn=lambda text: _paragraph_node(node_id, text),
+            defer_budget_record=True,
+        ),
+        deadline_at=deadline_at,
+        phase="model",
     )
 
     text = result.text or ""
@@ -360,11 +427,15 @@ def run_inquire_pipeline(
                 "content": f"Red-hat critique this node:\n\n{node.get('content', '')}\n\nIntent: {user_intent}",
             }
         ]
-        red = gov.execute_with_retry_budget(
-            project_id,
-            TaskType.REDHAT,
-            red_messages,
-            defer_budget_record=True,
+        red = yield from _blocking_with_keepalive(
+            lambda: gov.execute_with_retry_budget(
+                project_id,
+                TaskType.REDHAT,
+                red_messages,
+                defer_budget_record=True,
+            ),
+            deadline_at=deadline_at,
+            phase="redhat",
         )
         critique_text = (red.text or "").strip()
         if critique_text and not critique_text.startswith("ERROR:"):
@@ -540,4 +611,4 @@ def register_inquire_routes(app) -> None:
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         }
-        return Response(generate(), headers=headers)
+        return Response(stream_with_context(generate()), headers=headers)

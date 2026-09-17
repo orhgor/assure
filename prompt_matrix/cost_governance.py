@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from dataclasses import dataclass, field
 from enum import Enum
@@ -39,6 +40,25 @@ def _litellm_api_kwargs(model: str) -> dict:
         return litellm_kwargs_for(provider)
     except Exception:
         return {}
+
+
+DEFAULT_LITELLM_TIMEOUT_SECONDS = 60
+MIN_LITELLM_TIMEOUT_SECONDS = 10
+MAX_LITELLM_TIMEOUT_SECONDS = 80
+
+
+def _resolve_litellm_timeout() -> int:
+    """Clamp PEM_TIMEOUT_SECONDS so a stalled provider cannot silence the caller.
+
+    The web inquire stream keeps the connection open with SSE keepalives and only
+    survives ~100s at the edge; an unbounded completion would outlive it.
+    """
+    raw = (os.environ.get("PEM_TIMEOUT_SECONDS") or "").strip()
+    try:
+        seconds = int(float(raw)) if raw else DEFAULT_LITELLM_TIMEOUT_SECONDS
+    except ValueError:
+        seconds = DEFAULT_LITELLM_TIMEOUT_SECONDS
+    return max(MIN_LITELLM_TIMEOUT_SECONDS, min(MAX_LITELLM_TIMEOUT_SECONDS, seconds))
 
 
 class TaskType(str, Enum):
@@ -460,6 +480,7 @@ class CostGovernor:
             import litellm
 
             _api_kwargs = _litellm_api_kwargs(model)
+            _timeout = _resolve_litellm_timeout()
 
             def _complete():
                 return litellm.completion(
@@ -467,6 +488,7 @@ class CostGovernor:
                     messages=payload,
                     max_tokens=max_output,
                     stream=False,
+                    timeout=_timeout,
                     **_api_kwargs,
                 )
 

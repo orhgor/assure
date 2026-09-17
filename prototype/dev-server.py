@@ -93,7 +93,9 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_header(k, v)
                 self.end_headers()
                 while True:
-                    chunk = resp.read(4096)
+                    # read1 returns as soon as any bytes land; read() would block
+                    # until 4 KB accumulate, so SSE frames never reached the edge.
+                    chunk = resp.read1(4096)
                     if not chunk:
                         break
                     self.wfile.write(chunk)

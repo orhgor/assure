@@ -24,6 +24,8 @@ _pool_holders_lock = threading.Lock()
 
 DEFAULT_POOL_SIZE = int(__import__("os").environ.get("SQLITE_POOL_SIZE", "5"))
 DEFAULT_MAX_OVERFLOW = int(__import__("os").environ.get("SQLITE_POOL_MAX_OVERFLOW", "15"))
+# A saturated pool used to block every DB route for SQLAlchemy's default 30s.
+DEFAULT_POOL_TIMEOUT = float(__import__("os").environ.get("SQLITE_POOL_TIMEOUT", "5"))
 
 
 def _sqlite_url(db_path: Path) -> str:
@@ -53,6 +55,7 @@ def get_engine() -> Engine:
             poolclass=QueuePool,
             pool_size=DEFAULT_POOL_SIZE,
             max_overflow=DEFAULT_MAX_OVERFLOW,
+            pool_timeout=DEFAULT_POOL_TIMEOUT,
             pool_pre_ping=True,
             connect_args={"check_same_thread": False, "timeout": 30.0},
         )

@@ -10,6 +10,7 @@ import difflib
 import hashlib
 import html
 import json
+import logging
 import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -45,8 +46,16 @@ def _new_connection() -> sqlite3.Connection:
             from .db.pool import checkout_dbapi_connection
 
             return checkout_dbapi_connection()
-        except Exception:
+        except ImportError:
             pass
+        except Exception as exc:
+            # Fall back to a direct connection so the request still works, but make
+            # the saturated/misconfigured pool visible instead of stalling silently.
+            logging.getLogger("assure").warning(
+                "SQLite pool checkout failed (%s: %s); using a direct connection",
+                exc.__class__.__name__,
+                exc,
+            )
     conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
     conn.row_factory = sqlite3.Row
     _apply_pragmas(conn)
