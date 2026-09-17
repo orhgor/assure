@@ -527,6 +527,7 @@ body.collapsed .pane-left {
   background: var(--bg-center);
   display: flex;
   flex-direction: column;
+  position: relative;   /* anchor for the absolutely-positioned intent slot */
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -534,6 +535,7 @@ body.collapsed .pane-left {
 
 .doc-surface {
   flex: 1 1 auto;
+  position: relative;   /* anchor for the absolutely-positioned banner */
   padding: 24px;
   overflow-y: auto;
   display: flex;
@@ -1500,11 +1502,18 @@ body.collapsed .pane-left {
 }
 
 /* =========================================================
-   Intent Compilation panel (above the document)
+   Intent Compilation panel (overlays the top of the document)
    ========================================================= */
 #intent-panel-slot {
+  /* Notification overlay, not a layout region: rendering the compile panel
+     (or the post-Run summary) overlays the document instead of pushing
+     .doc-surface down. Removed from flow, so it keeps no reserved space. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
   display: block;
-  flex-shrink: 0;
   max-height: 60vh;
   overflow-y: auto;
   min-height: 0;
@@ -1808,12 +1817,21 @@ body.collapsed .pane-left {
 }
 
 .doc-ungrounded-banner {
+  /* Overlay: appears/disappears without reflowing the document row. */
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: max-content;
+  max-width: min(560px, calc(100% - 32px));
+  margin: 0;
+  pointer-events: auto;
   background: #fef3c7;
   color: #92400e;
   border: 1px solid #f59e0b;
   border-radius: 6px;
   padding: 12px 16px;
-  margin: 16px;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -2151,10 +2169,23 @@ body.collapsed.right-hidden #resize-right { display: none; }
   color: #ffffff;
 }
 .node-rephrase-error {
-  flex-basis: 100%;
-  margin-top: 4px;
+  /* Overlay pinned under the sticky rephrase bar: an error must not grow the
+     bar (which would push the node body down). Containing block is
+     .node-rephrase itself (position: sticky, above). */
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-card);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   font-size: 12px;
   color: #ef4444;
+  pointer-events: auto;
 }
 .jdf-node.is-rephrasing { position: relative; }
 .jdf-node.is-rephrasing::after {
