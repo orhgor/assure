@@ -2211,6 +2211,14 @@
         function (err) {
           var active = findActiveStage() || STAGE_ORDER[Math.max(0, currentStageIndex)];
           markFailed(active);
+          runInProgress = false;
+          // A parse error also ends the run: drop the success bar left by the
+          // intent compile and bring the retained stage rows back into view,
+          // so the failed row is visible instead of a stale
+          // "Intent compiled" slot hiding the pipeline tab — the same
+          // stale-slot defect the handleEvent error branch fixed.
+          clearIntentSlot();
+          leftGroupSetTab("pipeline");
           appendDocError(String(err && err.message ? err.message : err));
           logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           try { console.error("[shell] stream parse error:", err); } catch (_) {}
