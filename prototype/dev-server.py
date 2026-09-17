@@ -133,6 +133,12 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_static()
 
     def do_GET(self):
+        # Legacy: /app* redirects to the shell root.
+        if self.path == "/app" or self.path.startswith("/app?") or self.path.startswith("/app/"):
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
         self._route("GET")
 
     def do_POST(self):
