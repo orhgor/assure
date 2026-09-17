@@ -1804,6 +1804,12 @@
           if (_vid) _loadVersionHistory(_vid, { current: "latest" });
         }
       } else if (event === "complete") {
+        // The run finished: Compile can still be .active when the
+        // "running math check" status frame never arrived, because
+        // transitionTo("Verify") only marks stages STRICTLY before the
+        // index it is leaving behind. Close it out explicitly so no
+        // stage dot keeps pulsing after a finished run.
+        markDone("Compile");
         markDone("Verify");
         markActive("Complete");
         markDone("Complete");
@@ -1819,6 +1825,12 @@
         ];
         markFailed(active);
         runInProgress = false;
+        // A failed run is still an ended run: drop the success bar left by
+        // the intent compile and bring the retained stage rows back into
+        // view, so the failed row is visible instead of a stale
+        // "\u2713 Intent compiled" slot hiding the pipeline tab.
+        clearIntentSlot();
+        leftGroupSetTab("pipeline");
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
         appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
