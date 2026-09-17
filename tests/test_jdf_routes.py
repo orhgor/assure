@@ -175,3 +175,105 @@ def test_duplicate_doc_id_across_tenants(monkeypatch, tmp_path):
     ).fetchall()
     assert [r[0] for r in rows] == ["t1", "t2"]
     assert json.loads(rows[0][1])["tenant"] == "t1", "t1's row was overwritten by t2"
+
+def _chunk_memory(doc_id, doc_hash, text, tenant_id="t1"):
+    return {
+        "content": json.dumps(
+            {
+                "kind": "jdf_chunk",
+                "tenant": tenant_id,
+                "doc_id": doc_id,
+                "doc_hash": doc_hash,
+                "text": text,
+            }
+        )
+    }
+
+
+def _temp_db(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "jdf-cli.db"))
+    import prompt_matrix.history as history_mod
+    from prompt_matrix.db.connection import init_db
+
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    init_db()
+
+    import prompt_matrix.services.jdf_memory as jm
+
+    return jm
+
+
+def test_get_doc_chunks_returns_only_current_hash(monkeypatch, tmp_path):
+    """Re-ingest leaves the old generation in OMP; recall must not mix them.
+
+    Each ingest appends new rows keyed jdf:{tenant}:{doc_id}:{idx}, so the
+    doc_id-only filter returned stale and fresh chunks together
+    (audit 2026-09-17 §B).
+    """
+    jm = _temp_db(monkeypatch, tmp_path)
+    jm._persist_jdf_document("policy.pdf", "hash-new", {"$jdf": "1.0"}, "t1")
+
+    def recall(_query):
+        return {
+            "memories": [
+                _chunk_memory("policy.pdf", "hash-old", "stale"),
+                _chunk_memory("policy.pdf", "hash-new", "fresh"),
+            ]
+        }
+
+    monkeypatch.setattr(jm, "omp_recall", recall)
+    assert [c["text"] for c in jm.get_doc_chunks("policy.pdf", "t1")] == ["fresh"]
+
+
+def test_get_doc_chunks_without_known_hash_keeps_doc_id_filter(monkeypatch, tmp_path):
+    """No durable row (never ingested here) -> previous doc_id-only behaviour."""
+    jm = _temp_db(monkeypatch, tmp_path)
+
+    def recall(_query):
+        return {
+            "memories": [
+                _chunk_memory("legacy.pdf", "hash-whatever", "legacy"),
+                _chunk_memory("other.pdf", "hash-whatever", "other"),
+            ]
+        }
+
+    monkeypatch.setattr(jm, "omp_recall", recall)
+    assert [c["text"] for c in jm.get_doc_chunks("legacy.pdf", "t1")] == ["legacy"]
+
+
+def test_partial_omp_write_is_reported(monkeypatch, tmp_path):
+    """0 < stored < attempted must be visible, not a silent success (FIX 2)."""
+    jm = _temp_db(monkeypatch, tmp_path)
+    calls = []
+
+    def flaky(key, payload):
+        calls.append(key)
+        return len(calls) == 1
+
+    monkeypatch.setattr(jm, "safe_omp_remember", flaky)
+    chunks = [{"text": "one"}, {"text": "two"}]
+    result = jm.remember_jdf_document("partial.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
+
+    assert result["chunks_stored"] == 1
+    assert result["chunks_failed"] == 1
+    assert result["partial"] is True
+
+
+def test_total_omp_failure_still_raises(monkeypatch, tmp_path):
+    """The 503-on-zero contract is unchanged by the partial reporting."""
+    jm = _temp_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(jm, "safe_omp_remember", lambda key, payload: None)
+
+    chunks = [{"text": "one"}, {"text": "two"}]
+    with pytest.raises(OmpUnavailable):
+        jm.remember_jdf_document("dead.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
+
+
+def test_full_omp_write_reports_not_partial(monkeypatch, tmp_path):
+    jm = _temp_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(jm, "safe_omp_remember", lambda key, payload: {"id": 1})
+
+    chunks = [{"text": "one"}, {"text": ""}]
+    result = jm.remember_jdf_document("ok.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
+
+    assert (result["chunks_stored"], result["chunks_failed"], result["partial"]) == (1, 0, False)

@@ -2,6 +2,7 @@
 import hashlib
 import json
 import logging
+import sqlite3
 
 from .omp_memory import safe_omp_remember
 
@@ -152,10 +153,12 @@ def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=
     # FIX 2: persist the full JDF durably before touching OMP.
     _persist_jdf_document(doc_id, doc_hash, jdf_dict, tenant_id)
     stored = 0
+    attempted = 0
     for idx, chunk in enumerate(chunks):
         text = (chunk.get("text") or chunk.get("content") or "").strip()
         if not text:
             continue
+        attempted += 1
         payload = {
             "kind": "jdf_chunk",
             "tenant": tenant_id,
@@ -178,10 +181,21 @@ def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=
     )
     if len(chunks) > 0 and stored == 0:  # FIX 4
         raise OmpUnavailable(f"0/{len(chunks)} chunks written to OMP")
+    # FIX 2: a half-indexed document must not look healthy. Empty chunks are
+    # skipped by design (not failures), so the shortfall is measured against
+    # the chunks that were actually offered to OMP.
+    failed = attempted - stored
+    if failed:
+        log.warning(
+            "[jdf] partial index doc=%s tenant=%s stored=%d/%d chunks_failed=%d",
+            doc_id, tenant_id, stored, attempted, failed,
+        )
     return {
         "doc_id": doc_id,
         "chunks_total": len(chunks),
         "chunks_stored": stored,
+        "chunks_failed": failed,
+        "partial": failed > 0,
         "doc_hash": doc_hash,
     }
 
@@ -200,13 +214,38 @@ def search_jdf_chunks(query: str, tenant_id=DEFAULT_TENANT, limit: int = 20):
     return out[:limit]
 
 
+def _durable_doc_hash(doc_id: str, tenant_id: str) -> str | None:
+    """Latest doc_hash for (tenant_id, doc_id), or None when unknown.
+
+    jdf_cli_documents is upserted per ingest, so its row holds the current hash.
+    Re-ingesting a filename appends new OMP rows keyed
+    jdf:{tenant}:{doc_id}:{idx} without removing the previous generation, so a
+    recall returns both. No table or no row (never ingested through this path)
+    means no hash to filter on, and callers keep the doc_id-only behaviour.
+    """
+    try:
+        row = get_db().execute(
+            f"SELECT doc_hash FROM {_JDF_CLI_DOCS_TABLE} WHERE tenant_id = ? AND doc_id = ?",
+            (tenant_id, doc_id),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+    return (row[0] or None) if row else None
+
+
 def get_doc_chunks(doc_id: str, tenant_id=DEFAULT_TENANT):
     q = f"jdf:{tenant_id}:{doc_id}"
+    # FIX 1: filter on content, not just identity — stale chunks from an
+    # earlier ingest of the same filename must not come back with fresh ones.
+    expected_hash = _durable_doc_hash(doc_id, tenant_id)
     out = []
     for memory in _search_raw(q):
         parsed = _parse_chunk_content(memory)
         if not parsed:
             continue
-        if parsed.get("doc_id") == doc_id:
-            out.append(parsed)
+        if parsed.get("doc_id") != doc_id:
+            continue
+        if expected_hash and parsed.get("doc_hash") != expected_hash:
+            continue
+        out.append(parsed)
     return out
