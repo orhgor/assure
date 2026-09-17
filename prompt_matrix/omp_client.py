@@ -131,15 +131,19 @@ def omp_remember(key: str, content: str, tags: list | None = None) -> dict[str, 
     return _request("POST", "/v1/memories", body=payload, timeout=SAFE_OMP_TIMEOUT)
 
 
-def omp_recall(key: str) -> dict[str, Any]:
-    """Search memories for ``key`` (keyword recall, not a REST path key)."""
+def omp_recall(key: str, limit: int = 10) -> dict[str, Any]:
+    """Search memories for ``key`` (keyword recall, not a REST path key).
+
+    ``limit`` is the ranking window: a caller whose payload competes with large
+    cache blobs must widen it, or its memories never appear in the result.
+    """
     query = str(key or "").strip()
     if not query:
         return {"memories": [], "total": 0}
     return _request(
         "POST",
         "/v1/memories/search",
-        body={"q": query, "limit": 10, "mode": "keyword"},
+        body={"q": query, "limit": int(limit), "mode": "keyword"},
         timeout=SAFE_OMP_TIMEOUT,
     )
 

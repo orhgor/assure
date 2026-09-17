@@ -125,7 +125,13 @@ def _doc_hash(jdf_dict: dict) -> str:
 
 
 def _parse_chunk_content(memory) -> dict | None:
-    """OMP stores chunk payloads as JSON-string `content`; return the dict or None."""
+    """OMP stores chunk payloads as JSON-string `content`; return the dict or None.
+
+    Some writers wrap content in a cache marker (``omp_memory.CACHE_MARKER``,
+    e.g. ``"PEM_CACHE_V1\\n{...}"``), so a bare ``json.loads`` is not the only
+    shape to accept: on failure, retry from the first ``{``. Content that
+    yields no dict either way is skipped, never fabricated.
+    """
     if not isinstance(memory, dict):
         return None
     content = memory.get("content")
@@ -133,15 +139,28 @@ def _parse_chunk_content(memory) -> dict | None:
         return None
     if isinstance(content, dict):
         return content
-    try:
-        parsed = json.loads(content)
-    except (TypeError, ValueError):
+    if not isinstance(content, str):
         return None
-    return parsed if isinstance(parsed, dict) else None
+    for candidate in (content, content[content.find("{") :] if "{" in content else ""):
+        try:
+            parsed = json.loads(candidate)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+# Keyword recall ranks over the whole memory store, so OMP's default window of
+# 10 is filled by the ~6 KB AST/PEM cache blobs — they carry the same domain
+# words as the chunks (e.g. the ledger's liability_limit*). Measured on the box
+# 2026-09-17 for "liability limit": 0 of the 10 slots were chunks, so search
+# returned 0 hits with ok:true; at 50 the tenant's 22 chunks were in the window.
+_RECALL_LIMIT = 50
 
 
 def _search_raw(query: str) -> list[dict]:
-    raw = omp_recall(query)
+    raw = omp_recall(query, limit=_RECALL_LIMIT)
     if not isinstance(raw, dict):
         return []
     memories = raw.get("memories") or raw.get("results") or []

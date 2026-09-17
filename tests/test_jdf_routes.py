@@ -248,7 +248,7 @@ def test_get_doc_chunks_returns_only_current_hash(monkeypatch, tmp_path):
     jm = _temp_db(monkeypatch, tmp_path)
     jm._persist_jdf_document("policy.pdf", "hash-new", {"$jdf": "1.0"}, "t1")
 
-    def recall(_query):
+    def recall(_query, **_kwargs):
         return {
             "memories": [
                 _chunk_memory("policy.pdf", "hash-old", "stale"),
@@ -264,7 +264,7 @@ def test_get_doc_chunks_without_known_hash_keeps_doc_id_filter(monkeypatch, tmp_
     """No durable row (never ingested here) -> previous doc_id-only behaviour."""
     jm = _temp_db(monkeypatch, tmp_path)
 
-    def recall(_query):
+    def recall(_query, **_kwargs):
         return {
             "memories": [
                 _chunk_memory("legacy.pdf", "hash-whatever", "legacy"),
@@ -312,3 +312,51 @@ def test_full_omp_write_reports_not_partial(monkeypatch, tmp_path):
     result = jm.remember_jdf_document("ok.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
 
     assert (result["chunks_stored"], result["chunks_failed"], result["partial"]) == (1, 0, False)
+
+
+def test_parse_chunk_content_accepts_cache_marker():
+    """OMP content may carry a writer's cache marker (e.g. "PEM_CACHE_V1\\n{...}").
+
+    A bare json.loads over such content raised, and search_jdf_chunks skipped
+    every memory it could not parse. A marked payload must still be returned.
+    """
+    import prompt_matrix.services.jdf_memory as jm
+
+    payload = {"kind": "jdf_chunk", "tenant": "t1", "doc_id": "policy.pdf", "text": "liability"}
+    body = json.dumps(payload)
+
+    assert jm._parse_chunk_content({"content": body}) == payload, "bare JSON is the fast path"
+    assert jm._parse_chunk_content({"content": "PEM_CACHE_V1\n" + body}) == payload, "marked JSON"
+    assert jm._parse_chunk_content({"content": payload}) == payload, "already-parsed dict"
+    assert jm._parse_chunk_content({"content": "PEM_CACHE_V1\nnot json"}) is None, "no fabrication"
+    assert jm._parse_chunk_content({"content": ""}) is None
+    assert jm._parse_chunk_content("not a memory") is None
+
+
+def test_search_finds_chunks_ranked_behind_cache_blobs(monkeypatch, tmp_path):
+    """Keyword recall ranks over the whole store, so cache blobs win the window.
+
+    Measured on the box 2026-09-17: for "liability limit" at OMP's default
+    limit of 10 every slot was a 6 KB PEM_CACHE_V1 AST blob (they carry the
+    ledger's liability_limit words) and search returned 0 hits with ok:true;
+    at limit 50 the 22 jdf_chunks of the tenant were in the window.
+    """
+    jm = _temp_db(monkeypatch, tmp_path)
+    blobs = [
+        {
+            "content": "PEM_CACHE_V1\n"
+            + json.dumps({"compiled": {"document": {"document_id": "doc-shell-proto-%d" % i}}})
+        }
+        for i in range(40)
+    ]
+    chunk = _chunk_memory("policy.pdf", "hash-1", "liability limit per occurrence")
+
+    def recall(_query, **kwargs):
+        ranked = blobs + [chunk]  # chunk ranks last, exactly as live
+        return {"memories": ranked[: int(kwargs.get("limit", 10))]}
+
+    monkeypatch.setattr(jm, "omp_recall", recall)
+
+    assert [c["text"] for c in jm.search_jdf_chunks("liability limit", "t1")] == [
+        "liability limit per occurrence"
+    ]
