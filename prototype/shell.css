@@ -1512,7 +1512,11 @@ body.collapsed .pane-left {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 40;
+  /* 45 = above the .doc-surface overlays (ungrounded banner + verification
+     laser, both 40) and below the pane resizers (50) / modal layer (200).
+     At 40 the banner painted over this slot's own controls and swallowed
+     the post-Run summary bar's "view" button. */
+  z-index: 45;
   display: block;
   max-height: 60vh;
   overflow-y: auto;
@@ -1834,6 +1838,14 @@ body.collapsed .pane-left {
   padding: 12px 16px;
   font-size: 14px;
   line-height: 1.4;
+}
+/* The slot sits in the same top band as the banner. With content rendered
+   there (the post-Run summary bar, or the compile panel) drop the banner
+   below it: the bar's 33px (6px padding + 1px border + the 19px line box)
+   clipped the first line of the warning. 40px clears it with a 7px gap.
+   Empty slot => banner keeps its original 12px anchor. */
+#intent-panel-slot:not(:empty) ~ .doc-surface .doc-ungrounded-banner {
+  top: 40px;
 }
 
 .compiler-prompt-details {
