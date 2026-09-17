@@ -347,7 +347,6 @@ def run_inquire_pipeline(
     """Yield SSE frames for the inquire pipeline. No blocking sleep."""
     rid = request_id or str(uuid.uuid4())
     start_time = time.perf_counter()
-    deadline_at = time.monotonic() + _stream_deadline_seconds()
     audit = get_audit_logger()
     gov = governor or CostGovernor()
 
@@ -433,7 +432,10 @@ def run_inquire_pipeline(
             build_node_fn=lambda text: _paragraph_node(node_id, text),
             defer_budget_record=True,
         ),
-        deadline_at=deadline_at,
+        # Fresh budget per phase: model and Red-Hat each get the deadline, so a
+        # legit 90-110s total (each call under its own cap, total under the
+        # edge's ~100s idle timer because keepalives flow) no longer dies.
+        deadline_at=time.monotonic() + _stream_deadline_seconds(),
         phase="model",
     )
 
@@ -503,7 +505,7 @@ def run_inquire_pipeline(
                 red_messages,
                 defer_budget_record=True,
             ),
-            deadline_at=deadline_at,
+            deadline_at=time.monotonic() + _stream_deadline_seconds(),
             phase="redhat",
         )
         critique_text = (red.text or "").strip()

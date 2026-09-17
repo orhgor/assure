@@ -56,7 +56,10 @@ def _new_connection() -> sqlite3.Connection:
                 exc.__class__.__name__,
                 exc,
             )
-    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    # check_same_thread=False to match db/pool.py's connect_args: the SSE keepalive
+    # pump runs blocking work on a worker thread, which reaches this fallback path
+    # when the pool is saturated (or SQLITE_USE_POOL=0).
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     _apply_pragmas(conn)
     return conn

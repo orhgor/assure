@@ -1089,7 +1089,11 @@
           if (String(node.type || "") !== "paragraph") continue;
           if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
           var meta = node.meta || {};
-          if (meta.provenance || node.provenance) anchored++;
+          // Python treats [] as falsy; JS does not. Payloads carry
+          // provenance: [] for unanchored paragraphs, so mirror the server
+          // predicate exactly (audit_summary._eligible_and_anchored).
+          var prov = meta.provenance || node.provenance;
+          if (Array.isArray(prov) ? prov.length > 0 : !!prov) anchored++;
         }
       }
       return anchored;
