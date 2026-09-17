@@ -1,11 +1,48 @@
-// prototype surgical revision (Path A): edit from a compiled draft.
-// Trigger a live compile so a .jdf-node[data-node-id] renders, then click it,
-// enter the rephrase editor (shell.js:1097), submit (shell.js:1153), and verify.
+// prototype surgical revision — DETERMINISTIC frontend flow (SSE mocked).
+// Routes the two streaming endpoints + node history so the model input is controlled
+// and literal assertions are valid. Matches the shell's SSE parser (shell.js:1416
+// parseSseLoop: `event:`/`data:` frames), renderJdfDocument (:1036), the rephrase
+// contract (_handleRephraseFrame :1132 expects `jdf_node_ready`), and _loadNodeHistory
+// (:822 expects { revisions: [...] }).
 const { test, expect } = require("@playwright/test");
 
-const INTENT = "State the liability limit and its dollar amount in one sentence.";
+const DRAFT_SSE = [
+  'event: status\ndata: {"stage":"preflight","message":"start"}',
+  'event: status\ndata: {"stage":"model","message":"drafting"}',
+  'event: redhat\ndata: {"redhat":{"status":"ran","findings_count":0,"findings":[]}}',
+  "event: compiled\ndata: " +
+    JSON.stringify({
+      document: {
+        document_id: "doc-mock1",
+        meta: {},
+        truth_ledger: {},
+        body: [
+          {
+            type: "section",
+            id: "sec-mock1",
+            title: "Mock Section",
+            children: [
+              { type: "paragraph", id: "p-mock1", content: "ORIGINAL paragraph to rewrite." },
+            ],
+          },
+        ],
+      },
+    }),
+  'event: complete\ndata: {"ok":true}',
+].join("\n\n") + "\n\n";
 
-test("prototype surgical revision from compiled draft (Path A)", async ({ page }) => {
+// Deterministic SSE bodies. The rephrase node id is echoed from the request's
+// target_node_id so it matches whichever node is clicked.
+const inquire = (nodeId) =>
+  [
+    "event: jdf_node_ready\ndata: " +
+      JSON.stringify({
+        node: { type: "paragraph", id: nodeId, content: "REVISED BY TEST", annotations: {}, meta: {} },
+      }),
+    'event: complete\ndata: {"ok":true}',
+  ].join("\n\n") + "\n\n";
+
+test("prototype surgical revision — deterministic frontend flow (mocked SSE)", async ({ page }) => {
   const consoleErrors = [];
   await page.addInitScript(() => {
     try {
@@ -19,70 +56,74 @@ test("prototype surgical revision from compiled draft (Path A)", async ({ page }
   });
   page.on("pageerror", (e) => consoleErrors.push("pageerror: " + (e && e.message)));
 
-  const report = (k, v) => console.log(`${k}=${v}`);
+  // Fully deterministic: mock the project create (real one is slow) + the streaming
+// + history endpoints. Everything else passes through to the real backend.
+  await page.route("**/api/projects**", async (route) => {
+    const req = route.request();
+    const u = req.url();
+    const m = req.method();
+    if (u.endsWith("/draft/stream")) {
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: DRAFT_SSE });
+    }
+    if (u.endsWith("/inquire/stream")) {
+      let nid = "p-mock1";
+      try {
+        const pd = req.postDataJSON();
+        if (pd && pd.target_node_id) nid = String(pd.target_node_id);
+      } catch (_) {}
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body: inquire(nid) });
+    }
+    if (/\/nodes\/[^/]+\/history$/.test(u)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          revisions: [
+            { version: 1, timestamp: "2026-01-01T00:00:00Z" },
+            { version: 2, timestamp: "2026-01-02T00:00:00Z" },
+          ],
+        }),
+      });
+    }
+    if (u.endsWith("/api/projects") && m === "POST") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "prj-test", title: "Test" }),
+      });
+    }
+    return route.continue();
+  });
 
   await page.goto("/", { waitUntil: "networkidle", timeout: 60_000 });
   await expect(page.locator(".app-shell")).toBeVisible({ timeout: 30_000 });
 
-  // Step 3-4: trigger a compile -> render a .jdf-node[data-node-id].
-  await page.locator("#dock-text").fill(INTENT);
+  // Compile (mocked) -> renders the paragraph node.
+  await page.locator("#dock-text").fill("Rewrite the paragraph");
   await page.locator("#dock-submit").click();
-  const firstNode = page.locator(".jdf-node[data-node-id]").first();
-  await expect(firstNode).toBeVisible({ timeout: 180_000 }); // live model compile
+  const para = page.locator('.jdf-node[data-node-id="p-mock1"]');
+  await expect(para).toBeVisible({ timeout: 30_000 });
 
-  // Step 5-6: click node -> rephrase editor opens (_attachNodeRephrase :1097).
-  await firstNode.click();
+  // Open the rephrase editor (_attachNodeRephrase :1097).
+  await para.click();
   const rephraseInput = page.locator("input[placeholder='Rephrase this paragraph…']");
   await expect(rephraseInput).toBeVisible({ timeout: 15_000 });
-  report("EDITOR_OPENED", true);
 
-  // Step 7-8: type + submit (_submitRephrase :1153).
-  const newText = "REVISED limit of $5,000,000";
-  await rephraseInput.fill(newText);
+  // Submit (mocked) (_submitRephrase :1153).
+  await rephraseInput.fill("REVISED BY TEST");
   await rephraseInput.press("Enter");
+  await expect(rephraseInput).toBeHidden({ timeout: 30_000 });
 
-  // Editor should close on success (node replaced / re-rendered).
-  try {
-    await expect(rephraseInput).toBeHidden({ timeout: 120_000 });
-    report("REPHRASE_SUBMITTED", true);
-  } catch (e) {
-    report("REPHRASE_SUBMITTED", false);
-    throw e;
-  }
+  // 9a: literal content (model input is controlled -> correct assert).
+  await expect(para).toContainText("REVISED BY TEST", { timeout: 30_000 });
 
-  // Step 9a: node content after submit (model-generated — informational).
-  await expect(firstNode).toBeVisible({ timeout: 30_000 });
-  const nodeText = (await firstNode.innerText()) || "";
-  report("NODE_CONTAINS_NEW_TEXT", nodeText.includes("REVISED"));
-  report("NODE_TEXT_SNIPPET", nodeText.slice(0, 120).replace(/\s+/g, " "));
+  // 9b: verification surface — reveal the Red-Hat pane (:2990) via the tab.
+  await page.locator('#pane-right .mode-tab[data-right-tab="redhat"]').click();
+  await expect(page.locator("#right-redhat")).toBeVisible({ timeout: 20_000 });
 
-  // Step 9b: verification surface (Red-Hat :2990 OR Evidence :2918 OR anchored).
-  const verification = page
-    .locator("#right-redhat, #redhat-panel, .redhat-panel, #right-evidence, .evidence-panel, [data-anchored], .jdf-chip")
-    .first();
-  try {
-    await verification.waitFor({ state: "visible", timeout: 15_000 });
-    report("VERIFICATION_SURFACE", true);
-  } catch (_) {
-    report("VERIFICATION_SURFACE", false);
-  }
+  // 9c: node history rows > 0 via the mocked { revisions } endpoint (:822).
+  await expect(page.locator("#right-node-history-list li")).toHaveCount(2, { timeout: 20_000 });
 
-  // Step 9c: node history incremented (shell.js:822 _loadNodeHistory).
-  try {
-    await page.locator("#right-node-history-list li").first().waitFor({ state: "visible", timeout: 15_000 });
-    report("HISTORY_ROWS", await page.locator("#right-node-history-list li").count());
-  } catch (_) {
-    report("HISTORY_ROWS", 0);
-  }
-
-  // Step 9d: Cmd+Z undo (informational — no undo handler observed).
-  const before = (await firstNode.innerText()) || "";
-  await page.keyboard.press("Meta+Z");
-  await page.waitForTimeout(500);
-  const after = (await firstNode.innerText()) || "";
-  report("UNDO_RESTORED_ORIGINAL", after !== before && before !== "");
-
-  // Step 10: zero console errors.
-  report("CONSOLE_ERRORS", JSON.stringify(consoleErrors));
+  // 10: zero console errors.
   expect(consoleErrors, JSON.stringify(consoleErrors)).toEqual([]);
 });
