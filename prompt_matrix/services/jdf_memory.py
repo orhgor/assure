@@ -28,20 +28,73 @@ class OmpUnavailable(RuntimeError):
 
 # -- jdf-cli format store (distinct from jdf_documents which holds
 # -- PyMuPDF-JDF revisions via save_jdf_revision)
-_JDF_CLI_DOCS_DDL = """
-CREATE TABLE IF NOT EXISTS jdf_cli_documents (
-    doc_id TEXT PRIMARY KEY,
-    doc_hash TEXT NOT NULL,
+_JDF_CLI_DOCS_TABLE = "jdf_cli_documents"
+# (tenant_id, doc_id), not doc_id alone: a second tenant reusing a filename
+# overwrote the first tenant's row (audit 2026-09-17 §B).
+_JDF_CLI_DOCS_PK = ("tenant_id", "doc_id")
+_JDF_CLI_DOCS_COLUMNS = ("tenant_id", "doc_id", "doc_hash", "jdf_json", "created_at")
+_JDF_CLI_DOCS_COLUMNS_SQL = """
     tenant_id TEXT NOT NULL,
+    doc_id TEXT NOT NULL,
+    doc_hash TEXT NOT NULL,
     jdf_json TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT (datetime('now'))
-);
+    created_at TIMESTAMP DEFAULT (datetime('now')),
+    PRIMARY KEY (tenant_id, doc_id)
 """
+_JDF_CLI_DOCS_DDL = (
+    f"CREATE TABLE IF NOT EXISTS {_JDF_CLI_DOCS_TABLE} ({_JDF_CLI_DOCS_COLUMNS_SQL})"
+)
+
+
+def _table_pk_columns(db, table: str = _JDF_CLI_DOCS_TABLE) -> list[str] | None:
+    """PK column names in key order, or None when the handle cannot introspect.
+
+    PRAGMA table_info rows are (cid, name, type, notnull, dflt_value, pk), pk
+    being the 1-based position within the primary key (0 = not part of it) —
+    the same PRAGMA the schema migrations use via _column_exists.
+    """
+    cursor = db.execute(f"PRAGMA table_info({table})")
+    fetchall = getattr(cursor, "fetchall", None)
+    if fetchall is None:
+        return None
+    rows = fetchall()
+    keyed = [r for r in rows if int(r[5] or 0) > 0]
+    return [r[1] for r in sorted(keyed, key=lambda r: int(r[5]))]
+
+
+def _migrate_jdf_cli_docs_to_composite_pk(db) -> None:
+    """Rebuild jdf_cli_documents with PRIMARY KEY (tenant_id, doc_id).
+
+    CREATE TABLE IF NOT EXISTS never alters an existing table, so an old table
+    is identified by its PK and replaced here. Empty tables are dropped;
+    populated ones are swapped, copying every row. The INSERT opens the
+    transaction, so the DROP/RENAME that follow commit or roll back with the
+    copy. Idempotent: the scratch table is dropped up front, so a run
+    interrupted after CREATE leaves nothing that the next run trips over.
+    """
+    table = _JDF_CLI_DOCS_TABLE
+    scratch = f"{table}_new"
+    count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    if not count:
+        db.execute(f"DROP TABLE {table}")
+        db.commit()
+        return
+    columns = ", ".join(_JDF_CLI_DOCS_COLUMNS)
+    db.execute(f"DROP TABLE IF EXISTS {scratch}")
+    db.execute(f"CREATE TABLE {scratch} ({_JDF_CLI_DOCS_COLUMNS_SQL})")
+    db.execute(f"INSERT INTO {scratch} ({columns}) SELECT {columns} FROM {table}")
+    db.execute(f"DROP TABLE {table}")
+    db.execute(f"ALTER TABLE {scratch} RENAME TO {table}")
+    db.commit()
 
 
 def _ensure_jdf_cli_documents_table() -> None:
     init_db()
     db = get_db()
+    pk = _table_pk_columns(db)
+    if pk and tuple(pk) != _JDF_CLI_DOCS_PK:
+        log.info("[jdf] %s PK %s -> %s", _JDF_CLI_DOCS_TABLE, pk, list(_JDF_CLI_DOCS_PK))
+        _migrate_jdf_cli_docs_to_composite_pk(db)
     db.execute(_JDF_CLI_DOCS_DDL)
     db.commit()
 
@@ -54,15 +107,14 @@ def _persist_jdf_document(doc_id: str, doc_hash: str, jdf_dict: dict, tenant_id:
     db = get_db()
     db.execute(
         """
-        INSERT INTO jdf_cli_documents (doc_id, doc_hash, tenant_id, jdf_json)
+        INSERT INTO jdf_cli_documents (tenant_id, doc_id, doc_hash, jdf_json)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(doc_id) DO UPDATE SET
+        ON CONFLICT(tenant_id, doc_id) DO UPDATE SET
             doc_hash = excluded.doc_hash,
-            tenant_id = excluded.tenant_id,
             jdf_json = excluded.jdf_json,
             created_at = datetime('now')
         """,
-        (doc_id, doc_hash, tenant_id, json.dumps(jdf_dict, ensure_ascii=False)),
+        (tenant_id, doc_id, doc_hash, json.dumps(jdf_dict, ensure_ascii=False)),
     )
     db.commit()
 

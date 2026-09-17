@@ -1,5 +1,6 @@
 """Tests for JDF memory routes (project-scoped ingest/search/health)."""
 import io
+import json
 
 import pytest
 from flask import Flask
@@ -142,3 +143,35 @@ def test_ingest_uses_dedicated_table(monkeypatch):
     assert inserts, "no INSERT captured"
     assert "INSERT INTO jdf_cli_documents" in "\n".join(inserts)
     assert "INSERT INTO jdf_documents" not in "\n".join(inserts)
+
+
+def test_duplicate_doc_id_across_tenants(monkeypatch, tmp_path):
+    """PK is (tenant_id, doc_id), not doc_id alone.
+
+    Under the old schema the second tenant's ingest of the same filename
+    overwrote the first tenant's durable JDF row (audit 2026-09-17 §B).
+    """
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "jdf-cli.db"))
+    import prompt_matrix.history as history_mod
+    from prompt_matrix.db.connection import init_db
+
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    init_db()
+
+    import prompt_matrix.services.jdf_memory as jm
+
+    jm._persist_jdf_document("policy.pdf", "hash-t1", {"$jdf": "1.0", "tenant": "t1"}, "t1")
+    jm._persist_jdf_document("policy.pdf", "hash-t2", {"$jdf": "1.0", "tenant": "t2"}, "t2")
+
+    db = history_mod.get_db()
+    count = db.execute(
+        "SELECT COUNT(*) FROM jdf_cli_documents WHERE doc_id = ?", ("policy.pdf",)
+    ).fetchone()[0]
+    assert count == 2, "same doc_id under two tenants must be two rows"
+
+    rows = db.execute(
+        "SELECT tenant_id, jdf_json FROM jdf_cli_documents WHERE doc_id = ? ORDER BY tenant_id",
+        ("policy.pdf",),
+    ).fetchall()
+    assert [r[0] for r in rows] == ["t1", "t2"]
+    assert json.loads(rows[0][1])["tenant"] == "t1", "t1's row was overwritten by t2"
