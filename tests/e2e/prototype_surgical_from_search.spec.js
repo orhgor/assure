@@ -2,8 +2,10 @@
 // a JDF search result should load into the editor as an editable .jdf-node[data-node-id]
 // so the inline rephrase editor (shell.js:1097) can operate on it.
 //
-// EXPECTED OUTCOME: this is expected to FAIL — search results are plain divs with no
-// node-id and do not load into the editor. The failure proves the missing capability.
+// IMPLEMENTED 2026-09-17: the bridge landed (prototype/shell.js:
+// _openJdfSearchResultInEditor). A search hit now opens as an editable
+// .jdf-node[data-node-id] with the inline rephrase editor attached, so this spec
+// asserts the capability rather than documenting its absence.
 const { test, expect } = require("@playwright/test");
 
 const TERM = "liability limit";

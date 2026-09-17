@@ -6,7 +6,20 @@
 // founder workbench, absent from this host) and probes that path, skipping only
 // where the surface is missing. It runs wherever /app returns 200 — locally and
 // on staging.getassureai.com, not on prototype.getassureai.com.
+//
+// This spec is the mirror case: it needs the PROTOTYPE shell at "/". The default
+// local base URL (scripts/playwright_dev_server.py) serves the marketing landing
+// page there, so the gate below skips instead of failing with a missing .app-shell.
 const { test, expect } = require("@playwright/test");
+
+const SHELL_SURFACE_SKIP =
+  "targets the prototype shell — this base URL serves a different surface at /";
+
+test.beforeEach(async ({ request, baseURL }) => {
+  const res = await request.get("/").catch(() => null);
+  const body = res && res.ok() ? await res.text() : "";
+  test.skip(!body.includes("app-shell"), SHELL_SURFACE_SKIP);
+});
 
 test("prototype shell loads clean (no console errors, no failed requests, no sse-failure)", async ({ page }) => {
   const consoleErrors = [];

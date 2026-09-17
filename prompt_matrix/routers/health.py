@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import subprocess
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 from flask import Blueprint, jsonify
@@ -15,6 +17,30 @@ except ImportError:
     from lib.logger import resolve_db_path
 
 health_bp = Blueprint("health", __name__)
+
+
+@lru_cache(maxsize=1)
+def _deployed_commit() -> str:
+    """Commit the running checkout is on.
+
+    Used when ASSURE_BUILD_SHA is unset — the systemd staging app, where the
+    docker/GHCR deploy path that exports that var never runs. Without it the
+    deploy postflight gate sees no build_sha and degrades to a 200-only check,
+    so a stale process serving old code cannot be detected. Cached: /health is
+    polled and `git` is not cheap.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+    except Exception:
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
 
 
 def _data_dir() -> Path:
@@ -148,7 +174,7 @@ def health_check():
     status["checks"]["omp"] = omp.get("status") or "down"
     if omp.get("version"):
         status["checks"]["omp_version"] = omp["version"]
-    build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip()
+    build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip() or _deployed_commit()
     if build_sha:
         status["build_sha"] = build_sha
 
