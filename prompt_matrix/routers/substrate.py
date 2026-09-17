@@ -61,6 +61,14 @@ class SubstrateIngestError(ValueError):
         self.page_count = page_count
 
 
+_TEXT_UPLOAD_SUFFIXES = {".txt", ".md"}
+
+
+def _is_text_upload(filename: str) -> bool:
+    """True for vault uploads that carry their own text (no extraction needed)."""
+    return Path(filename).suffix.lower() in _TEXT_UPLOAD_SUFFIXES
+
+
 def _temp_upload_dir() -> Path:
     override = (os.environ.get("TEMP_UPLOAD_DIR") or "").strip()
     if override:
@@ -81,7 +89,16 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
     extracted: dict | None = None
     page_count = 1
 
-    if use_docling:
+    if _is_text_upload(filename):
+        # Plain text is already its own extracted form. Textract and Docling
+        # only read documents, so skip both rather than fail inside AWS.
+        extracted = {
+            "text": file_bytes.decode("utf-8", errors="replace"),
+            "tables": [],
+            "forms": [],
+            "page_count": 1,
+        }
+    elif use_docling:
         try:
             from ..verification.docling_extractor import extract_substrate_bytes
 

@@ -351,14 +351,6 @@
       if (!el) return;
       el.appendChild(_buildSourceRow(name, id));
     }
-    function readFileAsText(file) {
-      return new Promise(function (resolve, reject) {
-        var reader = new FileReader();
-        reader.onload = function () { resolve(reader.result || ""); };
-        reader.onerror = function () { reject(new Error("Could not read file.")); };
-        reader.readAsText(file);
-      });
-    }
     function handleSourceFile(file) {
       if (!file) return;
       var name = file.name || "source.txt";
@@ -370,21 +362,28 @@
         if (fi) fi.value = "";
         return;
       }
-      readFileAsText(file)
-        .then(function (txt) {
-          if (!txt || !String(txt).trim()) throw new Error("File is empty.");
-          return ensureProjectId().then(function (pid) {
-            return jsonPost("/api/substrate", {
-              projectId: pid,
-              filename: name,
-              pageCount: 1,
-              text: String(txt),
+      // Upload through the ownership-gated vault route, not /api/substrate:
+      // that one is the edge Worker's text ingest and is gated on a shared
+      // secret the browser cannot hold. The server reads .txt/.md directly.
+      ensureProjectId()
+        .then(function (pid) {
+          var fd = new FormData();
+          fd.append("file", file, name);
+          return fetch("/api/projects/" + encodeURIComponent(pid) + "/substrate/upload", {
+            method: "POST",
+            body: fd,
+          }).then(function (resp) {
+            return resp.json().catch(function () { return {}; }).then(function (j) {
+              return { status: resp.status, ok: resp.ok, j: j || {} };
             });
           });
         })
-        .then(function (resp) {
-          if (!resp.ok) return resp.text().then(function (t) { throw new Error(t || ("HTTP " + resp.status)); });
-          return resp.json();
+        .then(function (r) {
+          if (r.status === 202 && r.j.task_id) return r.j; // queued async
+          if (!r.ok || r.j.ok === false) {
+            throw new Error(r.j.error || ("HTTP " + r.status));
+          }
+          return r.j;
         })
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
