@@ -78,22 +78,35 @@ async function gotoFounderWorkbench(page) {
 
 /**
  * The legacy founder workbench is served at /app, and whether that surface
- * exists is a property of the host — not of the host being localhost. The
- * local dev server and staging.getassureai.com both serve /app (200);
- * prototype.getassureai.com has no /app route (404). Gating on a local-host
- * regex therefore skips staging by mistake, so probe the resolved
- * `use.baseURL` (playwright.config.js takes it from ASSURE_BASE_URL, falling
- * back to the local dev server) instead of guessing from its shape.
+ * exists is a property of the host — not of the host being localhost. Gating
+ * on a local-host regex would skip a remote host that does serve it, so probe
+ * the resolved `use.baseURL` (playwright.config.js takes it from
+ * ASSURE_BASE_URL, falling back to the local dev server) instead of guessing
+ * from its shape.
+ *
+ * The probe must assert that the base URL *serves* the workbench, not merely
+ * that "/app" resolves. A shell-only host answers /app with a 302 to /, so a
+ * redirect-following probe sees 200 for a page that has no workbench in it and
+ * the guard never fires.
  */
 const LEGACY_SURFACE_SKIP =
   "targets the legacy /app surface — not present on this base URL";
 
+/** Markup the legacy workbench emits; the shell prototype does not. */
+const LEGACY_SURFACE_MARKER = "workbench-root";
+
 test.beforeEach(async ({ request, baseURL }) => {
   if (!baseURL) return; // nothing configured to probe — run, don't hide
-  // Redirects are followed here, exactly as they are by the page.goto("/app")
-  // these tests perform, so this status is the one the test itself would see.
-  const res = await request.get(new URL("/app", baseURL).toString());
-  test.skip(res.status() !== 200, LEGACY_SURFACE_SKIP);
+  // maxRedirects: 0 — a 3xx is the answer we want to see. This host redirects
+  // /app elsewhere, so it does not serve the workbench.
+  const res = await request.get(new URL("/app", baseURL).toString(), {
+    maxRedirects: 0,
+  });
+  if (res.status() !== 200) test.skip(true, LEGACY_SURFACE_SKIP);
+  // A 200 alone is still not proof: a catch-all route can answer /app with
+  // something that is not the workbench. Require its markup.
+  const body = await res.text();
+  test.skip(!body.includes(LEGACY_SURFACE_MARKER), LEGACY_SURFACE_SKIP);
 });
 
 test("Golden Path — v1.0 E2E (Steps 1–4)", async ({ page }) => {
