@@ -14,7 +14,90 @@ used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 **File:** `/home/ubuntu/assure-prototype/.env.staging` — **line:** `ASSURE_CLERK_ONLY=1` → set it to `ASSURE_CLERK_ONLY=0`.
 
-**Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** The flag is read per request from that file by the API and per request from `/api/auth/config` by the edge gate (measured 2026-09-18: flipped across all three states with the process ids unchanged, api `1271572` / edge `1271580`).
+**Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** The flag is read per request from that file by the API and per request from `/api/auth/config` by the edge gate (measured 2026-09-18T21:24Z: flipped across all three states with the process ids unchanged — api `1271801` / edge `1271580` at that moment, both `ps -o lstart` unchanged throughout: `ASSURE_CLERK_ONLY=1` → `/api/auth/config {"clerk_only":true}`, `/` **302** `/signin`, `/api/projects` **401**; `=0` → `{"clerk_only":false}`, `/` **200**, `/api/projects` **200**; `=1` again → `{"clerk_only":true}`, `/` **302**, `/api/projects` **401**. Those pids are the evidence of *that* measurement, not a durable fact — either unit restarted since, which is exactly why the number that matters is the one the flip depends on: **no restart**).
+
+**DEMO-DAY SIGN-IN — TWO STEPS**
+
+```
+Step 1 — the gate key.
+  Open https://app.getassureai.com
+  The page reads: "This build is not public. Enter the access key to continue."
+  Paste SHELL_ACCESS_KEY (from /etc/assure/shell-access.env).
+
+Step 2 — the Clerk session.
+  The Clerk sign-in appears. Enter the demo account email and password.
+  If a code is requested, enter it from demo@getassureai.com.
+
+If either step fails:
+  Set ASSURE_CLERK_ONLY=0 in /home/ubuntu/assure-prototype/.env.staging. No restart.
+  The gate key alone opens the shell. Restore: ASSURE_CLERK_ONLY=1.
+
+Two different failures, two different responses. A code that EXPIRED is fixed by
+  requesting another one — re-enter the password, or press Resend — and both are
+  normal parts of the flow. Only a code that never ARRIVES reaches for the flag:
+  retry first, flip on non-arrival.
+```
+
+**SIGN IN AS `demo@getassureai.com` — it owns the demo project.** The presenter reaches the frozen
+`v45` document on the normal path: **no admin role and no flag.** Measured 2026-09-18 after the one-row
+change below: as `demo@`, `GET /api/projects` returns 10 rows **including `demo-3235f5`**
+(`{"id":"demo-3235f5","title":"workspace","current_version":45,"node_count":7,"source_count":1,"status":"ready_to_export"}`),
+`GET /api/projects/demo-3235f5/jdf` → **200** (7 paragraphs, 5 anchored), the export → **200**
+(sidecar 56,938 B; bundle 9,293 B), and the **warm** compile replays from cache — `omp_cached: true`,
+`cache_key ast:demo-3235f5:1e9c9516`, `provenance_stats eligible 3 / anchored 3 / supported 2 /
+partial 1` — leaving `current_version` at **45**. A cold compile is still refused by the freeze guard,
+so the **warm path is the demo path**; never send `force=true`.
+
+**What changed — `owner_id`, not a role.** `demo-3235f5.owner_id` was the sentinel `'legacy'` (the
+backfill artifact of the pre-auth rows), which the underwriter filter excludes
+(`project_routes.py:139-147`: an underwriter sees `owner_id = me OR owner_id IS NULL OR owner_id = ''`).
+It is now the demo account's Clerk id `user_3JWBcRJL5Dsf51437Jfm76yhyfO`. **The account stays an
+underwriter** — no role was granted — so isolation still behaves honestly and can still be shown:
+re-measured after the change, a **non-owner** underwriter (`auth1d.b@`) still does not see
+`demo-3235f5` in `GET /api/projects` and still gets **403** on its `/`, `/jdf`, `/substrate` and
+`/export`. The `'legacy'` sentinel is now gone from the one project that matters, so the demo no
+longer leans on a backfill artifact.
+**Backup taken first:** `/home/ubuntu/backups/history-preflight-20260918T213722Z.sqlite`, written with
+the SQLite online backup API (**not `cp`**), `PRAGMA integrity_check` → `ok`, and read back to confirm
+it held `owner_id='legacy'` before the UPDATE ran. The UPDATE matched exactly 1 row; a before/after
+census showed **exactly one `projects` row differing, only in `owner_id`**, with every other table
+content-identical (`jdf_revisions` 317, `jdf_documents` 82) and `current_version` 45 → 45.
+
+**If the code does not arrive at all, the fallback below still stands** — `ASSURE_CLERK_ONLY=0` in
+`/home/ubuntu/assure-prototype/.env.staging`, no restart. Measured on that path: the key-only operator
+has no Clerk identity, so the visibility filter is skipped entirely (`project_routes.py:141`) and
+`GET /api/projects` returns all 138 rows including `demo-3235f5`, with its `/jdf` → **200**.
+
+**The two steps are two doors, checked in this order** (`prototype/dev-server.py:362`,
+`_route`): `/auth` carries the key and nothing else and is handled first (`:46 AUTH_PATH`,
+`:189 _authorized` → `:192 _deny`); the Clerk session is checked only on the document path
+after that (`:392` `clerk_only_mode() and is_document_path(...)` → `_redirect_to_signin()`).
+Measured 2026-09-18T21:25Z with no cookie: `GET /` → `302 location: /auth`; `GET /auth` →
+`200` carrying `This build is not public. Enter the access key to continue.`
+(`dev-server.py:137`).
+
+**File — this one, and not the other.** The flag is
+`ASSURE_CLERK_ONLY` in **`/home/ubuntu/assure-prototype/.env.staging`** and nowhere else.
+`_flag_value("ASSURE_CLERK_ONLY")` resolves the repo root and reads `.env`, `.env.local`,
+then `.env.<ASSURE_ENV>` — later files winning — through `_env_file_values`, which re-reads the
+file whenever its **mtime** changes (`prompt_matrix/cloud_auth.py:211`, root at `:221`, profile
+from `ASSURE_ENV` at `:222`, file list at `:223`/`:225`, read at `:228`, called by
+`clerk_only_enabled()` at `:236`; mtime cache at `:184`/`:187`). `ASSURE_ENV=staging` for the app
+(`assure-prototype.service:11`), and `.env`/`.env.local` do not exist on the box, so
+`.env.staging` is the only file consulted. Proved by executing the app's own resolver on the
+box: `files consulted, in order (later wins): ['.env', '.env.local', '.env.staging']` →
+`.env.staging exists=True ASSURE_CLERK_ONLY='1'` → `clerk_only_enabled() = True`.
+
+**`/etc/assure/shell-access.env` is NOT this file — do not "correct" this section toward it.**
+That file carries `SHELL_ACCESS_KEY` and **no** `ASSURE_CLERK_ONLY` (variable names read off the
+box; values not printed). It is loaded as an **`EnvironmentFile=`** by
+`assure-prototype-static.service:21`, so a value written there is read **at boot for that unit
+only** — and the whole point of `_flag_value()` reading the env *file* with an mtime cache is to
+put the switch **per request**, because a restart mid-presentation is the exact failure this
+line exists to prevent. Editing it there would convert a working one-line rollback into a
+service restart at the client table. The edge needs no edit of its own either: it does not read
+its own environment for this — `clerk_only_mode()` asks the app's `/api/auth/config` on every
+request, with no cache (`prototype/dev-server.py:76`, `:85`).
 
 **Pre-flight, know this before you present:** the demo now requires a **Clerk sign-in**. The gate key alone gives `/` → **302 `/signin`** and `/api/projects` → **401**; only `/api/health` still answers on the key alone (monitoring). So it is **a session, or the flag** — there is no third way in.
 
