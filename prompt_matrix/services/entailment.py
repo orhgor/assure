@@ -47,7 +47,7 @@ _BARE_VERDICT_RE = re.compile(r"\b(yes|no|partial)\b", re.IGNORECASE)
 _REASON_RE = re.compile(r"reason\s*[:\-]\s*(.+)", re.IGNORECASE | re.DOTALL)
 
 _PROMPT = """\
-You are an adversarial claim-entailment auditor. SOURCE is a verbatim sentence \
+You are an adversarial claim-entailment auditor. SOURCE is a verbatim extract \
 from a document the author cited. CLAIM is a sentence the author wrote and \
 attributed to that document.
 
@@ -55,7 +55,10 @@ Decide whether the SOURCE supports the CLAIM. Do not be charitable. Wording that
 merely overlaps is not support: ask what the SOURCE actually asserts. Do not \
 assume facts the SOURCE does not state, and do not give the CLAIM the benefit of \
 the doubt about numbers, parties, obligations, direction, negation, modality, or \
-scope.
+scope. A paraphrase that preserves the substance of the source — numbers, \
+entities, modifiers — is supported. Restatement using different words is not a \
+gap. Supporting detail that names the entities the user's question asked about \
+is supported, not partial.
 
 Apply these rules in priority order and stop at the first that matches:
 1. no — the SOURCE contradicts a material element of the CLAIM.
