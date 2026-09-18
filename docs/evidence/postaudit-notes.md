@@ -447,3 +447,69 @@ two tips before replaying, not after.
 `git diff ab31fdd b34ff97` → **empty**. `prototype/shell.js` blob
 `63fb9166ac73c656dd9dc02cafbb275628a8fa91` — my C2 change on top of the box's
 `86ed7820b3db`. Nothing pushed; `fixa/*` untouched.
+
+---
+
+# A2 REVISED — the prompt's HASH is in the cache key (`e3f33c1`)
+
+Made on the REBASED tip (the replay had already run when the instruction arrived; per
+Main's race rule the commit goes on the rebased tip and says so — no second rebase).
+
+Composition: `compile_cache_key(..., version=PIPELINE_VERSION, prompt_material="")`, and
+`prompt:<PROMPT_VERSION>:<sha256(prompt)[:8]>` is appended when `prompt_material` is
+non-empty. `_prompt_key_material(project_id)` supplies it; `""` for a frozen project.
+
+A version integer alone closed nothing — it closes it only if someone remembers to bump
+it. The hash closes it because the key changes *because the prompt changed*. This matters
+most against A1, which changes the prompt with no version bump anywhere: a version-keyed
+cache would replay a pre-A1 compile after A1 lands.
+
+Raw, one word edited in `_COMPILE_SYSTEM` (`clear` -> `crisp`):
+
+```
+fingerprint  37b4da61 -> 3f9e0d73
+KEY BEFORE   ast:postaudit-a2-keys:44d50a81
+KEY AFTER    ast:postaudit-a2-keys:a5f20220
+KEY CHANGED  True
+restoring the word restores the key exactly (44d50a81)
+
+load(key_before) HIT    <- a replay would happen
+load(key_after)  MISS   <- so the edited prompt cannot replay; the run is cold
+```
+
+Frozen carve-out intact: `_prompt_key_material('demo-3235f5') == ''`, and an empty
+material composes the **byte-identical** pre-A2 digest — both sides
+`ast:demo-3235f5:ba554605` on the same literal text — so a warm row written before this
+change still matches.
+
+Removed with it: `_prompt_diverged` and its call site, and the payload
+`prompt_fingerprint` record. With the hash IN the key a hit means the fingerprints already
+matched, so the check could only return False.
+
+**Probe error, named because it is the same failure mode as the earlier one today:** my
+first frozen-key check reported `IDENTICAL when empty: False`. That was the probe
+comparing against a hand-rebuilt source text with different inputs, not the code. The
+invariant reads `True` once both sides see the same input.
+
+**NOT RUN:** the whole-pipeline cold run under this change. The stub-pipeline harness died
+twice on a SQLite connection/FD storm (~0 CPU, 119 open fds) and wrote nothing.
+
+# THE UNMERGED `shell.js` DELTA — decided, and none of it is wanted
+
+Merge base `a536a52`. Source (math-check) changed `shell.js` +810/-257; destination (box)
++949/-299. `git diff f3f6900 429fd09` is **+144/-47**, so the 144 insertions are the BOX's
+and are already in this branch. The ~47 lines that exist **only** on the math-check lineage
+are four things, each checked rather than judged by size:
+
+1. `"✓ Intent compiled · checks run in the pipeline"` — the **pre-B1** marker. Taking it
+   regresses FixB's fix.
+2. `renderEvidenceFooter(ev)` + `performGrounding(nodeId)` — `shell.js:5601` says verbatim
+   `// renderEvidenceFooter and performGrounding are gone with the /ground path.` and
+   `docs/runbooks/ground-path-removal.md:5-6` confirms the route and its engine were
+   deleted. `performGrounding` POSTs to `/api/projects/<id>/nodes/<id>/ground`, which no
+   longer exists (only `/tasks/ground` survives, a different route).
+3. the `Evidence · no source matched` empty state — superseded by `_renderUnanchoredDrawer`
+   (`shell.js:5253`, the 2B/2C work).
+4. `var counts = {...}` and a comment block.
+
+**Decision: take none of it.** At the eventual merge, resolve `shell.js` to the box's file.
