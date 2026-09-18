@@ -65,6 +65,35 @@ PUBLIC_HTML = frozenset(
 )
 
 
+# Two lists answer two different questions, and the order they are consulted in is
+# the whole story:
+#
+#   PUBLIC_HTML / PUBLIC_API — must answer *without* a session. The sign-in flow
+#       itself lives here (/signin, /api/auth/*, since a session cannot be required
+#       to create one), with health probes, provider webhooks, and the
+#       worker-secret-authenticated substrate ingest.
+#   PROTECTED_HTML — the product's own documents. These take the /signin redirect
+#       when Clerk is configured; "/" and "/compose" are the doors a signed-out
+#       visitor must not walk through.
+#
+# protect_request() consults PUBLIC_* first, so a path in both lists is silently
+# public. That is a contradiction rather than a preference, so it fails at startup.
+def assert_route_lists_disjoint() -> None:
+    """Fail fast when a path is both public and protected, naming the path."""
+    clashes = sorted(PROTECTED_HTML & (PUBLIC_HTML | PUBLIC_API))
+    if clashes:
+        raise RuntimeError(
+            "auth route lists disagree: "
+            + ", ".join(clashes)
+            + " (present in PROTECTED_HTML and in a PUBLIC_* list). PUBLIC_* is checked "
+            "first, so the public entry wins and the path answers without a session. "
+            "Remove it from PUBLIC_HTML/PUBLIC_API, or from PROTECTED_HTML if it really is public."
+        )
+
+
+assert_route_lists_disjoint()
+
+
 class AuthError(ValueError):
     pass
 
