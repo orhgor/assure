@@ -41,6 +41,12 @@ class JDFRedhatAnnotation(BaseModel):
     id: str
     text: str
     status: Literal["open", "resolved", "dismissed"] = "open"
+    # The node this finding is about. Held on the annotation, not only on the node
+    # it hangs on, because a finding is read back on its own: the locator, the
+    # evidence pane's list and the export all resolve a finding to a paragraph
+    # without walking the tree. ``extra="ignore"`` means an unlisted field never
+    # survives validation, so this has to be declared to reach SQLite at all.
+    node_id: str = ""
 
 
 class JDFZ3Annotation(BaseModel):

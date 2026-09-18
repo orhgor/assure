@@ -548,6 +548,7 @@ def run_inquire_pipeline(
             node = _ensure_node_annotations(dict(node))
             annotation = {
                 "id": new_node_id("crit"),
+                "node_id": node_id,
                 "text": critique_text,
                 "status": "open",
             }
