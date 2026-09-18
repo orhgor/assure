@@ -1039,6 +1039,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from lib.logger import audit_drop_count
         payload["audit_drops"] = audit_drop_count()
+        # Pipeline-cache rows a write was refused — a project_id no `projects` row
+        # owns. The insert is best-effort, so without this the loss is only in the
+        # service log; here it is a number a probe or a human can read. Same idiom
+        # as the audit-row counter on f674370.
+        try:
+            from .lib.logger import cache_drop_count
+        except ImportError:
+            from lib.logger import cache_drop_count
+        payload["cache_drops"] = cache_drop_count()
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")

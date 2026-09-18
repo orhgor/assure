@@ -11,10 +11,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sqlite3
 from typing import Any
 
 try:
     from ..db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
+    from ..lib.logger import note_cache_drop
     from ..omp_client import (
         sanitize_omp_tag,
         safe_omp_recall,
@@ -22,6 +24,7 @@ try:
     )
 except ImportError:
     from db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
+    from lib.logger import note_cache_drop
     from omp_client import sanitize_omp_tag, safe_omp_recall, safe_omp_remember
 
 CACHE_MARKER = "PEM_CACHE_V1"
@@ -144,8 +147,10 @@ def save_ast_cache(cache_key: str, project_id: str, payload: dict[str, Any]) -> 
         return
     try:
         save_pipeline_cache(cache_key, project_id, "ast", payload)
-    except Exception:
-        pass
+    except sqlite3.IntegrityError:
+        # Refused: no `projects` row owns this id. Counted, not raised — see
+        # lib.logger.note_cache_drop. Anything else propagates.
+        note_cache_drop(site="omp_memory.save_ast_cache", project_id=project_id, kind="ast")
     summary = {
         "k": cache_key,
         "node_count": (payload.get("compiled") or {}).get("node_count"),
@@ -203,8 +208,8 @@ def save_redhat_critique(project_id: str, critique: str) -> None:
     payload = {"critique": text}
     try:
         save_pipeline_cache(key, project_id, "redhat", payload)
-    except Exception:
-        pass
+    except sqlite3.IntegrityError:
+        note_cache_drop(site="omp_memory.save_redhat_critique", project_id=project_id, kind="redhat")
     try:
         safe_omp_remember(
             key,
