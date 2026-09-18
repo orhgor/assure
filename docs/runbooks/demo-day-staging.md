@@ -34,24 +34,35 @@ Two different failures, two different responses. A code that EXPIRED is fixed by
   retry first, flip on non-arrival.
 ```
 
-**⚠️ MEASURED 2026-09-18 — signing in as `demo@getassureai.com` does NOT show the demo project.**
-The whole flow completes (that email + password → an email code to that address → the authenticated
-shell loads), but the account is an **underwriter** (`user_3JWBcRJL5Dsf51437Jfm76yhyfO`; it is not in
-`ASSURE_ADMIN_USER_IDS`) and `demo-3235f5.owner_id` is the sentinel `legacy`. So `GET /api/projects`
-returns **9 rows with no `demo-3235f5`**, `GET /api/projects/demo-3235f5/jdf` answers **403
-`{"error":"Forbidden.","ok":false}`**, and the switcher lists only the unowned probe projects — the
-frozen `workspace` document cannot be opened at all. Visibility rule:
-`project_routes.py:139-147` (an underwriter sees `owner_id = me OR owner_id IS NULL OR owner_id = ''`);
-the admin bypass is `middleware.py:70-73`. **Pick one before presenting:**
+**SIGN IN AS `demo@getassureai.com` — it owns the demo project.** The presenter reaches the frozen
+`v45` document on the normal path: **no admin role and no flag.** Measured 2026-09-18 after the one-row
+change below: as `demo@`, `GET /api/projects` returns 10 rows **including `demo-3235f5`**
+(`{"id":"demo-3235f5","title":"workspace","current_version":45,"node_count":7,"source_count":1,"status":"ready_to_export"}`),
+`GET /api/projects/demo-3235f5/jdf` → **200** (7 paragraphs, 5 anchored), the export → **200**
+(sidecar 56,938 B; bundle 9,293 B), and the **warm** compile replays from cache — `omp_cached: true`,
+`cache_key ast:demo-3235f5:1e9c9516`, `provenance_stats eligible 3 / anchored 3 / supported 2 /
+partial 1` — leaving `current_version` at **45**. A cold compile is still refused by the freeze guard,
+so the **warm path is the demo path**; never send `force=true`.
 
-1. **Make that account an admin** — append its Clerk id to `ASSURE_ADMIN_USER_IDS` in `.env.staging`,
-   then **restart `assure-prototype.service`**. Unlike `ASSURE_CLERK_ONLY`, this list is read from
-   `os.environ` at boot (`cloud_auth.admin_user_ids()`), so the one-line edit alone is not enough.
-2. **Give the account the project** — set `demo-3235f5.owner_id` to that Clerk id in
-   `prompt_matrix/history.sqlite` (a data change; back up first).
-3. **Present on the flag** — `ASSURE_CLERK_ONLY=0`, where the key-only operator has no Clerk identity
-   at all and the visibility filter is skipped (`project_routes.py:141`), so every project including
-   the demo is reachable.
+**What changed — `owner_id`, not a role.** `demo-3235f5.owner_id` was the sentinel `'legacy'` (the
+backfill artifact of the pre-auth rows), which the underwriter filter excludes
+(`project_routes.py:139-147`: an underwriter sees `owner_id = me OR owner_id IS NULL OR owner_id = ''`).
+It is now the demo account's Clerk id `user_3JWBcRJL5Dsf51437Jfm76yhyfO`. **The account stays an
+underwriter** — no role was granted — so isolation still behaves honestly and can still be shown:
+re-measured after the change, a **non-owner** underwriter (`auth1d.b@`) still does not see
+`demo-3235f5` in `GET /api/projects` and still gets **403** on its `/`, `/jdf`, `/substrate` and
+`/export`. The `'legacy'` sentinel is now gone from the one project that matters, so the demo no
+longer leans on a backfill artifact.
+**Backup taken first:** `/home/ubuntu/backups/history-preflight-20260918T213722Z.sqlite`, written with
+the SQLite online backup API (**not `cp`**), `PRAGMA integrity_check` → `ok`, and read back to confirm
+it held `owner_id='legacy'` before the UPDATE ran. The UPDATE matched exactly 1 row; a before/after
+census showed **exactly one `projects` row differing, only in `owner_id`**, with every other table
+content-identical (`jdf_revisions` 317, `jdf_documents` 82) and `current_version` 45 → 45.
+
+**If the code does not arrive at all, the fallback below still stands** — `ASSURE_CLERK_ONLY=0` in
+`/home/ubuntu/assure-prototype/.env.staging`, no restart. Measured on that path: the key-only operator
+has no Clerk identity, so the visibility filter is skipped entirely (`project_routes.py:141`) and
+`GET /api/projects` returns all 138 rows including `demo-3235f5`, with its `/jdf` → **200**.
 
 **The two steps are two doors, checked in this order** (`prototype/dev-server.py:362`,
 `_route`): `/auth` carries the key and nothing else and is handled first (`:46 AUTH_PATH`,
