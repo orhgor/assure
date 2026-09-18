@@ -284,6 +284,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from db.connection import init_db
     init_db()
     try:
+        from .routers.sandbox import ensure_sandbox_project
+    except ImportError:
+        from routers.sandbox import ensure_sandbox_project
+    # The sandbox is a fixed identifier with no creation path, and its budget row
+    # references `projects`; without this row its first request fails at the
+    # foreign key before any model call (routers/sandbox.ensure_sandbox_project).
+    ensure_sandbox_project()
+    try:
         from .signals import connect_redhat_signals
     except ImportError:
         from signals import connect_redhat_signals
