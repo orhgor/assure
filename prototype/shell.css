@@ -264,6 +264,29 @@ button {
   gap: var(--space-2);
 }
 
+/* Brand lockup C — marketing's mark, reused verbatim. The navy lives in the
+   inline SVG and on --brand-navy (marketing's trust blue); no shell accent
+   token is retinted for it. The two surfaces are kept in step by hand — see
+   docs/live.md. */
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+.app-brand-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.app-brand-name {
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
 
 /* Buttons: primary (empty hero) and secondary (header) */
 
@@ -361,7 +384,7 @@ body.collapsed.right-hidden .app-shell {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--brand-navy);
   box-shadow: 0 2px 10px var(--accent-glow);
   display: flex;
   align-items: center;
