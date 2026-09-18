@@ -2,19 +2,107 @@
 """Local dev server for the shell prototype."""
 
 from __future__ import annotations
+import hashlib
+import hmac
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC_ROOT = HERE
 UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "http://localhost:8899")
-HOST = "0.0.0.0"
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8990"))
 
 FORWARD_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
+
+# ---------------------------------------------------------------------------
+# The entry gate.
+#
+# This server is the only thing the public hostnames reach, and it used to
+# serve the shell and proxy /api/* to anyone who asked. `SHELL_ACCESS_KEY` is
+# now required: unauthenticated requests get 302 to /auth (shell and assets) or
+# 401 (API). The key arrives three ways, all checked against the same secret:
+#
+#   X-Shell-Key: <key>      shell.js attaches this to every /api call
+#   Authorization: Bearer   operator convenience (curl)
+#   Cookie: assure_shell_key  set by a successful POST /auth, so <link>,
+#                             <script> and streaming SSE carry it for free
+#
+# The same header/Bearer pair as `substrate.py:_authorize_worker_ingest`, so
+# the two gates read alike. Unlike that one this gate fails closed: with no
+# key configured the server refuses to start (see main()).
+# ---------------------------------------------------------------------------
+ACCESS_KEY = (os.environ.get("SHELL_ACCESS_KEY") or "").strip()
+COOKIE_NAME = "assure_shell_key"
+AUTH_PATH = "/auth"
+COOKIE_MAX_AGE = 2592000  # 30 days
+
+_AUTH_PAGE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assure AI — Restricted</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      background: #111; color: #e8e8e8;
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    }
+    main { width: 320px; }
+    h1 { font-size: 15px; font-weight: 600; letter-spacing: .01em; margin: 0 0 4px; }
+    p { margin: 0 0 20px; color: #8a8a8a; font-size: 12px; }
+    label { display: block; font-size: 11px; letter-spacing: .08em;
+            text-transform: uppercase; color: #8a8a8a; margin-bottom: 6px; }
+    input, button { width: 100%%; box-sizing: border-box; border-radius: 0; }
+    input {
+      background: #1a1a1a; border: 1px solid #333; color: #e8e8e8;
+      padding: 9px 10px; font: inherit; margin-bottom: 10px;
+    }
+    input:focus { outline: none; border-color: #666; }
+    button {
+      background: #e8e8e8; border: 0; color: #111; padding: 10px;
+      font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .err { color: #e07a7a; font-size: 12px; margin: 0 0 10px; min-height: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Assure AI</h1>
+    <p>This build is not public. Enter the access key to continue.</p>
+    <p class="err">__ERROR__</p>
+    <form method="POST" action="/auth" id="gate">
+      <label for="key">Access key</label>
+      <input id="key" name="key" type="password" autocomplete="current-password" autofocus>
+      <button type="submit">Continue</button>
+    </form>
+  </main>
+  <script>
+    // The gate is the only place the key is typed. Keep it in localStorage so
+    // shell.js can put it on every API call; the POST sets the cookie.
+    document.getElementById("gate").addEventListener("submit", function () {
+      try { window.localStorage.setItem("assure_shell_key", document.getElementById("key").value); } catch (_) {}
+    });
+  </script>
+</body>
+</html>
+"""
+
+
+def _key_matches(presented):
+    """Constant-time compare against the configured key."""
+    if not presented or not ACCESS_KEY:
+        return False
+    return hmac.compare_digest(
+        hashlib.sha256(presented.encode("utf-8")).digest(),
+        hashlib.sha256(ACCESS_KEY.encode("utf-8")).digest(),
+    )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -22,6 +110,78 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         return
+
+    # ------------------------------------------------------------------
+    # The entry gate
+    # ------------------------------------------------------------------
+    def _presented_key(self):
+        header = (self.headers.get("X-Shell-Key") or "").strip()
+        if header:
+            return header
+        auth = (self.headers.get("Authorization") or "").strip()
+        if auth.startswith("Bearer "):
+            return auth[7:].strip()
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == COOKIE_NAME:
+                return value.strip()
+        return ""
+
+    def _authorized(self):
+        return _key_matches(self._presented_key())
+
+    def _deny(self):
+        """302 for the shell, 401 for the API — a request never reaches data."""
+        if self.path.startswith("/api/"):
+            body = b'{"ok":false,"error":"unauthorized"}'
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("WWW-Authenticate", 'Bearer realm="assure-shell"')
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(body)
+            return
+        self.send_response(302)
+        self.send_header("Location", AUTH_PATH)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
+    def _serve_auth_page(self, error=False):
+        body = _AUTH_PAGE.replace("__ERROR__", "That key was not accepted." if error else "").encode(
+            "utf-8"
+        )
+        self.send_response(401 if error else 200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _handle_auth(self, method):
+        if method in ("GET", "HEAD"):
+            self._serve_auth_page()
+            return
+        if method != "POST":
+            self.send_error(405)
+            return
+        length = int(self.headers.get("Content-Length") or "0")
+        raw = self.rfile.read(length).decode("utf-8", "replace") if length > 0 else ""
+        presented = (urllib.parse.parse_qs(raw).get("key") or [""])[0].strip()
+        if not _key_matches(presented):
+            self._serve_auth_page(error=True)
+            return
+        self.send_response(302)
+        self.send_header("Location", "/")
+        self.send_header(
+            "Set-Cookie",
+            "%s=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Lax"
+            % (COOKIE_NAME, urllib.parse.quote(presented, safe=""), COOKIE_MAX_AGE),
+        )
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _serve_static(self):
         path = self.path.split("?", 1)[0] or "/index.html"
@@ -124,6 +284,20 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def _route(self, method):
+        if self.path.split("?", 1)[0] == AUTH_PATH:
+            self._handle_auth(method)
+            return
+        if not self._authorized():
+            self._deny()
+            return
+        # Legacy: /app* redirects to the shell root.
+        if method == "GET" and (
+            self.path == "/app" or self.path.startswith("/app?") or self.path.startswith("/app/")
+        ):
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
         if self.path.startswith("/api/"):
             self._proxy(method)
         else:
@@ -133,12 +307,6 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_static()
 
     def do_GET(self):
-        # Legacy: /app* redirects to the shell root.
-        if self.path == "/app" or self.path.startswith("/app?") or self.path.startswith("/app/"):
-            self.send_response(302)
-            self.send_header("Location", "/")
-            self.end_headers()
-            return
         self._route("GET")
 
     def do_POST(self):
@@ -161,10 +329,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    if not ACCESS_KEY:
+        # Fail closed. A gate that disables itself when it is misconfigured is
+        # worse than an outage: the shell and every /api route go public again.
+        print(
+            "refusing to start: SHELL_ACCESS_KEY is not set — the entry gate would be open.",
+            file=sys.stderr,
+            flush=True,
+        )
+        return 1
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         print(
-            "Dev server on http://localhost:{} (proxying /api/* to :8899)".format(PORT), flush=True
+            "Dev server on http://{}:{} (proxying /api/* to {})".format(HOST, PORT, UPSTREAM_BASE),
+            flush=True,
         )
         server.serve_forever()
     except KeyboardInterrupt:

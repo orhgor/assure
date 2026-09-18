@@ -16,6 +16,56 @@
   var STORAGE_KEY = "assure_project";
 
   // ---------------------------------------------------------------
+  // The entry gate. /auth leaves the key in localStorage and the POST
+  // sets the cookie; here we put it on every same-origin call as
+  // `X-Shell-Key` so the API is closed even if the cookie is dropped.
+  // A 401 means the key is wrong or was rotated — go back to the gate.
+  // ---------------------------------------------------------------
+  var ACCESS_KEY_STORAGE = "assure_shell_key";
+
+  function accessKey() {
+    try { return window.localStorage.getItem(ACCESS_KEY_STORAGE) || ""; } catch (_) { return ""; }
+  }
+
+  (function attachAccessKey() {
+    var raw = window.fetch;
+    if (typeof raw !== "function") return;
+    window.fetch = function (input, init) {
+      var url = typeof input === "string" ? input : ((input && input.url) || "");
+      var sameOrigin = url.charAt(0) === "/" || url.indexOf(window.location.origin) === 0;
+      var key = accessKey();
+      if (key && sameOrigin) {
+        init = init || {};
+        var hdrs = init.headers;
+        if (typeof Headers !== "undefined" && hdrs instanceof Headers) {
+          if (!hdrs.has("X-Shell-Key")) hdrs.set("X-Shell-Key", key);
+        } else if (Object.prototype.toString.call(hdrs) === "[object Array]") {
+          var present = false;
+          for (var i = 0; i < hdrs.length; i++) {
+            if (String(hdrs[i][0]).toLowerCase() === "x-shell-key") present = true;
+          }
+          if (!present) hdrs.push(["X-Shell-Key", key]);
+        } else {
+          var merged = {};
+          if (hdrs) {
+            for (var k in hdrs) {
+              if (Object.prototype.hasOwnProperty.call(hdrs, k)) merged[k] = hdrs[k];
+            }
+          }
+          if (!Object.prototype.hasOwnProperty.call(merged, "X-Shell-Key")) merged["X-Shell-Key"] = key;
+          init.headers = merged;
+        }
+      }
+      return raw.call(this, input, init).then(function (resp) {
+        if (resp && resp.status === 401 && sameOrigin) {
+          try { window.location.replace("/auth"); } catch (_) {}
+        }
+        return resp;
+      });
+    };
+  })();
+
+  // ---------------------------------------------------------------
   // SSE failure instrumentation (staging diagnostics). Logs only —
   // no retry/behavior change, no UI, no toasts.
   // "tokensReceived" is the number of characters decoded from the SSE
