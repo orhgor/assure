@@ -513,3 +513,41 @@ are four things, each checked rather than judged by size:
 4. `var counts = {...}` and a comment block.
 
 **Decision: take none of it.** At the eventual merge, resolve `shell.js` to the box's file.
+
+---
+
+# A2's payoff, measured across A1 — the evidence the failing test could not give
+
+A1 landed on this branch's lineage (`fixa/intent-handoff` `24d1b54`, parent `8d43974`),
+so the question A2 exists to answer became directly measurable: does a real prompt
+change move the key with no version bump?
+
+Same ask, same source, same model, two trees; `PYTHONPATH=<tree>` with the module path
+printed to prove which tree was read. **`PROMPT_VERSION` is 1 on both — no bump.**
+
+| | PRE-A1 (`8d43974`) | POST-A1 (`24d1b54`) |
+|---|---|---|
+| `PROMPT_VERSION` | 1 | 1 |
+| `prompt_fingerprint()` | `37b4da61` | `31f999d6` |
+| `_prompt_key_material` | `1:37b4da61` | `1:31f999d6` |
+| KEY | `ast:postaudit-a1-check:12ec3d4c` | `ast:postaudit-a1-check:cfbc0b30` |
+| `ask_is_data_phrase` | True | False |
+
+The prompt genuinely changed (`ask_is_data_phrase` flipping True -> False IS A1's
+content), the version did not move, and **the key moved anyway — the hash moved it.**
+Under the version-only design these two trees produce the same key and A1 would replay
+a pre-A1 draft under A1's prompt. This is the strongest evidence for the hash being key
+material rather than a note beside the key, and it is a pure computation: no provider,
+no lock, 4.4 s.
+
+## And the failing test, fully separated
+
+`tests/test_omp_memory.py::test_draft_pipeline_cache_hit_skips_claude` fails with
+`422 compile refused (cache replay): zero_anchored_claims` — **and fails identically at
+base `429fd09`**, before any A2 code exists. So the hash neither causes nor closes it.
+The mechanism is visible in the capture: the row IS found (the log says *cache replay*),
+then the replay branch re-runs `validate_compiled_draft` on the cached draft, which
+returns `zero_anchored_claims` and refuses. **It is the gate re-run on replay, not the
+key.** Main has recorded it as an unowned defect with its cause, to be taken as a design
+question — whether the replay should re-run a gate that already ran when the row was
+written, or the payload should carry what the gate needs.
