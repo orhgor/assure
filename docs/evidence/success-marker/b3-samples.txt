@@ -1,0 +1,101 @@
+Phase B (success marker) — B3 verification, raw harness output.
+
+Method. The audit's own DOM-replay harness (docs/evidence/compile-audit-dom-replay) was copied
+to /tmp/fixb-replay and /tmp/fixb-replay-base and replayed its case B frame script (recorded real
+frames, project audit-a-naic-7f8409) against two shell.js revisions — md5 -q, run here:
+  7c30e8e65cd0993b5b5a84b517d9a929  /tmp/fixb-replay/shell.js      (fix, branch fixb/success-marker,
+                                                                   base 5b36183, 5631 lines)
+  27df966b6b7d35092d6971e827602929  /tmp/fixb-replay-base/shell.js (pre-fix, committed at 5b36183,
+                                                                   the box's served file before this change)
+
+Cases: B = the recorded verified frame (provenance_stats.unsupported=3, every paragraph verdict "no"),
+C = the same frames with every anchor supported (control: the marker must still tick),
+D = B with provenance_stats removed from the frame (the verdicts read off the tree),
+A = the audit's refusal case (no verdict frame; the slot must be cleared, never ticked),
+E = anchored claims the check could not affirm, none denied (unsupported=0, unverified=3).
+Driver: headless Chromium on the harness pages; the page's fetch() is teed to timestamp the
+`verified` frame, then the intent slot is read at +20 ms, +2 s and +5 s after it; a continuous
+8 ms sampler records the transitions. Nothing here compiles: the harness answers /api/* from a
+stub, no provider is called, no compile lock is taken, demo-3235f5 is untouched.
+
+========================================================================
+base-B  (pre-fix shell, md5 27df966b…)  (port 8994)  shell.js served: 260143 chars
+verified frame at performance.now()=19985
+verified frame: {"gate_status":"review","ok":false,"unverified":true,"provenance_stats":{"eligible":5,"anchored":3,"supported":0,"partial":0,"unsupported":3,"unanchored":2,"unverified":0},"reason":"0 of 5 claims were entailed by their matched source sentence (3 contradicted by their source).","paragraph_verdicts":["no","no","no"]}
+complete frame: {"type":"complete","ok":true,"node_count":3,"lock_count":1}
+samples after the verified frame:
+  +20 ms (sampled at +21 ms): "✓ Intent compiled · checks run in the pipeline"
+  +2000 ms (sampled at +2004 ms): "✓ Intent compiled · checks run in the pipeline"
+  +5000 ms (sampled at +5004 ms): "✓ Intent compiled · checks run in the pipeline"
+transition trace: [{"t":21,"text":null},{"t":10724,"text":"Compiling…"},{"t":19997,"text":"✓ Intent compiled · checks run in the pipeline"}]
+page errors: []
+
+========================================================================
+fix-B  (fix shell, md5 7c30e8e6…)  (port 8991)  shell.js served: 262364 chars
+verified frame at performance.now()=19904
+verified frame: {"gate_status":"review","ok":false,"unverified":true,"provenance_stats":{"eligible":5,"anchored":3,"supported":0,"partial":0,"unsupported":3,"unanchored":2,"unverified":0},"reason":"0 of 5 claims were entailed by their matched source sentence (3 contradicted by their source).","paragraph_verdicts":["no","no","no"]}
+complete frame: {"type":"complete","ok":true,"node_count":3,"lock_count":1}
+samples after the verified frame:
+  +20 ms (sampled at +21 ms): "Compiled — 3 claims not supported"
+  +2000 ms (sampled at +2007 ms): "Compiled — 3 claims not supported"
+  +5000 ms (sampled at +5007 ms): "Compiled — 3 claims not supported"
+transition trace: [{"t":22,"text":null},{"t":10658,"text":"Compiling…"},{"t":19911,"text":"Compiled — 3 claims not supported"}]
+page errors: []
+
+========================================================================
+fix-C  (fix shell, md5 7c30e8e6…)  (port 8992)  shell.js served: 262364 chars
+verified frame at performance.now()=19901
+verified frame: {"gate_status":"pass","ok":true,"unverified":false,"provenance_stats":{"eligible":5,"anchored":3,"supported":3,"partial":0,"unsupported":0,"unanchored":2,"unverified":0},"reason":null,"paragraph_verdicts":["yes","yes","yes"]}
+complete frame: {"type":"complete","ok":true,"node_count":3,"lock_count":1}
+samples after the verified frame:
+  +20 ms (sampled at +21 ms): "✓ Intent compiled · checks run in the pipeline"
+  +2000 ms (sampled at +2009 ms): "✓ Intent compiled · checks run in the pipeline"
+  +5000 ms (sampled at +5008 ms): "✓ Intent compiled · checks run in the pipeline"
+transition trace: [{"t":20,"text":null},{"t":10652,"text":"Compiling…"},{"t":19918,"text":"✓ Intent compiled · checks run in the pipeline"}]
+page errors: []
+
+========================================================================
+fix-D  (fix shell, md5 7c30e8e6…)  (port 8993)  shell.js served: 262364 chars
+verified frame at performance.now()=19916
+verified frame: {"gate_status":"review","ok":false,"unverified":true,"provenance_stats":null,"reason":"0 of 5 claims were entailed by their matched source sentence (3 contradicted by their source).","paragraph_verdicts":["no","no","no"]}
+complete frame: {"type":"complete","ok":true,"node_count":3,"lock_count":1}
+samples after the verified frame:
+  +20 ms (sampled at +22 ms): "Compiled — 3 claims not supported"
+  +2000 ms (sampled at +2005 ms): "Compiled — 3 claims not supported"
+  +5000 ms (sampled at +5006 ms): "Compiled — 3 claims not supported"
+transition trace: [{"t":25,"text":null},{"t":10659,"text":"Compiling…"},{"t":19928,"text":"Compiled — 3 claims not supported"}]
+page errors: []
+
+========================================================================
+fix-A  (fix shell, md5 7c30e8e6…)  (port 8995)  shell.js served: 262364 chars
+verified frame at performance.now()=null
+verified frame: {"provenance_stats":null,"reason":null,"paragraph_verdicts":[]}
+complete frame: {"type":"complete","ok":false,"error":"The compiled document could not be grounded in the source. Review the intent or the source material and try again.","request_id":"0d5e2a24-8adf-4df2-99cb-a6d6c73aaddd","http_status":422}
+samples after the verified frame:
+transition trace: [{"t":22,"text":null},{"t":10653,"text":"Compiling…"},{"t":13152,"text":null}]
+page errors: []
+
+========================================================================
+fix-E  (fix shell, md5 7c30e8e6…)  (port 8996)  shell.js served: 262364 chars
+verified frame at performance.now()=19934
+verified frame: {"gate_status":"review","ok":false,"unverified":true,"provenance_stats":{"eligible":5,"anchored":3,"supported":0,"partial":0,"unsupported":0,"unanchored":2,"unverified":3},"reason":"0 of 5 claims were entailed by their matched source sentence (3 could not be checked).","paragraph_verdicts":["unverified","unverified","unverified"]}
+complete frame: {"type":"complete","ok":true,"node_count":3,"lock_count":1}
+samples after the verified frame:
+  +20 ms (sampled at +22 ms): "✓ Intent compiled · checks run in the pipeline"
+  +2000 ms (sampled at +2000 ms): "✓ Intent compiled · checks run in the pipeline"
+  +5000 ms (sampled at +5008 ms): "✓ Intent compiled · checks run in the pipeline"
+transition trace: [{"t":21,"text":null},{"t":10680,"text":"Compiling…"},{"t":19949,"text":"✓ Intent compiled · checks run in the pipeline"}]
+page errors: []
+
+Reading. Pre-fix: the verified frame reports ok:false, gate_status review, 0 supported, 3 claims
+contradicted by their source, every paragraph verdict "no" — and the intent bar read
+"✓ Intent compiled · checks run in the pipeline" at all three offsets.
+Fixed: the same frames read "Compiled — 3 claims not supported" at all three offsets (the marker
+lands 7 ms after the verdict frame, inside the window the +20 ms sample covers); the all-supported
+control still ticks; the stats-absent case holds the same rule off the tree verdicts; the refusal
+path still clears the slot.
+E is measured, not inferred: with 0 unsupported and 3 anchored claims the check could not affirm,
+the marker ticks. provenance_stats carries that state separately as `unverified`
+(audit_summary.py:104-113 buckets verdict "no" as `unsupported` and verdict "unverified" as
+`unverified`; :212-220 emits both), so it is distinguishable — the marker does not name it because
+the agreed copy summarises the status line and leaves the per-claim verdict to the Evidence drawer.

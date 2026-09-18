@@ -1842,7 +1842,7 @@
     // `supported` is the point — a document that quotes its sources is not
     // thereby a document whose sources bear it out.
     function _derivedCounts(doc) {
-      var counts = { eligible: 0, anchored: 0, supported: 0, partial: 0, unanchored: 0 };
+      var counts = { eligible: 0, anchored: 0, supported: 0, partial: 0, unanchored: 0, contradicted: 0 };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1867,6 +1867,13 @@
             if (row && typeof row === "object" &&
                 String(row.extracted_quote || "").trim()) { isAnchored = true; break; }
           }
+          // `no` is the source denying the claim — the bucket the server reports
+          // as provenance_stats.unsupported ("N contradicted by their source",
+          // services/audit_summary.py). Read before the anchor test: the verdict
+          // lives at node.meta.provenance.entailment, so a payload that carries
+          // no anchor row still carries it, and no paragraph a source denies may
+          // be counted as one it supports.
+          if (_entailmentVerdict(node, prov[0] || null) === "no") counts.contradicted++;
           if (!isAnchored) { counts.unanchored++; continue; }
           // The verdict buckets the anchored claims exactly as the server's
           // _provenance_counts does: yes -> supported, partial -> partial,
@@ -1878,6 +1885,17 @@
         }
       }
       return counts;
+    }
+    // Claims the entailment check did not support (the verdict "no" — a source
+    // that denies the claim), from whichever source is authoritative: the
+    // `verified` frame's persisted provenance_stats (DB parity with the gate block
+    // the honesty test reads) when it carries the number, the rendered tree
+    // otherwise. Same rule, same count.
+    function _contradictedClaims(stats, doc) {
+      if (stats && typeof stats === "object" && typeof stats.unsupported === "number") {
+        return stats.unsupported;
+      }
+      return _derivedCounts(doc || SHELL.document.current || null).contradicted;
     }
     // The four counters and the number they must add up to, read from whichever
     // source is authoritative: the server's persisted provenance_stats (DB parity
@@ -3658,6 +3676,10 @@
             // Verified frame: the persisted stats are authoritative (DB parity
             // with the gate block the honesty test reads).
             _syncGroundingNotices(stats);
+            // The verdict this frame carries, held for the `complete` frame
+            // below: that frame ends the run, and a run that finished is not a
+            // document whose claims held — the revision is saved either way.
+            verifiedContradictions = _contradictedClaims(stats, vdoc);
             // Verification laser: one horizontal sweep across the rendered
             // document, per compile. Anchored to .doc-draft (not .doc-surface,
             // which also holds the empty hero).
@@ -3687,11 +3709,17 @@
           markDone("Verify");
           markActive("Complete");
           markDone("Complete");
-          // The validator returned a pass. This frame is the first moment the
-          // shell may say so: until it arrived the bar read "Compiling…", and a
-          // refusal — which streams the same way — never reaches this branch.
+          // The run finished. That is all this frame's ok says: a run whose
+          // claims a source denied still finishes — and is still saved as a
+          // revision — so a checkmark over the `verified` frame's contradicted
+          // count would report a verification the entailment layer refused. The
+          // bar names the count instead, and ticks only on none: "not supported"
+          // is what the bucket holds (verdict "no"), stated no more specifically
+          // than the frame's own aggregation distinguishes.
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+            intentSummaryTextEl.textContent = verifiedContradictions > 0
+              ? "Compiled \u2014 " + verifiedContradictions + " claims not supported"
+              : "\u2713 Intent compiled \u00b7 checks run in the pipeline";
           }
         }
         _endProgress();
@@ -4375,6 +4403,11 @@
     var intentPanelOpen = false;
     var lastCompile = null;       // last /api/compile-system response
     var runInProgress = false;    // a draft/stream is actively running
+    // Claims the entailment check contradicted, as reported by the last
+    // `verified` frame. The `complete` frame that ends the run carries ok:true
+    // and nothing about the claims, so the intent bar reads this count before it
+    // may tick — see handleEvent.
+    var verifiedContradictions = 0;
 
     // §5 row 3: the dock's running state follows the draft flag, so every
     // write to it goes through here and the surface cannot drift.
