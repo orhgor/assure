@@ -664,6 +664,18 @@ body.collapsed .pane-left {
   border-bottom-color: var(--ink);
 }
 
+/* A7 — the Sources section's head carries its own action: the label on the
+   left, the control that feeds it on the right. */
+.pane-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.pane-section-head h3 { margin: 0; }
+.pane-section-head #dock-ingest { font-size: var(--fs-sm); }
+.pane-section-head #dock-ingest[disabled] { color: var(--muted); }
+
 /* Search keeps only a focus underline (D7): no border at rest. */
 #dock-search {
   flex: 0 0 auto;
@@ -728,6 +740,29 @@ body.collapsed .pane-left {
 #dock-search-results > div.dock-search-hit:hover {
   background: var(--hover-wash);
 }
+/* A2 — the dock's notice rows. The progress row is a state that is replaced by
+   the outcome, so it is styled as one; every row can be dismissed by hand. */
+#dock-search-results > div.dock-toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--ink);
+}
+#dock-search-results > div.dock-toast.is-error { color: var(--contradicted); }
+#dock-search-results > div.dock-toast.is-progress { color: var(--muted); font-style: italic; }
+.dock-toast-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+.dock-toast-dismiss {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.dock-toast-dismiss:hover { color: var(--ink); }
 #dock-search-results > div.dock-search-hit > div:first-child {
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -1215,6 +1250,39 @@ body.collapsed .pane-left {
 .conf-green  { border-bottom-color: var(--verified); }
 .conf-yellow { border-bottom-color: var(--partial); }
 .conf-red    { border-bottom-color: var(--contradicted); }
+
+/* A5 — the paragraph's own evidence state, sized to be read at conversational
+   distance rather than at the caret. The 1px underline above stays the
+   sub-claim signal; this is the paragraph: a 3px left rule, a state chip at the
+   paragraph's left, and a 3% wash on the paragraphs nothing grounded. */
+.jdf-p.anchor-state {
+  border-left: 3px solid transparent;
+  padding-left: var(--space-2);
+}
+.jdf-p.anchor-supported  { border-left-color: var(--verified); }
+.jdf-p.anchor-partial    { border-left-color: var(--partial); }
+.jdf-p.anchor-anchored   { border-left-color: var(--unverified); }
+.jdf-p.anchor-unanchored {
+  border-left-color: var(--contradicted);
+  background: color-mix(in srgb, var(--contradicted) 3%, transparent);
+}
+.anchor-chip {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.anchor-chip-supported  { color: var(--verified);     background: color-mix(in srgb, var(--verified) 12%, transparent); }
+.anchor-chip-partial    { color: var(--partial);      background: color-mix(in srgb, var(--partial) 12%, transparent); }
+.anchor-chip-anchored   { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 16%, transparent); }
+.anchor-chip-unanchored { color: var(--contradicted); background: color-mix(in srgb, var(--contradicted) 12%, transparent); }
 
 /* Evidence drawer body */
 .evidence-body {
@@ -2336,4 +2404,11 @@ body.collapsed.right-hidden #resize-right { display: none; }
   font: 13px/1.4 var(--sans);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+/* A3 — the four counters are a partition, and this says so, so the row can be
+   checked at a glance instead of counted out of the document. */
+.counter-legend {
+  margin: var(--space-1) 0 0;
+  font: 11px/1.4 var(--sans);
+  color: var(--muted);
 }

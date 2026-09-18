@@ -191,7 +191,16 @@
             </ul>
           </section>
           <section class="pane-section" id="section-manifest">
-            <h3>Sources</h3>
+            <div class="pane-section-head">
+              <h3>Sources</h3>
+              <!-- A7 — the PDF ingest belongs with the sources it feeds, not in
+                   the prompt dock: the dock is where a question is asked, and a
+                   control that changes the grounding surface sat beside it as if
+                   it were part of the ask. The id is kept (the shell and the e2e
+                   specs address this control by it). -->
+              <button type="button" id="dock-ingest" title="Ingest PDF">Ingest PDF</button>
+              <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
+            </div>
             <div id="source-manifest" class="manifest"></div>
           </section>
           <section class="pane-section" id="section-prompt" data-state="empty">
@@ -235,8 +244,6 @@
           </button>
         </div>
         <div class="dock-jdf" id="dock-jdf">
-          <button type="button" id="dock-ingest" title="Ingest PDF">Ingest</button>
-          <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
           <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents" autocomplete="off" spellcheck="false">
           <div id="dock-search-results" hidden></div>
         </div>
@@ -285,13 +292,16 @@
                 <div class="counter-value is-zero" id="count-partial">0</div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-unverified">Unverified</div>
-                <div class="counter-value is-zero" id="count-unverified">0</div>
+                <div class="counter-label" id="counter-label-unanchored">Unanchored</div>
+                <div class="counter-value is-zero" id="count-unanchored">0</div>
               </td>
             </tr>
           </tbody>
         </table>
         <p class="counter-line" id="counter-line" hidden></p>
+        <!-- The four counters are a partition of the eligible paragraphs, and
+             the row is only checkable if it says so. -->
+        <p class="counter-legend" id="counter-legend" hidden>Anchored = cited a source, not yet verified · Supported = verified · Partial = partly verified · Unanchored = no source citation. The four sum to the eligible paragraphs.</p>
       </section>
 
       <div id="right-inspector" class="pane-mode">

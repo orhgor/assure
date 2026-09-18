@@ -717,14 +717,67 @@
     // JDF ingest + search (MVP). No toast helper exists — use panel div.
     // FIX 1 made the routes project-scoped: /api/projects/<id>/jdf/*
     // ---------------------------------------------------------------
-    function jdfMessage(text, isErr) {
-      var panel = document.getElementById("dock-search-results");
-      if (!panel) return;
+    // The dock panel is the shell's only notice surface: rows are direct-child
+    // divs (the contract #dock-search-results is styled against).
+    function _jdfPanel() {
+      return document.getElementById("dock-search-results");
+    }
+    function _jdfHideIfEmpty() {
+      var panel = _jdfPanel();
+      if (panel && !panel.children.length) panel.hidden = true;
+    }
+    function _jdfRow(text, isErr) {
+      var panel = _jdfPanel();
+      if (!panel) return null;
       panel.hidden = false;
       var row = document.createElement("div");
-      row.textContent = text;
-      if (isErr) { try { row.style.color = "#e5484d"; } catch (_) {} }
+      row.className = "dock-toast" + (isErr ? " is-error" : "");
+      var label = document.createElement("span");
+      label.className = "dock-toast-text";
+      label.textContent = text;
+      row.appendChild(label);
+      var dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "dock-toast-dismiss";
+      dismiss.setAttribute("aria-label", "Dismiss");
+      dismiss.textContent = "\u00d7";
+      dismiss.addEventListener("click", function () {
+        _jdfClearProgress();
+        if (row.parentNode) row.parentNode.removeChild(row);
+        _jdfHideIfEmpty();
+      });
+      row.appendChild(dismiss);
       panel.appendChild(row);
+      return row;
+    }
+    function jdfMessage(text, isErr) {
+      _jdfRow(text, isErr);
+    }
+    // The ingest's progress line is a state, not a log entry. It used to be
+    // appended like a result, so "Converting → Chunking → Indexing…" sat above
+    // the outcome for the rest of the session. It is now the one row the
+    // terminal frame replaces: cleared when the ingest answers, cleared by a
+    // 30s backstop if the answer never comes, and dismissible by hand.
+    var jdfProgressTimer = null;
+    function _jdfClearProgress() {
+      if (jdfProgressTimer) { clearTimeout(jdfProgressTimer); jdfProgressTimer = null; }
+      var panel = _jdfPanel();
+      if (!panel) return;
+      var rows = panel.querySelectorAll(".is-progress");
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].parentNode) rows[i].parentNode.removeChild(rows[i]);
+      }
+      _jdfHideIfEmpty();
+    }
+    function jdfProgress(text) {
+      _jdfClearProgress();
+      var row = _jdfRow(text, false);
+      if (!row) return;
+      row.classList.add("is-progress");
+      jdfProgressTimer = setTimeout(function () {
+        jdfProgressTimer = null;
+        _jdfClearProgress();
+      }, 30000);
     }
     // The dock's ingest and search are project-scoped server routes, and the
     // tenant "default" project is not the session project: a compile mints
@@ -746,7 +799,7 @@
         if (!f) return;
         var panel = document.getElementById("dock-search-results");
         if (panel) { panel.hidden = false; panel.innerHTML = ""; }
-        jdfMessage("Converting → Chunking → Indexing…", false);
+        jdfProgress("Converting \u2192 Chunking \u2192 Indexing\u2026");
         var fd = new FormData();
         fd.append("file", f);
         var ingestPid = "";
@@ -761,6 +814,8 @@
             });
           })
           .then(function (r) {
+            // The ingest answered: the progress line is over, whatever it says.
+            _jdfClearProgress();
             if (r.ok && r.j && r.j.ok) {
               jdfMessage((r.j.chunks_stored || 0) + " figures found in " + f.name, false);
               // The ingest scan flags instruction-like source content; the
@@ -782,6 +837,7 @@
             jdfIngestFile.value = "";
           })
           .catch(function (err) {
+            _jdfClearProgress();
             jdfMessage(String(err && err.message ? err.message : err), true);
             jdfIngestFile.value = "";
           });
@@ -1617,13 +1673,16 @@
       return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
         (pageStr ? " \u00b7 page " + pageStr : "");
     }
-    // The two numbers the gate reports, derived from the same tree the shell
-    // renders: `anchored` (a matched source sentence exists) and `supported`
-    // (the entailment check said yes). Kept apart so a document that quotes its
-    // sources is not called ungrounded, and a document whose every quote was
-    // refused is not called verified.
+    // The counters the gate reports, derived from the same tree the shell
+    // renders. They are a *partition* of the eligible paragraphs: every eligible
+    // paragraph lands in exactly one bucket, so the row sums to the count it
+    // reports. `anchored` counts the paragraphs that cite a source sentence the
+    // entailment check did not confirm; `supported` and `partial` are the
+    // verdicts that did confirm one. Keeping the unconfirmed anchor out of
+    // `supported` is the point — a document that quotes its sources is not
+    // thereby a document whose sources bear it out.
     function _derivedCounts(doc) {
-      var counts = { anchored: 0, supported: 0, partial: 0, unverified: 0 };
+      var counts = { eligible: 0, anchored: 0, supported: 0, partial: 0, unanchored: 0 };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1634,6 +1693,7 @@
           if (!node || typeof node !== "object") continue;
           if (String(node.type || "") !== "paragraph") continue;
           if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
+          counts.eligible++;
           // Python treats [] as falsy; JS does not. Payloads carry
           // provenance: [] for unanchored paragraphs, so mirror
           // audit_summary._anchoring_quote: a row carrying the matched source
@@ -1647,18 +1707,42 @@
             if (row && typeof row === "object" &&
                 String(row.extracted_quote || "").trim()) { isAnchored = true; break; }
           }
-          if (!isAnchored) continue;
-          counts.anchored++;
+          if (!isAnchored) { counts.unanchored++; continue; }
           // The verdict buckets the anchored claims exactly as the server's
           // _provenance_counts does: yes -> supported, partial -> partial,
-          // everything else (no, unverified) -> unverified.
+          // everything else (no, unverified) -> the residual anchor bucket.
           var verdict = _entailmentVerdict(node, prov[0] || null);
           if (verdict === "yes") counts.supported++;
           else if (verdict === "partial") counts.partial++;
-          else counts.unverified++;
+          else counts.anchored++;
         }
       }
       return counts;
+    }
+    // The four counters and the number they must add up to, read from whichever
+    // source is authoritative: the server's persisted provenance_stats (DB parity
+    // with the gate) when present, the rendered tree otherwise. The server sends
+    // the anchor as a total with its verdict buckets beside it, so the residual
+    // bucket is what is left of the anchor once the verdicts have taken their
+    // share.
+    function _counterBuckets(stats, derived) {
+      var eligible = _num(stats, derived, "eligible");
+      var supported = _num(stats, derived, "supported");
+      var partial = _num(stats, derived, "partial");
+      var anchoredTotal = _num(stats, derived, "anchored");
+      var unverified = _num(stats, derived, "unverified");
+      var unsupported = _num(stats, derived, "unsupported");
+      var anchored = anchoredTotal - supported - partial - unverified - unsupported;
+      if (anchored < 0) anchored = 0;
+      var unanchored = _num(stats, derived, "unanchored");
+      if (!unanchored && eligible > anchoredTotal) unanchored = eligible - anchoredTotal;
+      return {
+        eligible: eligible,
+        anchored: anchored,
+        supported: supported,
+        partial: partial,
+        unanchored: unanchored,
+      };
     }
     // "N of M claims cite a source, but the entailment check verified none of
     // them" — the honest state after the count stopped folding the verdict into
@@ -1676,9 +1760,11 @@
         supported = stats.supported;
         eligible = (typeof stats.eligible === "number") ? stats.eligible : anchored;
       } else {
-        anchored = derived.anchored;
+        // `derived.anchored` is the residual bucket, so the anchor total the
+        // note speaks about is every bucket that cites a source.
+        anchored = derived.anchored + derived.supported + derived.partial;
         supported = derived.supported;
-        eligible = anchored;
+        eligible = derived.eligible || anchored;
       }
       if (anchored === 0 || supported > 0) return;
       var note = document.createElement("div");
@@ -1739,24 +1825,33 @@
       return 0;
     }
     function _renderCounters(stats, derived) {
-      _setCounter("count-anchored",   _num(stats, derived, "anchored"));
-      _setCounter("count-supported",  _num(stats, derived, "supported"));
-      _setCounter("count-partial",    _num(stats, derived, "partial"));
-      _setCounter("count-unverified", _num(stats, derived, "unverified"));
+      var b = _counterBuckets(stats, derived);
+      _setCounter("count-anchored",   b.anchored);
+      _setCounter("count-supported",  b.supported);
+      _setCounter("count-partial",    b.partial);
+      _setCounter("count-unanchored", b.unanchored);
+      var legend = document.getElementById("counter-legend");
       var line = document.getElementById("counter-line");
-      if (!line) return;
-      var n = (SHELL.sources && SHELL.sources.length) || 0;
+      var doc = SHELL.document.current;
       // The line describes a compiled document, so it needs a document with
       // content: a blank tree is still "no document yet".
-      var doc = SHELL.document.current;
       var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
-      if (hasDoc && n > 0) {
-        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s");
-        line.hidden = false;
-      } else {
-        line.textContent = "";
-        line.hidden = true;
+      if (!hasDoc || !b.eligible) {
+        if (line) { line.textContent = ""; line.hidden = true; }
+        if (legend) legend.hidden = true;
+        return;
       }
+      var n = (SHELL.sources && SHELL.sources.length) || 0;
+      var sum = b.anchored + b.supported + b.partial + b.unanchored;
+      if (line) {
+        // The four values are quoted beside the number they must add up to, so
+        // the row can be checked without counting the document.
+        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s") +
+          " \u00b7 " + b.anchored + " + " + b.supported + " + " + b.partial + " + " +
+          b.unanchored + " = " + sum + " of " + b.eligible + " eligible paragraphs";
+        line.hidden = false;
+      }
+      if (legend) legend.hidden = false;
     }
 
     // ---------------------------------------------------------------
@@ -1837,6 +1932,7 @@
         // compile. Nothing is fabricated — a node without real spans renders
         // unhighlighted.
         applyConfidenceSpans(doc);
+        applyAnchorStates(doc);
         addEvidenceChips(doc);
         _loadVersionHistory(projectId, { current: null });
         _refreshSignoff(projectId);
@@ -2222,6 +2318,9 @@
     var REDHAT_AUDITABLE_TYPES = { paragraph: true, callout: true, signature: true };
     var REDHAT_NOT_AUDITABLE =
       "Red-Hat audits paragraph, callout and signature nodes with text.";
+    // The pane's idle state still shows the action; this is what the disabled
+    // button says underneath.
+    var REDHAT_SELECT_FIRST = "Select a paragraph first";
     function _redhatAuditable(node) {
       if (!node || !node.id) return false;
       if (!REDHAT_AUDITABLE_TYPES[node.type]) return false;
@@ -2784,6 +2883,63 @@
       return out;
     }
 
+    // ---------------------------------------------------------------
+    // Evidence colouring, read at conversational distance. The 1px confidence
+    // underline stays as the sub-claim signal it is; the *paragraph's* state is
+    // carried by a 3px left rule, a tint, and a chip, because a reader standing
+    // back could not see the underline at all. States are the same four the
+    // counters partition: verified, partial, anchored (cited, unconfirmed),
+    // unanchored (no citation).
+    var _ANCHOR_STATE_CHIP = {
+      supported: "\u2713 verified",
+      partial: "~ partial",
+      anchored: "\u00b7 anchored",
+      unanchored: "\u00b7 unanchored",
+    };
+    function _anchorStateOf(node) {
+      if (!node || String(node.type || "") !== "paragraph") return null;
+      if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) return null;
+      var prov = node.provenance;
+      if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+      var anchored = false;
+      for (var p = 0; p < prov.length; p++) {
+        var row = prov[p];
+        if (row && typeof row === "object" &&
+            String(row.extracted_quote || "").trim()) { anchored = true; break; }
+      }
+      if (!anchored) return "unanchored";
+      var verdict = _entailmentVerdict(node, prov[0] || null);
+      if (verdict === "yes") return "supported";
+      if (verdict === "partial") return "partial";
+      return "anchored";
+    }
+    function applyAnchorStates(doc, targetEl) {
+      if (!doc || !Array.isArray(doc.body)) return;
+      var scope = targetEl || document;
+      for (var s = 0; s < doc.body.length; s++) {
+        var section = doc.body[s];
+        if (!section || typeof section !== "object") continue;
+        var group = [section];
+        if (Array.isArray(section.children)) group = group.concat(section.children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || !node.id) continue;
+          var state = _anchorStateOf(node);
+          if (!state) continue;
+          var el = scope.querySelector('.jdf-node[data-node-id="' + node.id + '"] .jdf-p');
+          if (!el) continue;
+          el.classList.add("anchor-state", "anchor-" + state);
+          if (el.querySelector(".anchor-chip")) continue;
+          var chip = document.createElement("span");
+          chip.className = "anchor-chip anchor-chip-" + state;
+          chip.setAttribute("aria-hidden", "false");
+          chip.textContent = _ANCHOR_STATE_CHIP[state];
+          if (el.firstChild) el.insertBefore(chip, el.firstChild);
+          else el.appendChild(chip);
+        }
+      }
+    }
+
     function applyConfidenceSpans(doc, targetEl) {
       if (!doc) return;
       // Confidence spans use field names startChar / endChar / nodeId
@@ -3052,6 +3208,7 @@
           if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
             addEvidenceChips(vdoc);
             applyConfidenceSpans(vdoc);
+            applyAnchorStates(vdoc);
 
             // Unclear whether provenance_stats lives top-level or nested —
             // check the SSE payload; use the real location.
@@ -3082,7 +3239,8 @@
         // refusal leaves "Draft ✗" sitting above "Verify ✓". What a finished run
         // owes the UI either way (progress bar, run flag, intent slot) is outside
         // the test: failed or not, the run is over.
-        if (!(data && data.ok === false)) {
+        var refused = Boolean(data && data.ok === false);
+        if (!refused) {
           // Compile can still be .active when the "running math check" status
           // frame never arrived, because transitionTo("Verify") only marks stages
           // STRICTLY before the index it is leaving behind. Close it out
@@ -3091,11 +3249,22 @@
           markDone("Verify");
           markActive("Complete");
           markDone("Complete");
+          // The validator returned a pass. This frame is the first moment the
+          // shell may say so: until it arrived the bar read "Compiling…", and a
+          // refusal — which streams the same way — never reaches this branch.
+          if (intentSummaryTextEl) {
+            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+          }
         }
         _endProgress();
         _refreshManifest();
         _setRunInProgress(false);
-        clearIntentSlot();
+        // A finished run is a finished run: no progress line outlives the frame
+        // that ends it.
+        _jdfClearProgress();
+        // A pass leaves the bar standing as the run's verdict; a refusal is a
+        // verdict too, and it arrives as its own card, so the bar goes.
+        if (refused) clearIntentSlot();
         _clearCompilerPromptIfStale();
         // The run is over: bring the retained stage rows back into view.
         // beginIntentCompile had forced the left pane onto the COMPILER tab.
@@ -3786,14 +3955,14 @@
     function _clearCompilerPromptIfStale() {
       if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
     }
-    // ROUTED TO — the model this compile was routed to plus the Red-Hat pass
-    // state, both taken from the draft stream itself. /api/compile-system
-    // answers {prompt} only (web.py:1180-1187), so it can supply neither.
+    // ROUTED TO — the model this compile was routed to, taken from the draft
+    // stream itself. /api/compile-system answers {prompt} only (web.py:1180-1187),
+    // so it can supply no runtime fact. The suffix is the model and nothing else:
+    // the Red-Hat pass is a stage of the pipeline, reported by its own row and its
+    // own pane, so "Red-Hat skipped" beside the model read as a second thing the
+    // request had been routed to.
     function _renderCompilerRoute() {
-      var parts = [];
-      if (__lastRunModel) parts.push(__lastRunModel);
-      if (__lastRunRedhat) parts.push("Red-Hat " + __lastRunRedhat);
-      populateCompilerRoute(parts.join(" \u00b7 "));
+      populateCompilerRoute(__lastRunModel || "");
     }
 
     function beginIntentCompile(raw) {
@@ -3817,11 +3986,13 @@
           if (typeof j.prompt === "string" && j.prompt.length > 0) {
             setCompilerPrompt(j.prompt);
           }
-          // The bar is painted before this promise settles, so the tick only
-          // becomes true once the prompt actually came back. No count and no
-          // check result: the pipeline stages report those.
+          // The prompt came back; the run has not. The validator's verdict
+          // arrives on the draft stream, and a document that will be refused
+          // streams exactly like one that will pass — so the status line reads
+          // as in-flight here and stays that way. The checkmark is written only
+          // by the `complete` frame that carries the pass (handleEvent).
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+            intentSummaryTextEl.textContent = "Compiling\u2026";
           }
         })
         .catch(function (err) {
@@ -3890,10 +4061,11 @@
       bar.className = "intent-summary";
       var textEl = document.createElement("span");
       textEl.className = "intent-summary-text";
-      // Not a result: the intent prompt may still be in flight, and the
-      // verification checks run (or skip) later in the pipeline, where the
-      // per-stage rows report their real state.
-      textEl.textContent = "\u2026 Compiling intent";
+      // Not a result: the prompt may still be in flight, and the validator's
+      // verdict has not arrived. The bar reads the same through the whole
+      // in-flight window and is flipped to the checkmark by the passing
+      // `complete` frame, or replaced by the refusal card.
+      textEl.textContent = "Compiling\u2026";
       intentSummaryTextEl = textEl;
       var viewBtn = document.createElement("button");
       viewBtn.type = "button";
@@ -4121,6 +4293,7 @@
       // interactions work). Do NOT paste text or copy the column's innerHTML.
       renderJdfDocument(doc);
       applyConfidenceSpans(doc);
+      applyAnchorStates(doc);
       addEvidenceChips(doc);
       var oldErrs = docSurface.querySelectorAll(".doc-error");
       for (var i = 0; i < oldErrs.length; i++) oldErrs[i].remove();
@@ -4166,6 +4339,7 @@
           } else if (t === "verified") {
             if (data.document) {
               applyConfidenceSpans(data.document, col.__body);
+              applyAnchorStates(data.document, col.__body);
               addEvidenceChips(data.document, col.__body);
             }
           } else if (t === "error") {
@@ -4506,7 +4680,12 @@
     function _renderInspectorIdlePane() {
       var tab = SHELL.ui.rightTab || "evidence";
       if (tab === "evidence") { renderEvidencePanel(null); return; }
-      var body = (tab === "z3") ? z3ModeEl : redhatModeEl;
+      // The Red-Hat pane's whole content is its one action, so it is rendered
+      // with no node rather than replaced by a hint: the button is disabled and
+      // says why. A pane whose only control disappears is a pane a reader
+      // cannot tell from a broken one.
+      if (tab === "redhat") { renderRedhatPanel(null); return; }
+      var body = z3ModeEl;
       if (!body) return;
       while (body.firstChild) body.removeChild(body.firstChild);
       body.appendChild(_idleHint(tab));
@@ -4657,8 +4836,9 @@
         runBtn.setAttribute("aria-busy", "true");
       }
       // Any in-flight run locks every node's button (a second run is refused),
-      // and an unauditable node — one with no text field — is disabled and told
-      // why, immediately below. No enabled button ever bails silently.
+      // and an unauditable node — one with no text field, or no node at all —
+      // is disabled and told why, immediately below. No enabled button ever
+      // bails silently, and a disabled one is never silent either.
       runBtn.disabled = Boolean(__redhatRunningNodeId) || !_redhatAuditable(node);
       if (__redhatRunningNodeId && !runningHere) {
         runBtn.title = "A Red-Hat run is in progress on another node.";
@@ -4667,7 +4847,12 @@
         if (node && node.id) _runRedhatAudit(node.id);
       });
       wrap.appendChild(runBtn);
-      if (node && node.id && !_redhatAuditable(node)) {
+      if (!node) {
+        var selectEl = document.createElement("p");
+        selectEl.className = "evidence-value redhat-unavailable";
+        selectEl.textContent = REDHAT_SELECT_FIRST;
+        wrap.appendChild(selectEl);
+      } else if (node.id && !_redhatAuditable(node)) {
         var whyEl = document.createElement("p");
         whyEl.className = "evidence-value redhat-unavailable";
         whyEl.textContent = REDHAT_NOT_AUDITABLE;
@@ -4715,7 +4900,7 @@
           list.appendChild(li);
         });
         wrap.appendChild(list);
-      } else {
+      } else if (node) {
         var p0 = document.createElement("p"); p0.className = "evidence-value";
         p0.textContent = runningHere
           ? "Running Red-Hat audit…"
