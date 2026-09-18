@@ -953,6 +953,53 @@ def _numbers(text: str) -> set[str]:
     return out
 
 
+def _merge_short_sentences(sentences):
+    """Fold a sentence below the overlap floor into the sentence that follows it.
+
+    `_split_sentences` splits on newlines as well as on sentence punctuation, so
+    a *line* of the document is a sentence to the rest of this module — including
+    the lines that are not prose: a heading, a `Jurisdiction: Massachusetts`-style
+    label, a reference-list fragment, a run of citation numbers. Judged on its
+    own, each falls below `_MIN_ANCHOR_OVERLAP` and the eligible filter discarded
+    it outright. Two things then went wrong at once: a claim whose only evidence
+    was such a line could never anchor to it, and the line could never contribute
+    its tokens to a window either, so a heading that a paragraph plainly quotes
+    was invisible to the match.
+
+    Merging keeps the text instead of dropping it. A short sentence joins the
+    next one, and the pair is judged on the union of their tokens; if that still
+    falls short, the next sentence joins too. A sentence already at or above the
+    floor is emitted on its own, exactly as before — so this changes nothing for
+    prose, and rescues the lines that had been thrown away.
+
+    The merge is forward-only and a trailing short run has nothing to join: it is
+    kept whole rather than discarded, and the floor still judges it.
+    """
+    out = []
+    pending = []
+    for sent, page in sentences:
+        text = str(sent or "").strip()
+        if not text:
+            continue
+        pending.append((text, page))
+        joined = " ".join(part for part, _page in pending)
+        if len(_tokenize(joined)) < _MIN_ANCHOR_OVERLAP:
+            continue
+        out.append((joined, _first_page(pending)))
+        pending = []
+    if pending:
+        out.append((" ".join(part for part, _page in pending), _first_page(pending)))
+    return out
+
+
+def _first_page(pending):
+    """The first real page number in a merged run, so a window keeps a citable page."""
+    for _text, page in pending:
+        if page is not None:
+            return page
+    return None
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],
@@ -982,7 +1029,7 @@ def attach_substrate_provenance_to_tree(
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
         eligible = []
-        for sent, sent_page in _split_sentences(text):
+        for sent, sent_page in _merge_short_sentences(_split_sentences(text)):
             toks = _tokenize(sent)
             if len(toks) >= _MIN_ANCHOR_OVERLAP:
                 eligible.append((sent, toks, sent_page, _numbers(sent)))

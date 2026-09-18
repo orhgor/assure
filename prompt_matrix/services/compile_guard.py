@@ -42,6 +42,34 @@ REJECTION_MESSAGE = (
     "Review the intent or the source material and try again."
 )
 
+# The anchored-ratio floor, for the refusal that has numbers in it.
+#
+# Derived from the measured distribution, not chosen first: nine compiles of
+# three real documents (a state DOI rate-filing decision letter, an issued
+# commercial property policy, an ISO Causes of Loss form) x three asks each,
+# on staging 2026-09-18, with the sub-floor sentence merge already live. The
+# anchored ratio (anchored / eligible) sorted:
+#
+#     33 %  40 %  50 %  50 %  67 %  83 %  85 %  92 %  100 %
+#     median 67 %   mean 67 %   min 33 %   max 100 %
+#
+# Seven of the nine sit at or above 50 %, and the two that do not (33 % and
+# 40 %) are both broad asks whose drafts left a third to two thirds of their
+# claims with no source sentence at all — the "the source may not cover the
+# question" case this refusal exists for. 50 % is half the observed typical
+# good answer, and it refuses exactly those two while passing every specific
+# and medium ask. The frozen demo document is 3 of 3 anchored (100 %) and is
+# unchanged by it.
+_MIN_ANCHOR_RATIO = 0.50
+
+# The refusal speaks in the two numbers it is about, so the user can see how
+# far short the draft fell instead of being told only that it failed.
+_RATIO_FLOOR_MESSAGE = (
+    "Only {anchored} of {eligible} claims could be grounded in the source. "
+    "The source may not cover the question. Try a more specific ask, or upload "
+    "additional sources."
+)
+
 # SOURCES pane label for a flagged source (``substrate_list`` sends the flag and
 # hits; the shell renders this string and the hits as its hover detail).
 SOURCE_FLAG_LABEL = "contains instruction-like content — reviewed"
@@ -230,15 +258,22 @@ def is_question_to_source_bridge(sentence: str) -> bool:
 
 @dataclass(frozen=True)
 class ValidationOutcome:
-    """Verdict on one compiled draft. ``reason`` is the machine code, logged."""
+    """Verdict on one compiled draft. ``reason`` is the machine code, logged.
+
+    ``message_override`` is for the refusals that carry numbers; the rest fall
+    back to the single client-facing sentence.
+    """
 
     ok: bool
     reason: str = ""
     detail: str = ""
+    message_override: str = ""
 
     @property
     def message(self) -> str:
-        return "" if self.ok else REJECTION_MESSAGE
+        if self.ok:
+            return ""
+        return self.message_override or REJECTION_MESSAGE
 
 
 def validate_compiled_draft(
@@ -281,6 +316,26 @@ def validate_compiled_draft(
             detail=(
                 f"no paragraph anchored ({int(provenance.get('eligible') or 0)} eligible) "
                 f"and the opening is not a question to the source: {opening[:120]!r}"
+            ),
+        )
+
+    # Some claims grounded is not the same as the draft being grounded. A
+    # document that anchors one paragraph in three reads as an answer while two
+    # thirds of it stands on nothing, and the user cannot tell the difference by
+    # reading. Below the floor the whole draft is refused, with the two numbers
+    # it is about, and nothing is persisted or rendered.
+    _eligible = int(provenance.get("eligible") or 0)
+    _anchored = int(provenance.get("anchored") or 0)
+    if not bridged and _eligible > 0 and (_anchored / _eligible) < _MIN_ANCHOR_RATIO:
+        return ValidationOutcome(
+            ok=False,
+            reason="anchored_ratio_below_floor",
+            detail=(
+                f"{_anchored}/{_eligible} anchored = {_anchored / _eligible:.0%} "
+                f"is below the floor {_MIN_ANCHOR_RATIO:.0%}"
+            ),
+            message_override=_RATIO_FLOOR_MESSAGE.format(
+                anchored=_anchored, eligible=_eligible
             ),
         )
 

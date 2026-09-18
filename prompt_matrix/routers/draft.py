@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import sys
 import time
 import uuid
@@ -35,6 +36,12 @@ try:
         parse_document,
     )
     from ..routers.inquire_stream import _parse_metrics
+    from ..services.answer_shape import (
+        DIRECT as ANSWER_SHAPE_DIRECT,
+        build_direct_document,
+        choose_shape,
+        shape_instruction,
+    )
     from ..services.audit_summary import _provenance_counts, build_audit_summary
     from ..services.compile_guard import (
         scan_source_instruction_like,
@@ -72,6 +79,12 @@ except ImportError:
         parse_document,
     )
     from routers.inquire_stream import _parse_metrics
+    from services.answer_shape import (
+        DIRECT as ANSWER_SHAPE_DIRECT,
+        build_direct_document,
+        choose_shape,
+        shape_instruction,
+    )
     from services.audit_summary import _provenance_counts, build_audit_summary
     from services.compile_guard import (
         scan_source_instruction_like,
@@ -189,6 +202,7 @@ class DraftPayload(BaseModel):
     content: str | None = None
     target_ai: str | None = None
     lock_numbers: bool | None = None
+    force: bool = False
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -238,12 +252,79 @@ def _check_cancel(cancel_check: CancelCheck | None) -> None:
         raise DraftCancelledError("client disconnected")
 
 
-def _draft_messages(intent: str, context: str | None) -> list[dict[str, str]]:
+#: Projects whose compiled document is a frozen artifact — the demo, and the
+#: document the determinism gate names. A compile on one of these that MISSES the
+#: cache would persist a new revision and move the artifact off the version it is
+#: pinned to, which is how `demo-3235f5` went from v44 to v45 during a well-
+#: intentioned verification pass. The set is env-driven so the owner can change it
+#: without a deploy, and the guard is in the compile path rather than in a runbook
+#: because a runbook does not stop the next agent.
+_FROZEN_PROJECTS_DEFAULT = "demo-3235f5,a4-d3-1789759434-4a6346"
+
+_FROZEN_COLD_MESSAGE = (
+    "This project holds a frozen document: a compile now would replace the revision "
+    "it is pinned to. Its cached compile still runs unchanged. To recompile it "
+    "deliberately, send force=true and the override is written to the audit log."
+)
+
+
+def frozen_projects() -> set[str]:
+    """Project ids whose document must not be recompiled cold (env-configurable)."""
+    raw = os.environ.get("ASSURE_FROZEN_PROJECTS", _FROZEN_PROJECTS_DEFAULT)
+    return {part.strip() for part in raw.split(",") if part.strip()}
+
+
+def frozen_cold_compile_blocked(*, project_id: str, cached_hit: bool, force: bool = False) -> str:
+    """The refusal message when a frozen artifact would be recompiled cold, else "".
+
+    A cache hit is not a cold compile: the runbook's demo path replays a warm
+    compile and writes nothing, so it stays allowed. ``force`` is the deliberate
+    override, and the caller logs it.
+    """
+    if force or cached_hit or project_id not in frozen_projects():
+        return ""
+    return _FROZEN_COLD_MESSAGE
+
+
+def _compile_cache_key(
+    project_id: str,
+    intent: str,
+    context: str | None,
+    substrate_context: str,
+    model: str,
+) -> str:
+    """The compile cache key for one ask — the single composition both callers use.
+
+    The key is a function of what determines the output: the ask, the sources and
+    the model. The answer shape is part of that because it is part of the system
+    message — but only for a ``direct`` ask, whose message differs from the one a
+    pre-shape entry was written under. A memo ask composes the key it always did,
+    so a warm compile stays warm (a miss would persist a new revision).
+    """
+    text = _compile_source_text(intent, context, substrate_context)
+    if choose_shape(intent) == ANSWER_SHAPE_DIRECT:
+        text = f"{text}\n[answer_shape:{ANSWER_SHAPE_DIRECT}]"
+    return compile_cache_key(project_id, text, target_ai=model)
+
+
+def _compile_system(shape: str) -> str:
+    """The compile system prompt for this ask's shape.
+
+    The shape block is appended, never substituted: the grounding, injection and
+    output constraints above it are the same for both shapes, and the shape only
+    decides how much document the answer is. The guard (``validate_compiled_draft``)
+    is handed this exact string, so a draft that echoes the prompt the model was
+    sent is refused whether the echo came from the shape block or from above it.
+    """
+    return f"{_COMPILE_SYSTEM}\n\n---\n\n{shape_instruction(shape)}".strip()
+
+
+def _draft_messages(intent: str, context: str | None, system_prompt: str) -> list[dict[str, str]]:
     parts = [f"User intent:\n{intent.strip()}"]
     if context and context.strip():
         parts.append(f"Additional context:\n{context.strip()}")
     return [
-        {"role": "system", "content": _COMPILE_SYSTEM},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": "\n\n".join(parts)},
     ]
 
@@ -625,6 +706,17 @@ def _stream_model(
             # cached, so the draft was the only source of the swing — and a
             # document that changes when nothing does cannot be reported as one.
             temperature=0.0,
+            # Sampling is pinned next to routing. The routing pin above fixes
+            # WHICH provider serves the call and says nothing about sampling: a
+            # ten-run measurement with it in place still produced one draft that
+            # differed from the other nine in both length and structure (len 3189
+            # vs 3137, eligible 12 vs 13, box 2026-09-18). `temperature=0.0` is
+            # not a guarantee either — a provider still reads `top_p`, and a seed
+            # is the only thing that makes a repeatable call repeatable on the
+            # providers that honour one. Both are written explicitly so "same
+            # intent, same sources" cannot rest on a provider default.
+            top_p=1.0,
+            seed=0,
             stream=True,
             stream_options={"include_usage": True},
             # Fallback handled at the provider layer (OpenRouter) later.
@@ -678,6 +770,7 @@ def run_draft_pipeline(
     governor: CostGovernor | None = None,
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
+    force: bool = False,
 ) -> Iterator[str]:
     rid = request_id or str(uuid.uuid4())
     start = time.perf_counter()
@@ -719,15 +812,20 @@ def run_draft_pipeline(
 
     substrate_context = _build_substrate_context(substrate_rows)
     combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
-    messages = _draft_messages(intent, combined_context)
+    # The shape is decided once, here, and it is a pure function of the ask — so
+    # the prompt below, the guard that judges the draft and the document built
+    # from it cannot disagree about how much document the answer should be. The
+    # cache key already carries the ask (see _compile_source_text), which is what
+    # makes a cache hit the same shape as the ask that earned it.
+    _shape = choose_shape(intent)
+    _system_prompt = _compile_system(_shape)
+    messages = _draft_messages(intent, combined_context, _system_prompt)
     # Resolved once, before the cache probe: the cache key and the ROUTED TO
     # panel both read this value, so a compile cannot report (or key on) a model
     # it did not call.
     _draft_model = _draft_route_model(target_ai)
-    cache_key = compile_cache_key(
-        project_id,
-        _compile_source_text(intent, context, substrate_context),
-        target_ai=_draft_model,
+    cache_key = _compile_cache_key(
+        project_id, intent, context, substrate_context, _draft_model
     )
     cached: dict[str, Any] | None = None
     try:
@@ -735,6 +833,34 @@ def run_draft_pipeline(
     except Exception:
         cached = None
     if isinstance(cached, dict) and cached.get("compiled"):
+        # The gates run on a replayed draft too. A cache hit is a draft rendered
+        # again from memory, so a document cached before a gate existed must not
+        # be the one path that renders what the gate refuses — otherwise a
+        # below-floor compile cached yesterday would still reach the canvas
+        # today, and the refusal would look like it worked only sometimes.
+        _cached_outcome = validate_compiled_draft(
+            draft=str((cached.get("compiled") or {}).get("draft_text") or ""),
+            source_texts=[str(row.get("extracted_text") or "") for row in substrate_rows],
+            system_prompt=_system_prompt,
+            provenance=(cached.get("verified") or {}).get("provenance_stats") or {},
+        )
+        if not _cached_outcome.ok:
+            audit.log_audit(
+                rid,
+                project_id,
+                "DRAFT_STREAM",
+                success=False,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_message=f"compile refused (cache replay): {_cached_outcome.reason}",
+                details={
+                    "rejection": _cached_outcome.reason,
+                    "detail": _cached_outcome.detail,
+                    "cache_hit": True,
+                    "cache_key": cache_key,
+                },
+            )
+            yield from _refusal_frames(_cached_outcome.message, _cached_outcome.reason, rid)
+            return
         yield from _replay_cached_compile(project_id, cache_key, cached, rid)
         audit.log_audit(
             rid,
@@ -745,6 +871,48 @@ def run_draft_pipeline(
             details={"cache_hit": True, "cache_key": cache_key},
         )
         return
+
+    # Nothing below this point has run: no model call, no tokens, no revision.
+    # A frozen project's document IS a pinned artifact, so a cold compile would
+    # replace the very revision it is pinned to — refuse here instead, above the
+    # budget preflight and above the model, so a refusal cannot cost a call. A
+    # warm compile returned above and is untouched.
+    _frozen_refusal = frozen_cold_compile_blocked(
+        project_id=project_id, cached_hit=False, force=force
+    )
+    if _frozen_refusal:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message="compile refused: frozen_project_cold_compile",
+            details={"rejection": "frozen_project_cold_compile", "cache_key": cache_key},
+        )
+        _log.warning(
+            "[compile-refused] frozen_project_cold_compile project=%s intent=%s",
+            project_id,
+            _sha256_text(intent),
+        )
+        yield from _refusal_frames(_frozen_refusal, "frozen_project_cold_compile", rid)
+        return
+    if force and project_id in frozen_projects():
+        # The override is an authorised act, not a failure: recorded so a cold
+        # compile on a frozen artifact is visible afterwards rather than merely
+        # possible.
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=True,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            details={
+                "frozen_override": True,
+                "cache_hit": False,
+                "note": "cold compile of a frozen artifact was explicitly forced",
+            },
+        )
 
     yield _typed_sse(
         "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
@@ -884,7 +1052,18 @@ def run_draft_pipeline(
         {"redhat": redhat_payload, **redhat_payload},
     )
 
-    document = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
+    if _shape == ANSWER_SHAPE_DIRECT:
+        # A direct answer is the claim units themselves, so each sentence the
+        # model wrote is a node the matcher may anchor and the gate may count —
+        # which is what lets a one-line answer carry per-claim verification
+        # state instead of one state for the whole answer.
+        document = build_direct_document(project_id, full_text, truth_ledger=ledger)
+    else:
+        document = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
+    # The shape the draft was asked for, recorded on the document: the export
+    # sidecar and the reader of it can then see which contract the compile ran
+    # under, and a restored document does not have to guess from its headings.
+    document.meta["answer_shape"] = _shape
     doc_dict = document_to_dict(document)
     if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
@@ -897,7 +1076,7 @@ def run_draft_pipeline(
     _outcome = validate_compiled_draft(
         draft=full_text,
         source_texts=_source_texts,
-        system_prompt=_COMPILE_SYSTEM,
+        system_prompt=_system_prompt,
         provenance=_provenance_counts(doc_dict),
     )
     if not _outcome.ok:
@@ -1368,6 +1547,7 @@ def register_draft_routes(app) -> None:
                     "compileType": data.get("compileType") or data.get("compile_type") or "full",
                     "content": data.get("content"),
                     "target_ai": data.get("target_ai"),
+                    "force": bool(data.get("force")),
                 }
             )
         except Exception as exc:
@@ -1393,17 +1573,26 @@ def register_draft_routes(app) -> None:
                 if payload.substrate_file_ids
                 else []
             )
-            peek_key = compile_cache_key(
+            peek_key = _compile_cache_key(
                 project_id,
-                _compile_source_text(intent, payload.context, _build_substrate_context(rows)),
-                target_ai=_draft_route_model(payload.target_ai),
+                intent,
+                payload.context,
+                _build_substrate_context(rows),
+                _draft_route_model(payload.target_ai),
             )
             peek = load_ast_cache(peek_key)
             cached_hit = bool(isinstance(peek, dict) and peek.get("compiled"))
         except Exception:
             cached_hit = False
 
-        if not cached_hit:
+        # A frozen artifact is only recompiled if its cache is warm. Skipping the
+        # daily-limit counter for a refusal keeps the counter about compiles that
+        # could run, and the pipeline refuses the same request for the same reason
+        # (one guard, one message).
+        blocked = frozen_cold_compile_blocked(
+            project_id=project_id, cached_hit=cached_hit, force=payload.force
+        )
+        if not cached_hit and not blocked:
             try:
                 check_daily_compile_limit(project_id)
             except DailyCompileLimitError as exc:
@@ -1423,6 +1612,7 @@ def register_draft_routes(app) -> None:
                     target_ai=(payload.target_ai or None),
                     request_id=request_id,
                     cancel_check=cancel_check,
+                    force=payload.force,
                 )
             except GeneratorExit:
                 return
