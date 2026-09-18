@@ -20,8 +20,9 @@
   // cookie for this origin, so every same-origin call — fetch, <script>,
   // SSE — carries the key without JavaScript ever holding it. Nothing is
   // persisted client-side: a localStorage copy outlives the session and
-  // any script on the page can read it. A 401 means the cookie is gone
-  // or the key was rotated — go back to the gate.
+  // any script on the page can read it. A 401 is not one thing: which door
+  // refused it — and so where the reader is sent — is decided in
+  // `bounceOnUnauthorized` below, never by the status alone.
   // ---------------------------------------------------------------
   (function dropLegacyAccessKey() {
     // Browsers that loaded the shell before the cookie-only gate still hold a
@@ -29,17 +30,95 @@
     try { window.localStorage.removeItem("assure_shell_key"); } catch (_) {}
   })();
 
+  // A same-origin 401 has three causes and they need three different answers:
+  //
+  //   the gate refused it   no/rotated `assure_shell_key`; only the key page can
+  //                         help                                          -> /auth
+  //   no session            the request reached the app, so the key is fine and
+  //                         Clerk is the fix                             -> /signin
+  //   a session, still 401  not about the session at all: there is nothing to
+  //                         bounce to. Say so and leave the page alone.
+  //
+  // The third case is the loop. A shell that rendered fail-open fires a 401, the
+  // old handler sent the reader to /auth, the key reloaded the shell, and the
+  // same 401 fired again — Clerk never appeared.
   (function bounceOnUnauthorized() {
     var raw = window.fetch;
     if (typeof raw !== "function") return;
+
+    // The gate answers a keyless /api/* call with 401 + this header
+    // (dev-server.py:_deny). The app's own 401 is JSON only, so the header says
+    // which of the two doors refused.
+    var GATE_REALM = "assure-shell";
+
+    function refusedByGate(resp) {
+      try {
+        var header = resp.headers.get("WWW-Authenticate");
+        return Boolean(header) && header.indexOf(GATE_REALM) !== -1;
+      } catch (_) { return false; }
+    }
+
+    function leaveFor(target) {
+      try { window.location.replace(target); } catch (_) {}
+    }
+
+    // Not decoration: a 401 this code refuses to bounce on is a failure the
+    // reader would otherwise watch repeat with no explanation.
+    function surface(message) {
+      try { console.error("[auth] " + message); } catch (_) {}
+      try {
+        var el = document.getElementById("shell-auth-error");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "shell-auth-error";
+          el.setAttribute("role", "alert");
+          el.style.cssText =
+            "position:fixed;left:0;right:0;top:0;z-index:2147483647;padding:10px 16px;" +
+            "background:#7A1F1F;color:#FFFFFF;" +
+            "font:13px/1.5 -apple-system,BlinkMacSystemFont,\"Inter\",\"Segoe UI\",sans-serif;";
+          (document.body || document.documentElement).appendChild(el);
+        }
+        el.textContent = message;
+      } catch (_) {}
+    }
+
+    // What the session endpoint says, in four values:
+    //   "gate"    the question itself was refused — the key cookie is gone
+    //   "none"    no session
+    //   "session" a session is live, so a 401 elsewhere is not about the session
+    //   "unknown" the question could not be asked
+    // `/api/auth/me` is public (cloud_auth.py:PUBLIC_API), so under clerk-only a
+    // visitor with no session gets 200 with an empty `user_id`, not a 401 — the
+    // empty id is what reports "no session".
+    function askSession() {
+      var probe;
+      try { probe = raw.call(window, "/api/auth/me", { cache: "no-store" }); }
+      catch (_) { return Promise.resolve("unknown"); }
+      return probe.then(function (resp) {
+        if (resp && resp.status === 401) return refusedByGate(resp) ? "gate" : "none";
+        if (!resp || !resp.ok) return "unknown";
+        return resp.json().then(
+          function (body) { return body && body.user_id ? "session" : "none"; },
+          function () { return "unknown"; }
+        );
+      }, function () { return "unknown"; });
+    }
+
     window.fetch = function (input, init) {
       var url = typeof input === "string" ? input : ((input && input.url) || "");
       var sameOrigin = url.charAt(0) === "/" || url.indexOf(window.location.origin) === 0;
       return raw.call(this, input, init).then(function (resp) {
-        if (resp && resp.status === 401 && sameOrigin) {
-          try { window.location.replace("/auth"); } catch (_) {}
-        }
-        return resp;
+        if (!resp || resp.status !== 401 || !sameOrigin) return resp;
+        // The caller always gets its own response back: this wrapper decides
+        // where the reader goes, never what their code sees.
+        if (refusedByGate(resp)) { leaveFor("/auth"); return resp; }
+        return askSession().then(function (state) {
+          if (state === "none" || state === "gate") { leaveFor("/signin"); return resp; }
+          surface(state === "session"
+            ? "This request was refused (401) while your session is live, so it is not a sign-in problem. Retry; if it persists the app logs carry the reason."
+            : "This request was refused (401) and the sign-in state could not be checked. Retry; if it persists the app logs carry the reason.");
+          return resp;
+        }, function () { return resp; });
       });
     };
   })();
