@@ -586,3 +586,32 @@ Restoring the word restores the key, so the key is a pure function of the prompt
 
 The earlier NOT RUN stands only for the **real-provider** end-to-end run, which the
 compile lock (held by another agent for the full window, twice) never allowed.
+
+## The cache-replay defect — mechanism sharpened by FixA, after my note above
+
+My entry recorded the cause as "the replay branch re-runs `validate_compiled_draft` and
+refuses". FixA pinned WHERE the missing evidence comes from, measured at `24d1b54`, and it
+is narrower and more useful than what I wrote:
+
+- `tests/test_omp_memory.py:100-115` seeds `load_ast_cache` with
+  `{"compiled": {...}, "verified": {"z3_status": "PASS", "redhat_count": 0, "gate_status": "pass"}}`
+  — **no `provenance_stats`.**
+- `draft.py:973-979` then calls
+  `validate_compiled_draft(..., provenance=(cached.get("verified") or {}).get("provenance_stats") or {})`,
+  so provenance is `{}`, `anchored == 0`, and the refusal is `zero_anchored_claims` about the
+  literal draft `"cached draft"`.
+- **The real writer does not produce such a row:** `draft.py:1444-1448` stores
+  `{"compiled": compiled_payload, "verified": verified_payload}`, where `verified_payload` is
+  `build_audit_summary(...)`'s output and carries `provenance_stats`. A row written by this
+  pipeline carries the evidence and is not refused. The test's hand-built payload predates the
+  gate's provenance argument.
+
+So the defect is **the reason text, not the refusal**: `zero_anchored_claims` asserts "no
+paragraph anchored" about a document no gate ever measured on this replay. FixA names the two
+honest fixes — skip the grounding re-check when the row carries no evidence, or give the absent
+evidence its own reason (`cached_provenance_missing`), with making `provenance_stats` a required
+field of the cached payload the smaller one. Unowned by Main's choice; not patched.
+
+And A1 is excluded as a cause from two directions: its line in that call
+(`instruction=normalized_ask(intent)`) only removes the user's own ask from the echo scan and
+cannot yield `zero_anchored_claims`, and I reproduced the failure at `429fd09`, where A1 is absent.
