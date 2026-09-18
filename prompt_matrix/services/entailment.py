@@ -20,19 +20,27 @@ judgements; ``unverified`` is the visible failure of a call that could not be
 made or could not be parsed — never a silent pass, and never a fallback to the
 lexical anchor alone.
 
-One model call per anchored paragraph, cached only within a single compile.
+One model call per anchored paragraph, reused within a compile and — through
+``services/entailment_cache``, keyed on the claim, the evidence window, the
+composed prompt, the model and the pipeline version — across compiles too, so a
+re-stated paragraph costs no second judgement. A failed call is never cached.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import UTC, datetime
 from typing import Any, Callable
 
 try:
     from ..cost_governance import CostGovernor, TaskType
+    from .entailment_cache import load_verdict, store_verdict, verdict_cache_key
 except ImportError:
     from cost_governance import CostGovernor, TaskType
+    from entailment_cache import load_verdict, store_verdict, verdict_cache_key
+
+_log = logging.getLogger(__name__)
 
 VERDICTS = ("yes", "no", "partial", "unverified")
 
@@ -141,9 +149,16 @@ def parse_entailment_verdict(raw: str, model: str) -> dict[str, Any]:
 def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[str, Any]:
     """Ask the SEMANTIC_VALIDATION policy model whether ``source`` entails ``claim``.
 
+    The one place a verdict is obtained, and so the one place it is cached: a
+    judgement already made for this (claim, evidence) under this prompt and this
+    model is returned from ``entailment_cache`` without a model call. The key
+    covers the claim, the evidence, the composed prompt, the model and the
+    pipeline version, so any of those changing is a new question and a real call.
+
     Never raises: every failure becomes an ``unverified`` record carrying the
     reason, so a broken call degrades the gate to "not verified" rather than
-    falling back to the lexical anchor or (worse) a pass.
+    falling back to the lexical anchor or (worse) a pass. A failure is never
+    cached — a transient 401 must not become this claim's permanent verdict.
     """
     gov = CostGovernor()
     model_id = ""
@@ -152,7 +167,14 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
     except Exception:
         pass
 
-    messages = [{"role": "user", "content": build_entailment_prompt(claim, source)}]
+    prompt = build_entailment_prompt(claim, source)
+    cache_key = verdict_cache_key(claim, source, prompt, model_id) if model_id else ""
+    cached = load_verdict(cache_key)
+    if cached is not None:
+        _log.info("[entailment-cache] hit %s", cache_key)
+        return cached
+
+    messages = [{"role": "user", "content": prompt}]
     try:
         policy = gov.preflight(project_id or "entailment", TaskType.SEMANTIC_VALIDATION, messages)
         executor = gov.executor or gov._default_executor  # noqa: SLF001
@@ -178,7 +200,10 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
         # Accounting must never change a verdict; the call already happened.
         pass
 
-    return parse_entailment_verdict(raw, policy.model_id)
+    record = parse_entailment_verdict(raw, policy.model_id)
+    if record.get("verdict") != "unverified":
+        store_verdict(cache_key, project_id, record)
+    return record
 
 
 def _claim_source(node: dict[str, Any]) -> tuple[str, str]:
@@ -221,7 +246,9 @@ def attach_entailment_to_tree(
 
     Runs after lexical anchoring (``models/jdf.py``) and writes the verdict at
     ``node.meta.provenance.entailment``. Pass ``cache`` to share verdicts within
-    one compile; verdicts are never reused across compiles.
+    one compile; a verdict for the same (claim, evidence) already judged under the
+    same prompt and model is reused from ``entailment_cache`` across compiles, so a
+    compile that re-states a paragraph costs no model call for it.
     """
     if not document:
         return document
