@@ -735,6 +735,34 @@ def run_draft_pipeline(
     except Exception:
         cached = None
     if isinstance(cached, dict) and cached.get("compiled"):
+        # The gates run on a replayed draft too. A cache hit is a draft rendered
+        # again from memory, so a document cached before a gate existed must not
+        # be the one path that renders what the gate refuses — otherwise a
+        # below-floor compile cached yesterday would still reach the canvas
+        # today, and the refusal would look like it worked only sometimes.
+        _cached_outcome = validate_compiled_draft(
+            draft=str((cached.get("compiled") or {}).get("draft_text") or ""),
+            source_texts=[str(row.get("extracted_text") or "") for row in substrate_rows],
+            system_prompt=_COMPILE_SYSTEM,
+            provenance=(cached.get("verified") or {}).get("provenance_stats") or {},
+        )
+        if not _cached_outcome.ok:
+            audit.log_audit(
+                rid,
+                project_id,
+                "DRAFT_STREAM",
+                success=False,
+                duration_ms=int((time.perf_counter() - start) * 1000),
+                error_message=f"compile refused (cache replay): {_cached_outcome.reason}",
+                details={
+                    "rejection": _cached_outcome.reason,
+                    "detail": _cached_outcome.detail,
+                    "cache_hit": True,
+                    "cache_key": cache_key,
+                },
+            )
+            yield from _refusal_frames(_cached_outcome.message, _cached_outcome.reason, rid)
+            return
         yield from _replay_cached_compile(project_id, cache_key, cached, rid)
         audit.log_audit(
             rid,
