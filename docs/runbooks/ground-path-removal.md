@@ -38,10 +38,34 @@ and flagged, and no rewrite is persisted. The anchored counts are unchanged by
 the removal — the compile pipeline never called `ground_node` (its only caller was
 the removed route), so nothing that produced an anchored paragraph was lost.
 
-## Live or tree?
+## Live — `PENDING LANDING` is cleared
 
-Fixed in the tree, **still running on the box** until the next restart. The
-running service (started 20:14:32, `NRestarts=0`) still answers `POST
-/api/projects/<id>/nodes/<id>/ground` with the old handler's response, because
-nothing was restarted when the path was removed. Read "removed" as "not in the
-tree"; the concealment stops at the next deploy.
+**Live on staging since the restart at 2026-09-18 20:31 UTC** (`assure-prototype` active,
+NRestarts=0, /health 200). The acceptance probe:
+
+```
+POST /api/projects/x/nodes/y/ground   -> HTTP 404
+{"error":"We couldn't find that page."}
+```
+
+The route is gone from the product, not merely from the tree. The frozen demo is
+untouched by the restart: `demo-3235f5.current_version` is still 45 and
+`GET /api/projects/demo-3235f5/jdf` serves 200 — a restart reloads code, it
+compiles nothing.
+
+## It was a pure subtraction
+
+* `app.url_map` carries no `/ground` rule.
+* `SEARCH_PROMPT`, `SEARCH_MODEL` and `_rewrite_with_search` existed only inside
+  `services/ground_node.py`.
+* `search_attribution` was written there and read nowhere.
+* `ground_node`'s only caller was the removed route; `draft.py`,
+  `orchestrator.py` and `tasks/*` contain no reference.
+
+## The anchored counts are unchanged
+
+The rewrite created no source row, ingested nothing and never re-ran the gate, so
+it could never have produced an anchor — no anchored number was ever propped up
+by it. Verified on a scratch project with the removal in the tree: 5 paragraphs,
+5 of 5 anchored from the uploaded source's own sentences, no `search_attribution`
+anywhere and no rewrite frame.
