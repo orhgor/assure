@@ -91,13 +91,18 @@
       if (!target[parts[i]]) target[parts[i]] = {};
       target = target[parts[i]];
     }
-    target[parts[parts.length - 1]] = value;
+    var leaf = parts[parts.length - 1];
+    // The previous value travels with the write: the two paths that own the
+    // right pane repaint only when their value actually changed (§6), and only
+    // the writer knows what it replaced.
+    var prev = target[leaf];
+    target[leaf] = value;
     if (typeof _syncShellPathToDom === "function") {
-      _syncShellPathToDom(path, value);
+      _syncShellPathToDom(path, value, prev);
     }
   }
 
-  function _syncShellPathToDom(path, value) {
+  function _syncShellPathToDom(path, value, prev) {
     if (path === "document.current") {
       // no-op — renderJdfDocument renders; caller sets current explicitly
     } else if (path === "document.mode") {
@@ -157,6 +162,12 @@
         }
       });
       setShell("ui.layout.rightCollapsed", false);
+      // §6: the pane is a function of (tab, selected node, evidence payload).
+      // Re-writing the tab it already has replaces no input, so it repaints
+      // nothing — a click that also writes a selection must not pay for a
+      // second build of the same surface. Compare is the exception: leaving it
+      // is a change even when the tab name is unchanged.
+      if (value === prev && !inspectorCompareActive) return;
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.selection.nodeId") {
@@ -166,10 +177,26 @@
         var selEl = document.querySelector('.doc-draft .jdf-node[data-node-id="' + String(value) + '"]');
         if (selEl) selEl.classList.add("is-selected");
       }
+      // Same guard, same reason: re-selecting the node that is already
+      // selected replaces nothing the pane reads. Callers that need the side
+      // effects for an unchanged id (the doc surface's rephrase editor and
+      // node history) call them directly.
+      if (value === prev && !inspectorCompareActive) return;
       if (typeof _loadNodeHistory === "function") _loadNodeHistory(value);
       if (typeof _attachNodeRephrase === "function") _attachNodeRephrase(value);
       inspectorCompareActive = false;
       if (_applyRightViewFn) _applyRightViewFn();
+    } else if (path === "ui.selection.evidence") {
+      // §6: the evidence payload is the pane's third input — a z3/cite chip's
+      // drawer, or a confidence span's ledger tail. The click handlers write it
+      // BEFORE the node id, so it belongs to a node that is not selected yet
+      // and repaints nothing; the node id write then paints once, with the
+      // payload already in place. Re-clicking the item that is already
+      // selected changes only this input, so this write is what repaints.
+      var sel = SHELL.ui.selection || {};
+      var onScreen = (value && value.nodeId === sel.nodeId) ||
+                     (!value && prev && prev.nodeId === sel.nodeId);
+      if (onScreen && _applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.layout.leftWidth") {
       document.documentElement.style.setProperty("--left-w", value + "px");
     } else if (path === "ui.layout.rightWidth") {
@@ -3156,17 +3183,22 @@
     var compareBodyEl  = document.getElementById("compare-body");
     var evidenceBodyEl = evidenceModeEl;
     if (docSurface) docSurface.addEventListener("click", function (e) {
-      // No .jdf-span / .jdf-chip guard: neither class is produced by
-      // renderJdfNode or addEvidenceChips — the guards matched nothing.
+      // The node is read from whatever carries data-node-id (a node wrapper,
+      // an evidence chip, or a confidence span) — the earlier .jdf-span /
+      // .jdf-chip guards matched nothing, because neither class exists.
       var nodeEl = e.target.closest("[data-node-id]");
       var nid = nodeEl ? nodeEl.getAttribute("data-node-id") : null;
-      // A confidence span owns its click: handleConfidenceClick paints the
-      // ledger-check drawer, and re-selecting here would redraw
-      // #right-evidence and clear that drawer in the same tick. The doc-side
-      // work below still has to run for it — the rephrase editor + node
-      // history live in this DOMContentLoaded scope, so the outer IIFE's
-      // ui.selection.nodeId sync cannot reach them (typeof-guarded no-op).
-      if (!e.target.closest(".conf-span")) setShell("ui.selection.nodeId", nid);
+      // A confidence span and an evidence chip own their click: each writes its
+      // own evidence payload before the node id, so neither goes through this
+      // selection. Any other target is a plain paragraph selection, and the
+      // payload written for the last chip or span must not outlive it — the
+      // pane would otherwise keep a drawer that belongs to the node the user
+      // just re-selected. The clear follows the node id so the id's paint is
+      // the one that already shows the panel (shell.js:_syncShellPathToDom).
+      if (!e.target.closest(".conf-span") && !e.target.closest(".chip")) {
+        setShell("ui.selection.nodeId", nid);
+        setShell("ui.selection.evidence", null);
+      }
       if (nid) {
         if (typeof _attachNodeRephrase === "function") _attachNodeRephrase(nid);
         if (typeof _loadNodeHistory === "function") _loadNodeHistory(nid);
@@ -3622,9 +3654,12 @@
         evidence = { kind: "cite", nodeId: nodeId, data: node.provenance[index] };
       }
       if (!evidence) return;
-      setShell("ui.selection.nodeId", nodeId);
+      // §6: as with a confidence span, the payload goes in first so the node id
+      // write below paints it. The drawer used to be built right here and then
+      // wiped by _applyRightView in the same click — which is also why its
+      // "Ground with sources" action had no route to the screen.
       setShell("ui.selection.evidence", evidence);
-      renderEvidenceDrawer(evidence);
+      setShell("ui.selection.nodeId", nodeId);
       openRight();
       setMode("evidence");
     }
@@ -3659,105 +3694,36 @@
       var span = e.currentTarget;
       var nodeId = span.getAttribute("data-node-id");
       if (!nodeId) return;
-      // Resolve the owning tree: a compare column keeps its own doc on
-      // __jdfDoc; otherwise fall back to the center/accepted document.
-      var host = span.closest(".compare-col-body, .doc-draft, .doc-surface");
-      var tree = (host && host.__jdfDoc) ? host.__jdfDoc : SHELL.document.current;
-      var node = findJdfNodeById(nodeId, tree);
+      // §6: state in, one paint out. The payload is written first, while
+      // another node (or none) is still selected, so it repaints nothing; the
+      // node id write below is the click's single render, and the pane draws
+      // the paragraph panel with this span's ledger tail already attached. The
+      // second writer that used to clear and repaint the pane here is gone.
+      setShell("ui.selection.evidence", {
+        kind: "confidence",
+        nodeId: nodeId,
+        data: { score: span.getAttribute("data-score") },
+      });
       setShell("ui.selection.nodeId", nodeId);
-      setShell("ui.selection.evidence", { kind: "confidence", nodeId: nodeId, data: {} });
       openRight();
       setMode("evidence");
-      // Paint the drawer LAST. setMode -> rightGroupSetTab -> _applyRightView
-      // re-renders #right-evidence for the selected node, so a drawer written
-      // before it (as this used to) was cleared in the same tick and never
-      // reached the screen.
-      renderConfidenceEvidence(span, node);
     }
 
-    function renderConfidenceEvidence(span, node) {
+    // §6: demoted — no longer a writer. renderEvidencePanel owns the pane and
+    // paints the paragraph panel (verdict header, reasoning, excerpt, fields);
+    // this appends the clicked span's ledger tail under it. The score is the
+    // span's own ledger signal, carried on the selection payload, so the span
+    // element is never read back out of the DOM. The empty-source wording is
+    // the panel's now (one surface, one wording) — the two used to differ only
+    // here, which is the kind of drift a second writer causes.
+    function renderConfidenceEvidence(ev) {
       if (!evidenceBodyEl) return;
-      var nodeId = span ? span.getAttribute("data-node-id") : "";
-      var scoreRaw = span ? span.getAttribute("data-score") : "";
-      var score = parseFloat(scoreRaw);
+      var score = parseFloat(ev && ev.data ? ev.data.score : "");
       if (isNaN(score)) score = 0;
-
-      function field(label, value) {
-        var s = String(value == null ? "" : value);
-        if (!s) return null;
-        var f = document.createElement("div");
-        f.className = "evidence-field";
-        var l = document.createElement("div");
-        l.className = "evidence-label";
-        l.textContent = label;
-        var v = document.createElement("div");
-        v.className = "evidence-value";
-        v.textContent = s;
-        f.appendChild(l);
-        f.appendChild(v);
-        return f;
-      }
-
-      while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
-
-      var prov = node && node.meta && node.meta.provenance;
-      var provs = Array.isArray(prov) ? prov : (prov ? [prov] : []);
-      var p0 = provs[0] || null;
-
-      var header = document.createElement("div");
-      header.className = "evidence-header";
-      var ent0 = _entailmentFor(node, p0);
-      if (!p0 && !ent0) {
-        header.textContent = "Evidence \u00b7 no source matched";
-        evidenceBodyEl.appendChild(header);
-        var empty = document.createElement("div");
-        empty.className = "evidence-content";
-        var emptyMsg = document.createElement("p");
-        emptyMsg.className = "evidence-value";
-        emptyMsg.textContent = "The generated text did not match any sentence in the uploaded sources.";
-        empty.appendChild(emptyMsg);
-        evidenceBodyEl.appendChild(empty);
-        return;
-      }
-
-      var srcName = String((p0 && p0.source_name) || "");
-      var pageRaw = p0 ? p0.page_number : "";
-      var pageStr = (pageRaw != null && pageRaw !== "") ? String(pageRaw) : "";
-      // Same verdict-driven label as the selected-paragraph view: the span's
-      // score is a separate (ledger) signal and must not title the label.
-      header.textContent = _entailmentLabel(node, p0, pageStr);
-      evidenceBodyEl.appendChild(header);
-
-      var content = document.createElement("div");
-      content.className = "evidence-content";
-
-      var reasoning = _entailmentReasoning(node, p0);
-      if (reasoning) {
-        var reasonEl = document.createElement("p");
-        reasonEl.className = "evidence-value";
-        reasonEl.textContent = reasoning;
-        content.appendChild(reasonEl);
-      }
-
-      var excerpt = String(p0.excerpt || p0.extracted_quote || "");
-      if (excerpt) {
-        var quote = document.createElement("blockquote");
-        quote.className = "evidence-blockquote";
-        quote.textContent = excerpt;
-        content.appendChild(quote);
-      }
-
-      var f;
-      if ((f = field("Source", srcName))) content.appendChild(f);
-      if (pageStr && (f = field("Page", pageStr))) content.appendChild(f);
-      if ((f = field("Rule", p0.rule))) content.appendChild(f);
-      if ((f = field("Confidence", p0.confidence))) content.appendChild(f);
-      evidenceBodyEl.appendChild(content);
-
       var foot = document.createElement("div");
       foot.className = "evidence-footer";
-      var scoreText = (score <= 1) ? (Math.round(score * 100) + "%") : String(score);
-      foot.textContent = "Ledger check score: " + scoreText;
+      foot.textContent = "Ledger check score: " +
+        ((score <= 1) ? (Math.round(score * 100) + "%") : String(score));
       evidenceBodyEl.appendChild(foot);
     }
 
@@ -3777,21 +3743,48 @@
     // No node selected: the active tab still owns the pane, so keep it
     // revealed with a styled hint rather than a blank (or stale) body. The
     // real panel renderers are deliberately not called with a null node.
+    // §6: the evidence body's idle state is a node-less call of the pane's one
+    // writer, so #right-evidence has exactly one writer whether or not a node
+    // is selected. Z3 and Red-Hat are separate bodies with their own hint.
     function _renderInspectorIdlePane() {
       var tab = SHELL.ui.rightTab || "evidence";
-      var body = (tab === "z3") ? z3ModeEl : (tab === "redhat") ? redhatModeEl : evidenceModeEl;
+      if (tab === "evidence") { renderEvidencePanel(null); return; }
+      var body = (tab === "z3") ? z3ModeEl : redhatModeEl;
       if (!body) return;
       while (body.firstChild) body.removeChild(body.firstChild);
+      body.appendChild(_idleHint(tab));
+    }
+    function _idleHint(tab) {
       var hint = document.createElement("p");
       hint.className = "empty-hint";
       hint.textContent = "No paragraph selected — " +
         (tab === "z3" ? "Z3 findings" : (tab === "redhat" ? "Red-Hat findings" : "evidence")) +
         " appear here.";
-      body.appendChild(hint);
+      return hint;
     }
-    function renderEvidencePanel(node) {
+    function renderEvidencePanel(node, opts) {
       if (!evidenceBodyEl) return;
       while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
+      // §6: the ONE writer of #right-evidence, in the precedence the pane's
+      // four states have: an explicitly opened drawer (the user named that
+      // item) beats the paragraph panel; the panel carries a clicked span's
+      // ledger tail; with nothing selected the pane is idle. The other writers
+      // are builders this one calls — neither clears the pane any more.
+      //
+      // The spec's `drawer > panel > confidence > idle` line describes this
+      // order, which is why it is expressed here rather than in the dispatch:
+      // two of the four writers are reached from event handlers (a chip, a
+      // confidence span), never from _applyRightView, so there was no
+      // dispatcher-side precedence to reorder — the call sites that produced
+      // the extra builds were the handlers themselves.
+      if (opts && opts.drawer) { renderEvidenceDrawer(opts.drawer); return; }
+      if (!node) { evidenceBodyEl.appendChild(_idleHint("evidence")); return; }
+      // The clicked span's ledger tail is appended wherever this function
+      // exits: the score is a ledger signal, so it survives a paragraph whose
+      // source did not match. `tail` runs at most once per call.
+      var tail = (opts && opts.confidence) ? function () {
+        renderConfidenceEvidence(opts.confidence);
+      } : null;
       var prov = node.provenance;
       if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
       if (!Array.isArray(prov)) prov = prov ? [prov] : [];
@@ -3809,6 +3802,7 @@
         emptyMsg.textContent = "No source matched this paragraph";
         empty.appendChild(emptyMsg);
         evidenceBodyEl.appendChild(empty);
+        if (tail) tail();
         return;
       }
       var srcName = String((p0 && p0.source_name) || "");
@@ -3828,7 +3822,7 @@
         reasonEl.textContent = reasoning;
         content.appendChild(reasonEl);
       }
-      if (!p0) { evidenceBodyEl.appendChild(content); return; }
+      if (!p0) { evidenceBodyEl.appendChild(content); if (tail) tail(); return; }
       var excerpt = String(p0.excerpt || p0.extracted_quote || "");
       if (excerpt) {
         var quote = document.createElement("blockquote");
@@ -3850,6 +3844,7 @@
       field("Rule", p0.rule);
       field("Confidence", p0.confidence);
       evidenceBodyEl.appendChild(content);
+      if (tail) tail();
     }
     function renderZ3Panel(node) {
       var el = z3ModeEl; if (!el) return;
@@ -4020,7 +4015,16 @@
         return;
       }
       if (emptyEl) emptyEl.style.display = "none";
-      renderEvidencePanel(node);
+      // §6: the pane's third input rides along with the selection, so this
+      // dispatcher renders the whole view in one pass — the drawer for a
+      // z3/cite chip, the ledger tail for a confidence span. A payload that
+      // belongs to another node paints nothing: it is stale by definition.
+      var sel = SHELL.ui.selection || {};
+      var ev = sel.evidence;
+      var opts = (ev && ev.nodeId === node.id)
+        ? (ev.kind === "confidence" ? { confidence: ev } : { drawer: ev })
+        : null;
+      renderEvidencePanel(node, opts);
       renderZ3Panel(node);
       renderRedhatPanel(node);
       _setInspectorPane(SHELL.ui.rightTab || "evidence");
@@ -4031,9 +4035,13 @@
       _applyRightView();
     }
 
+    // §6: demoted — no longer a writer. renderEvidencePanel owns #right-evidence
+    // and clears it; this builds the drawer body into the pane it was given,
+    // which is why the "Ground with sources" action it appends now stays on
+    // screen instead of being wiped by the dispatcher's repaint in the same
+    // click.
     function renderEvidenceDrawer(ev) {
       if (!evidenceBodyEl) return;
-      while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
       var header = document.createElement("div");
       header.className = "evidence-header";
       header.textContent = ev.kind.toUpperCase() + " · Node: " + ev.nodeId;
