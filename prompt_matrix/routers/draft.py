@@ -20,7 +20,6 @@ try:
         TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
-        _resolve_litellm_timeout,
     )
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..ledger.truth_engine import TruthLedgerEngine
@@ -53,7 +52,6 @@ except ImportError:
         TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
-        _resolve_litellm_timeout,
     )
     from db.substrate_repository import fetch_substrate_entries_by_ids
     from ledger.truth_engine import TruthLedgerEngine
@@ -526,11 +524,6 @@ def _stream_model(
             temperature=0.4,
             stream=True,
             stream_options={"include_usage": True},
-            # A stalled provider stream has no other bound, and an unbounded one
-            # hangs the whole compile until the edge drops the SSE (observed
-            # 2026-09-18: the socket sat at 4972 received bytes, zero content,
-            # for 3+ minutes). Same clamp the non-streaming governor path uses.
-            timeout=_resolve_litellm_timeout(),
             # Fallback handled at the provider layer (OpenRouter) later.
             **_api_kwargs,
         )
