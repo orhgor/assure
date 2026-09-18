@@ -10,6 +10,21 @@ used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 ---
 
+## ⚠️ DEMO LOCKED? ONE LINE, NO RESTART
+
+**File:** `/home/ubuntu/assure-prototype/.env.staging` — **line:** `ASSURE_CLERK_ONLY=1` → set it to `ASSURE_CLERK_ONLY=0`.
+
+**Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** The flag is read per request from that file by the API and per request from `/api/auth/config` by the edge gate (measured 2026-09-18: flipped across all three states with the process ids unchanged, api `1271572` / edge `1271580`).
+
+**Order of retreat — always this order:**
+
+1. Flip `ASSURE_CLERK_ONLY=0`. Immediate, no bounce. **This is the first move.**
+2. Only if the flag itself is broken: revert commit A (`git revert <A-sha>`) and restart both units — `sudo -n systemctl restart assure-prototype.service assure-prototype-static.service`.
+
+**Never restart first.** A restart mid-presentation is the exact failure the flag exists to prevent.
+
+---
+
 **Production URL: `app.getassureai.com`.** The instance is the same box as
 `prototype.getassureai.com` — one EC2, bearer-key auth, SQLite. It presents as production for
 evaluation; the underlying deployment is pre-production. If asked about HA, backups, or SSO:
