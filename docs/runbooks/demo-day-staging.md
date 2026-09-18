@@ -192,8 +192,8 @@ What it wrote, per that pass: `jdf_revisions` 44→45 (`compile`, change summary
 Obligations for Boston Commercial Property Insurance"*), `pipeline_cache` 47→53,
 `token_ledger_entries` 192→199, `audit_log` 63→64, `user_activity_log` 356→357,
 `projects.current_version` 44→45 (row now `node_count=7`, `lock_count=8`). **Nothing deleted**,
-and the document still serves. Everything in the table above stands as measured before it, 13
-minutes earlier.
+and the document still serves. Everything in the table above stands as measured before it, in a
+check that ran in the same hour.
 
 **So §10.1's "the frozen document is v44" is now pre-v45.** Restoring v44 is a demo-state
 decision (W1) that neither pass owns, and the 2A pass deliberately did not revert it; the
