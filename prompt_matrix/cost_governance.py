@@ -64,6 +64,7 @@ def _resolve_litellm_timeout() -> int:
 class TaskType(str, Enum):
     SURGICAL_EDIT = "surgical_edit"
     SUMMARIZE_NODE = "summarize_node"
+    DRAFT_COMPILE = "draft_compile"
     SEMANTIC_VALIDATION = "semantic_validation"
     DEEP_SYNTHESIS = "deep_synthesis"
     MACRO_AUDIT = "macro_audit"
@@ -75,6 +76,7 @@ MAX_INPUT_TOKENS: dict[TaskType, int] = {
     TaskType.SURGICAL_EDIT: 2000,
     TaskType.SUMMARIZE_NODE: 2000,
     TaskType.SEMANTIC_VALIDATION: 4000,
+    TaskType.DRAFT_COMPILE: 30000,
     TaskType.REDHAT: 8000,
     TaskType.DEEP_SYNTHESIS: 30000,
     TaskType.MACRO_AUDIT: 30000,
@@ -107,17 +109,30 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="deepseek/deepseek-chat",
     ),
-    # Claim entailment (source quote → paragraph claim) → GLM 5.3 Flash via
-    # OpenRouter (:floor = cheapest provider). Was deepseek/deepseek-chat; the key
-    # in the dev worktree answers 401 (the staging box's key answers 200), and the
-    # verdict call is priced better here. 1024 (not 500) because this model spends
-    # output budget on hidden reasoning before the verdict line.
+    # Claim entailment (source quote → paragraph claim) → Qwen3-Next-80B-A3B
+    # Instruct (non-reasoning). Was GLM 5.3 Flash via OpenRouter (:floor =
+    # cheapest provider), whose hidden reasoning spent the whole 1024-token output
+    # budget before the verdict line, so the gate read "unverified" on anchored
+    # paragraphs. Cap unchanged: a non-reasoning model emits the verdict without
+    # burning output budget on reasoning first.
     TaskType.SEMANTIC_VALIDATION: ModelPolicy(
-        model_id="z-ai/glm-5.3-flash",
+        model_id="qwen/qwen3-next-80b-a3b-instruct",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SEMANTIC_VALIDATION],
         max_output_tokens=1024,
         caching=False,
-        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
+    ),
+    # Compile draft → Qwen3-Next-80B-A3B Instruct (non-reasoning), same budget as
+    # DEEP_SYNTHESIS (2048 output / 30000 input). The compile used DEEP_SYNTHESIS —
+    # GLM 5.3 Flash :floor — whose hidden reasoning consumed the 2048-token output
+    # budget and truncated the draft. DEEP_SYNTHESIS is deliberately untouched:
+    # the Ask stream shares it and must keep its model.
+    TaskType.DRAFT_COMPILE: ModelPolicy(
+        model_id="qwen/qwen3-next-80b-a3b-instruct",
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.DRAFT_COMPILE],
+        max_output_tokens=2048,
+        caching=False,
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
     ),
     # Deep synthesis → GLM 5.3 Flash via OpenRouter (:floor = cheapest provider)
     TaskType.DEEP_SYNTHESIS: ModelPolicy(

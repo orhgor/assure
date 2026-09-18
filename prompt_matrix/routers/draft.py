@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
 import uuid
@@ -18,6 +17,7 @@ try:
         BudgetExhaustedError,
         CostGovernor,
         QuotaExceededError,
+        TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
     )
@@ -49,6 +49,7 @@ except ImportError:
         BudgetExhaustedError,
         CostGovernor,
         QuotaExceededError,
+        TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
     )
@@ -78,30 +79,19 @@ except ImportError:
 
 _log = logging.getLogger(__name__)
 
-# Draft model selection. Default to whichever free provider key is present so
-# Sonnet is never the implicit fallback. Priority: OpenRouter > Gemini > DeepSeek.
-if os.environ.get("OPENROUTER_API_KEY"):
-    DRAFT_MODEL = "openrouter/z-ai/glm-5.3-flash:floor"
-    DRAFT_MODELS_FALLBACK = [
-        "openrouter/z-ai/glm-5.3-flash:floor",
-        "openrouter/deepseek/deepseek-chat",
-    ]
-elif os.environ.get("GEMINI_API_KEY"):
-    DRAFT_MODEL = "gemini/gemini-2.0-flash"
-    DRAFT_MODELS_FALLBACK = [
-        "gemini/gemini-2.0-flash",
-        "deepseek/deepseek-chat",
-    ]
-elif os.environ.get("DEEPSEEK_API_KEY"):
-    DRAFT_MODEL = "deepseek/deepseek-chat"
-    DRAFT_MODELS_FALLBACK = ["deepseek/deepseek-chat"]
-else:
-    # None set: keep the ASSURE_USE_FREE_MODELS=1 branch reading gemini first.
-    _use_free = os.environ.get("ASSURE_USE_FREE_MODELS") == "1"
-    DRAFT_MODEL = "gemini/gemini-2.0-flash" if _use_free else "anthropic/claude-sonnet-4-5"
-    DRAFT_MODELS_FALLBACK = (
-        ["gemini/gemini-2.0-flash", "deepseek/deepseek-chat"] if _use_free else None
-    )
+# The compile route's model comes from cost_governance's TaskType.DRAFT_COMPILE
+# policy — one registry, so the call, the compile cache key and the ROUTED TO
+# panel cannot disagree. (The block this replaces picked a provider here by env
+# and left the panel reporting a model that was not always the one called.)
+def _draft_route_model(target_ai: str | None = None) -> str:
+    """Model the compile route calls: the caller's ``target_ai``, else DRAFT_COMPILE."""
+    policy = TASK_POLICIES.get(TaskType.DRAFT_COMPILE)
+    default = (policy.litellm_model or policy.model_id) if policy else ""
+    if not default:
+        raise RuntimeError("TaskType.DRAFT_COMPILE has no model in TASK_POLICIES")
+    return (target_ai or "").strip() or default
+
+
 LOCK_MODEL = "deepseek/deepseek-chat"
 
 try:
@@ -493,8 +483,8 @@ def _stream_model(
     cancel_check: CancelCheck | None = None,
 ) -> Iterator[str | tuple[str, int, int, str]]:
     """Yield typed token SSE frames, then (full_text, in_tok, out_tok, model_id)."""
-    policy = gov.policy_for(TaskType.DEEP_SYNTHESIS)
-    model = target_ai or policy.litellm_model or DRAFT_MODEL
+    policy = gov.policy_for(TaskType.DRAFT_COMPILE)
+    model = _draft_route_model(target_ai)
     max_out = policy.max_output_tokens
 
     try:
@@ -597,10 +587,14 @@ def run_draft_pipeline(
     substrate_context = _build_substrate_context(substrate_rows)
     combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
     messages = _draft_messages(intent, combined_context)
+    # Resolved once, before the cache probe: the cache key and the ROUTED TO
+    # panel both read this value, so a compile cannot report (or key on) a model
+    # it did not call.
+    _draft_model = _draft_route_model(target_ai)
     cache_key = compile_cache_key(
         project_id,
         _compile_source_text(intent, context, substrate_context),
-        target_ai=(target_ai or DRAFT_MODEL),
+        target_ai=_draft_model,
     )
     cached: dict[str, Any] | None = None
     try:
@@ -624,7 +618,7 @@ def run_draft_pipeline(
     )
 
     try:
-        gov.preflight(project_id, TaskType.DEEP_SYNTHESIS, messages)
+        gov.preflight(project_id, TaskType.DRAFT_COMPILE, messages)
     except (BudgetExhaustedError, QuotaExceededError) as exc:
         yield _typed_sse(
             "error", {"ok": False, "error": str(exc), "http_status": 429, "request_id": rid}
@@ -638,7 +632,6 @@ def run_draft_pipeline(
         yield _done_sse()
         return
 
-    _draft_model = target_ai or DRAFT_MODEL
     yield _typed_sse(
         "status",
         {"stage": "model", "message": f"Drafting with {_draft_model}…", "model": _draft_model},
@@ -684,7 +677,7 @@ def run_draft_pipeline(
         input_tokens=in_tok,
         output_tokens=out_tok,
         model_id=model_id,
-        task_type=TaskType.DEEP_SYNTHESIS,
+        task_type=TaskType.DRAFT_COMPILE,
         meta={"pipeline": "draft_stream"},
     )
     yield _typed_sse(
@@ -693,7 +686,7 @@ def run_draft_pipeline(
             "input_tokens": in_tok,
             "output_tokens": out_tok,
             "model_id": model_id,
-            "task_type": TaskType.DEEP_SYNTHESIS.value,
+            "task_type": TaskType.DRAFT_COMPILE.value,
             "measure": _measure,
         },
     )
@@ -1230,7 +1223,7 @@ def register_draft_routes(app) -> None:
             peek_key = compile_cache_key(
                 project_id,
                 _compile_source_text(intent, payload.context, _build_substrate_context(rows)),
-                target_ai=(payload.target_ai or DRAFT_MODEL),
+                target_ai=_draft_route_model(payload.target_ai),
             )
             peek = load_ast_cache(peek_key)
             cached_hit = bool(isinstance(peek, dict) and peek.get("compiled"))

@@ -14,8 +14,8 @@ PRICES: dict[str, dict[str, float | None]] = {
     # DeepInfra $0.075/$0.25 per 1M). model_id spelling the policies report.
     "z-ai/glm-5.3-flash": {"in": 0.075, "out": 0.25, "cache_read": None},
     # Id aliases — same validated models, different spellings used by this
-    # codebase (policy.litellm_model / draft DRAFT_MODEL). Rates are NOT new;
-    # they reuse the verified rows above for the same underlying model.
+    # codebase (policy.litellm_model). Rates are NOT new; they reuse the
+    # verified rows above for the same underlying model.
     "anthropic/claude-sonnet-4-5": {"in": 3.00, "out": 15.00, "cache_read": 0.30},
     "gemini/gemini-2.0-flash": {"in": 0.10, "out": 0.40, "cache_read": None},
 }
