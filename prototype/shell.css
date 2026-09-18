@@ -12,8 +12,8 @@
   --bg-header:   #ffffff;
   --bg-panel:    #f1f5f9;
 
-  /* ---- colour: ink ---- */
-  --text-primary: #0f172a;
+  /* ---- colour: ink (primary aligned to marketing's --text-color) ---- */
+  --text-primary: #111827;
   --text-muted:   #64748b;
   --text-on-dark: #e2e8f0;
   --text-surface: #ffffff;
@@ -25,9 +25,17 @@
   --scroll-thumb:#cbd5e1;
   --scroll-hover:#94a3b8;
 
+  /* ---- brand: marketing's mark palette (prompt_matrix/static/landing.css) ----
+     Marketing owns the brand; the shell's brand surfaces read these. When
+     marketing's brand changes, change these in the same commit as the copy of
+     the mark in prototype/favicon.svg (see docs/live.md). */
+  --brand-navy:   #1A4B8C;   /* marketing --assure-trust-blue */
+  --brand-green:  #2E7D32;   /* marketing --assure-confidence-green */
+  --brand-gold:   #D4A843;   /* marketing --accent-gold */
+
   /* ---- colour: accents (three exactly, plus the strong text pair) ---- */
   --trust-blue:   #3b82f6;
-  --accent-strong: #2563eb;
+  --accent-strong: #1A4B8C;   /* aligned to marketing's trust blue (was #2563eb) */
   --verified:     #10b981;
   --warning:      #f59e0b;
   --danger:       #dc2626;
@@ -51,11 +59,11 @@
   --rail-btn-muted:  rgba(226, 232, 240, 0.55);
   --rail-btn-hover:  rgba(226, 232, 240, 0.16);
 
-  /* Single font family: Inter (no JetBrains Mono) */
+  /* Single font family: Inter, the same stack marketing loads (no JetBrains Mono) */
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-               Roboto, Helvetica, Arial, sans-serif;
+               Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-               Roboto, Helvetica, Arial, sans-serif;
+               Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
   /* ---- type: one scale for chrome and document ---- */
   --fs-h1: 32px;
