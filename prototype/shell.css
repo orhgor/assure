@@ -40,6 +40,9 @@
   --hover-wash:  color-mix(in srgb, var(--ink) 5%, transparent);
   --soft-wash:   color-mix(in srgb, var(--ink) 3%, transparent);
   --focus-ring:  0 0 0 2px color-mix(in srgb, var(--ink) 22%, transparent);
+  /* The locator's landing wash (shell.js:_markLocated): the same hue the rule
+     beside it is drawn in, faint enough to sit under body text. */
+  --contradicted-wash: color-mix(in srgb, var(--contradicted) 10%, transparent);
 
   /* type scale (Phase B) — document is serif, chrome is sans, data is mono */
   --fs-h1: 24px;   /* document headings */
@@ -544,6 +547,17 @@ body.collapsed .pane-left {
 .doc-draft h2 { font-size: 20px; margin: 32px 0 12px; }
 .doc-draft h3 { font-size: 18px; margin: 24px 0 8px; }
 
+/* A1 — a paragraph is markdown blocks now (the same renderer the Red-Hat
+   findings use: `_renderFindingMarkdown`), so a paragraph can be a run of
+   them. The paragraph's own margin is the last word: the blocks inside it are
+   spaced like body text above, and the last one adds no second gap before the
+   next paragraph. */
+.doc-draft .jdf-p > :last-child { margin-bottom: 0; }
+.doc-draft .jdf-p > .redhat-md-ul,
+.doc-draft .jdf-p > .redhat-md-ol {
+  padding-left: 26px;
+}
+
 /* A notice inside the document column keeps the column's whitespace rules
    (the column itself is pre-wrap, for streaming text). */
 .doc-draft > .doc-entailment-note {
@@ -664,6 +678,18 @@ body.collapsed .pane-left {
   border-bottom-color: var(--ink);
 }
 
+/* A7 — the Sources section's head carries its own action: the label on the
+   left, the control that feeds it on the right. */
+.pane-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.pane-section-head h3 { margin: 0; }
+.pane-section-head #dock-ingest { font-size: var(--fs-sm); }
+.pane-section-head #dock-ingest[disabled] { color: var(--muted); }
+
 /* Search keeps only a focus underline (D7): no border at rest. */
 #dock-search {
   flex: 0 0 auto;
@@ -728,6 +754,29 @@ body.collapsed .pane-left {
 #dock-search-results > div.dock-search-hit:hover {
   background: var(--hover-wash);
 }
+/* A2 — the dock's notice rows. The progress row is a state that is replaced by
+   the outcome, so it is styled as one; every row can be dismissed by hand. */
+#dock-search-results > div.dock-toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--ink);
+}
+#dock-search-results > div.dock-toast.is-error { color: var(--contradicted); }
+#dock-search-results > div.dock-toast.is-progress { color: var(--muted); font-style: italic; }
+.dock-toast-text { flex: 1 1 auto; overflow-wrap: anywhere; }
+.dock-toast-dismiss {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.dock-toast-dismiss:hover { color: var(--ink); }
 #dock-search-results > div.dock-search-hit > div:first-child {
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -1215,6 +1264,47 @@ body.collapsed .pane-left {
 .conf-green  { border-bottom-color: var(--verified); }
 .conf-yellow { border-bottom-color: var(--partial); }
 .conf-red    { border-bottom-color: var(--contradicted); }
+
+/* A5 — the paragraph's own evidence state, sized to be read at conversational
+   distance rather than at the caret. The 1px underline above stays the
+   sub-claim signal; this is the paragraph: a 3px left rule, a state chip at the
+   paragraph's left, and a 3% wash on the paragraphs nothing grounded.
+
+   The colours are the source-verification legend's three (the right pane's
+   header): verified green, partial amber, not verified grey. An unanchored
+   paragraph has no citation — it is not a contradiction — so it reads grey with
+   the state, like the `anchored` paragraph beside it; the chip's own words
+   (`· unanchored` / `· anchored`) carry which of the two it is. `--contradicted`
+   stays for the state that does contradict a source: the numeric lock's
+   "Contradicts ledger lock" (renderConfidenceLegend, .conf-red). */
+.jdf-p.anchor-state {
+  border-left: 3px solid transparent;
+  padding-left: var(--space-2);
+}
+.jdf-p.anchor-supported  { border-left-color: var(--verified); }
+.jdf-p.anchor-partial    { border-left-color: var(--partial); }
+.jdf-p.anchor-anchored   { border-left-color: var(--unverified); }
+.jdf-p.anchor-unanchored {
+  border-left-color: var(--unverified);
+  background: color-mix(in srgb, var(--unverified) 3%, transparent);
+}
+.anchor-chip {
+  display: inline-block;
+  margin-right: var(--space-2);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.anchor-chip-supported  { color: var(--verified);     background: color-mix(in srgb, var(--verified) 12%, transparent); }
+.anchor-chip-partial    { color: var(--partial);      background: color-mix(in srgb, var(--partial) 12%, transparent); }
+.anchor-chip-anchored   { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 16%, transparent); }
+.anchor-chip-unanchored { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 12%, transparent); }
 
 /* Evidence drawer body */
 .evidence-body {
@@ -1789,11 +1879,34 @@ body.collapsed .pane-left {
   color: var(--ink);
 }
 
+/* The audit map (1B): a paragraph that carries a Red-Hat finding keeps the
+   `--contradicted` left rule at rest, so which paragraphs the audit touched is
+   visible with the pane shut. Same geometry as .is-selected below — the rule
+   takes the place of the margin, so the text never moves — and .is-selected
+   still wins the border, because that one is the reader's own selection while
+   this is the document's own annotation. */
+.jdf-node.has-finding {
+  border-left: 2px solid var(--contradicted);
+  margin-left: -4px;
+  padding-left: var(--space-3);
+}
+
 .jdf-node.is-selected {
   border-left: 2px solid var(--ink);
   background: var(--soft-wash);
   margin-left: -4px;
   padding-left: var(--space-3);
+}
+
+/* Where the locator lands (shell.js:_locateNode): the paragraph a finding
+   names, marked for 2.4 s. The wash is what makes the mark readable on exactly
+   the paragraphs the reader clicks — those already carry the at-rest rule, so
+   the rule alone would be a no-op. It outranks .is-selected because the click
+   writes a selection in the same turn. */
+.jdf-node.is-located,
+.jdf-node.is-located.is-selected {
+  border-left: 2px solid var(--contradicted);
+  background: var(--contradicted-wash);
 }
 
 .inspector-node-history {
@@ -1990,13 +2103,98 @@ body.about-page { background: var(--paper); }
 
 /* Printed, the document is the only thing on the page: the tokens already
    carry the type, so printing drops the measure and the ground. */
+/* =============================================================
+   D1 — the shell below its three-column width.
+
+   The document is the interface, so the centre keeps the width and the panes
+   give theirs up. The two breakpoints are the order the window crosses them:
+
+     <=900px  a pane is an overlay drawer. The grid drops to rail | centre |
+              rail, both panes leave the flow, and the rail carries the opener
+              (the pane's own header travels with the pane, so it cannot).
+     <=640px  the rails float over the document's edges too, so the document
+              keeps the whole viewport minus its 24px gutter.
+
+   The document column never goes below 320px: at 375px it is 375 - 24 = 351px.
+   ============================================================= */
+@media (max-width: 900px) {
+  .app-shell,
+  body.collapsed .app-shell,
+  body.right-hidden .app-shell,
+  body.collapsed.right-hidden .app-shell {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--rail-w);
+  }
+  /* Out of flow: the panes are drawers over the centre, not tracks beside it. */
+  .pane-left,
+  .pane-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 45;
+    width: min(320px, calc(100vw - 96px));
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
+    transition: transform var(--t-slow);
+  }
+  .pane-left  { left: var(--rail-w); }
+  .pane-right { right: var(--rail-w); }
+  body.collapsed .pane-left   { transform: translateX(calc(-100% - var(--rail-w))); }
+  body.right-hidden .pane-right { transform: translateX(calc(100% + var(--rail-w))); }
+  /* The rail is the opener; the pane's own header cannot be, shut. */
+  .rail-pane-open { display: inline-grid; }
+  /* A drag handle between two tracks is meaningless when one is a drawer. */
+  .pane-resizer { display: none; }
+}
+
+@media (min-width: 901px) {
+  .rail-pane-open { display: none; }
+}
+
+@media (max-width: 640px) {
+  /* The rails leave the grid as well, so the document column is the viewport
+     minus its 24px gutter — 351px at 375px. They do not become full-height
+     strips over the text: they shrink to their controls, pinned in the top
+     corners, which is the only place they can sit without covering a line. */
+  .app-shell,
+  body.collapsed .app-shell,
+  body.right-hidden .app-shell,
+  body.collapsed.right-hidden .app-shell {
+    grid-template-columns: minmax(320px, 1fr);
+  }
+  .rail-left,
+  .rail-right {
+    position: absolute;
+    top: var(--space-2);
+    bottom: auto;
+    width: auto;
+    height: auto;
+    padding: 0 var(--space-2);
+    z-index: 50;
+    background: transparent;
+    border: none;
+  }
+  .rail-left  { left: 0; }
+  .rail-right { right: 0; }
+  .rail-logo { display: none; }
+  .rail-nav { flex-direction: row; }
+  .pane-left,
+  .pane-right { width: min(320px, calc(100vw - 24px)); }
+  .pane-left  { left: 0; }
+  .pane-right { right: 0; }
+  body.collapsed .pane-left     { transform: translateX(-100%); }
+  body.right-hidden .pane-right { transform: translateX(100%); }
+  .center { grid-column: 1; padding: 0 12px; }
+  .doc-draft,
+  .doc-surface,
+  .doc-content { min-width: 320px; }
+}
+
 @media print {
   body.about-page { background: #fff; }
   .about-page .about-col { max-width: none; padding: 0; }
 }
 
-/* Sign-off status indicator in the top bar. */
-.signoff-indicator {
+/* Sign-off status indicator in the top bar. */.signoff-indicator {
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -2088,10 +2286,13 @@ body.collapsed.right-hidden #resize-right { display: none; }
    Inline node rephrase
 ---------------------------------------------------------------- */
 .node-rephrase {
-  position: sticky;
-  top: 0;
-  z-index: 6;
+  /* A3 — in flow, under the paragraph it edits. It used to be sticky at the
+     node's top, which pinned the box over the text it was about: the reader
+     typed over the paragraph they were rewriting. Nothing here is positioned
+     over the document, and the error row wraps inside the box rather than
+     overlaying what follows. */
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 6px;
   padding: 6px var(--space-2);
@@ -2139,23 +2340,17 @@ body.collapsed.right-hidden #resize-right { display: none; }
   color: var(--paper);
 }
 .node-rephrase-error {
-  /* Overlay pinned under the sticky rephrase bar: an error must not grow the
-     bar (which would push the node body down). Containing block is
-     .node-rephrase itself (position: sticky, above). */
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 40;
+  /* A3 — the bar's own row, wrapped onto a line of its own: the failure is
+     read where the rewrite was asked for, and grows the box instead of
+     covering the document below it. */
+  flex: 1 0 100%;
   margin: 0;
   padding: 6px var(--space-2);
   background: var(--surface);
   border: 1px solid var(--contradicted);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-2);
   font-size: var(--fs-sm);
   color: var(--contradicted);
-  pointer-events: auto;
 }
 .jdf-node.is-rephrasing { position: relative; }
 .jdf-node.is-rephrasing::after {
@@ -2267,7 +2462,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
 
 /* =============================================================
    Sources — the OMP manifest. Filename, size, indexed date. After a
-   compile each row carries its "anchored N of M" counter.
+   compile each row carries what that source contributed.
    ============================================================= */
 .manifest {
   display: flex;
@@ -2336,4 +2531,119 @@ body.collapsed.right-hidden #resize-right { display: none; }
   font: 13px/1.4 var(--sans);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+/* A3 — the four counters are a partition, and this says so, so the row can be
+   checked at a glance instead of counted out of the document. */
+.counter-legend {
+  margin: var(--space-1) 0 0;
+  font: 11px/1.4 var(--sans);
+  color: var(--muted);
+}
+
+
+/* =============================================================
+   2B/2C — the unanchored drawer and the allowlisted fetch.
+   One block, appended: the drawer's own classes, the result cards, and the
+   counter row that splits the anchors by where their source came from. The
+   drawer reuses the pane's existing .evidence-* primitives for everything it
+   can, so only what those do not express is new here.
+   ============================================================= */
+.gap-content {
+  gap: var(--space-3);
+}
+/* The statement that opens the drawer. It is a statement about the document,
+   not an alarm: ink on the pane's own surface, no colour. */
+.gap-claim-header {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+.gap-status,
+.gap-error {
+  color: var(--muted);
+}
+.gap-error {
+  color: var(--contradicted);
+}
+.gap-field {
+  border-left: 2px solid var(--rule);
+  padding-left: var(--space-2);
+}
+.gap-query .evidence-value,
+.gap-field.gap-query .evidence-value {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.gap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.gap-actions .evidence-action {
+  flex: 0 1 auto;
+  width: auto;
+  padding: 0 var(--space-3);
+}
+.gap-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.gap-card {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.gap-card-host {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.gap-card-title {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  line-height: var(--lh-body);
+}
+.gap-card-snippet {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  line-height: var(--lh-body);
+}
+.gap-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.gap-card-actions .evidence-action {
+  flex: 0 1 auto;
+  width: auto;
+  padding: 0 var(--space-3);
+}
+/* The fetch's own line, and the fetched source's label everywhere it appears:
+   both name where the source came from, in the same mono the host is set in. */
+.gap-fetch-note,
+.gap-fetch-state {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--ink);
+}
+.gap-fetch-state {
+  color: var(--muted);
+}
+/* The origin row sits with the counters it qualifies, quieter than the line
+   above it so the four-way partition stays the headline. */
+.counter-origin {
+  margin-top: var(--space-1);
+  font-size: var(--fs-sm);
 }

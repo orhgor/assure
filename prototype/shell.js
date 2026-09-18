@@ -16,46 +16,25 @@
   var STORAGE_KEY = "assure_project";
 
   // ---------------------------------------------------------------
-  // The entry gate. /auth leaves the key in localStorage and the POST
-  // sets the cookie; here we put it on every same-origin call as
-  // `X-Shell-Key` so the API is closed even if the cookie is dropped.
-  // A 401 means the key is wrong or was rotated — go back to the gate.
+  // The entry gate. POST /auth sets an HttpOnly `assure_shell_key`
+  // cookie for this origin, so every same-origin call — fetch, <script>,
+  // SSE — carries the key without JavaScript ever holding it. Nothing is
+  // persisted client-side: a localStorage copy outlives the session and
+  // any script on the page can read it. A 401 means the cookie is gone
+  // or the key was rotated — go back to the gate.
   // ---------------------------------------------------------------
-  var ACCESS_KEY_STORAGE = "assure_shell_key";
+  (function dropLegacyAccessKey() {
+    // Browsers that loaded the shell before the cookie-only gate still hold a
+    // readable copy; drop it rather than keep using it.
+    try { window.localStorage.removeItem("assure_shell_key"); } catch (_) {}
+  })();
 
-  function accessKey() {
-    try { return window.localStorage.getItem(ACCESS_KEY_STORAGE) || ""; } catch (_) { return ""; }
-  }
-
-  (function attachAccessKey() {
+  (function bounceOnUnauthorized() {
     var raw = window.fetch;
     if (typeof raw !== "function") return;
     window.fetch = function (input, init) {
       var url = typeof input === "string" ? input : ((input && input.url) || "");
       var sameOrigin = url.charAt(0) === "/" || url.indexOf(window.location.origin) === 0;
-      var key = accessKey();
-      if (key && sameOrigin) {
-        init = init || {};
-        var hdrs = init.headers;
-        if (typeof Headers !== "undefined" && hdrs instanceof Headers) {
-          if (!hdrs.has("X-Shell-Key")) hdrs.set("X-Shell-Key", key);
-        } else if (Object.prototype.toString.call(hdrs) === "[object Array]") {
-          var present = false;
-          for (var i = 0; i < hdrs.length; i++) {
-            if (String(hdrs[i][0]).toLowerCase() === "x-shell-key") present = true;
-          }
-          if (!present) hdrs.push(["X-Shell-Key", key]);
-        } else {
-          var merged = {};
-          if (hdrs) {
-            for (var k in hdrs) {
-              if (Object.prototype.hasOwnProperty.call(hdrs, k)) merged[k] = hdrs[k];
-            }
-          }
-          if (!Object.prototype.hasOwnProperty.call(merged, "X-Shell-Key")) merged["X-Shell-Key"] = key;
-          init.headers = merged;
-        }
-      }
       return raw.call(this, input, init).then(function (resp) {
         if (resp && resp.status === 401 && sameOrigin) {
           try { window.location.replace("/auth"); } catch (_) {}
@@ -204,7 +183,7 @@
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
-      if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "workspace";
     } else if (path === "ui.leftTab") {
       var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, history: leftHistoryEl, references: leftReferencesEl, templates: leftTemplatesEl };
       Object.keys(lp).forEach(function (k) {
@@ -257,11 +236,12 @@
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.selection.evidence") {
       // §6: the evidence payload is the pane's third input — a z3/cite chip's
-      // drawer, or a confidence span's ledger tail. The click handlers write it
-      // BEFORE the node id, so it belongs to a node that is not selected yet
-      // and repaints nothing; the node id write then paints once, with the
-      // payload already in place. Re-clicking the item that is already
-      // selected changes only this input, so this write is what repaints.
+      // drawer. The click handlers write it BEFORE the node id, so it belongs
+      // to a node that is not selected yet and repaints nothing; the node id
+      // write then paints once, with the payload already in place. Re-clicking
+      // the item that is already selected changes only this input, so this
+      // write is what repaints. A confidence span writes null here: it opens
+      // the paragraph's own panel, and nothing else.
       var sel = SHELL.ui.selection || {};
       var onScreen = (value && value.nodeId === sel.nodeId) ||
                      (!value && prev && prev.nodeId === sel.nodeId);
@@ -279,12 +259,13 @@
     } else if (path === "ui.layout.leftCollapsed") {
       if (value) docBodyEl.classList.add("collapsed");
       else       docBodyEl.classList.remove("collapsed");
-      try { localStorage.setItem("assure.left_collapsed", value ? "1" : "0"); } catch (_) {}
+      // Persistence is the user's choice, not the renderer's: writing here would
+      // stamp a preference on the first paint of every window, and the narrow
+      // first paint below could then never be chosen again.
     } else if (path === "ui.layout.rightCollapsed") {
       if (value) docBodyEl.classList.add("right-hidden");
       else       docBodyEl.classList.remove("right-hidden");
       _setRightPaneHidden(Boolean(value));   // §3: inert/aria-hidden + tabindex fallback
-      try { localStorage.setItem("assure.right_collapsed", value ? "1" : "0"); } catch (_) {}
     } else if (path === "ui.modal") {
       var layer = document.getElementById("modal-layer");
       if (!layer) return;
@@ -505,6 +486,40 @@
     exportBtnEl.disabled = !_canExport();
   }
 
+  // A4 — the compile state the AI view reads, derived rather than
+  // remembered. Two facts make it: which model the last dispatch ran on, and
+  // whether the document on screen came out of a compile. The model is a fact
+  // of this session — the draft stream's own frame writes `__lastRunModel` —
+  // and the compile is a fact of the document, read from the same revision
+  // list the version chip navigates.
+  //
+  // After a reload the model is NOT reachable: the run persists it in
+  // audit_log.details.model and projects.last_compiled_json.gate.measure.model,
+  // and no route serves either of them, so the view names that gap instead of
+  // inventing a route or leaving the last draw on screen.
+  var NO_COMPILE = "No compile for this document";
+  var COMPILE_MODEL_UNKNOWN = "Compiled \u00b7 model not carried by the document";
+
+  // The compile this document descends from: a revision that ran the
+  // pipeline, at or before the version on screen. A rewrite or a restore
+  // after it does not un-compile the document.
+  function _compiledVersionOnScreen() {
+    var versions = SHELL.document.versions || {};
+    var list = versions.list || [];
+    var current = versions.current;
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (!v || String(v.mutation_type || "") !== "compile") continue;
+      if (current == null || (v.version || 0) <= current) return true;
+    }
+    return false;
+  }
+
+  // A4: what ROUTED TO reads when it has no model to name.
+  function _compilerRouteEmptyCopy() {
+    return _compiledVersionOnScreen() ? COMPILE_MODEL_UNKNOWN : NO_COMPILE;
+  }
+
   // The compiler pane's sections own their empty state: a section with no
   // value is hidden (data-state="empty"), never rendered as a dash. ROUTED TO
   // is the one section that is always present — before a compile it says so.
@@ -521,10 +536,13 @@
     if (routeSection) {
       routeSection.setAttribute("data-state", (SHELL.compiler.route || "") ? "ready" : "awaiting");
     }
-    // Before a compile the section says where it stands rather than sitting
-    // empty: "Awaiting route" is a state, and it is muted.
+    // Every state says what it is. "Awaiting route" described nothing the
+    // reader could act on, and beside an open document it read as though the
+    // compile had never run: the section names the compile instead — the model
+    // when this session knows it, and the absence of a compile when there is
+    // none for this document (A4).
     var routeEl = document.getElementById("compiler-route");
-    if (routeEl && !SHELL.compiler.route) routeEl.textContent = "Awaiting route";
+    if (routeEl && !SHELL.compiler.route) routeEl.textContent = _compilerRouteEmptyCopy();
   }
   var DRAFT_TYPE = "full";
 
@@ -717,14 +735,67 @@
     // JDF ingest + search (MVP). No toast helper exists — use panel div.
     // FIX 1 made the routes project-scoped: /api/projects/<id>/jdf/*
     // ---------------------------------------------------------------
-    function jdfMessage(text, isErr) {
-      var panel = document.getElementById("dock-search-results");
-      if (!panel) return;
+    // The dock panel is the shell's only notice surface: rows are direct-child
+    // divs (the contract #dock-search-results is styled against).
+    function _jdfPanel() {
+      return document.getElementById("dock-search-results");
+    }
+    function _jdfHideIfEmpty() {
+      var panel = _jdfPanel();
+      if (panel && !panel.children.length) panel.hidden = true;
+    }
+    function _jdfRow(text, isErr) {
+      var panel = _jdfPanel();
+      if (!panel) return null;
       panel.hidden = false;
       var row = document.createElement("div");
-      row.textContent = text;
-      if (isErr) { try { row.style.color = "#e5484d"; } catch (_) {} }
+      row.className = "dock-toast" + (isErr ? " is-error" : "");
+      var label = document.createElement("span");
+      label.className = "dock-toast-text";
+      label.textContent = text;
+      row.appendChild(label);
+      var dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "dock-toast-dismiss";
+      dismiss.setAttribute("aria-label", "Dismiss");
+      dismiss.textContent = "\u00d7";
+      dismiss.addEventListener("click", function () {
+        _jdfClearProgress();
+        if (row.parentNode) row.parentNode.removeChild(row);
+        _jdfHideIfEmpty();
+      });
+      row.appendChild(dismiss);
       panel.appendChild(row);
+      return row;
+    }
+    function jdfMessage(text, isErr) {
+      _jdfRow(text, isErr);
+    }
+    // The ingest's progress line is a state, not a log entry. It used to be
+    // appended like a result, so "Converting → Chunking → Indexing…" sat above
+    // the outcome for the rest of the session. It is now the one row the
+    // terminal frame replaces: cleared when the ingest answers, cleared by a
+    // 30s backstop if the answer never comes, and dismissible by hand.
+    var jdfProgressTimer = null;
+    function _jdfClearProgress() {
+      if (jdfProgressTimer) { clearTimeout(jdfProgressTimer); jdfProgressTimer = null; }
+      var panel = _jdfPanel();
+      if (!panel) return;
+      var rows = panel.querySelectorAll(".is-progress");
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].parentNode) rows[i].parentNode.removeChild(rows[i]);
+      }
+      _jdfHideIfEmpty();
+    }
+    function jdfProgress(text) {
+      _jdfClearProgress();
+      var row = _jdfRow(text, false);
+      if (!row) return;
+      row.classList.add("is-progress");
+      jdfProgressTimer = setTimeout(function () {
+        jdfProgressTimer = null;
+        _jdfClearProgress();
+      }, 30000);
     }
     // The dock's ingest and search are project-scoped server routes, and the
     // tenant "default" project is not the session project: a compile mints
@@ -746,7 +817,7 @@
         if (!f) return;
         var panel = document.getElementById("dock-search-results");
         if (panel) { panel.hidden = false; panel.innerHTML = ""; }
-        jdfMessage("Converting → Chunking → Indexing…", false);
+        jdfProgress("Converting \u2192 Chunking \u2192 Indexing\u2026");
         var fd = new FormData();
         fd.append("file", f);
         var ingestPid = "";
@@ -761,6 +832,8 @@
             });
           })
           .then(function (r) {
+            // The ingest answered: the progress line is over, whatever it says.
+            _jdfClearProgress();
             if (r.ok && r.j && r.j.ok) {
               jdfMessage((r.j.chunks_stored || 0) + " figures found in " + f.name, false);
               // The ingest scan flags instruction-like source content; the
@@ -782,6 +855,7 @@
             jdfIngestFile.value = "";
           })
           .catch(function (err) {
+            _jdfClearProgress();
             jdfMessage(String(err && err.message ? err.message : err), true);
             jdfIngestFile.value = "";
           });
@@ -854,15 +928,41 @@
     // Left / right pane toggles (from phase 1)
     // ---------------------------------------------------------------
     var leftCollapse = document.getElementById("left-collapse");
+    // The pane state is written to localStorage here — at the controls the user
+    // pressed — and nowhere else. setShell only paints.
+    function _persistPaneState() {
+      try {
+        localStorage.setItem("assure.left_collapsed", SHELL.ui.layout.leftCollapsed ? "1" : "0");
+        localStorage.setItem("assure.right_collapsed", SHELL.ui.layout.rightCollapsed ? "1" : "0");
+      } catch (_) {}
+    }
     if (leftCollapse) {
       leftCollapse.addEventListener("click", function () {
         setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
       });
     }
     var rightClose = document.getElementById("right-close");
-    function closeRight() { setShell("ui.layout.rightCollapsed", true); }
+    function closeRight() { setShell("ui.layout.rightCollapsed", true); _persistPaneState(); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
-    function openLeft() { setShell("ui.layout.leftCollapsed", false); }
+    function openLeft() { setShell("ui.layout.leftCollapsed", false); _persistPaneState(); }
+    // D1: below 900px the pane is an overlay and its own header (which carries
+    // the collapse button) travels with it, so the rail is the only control that
+    // can be reached while the pane is shut. These are the openers.
+    var leftOpenBtn = document.getElementById("left-open");
+    if (leftOpenBtn) {
+      leftOpenBtn.addEventListener("click", function () {
+        setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
+      });
+    }
+    var rightOpenBtn = document.getElementById("right-open");
+    if (rightOpenBtn) {
+      rightOpenBtn.addEventListener("click", function () {
+        if (SHELL.ui.layout.rightCollapsed) openRight();
+        else closeRight();
+      });
+    }
 
     // Cmd+B / Cmd+J collapse toggles (workbench shortcuts). Input guard:
     // never toggle while the user is typing in a field.
@@ -877,6 +977,7 @@
       if (k === "b") {
         e.preventDefault();
         setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
       } else if (k === "." || k === ">") {
         e.preventDefault();
         var bothCollapsed =
@@ -885,6 +986,7 @@
         var target = !bothCollapsed;
         setShell("ui.layout.leftCollapsed",  target);
         setShell("ui.layout.rightCollapsed", target);
+        _persistPaneState();
       } else if (k === "j") {
         e.preventDefault();
         // §3: a keyboard reveal must hand focus to the pane, so this goes
@@ -1136,6 +1238,17 @@
       return null;
     }
     function markDone(name)   { stageState[name] = "done"; _renderStages(); }
+    // A4 — a document that came out of a compile has run all four stages. The
+    // rows are that compile's own record, so they are ticked from the
+    // document's revisions rather than left grey beside a compiled document.
+    function markAllStagesDone() {
+      for (var i = 0; i < STAGE_GROUPS.length; i++) {
+        for (var j = 0; j < STAGE_GROUPS[i].steps.length; j++) {
+          stageState[STAGE_GROUPS[i].steps[j]] = "done";
+        }
+      }
+      _renderStages();
+    }
     function markActive(name) { stageState[name] = "active"; _renderStages(); }
     function markFailed(name) { stageState[name] = "failed"; _renderStages(); }
     // A stage that had nothing to check is neither done nor failed: a green
@@ -1300,6 +1413,9 @@
             }
           }
           _renderVersionChip();
+          // A4: the revision list is what says whether the document on screen
+          // came out of a compile, so the AI view is re-read when it arrives.
+          _refreshCompilerState();
         })
         .catch(function () {});
     }
@@ -1414,6 +1530,12 @@
       var wrapper = document.createElement("div");
       wrapper.className = "jdf-node";
       if (node.id) wrapper.setAttribute("data-node-id", node.id);
+      // The audit map is part of the document, not of the pane: a paragraph
+      // carrying a finding keeps its `--contradicted` left rule at rest, so the
+      // audit is visible without opening anything. renderJdfNode is the only
+      // place a wrapper is built, so every path — first paint, a re-render, a
+      // version jump — takes the class from here.
+      if (_nodeHasFindings(node)) wrapper.classList.add("has-finding");
       var el = null;
       if (node.type === "section") {
         el = document.createElement("h2");
@@ -1427,9 +1549,17 @@
           }
         }
       } else if (node.type === "paragraph") {
-        el = document.createElement("p");
+        // A1 — the model writes markdown, and the document shows it as such:
+        // the paragraphs go through the same renderer the Red-Hat findings do
+        // (`_renderFindingMarkdown`), so `**weight**`, `*emphasis*`, backticks
+        // and `-`/`1.` lists arrive as elements instead of as their markers.
+        // A div, not a p: a paragraph can be a run of blocks. The confidence
+        // spans are wrapped on top of this by applyConfidenceSpans, which is
+        // why the renderer takes a channel — it knows the source offsets the
+        // spans were measured in (see _mdEmit).
+        el = document.createElement("div");
         el.className = "jdf-p";
-        el.textContent = node.content || "";
+        el.appendChild(_renderFindingMarkdown(node.content || ""));
         wrapper.appendChild(el);
       } else if (node.type === "callout") {
         el = document.createElement("aside");
@@ -1614,16 +1744,26 @@
     // "Source check failed · page N" / "Verified in source · page N" — the page
     // suffix only when the anchor carried one.
     function _entailmentLabel(node, provItem, pageStr) {
+      if (!_entailmentFor(node, provItem)) {
+        // No verdict was ever recorded: a fetched anchor before its check,
+        // or a tree from before the entailment pass. "Source check failed"
+        // would claim a check that never ran.
+        return "Anchored \u00b7 not yet verified" +
+          (pageStr ? " \u00b7 page " + pageStr : "");
+      }
       return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
         (pageStr ? " \u00b7 page " + pageStr : "");
     }
-    // The two numbers the gate reports, derived from the same tree the shell
-    // renders: `anchored` (a matched source sentence exists) and `supported`
-    // (the entailment check said yes). Kept apart so a document that quotes its
-    // sources is not called ungrounded, and a document whose every quote was
-    // refused is not called verified.
+    // The counters the gate reports, derived from the same tree the shell
+    // renders. They are a *partition* of the eligible paragraphs: every eligible
+    // paragraph lands in exactly one bucket, so the row sums to the count it
+    // reports. `anchored` counts the paragraphs that cite a source sentence the
+    // entailment check did not confirm; `supported` and `partial` are the
+    // verdicts that did confirm one. Keeping the unconfirmed anchor out of
+    // `supported` is the point — a document that quotes its sources is not
+    // thereby a document whose sources bear it out.
     function _derivedCounts(doc) {
-      var counts = { anchored: 0, supported: 0, partial: 0, unverified: 0 };
+      var counts = { eligible: 0, anchored: 0, supported: 0, partial: 0, unanchored: 0 };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1634,6 +1774,7 @@
           if (!node || typeof node !== "object") continue;
           if (String(node.type || "") !== "paragraph") continue;
           if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
+          counts.eligible++;
           // Python treats [] as falsy; JS does not. Payloads carry
           // provenance: [] for unanchored paragraphs, so mirror
           // audit_summary._anchoring_quote: a row carrying the matched source
@@ -1647,18 +1788,53 @@
             if (row && typeof row === "object" &&
                 String(row.extracted_quote || "").trim()) { isAnchored = true; break; }
           }
-          if (!isAnchored) continue;
-          counts.anchored++;
+          if (!isAnchored) { counts.unanchored++; continue; }
           // The verdict buckets the anchored claims exactly as the server's
           // _provenance_counts does: yes -> supported, partial -> partial,
-          // everything else (no, unverified) -> unverified.
+          // everything else (no, unverified) -> the residual anchor bucket.
           var verdict = _entailmentVerdict(node, prov[0] || null);
           if (verdict === "yes") counts.supported++;
           else if (verdict === "partial") counts.partial++;
-          else counts.unverified++;
+          else counts.anchored++;
         }
       }
       return counts;
+    }
+    // The four counters and the number they must add up to, read from whichever
+    // source is authoritative: the server's persisted provenance_stats (DB parity
+    // with the gate) when present, the rendered tree otherwise. The server sends
+    // the anchor as a total with its verdict buckets beside it, so the residual
+    // bucket is what is left of the anchor once the verdicts have taken their
+    // share.
+    function _counterBuckets(stats, derived) {
+      var eligible = _num(stats, derived, "eligible");
+      var supported = _num(stats, derived, "supported");
+      var partial = _num(stats, derived, "partial");
+      // The anchor TOTAL. The server sends `anchored` as the total with its
+      // verdict buckets beside it; the derived counts carry the residual bucket
+      // instead, so the total is that plus the verdicts.
+      var anchoredTotal = (stats && typeof stats.anchored === "number")
+        ? stats.anchored
+        : (derived ? derived.anchored + derived.supported + derived.partial : 0);
+      var unverified = _num(stats, derived, "unverified");
+      var unsupported = _num(stats, derived, "unsupported");
+      var anchored = anchoredTotal - supported - partial - unverified - unsupported;
+      if (anchored < 0) anchored = 0;
+      // Unanchored is what the anchor did not reach. Both sources report it
+      // directly; the subtraction is only for a payload that carries neither.
+      var reportsUnanchored =
+        (stats && typeof stats.unanchored === "number") ||
+        (derived && typeof derived.unanchored === "number");
+      var unanchored = reportsUnanchored
+        ? _num(stats, derived, "unanchored")
+        : Math.max(0, eligible - anchoredTotal);
+      return {
+        eligible: eligible,
+        anchored: anchored,
+        supported: supported,
+        partial: partial,
+        unanchored: unanchored,
+      };
     }
     // "N of M claims cite a source, but the entailment check verified none of
     // them" — the honest state after the count stopped folding the verdict into
@@ -1676,9 +1852,11 @@
         supported = stats.supported;
         eligible = (typeof stats.eligible === "number") ? stats.eligible : anchored;
       } else {
-        anchored = derived.anchored;
+        // `derived.anchored` is the residual bucket, so the anchor total the
+        // note speaks about is every bucket that cites a source.
+        anchored = derived.anchored + derived.supported + derived.partial;
         supported = derived.supported;
-        eligible = anchored;
+        eligible = derived.eligible || anchored;
       }
       if (anchored === 0 || supported > 0) return;
       var note = document.createElement("div");
@@ -1733,30 +1911,117 @@
       el.classList.add("is-updating");
       setTimeout(function () { el.classList.remove("is-updating"); }, 220);
     }
+    // ---------------------------------------------------------------
+    // 2C.6 — where the source a paragraph cites came from. The counters above
+    // partition the eligible paragraphs by the document's own state (anchored /
+    // supported / partial / unanchored); this row partitions the same paragraphs
+    // by ORIGIN, which is the one thing a fetched page changes: uploaded file or
+    // fetched page. Two numbers can therefore carry the word "anchored" on one
+    // screen — this row's are the ones with a parenthetical, and it is labelled
+    // for the question it answers.
+    //
+    // The source list is what defines "fetched" (the /substrate row's fetched_url
+    // tag), so until that list has been read the row stays hidden: an unread list
+    // is not an empty one, and reporting 0 fetched would be a claim about data
+    // the shell has not seen.
+    // ---------------------------------------------------------------
+    var __sourceOriginsLoaded = false;
+    var __fetchedSourceIds = {};
+
+    function _fetchedSourceIndex(rows) {
+      var map = {};
+      (rows || []).forEach(function (f) {
+        var host = String((f && f.fetched_url) || "");
+        if (host && f.id) map[String(f.id)] = host;
+      });
+      return map;
+    }
+
+    // A paragraph is anchored (fetched) only when every quote it carries came
+    // from a fetched row; anchored to an uploaded source AND a fetched one counts
+    // as uploaded, because the source it rests on is one the user supplied.
+    function _originSplit(doc) {
+      var out = { uploaded: 0, fetched: 0, unanchored: 0 };
+      var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
+      for (var s = 0; s < sections.length; s++) {
+        if (!sections[s] || typeof sections[s] !== "object") continue;
+        var group = [sections[s]];
+        if (Array.isArray(sections[s].children)) group = group.concat(sections[s].children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || typeof node !== "object") continue;
+          if (String(node.type || "") !== "paragraph") continue;
+          if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
+          var prov = node.provenance;
+          if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+          var quoted = [];
+          for (var p = 0; p < prov.length; p++) {
+            var row = prov[p];
+            if (row && typeof row === "object" &&
+                String(row.extracted_quote || "").trim()) quoted.push(row);
+          }
+          if (!quoted.length) { out.unanchored++; continue; }
+          var allFetched = quoted.every(function (row) {
+            return Boolean(__fetchedSourceIds[String(row.source_id || "")]);
+          });
+          if (allFetched) out.fetched++;
+          else out.uploaded++;
+        }
+      }
+      return out;
+    }
+
+    function _renderOriginSplit(buckets) {
+      var el = document.getElementById("counter-origin-line");
+      if (!el) return;
+      var doc = SHELL.document.current;
+      var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
+      if (!hasDoc || !buckets || !buckets.eligible || !__sourceOriginsLoaded) {
+        el.hidden = true;
+        return;
+      }
+      var split = _originSplit(doc);
+      el.textContent = "Anchored (uploaded) " + split.uploaded +
+        " \u00b7 Anchored (fetched) " + split.fetched +
+        " \u00b7 Unanchored " + split.unanchored;
+      el.hidden = false;
+    }
+
     function _num(stats, derived, key) {
       if (stats && typeof stats[key] === "number") return stats[key];
       if (derived && typeof derived[key] === "number") return derived[key];
       return 0;
     }
     function _renderCounters(stats, derived) {
-      _setCounter("count-anchored",   _num(stats, derived, "anchored"));
-      _setCounter("count-supported",  _num(stats, derived, "supported"));
-      _setCounter("count-partial",    _num(stats, derived, "partial"));
-      _setCounter("count-unverified", _num(stats, derived, "unverified"));
+      var b = _counterBuckets(stats, derived);
+      _setCounter("count-anchored",   b.anchored);
+      _setCounter("count-supported",  b.supported);
+      _setCounter("count-partial",    b.partial);
+      _setCounter("count-unanchored", b.unanchored);
+      var legend = document.getElementById("counter-legend");
       var line = document.getElementById("counter-line");
-      if (!line) return;
-      var n = (SHELL.sources && SHELL.sources.length) || 0;
+      var doc = SHELL.document.current;
       // The line describes a compiled document, so it needs a document with
       // content: a blank tree is still "no document yet".
-      var doc = SHELL.document.current;
       var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
-      if (hasDoc && n > 0) {
-        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s");
-        line.hidden = false;
-      } else {
-        line.textContent = "";
-        line.hidden = true;
+      if (!hasDoc || !b.eligible) {
+        if (line) { line.textContent = ""; line.hidden = true; }
+        if (legend) legend.hidden = true;
+        _renderOriginSplit(null);
+        return;
       }
+      var n = (SHELL.sources && SHELL.sources.length) || 0;
+      var sum = b.anchored + b.supported + b.partial + b.unanchored;
+      if (line) {
+        // The four values are quoted beside the number they must add up to, so
+        // the row can be checked without counting the document.
+        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s") +
+          " \u00b7 " + b.anchored + " + " + b.supported + " + " + b.partial + " + " +
+          b.unanchored + " = " + sum + " of " + b.eligible + " eligible paragraphs";
+        line.hidden = false;
+      }
+      if (legend) legend.hidden = false;
+      _renderOriginSplit(b);
     }
 
     // ---------------------------------------------------------------
@@ -1837,6 +2102,7 @@
         // compile. Nothing is fabricated — a node without real spans renders
         // unhighlighted.
         applyConfidenceSpans(doc);
+        applyAnchorStates(doc);
         addEvidenceChips(doc);
         _loadVersionHistory(projectId, { current: null });
         _refreshSignoff(projectId);
@@ -2017,6 +2283,17 @@
       return { nodeId: nodeId, created: created };
     }
 
+    // A3 — where the editor sits. Under the paragraph it edits, in flow: it
+    // used to be sticky at the node's top, so the paragraph it was about
+    // scrolled underneath it and the reader typed over the text they were
+    // rewriting. In the paragraph's own row nothing is covered — the original
+    // stays where it was, above the box, and the box pushes what follows down.
+    function _placeNodeRephrase(wrapper, editor) {
+      var body = wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout") || wrapper;
+      var host = body.parentNode || wrapper;
+      host.insertBefore(editor, body.nextSibling);
+    }
+
     function _attachNodeRephrase(nodeId, initialValue) {
       _removeNodeRephrase();
       __rephraseBusy = false;
@@ -2040,7 +2317,7 @@
       var cancel = document.createElement("button");
       cancel.type = "button"; cancel.setAttribute("data-action", "cancel"); cancel.textContent = "Cancel";
       editor.appendChild(input); editor.appendChild(submit); editor.appendChild(cancel);
-      wrapper.insertBefore(editor, wrapper.firstChild);
+      _placeNodeRephrase(wrapper, editor);
 
       function doSubmit() {
         var v = input.value || "";
@@ -2063,14 +2340,89 @@
     // The locator. A finding names the paragraph it is about (`node_id` on the
     // annotation, written by models/jdf.py:attach_redhat_annotation), so acting
     // on one puts that paragraph on screen: the caller writes the selection,
-    // which paints .is-selected, and this brings the node into view. Scrolling
-    // lives here rather than in the selection writer because selecting a
-    // paragraph by clicking it should not move the document under the reader.
-    function _scrollToNode(nodeId) {
-      if (!nodeId || !draftEl) return;
-      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+    // which paints .is-selected, and this brings the node into view and marks
+    // it for 2.4 s with the `--contradicted` rule (.jdf-node.is-located,
+    // shell.css) so the eye lands on the paragraph rather than at the end of a
+    // scroll. Scrolling lives here rather than in the selection writer because
+    // selecting a paragraph by clicking it should not move the document under
+    // the reader.
+    //
+    // The mark is transient because at rest a paragraph that carries a finding
+    // already keeps the same rule (.has-finding): what the click has to add is
+    // "this one, now", and a third permanent state would say nothing the map
+    // does not. One mark at a time — a second click moves it rather than
+    // stacking.
+    var LOCATE_MARK_MS = 2400;
+    var __locateMarkTimer = null;
+    var __locatedNodeEl = null;
+    function _nodeWrapper(nodeId) {
+      if (!nodeId || !draftEl) return null;
+      return draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+    }
+    // A paragraph carries a finding when one is placed on it: every finding in
+    // the box lives in `annotations.redhat` of the node its audit ran on, and
+    // carries that node's id from this release onward.
+    function _nodeHasFindings(node) {
+      var f = node && node.annotations && node.annotations.redhat;
+      return Boolean(f && f.length);
+    }
+    function _markLocated(el) {
+      if (__locateMarkTimer) { clearTimeout(__locateMarkTimer); __locateMarkTimer = null; }
+      if (__locatedNodeEl && __locatedNodeEl !== el) {
+        __locatedNodeEl.classList.remove("is-located");
+        __locatedNodeEl = null;
+      }
+      __locatedNodeEl = el;
+      el.classList.add("is-located");
+      __locateMarkTimer = setTimeout(function () {
+        __locateMarkTimer = null;
+        if (__locatedNodeEl) {
+          __locatedNodeEl.classList.remove("is-located");
+          __locatedNodeEl = null;
+        }
+      }, LOCATE_MARK_MS);
+    }
+    function _locateNode(nodeId) {
+      var wrapper = _nodeWrapper(nodeId);
       if (!wrapper) return;
-      try { wrapper.scrollIntoView({ block: "center" }); } catch (_) {}
+      // Align the paragraph's top with the top of the visible area, not its
+      // centre: an audit reads downward from the paragraph it was sent to, and
+      // a centred paragraph leaves the rest of the finding's prose below the
+      // fold. `start` is the scroller's own edge, so no magic offset.
+      try { wrapper.scrollIntoView({ block: "start" }); } catch (_) {}
+      _markLocated(wrapper);
+      _collapseOverlayRightPane();
+    }
+    // Landing on the paragraph is only half of showing it. Below the shell's own
+    // overlay breakpoint the right pane is a drawer lying over the document
+    // (shell.css: .pane-right is position:absolute in the <=900px block), so a
+    // marked paragraph can be behind it — at 375px the drawer is 320px wide on a
+    // 375px viewport and the paragraph's own centre sits under it. In that mode
+    // the pane is collapsed, through the shell's own state path so its state and
+    // the screen cannot disagree, and only AFTER the mark: LOCATE_MARK_MS (2400)
+    // runs far past the drawer's 200ms transition, so the paragraph is on screen
+    // and marked for the rest of the flash. Above the breakpoint the pane is a
+    // track beside the document and nothing is collapsed.
+    //
+    // Overlay mode is read from the pane's own computed position, never from a
+    // width repeated here: the media query in shell.css stays the single
+    // declaration of where the breakpoint is, and if it moves this follows. The
+    // reader re-opens the pane from the rail; the locator does not re-open it.
+    //
+    // INTERIM — this is a stopgap, not the fix, and it is named here so it does
+    // not become the design by default. The collapse solves the occlusion by
+    // hiding the finding the reader just clicked to read, which is exactly the
+    // thing they asked to see. The replacement is a bottom sheet below 640px
+    // (peek/half/full snap points, drag handle, keyboard and screen-reader
+    // affordances); it is deferred, not forgotten — docs/deferred.md, "Evidence
+    // pane as a bottom sheet below 640px". Until that lands this keeps the
+    // marked paragraph visible at the width where the overlay would cover it.
+    function _collapseOverlayRightPane() {
+      var pane = _rightPane();
+      if (!pane || SHELL.ui.layout.rightCollapsed) return;
+      var overlay = false;
+      try { overlay = getComputedStyle(pane).position === "absolute"; } catch (_) {}
+      if (overlay) setShell("ui.layout.rightCollapsed", true);
     }
     function _handleRephraseFrame(frame, cb) {
       if (!frame) return;
@@ -2143,7 +2495,7 @@
           // (taking any pending prompt and error with it). Move it back onto
           // the fresh wrapper so the user can read the failure and retry.
           var host = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
-          if (host && editor && !host.contains(editor)) host.insertBefore(editor, host.firstChild);
+          if (host && editor && !host.contains(editor)) _placeNodeRephrase(host, editor);
           if (inputEl) inputEl.disabled = false;
           if (editor) {
             var prior = editor.querySelector(".node-rephrase-error");
@@ -2222,6 +2574,9 @@
     var REDHAT_AUDITABLE_TYPES = { paragraph: true, callout: true, signature: true };
     var REDHAT_NOT_AUDITABLE =
       "Red-Hat audits paragraph, callout and signature nodes with text.";
+    // The pane's idle state still shows the action; this is what the disabled
+    // button says underneath.
+    var REDHAT_SELECT_FIRST = "Select a paragraph first";
     function _redhatAuditable(node) {
       if (!node || !node.id) return false;
       if (!REDHAT_AUDITABLE_TYPES[node.type]) return false;
@@ -2330,48 +2685,121 @@
       return REDHAT_MODE_UNSOURCED;
     }
 
+    // `**` is consumed with one space after it, as the strip has always done
+    // it, with the source index of every surviving character kept beside it.
+    // That index is what lets the document's own offsets survive the markup
+    // becoming elements: a run knows which characters of the paragraph's text
+    // the server measured its confidence spans in.
+    function _stripMarks(value) {
+      var s = String(value == null ? "" : value);
+      var out = "";
+      var map = [];
+      var i = 0;
+      while (i < s.length) {
+        if (s.charAt(i) === "*") {
+          while (i < s.length && s.charAt(i) === "*") i++;
+          if (s.charAt(i) === " ") i++;
+          continue;
+        }
+        out += s.charAt(i);
+        map.push(i);
+        i++;
+      }
+      return { text: out, map: map };
+    }
+
     // Text nodes carry no marker: a `*` that survived the inline pass is an
     // unbalanced marker, and the pane never shows it as prose punctuation.
     function _redhatMdText(value) {
-      return document.createTextNode(String(value == null ? "" : value).replace(/\*+ ?/g, ""));
+      return document.createTextNode(_stripMarks(value).text);
+    }
+
+    // One inline run. Without a channel it is the text node it always was;
+    // with one, the run is written where the spans cover it, `base` being the
+    // run's own offset in the node's source text — the coordinate the spans
+    // were computed in. Text outside every span is untouched.
+    function _mdEmit(parent, value, ctx, base) {
+      if (!ctx) { parent.appendChild(_redhatMdText(value)); return; }
+      var stripped = _stripMarks(value);
+      var out = stripped.text;
+      var i = 0;
+      while (i < out.length) {
+        var span = ctx.covering(base + stripped.map[i]);
+        var j = i + 1;
+        while (j < out.length && ctx.covering(base + stripped.map[j]) === span) j++;
+        var chunk = out.slice(i, j);
+        if (span) {
+          var holder = ctx.wrap(span);
+          holder.textContent = chunk;
+          parent.appendChild(holder);
+        } else {
+          parent.appendChild(document.createTextNode(chunk));
+        }
+        i = j;
+      }
     }
 
     // Inline markdown — `**strong**`, `*em*`, `` `code` `` — inside a block
     // element. Emphasis must open and close on the same text; `_` is left out
-    // deliberately, because source filenames and node ids carry it.
-    function _redhatMdInline(el, text) {
+    // deliberately, because source filenames and node ids carry it. `base` is
+    // where `text` starts in the node's source text; a finding passes neither
+    // it nor a channel, and gets the text nodes it always got.
+    function _redhatMdInline(el, text, ctx, base) {
       var s = String(text == null ? "" : text);
+      var at = base || 0;
       var re = /\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*|`([^`]+?)`/g;
       var last = 0;
       var m;
       while ((m = re.exec(s)) !== null) {
-        if (m.index > last) el.appendChild(_redhatMdText(s.slice(last, m.index)));
-        var node = document.createElement(
-          m[1] !== undefined ? "strong" : (m[2] !== undefined ? "em" : "code")
-        );
-        node.textContent = m[1] || m[2] || m[3] || "";
+        if (m.index > last) _mdEmit(el, s.slice(last, m.index), ctx, at + last);
+        var strong = m[1] !== undefined;
+        var em = !strong && m[2] !== undefined;
+        var node = document.createElement(strong ? "strong" : (em ? "em" : "code"));
+        if (ctx) _mdEmit(node, strong ? m[1] : (em ? m[2] : m[3]), ctx, at + m.index + (strong ? 2 : 1));
+        else node.textContent = m[1] || m[2] || m[3] || "";
         el.appendChild(node);
         last = re.lastIndex;
       }
-      if (last < s.length) el.appendChild(_redhatMdText(s.slice(last)));
+      if (last < s.length) _mdEmit(el, s.slice(last), ctx, at + last);
       return el;
     }
 
     // Block markdown → a fragment of elements. Headings, ordered and unordered
     // lists (their indented continuation lines belong to the item), fenced code
     // and quoted sentences each get their own element; everything else is a
-    // paragraph.
-    function _renderFindingMarkdown(text) {
+    // paragraph. `ctx` is the document's span channel (see _mdEmit): with it,
+    // every run is written with the offset it came from, so the paragraph's
+    // confidence spans are wrapped as the blocks are built. A finding passes
+    // none, and this renders exactly as it always did.
+    function _renderFindingMarkdown(text, ctx) {
       var frag = document.createDocumentFragment();
       var lines = String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
-      var para = [];
+      // Where each line starts in the source text: the coordinate space the
+      // document's span offsets live in.
+      var starts = [];
+      var cursor = 0;
+      for (var ln = 0; ln < lines.length; ln++) { starts.push(cursor); cursor += lines[ln].length + 1; }
+      var para = [];   // [{text, start}]
       var i = 0;
 
+      function indentOf(line) { var m = /^\s*/.exec(line); return m ? m[0].length : 0; }
+      // A line with the whitespace in front of it accounted for.
+      function trimmedAt(idx) {
+        return { text: lines[idx].trim(), start: starts[idx] + indentOf(lines[idx]) };
+      }
+      // A block's lines, joined the way the model meant them — one space
+      // between them — each still carrying its own offset in the source.
+      function writeRun(el, parts) {
+        for (var k = 0; k < parts.length; k++) {
+          if (k) el.appendChild(document.createTextNode(" "));
+          _redhatMdInline(el, parts[k].text, ctx, parts[k].start);
+        }
+      }
       function flushParagraph() {
         if (!para.length) return;
         var p = document.createElement("p");
         p.className = "redhat-md-p";
-        _redhatMdInline(p, para.join(" "));
+        writeRun(p, para);
         frag.appendChild(p);
         para = [];
       }
@@ -2400,12 +2828,18 @@
             }
             break;
           }
-          var parts = [m[1]];
+          var line0 = trimmedAt(i);
+          var parts = [{ text: m[1], start: line0.start + (line0.text.length - m[1].length) }];
           i++;
-          while (i < lines.length && indented(lines[i])) { parts.push(listBody(lines[i])); i++; }
-          var item = document.createElement("li");
-          _redhatMdInline(item, parts.join(" "));
-          list.appendChild(item);
+          while (i < lines.length && indented(lines[i])) {
+            var body = listBody(lines[i]);
+            var bodyLine = trimmedAt(i);
+            parts.push({ text: body, start: bodyLine.start + (bodyLine.text.length - body.length) });
+            i++;
+          }
+          var li = document.createElement("li");
+          writeRun(li, parts);
+          list.appendChild(li);
         }
         frag.appendChild(list);
       }
@@ -2421,6 +2855,9 @@
           var pre = document.createElement("pre");
           pre.className = "redhat-md-pre";
           var preCode = document.createElement("code");
+          // A fence is verbatim: its text is written as it arrived, so a
+          // confidence span over one is not wrapped here — nothing inside a
+          // code block is re-shaped, markers included.
           preCode.textContent = code.join("\n");
           pre.appendChild(preCode);
           frag.appendChild(pre);
@@ -2432,7 +2869,8 @@
           flushParagraph();
           var head = document.createElement("div");
           head.className = "redhat-md-h";
-          _redhatMdInline(head, h[1]);
+          var headLine = trimmedAt(i);
+          _redhatMdInline(head, h[1], ctx, headLine.start + (headLine.text.length - h[1].length));
           frag.appendChild(head);
           i++;
           continue;
@@ -2449,12 +2887,15 @@
           flushParagraph();
           var quote = document.createElement("blockquote");
           quote.className = "redhat-md-quote";
-          _redhatMdInline(quote, t.replace(/^>\s?/, ""));
+          var quoted = t.replace(/^>\s?/, "");
+          var quoteLine = trimmedAt(i);
+          _redhatMdInline(quote, quoted, ctx, quoteLine.start + (quoteLine.text.length - quoted.length));
           frag.appendChild(quote);
           i++;
           continue;
         }
-        para.push(t);
+        var proseLine = trimmedAt(i);
+        para.push(proseLine);
         i++;
       }
       flushParagraph();
@@ -2784,6 +3225,67 @@
       return out;
     }
 
+    // ---------------------------------------------------------------
+    // Evidence colouring, read at conversational distance. The 1px confidence
+    // underline stays as the sub-claim signal it is; the *paragraph's* state is
+    // carried by a 3px left rule, a tint, and a chip, because a reader standing
+    // back could not see the underline at all. States are the same four the
+    // counters partition: verified, partial, anchored (cited, unconfirmed),
+    // unanchored (no citation).
+    var _ANCHOR_STATE_CHIP = {
+      supported: "\u2713 verified",
+      partial: "~ partial",
+      anchored: "\u00b7 anchored",
+      unanchored: "\u00b7 unanchored",
+    };
+    function _anchorStateOf(node) {
+      if (!node || String(node.type || "") !== "paragraph") return null;
+      if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) return null;
+      var prov = node.provenance;
+      if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+      var anchored = false;
+      for (var p = 0; p < prov.length; p++) {
+        var row = prov[p];
+        if (row && typeof row === "object" &&
+            String(row.extracted_quote || "").trim()) { anchored = true; break; }
+      }
+      if (!anchored) return "unanchored";
+      var verdict = _entailmentVerdict(node, prov[0] || null);
+      if (verdict === "yes") return "supported";
+      if (verdict === "partial") return "partial";
+      return "anchored";
+    }
+    function applyAnchorStates(doc, targetEl) {
+      if (!doc || !Array.isArray(doc.body)) return;
+      var scope = targetEl || document;
+      for (var s = 0; s < doc.body.length; s++) {
+        var section = doc.body[s];
+        if (!section || typeof section !== "object") continue;
+        var group = [section];
+        if (Array.isArray(section.children)) group = group.concat(section.children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || !node.id) continue;
+          var state = _anchorStateOf(node);
+          if (!state) continue;
+          var el = scope.querySelector('.jdf-node[data-node-id="' + node.id + '"] .jdf-p');
+          if (!el) continue;
+          el.classList.add("anchor-state", "anchor-" + state);
+          if (el.querySelector(".anchor-chip")) continue;
+          var chip = document.createElement("span");
+          chip.className = "anchor-chip anchor-chip-" + state;
+          chip.setAttribute("aria-hidden", "false");
+          chip.textContent = _ANCHOR_STATE_CHIP[state];
+          // A paragraph is markdown blocks now, so the chip goes into the first
+          // of them: it reads at the start of the paragraph's first line, the
+          // way it did when the paragraph was one text node.
+          var chipHost = el.querySelector(".redhat-md-p, .redhat-md-h, .redhat-md-ul > li, .redhat-md-ol > li, .redhat-md-quote") || el;
+          if (chipHost.firstChild) chipHost.insertBefore(chip, chipHost.firstChild);
+          else chipHost.appendChild(chip);
+        }
+      }
+    }
+
     function applyConfidenceSpans(doc, targetEl) {
       if (!doc) return;
       // Confidence spans use field names startChar / endChar / nodeId
@@ -2811,14 +3313,45 @@
         byNode[span.nodeId].push(span);
       }
 
-      function escapeHtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-      }
-      function escapeAttr(s) {
-        return escapeHtml(s).replace(/"/g, "&quot;");
+      // The channel the markdown renderer writes through. `covering` names the
+      // span that owns a source character; the spans are sorted by start and
+      // asked in the order the text is written, so one cursor serves the whole
+      // node. `wrap` builds the span element: the same classes, the same
+      // accessible name and the same two handlers the tail-built markup used
+      // to carry.
+      function spanChannel(nodeId, nodeSpans, prov0) {
+        var cursor = 0;
+        function bandOf(score) {
+          return (score > 0.8) ? "high" : (score >= 0.4) ? "medium" : "low";
+        }
+        return {
+          covering: function (src) {
+            while (cursor < nodeSpans.length && nodeSpans[cursor].end <= src) cursor++;
+            if (cursor < nodeSpans.length && nodeSpans[cursor].start <= src) return nodeSpans[cursor];
+            return null;
+          },
+          wrap: function (sp) {
+            var el = document.createElement("span");
+            el.className = "conf-span";
+            if (prov0) {
+              if (sp.score > 0.8) el.className += " conf-green";
+              else if (sp.score >= 0.4) el.className += " conf-yellow";
+              else el.className += " conf-red";
+            }
+            el.setAttribute("data-node-id", nodeId);
+            el.setAttribute("data-score", String(sp.score));
+            el.setAttribute("role", "button");
+            el.setAttribute("tabindex", "0");
+            // §4 A7: the span is a click target, so it is authored as a control —
+            // role, tab stop and a name that states its confidence band. The
+            // neutral wording is deliberate; persuasive phrasing goes to the
+            // voice pass.
+            el.setAttribute("aria-label", "Confidence span: " + (prov0 ? bandOf(sp.score) : "no source matched"));
+            el.addEventListener("click", handleConfidenceClick);
+            el.addEventListener("keydown", _confSpanKeydown);   // §4 A7
+            return el;
+          },
+        };
       }
 
       var nodeIds = Object.keys(byNode);
@@ -2828,8 +3361,6 @@
         if (!wrapper) continue;
         var textEl = wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout");
         if (!textEl) continue;
-        var text = textEl.textContent || "";
-        if (text.length === 0) continue;
 
         // No tooltip: the 1px semantic underline is the signal (Phase F), and
         // the drawer behind a click carries source, page and quote. Only the
@@ -2839,55 +3370,39 @@
         var provList = Array.isArray(provMeta) ? provMeta : (provMeta ? [provMeta] : []);
         var prov0 = provList[0] || null;
 
-        // Keep only in-range spans and sort by startChar DESCENDING so
-        // wrapping higher spans first never shifts the indices used by
-        // the lower spans (offsets are relative to the original text).
+        // The text the server measured, not what is on screen: the offsets are
+        // into the node's own content, and the paragraph's markdown has already
+        // become elements by the time this runs.
+        var text = provNode
+          ? String(provNode.type === "section" ? (provNode.title || "") : (provNode.content || ""))
+          : "";
+        if (!text) text = textEl.textContent || "";
+        if (text.length === 0) continue;
+
+        // Keep only in-range spans, ASCENDING: the renderer writes the text
+        // front to back, so its cursor walks the same way.
         var nodeSpans = [];
         for (var s = 0; s < byNode[nodeId].length; s++) {
           var cand = byNode[nodeId][s];
           var cs = parseInt(cand.startChar, 10);
           var ce = parseInt(cand.endChar, 10);
           if (isNaN(cs) || isNaN(ce) || cs < 0 || ce > text.length || cs >= ce) continue;
-          nodeSpans.push(cand);
+          nodeSpans.push({ start: cs, end: ce, score: cand.score });
         }
         if (nodeSpans.length === 0) continue;
-        nodeSpans.sort(function (a, b) { return b.startChar - a.startChar; });
+        nodeSpans.sort(function (a, b) { return a.start - b.start; });
 
-        // Build the output from the tail, prepending wrapped spans.
-        var html = "";
-        var ptr = text.length;
-        for (var s = 0; s < nodeSpans.length; s++) {
-          var sp = nodeSpans[s];
-          var start = parseInt(sp.startChar, 10);
-          var end = parseInt(sp.endChar, 10);
-          var plain = escapeHtml(text.slice(end, ptr));
-          var confClass = "conf-span";
-          if (prov0) {
-            if (sp.score > 0.8) confClass += " conf-green";
-            else if (sp.score >= 0.4) confClass += " conf-yellow";
-            else confClass += " conf-red";
-          }
-          // §4 A7: the span is a click target, so it is authored as a control —
-          // role, tab stop and a name that states its confidence band. The
-          // neutral wording is deliberate; persuasive phrasing goes to the
-          // voice pass.
-          var band = !prov0 ? "no source matched"
-                   : (sp.score > 0.8) ? "high"
-                   : (sp.score >= 0.4) ? "medium" : "low";
-          var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) +
-            '" data-score="' + escapeAttr(String(sp.score)) +
-            '" role="button" tabindex="0" aria-label="' + escapeAttr("Confidence span: " + band) + '">' +
-            escapeHtml(text.slice(start, end)) + "</span>";
-          html = wrapped + plain + html;
-          ptr = start;
-        }
-        html = escapeHtml(text.slice(0, ptr)) + html;
-        textEl.innerHTML = html;
-        // Make each new span clickable to open the Evidence drawer.
-        var createdSpans = textEl.querySelectorAll(".conf-span");
-        for (var csp = 0; csp < createdSpans.length; csp++) {
-          createdSpans[csp].addEventListener("click", handleConfidenceClick);
-          createdSpans[csp].addEventListener("keydown", _confSpanKeydown);   // §4 A7
+        // One pass, one renderer: the same markdown the document's paragraphs
+        // are drawn with, told where the spans sit so the wrappers land on the
+        // right characters. A paragraph can be a run of blocks, and a span that
+        // crosses a block boundary comes out as one wrapper per block — never
+        // an inline box dragged around a list.
+        textEl.textContent = "";
+        var channel = spanChannel(nodeId, nodeSpans, prov0);
+        if (String((provNode || {}).type || "") === "paragraph") {
+          textEl.appendChild(_renderFindingMarkdown(text, channel));
+        } else {
+          _redhatMdInline(textEl, text, channel, 0);
         }
       }
     }
@@ -3052,6 +3567,7 @@
           if (vdoc && vdoc.body && Array.isArray(vdoc.body)) {
             addEvidenceChips(vdoc);
             applyConfidenceSpans(vdoc);
+            applyAnchorStates(vdoc);
 
             // Unclear whether provenance_stats lives top-level or nested —
             // check the SSE payload; use the real location.
@@ -3082,7 +3598,8 @@
         // refusal leaves "Draft ✗" sitting above "Verify ✓". What a finished run
         // owes the UI either way (progress bar, run flag, intent slot) is outside
         // the test: failed or not, the run is over.
-        if (!(data && data.ok === false)) {
+        var refused = Boolean(data && data.ok === false);
+        if (!refused) {
           // Compile can still be .active when the "running math check" status
           // frame never arrived, because transitionTo("Verify") only marks stages
           // STRICTLY before the index it is leaving behind. Close it out
@@ -3091,11 +3608,22 @@
           markDone("Verify");
           markActive("Complete");
           markDone("Complete");
+          // The validator returned a pass. This frame is the first moment the
+          // shell may say so: until it arrived the bar read "Compiling…", and a
+          // refusal — which streams the same way — never reaches this branch.
+          if (intentSummaryTextEl) {
+            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+          }
         }
         _endProgress();
         _refreshManifest();
         _setRunInProgress(false);
-        clearIntentSlot();
+        // A finished run is a finished run: no progress line outlives the frame
+        // that ends it.
+        _jdfClearProgress();
+        // A pass leaves the bar standing as the run's verdict; a refusal is a
+        // verdict too, and it arrives as its own card, so the bar goes.
+        if (refused) clearIntentSlot();
         _clearCompilerPromptIfStale();
         // The run is over: bring the retained stage rows back into view.
         // beginIntentCompile had forced the left pane onto the COMPILER tab.
@@ -3152,7 +3680,7 @@
           return Promise.resolve(existing);
         }
       } catch (_) {}
-      return jsonPost("/api/projects", { title: "Untitled" })
+      return jsonPost("/api/projects", { title: "workspace" })
         .then(function (resp) {
           if (!resp.ok) throw new Error("projects POST " + resp.status);
           return resp.json();
@@ -3311,14 +3839,14 @@
     function _refreshProjectName() {
       var active = SHELL.project.id || "";
       if (!active) { try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {} }
-      if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "Untitled"; return; }
+      if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "workspace"; return; }
       fetch("/api/projects")
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           var projects = (j && j.projects) || [];
           var found = null;
           for (var i = 0; i < projects.length; i++) { if (projects[i].id === active) { found = projects[i]; break; } }
-          if (found && projectCurrentNameEl) projectCurrentNameEl.textContent = found.title || "Untitled";
+          if (found && projectCurrentNameEl) projectCurrentNameEl.textContent = found.title || "workspace";
         })
         .catch(function () {});
     }
@@ -3348,6 +3876,13 @@
           setShell("sources", rows
             .filter(function (f) { return f.included !== false; })
             .map(function (f) { return f.id; }));
+          // 2C.6: which of those sources came from a fetched page — the
+          // same rows carry the fetched_url tag. The origin row is hidden
+          // until this list has been read, so an unread list never reads
+          // as "no fetched sources".
+          __sourceOriginsLoaded = true;
+          __fetchedSourceIds = _fetchedSourceIndex(rows);
+          _refreshCounters();
           var el = document.getElementById("source-list");
           if (el) {
             while (el.firstChild) el.removeChild(el.firstChild);
@@ -3372,8 +3907,13 @@
     }
     // ---------------------------------------------------------------
     // SOURCES — the OMP manifest: filename, size, indexed date, and after a
-    // compile each source's "anchored N of M". Read from the same vault route
-    // the Sources tab lists, so the two surfaces cannot disagree.
+    // compile the anchors each source contributed. Read from the same vault
+    // route the Sources tab lists, so the two surfaces cannot disagree.
+    //
+    // A5: this row counts SOURCES and their anchors; the right pane counts
+    // PARAGRAPHS. It used to call both of them "anchored", which put one word
+    // on two meanings in one screen, so the word now belongs to the paragraph
+    // counters alone and this row says what it counts.
     // ---------------------------------------------------------------
     var manifestRows = [];
     function _manifestSize(bytes) {
@@ -3440,7 +3980,9 @@
         if (counts && counts.total > 0) {
           var seen = document.createElement("span");
           seen.className = "manifest-count";
-          seen.textContent = "anchored " + counts.anchored + " of " + counts.total;
+          seen.textContent = "1 source contributes " + counts.anchored +
+            (counts.anchored === 1 ? " anchor" : " anchors") +
+            (counts.total === counts.anchored ? "" : " of " + counts.total);
           row.appendChild(seen);
         }
         el.appendChild(row);
@@ -3484,7 +4026,7 @@
       setShell("streams.compareB", null);
       // C) persist active project
       try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
-      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "workspace";
       setShell("project.id", id);
       setShell("project.title", title || "");
       // D) fetch target project's latest document (parallel with E)
@@ -3529,9 +4071,9 @@
       _loadProjectSourceList(id);
     }
     function _createNewProject() {
-      var name = window.prompt("New project name", "Untitled");
+      var name = window.prompt("New project name", "workspace");
       if (name === null) return;
-      var title = String(name || "").trim() || "Untitled";
+      var title = String(name || "").trim() || "workspace";
       jsonPost("/api/projects", { title: title })
         .then(function (resp) { if (!resp.ok) throw new Error("projects POST " + resp.status); return resp.json(); })
         .then(function (j) {
@@ -3564,10 +4106,19 @@
     // S1: restore persisted pane collapse state (default false → both panes
     // visible on first-ever load), then render. _applyRightView() draws the
     // right pane's inner state independent of the collapse classes.
+    // D1: at the widths where a pane can only be an overlay, an open pane covers
+    // the document it exists to serve — so the first paint of a narrow window
+    // starts with both closed. A stored preference still wins: the user's own
+    // last choice is never overridden, only the viewport's first paint chosen.
+    var __storedLeft = null, __storedRight = null;
     try {
-      SHELL.ui.layout.leftCollapsed  = localStorage.getItem("assure.left_collapsed")  === "1";
-      SHELL.ui.layout.rightCollapsed = localStorage.getItem("assure.right_collapsed") === "1";
+      __storedLeft  = localStorage.getItem("assure.left_collapsed");
+      __storedRight = localStorage.getItem("assure.right_collapsed");
     } catch (_) {}
+    var __narrow = false;
+    try { __narrow = window.matchMedia("(max-width: 900px)").matches; } catch (_) {}
+    SHELL.ui.layout.leftCollapsed  = (__storedLeft  === null) ? __narrow : (__storedLeft  === "1");
+    SHELL.ui.layout.rightCollapsed = (__storedRight === null) ? __narrow : (__storedRight === "1");
     setShell("ui.layout.leftCollapsed",  SHELL.ui.layout.leftCollapsed);
     setShell("ui.layout.rightCollapsed", SHELL.ui.layout.rightCollapsed);
     _applyRightView();
@@ -3586,16 +4137,20 @@
       _restoreProjectDocument(initId);
     }
 
-    // Export (top bar) → audit PDF download for the active project. Disabled
-    // until _canExport() (see _syncExportEnabled), which the document paths
-    // re-evaluate; the click re-reads the same state instead of dead-ending in
-    // a console.warn.
+    // Export (top bar) → the export pair for the active project: the audit PDF
+    // and the .jdf sidecar that carries the provenance, each node's verification
+    // state, the source manifest, the version chain and the drafting model.
+    // Disabled until _canExport() (see _syncExportEnabled), which the document
+    // paths re-evaluate; the click re-reads the same state instead of dead-ending
+    // in a console.warn.
     exportBtnEl = document.getElementById("export-btn");
     if (exportBtnEl) {
       exportBtnEl.addEventListener("click", function () {
         if (!_canExport()) { _syncExportEnabled(); return; }
+        // 2D.1: one download holding both files, so the readable dossier and the
+        // verifiable one cannot be separated. `format=jdf` serves the sidecar alone.
         window.location.href =
-          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=audit-pdf";
+          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=bundle";
       });
       _syncExportEnabled();
     }
@@ -3786,14 +4341,24 @@
     function _clearCompilerPromptIfStale() {
       if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
     }
-    // ROUTED TO — the model this compile was routed to plus the Red-Hat pass
-    // state, both taken from the draft stream itself. /api/compile-system
-    // answers {prompt} only (web.py:1180-1187), so it can supply neither.
+    // ROUTED TO — the model this compile was routed to, taken from the draft
+    // stream itself. /api/compile-system answers the system message and the answer
+    // shape, not the model, so it can supply no runtime fact. The suffix is the model and nothing else:
+    // the Red-Hat pass is a stage of the pipeline, reported by its own row and its
+    // own pane, so "Red-Hat skipped" beside the model read as a second thing the
+    // request had been routed to.
     function _renderCompilerRoute() {
-      var parts = [];
-      if (__lastRunModel) parts.push(__lastRunModel);
-      if (__lastRunRedhat) parts.push("Red-Hat " + __lastRunRedhat);
-      populateCompilerRoute(parts.join(" \u00b7 "));
+      populateCompilerRoute(__lastRunModel || "");
+    }
+
+    // A4: re-read the state the AI view shows. Called when the pane is opened
+    // and when the document's revision list lands.
+    function _refreshCompilerState() {
+      var doc = SHELL.document.current || null;
+      var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
+      populateCompilerRoute(hasDoc ? (__lastRunModel || "") : "");
+      if (hasDoc && _compiledVersionOnScreen()) markAllStagesDone();
+      else resetStages();
     }
 
     function beginIntentCompile(raw) {
@@ -3806,8 +4371,9 @@
       setCompilerPrompt("Compiling\u2026");
       populateCompilerRoute("");
       // Preview + draft stream run in parallel; do not wait for preview.
-      // /api/compile-system takes no body and answers {prompt} (web.py).
-      jsonPost("/api/compile-system", {})
+      // The ask goes with it: the compile system message is static except for the
+      // answer-shape block, which follows the ask (web.py, services/answer_shape).
+      jsonPost("/api/compile-system", { intent: raw })
         .then(function (res) { return res.json(); })
         .then(function (j) {
           if (!j || typeof j !== "object") return;
@@ -3817,11 +4383,13 @@
           if (typeof j.prompt === "string" && j.prompt.length > 0) {
             setCompilerPrompt(j.prompt);
           }
-          // The bar is painted before this promise settles, so the tick only
-          // becomes true once the prompt actually came back. No count and no
-          // check result: the pipeline stages report those.
+          // The prompt came back; the run has not. The validator's verdict
+          // arrives on the draft stream, and a document that will be refused
+          // streams exactly like one that will pass — so the status line reads
+          // as in-flight here and stays that way. The checkmark is written only
+          // by the `complete` frame that carries the pass (handleEvent).
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+            intentSummaryTextEl.textContent = "Compiling\u2026";
           }
         })
         .catch(function (err) {
@@ -3890,10 +4458,11 @@
       bar.className = "intent-summary";
       var textEl = document.createElement("span");
       textEl.className = "intent-summary-text";
-      // Not a result: the intent prompt may still be in flight, and the
-      // verification checks run (or skip) later in the pipeline, where the
-      // per-stage rows report their real state.
-      textEl.textContent = "\u2026 Compiling intent";
+      // Not a result: the prompt may still be in flight, and the validator's
+      // verdict has not arrived. The bar reads the same through the whole
+      // in-flight window and is flipped to the checkmark by the passing
+      // `complete` frame, or replaced by the refusal card.
+      textEl.textContent = "Compiling\u2026";
       intentSummaryTextEl = textEl;
       var viewBtn = document.createElement("button");
       viewBtn.type = "button";
@@ -4014,7 +4583,11 @@
 
     document.querySelectorAll("[data-left-tab]").forEach(function (t) {
       t.addEventListener("click", function () {
-        leftGroupSetTab(t.getAttribute("data-left-tab"));
+        var opened = leftGroupSetTab(t.getAttribute("data-left-tab"));
+        // A4: the AI view reads the compile state when it is opened, so it can
+        // never sit on a stale "Awaiting route" beside a document that has
+        // been compiled.
+        if (opened === "compiler") _refreshCompilerState();
       });
     });
     document.querySelectorAll("[data-right-tab]").forEach(function (t) {
@@ -4121,6 +4694,7 @@
       // interactions work). Do NOT paste text or copy the column's innerHTML.
       renderJdfDocument(doc);
       applyConfidenceSpans(doc);
+      applyAnchorStates(doc);
       addEvidenceChips(doc);
       var oldErrs = docSurface.querySelectorAll(".doc-error");
       for (var i = 0; i < oldErrs.length; i++) oldErrs[i].remove();
@@ -4166,6 +4740,7 @@
           } else if (t === "verified") {
             if (data.document) {
               applyConfidenceSpans(data.document, col.__body);
+              applyAnchorStates(data.document, col.__body);
               addEvidenceChips(data.document, col.__body);
             }
           } else if (t === "error") {
@@ -4401,7 +4976,7 @@
         if (!node.annotations || !node.annotations.redhat || !node.annotations.redhat[index]) return;
         setShell("ui.selection.nodeId", nodeId);
         setShell("ui.rightTab", "redhat");
-        _scrollToNode(nodeId);
+        _locateNode(nodeId);
         return;
       }
       var evidence = null;
@@ -4451,38 +5026,23 @@
       var span = e.currentTarget;
       var nodeId = span.getAttribute("data-node-id");
       if (!nodeId) return;
-      // §6: state in, one paint out. The payload is written first, while
-      // another node (or none) is still selected, so it repaints nothing; the
-      // node id write below is the click's single render, and the pane draws
-      // the paragraph panel with this span's ledger tail already attached. The
-      // second writer that used to clear and repaint the pane here is gone.
-      setShell("ui.selection.evidence", {
-        kind: "confidence",
-        nodeId: nodeId,
-        data: { score: span.getAttribute("data-score") },
-      });
+      // §6: state in, one paint out. A span opens the paragraph's own panel,
+      // so any drawer payload left by an earlier chip click is cleared first
+      // and the node id write below is the click's single render.
+      setShell("ui.selection.evidence", null);
       setShell("ui.selection.nodeId", nodeId);
       openRight();
       setMode("evidence");
     }
 
     // §6: demoted — no longer a writer. renderEvidencePanel owns the pane and
-    // paints the paragraph panel (verdict header, reasoning, excerpt, fields);
-    // this appends the clicked span's ledger tail under it. The score is the
-    // span's own ledger signal, carried on the selection payload, so the span
-    // element is never read back out of the DOM. The empty-source wording is
-    // the panel's now (one surface, one wording) — the two used to differ only
-    // here, which is the kind of drift a second writer causes.
-    function renderConfidenceEvidence(ev) {
-      if (!evidenceBodyEl) return;
-      var score = parseFloat(ev && ev.data ? ev.data.score : "");
-      if (isNaN(score)) score = 0;
-      var foot = document.createElement("div");
-      foot.className = "evidence-footer";
-      foot.textContent = "Ledger check score: " +
-        ((score <= 1) ? (Math.round(score * 100) + "%") : String(score));
-      evidenceBodyEl.appendChild(foot);
-    }
+    // paints the paragraph panel (verdict header, reasoning, excerpt, fields).
+    // The score footer that used to be appended under it is gone: it read
+    // "Ledger check score: N%", naming a term the reader was never given and
+    // labelling a span's numeric lock check as though it were grounding. The
+    // pane says which state the paragraph is in, the counters carry the
+    // distribution, and the Math check (Z3) tab is where a ledger score
+    // belongs. `data-score` stays on the span, where it bands the underline.
 
     // Single owner of pane reveal. index.html authors `hidden` on all three
     // bodies while `.pane-body` sets `display: flex`, so clearing only the
@@ -4506,7 +5066,12 @@
     function _renderInspectorIdlePane() {
       var tab = SHELL.ui.rightTab || "evidence";
       if (tab === "evidence") { renderEvidencePanel(null); return; }
-      var body = (tab === "z3") ? z3ModeEl : redhatModeEl;
+      // The Red-Hat pane's whole content is its one action, so it is rendered
+      // with no node rather than replaced by a hint: the button is disabled and
+      // says why. A pane whose only control disappears is a pane a reader
+      // cannot tell from a broken one.
+      if (tab === "redhat") { renderRedhatPanel(null); return; }
+      var body = z3ModeEl;
       if (!body) return;
       while (body.firstChild) body.removeChild(body.firstChild);
       body.appendChild(_idleHint(tab));
@@ -4523,27 +5088,20 @@
       if (!evidenceBodyEl) return;
       while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
       // §6: the ONE writer of #right-evidence, in the precedence the pane's
-      // four states have: an explicitly opened drawer (the user named that
-      // item) beats the paragraph panel; the panel carries a clicked span's
-      // ledger tail; with nothing selected the pane is idle. The other writers
-      // are builders this one calls — neither clears the pane any more.
+      // three states have: an explicitly opened drawer (the user named that
+      // item) beats the paragraph panel; with nothing selected the pane is
+      // idle. The other writer is a builder this one calls — it never clears
+      // the pane.
       //
-      // The spec's `drawer > panel > confidence > idle` line describes this
-      // order, which is why it is expressed here rather than in the dispatch:
-      // two of the four writers are reached from event handlers (a chip, a
-      // confidence span), never from _applyRightView, so there was no
-      // dispatcher-side precedence to reorder — the call sites that produced
-      // the extra builds were the handlers themselves.
+      // The spec's `drawer > panel > idle` line describes this order, which is
+      // why it is expressed here rather than in the dispatch: the drawer's
+      // caller is an event handler (a chip click), never _applyRightView, so
+      // there was no dispatcher-side precedence to reorder — the call sites
+      // that produced the extra builds were the handlers themselves.
       if (opts && opts.drawer) { renderEvidenceDrawer(opts.drawer); return; }
       // Nothing selected: the pane's content is the counters above this body,
       // so the body stays empty rather than announcing an empty pane.
       if (!node) return;
-      // The clicked span's ledger tail is appended wherever this function
-      // exits: the score is a ledger signal, so it survives a paragraph whose
-      // source did not match. `tail` runs at most once per call.
-      var tail = (opts && opts.confidence) ? function () {
-        renderConfidenceEvidence(opts.confidence);
-      } : null;
       var prov = node.provenance;
       if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
       if (!Array.isArray(prov)) prov = prov ? [prov] : [];
@@ -4552,16 +5110,10 @@
       var header = document.createElement("div");
       header.className = "evidence-header";
       if (!p0 && !ent) {
-        header.textContent = "Evidence · no source matched";
-        evidenceBodyEl.appendChild(header);
-        var empty = document.createElement("div");
-        empty.className = "evidence-content";
-        var emptyMsg = document.createElement("p");
-        emptyMsg.className = "evidence-value";
-        emptyMsg.textContent = "No source matched this paragraph";
-        empty.appendChild(emptyMsg);
-        evidenceBodyEl.appendChild(empty);
-        if (tail) tail();
+        // 2B/2C: unanchored is not "nothing to say". The drawer names the
+        // state, the model names the gap, and the two ways to close it sit
+        // under it — upload a document, or fetch an allowlisted page.
+        _renderUnanchoredDrawer(node);
         return;
       }
       var srcName = String((p0 && p0.source_name) || "");
@@ -4581,7 +5133,7 @@
         reasonEl.textContent = reasoning;
         content.appendChild(reasonEl);
       }
-      if (!p0) { evidenceBodyEl.appendChild(content); if (tail) tail(); return; }
+      if (!p0) { evidenceBodyEl.appendChild(content); return; }
       var excerpt = String(p0.excerpt || p0.extracted_quote || "");
       if (excerpt) {
         var quote = document.createElement("blockquote");
@@ -4603,7 +5155,6 @@
       field("Rule", p0.rule);
       field("Confidence", p0.confidence);
       evidenceBodyEl.appendChild(content);
-      if (tail) tail();
     }
     function renderZ3Panel(node) {
       var el = z3ModeEl; if (!el) return;
@@ -4657,8 +5208,9 @@
         runBtn.setAttribute("aria-busy", "true");
       }
       // Any in-flight run locks every node's button (a second run is refused),
-      // and an unauditable node — one with no text field — is disabled and told
-      // why, immediately below. No enabled button ever bails silently.
+      // and an unauditable node — one with no text field, or no node at all —
+      // is disabled and told why, immediately below. No enabled button ever
+      // bails silently, and a disabled one is never silent either.
       runBtn.disabled = Boolean(__redhatRunningNodeId) || !_redhatAuditable(node);
       if (__redhatRunningNodeId && !runningHere) {
         runBtn.title = "A Red-Hat run is in progress on another node.";
@@ -4667,7 +5219,12 @@
         if (node && node.id) _runRedhatAudit(node.id);
       });
       wrap.appendChild(runBtn);
-      if (node && node.id && !_redhatAuditable(node)) {
+      if (!node) {
+        var selectEl = document.createElement("p");
+        selectEl.className = "evidence-value redhat-unavailable";
+        selectEl.textContent = REDHAT_SELECT_FIRST;
+        wrap.appendChild(selectEl);
+      } else if (node.id && !_redhatAuditable(node)) {
         var whyEl = document.createElement("p");
         whyEl.className = "evidence-value redhat-unavailable";
         whyEl.textContent = REDHAT_NOT_AUDITABLE;
@@ -4707,15 +5264,19 @@
             li.title = "Rephrase this paragraph with this finding";
             li.addEventListener("click", function () {
               if (!node || !node.id) return;
-              setShell("ui.selection.nodeId", node.id);
-              _attachNodeRephrase(node.id, text);
-              _scrollToNode(node.id);
+              // The paragraph the finding names, when it is still on screen;
+              // the node it is placed on otherwise (findings written before
+              // `node_id` existed carry only their placement).
+              var target = _nodeWrapper(r.node_id) ? r.node_id : node.id;
+              setShell("ui.selection.nodeId", target);
+              _attachNodeRephrase(target, text);
+              _locateNode(target);
             });
           }
           list.appendChild(li);
         });
         wrap.appendChild(list);
-      } else {
+      } else if (node) {
         var p0 = document.createElement("p"); p0.className = "evidence-value";
         p0.textContent = runningHere
           ? "Running Red-Hat audit…"
@@ -4791,12 +5352,12 @@
       }
       // §6: the pane's third input rides along with the selection, so this
       // dispatcher renders the whole view in one pass — the drawer for a
-      // z3/cite chip, the ledger tail for a confidence span. A payload that
-      // belongs to another node paints nothing: it is stale by definition.
+      // z3/cite chip. A payload that belongs to another node paints nothing:
+      // it is stale by definition.
       var sel = SHELL.ui.selection || {};
       var ev = sel.evidence;
-      var opts = (ev && ev.nodeId === node.id)
-        ? (ev.kind === "confidence" ? { confidence: ev } : { drawer: ev })
+      var opts = (ev && ev.nodeId === node.id && ev.kind !== "confidence")
+        ? { drawer: ev }
         : null;
       renderEvidencePanel(node, opts);
       renderZ3Panel(node);
@@ -4930,6 +5491,376 @@
       }).catch(function (err) {
         alert("Grounding error: " + (err.message || err));
       });
+    }
+
+    // ---------------------------------------------------------------
+    // 2B — the unanchored drawer; 2C — the allowlisted fetch that can ground it.
+    //
+    // The unanchored state used to say "No source matched this paragraph" and
+    // stop. It now says four things: that the claim is not grounded in any
+    // uploaded source, what is missing (one sentence from the model), what would
+    // ground it (the document category), and the two ways to act on that — upload
+    // a document, or search the authoritative domains and fetch one page.
+    //
+    // Two rules this code keeps:
+    //   * a failed gap call shows the first line and the upload button, and
+    //     nothing else. No invented reason, no placeholder analysis.
+    //   * a fetched page is only ever *matched* against the claim. Nothing here
+    //     rewrites the paragraph, and nothing here paints it verified — the
+    //     anchoring gate on the server decides, and the counters report it.
+    // ---------------------------------------------------------------
+    var __gapToken = 0;
+    var __gapCache = {};          // nodeId -> analysis | null (null = it failed)
+    var __retrievalCards = {};    // nodeId -> the last card set for that node
+    var __fetchNotes = {};        // nodeId -> the last fetch's outcome line
+    var __retrievalBusy = false;
+
+    function _gapAnalysisFor(nodeId) {
+      if (Object.prototype.hasOwnProperty.call(__gapCache, nodeId)) {
+        return Promise.resolve(__gapCache[nodeId]);
+      }
+      return ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) +
+                          "/nodes/" + encodeURIComponent(nodeId) + "/gap-analysis", {});
+        })
+        .then(function (resp) { return resp.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          // The three lines or nothing: a payload missing one of them is treated
+          // as the failure it is, so a partial answer is never rendered.
+          var analysis = (j && j.ok && j.missing && j.grounded_by && j.search_query) ? j : null;
+          __gapCache[nodeId] = analysis;
+          return analysis;
+        })
+        .catch(function () {
+          __gapCache[nodeId] = null;
+          return null;
+        });
+    }
+
+    function _renderUnanchoredDrawer(node) {
+      var header = document.createElement("div");
+      header.className = "evidence-header gap-claim-header";
+      header.textContent = "This claim is not grounded in any uploaded source.";
+      evidenceBodyEl.appendChild(header);
+      var content = document.createElement("div");
+      content.className = "evidence-content gap-content";
+      evidenceBodyEl.appendChild(content);
+
+      var token = ++__gapToken;
+      var nodeId = String((node && node.id) || "");
+      var status = document.createElement("p");
+      status.className = "evidence-value gap-status";
+      status.textContent = "Reading why this claim is unanchored\u2026";
+      content.appendChild(status);
+
+      function stillHere() {
+        return token === __gapToken &&
+          String((SHELL.ui.selection || {}).nodeId || "") === nodeId;
+      }
+      function uploadButton() {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "evidence-action gap-upload";
+        btn.textContent = "Upload a document instead";
+        btn.addEventListener("click", function () {
+          leftGroupSetTab("sources");
+          var input = document.getElementById("source-file-input");
+          if (input) input.click();
+        });
+        return btn;
+      }
+      function note() {
+        var stored = __fetchNotes[nodeId];
+        if (!stored) return null;
+        var el = document.createElement("p");
+        el.className = "evidence-value gap-fetch-note" + (stored.ok ? "" : " gap-error");
+        el.textContent = stored.text;
+        return el;
+      }
+
+      _gapAnalysisFor(nodeId).then(function (analysis) {
+        if (!stillHere()) return;
+        if (status.parentNode) status.parentNode.removeChild(status);
+        var actions = document.createElement("div");
+        actions.className = "gap-actions";
+        if (analysis) {
+          _renderGapLines(content, analysis);
+        }
+        var upload = uploadButton();
+        if (!analysis) {
+          // Failure path: the first line and the upload button. Nothing else,
+          // because a reason the model did not give is not a reason.
+          actions.appendChild(upload);
+          content.appendChild(actions);
+          var outcome = note();
+          if (outcome) content.appendChild(outcome);
+          return;
+        }
+        var searchBtn = document.createElement("button");
+        searchBtn.type = "button";
+        searchBtn.className = "evidence-action primary gap-search";
+        searchBtn.textContent = "Search authoritative sources";
+        searchBtn.addEventListener("click", function () {
+          _runAuthoritativeSearch(nodeId, analysis.search_query, content, searchBtn);
+        });
+        actions.appendChild(searchBtn);
+        actions.appendChild(upload);
+        content.appendChild(actions);
+        var stored = note();
+        if (stored) content.appendChild(stored);
+        if (__retrievalCards[nodeId]) {
+          _renderRetrievalCards(nodeId, __retrievalCards[nodeId], content);
+        }
+      });
+    }
+
+    // The model's three lines, labelled with the drawer's own questions. Nothing
+    // is paraphrased and nothing is added; the search query is shown as the text
+    // the search runs, so the reader can see what was asked on their behalf.
+    function _renderGapLines(content, analysis) {
+      function field(label, value, cls) {
+        var f = document.createElement("div");
+        f.className = "evidence-field gap-field" + (cls ? " " + cls : "");
+        var l = document.createElement("div");
+        l.className = "evidence-label";
+        l.textContent = label;
+        var v = document.createElement("div");
+        v.className = "evidence-value";
+        v.textContent = String(value || "");
+        f.appendChild(l);
+        f.appendChild(v);
+        content.appendChild(f);
+      }
+      field("What is missing", analysis.missing);
+      field("What would ground it", analysis.grounded_by);
+      field("Search query", analysis.search_query, "gap-query");
+    }
+
+    function _runAuthoritativeSearch(nodeId, query, content, button) {
+      var label = "Search authoritative sources";
+      if (button) { button.disabled = true; button.textContent = "Searching\u2026"; }
+      var results = content.querySelector(".gap-results");
+      if (!results) {
+        results = document.createElement("div");
+        results.className = "gap-results";
+        content.appendChild(results);
+      }
+      while (results.firstChild) results.removeChild(results.firstChild);
+      var pending = document.createElement("p");
+      pending.className = "empty-hint";
+      pending.textContent = "Searching the authoritative domains\u2026";
+      results.appendChild(pending);
+
+      function restore() {
+        if (button) { button.disabled = false; button.textContent = label; }
+      }
+      function fail(message) {
+        restore();
+        while (results.firstChild) results.removeChild(results.firstChild);
+        var err = document.createElement("p");
+        err.className = "evidence-value gap-error";
+        err.textContent = message;
+        results.appendChild(err);
+      }
+
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/search", { query: query });
+        })
+        .then(function (resp) {
+          return resp.json().catch(function () { return {}; })
+            .then(function (j) { return { status: resp.status, j: j || {} }; });
+        })
+        .then(function (r) {
+          restore();
+          if (!r.j || !r.j.ok) {
+            fail((r.j && r.j.error) || ("The search was refused (HTTP " + r.status + ")."));
+            return;
+          }
+          __retrievalCards[nodeId] = r.j;
+          while (results.firstChild) results.removeChild(results.firstChild);
+          if (!r.j.cards || !r.j.cards.length) {
+            var none = document.createElement("p");
+            none.className = "empty-hint";
+            none.textContent = "No allowlisted source came back for this query.";
+            results.appendChild(none);
+            return;
+          }
+          _renderCardsInto(results, nodeId, r.j.cards);
+        })
+        .catch(function (err) {
+          fail("The search failed: " + String((err && err.message) || err));
+        });
+    }
+
+    // Three cards at most, the host named and never the full URL: the decision
+    // the reader is making is "is this an authority for this claim", and the host
+    // is what answers it. The URL travels only in the fetch request.
+    function _renderRetrievalCards(nodeId, result, content) {
+      var results = content.querySelector(".gap-results");
+      if (!results) {
+        results = document.createElement("div");
+        results.className = "gap-results";
+        content.appendChild(results);
+      }
+      _renderCardsInto(results, nodeId, result.cards || []);
+    }
+
+    function _renderCardsInto(host, nodeId, cards) {
+      cards.forEach(function (card) {
+        var el = document.createElement("div");
+        el.className = "gap-card";
+        el.setAttribute("data-host", String(card.host || ""));
+        var hostEl = document.createElement("div");
+        hostEl.className = "gap-card-host";
+        hostEl.textContent = String(card.host || "");
+        var titleEl = document.createElement("div");
+        titleEl.className = "gap-card-title";
+        titleEl.textContent = String(card.title || card.host || "");
+        var snipEl = document.createElement("div");
+        snipEl.className = "gap-card-snippet";
+        snipEl.textContent = String(card.snippet || "");
+        var row = document.createElement("div");
+        row.className = "gap-card-actions";
+        var fetchBtn = document.createElement("button");
+        fetchBtn.type = "button";
+        fetchBtn.className = "evidence-action primary gap-fetch";
+        fetchBtn.textContent = "Fetch and verify";
+        fetchBtn.addEventListener("click", function () {
+          _fetchAndVerify(nodeId, card, el, row);
+        });
+        var rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "evidence-action gap-reject";
+        rejectBtn.textContent = "Reject";
+        rejectBtn.addEventListener("click", function () { _rejectResult(nodeId, card, el); });
+        row.appendChild(fetchBtn);
+        row.appendChild(rejectBtn);
+        el.appendChild(hostEl);
+        el.appendChild(titleEl);
+        el.appendChild(snipEl);
+        el.appendChild(row);
+        host.appendChild(el);
+      });
+    }
+
+    function _fetchAndVerify(nodeId, card, cardEl, row) {
+      if (__retrievalBusy) return;
+      __retrievalBusy = true;
+      var btns = cardEl.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+      var state = document.createElement("p");
+      state.className = "empty-hint gap-fetch-state";
+      state.textContent = "Fetching " + card.host + "\u2026";
+      cardEl.appendChild(state);
+
+      function release() {
+        __retrievalBusy = false;
+        for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+      }
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/fetch",
+                          { url: card.url, host: card.host, title: card.title });
+        })
+        .then(function (resp) {
+          return resp.json().catch(function () { return {}; })
+            .then(function (j) { return { status: resp.status, j: j || {} }; });
+        })
+        .then(function (r) {
+          release();
+          if (!r.j || !r.j.ok) {
+            var refused = (r.j && r.j.error) || ("The fetch was refused (HTTP " + r.status + ").");
+            state.className = "evidence-value gap-error";
+            state.textContent = refused;
+            __fetchNotes[nodeId] = { ok: false, text: refused };
+            return;
+          }
+          var j = r.j;
+          var host = String((j.source && j.source.fetched_url) || card.host || "");
+          var when = String((j.page && j.page.retrieved_on) || "");
+          var verdict = String((j.entailment && j.entailment.verdict) || "");
+          var outcome = !j.anchored
+            ? "this page did not ground the claim"
+            : (verdict === "yes"
+              ? "the claim now cites this page, and the source check verified it"
+              : (verdict === "partial"
+                ? "the claim cites this page; the source supports it only in part"
+                : (verdict === "no"
+                  ? "the claim cites this page; the source check did not confirm it"
+                  : (verdict === "unverified"
+                    ? "the claim cites this page; the source check could not be made"
+                    : "the claim now cites this page"))));
+          var text = "Fetched: " + host + (when ? " (retrieved " + when + ")" : "") +
+            " \u00b7 " + outcome;
+          if (j.page && j.page.instruction_like) {
+            // The same scan an upload gets, reported the same way: the page is a
+            // source to quote, and the reader is told it also contains
+            // instruction-like text.
+            text += " \u00b7 contains instruction-like content (treated as data)";
+          }
+          __fetchNotes[nodeId] = { ok: true, text: text };
+          state.className = "evidence-value gap-fetch-note";
+          state.textContent = text;
+          // Adopt the server's tree: the gate ran there, and the counters have to
+          // report what it decided rather than what this pane hoped for.
+          _applyFetchedDocument(j.document, j.stats);
+        })
+        .catch(function (err) {
+          release();
+          var message = "The fetch failed: " + String((err && err.message) || err);
+          state.className = "evidence-value gap-error";
+          state.textContent = message;
+          __fetchNotes[nodeId] = { ok: false, text: message };
+        });
+    }
+
+    function _rejectResult(nodeId, card, cardEl) {
+      // A rejection is a decision about one card, not about the claim: the claim
+      // stays unanchored, the audit trail records who was offered it, and the
+      // search stays available.
+      __fetchNotes[nodeId] = { ok: true, text: "Rejected " + card.host + " \u00b7 logged" };
+      var stored = __retrievalCards[nodeId];
+      if (stored && stored.cards) {
+        stored.cards = stored.cards.filter(function (c) { return c.url !== card.url; });
+      }
+      if (cardEl && cardEl.parentNode) {
+        var results = cardEl.parentNode;
+        cardEl.parentNode.removeChild(cardEl);
+        // The card goes and the decision stays on screen: a rejected result that
+        // simply vanishes reads as a failed click.
+        var note = document.createElement("p");
+        note.className = "empty-hint gap-reject-note";
+        note.textContent = "Rejected " + card.host + " \u00b7 logged";
+        results.appendChild(note);
+      }
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/reject",
+                          { url: card.url, host: card.host, title: card.title,
+                            reason: "rejected in the evidence drawer" });
+        })
+        .catch(function () { /* the local removal stands; the log is best effort */ });
+    }
+
+    // The fetch route returns the tree the gate just produced. Everything the
+    // document surface shows is re-derived from it — chips, counters, sources —
+    // so the pane cannot keep a state the server did not produce.
+    function _applyFetchedDocument(doc, stats) {
+      if (!doc || !Array.isArray(doc.body)) return;
+      setShell("document.mode", "ready");
+      setShell("document.current", doc);
+      renderJdfDocument(doc);
+      applyConfidenceSpans(doc);
+      applyAnchorStates(doc);
+      addEvidenceChips(doc);
+      _renderCounters(stats || null, _derivedCounts(doc));
+      _loadProjectSourceList(_sourceProjectId());
+      _applyRightView();
     }
 
     // Revise with LLM / Dismiss were removed with the Red-Hat drawer route.

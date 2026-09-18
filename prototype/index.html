@@ -72,7 +72,7 @@
       </span>
       <div class="project-switcher">
         <button type="button" id="project-switcher" class="project-switcher-btn" aria-haspopup="true" aria-expanded="false" title="Switch project">
-          <span id="project-current-name">Untitled</span>
+          <span id="project-current-name">workspace</span>
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div id="project-switcher-panel" class="project-switcher-panel" hidden>
@@ -119,6 +119,17 @@
                 font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="14">A</text>
         </svg>
       </div>
+      <!-- D1: below 900px a pane is an overlay, so opening it cannot be done
+           from inside it. The rail carries the opener; above 900px the pane's
+           own header does, and this button is not rendered. -->
+      <button type="button" class="rail-btn rail-pane-open" id="left-open"
+              aria-label="Sources and compiler" title="Sources and compiler">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <line x1="9" y1="4" x2="9" y2="20"></line>
+        </svg>
+      </button>
     </aside>
 
     <!-- ============================================================= -->
@@ -191,7 +202,16 @@
             </ul>
           </section>
           <section class="pane-section" id="section-manifest">
-            <h3>Sources</h3>
+            <div class="pane-section-head">
+              <h3>Sources</h3>
+              <!-- A7 — the PDF ingest belongs with the sources it feeds, not in
+                   the prompt dock: the dock is where a question is asked, and a
+                   control that changes the grounding surface sat beside it as if
+                   it were part of the ask. The id is kept (the shell and the e2e
+                   specs address this control by it). -->
+              <button type="button" id="dock-ingest" title="Ingest PDF">Ingest PDF</button>
+              <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
+            </div>
             <div id="source-manifest" class="manifest"></div>
           </section>
           <section class="pane-section" id="section-prompt" data-state="empty">
@@ -235,8 +255,6 @@
           </button>
         </div>
         <div class="dock-jdf" id="dock-jdf">
-          <button type="button" id="dock-ingest" title="Ingest PDF">Ingest</button>
-          <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
           <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents" autocomplete="off" spellcheck="false">
           <div id="dock-search-results" hidden></div>
         </div>
@@ -285,13 +303,21 @@
                 <div class="counter-value is-zero" id="count-partial">0</div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-unverified">Unverified</div>
-                <div class="counter-value is-zero" id="count-unverified">0</div>
+                <div class="counter-label" id="counter-label-unanchored">Unanchored</div>
+                <div class="counter-value is-zero" id="count-unanchored">0</div>
               </td>
             </tr>
           </tbody>
         </table>
         <p class="counter-line" id="counter-line" hidden></p>
+        <!-- 2C.6: the same eligible paragraphs, split by where the cited
+             source came from — an uploaded file or a page fetched from an
+             allowlisted domain. Hidden until the source list has been read,
+             because an unread list is not an empty one. -->
+        <p class="counter-line counter-origin" id="counter-origin-line" hidden></p>
+        <!-- The four counters are a partition of the eligible paragraphs, and
+             the row is only checkable if it says so. -->
+        <p class="counter-legend" id="counter-legend" hidden>Anchored = cited a source, not yet verified · Supported = verified · Partial = partly verified · Unanchored = no source citation. The four sum to the eligible paragraphs.</p>
       </section>
 
       <div id="right-inspector" class="pane-mode">
@@ -312,6 +338,14 @@
 
     <aside class="rail rail-right" aria-label="Right pane rail">
       <nav class="rail-nav" aria-label="Right pane">
+        <button type="button" class="rail-btn rail-pane-open" id="right-open"
+                aria-label="Inspector" title="Inspector">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="15" y1="4" x2="15" y2="20"></line>
+          </svg>
+        </button>
         <button type="button" class="rail-btn" data-rail-btn="swap" aria-label="Compare" title="Compare">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
