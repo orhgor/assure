@@ -74,22 +74,66 @@ def test_click_paragraph_opens_inspector(active_project, browser_page, fire_inte
 
 
 def test_ungrounded_compile_is_refused(goto_shell, browser_page, fire_intent):
-    """The ungrounded banner is gone, and the state it described is gone with it.
+    """A project with no source cannot be compiled at all — by either layer.
 
-    A fresh project has no sources, so nothing can ground a draft: the compile
-    is refused (HTTP 422, nothing persisted) and the refusal card is the document
-    column's verdict — one card, no error frame beside it. A banner over a
-    rendered document is the defect this replaced."""
+    The dock does not offer the run: Submit is disabled and carries the reason on
+    its own label, and the document column names the missing source instead of
+    sitting blank behind a button that refuses without saying why. Forced anyway
+    (the console does what the button will not), the server refuses it before its
+    first stage — HTTP 422, reason `no_source_attached` — so no token ever
+    reaches the pane. A banner over a rendered document is the defect this
+    replaced, and so is a streamed draft that never becomes a document."""
     goto_shell()
-    fire_intent("what is ferrari")
-    browser_page.wait_for_selector(".doc-refusal", timeout=240000)
-    assert browser_page.locator(".doc-ungrounded-banner").count() == 0
-    assert browser_page.locator(".doc-error").count() == 0, (
-        "a refusal is a verdict, not an error frame: the card replaces the draft "
-        "and nothing else is written into the document column"
+    submit = browser_page.locator("#dock-submit")
+    browser_page.fill("#dock-text", "what is ferrari")
+
+    assert submit.is_disabled(), "Submit must be disabled while the project has no source"
+    assert submit.get_attribute("aria-label") == "Add a source to enable the compile", (
+        "the disabled Submit must say what it waits for"
     )
-    text = browser_page.locator(".doc-refusal").first.inner_text()
-    assert "could not be grounded in the source" in text, f"unexpected refusal: {text!r}"
+    assert submit.get_attribute("title") == "Add a source to enable the compile"
+
+    prereq = browser_page.locator(".doc-prereq")
+    prereq.first.wait_for(timeout=20000)
+    assert "Add a source to compile" in prereq.first.inner_text(), (
+        f"the empty column must name the missing source: {prereq.first.inner_text()!r}"
+    )
+
+    # Enter is not a way around the disabled button.
+    browser_page.press("#dock-text", "Enter")
+    browser_page.wait_for_timeout(1500)
+    assert browser_page.locator(".doc-draft, .doc-refusal, .doc-halt").count() == 0, (
+        "the keyboard path fired a compile the dock refused to offer"
+    )
+
+    # Forced through the shell's own gate, the server still refuses it, with the
+    # frames the refusal card is keyed on and nothing before them.
+    pid = _active_project(browser_page)
+    assert pid, "the shell has no active project to force the compile against"
+    forced = browser_page.evaluate(
+        """async (pid) => {
+             var r = await fetch('/api/projects/' + encodeURIComponent(pid) + '/draft/stream', {
+               method: 'POST',
+               headers: {'Content-Type': 'application/json',
+                         'Accept': 'text/event-stream, application/json'},
+               body: JSON.stringify({intent: 'what is ferrari', compileType: 'full',
+                                     substrate_file_ids: []}),
+             });
+             return {status: r.status, text: await r.text()};
+           }""",
+        pid,
+    )
+    assert '"reason": "no_source_attached"' in forced["text"], forced["text"][:400]
+    assert '"http_status": 422' in forced["text"], forced["text"][:400]
+    assert (
+        "Upload a source first. Assure grounds every claim against the source you provide."
+        in forced["text"]
+    ), forced["text"][:400]
+    assert "event: token" not in forced["text"], "nothing may stream before the refusal"
+    assert "event: compiled" not in forced["text"], "a refused compile compiles nothing"
+    assert browser_page.locator(".doc-draft").count() == 0, (
+        "the forced refusal wrote text into the document column"
+    )
 
 
 def test_version_chip_hidden_at_one_revision(goto_shell, browser_page):

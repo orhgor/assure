@@ -850,12 +850,16 @@ body.collapsed .pane-left {
   font-variant-numeric: tabular-nums;
 }
 
-/* The refusal card: the document pane's verdict when the validator refuses a
-   compile (HTTP 422, nothing persisted). It stands where the document would have
-   been — the streamed draft is replaced by it — so it is a card in the document
-   column, not an error frame beside it. The left rule carries the verdict's
-   colour; the sentence is the whole message, so nothing competes with it. */
-.doc-refusal {
+/* The document column's state cards: the states in which the column holds no
+   document. `.doc-refusal` is the validator's verdict on a refused compile
+   (HTTP 422, nothing persisted); `.doc-prereq` is the empty project's missing
+   source. Both stand where the document would have been — the streamed draft is
+   replaced by them — so they are cards in the document column, not an error frame
+   beside it. The left rule carries the state's colour; the sentence is the whole
+   message, so nothing competes with it. One renderer draws both
+   (shell.js:_renderStateCard). */
+.doc-refusal,
+.doc-prereq {
   width: 100%;
   max-width: 720px;
   margin: var(--space-6) auto 0;
@@ -867,7 +871,7 @@ body.collapsed .pane-left {
   white-space: normal;
 }
 
-.doc-refusal-line {
+.doc-state-line {
   margin: 0;
   font-family: var(--sans);
   font-size: var(--fs-md);

@@ -134,6 +134,8 @@
   var _applyRightViewFn = null;
   var _renderManifestFn = null;
   var _syncCountersFn = null;
+  var _syncDocStateFn = null;
+  var _syncDockSubmitFn = null;
   var inspectorCompareActive = false;
 
   function setShell(path, value) {
@@ -166,6 +168,9 @@
       // the manifest's counters follow the document too.
       _syncExportEnabled();
       if (_renderManifestFn) _renderManifestFn();
+      // The column's state cards follow the mode: a document clears the
+      // empty-project card, and a verdict is never overwritten by it.
+      if (_syncDocStateFn) _syncDocStateFn();
     } else if (path === "document.signoff.status") {
       var el = document.getElementById("signoff-indicator");
       if (!el) return;
@@ -192,6 +197,10 @@
       _syncCompilerSections();
       if (_renderManifestFn) _renderManifestFn();
       if (_syncCountersFn) _syncCountersFn();
+      // The first source is what the empty-project card was waiting for, and
+      // the dock's Submit follows the same list.
+      if (_syncDocStateFn) _syncDocStateFn();
+      if (_syncDockSubmitFn) _syncDockSubmitFn();
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
@@ -1167,36 +1176,73 @@
     // A refused compile (HTTP 422, nothing persisted) streams its draft tokens
     // before the server can judge the finished document, but the refusal is the
     // verdict on exactly that text: leaving it on the canvas would render the
-    // draft the server would not keep. Replace it with one refusal card, in the
-    // frame the refusal arrives in — the swap is a single DOM change, so nothing
-    // of the discarded draft is ever painted next to the card.
+    // draft the server would not keep. Replace it with one card, in the frame
+    // the refusal arrives in — the swap is a single DOM change, so nothing of
+    // the discarded draft is ever painted next to the card.
     //
     // The card is not an error frame: it is the verdict, and it says what the
     // refusal means for the document ("Nothing was saved"). The server's own
     // message stays on the card's title and in the console, so the reason is
     // still readable without a second copy of the same sentence on screen.
+    //
+    // One column, one card, one renderer. The column holds no document in two
+    // states — refused, and empty — and _renderStateCard draws both, so the
+    // prerequisite cannot be written with a mechanism of its own.
     var REFUSAL_TEXT = "This document could not be grounded in the source. " +
                        "Nothing was saved.";
-    function _showRefusalCard(message) {
+    var PREREQ_TEXT = "Add a source to compile. Assure grounds every claim " +
+                      "against the source you provide.";
+    // The source list is fetched on load and after a project switch; until that
+    // answer lands, an empty SHELL.sources means "not known yet", not "none".
+    var _sourcesLoaded = false;
+
+    function _hasAttachedSource() {
+      return Boolean((SHELL.sources || []).length);
+    }
+    function _clearStateCards() {
+      if (!docSurface) return;
+      var stale = docSurface.querySelectorAll(".doc-refusal, .doc-prereq");
+      for (var i = 0; i < stale.length; i++) stale[i].remove();
+    }
+    // The streamed draft goes first, always: whatever the column is about to
+    // say, it can never say it beside half a document.
+    function _renderStateCard(cls, lineText, message, mode) {
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
       if (!docSurface) {
         setShell("document.mode", "empty");
         return;
       }
-      var stale = docSurface.querySelectorAll(".doc-refusal");
-      for (var i = 0; i < stale.length; i++) stale[i].remove();
+      _clearStateCards();
       var card = document.createElement("div");
-      card.className = "doc-refusal";
+      card.className = cls;
       card.setAttribute("role", "status");
       if (message) card.title = String(message);
       var line = document.createElement("p");
-      line.className = "doc-refusal-line";
-      line.textContent = REFUSAL_TEXT;
+      line.className = "doc-state-line";
+      line.textContent = lineText;
       card.appendChild(line);
       docSurface.appendChild(card);
-      setShell("document.mode", "refused");
+      setShell("document.mode", mode);
     }
+    function _showRefusalCard(message) {
+      _renderStateCard("doc-refusal", REFUSAL_TEXT, message, "refused");
+    }
+    // The empty project: there is nothing to compile from, so the column names
+    // the missing source instead of sitting blank behind a button that refuses
+    // without a reason. It stands only while no document does — a document whose
+    // source was removed afterwards keeps its column.
+    function _syncDocState() {
+      var mode = SHELL.document.mode;
+      if (mode === "refused") return;
+      if (mode !== "empty" || !_sourcesLoaded || _hasAttachedSource()) {
+        _clearStateCards();
+        return;
+      }
+      if (docSurface && docSurface.querySelector(".doc-prereq")) return;
+      _renderStateCard("doc-prereq", PREREQ_TEXT, "", "empty");
+    }
+    _syncDocStateFn = _syncDocState;
     // The ingest scan's verdict on a source, as the SOURCES label. The label
     // itself comes from the server (services/compile_guard.SOURCE_FLAG_LABEL);
     // the hover detail names the phrases that matched — evidence, not a score.
@@ -3057,7 +3103,7 @@
         leftGroupSetTab("compiler");
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
         // The validator's refusal is a verdict on the document, not a transport
-        // error: it gets the card, and no error frame is left in the pane.
+        // error: it gets the refusal card, and no error frame is left in the pane.
         if (data && Number(data.http_status) === 422) _showRefusalCard(msg);
         else appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
@@ -3297,8 +3343,17 @@
           // The manifest reads the same response: filename, size, indexed date.
           manifestRows = rows;
           _renderManifest();
+          // The answer is in: an empty list now means "this project has none",
+          // which is what the column's empty-project card waits for.
+          _sourcesLoaded = true;
+          _syncDocState();
         })
-      .catch(function () {});
+      .catch(function () {
+        // A failed read is not a source list. The card stays away rather than
+        // claiming the project has no source on a failed request.
+        _sourcesLoaded = false;
+        _syncDocState();
+      });
     }
     // ---------------------------------------------------------------
     // SOURCES — the OMP manifest: filename, size, indexed date, and after a
@@ -3662,6 +3717,13 @@
       if (!text) return;
       var v = String(text.value || "").trim();
       if (!v) return;
+      // Enter in the dock input reaches this without the button, so the same
+      // precondition stands here: no source, no compile. The button is already
+      // disabled and carries the reason (the empty-project card says the rest).
+      if (!(SHELL.sources || []).length) {
+        _syncDockSubmit();
+        return;
+      }
       text.value = "";
       _syncDockSubmit();
       try { window.sessionStorage.setItem("assure_last_intent", v); } catch (_) {}
@@ -4840,8 +4902,13 @@
     // no request at all and mutated the drawer's copy of the finding, so it
     // implied a closable finding that nothing could close.
 
-    // Send is only meaningful with a non-empty ask. The click/keydown paths
-    // keep their own guards (submitIntent) as defense.
+    // Send is only meaningful with a non-empty ask AND a source to ground it in:
+    // a compile with no source attached has nothing to ground against, and the
+    // server refuses it before its first stage (routers/draft.py, reason
+    // `no_source_attached`). The dock does not offer a run that cannot be
+    // grounded, and the hint is the button's own label — disabled is the state,
+    // the label says what it waits for.
+    var NO_SOURCE_HINT = "Add a source to enable the compile";
     function _syncDockSubmit() {
       if (!submit || !text) return;
       // §5 row 3: a draft in flight is the dock's loading state. The class
@@ -4849,8 +4916,17 @@
       submit.classList.toggle("is-running", Boolean(runInProgress));
       if (runInProgress) submit.setAttribute("aria-busy", "true");
       else               submit.removeAttribute("aria-busy");
-      submit.disabled = !String(text.value || "").trim();
+      var hasSource = Boolean((SHELL.sources || []).length);
+      submit.disabled = !String(text.value || "").trim() || !hasSource;
+      if (hasSource) {
+        submit.removeAttribute("title");
+        submit.setAttribute("aria-label", "Submit");
+      } else {
+        submit.title = NO_SOURCE_HINT;
+        submit.setAttribute("aria-label", NO_SOURCE_HINT);
+      }
     }
+    _syncDockSubmitFn = _syncDockSubmit;
     if (text) {
       text.addEventListener("input", _syncDockSubmit);
       text.addEventListener("keyup", _syncDockSubmit);
