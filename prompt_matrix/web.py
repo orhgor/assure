@@ -505,6 +505,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
@@ -520,6 +521,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
@@ -717,6 +719,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "configured": clerk_configured(),
                 "self_hosted": is_self_hosted(),
                 "signed_in": bool(current_user_id()),
+                # The edge reads this to decide whether shell documents need a
+                # session, so the flag lives in the app's env only.
+                "clerk_only": clerk_only_enabled(),
             }
         )
 

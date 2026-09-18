@@ -41,11 +41,17 @@ PUBLIC_API = frozenset(
         "/api/webhooks/stripe",
         "/api/waitlist",
         "/api/sandbox/verify",
+        # Edge-worker ingest: the Cloudflare Worker posts extracted PDF text here
+        # with X-Assure-Worker-Secret. There is no browser and no session on that
+        # path, so it carries its own factor and must not require a Clerk session.
+        "/api/substrate",
     }
 )
 PUBLIC_HTML = frozenset(
     {
-        "/",
+        # "/" is deliberately absent: it is the product's front door and belongs
+        # only to PROTECTED_HTML. Listed here it would win (PUBLIC_* is checked
+        # first) and make the shell anonymously reachable.
         "/architecture",
         "/signin",
         "/signup",
@@ -57,6 +63,35 @@ PUBLIC_HTML = frozenset(
         "/connect",
     }
 )
+
+
+# Two lists answer two different questions, and the order they are consulted in is
+# the whole story:
+#
+#   PUBLIC_HTML / PUBLIC_API — must answer *without* a session. The sign-in flow
+#       itself lives here (/signin, /api/auth/*, since a session cannot be required
+#       to create one), with health probes, provider webhooks, and the
+#       worker-secret-authenticated substrate ingest.
+#   PROTECTED_HTML — the product's own documents. These take the /signin redirect
+#       when Clerk is configured; "/" and "/compose" are the doors a signed-out
+#       visitor must not walk through.
+#
+# protect_request() consults PUBLIC_* first, so a path in both lists is silently
+# public. That is a contradiction rather than a preference, so it fails at startup.
+def assert_route_lists_disjoint() -> None:
+    """Fail fast when a path is both public and protected, naming the path."""
+    clashes = sorted(PROTECTED_HTML & (PUBLIC_HTML | PUBLIC_API))
+    if clashes:
+        raise RuntimeError(
+            "auth route lists disagree: "
+            + ", ".join(clashes)
+            + " (present in PROTECTED_HTML and in a PUBLIC_* list). PUBLIC_* is checked "
+            "first, so the public entry wins and the path answers without a session. "
+            "Remove it from PUBLIC_HTML/PUBLIC_API, or from PROTECTED_HTML if it really is public."
+        )
+
+
+assert_route_lists_disjoint()
 
 
 class AuthError(ValueError):
@@ -130,6 +165,95 @@ def loopback_api_bypass() -> bool:
         and is_loopback_request()
         and (request.path or "").startswith("/api/")
     )
+
+
+EDGE_HEADER = "X-Assure-Edge"
+
+
+def is_edge_request() -> bool:
+    """True when the request was stamped by the public gate rather than arriving directly.
+
+    The gate is the only thing the public hostnames reach, and it connects to this
+    process from 127.0.0.1 — the same address an operator on the box uses. The
+    header is how the two are told apart, and the gate overwrites any client value,
+    so it cannot be spoofed from outside.
+    """
+    return (request.headers.get(EDGE_HEADER) or "").strip() == "1"
+
+
+_ENV_FILE_CACHE: dict[str, tuple[float, dict[str, str]]] = {}
+
+
+def _env_file_values(path: str) -> dict[str, str]:
+    """Parse an env file, re-reading it whenever its mtime changes."""
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        return {}
+    cached = _ENV_FILE_CACHE.get(path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    values: dict[str, str] = {}
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                values[key.strip()] = value.strip().strip('"').strip("'")
+    except OSError:
+        return {}
+    _ENV_FILE_CACHE[path] = (mtime, values)
+    return values
+
+
+def _flag_value(name: str) -> str:
+    """Read a flag from the env files, then the process environment.
+
+    The files come first so a presenter can edit one line and have it take effect
+    on the next request. `keys.load_keys()` copies those files into `os.environ` at
+    boot, so preferring the file is what keeps this switch request-time instead of
+    frozen at startup — a restart mid-demo is the failure the flag exists to avoid.
+    Precedence across files matches load_keys(): .env, .env.local, then the
+    ASSURE_ENV profile, later files winning.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    profile = (os.environ.get("ASSURE_ENV") or "").strip().lower()
+    names = [".env", ".env.local"]
+    if profile:
+        names.append(".env." + profile)
+    found: str | None = None
+    for fname in names:
+        value = _env_file_values(os.path.join(root, fname)).get(name)
+        if value is not None:
+            found = value
+    if found is not None:
+        return found
+    return (os.environ.get(name) or "").strip()
+
+
+def clerk_only_enabled() -> bool:
+    """Clerk is the door unless the presenter flips `ASSURE_CLERK_ONLY=0`.
+
+    Evaluated on every request and read from the box env file rather than from the
+    environment copied at boot, so `0` restores the old behaviour with no restart:
+    one line, no bounce.
+    """
+    return _flag_value("ASSURE_CLERK_ONLY").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def clerk_only_applies() -> bool:
+    """True when this particular request must carry a session under clerk-only mode.
+
+    A direct loopback call (an operator or a probe script on the box) keeps the
+    old bypass: it is not reachable from the internet, and retiring it would break
+    the probe tooling without closing anything. Traffic that came through the gate
+    does not get that exemption.
+    """
+    if not clerk_only_enabled():
+        return False
+    return not (is_loopback_request() and not is_edge_request())
 
 
 def auth_required() -> bool:
@@ -439,7 +563,7 @@ def protect_request():
         return None
     if path in PUBLIC_HTML or path in PUBLIC_API:
         return None
-    if loopback_api_bypass():
+    if loopback_api_bypass() and not clerk_only_applies():
         return None
     if current_user_id():
         _bind_request_tier()

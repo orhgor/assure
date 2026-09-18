@@ -4,6 +4,7 @@
 from __future__ import annotations
 import hashlib
 import hmac
+import json
 import os
 import sys
 import urllib.error
@@ -50,6 +51,54 @@ COOKIE_MAX_AGE = 2592000  # 30 days
 # outside /api/* is still served from disk. These pages stay behind the entry
 # gate: the gate key is the outer door, Clerk is the per-user identity inside it.
 PROXIED_PAGES = frozenset({"/signin", "/signup", "/signout"})
+
+# Must match cloud_auth.EDGE_HEADER: it marks traffic that came through this gate.
+EDGE_HEADER = "X-Assure-Edge"
+
+# Shell documents. Extension-less paths are documents here; everything with an
+# asset extension is inert bytes and stays served to any key holder.
+_DOCUMENT_EXTENSIONS = frozenset({"", ".html"})
+
+# `clerk_only` is read from the app rather than from this process's environment so
+# the presenter flips one line in the box env and nothing is restarted — the gate
+# picks the change up on its next request.
+
+
+def _upstream_get(path: str, cookie: str = ""):
+    headers = {"Accept": "application/json", "User-Agent": "assure-shell-gate/1.0"}
+    if cookie:
+        headers["Cookie"] = cookie
+    req = urllib.request.Request(UPSTREAM_BASE + path, headers=headers, method="GET")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode("utf-8") or "{}")
+
+
+def clerk_only_mode() -> bool:
+    """Whether the app is in clerk-only mode.
+
+    Fetched per request, with no cache, so flipping the flag on the box changes this
+    gate's behaviour on the very next request — the presenter must not need a
+    restart of either unit. Fails open: the outer key still gates everything here,
+    and a config read failure must not lock anyone out of the demo.
+    """
+    try:
+        return bool(_upstream_get("/api/auth/config").get("clerk_only"))
+    except Exception:
+        return False
+
+
+def session_user_id(cookie: str) -> str:
+    """The signed-in Clerk user id for this request's cookies, or ""."""
+    if not cookie:
+        return ""
+    try:
+        return str(_upstream_get("/api/auth/me", cookie=cookie).get("user_id") or "")
+    except Exception:
+        return ""
+
+
+def is_document_path(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in _DOCUMENT_EXTENSIONS
 
 _AUTH_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -193,6 +242,17 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
+    def _redirect_to_signin(self):
+        path = self.path.split("?", 1)[0]
+        target = "/signin"
+        if path not in ("/", "/index.html"):
+            nxt = self.path if self.path.startswith("/") else "/"
+            target = "/signin?" + urllib.parse.urlencode({"next": nxt})
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def _serve_static(self):
         path = self.path.split("?", 1)[0] or "/index.html"
         if path == "/":
@@ -245,6 +305,9 @@ class Handler(BaseHTTPRequestHandler):
             v = self.headers.get(k)
             if v:
                 hdrs[k] = v
+        # Tell the app this request came through the gate. Assigned last and
+        # unconditionally so a client can never supply its own value.
+        hdrs[EDGE_HEADER] = "1"
         req = urllib.request.Request(url, data=body, headers=hdrs, method=method)
         try:
             with urllib.request.urlopen(req, timeout=None) as resp:
@@ -322,6 +385,14 @@ class Handler(BaseHTTPRequestHandler):
             if method != "GET":
                 self.send_error(405)
                 return
+            # The front door needs a Clerk session, not just the shared key. The
+            # session lives with the app, so it is the app we ask. Assets are not
+            # documents and are not gated: they are inert bytes and the key still
+            # covers them.
+            if clerk_only_mode() and is_document_path(self.path.split("?", 1)[0]):
+                if not session_user_id(self.headers.get("Cookie") or ""):
+                    self._redirect_to_signin()
+                    return
             self._serve_static()
 
     def do_GET(self):
