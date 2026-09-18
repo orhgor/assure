@@ -1669,12 +1669,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_refine_node_routes(app)
 
     try:
-        from .routers.ground_routes import register_ground_routes
-    except ImportError:
-        from routers.ground_routes import register_ground_routes
-    register_ground_routes(app)
-
-    try:
         from .routers.retrieval_routes import register_retrieval_routes
     except ImportError:
         from routers.retrieval_routes import register_retrieval_routes

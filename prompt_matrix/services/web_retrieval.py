@@ -20,6 +20,7 @@ permitted domain cannot hand the fetch to a denied one.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import unescape
@@ -41,7 +42,6 @@ try:
     from .compile_guard import scan_source_instruction_like, wrap_untrusted_source
     from .entailment import _claim_source, check_entailment
     from .evidence_gap import strip_urls
-    from .ground_node import search_brave_web
 except ImportError:  # pragma: no cover
     from db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
     from db.substrate_repository import list_substrate_for_project, upsert_substrate_entry
@@ -69,7 +69,6 @@ except ImportError:  # pragma: no cover
         check_entailment,
     )
     from services.evidence_gap import strip_urls  # type: ignore[no-redef]
-    from services.ground_node import search_brave_web  # type: ignore[no-redef]
 
 _log = logging.getLogger(__name__)
 
@@ -571,3 +570,38 @@ def reanchor(project_id: str, *, node_id: str = "") -> dict[str, Any]:
         "origins": origin_counts(updated, fetched_hosts),
         "fetched_hosts": fetched_hosts,
     }
+
+
+# ---------------------------------------------------------------------------
+# The Brave client. It lived in services/ground_node.py, which was the /ground
+# path's rewrite engine; that path is gone (it rewrote unanchored claims to look
+# grounded, which contradicts the product's disclosure model), so the one part
+# of it that fetches rather than rewrites moved here. Same request, same
+# headers, same shape of result.
+# ---------------------------------------------------------------------------
+def search_brave_web(query: str, *, count: int = 3) -> list[dict[str, str]]:
+    """Brave web results for ``query`` — [] when no key is configured."""
+    token = (os.environ.get("BRAVE_API_KEY") or "").strip()
+    q = (query or "").strip()[:QUERY_CHARS]
+    if not token or not q:
+        return []
+    import httpx
+
+    response = httpx.get(
+        "https://api.search.brave.com/res/v1/web/search",
+        params={"q": q, "count": count},
+        headers={"Accept": "application/json", "X-Subscription-Token": token},
+        timeout=20.0,
+    )
+    response.raise_for_status()
+    web = (response.json() or {}).get("web") or {}
+    rows: list[dict[str, str]] = []
+    for item in (web.get("results") or [])[:count]:
+        rows.append(
+            {
+                "source_url": str(item.get("url") or ""),
+                "snippet": str(item.get("description") or item.get("title") or ""),
+                "title": str(item.get("title") or ""),
+            }
+        )
+    return rows
