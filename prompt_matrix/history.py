@@ -51,10 +51,13 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
     # the two re-applications in db/connection.py. It must run outside a
     # transaction, which holds at all four call sites.
     #
-    # Six of the nine tables a project delete orphans — jdf_documents,
-    # node_revisions, audit_log, project_budgets, token_ledger_entries,
-    # pipeline_cache — carry a project_id with no FOREIGN KEY clause at all, so
-    # no pragma can reach them; they still need the schema migration.
+    # Seven tables a project delete orphans — audit_log, jdf_documents,
+    # node_revisions, pipeline_cache, project_budgets, token_ledger_entries,
+    # user_activity_log — carry a project_id with no FOREIGN KEY clause in a
+    # database that predates db/connection.py declaring one, so no pragma can
+    # reach a row there: those databases still need
+    # scripts/aws/migrate_fk_constraints.py. A database created from the current
+    # DDL carries the clause, and this pragma is what makes it bite.
     conn.execute("PRAGMA foreign_keys=ON;")
 
 

@@ -29,6 +29,11 @@ class CostGovernanceTests(unittest.TestCase):
         self.conn.row_factory = sqlite3.Row
         self.mock_get_db.return_value = self.conn
         self.store = ProjectBudgetStore(self.conn)
+        self.store.ensure_tables()
+        # project_budgets declares the FK to projects, so the project a budget row
+        # names has to exist before the row can be written.
+        self.conn.execute("INSERT INTO projects (id, title) VALUES ('proj-a', 'proj-a')")
+        self.conn.commit()
         self.store.ensure_project("proj-a", token_limit=1000)
         self.governor = CostGovernor(budget_store=self.store)
 

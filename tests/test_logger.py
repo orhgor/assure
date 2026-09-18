@@ -18,6 +18,10 @@ def audit_db():
     db_path = Path(tmp.name) / "history.sqlite"
     conn = sqlite3.connect(str(db_path))
     init_db(conn)
+    # audit_log declares the FK to projects, so a database created from the DDL
+    # writes an audit row only for a project that exists.
+    conn.execute("INSERT INTO projects (id, title) VALUES ('proj-1', 'proj-1')")
+    conn.commit()
     conn.close()
     yield str(db_path)
     tmp.cleanup()
