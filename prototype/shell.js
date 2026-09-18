@@ -60,7 +60,6 @@
   var compilerPromptEl = null;
   var compilerRouteEl = null;
   var compilerPromptSummaryEl = null;
-  var compilerPromptDetailsEl = null;
   var projectCurrentNameEl = null;
   var leftSourcesEl = null;
   var leftCompilerEl = null;
@@ -318,7 +317,6 @@
     compilerPromptEl = document.getElementById("compiler-prompt");
     compilerRouteEl  = document.getElementById("compiler-route");
     compilerPromptSummaryEl = document.getElementById("compiler-prompt-summary");
-    compilerPromptDetailsEl = document.getElementById("compiler-prompt-details");
     versionChipEl     = document.getElementById("version-chip");
     versionPrevEl     = document.getElementById("version-prev");
     versionNextEl     = document.getElementById("version-next");
@@ -1830,11 +1828,6 @@
       // writes {id, text, status}. Read text, then content.
       return String(r.text || r.content || "").trim();
     }
-    // __redhatState belonged to the compile, not to this trigger: it described
-    // the last compile's pass and was never reset, so "Last pass: skipped"
-    // could contradict the audit the user had just watched run. The pane's
-    // status line reads __redhatLastRun instead, and __redhatState has no
-    // reader left in this file (dead — see follow-ups; not removed here).
 
     function _handleRedhatFrame(frame, cb) {
       if (!frame) return;
@@ -2403,13 +2396,6 @@
       } else if (event === "redhat" && data && typeof data === "object") {
         // Red-Hat pipeline stage state for this compile (ran | skipped | failed).
         var _rh = (data && data.redhat && typeof data.redhat === "object") ? data.redhat : data;
-        __redhatState = {
-          status: _rh.status || null,
-          findings_count: _rh.findings_count || 0,
-          error: _rh.error || null,
-          skip_reason: _rh.skip_reason || null,
-          findings: _rh.findings && Array.isArray(_rh.findings) ? _rh.findings : null,
-        };
         __lastRunRedhat = _rh.status ? String(_rh.status) : "";
         _renderCompilerRoute();
         var selNodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
@@ -2993,7 +2979,6 @@
       runInProgress = Boolean(v);
       _syncDockSubmit();
     }
-    var healthSnapshot = null;    // last /health JSON when available
 
     function submitIntent() {
       if (!text) return;
@@ -3120,116 +3105,6 @@
       intentSummaryTextEl = null;
     }
 
-    function makeIntentPanelShell(titleText) {
-      clearIntentSlot();
-      var panel = document.createElement("div");
-      panel.className = "intent-panel";
-      var title = document.createElement("h3");
-      title.className = "intent-panel-title";
-      title.textContent = titleText;
-      panel.appendChild(title);
-      return panel;
-    }
-
-    function appendIntentSection(panel, labelText, bodyEl) {
-      var section = document.createElement("div");
-      section.className = "intent-section";
-      var label = document.createElement("span");
-      label.className = "intent-section-label";
-      label.textContent = labelText;
-      section.appendChild(label);
-      section.appendChild(bodyEl);
-      panel.appendChild(section);
-    }
-
-    function makeCancelButton() {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "intent-action cancel";
-      b.textContent = "Cancel";
-      b.addEventListener("click", cancelIntent);
-      return b;
-    }
-
-    function makeActionButton(label, handler) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "intent-action";
-      b.textContent = label;
-      if (label === "Run" || label === "Run anyway") b.classList.add("primary");
-      b.addEventListener("click", handler);
-      return b;
-    }
-
-    function renderIntentLoading(raw) {
-      if (!intentPanelSlot) return;
-      var panel = makeIntentPanelShell("INTENT COMPILATION");
-      var loading = document.createElement("p");
-      loading.className = "intent-loading";
-      loading.textContent = "Compiling intent\u2026";
-      panel.appendChild(loading);
-      var footer = document.createElement("div");
-      footer.className = "intent-actions";
-      footer.appendChild(makeCancelButton());
-      panel.appendChild(footer);
-      intentPanelSlot.appendChild(panel);
-    }
-
-    function renderIntentFailure(raw) {
-      if (!intentPanelSlot) return;
-      var panel = makeIntentPanelShell("INTENT COMPILATION");
-      var msg = document.createElement("p");
-      msg.className = "intent-failure";
-      msg.textContent = "Could not compile intent.";
-      panel.appendChild(msg);
-      var footer = document.createElement("div");
-      footer.className = "intent-actions";
-      footer.appendChild(makeActionButton("Run anyway", function () { runAnyIntent(raw); }));
-      footer.appendChild(makeCancelButton());
-      panel.appendChild(footer);
-      intentPanelSlot.appendChild(panel);
-    }
-
-    function renderIntentPanel(raw, data, health) {
-      if (!intentPanelSlot) return;
-      healthSnapshot = (health && typeof health === "object") ? health : null;
-      var panel = makeIntentPanelShell("INTENT COMPILATION");
-      var askBody = document.createElement("blockquote");
-      askBody.className = "intent-ask";
-      askBody.textContent = raw;
-      appendIntentSection(panel, "YOUR ASK", askBody);
-      var promptBody = document.createElement("pre");
-      promptBody.className = "intent-prompt";
-      promptBody.textContent = (data && data.prompt) || "";
-      appendIntentSection(panel, "COMPILED PROMPT", promptBody);
-      // ROUTED TO — shown only when /health supplies orchestrator_models.
-      var om = healthSnapshot ? healthSnapshot.orchestrator_models : null;
-      if (om && typeof om === "object") {
-        var routedBody = document.createElement("div");
-        routedBody.className = "intent-routed";
-        var any = false;
-        for (var kk in om) {
-          if (Object.prototype.hasOwnProperty.call(om, kk) && om[kk]) {
-            var row = document.createElement("div");
-            row.textContent = String(kk) + ": " + String(om[kk]);
-            routedBody.appendChild(row);
-            any = true;
-          }
-        }
-        if (any) appendIntentSection(panel, "ROUTED TO", routedBody);
-      }
-      var checksBody = document.createElement("p");
-      checksBody.className = "intent-checks";
-      checksBody.textContent = "Will attempt on Run: Z3 numeric gate (needs a \u201ckey: value\u201d metric) \u00b7 provenance anchoring (needs selected sources) \u00b7 confidence spans. Red-Hat audit is opt-in and does not run on compile.";
-      appendIntentSection(panel, "CHECKS PLANNED", checksBody);
-      var footer = document.createElement("div");
-      footer.className = "intent-actions";
-      footer.appendChild(makeCancelButton());
-      footer.appendChild(makeActionButton("Run", runPendingIntent));
-      panel.appendChild(footer);
-      intentPanelSlot.appendChild(panel);
-    }
-
     // The intent bar's text node, so beginIntentCompile can flip it once the
     // compile-system promise settles (the bar is drawn before that).
     var intentSummaryTextEl = null;
@@ -3305,8 +3180,6 @@
     var pinnedListEl   = document.getElementById("pinned-list"); // removed; helpers no-op
     var compareInFlight = false;
     var compareDataLoaded = false;
-    var lastCompareJdfA = null;     // most recent JDF rendered into column A
-    var lastCompareJdfB = null;     // most recent JDF rendered into column B
     var compareStreamsDone = 0;     // number of compare streams finished/errored
 
     var LEFT_TABPANE = {
@@ -3473,8 +3346,7 @@
       // failing stream must not block the healthy sibling.
       if (compareStreamsDone >= 2) setCompareDisabled(false);
     }
-    function compareStreamSide(col, modelId, storeKey) {
-      // storeKey: "A" | "B" — writes lastCompareJdfA/B.
+    function compareStreamSide(col, modelId) {
       var controller = new AbortController();
       var intent;
       try { intent = window.sessionStorage.getItem(LAST_INTENT_KEY); } catch (_) { intent = null; }
@@ -3499,8 +3371,6 @@
             var doc = data.document;
             if (doc && doc.body && Array.isArray(doc.body)) {
               col.__jdf = doc;
-              if (storeKey === "A") lastCompareJdfA = doc;
-              else lastCompareJdfB = doc;
               col.__rendered = true;
               renderJdfDocument(doc, col.__body);
               if (col.__acceptBtn) col.__acceptBtn.removeAttribute("disabled");
@@ -3583,8 +3453,6 @@
       setCompareDisabled(true);
       compareStreamsDone = 0;
       compareClear();
-      lastCompareJdfA = null;
-      lastCompareJdfB = null;
 
       var grid = document.createElement("div");
       grid.className = "compare-grid";
@@ -3596,8 +3464,8 @@
       grid.appendChild(colB);
 
       compareDataLoaded = true;         // do not refire on tab re-click
-      setShell("streams.compareA", compareStreamSide(colA, "anthropic/claude-sonnet-4-5", "A"));
-      setShell("streams.compareB", compareStreamSide(colB, "deepseek/deepseek-chat", "B"));
+      setShell("streams.compareA", compareStreamSide(colA, "anthropic/claude-sonnet-4-5"));
+      setShell("streams.compareB", compareStreamSide(colB, "deepseek/deepseek-chat"));
     }
 
     // ---------------------------------------------------------------
@@ -4008,7 +3876,6 @@
     // Dead since the Red-Hat pane moved to __redhatLastRun: this file no longer
     // reads it (the finding list is node.annotations.redhat). Not removed in
     // this commit — see follow-ups.
-    var __redhatState = null;
     // ROUTED TO inputs for the last draft run (left COMPILER pane). Runtime
     // facts from the stream — reset at run start so the pane can never show a
     // previous run's model or Red-Hat pass state.
