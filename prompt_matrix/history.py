@@ -36,6 +36,26 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
     conn.execute("PRAGMA synchronous=NORMAL;")
+    # SQLite ships with foreign_keys OFF and it is per-connection, so every
+    # `ON DELETE CASCADE` in the schema was inert: `DELETE FROM projects WHERE id
+    # = ?` (routers/project_routes.py) removed the project row and left its
+    # children behind. Seven tables declare a cascade to projects — drafts,
+    # jdf_revisions, substrate_vault, substrates, project_comments,
+    # workspace_settings, daily_compile_limits — and no table declares NO ACTION
+    # against it, so turning enforcement on can only complete a delete that was
+    # already meant to cascade; it cannot make one fail. runs.workspace_id is
+    # ON DELETE SET NULL and stays as declared.
+    #
+    # Set here because this is the one place every connection passes through:
+    # _new_connection below, the SQLAlchemy `connect` event in db/pool.py, and
+    # the two re-applications in db/connection.py. It must run outside a
+    # transaction, which holds at all four call sites.
+    #
+    # Six of the nine tables a project delete orphans — jdf_documents,
+    # node_revisions, audit_log, project_budgets, token_ledger_entries,
+    # pipeline_cache — carry a project_id with no FOREIGN KEY clause at all, so
+    # no pragma can reach them; they still need the schema migration.
+    conn.execute("PRAGMA foreign_keys=ON;")
 
 
 def _new_connection() -> sqlite3.Connection:
