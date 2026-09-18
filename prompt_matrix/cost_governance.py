@@ -107,12 +107,17 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="deepseek/deepseek-chat",
     ),
+    # Claim entailment (source quote → paragraph claim) → GLM 5.3 Flash via
+    # OpenRouter (:floor = cheapest provider). Was deepseek/deepseek-chat; the key
+    # in the dev worktree answers 401 (the staging box's key answers 200), and the
+    # verdict call is priced better here. 1024 (not 500) because this model spends
+    # output budget on hidden reasoning before the verdict line.
     TaskType.SEMANTIC_VALIDATION: ModelPolicy(
-        model_id="deepseek/deepseek-chat",
+        model_id="z-ai/glm-5.3-flash",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SEMANTIC_VALIDATION],
-        max_output_tokens=500,
+        max_output_tokens=1024,
         caching=False,
-        litellm_model="deepseek/deepseek-chat",
+        litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
     ),
     # Deep synthesis → GLM 5.3 Flash via OpenRouter (:floor = cheapest provider)
     TaskType.DEEP_SYNTHESIS: ModelPolicy(

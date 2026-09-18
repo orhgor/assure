@@ -59,7 +59,9 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
     stats = g.get("provenance_stats") or g
     eligible = int(stats.get("eligible") or 0)
     anchored = int(stats.get("anchored") or 0)
-    unanchored = int(stats.get("unanchored") or (eligible - anchored))
+    partial = int(stats.get("partial") or 0)
+    unverified_claims = int(stats.get("unverified") or 0)
+    unanchored = int(stats.get("unanchored") or (eligible - anchored - partial))
     return {
         "gate_status": str(g.get("gate_status") or "review"),
         "z3_status": str(g.get("z3_status") or "SKIPPED"),
@@ -73,7 +75,9 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
         "provenance_stats": {
             "eligible": eligible,
             "anchored": anchored,
+            "partial": partial,
             "unanchored": unanchored,
+            "unverified": unverified_claims,
         },
     }
 
@@ -114,15 +118,19 @@ def compute_export_gate(
     if persisted is not None:
         return persisted
     try:
-        from ..services.audit_summary import _eligible_and_anchored, compute_gate_status
+        from ..services.audit_summary import _provenance_counts, compute_gate_status
     except ImportError:
-        from services.audit_summary import _eligible_and_anchored, compute_gate_status
+        from services.audit_summary import _provenance_counts, compute_gate_status
     try:
         from ..db.substrate_repository import list_substrate_for_project
     except ImportError:
         from db.substrate_repository import list_substrate_for_project
 
-    eligible, anchored = _eligible_and_anchored(tree)
+    counts = _provenance_counts(tree)
+    eligible = counts["eligible"]
+    anchored = counts["anchored"]
+    partial = counts["partial"]
+    unverified_claims = counts["unverified"]
     z3_status = str((z3_results or {}).get("status") or _derive_z3_from_tree(tree) or "SKIPPED")
     redhat_count = (
         len(redhat_critiques) if redhat_critiques is not None else _derive_redhat_count(tree)
@@ -132,7 +140,22 @@ def compute_export_gate(
     if anchored == 0:
         gate_status = "review"
         unverified = True
-        if has_substrate:
+        if partial or unverified_claims:
+            bits = []
+            if partial:
+                bits.append(f"{partial} supported only in part")
+            if unverified_claims:
+                bits.append(f"{unverified_claims} could not be checked")
+            reason = (
+                f"0 of {eligible} claims were entailed by their matched source sentence "
+                f"({', '.join(bits)})."
+            )
+        elif counts["unchecked"]:
+            reason = (
+                f"0 of {eligible} claims were entailment-checked against their matched "
+                f"source sentence ({counts['unchecked']} anchored but never checked)."
+            )
+        elif has_substrate:
             reason = f"0 of {eligible} claims matched any source sentence."
         else:
             reason = "No sources included in this compile — output is ungrounded."
@@ -149,8 +172,15 @@ def compute_export_gate(
         "unverified_reason": reason,
         "eligible": eligible,
         "anchored": anchored,
-        "unanchored": eligible - anchored,
+        "unanchored": counts["unanchored"],
         "has_substrate": has_substrate,
+        "provenance_stats": {
+            "eligible": eligible,
+            "anchored": anchored,
+            "partial": partial,
+            "unanchored": counts["unanchored"],
+            "unverified": unverified_claims,
+        },
     }
 
 

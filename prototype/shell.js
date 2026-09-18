@@ -1101,8 +1101,9 @@
     // Anchoring mirrors prompt_matrix/services/audit_summary.py
     // (_eligible_and_anchored): paragraph nodes with >= _MIN_CLAIM_TOKENS
     // content tokens (models/jdf.py _tokenize — tokens are >2 chars and not
-    // stopwords, counted as a set) and anchored iff node.meta.provenance or
-    // node.provenance. When the caller supplies the server's
+    // stopwords, counted as a set). "Anchored" is the stricter, post-entailment
+    // meaning: eligible AND entailment.verdict == "yes" (partial/no/missing/
+    // unverified are all NOT anchored). When the caller supplies the server's
     // provenance_stats, that wins (DB parity with the persisted gate).
     // ---------------------------------------------------------------
     var _ANCHOR_STOPWORDS = {
@@ -1131,6 +1132,56 @@
       }
       return n;
     }
+    // ---------------------------------------------------------------
+    // Entailment verdict. A lexical anchor is not a verified claim: it only
+    // says the wording overlaps a source sentence (models/jdf.py still anchors
+    // "by wording similarity, not claim truthfulness"). The gate is the
+    // verdict the server's entailment check persisted on the node at
+    // node.meta.provenance.entailment:
+    //   "yes"        -> the source states the claim
+    //   "partial"    -> the source supports it only in part
+    //   "no"         -> the source contradicts it / lacks the figure
+    //   "unverified" -> the check did not produce a verdict (including a
+    //                   failed call, which persists the failure reason)
+    // A missing verdict is therefore never upgraded to "yes" here, and the
+    // label never falls back to "the provenance dict exists".
+    // ---------------------------------------------------------------
+    var _ENTAILMENT_LABELS = {
+      yes: "Verified in source",
+      partial: "Partial match",
+      no: "Not supported by source",
+      unverified: "Source check failed",
+    };
+    function _entailmentFor(node, provItem) {
+      if (provItem && typeof provItem === "object" &&
+          provItem.entailment && typeof provItem.entailment === "object") {
+        return provItem.entailment;
+      }
+      var metaProv = node && node.meta && node.meta.provenance;
+      if (metaProv && !Array.isArray(metaProv) && typeof metaProv === "object" &&
+          metaProv.entailment && typeof metaProv.entailment === "object") {
+        return metaProv.entailment;
+      }
+      return null;
+    }
+    // Unknown strings are treated as "unverified": a verdict the shell cannot
+    // read must not render as verification.
+    function _entailmentVerdict(node, provItem) {
+      var ent = _entailmentFor(node, provItem);
+      var v = ent ? String(ent.verdict || "").toLowerCase() : "";
+      return Object.prototype.hasOwnProperty.call(_ENTAILMENT_LABELS, v) ? v : "unverified";
+    }
+    // One sentence, or "" when the check produced none. Never invented here.
+    function _entailmentReasoning(node, provItem) {
+      var ent = _entailmentFor(node, provItem);
+      return (ent && ent.reasoning) ? String(ent.reasoning) : "";
+    }
+    // "Source check failed · page N" / "Verified in source · page N" — the page
+    // suffix only when the anchor carried one.
+    function _entailmentLabel(node, provItem, pageStr) {
+      return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
+        (pageStr ? " \u00b7 page " + pageStr : "");
+    }
     function _derivedAnchoredCount(doc) {
       var anchored = 0;
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
@@ -1148,13 +1199,25 @@
           // provenance: [] for unanchored paragraphs, so mirror the server
           // predicate exactly (audit_summary._eligible_and_anchored).
           var prov = meta.provenance || node.provenance;
-          if (Array.isArray(prov) ? prov.length > 0 : !!prov) anchored++;
+          var hasAnchor = Array.isArray(prov) ? prov.length > 0 : !!prov;
+          var provItem = Array.isArray(prov) ? (prov[0] || null) : prov;
+          // Stricter than presence: only an explicit entailment "yes" is
+          // anchored. A payload whose paragraphs carry an anchor but no verdict
+          // (or "partial"/"no"/"unverified") derives 0 anchored, so the banner
+          // fires rather than the shell claiming a truthfulness check the
+          // document never passed.
+          if (hasAnchor && _entailmentVerdict(node, provItem) === "yes") anchored++;
         }
       }
       return anchored;
     }
     function _syncUngroundedBanner(stats) {
       var show;
+      // The server's provenance_stats are the stricter, persisted numbers
+      // (anchored == entailment.verdict "yes" only; partial is its own bucket;
+      // no/missing/unverified are unanchored). They win whenever present; the
+      // local derivation below applies the same verdict rule, never the old
+      // "provenance is present" rule.
       if (stats && typeof stats === "object" && typeof stats.anchored === "number") {
         show = (stats.anchored === 0);
       } else {
@@ -1256,7 +1319,10 @@
         addEvidenceChips(doc);
         _loadVersionHistory(projectId, { current: null });
         _refreshSignoff(projectId);
-        _syncUngroundedBanner(null);
+        // Prefer the server's persisted provenance_stats (the same numbers the
+        // export and the gate read). Only when the document carries none does
+        // _syncUngroundedBanner derive the count locally, on the verdict rule.
+        _syncUngroundedBanner((doc.meta && doc.meta.provenance_stats) || null);
         _applyRightView();
         return true;
       });
@@ -2270,6 +2336,11 @@
             setShell("document.mode", "ready");
             setShell("document.current", doc);
             renderJdfDocument(doc);
+            // The banner describes the document now on screen. Without this
+            // the previous project's verdict (a stale banner, or none) carried
+            // over and an ungrounded target stayed invisible. A target with no
+            // persisted stats derives locally, on the same verdict rule.
+            _syncUngroundedBanner((doc.meta && doc.meta.provenance_stats) || null);
           } else {
             resetStages();
             clearDocument();
@@ -3320,7 +3391,8 @@
 
       var header = document.createElement("div");
       header.className = "evidence-header";
-      if (!p0) {
+      var ent0 = _entailmentFor(node, p0);
+      if (!p0 && !ent0) {
         header.textContent = "Evidence \u00b7 no source matched";
         evidenceBodyEl.appendChild(header);
         var empty = document.createElement("div");
@@ -3333,15 +3405,24 @@
         return;
       }
 
-      var srcName = String(p0.source_name || "");
-      var pageRaw = p0.page_number;
+      var srcName = String((p0 && p0.source_name) || "");
+      var pageRaw = p0 ? p0.page_number : "";
       var pageStr = (pageRaw != null && pageRaw !== "") ? String(pageRaw) : "";
-      header.textContent = "Evidence \u00b7 " + (srcName || "source") +
-        (pageStr ? " \u00b7 page " + pageStr : "");
+      // Same verdict-driven label as the selected-paragraph view: the span's
+      // score is a separate (ledger) signal and must not title the label.
+      header.textContent = _entailmentLabel(node, p0, pageStr);
       evidenceBodyEl.appendChild(header);
 
       var content = document.createElement("div");
       content.className = "evidence-content";
+
+      var reasoning = _entailmentReasoning(node, p0);
+      if (reasoning) {
+        var reasonEl = document.createElement("p");
+        reasonEl.className = "evidence-value";
+        reasonEl.textContent = reasoning;
+        content.appendChild(reasonEl);
+      }
 
       var excerpt = String(p0.excerpt || p0.extracted_quote || "");
       if (excerpt) {
@@ -3400,9 +3481,10 @@
       if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
       if (!Array.isArray(prov)) prov = prov ? [prov] : [];
       var p0 = prov[0] || null;
+      var ent = _entailmentFor(node, p0);
       var header = document.createElement("div");
       header.className = "evidence-header";
-      if (!p0) {
+      if (!p0 && !ent) {
         header.textContent = "Evidence · no source matched";
         evidenceBodyEl.appendChild(header);
         var empty = document.createElement("div");
@@ -3414,12 +3496,24 @@
         evidenceBodyEl.appendChild(empty);
         return;
       }
-      var srcName = String(p0.source_name || "");
-      var pageStr = (p0.page_number != null && p0.page_number !== "") ? String(p0.page_number) : "";
-      header.textContent = "Evidence · " + (srcName || "source") + (pageStr ? " · page " + pageStr : "");
+      var srcName = String((p0 && p0.source_name) || "");
+      var pageStr = (p0 && p0.page_number != null && p0.page_number !== "")
+        ? String(p0.page_number) : "";
+      // Label from the entailment verdict, not from the anchor's presence.
+      header.textContent = _entailmentLabel(node, p0, pageStr);
       evidenceBodyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
+      // The check's one-sentence reason, directly under the label. Absent when
+      // the check produced none — never filled in with a made-up justification.
+      var reasoning = _entailmentReasoning(node, p0);
+      if (reasoning) {
+        var reasonEl = document.createElement("p");
+        reasonEl.className = "evidence-value";
+        reasonEl.textContent = reasoning;
+        content.appendChild(reasonEl);
+      }
+      if (!p0) { evidenceBodyEl.appendChild(content); return; }
       var excerpt = String(p0.excerpt || p0.extracted_quote || "");
       if (excerpt) {
         var quote = document.createElement("blockquote");

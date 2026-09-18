@@ -83,11 +83,7 @@ def register_export_routes(app) -> None:
                     "z3_status": gate["z3_status"],
                     "unverified": gate["unverified"],
                     "unverified_reason": gate["unverified_reason"],
-                    "provenance_stats": {
-                        "eligible": gate["eligible"],
-                        "anchored": gate["anchored"],
-                        "unanchored": gate["unanchored"],
-                    },
+                    "provenance_stats": dict(gate["provenance_stats"]),
                 }
             )
 

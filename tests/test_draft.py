@@ -126,6 +126,69 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     assert any(f.strip() == "data: [DONE]" for f in frames)
 
 
+def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
+    """The compile stream entailment-checks anchored paragraphs and the gate reads
+    the verdict: a lexically anchored paragraph the check calls "partial" is no
+    longer reported as a verified claim."""
+    source = "The policy liability limit is set at $5,000,000 for combined single limit."
+    claim = "The policy liability limit is set at $5,000,000 for combined single limit."
+
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
+        yield (claim, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
+
+    def fake_locks(_text):
+        return [], "deepseek/deepseek-chat"
+
+    calls: list[tuple[str, str]] = []
+
+    def stub_check(claim_text, source_text, *, project_id=""):
+        calls.append((claim_text, source_text))
+        return {
+            "verdict": "partial",
+            "reasoning": "The source states the limit but not the coverage period.",
+            "model": "stub/model",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
+    monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}],
+    )
+
+    frames = list(
+        run_draft_pipeline(
+            "default",
+            intent="Restate the liability limit.",
+            substrate_file_ids=["sub-1"],
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    frames_by_type = [data for _ev, data in events if isinstance(data, dict)]
+
+    assert [d for d in frames_by_type if d.get("stage") == "entailment"], "stage must be announced"
+    # The source handed to the model is the anchored source sentence, not the claim.
+    assert calls == [(claim, claim.rstrip("."))]
+
+    verified = next(d for d in frames_by_type if d.get("type") == "verified")
+    assert verified["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 0,
+        "partial": 1,
+        "unanchored": 0,
+        "unverified": 0,
+    }
+    assert verified["gate_status"] == "review"
+    assert verified["ok"] is False
+    assert "1 supported only in part" in verified["unverified_reason"]
+    node = verified["document"]["body"][0]["children"][0]
+    assert node["meta"]["provenance"]["entailment"]["verdict"] == "partial"
+    assert node["provenance"], "the paragraph is still lexically anchored"
+
+
 def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     """OMP compile cache should skip the LLM when a prior result exists."""
 

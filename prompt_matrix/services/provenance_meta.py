@@ -104,6 +104,13 @@ def build_node_provenance_meta(
     prov.setdefault("verified_at", verified_at or datetime.now(UTC).isoformat())
     if not prov.get("excerpt"):
         prov["excerpt"] = content[:240]
+    # The entailment verdict is a model judgement, not a re-derivable summary:
+    # carry it across rebuilds (this function replaces meta.provenance wholesale,
+    # and the audit gate reads the verdict from the tree it returns).
+    prior = (node.get("meta") or {}).get("provenance") or {}
+    entailment = prior.get("entailment") if isinstance(prior, dict) else None
+    if isinstance(entailment, dict) and entailment.get("verdict"):
+        prov["entailment"] = dict(entailment)
     return prov
 
 

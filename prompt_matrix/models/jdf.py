@@ -869,11 +869,13 @@ def attach_substrate_provenance_to_tree(
     locks: list[dict[str, Any]],
     substrate_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    # TODO(v1.1): lexical overlap anchors provenance by wording similarity, not
-    # claim truthfulness. Numbers are checked (a paragraph may not cite a figure
-    # its matched sentence does not carry), but a paragraph that drops or flips a
-    # negation can still anchor to the sentence it contradicts. Add a
-    # contradiction status for those cases.
+    # Lexical overlap anchors provenance by wording similarity, not claim
+    # truthfulness — so this is the *candidate* anchor, not a verdict. Numbers are
+    # checked (a paragraph may not cite a figure its matched sentence does not
+    # carry), but a paragraph that drops or flips a negation can still anchor to
+    # the sentence it contradicts. Truthfulness is decided one layer up, by
+    # services/entailment.py (TaskType.SEMANTIC_VALIDATION), whose verdict the gate
+    # in services/audit_summary.py reads.
     """Best-effort provenance: for each paragraph, find the substrate
     sentence with the highest token-overlap coefficient. Stamp the
     real filename, source_id, page, and quote onto node["provenance"].

@@ -10,6 +10,21 @@ from prompt_matrix.services.audit_summary import (
     compute_gate_status,
     normalize_audit_payload,
 )
+from prompt_matrix.services.entailment import attach_entailment_to_tree
+
+
+def _yes_checker(claim: str, source: str) -> dict:
+    """Stands in for the SEMANTIC_VALIDATION model: these claims are entailed.
+
+    The prompt's own discrimination is tested against the live model in
+    tests/test_entailment.py; here the transport is irrelevant to the gate.
+    """
+    return {
+        "verdict": "yes",
+        "reasoning": "The source states the claim.",
+        "model": "stub/model",
+        "checked_at": "2026-09-18T00:00:00+00:00",
+    }
 
 
 def test_compute_gate_status_blocked():
@@ -42,7 +57,9 @@ def test_build_audit_summary_shape():
     assert summary["provenance_stats"] == {
         "eligible": 0,
         "anchored": 0,
+        "partial": 0,
         "unanchored": 0,
+        "unverified": 0,
     }
     assert summary["gate_status"] == "review"
     assert summary["z3_status"] == "PASS"
@@ -99,10 +116,19 @@ def _passing_z3() -> dict:
 )
 def test_gate_anchors_policy_restatement(claim):
     doc = _policy_document(claim)
+    # The anchor itself is lexical; "verified" now means the entailment check
+    # said yes to this claim against the quote it anchored to.
+    attach_entailment_to_tree(doc, checker=_yes_checker)
     summary = build_audit_summary(
         z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
     )
-    assert summary["provenance_stats"] == {"eligible": 1, "anchored": 1, "unanchored": 0}
+    assert summary["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 1,
+        "partial": 0,
+        "unanchored": 0,
+        "unverified": 0,
+    }
     # Anchored branch leaves the unverified fields unset — the shell shows the
     # ungrounded banner only when anchored == 0.
     assert not summary.get("unverified")
@@ -123,7 +149,13 @@ def test_gate_refuses_unsupported_claim(claim):
     summary = build_audit_summary(
         z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
     )
-    assert summary["provenance_stats"] == {"eligible": 1, "anchored": 0, "unanchored": 1}
+    assert summary["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 0,
+        "partial": 0,
+        "unanchored": 1,
+        "unverified": 0,
+    }
     assert summary["unverified"] is True
     assert summary["unverified_reason"] == "0 of 1 claims matched any source sentence."
     assert summary["gate_status"] == "review"

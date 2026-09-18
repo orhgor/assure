@@ -163,13 +163,34 @@ def sse(event: str, payload: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
 
 
+def _anchor_entailment(doc: dict[str, Any]) -> dict[str, Any]:
+    """Mock compile: anchor the paragraph to its own wording and record the
+    entailment verdict a real check would return for that (yes). Playwright never
+    calls the model, and the gate now reads the verdict rather than the anchor.
+    """
+    from prompt_matrix.services.entailment import attach_entailment_to_tree
+
+    def _yes(claim: str, source: str) -> dict[str, Any]:
+        return {
+            "verdict": "yes",
+            "reasoning": "The anchored quote is the claim verbatim.",
+            "model": "playwright/fixture",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
+
+    for node in doc["body"][0]["children"]:
+        for row in node.get("provenance") or []:
+            row["extracted_quote"] = node["content"]
+    return attach_entailment_to_tree(doc, checker=_yes)
+
+
 def draft_stream_success(
     *,
     content: str = "Revenue reached $12M in Q3.",
     cache_hit: bool = False,
     confidence_spans: list | None = None,
 ) -> str:
-    doc = sample_document(content=content)
+    doc = _anchor_entailment(sample_document(content=content))
     if confidence_spans:
         doc["meta"]["confidenceSpans"] = confidence_spans
     section_nodes = doc["body"]
