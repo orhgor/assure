@@ -257,11 +257,12 @@
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.selection.evidence") {
       // §6: the evidence payload is the pane's third input — a z3/cite chip's
-      // drawer, or a confidence span's ledger tail. The click handlers write it
-      // BEFORE the node id, so it belongs to a node that is not selected yet
-      // and repaints nothing; the node id write then paints once, with the
-      // payload already in place. Re-clicking the item that is already
-      // selected changes only this input, so this write is what repaints.
+      // drawer. The click handlers write it BEFORE the node id, so it belongs
+      // to a node that is not selected yet and repaints nothing; the node id
+      // write then paints once, with the payload already in place. Re-clicking
+      // the item that is already selected changes only this input, so this
+      // write is what repaints. A confidence span writes null here: it opens
+      // the paragraph's own panel, and nothing else.
       var sel = SHELL.ui.selection || {};
       var onScreen = (value && value.nodeId === sel.nodeId) ||
                      (!value && prev && prev.nodeId === sel.nodeId);
@@ -4868,16 +4869,10 @@
       var span = e.currentTarget;
       var nodeId = span.getAttribute("data-node-id");
       if (!nodeId) return;
-      // §6: state in, one paint out. The payload is written first, while
-      // another node (or none) is still selected, so it repaints nothing; the
-      // node id write below is the click's single render, and the pane draws
-      // the paragraph panel with this span's ledger tail already attached. The
-      // second writer that used to clear and repaint the pane here is gone.
-      setShell("ui.selection.evidence", {
-        kind: "confidence",
-        nodeId: nodeId,
-        data: { score: span.getAttribute("data-score") },
-      });
+      // §6: state in, one paint out. A span opens the paragraph's own panel,
+      // so any drawer payload left by an earlier chip click is cleared first
+      // and the node id write below is the click's single render.
+      setShell("ui.selection.evidence", null);
       setShell("ui.selection.nodeId", nodeId);
       openRight();
       setMode("evidence");
@@ -4891,24 +4886,6 @@
     // pane says which state the paragraph is in, the counters carry the
     // distribution, and the Math check (Z3) tab is where a ledger score
     // belongs. `data-score` stays on the span, where it bands the underline.
-
-    // §6: demoted — no longer a writer. renderEvidencePanel owns the pane and
-    // paints the paragraph panel (verdict header, reasoning, excerpt, fields);
-    // this appends the clicked span's ledger tail under it. The score is the
-    // span's own ledger signal, carried on the selection payload, so the span
-    // element is never read back out of the DOM. The empty-source wording is
-    // the panel's now (one surface, one wording) — the two used to differ only
-    // here, which is the kind of drift a second writer causes.
-    function renderConfidenceEvidence(ev) {
-      if (!evidenceBodyEl) return;
-      var score = parseFloat(ev && ev.data ? ev.data.score : "");
-      if (isNaN(score)) score = 0;
-      var foot = document.createElement("div");
-      foot.className = "evidence-footer";
-      foot.textContent = "Ledger check score: " +
-        ((score <= 1) ? (Math.round(score * 100) + "%") : String(score));
-      evidenceBodyEl.appendChild(foot);
-    }
 
     // Single owner of pane reveal. index.html authors `hidden` on all three
     // bodies while `.pane-body` sets `display: flex`, so clearing only the
@@ -4954,27 +4931,20 @@
       if (!evidenceBodyEl) return;
       while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
       // §6: the ONE writer of #right-evidence, in the precedence the pane's
-      // four states have: an explicitly opened drawer (the user named that
-      // item) beats the paragraph panel; the panel carries a clicked span's
-      // ledger tail; with nothing selected the pane is idle. The other writers
-      // are builders this one calls — neither clears the pane any more.
+      // three states have: an explicitly opened drawer (the user named that
+      // item) beats the paragraph panel; with nothing selected the pane is
+      // idle. The other writer is a builder this one calls — it never clears
+      // the pane.
       //
-      // The spec's `drawer > panel > confidence > idle` line describes this
-      // order, which is why it is expressed here rather than in the dispatch:
-      // two of the four writers are reached from event handlers (a chip, a
-      // confidence span), never from _applyRightView, so there was no
-      // dispatcher-side precedence to reorder — the call sites that produced
-      // the extra builds were the handlers themselves.
+      // The spec's `drawer > panel > idle` line describes this order, which is
+      // why it is expressed here rather than in the dispatch: the drawer's
+      // caller is an event handler (a chip click), never _applyRightView, so
+      // there was no dispatcher-side precedence to reorder — the call sites
+      // that produced the extra builds were the handlers themselves.
       if (opts && opts.drawer) { renderEvidenceDrawer(opts.drawer); return; }
       // Nothing selected: the pane's content is the counters above this body,
       // so the body stays empty rather than announcing an empty pane.
       if (!node) return;
-      // The clicked span's ledger tail is appended wherever this function
-      // exits: the score is a ledger signal, so it survives a paragraph whose
-      // source did not match. `tail` runs at most once per call.
-      var tail = (opts && opts.confidence) ? function () {
-        renderConfidenceEvidence(opts.confidence);
-      } : null;
       var prov = node.provenance;
       if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
       if (!Array.isArray(prov)) prov = prov ? [prov] : [];
@@ -4992,7 +4962,6 @@
         emptyMsg.textContent = "No source matched this paragraph";
         empty.appendChild(emptyMsg);
         evidenceBodyEl.appendChild(empty);
-        if (tail) tail();
         return;
       }
       var srcName = String((p0 && p0.source_name) || "");
@@ -5012,7 +4981,7 @@
         reasonEl.textContent = reasoning;
         content.appendChild(reasonEl);
       }
-      if (!p0) { evidenceBodyEl.appendChild(content); if (tail) tail(); return; }
+      if (!p0) { evidenceBodyEl.appendChild(content); return; }
       var excerpt = String(p0.excerpt || p0.extracted_quote || "");
       if (excerpt) {
         var quote = document.createElement("blockquote");
@@ -5034,7 +5003,6 @@
       field("Rule", p0.rule);
       field("Confidence", p0.confidence);
       evidenceBodyEl.appendChild(content);
-      if (tail) tail();
     }
     function renderZ3Panel(node) {
       var el = z3ModeEl; if (!el) return;
@@ -5232,8 +5200,8 @@
       // it is stale by definition.
       var sel = SHELL.ui.selection || {};
       var ev = sel.evidence;
-      var opts = (ev && ev.nodeId === node.id)
-        ? (ev.kind === "confidence" ? { confidence: ev } : { drawer: ev })
+      var opts = (ev && ev.nodeId === node.id && ev.kind !== "confidence")
+        ? { drawer: ev }
         : null;
       renderEvidencePanel(node, opts);
       renderZ3Panel(node);
