@@ -30,6 +30,7 @@ try:
         attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
+        get_node_by_id,
         parse_document,
     )
     from ..routers.inquire_stream import _parse_metrics
@@ -60,6 +61,7 @@ except ImportError:
         attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
+        get_node_by_id,
         parse_document,
     )
     from routers.inquire_stream import _parse_metrics
@@ -276,6 +278,55 @@ def verify_locks(
     }
 
 
+# Red-Hat prompt variants. Only the node-scoped anchored variant hands the
+# model a source sentence, so only it may ask for a grounding verdict.
+_REDHAT_CLAIM_PREAMBLE = (
+    "Red-hat adversarial review of this claim. It is one paragraph of a larger "
+    "draft; no other document text is supplied."
+)
+_REDHAT_SOURCE_CHECK_INSTRUCTION = (
+    "Check the claim against that source sentence. If the source does not state "
+    "what the claim asserts — a mismatch, an overstatement, a dropped qualifier, "
+    "or a figure the source does not carry — report it as a finding and quote "
+    "the source wording you rely on. Then list any other concrete risks in the "
+    "claim."
+)
+_REDHAT_NO_SOURCE_NOTICE = (
+    "No source sentence is attached to this claim: the provenance gate matched no "
+    "substrate sentence, so no source is available to check the claim against. "
+    "The absence is already recorded — do not report \"no source\" as a finding."
+)
+_REDHAT_UNANCHORED_RISKS = (
+    "Review the claim for other risks: overstatement, absolutes, missing "
+    "qualification, and figures that need a citation."
+)
+_REDHAT_WHOLE_DOCUMENT_PROMPT = (
+    "Red-hat risk review of this document. No source text is supplied, so this "
+    "is not a grounding audit: the review covers internal consistency, missing "
+    "clauses, overstatement, and claims that need a citation. List concrete "
+    "risks with the section they appear in."
+)
+
+
+def _anchoring_provenance_row(node: dict[str, Any] | None) -> dict[str, Any] | None:
+    """First provenance row whose ``extracted_quote`` is non-empty.
+
+    Same rule as ``entailment._claim_source`` (services/entailment.py:187-193),
+    so the prompt and the entailment check call the same text "the source".
+    """
+    for row in (node or {}).get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return row
+    return None
+
+
+def _source_ref(row: dict[str, Any] | None) -> str:
+    """Origin label for an anchoring row: ``"msa.pdf p.3"``."""
+    name = str((row or {}).get("source_name") or "").strip() or "substrate"
+    page = str((row or {}).get("page_number") or "").strip()
+    return f"{name} p.{page}" if page else name
+
+
 def run_redhat_audit(
     project_id: str,
     draft_text: str,
@@ -283,17 +334,48 @@ def run_redhat_audit(
     gov: CostGovernor,
     cancel_check: CancelCheck | None = None,
     previous_context: str | None = None,
+    target_node_id: str | None = None,
+    document: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """DeepSeek-R1 adversarial critique (Stage 4 — heavy)."""
+    """DeepSeek-R1 adversarial critique (Stage 4 — heavy).
+
+    Node-scoped audits (``target_node_id``) are source-aware: the prompt carries
+    the provenance quote the gate attached to that node, or states that no quote
+    is attached. Whole-document audits (no ``target_node_id``) get no source at
+    all, so their prompt is a risk review and never claims a grounding verdict.
+    """
     _check_cancel(cancel_check)
     content = (draft_text or "").strip()[:8000]
     if not content:
         return [], {"input_tokens": 0, "output_tokens": 0, "model_id": ""}
 
-    prompt_parts = [
-        "Red-hat adversarial review of this draft document. "
-        "List concrete risks, unsupported claims, and missing citations."
-    ]
+    if target_node_id:
+        node = get_node_by_id(document, target_node_id) if document else None
+        row = _anchoring_provenance_row(node)
+        source_quote = str((row or {}).get("extracted_quote") or "").strip()
+        if source_quote:
+            prompt_parts = [
+                f"{_REDHAT_CLAIM_PREAMBLE}\n\n"
+                f"Claim:\n{content}\n\n"
+                f"Source sentence the provenance gate attached to this claim "
+                f"({_source_ref(row)}) — the only source available:\n"
+                f"{source_quote}\n\n"
+                f"{_REDHAT_SOURCE_CHECK_INSTRUCTION}"
+            ]
+        else:
+            # No quote attached — including the case where ``document`` does not
+            # contain ``target_node_id`` at all: "no source sentence is attached"
+            # is truthful about a node that isn't there, and this variant is the
+            # only one that never asserts a source was checked.
+            prompt_parts = [
+                f"{_REDHAT_CLAIM_PREAMBLE}\n\n"
+                f"Claim:\n{content}\n\n"
+                f"{_REDHAT_NO_SOURCE_NOTICE} {_REDHAT_UNANCHORED_RISKS}"
+            ]
+    else:
+        # Whole-document audits carry no source, so the prompt must not ask for
+        # "unsupported claims" or "missing citations" — it is a risk review.
+        prompt_parts = [_REDHAT_WHOLE_DOCUMENT_PROMPT]
     prev = (previous_context or "").strip()
     if prev:
         prompt_parts.insert(0, f"Previous context:\n{prev[:4000]}\n")
@@ -963,6 +1045,8 @@ def run_redhat_pipeline(
             gov=gov,
             cancel_check=cancel_check,
             previous_context=previous_context if previous_context else None,
+            target_node_id=target_node_id,
+            document=document,
         )
         if red_usage.get("model_id"):
             gov.record_usage(

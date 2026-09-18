@@ -7,8 +7,13 @@ import os
 
 import pytest
 
-from prompt_matrix.models.jdf import draft_text_to_sections
-from prompt_matrix.routers.draft import run_draft_pipeline, run_redhat_pipeline, verify_locks
+from prompt_matrix.models.jdf import draft_text_to_sections, get_node_by_id
+from prompt_matrix.routers.draft import (
+    run_draft_pipeline,
+    run_redhat_audit,
+    run_redhat_pipeline,
+    verify_locks,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -419,6 +424,160 @@ def test_run_redhat_pipeline_target_node_id(monkeypatch):
     para2 = next(c for c in children if c["id"] == "para-2")
     assert not (para1.get("annotations") or {}).get("redhat")
     assert (para2.get("annotations") or {}).get("redhat")
+
+
+# --------------------------------------------------------------------------- #
+# Source-aware Red-Hat: the node's provenance quote reaches the prompt, and
+# only the node that actually has one is told to check a source.
+# --------------------------------------------------------------------------- #
+_SOURCE_CLAUSE = (
+    "Section 4.2: The liability limit is $5,000,000 on a combined single limit basis."
+)
+_UNANCHORED_CLAUSE = "Section 9.1: Either party may terminate on thirty days' notice."
+
+
+class _CapturingGovernor:
+    """Records the prompt ``run_redhat_audit`` sends, without calling a model."""
+
+    def __init__(self):
+        self.prompts: list[str] = []
+
+    def execute_with_retry_budget(self, _project_id, _task, messages, **_kwargs):
+        self.prompts.append(messages[0]["content"])
+
+        class R:
+            text = "Review."
+            input_tokens = 1
+            output_tokens = 1
+            model_id = "deepseek/deepseek-reasoner"
+
+        return R()
+
+
+def _sourced_document() -> dict:
+    """para-a is anchored to a substrate clause; para-b carries no provenance."""
+    return {
+        "document_id": "doc-source-aware",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {
+                        "type": "paragraph",
+                        "id": "para-a",
+                        "content": _SOURCE_CLAUSE,
+                        "provenance": [
+                            {
+                                "source_type": "internal_doc",
+                                "source_name": "msa.pdf",
+                                "source_id": "row-1",
+                                "page_number": "3",
+                                "extracted_quote": _SOURCE_CLAUSE,
+                            }
+                        ],
+                    },
+                    {
+                        "type": "paragraph",
+                        "id": "para-b",
+                        "content": _UNANCHORED_CLAUSE,
+                        "provenance": [],
+                    },
+                ],
+            }
+        ],
+    }
+
+
+def test_redhat_node_prompt_hands_the_source_to_the_anchored_paragraph_only():
+    """Discrimination: the paragraph whose provenance row carries an
+    ``extracted_quote`` is prompted with that source sentence and asked to check
+    the claim against it; the unsourced paragraph is told no source is attached
+    and is never shown the other node's quote."""
+    doc = _sourced_document()
+    anchored = _CapturingGovernor()
+    unanchored = _CapturingGovernor()
+
+    list(
+        run_redhat_pipeline(
+            "default",
+            draft_text=_SOURCE_CLAUSE,
+            document=doc,
+            target_node_id="para-a",
+            governor=anchored,
+        )
+    )
+    list(
+        run_redhat_pipeline(
+            "default",
+            draft_text=_UNANCHORED_CLAUSE,
+            document=doc,
+            target_node_id="para-b",
+            governor=unanchored,
+        )
+    )
+
+    prompt_a = anchored.prompts[0]
+    prompt_b = unanchored.prompts[0]
+
+    assert _SOURCE_CLAUSE in prompt_a
+    assert "Check the claim against that source sentence" in prompt_a
+    assert "msa.pdf p.3" in prompt_a
+    assert "risk review of this document" not in prompt_a
+
+    assert _SOURCE_CLAUSE not in prompt_b
+    assert "No source sentence is attached to this claim" in prompt_b
+    assert 'do not report "no source" as a finding' in prompt_b
+    assert "risk review of this document" not in prompt_b
+
+
+def test_redhat_node_prompt_calls_a_missing_node_unsourced():
+    """A node-scoped audit whose id is not in the document takes the
+    no-source variant — never the whole-document one, which would describe a
+    single claim as the document."""
+    gov = _CapturingGovernor()
+    run_redhat_audit(
+        "p1",
+        "Orphan claim.",
+        gov=gov,
+        target_node_id="para-gone",
+        document=_sourced_document(),
+    )
+
+    prompt = gov.prompts[0]
+    assert "No source sentence is attached to this claim" in prompt
+    assert "risk review of this document" not in prompt
+
+
+def test_redhat_whole_document_prompt_is_a_risk_review():
+    """No source is supplied for a whole-document run, so the prompt must not
+    ask for a grounding verdict ("unsupported claims" / "missing citations")."""
+    gov = _CapturingGovernor()
+    run_redhat_audit("p1", "Whole draft body.", gov=gov)
+
+    prompt = gov.prompts[0]
+    assert "risk review of this document" in prompt
+    assert "unsupported claims" not in prompt
+    assert "missing citations" not in prompt
+
+
+def test_get_node_by_id_resolves_a_nested_paragraph():
+    node = get_node_by_id(_sourced_document(), "para-b")
+    assert node is not None
+    assert node["content"] == _UNANCHORED_CLAUSE
+
+
+def test_get_node_by_id_resolves_a_top_level_section():
+    node = get_node_by_id(_sourced_document(), "sec-1")
+    assert node is not None
+    assert node["title"] == "Draft"
+
+
+def test_get_node_by_id_returns_none_for_an_unknown_id():
+    assert get_node_by_id(_sourced_document(), "para-gone") is None
 
 
 def _parse_sse(frame: str) -> tuple[str, dict]:
