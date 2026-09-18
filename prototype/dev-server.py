@@ -35,11 +35,21 @@ FORWARD_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 # The same header/Bearer pair as `substrate.py:_authorize_worker_ingest`, so
 # the two gates read alike. Unlike that one this gate fails closed: with no
 # key configured the server refuses to start (see main()).
+#
+# Everything outside /api/* is served from disk except PROXIED_PAGES below:
+# the Flask-rendered Clerk sign-in/up pages have no file in this static root,
+# so a request for them goes upstream instead of 404ing.
 # ---------------------------------------------------------------------------
 ACCESS_KEY = (os.environ.get("SHELL_ACCESS_KEY") or "").strip()
 COOKIE_NAME = "assure_shell_key"
 AUTH_PATH = "/auth"
 COOKIE_MAX_AGE = 2592000  # 30 days
+
+# The Clerk sign-in/up pages are rendered by the Flask app (auth.html), not by
+# this static root, so they are proxied upstream like /api/*. Everything else
+# outside /api/* is still served from disk. These pages stay behind the entry
+# gate: the gate key is the outer door, Clerk is the per-user identity inside it.
+PROXIED_PAGES = frozenset({"/signin", "/signup", "/signout"})
 
 _AUTH_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -225,6 +235,9 @@ class Handler(BaseHTTPRequestHandler):
             "Content-Type",
             "Accept",
             "Authorization",
+            # The Flask session lives in a cookie; without this the upstream app
+            # sees an anonymous client and every signed-in call looks signed out.
+            "Cookie",
             "Origin",
             "Cache-Control",
             "X-Requested-With",
@@ -300,6 +313,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/api/"):
             self._proxy(method)
+        elif self.path.split("?", 1)[0] in PROXIED_PAGES:
+            if method not in ("GET", "HEAD"):
+                self.send_error(405)
+                return
+            self._proxy(method)
         else:
             if method != "GET":
                 self.send_error(405)
@@ -341,7 +359,9 @@ def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         print(
-            "Dev server on http://{}:{} (proxying /api/* to {})".format(HOST, PORT, UPSTREAM_BASE),
+            "Dev server on http://{}:{} (proxying /api/* and {} to {})".format(
+                HOST, PORT, ",".join(sorted(PROXIED_PAGES)), UPSTREAM_BASE
+            ),
             flush=True,
         )
         server.serve_forever()

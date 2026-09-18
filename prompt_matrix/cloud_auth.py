@@ -8,8 +8,10 @@ to Clerk's Backend API, then the user id lives in the Flask session.
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -19,6 +21,10 @@ from typing import Any
 from flask import jsonify, redirect, request, session
 
 CLERK_API = "https://api.clerk.com/v1"
+CLERK_USER_AGENT = "assure-cloud-auth/1.0"
+_JWKS_TTL_SECONDS = 21600
+_JWT_LEEWAY_SECONDS = 120
+_JWKS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 PROTECTED_HTML = frozenset({"/", "/compose"})
 PUBLIC_API = frozenset(
     {
@@ -65,6 +71,26 @@ def clerk_publishable_key() -> str:
 
 def clerk_secret_key() -> str:
     return (os.environ.get("CLERK_SECRET_KEY") or "").strip()
+
+
+def instance_frontend_api() -> str:
+    """The instance's Frontend API origin, decoded from our own publishable key.
+
+    A publishable key is `pk_test_<base64(frontend-api + "$")>`. The issuer of an
+    incoming token is compared against this, so a token can never nominate the
+    server that signs it.
+    """
+    pk = clerk_publishable_key()
+    parts = pk.split("_", 2)
+    if len(parts) != 3 or not parts[2]:
+        return ""
+    segment = parts[2]
+    try:
+        raw = base64.b64decode(segment + "=" * (-len(segment) % 4)).decode("utf-8", "replace")
+    except (ValueError, binascii.Error):
+        return ""
+    host = raw.rstrip("$").strip()
+    return "https://" + host if host else ""
 
 
 def clerk_configured() -> bool:
@@ -133,6 +159,49 @@ def current_user_id() -> str | None:
     return str(raw) if raw else None
 
 
+# Two roles, configured not modelled: admins are listed in the box env, every
+# other signed-in user is an underwriter. There is no roles table and no per-user
+# row to keep in sync — `ASSURE_ADMIN_USER_IDS` is the whole definition.
+ROLE_ADMIN = "admin"
+ROLE_UNDERWRITER = "underwriter"
+ROLES = (ROLE_ADMIN, ROLE_UNDERWRITER)
+
+
+def admin_user_ids() -> tuple[str, ...]:
+    raw = os.environ.get("ASSURE_ADMIN_USER_IDS") or ""
+    return tuple(part.strip() for part in raw.replace(";", ",").split(",") if part.strip())
+
+
+def current_role() -> str:
+    """`admin` when the session user is listed, `underwriter` for any other signed-in user, "" when nobody is."""
+    user_id = current_user_id()
+    if not user_id:
+        return ""
+    return ROLE_ADMIN if user_id in admin_user_ids() else ROLE_UNDERWRITER
+
+
+def role_required(role: str):
+    """Enforce `role` on a view for signed-in users.
+
+    Like `middleware.ownership_enforced()`, this reads a Clerk identity: the
+    shared-key operator is not a user, so the demo path stays as open as it is
+    today. A signed-in user who is not in `ASSURE_ADMIN_USER_IDS` is denied.
+    """
+
+    def decorate(view):
+        @wraps(view)
+        def wrapped(*args: Any, **kwargs: Any):
+            if not auth_required() or not current_user_id():
+                return view(*args, **kwargs)
+            if current_role() != role:
+                return jsonify({"ok": False, "error": "Forbidden."}), 403
+            return view(*args, **kwargs)
+
+        return wrapped
+
+    return decorate
+
+
 def clear_user() -> None:
     session.pop("clerk_user_id", None)
     session.pop("clerk_email", None)
@@ -158,21 +227,6 @@ def remember_user(*, user_id: str, email: str = "") -> None:
         pass
 
 
-def jwt_payload(token: str) -> dict[str, Any]:
-    parts = (token or "").split(".")
-    if len(parts) != 3:
-        raise AuthError("not a session token")
-    pad = "=" * (-len(parts[1]) % 4)
-    try:
-        raw = base64.urlsafe_b64decode(parts[1] + pad)
-        data = json.loads(raw.decode("utf-8"))
-    except (ValueError, json.JSONDecodeError) as exc:
-        raise AuthError("not a session token") from exc
-    if not isinstance(data, dict):
-        raise AuthError("not a session token")
-    return data
-
-
 def _clerk_json(method: str, path: str, body: dict | None = None) -> dict[str, Any]:
     secret = clerk_secret_key()
     if not secret:
@@ -185,6 +239,10 @@ def _clerk_json(method: str, path: str, body: dict | None = None) -> dict[str, A
         headers={
             "Authorization": "Bearer " + secret,
             "Content-Type": "application/json",
+            # Clerk's edge answers urllib's default `Python-urllib/3.x` with
+            # Cloudflare 1010 (403), which surfaced as "session not valid" on
+            # every sign-in. Any real product token passes.
+            "User-Agent": CLERK_USER_AGENT,
         },
     )
     try:
@@ -201,17 +259,121 @@ def _clerk_json(method: str, path: str, body: dict | None = None) -> dict[str, A
 
 
 def verify_session_token(token: str) -> dict[str, str]:
-    payload = jwt_payload(token)
+    """Verify a Clerk session token and return the user behind it.
+
+    Clerk retired `POST /sessions/{id}/verify` (HTTP 410, "endpoint is deprecated
+    and pending removal"), so the token is verified the way Clerk now recommends:
+    the RS256 signature is checked against the instance's published JWKS, the
+    time claims are enforced, and the session is then confirmed live through the
+    Backend API. Signature first, so a forged `sid` can never be pointed at
+    somebody else's session.
+    """
+    header, payload, signed = _jwt_parts(token)
+    _verify_signature(token, header, payload, signed)
     sid = payload.get("sid")
     if not isinstance(sid, str) or not sid:
         raise AuthError("missing session id")
-    path = "/sessions/" + urllib.parse.quote(sid, safe="") + "/verify"
-    data = _clerk_json("POST", path, {"token": token})
-    user_id = data.get("user_id") or payload.get("sub")
+    session = _clerk_json("GET", "/sessions/" + urllib.parse.quote(sid, safe=""))
+    if str(session.get("status") or "") != "active":
+        raise AuthError("session not active")
+    user_id = session.get("user_id") or payload.get("sub")
     if not isinstance(user_id, str) or not user_id:
         raise AuthError("missing user id")
+    if payload.get("sub") and payload["sub"] != user_id:
+        raise AuthError("session does not match token")
     email = _user_email(user_id)
     return {"id": user_id, "email": email}
+
+
+def _decode_segment(segment: str) -> dict[str, Any]:
+    pad = "=" * (-len(segment) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(segment + pad)
+        data = json.loads(raw.decode("utf-8"))
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise AuthError("not a session token") from exc
+    if not isinstance(data, dict):
+        raise AuthError("not a session token")
+    return data
+
+
+def _jwt_parts(token: str) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Decode header/payload and return the signed segment verbatim."""
+    parts = (token or "").split(".")
+    if len(parts) != 3:
+        raise AuthError("not a session token")
+    return _decode_segment(parts[0]), _decode_segment(parts[1]), parts[0] + "." + parts[1]
+
+
+def _b64_uint(segment: str) -> int:
+    pad = "=" * (-len(segment) % 4)
+    return int.from_bytes(base64.urlsafe_b64decode(segment + pad), "big")
+
+
+def _instance_jwks(issuer: str) -> dict[str, Any]:
+    """Fetch (and briefly cache) the instance's signing keys."""
+    cached = _JWKS_CACHE.get(issuer)
+    now = time.time()
+    if cached and now - cached[0] < _JWKS_TTL_SECONDS:
+        return cached[1]
+    req = urllib.request.Request(
+        issuer.rstrip("/") + "/.well-known/jwks.json",
+        headers={"User-Agent": CLERK_USER_AGENT, "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            raw = resp.read().decode("utf-8")
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        raise AuthError("could not reach Clerk") from exc
+    parsed = json.loads(raw)
+    keys = parsed.get("keys") if isinstance(parsed, dict) else None
+    if not isinstance(keys, list) or not keys:
+        raise AuthError("no signing keys published")
+    by_kid = {str(k.get("kid") or ""): k for k in keys if isinstance(k, dict)}
+    _JWKS_CACHE[issuer] = (now, by_kid)
+    return by_kid
+
+
+def _verify_signature(
+    token: str, header: dict[str, Any], payload: dict[str, Any], signed: str
+) -> None:
+    if str(header.get("alg") or "") != "RS256":
+        raise AuthError("unsupported token algorithm")
+    issuer = str(payload.get("iss") or "")
+    expected = instance_frontend_api()
+    if not expected or issuer.rstrip("/") != expected:
+        # The signing server is chosen by us, never by the token.
+        raise AuthError("unexpected issuer")
+    kid = str(header.get("kid") or "")
+    keys = _instance_jwks(expected)
+    jwk = keys.get(kid)
+    if jwk is None:
+        _JWKS_CACHE.pop(expected, None)  # rotated key: refetch once
+        jwk = _instance_jwks(expected).get(kid)
+    if not isinstance(jwk, dict):
+        raise AuthError("unknown signing key")
+    try:
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding, rsa
+    except ImportError as exc:  # pragma: no cover - declared in requirements.txt
+        raise AuthError("cloud login is not set up") from exc
+    try:
+        public_key = rsa.RSAPublicNumbers(
+            _b64_uint(str(jwk["e"])), _b64_uint(str(jwk["n"]))
+        ).public_key()
+        signature = base64.urlsafe_b64decode(token.split(".")[2] + "=" * (-len(token.split(".")[2]) % 4))
+        public_key.verify(signature, signed.encode("utf-8"), padding.PKCS1v15(), hashes.SHA256())
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise AuthError("session not valid") from exc
+    now = int(time.time())
+    exp = payload.get("exp")
+    nbf = payload.get("nbf")
+    if isinstance(exp, (int, float)) and now > int(exp) + _JWT_LEEWAY_SECONDS:
+        raise AuthError("session token expired")
+    if isinstance(nbf, (int, float)) and now < int(nbf) - _JWT_LEEWAY_SECONDS:
+        raise AuthError("session token not yet valid")
 
 
 def _user_email(user_id: str) -> str:

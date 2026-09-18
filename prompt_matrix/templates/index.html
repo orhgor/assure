@@ -1411,12 +1411,16 @@
   <script src="{{ url_for('static', filename='upload.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ js_version|default('assure-21') }}"></script>
   {% if auth is defined and auth.publishable_key %}
-  <script async crossorigin="anonymous" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" onload="initClerk()"></script>
+  <script async crossorigin="anonymous"
+          src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+          data-clerk-publishable-key="{{ auth.publishable_key }}"
+          onload="initClerk()"></script>
   <script>
     async function initClerk() {
-      var pk = {{ auth.publishable_key|tojson }};
-      if (!pk || !window.Clerk) return;
-      var clerk = new window.Clerk(pk);
+      // clerk.browser.js builds the instance from data-clerk-publishable-key and
+      // leaves it on window.Clerk; constructing one here fails (no key in scope).
+      var clerk = window.Clerk;
+      if (!clerk) return;
       await clerk.load();
       window.__assureClerk = clerk;
       window.getClerkToken = async function () {
