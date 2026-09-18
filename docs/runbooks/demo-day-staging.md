@@ -280,6 +280,71 @@ pass verified the demo exactly that way — the export path plus cache-key arith
 re-running live to move a counter, and §3b's version history is the evidence that the rule is
 load-bearing rather than decorative.
 
+### 3d. The one orphan `foreign_key_check` could see — cleared 2026-09-18
+
+**`PRAGMA foreign_key_check` reads zero on the demo box**, and one row was deleted to make it so.
+The row was `audit_log` **rowid 424**, written **2026-09-18 20:01:59**:
+
+| Column | Value |
+|---|---|
+| `id` | `0d46a035a9914b968351a02e3bd78ae3` |
+| `request_id` | `732abd92-4778-4c40-b5db-269eeb0e75ca` |
+| `project_id` | `nope` — no project of that id has ever existed |
+| `action` | `RETRIEVAL_SEARCH`, `success` 1 |
+| `details` | `{"node_id": "nope", "query": "x", "cards": 0, "rejected": 10}` |
+
+**It is a probe artefact, not application traffic** — a one-character query against a project id
+of `nope` — and it was the only orphan in the database: the group-by over `audit_log.project_id
+not in (select id from projects)` returned exactly `[('nope', 1)]` across the table's 494 rows.
+
+**Why the insert was accepted.** `sqlite3` defaults `foreign_keys` to OFF per connection, and
+`prompt_matrix/lib/logger.py:111` opens the audit trail's own connection without the shared
+pragmas — `PRAGMA foreign_keys=ON` lives in `_apply_pragmas` (`prompt_matrix/history.py:35`),
+which `history.get_db`, `db/pool.py:66` and `db/connection.py:776,962` apply and this path does
+not. That is `Migrate2A`'s flagged "last path that can still create an orphan", and this row is
+that path reaching production data. The code fix — the pragma plus a route-level project check —
+commits separately from this note; nothing about it was deployed here.
+
+**The deletion was backed up first, by the sqlite3 backup API rather than `cp`.** The stated `cp`
+method was changed deliberately: a `cp` of a live SQLite file can capture a torn state mid-write,
+and `sqlite3` is not installed on the box, so the page-consistent snapshot is Python's
+`connection.backup()`, the same method as `.backup` in the CLI:
+
+```bash
+# the safe method actually used — NOT cp:
+#   python -c "import sqlite3; s=sqlite3.connect(DB); d=sqlite3.connect(DEST); s.backup(d)"
+# then, asserting the affected count is exactly 1 (rolled back otherwise):
+#   DELETE FROM audit_log WHERE rowid=424;
+```
+
+| Item | Value |
+|---|---|
+| Backup | `/home/ubuntu/backups/history.sqlite.20260918T201725Z.pre-cleanup.bak` (23 572 480 bytes, outside the checkout) |
+| Backup verified | `integrity_check` `ok`; rowid **424** present with the identity above; `audit_log` **494** rows |
+| Affected rows | **1** |
+| `PRAGMA foreign_key_check` after | **0 rows** |
+| Orphan group-by after | **empty** |
+| Whole-DB census | `audit_log` **494 → 493**, rowid **424** removed, **no row modified**; the other **31** tables byte-identical by sha256 — including `projects`, `jdf_revisions`, `token_ledger_entries` and `user_activity_log` |
+| Demo untouched | `demo-3235f5` still `title='workspace'`, `current_version` **45**; `GET /api/projects/demo-3235f5/jdf` → `200`, `ok: true`; `/health` `200`, `sqlite: ok` |
+
+No service was restarted and nothing was deployed for this — it is one row delete and this note.
+**`audit_log` held 494 rows, not the 487 quoted when the cleanup was ordered**: sibling passes
+kept appending audit entries between the two measurements, so the measured pair is **494 → 493**.
+
+**This note supersedes one clause of §3 and §7 without editing them.** Both still read as though
+`audit_log` "carries a `project_id` with no `FOREIGN KEY` clause at all … so no pragma can reach
+them". That was true of the *repo* DDL (`db/connection.py:863-876`) and is **no longer true of the
+box**: migration 25 (`scripts/aws/migrate_fk_constraints.py`, applied 2026-09-18 15:17:07) rebuilt
+`audit_log` — it is in the migration's `TABLES`, and `rebuild_with_fk` appends `FOREIGN KEY
+(project_id) REFERENCES projects(id) ON DELETE CASCADE`. Measured on the box: the live DDL carries
+that clause, `PRAGMA foreign_key_list(audit_log)` returns it, a fresh connection reads
+`foreign_keys=0`, and after `=ON` the same `project_id='nope'` insert is **rejected with
+`FOREIGN KEY constraint failed`**. So on the migrated box the pragma is load-bearing for
+`audit_log`, and once the audit-path fix ships here an unknown project id makes the insert raise
+and be swallowed by the logger's `except` — the entry is **dropped, not recorded**, which is why
+the route-level check has to sit in front of the write. §3's and §7's pre-migration counts and
+their "six tables" clause are unowned by this pass and left as measured there.
+
 ---
 
 ## 4. The fixture — now on the `test-fixtures` branch
