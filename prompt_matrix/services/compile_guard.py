@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 # The one client-facing refusal. The compile route reports it in-band with
 # http_status 422; nothing is persisted on the way out.
@@ -76,6 +76,25 @@ def scan_source_instruction_like(text: str) -> list[str]:
 def wrap_untrusted_source(text: str) -> str:
     """Hand the model a flagged source as content, inside the untrusted delimiter."""
     return f"{UNTRUSTED_OPEN}\n{text}\n{UNTRUSTED_CLOSE}"
+
+
+def flag_fields(text: str) -> dict[str, Any]:
+    """The ingest scan's verdict as the vault row's own fields — what gets stored."""
+    hits = scan_source_instruction_like(text)
+    return {"instruction_like": bool(hits), "instruction_hits": hits}
+
+
+def flag_response(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """The same verdict plus the SOURCES label, for a response payload.
+
+    Kept apart from ``flag_fields`` because the two travel differently: the
+    fields are written to the row, the label is presentation and must not reach
+    the database write.
+    """
+    payload = dict(fields)
+    if payload.get("instruction_like"):
+        payload["instruction_flag_label"] = SOURCE_FLAG_LABEL
+    return payload
 
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")

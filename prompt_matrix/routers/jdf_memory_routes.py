@@ -19,7 +19,7 @@ try:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
-    from ..services.compile_guard import scan_source_instruction_like
+    from ..services.compile_guard import flag_fields, flag_response
     from ..services.jdf_converter import JDF_BIN, JdfConversionError
     from ..services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
@@ -31,7 +31,7 @@ except ImportError:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
-    from services.compile_guard import scan_source_instruction_like
+    from services.compile_guard import flag_fields, flag_response
     from services.jdf_converter import JDF_BIN, JdfConversionError
     from services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
@@ -82,12 +82,12 @@ def _store_grounding_source(
                     text = str(found[0].get("extracted_text") or "")
                 break
     ensure_project(project_id)
-    hits = scan_source_instruction_like(text)
-    if hits:
+    flag = flag_fields(text)
+    if flag["instruction_like"]:
         log.warning(
             "[substrate-scan] %s flagged instruction-like: %s",
             filename,
-            ", ".join(hits),
+            ", ".join(flag["instruction_hits"]),
         )
     entry = upsert_substrate_entry(
         project_id,
@@ -95,8 +95,7 @@ def _store_grounding_source(
         page_count=page_count,
         extracted_text=text,
         file_size_bytes=size_bytes,
-        instruction_like=bool(hits),
-        instruction_hits=hits,
+        **flag,
     )
     remember_vault_file(
         project_id,
@@ -104,10 +103,7 @@ def _store_grounding_source(
         filename=filename,
         text=text,
     )
-    return {
-        "instruction_like": bool(hits),
-        "instruction_hits": hits,
-    }
+    return flag
 
 
 def register_jdf_memory_routes(app) -> None:
@@ -139,7 +135,7 @@ def register_jdf_memory_routes(app) -> None:
                 page_count=_jdf_page_count(jdf_dict),
             )
             result = remember_jdf_document(doc_id, jdf_dict, chunks, tenant_id=project_id)
-            return jsonify({"ok": True, **result, **flag})
+            return jsonify({"ok": True, **result, **flag_response(flag)})
         except OmpUnavailable:  # FIX 4
             return jsonify({"error": "index temporarily unavailable, try again"}), 503
         except JdfConversionError as e:

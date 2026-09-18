@@ -664,7 +664,7 @@
               // The ingest scan flags instruction-like source content; the
               // source still ingests, and the SOURCES manifest labels it.
               if (r.j.instruction_like) {
-                jdfMessage(f.name + " — " + (r.j.instruction_flag_label || "contains instruction-like content — reviewed"), false);
+                jdfMessage(f.name + " \u2014 " + (r.j.instruction_flag_label || ""), false);
               }
               // The ingest also lands a substrate entry for this project, so
               // re-read the project's sources from the server: SHELL.sources is
@@ -1072,11 +1072,12 @@
       draftEl = null;
       setShell("document.mode", "empty");
     }
-    // The ingest scan's verdict on a source, as the SOURCES label. The hover
-    // detail names the phrases that matched — evidence, not a score.
+    // The ingest scan's verdict on a source, as the SOURCES label. The label
+    // itself comes from the server (services/compile_guard.SOURCE_FLAG_LABEL);
+    // the hover detail names the phrases that matched — evidence, not a score.
     function _sourceFlagLabel(row) {
       if (!row || !row.instruction_like) return "";
-      return "contains instruction-like content \u2014 reviewed";
+      return String(row.instruction_flag_label || "");
     }
     function _buildSourceFlag(row) {
       var label = _sourceFlagLabel(row);

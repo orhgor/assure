@@ -24,7 +24,7 @@ try:
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
-    from ..services.compile_guard import SOURCE_FLAG_LABEL, scan_source_instruction_like
+    from ..services.compile_guard import flag_fields, flag_response
     from ..services.omp_memory import remember_vault_file
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -41,27 +41,11 @@ except ImportError:
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
-    from services.compile_guard import SOURCE_FLAG_LABEL, scan_source_instruction_like
+    from services.compile_guard import flag_fields, flag_response
     from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 50
-
-
-def _instruction_flag(text: str) -> dict[str, Any]:
-    """The ingest scan's verdict for one source (``services.compile_guard``).
-
-    Returned in the ingest response and stored on the vault row: a flagged source
-    still ingests — it is the user's document — and the SOURCES pane says so.
-    """
-    hits = scan_source_instruction_like(text)
-    payload: dict[str, Any] = {
-        "instruction_like": bool(hits),
-        "instruction_hits": hits,
-    }
-    if hits:
-        payload["instruction_flag_label"] = SOURCE_FLAG_LABEL
-    return payload
 
 
 class SubstrateIngestError(ValueError):
@@ -167,7 +151,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         )
 
     ensure_project(project_id)
-    flag = _instruction_flag(extracted_text)
+    flag = flag_fields(extracted_text)
     entry = save_substrate_entry(
         project_id,
         filename=filename,
@@ -189,7 +173,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         "forms": entry["forms"],
         "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
         "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
-        **flag,
+        **flag_response(flag),
     }
 
 
@@ -247,7 +231,7 @@ def register_substrate_routes(app) -> None:
 
         project_id = payload.projectId.strip()
         filename = (payload.filename or "edge-upload.pdf").strip() or "edge-upload.pdf"
-        flag = _instruction_flag(text)
+        flag = flag_fields(text)
         try:
             ensure_project(project_id)
             edge_row = save_substrate_text(
@@ -290,7 +274,9 @@ def register_substrate_routes(app) -> None:
                 "instruction_like": flag["instruction_like"],
             },
         )
-        return jsonify({"ok": True, "id": edge_row["id"], "text_chars": len(text), **flag})
+        return jsonify(
+            {"ok": True, "id": edge_row["id"], "text_chars": len(text), **flag_response(flag)}
+        )
 
     @app.post("/api/projects/<project_id>/substrate/upload")
     @project_ownership_required
@@ -393,7 +379,7 @@ def register_substrate_routes(app) -> None:
 
         files = [
             {
-                **entry,
+                **flag_response(entry),
                 "claims_count": claims_by_source_id.get(entry["id"], 0),
             }
             for entry in entries

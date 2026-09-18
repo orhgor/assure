@@ -208,7 +208,7 @@ def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for row in rows:
         try:
-            hits = json.loads(row[6] or "[]")
+            hits = json.loads(row[7] or "[]")
         except (TypeError, ValueError):
             hits = []
         entries.append(
