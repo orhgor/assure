@@ -239,6 +239,35 @@ button {
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* The About mark: a hairline circle, 16px, no fill — as flat as the rest of
+   the header chrome. --ink at rest, --muted on hover (the hairline is
+   currentColor, so the whole mark recedes together). The 16px box is the
+   measured size asked for, not a padding box. */
+.about-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);   /* 50% — a circle, i.e. no corner */
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t-fast);
+}
+.about-btn:hover { color: var(--muted); }
+.about-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 /* =============================================================
    Shell Grid Layout
    ============================================================= */
@@ -1842,6 +1871,109 @@ body.collapsed .pane-left {
   font-size: var(--fs-xs);
   margin-right: var(--space-2);
   background: var(--surface);
+}
+
+/* =============================================================
+   About — the dialog the `?` opens, and the page `Read more` links
+   to. Both surfaces carry the same type roles, declared once on
+   .about-body: the dialog wraps its five sections in one, and
+   ./about.html is one. Geometry differs only in the frame.
+   ============================================================= */
+.about-modal {
+  width: 560px;
+  max-width: 560px;
+  padding: var(--space-8);
+  background: var(--paper);
+  border: none;
+  border-top: var(--hairline);   /* the rule at the top, nothing else */
+  border-radius: 0;              /* square: a document, not a card */
+  box-shadow: none;
+  max-height: 80vh;
+  overflow: auto;
+}
+/* Focus is moved to the dialog itself on open; the ring belongs on the
+   things inside it, not around the frame. */
+.about-modal:focus { outline: none; }
+
+.about-body h2 {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: var(--space-6) 0 var(--space-2);
+}
+.about-body h2:first-child { margin-top: 0; }
+.about-body p {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0 0 var(--space-2);
+}
+/* Capability names sit inline at their own weight and size. */
+.about-body .about-cap {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.about-body .about-more {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.about-body .about-more:hover { border-bottom-color: var(--ink); }
+.about-body .about-more:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The About document is a page, not a pane: it scrolls, and it is the one
+   surface in this stylesheet written to survive being printed. It borrows
+   the shell's tokens and .about-body roles so the two About surfaces can
+   never drift apart. */
+html.about-doc, body.about-page {
+  height: auto;
+  overflow: auto;
+}
+body.about-page { background: var(--paper); }
+.about-page .about-col {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-6) var(--space-20);
+}
+.about-page .about-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--hairline);
+  margin-bottom: var(--space-8);
+}
+.about-page .about-kicker {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Printed, the document is the only thing on the page: the tokens already
+   carry the type, so printing drops the measure and the ground. */
+@media print {
+  body.about-page { background: #fff; }
+  .about-page .about-col { max-width: none; padding: 0; }
 }
 
 /* Sign-off status indicator in the top bar. */

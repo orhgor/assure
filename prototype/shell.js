@@ -280,12 +280,18 @@
       var layer = document.getElementById("modal-layer");
       if (!layer) return;
       if (!value) {
+        _closeAboutModal(layer);   // hands focus back to the mark that opened it
         layer.hidden = true;
         layer.innerHTML = "";
         return;
       }
       layer.hidden = false;
-      if (value === "shortcuts") {
+      if (value === "about") {
+        _openAboutModal(layer);
+      } else if (value === "shortcuts") {
+        // Another dialog is taking the layer over: release the About trap, but
+        // do not pull focus to a mark that is no longer why the layer is up.
+        _closeAboutModal(layer, false);
         layer.innerHTML =
           '<div class="modal">' +
             '<div class="modal-header">' +
@@ -308,6 +314,93 @@
         layer.innerHTML = "<div class='modal'>Modal: " + value + "</div>";
       }
     }
+  }
+
+  // ---- About dialog --------------------------------------------------
+  // The mark in the header opens the one dialog in the shell that is read
+  // rather than acted on, so it owns its dismissal: Esc from inside it, or a
+  // click on the scrim outside it — there is no corner close button to hunt
+  // for. Focus moves in on open, cycles inside while it is up, and returns to
+  // the mark on close; a dialog that traps focus and then drops it leaves a
+  // keyboard user at the top of the document.
+  //
+  // The markup is <template id="about-template"> in index.html: the copy sits
+  // with the rest of the shell's text instead of inside a JS string.
+  var aboutTriggerEl = null;
+
+  function _aboutDialog() {
+    return document.querySelector("#modal-layer .about-modal");
+  }
+
+  function _aboutTabStops(dialog) {
+    var els = dialog.querySelectorAll(
+      "a[href], button:not([disabled]), input:not([disabled]), select, textarea"
+    );
+    var out = [];
+    for (var i = 0; i < els.length; i++) {
+      if (els[i].getAttribute("tabindex") === "-1") continue;
+      out.push(els[i]);
+    }
+    return out;
+  }
+
+  // Bound to the dialog rather than to document. The shell's global shortcuts
+  // live on document, so stopping propagation at the dialog keeps them from
+  // firing behind an open dialog without unregistering anything.
+  function _aboutKeydown(e) {
+    e.stopPropagation();
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setShell("ui.modal", null);
+      return;
+    }
+    if (e.key !== "Tab") return;
+    var dialog = _aboutDialog();
+    if (!dialog) return;
+    var stops = _aboutTabStops(dialog);
+    if (!stops.length) { e.preventDefault(); return; }
+    var first = stops[0];
+    var last = stops[stops.length - 1];
+    var active = document.activeElement;
+    if (active === dialog || !dialog.contains(active)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    } else if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function _aboutLayerClick(e) {
+    var layer = document.getElementById("modal-layer");
+    if (e.target === layer) setShell("ui.modal", null);
+  }
+
+  function _openAboutModal(layer) {
+    var tpl = document.getElementById("about-template");
+    if (!tpl || !tpl.content) return;
+    layer.innerHTML = "";
+    layer.appendChild(tpl.content.cloneNode(true));
+    var dialog = _aboutDialog();
+    if (!dialog) return;
+    // The opener is the mark itself: it is the only thing that opens this
+    // dialog, and on engines that do not focus a button on click the active
+    // element would otherwise be <body>.
+    aboutTriggerEl = document.getElementById("about-btn");
+    dialog.setAttribute("tabindex", "-1");
+    dialog.focus();
+    dialog.addEventListener("keydown", _aboutKeydown);
+    layer.addEventListener("click", _aboutLayerClick);
+  }
+
+  function _closeAboutModal(layer, restoreFocus) {
+    var trigger = aboutTriggerEl;
+    aboutTriggerEl = null;
+    if (!trigger || restoreFocus === false) return;
+    if (typeof trigger.focus === "function") trigger.focus();
   }
 
   // ---- Right-pane reachability (§3) --------------------------------
@@ -818,6 +911,14 @@
       e.preventDefault();
       setShell("ui.modal", "shortcuts");
     });
+
+    // The About mark opens the About dialog. The `?` key keeps opening the
+    // shortcut list it has always opened; the two are separate affordances
+    // and the dialog that opens is the one the user asked for.
+    var aboutBtn = document.getElementById("about-btn");
+    if (aboutBtn) {
+      aboutBtn.addEventListener("click", function () { setShell("ui.modal", "about"); });
+    }
 
     // ---------------------------------------------------------------
     // Pane resizers (left / center / right). Width lives in
