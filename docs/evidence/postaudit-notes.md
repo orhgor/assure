@@ -279,3 +279,121 @@ HEALTH: HTTP 200  ok: true  status: "ok"
 **Note on the local harness:** the failing INSERT leaves an uncommitted write transaction on a
 connection `get_db()` never closes, which then reads as `database is locked` for the next writer.
 The BEFORE step therefore runs in a subprocess so the transaction dies with the process.
+
+---
+
+# FINAL STATE — branch `postaudit/fixes`, worktree `/tmp/wt-postaudit`
+
+**Base of the branch: `7c8a422`** (= the box's HEAD content; the box was at `429fd09` at the last read).
+**Box pins at the last read: HEAD `429fd09`, `git status --porcelain` empty,
+`shell.js 7c30e8e6`, `index.html 4fff7756`, `about.html 10f837f7` — all clean and equal
+to their committed blobs.**
+
+Out-of-scope, never touched: `demo-3235f5` (no compile, no write), the entailment logic,
+the Red-Hat prompt, the NLI replacement, the version hash, the demo project. Nothing pushed.
+
+## Commits
+
+| SHA | What | Files |
+|---|---|---|
+| `3999c38` | C1 — the three false About claims | `prototype/about.html`, `prototype/index.html` |
+| `7e18dc8` | C3 — the sandbox project row at boot | `routers/sandbox.py`, `web.py` |
+| `6f9074a` | A2 — prompt version in the compile cache key | `db/pipeline_cache`-adjacent: `services/omp_memory.py`, `routers/draft.py` |
+| `5680948` | B2 — the oversized-source refusal | `routers/draft.py` |
+| `9cf7c9b` | C1 — the dialog's counter name | `prototype/index.html` |
+| `e4295f9` | C2 — ROUTED TO names the served model, and survives reload | `prototype/shell.js`, `routers/draft.py`, `db/project_files.py` |
+
+Post-C2 md5s: `shell.js a3e68e68d57c22a92eefecd5bc867714`,
+`routers/draft.py 8a9e348538919f47f40bc2911363581a`,
+`db/project_files.py d3f6f6d223bdab5dbf7dce102a96c93f`.
+
+## A2 — evidence (`postaudit/fixes`, base `e3fdfae` for the key check, `7c8a422` for the live check)
+
+Key mechanics (`verify_a2.py`), interpreter proved to read the worktree (IMPORT-ROOT-OK):
+old composition == `prompt_version=0` == `ast:postaudit-a2-proj:df60884f`;
+`prompt_version=1` == `ast:postaudit-a2-proj:15ab65e0`; `_prompt_version_for('demo-3235f5') == 0`.
+
+Live pipeline (`live_a2_stub.py`; the three provider touchpoints stubbed, so no provider and
+no compile lock — stated because a compile without the lock is void):
+```
+KEY ast:postaudit-a2-live:003d76bb
+RUN1 cold   : replayed=false, entry written=true, recorded fp=37b4da61
+RUN2 replay : cache_hit=true, replayed=true, stub token calls=0
+--- EDIT one word of the prompt ('clear' -> 'crisp') ---
+KEY string after edit : ast:postaudit-a2-live:003d76bb   (UNCHANGED)
+FINGERPRINT after edit: 3f9e0d73
+[compile-prompt-divergence] recorded=37b4da61 live=3f9e0d73 prompt_version=1 — the
+prompt changed without a PROMPT_VERSION bump; the entry is not replayed
+_prompt_diverged : True
+```
+**The key string does NOT move on a bare prompt edit — that is the design, the version is the
+key's knob. What stops the replay is the fingerprint, and it did (not replayed, warning logged).**
+So the brief's "the key changes" is satisfied by the version bump; a bare edit is caught by the
+hash. Both quoted above.
+
+**A2's real-compile live path is NOT RUN** (compile lock held by `FixA` twice, 300 s each time,
+`NOT RUN: lock not acquired within 300s`). What would settle it: the same probe with the lock held.
+
+## B2 — evidence
+
+Cap quoted: `SUBSTRATE_CONTEXT_CHARS_PER_FILE = 4000` — **characters**. Refusal verified with
+`_stream_model` replaced by a sentinel that records and raises, so no provider is contacted:
+oversized (34,900 chars) -> `["error","complete","DONE"]`, `http_status 422`,
+`reason source_exceeds_context_cap`, `model_reached false`; normal (1,843 chars) -> sentinel
+reached. Refusal text names 4000 and never blames the source.
+
+## C1 — evidence
+
+The **served** page carried all three claims uncorrected (`about.html 10f837f7`); the earlier
+pass `0b633a4` (branch `fix/about-page-truth`, `about.html 1a26d444`) is not in this lineage and
+not on the box. Took it verbatim, then extended the same corrections to the dialog in
+`prototype/index.html`, which the earlier pass left (`:42`, `:49`). `"shifts meaning between
+paragraphs"` greps 0 in both files. **Part A is identical in both files: extracted between
+`<h2>What Assure is</h2>` and the `Production ships with your authentication…` line, whitespace
+stripped, blanks dropped — 26 non-blank lines each.**
+
+## C2 — evidence
+
+**Does the response metadata contain the serving model? YES.** Real call under the lock
+(`probe_c2_meta.py`, LOCK-ACQUIRED / LOCK-RELEASE rc=0):
+`requested deepseek/deepseek-chat`; `chunk.model 'deepseek-chat'`;
+`_hidden_params.custom_llm_provider 'deepseek'`;
+`api_base 'https://api.deepseek.com/beta/chat/completions'`.
+
+Layers (`verify_c2_layers.py`, real code, canned response, 2.3 s):
+```
+LAYER 1  measure.model 'deepseek/deepseek-chat'  measure.serving_model 'deepseek-chat'
+         measure.provider 'deepseek'
+LAYER 1b response names nothing -> serving_model degrades to the request, provider ''
+LAYER 2  manifest.lastCompiledRoute {"model":"deepseek-chat","provider":"deepseek"}
+LAYER 2b no serving_model recorded -> {"model":"deepseek/deepseek-chat","provider":""}
+LAYER 2c no gate block            -> {"model":"","provider":""}
+```
+The whole-pipeline variant (`verify_c2_stubbed.py`) delivered only a partial run: the harness
+accumulated dozens of duplicate connections on one SQLite WAL and spun at ~0 CPU. On its first
+run it also selected the **lock-inference** `usage` frame (`task_type summarize_node`) rather
+than the draft's — the frame selection is fixed, and that run is the NOT RUN item below.
+**NOT RUN: the real end-to-end compile's `usage` frame and its persisted `gate.measure`.** What
+would settle it: the fixed `verify_c2_stubbed.py` run to completion, or a real compile under the lock.
+The `usage` frame's shape and the persistence line are the only C2 claims not backed by raw output.
+
+## OPEN — B1.2 (assigned to me by `Main` after the collision ruling)
+
+`FixB`'s `7c8a422`/`429fd09` landed the status wording; the **Evidence drawer rendering the
+per-claim verdict** is the open piece. Not started. It writes `shell.js`, whose only writer is me.
+
+## Named, not fixed (per the brief)
+
+1. The same model drafting and judging — a self-assessment, not an independent check.
+2. The version hash is not a fingerprint (`checked_at` timestamps).
+3. Red-Hat is not on the compile path — a product decision.
+4. The litellm `[10,80]s` clamp against `PEM_TIMEOUT_SECONDS=180` — investigate the clamp first.
+5. Writers passing possibly-nonexistent project ids (`cost_governance.py:251-263`,
+   `db/pipeline_cache.py:66`) — `FixA`/`RemarkableButterfly` Phase D territory.
+6. **Found while working:** `_build_substrate_context`'s `SUBSTRATE_CONTEXT_CHARS_TOTAL` (16000)
+   silently *drops* a source once the running total exceeds it (`break`, `draft.py:444`). Same
+   defect class as B2 — answering from fewer sources and blaming the source — via a different
+   constant. Not fixed: the brief named one cap and one message.
+7. **Found while working:** `db/project_files.py` `_parse_compiled` returns a fresh
+   `empty_manifest()` for an unparseable `last_compiled_json`, so a corrupt blob reads as "no
+   document" rather than as an error. Silent by construction.
