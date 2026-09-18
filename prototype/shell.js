@@ -3079,7 +3079,7 @@
           return Promise.resolve(existing);
         }
       } catch (_) {}
-      return jsonPost("/api/projects", { title: "shell-proto" })
+      return jsonPost("/api/projects", { title: "Untitled" })
         .then(function (resp) {
           if (!resp.ok) throw new Error("projects POST " + resp.status);
           return resp.json();
