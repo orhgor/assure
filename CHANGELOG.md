@@ -4,6 +4,8 @@ All notable product changes in this tree. Dates are calendar dates from the swar
 
 ## Unreleased
 
+- 2026-09-18 shell (`be53244`, `824b923`, `c7c1c00` on `prototype/shell-skeleton`): a compile with no source attached is refused before its first stage (`no_source_attached`, "Upload a source first. Assure grounds every claim against the source you provide.") instead of drafting first — measured before the fix, 139 token frames and 3755 characters reached the document column over 11.1 s, then the provenance refusal fired at 11.7 s; after it, the refusal is 3 frames in 0.017 s with no model call and nothing persisted. The dock no longer offers that run (Submit disabled with "Add a source to enable the compile"), and the empty column says the prerequisite. A compile that stops without a terminal frame (server death, parse error, dropped connection) now clears the streamed draft for a halt card — "This compile stopped before the document was verified. Nothing was saved." — verified live by restarting the app unit mid-stream. In-band refusals keep the one refusal card that already replaced the draft (1.37 s from the last token to the card).
+
 - 2026-09-04 production `1b21f8b`: Projects CRUD, unsaved-change confirms, Audit Manifest on the command deck (tooltip, modal, JSON download). UI `assure-64` / `assure-55`.
 - 2026-09-04 local (uncommitted): canvas right-click menu — Edit, Revise, Re-prompt, Send for Revision — on existing `/inquire/stream`. UI `assure-65` / `assure-56`.
 - Compiler routing: `anthropic/claude-sonnet-4-5`, `gemini/gemini-3.6-flash`; BYOK keys on the workbench draft path.
