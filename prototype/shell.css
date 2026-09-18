@@ -1330,6 +1330,21 @@ body.collapsed .pane-left {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+/* R1: dark's --accent-strong is #60a5fa, and in dark that token is the ink
+   value — it feeds --accent-ink, the colour of text *on* dark surfaces — so
+   white text on it measured 2.54:1. The light theme's --accent-strong is the
+   white-text background (8.65:1) and is already a token, --brand-navy, so the
+   two themes render the same button. Scoped to this selector rather than moved
+   on the token: every other dark consumer of --accent-strong is a text colour,
+   and moving it there trades this defect for several (R1 report, candidate A).
+   Hover is included because .evidence-action.primary:hover reads --accent-hover,
+   which is the same token in dark. */
+html[data-theme="dark"] .evidence-action.primary,
+html[data-theme="dark"] .evidence-action.primary:hover {
+  background: var(--brand-navy);
+  border-color: var(--brand-navy);
+  color: #fff;
+}
 
 /* Revision preview + suggestion textarea went with performRevision and the
    Red-Hat drawer route: nothing produces either class now. */
@@ -1982,7 +1997,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
   cursor: pointer;
 }
 .node-rephrase button[data-action="submit"] {
-  background: var(--accent);
+  background: var(--accent-strong);
   border-color: transparent;
   color: #ffffff;
 }
