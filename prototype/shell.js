@@ -2968,7 +2968,14 @@
         .then(function (r) { return r.ok ? r.json() : { files: [] }; })
         .then(function (j) {
           var rows = (j && j.files) || [];
-          setShell("sources", rows.map(function (f) { return f.id; }));
+          // Only the sources the vault marks `included` ground a compile: the
+          // list route returns every row so the SOURCES pane can show and toggle
+          // them, and SHELL.sources is the grounding list the compiles post AND
+          // the checkbox state this pane derives (see _isSourceIncluded), so an
+          // excluded row here would be posted as grounding and drawn as ticked.
+          setShell("sources", rows
+            .filter(function (f) { return f.included !== false; })
+            .map(function (f) { return f.id; }));
           var el = document.getElementById("source-list");
           if (el) {
             while (el.firstChild) el.removeChild(el.firstChild);
