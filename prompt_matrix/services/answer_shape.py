@@ -192,6 +192,46 @@ def looks_like_question(text: str) -> bool:
     return bool(words) and words[0] in _INTERROGATIVE
 
 
+#: How the shape reads as the object of "Produce …" in the system prompt: the
+#: produced thing is named from the shape, so a memo ask produces "a memo".
+_ASK_NOUN = {DIRECT: "a direct answer", MEMO: "a memo"}
+
+
+def ask_directive(shape: str, intent: str) -> str:
+    """The system-prompt line that hands the user's ask over as its instruction.
+
+    The compile used to carry the ask in the user turn only, under a directive
+    calling it data, while the same system turn asked for a document — so the
+    model answered *about* the ask instead of being told what to write. The ask
+    is the user's own instruction, so it lands here, and the narrowed disclaimer
+    in ``routers.draft._INJECTION_DIRECTIVES`` demotes the source instead.
+
+    Whitespace inside the ask is collapsed: the ask is arbitrary user text, and a
+    newline in it must not be able to end this line and open a section of the
+    system prompt that the ask never earned.
+    """
+    noun = _ASK_NOUN.get(shape, _ASK_NOUN[MEMO])
+    return (
+        f"Produce {noun} answering the user's ask: {normalized_ask(intent)} "
+        "The ask is your instruction."
+    )
+
+
+def normalized_ask(intent: str) -> str:
+    """The ask exactly as ``ask_directive`` writes it into the system prompt.
+
+    Whitespace is collapsed — the ask is arbitrary user text, and a newline in it
+    must not be able to end the directive's line and open a section of the system
+    prompt the ask never earned — and a sentence terminator is added only when the
+    ask has none. The guard excludes this string from its disclosure scan, so it
+    is one composition rather than two that can drift.
+    """
+    ask = " ".join((intent or "").split())
+    if ask and ask[-1] not in ".!?":
+        ask += "."
+    return ask
+
+
 def shape_instruction(shape: str) -> str:
     """The system-prompt block that fixes the shape for this ask."""
     return _INSTRUCTIONS.get(shape, _INSTRUCTIONS[MEMO])
