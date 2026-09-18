@@ -245,6 +245,29 @@ that it plays when staging does not.
   when a draft opens with a lead-in sentence the gate counts 4 eligible / 3 anchored. That is
   the claim floor working, not a shortfall.
 
+**What the shell does with a compile that cannot finish** (measured on staging 2026-09-18, peer pass):
+
+- **No source attached → refused before the first stage.** Reason `no_source_attached`, plain message
+  *"Upload a source first. Assure grounds every claim against the source you provide."*, three frames
+  in **0.017 s**, **no model call, nothing persisted**. Before this: 139 token frames / 3755 chars over
+  11.1 s with the refusal only at 11.7 s.
+- **The dock's Submit is disabled while the project has no source**, labelled *"Add a source to enable
+  the compile"*, and the empty column reads *"Add a source to compile. Assure grounds every claim
+  against the source you provide."*
+- **A compile that stops without a terminal frame** clears the streamed draft and shows *"This compile
+  stopped before the document was verified. Nothing was saved."* — verified by killing the app unit
+  mid-stream. A client is never left reading half a document.
+- **The in-band refusal card is unchanged** and measured **1.37 s** from the last token to the card.
+
+**Do not be surprised by the bridge exemption.** `compile_guard.is_question_to_source_bridge` exempts a
+draft whose opening sentence names the source or asks it a question (`compile_guard.py:200-228`), and
+that exemption is deliberate — a document that asks rather than asserts has no claimed subject to
+ground. The consequence for demo day: **a mismatched source whose draft opens "the provided source
+material contains…" is not refused and persists as a document with ANCHORED 0.** Reproduced twice.
+The About claim *"a document that fails grounding is refused outright"* is true of the drafts the
+grounding rules reach; this shape reaches past them by design, and the counters are where it shows
+(Anchored 0). If the demo walks a source/question mismatch, expect that state, not a refusal card.
+
 **Operating the tunnel (learned the hard way, 2026-09-18).** Do **not** send `SIGHUP` to
 `cloudflared` to reload `/etc/cloudflared/config.yml`. On this box (`cloudflared` 2026.8.3,
 `cloudflared --no-autoupdate --config /etc/cloudflared/config.yml tunnel run`) the signal makes
