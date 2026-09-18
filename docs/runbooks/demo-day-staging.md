@@ -185,6 +185,15 @@ The compile was deliberately **not** re-run cold: a cold run persists `v45` and 
 document §10.1 pins, and §7 forbids re-running live to move a counter. No row was deleted by
 this pass.
 
+**A peer pass then landed that very `v45` (2026-09-18 20:00:12).** `jdf_revisions` v45 is a
+`compile` (change summary *"Underwriting Obligations for Boston Commercial Property
+Insurance"*) from a `DRAFT_STREAM` at 20:00:12, which raised the row to `current_version=45`,
+`node_count=7`, `lock_count=8` — 13 minutes after the check above, and by a different pass.
+Everything in the table stands as measured at that time, and nothing was deleted; but **§10.1's
+"the frozen document is v44" is now pre-v45**, so the demo-state owner should re-measure §10.1
+against v45 (or restore v44) before handing the one-pager out. That re-measure is not this
+pass's: the frozen-document numbers belong to the demo-state owner.
+
 ---
 
 ## 4. The fixture — now on the `test-fixtures` branch
@@ -409,6 +418,11 @@ re-run for the handout — it is read out of the persisted document and the DB.
 Source of truth: `prompt_matrix/projects/demo-3235f5/document.jdf`, byte-identical to
 `jdf_documents.tree_json` and to `jdf_revisions` **v44** (`mutation_type` `compile`, created
 `2026-09-18 16:49:54`).
+
+**Superseded in the DB, 2026-09-18 20:00:12:** a peer pass ran a cold compile and landed `v45`
+(`current_version=45`, `node_count=7`) — read §3b before quoting anything below. The numbers
+here are the v44 measurement and are left as measured; re-measuring v45 is the demo-state
+owner's call.
 
 | | |
 |---|---|
