@@ -1,0 +1,30 @@
+# Authoritative domains for the fetched-source retrieval path (2C).
+#
+# The matcher (prompt_matrix/services/authoritative_domains.py) is DENY BY
+# DEFAULT: a host is fetched only when it is the listed domain or a subdomain of
+# one. `denylist` is evaluated first, so a denylisted host is rejected even if it
+# also appears above. Anything in neither list is rejected.
+#
+# Editing: this file is re-read when its mtime or size changes, so an edit takes
+# effect without a deploy and without a restart. A malformed or unreadable file
+# resolves to an EMPTY allowlist (everything denied) rather than the last good
+# read — a broken allowlist must not fail open.
+#
+# Domains are bare hosts (no scheme, no path, no port). The matcher lowercases
+# the request host, drops its port and any trailing dot, and accepts a subdomain
+# of a listed domain — so "www.mass.gov" and "content.naic.org" are covered by
+# their listed parents.
+federal: [sec.gov, cms.gov, irs.gov, fema.gov, nist.gov, federalregister.gov]
+standards: [naic.org, iso.org, astm.org, nfpa.org, actuarialstandardsboard.org]
+reinsurers: [swissre.com, munichre.com, genre.com, scor.com]
+ratings_data: [ambest.com, verisk.com]
+legal: [courtlistener.com, justia.com, supremecourt.gov]
+academic: [arxiv.org, ssrn.com, pubmed.ncbi.nlm.nih.gov]
+trade: [insurancejournal.com, businessinsurance.com, law360.com, natlawreview.com]
+state_doi:
+  MA: mass.gov
+  NY: dfs.ny.gov
+  TX: tdi.texas.gov
+  CA: insurance.ca.gov
+  FL: myfloridacfo.com
+denylist: [reddit.com, quora.com, x.com, twitter.com, facebook.com, medium.com, substack.com, wikipedia.org, investopedia.com]

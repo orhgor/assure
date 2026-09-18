@@ -1179,12 +1179,22 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.post("/api/compile-system")
     def compile_system_view():
-        """Static system message the compile path sends. Consumed by
-        the prototype shell panel so it can show the model what the
-        model receives. No body, no params; always the same string."""
-        from .routers.draft import _COMPILE_SYSTEM
+        """The system message the compile path sends, for the ask it is compiling.
 
-        return jsonify({"prompt": _COMPILE_SYSTEM})
+        Consumed by the prototype shell panel so it can show the model what the
+        model receives. The message is static except for the answer-shape block
+        (services/answer_shape), which follows the ask — so a body carrying the ask
+        returns the prompt the pipeline builds for it, and a body carrying nothing
+        returns the static message, unchanged."""
+        from .routers.draft import _COMPILE_SYSTEM, _compile_system
+        from .services.answer_shape import choose_shape
+
+        data = request.get_json(silent=True) or {}
+        intent = str(data.get("intent") or "").strip()
+        if not intent:
+            return jsonify({"prompt": _COMPILE_SYSTEM})
+        shape = choose_shape(intent)
+        return jsonify({"prompt": _compile_system(shape), "answer_shape": shape})
 
     @app.post("/api/render")
     @login_required
@@ -1663,6 +1673,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.ground_routes import register_ground_routes
     register_ground_routes(app)
+
+    try:
+        from .routers.retrieval_routes import register_retrieval_routes
+    except ImportError:
+        from routers.retrieval_routes import register_retrieval_routes
+    register_retrieval_routes(app)
 
     try:
         from .routers.conflict_routes import register_conflict_routes

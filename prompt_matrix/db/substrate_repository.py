@@ -9,10 +9,12 @@ from typing import Any
 try:
     from ..db.connection import init_db
     from ..history import get_db
+    from ..lib.source_labels import fetched_url_of
     from ..services.vault_tfidf_cache import invalidate_workspace_cache
 except ImportError:
     from db.connection import init_db
     from history import get_db
+    from lib.source_labels import fetched_url_of
     from services.vault_tfidf_cache import invalidate_workspace_cache
 
 
@@ -184,21 +186,31 @@ def upsert_substrate_entry(
     }
 
 
-def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
+def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> list[dict[str, Any]]:
     """List vault entries for a project (no extracted_text — keep the list light).
 
     Carries the ingest scan's flag and its matched phrases, so the SOURCES pane
     can label an instruction-like source without pulling its text.
+
+    ``fetched_url`` is the retrieval path's tag, read back off the row's label
+    (``lib/source_labels.py``): the host when the source was fetched from the web,
+    "" when it was uploaded. It is derived on read — the vault's columns are
+    unchanged — and it is what lets the counters and the SOURCES pane tell a
+    fetched page from an uploaded file.
+
+    ``with_text`` pulls ``extracted_text`` too, for the one caller that matches
+    against it (the anchoring gate re-run after a fetch).
     """
     init_db()
     db = get_db()
     cols = {r[1] for r in db.execute("PRAGMA table_info(substrate_vault)").fetchall()}
     has_flag = "instruction_like" in cols and "instruction_hits" in cols
     flag_expr = "instruction_like, instruction_hits" if has_flag else "0, '[]'"
+    text_expr = "extracted_text" if with_text else "''"
     rows = db.execute(
         f"""
         SELECT id, filename, page_count, file_size_bytes, included, created_at,
-               {flag_expr}
+               {flag_expr}, {text_expr}
         FROM substrate_vault
         WHERE project_id = ?
         ORDER BY created_at DESC
@@ -211,9 +223,8 @@ def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
             hits = json.loads(row[7] or "[]")
         except (TypeError, ValueError):
             hits = []
-        entries.append(
-            {
-                "id": row[0],
+        entry = {
+            "id": row[0],
                 "filename": row[1],
                 "page_count": int(row[2] or 1),
                 "file_size_bytes": int(row[3] or 0),
@@ -221,8 +232,11 @@ def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
                 "created_at": row[5],
                 "instruction_like": bool(row[6]),
                 "instruction_hits": hits if isinstance(hits, list) else [],
+                "fetched_url": fetched_url_of(row[1]),
             }
-        )
+        if with_text:
+            entry["extracted_text"] = row[8] or ""
+        entries.append(entry)
     return entries
 
 
