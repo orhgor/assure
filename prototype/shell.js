@@ -1066,11 +1066,35 @@
     // A refused compile (HTTP 422, nothing persisted) streams its draft tokens
     // before the server can judge the finished document, but the refusal is the
     // verdict on exactly that text: leaving it on the canvas would render the
-    // draft the server would not keep. Drop it, keep the refusal.
-    function _discardStreamedDraft() {
+    // draft the server would not keep. Replace it with one refusal card, in the
+    // frame the refusal arrives in — the swap is a single DOM change, so nothing
+    // of the discarded draft is ever painted next to the card.
+    //
+    // The card is not an error frame: it is the verdict, and it says what the
+    // refusal means for the document ("Nothing was saved"). The server's own
+    // message stays on the card's title and in the console, so the reason is
+    // still readable without a second copy of the same sentence on screen.
+    var REFUSAL_TEXT = "This document could not be grounded in the source. " +
+                       "Nothing was saved.";
+    function _showRefusalCard(message) {
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
-      setShell("document.mode", "empty");
+      if (!docSurface) {
+        setShell("document.mode", "empty");
+        return;
+      }
+      var stale = docSurface.querySelectorAll(".doc-refusal");
+      for (var i = 0; i < stale.length; i++) stale[i].remove();
+      var card = document.createElement("div");
+      card.className = "doc-refusal";
+      card.setAttribute("role", "status");
+      if (message) card.title = String(message);
+      var line = document.createElement("p");
+      line.className = "doc-refusal-line";
+      line.textContent = REFUSAL_TEXT;
+      card.appendChild(line);
+      docSurface.appendChild(card);
+      setShell("document.mode", "refused");
     }
     // The ingest scan's verdict on a source, as the SOURCES label. The label
     // itself comes from the server (services/compile_guard.SOURCE_FLAG_LABEL);
@@ -1093,7 +1117,7 @@
       setShell("document.mode", "empty");
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
-      var existing = docSurface ? docSurface.querySelectorAll(".doc-error") : [];
+      var existing = docSurface ? docSurface.querySelectorAll(".doc-error, .doc-refusal") : [];
       for (var i = 0; i < existing.length; i++) existing[i].remove();
       if (versionChipEl) versionChipEl.hidden = true;
       SHELL.document.versions = { list: [], current: null };
@@ -2716,15 +2740,22 @@
           if (_vid) _loadVersionHistory(_vid, { current: "latest" });
         }
       } else if (event === "complete") {
-        // The run finished: Compile can still be .active when the
-        // "running math check" status frame never arrived, because
-        // transitionTo("Verify") only marks stages STRICTLY before the
-        // index it is leaving behind. Close it out explicitly so no
-        // stage dot keeps pulsing after a finished run.
-        markDone("Compile");
-        markDone("Verify");
-        markActive("Complete");
-        markDone("Complete");
+        // The run finished. A refused compile ends with this same frame carrying
+        // ok:false — and the error branch above has already marked the stage that
+        // failed, so only a run that succeeded ticks the stages off: otherwise a
+        // refusal leaves "Draft ✗" sitting above "Verify ✓". What a finished run
+        // owes the UI either way (progress bar, run flag, intent slot) is outside
+        // the test: failed or not, the run is over.
+        if (!(data && data.ok === false)) {
+          // Compile can still be .active when the "running math check" status
+          // frame never arrived, because transitionTo("Verify") only marks stages
+          // STRICTLY before the index it is leaving behind. Close it out
+          // explicitly so no stage dot keeps pulsing after a finished run.
+          markDone("Compile");
+          markDone("Verify");
+          markActive("Complete");
+          markDone("Complete");
+        }
         _endProgress();
         _refreshManifest();
         _setRunInProgress(false);
@@ -2747,8 +2778,10 @@
         clearIntentSlot();
         leftGroupSetTab("compiler");
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
-        if (data && Number(data.http_status) === 422) _discardStreamedDraft();
-        appendDocError(msg);
+        // The validator's refusal is a verdict on the document, not a transport
+        // error: it gets the card, and no error frame is left in the pane.
+        if (data && Number(data.http_status) === 422) _showRefusalCard(msg);
+        else appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
       }
     }

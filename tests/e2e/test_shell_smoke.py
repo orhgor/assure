@@ -77,14 +77,18 @@ def test_ungrounded_compile_is_refused(goto_shell, browser_page, fire_intent):
     """The ungrounded banner is gone, and the state it described is gone with it.
 
     A fresh project has no sources, so nothing can ground a draft: the compile
-    is refused (HTTP 422, nothing persisted) and the refusal is the document
-    column's notice. A banner over a rendered document is the defect this
-    replaced."""
+    is refused (HTTP 422, nothing persisted) and the refusal card is the document
+    column's verdict — one card, no error frame beside it. A banner over a
+    rendered document is the defect this replaced."""
     goto_shell()
     fire_intent("what is ferrari")
-    browser_page.wait_for_selector(".doc-error", timeout=240000)
+    browser_page.wait_for_selector(".doc-refusal", timeout=240000)
     assert browser_page.locator(".doc-ungrounded-banner").count() == 0
-    text = browser_page.locator(".doc-error").first.inner_text()
+    assert browser_page.locator(".doc-error").count() == 0, (
+        "a refusal is a verdict, not an error frame: the card replaces the draft "
+        "and nothing else is written into the document column"
+    )
+    text = browser_page.locator(".doc-refusal").first.inner_text()
     assert "could not be grounded in the source" in text, f"unexpected refusal: {text!r}"
 
 

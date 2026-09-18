@@ -248,7 +248,7 @@ def test_injection_outcome_matches_persisted_revisions(
         "the ungrounded banner was removed; a compile that anchors nothing is refused"
     )
     after = _revision_count(pid)
-    refusals = browser_page.locator(".doc-error")
+    refusals = browser_page.locator(".doc-refusal")
     if refusals.count():
         text = refusals.first.inner_text()
         assert "could not be grounded in the source" in text, f"unexpected refusal: {text!r}"

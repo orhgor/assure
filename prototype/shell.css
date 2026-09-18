@@ -821,6 +821,32 @@ body.collapsed .pane-left {
   font-variant-numeric: tabular-nums;
 }
 
+/* The refusal card: the document pane's verdict when the validator refuses a
+   compile (HTTP 422, nothing persisted). It stands where the document would have
+   been — the streamed draft is replaced by it — so it is a card in the document
+   column, not an error frame beside it. The left rule carries the verdict's
+   colour; the sentence is the whole message, so nothing competes with it. */
+.doc-refusal {
+  width: 100%;
+  max-width: 720px;
+  margin: var(--space-6) auto 0;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--unverified);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  white-space: normal;
+}
+
+.doc-refusal-line {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
 /* ========== Phase 3: Right-pane mode toggle + Compare grid + Pinned list ========== */
 
 /* Mode toggle (header tabs) */
