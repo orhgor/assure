@@ -198,7 +198,7 @@
           '<div class="modal">' +
             '<div class="modal-header">' +
               '<h2>Keyboard shortcuts</h2>' +
-              '<button type="button" id="modal-close">✕</button>' +
+              '<button type="button" id="modal-close" aria-label="Close shortcut list">✕</button>' +
             '</div>' +
             '<ul class="shortcut-list">' +
               '<li><kbd>Cmd+B</kbd> Toggle left pane</li>' +
@@ -2078,6 +2078,10 @@
             chip.setAttribute("data-index", String(i));
             chip.textContent = getChipIcon("z3", z3.status);
             chip.title = z3.message || "";
+            // §4 A4: the chip's only content is its emoji glyph. The accessible
+            // name is the tooltip string, verbatim — the wording is server-authored
+            // finding prose and is flagged for the voice pass, not rewritten here.
+            chip.setAttribute("aria-label", chip.title || "");
             wrapper.appendChild(chip);
           }
         }
@@ -2093,6 +2097,7 @@
           chip.setAttribute("data-index", "0");
           chip.textContent = getChipIcon("cite");
           chip.title = metaProv.source_name || "";
+          chip.setAttribute("aria-label", chip.title || "");   // §4 A4
           wrapper.appendChild(chip);
         }
         if (node.annotations && node.annotations.redhat && Array.isArray(node.annotations.redhat)) {
@@ -2106,6 +2111,7 @@
             chip.setAttribute("data-index", String(k));
             chip.textContent = getChipIcon("redhat", rh.status);
             chip.title = rh.text || "";
+            chip.setAttribute("aria-label", chip.title || "");   // §4 A4
             wrapper.appendChild(chip);
           }
         }
@@ -2230,8 +2236,16 @@
             else confClass += " conf-red";
           }
           var title = prov0 ? (provTitle || String(sp.reason || "")) : "(no source matched)";
+          // §4 A7: the span is a click target, so it is authored as a control —
+          // role, tab stop and a name that states its confidence band. The
+          // neutral wording is deliberate; persuasive phrasing goes to the
+          // voice pass.
+          var band = !prov0 ? "no source matched"
+                   : (sp.score > 0.8) ? "high"
+                   : (sp.score >= 0.4) ? "medium" : "low";
           var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) +
-            '" data-score="' + escapeAttr(String(sp.score)) + '" title="' + escapeAttr(title) + '">' +
+            '" data-score="' + escapeAttr(String(sp.score)) + '" title="' + escapeAttr(title) +
+            '" role="button" tabindex="0" aria-label="' + escapeAttr("Confidence span: " + band) + '">' +
             escapeHtml(text.slice(start, end)) + "</span>";
           html = wrapped + plain + html;
           ptr = start;
@@ -2242,6 +2256,7 @@
         var createdSpans = textEl.querySelectorAll(".conf-span");
         for (var csp = 0; csp < createdSpans.length; csp++) {
           createdSpans[csp].addEventListener("click", handleConfidenceClick);
+          createdSpans[csp].addEventListener("keydown", _confSpanKeydown);   // §4 A7
         }
       }
     }
@@ -3742,6 +3757,15 @@
         return null;
       }
       return find(root.body || []);
+    }
+
+    // §4 A7: the confidence span is a click target, so Enter and Space must
+    // activate it exactly as a click does. Space is prevented from scrolling.
+    function _confSpanKeydown(e) {
+      var k = e.key;
+      if (k !== "Enter" && k !== " " && k !== "Spacebar") return;
+      e.preventDefault();
+      handleConfidenceClick(e);
     }
 
     function handleConfidenceClick(e) {
