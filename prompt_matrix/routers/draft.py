@@ -9,7 +9,7 @@ import os
 import sys
 import time
 import uuid
-from typing import Any, Callable, Generator, Iterator, Literal
+from typing import Any, Callable, Generator, Iterator, Literal, Mapping
 
 from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
@@ -38,6 +38,7 @@ try:
     from ..routers.inquire_stream import _parse_metrics
     from ..services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
+        MEMO as ANSWER_SHAPE_MEMO,
         build_direct_document,
         choose_shape,
         shape_instruction,
@@ -81,6 +82,7 @@ except ImportError:
     from routers.inquire_stream import _parse_metrics
     from services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
+        MEMO as ANSWER_SHAPE_MEMO,
         build_direct_document,
         choose_shape,
         shape_instruction,
@@ -158,6 +160,37 @@ _DRAFT_SYSTEM = (
 # dialect prompt the compile path doesn't have). Static — the per-task ask and
 # sources live in the user message.
 _COMPILE_SYSTEM = (_PEM_DOMAIN.rstrip() + "\n\n---\n\n" + _DRAFT_SYSTEM.rstrip()).strip()
+
+#: The compile prompt's version — the integer the cache key moves on.
+#:
+#: ``compile_cache_key`` hashes the ask, the source excerpt and the model. The
+#: system prompt is in none of them, so editing it left every warm entry warm and
+#: replayed a draft written under the old prompt: a measured edit moved the
+#: prompt's own sha256 (c2b7926f -> 1cac8b13) and the key did not move
+#: (ast:p:de9116cd). Bump this whenever _COMPILE_SYSTEM, _DRAFT_SYSTEM,
+#: _INJECTION_DIRECTIVES or a shape block changes, and the entry written under
+#: the old prompt becomes a miss instead of a replay.
+#:
+#: Forgetting is caught rather than silent: ``prompt_fingerprint`` is recorded
+#: with each entry and compared on load, so a prompt edited without a bump warns
+#: instead of serving the old draft under the new prompt's name.
+PROMPT_VERSION = 1
+
+
+def prompt_fingerprint() -> str:
+    """sha256[:8] of the compile prompt — the part that is the same for every ask.
+
+    The ask is in the prompt too (it is the user's instruction), but the ask is
+    already key material, so this covers the static half: the merged system prompt
+    and both shape blocks. A change here without a PROMPT_VERSION bump is the one
+    case the key cannot see, which is what the recorded fingerprint is for.
+    """
+    static = [
+        _COMPILE_SYSTEM,
+        shape_instruction(ANSWER_SHAPE_DIRECT),
+        shape_instruction(ANSWER_SHAPE_MEMO),
+    ]
+    return hashlib.sha256("\n\n---\n\n".join(static).encode("utf-8")).hexdigest()[:8]
 
 # OpenRouter load-balances one model id across several upstream providers, and
 # they do not agree at temperature=0.0 — so `temperature=0.0` alone did not make
@@ -286,6 +319,54 @@ def frozen_cold_compile_blocked(*, project_id: str, cached_hit: bool, force: boo
     return _FROZEN_COLD_MESSAGE
 
 
+def _prompt_version_for(project_id: str) -> int:
+    """The prompt version this project's key carries — 0 for a frozen artifact.
+
+    A frozen project's document is a pinned artifact: the runbook's demo path
+    replays it and the guard refuses a cold compile so the pin cannot move. If the
+    prompt version moved its key, that replay would become a miss and the guard
+    would then refuse a document that is not stale, only pinned. So a frozen
+    project composes the key it always did, and ``force=true`` stays the deliberate
+    way to recompile one.
+    """
+    return 0 if project_id in frozen_projects() else PROMPT_VERSION
+
+
+def _prompt_diverged(project_id: str, cache_key: str, cached: Mapping[str, Any]) -> bool:
+    """True when a replayed entry was written under a different prompt.
+
+    The key carries ``PROMPT_VERSION``, so a hit means the version matched — which
+    means the prompt should match too. It does not when the prompt was edited and
+    the version was not bumped, and that is exactly the stale replay this pair
+    exists to stop: the entry would serve its old draft under the new prompt's
+    name. So the mismatch is logged and the entry is not replayed.
+
+    A frozen project is exempt. Its entry was written under the prompt it is
+    pinned to and carries no fingerprint; treating the pin as divergence would
+    turn the demo's replay into a cold compile, which the frozen guard then
+    refuses — breaking a document that is not stale, only pinned.
+    """
+    if project_id in frozen_projects():
+        return False
+    recorded = str(cached.get("prompt_fingerprint") or "")
+    if not recorded:
+        return False
+    live = prompt_fingerprint()
+    if recorded == live:
+        return False
+    _log.warning(
+        "[compile-prompt-divergence] project=%s key=%s recorded=%s live=%s "
+        "prompt_version=%s — the prompt changed without a PROMPT_VERSION bump; "
+        "the entry is not replayed",
+        project_id,
+        cache_key,
+        recorded,
+        live,
+        PROMPT_VERSION,
+    )
+    return True
+
+
 def _compile_cache_key(
     project_id: str,
     intent: str,
@@ -300,11 +381,20 @@ def _compile_cache_key(
     message — but only for a ``direct`` ask, whose message differs from the one a
     pre-shape entry was written under. A memo ask composes the key it always did,
     so a warm compile stays warm (a miss would persist a new revision).
+
+    The prompt is part of that too, and it is carried as ``PROMPT_VERSION`` rather
+    than as its text: the version is one integer in the digest, and the fingerprint
+    recorded alongside each entry catches a prompt edited without a bump.
     """
     text = _compile_source_text(intent, context, substrate_context)
     if choose_shape(intent) == ANSWER_SHAPE_DIRECT:
         text = f"{text}\n[answer_shape:{ANSWER_SHAPE_DIRECT}]"
-    return compile_cache_key(project_id, text, target_ai=model)
+    return compile_cache_key(
+        project_id,
+        text,
+        target_ai=model,
+        prompt_version=_prompt_version_for(project_id),
+    )
 
 
 def _compile_system(shape: str) -> str:
@@ -832,6 +922,15 @@ def run_draft_pipeline(
         cached = load_ast_cache(cache_key)
     except Exception:
         cached = None
+    if (
+        isinstance(cached, dict)
+        and cached.get("compiled")
+        and _prompt_diverged(project_id, cache_key, cached)
+    ):
+        # A draft written under a different prompt is not a replay of this one. The
+        # key carries only the version, so an edit that forgot the bump would
+        # otherwise serve the old draft under the new prompt's name.
+        cached = None
     if isinstance(cached, dict) and cached.get("compiled"):
         # The gates run on a replayed draft too. A cache hit is a draft rendered
         # again from memory, so a document cached before a gate existed must not
@@ -1274,7 +1373,14 @@ def run_draft_pipeline(
         save_ast_cache(
             cache_key,
             project_id,
-            {"compiled": compiled_payload, "verified": verified_payload},
+            {
+                "compiled": compiled_payload,
+                "verified": verified_payload,
+                # What the prompt was when this entry was written. The key carries
+                # only the version, so this is what catches a prompt edited without
+                # a bump (see _log_prompt_divergence).
+                "prompt_fingerprint": prompt_fingerprint(),
+            },
         )
     except Exception:
         pass

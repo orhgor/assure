@@ -44,18 +44,26 @@ def compile_cache_key(
     source_text: str,
     target_ai: str = "",
     version: int = PIPELINE_VERSION,
+    prompt_version: int = 0,
 ) -> str:
     # Stable order: project_id | source_text | target_ai | str(version)
-    digest = hashlib.sha256(
-        "|".join(
-            [
-                str(project_id or ""),
-                str(source_text or ""),
-                str(target_ai or ""),
-                str(version),
-            ]
-        ).encode("utf-8")
-    ).hexdigest()[:8]
+    parts = [
+        str(project_id or ""),
+        str(source_text or ""),
+        str(target_ai or ""),
+        str(version),
+    ]
+    # The prompt's version is appended only when it is set. Nothing above names
+    # the prompt, so before this an edit to it left every warm entry warm and
+    # replayed a draft written under the old one; the version moves the key.
+    #
+    # `prompt_version=0` composes the byte-identical pre-version key. A frozen
+    # artifact (routers/draft.frozen_projects) is pinned to the prompt it was
+    # compiled by, so it keeps that key and still replays: its document is the
+    # artifact, and a pipeline change is not allowed to move it.
+    if prompt_version:
+        parts.append(f"prompt:{int(prompt_version)}")
+    digest = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
     pid = sanitize_omp_tag(project_id or "", max_len=32)
     return f"ast:{pid}:{digest}"
 
