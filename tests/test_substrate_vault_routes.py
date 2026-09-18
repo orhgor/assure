@@ -69,6 +69,24 @@ def test_upload_returns_size_bytes(vault_client):
     assert payload["size_bytes"] > 0
 
 
+def test_uploading_the_same_file_twice_keeps_one_vault_row(vault_client):
+    """A repeated upload of the same document replaces its row, never stacks one.
+
+    The vault route keys a row on (project_id, filename) — the contract the JDF
+    ingest route already kept. Two rows for one document double-count the source
+    in the manifest and in the compile, which is what a user gets from a
+    double-click.
+    """
+    first = _upload(vault_client)
+    first_id = first.get_json()["id"]
+    second = _upload(vault_client)
+    assert second.status_code == 200
+    assert second.get_json()["id"] == first_id
+
+    listed = vault_client.get("/api/projects/default/substrate").get_json()["files"]
+    assert [entry["id"] for entry in listed] == [first_id]
+
+
 def test_upload_persists_and_labels_instruction_like_source(vault_client):
     """The ingest scan's verdict travels on the row and in the response.
 

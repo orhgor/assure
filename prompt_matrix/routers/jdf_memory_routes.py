@@ -122,6 +122,8 @@ def register_jdf_memory_routes(app) -> None:
         doc_id = request.form.get("doc_id") or f.filename
         try:
             pdf_bytes = f.read()
+            if not pdf_bytes:
+                return jsonify({"error": "Empty file."}), 400
             jdf_dict = pdf_to_jdf(pdf_bytes)
             chunks = jdf_to_chunks(jdf_dict, strategy="section")
             # Before the chunk index: a compile grounds from the project's
@@ -138,9 +140,13 @@ def register_jdf_memory_routes(app) -> None:
             return jsonify({"ok": True, **result, **flag_response(flag)})
         except OmpUnavailable:  # FIX 4
             return jsonify({"error": "index temporarily unavailable, try again"}), 503
-        except JdfConversionError as e:
+        except JdfConversionError:
+            # The converter's stderr names the internal tool and a byte-level
+            # reason. That belongs in the log, not in the response: the client
+            # gets the same plain message the vault upload route uses for the
+            # same class of input, with the status the input deserves.
             log.exception("jdf ingest failed")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Invalid or malformed PDF"}), 400
 
     @app.post("/api/projects/<project_id>/jdf/search")
     @project_ownership_required

@@ -19,6 +19,7 @@ try:
         save_substrate_entry,
         save_substrate_text,
         set_substrate_included,
+        upsert_substrate_entry,
     )
     from ..lib.logger import get_audit_logger
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
@@ -36,6 +37,7 @@ except ImportError:
         save_substrate_entry,
         save_substrate_text,
         set_substrate_included,
+        upsert_substrate_entry,
     )
     from lib.logger import get_audit_logger
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
@@ -152,7 +154,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
 
     ensure_project(project_id)
     flag = flag_fields(extracted_text)
-    entry = save_substrate_entry(
+    entry = upsert_substrate_entry(
         project_id,
         filename=filename,
         page_count=extracted.get("page_count") or page_count,
