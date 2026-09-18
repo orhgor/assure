@@ -1839,6 +1839,11 @@
       var deadlineTimer = null;
       var deadlineHit = false;
       var completed = false; // audit_complete arrived → the finding is persisted
+      // The server APPENDS a redhat annotation (models/jdf.py:545), so the
+      // node's array is cumulative across runs of this session. The pane's
+      // "Last run" line is about THIS run: what it added, not the running total.
+      var findingsBefore = (startNode.annotations && Array.isArray(startNode.annotations.redhat))
+        ? startNode.annotations.redhat.length : 0;
       __redhatRunningNodeId = nodeId;
       // A new run clears this node's error only: another node's failure is
       // still that node's to show.
@@ -1851,7 +1856,12 @@
       renderRedhatPanel(startNode);
 
       function finish(ok, why) {
-        if (!__redhatRunningNodeId) return;
+        // The latch names the run that owns the UI. A late callback from a run
+        // that already ended must not close out — or overwrite the pane of —
+        // whichever run is in flight now. Truthiness would let it: the newer
+        // run's id would be sitting there, non-null, so this stale callback
+        // would clear it. Only the run whose id matches may finish.
+        if (__redhatRunningNodeId !== nodeId) return;
         __redhatRunningNodeId = null;
         _redhatStopTimer();
         if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
@@ -1859,10 +1869,13 @@
         var doneNode = SHELL.document.current ? findJdfNodeById(nodeId, SHELL.document.current) : null;
         var found = (doneNode && doneNode.annotations && Array.isArray(doneNode.annotations.redhat))
           ? doneNode.annotations.redhat : [];
+        // What THIS run added. A shorter array than we started with has no
+        // truthful non-negative reading, so it clamps to "nothing new".
+        var added = Math.max(0, found.length - findingsBefore);
         __redhatLastRun = {
           nodeId: nodeId,
           status: ok ? "done" : "failed",
-          count: found.length,
+          count: added,
           seconds: Math.max(0, Math.round((Date.now() - __redhatStartedAt) / 1000)),
         };
         var selId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
@@ -1901,7 +1914,13 @@
         var buffer = "";
         function pump() {
           return reader.read().then(function (result) {
-            if (result.done) { finish(completed, completed ? null : "ended early"); return; }
+            if (result.done) {
+              // The deadline may already have closed this run out (it aborts
+              // the stream, and an aborted reader can still resolve done).
+              if (deadlineHit) return;
+              finish(completed, completed ? null : "ended early");
+              return;
+            }
             var str = decoder.decode(result.value, { stream: true });
             sseTokens += str.length;
             buffer += str;
@@ -3975,8 +3994,10 @@
         ? ("Running… " + _redhatElapsedSeconds() + " s")
         : (lastRun
           ? (lastRun.status === "done"
-            ? ("Last run: " + lastRun.count + " finding" + (lastRun.count === 1 ? "" : "s") +
-               ", " + lastRun.seconds + "s")
+            ? (lastRun.count === 0
+              ? ("Last run: no new findings, " + lastRun.seconds + "s")
+              : ("Last run: " + lastRun.count + " finding" + (lastRun.count === 1 ? "" : "s") +
+                 ", " + lastRun.seconds + "s"))
             : "Last run: failed")
           : "");
       if (statusText) {
