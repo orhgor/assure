@@ -45,8 +45,8 @@ artefact is `/home/ubuntu/.omp/` holding the server DB and key).
 |---|---|---|
 | Services | `systemctl is-active assure-prototype.service assure-prototype-static.service omp.service` | `active` ×3 |
 | App health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/api/health` | `200` |
-| Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `200` |
-| Public shell | `curl -s -o /dev/null -w '%{http_code}' https://staging.getassureai.com/` | `200` |
+| Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `302` — the entry gate's redirect to `/auth`; the shell itself is `200` with `-H "X-Shell-Key: $SHELL_ACCESS_KEY"` |
+| Public shell | `curl -s -o /dev/null -w '%{http_code}' -L https://staging.getassureai.com/` | `200` |
 | Build identity | `md5sum prototype/shell.js` in the box checkout | `4cdd8ec591c997d6154eb854d51c6da7` |
 | Browser | 1440×900 or larger, **zoom 100 %** | see §7 |
 
