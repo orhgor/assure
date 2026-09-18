@@ -14,7 +14,7 @@
 
   /* ---- colour: ink (primary aligned to marketing's --text-color) ---- */
   --text-primary: #111827;
-  --text-muted:   #64748b;
+  --text-muted:   #606f85;
   --text-on-dark: #e2e8f0;
   --text-surface: #ffffff;
 
@@ -49,7 +49,7 @@
   --accent-glow:    rgba(59, 130, 246, 0.28);
   --success:        var(--verified);
   --success-soft:   rgba(16, 185, 129, 0.18);
-  --success-text:   #059669;
+  --success-text:   #065f46;
   --warning-ink:    #92400e;
   --danger-soft:    rgba(220, 38, 38, 0.12);
   --danger-text:    #b91c1c;
@@ -130,7 +130,7 @@ html[data-theme="dark"] {
   --bg-panel:    #11141f;
 
   --text-primary: #e2e8f0;
-  --text-muted:   #64748b;
+  --text-muted:   #94a3b8;
   --text-on-dark: #e2e8f0;
   --text-surface: #ffffff;
 
@@ -141,7 +141,7 @@ html[data-theme="dark"] {
   --scroll-hover:#475569;
 
   --trust-blue:   #3b82f6;
-  --accent-strong: #2563eb;
+  --accent-strong: #60a5fa;
   --verified:     #10b981;
   --warning:      #f59e0b;
   --danger:       #ef4444;
@@ -155,7 +155,7 @@ html[data-theme="dark"] {
   --success:       var(--verified);
   --success-soft:  rgba(16, 185, 129, 0.25);
   --success-text:  #86efac;
-  --warning-ink:   #f59e0b;
+  --warning-ink:   #fcd34d;
   --danger-soft:   rgba(239, 68, 68, 0.08);
   --danger-text:   #fca5a5;
   --hover-surface: var(--bg-surface);
@@ -871,7 +871,7 @@ body.collapsed .pane-left {
 }
 
 .stage-row.done .stage-dot {
-  background: var(--success);
+  background: var(--success-text);
 }
 .stage-row.done .stage-name {
   color: var(--success-text);
@@ -1306,7 +1306,7 @@ body.collapsed .pane-left {
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--trust-blue);
+  color: var(--accent-ink);
   margin-left: var(--space-1);
   vertical-align: middle;
   cursor: pointer;
@@ -1314,23 +1314,23 @@ body.collapsed .pane-left {
   border: 1px solid transparent;
 }
 .chip:hover {
-  background: var(--trust-blue);
+  background: var(--accent-strong);
   color: #fff;
 }
 .chip-z3.violation {
-  color: var(--warning);
+  color: var(--warning-ink);
   background: rgba(245, 158, 11, 0.15);
 }
 .chip-z3.violation:hover {
-  background: var(--warning);
+  background: var(--warning-ink);
   color: #fff;
 }
 .chip-redhat.open {
-  color: var(--danger);
+  color: var(--danger-text);
   background: var(--danger-soft);
 }
 .chip-redhat.open:hover {
-  background: var(--danger);
+  background: var(--danger-text);
   color: #fff;
 }
 /* No .chip-redhat.resolved / .dismissed: findings have no closing state —
@@ -1451,17 +1451,17 @@ body.collapsed .pane-left {
   font-weight: 500;
 }
 .evidence-action:hover {
-  border-color: var(--trust-blue);
-  color: var(--trust-blue);
+  border-color: var(--accent-ink);
+  color: var(--accent-ink);
 }
 .evidence-action:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 .evidence-action.primary {
-  background: var(--trust-blue);
+  background: var(--accent-strong);
   color: #fff;
-  border-color: var(--trust-blue);
+  border-color: var(--accent-strong);
 }
 .evidence-action.primary:hover {
   background: var(--accent-hover);
@@ -1491,7 +1491,7 @@ body.collapsed .pane-left {
   cursor: pointer;
 }
 .redhat-finding:hover {
-  color: var(--trust-blue);
+  color: var(--accent-ink);
 }
 .redhat-error {
   color: var(--danger-text);
@@ -1689,7 +1689,7 @@ body.collapsed .pane-left {
 .intent-summary-view {
   border: none;
   background: transparent;
-  color: var(--trust-blue);
+  color: var(--accent-ink);
   cursor: pointer;
   font-size: var(--fs-sm);
   font-family: var(--font-body);
@@ -1725,7 +1725,7 @@ body.collapsed .pane-left {
   padding: 0 var(--space-1);
 }
 .source-remove:hover {
-  color: #ef4444;
+  color: var(--danger-text);
 }
 .source-item.is-error {
   color: #b3261e;
@@ -1784,7 +1784,7 @@ body.collapsed .pane-left {
   text-align: left;
   background: transparent;
   border: 0;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-family: var(--font-body);
   font-size: var(--fs-sm);
   padding: 6px var(--space-2);
@@ -1846,7 +1846,7 @@ body.collapsed .pane-left {
   color: var(--accent);
 }
 .project-delete:hover {
-  color: #ef4444;
+  color: var(--danger-text);
 }
 
 .doc-ungrounded-banner {
@@ -1978,7 +1978,7 @@ body.collapsed .pane-left {
 .version-row:hover { background: var(--hover-surface); }
 .version-row.is-current {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .jdf-node.is-selected {
@@ -2096,8 +2096,8 @@ body.collapsed .pane-left {
   border-radius: var(--radius-sm);
 }
 .signoff-indicator.is-signed {
-  color: #10b981;
-  border-color: #10b981;
+  color: var(--success-text);
+  border-color: var(--success-text);
 }
 
 .rail-right {
@@ -2249,7 +2249,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-2);
   font-size: var(--fs-sm);
-  color: #ef4444;
+  color: var(--danger-text);
   pointer-events: auto;
 }
 .jdf-node.is-rephrasing { position: relative; }
