@@ -22,12 +22,36 @@ Step 1 — the gate key.
 
 Step 2 — the Clerk session.
   The Clerk sign-in appears. Enter the demo account email and password.
-  If a code is requested, enter it from the address your Clerk instance sends codes to.
+  If a code is requested, enter it from demo@getassureai.com.
 
 If either step fails:
   Set ASSURE_CLERK_ONLY=0 in /home/ubuntu/assure-prototype/.env.staging. No restart.
   The gate key alone opens the shell. Restore: ASSURE_CLERK_ONLY=1.
+
+Two different failures, two different responses. A code that EXPIRED is fixed by
+  requesting another one — re-enter the password, or press Resend — and both are
+  normal parts of the flow. Only a code that never ARRIVES reaches for the flag:
+  retry first, flip on non-arrival.
 ```
+
+**⚠️ MEASURED 2026-09-18 — signing in as `demo@getassureai.com` does NOT show the demo project.**
+The whole flow completes (that email + password → an email code to that address → the authenticated
+shell loads), but the account is an **underwriter** (`user_3JWBcRJL5Dsf51437Jfm76yhyfO`; it is not in
+`ASSURE_ADMIN_USER_IDS`) and `demo-3235f5.owner_id` is the sentinel `legacy`. So `GET /api/projects`
+returns **9 rows with no `demo-3235f5`**, `GET /api/projects/demo-3235f5/jdf` answers **403
+`{"error":"Forbidden.","ok":false}`**, and the switcher lists only the unowned probe projects — the
+frozen `workspace` document cannot be opened at all. Visibility rule:
+`project_routes.py:139-147` (an underwriter sees `owner_id = me OR owner_id IS NULL OR owner_id = ''`);
+the admin bypass is `middleware.py:70-73`. **Pick one before presenting:**
+
+1. **Make that account an admin** — append its Clerk id to `ASSURE_ADMIN_USER_IDS` in `.env.staging`,
+   then **restart `assure-prototype.service`**. Unlike `ASSURE_CLERK_ONLY`, this list is read from
+   `os.environ` at boot (`cloud_auth.admin_user_ids()`), so the one-line edit alone is not enough.
+2. **Give the account the project** — set `demo-3235f5.owner_id` to that Clerk id in
+   `prompt_matrix/history.sqlite` (a data change; back up first).
+3. **Present on the flag** — `ASSURE_CLERK_ONLY=0`, where the key-only operator has no Clerk identity
+   at all and the visibility filter is skipped (`project_routes.py:141`), so every project including
+   the demo is reachable.
 
 **The two steps are two doors, checked in this order** (`prototype/dev-server.py:362`,
 `_route`): `/auth` carries the key and nothing else and is handled first (`:46 AUTH_PATH`,
