@@ -849,15 +849,76 @@ _MIN_CLAIM_TOKENS = 4
 _MIN_ANCHOR_OVERLAP = 4
 _MIN_ANCHOR_COEFFICIENT = 0.60
 
-_NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+_NUM_RE = re.compile(r"\d+(?:,\d+)*(?:\.\d+)?")
+
+# A numeral is a *reference*, not a quantity, in three shapes. The claim guard
+# below compares quantities only, so reading a cross-reference or the draft's own
+# numbering as a figure refuses every candidate sentence: a paragraph numbered
+# "1. Wind/hail deductible … 2 percent" carried {1, 2} against a source sentence
+# that carries only the 2, and so matched nothing at all.
+#   * introduced by a reference keyword — "Section 3", "Sections 5 and 6",
+#     "Page 4", "No. 7", "§ 2";
+#   * inside a hyphenated identifier — "DEMO-MA-RE-2026-001", "XXXX-NN-NN-NNNN";
+#   * a bare line-leading list marker — "1. " / "2) " opening a line.
+# Everything else is a quantity: money, percentages, dates, durations, counts.
+_REF_KEYWORD_RE = re.compile(
+    r"(?:\b(?:Sections?|Articles?|Clauses?|Exhibits?|Appendi(?:x|ces)|"
+    r"Schedules?|Paragraphs?|Pages?|Nos?)\.?|§)",
+    re.IGNORECASE,
+)
+# What may stand between that keyword and the numeral it introduces: the bare
+# form ("Section 3") and the list form ("Sections 5 and 6"), where only blanks,
+# joining words and the other numerals of the list separate the two.
+_REF_LIST_ITEM_RE = re.compile(
+    r"\d+(?:,\d+)*(?:\.\d+)?|and|or|to|through|thru|&|,|;|–|—|-", re.IGNORECASE
+)
+_BLANK_RE = re.compile(r"[ \t]*")
+_HYPHENATED_ID_RE = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}")
+_LINE_LIST_MARKER_RE = re.compile(r"^[ \t]*\d+[.)][ \t\n]", re.MULTILINE)
 
 
 def _numbers(text: str) -> set[str]:
-    """Numeric values in text, normalized so $5,000,000 == 5000000.0 == 5,000,000."""
+    """Quantities in text, normalized so $5,000,000 == 5000000.0 == 5,000,000.
+
+    Reference markers and identifiers are dropped (see ``_REF_KEYWORD_RE``):
+    the guard in ``attach_substrate_provenance_to_tree`` requires every claim
+    quantity to appear in the candidate source sentence, and a paragraph's own
+    numbering and cross-references appear in no source sentence at all.
+    """
+    raw = str(text or "")
+    identifiers = [(m.start(), m.end()) for m in _HYPHENATED_ID_RE.finditer(raw)]
     out: set[str] = set()
-    for raw in _NUM_RE.findall(str(text or "")):
+    for match in _NUM_RE.finditer(raw):
+        start, end = match.start(), match.end()
+        if any(a <= start and end <= b for a, b in identifiers):
+            continue
+        line_start = raw.rfind("\n", 0, start) + 1
+        if (
+            not raw[line_start:start].strip()
+            and end < len(raw)
+            and raw[end] in ".)"
+            and _LINE_LIST_MARKER_RE.match(raw, line_start)
+        ):
+            continue
+        keyword = None
+        for found in _REF_KEYWORD_RE.finditer(raw, 0, start):
+            keyword = found
+        if keyword is not None:
+            pos = keyword.end()
+            is_reference = True
+            while pos < start:
+                pos = _BLANK_RE.match(raw, pos).end()
+                if pos >= start:
+                    break
+                item = _REF_LIST_ITEM_RE.match(raw, pos)
+                if item is None:
+                    is_reference = False
+                    break
+                pos = item.end()
+            if is_reference:
+                continue
         try:
-            value = float(raw.replace(",", ""))
+            value = float(match.group(0).replace(",", ""))
         except ValueError:
             continue
         out.add(f"{value:.6f}".rstrip("0").rstrip("."))

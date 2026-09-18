@@ -14,14 +14,22 @@ except ImportError:
 
 try:
     from ..db.jdf_repository import ensure_project
-    from ..db.substrate_repository import upsert_substrate_entry
+    from ..db.substrate_repository import (
+        fetch_substrate_entries_by_ids,
+        list_substrate_for_project,
+        upsert_substrate_entry,
+    )
     from ..services.jdf_converter import JDF_BIN, JdfConversionError
     from ..services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from ..services.omp_memory import remember_vault_file
 except ImportError:
     from db.jdf_repository import ensure_project
-    from db.substrate_repository import upsert_substrate_entry
+    from db.substrate_repository import (
+        fetch_substrate_entries_by_ids,
+        list_substrate_for_project,
+        upsert_substrate_entry,
+    )
     from services.jdf_converter import JDF_BIN, JdfConversionError
     from services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
@@ -54,10 +62,23 @@ def _store_grounding_source(
     skipped with "no substrate or empty draft". The text is already extracted
     here (the chunks are the document), so no Textract/Docling pass is involved
     and the vault upload route keeps its .txt/.md restriction untouched.
+
+    An ingest whose chunks carry no text still leaves the row: a PDF the
+    converter returned no text for is a source the user uploaded, and a missing
+    row reads as "no sources uploaded" — a different, wrong answer. Such a row
+    keeps the text already on file for that filename (an empty field when there
+    is none) instead of blanking a good extraction with an empty one.
     """
     text = chunks_to_text(chunks)
     if not text:
-        return
+        for existing in list_substrate_for_project(project_id):
+            if str(existing.get("filename") or "") == filename:
+                found = fetch_substrate_entries_by_ids(
+                    project_id, [str(existing.get("id") or "")]
+                )
+                if found:
+                    text = str(found[0].get("extracted_text") or "")
+                break
     ensure_project(project_id)
     entry = upsert_substrate_entry(
         project_id,
