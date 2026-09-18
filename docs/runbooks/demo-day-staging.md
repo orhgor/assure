@@ -4,8 +4,8 @@
 **Deployed revision:** `1cde23b` (`prototype/shell-skeleton`) on `i-03e39eccc57572191`.
 **Verified:** 2026-09-18, against `https://staging.getassureai.com` (the box checkout is
 `/home/ubuntu/assure-prototype`; `prototype/shell.js|shell.css|index.html` are byte-identical
-to the committed revision — md5 `9da3f758…`, `cb8e3e88…`, `4fff7756…`, measured
-2026-09-18T20:09Z after the hygiene pass recorded in §3a). The fixture material this runbook
+to the committed revision — md5 `ccb0f4e9…`, `cb8e3e88…`, `4fff7756…`, measured
+2026-09-18T20:13Z after the hygiene pass recorded in §3a). The fixture material this runbook
 used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 ---
@@ -68,7 +68,7 @@ artefact is `/home/ubuntu/.omp/` holding the server DB and key).
 | App health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/api/health` | `200` |
 | Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `302` — the entry gate's redirect to `/auth`; the shell itself is `200` with `-H "X-Shell-Key: $SHELL_ACCESS_KEY"` |
 | Public shell | `curl -s -o /dev/null -w '%{http_code}' -L https://staging.getassureai.com/` | `200` |
-| Build identity | `md5sum prototype/shell.js` in the box checkout | `9da3f7588aa7bb8d7f9687246799122e` (2026-09-18T20:09Z) |
+| Build identity | `md5sum prototype/shell.js` in the box checkout | `ccb0f4e95c216f17865d3e2ea275dfb0` (2026-09-18T20:13Z) |
 | Browser | 1440×900 or larger, **zoom 100 %** | see §7 |
 
 All six commands above were run again after the 2026-09-18 hygiene pass (§3a) and returned
@@ -78,7 +78,8 @@ exactly those values.
 
 ## 3. The demo project
 
-**Project id: `demo-3235f5`** (stored title `demo`). It is the project the shell opens on the
+**Project id: `demo-3235f5`** (stored title `workspace` since the 2026-09-18T20:12Z rename recorded
+in §3a; the id keeps its internal name). It is the project the shell opens on the
 demo machine (`localStorage.assure_project_id`), and it is the one the probes and the H6 run used.
 
 **It is DB-preserved: do not re-seed it for demo day.** The 2026-09-18 hygiene pass moved the
@@ -95,7 +96,7 @@ so the frozen document cannot move by accident).
 git worktree add /tmp/fixtures test-fixtures
 
 PID=$(curl -s -X POST https://staging.getassureai.com/api/projects \
-  -H 'Content-Type: application/json' -d '{"title":"demo"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
+  -H 'Content-Type: application/json' -d '{"title":"workspace"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
 
 curl -s -X POST "https://staging.getassureai.com/api/projects/$PID/substrate/upload" \
   -F 'file=@/tmp/fixtures/docs/demo/insurance-boston-real-estate/assets/naic-underwriting-policy-redacted.md'
@@ -150,15 +151,18 @@ The internal `demo` names stay: `demo-redhat-btn`, the `demo-chip` class, `demo.
 `landing.demo.*`, the `assure:demo-redhat-audit` event. They are identifiers a client never
 reads, and they are not copy.
 
-**The project row's title is still `demo`, deliberately.** `projects.title` is a persisted value
-— the switcher draws it straight from `GET /api/projects` — so this pass left the row alone. A
-rewrite of stored data is a migration (backup first, owner's call), not a copy change; the
-strings in the table above are the copy, the row is data. If the owner ever wants the switcher
-to read `workspace` for this project, that is one row, with a DB backup first:
+**The row kept the title `demo` through this pass; a later pass renamed it.** This pass stopped
+short of the row on purpose: `projects.title` is a persisted value — the switcher draws it
+straight from `GET /api/projects` — so rewriting it is a data migration (backup first, owner's
+call), not a copy change. A separate pass then ran that one-row UPDATE at **2026-09-18T20:12Z**:
+`demo-3235f5.title` is now `workspace`, `current_version` unchanged at **45**, and no other
+column was touched. Measured immediately after: `GET /api/projects` returns
+`{"id":"demo-3235f5","title":"workspace","current_version":45}`, and the switcher row draws that
+title. The inverse, if the owner ever wants the old label back:
 
 ```bash
-# NOT run in the pass above — a stored-value rewrite is a migration, not a copy change.
-# sqlite3 prompt_matrix/history.sqlite "UPDATE projects SET title='workspace' WHERE id='demo-3235f5';"
+# the inverse of that rename — not run by any pass:
+# sqlite3 prompt_matrix/history.sqlite "UPDATE projects SET title='demo' WHERE id='demo-3235f5';"
 ```
 
 Verified after the pass against the **served** bytes on the box (not the source tree): `GET /`
@@ -177,7 +181,7 @@ Read-only on the box, through the served path (`:8891`, gate header) and the app
 | Item | Value |
 |---|---|
 | `GET /api/projects` | `200`, 126 projects, `demo-3235f5` present |
-| The row | `title="demo"`, `current_version=44`, `created_at=2026-09-18 14:09:34`, `node_count=3`, `source_count=1`, `status=ready_to_export` |
+| The row | `title="demo"` (as measured; renamed to `workspace` later — §3a), `current_version=44`, `created_at=2026-09-18 14:09:34`, `node_count=3`, `source_count=1`, `status=ready_to_export` |
 | Rows that reference it | `jdf_revisions` **44** (v1–v44), `jdf_documents` 1, `substrate_vault` 1, `node_revisions` 2, `pipeline_cache` 47, `token_ledger_entries` 192, `audit_log` 63, `user_activity_log` 356 |
 | `GET /api/projects/demo-3235f5/jdf` → `200` | 1 section (*Massachusetts Commercial Real Estate Underwriting Obligations Summary*), **3** paragraphs, **3** anchored, 5 confidence spans |
 | `POST …/draft/stream` with the §5 intent and source `sub-d3eab1f0fa9c486d` | `200`; frames `status → compiled → verified → complete` (`ok: true`); **cache-warm** (`omp_cached: true`, `cache_key=ast:demo-3235f5:1e9c9516`, 0.02 s); `provenance_stats` = eligible **3** / anchored **3** / supported **2** / partial **1** / unsupported **0** / unverified **0**; **no new revision**, so the frozen `v44` stands |
@@ -255,7 +259,9 @@ build** (steps 1–9 of the Golden Path, `docs/user-experience.md` §3), recorde
 zoom 100 %, on `https://staging.getassureai.com`, at revision `8115964`. Record the screen plus
 the URL bar so the build is identifiable. Shot list — every step ends on a visible artefact:
 
-1. Open the shell on project `demo` — the Main document and the dock are on screen.
+1. Open the shell on the project the switcher lists as `workspace` (id `demo-3235f5`; only the
+   label reads workspace, the id keeps its internal name) — the Main document and the dock are on
+   screen.
 2. Write the intent in the dock and submit — the exact text in
    `scripts/aws/_demo_intent.txt`, and it is **typed into the dock**: nothing reads the file at
    compile time, so the file is the source of truth for the presenter, not for the pipeline:
@@ -296,7 +302,8 @@ that it plays when staging does not.
    persisted version).
 2. **The demo project is not the one on screen** (wrong project, or a rehearsal left it
    mid-state). The header shows the project name next to "Assure".
-   *Recovery:* project switcher → `demo`; if its document looks wrong, reset it (§3) before the
+   *Recovery:* project switcher → `workspace` (the row's label; the id is still `demo-3235f5`);
+   if its document looks wrong, reset it (§3) before the
    audience arrives — never reset it live.
 3. **A reload during the demo** (the presenter hits refresh, the laptop sleeps). After a reload
    the document, the counters, the confidence spans and the version chip all come back, but
