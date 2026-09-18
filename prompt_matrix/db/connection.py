@@ -16,6 +16,18 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
+# The migration counter. It gates the _migrate_vN functions below against the
+# schema_migrations table, so it moves only when a new migration step is added.
+#
+# The seven FOREIGN KEY clauses on the tables a project delete orphans — audit_log,
+# jdf_documents, node_revisions, pipeline_cache, project_budgets,
+# token_ledger_entries, user_activity_log — are declarations inside
+# CREATE TABLE IF NOT EXISTS. They reach a database that does not have the table
+# yet (a fresh install, CI, this repo's tests) and leave an existing one alone,
+# where the constraint comes from scripts/aws/migrate_fk_constraints.py instead.
+# SQLite cannot add a foreign key to an existing table, so there is no migration
+# step to write and the version stays where it is: bumping it would either do
+# nothing or record a step that never ran.
 _SCHEMA_VERSION = 25
 
 
@@ -343,7 +355,8 @@ def _migrate_v17(db: sqlite3.Connection) -> None:
             project_id TEXT,
             action TEXT NOT NULL,
             details TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -624,7 +637,8 @@ def _migrate_v13(db: sqlite3.Connection) -> None:
             mutation_type TEXT NOT NULL DEFAULT 'NODE_UPDATE',
             change_summary TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (project_id, node_id, version)
+            UNIQUE (project_id, node_id, version),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -645,7 +659,8 @@ def _migrate_v12(db: sqlite3.Connection) -> None:
             project_id TEXT NOT NULL,
             kind TEXT NOT NULL,
             payload_json TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -827,7 +842,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             token_limit INTEGER NOT NULL DEFAULT 250000,
             tokens_used INTEGER NOT NULL DEFAULT 0,
             last_reset DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -843,7 +859,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             cache_read_tokens INTEGER DEFAULT 0,
             cache_write_tokens INTEGER DEFAULT 0,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            meta TEXT
+            meta TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -853,7 +870,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             project_id TEXT PRIMARY KEY,
             document_id TEXT NOT NULL,
             tree_json TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -871,7 +889,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             error_type TEXT,
             error_message TEXT,
             details TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )

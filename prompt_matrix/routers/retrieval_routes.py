@@ -80,9 +80,12 @@ def _project_exists(project_id: str) -> bool:
     Every route below checks this before it does anything else — before a search
     runs, before a page is fetched, before an audit row is written. A search for a
     project that is not there used to run to completion and record its result: an
-    audit row naming a project that has never existed, which is an orphan no
-    foreign key rejects (``audit_log.project_id`` carries no REFERENCES clause —
-    see ``db/connection.py`` and ``history.py``), so the check has to be here.
+    audit row naming a project that has never existed. On a database created
+    before ``db/connection.py`` declared ``audit_log``'s foreign key, that row is
+    an orphan (those databases still need
+    ``scripts/aws/migrate_fk_constraints.py``); on one that declares the clause,
+    the write fails instead and becomes a counted drop rather than a row. Either
+    way the rejection belongs on this side of the write.
     """
     row = get_db().execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
     return row is not None

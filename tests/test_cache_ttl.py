@@ -19,6 +19,11 @@ def _reset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from prompt_matrix.db.connection import init_db
 
     init_db()
+    # pipeline_cache.project_id declares the FK to projects, so the project a
+    # cache row names has to exist before the row can be written.
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p1")
 
 
 def test_cache_ttl_set(tmp_path, monkeypatch) -> None:

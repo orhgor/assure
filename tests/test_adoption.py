@@ -95,6 +95,17 @@ def test_export_audit_manifest(audit_db, monkeypatch):
     from prompt_matrix.web import create_app
 
     client = create_app(require_auth=False).test_client()
+    # The suite runs with SQLITE_USE_POOL=0, so get_db() uses the module-level
+    # DB_PATH; rebind it to this test's file the way the other DB tests do, or
+    # the project row and the audit rows land in different databases.
+    import prompt_matrix.history as history_mod
+
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    # audit_log declares the FK to projects, so the project an audit row names
+    # has to exist before the row can be written at all.
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("default", "Default project")
     audit = AuditLogger(audit_db)
     audit.log_audit("req-z3", "default", "Z3_VIOLATION", success=False, details={"metric": "ARR"})
     audit.log_audit(
