@@ -8,6 +8,25 @@ to the committed revision — md5 `4cdd8ec5…`, `a6d63834…`, `698016cb…`).
 
 ---
 
+**Production URL: `app.getassureai.com`.** The instance is the same box as
+`prototype.getassureai.com` — one EC2, bearer-key auth, SQLite. It presents as production for
+evaluation; the underlying deployment is pre-production. If asked about HA, backups, or SSO:
+"Production deployment is the next phase; this instance is for evaluation."
+
+**Cutover, 2026-09-18 (what changed under this URL).** `app.getassureai.com` and
+`prototype.getassureai.com` are now the same tunnel (`assure-staging`,
+`fe93535b-a2cb-461d-a8ef-143f07c35876`) and the same origin — `http://localhost:8891` on
+`i-03e39eccc57572191`. The `app` CNAME used to point at the *other* tunnel (`assure-prod`),
+which reached this box over the VPC (`172.31.8.21:8891`); that hop is gone. All three hostnames
+(`app.`, `prototype.`, `staging.`) serve the same bytes: authenticated `GET /` returned 200 and
+md5 `5a69c864134c95e125d46c156e58330c` from each, matching the box checkout. The shell's
+`<title>` is `Assure` (was `Assure AI — Shell Prototype`) and a shell-created project is titled
+`Untitled` (was `shell-proto`); the `prototype/index.html` md5 in the front matter above is
+superseded by the value just quoted. Certificates need no action: the zone's universal cert
+already covers `*.getassureai.com` (Google Trust Services WE1, 2026-09-01 → 2026-11-30).
+
+---
+
 ## 1. What runs where — the three layers
 
 **OMP is the memory layer.** `omp.service` (npm `omp-server`, `:3456`, DB
@@ -201,6 +220,35 @@ that it plays when staging does not.
   saved."), not an error frame: measured `error` frame → card **6 ms**, last streamed token →
   card **1016 ms**, and the refused run leaves Draft marked failed with no later stage ticked.
   It is not a hang — do not wait for it, and do not re-run it live.
+
+**The four limits that ship with this demo** — say these plainly if anyone asks:
+
+- **The compile is non-reproducible.** Five runs of one intent, all at `temperature=0.0`, with
+  the same outgoing payload every time, produced five different drafts — the sampling parameters
+  do not survive the provider (§10.3a). Never re-run live to "fix" a counter; the frozen
+  document's numbers are the ones to quote.
+- **The FK deletion covers 3 of 9 tables.** With `PRAGMA foreign_keys=ON`, `jdf_revisions`,
+  `substrate_vault` and `daily_compile_limits` cascade; the other six tables that carry a
+  `project_id` declare no foreign key, so a project delete strands their rows (§3). The switcher
+  reads `projects`, so the reset itself still works — the orphan rows and the project directory
+  stay on disk.
+- **The Red-Hat locator (click-to-scroll) is the next release.** A finding renders against the
+  paragraph it was run on, but clicking it does not scroll the document to that paragraph, and
+  the finding object carries no `node_id` field (§10.2, §10.3c).
+- **The demo document carries 3-4 claims by design.** The frozen document carries 3 (§10.1);
+  when a draft opens with a lead-in sentence the gate counts 4 eligible / 3 anchored. That is
+  the claim floor working, not a shortfall.
+
+**Operating the tunnel (learned the hard way, 2026-09-18).** Do **not** send `SIGHUP` to
+`cloudflared` to reload `/etc/cloudflared/config.yml`. On this box (`cloudflared` 2026.8.3,
+`cloudflared --no-autoupdate --config /etc/cloudflared/config.yml tunnel run`) the signal makes
+it **exit cleanly** instead of reloading, and with the then-current `Restart=on-failure` systemd
+did not bring it back: `staging.` and `prototype.` answered **502** for 14 s (measured
+17:13:41 → 17:13:55 UTC) while the origin on `:8891` stayed healthy. Reload the documented way —
+start a second cloudflared on the new file, confirm health, then stop the first — and expect
+long-lived streams to drop when the first instance stops. The unit is now `Restart=always`
+(`/etc/systemd/system/cloudflared.service`, backup `.bak-20260918T171604Z`), so a clean exit can
+no longer leave the edge silently down.
 
 ---
 
