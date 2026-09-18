@@ -421,7 +421,7 @@
                     <span><span data-i18n="generate.summary_nodes">{{ gettext('Nodes') }}</span>: <strong id="generate-node-count">0</strong></span>
                     <span><span data-i18n="generate.summary_locks">{{ gettext('Locks') }}</span>: <strong id="generate-lock-count">0</strong></span>
                   </div>
-                  <p id="z3-status" class="gate-z3-status verification-badge" hidden></p>
+                  <div id="z3-status" class="gate-z3-status verification-badge" hidden></div>
                   <div class="compile-actions">
                     <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-recompile-btn" data-i18n="generate.recompile" data-tooltip="{{ gettext('Run the compile again with the same prompt') }}" data-i18n-tooltip="tooltip.recompile">{{ gettext('Re-compile') }}</button>
                     <button type="button" class="btn btn-outline btn-sm tooltip-trigger" id="generate-discard-btn" data-i18n="generate.discard" data-tooltip="{{ gettext('Throw this draft away and keep the canvas as it is') }}" data-i18n-tooltip="tooltip.discard">{{ gettext('Discard') }}</button>

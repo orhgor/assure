@@ -1,0 +1,17 @@
+{
+  "project": "shell-proto-2a5c3a",
+  "version": 16,
+  "created_at": "2026-09-18 19:07:05",
+  "truth_ledger": {
+    "CPT_90834_face_to_face_psychotherapy_time_range_per_session": 52.0,
+    "CPT_90834_standard_session_format_per_session": 45.0,
+    "CPT_90837_minimum_face_to_face_psychotherapy_time_per_session": 53.0,
+    "CPT_90837_extended_session_format_per_session": 60.0,
+    "CPT_90837_qualifying_session_duration_example_per_session": 70.0,
+    "CPT_90834_documented_clinical_time_example_per_session": 47.0,
+    "payment_variance_payment_difference_per_session_per_session": 75.0,
+    "practice_sessions_per_week_weekly": 20.0,
+    "practice_annual_revenue_loss_prevention_annual": 50000.0
+  },
+  "text": "A clinician must select between CPT code 90834 and CPT code 90837 based solely on the documented face-to-face clinical time during the session, not on scheduled appointment length, administrative delays, or provider intent.\nCPT code 90834 is used when the documented face-to-face psychotherapy time falls between 38 and 52 minutes. This code corresponds to the standard 45-minute session format. Any session that ends at 52 minutes or less must be billed as 90834, regardless of whether the appointment was scheduled for 60 minutes.\nCPT code 90837 is used only when the documented face-to-face psychotherapy time is 53 minutes or longer. This code reflects the extended 60-minute session format. A session that lasts 53 minutes, 55 minutes, or 70 minutes qualifies for 90837 \u2014 but only if the clinical time is accurately recorded in the documentation.\nIt is critical to distinguish between scheduled time and actual clinical time. If a patient arrives late, if the clinician spends time on administrative tasks before or after the session, or if the session ends early due to external factors, those minutes do not count toward the time threshold for billing. Only the time spent in direct, face-to-face clinical interaction with the patient is eligible for inclusion.\nFor example, a session scheduled for 60 minutes but with only 47 minutes of documented clinical time must be billed as 90834. Billing 90837 in this scenario is overcoding and exposes the provider to claim denials, audit risk, and potential recoupment of payments.\nAccurate time documentation is not optional. CMS and commercial payers require precise recording of face-to-face time in the clinical note. Automated claim review systems cross-check documented time against billed codes, and discrepancies trigger denials or retrospective audits. Behavioral health claims already face higher denial rates than other specialties \u2014 incorrect coding is one of the top causes.\nClinicians should establish a consistent practice of recording the exact start and end times of clinical interaction in every session note. This ensures compliance, supports reimbursement, and protects revenue. A one-minute difference can mean a $47 to $75 variance in payment per session. For practices seeing 20 sessions per week, consistent use of the correct code based on documented time can prevent annual revenue losses of $40,000 to $50,000."
+}

@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 import time
 import uuid
@@ -26,6 +27,7 @@ try:
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
+    from ..keys import PROVIDER_PIN
     from ..models.jdf import (
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -35,7 +37,7 @@ try:
         get_node_by_id,
         parse_document,
     )
-    from ..routers.inquire_stream import _parse_metrics
+    from ..routers.inquire_stream import _METRIC_RE, _parse_metrics
     from ..services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         build_direct_document,
@@ -57,6 +59,17 @@ try:
         save_ast_cache,
         save_redhat_critique,
     )
+    from ..services.relational_translate import translate_claim
+    from ..services.relational_z3 import (
+        UNKNOWN as RELATIONAL_UNKNOWN,
+        VERIFIED as RELATIONAL_VERIFIED,
+        VIOLATED as RELATIONAL_VIOLATED,
+        check_relation,
+        facts_from_locks,
+        split_claims,
+        violation_text as relational_violation_text,
+        z3_version as relational_z3_version,
+    )
 except ImportError:
     from cost_governance import (
         BudgetExhaustedError,
@@ -69,6 +82,7 @@ except ImportError:
     from db.substrate_repository import fetch_substrate_entries_by_ids
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
+    from keys import PROVIDER_PIN
     from models.jdf import (
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -78,7 +92,7 @@ except ImportError:
         get_node_by_id,
         parse_document,
     )
-    from routers.inquire_stream import _parse_metrics
+    from routers.inquire_stream import _METRIC_RE, _parse_metrics
     from services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         build_direct_document,
@@ -99,6 +113,17 @@ except ImportError:
         load_redhat_critique,
         save_ast_cache,
         save_redhat_critique,
+    )
+    from services.relational_translate import translate_claim
+    from services.relational_z3 import (
+        UNKNOWN as RELATIONAL_UNKNOWN,
+        VERIFIED as RELATIONAL_VERIFIED,
+        VIOLATED as RELATIONAL_VIOLATED,
+        check_relation,
+        facts_from_locks,
+        split_claims,
+        violation_text as relational_violation_text,
+        z3_version as relational_z3_version,
     )
 
 _log = logging.getLogger(__name__)
@@ -174,7 +199,11 @@ _COMPILE_SYSTEM = (_PEM_DOMAIN.rstrip() + "\n\n---\n\n" + _DRAFT_SYSTEM.rstrip()
 # compile, never as a different document under the same version. `extra_body` is
 # the carrier because litellm hands caller extra_body through to the request
 # body for openrouter (verified by capturing the outgoing JSON).
-_COMPILE_PROVIDER_PIN = {"order": ["Alibaba"], "allow_fallbacks": False}
+#
+# The value now lives in `keys.PROVIDER_PIN`, because the Tier 2 Math Check
+# translator calls the same upstream and must pin the same provider — one
+# definition, so the two can never drift apart.
+_COMPILE_PROVIDER_PIN = PROVIDER_PIN
 
 CancelCheck = Callable[[], bool]
 
@@ -364,18 +393,64 @@ def run_lock_inference(text: str) -> tuple[list[dict[str, Any]], str]:
     return result.candidates, result.model
 
 
+#: How many unlabelled claims one compile will translate. Each is a model call, so
+#: the cap bounds the Math Check's cost; the claims it leaves are recorded as
+#: unchecked with that reason rather than dropped silently.
+_MAX_RELATIONAL_CLAIMS = 8
+
+
+def _tier2_candidates(draft_text: str) -> list[str]:
+    """Sentences carrying a number that no Tier 1 label consumed.
+
+    Tier 1 sees ``key: value`` pairs. This is the extraction gap: "Revenue ARR is
+    $12M this quarter" has a checkable number and no label, so it is offered to
+    Tier 2. A sentence whose only numbers are already labelled is not re-checked
+    — Tier 1 owns it — which keeps the tiers a partition and keeps the counts from
+    double-counting one figure.
+    """
+    candidates: list[str] = []
+    for sentence in split_claims(draft_text):
+        spans = [(m.start(), m.end()) for m in _METRIC_RE.finditer(sentence)]
+        leftover = sentence
+        if spans:
+            parts: list[str] = []
+            cursor = 0
+            for start, end in spans:
+                parts.append(sentence[cursor:start])
+                cursor = end
+            parts.append(sentence[cursor:])
+            leftover = " ".join(parts)
+        if re.search(r"\d", leftover):
+            candidates.append(sentence)
+    return candidates
+
+
 def verify_locks(
     locks: list[dict[str, Any]],
     draft_text: str,
+    *,
+    translate: Callable[[str, dict[str, float]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Z3 verification of inferred locks against draft metrics (Stage 4).
+    """Tiered Math Check of inferred locks against the draft (Stage 4).
+
+    Tier 1 is the labelled comparison it has always been: ``key: value`` metrics
+    from the draft against the locked values. Tier 2 — present only when a
+    ``translate`` callable is supplied — takes the sentences Tier 1 cannot see,
+    asks a small model for a relation, and decides it in Z3 against the same
+    locked values.
+
+    The fallback is a hierarchy, not one failure mode:
+      1. a claim translates and Z3 decides it    -> VERIFIED / VIOLATED
+      2. the translation fails                   -> Tier 1's value comparison on
+         that claim, counted as checked by value, not relationship
+      3. neither can check it                    -> UNVERIFIED, with the reason
 
     Status is derived from the work actually performed, so a run that checked
     nothing cannot report PASS:
       - any lock failed to parse        -> VIOLATION
       - no lock verified successfully   -> SKIPPED, 0 locks
-      - no ``key: value`` metric in the draft -> SKIPPED, 0 checks
-      - at least one metric checked     -> PASS/VIOLATION from validate_entities
+      - nothing checked at either tier  -> SKIPPED, with the reason
+      - at least one check performed    -> PASS/VIOLATION
     """
     truth = TruthLedgerEngine()
     lock_results: list[dict[str, Any]] = []
@@ -396,6 +471,14 @@ def verify_locks(
 
     metrics = _parse_metrics(draft_text)
 
+    checked_by_value = 0
+    checked_by_relational = 0
+    verified = 0
+    violated = 0
+    claim_results: list[dict[str, Any]] = []
+    unverified_claims: list[dict[str, str]] = []
+    translator_model = ""
+
     if locks_bad > 0:
         status = "VIOLATION"
         violations = [
@@ -406,20 +489,82 @@ def verify_locks(
         status = "SKIPPED"
         violations = []
         skip_reason = "no locks inferred from the draft"
-    elif not metrics:
-        # Locks made it into the ledger but the draft carries no ``key: value``
-        # metric (prose citing "$5,000,000" has no key label, so _parse_metrics
-        # finds nothing). Zero checks run is not a pass.
-        status = "SKIPPED"
-        violations = []
-        skip_reason = (
-            "no metric of the form 'key: value' in the draft, so the "
-            f"{locks_ok} inferred lock(s) could not be checked"
-        )
     else:
-        ok, violations = truth.validate_entities(metrics)
-        status = "PASS" if ok else "VIOLATION"
-        skip_reason = None
+        ok = True
+        violations = []
+        if metrics:
+            # Tier 1, unchanged: the same call and the same messages it has
+            # always produced. The counters below re-ask the same comparison per
+            # metric, because validate_entities stops at the first contradiction
+            # and so cannot say how many of the metrics were checked.
+            ok, violations = truth.validate_entities(metrics)
+            for key, value in metrics:
+                metric_ok, _ = truth.verify_metric(key, value)
+                if metric_ok:
+                    verified += 1
+                else:
+                    violated += 1
+            checked_by_value += len(metrics)
+
+        if translate is not None:
+            facts = facts_from_locks(locks)
+            candidates = _tier2_candidates(draft_text)
+            for index, claim in enumerate(candidates):
+                if index >= _MAX_RELATIONAL_CLAIMS:
+                    unverified_claims.append(
+                        {
+                            "claim": claim,
+                            "reason": f"not checked: the per-compile translation cap "
+                            f"({_MAX_RELATIONAL_CLAIMS}) was reached",
+                        }
+                    )
+                    continue
+                outcome = _check_claim(claim, facts, translate, truth)
+                if outcome.get("model") and not translator_model:
+                    translator_model = str(outcome["model"])
+                if outcome.get("verdict") == RELATIONAL_VERIFIED:
+                    verified += 1
+                    checked_by_relational += 1
+                elif outcome.get("verdict") == RELATIONAL_VIOLATED:
+                    violated += 1
+                    checked_by_relational += 1
+                    violations.append(str(outcome["violation"]))
+                elif outcome.get("fallback") == "value":
+                    checked_by_value += int(outcome.get("checked", 0))
+                    if outcome.get("ok"):
+                        verified += int(outcome.get("checked", 0))
+                    else:
+                        violated += int(outcome.get("checked", 0))
+                        violations.extend(outcome.get("violations") or [])
+                else:
+                    unverified_claims.append(
+                        {"claim": claim, "reason": str(outcome.get("reason") or "not checked")}
+                    )
+                claim_results.append(outcome.get("result") or {"claim": claim})
+
+        total_checked = checked_by_value + checked_by_relational
+        if violated > 0:
+            status = "VIOLATION"
+            skip_reason = None
+        elif total_checked > 0:
+            status = "PASS"
+            skip_reason = None
+        else:
+            status = "SKIPPED"
+            parts = [
+                "no metric of the form 'key: value' in the draft, so the "
+                f"{locks_ok} inferred lock(s) could not be checked"
+            ]
+            if translate is not None:
+                parts.append(
+                    f"and {len(unverified_claims)} unlabelled claim(s) could not be "
+                    "translated into a checkable relation"
+                )
+            skip_reason = "; ".join(parts)
+
+    unverified_reason = "; ".join(
+        f"{item['claim'][:80]} — {item['reason']}" for item in unverified_claims[:3]
+    )
 
     return {
         "status": status,
@@ -427,8 +572,108 @@ def verify_locks(
         "lock_results": lock_results,
         "locks_verified": locks_ok,
         "locks_rejected": locks_bad,
-        "metrics_checked": len(metrics),
+        "metrics_checked": checked_by_value + checked_by_relational,
         "skip_reason": skip_reason,
+        # Tier breakdown — what the Math Check tab shows and the export report
+        # keeps. `verified + unverified` is every claim the check considered, so
+        # the numbers cannot sum to "all good" while checks went unrun.
+        "verified": verified,
+        "violated": violated,
+        "unverified": len(unverified_claims),
+        "unverified_reason": unverified_reason,
+        "checked_by_value": checked_by_value,
+        "checked_by_relational": checked_by_relational,
+        "claim_results": claim_results,
+        "z3_version": relational_z3_version(),
+        "translator_model": translator_model,
+    }
+
+
+def _check_claim(
+    claim: str,
+    facts: dict[str, float],
+    translate: Callable[[str, dict[str, float]], dict[str, Any]],
+    truth: TruthLedgerEngine,
+) -> dict[str, Any]:
+    """One Tier 2 claim: translate it, decide it in Z3, else fall back a tier.
+
+    Returns the counters the caller adds up, plus the per-claim record the tab
+    renders. Three outcomes, in the fallback order documented on ``verify_locks``:
+    a verdict, a Tier 1 value comparison (translation failed) marked as checked by
+    value rather than relationship, or a reason it could not be checked at all.
+    """
+    outcome = translate(claim, facts)
+    model = str(outcome.get("model") or "")
+    result: dict[str, Any] = {
+        "claim": claim,
+        "tier": "relational",
+        "verdict": RELATIONAL_UNKNOWN,
+        "reason": "",
+        "model": model,
+    }
+
+    if outcome.get("ok"):
+        decision = check_relation(outcome["claim"], facts)
+        result.update(
+            {
+                "verdict": decision["verdict"],
+                "reason": decision.get("reason") or "",
+                "counterexample": decision.get("counterexample"),
+                "evidence": decision.get("evidence") or "",
+                "translation": outcome["claim"],
+                "translation_sha256": outcome.get("json_sha256") or "",
+            }
+        )
+        if decision["verdict"] == RELATIONAL_VIOLATED:
+            result["violation"] = relational_violation_text(decision)
+            return {"verdict": RELATIONAL_VIOLATED, "violation": result["violation"],
+                    "model": model, "result": result}
+        if decision["verdict"] == RELATIONAL_VERIFIED:
+            return {"verdict": RELATIONAL_VERIFIED, "model": model, "result": result}
+        # Translated, but Z3 could not decide: no locked value for the metric, or
+        # the solver timed out. The claim was understood and still unchecked, so
+        # it is reported as such — this is where a fact-free claim lands.
+        result["tier"] = "unverified"
+        return {"verdict": RELATIONAL_UNKNOWN, "reason": result["reason"],
+                "model": model, "result": result}
+
+    # The translation failed. Tier 1's own comparison still applies to this claim
+    # if it carries a labelled metric — a value check without the relationship,
+    # which the record says out loud rather than passing off as the same thing.
+    pairs = _parse_metrics(claim)
+    if pairs:
+        ok, violations = truth.validate_entities(pairs)
+        result.update(
+            {
+                "tier": "value",
+                "verdict": RELATIONAL_VERIFIED if ok else RELATIONAL_VIOLATED,
+                "reason": "checked by value, not relationship",
+                "note": "checked by value, not relationship",
+                "checked": len(pairs),
+            }
+        )
+        return {
+            "fallback": "value",
+            "checked": len(pairs),
+            "ok": ok,
+            "violations": violations,
+            "model": model,
+            "result": result,
+        }
+
+    result.update(
+        {
+            "tier": "unverified",
+            "reason": "translation failed "
+            f"({outcome.get('reason') or 'no JSON relation'}) and the claim carries no "
+            "'key: value' metric to compare by value",
+        }
+    )
+    return {
+        "verdict": RELATIONAL_UNKNOWN,
+        "reason": result["reason"],
+        "model": model,
+        "result": result,
     }
 
 
@@ -1131,7 +1376,18 @@ def run_draft_pipeline(
     z3_results: dict[str, Any] = {"status": "SKIPPED", "violations": [], "lock_results": []}
     try:
         _check_cancel(cancel_check)
-        z3_results = verify_locks(locks, full_text)
+        # Tier 2 runs here and only here on the compile path: the translator is a
+        # small-model call, and it is handed in rather than imported by
+        # ``verify_locks`` so the unit-level contract stays offline and
+        # deterministic. Every other caller (sandbox verify, surgical re-run)
+        # keeps Tier 1 exactly as it was.
+        z3_results = verify_locks(
+            locks,
+            full_text,
+            translate=lambda claim, facts: translate_claim(
+                claim, facts, project_id=project_id
+            ),
+        )
     except DraftCancelledError:
         audit.log_audit(
             rid,
@@ -1232,6 +1488,7 @@ def run_draft_pipeline(
         _data = json.loads(_row[0]) if (_row and _row[0]) else {}
         if not isinstance(_data, dict):
             _data = {}
+        _z3 = verified_payload.get("z3_results") or {}
         _data["gate"] = {
             "gate_status": verified_payload.get("gate_status"),
             "z3_status": verified_payload.get("z3_status"),
@@ -1240,6 +1497,22 @@ def run_draft_pipeline(
             "provenance_stats": verified_payload.get("provenance_stats") or {},
             "measure": _measure,
             "redhat": redhat_payload,
+            # The Math Check's own numbers. They were computed on every compile and
+            # then dropped here, so the export report's "Metrics checked" row was
+            # always absent — see services/audit_bundle.py. `z3_unverified` is named
+            # away from `unverified` above, which is the provenance layer's flag.
+            "metrics_checked": _z3.get("metrics_checked"),
+            "locks_verified": _z3.get("locks_verified"),
+            "locks_rejected": _z3.get("locks_rejected"),
+            "verified": _z3.get("verified"),
+            "violated": _z3.get("violated"),
+            "checked_by_value": _z3.get("checked_by_value"),
+            "checked_by_relational": _z3.get("checked_by_relational"),
+            "z3_unverified": _z3.get("unverified"),
+            "z3_unverified_reason": _z3.get("unverified_reason"),
+            "violations": _z3.get("violations") or [],
+            "z3_version": _z3.get("z3_version"),
+            "translator_model": _z3.get("translator_model"),
         }
         _pdb.execute(
             "UPDATE projects SET last_compiled_json = ? WHERE id = ?",
