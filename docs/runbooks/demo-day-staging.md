@@ -1094,3 +1094,18 @@ Because both roots point at one tree, neutralising one is not enough. **The prac
 test result names the branch, and where a worktree was used it prints the module file path to prove
 which source the interpreter read** — `python -c "import prompt_matrix; print(prompt_matrix.__file__)"`,
 and add the `prompt_matrix/` root to anything that exercises the bare-import fallbacks.
+
+### This section's own residual — §11 exists twice
+
+**§11 is byte-identical on `prototype/shell-skeleton` and `feat/math-check-tier2` by content, not
+by ancestry.** The two branches share the *text*, not a commit: it was cherry-picked, because
+fast-forwarding the shell branch would have carried the whole Math Check tier-2 workstream along
+with a documentation commit — a promotion nobody decided. That bought a clean promotion boundary
+at the price of **two copies of this section**, and the price is worth stating here rather than
+left for the next editor to rediscover.
+
+**So any later edit to §11 must be applied to both branches.** Otherwise the copies diverge
+silently, and a reader on one branch quotes a rule that the other no longer states — which is the
+same failure this section already documents, one level up: the document is the shared resource,
+and both writers have to know they share it. **This paragraph is itself an example**: it had to be
+written twice, in the same way, for the same reason.
