@@ -223,18 +223,24 @@ that it plays when staging does not.
 
 **The four limits that ship with this demo** — say these plainly if anyone asks:
 
-- **The compile is non-reproducible.** Five runs of one intent, all at `temperature=0.0`, with
-  the same outgoing payload every time, produced five different drafts — the sampling parameters
-  do not survive the provider (§10.3a). Never re-run live to "fix" a counter; the frozen
-  document's numbers are the ones to quote.
+- **The compile is reproducible, and the frozen document is still the thing to show.** The
+  cause was routing, not sampling: OpenRouter load-balances one model id across several upstream
+  providers and they do not agree at `temperature=0.0`. The compile now pins its upstream
+  (`provider: {order: ["Alibaba"], allow_fallbacks: false}`, `routers/draft.py`), and three
+  compiles of one intent over one source, compile cache cleared before each, persisted
+  byte-identical documents (§10.3a). **Fallback if a live compile ever varies: do not re-run it
+  in front of the customer — open the pre-compiled document and demonstrate from there.** Never
+  re-run live to "fix" a counter; the frozen document's numbers are the ones to quote.
 - **The FK deletion covers 3 of 9 tables.** With `PRAGMA foreign_keys=ON`, `jdf_revisions`,
   `substrate_vault` and `daily_compile_limits` cascade; the other six tables that carry a
   `project_id` declare no foreign key, so a project delete strands their rows (§3). The switcher
   reads `projects`, so the reset itself still works — the orphan rows and the project directory
   stay on disk.
-- **The Red-Hat locator (click-to-scroll) is the next release.** A finding renders against the
-  paragraph it was run on, but clicking it does not scroll the document to that paragraph, and
-  the finding object carries no `node_id` field (§10.2, §10.3c).
+- **The Red-Hat locator ships with this demo.** A finding carries the paragraph it is about
+  (`annotations.redhat[].node_id`) and clicking one — in the finding list in the right pane, or
+  on the chip beside the paragraph — scrolls the document to that paragraph and highlights it
+  (§10.2, §10.3c). Findings written before this change carry no `node_id`; they still render
+  against the node they are placed on.
 - **The demo document carries 3-4 claims by design.** The frozen document carries 3 (§10.1);
   when a draft opens with a lead-in sentence the gate counts 4 eligible / 3 anchored. That is
   the claim floor working, not a shortfall.
@@ -406,26 +412,48 @@ Two things to say out loud with it, because they are true of the artefact:
   tree, so `para-272b2de84877` — and with it the finding — is no longer in the project's
   current document. The finding is real and persisted, but recoverable from the revision, not
   from the live tree; run Red-Hat live (step 6) if you want it on screen.
-- **The finding object carries no `node_id` field.** Every persisted finding is
-  `{id, status, text}` (`models/jdf.py:553-555`), so a client that has only the finding cannot
-  say which paragraph it belongs to. The node is carried by *placement* inside
-  `annotations.redhat`, not by the object. Across the box's current documents that is 12
-  findings, none with a `node_id` (and 58 across all revisions).
+- **The finding object now carries `node_id`, so the locator works.** Findings written from this
+  change onward are `{id, node_id, status, text}` (`models/jdf.py:attach_redhat_annotation`;
+  `JDFRedhatAnnotation` declares the field, which is what lets it survive `parse_document` into
+  SQLite) and clicking one scrolls the document to that paragraph. Every finding written before
+  it is `{id, status, text}` — 14 in the box's current documents, 58 across all revisions,
+  measured 2026-09-18 — and for those the node is still carried by *placement* inside
+  `annotations.redhat`. Verified live: an audit on `phase-c-nodeid-*` persisted
+  `{id: "crit-90e96fb778f9", node_id: "para-67d43586fe19", status: "open", …}` (scratch project,
+  since deleted).
 
 ### 10.3 Three honest notes for the runbook
 
-**(a) The compile is not reproducible — the sampling parameters do not survive the provider.**
-Five compiles of the one demo intent with the compile cache cleared, all under `temperature=0.0`
-(`routers/draft.py:574`), produced **five different drafts** (`draft_sha`
-`d2961e17…`, `858c3a1b…`, `993968c1…`, `1d78e406…`, `f690d7dc…`; output 171/169/145/117/144
-tokens) while the **outgoing request was the same every time** — the local token count of the
-messages was 678 in all five runs, and the call carries no `seed`, `top_p` or `top_k` anywhere
-(the only other kwargs are the provider api key/base from `keys.py:261-275`). The service had
-been restarted onto `74c91fd` (greedy decoding) 15 s before the first run. So this is the
-provider side, not a per-run parameter: the same payload does not come back the same.
-Consequence to state plainly: **the same intent can produce a differently-worded document, and
-therefore a different claim count, on a re-run.** Do not re-run live to "fix" a counter; the
-numbers below are for the frozen document.
+**(a) The compile is reproducible now — the cause was provider routing, not sampling.**
+The five-run measurement that used to stand here (five compiles of one demo intent, all under
+`temperature=0.0`, produced **five different drafts** while the outgoing payload was identical)
+was real, and it was diagnosed on 2026-09-18. `temperature=0.0` **does** reach the request body
+— `litellm.utils.get_optional_params(...)["temperature"]` is `0.0`, and the captured outgoing
+JSON carries it — so the sampling parameter was never the problem. The provider was: OpenRouter
+load-balances one model id across upstream providers, and they do not agree at greedy decoding.
+Three streaming calls each, real compile system prompt, same seedless payload:
+
+| upstream | distinct drafts / 3 | re-measured at 8 |
+|---|---|---|
+| DeepInfra | 3 | — |
+| Parasail | 3 | — |
+| Google | 3 | — |
+| Alibaba | **1** | **1 / 8** |
+| Novita | **1** | **1 / 8** |
+| no pin (control) | 3 | **8 / 8** |
+
+A `seed` does not fix it: `seed=42` through litellm gave 3/3 distinct, and raw with `seed=42`
+gave 2/3 — the seed is honoured *inside* one provider, and routing is what varies. So the compile
+pins the provider instead: `provider: {order: ["Alibaba"], allow_fallbacks: false}`
+(`routers/draft.py`). `allow_fallbacks` stays **False** because Alibaba and Novita are each
+stable but do not agree with each other (sha `25bbbc92…` vs `585f6e9d…`) — a fallback would
+silently swap the document, so a provider outage reads as a failed compile instead.
+
+End-to-end on the deployed box: **three compiles of one intent over one source, compile cache
+cleared before each, persisted byte-identical documents** — `draft_text` sha `b1bdbb1ba826d4cc`
+and document sha `d5fadc69fd846407` on all three runs, with revisions 1/2/3 proving each was a
+real pipeline run and not a cache replay. Consequence: a re-run reproduces the document. Keep
+showing the frozen one anyway; it is the artefact the counters below describe.
 
 **(b) The document is short (3 claims) by design.** The check refuses to overclaim: every
 sentence that asserts a figure is matched to a source window, and the gate's eligible count is
@@ -434,7 +462,16 @@ draft was measured too: it scored eligible 4 / anchored 3, because the extra par
 lead-in sentence the source cannot vouch for. Prefer the short document; it is the one whose
 numbers are about the source.
 
-**(c) The locator is the next release.** Today, a finding is displayed against the paragraph it
-was run on, but clicking it does not scroll the document to that paragraph. Anchoring the
-finding to its node in the UI (and carrying a `node_id` on the finding object itself) is the
-next release, not this demo.
+**(c) The locator shipped with this release.** A finding is displayed against the paragraph it was
+run on, now carries that paragraph's id (`annotations.redhat[].node_id`), and clicking it scrolls
+the document to that paragraph and highlights it — from the finding list in the right pane and
+from the chip beside the paragraph (`prototype/shell.js:_scrollToNode`, wired into both click
+paths).
+
+Two things had to be true for the claim, and only the first was in the earlier plan. The
+annotation has to **carry** the id, and the id has to **survive validation into SQLite**.
+`JDFRedhatAnnotation` declares `extra="ignore"`, so `parse_document` — which every write goes
+through — silently dropped a `node_id` the write site had just set. Isolated on the box:
+`['id','node_id','status','text']` immediately after `attach_redhat_annotation`,
+`['id','status','text']` after `parse_document`. The field is now declared, and a live audit
+persisted `node_id` on the finding (§10.2).
