@@ -2208,6 +2208,21 @@
         // _syncGroundingNotices derive the count locally, on the verdict rule.
         _syncGroundingNotices((doc.meta && doc.meta.provenance_stats) || null);
         _applyRightView();
+        // ROUTED TO across a reload. The document does not carry the route and the
+        // draft stream that did is long gone, so it is read from the compile the
+        // project stored — the gate block's measure. Without this the row reads
+        // COMPILE_MODEL_UNKNOWN beside a document that was in fact compiled.
+        fetch("/api/projects/" + encodeURIComponent(projectId) + "/files")
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (res) {
+            var route = (res && res.manifest && res.manifest.lastCompiledRoute) || null;
+            var model = route && route.model ? String(route.model) : "";
+            if (model && !__lastRunModel) {
+              __lastRunModel = model;
+              _renderCompilerRoute();
+            }
+          })
+          .catch(function () { /* the pane keeps its own empty state */ });
         return true;
       });
     }
@@ -3647,6 +3662,16 @@
             // Parse failure: never replace the document with raw text.
             try { console.error("[shell] compiled event missing parseable doc.body"); } catch (_) {}
           }
+        }
+      } else if (event === "usage" && data && typeof data === "object") {
+        // The model that ANSWERED, once the provider has. The
+        // status{stage:"model"} frame above is emitted before the call, so it can
+        // only carry the model this process asked for; this frame arrives after,
+        // and its serving_model is what the provider reported
+        // (draft.py `_stream_model`, from the response's own `model`).
+        if (data.serving_model) {
+          __lastRunModel = String(data.serving_model);
+          _renderCompilerRoute();
         }
       } else if (event === "verified") {
         // A zero-check Math Check is not a pass: the server reports SKIPPED

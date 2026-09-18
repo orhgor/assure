@@ -24,6 +24,10 @@ def empty_manifest() -> dict[str, Any]:
         "truth_ledger": {},
         "document_id": "",
         "meta": {},
+        # The model that answered the compile this document descends from, read off
+        # the persisted gate block so ROUTED TO survives a reload. Empty until a
+        # compile has run against this store.
+        "lastCompiledRoute": {"model": "", "provider": ""},
     }
 
 
@@ -48,6 +52,18 @@ def _parse_compiled(raw: str | None) -> dict[str, Any]:
             manifest["truth_ledger"] = parsed["truth_ledger"]
         if parsed.get("document_id"):
             manifest["document_id"] = str(parsed["document_id"])
+        # The gate block the compile persists carries the model the provider
+        # reported. Only these two fields travel: ROUTED TO needs the route, and
+        # the rest of the block (provenance stats, redhat state) is already on the
+        # document the reload renders.
+        _gate = parsed.get("gate")
+        if isinstance(_gate, dict):
+            _measure = _gate.get("measure")
+            if isinstance(_measure, dict):
+                manifest["lastCompiledRoute"] = {
+                    "model": str(_measure.get("serving_model") or _measure.get("model") or ""),
+                    "provider": str(_measure.get("provider") or ""),
+                }
         if isinstance(parsed.get("meta"), dict):
             manifest["meta"] = parsed["meta"]
         if parsed.get("manifestVersion"):

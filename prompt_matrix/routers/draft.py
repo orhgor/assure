@@ -863,8 +863,20 @@ def _stream_model(
         # litellm streaming returns usage on the final chunk (only when
         # stream_options include_usage=True). Never crash if it's absent.
         _usage = getattr(chunk, "usage", None)
+        # What the provider reported it served. `model` above is what this process
+        # ASKED for — a request, not a report — and ROUTED TO showed it because
+        # nothing else was captured. The responding id rides on the chunk, and
+        # litellm names the provider out of band in `_hidden_params` (measured
+        # 2026-09-19: requested "deepseek/deepseek-chat", chunk.model
+        # "deepseek-chat", custom_llm_provider "deepseek",
+        # api_base "https://api.deepseek.com/beta/chat/completions").
+        _hidden = getattr(chunk, "_hidden_params", None)
+        _hidden = _hidden if isinstance(_hidden, dict) else {}
+        _serving_model = str(getattr(chunk, "model", "") or "").strip() or model
         _measure: dict[str, Any] = {
             "model": model,
+            "serving_model": _serving_model,
+            "provider": str(_hidden.get("custom_llm_provider") or ""),
             "input_tokens": getattr(_usage, "prompt_tokens", None) if _usage else None,
             "output_tokens": getattr(_usage, "completion_tokens", None) if _usage else None,
             "cache_read": getattr(_usage, "cache_read_input_tokens", 0) if _usage else 0,
@@ -1154,6 +1166,12 @@ def run_draft_pipeline(
             "model_id": model_id,
             "task_type": TaskType.DRAFT_COMPILE.value,
             "measure": _measure,
+            # The model that answered, as the provider reported it. The `model`
+            # status frame above is emitted BEFORE the call, so it can only carry
+            # the model this process asked for; this frame is emitted after, so it
+            # is where the serving model can first be named.
+            "serving_model": _measure.get("serving_model") or model_id,
+            "provider": _measure.get("provider") or "",
         },
     )
 
