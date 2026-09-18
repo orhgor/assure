@@ -78,13 +78,24 @@ def clerk_only_mode() -> bool:
 
     Fetched per request, with no cache, so flipping the flag on the box changes this
     gate's behaviour on the very next request — the presenter must not need a
-    restart of either unit. Fails open: the outer key still gates everything here,
-    and a config read failure must not lock anyone out of the demo.
+    restart of either unit.
+
+    Fails closed. The config read is the only thing that reports whether Clerk is
+    the door, so an app that cannot be reached — or a reply that does not carry the
+    flag — is a state this gate cannot determine, and the conservative branch is
+    Clerk-required. The two failure modes are not symmetrical: failing open serves
+    the shell to a visitor with no session (the whole point of the flag), while
+    failing closed asks for a session the presenter can supply, since the outer key
+    gate is satisfied either way.
     """
     try:
-        return bool(_upstream_get("/api/auth/config").get("clerk_only"))
+        config = _upstream_get("/api/auth/config")
     except Exception:
-        return False
+        return True
+    if not isinstance(config, dict) or "clerk_only" not in config:
+        # Unreadable is not off: same conservative branch as unreachable.
+        return True
+    return bool(config["clerk_only"])
 
 
 def session_user_id(cookie: str) -> str:
