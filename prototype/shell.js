@@ -209,8 +209,14 @@
       if (onScreen && _applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.layout.leftWidth") {
       document.documentElement.style.setProperty("--left-w", value + "px");
+      // The resizer is an interactive separator, so its value has to be in the
+      // accessibility tree, not only in the grid.
+      var rl = document.getElementById("resize-left");
+      if (rl) rl.setAttribute("aria-valuenow", String(value));
     } else if (path === "ui.layout.rightWidth") {
       document.documentElement.style.setProperty("--right-w", value + "px");
+      var rr = document.getElementById("resize-right");
+      if (rr) rr.setAttribute("aria-valuenow", String(value));
     } else if (path === "ui.layout.leftCollapsed") {
       if (value) docBodyEl.classList.add("collapsed");
       else       docBodyEl.classList.remove("collapsed");

@@ -368,9 +368,11 @@ body.collapsed.right-hidden .app-shell {
   min-width: 0;
 }
 
-.pane-left  { flex: 0 0 280px; width: 280px; }
-.pane-right { flex: 0 0 320px; width: 320px;
-              border-right: none; border-left: 1px solid var(--rule); }
+/* The pane widths are the grid's (--left-w 280px / --right-w 320px, set by
+   the resizer). A width here would cap the pane inside its own track and the
+   drag would open a gap instead of widening the pane, so the track owns it. */
+.pane-left  { border-right: 1px solid var(--rule); }
+.pane-right { border-right: none; border-left: 1px solid var(--rule); }
 
 body.right-hidden .pane-right {
   overflow: hidden;
