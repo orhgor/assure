@@ -1886,10 +1886,11 @@
       }
       return counts;
     }
-    // Claims a source contradicts (the verdict "no"), from whichever source is
-    // authoritative: the `verified` frame's persisted provenance_stats (DB parity
-    // with the gate block the honesty test reads) when it carries the number,
-    // the rendered tree otherwise. Same rule, same count.
+    // Claims the entailment check did not support (the verdict "no" — a source
+    // that denies the claim), from whichever source is authoritative: the
+    // `verified` frame's persisted provenance_stats (DB parity with the gate block
+    // the honesty test reads) when it carries the number, the rendered tree
+    // otherwise. Same rule, same count.
     function _contradictedClaims(stats, doc) {
       if (stats && typeof stats === "object" && typeof stats.unsupported === "number") {
         return stats.unsupported;
@@ -3709,13 +3710,15 @@
           markActive("Complete");
           markDone("Complete");
           // The run finished. That is all this frame's ok says: a run whose
-          // claims a source denies still finishes — and is still saved as a
+          // claims a source denied still finishes — and is still saved as a
           // revision — so a checkmark over the `verified` frame's contradicted
           // count would report a verification the entailment layer refused. The
-          // bar names the count instead, and ticks only on none.
+          // bar names the count instead, and ticks only on none: "not supported"
+          // is what the bucket holds (verdict "no"), stated no more specifically
+          // than the frame's own aggregation distinguishes.
           if (intentSummaryTextEl) {
             intentSummaryTextEl.textContent = verifiedContradictions > 0
-              ? "Compiled \u2014 " + verifiedContradictions + " claims contradicted"
+              ? "Compiled \u2014 " + verifiedContradictions + " claims not supported"
               : "\u2713 Intent compiled \u00b7 checks run in the pipeline";
           }
         }
