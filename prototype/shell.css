@@ -2148,7 +2148,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
   top: 0;
   z-index: 6;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   padding: 6px 8px;
   margin: 4px 0 8px;
@@ -2156,7 +2156,8 @@ body.collapsed.right-hidden #resize-right { display: none; }
   border: 1px solid rgba(120, 130, 150, 0.4);
   border-radius: 6px;
 }
-.node-rephrase input {
+.node-rephrase input,
+.node-rephrase textarea {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
@@ -2167,7 +2168,15 @@ body.collapsed.right-hidden #resize-right { display: none; }
   border-radius: 4px;
   outline: none;
 }
-.node-rephrase input:focus {
+.node-rephrase textarea {
+  /* A finding is multi-line: the field grows with it instead of hiding it. */
+  resize: vertical;
+  min-height: 46px;
+  max-height: 220px;
+  line-height: 1.4;
+}
+.node-rephrase input:focus,
+.node-rephrase textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }

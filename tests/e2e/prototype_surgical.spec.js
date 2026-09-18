@@ -106,12 +106,14 @@ test("prototype surgical revision — deterministic frontend flow (mocked SSE)",
 
   // Open the rephrase editor (_attachNodeRephrase :1097).
   await para.click();
-  const rephraseInput = page.locator("input[placeholder='Rephrase this paragraph…']");
+  // F7: the field is a textarea (a finding is multi-line), so Enter inserts a
+  // newline and Cmd/Ctrl+Enter submits.
+  const rephraseInput = page.locator("textarea[placeholder='Rephrase this paragraph…']");
   await expect(rephraseInput).toBeVisible({ timeout: 15_000 });
 
   // Submit (mocked) (_submitRephrase :1153).
   await rephraseInput.fill("REVISED BY TEST");
-  await rephraseInput.press("Enter");
+  await rephraseInput.press("Control+Enter");
   await expect(rephraseInput).toBeHidden({ timeout: 30_000 });
 
   // 9a: literal content (model input is controlled -> correct assert).

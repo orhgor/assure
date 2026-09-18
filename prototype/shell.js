@@ -1502,8 +1502,11 @@
       if (!wrapper) return;
       var editor = document.createElement("div");
       editor.className = "node-rephrase";
-      var input = document.createElement("input");
-      input.type = "text";
+      // A textarea, not an input: a Red-Hat finding is multi-line prose and the
+      // rephrase instruction has to reach the server with its newlines intact
+      // (an <input type="text"> flattens them).
+      var input = document.createElement("textarea");
+      input.rows = 3;
       input.placeholder = "Rephrase this paragraph…";
       input.setAttribute("aria-label", "Rephrase this paragraph");
       // A Red-Hat finding is already phrased as an instruction, so opening
@@ -1523,7 +1526,9 @@
       }
       input.addEventListener("keydown", function (e) {
         if (e.key === "Escape") { e.preventDefault(); _removeNodeRephrase(); }
-        else if (e.key === "Enter") {
+        // Enter is a newline here — the newlines are the point. Cmd/Ctrl+Enter
+        // submits, and Rewrite works as before.
+        else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           doSubmit();
         }
@@ -1664,13 +1669,68 @@
     // feed different endpoints and it carries the compile stage machine,
     // which this stream does not speak.
     // ---------------------------------------------------------------
-    var __redhatRunning = false;
+    // One audit at a time, and the run belongs to the node it audits: holding
+    // the node id (not a bare flag) is what keeps a second node's pane from
+    // claiming the run, its counter, or the error of a node it never touched.
+    // __redhatTimer stays a single interval because there is only ever one run.
+    var __redhatRunningNodeId = null;
     var __redhatStartedAt = 0;
     var __redhatTimer = null;
-    var __redhatError = null;
+    var __redhatError = null;   // { nodeId, message } — read only by its own node
+    var __redhatLastRun = null; // { nodeId, status, count, seconds } — written by finish()
+
+    // The audit takes the node's text: RedhatPayload.draft_text is
+    // min_length 1 and apply_redhat_critiques_to_tree attaches findings to any
+    // node id. Of the JDF node types (prompt_matrix/models/jdf.py) only
+    // paragraph, callout and signature carry `content`; section, table, image
+    // and checkbox do not, so they are not auditable and say so.
+    var REDHAT_AUDITABLE_TYPES = { paragraph: true, callout: true, signature: true };
+    var REDHAT_NOT_AUDITABLE =
+      "Red-Hat audits paragraph, callout and signature nodes with text.";
+    function _redhatAuditable(node) {
+      if (!node || !node.id) return false;
+      if (!REDHAT_AUDITABLE_TYPES[node.type]) return false;
+      return String(node.content || "").trim().length > 0;
+    }
+    // Server reasons → one sentence a reader can act on. The raw text the
+    // server sends (a pydantic dump carries field paths and URLs) goes to
+    // console.error, never into the pane.
+    var REDHAT_REASON_TEXT = {
+      conflict: "Another edit landed while the audit ran — the finding was not saved.",
+      RevisionConflict: "Another edit landed while the audit ran — the finding was not saved.",
+      ValidationError: "The document was rejected before the audit ran.",
+      OperationalError: "The audit could not run on this node.",
+      TimeoutError: "The audit timed out before it finished.",
+      ConnectionError: "The audit could not reach the model provider.",
+    };
+    function _redhatReasonText(reason) {
+      return REDHAT_REASON_TEXT[String(reason || "").trim()] ||
+        "The audit could not run on this node.";
+    }
+    // A persist failure is not an audit failure: the run happened, the write
+    // did not. Only a version race has its own sentence; every other exception
+    // class the route can raise reads the same.
+    function _redhatSaveFailedText(reason) {
+      return String(reason || "") === "conflict"
+        ? "Another edit landed while the audit ran — the finding was not saved."
+        : "The finding could not be saved.";
+    }
+    // Error frames and HTTP bodies carry prose ("Invalid document: <pydantic>")
+    // or {"error": "<prose>"}. Pull the token out; a token that is not a known
+    // reason falls through to the generic sentence.
+    function _redhatErrorToken(raw) {
+      var t = String(raw == null ? "" : raw);
+      try {
+        var parsed = JSON.parse(t);
+        if (parsed && typeof parsed === "object") {
+          t = String(parsed.error || parsed.detail || t);
+        }
+      } catch (_) {}
+      return t;
+    }
 
     function _redhatElapsedSeconds() {
-      if (!__redhatRunning) return 0;
+      if (!__redhatRunningNodeId) return 0;
       return Math.max(0, Math.round((Date.now() - __redhatStartedAt) / 1000));
     }
     function _redhatStopTimer() {
@@ -1680,7 +1740,9 @@
     // disabled button with no motion reads as broken, so the counter is the
     // run's only proof of life until the finding lands.
     function _redhatTick() {
-      if (!__redhatRunning) { _redhatStopTimer(); return; }
+      if (!__redhatRunningNodeId) { _redhatStopTimer(); return; }
+      var selId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+      if (selId !== __redhatRunningNodeId) return; // another node's pane has nothing to tick
       var s = _redhatElapsedSeconds();
       var btn = redhatModeEl ? redhatModeEl.querySelector(".redhat-run") : null;
       if (btn) btn.textContent = "Running Red-Hat… (" + s + "s)";
@@ -1694,16 +1756,11 @@
       // writes {id, text, status}. Read text, then content.
       return String(r.text || r.content || "").trim();
     }
-    // __redhatState is compiled per draft run and never reset, so it can only
-    // ever be context for the findings list — never the list itself.
-    function _redhatLastPass() {
-      var st = __redhatState;
-      if (!st || !st.status) return "";
-      if (st.status === "failed") return "Last pass: failed";
-      if (st.status === "skipped") return "Last pass: skipped";
-      var n = st.findings_count || 0;
-      return "Last pass: ran, " + n + " finding" + (n === 1 ? "" : "s");
-    }
+    // __redhatState belonged to the compile, not to this trigger: it described
+    // the last compile's pass and was never reset, so "Last pass: skipped"
+    // could contradict the audit the user had just watched run. The pane's
+    // status line reads __redhatLastRun instead, and __redhatState has no
+    // reader left in this file (dead — see follow-ups; not removed here).
 
     function _handleRedhatFrame(frame, cb) {
       if (!frame) return;
@@ -1720,13 +1777,18 @@
       if (!data || typeof data !== "object") return;
       if (ev === "status") {
         if (data.stage === "persist_failed") {
-          // Node-scoped only: the audit ran, the write lost a version race.
-          // detail is a dict ({"reason": "conflict", "latest_version": n}).
+          // Node-scoped only: the audit ran, the write did not land. detail is
+          // a dict — {"reason": "conflict", "latest_version": n} for a version
+          // race, {"reason": "<ExceptionClass>", "message": str(exc)[:240]}
+          // for anything else. The message is the server's own explanation: it
+          // reaches console.error, while the pane gets a sentence (F4/F8).
           var detail = data.detail;
-          var why = (detail && typeof detail === "object")
-            ? String(detail.reason || detail.message || "revision conflict")
-            : String(detail || "revision conflict");
-          cb("persist_failed", why);
+          var msg = (detail && (detail.message || detail.reason)) || "unknown";
+          cb("persist_failed", {
+            reason: (detail && typeof detail === "object" && detail.reason != null)
+              ? String(detail.reason) : "",
+            message: String(msg),
+          });
         } else if (typeof data.message === "string" &&
                    data.message.indexOf("Running Stress Test") === 0) {
           cb("started", data.message);
@@ -1741,14 +1803,29 @@
     }
 
     function _runRedhatAudit(nodeId) {
-      if (__redhatRunning) return;
+      // One run at a time: while a run is in flight every node's button is
+      // disabled, so this guard is unreachable from the UI.
+      if (__redhatRunningNodeId) return;
       var pid = _activeProjectId();
       var doc = SHELL.document.current || null;
       var startNode = doc ? findJdfNodeById(nodeId, doc) : null;
-      var draftText = startNode ? String(startNode.content || "").trim() : "";
+      if (!pid || !doc || !startNode) {
+        // No silent bail even here: if a node is on screen, it says why.
+        if (startNode) {
+          __redhatError = { nodeId: nodeId, message: _redhatReasonText("") };
+          renderRedhatPanel(startNode);
+        }
+        return;
+      }
+      // Never a silent bail: a node the audit cannot read says why, in its pane.
+      if (!_redhatAuditable(startNode)) {
+        __redhatError = { nodeId: nodeId, message: REDHAT_NOT_AUDITABLE };
+        renderRedhatPanel(startNode);
+        return;
+      }
+      var draftText = String(startNode.content || "").trim();
       // RedhatPayload requires draft_text (min_length 1) and a document; the
       // document is parsed as a JDFDocumentTree, so document_id is required.
-      if (!pid || !doc || !startNode || !draftText) return;
       if (!doc.document_id) doc.document_id = _documentIdFor(pid);
       var body = {
         draft_text: draftText,
@@ -1758,8 +1835,14 @@
       var sseEndpoint = "/api/projects/" + encodeURIComponent(pid) + "/draft/redhat/stream";
       var sseStartedAt = Date.now();
       var sseTokens = 0;
-      __redhatRunning = true;
-      __redhatError = null;
+      var controller = new AbortController();
+      var deadlineTimer = null;
+      var deadlineHit = false;
+      var completed = false; // audit_complete arrived → the finding is persisted
+      __redhatRunningNodeId = nodeId;
+      // A new run clears this node's error only: another node's failure is
+      // still that node's to show.
+      if (__redhatError && __redhatError.nodeId === nodeId) __redhatError = null;
       __redhatStartedAt = Date.now();
       _redhatStopTimer();
       __redhatTimer = setInterval(_redhatTick, 1000);
@@ -1767,10 +1850,21 @@
       setShell("ui.rightTab", "redhat");
       renderRedhatPanel(startNode);
 
-      function finish() {
-        if (!__redhatRunning) return;
-        __redhatRunning = false;
+      function finish(ok, why) {
+        if (!__redhatRunningNodeId) return;
+        __redhatRunningNodeId = null;
         _redhatStopTimer();
+        if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null; }
+        if (!ok && why) console.error("[redhat] run ended without a finding:", why);
+        var doneNode = SHELL.document.current ? findJdfNodeById(nodeId, SHELL.document.current) : null;
+        var found = (doneNode && doneNode.annotations && Array.isArray(doneNode.annotations.redhat))
+          ? doneNode.annotations.redhat : [];
+        __redhatLastRun = {
+          nodeId: nodeId,
+          status: ok ? "done" : "failed",
+          count: found.length,
+          seconds: Math.max(0, Math.round((Date.now() - __redhatStartedAt) / 1000)),
+        };
         var selId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
         var selNode = (selId && SHELL.document.current)
           ? findJdfNodeById(selId, SHELL.document.current) : null;
@@ -1778,19 +1872,36 @@
         else { _setInspectorPane(SHELL.ui.rightTab || "evidence"); _renderInspectorIdlePane(); }
       }
 
-      jsonPost(sseEndpoint, body).then(function (resp) {
+      // Hard deadline (60 s; the measured worst case is 45 s). A stalled stream
+      // must return the UI within a minute instead of never. The parser never
+      // flushes its buffer, so a partial frame is discarded — but if
+      // audit_complete already arrived, the finding is kept and the state is
+      // "done".
+      deadlineTimer = setTimeout(function () {
+        deadlineHit = true;
+        try { controller.abort(); } catch (_) {}
+        finish(completed, completed ? null : "timeout");
+      }, 60000);
+
+      jsonPost(sseEndpoint, body, null, controller.signal).then(function (resp) {
         if (!resp.ok || !resp.body) {
-          __redhatError = "Red-Hat audit failed to start (HTTP " + resp.status + ").";
-          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("HTTP " + resp.status + " — no body"), false);
-          finish();
-          return;
+          var httpStatus = resp.status;
+          return resp.text().then(function (t) {
+            if (deadlineHit) return; // the deadline already closed this run out
+            // The raw body (a pydantic dump carries field paths and URLs) is
+            // for the console; the pane reads a sentence.
+            console.error("[redhat] HTTP " + httpStatus, t);
+            __redhatError = { nodeId: nodeId, message: _redhatReasonText(_redhatErrorToken(t)) };
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("HTTP " + httpStatus + " — no body"), false);
+            finish(false, "http " + httpStatus);
+          });
         }
         var reader = resp.body.getReader();
         var decoder = new TextDecoder();
         var buffer = "";
         function pump() {
           return reader.read().then(function (result) {
-            if (result.done) { finish(); return; }
+            if (result.done) { finish(completed, completed ? null : "ended early"); return; }
             var str = decoder.decode(result.value, { stream: true });
             sseTokens += str.length;
             buffer += str;
@@ -1802,7 +1913,12 @@
                   if (kind === "started") {
                     _redhatTick();
                   } else if (kind === "persist_failed") {
-                    __redhatError = "Red-Hat finding not saved: " + String(val);
+                    // The audit ran; the write did not land. A version race and
+                    // any other exception class read differently in the pane;
+                    // the server's own text does not (it goes to the console).
+                    var reason = (val && val.reason) || "";
+                    console.error("[redhat] persist_failed reason=" + reason, (val && val.message) || "");
+                    __redhatError = { nodeId: nodeId, message: _redhatSaveFailedText(reason) };
                   } else if (kind === "audit_complete") {
                     // Update only the audited node: the payload carries the
                     // whole tree, and swapping it in wholesale would clobber
@@ -1812,13 +1928,16 @@
                       _replaceNodeInTree(SHELL.document.current.body || [], nodeId, target);
                       _rephraseRenderNode(nodeId, target);
                     }
+                    completed = true;
                   } else if (kind === "error") {
                     var msg = String((val && val.error) || "unknown error");
-                    __redhatError = "Red-Hat audit failed: " + msg;
+                    console.error("[redhat] error frame", msg);
+                    __redhatError = { nodeId: nodeId, message: _redhatReasonText(_redhatErrorToken(msg)) };
                     logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error(msg), false);
                   } else if (kind === "complete") {
-                    if (val && val.ok === false && !__redhatError) {
-                      __redhatError = "Red-Hat audit failed: " + String(val.error || "unknown error");
+                    if (val && val.ok === false && !(__redhatError && __redhatError.nodeId === nodeId)) {
+                      console.error("[redhat] complete not ok", String(val.error || ""));
+                      __redhatError = { nodeId: nodeId, message: _redhatReasonText(_redhatErrorToken(val.error || "")) };
                     }
                   }
                 });
@@ -1826,16 +1945,24 @@
             }
             return pump();
           }).catch(function (e) {
-            __redhatError = "Red-Hat audit interrupted: " + ((e && e.message) || "stream error");
+            // Our own deadline already closed this run out; the state it wrote
+            // (done, or failed on timeout) is the truthful one.
+            if (deadlineHit) return;
+            var why = (e && e.message) || "stream error";
+            console.error("[redhat] stream interrupted", why);
+            __redhatError = { nodeId: nodeId, message: _redhatReasonText(_redhatErrorToken(why)) };
             logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
-            finish();
+            finish(false, "stream: " + why);
           });
         }
         return pump();
       }).catch(function (e) {
-        __redhatError = "Red-Hat audit interrupted: " + ((e && e.message) || "network error");
+        if (deadlineHit) return;
+        var why = (e && e.message) || "network error";
+        console.error("[redhat] request failed", why);
+        __redhatError = { nodeId: nodeId, message: _redhatReasonText(_redhatErrorToken(why)) };
         logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
-        finish();
+        finish(false, "request: " + why);
       });
     }
 
@@ -2271,16 +2398,18 @@
     // ---------------------------------------------------------------
     // Project bootstrap + stream execution
     // ---------------------------------------------------------------
-    function jsonPost(url, bodyObj, extraHeaders) {
+    function jsonPost(url, bodyObj, extraHeaders, signal) {
       var hdrs = { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" };
       if (extraHeaders) {
         for (var k in extraHeaders) if (Object.prototype.hasOwnProperty.call(extraHeaders, k)) hdrs[k] = extraHeaders[k];
       }
-      return fetch(url, {
+      var init = {
         method: "POST",
         headers: hdrs,
         body: JSON.stringify(bodyObj),
-      });
+      };
+      if (signal) init.signal = signal;
+      return fetch(url, init);
     }
 
     function ensureProjectId() {
@@ -3748,6 +3877,9 @@
       });
       wrap.appendChild(list); el.appendChild(wrap);
     }
+    // Dead since the Red-Hat pane moved to __redhatLastRun: this file no longer
+    // reads it (the finding list is node.annotations.redhat). Not removed in
+    // this commit — see follow-ups.
     var __redhatState = null;
     // ROUTED TO inputs for the last draft run (left COMPILER pane). Runtime
     // facts from the stream — reset at run start so the pane can never show a
@@ -3764,18 +3896,31 @@
       var runBtn = document.createElement("button");
       runBtn.type = "button";
       runBtn.className = "evidence-action primary redhat-run";
-      runBtn.textContent = __redhatRunning
+      var runningHere = Boolean(__redhatRunningNodeId) && Boolean(node) &&
+        node.id === __redhatRunningNodeId;
+      runBtn.textContent = runningHere
         ? "Running Red-Hat… (" + _redhatElapsedSeconds() + "s)"
         : "Run Red-Hat";
-      runBtn.disabled = __redhatRunning || !(node && node.id);
+      // Any in-flight run locks every node's button (a second run is refused),
+      // and an unauditable node — one with no text field — is disabled and told
+      // why, immediately below. No enabled button ever bails silently.
+      runBtn.disabled = Boolean(__redhatRunningNodeId) || !_redhatAuditable(node);
+      if (__redhatRunningNodeId && !runningHere) {
+        runBtn.title = "A Red-Hat run is in progress on another node.";
+      }
       runBtn.addEventListener("click", function () {
         if (node && node.id) _runRedhatAudit(node.id);
       });
       wrap.appendChild(runBtn);
+      if (node && node.id && !_redhatAuditable(node)) {
+        var whyEl = document.createElement("p");
+        whyEl.className = "evidence-value redhat-unavailable";
+        whyEl.textContent = REDHAT_NOT_AUDITABLE;
+        wrap.appendChild(whyEl);
+      }
 
-      // Source of truth: node.annotations.redhat. __redhatState describes the
-      // last compile's pass only and is never reset, so it is context beneath
-      // the findings list — it can never be what the list shows.
+      // Source of truth: node.annotations.redhat — the finding list is the
+      // node's own annotations, never a run's report about them.
       var findings = (node && node.annotations && node.annotations.redhat) || [];
       if (findings.length) {
         var list = document.createElement("ul");
@@ -3803,24 +3948,37 @@
         wrap.appendChild(list);
       } else {
         var p0 = document.createElement("p"); p0.className = "evidence-value";
-        p0.textContent = __redhatRunning
+        p0.textContent = runningHere
           ? "Running Red-Hat audit…"
           : "No Red-Hat findings for this node.";
         wrap.appendChild(p0);
       }
 
-      // The three failure modes stay distinct: a persist conflict, an error
-      // frame, and a broken read are different problems with different fixes.
-      if (__redhatError) {
+      // The three failure modes stay distinct — a persist conflict, an error
+      // frame, and a broken read are different problems with different fixes —
+      // but an error belongs to the node it happened on: another node's pane
+      // shows neither the message nor a stale copy of it.
+      if (__redhatError && node && __redhatError.nodeId === node.id) {
         var errEl = document.createElement("p");
         errEl.className = "evidence-value redhat-error";
-        errEl.textContent = __redhatError;
+        errEl.textContent = __redhatError.message;
         wrap.appendChild(errEl);
       }
 
-      var statusText = __redhatRunning
+      // The status line describes the run for THIS node, and nothing else: a
+      // compile's pass state cannot stand in (it is not a run of this trigger),
+      // and a run on another node is not this node's run. Three truthful
+      // states: running here, a finished run here, or no line at all.
+      var lastRun = (__redhatLastRun && node && __redhatLastRun.nodeId === node.id)
+        ? __redhatLastRun : null;
+      var statusText = runningHere
         ? ("Running… " + _redhatElapsedSeconds() + " s")
-        : _redhatLastPass();
+        : (lastRun
+          ? (lastRun.status === "done"
+            ? ("Last run: " + lastRun.count + " finding" + (lastRun.count === 1 ? "" : "s") +
+               ", " + lastRun.seconds + "s")
+            : "Last run: failed")
+          : "");
       if (statusText) {
         var statusEl = document.createElement("p");
         statusEl.className = "empty-hint redhat-status";

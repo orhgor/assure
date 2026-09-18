@@ -130,8 +130,10 @@ def test_rephrase_updates_single_node(browser_page, active_project, stub_compile
     # Click the first node → the inline rephrase editor appears at its top.
     browser_page.click('.doc-draft .jdf-node[data-node-id="n1"]')
     browser_page.wait_for_selector(".node-rephrase", state="visible")
-    browser_page.fill(".node-rephrase input", "make concise")
-    browser_page.press(".node-rephrase input", "Enter")
+    # F7: the field is a textarea, so Enter inserts a newline and the submit
+    # chord is Cmd/Ctrl+Enter.
+    browser_page.fill(".node-rephrase textarea", "make concise")
+    browser_page.press(".node-rephrase textarea", "Control+Enter")
 
     # Wait for node history refresh (the only GET to this node's history endpoint).
     with browser_page.expect_request("**/nodes/n1/history") as ri:

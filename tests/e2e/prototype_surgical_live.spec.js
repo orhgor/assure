@@ -33,12 +33,13 @@ test("prototype surgical revision — live model integration", async ({ page }) 
 
   // Open rephrase editor (_attachNodeRephrase :1097).
   await firstNode.click();
-  const rephraseInput = page.locator("input[placeholder='Rephrase this paragraph…']");
+  // F7: the field is a textarea, so Enter inserts a newline; submit is the chord.
+  const rephraseInput = page.locator("textarea[placeholder='Rephrase this paragraph…']");
   await expect(rephraseInput).toBeVisible({ timeout: 15_000 });
 
   // Type + submit (_submitRephrase :1153): instruct the model to shorten.
   await rephraseInput.fill("Shorten this sentence.");
-  await rephraseInput.press("Enter");
+  await rephraseInput.press("Control+Enter");
   await expect(rephraseInput).toBeHidden({ timeout: 120_000 });
 
   const afterNode = page.locator(".jdf-node[data-node-id]").first();
