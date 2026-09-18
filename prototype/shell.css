@@ -2214,8 +2214,8 @@ body.collapsed.right-hidden #resize-right { display: none; }
   max-height: 220px;
   line-height: 1.4;
 }
-.node-rephrase input:focus,
-.node-rephrase textarea:focus {
+.node-rephrase input:focus-visible,
+.node-rephrase textarea:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
@@ -2274,4 +2274,64 @@ body.collapsed.right-hidden #resize-right { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .jdf-node.is-rephrasing::after { animation: none; }
   .jdf-node.rh-fade { animation: none; }
+}
+
+/* =============================================================
+   Interaction states (§5). These are the cells VD2 left missing
+   where the setter or the product path already exists: a focus
+   ring for every control in scope, plus the states that only had
+   a producer and no rule. `outline: none` is already set on the
+   dock input and the rephrase field, so the ring is re-supplied
+   with box-shadow rather than outline.
+   ============================================================= */
+.btn-secondary:focus-visible,
+.dock-submit:focus-visible,
+.evidence-action:focus-visible,
+.mode-tab:focus-visible,
+.rail-btn:focus-visible,
+.chip:focus-visible,
+.version-arrow:focus-visible,
+.version-label:focus-visible,
+#dock-search:focus-visible,
+#dock-search-results > div.dock-search-hit:focus-visible,
+.node-rephrase button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* §5 row 8b — #version-label is a button with no state styling at all. */
+.version-label:hover {
+  background: var(--hover-surface);
+  border-color: var(--accent);
+}
+
+/* §5 row 9 / VD3 K2 — the dock search's only cue was a border colour; the
+   hit rows inside it had no authored focus style either. */
+#dock-search:focus-visible {
+  border-color: var(--accent);
+}
+
+/* §5 row 10 — the rephrase submit/cancel pair had no hover rule. */
+.node-rephrase button:hover {
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* §5 row 12 — the textarea's disabled state has a setter (shell.js) and no
+   rule; the field is what the setter disables. */
+.node-rephrase textarea[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* §5 rows 3 and 11 — the loading state. The class is written by shell.js
+   (`_syncDockSubmit` / the Red-Hat run tick); these rules give it a face. */
+.dock-submit.is-running {
+  background: var(--accent-hover);
+  cursor: progress;
+}
+
+.redhat-run.is-running {
+  opacity: 0.75;
+  cursor: progress;
 }
