@@ -1346,6 +1346,23 @@ html[data-theme="dark"] .evidence-action.primary:hover {
   color: #fff;
 }
 
+/* R2 (5d3abbd) moved the rephrase submit onto --accent-strong for the light
+   theme's 4.5:1 (3.68 → 8.65). In dark that token is the #60a5fa ink value, so
+   white on it is the same 2.54:1 failure R1 fixed above, and the hover lands at
+   1.00:1 because .node-rephrase button:hover paints --accent-ink — the same
+   token — on that fill. Same treatment, same scope: dark renders the navy
+   button light renders. Light's --accent-strong is --brand-navy, and the light
+   rule's border-color is transparent, so the border already reads as the fill;
+   the override pins the three properties light's rule touches — background,
+   border-color, color — and nothing else. Light's own hover is a separate
+   defect (1.00:1 there too, from the same --accent-ink rule), out of scope. */
+html[data-theme="dark"] .node-rephrase button[data-action="submit"],
+html[data-theme="dark"] .node-rephrase button[data-action="submit"]:hover {
+  background: var(--brand-navy);
+  border-color: var(--brand-navy);
+  color: #fff;
+}
+
 /* Revision preview + suggestion textarea went with performRevision and the
    Red-Hat drawer route: nothing produces either class now. */
 
