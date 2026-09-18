@@ -1185,11 +1185,15 @@
     // message stays on the card's title and in the console, so the reason is
     // still readable without a second copy of the same sentence on screen.
     //
-    // One column, one card, one renderer. The column holds no document in two
-    // states — refused, and empty — and _renderStateCard draws both, so the
-    // prerequisite cannot be written with a mechanism of its own.
+    // One column, one card, one renderer. The column holds no document in three
+    // states — refused, halted, and empty — and _renderStateCard draws all three
+    // so a second card mechanism cannot appear beside the first. A stream in
+    // flight is the fourth: mid-flight text is not output, so the surface carries
+    // data-mode="streaming" while the tokens arrive.
     var REFUSAL_TEXT = "This document could not be grounded in the source. " +
                        "Nothing was saved.";
+    var HALT_TEXT = "This compile stopped before the document was verified. " +
+                    "Nothing was saved.";
     var PREREQ_TEXT = "Add a source to compile. Assure grounds every claim " +
                       "against the source you provide.";
     // The source list is fetched on load and after a project switch; until that
@@ -1201,7 +1205,7 @@
     }
     function _clearStateCards() {
       if (!docSurface) return;
-      var stale = docSurface.querySelectorAll(".doc-refusal, .doc-prereq");
+      var stale = docSurface.querySelectorAll(".doc-refusal, .doc-halt, .doc-prereq");
       for (var i = 0; i < stale.length; i++) stale[i].remove();
     }
     // The streamed draft goes first, always: whatever the column is about to
@@ -1228,13 +1232,21 @@
     function _showRefusalCard(message) {
       _renderStateCard("doc-refusal", REFUSAL_TEXT, message, "refused");
     }
+    // A compile that stopped without a verdict: the stream ended, or failed,
+    // before the server said the run was over. The streamed text goes with it —
+    // a client must never be left reading half a document that no refusal and no
+    // `verified` frame ever claimed.
+    function _showHaltCard(message) {
+      _renderStateCard("doc-halt", HALT_TEXT, message, "failed");
+    }
     // The empty project: there is nothing to compile from, so the column names
     // the missing source instead of sitting blank behind a button that refuses
     // without a reason. It stands only while no document does — a document whose
     // source was removed afterwards keeps its column.
     function _syncDocState() {
       var mode = SHELL.document.mode;
-      if (mode === "refused") return;
+      if (docSurface) docSurface.setAttribute("data-mode", mode);
+      if (mode === "refused" || mode === "failed") return;
       if (mode !== "empty" || !_sourcesLoaded || _hasAttachedSource()) {
         _clearStateCards();
         return;
@@ -1264,7 +1276,7 @@
       setShell("document.mode", "empty");
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
-      var existing = docSurface ? docSurface.querySelectorAll(".doc-error, .doc-refusal") : [];
+      var existing = docSurface ? docSurface.querySelectorAll(".doc-error, .doc-refusal, .doc-halt") : [];
       for (var i = 0; i < existing.length; i++) existing[i].remove();
       if (versionChipEl) versionChipEl.hidden = true;
       SHELL.document.versions = { list: [], current: null };
@@ -3104,8 +3116,11 @@
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
         // The validator's refusal is a verdict on the document, not a transport
         // error: it gets the refusal card, and no error frame is left in the pane.
+        // Any other failure (an empty draft, a model error, a parse failure) is a
+        // halt: it gets the halt card, which discards the streamed text the same
+        // way, so a failed run never leaves a draft standing as the document.
         if (data && Number(data.http_status) === 422) _showRefusalCard(msg);
-        else appendDocError(msg);
+        else _showHaltCard(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
       }
     }
@@ -3606,21 +3621,44 @@
       // this call on: !(SHELL.ui.layout.leftCollapsed &&
       // SHELL.ui.layout.rightCollapsed).
       openRight();
+      // A run ends in exactly two ways: the server says so (a `complete` frame —
+      // success or refusal), or it does not. The second is a halt, and it must
+      // not leave the streamed draft on the column: `ended` records the server's
+      // verdict so a halt cannot pass for one, and every path that ends the
+      // stream short routes through haltDraftStream.
+      var ended = false;
+      function haltDraftStream(message) {
+        if (ended) return;
+        ended = true;
+        var active = findActiveStage() || STAGE_ORDER[Math.max(0, currentStageIndex)];
+        markFailed(active);
+        _endProgress();
+        _setRunInProgress(false);
+        // The run is over either way: drop the success bar left by the intent
+        // compile and bring the retained stage rows back into view, so the
+        // failed row is visible instead of a stale "Intent compiled" slot
+        // hiding the stages — the same stale-slot defect the handleEvent error
+        // branch fixed.
+        clearIntentSlot();
+        leftGroupSetTab("compiler");
+        _showHaltCard(String(message || ""));
+      }
       var parser = parseSseLoop(
-        handleEvent,
-        function () {},
+        function (event, data) {
+          if (event === "complete") ended = true;
+          // A refusal is a verdict, and it arrives with its own card; the
+          // `complete` frame that follows carries ok:false (routers/draft.py).
+          if (event === "error" && data && Number(data.http_status) === 422) ended = true;
+          handleEvent(event, data);
+        },
+        function () {
+          // The stream closed without saying how the run ended: no verdict, no
+          // verified document. Clear the column instead of leaving a draft that
+          // nothing claimed.
+          haltDraftStream("The compile stream ended before the run finished.");
+        },
         function (err) {
-          var active = findActiveStage() || STAGE_ORDER[Math.max(0, currentStageIndex)];
-          markFailed(active);
-          _setRunInProgress(false);
-          // A parse error also ends the run: drop the success bar left by the
-          // intent compile and bring the retained stage rows back into view,
-          // so the failed row is visible instead of a stale
-          // "Intent compiled" slot hiding the stages — the same
-          // stale-slot defect the handleEvent error branch fixed.
-          clearIntentSlot();
-          leftGroupSetTab("compiler");
-          appendDocError(String(err && err.message ? err.message : err));
+          haltDraftStream(String(err && err.message ? err.message : err));
           logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           try { console.error("[shell] stream parse error:", err); } catch (_) {}
         }
@@ -3688,10 +3726,8 @@
             return;
           }
           logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
-          if (!started) {
-            resetStages();
-          }
-          handleEvent("error", { ok: false, error: String(err && err.message ? err.message : err) });
+          if (!started) resetStages();
+          haltDraftStream(String(err && err.message ? err.message : err));
         });
     }
 

@@ -850,15 +850,16 @@ body.collapsed .pane-left {
   font-variant-numeric: tabular-nums;
 }
 
-/* The document column's state cards: the states in which the column holds no
-   document. `.doc-refusal` is the validator's verdict on a refused compile
-   (HTTP 422, nothing persisted); `.doc-prereq` is the empty project's missing
-   source. Both stand where the document would have been — the streamed draft is
-   replaced by them — so they are cards in the document column, not an error frame
-   beside it. The left rule carries the state's colour; the sentence is the whole
-   message, so nothing competes with it. One renderer draws both
-   (shell.js:_renderStateCard). */
+/* The document column's state cards: the three states in which the column holds
+   no document. `.doc-refusal` is the validator's verdict on a refused compile
+   (HTTP 422, nothing persisted); `.doc-halt` is a compile that stopped without
+   one; `.doc-prereq` is the empty project's missing source. All three stand where
+   the document would have been — the streamed draft is replaced by them — so they
+   are cards in the document column, not an error frame beside it. The left rule
+   carries the state's colour; the sentence is the whole message, so nothing
+   competes with it. One renderer draws all three (shell.js:_renderStateCard). */
 .doc-refusal,
+.doc-halt,
 .doc-prereq {
   width: 100%;
   max-width: 720px;
@@ -878,6 +879,20 @@ body.collapsed .pane-left {
   line-height: var(--lh-body);
   letter-spacing: 0.01em;
   color: var(--ink);
+}
+
+/* A stream in flight is not a document. The column says so while the tokens
+   arrive and until the run is verified, so mid-flight text is never read as
+   output; the marker goes with the mode, and a refusal or a halt replaces both. */
+.doc-surface[data-mode="streaming"] > .doc-draft::before {
+  content: "Compiling\2026";
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 /* ========== Phase 3: Right-pane mode toggle + Compare grid + Pinned list ========== */

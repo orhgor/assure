@@ -300,10 +300,12 @@ def wait_for_verified(browser_page):
         block is written right before `verified`, so reading the DB right after
         wait_for_render can see the PREVIOUS compile's gate. A refused compile
         persists nothing and never reaches `verified`: it ends in the refusal
-        card, which is the other terminal state. A transport-level failure ends
-        in the `.doc-error` frame instead, so both are accepted here."""
+        card, which is the other terminal state. A run that stopped before it was
+        verified ends in the halt card, and a legacy error frame in `.doc-error`,
+        so all three are accepted here."""
         browser_page.wait_for_function(
             "() => document.querySelector('.doc-refusal') "
+            "|| document.querySelector('.doc-halt') "
             "|| document.querySelector('.doc-error') "
             "|| document.querySelector('.jdf-node .conf-span')",
             timeout=timeout,
