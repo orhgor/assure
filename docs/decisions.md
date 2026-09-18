@@ -59,3 +59,17 @@ Chose: keep the app's OMP instance (`omp.service`, `:3456`, single writer `sourc
 Rejected: sharing one instance and one key. Reproduced failures: the app's Red-Hat context was served a foreign writer's text end to end (A4 Counter-example A); `omp_delete_memory(<foreign id>)` returned `True` (Counter-example D); a `namespace` is a filter the reader may choose to apply, not an access boundary (`sqlite.js:164`), and the app's read path never applies it (A4 verdict #3, A4.4). `search.tags` is accepted by the schema and ignored by the storage layer (`types.js:27` vs `sqlite.js:159-181`), so tags cannot scope a read either.
 
 Because: A4's verdict, reproduced on a throwaway instance, plus the pricing of the alternative in A4.5 (a second `omp.service` on `:3457` with its own DB dir and key: ~70–80 MB RAM against a box with 1016 MB available, a few MB of disk against 33 GB free, one new systemd unit, no security-group change, and a second store that nothing currently backs up). Note the app cannot be moved between instances by environment alone — the key path `~/.omp/api_key` is hard-coded (`omp_client.py:20`) and `OMP_API_KEY` is only a `FileNotFoundError` fallback (`:48-51`) (A4.5 §9).
+
+## Production promotion — deliberately not taken (2026-09-19)
+
+Chose: the wave stays on `prototype/shell-skeleton` and the demo is served from the box at its current HEAD. `main` is not touched and nothing is pushed (CODE: HEAD `19e37fa`/`b315620`/`83204d0`; SSM: `staging.getassureai.com` → `:8891` → `:8890`).
+
+Rejected: promoting to `main`. Three prerequisites the owner named, in this order:
+
+- **a live Clerk instance** (`pk_live_`/`sk_live_`). The credentials in play are **test-mode, a dev instance** (`pk_test_`/`sk_test_`, measured 2026-09-18T20:48Z; SSM/HTTP), and Phase A makes the shell require a session — promoting as-is would gate production with a dev instance.
+- **a decision about what production serves** — the shell, the workbench, or both; `main` and staging currently run a different lineage (`assure-127`/`assure-140` via Docker + GHCR) from this prototype branch.
+- **the `docs/demo/` removal ported to `main` first** — the fixtures were moved off the prototype branch only, so `main` and `staging` still carry them.
+
+Because: recorded so the next person finds the reasoning rather than rediscovering it. GitHub remains paused (2026-09-07); nothing in this entry authorises a push.
+
+Still open, and the one that could bite a demo: reaching the demo now requires a Clerk sign-in, **and sign-in currently requires an email-code second factor** (HTTP: `needs_second_factor` with `supportedSecondFactors: [{strategy: email_code}]`, measured 2026-09-18). A presenter without a readable mailbox therefore needs the `ASSURE_CLERK_ONLY=0` flip — one line in `/home/ubuntu/assure-prototype/.env.staging`, no restart (HTTP: process ids `1271572`/`1271580` unchanged across all three states). The pre-flight section of `docs/runbooks/demo-day-staging.md` carries both paths, so the second factor is stated up front rather than arriving as a surprise.

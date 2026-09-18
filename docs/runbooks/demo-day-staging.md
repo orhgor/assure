@@ -16,10 +16,14 @@ used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 **Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** The flag is read per request from that file by the API and per request from `/api/auth/config` by the edge gate (measured 2026-09-18: flipped across all three states with the process ids unchanged, api `1271572` / edge `1271580`).
 
+**Pre-flight, know this before you present:** the demo now requires a **Clerk sign-in**. The gate key alone gives `/` → **302 `/signin`** and `/api/projects` → **401**; only `/api/health` still answers on the key alone (monitoring). So it is **a session, or the flag** — there is no third way in.
+
+**Reach for the flag when:** the sign-in asks for an **email code that never arrives** (the instance requires it as a second factor and a presenter without a reachable mailbox cannot pass it), or any other moment where a session cannot be completed. Flip `ASSURE_CLERK_ONLY=0` and carry on — no restart, no bounce.
+
 **Order of retreat — always this order:**
 
 1. Flip `ASSURE_CLERK_ONLY=0`. Immediate, no bounce. **This is the first move.**
-2. Only if the flag itself is broken: revert commit A (`git revert <A-sha>`) and restart both units — `sudo -n systemctl restart assure-prototype.service assure-prototype-static.service`.
+2. Only if the flag itself is broken: revert **A and B together** — `git revert 19e37fa b315620`. **Reverting A alone does not work**: B's assertion is what makes A's one-line removal of `/` safe, so undoing A re-adds the clash and the API refuses to start. Then `sudo -n systemctl reset-failed assure-prototype.service && sudo -n systemctl restart assure-prototype.service assure-prototype-static.service`.
 
 **Never restart first.** A restart mid-presentation is the exact failure the flag exists to prevent.
 
