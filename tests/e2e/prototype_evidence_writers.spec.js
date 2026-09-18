@@ -2,10 +2,10 @@
 //
 // Booting the fixture document and clicking a confidence span used to paint the
 // pane twice: renderEvidencePanel drew the paragraph panel (the dispatcher's
-// repaint of the node-selection write), and renderConfidenceEvidence then
-// cleared that pane and drew the ledger view, from the click handler, in the
-// same tick. The pane is one surface with one state, so the click must land as
-// one build: the paragraph panel with the clicked span's ledger tail attached.
+// repaint of the node-selection write), and a second writer then cleared that
+// pane and drew a score footer, from the click handler, in the same tick. The
+// pane is one surface with one state, so the click must land as one build: the
+// paragraph panel, and nothing else.
 //
 // The measurement is a plain empty→populated transition count on the pane's own
 // appendChild, so it counts builds rather than renders the code claims to make.
@@ -69,7 +69,7 @@ test.beforeEach(async ({ request }) => {
   test.skip(!body.includes("app-shell"), SHELL_SURFACE_SKIP);
 });
 
-test("a confidence span paints #right-evidence exactly once (panel + ledger)", async ({ page }) => {
+test("a confidence span paints #right-evidence exactly once (the paragraph panel)", async ({ page }) => {
   const consoleErrors = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text() || "");
@@ -128,11 +128,10 @@ test("a confidence span paints #right-evidence exactly once (panel + ledger)", a
   const builds = await page.evaluate(() => window.__evidenceBuilds);
 
   // Exactly one build, and it is the whole view: the paragraph panel's verdict
-  // header and provenance fields, with the span's ledger tail appended.
+  // header and provenance fields.
   expect(builds, `#right-evidence builds: ${JSON.stringify(builds)}`).toHaveLength(1);
   expect(builds[0]).toContain("Verified against policy · page 3");
   expect(builds[0]).toContain(SOURCE_NAME);
-  expect(builds[0]).toContain("Ledger check score: 90%");
 
   expect(consoleErrors, JSON.stringify(consoleErrors)).toEqual([]);
 });

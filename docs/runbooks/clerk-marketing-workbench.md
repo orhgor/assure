@@ -1,6 +1,13 @@
 # Clerk — marketing (R2) + workbench (EC2) design
 
-**Status:** Design only — no demo implementation yet.
+**Status:** **Wired, not enabled.** The server-side path exists and is complete — `prompt_matrix/cloud_auth.py:70-71`
+`clerk_configured()`, `:92-95` `require_clerk_login()`, `:104-107` `auth_required()` (which returns
+`clerk_configured()`), and `prompt_matrix/middleware.py:61` already reads `session["clerk_user_id"]`;
+`templates/auth.html` carries the Clerk mount and `.env.example` / `.env.production.example` carry
+`CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`. What is missing is the **configuration**, not the code:
+`.env.staging` contains no Clerk keys, so `auth_required()` is False and the only live gate is the
+shared bearer `SHELL_ACCESS_KEY` on `prototype/dev-server.py`. Enabling per-user auth is therefore a
+config change (publishable key, secret key, allowed domain) — it does **not** need a build.
 **Constraint:** Marketing stays static on R2. PEM, providers, SQLite, and all `/api/*` stay on EC2. Clerk **secret** never ships to R2.
 
 ---

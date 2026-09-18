@@ -59,3 +59,66 @@ Chose: keep the app's OMP instance (`omp.service`, `:3456`, single writer `sourc
 Rejected: sharing one instance and one key. Reproduced failures: the app's Red-Hat context was served a foreign writer's text end to end (A4 Counter-example A); `omp_delete_memory(<foreign id>)` returned `True` (Counter-example D); a `namespace` is a filter the reader may choose to apply, not an access boundary (`sqlite.js:164`), and the app's read path never applies it (A4 verdict #3, A4.4). `search.tags` is accepted by the schema and ignored by the storage layer (`types.js:27` vs `sqlite.js:159-181`), so tags cannot scope a read either.
 
 Because: A4's verdict, reproduced on a throwaway instance, plus the pricing of the alternative in A4.5 (a second `omp.service` on `:3457` with its own DB dir and key: ~70–80 MB RAM against a box with 1016 MB available, a few MB of disk against 33 GB free, one new systemd unit, no security-group change, and a second store that nothing currently backs up). Note the app cannot be moved between instances by environment alone — the key path `~/.omp/api_key` is hard-coded (`omp_client.py:20`) and `OMP_API_KEY` is only a `FileNotFoundError` fallback (`:48-51`) (A4.5 §9).
+
+## Production promotion — deliberately not taken (2026-09-19)
+
+Chose: the wave stays on `prototype/shell-skeleton` and the demo is served from the box at its current HEAD. `main` is not touched and nothing is pushed (CODE: HEAD `19e37fa`/`b315620`/`83204d0`; SSM: `staging.getassureai.com` → `:8891` → `:8890`).
+
+Rejected: promoting to `main`. Three prerequisites the owner named, in this order:
+
+- **a live Clerk instance** (`pk_live_`/`sk_live_`). The credentials in play are **test-mode, a dev instance** (`pk_test_`/`sk_test_`, measured 2026-09-18T20:48Z; SSM/HTTP), and Phase A makes the shell require a session — promoting as-is would gate production with a dev instance.
+- **a decision about what production serves** — the shell, the workbench, or both; `main` and staging currently run a different lineage (`assure-127`/`assure-140` via Docker + GHCR) from this prototype branch.
+- **the `docs/demo/` removal ported to `main` first** — the fixtures were moved off the prototype branch only, so `main` and `staging` still carry them.
+
+Because: recorded so the next person finds the reasoning rather than rediscovering it. GitHub remains paused (2026-09-07); nothing in this entry authorises a push.
+
+Still open, and the one that could bite a demo: reaching the demo now requires a Clerk sign-in, **and sign-in currently requires an email-code second factor** (HTTP: `needs_second_factor` with `supportedSecondFactors: [{strategy: email_code}]`, measured 2026-09-18). A presenter without a readable mailbox therefore needs the `ASSURE_CLERK_ONLY=0` flip — one line in `/home/ubuntu/assure-prototype/.env.staging`, no restart (HTTP: process ids `1271572`/`1271580` unchanged across all three states). The pre-flight section of `docs/runbooks/demo-day-staging.md` carries both paths, so the second factor is stated up front rather than arriving as a surprise.
+
+## Two auth-gate defects — fixed in the tree, `PENDING DEPLOY` until after the demo (2026-09-19)
+
+**Status: `PENDING DEPLOY`.** Both fixes are committed on `prototype/shell-skeleton` (`ec3b30d`, `bd5e998`) and
+are **not** on the box. Nothing was written, restarted, or committed on `i-03e39eccc57572191` while preparing
+them; its HEAD is still `daafc0b` and both units are active (`assure-prototype`, `assure-prototype-static`).
+
+Chose: repair both defects in the local tree now and land them in one explicit step after the demo, rather
+than change a live auth gate in the window before it.
+
+- **D1 — the gate fails open when it cannot read its own state.** `clerk_only_mode()` (`prototype/dev-server.py:76-87`)
+  wrapped its read of `/api/auth/config` in `try/except` and returned `False` on any exception, so an app that
+  could not be reached made the document gate Clerk-**optional** and the shell rendered for a visitor with no
+  session — the state the flag exists to prevent. Fix (`prototype/dev-server.py:76-98`): the config read is the
+  only thing that reports that state, so an unreachable app — and a reply that does not carry the flag — take
+  the conservative branch, Clerk-**required**. Verified locally against a stub app and real gate instances:
+  unreachable config → `clerk_only_mode()` is `True` and `GET /` (with the key, no session) is **302 `/signin`**
+  where the pre-fix build served **200**; reachable config with the flag `1` → **302 `/signin`**; the
+  `ASSURE_CLERK_ONLY=0` rollback still serves the shell (**200**); assets stay ungated (`/shell.js` → 200).
+- **D2 — every same-origin 401 bounced to the key page.** `bounceOnUnauthorized` (`prototype/shell.js:32-41`)
+  sent any 401 to `/auth`, so D1's fail-open produced a loop: the shell rendered with no session, its first API
+  call 401'd, the reader was pushed to the key page, entering the key loaded the shell again, and the same 401
+  fired again — Clerk never appeared. Fix (`prototype/shell.js:45-124`): the 401 names its cause before anyone is
+  moved. The gate's own denial is recognised by its marker (`WWW-Authenticate: Bearer realm="assure-shell"`,
+  `dev-server.py:_deny`) → `/auth`; an app 401 is answered by asking the public `/api/auth/me`
+  (`cloud_auth.py:PUBLIC_API` — it answers 200 with an empty `user_id`, not 401) → empty `user_id` means no
+  session → `/signin`; a live `user_id` while another request 401s means the refusal is not about the session →
+  the error is surfaced and the page is left alone; a non-401 (500) passes through untouched. Verified locally in
+  Chromium against the real gate and `shell.js`: expired session → **`/signin`**; key cookie removed → the key page
+  re-prompts at **`/auth`** and one key entry returns to a working shell (no loop); D1's fail-open on the **pre-fix**
+  shell still loops (`401 → /auth → key → / → 401 → /auth`), which is the reproduction; 401 with a live session →
+  error shown, page kept; 500 → passed through, no bounce; normal signed-in operation unchanged.
+
+Rejected: correcting either defect on the box before the demo. `prototype/shell.js` and
+`prototype/dev-server.py` are served from disk with `Cache-Control: no-store` (`assure-prototype-static` runs
+`python prototype/dev-server.py` from `/home/ubuntu/assure-prototype`), so writing them into the box's tree is
+live on the next page load — **a commit there is a deploy for those files**, and a partially-landed auth change
+is exactly the ambiguity this work has spent effort removing.
+
+Because: a gate that starts requiring a session is the one change that can lock a presenter out of their own
+demo. The rollback is real but narrow — `ASSURE_CLERK_ONLY=0`, one line in
+`/home/ubuntu/assure-prototype/.env.staging`, read per request (`cloud_auth.py:236-243`), no restart — and it is
+the presenter's escape hatch, not a reason to test that change on the live box in the demo window. Preparing both
+fixes now and deploying them as one step leaves the demo's served bytes untouched and the corrections ready the
+moment the demo is over.
+
+Not verified, and deliberately so: the loop is reproduced locally against the pre-fix shell with a stub app and a
+stand-in sign-in page; the box's real Clerk handshake (two-step, email-code second factor) is the acceptance step
+for the deploy, not something a local run can claim.

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from prompt_matrix.db.connection import init_db
-from prompt_matrix.lib.logger import AuditLogger
+from prompt_matrix.lib.logger import AuditLogger, audit_drop_count
 
 
 @pytest.fixture
@@ -49,3 +49,25 @@ def test_log_audit_inserts_row(audit_db):
 def test_log_audit_does_not_raise_on_db_failure():
     audit = AuditLogger("/nonexistent/nested/bad/history.sqlite")
     audit.log_audit("req-fail", "proj-x", "BACKUP", success=False, error_message="disk full")
+
+
+def test_dropped_audit_row_is_counted_and_a_written_one_is_not(audit_db):
+    """A row that cannot be written is counted; a row that is written is not.
+
+    The count is process-wide, so the assertions are deltas around each write.
+    """
+    before = audit_drop_count()
+
+    AuditLogger("/nonexistent/nested/bad/history.sqlite").log_audit(
+        "req-drop", "proj-x", "BACKUP", success=False
+    )
+    assert audit_drop_count() == before + 1
+
+    audit = AuditLogger(audit_db)
+    audit.log_audit("req-ok", "proj-1", "INQUIRE_STREAM", success=True)
+    assert audit_drop_count() == before + 1
+
+    conn = sqlite3.connect(audit_db)
+    written = conn.execute("SELECT count(*) FROM audit_log WHERE request_id='req-ok'").fetchone()[0]
+    conn.close()
+    assert written == 1

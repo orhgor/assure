@@ -55,6 +55,17 @@ def _derive_redhat_count(tree: dict[str, Any]) -> int:
     return total
 
 
+def _opt_int(value: Any) -> int | None:
+    """An optional count: None when the gate never stored it, so the report can
+    print only the rows this document actually has."""
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
     stats = g.get("provenance_stats") or g
     eligible = int(stats.get("eligible") or 0)
@@ -76,6 +87,23 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
         "unsupported": unsupported,
         "unanchored": unanchored,
         "has_substrate": bool(g.get("has_substrate", False)),
+        # The Math Check's own numbers. `_read_persisted_gate` feeds the export
+        # report, whose "Metrics checked" row read `gate.get("metrics_checked")`
+        # while this whitelist dropped the field on the way in — so the row was
+        # silently absent on every exported document. These are carried through
+        # verbatim now, and the tier counts come with them so the report can say
+        # what was checked and what was not.
+        "metrics_checked": _opt_int(g.get("metrics_checked")),
+        "locks_verified": _opt_int(g.get("locks_verified")),
+        "locks_rejected": _opt_int(g.get("locks_rejected")),
+        "verified": _opt_int(g.get("verified")),
+        "violated": _opt_int(g.get("violated")),
+        "checked_by_value": _opt_int(g.get("checked_by_value")),
+        "checked_by_relational": _opt_int(g.get("checked_by_relational")),
+        "z3_unverified": _opt_int(g.get("z3_unverified")),
+        "z3_unverified_reason": str(g.get("z3_unverified_reason") or ""),
+        "z3_version": str(g.get("z3_version") or ""),
+        "violations": [str(v) for v in (g.get("violations") or [])],
         "provenance_stats": {
             "eligible": eligible,
             "anchored": anchored,
@@ -281,7 +309,7 @@ def build_audit_bundle_html(
 
     # FIX 2 — Z3 Verification Results: gate-level status, not a confidence span
     # table. Lock / metric / violation detail is rendered only when the persisted
-    # gate actually carries it (the persisted gate stores z3_status today).
+    # gate actually carries it.
     if not gate_has_block:
         z3_render = "<p>No Z3 run recorded for this document.</p>"
     else:
@@ -290,7 +318,12 @@ def build_audit_bundle_html(
         z3_metrics = [
             ("Locks verified", gate.get("locks_verified")),
             ("Locks rejected", gate.get("locks_rejected")),
-            ("Metrics checked", gate.get("metrics_checked")),
+            ("Numbers checked", gate.get("metrics_checked")),
+            ("Checked by value", gate.get("checked_by_value")),
+            ("Checked by relationship", gate.get("checked_by_relational")),
+            ("Verified", gate.get("verified")),
+            ("Violated", gate.get("violated")),
+            ("Unverified", gate.get("z3_unverified")),
         ]
         present = [(label, val) for label, val in z3_metrics if val is not None]
         if present:
@@ -299,6 +332,9 @@ def build_audit_bundle_html(
                 + "\n".join(f"<li>{_esc(label)}: {_esc(str(val))}</li>" for label, val in present)
                 + "\n</ul>"
             )
+        unverified_why = gate.get("z3_unverified_reason") or ""
+        if unverified_why:
+            z3_render += f"\n<p>Not checked: {_esc(unverified_why)}</p>"
         violations = gate.get("violations") or []
         if violations:
             z3_render += (
