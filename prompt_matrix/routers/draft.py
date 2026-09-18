@@ -146,6 +146,23 @@ _DRAFT_SYSTEM = (
 # sources live in the user message.
 _COMPILE_SYSTEM = (_PEM_DOMAIN.rstrip() + "\n\n---\n\n" + _DRAFT_SYSTEM.rstrip()).strip()
 
+# OpenRouter load-balances one model id across several upstream providers, and
+# they do not agree at temperature=0.0 — so `temperature=0.0` alone did not make
+# the compile reproducible. Measured 2026-09-18 on the staging box, real compile
+# system prompt, streaming, three calls per provider: DeepInfra 3/3 distinct,
+# Parasail 3/3, Google 3/3, Alibaba 1/3, Novita 1/3. The draft IS the document,
+# so the compile pins the provider that is byte-stable on the path it uses
+# (re-measured at eight calls each: Alibaba 8/8 identical, Novita 8/8 identical,
+# unpinned 8/8 distinct).
+#
+# `allow_fallbacks` stays False on purpose: Alibaba and Novita are each stable
+# but do not agree with each other (sha 25bbbc92… vs 585f6e9d…), so a fallback
+# would silently swap the document. A provider outage must read as a failed
+# compile, never as a different document under the same version. `extra_body` is
+# the carrier because litellm hands caller extra_body through to the request
+# body for openrouter (verified by capturing the outgoing JSON).
+_COMPILE_PROVIDER_PIN = {"order": ["Alibaba"], "allow_fallbacks": False}
+
 CancelCheck = Callable[[], bool]
 
 
@@ -555,6 +572,11 @@ def _stream_model(
             _api_kwargs = litellm_kwargs_for(_slug)
         except Exception:
             pass
+        if _slug == "openrouter":
+            # `extra_body` is the carrier: litellm passes a caller's extra_body
+            # through to the OpenRouter request body (verified by capturing the
+            # outgoing JSON), and a named kwarg has no route to this field.
+            _api_kwargs["extra_body"] = {"provider": dict(_COMPILE_PROVIDER_PIN)}
         try:
             from ..services.pricing import compute_usd
         except ImportError:
