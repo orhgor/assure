@@ -204,16 +204,32 @@ def source_vocabulary(source_texts: Sequence[str]) -> set[str]:
 _PROMPT_WINDOW = 40
 
 
-def verbatim_prompt_echo(draft: str, system_prompt: str) -> str:
+def verbatim_prompt_echo(draft: str, system_prompt: str, *, user_text: str = "") -> str:
     """First verbatim run of ``system_prompt`` (>= _PROMPT_WINDOW chars) in ``draft``.
 
     Whitespace is collapsed on both sides so a re-wrapped echo is still verbatim
     text. Returns "" when the draft echoes nothing.
+
+    ``user_text`` is text the user typed themselves — the ask — which the system
+    prompt now carries as the model's instruction. A window that is itself part of
+    the user's own words is not a disclosure: a draft that restates the ask
+    reveals nothing that was not already the user's, and refusing it would refuse
+    an ordinary heading ("## Compare the deductibles in the current policy to the
+    renewal"). Windows that are prompt text alone are still scanned.
     """
     prompt = _collapse(system_prompt)
     body = _collapse(draft)
+    user = _collapse(user_text)
     if len(prompt) < _PROMPT_WINDOW or len(body) < _PROMPT_WINDOW:
         return ""
+    if user:
+        # Blank the user's own words out of the prompt. They are the ask the
+        # prompt now carries as the model's instruction, not the prompt's own
+        # text, and a draft restating them discloses nothing the user did not
+        # write. Same length, so the windows either side of the gap are still
+        # scanned; a window cannot match across the blanked run because
+        # ``_collapse`` leaves no run of spaces to match it.
+        prompt = prompt.replace(user, " " * len(user))
     for start in range(len(prompt) - _PROMPT_WINDOW + 1):
         window = prompt[start : start + _PROMPT_WINDOW]
         if window in body:
@@ -282,6 +298,7 @@ def validate_compiled_draft(
     source_texts: Sequence[str],
     system_prompt: str,
     provenance: Mapping[str, int],
+    instruction: str = "",
 ) -> ValidationOutcome:
     """Refuse an ungrounded or disclosure draft.
 
@@ -292,9 +309,11 @@ def validate_compiled_draft(
     grounding rules: its first word is grammar, not the subject it claims, and
     rule 3 exists precisely to let a document that asks rather than asserts
     through. The disclosure rule has no exemption — nothing is a channel for the
-    prompt.
+    prompt. ``instruction`` is the user's own ask, which lives in that prompt: it
+    is excluded from the echo scan because it is the user's text, not the
+    prompt's, and a draft restating it discloses nothing.
     """
-    echo = verbatim_prompt_echo(draft, system_prompt)
+    echo = verbatim_prompt_echo(draft, system_prompt, user_text=instruction)
     if echo:
         return ValidationOutcome(
             ok=False,

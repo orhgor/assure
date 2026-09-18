@@ -1207,7 +1207,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         if not intent:
             return jsonify({"prompt": _COMPILE_SYSTEM})
         shape = choose_shape(intent)
-        return jsonify({"prompt": _compile_system(shape), "answer_shape": shape})
+        return jsonify({"prompt": _compile_system(shape, intent), "answer_shape": shape})
 
     @app.post("/api/render")
     @login_required
