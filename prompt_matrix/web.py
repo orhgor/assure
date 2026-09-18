@@ -1023,6 +1023,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
             payload.update(library_status())
         except Exception:
             pass
+        # Audit rows this process failed to write. The insert is best-effort, so
+        # without this the loss is only in the service log; here it is a number a
+        # probe or a human can read.
+        try:
+            from .lib.logger import audit_drop_count
+        except ImportError:
+            from lib.logger import audit_drop_count
+        payload["audit_drops"] = audit_drop_count()
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")

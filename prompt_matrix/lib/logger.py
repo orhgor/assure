@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -20,6 +21,30 @@ except ImportError:
 _log = logging.getLogger(__name__)
 
 _audit_singleton: AuditLogger | None = None
+
+# Audit rows that never landed. The insert is best-effort by design — log_audit
+# swallows its own failure so that an audit write can never break the request it
+# describes — which makes a failed insert otherwise invisible: the row is gone
+# and only a log line says so. This count is what /api/health reports, so the
+# trail losing entries is visible without grepping the service log.
+#
+# Process-wide rather than per-AuditLogger: get_audit_logger() rebuilds the
+# singleton when DATABASE_PATH changes, and a row dropped by the old logger was
+# dropped either way.
+_audit_drops = 0
+_audit_drops_lock = threading.Lock()
+
+
+def audit_drop_count() -> int:
+    """Audit rows dropped in this process. Reported by /api/health."""
+    with _audit_drops_lock:
+        return _audit_drops
+
+
+def _record_audit_drop() -> None:
+    global _audit_drops
+    with _audit_drops_lock:
+        _audit_drops += 1
 
 
 class _RequestIdFilter(logging.Filter):
@@ -109,6 +134,7 @@ class AuditLogger:
         error_message: str | None = None,
         details: dict | None = None,
     ) -> None:
+        conn: sqlite3.Connection | None = None
         try:
             conn = sqlite3.connect(self.db_path, timeout=5.0)
             # The audit trail's connection is the fifth path to this database and
@@ -117,20 +143,17 @@ class AuditLogger:
             # connection's would. It is applied here for parity with
             # history.get_db, db/pool.py and db/connection.py.
             #
-            # On the repo's own DDL this changes nothing for an audit write:
-            # audit_log declares no FOREIGN KEY on project_id (connection.py, and
-            # history.py names audit_log among the six tables a project delete
-            # orphans and no pragma can reach), so a database created from that
-            # DDL is BORN without the constraint. But a database that has run
+            # On the repo's own DDL this changes nothing for an audit write
+            # unless the database carries the constraint: a database created
+            # before db/connection.py declared the FK for its seven unconstrained
+            # tables has audit_log with no FOREIGN KEY on project_id, and no
+            # pragma can reach a row there. A database that has run
             # scripts/aws/migrate_fk_constraints.py carries audit_log REBUILT
             # with `FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE
-            # CASCADE` — measured on the staging box on 2026-09-18 — and there
-            # this pragma makes an audit write for an unknown project FAIL. The
-            # pragma's effect therefore depends on which DDL the database
-            # carries, which is why db/connection.py declaring the FK for its
-            # own seven tables (and bumping _SCHEMA_VERSION) is a real follow-up
-            # rather than tidying: until it lands, a fresh database is the one
-            # that cannot enforce this.
+            # CASCADE` — measured on the staging box on 2026-09-18 — and a
+            # database created from the DDL now carries the same clause, so on
+            # both of those this pragma makes an audit write for an unknown
+            # project FAIL.
             #
             # And a failed write is what the except below historically answered
             # with a log line and a return: it becomes an invisible missing
@@ -138,7 +161,9 @@ class AuditLogger:
             # that keeps a missing project out of the trail is therefore the
             # route-level check in routers/retrieval_routes.py, and it has to run
             # BEFORE this write. Enforcement here is the second line, not the
-            # first.
+            # first — and because it can now fail a row on a database that
+            # declares the FK, a dropped row is counted as well as logged, so
+            # /api/health can show the trail losing entries.
             _apply_pragmas(conn)
             conn.execute(
                 """
@@ -161,14 +186,14 @@ class AuditLogger:
                 ),
             )
             conn.commit()
-            conn.close()
         except Exception as exc:
-            # The row is gone and nothing else will miss it. Logging that to the
-            # audit file is not the same as surfacing it, so the drop is stated
-            # where an operator looks (the service log, at ERROR) with a marker
-            # that can be grepped or counted: an audit trail with a silently
-            # missing entry is worse than one with a visible orphan, and this is
-            # the failure mode the pragma above can now trigger.
+            # The row is gone and nothing else will miss it. Counting it is what
+            # makes the loss visible outside this process (/api/health reads it),
+            # and the log line below is what makes it visible in the service log
+            # at the time it happened: an audit trail with a silently missing
+            # entry is worse than one with a visible orphan, and this is the
+            # failure mode the pragma above can now trigger.
+            _record_audit_drop()
             _log.error(
                 "AUDIT ROW DROPPED — %s (project=%s action=%s request=%s)",
                 exc,
@@ -185,6 +210,13 @@ class AuditLogger:
                     f"Original action: {action}, error: {error_message}",
                     extra={"request_id": request_id},
                 )
+        finally:
+            # Closed on both paths. A connection abandoned by a failed insert
+            # keeps that insert's transaction open, and the next audit write
+            # then fails on "database is locked" — one dropped row turning into
+            # a run of them. Closing also rolls the failed transaction back.
+            if conn is not None:
+                conn.close()
 
     def log_exception(
         self,
