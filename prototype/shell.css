@@ -2058,13 +2058,98 @@ body.about-page { background: var(--paper); }
 
 /* Printed, the document is the only thing on the page: the tokens already
    carry the type, so printing drops the measure and the ground. */
+/* =============================================================
+   D1 — the shell below its three-column width.
+
+   The document is the interface, so the centre keeps the width and the panes
+   give theirs up. The two breakpoints are the order the window crosses them:
+
+     <=900px  a pane is an overlay drawer. The grid drops to rail | centre |
+              rail, both panes leave the flow, and the rail carries the opener
+              (the pane's own header travels with the pane, so it cannot).
+     <=640px  the rails float over the document's edges too, so the document
+              keeps the whole viewport minus its 24px gutter.
+
+   The document column never goes below 320px: at 375px it is 375 - 24 = 351px.
+   ============================================================= */
+@media (max-width: 900px) {
+  .app-shell,
+  body.collapsed .app-shell,
+  body.right-hidden .app-shell,
+  body.collapsed.right-hidden .app-shell {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--rail-w);
+  }
+  /* Out of flow: the panes are drawers over the centre, not tracks beside it. */
+  .pane-left,
+  .pane-right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 45;
+    width: min(320px, calc(100vw - 96px));
+    background: var(--surface);
+    box-shadow: var(--shadow-2);
+    transition: transform var(--t-slow);
+  }
+  .pane-left  { left: var(--rail-w); }
+  .pane-right { right: var(--rail-w); }
+  body.collapsed .pane-left   { transform: translateX(calc(-100% - var(--rail-w))); }
+  body.right-hidden .pane-right { transform: translateX(calc(100% + var(--rail-w))); }
+  /* The rail is the opener; the pane's own header cannot be, shut. */
+  .rail-pane-open { display: inline-grid; }
+  /* A drag handle between two tracks is meaningless when one is a drawer. */
+  .pane-resizer { display: none; }
+}
+
+@media (min-width: 901px) {
+  .rail-pane-open { display: none; }
+}
+
+@media (max-width: 640px) {
+  /* The rails leave the grid as well, so the document column is the viewport
+     minus its 24px gutter — 351px at 375px. They do not become full-height
+     strips over the text: they shrink to their controls, pinned in the top
+     corners, which is the only place they can sit without covering a line. */
+  .app-shell,
+  body.collapsed .app-shell,
+  body.right-hidden .app-shell,
+  body.collapsed.right-hidden .app-shell {
+    grid-template-columns: minmax(320px, 1fr);
+  }
+  .rail-left,
+  .rail-right {
+    position: absolute;
+    top: var(--space-2);
+    bottom: auto;
+    width: auto;
+    height: auto;
+    padding: 0 var(--space-2);
+    z-index: 50;
+    background: transparent;
+    border: none;
+  }
+  .rail-left  { left: 0; }
+  .rail-right { right: 0; }
+  .rail-logo { display: none; }
+  .rail-nav { flex-direction: row; }
+  .pane-left,
+  .pane-right { width: min(320px, calc(100vw - 24px)); }
+  .pane-left  { left: 0; }
+  .pane-right { right: 0; }
+  body.collapsed .pane-left     { transform: translateX(-100%); }
+  body.right-hidden .pane-right { transform: translateX(100%); }
+  .center { grid-column: 1; padding: 0 12px; }
+  .doc-draft,
+  .doc-surface,
+  .doc-content { min-width: 320px; }
+}
+
 @media print {
   body.about-page { background: #fff; }
   .about-page .about-col { max-width: none; padding: 0; }
 }
 
-/* Sign-off status indicator in the top bar. */
-.signoff-indicator {
+/* Sign-off status indicator in the top bar. */.signoff-indicator {
   font-size: var(--fs-xs);
   font-weight: 500;
   letter-spacing: 0.08em;

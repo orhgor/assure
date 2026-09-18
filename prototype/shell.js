@@ -279,12 +279,13 @@
     } else if (path === "ui.layout.leftCollapsed") {
       if (value) docBodyEl.classList.add("collapsed");
       else       docBodyEl.classList.remove("collapsed");
-      try { localStorage.setItem("assure.left_collapsed", value ? "1" : "0"); } catch (_) {}
+      // Persistence is the user's choice, not the renderer's: writing here would
+      // stamp a preference on the first paint of every window, and the narrow
+      // first paint below could then never be chosen again.
     } else if (path === "ui.layout.rightCollapsed") {
       if (value) docBodyEl.classList.add("right-hidden");
       else       docBodyEl.classList.remove("right-hidden");
       _setRightPaneHidden(Boolean(value));   // §3: inert/aria-hidden + tabindex fallback
-      try { localStorage.setItem("assure.right_collapsed", value ? "1" : "0"); } catch (_) {}
     } else if (path === "ui.modal") {
       var layer = document.getElementById("modal-layer");
       if (!layer) return;
@@ -910,15 +911,41 @@
     // Left / right pane toggles (from phase 1)
     // ---------------------------------------------------------------
     var leftCollapse = document.getElementById("left-collapse");
+    // The pane state is written to localStorage here — at the controls the user
+    // pressed — and nowhere else. setShell only paints.
+    function _persistPaneState() {
+      try {
+        localStorage.setItem("assure.left_collapsed", SHELL.ui.layout.leftCollapsed ? "1" : "0");
+        localStorage.setItem("assure.right_collapsed", SHELL.ui.layout.rightCollapsed ? "1" : "0");
+      } catch (_) {}
+    }
     if (leftCollapse) {
       leftCollapse.addEventListener("click", function () {
         setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
       });
     }
     var rightClose = document.getElementById("right-close");
-    function closeRight() { setShell("ui.layout.rightCollapsed", true); }
+    function closeRight() { setShell("ui.layout.rightCollapsed", true); _persistPaneState(); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
-    function openLeft() { setShell("ui.layout.leftCollapsed", false); }
+    function openLeft() { setShell("ui.layout.leftCollapsed", false); _persistPaneState(); }
+    // D1: below 900px the pane is an overlay and its own header (which carries
+    // the collapse button) travels with it, so the rail is the only control that
+    // can be reached while the pane is shut. These are the openers.
+    var leftOpenBtn = document.getElementById("left-open");
+    if (leftOpenBtn) {
+      leftOpenBtn.addEventListener("click", function () {
+        setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
+      });
+    }
+    var rightOpenBtn = document.getElementById("right-open");
+    if (rightOpenBtn) {
+      rightOpenBtn.addEventListener("click", function () {
+        if (SHELL.ui.layout.rightCollapsed) openRight();
+        else closeRight();
+      });
+    }
 
     // Cmd+B / Cmd+J collapse toggles (workbench shortcuts). Input guard:
     // never toggle while the user is typing in a field.
@@ -933,6 +960,7 @@
       if (k === "b") {
         e.preventDefault();
         setShell("ui.layout.leftCollapsed", !SHELL.ui.layout.leftCollapsed);
+        _persistPaneState();
       } else if (k === "." || k === ">") {
         e.preventDefault();
         var bothCollapsed =
@@ -941,6 +969,7 @@
         var target = !bothCollapsed;
         setShell("ui.layout.leftCollapsed",  target);
         setShell("ui.layout.rightCollapsed", target);
+        _persistPaneState();
       } else if (k === "j") {
         e.preventDefault();
         // §3: a keyboard reveal must hand focus to the pane, so this goes
@@ -1729,13 +1758,24 @@
       var eligible = _num(stats, derived, "eligible");
       var supported = _num(stats, derived, "supported");
       var partial = _num(stats, derived, "partial");
-      var anchoredTotal = _num(stats, derived, "anchored");
+      // The anchor TOTAL. The server sends `anchored` as the total with its
+      // verdict buckets beside it; the derived counts carry the residual bucket
+      // instead, so the total is that plus the verdicts.
+      var anchoredTotal = (stats && typeof stats.anchored === "number")
+        ? stats.anchored
+        : (derived ? derived.anchored + derived.supported + derived.partial : 0);
       var unverified = _num(stats, derived, "unverified");
       var unsupported = _num(stats, derived, "unsupported");
       var anchored = anchoredTotal - supported - partial - unverified - unsupported;
       if (anchored < 0) anchored = 0;
-      var unanchored = _num(stats, derived, "unanchored");
-      if (!unanchored && eligible > anchoredTotal) unanchored = eligible - anchoredTotal;
+      // Unanchored is what the anchor did not reach. Both sources report it
+      // directly; the subtraction is only for a payload that carries neither.
+      var reportsUnanchored =
+        (stats && typeof stats.unanchored === "number") ||
+        (derived && typeof derived.unanchored === "number");
+      var unanchored = reportsUnanchored
+        ? _num(stats, derived, "unanchored")
+        : Math.max(0, eligible - anchoredTotal);
       return {
         eligible: eligible,
         anchored: anchored,
@@ -3733,10 +3773,19 @@
     // S1: restore persisted pane collapse state (default false → both panes
     // visible on first-ever load), then render. _applyRightView() draws the
     // right pane's inner state independent of the collapse classes.
+    // D1: at the widths where a pane can only be an overlay, an open pane covers
+    // the document it exists to serve — so the first paint of a narrow window
+    // starts with both closed. A stored preference still wins: the user's own
+    // last choice is never overridden, only the viewport's first paint chosen.
+    var __storedLeft = null, __storedRight = null;
     try {
-      SHELL.ui.layout.leftCollapsed  = localStorage.getItem("assure.left_collapsed")  === "1";
-      SHELL.ui.layout.rightCollapsed = localStorage.getItem("assure.right_collapsed") === "1";
+      __storedLeft  = localStorage.getItem("assure.left_collapsed");
+      __storedRight = localStorage.getItem("assure.right_collapsed");
     } catch (_) {}
+    var __narrow = false;
+    try { __narrow = window.matchMedia("(max-width: 900px)").matches; } catch (_) {}
+    SHELL.ui.layout.leftCollapsed  = (__storedLeft  === null) ? __narrow : (__storedLeft  === "1");
+    SHELL.ui.layout.rightCollapsed = (__storedRight === null) ? __narrow : (__storedRight === "1");
     setShell("ui.layout.leftCollapsed",  SHELL.ui.layout.leftCollapsed);
     setShell("ui.layout.rightCollapsed", SHELL.ui.layout.rightCollapsed);
     _applyRightView();
