@@ -506,6 +506,40 @@
     exportBtnEl.disabled = !_canExport();
   }
 
+  // A4 — the compile state the AI view reads, derived rather than
+  // remembered. Two facts make it: which model the last dispatch ran on, and
+  // whether the document on screen came out of a compile. The model is a fact
+  // of this session — the draft stream's own frame writes `__lastRunModel` —
+  // and the compile is a fact of the document, read from the same revision
+  // list the version chip navigates.
+  //
+  // After a reload the model is NOT reachable: the run persists it in
+  // audit_log.details.model and projects.last_compiled_json.gate.measure.model,
+  // and no route serves either of them, so the view names that gap instead of
+  // inventing a route or leaving the last draw on screen.
+  var NO_COMPILE = "No compile for this document";
+  var COMPILE_MODEL_UNKNOWN = "Compiled \u00b7 model not carried by the document";
+
+  // The compile this document descends from: a revision that ran the
+  // pipeline, at or before the version on screen. A rewrite or a restore
+  // after it does not un-compile the document.
+  function _compiledVersionOnScreen() {
+    var versions = SHELL.document.versions || {};
+    var list = versions.list || [];
+    var current = versions.current;
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (!v || String(v.mutation_type || "") !== "compile") continue;
+      if (current == null || (v.version || 0) <= current) return true;
+    }
+    return false;
+  }
+
+  // A4: what ROUTED TO reads when it has no model to name.
+  function _compilerRouteEmptyCopy() {
+    return _compiledVersionOnScreen() ? COMPILE_MODEL_UNKNOWN : NO_COMPILE;
+  }
+
   // The compiler pane's sections own their empty state: a section with no
   // value is hidden (data-state="empty"), never rendered as a dash. ROUTED TO
   // is the one section that is always present — before a compile it says so.
@@ -522,10 +556,13 @@
     if (routeSection) {
       routeSection.setAttribute("data-state", (SHELL.compiler.route || "") ? "ready" : "awaiting");
     }
-    // Before a compile the section says where it stands rather than sitting
-    // empty: "Awaiting route" is a state, and it is muted.
+    // Every state says what it is. "Awaiting route" described nothing the
+    // reader could act on, and beside an open document it read as though the
+    // compile had never run: the section names the compile instead — the model
+    // when this session knows it, and the absence of a compile when there is
+    // none for this document (A4).
     var routeEl = document.getElementById("compiler-route");
-    if (routeEl && !SHELL.compiler.route) routeEl.textContent = "Awaiting route";
+    if (routeEl && !SHELL.compiler.route) routeEl.textContent = _compilerRouteEmptyCopy();
   }
   var DRAFT_TYPE = "full";
 
@@ -1221,6 +1258,17 @@
       return null;
     }
     function markDone(name)   { stageState[name] = "done"; _renderStages(); }
+    // A4 — a document that came out of a compile has run all four stages. The
+    // rows are that compile's own record, so they are ticked from the
+    // document's revisions rather than left grey beside a compiled document.
+    function markAllStagesDone() {
+      for (var i = 0; i < STAGE_GROUPS.length; i++) {
+        for (var j = 0; j < STAGE_GROUPS[i].steps.length; j++) {
+          stageState[STAGE_GROUPS[i].steps[j]] = "done";
+        }
+      }
+      _renderStages();
+    }
     function markActive(name) { stageState[name] = "active"; _renderStages(); }
     function markFailed(name) { stageState[name] = "failed"; _renderStages(); }
     // A stage that had nothing to check is neither done nor failed: a green
@@ -1385,6 +1433,9 @@
             }
           }
           _renderVersionChip();
+          // A4: the revision list is what says whether the document on screen
+          // came out of a compile, so the AI view is re-read when it arrives.
+          _refreshCompilerState();
         })
         .catch(function () {});
     }
@@ -1512,9 +1563,17 @@
           }
         }
       } else if (node.type === "paragraph") {
-        el = document.createElement("p");
+        // A1 — the model writes markdown, and the document shows it as such:
+        // the paragraphs go through the same renderer the Red-Hat findings do
+        // (`_renderFindingMarkdown`), so `**weight**`, `*emphasis*`, backticks
+        // and `-`/`1.` lists arrive as elements instead of as their markers.
+        // A div, not a p: a paragraph can be a run of blocks. The confidence
+        // spans are wrapped on top of this by applyConfidenceSpans, which is
+        // why the renderer takes a channel — it knows the source offsets the
+        // spans were measured in (see _mdEmit).
+        el = document.createElement("div");
         el.className = "jdf-p";
-        el.textContent = node.content || "";
+        el.appendChild(_renderFindingMarkdown(node.content || ""));
         wrapper.appendChild(el);
       } else if (node.type === "callout") {
         el = document.createElement("aside");
@@ -2153,6 +2212,17 @@
       return { nodeId: nodeId, created: created };
     }
 
+    // A3 — where the editor sits. Under the paragraph it edits, in flow: it
+    // used to be sticky at the node's top, so the paragraph it was about
+    // scrolled underneath it and the reader typed over the text they were
+    // rewriting. In the paragraph's own row nothing is covered — the original
+    // stays where it was, above the box, and the box pushes what follows down.
+    function _placeNodeRephrase(wrapper, editor) {
+      var body = wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout") || wrapper;
+      var host = body.parentNode || wrapper;
+      host.insertBefore(editor, body.nextSibling);
+    }
+
     function _attachNodeRephrase(nodeId, initialValue) {
       _removeNodeRephrase();
       __rephraseBusy = false;
@@ -2176,7 +2246,7 @@
       var cancel = document.createElement("button");
       cancel.type = "button"; cancel.setAttribute("data-action", "cancel"); cancel.textContent = "Cancel";
       editor.appendChild(input); editor.appendChild(submit); editor.appendChild(cancel);
-      wrapper.insertBefore(editor, wrapper.firstChild);
+      _placeNodeRephrase(wrapper, editor);
 
       function doSubmit() {
         var v = input.value || "";
@@ -2279,7 +2349,7 @@
           // (taking any pending prompt and error with it). Move it back onto
           // the fresh wrapper so the user can read the failure and retry.
           var host = draftEl && draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
-          if (host && editor && !host.contains(editor)) host.insertBefore(editor, host.firstChild);
+          if (host && editor && !host.contains(editor)) _placeNodeRephrase(host, editor);
           if (inputEl) inputEl.disabled = false;
           if (editor) {
             var prior = editor.querySelector(".node-rephrase-error");
@@ -2469,48 +2539,121 @@
       return REDHAT_MODE_UNSOURCED;
     }
 
+    // `**` is consumed with one space after it, as the strip has always done
+    // it, with the source index of every surviving character kept beside it.
+    // That index is what lets the document's own offsets survive the markup
+    // becoming elements: a run knows which characters of the paragraph's text
+    // the server measured its confidence spans in.
+    function _stripMarks(value) {
+      var s = String(value == null ? "" : value);
+      var out = "";
+      var map = [];
+      var i = 0;
+      while (i < s.length) {
+        if (s.charAt(i) === "*") {
+          while (i < s.length && s.charAt(i) === "*") i++;
+          if (s.charAt(i) === " ") i++;
+          continue;
+        }
+        out += s.charAt(i);
+        map.push(i);
+        i++;
+      }
+      return { text: out, map: map };
+    }
+
     // Text nodes carry no marker: a `*` that survived the inline pass is an
     // unbalanced marker, and the pane never shows it as prose punctuation.
     function _redhatMdText(value) {
-      return document.createTextNode(String(value == null ? "" : value).replace(/\*+ ?/g, ""));
+      return document.createTextNode(_stripMarks(value).text);
+    }
+
+    // One inline run. Without a channel it is the text node it always was;
+    // with one, the run is written where the spans cover it, `base` being the
+    // run's own offset in the node's source text — the coordinate the spans
+    // were computed in. Text outside every span is untouched.
+    function _mdEmit(parent, value, ctx, base) {
+      if (!ctx) { parent.appendChild(_redhatMdText(value)); return; }
+      var stripped = _stripMarks(value);
+      var out = stripped.text;
+      var i = 0;
+      while (i < out.length) {
+        var span = ctx.covering(base + stripped.map[i]);
+        var j = i + 1;
+        while (j < out.length && ctx.covering(base + stripped.map[j]) === span) j++;
+        var chunk = out.slice(i, j);
+        if (span) {
+          var holder = ctx.wrap(span);
+          holder.textContent = chunk;
+          parent.appendChild(holder);
+        } else {
+          parent.appendChild(document.createTextNode(chunk));
+        }
+        i = j;
+      }
     }
 
     // Inline markdown — `**strong**`, `*em*`, `` `code` `` — inside a block
     // element. Emphasis must open and close on the same text; `_` is left out
-    // deliberately, because source filenames and node ids carry it.
-    function _redhatMdInline(el, text) {
+    // deliberately, because source filenames and node ids carry it. `base` is
+    // where `text` starts in the node's source text; a finding passes neither
+    // it nor a channel, and gets the text nodes it always got.
+    function _redhatMdInline(el, text, ctx, base) {
       var s = String(text == null ? "" : text);
+      var at = base || 0;
       var re = /\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*|`([^`]+?)`/g;
       var last = 0;
       var m;
       while ((m = re.exec(s)) !== null) {
-        if (m.index > last) el.appendChild(_redhatMdText(s.slice(last, m.index)));
-        var node = document.createElement(
-          m[1] !== undefined ? "strong" : (m[2] !== undefined ? "em" : "code")
-        );
-        node.textContent = m[1] || m[2] || m[3] || "";
+        if (m.index > last) _mdEmit(el, s.slice(last, m.index), ctx, at + last);
+        var strong = m[1] !== undefined;
+        var em = !strong && m[2] !== undefined;
+        var node = document.createElement(strong ? "strong" : (em ? "em" : "code"));
+        if (ctx) _mdEmit(node, strong ? m[1] : (em ? m[2] : m[3]), ctx, at + m.index + (strong ? 2 : 1));
+        else node.textContent = m[1] || m[2] || m[3] || "";
         el.appendChild(node);
         last = re.lastIndex;
       }
-      if (last < s.length) el.appendChild(_redhatMdText(s.slice(last)));
+      if (last < s.length) _mdEmit(el, s.slice(last), ctx, at + last);
       return el;
     }
 
     // Block markdown → a fragment of elements. Headings, ordered and unordered
     // lists (their indented continuation lines belong to the item), fenced code
     // and quoted sentences each get their own element; everything else is a
-    // paragraph.
-    function _renderFindingMarkdown(text) {
+    // paragraph. `ctx` is the document's span channel (see _mdEmit): with it,
+    // every run is written with the offset it came from, so the paragraph's
+    // confidence spans are wrapped as the blocks are built. A finding passes
+    // none, and this renders exactly as it always did.
+    function _renderFindingMarkdown(text, ctx) {
       var frag = document.createDocumentFragment();
       var lines = String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
-      var para = [];
+      // Where each line starts in the source text: the coordinate space the
+      // document's span offsets live in.
+      var starts = [];
+      var cursor = 0;
+      for (var ln = 0; ln < lines.length; ln++) { starts.push(cursor); cursor += lines[ln].length + 1; }
+      var para = [];   // [{text, start}]
       var i = 0;
 
+      function indentOf(line) { var m = /^\s*/.exec(line); return m ? m[0].length : 0; }
+      // A line with the whitespace in front of it accounted for.
+      function trimmedAt(idx) {
+        return { text: lines[idx].trim(), start: starts[idx] + indentOf(lines[idx]) };
+      }
+      // A block's lines, joined the way the model meant them — one space
+      // between them — each still carrying its own offset in the source.
+      function writeRun(el, parts) {
+        for (var k = 0; k < parts.length; k++) {
+          if (k) el.appendChild(document.createTextNode(" "));
+          _redhatMdInline(el, parts[k].text, ctx, parts[k].start);
+        }
+      }
       function flushParagraph() {
         if (!para.length) return;
         var p = document.createElement("p");
         p.className = "redhat-md-p";
-        _redhatMdInline(p, para.join(" "));
+        writeRun(p, para);
         frag.appendChild(p);
         para = [];
       }
@@ -2539,12 +2682,18 @@
             }
             break;
           }
-          var parts = [m[1]];
+          var line0 = trimmedAt(i);
+          var parts = [{ text: m[1], start: line0.start + (line0.text.length - m[1].length) }];
           i++;
-          while (i < lines.length && indented(lines[i])) { parts.push(listBody(lines[i])); i++; }
-          var item = document.createElement("li");
-          _redhatMdInline(item, parts.join(" "));
-          list.appendChild(item);
+          while (i < lines.length && indented(lines[i])) {
+            var body = listBody(lines[i]);
+            var bodyLine = trimmedAt(i);
+            parts.push({ text: body, start: bodyLine.start + (bodyLine.text.length - body.length) });
+            i++;
+          }
+          var li = document.createElement("li");
+          writeRun(li, parts);
+          list.appendChild(li);
         }
         frag.appendChild(list);
       }
@@ -2560,6 +2709,9 @@
           var pre = document.createElement("pre");
           pre.className = "redhat-md-pre";
           var preCode = document.createElement("code");
+          // A fence is verbatim: its text is written as it arrived, so a
+          // confidence span over one is not wrapped here — nothing inside a
+          // code block is re-shaped, markers included.
           preCode.textContent = code.join("\n");
           pre.appendChild(preCode);
           frag.appendChild(pre);
@@ -2571,7 +2723,8 @@
           flushParagraph();
           var head = document.createElement("div");
           head.className = "redhat-md-h";
-          _redhatMdInline(head, h[1]);
+          var headLine = trimmedAt(i);
+          _redhatMdInline(head, h[1], ctx, headLine.start + (headLine.text.length - h[1].length));
           frag.appendChild(head);
           i++;
           continue;
@@ -2588,12 +2741,15 @@
           flushParagraph();
           var quote = document.createElement("blockquote");
           quote.className = "redhat-md-quote";
-          _redhatMdInline(quote, t.replace(/^>\s?/, ""));
+          var quoted = t.replace(/^>\s?/, "");
+          var quoteLine = trimmedAt(i);
+          _redhatMdInline(quote, quoted, ctx, quoteLine.start + (quoteLine.text.length - quoted.length));
           frag.appendChild(quote);
           i++;
           continue;
         }
-        para.push(t);
+        var proseLine = trimmedAt(i);
+        para.push(proseLine);
         i++;
       }
       flushParagraph();
@@ -2974,8 +3130,12 @@
           chip.className = "anchor-chip anchor-chip-" + state;
           chip.setAttribute("aria-hidden", "false");
           chip.textContent = _ANCHOR_STATE_CHIP[state];
-          if (el.firstChild) el.insertBefore(chip, el.firstChild);
-          else el.appendChild(chip);
+          // A paragraph is markdown blocks now, so the chip goes into the first
+          // of them: it reads at the start of the paragraph's first line, the
+          // way it did when the paragraph was one text node.
+          var chipHost = el.querySelector(".redhat-md-p, .redhat-md-h, .redhat-md-ul > li, .redhat-md-ol > li, .redhat-md-quote") || el;
+          if (chipHost.firstChild) chipHost.insertBefore(chip, chipHost.firstChild);
+          else chipHost.appendChild(chip);
         }
       }
     }
@@ -3007,14 +3167,45 @@
         byNode[span.nodeId].push(span);
       }
 
-      function escapeHtml(s) {
-        return String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-      }
-      function escapeAttr(s) {
-        return escapeHtml(s).replace(/"/g, "&quot;");
+      // The channel the markdown renderer writes through. `covering` names the
+      // span that owns a source character; the spans are sorted by start and
+      // asked in the order the text is written, so one cursor serves the whole
+      // node. `wrap` builds the span element: the same classes, the same
+      // accessible name and the same two handlers the tail-built markup used
+      // to carry.
+      function spanChannel(nodeId, nodeSpans, prov0) {
+        var cursor = 0;
+        function bandOf(score) {
+          return (score > 0.8) ? "high" : (score >= 0.4) ? "medium" : "low";
+        }
+        return {
+          covering: function (src) {
+            while (cursor < nodeSpans.length && nodeSpans[cursor].end <= src) cursor++;
+            if (cursor < nodeSpans.length && nodeSpans[cursor].start <= src) return nodeSpans[cursor];
+            return null;
+          },
+          wrap: function (sp) {
+            var el = document.createElement("span");
+            el.className = "conf-span";
+            if (prov0) {
+              if (sp.score > 0.8) el.className += " conf-green";
+              else if (sp.score >= 0.4) el.className += " conf-yellow";
+              else el.className += " conf-red";
+            }
+            el.setAttribute("data-node-id", nodeId);
+            el.setAttribute("data-score", String(sp.score));
+            el.setAttribute("role", "button");
+            el.setAttribute("tabindex", "0");
+            // §4 A7: the span is a click target, so it is authored as a control —
+            // role, tab stop and a name that states its confidence band. The
+            // neutral wording is deliberate; persuasive phrasing goes to the
+            // voice pass.
+            el.setAttribute("aria-label", "Confidence span: " + (prov0 ? bandOf(sp.score) : "no source matched"));
+            el.addEventListener("click", handleConfidenceClick);
+            el.addEventListener("keydown", _confSpanKeydown);   // §4 A7
+            return el;
+          },
+        };
       }
 
       var nodeIds = Object.keys(byNode);
@@ -3024,8 +3215,6 @@
         if (!wrapper) continue;
         var textEl = wrapper.querySelector(".jdf-p, .jdf-h2, .jdf-callout");
         if (!textEl) continue;
-        var text = textEl.textContent || "";
-        if (text.length === 0) continue;
 
         // No tooltip: the 1px semantic underline is the signal (Phase F), and
         // the drawer behind a click carries source, page and quote. Only the
@@ -3035,55 +3224,39 @@
         var provList = Array.isArray(provMeta) ? provMeta : (provMeta ? [provMeta] : []);
         var prov0 = provList[0] || null;
 
-        // Keep only in-range spans and sort by startChar DESCENDING so
-        // wrapping higher spans first never shifts the indices used by
-        // the lower spans (offsets are relative to the original text).
+        // The text the server measured, not what is on screen: the offsets are
+        // into the node's own content, and the paragraph's markdown has already
+        // become elements by the time this runs.
+        var text = provNode
+          ? String(provNode.type === "section" ? (provNode.title || "") : (provNode.content || ""))
+          : "";
+        if (!text) text = textEl.textContent || "";
+        if (text.length === 0) continue;
+
+        // Keep only in-range spans, ASCENDING: the renderer writes the text
+        // front to back, so its cursor walks the same way.
         var nodeSpans = [];
         for (var s = 0; s < byNode[nodeId].length; s++) {
           var cand = byNode[nodeId][s];
           var cs = parseInt(cand.startChar, 10);
           var ce = parseInt(cand.endChar, 10);
           if (isNaN(cs) || isNaN(ce) || cs < 0 || ce > text.length || cs >= ce) continue;
-          nodeSpans.push(cand);
+          nodeSpans.push({ start: cs, end: ce, score: cand.score });
         }
         if (nodeSpans.length === 0) continue;
-        nodeSpans.sort(function (a, b) { return b.startChar - a.startChar; });
+        nodeSpans.sort(function (a, b) { return a.start - b.start; });
 
-        // Build the output from the tail, prepending wrapped spans.
-        var html = "";
-        var ptr = text.length;
-        for (var s = 0; s < nodeSpans.length; s++) {
-          var sp = nodeSpans[s];
-          var start = parseInt(sp.startChar, 10);
-          var end = parseInt(sp.endChar, 10);
-          var plain = escapeHtml(text.slice(end, ptr));
-          var confClass = "conf-span";
-          if (prov0) {
-            if (sp.score > 0.8) confClass += " conf-green";
-            else if (sp.score >= 0.4) confClass += " conf-yellow";
-            else confClass += " conf-red";
-          }
-          // §4 A7: the span is a click target, so it is authored as a control —
-          // role, tab stop and a name that states its confidence band. The
-          // neutral wording is deliberate; persuasive phrasing goes to the
-          // voice pass.
-          var band = !prov0 ? "no source matched"
-                   : (sp.score > 0.8) ? "high"
-                   : (sp.score >= 0.4) ? "medium" : "low";
-          var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) +
-            '" data-score="' + escapeAttr(String(sp.score)) +
-            '" role="button" tabindex="0" aria-label="' + escapeAttr("Confidence span: " + band) + '">' +
-            escapeHtml(text.slice(start, end)) + "</span>";
-          html = wrapped + plain + html;
-          ptr = start;
-        }
-        html = escapeHtml(text.slice(0, ptr)) + html;
-        textEl.innerHTML = html;
-        // Make each new span clickable to open the Evidence drawer.
-        var createdSpans = textEl.querySelectorAll(".conf-span");
-        for (var csp = 0; csp < createdSpans.length; csp++) {
-          createdSpans[csp].addEventListener("click", handleConfidenceClick);
-          createdSpans[csp].addEventListener("keydown", _confSpanKeydown);   // §4 A7
+        // One pass, one renderer: the same markdown the document's paragraphs
+        // are drawn with, told where the spans sit so the wrappers land on the
+        // right characters. A paragraph can be a run of blocks, and a span that
+        // crosses a block boundary comes out as one wrapper per block — never
+        // an inline box dragged around a list.
+        textEl.textContent = "";
+        var channel = spanChannel(nodeId, nodeSpans, prov0);
+        if (String((provNode || {}).type || "") === "paragraph") {
+          textEl.appendChild(_renderFindingMarkdown(text, channel));
+        } else {
+          _redhatMdInline(textEl, text, channel, 0);
         }
       }
     }
@@ -3581,8 +3754,13 @@
     }
     // ---------------------------------------------------------------
     // SOURCES — the OMP manifest: filename, size, indexed date, and after a
-    // compile each source's "anchored N of M". Read from the same vault route
-    // the Sources tab lists, so the two surfaces cannot disagree.
+    // compile the anchors each source contributed. Read from the same vault
+    // route the Sources tab lists, so the two surfaces cannot disagree.
+    //
+    // A5: this row counts SOURCES and their anchors; the right pane counts
+    // PARAGRAPHS. It used to call both of them "anchored", which put one word
+    // on two meanings in one screen, so the word now belongs to the paragraph
+    // counters alone and this row says what it counts.
     // ---------------------------------------------------------------
     var manifestRows = [];
     function _manifestSize(bytes) {
@@ -3649,7 +3827,9 @@
         if (counts && counts.total > 0) {
           var seen = document.createElement("span");
           seen.className = "manifest-count";
-          seen.textContent = "anchored " + counts.anchored + " of " + counts.total;
+          seen.textContent = "1 source contributes " + counts.anchored +
+            (counts.anchored === 1 ? " anchor" : " anchors") +
+            (counts.total === counts.anchored ? "" : " of " + counts.total);
           row.appendChild(seen);
         }
         el.appendChild(row);
@@ -4014,6 +4194,16 @@
       populateCompilerRoute(__lastRunModel || "");
     }
 
+    // A4: re-read the state the AI view shows. Called when the pane is opened
+    // and when the document's revision list lands.
+    function _refreshCompilerState() {
+      var doc = SHELL.document.current || null;
+      var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
+      populateCompilerRoute(hasDoc ? (__lastRunModel || "") : "");
+      if (hasDoc && _compiledVersionOnScreen()) markAllStagesDone();
+      else resetStages();
+    }
+
     function beginIntentCompile(raw) {
       pendingIntent = raw;
       intentPanelOpen = true;
@@ -4235,7 +4425,11 @@
 
     document.querySelectorAll("[data-left-tab]").forEach(function (t) {
       t.addEventListener("click", function () {
-        leftGroupSetTab(t.getAttribute("data-left-tab"));
+        var opened = leftGroupSetTab(t.getAttribute("data-left-tab"));
+        // A4: the AI view reads the compile state when it is opened, so it can
+        // never sit on a stale "Awaiting route" beside a document that has
+        // been compiled.
+        if (opened === "compiler") _refreshCompilerState();
       });
     });
     document.querySelectorAll("[data-right-tab]").forEach(function (t) {
@@ -4690,6 +4884,15 @@
     }
 
     // §6: demoted — no longer a writer. renderEvidencePanel owns the pane and
+    // paints the paragraph panel (verdict header, reasoning, excerpt, fields).
+    // The score footer that used to be appended under it is gone: it read
+    // "Ledger check score: N%", naming a term the reader was never given and
+    // labelling a span's numeric lock check as though it were grounding. The
+    // pane says which state the paragraph is in, the counters carry the
+    // distribution, and the Math check (Z3) tab is where a ledger score
+    // belongs. `data-score` stays on the span, where it bands the underline.
+
+    // §6: demoted — no longer a writer. renderEvidencePanel owns the pane and
     // paints the paragraph panel (verdict header, reasoning, excerpt, fields);
     // this appends the clicked span's ledger tail under it. The score is the
     // span's own ledger signal, carried on the selection payload, so the span
@@ -5025,8 +5228,8 @@
       }
       // §6: the pane's third input rides along with the selection, so this
       // dispatcher renders the whole view in one pass — the drawer for a
-      // z3/cite chip, the ledger tail for a confidence span. A payload that
-      // belongs to another node paints nothing: it is stale by definition.
+      // z3/cite chip. A payload that belongs to another node paints nothing:
+      // it is stale by definition.
       var sel = SHELL.ui.selection || {};
       var ev = sel.evidence;
       var opts = (ev && ev.nodeId === node.id)

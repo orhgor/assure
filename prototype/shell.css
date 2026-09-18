@@ -544,6 +544,17 @@ body.collapsed .pane-left {
 .doc-draft h2 { font-size: 20px; margin: 32px 0 12px; }
 .doc-draft h3 { font-size: 18px; margin: 24px 0 8px; }
 
+/* A1 — a paragraph is markdown blocks now (the same renderer the Red-Hat
+   findings use: `_renderFindingMarkdown`), so a paragraph can be a run of
+   them. The paragraph's own margin is the last word: the blocks inside it are
+   spaced like body text above, and the last one adds no second gap before the
+   next paragraph. */
+.doc-draft .jdf-p > :last-child { margin-bottom: 0; }
+.doc-draft .jdf-p > .redhat-md-ul,
+.doc-draft .jdf-p > .redhat-md-ol {
+  padding-left: 26px;
+}
+
 /* A notice inside the document column keeps the column's whitespace rules
    (the column itself is pre-wrap, for streaming text). */
 .doc-draft > .doc-entailment-note {
@@ -1254,7 +1265,15 @@ body.collapsed .pane-left {
 /* A5 — the paragraph's own evidence state, sized to be read at conversational
    distance rather than at the caret. The 1px underline above stays the
    sub-claim signal; this is the paragraph: a 3px left rule, a state chip at the
-   paragraph's left, and a 3% wash on the paragraphs nothing grounded. */
+   paragraph's left, and a 3% wash on the paragraphs nothing grounded.
+
+   The colours are the source-verification legend's three (the right pane's
+   header): verified green, partial amber, not verified grey. An unanchored
+   paragraph has no citation — it is not a contradiction — so it reads grey with
+   the state, like the `anchored` paragraph beside it; the chip's own words
+   (`· unanchored` / `· anchored`) carry which of the two it is. `--contradicted`
+   stays for the state that does contradict a source: the numeric lock's
+   "Contradicts ledger lock" (renderConfidenceLegend, .conf-red). */
 .jdf-p.anchor-state {
   border-left: 3px solid transparent;
   padding-left: var(--space-2);
@@ -1263,8 +1282,8 @@ body.collapsed .pane-left {
 .jdf-p.anchor-partial    { border-left-color: var(--partial); }
 .jdf-p.anchor-anchored   { border-left-color: var(--unverified); }
 .jdf-p.anchor-unanchored {
-  border-left-color: var(--contradicted);
-  background: color-mix(in srgb, var(--contradicted) 3%, transparent);
+  border-left-color: var(--unverified);
+  background: color-mix(in srgb, var(--unverified) 3%, transparent);
 }
 .anchor-chip {
   display: inline-block;
@@ -1282,7 +1301,7 @@ body.collapsed .pane-left {
 .anchor-chip-supported  { color: var(--verified);     background: color-mix(in srgb, var(--verified) 12%, transparent); }
 .anchor-chip-partial    { color: var(--partial);      background: color-mix(in srgb, var(--partial) 12%, transparent); }
 .anchor-chip-anchored   { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 16%, transparent); }
-.anchor-chip-unanchored { color: var(--contradicted); background: color-mix(in srgb, var(--contradicted) 12%, transparent); }
+.anchor-chip-unanchored { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 12%, transparent); }
 
 /* Evidence drawer body */
 .evidence-body {
@@ -2241,10 +2260,13 @@ body.collapsed.right-hidden #resize-right { display: none; }
    Inline node rephrase
 ---------------------------------------------------------------- */
 .node-rephrase {
-  position: sticky;
-  top: 0;
-  z-index: 6;
+  /* A3 — in flow, under the paragraph it edits. It used to be sticky at the
+     node's top, which pinned the box over the text it was about: the reader
+     typed over the paragraph they were rewriting. Nothing here is positioned
+     over the document, and the error row wraps inside the box rather than
+     overlaying what follows. */
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 6px;
   padding: 6px var(--space-2);
@@ -2292,23 +2314,17 @@ body.collapsed.right-hidden #resize-right { display: none; }
   color: var(--paper);
 }
 .node-rephrase-error {
-  /* Overlay pinned under the sticky rephrase bar: an error must not grow the
-     bar (which would push the node body down). Containing block is
-     .node-rephrase itself (position: sticky, above). */
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 40;
+  /* A3 — the bar's own row, wrapped onto a line of its own: the failure is
+     read where the rewrite was asked for, and grows the box instead of
+     covering the document below it. */
+  flex: 1 0 100%;
   margin: 0;
   padding: 6px var(--space-2);
   background: var(--surface);
   border: 1px solid var(--contradicted);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-2);
   font-size: var(--fs-sm);
   color: var(--contradicted);
-  pointer-events: auto;
 }
 .jdf-node.is-rephrasing { position: relative; }
 .jdf-node.is-rephrasing::after {
@@ -2420,7 +2436,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
 
 /* =============================================================
    Sources — the OMP manifest. Filename, size, indexed date. After a
-   compile each row carries its "anchored N of M" counter.
+   compile each row carries what that source contributed.
    ============================================================= */
 .manifest {
   display: flex;
