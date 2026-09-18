@@ -551,3 +551,38 @@ returns `zero_anchored_claims` and refuses. **It is the gate re-run on replay, n
 key.** Main has recorded it as an unowned defect with its cause, to be taken as a design
 question — whether the replay should re-run a gate that already ran when the row was
 written, or the payload should carry what the gate needs.
+
+---
+
+# CORRECTION — the whole-pipeline cold run is GREEN, not NOT RUN
+
+Reported NOT RUN twice because the results file had not been written when I checked.
+The harness had not died; it took 363 s and completed. Raw, from
+`verify_a2_hash.py` on the hash-carrying tip (three provider touchpoints stubbed, so no
+provider and no compile lock — the harness cannot make a model call even if the change
+is wrong):
+
+```
+prompt_fingerprint() : 37b4da61
+KEY                  : ast:postaudit-a2-hash:8ec9aeab
+
+RUN1 cold    : cache_hit=null, draft_calls=1, replayed=false
+RUN2 replay  : cache_hit=true, draft_calls=0, replayed=true
+
+--- one word of the prompt: 'clear' -> 'crisp' in _COMPILE_SYSTEM ---
+prompt_fingerprint() AFTER : 3f9e0d73
+KEY BEFORE : ast:postaudit-a2-hash:8ec9aeab
+KEY AFTER  : ast:postaudit-a2-hash:095b44a9
+KEY CHANGED: True
+
+RUN3 after edit : cache_hit=null, draft_calls=1, replayed=false     <- COLD, not a replay
+KEY once restored: ast:postaudit-a2-hash:8ec9aeab  (== key before: True)
+```
+
+This is the whole-pipeline form of the acceptance criterion: **the key changes on a
+one-word edit and the run is cold.** `draft_calls` is the model-call counter — 1 on the
+cold runs, **0 on the replay**, so the replay is a replay and the post-edit run is not.
+Restoring the word restores the key, so the key is a pure function of the prompt.
+
+The earlier NOT RUN stands only for the **real-provider** end-to-end run, which the
+compile lock (held by another agent for the full window, twice) never allowed.
