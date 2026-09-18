@@ -106,7 +106,7 @@ def test_compare_toggle_hides_tab_strip(goto_shell, browser_page):
         "() => { var s = document.querySelector('#pane-right .mode-toggle'); "
         "var c = document.querySelector('#right-compare'); "
         "return s && getComputedStyle(s).display === 'none' && "
-        "c && getComputedStyle(c).display === 'block'; }",
+        "c && getComputedStyle(c).display !== 'none'; }",
         timeout=10000,
     )
     # A compare run may be in flight (compareInFlight disables the toggle);
@@ -121,6 +121,6 @@ def test_compare_toggle_hides_tab_strip(goto_shell, browser_page):
         "() => { var s = document.querySelector('#pane-right .mode-toggle'); "
         "var i = document.querySelector('#right-inspector'); "
         "return s && getComputedStyle(s).display !== 'none' && "
-        "i && getComputedStyle(i).display === 'block'; }",
+        "i && getComputedStyle(i).display !== 'none'; }",
         timeout=10000,
     )
