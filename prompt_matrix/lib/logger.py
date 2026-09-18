@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -20,6 +21,44 @@ except ImportError:
 _log = logging.getLogger(__name__)
 
 _audit_singleton: AuditLogger | None = None
+
+
+# Pipeline-cache rows a write was refused. `pipeline_cache.project_id` references
+# `projects(id)` on every database that has run
+# scripts/aws/migrate_fk_constraints.py — the shape staging runs — so a write whose
+# id names no project is rejected. The rejection is otherwise invisible: the row is
+# simply absent, so the next read is a miss and reads as a cold start rather than as
+# a write that never landed. Measured on the pre-migration staging database
+# (2026-09-18): 24 pipeline_cache rows carried a project_id with no `projects` row.
+#
+# Same shape as the audit-row counter (`_audit_drops`, which is this idiom's
+# precedent on 2eb27fc's ancestor f674370, "a dropped audit row is counted, and no
+# longer blocks the next write"). Process-wide, because the write is not per-logger.
+# Only the foreign-key rejection is counted, and only it may be swallowed: any other
+# failure is a bug in the cache rather than a write with no parent, and it propagates
+# to a caller that already has a policy for it.
+_cache_drops = 0
+_cache_drops_lock = threading.Lock()
+
+
+def cache_drop_count() -> int:
+    """Cache rows dropped in this process. Reported by /api/health."""
+    with _cache_drops_lock:
+        return _cache_drops
+
+
+def note_cache_drop(*, site: str, project_id: str, kind: str) -> None:
+    """Count one refused cache write, and name it in the service log."""
+    global _cache_drops
+    with _cache_drops_lock:
+        _cache_drops += 1
+    _log.warning(
+        "[cache-drop] %s refused project_id=%r (kind=%s): no `projects` row owns it, "
+        "so the row was not written and the next read is a miss",
+        site,
+        project_id,
+        kind,
+    )
 
 
 class _RequestIdFilter(logging.Filter):

@@ -25,3 +25,8 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: cache-invariant
+        name: pipeline-cache writes name a real project
+        entry: python scripts/precommit_cache_invariant.py
+        language: system
+        files: ^prompt_matrix/.*\.py$
