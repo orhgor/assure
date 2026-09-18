@@ -1196,6 +1196,25 @@ body.collapsed .pane-left {
   background: var(--danger-text);
   color: #fff;
 }
+
+/* R1's pattern, applied to every chip hover. Each hover above paints a token
+   that is *dark's ink value* as a background and puts #fff on it, so in dark
+   all three fall below 4.5:1 (📎 2.54:1, ⚠ 1.44:1, 🚩 1.90:1 measured) while
+   light is fine. A chip is a certainty signal, so the fix keeps each chip's own
+   hue instead of moving it to --brand-navy: every override is that chip's base
+   colour stepped one shade darker until white clears 4.5:1 — --trust-blue
+   #3b82f6 → #2563eb (5.17:1), --warning #f59e0b → #b45309 (5.02:1), --danger
+   #ef4444 → #dc2626 (4.83:1, the light --danger and the legend's red swatch).
+   Base states already clear 4.5:1 and are untouched. */
+html[data-theme="dark"] .chip:hover {
+  background: #2563eb;
+}
+html[data-theme="dark"] .chip-z3.violation:hover {
+  background: #b45309;
+}
+html[data-theme="dark"] .chip-redhat.open:hover {
+  background: #dc2626;
+}
 /* No .chip-redhat.resolved / .dismissed: findings have no closing state —
    nothing writes anything but "open" (see the Dismiss removal). */
 
@@ -2114,6 +2133,18 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .dock-submit.is-running {
   background: var(--accent-hover);
   cursor: progress;
+}
+
+/* R0.3: the last two dark backgrounds that read --accent-hover — the same
+   #60a5fa as --accent-strong — and then put #fff on it: 2.54:1 on hover and for
+   the whole run. Light renders both states navy (--accent-hover is
+   --accent-strong, i.e. --brand-navy, in light), so this is R1's rule again:
+   the same button in both themes. The base state reads --accent, not this
+   token, and its 3.68:1 is a light-theme condition too — reported, not patched
+   here. */
+html[data-theme="dark"] .dock-submit:hover:not([disabled]),
+html[data-theme="dark"] .dock-submit.is-running {
+  background: var(--brand-navy);
 }
 
 .redhat-run.is-running {
