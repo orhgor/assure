@@ -34,6 +34,7 @@ try:
     )
     from ..routers.inquire_stream import _parse_metrics
     from ..services.audit_summary import build_audit_summary
+    from ..services.entailment import attach_entailment_to_tree, check_entailment
     from ..services.lock_inference import infer_lock_candidates
     from ..services.omp_memory import (
         compile_cache_key,
@@ -63,6 +64,7 @@ except ImportError:
     )
     from routers.inquire_stream import _parse_metrics
     from services.audit_summary import build_audit_summary
+    from services.entailment import attach_entailment_to_tree, check_entailment
     from services.lock_inference import infer_lock_candidates
     from services.omp_memory import (
         compile_cache_key,
@@ -734,6 +736,23 @@ def run_draft_pipeline(
         yield _done_sse()
         return
 
+    # Stage 3b: entailment. The paragraph ↔ source-sentence anchors stamped above
+    # are lexical (models/jdf.py matches wording and figures, not truth), so ask
+    # the SEMANTIC_VALIDATION model whether each anchored source sentence actually
+    # entails the claim. One call per anchored paragraph, cached within this
+    # compile only; a call that fails is persisted as "unverified" with its reason
+    # so the gate reads "not verified" instead of trusting token overlap.
+    _check_cancel(cancel_check)
+    yield _typed_sse(
+        "status",
+        {"stage": "entailment", "message": "Verifying anchored claims against their sources…"},
+    )
+    verified_doc = attach_entailment_to_tree(
+        verified_doc,
+        project_id=project_id,
+        checker=lambda claim, source: check_entailment(claim, source, project_id=project_id),
+    )
+
     verified_payload = build_audit_summary(
         z3_results=z3_results,
         redhat_critiques=[],
@@ -748,9 +767,17 @@ def run_draft_pipeline(
     # earlier and intentionally skip it. Truth ledger is carried inside
     # document["truth_ledger"], so no separate kwarg is needed.
     try:
-        from ..db.jdf_repository import save_jdf_revision
+        from ..db.jdf_repository import (
+            RevisionConflict,
+            current_document_version,
+            save_jdf_revision,
+        )
     except ImportError:
-        from db.jdf_repository import save_jdf_revision
+        from db.jdf_repository import (
+            RevisionConflict,
+            current_document_version,
+            save_jdf_revision,
+        )
     try:
         save_jdf_revision(
             project_id,
@@ -760,8 +787,9 @@ def run_draft_pipeline(
     except Exception as exc:
         _log.warning("[jdf-persist] failed for %s: %s", project_id, exc)
     # Persist the gate block with the project's stored compile so exports can
-    # read it (projects.last_compiled_json — no new table). Red-Hat runs
-    # post-compile via /draft/redhat/stream and is NOT reflected here.
+    # read it (projects.last_compiled_json — no new table). A node-scoped
+    # Red-Hat audit IS reflected, but through the JDF tree saved below, not
+    # through this gate block.
     try:
         from ..history import get_db
         from ..db.connection import init_db
@@ -907,6 +935,25 @@ def run_redhat_pipeline(
     except Exception:
         previous_context = None
 
+    # Local import: the module's other jdf_repository import blocks live inside
+    # other functions and are not in scope here (name resolution is per-function).
+    try:
+        from ..db.jdf_repository import (
+            RevisionConflict,
+            current_document_version,
+            save_jdf_revision,
+        )
+    except ImportError:
+        from db.jdf_repository import (
+            RevisionConflict,
+            current_document_version,
+            save_jdf_revision,
+        )
+
+    # Read the version before the audit reads the document, so a mid-audit edit
+    # cannot be silently overwritten by the persist below.
+    doc_version_at_start = current_document_version(project_id)
+
     redhat_critiques: list[dict[str, Any]] = []
     try:
         _check_cancel(cancel_check)
@@ -963,6 +1010,31 @@ def run_redhat_pipeline(
             annotated, redhat_critiques, target_node_id=target_node_id
         )
     parse_document(annotated)
+
+    if target_node_id:  # whole-document audits fall back to nodes[0]
+        persist_status = None
+        try:
+            save_jdf_revision(
+                project_id,
+                annotated,
+                mutation_type="redhat_audit",
+                target_node_id=target_node_id,
+                expected_version=doc_version_at_start,
+            )
+        except RevisionConflict as exc:
+            persist_status = {
+                "reason": "conflict",
+                "latest_version": getattr(exc, "latest_version", None),
+            }
+        except Exception as exc:
+            persist_status = {
+                "reason": type(exc).__name__,
+                "message": str(exc)[:240],
+            }
+        if persist_status is not None:
+            yield _typed_sse(
+                "status", {"stage": "persist_failed", "detail": persist_status}
+            )
 
     audit_payload = build_audit_summary(
         z3_results=z3_results,
