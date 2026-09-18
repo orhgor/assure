@@ -517,7 +517,6 @@ body.collapsed .pane-left {
 
 /* A notice inside the document column keeps the column's whitespace rules
    (the column itself is pre-wrap, for streaming text). */
-.doc-draft > .doc-ungrounded-banner,
 .doc-draft > .doc-entailment-note {
   white-space: normal;
 }
@@ -1411,6 +1410,16 @@ body.collapsed .pane-left {
 .source-item.is-error {
   color: var(--contradicted);
 }
+/* The ingest scan's verdict on a source (services/compile_guard): the source
+   still compiles, and this is what the reader is told about it. The hover
+   detail names the matched phrases. */
+.source-flag {
+  color: var(--unverified);
+  font: var(--fs-xs)/1.4 var(--sans, inherit);
+  border-left: 2px solid var(--unverified);
+  padding-left: 6px;
+  cursor: help;
+}
 #dock-text.dock-pulse {
   animation: dock-pulse-anim 600ms var(--ease);
 }
@@ -1529,11 +1538,11 @@ body.collapsed .pane-left {
   color: var(--contradicted);
 }
 
-/* The ungrounded banner (D1/F): a flat semantic left rule, no radius, no
+/* The not-verified note (D1/F): a flat semantic left rule, no radius, no
    fill. It sits at the top of the document column, in flow, so it pushes and
    overlaps nothing — full column width, on the same 640px text width the
-   document body uses. */
-.doc-ungrounded-banner,
+   document body uses. The ungrounded banner that shared these rules is gone:
+   a compile that anchors nothing is refused server-side. */
 .doc-entailment-note {
   max-width: 640px;
   margin: 0 auto;
@@ -1541,12 +1550,9 @@ body.collapsed .pane-left {
   background: var(--paper);
   color: var(--ink);
   border: none;
-  border-left: 2px solid var(--unverified);
+  border-left: 2px solid var(--partial);
   border-radius: 0;
   font: 14px/1.4 var(--sans);
-}
-.doc-entailment-note {
-  border-left-color: var(--partial);
 }
 
 #compiler-prompt {

@@ -521,10 +521,10 @@
           try { console.warn("[shell] source remove failed:", err); } catch (_) {}
         });
     }
-    function _buildSourceRow(name, id) {
-      var row = document.createElement("div");
-      row.className = "source-item";
-      row.setAttribute("data-source-id", String(id || ""));
+    function _buildSourceRow(name, id, row) {
+      var rowEl = document.createElement("div");
+      rowEl.className = "source-item";
+      rowEl.setAttribute("data-source-id", String(id || ""));
       var label = document.createElement("label");
       label.className = "source-include";
       var cb = document.createElement("input");
@@ -534,17 +534,19 @@
       label.appendChild(cb);
       var nameEl = document.createElement("span");
       nameEl.textContent = name || "";
+      var flagEl = _buildSourceFlag(row);
       var rm = document.createElement("button");
       rm.type = "button";
       rm.className = "source-remove";
       rm.setAttribute("aria-label", "Remove source");
       rm.textContent = "\u00d7";
       cb.addEventListener("change", function () { _patchSourceIncluded(id, cb.checked, cb); });
-      rm.addEventListener("click", function () { _removeSource(id, row); });
-      row.appendChild(label);
-      row.appendChild(nameEl);
-      row.appendChild(rm);
-      return row;
+      rm.addEventListener("click", function () { _removeSource(id, rowEl); });
+      rowEl.appendChild(label);
+      rowEl.appendChild(nameEl);
+      if (flagEl) rowEl.appendChild(flagEl);
+      rowEl.appendChild(rm);
+      return rowEl;
     }
     function appendSourceItem(name, id) {
       var el = document.getElementById("source-list");
@@ -659,14 +661,19 @@
           .then(function (r) {
             if (r.ok && r.j && r.j.ok) {
               jdfMessage((r.j.chunks_stored || 0) + " figures found in " + f.name, false);
+              // The ingest scan flags instruction-like source content; the
+              // source still ingests, and the SOURCES manifest labels it.
+              if (r.j.instruction_like) {
+                jdfMessage(f.name + " — " + (r.j.instruction_flag_label || "contains instruction-like content — reviewed"), false);
+              }
               // The ingest also lands a substrate entry for this project, so
               // re-read the project's sources from the server: SHELL.sources is
               // what the next compile posts as substrate_file_ids and what the
               // compiler summary counts. Ids come from /substrate verbatim.
               _loadProjectSourceList(ingestPid);
-              // New sources change the grounding surface the banner speaks
+              // New sources change the grounding surface the counters speak
               // about — re-derive it instead of leaving a stale snapshot.
-              _syncUngroundedBanner(null);
+              _syncGroundingNotices(null);
             } else {
               jdfMessage(String((r.j && r.j.error) || ("Ingest failed (HTTP " + r.status + ")")), true);
             }
@@ -1011,8 +1018,6 @@
       stageReason = {};
       _renderStages();
       if (progressEl) progressEl.hidden = true;
-      var banner = document.querySelector(".doc-ungrounded-banner");
-      if (banner) banner.remove();
     }
     function findActiveStage() {
       for (var i = STAGE_ORDER.length - 1; i >= 0; i--) {
@@ -1058,14 +1063,37 @@
       docSurface.appendChild(err);
       docSurface.scrollTop = docSurface.scrollHeight;
     }
+    // A refused compile (HTTP 422, nothing persisted) streams its draft tokens
+    // before the server can judge the finished document, but the refusal is the
+    // verdict on exactly that text: leaving it on the canvas would render the
+    // draft the server would not keep. Drop it, keep the refusal.
+    function _discardStreamedDraft() {
+      if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
+      draftEl = null;
+      setShell("document.mode", "empty");
+    }
+    // The ingest scan's verdict on a source, as the SOURCES label. The hover
+    // detail names the phrases that matched — evidence, not a score.
+    function _sourceFlagLabel(row) {
+      if (!row || !row.instruction_like) return "";
+      return "contains instruction-like content \u2014 reviewed";
+    }
+    function _buildSourceFlag(row) {
+      var label = _sourceFlagLabel(row);
+      if (!label) return null;
+      var hits = (row && Array.isArray(row.instruction_hits)) ? row.instruction_hits : [];
+      var el = document.createElement("span");
+      el.className = "source-flag";
+      el.textContent = label;
+      el.title = hits.length ? "Matched: " + hits.join(", ") : label;
+      return el;
+    }
     function clearDocument() {
       setShell("document.mode", "empty");
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
       var existing = docSurface ? docSurface.querySelectorAll(".doc-error") : [];
       for (var i = 0; i < existing.length; i++) existing[i].remove();
-      var banner = document.querySelector(".doc-ungrounded-banner");
-      if (banner) banner.remove();
       if (versionChipEl) versionChipEl.hidden = true;
       SHELL.document.versions = { list: [], current: null };
     }
@@ -1476,9 +1504,9 @@
         "check verified none of them. Review before use.";
       _insertDocNotice(note);
     }
-    // The banner and the note sit at the top of the document column, in flow:
-    // found first, they push the document down instead of covering its first
-    // lines. They are the only body-level notices the document carries.
+    // The note sits at the top of the document column, in flow: found first, it
+    // pushes the document down instead of covering its first lines. It is the
+    // only body-level notice the document carries.
     function _insertDocNotice(el) {
       var column = document.querySelector(".doc-draft") ||
                    document.querySelector(".doc-surface");
@@ -1486,36 +1514,22 @@
       column.insertBefore(el, column.firstChild);
     }
 
-    function _syncUngroundedBanner(stats) {
-      var show;
+    // The grounding numbers and the not-verified note — no banner. A compile
+    // that anchors nothing is refused server-side (HTTP 422, nothing persisted),
+    // so `anchored == 0` no longer describes a document the shell can hold; the
+    // verdict is reported by the refusal itself and the counters stay honest.
+    function _syncGroundingNotices(stats) {
       var derived = null;
-      // The server's provenance_stats are the authoritative numbers (anchored is
-      // the grounding, supported is the entailment verdict; neither stands in
-      // for the other). They win whenever present; the derivation below applies
-      // the same two rules.
-      if (stats && typeof stats === "object" && typeof stats.anchored === "number") {
-        show = (stats.anchored === 0);
-      } else {
+      if (!(stats && typeof stats === "object" && typeof stats.anchored === "number")) {
         var doc = SHELL.document.current;
         if (!doc || !Array.isArray(doc.body)) {
           _renderCounters(null, null);
           return;
         }
         derived = _derivedCounts(doc);
-        show = (derived.anchored === 0);
-      }
-      // At most one banner, always.
-      var existing = document.querySelectorAll(".doc-ungrounded-banner");
-      for (var i = 0; i < existing.length; i++) {
-        if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
       }
       _syncEntailmentNote(stats, derived || { anchored: 0, supported: 0 });
       _renderCounters(stats, derived);
-      if (!show) return;
-      var banner = document.createElement("div");
-      banner.className = "doc-ungrounded-banner";
-      banner.textContent = "This document is ungrounded — none of its claims match the uploaded sources. Verify before use.";
-      _insertDocNotice(banner);
     }
 
     // The right pane's 2x2 counters. The server's persisted stats win when
@@ -1644,8 +1658,8 @@
         _refreshSignoff(projectId);
         // Prefer the server's persisted provenance_stats (the same numbers the
         // export and the gate read). Only when the document carries none does
-        // _syncUngroundedBanner derive the count locally, on the verdict rule.
-        _syncUngroundedBanner((doc.meta && doc.meta.provenance_stats) || null);
+        // _syncGroundingNotices derive the count locally, on the verdict rule.
+        _syncGroundingNotices((doc.meta && doc.meta.provenance_stats) || null);
         _applyRightView();
         return true;
       });
@@ -1922,8 +1936,8 @@
           }
           _removeNodeRephrase();
           // The rewritten node carries its own provenance (or none): the
-          // banner must follow it, not the last verified snapshot.
-          _syncUngroundedBanner(null);
+          // counters must follow it, not the last verified snapshot.
+          _syncGroundingNotices(null);
           var pid2 = _activeProjectId();
           if (pid2) { _loadNodeHistory(nodeId); _loadVersionHistory(pid2, { current: "latest" }); }
         } else {
@@ -2687,10 +2701,10 @@
 
             // Verified frame: the persisted stats are authoritative (DB parity
             // with the gate block the honesty test reads).
-            _syncUngroundedBanner(stats);
+            _syncGroundingNotices(stats);
             // Verification laser: one horizontal sweep across the rendered
             // document, per compile. Anchored to .doc-draft (not .doc-surface,
-            // which also holds the banner + empty hero).
+            // which also holds the empty hero).
             if (window.runLaserSweep) {
               runLaserSweep(document.querySelector(".doc-draft"));
             }
@@ -2732,6 +2746,7 @@
         clearIntentSlot();
         leftGroupSetTab("compiler");
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
+        if (data && Number(data.http_status) === 422) _discardStreamedDraft();
         appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
       }
@@ -2957,7 +2972,7 @@
           if (el) {
             while (el.firstChild) el.removeChild(el.firstChild);
             rows.forEach(function (f) {
-              el.appendChild(_buildSourceRow(f.filename || "", f.id));
+              el.appendChild(_buildSourceRow(f.filename || "", f.id, f));
             });
           }
           // The manifest reads the same response: filename, size, indexed date.
@@ -3028,6 +3043,10 @@
           .filter(Boolean).join(" \u00b7 ");
         row.appendChild(name);
         row.appendChild(meta);
+        // The ingest scan's verdict sits beside the source's own metadata, not
+        // in place of it: the source is still a source.
+        var flag = _buildSourceFlag(f);
+        if (flag) row.appendChild(flag);
         var counts = by[String(f.id)];
         if (counts && counts.total > 0) {
           var seen = document.createElement("span");
@@ -3090,11 +3109,10 @@
             setShell("document.mode", "ready");
             setShell("document.current", doc);
             renderJdfDocument(doc);
-            // The banner describes the document now on screen. Without this
-            // the previous project's verdict (a stale banner, or none) carried
-            // over and an ungrounded target stayed invisible. A target with no
+            // The counters describe the document now on screen. Without this
+            // the previous project's numbers carried over. A target with no
             // persisted stats derives locally, on the same verdict rule.
-            _syncUngroundedBanner((doc.meta && doc.meta.provenance_stats) || null);
+            _syncGroundingNotices((doc.meta && doc.meta.provenance_stats) || null);
           } else {
             resetStages();
             clearDocument();

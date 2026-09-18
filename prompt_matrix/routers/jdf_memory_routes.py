@@ -19,6 +19,7 @@ try:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
+    from ..services.compile_guard import scan_source_instruction_like
     from ..services.jdf_converter import JDF_BIN, JdfConversionError
     from ..services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
@@ -30,6 +31,7 @@ except ImportError:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
+    from services.compile_guard import scan_source_instruction_like
     from services.jdf_converter import JDF_BIN, JdfConversionError
     from services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
@@ -80,12 +82,21 @@ def _store_grounding_source(
                     text = str(found[0].get("extracted_text") or "")
                 break
     ensure_project(project_id)
+    hits = scan_source_instruction_like(text)
+    if hits:
+        log.warning(
+            "[substrate-scan] %s flagged instruction-like: %s",
+            filename,
+            ", ".join(hits),
+        )
     entry = upsert_substrate_entry(
         project_id,
         filename=filename,
         page_count=page_count,
         extracted_text=text,
         file_size_bytes=size_bytes,
+        instruction_like=bool(hits),
+        instruction_hits=hits,
     )
     remember_vault_file(
         project_id,
@@ -93,6 +104,10 @@ def _store_grounding_source(
         filename=filename,
         text=text,
     )
+    return {
+        "instruction_like": bool(hits),
+        "instruction_hits": hits,
+    }
 
 
 def register_jdf_memory_routes(app) -> None:
@@ -116,7 +131,7 @@ def register_jdf_memory_routes(app) -> None:
             # Before the chunk index: a compile grounds from the project's
             # substrate_file_ids, so the vault row is what makes this ingest
             # visible to the source panel and to the draft pipeline.
-            _store_grounding_source(
+            flag = _store_grounding_source(
                 project_id,
                 f.filename,
                 chunks,
@@ -124,7 +139,7 @@ def register_jdf_memory_routes(app) -> None:
                 page_count=_jdf_page_count(jdf_dict),
             )
             result = remember_jdf_document(doc_id, jdf_dict, chunks, tenant_id=project_id)
-            return jsonify({"ok": True, **result})
+            return jsonify({"ok": True, **result, **flag})
         except OmpUnavailable:  # FIX 4
             return jsonify({"error": "index temporarily unavailable, try again"}), 503
         except JdfConversionError as e:

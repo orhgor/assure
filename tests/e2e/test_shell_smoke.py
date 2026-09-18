@@ -49,16 +49,17 @@ def test_source_ids_load_on_init(active_project, browser_page, fire_intent, capt
     ), f"compile sent {len(sent_ids)} substrate_file_ids for {pid} but UI shows 3 sources"
 
 
-def test_compile_renders_document(goto_shell, browser_page, fire_intent, wait_for_render):
-    goto_shell()
+def test_compile_renders_document(active_project, browser_page, fire_intent, wait_for_render):
+    # A compile is grounded in its sources: this uses the seeded project that
+    # has them (shell-proto-54fe89). A project with no sources is refused, and
+    # test_ungrounded_compile_is_refused covers that path.
     fire_intent("summarize the key CPT codes")
     wait_for_render()
     nodes = browser_page.locator(".doc-draft .jdf-node").count()
     assert nodes > 0, "compile produced no .jdf-node elements in the canvas"
 
 
-def test_click_paragraph_opens_inspector(goto_shell, browser_page, fire_intent, wait_for_render):
-    goto_shell()
+def test_click_paragraph_opens_inspector(active_project, browser_page, fire_intent, wait_for_render):
     fire_intent("summarize the key CPT codes")
     wait_for_render()
     browser_page.locator(".doc-draft .jdf-node").first.click()
@@ -72,12 +73,19 @@ def test_click_paragraph_opens_inspector(goto_shell, browser_page, fire_intent, 
     ), "inspector Evidence tab rendered no evidence header"
 
 
-def test_ungrounded_banner_fires(goto_shell, browser_page, fire_intent, wait_for_render):
+def test_ungrounded_compile_is_refused(goto_shell, browser_page, fire_intent):
+    """The ungrounded banner is gone, and the state it described is gone with it.
+
+    A fresh project has no sources, so nothing can ground a draft: the compile
+    is refused (HTTP 422, nothing persisted) and the refusal is the document
+    column's notice. A banner over a rendered document is the defect this
+    replaced."""
     goto_shell()
     fire_intent("what is ferrari")
-    wait_for_render()
-    count = browser_page.locator(".doc-ungrounded-banner").count()
-    assert count <= 1, f"expected at most one ungrounded banner, found {count}"
+    browser_page.wait_for_selector(".doc-error", timeout=240000)
+    assert browser_page.locator(".doc-ungrounded-banner").count() == 0
+    text = browser_page.locator(".doc-error").first.inner_text()
+    assert "could not be grounded in the source" in text, f"unexpected refusal: {text!r}"
 
 
 def test_version_chip_hidden_at_one_revision(goto_shell, browser_page):

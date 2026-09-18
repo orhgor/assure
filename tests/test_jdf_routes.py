@@ -596,23 +596,44 @@ def test_compile_persists_audited_confidence_spans(monkeypatch, tmp_path):
     init_db()
     client = create_app(require_auth=False).test_client()
 
+    # A compile is grounded or not persisted (services/compile_guard): the
+    # fixture carries one source and a draft that quotes it.
+    source = "The policy liability limit is set at $5,000,000 for combined single limit."
+
     def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
-        yield ("Revenue is 100 per CMS Bulletin p.4.", 10, 5, "test/draft-model")
+        yield (source, 10, 5, "test/draft-model")
 
     def fake_locks(_text):
         return [
             {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
         ], "test/lock-model"
 
+    def stub_check(_claim, _source, *, project_id=""):
+        return {
+            "verdict": "yes",
+            "reasoning": "The source states it.",
+            "model": "test/entailment-model",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
+
     monkeypatch.setattr(draft_mod, "_stream_model", fake_stream)
     monkeypatch.setattr(draft_mod, "run_lock_inference", fake_locks)
+    monkeypatch.setattr(draft_mod, "check_entailment", stub_check)
+    monkeypatch.setattr(
+        draft_mod,
+        "fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}],
+    )
 
     project_id = "compile-spans"
     version_before = current_document_version(project_id)
 
     events: list[dict] = []
     for frame in draft_mod.run_draft_pipeline(
-        project_id, intent="Summarize revenue.", governor=_FakeGovernor()
+        project_id,
+        intent="Restate the liability limit.",
+        substrate_file_ids=["sub-1"],
+        governor=_FakeGovernor(),
     ):
         for line in frame.strip().split("\n"):
             if line.startswith("data: ") and line[6:].strip() != "[DONE]":

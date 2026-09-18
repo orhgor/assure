@@ -56,8 +56,15 @@ def save_substrate_entry(
     forms: list[dict[str, Any]] | None = None,
     entry_id: str | None = None,
     file_size_bytes: int = 0,
+    instruction_like: bool = False,
+    instruction_hits: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Persist a Textract extraction in substrate_vault."""
+    """Persist a Textract extraction in substrate_vault.
+
+    ``instruction_like``/``instruction_hits`` are the ingest scan's verdict
+    (``services/compile_guard.scan_source_instruction_like``). Stored rather than
+    re-derived on read so the SOURCES pane does not pull every source's text.
+    """
     init_db()
     db = get_db()
     vault_id = entry_id or f"sub-{uuid.uuid4().hex[:16]}"
@@ -65,8 +72,9 @@ def save_substrate_entry(
         """
         INSERT INTO substrate_vault (
             id, project_id, filename, page_count,
-            extracted_text, tables_json, forms_json, file_size_bytes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            extracted_text, tables_json, forms_json, file_size_bytes,
+            instruction_like, instruction_hits
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             vault_id,
@@ -77,6 +85,8 @@ def save_substrate_entry(
             json.dumps(tables or []),
             json.dumps(forms or []),
             int(file_size_bytes or 0),
+            1 if instruction_like else 0,
+            json.dumps(list(instruction_hits or [])),
         ),
     )
     db.commit()
@@ -90,6 +100,8 @@ def save_substrate_entry(
         "tables": tables or [],
         "forms": forms or [],
         "file_size_bytes": int(file_size_bytes or 0),
+        "instruction_like": bool(instruction_like),
+        "instruction_hits": list(instruction_hits or []),
     }
 
 
@@ -102,6 +114,8 @@ def upsert_substrate_entry(
     tables: list[dict[str, Any]] | None = None,
     forms: list[dict[str, Any]] | None = None,
     file_size_bytes: int = 0,
+    instruction_like: bool = False,
+    instruction_hits: list[str] | None = None,
 ) -> dict[str, Any]:
     """Persist an extraction as this project's row for `filename`, replacing its text.
 
@@ -131,13 +145,15 @@ def upsert_substrate_entry(
             tables=tables,
             forms=forms,
             file_size_bytes=file_size_bytes,
+            instruction_like=instruction_like,
+            instruction_hits=instruction_hits,
         )
     vault_id = str(row[0])
     db.execute(
         """
         UPDATE substrate_vault
         SET page_count = ?, extracted_text = ?, tables_json = ?, forms_json = ?,
-            file_size_bytes = ?
+            file_size_bytes = ?, instruction_like = ?, instruction_hits = ?
         WHERE project_id = ? AND id = ?
         """,
         (
@@ -146,6 +162,8 @@ def upsert_substrate_entry(
             json.dumps(tables or []),
             json.dumps(forms or []),
             int(file_size_bytes or 0),
+            1 if instruction_like else 0,
+            json.dumps(list(instruction_hits or [])),
             project_id,
             vault_id,
         ),
@@ -161,33 +179,51 @@ def upsert_substrate_entry(
         "tables": tables or [],
         "forms": forms or [],
         "file_size_bytes": int(file_size_bytes or 0),
+        "instruction_like": bool(instruction_like),
+        "instruction_hits": list(instruction_hits or []),
     }
 
 
 def list_substrate_for_project(project_id: str) -> list[dict[str, Any]]:
-    """List vault entries for a project (no extracted_text — keep the list light)."""
+    """List vault entries for a project (no extracted_text — keep the list light).
+
+    Carries the ingest scan's flag and its matched phrases, so the SOURCES pane
+    can label an instruction-like source without pulling its text.
+    """
     init_db()
     db = get_db()
+    cols = {r[1] for r in db.execute("PRAGMA table_info(substrate_vault)").fetchall()}
+    has_flag = "instruction_like" in cols and "instruction_hits" in cols
+    flag_expr = "instruction_like, instruction_hits" if has_flag else "0, '[]'"
     rows = db.execute(
-        """
-        SELECT id, filename, page_count, file_size_bytes, included, created_at
+        f"""
+        SELECT id, filename, page_count, file_size_bytes, included, created_at,
+               {flag_expr}
         FROM substrate_vault
         WHERE project_id = ?
         ORDER BY created_at DESC
         """,
         (project_id,),
     ).fetchall()
-    return [
-        {
-            "id": row[0],
-            "filename": row[1],
-            "page_count": int(row[2] or 1),
-            "file_size_bytes": int(row[3] or 0),
-            "included": bool(row[4]),
-            "created_at": row[5],
-        }
-        for row in rows
-    ]
+    entries: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            hits = json.loads(row[6] or "[]")
+        except (TypeError, ValueError):
+            hits = []
+        entries.append(
+            {
+                "id": row[0],
+                "filename": row[1],
+                "page_count": int(row[2] or 1),
+                "file_size_bytes": int(row[3] or 0),
+                "included": bool(row[4]),
+                "created_at": row[5],
+                "instruction_like": bool(row[6]),
+                "instruction_hits": hits if isinstance(hits, list) else [],
+            }
+        )
+    return entries
 
 
 def delete_substrate_entry(project_id: str, file_id: str) -> bool:

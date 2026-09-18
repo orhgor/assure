@@ -298,9 +298,11 @@ def wait_for_verified(browser_page):
 
         wait_for_render waits for `.jdf-node` (the compiled event); the gate
         block is written right before `verified`, so reading the DB right after
-        wait_for_render can see the PREVIOUS compile's gate."""
+        wait_for_render can see the PREVIOUS compile's gate. A refused compile
+        persists nothing and never reaches `verified`: it ends in the refusal
+        notice (`draft.py`'s 422 message), which is the other terminal state."""
         browser_page.wait_for_function(
-            "() => document.querySelector('.doc-ungrounded-banner') "
+            "() => document.querySelector('.doc-error') "
             "|| document.querySelector('.jdf-node .conf-span')",
             timeout=timeout,
         )

@@ -22,5 +22,5 @@ value).
 
 If SSE capture fails, do NOT skip or fail the test — drop the SSE assertion
 in that test and rely on DB == PDF. The three intra-layer tests
-(`test_z3_pass_is_earned`, `test_banner_matches_anchored`,
+(`test_z3_pass_is_earned`, `test_injection_outcome_matches_persisted_revisions`,
 `test_export_without_gate_is_honest`) still exercise SSE.

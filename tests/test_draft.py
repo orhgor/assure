@@ -69,16 +69,34 @@ def test_verify_locks_zero_metrics_is_skipped_not_pass():
 
 def test_run_draft_pipeline_progressive(monkeypatch):
     """Draft pipeline ends at "verified" (Math Check gate). Red-Hat is
-    opt-in and never runs automatically — see test_run_redhat_pipeline."""
+    opt-in and never runs automatically — see test_run_redhat_pipeline.
+
+    The compile is grounded: a draft is refused before the gate unless its
+    opening is in the source and a paragraph anchors to it
+    (``services/compile_guard``), so this fixture carries one source and a
+    draft that quotes it."""
+    source = "The policy liability limit is set at $5,000,000 for combined single limit."
+    # The metric line is its own paragraph: the anchor matcher compares a whole
+    # paragraph to a source sentence, so a second sentence in the same paragraph
+    # dilutes the quote below the match threshold.
+    draft = source + "\n\nRevenue=100."
 
     def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
-        yield 'event: token\ndata: {"type": "token", "delta": "Hello"}\n\n'
-        yield ("Hello world with Revenue=100", 10, 5, "anthropic/claude-3-5-sonnet-20241022")
+        yield 'event: token\ndata: {"type": "token", "delta": "Revenue"}\n\n'
+        yield (draft, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
 
     def fake_locks(_text):
         return [
             {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
         ], "deepseek/deepseek-chat"
+
+    def stub_check(_claim, _source, *, project_id=""):
+        return {
+            "verdict": "yes",
+            "reasoning": "The source states it.",
+            "model": "stub/model",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
 
     def fail_if_called_redhat(*_a, **_k):
         raise AssertionError("run_redhat_audit must not be called by run_draft_pipeline")
@@ -86,11 +104,17 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", fail_if_called_redhat)
+    monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}],
+    )
 
     frames = list(
         run_draft_pipeline(
             "default",
-            intent="Draft a one-line summary.",
+            intent="Restate the revenue.",
+            substrate_file_ids=["sub-1"],
             governor=_FakeGovernor(),
         )
     )
@@ -122,10 +146,14 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     assert verified["z3_status"] == "PASS"
     assert verified["redhat_count"] == 0
     assert verified["redhat_critiques"] == []
-    # No substrate in this fixture → nothing is anchored → honest gate
-    # returns 'review' instead of the old unconditional 'pass'.
-    assert verified["gate_status"] == "review"
-    assert verified["ok"] is False
+    # The paragraph quotes its source and the entailment check read it, so the
+    # gate is earned: Z3 PASS over a verified claim. (A compile with no
+    # entangled claim returns 'review' instead — see
+    # test_run_draft_pipeline_verifies_anchored_claims.)
+    assert verified["provenance_stats"]["anchored"] == 1
+    assert verified["provenance_stats"]["supported"] == 1
+    assert verified["gate_status"] == "pass"
+    assert verified["ok"] is True
     assert "document" in verified
 
     assert any(f.strip() == "data: [DONE]" for f in frames)

@@ -16,7 +16,25 @@ try:
 except ImportError:
     from history import _apply_pragmas, _new_connection, get_db
 
-_SCHEMA_VERSION = 24
+_SCHEMA_VERSION = 25
+
+
+def _migrate_v25(db: sqlite3.Connection) -> None:
+    """Substrate Vault: the ingest scan for instruction-like source content.
+
+    Flagged at ingest, read by the SOURCES pane and by the compile, which wraps
+    a flagged source's text in the untrusted-data delimiter
+    (``services/compile_guard``). The source still ingests — the user's document
+    is the user's document — so the flag is a label, not a gate.
+    """
+    if not _column_exists(db, "substrate_vault", "instruction_like"):
+        db.execute(
+            "ALTER TABLE substrate_vault ADD COLUMN instruction_like INTEGER NOT NULL DEFAULT 0"
+        )
+    if not _column_exists(db, "substrate_vault", "instruction_hits"):
+        db.execute(
+            "ALTER TABLE substrate_vault ADD COLUMN instruction_hits TEXT NOT NULL DEFAULT '[]'"
+        )
 
 
 def _migrate_v24(db: sqlite3.Connection) -> None:
@@ -921,6 +939,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v23(db)
     if current < 24:
         _migrate_v24(db)
+    if current < 25:
+        _migrate_v25(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
