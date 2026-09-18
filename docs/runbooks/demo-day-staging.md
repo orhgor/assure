@@ -1,10 +1,10 @@
 # Demo-day runbook — the shell on staging
 
 **Scope:** running the Boston RE insurance demo on the deployed shell prototype.
-**Deployed revision:** `8115964` (`prototype/shell-skeleton`) on `i-03e39eccc57572191`.
+**Deployed revision:** `1cde23b` (`prototype/shell-skeleton`) on `i-03e39eccc57572191`.
 **Verified:** 2026-09-18, against `https://staging.getassureai.com` (the box checkout is
 `/home/ubuntu/assure-prototype`; `prototype/shell.js|shell.css|index.html` are byte-identical
-to the committed revision — md5 `ee0cd258…`, `6a5ac208…`, `698016cb…`).
+to the committed revision — md5 `4cdd8ec5…`, `a6d63834…`, `698016cb…`).
 
 ---
 
@@ -47,7 +47,7 @@ artefact is `/home/ubuntu/.omp/` holding the server DB and key).
 | App health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/api/health` | `200` |
 | Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `200` |
 | Public shell | `curl -s -o /dev/null -w '%{http_code}' https://staging.getassureai.com/` | `200` |
-| Build identity | `md5sum prototype/shell.js` in the box checkout | `ee0cd258c9520d75b9cc5eee22166d5b` |
+| Build identity | `md5sum prototype/shell.js` in the box checkout | `4cdd8ec591c997d6154eb854d51c6da7` |
 | Browser | 1440×900 or larger, **zoom 100 %** | see §7 |
 
 All six commands above were run for this revision and returned exactly those values.
@@ -78,7 +78,7 @@ rehearsal that ends mid-run still lands a version:
 
 ```bash
 PID=demo-3235f5
-curl -s -X DELETE "https://staging.getassureai.com/api/projects/$PID"    # deletes project + document + sources
+curl -s -X DELETE "https://staging.getassureai.com/api/projects/$PID"    # deletes the projects row (see below)
 # then re-seed as above, and re-select the project in the shell
 ```
 
@@ -86,8 +86,14 @@ On the box, a project's current document is
 `/home/ubuntu/assure-prototype/prompt_matrix/projects/<project_id>/document.jdf`; version
 history, substrate rows and JDF rows live in the single SQLite file
 `/home/ubuntu/assure-prototype/prompt_matrix/history.sqlite` (`substrate_vault`,
-`jdf_documents`, `projects`). Deleting the row without deleting the project directory leaves
-an orphan tree — prefer the API call, which does both.
+`jdf_documents`, `projects`). **The API call deletes the `projects` row only** — measured
+2026-09-18, `DELETE /api/projects/<id>` returned `200 {"ok":true}` and left 18 `jdf_revisions`,
+1 `substrate_vault`, 1 `jdf_documents`, 3 `node_revisions`, 27 `audit_log`, 82
+`token_ledger_entries` and 8 `pipeline_cache` rows plus the project directory behind, because
+the `ON DELETE CASCADE` clauses never fire (SQLite runs with `PRAGMA foreign_keys` off). The
+switcher reads `projects`, so the reset still works for the demo — the project is gone from the
+shell and re-seeding makes a new id — but the orphan rows and directory stay on disk. Clear
+them by id if the box is to be handed over clean.
 
 ---
 
@@ -175,6 +181,15 @@ that it plays when staging does not.
 - **Red-Hat is per node and one at a time.** While a run is in flight every other node's Run
   button is disabled ("A Red-Hat run is in progress on another node."). Section nodes are not
   auditable — say "paragraph" when you point at one.
+- **The source scan is a fixed nine-phrase list.** `services/compile_guard.py:FLAG_PHRASES`
+  matches nine literal phrases (`ignore previous`, `disregard the above`, `output only`, …), so
+  a novel phrasing of an order is not caught by the scan — the pre-validator catches the
+  injected token instead, by refusing the draft it produces.
+- **A refusal replaces the stream within 2 s.** When the validator refuses, the streamed text
+  is replaced by a single refusal card ("could not be grounded in the source. Nothing was
+  saved."), not an error frame: measured `error` frame → card **6 ms**, last streamed token →
+  card **1016 ms**, and the refused run leaves Draft marked failed with no later stage ticked.
+  It is not a hang — do not wait for it, and do not re-run it live.
 
 ---
 
