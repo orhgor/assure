@@ -4,7 +4,9 @@
 **Deployed revision:** `1cde23b` (`prototype/shell-skeleton`) on `i-03e39eccc57572191`.
 **Verified:** 2026-09-18, against `https://staging.getassureai.com` (the box checkout is
 `/home/ubuntu/assure-prototype`; `prototype/shell.js|shell.css|index.html` are byte-identical
-to the committed revision — md5 `4cdd8ec5…`, `a6d63834…`, `698016cb…`).
+to the committed revision — md5 `dd19e06d…`, `4f62719e…`, `968b6843…`, re-measured after the
+hygiene pass recorded in §3a). The fixture material this runbook used to read out of
+`docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 ---
 
@@ -21,8 +23,8 @@ which reached this box over the VPC (`172.31.8.21:8891`); that hop is gone. All 
 (`app.`, `prototype.`, `staging.`) serve the same bytes: authenticated `GET /` returned 200 and
 md5 `5a69c864134c95e125d46c156e58330c` from each, matching the box checkout. The shell's
 `<title>` is `Assure` (was `Assure AI — Shell Prototype`) and a shell-created project is titled
-`Untitled` (was `shell-proto`); the `prototype/index.html` md5 in the front matter above is
-superseded by the value just quoted. Certificates need no action: the zone's universal cert
+`workspace` (was `Untitled`, before that `shell-proto`); the `prototype/index.html` md5 in the
+front matter above is superseded by the value just quoted. Certificates need no action: the zone's universal cert
 already covers `*.getassureai.com` (Google Trust Services WE1, 2026-09-01 → 2026-11-30).
 
 ---
@@ -66,34 +68,48 @@ artefact is `/home/ubuntu/.omp/` holding the server DB and key).
 | App health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/api/health` | `200` |
 | Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `302` — the entry gate's redirect to `/auth`; the shell itself is `200` with `-H "X-Shell-Key: $SHELL_ACCESS_KEY"` |
 | Public shell | `curl -s -o /dev/null -w '%{http_code}' -L https://staging.getassureai.com/` | `200` |
-| Build identity | `md5sum prototype/shell.js` in the box checkout | `4cdd8ec591c997d6154eb854d51c6da7` |
+| Build identity | `md5sum prototype/shell.js` in the box checkout | `dd19e06d90a0ce18140da43757d556b0` |
 | Browser | 1440×900 or larger, **zoom 100 %** | see §7 |
 
-All six commands above were run for this revision and returned exactly those values.
+All six commands above were run again after the 2026-09-18 hygiene pass (§3a) and returned
+exactly those values.
 
 ---
 
 ## 3. The demo project
 
-**Project id: `demo-3235f5`** (title `demo`). It is the project the shell opens on the demo
-machine (`localStorage.assure_project_id`), and it is the one the probes and the H6 run used.
+**Project id: `demo-3235f5`** (stored title `demo`). It is the project the shell opens on the
+demo machine (`localStorage.assure_project_id`), and it is the one the probes and the H6 run used.
 
-**Seeding it from scratch** (only needed if it is deleted):
+**It is DB-preserved: do not re-seed it for demo day.** The 2026-09-18 hygiene pass moved the
+fixture files off this branch and left every row where it was — the frozen document (§10.1,
+`v44`, 3 paragraphs, 3 anchored) and all 44 `jdf_revisions` included (§3b). Seeding makes a new
+id, and the frozen numbers stay with the old one, so it is the **last resort** — never a
+pre-flight step, and never done live.
+
+**Seeding it from scratch** (only if the row is gone), with the source from the
+`test-fixtures` branch (§4):
 
 ```bash
+git worktree add /tmp/fixtures test-fixtures
+
 PID=$(curl -s -X POST https://staging.getassureai.com/api/projects \
   -H 'Content-Type: application/json' -d '{"title":"demo"}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')
 
 curl -s -X POST "https://staging.getassureai.com/api/projects/$PID/substrate/upload" \
-  -F 'file=@docs/demo/insurance-boston-real-estate/assets/naic-underwriting-policy-redacted.md'
+  -F 'file=@/tmp/fixtures/docs/demo/insurance-boston-real-estate/assets/naic-underwriting-policy-redacted.md'
 ```
 
 …then open the shell on that project (project switcher, top-left) and run the intent (§5).
 The upload returns the substrate `id`; the compile must be given it as `substrate_file_ids`
-(the shell does this from the project's source list — `included: true`).
+(the shell does this from the project's source list — `included: true`). The `{"title":"demo"}`
+there is data, not copy — it reproduces the row the switcher already lists, so §6's recovery
+step still matches it.
 
-**Resetting it** — the demo project accumulates a version per run and per audit, and a
-rehearsal that ends mid-run still lands a version:
+**Resetting it — last resort.** This deletes the frozen document and the 44 revisions with it;
+§3 and §9 say why not to do it for demo day. It is here for the case where the row is already
+gone. The demo project accumulates a version per run and per audit, and a rehearsal that ends
+mid-run still lands a version:
 
 ```bash
 PID=demo-3235f5
@@ -120,11 +136,73 @@ pre-`97246c9` deletions). The switcher reads `projects`, so the reset still work
 — the project is gone from the shell and re-seeding makes a new id — but the orphan rows and
 the project directory stay on disk. Clear them by id if the box is to be handed over clean.
 
+### 3a. Visible copy — the 2026-09-18 hygiene pass
+
+Two display strings changed, and nothing else:
+
+| Surface | Before | After |
+|---|---|---|
+| The switcher's own default label, and the title a shell-created project gets (`prototype/index.html:75`, `prototype/shell.js` ×7) | `Untitled` | `workspace` |
+| The About page's lead on the buyer's questions (`prototype/about.html:136`) | "Twelve questions. Each one has a specific answer the **demo** can show." | "…the **workspace** can show." |
+
+The internal `demo` names stay: `demo-redhat-btn`, the `demo-chip` class, `demo.redhat.*`,
+`landing.demo.*`, the `assure:demo-redhat-audit` event. They are identifiers a client never
+reads, and they are not copy.
+
+**The project row's title is still `demo`, deliberately.** `projects.title` is a persisted value
+— the switcher draws it straight from `GET /api/projects` — so this pass left the row alone. A
+rewrite of stored data is a migration (backup first, owner's call), not a copy change; the
+strings in the table above are the copy, the row is data. If the owner ever wants the switcher
+to read `workspace` for this project, that is one row, with a DB backup first:
+
+```bash
+# NOT run in the pass above — a stored-value rewrite is a migration, not a copy change.
+# sqlite3 prompt_matrix/history.sqlite "UPDATE projects SET title='workspace' WHERE id='demo-3235f5';"
+```
+
+Verified after the pass against the **served** bytes on the box (not the source tree): `GET /`
+line 75 reads `<span id="project-current-name">workspace</span>`; served `shell.js` carries
+7 × `"workspace"` and 0 × `"Untitled"`; served `about.html` carries "the workspace can show" and
+**zero** occurrences of `demo`.
+
+**Why the quoted md5 can move.** The box checkout is the deployment target for sibling changes
+too, so any sibling deploy rewrites `prototype/shell.js` — and the §2 pre-flight value with it.
+Re-measure before an audience; the strings above are the durable check.
+
+### 3b. The post-pass live check, 2026-09-18
+
+Read-only on the box, through the served path (`:8891`, gate header) and the app's SQLite:
+
+| Item | Value |
+|---|---|
+| `GET /api/projects` | `200`, 126 projects, `demo-3235f5` present |
+| The row | `title="demo"`, `current_version=44`, `created_at=2026-09-18 14:09:34`, `node_count=3`, `source_count=1`, `status=ready_to_export` |
+| Rows that reference it | `jdf_revisions` **44** (v1–v44), `jdf_documents` 1, `substrate_vault` 1, `node_revisions` 2, `pipeline_cache` 47, `token_ledger_entries` 192, `audit_log` 63, `user_activity_log` 356 |
+| `GET /api/projects/demo-3235f5/jdf` → `200` | 1 section (*Massachusetts Commercial Real Estate Underwriting Obligations Summary*), **3** paragraphs, **3** anchored, 5 confidence spans |
+| `POST …/draft/stream` with the §5 intent and source `sub-d3eab1f0fa9c486d` | `200`; frames `status → compiled → verified → complete` (`ok: true`); **cache-warm** (`omp_cached: true`, `cache_key=ast:demo-3235f5:1e9c9516`, 0.02 s); `provenance_stats` = eligible **3** / anchored **3** / supported **2** / partial **1** / unsupported **0** / unverified **0**; **no new revision**, so the frozen `v44` stands |
+
+The compile was deliberately **not** re-run cold: a cold run persists `v45` and replaces the
+document §10.1 pins, and §7 forbids re-running live to move a counter. No row was deleted by
+this pass.
+
 ---
 
-## 4. The fixture
+## 4. The fixture — now on the `test-fixtures` branch
 
-**Fixture path:** `docs/demo/insurance-boston-real-estate/assets/`
+**Location: branch `test-fixtures`, commit `e1d589c`** (path unchanged —
+`docs/demo/insurance-boston-real-estate/assets/`, 14 files). The fixtures left this branch on
+2026-09-18 so a production checkout carries no demo material; the project row they seed did
+**not** move (§3).
+
+Retrieve them:
+
+```bash
+git worktree add /tmp/fixtures test-fixtures
+ls /tmp/fixtures/docs/demo/insurance-boston-real-estate/assets/
+```
+
+`git show test-fixtures:docs/demo/insurance-boston-real-estate/assets/<file>` prints a single
+file without a checkout. In that asset directory:
 — `naic-underwriting-policy-redacted.md` (1.7 KB, the source the demo uses),
 `naic-underwriting-policy-redacted.pdf` (same text as PDF, for the Ingest path),
 `rating-engine-config.json` / `-corrected.json` (the drift), `one-pager.md`, `slides.md`.
@@ -132,9 +210,10 @@ the project directory stay on disk. Clear them by id if the box is to be handed 
 `fixtures/real-estate-insurance/` in this checkout is **empty** — do not look for the demo
 source there.
 
-**Reset the fixture:** the files are committed, so `git checkout -- docs/demo/` restores them.
-There is no fixture state on the box beyond the uploaded substrate row for the project — that
-is reset by resetting the project (§3).
+**Reset the fixture:** there is nothing on this branch to reset — the files are on
+`test-fixtures`, and `git worktree add /tmp/fixtures test-fixtures` is the whole recovery. The
+only fixture state on the box is the preserved project's uploaded substrate row
+(`sub-d3eab1f0fa9c486d`); do not re-upload it before an audience (§3).
 
 ---
 
@@ -309,9 +388,13 @@ Say these, in these words; they are the measured facts, not aspirations.
 
 ## 9. After the demo
 
-Reset or re-seed the demo project (§3), delete any project created during the demo
-(`DELETE /api/projects/<id>`), and note anything that failed in
-`docs/demo/insurance-boston-real-estate/feedback-template.md`.
+**Do not reset the demo project** — it is DB-preserved and frozen at `v44` (§3, §3b). Delete any
+*other* project created during the demo (`DELETE /api/projects/<id>`), and note anything that
+failed in the feedback template, which now lives on the fixtures branch:
+
+```bash
+git show test-fixtures:docs/demo/insurance-boston-real-estate/feedback-template.md
+```
 
 ---
 
