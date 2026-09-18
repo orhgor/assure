@@ -107,8 +107,8 @@ try:
 except ImportError:
     from config.system_prompt import PEM_BASE_INSTRUCTION, _PEM_DOMAIN
 
-# _DRAFT_SYSTEM kept (unreferenced) for one week as a rollback path if
-# _COMPILE_SYSTEM (the merged prompt) regresses output quality.
+# _DRAFT_SYSTEM is not dead: _COMPILE_SYSTEM (the merged prompt) is built
+# from it below, and the compile path sends _COMPILE_SYSTEM.
 _DRAFT_SYSTEM = (
     "You are Assure document engineering, grounded in the "
     "user's uploaded sources. No live internet, no invented "

@@ -676,7 +676,7 @@ body.collapsed .pane-left {
 
 /* ---- Dock JDF column (ingest + search) ----
    Same surfaces as the dock prompt input (--bg-surface on the rail tier),
-   geometry borrowed from .btn-secondary / .evidence-suggestion-input. */
+   geometry borrowed from .btn-secondary. */
 .dock-jdf {
   grid-column: 3;
   display: flex;
@@ -1294,16 +1294,8 @@ body.collapsed .pane-left {
   background: var(--danger);
   color: #fff;
 }
-.chip-redhat.resolved,
-.chip-redhat.dismissed {
-  color: var(--verified);
-  background: var(--success-soft);
-}
-.chip-redhat.resolved:hover,
-.chip-redhat.dismissed:hover {
-  background: var(--verified);
-  color: #fff;
-}
+/* No .chip-redhat.resolved / .dismissed: findings have no closing state —
+   nothing writes anything but "open" (see the Dismiss removal). */
 
 /* Confidence spans */
 .conf-span {
@@ -1390,16 +1382,12 @@ body.collapsed .pane-left {
   background: var(--success-soft);
   color: var(--success-text);
 }
-.evidence-status.violation,
-.evidence-status.open {
+.evidence-status.violation {
   background: var(--danger-soft);
   color: var(--danger-text);
 }
-.evidence-status.resolved,
-.evidence-status.dismissed {
-  background: var(--success-soft);
-  color: var(--success-text);
-}
+/* .evidence-status.open / .resolved / .dismissed went with the Red-Hat
+   drawer route: only z3 (violation | pass) writes this badge now. */
 
 /* Evidence footer actions */
 .evidence-footer {
@@ -1450,35 +1438,24 @@ body.collapsed .pane-left {
   border-color: var(--danger-text);
 }
 
-/* Revision preview area */
-.evidence-revision-preview {
-  margin: 12px 0;
-  padding: 12px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  color: var(--text-primary);
-  line-height: var(--lh-body);
-  max-height: 300px;
-  overflow-y: auto;
-}
-.evidence-suggestion-input {
+/* Revision preview + suggestion textarea went with performRevision and the
+   Red-Hat drawer route: nothing produces either class now. */
+
+/* Red-Hat pane: one run action pinned above the findings list. */
+#right-redhat .evidence-content > .evidence-action {
+  /* .evidence-action is authored for a horizontal footer (flex: 1 1 0);
+     in this column stack that grows the button to fill the pane. */
+  flex: 0 0 auto;
   width: 100%;
-  min-height: 80px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 13px;
-  line-height: var(--lh-body);
-  resize: vertical;
 }
-.evidence-suggestion-input:focus {
-  outline: none;
-  border-color: var(--accent);
+.redhat-finding {
+  cursor: pointer;
+}
+.redhat-finding:hover {
+  color: var(--trust-blue);
+}
+.redhat-error {
+  color: var(--danger-text);
 }
 
 /* ---- Confidence legend (always visible above the doc) ---- */

@@ -817,7 +817,6 @@
     // Document area helpers
     // ---------------------------------------------------------------
     var draftEl = null;
-    var currentJdfDocument = null;
     function ensureDraftArea() {
       setShell("document.mode", "streaming");
       if (draftEl) return draftEl;
@@ -845,7 +844,6 @@
       setShell("document.mode", "empty");
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
-      currentJdfDocument = null;
       var existing = docSurface ? docSurface.querySelectorAll(".doc-error") : [];
       for (var i = 0; i < existing.length; i++) existing[i].remove();
       var banner = document.querySelector(".doc-ungrounded-banner");
@@ -1496,7 +1494,7 @@
       return { nodeId: nodeId, created: created };
     }
 
-    function _attachNodeRephrase(nodeId) {
+    function _attachNodeRephrase(nodeId, initialValue) {
       _removeNodeRephrase();
       __rephraseBusy = false;
       if (!nodeId || !draftEl) return;
@@ -1508,6 +1506,9 @@
       input.type = "text";
       input.placeholder = "Rephrase this paragraph…";
       input.setAttribute("aria-label", "Rephrase this paragraph");
+      // A Red-Hat finding is already phrased as an instruction, so opening
+      // the editor from one seeds the field instead of asking for it again.
+      if (initialValue) input.value = String(initialValue);
       var submit = document.createElement("button");
       submit.type = "button"; submit.setAttribute("data-action", "submit"); submit.textContent = "Rewrite";
       var cancel = document.createElement("button");
@@ -1657,10 +1658,193 @@
       });
     }
 
+    // ---------------------------------------------------------------
+    // Red-Hat audit trigger — explicit, per-node, re-runnable. Its own
+    // parser pair rather than parseSseLoop: parseSseLoop's two consumers
+    // feed different endpoints and it carries the compile stage machine,
+    // which this stream does not speak.
+    // ---------------------------------------------------------------
+    var __redhatRunning = false;
+    var __redhatStartedAt = 0;
+    var __redhatTimer = null;
+    var __redhatError = null;
+
+    function _redhatElapsedSeconds() {
+      if (!__redhatRunning) return 0;
+      return Math.max(0, Math.round((Date.now() - __redhatStartedAt) / 1000));
+    }
+    function _redhatStopTimer() {
+      if (__redhatTimer) { clearInterval(__redhatTimer); __redhatTimer = null; }
+    }
+    // The route emits one status frame and then ~35 s of model silence. A
+    // disabled button with no motion reads as broken, so the counter is the
+    // run's only proof of life until the finding lands.
+    function _redhatTick() {
+      if (!__redhatRunning) { _redhatStopTimer(); return; }
+      var s = _redhatElapsedSeconds();
+      var btn = redhatModeEl ? redhatModeEl.querySelector(".redhat-run") : null;
+      if (btn) btn.textContent = "Running Red-Hat… (" + s + "s)";
+      var statusEl = redhatModeEl ? redhatModeEl.querySelector(".redhat-status") : null;
+      if (statusEl) statusEl.textContent = "Running… " + s + " s";
+    }
+    function _redhatFindingText(r) {
+      if (!r) return "";
+      if (typeof r === "string") return r;
+      // The audit route writes {title, content, model}; the annotation writer
+      // writes {id, text, status}. Read text, then content.
+      return String(r.text || r.content || "").trim();
+    }
+    // __redhatState is compiled per draft run and never reset, so it can only
+    // ever be context for the findings list — never the list itself.
+    function _redhatLastPass() {
+      var st = __redhatState;
+      if (!st || !st.status) return "";
+      if (st.status === "failed") return "Last pass: failed";
+      if (st.status === "skipped") return "Last pass: skipped";
+      var n = st.findings_count || 0;
+      return "Last pass: ran, " + n + " finding" + (n === 1 ? "" : "s");
+    }
+
+    function _handleRedhatFrame(frame, cb) {
+      if (!frame) return;
+      var ev = ""; var dataStr = "";
+      frame.split(/\r?\n/).forEach(function (line) {
+        if (line.indexOf("event:") === 0) ev = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataStr += line.slice(5).trim();
+      });
+      // _done_sse() is a bare "data: [DONE]" with no event: line, so it lands
+      // here and falls out. The run ends on reader completion, not on it.
+      if (!ev || !dataStr) return;
+      var data = null;
+      try { data = JSON.parse(dataStr); } catch (_) { return; }
+      if (!data || typeof data !== "object") return;
+      if (ev === "status") {
+        if (data.stage === "persist_failed") {
+          // Node-scoped only: the audit ran, the write lost a version race.
+          // detail is a dict ({"reason": "conflict", "latest_version": n}).
+          var detail = data.detail;
+          var why = (detail && typeof detail === "object")
+            ? String(detail.reason || detail.message || "revision conflict")
+            : String(detail || "revision conflict");
+          cb("persist_failed", why);
+        } else if (typeof data.message === "string" &&
+                   data.message.indexOf("Running Stress Test") === 0) {
+          cb("started", data.message);
+        }
+      } else if (ev === "audit_complete") {
+        cb("audit_complete", data);
+      } else if (ev === "complete") {
+        cb("complete", data);
+      } else if (ev === "error") {
+        cb("error", data);
+      }
+    }
+
+    function _runRedhatAudit(nodeId) {
+      if (__redhatRunning) return;
+      var pid = _activeProjectId();
+      var doc = SHELL.document.current || null;
+      var startNode = doc ? findJdfNodeById(nodeId, doc) : null;
+      var draftText = startNode ? String(startNode.content || "").trim() : "";
+      // RedhatPayload requires draft_text (min_length 1) and a document; the
+      // document is parsed as a JDFDocumentTree, so document_id is required.
+      if (!pid || !doc || !startNode || !draftText) return;
+      if (!doc.document_id) doc.document_id = _documentIdFor(pid);
+      var body = {
+        draft_text: draftText,
+        document: doc,
+        target_node_id: nodeId,
+      };
+      var sseEndpoint = "/api/projects/" + encodeURIComponent(pid) + "/draft/redhat/stream";
+      var sseStartedAt = Date.now();
+      var sseTokens = 0;
+      __redhatRunning = true;
+      __redhatError = null;
+      __redhatStartedAt = Date.now();
+      _redhatStopTimer();
+      __redhatTimer = setInterval(_redhatTick, 1000);
+      // The pane owns the findings, so a run always reveals it.
+      setShell("ui.rightTab", "redhat");
+      renderRedhatPanel(startNode);
+
+      function finish() {
+        if (!__redhatRunning) return;
+        __redhatRunning = false;
+        _redhatStopTimer();
+        var selId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+        var selNode = (selId && SHELL.document.current)
+          ? findJdfNodeById(selId, SHELL.document.current) : null;
+        if (selNode) renderRedhatPanel(selNode);
+        else { _setInspectorPane(SHELL.ui.rightTab || "evidence"); _renderInspectorIdlePane(); }
+      }
+
+      jsonPost(sseEndpoint, body).then(function (resp) {
+        if (!resp.ok || !resp.body) {
+          __redhatError = "Red-Hat audit failed to start (HTTP " + resp.status + ").";
+          logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error("HTTP " + resp.status + " — no body"), false);
+          finish();
+          return;
+        }
+        var reader = resp.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+        function pump() {
+          return reader.read().then(function (result) {
+            if (result.done) { finish(); return; }
+            var str = decoder.decode(result.value, { stream: true });
+            sseTokens += str.length;
+            buffer += str;
+            var frames = buffer.split(/\n\n/);
+            buffer = frames.pop();
+            for (var i = 0; i < frames.length; i++) {
+              (function (f) {
+                _handleRedhatFrame(f, function (kind, val) {
+                  if (kind === "started") {
+                    _redhatTick();
+                  } else if (kind === "persist_failed") {
+                    __redhatError = "Red-Hat finding not saved: " + String(val);
+                  } else if (kind === "audit_complete") {
+                    // Update only the audited node: the payload carries the
+                    // whole tree, and swapping it in wholesale would clobber
+                    // unrelated in-session edits.
+                    var target = (val && val.document) ? findJdfNodeById(nodeId, val.document) : null;
+                    if (target && SHELL.document.current) {
+                      _replaceNodeInTree(SHELL.document.current.body || [], nodeId, target);
+                      _rephraseRenderNode(nodeId, target);
+                    }
+                  } else if (kind === "error") {
+                    var msg = String((val && val.error) || "unknown error");
+                    __redhatError = "Red-Hat audit failed: " + msg;
+                    logSseFailure(sseEndpoint, sseStartedAt, sseTokens, new Error(msg), false);
+                  } else if (kind === "complete") {
+                    if (val && val.ok === false && !__redhatError) {
+                      __redhatError = "Red-Hat audit failed: " + String(val.error || "unknown error");
+                    }
+                  }
+                });
+              })(frames[i]);
+            }
+            return pump();
+          }).catch(function (e) {
+            __redhatError = "Red-Hat audit interrupted: " + ((e && e.message) || "stream error");
+            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
+            finish();
+          });
+        }
+        return pump();
+      }).catch(function (e) {
+        __redhatError = "Red-Hat audit interrupted: " + ((e && e.message) || "network error");
+        logSseFailure(sseEndpoint, sseStartedAt, sseTokens, e, !!(e && e.name === "AbortError"));
+        finish();
+      });
+    }
+
     function getChipIcon(kind, status) {
       if (kind === "z3") return status === "pass" ? "\ud83d\udd12" : "\u26a0";
       else if (kind === "cite") return "\ud83d\udcce";
-      else if (kind === "redhat") return status === "open" ? "\ud83d\udea9" : "\u2713";
+      // A Red-Hat finding has no closing state (see Dismiss removal): the
+      // check-mark branch had no writer, so the chip is always the flag.
+      else if (kind === "redhat") return "\ud83d\udea9";
       return "";
     }
 
@@ -2849,8 +3033,8 @@
     var compareBodyEl  = document.getElementById("compare-body");
     var evidenceBodyEl = evidenceModeEl;
     if (docSurface) docSurface.addEventListener("click", function (e) {
-      if (e.target.closest(".jdf-span")) return;
-      if (e.target.closest(".jdf-chip")) return;
+      // No .jdf-span / .jdf-chip guard: neither class is produced by
+      // renderJdfNode or addEvidenceChips — the guards matched nothing.
       var nodeEl = e.target.closest("[data-node-id]");
       var nid = nodeEl ? nodeEl.getAttribute("data-node-id") : null;
       // A confidence span owns its click: handleConfidenceClick paints the
@@ -3024,9 +3208,8 @@
       setShell("document.mode", "ready");
       setShell("document.current", doc);
       // Re-render the JDF object fresh into the center (targetEl null →
-      // center path, which re-wires draftEl + currentJdfDocument so all
-      // event listeners + interactions work). Do NOT paste text or copy
-      // the column's innerHTML.
+      // center path, which re-wires draftEl so all event listeners +
+      // interactions work). Do NOT paste text or copy the column's innerHTML.
       renderJdfDocument(doc);
       applyConfidenceSpans(doc);
       addEvidenceChips(doc);
@@ -3307,13 +3490,20 @@
       }
       var node = findNode(SHELL.document.current.body || []);
       if (!node) return;
+      // A Red-Hat chip is a selector, not a drawer opener: the Red-Hat pane
+      // owns the findings list, and the drawer write below was cleared by
+      // _applyRightView in the same click.
+      if (kind === "redhat") {
+        if (!node.annotations || !node.annotations.redhat || !node.annotations.redhat[index]) return;
+        setShell("ui.selection.nodeId", nodeId);
+        setShell("ui.rightTab", "redhat");
+        return;
+      }
       var evidence = null;
       if (kind === "z3" && node.annotations && node.annotations.z3 && node.annotations.z3[index]) {
         evidence = { kind: "z3", nodeId: nodeId, data: node.annotations.z3[index] };
       } else if (kind === "cite" && node.provenance && node.provenance[index]) {
         evidence = { kind: "cite", nodeId: nodeId, data: node.provenance[index] };
-      } else if (kind === "redhat" && node.annotations && node.annotations.redhat && node.annotations.redhat[index]) {
-        evidence = { kind: "redhat", nodeId: nodeId, data: node.annotations.redhat[index], index: index };
       }
       if (!evidence) return;
       setShell("ui.selection.nodeId", nodeId);
@@ -3568,58 +3758,76 @@
       var el = redhatModeEl; if (!el) return;
       while (el.firstChild) el.removeChild(el.firstChild);
       var wrap = document.createElement("div"); wrap.className = "evidence-content";
-      var st = __redhatState || null;
-      if (st && st.status) {
-        var p = document.createElement("p"); p.className = "evidence-value";
-        if (st.status === "failed") {
-          p.textContent = "Red-Hat failed: " + (st.error || "unknown error");
-          wrap.appendChild(p); el.appendChild(wrap); return;
-        }
-        if (st.status === "skipped") {
-          p.textContent = "Red-Hat skipped: " + (st.skip_reason || "no reason");
-          wrap.appendChild(p); el.appendChild(wrap); return;
-        }
-        // ran
-        var findings = st.findings && st.findings.length ? st.findings :
-          (node && node.annotations && node.annotations.redhat) || [];
-        if (findings.length) {
-          var list = document.createElement("ul");
-          findings.forEach(function (r) {
-            if (!r) return;
-            var li = document.createElement("li");
-            var parts = [];
-            if (r.severity) parts.push(r.severity);
-            var body = r.text || r.message || r.critique ||
-              (typeof r === "string" ? r : "");
-            if (body) parts.push(String(body));
-            li.textContent = parts.join(" — ");
-            list.appendChild(li);
-          });
-          wrap.appendChild(list);
-        } else {
-          p.textContent = "Red-Hat ran, no findings";
-          wrap.appendChild(p);
-        }
-        el.appendChild(wrap); return;
-      }
-      // No pipeline state yet — fall back to per-node annotations.
-      var rh = (node && node.annotations && node.annotations.redhat) || [];
-      if (!rh.length) {
-        var p0 = document.createElement("p"); p0.className = "evidence-value";
-        p0.textContent = "No Red-Hat findings for this node."; wrap.appendChild(p0);
-        el.appendChild(wrap); return;
-      }
-      var list0 = document.createElement("ul");
-      rh.forEach(function (r) {
-        var li = document.createElement("li");
-        var parts = [];
-        if (r.severity) parts.push(r.severity);
-        var body = r.text || r.message || r.critique || "";
-        if (body) parts.push(String(body));
-        li.textContent = parts.join(" — ");
-        list0.appendChild(li);
+
+      // One run action per node, first element of the pane. Nothing else can
+      // stand in for it: a compile never runs the audit.
+      var runBtn = document.createElement("button");
+      runBtn.type = "button";
+      runBtn.className = "evidence-action primary redhat-run";
+      runBtn.textContent = __redhatRunning
+        ? "Running Red-Hat… (" + _redhatElapsedSeconds() + "s)"
+        : "Run Red-Hat";
+      runBtn.disabled = __redhatRunning || !(node && node.id);
+      runBtn.addEventListener("click", function () {
+        if (node && node.id) _runRedhatAudit(node.id);
       });
-      wrap.appendChild(list0); el.appendChild(wrap);
+      wrap.appendChild(runBtn);
+
+      // Source of truth: node.annotations.redhat. __redhatState describes the
+      // last compile's pass only and is never reset, so it is context beneath
+      // the findings list — it can never be what the list shows.
+      var findings = (node && node.annotations && node.annotations.redhat) || [];
+      if (findings.length) {
+        var list = document.createElement("ul");
+        findings.forEach(function (r) {
+          if (!r) return;
+          var li = document.createElement("li");
+          li.className = "redhat-finding";
+          var text = _redhatFindingText(r);
+          var parts = [];
+          if (r.severity) parts.push(String(r.severity));
+          if (text) parts.push(text);
+          li.textContent = parts.join(" — ");
+          // A finding is already an instruction: click seeds the existing
+          // rephrase editor rather than opening a second rewrite path.
+          if (text) {
+            li.title = "Rephrase this paragraph with this finding";
+            li.addEventListener("click", function () {
+              if (!node || !node.id) return;
+              setShell("ui.selection.nodeId", node.id);
+              _attachNodeRephrase(node.id, text);
+            });
+          }
+          list.appendChild(li);
+        });
+        wrap.appendChild(list);
+      } else {
+        var p0 = document.createElement("p"); p0.className = "evidence-value";
+        p0.textContent = __redhatRunning
+          ? "Running Red-Hat audit…"
+          : "No Red-Hat findings for this node.";
+        wrap.appendChild(p0);
+      }
+
+      // The three failure modes stay distinct: a persist conflict, an error
+      // frame, and a broken read are different problems with different fixes.
+      if (__redhatError) {
+        var errEl = document.createElement("p");
+        errEl.className = "evidence-value redhat-error";
+        errEl.textContent = __redhatError;
+        wrap.appendChild(errEl);
+      }
+
+      var statusText = __redhatRunning
+        ? ("Running… " + _redhatElapsedSeconds() + " s")
+        : _redhatLastPass();
+      if (statusText) {
+        var statusEl = document.createElement("p");
+        statusEl.className = "empty-hint redhat-status";
+        statusEl.textContent = statusText;
+        wrap.appendChild(statusEl);
+      }
+      el.appendChild(wrap);
     }
     function _applyRightView() {
       var insp = rightInspectorEl;
@@ -3746,54 +3954,8 @@
           content.appendChild(pageField);
         }
       }
-      renderEvidenceRedhat(ev, content);
       evidenceBodyEl.appendChild(content);
       renderEvidenceFooter(ev);
-    }
-
-    function renderEvidenceRedhat(ev, content) {
-      if (ev.kind !== "redhat") return;
-      var rhStatusField = document.createElement("div");
-      rhStatusField.className = "evidence-field";
-      var rhStatusLabel = document.createElement("div");
-      rhStatusLabel.className = "evidence-label";
-      rhStatusLabel.textContent = "Status";
-      var rhStatusValue = document.createElement("div");
-      rhStatusValue.className = "evidence-value";
-      var rhStatusBadge = document.createElement("span");
-      rhStatusBadge.className = "evidence-status " + (ev.data.status || "open");
-      rhStatusBadge.textContent = ev.data.status || "open";
-      rhStatusValue.appendChild(rhStatusBadge);
-      rhStatusField.appendChild(rhStatusLabel);
-      rhStatusField.appendChild(rhStatusValue);
-      content.appendChild(rhStatusField);
-      if (ev.data.text) {
-        var textField = document.createElement("div");
-        textField.className = "evidence-field";
-        var textLabel = document.createElement("div");
-        textLabel.className = "evidence-label";
-        textLabel.textContent = "Finding";
-        var textValue = document.createElement("div");
-        textValue.className = "evidence-value";
-        textValue.textContent = ev.data.text;
-        textField.appendChild(textLabel);
-        textField.appendChild(textValue);
-        content.appendChild(textField);
-      }
-      if (ev.data.status === "open") {
-        var sugField = document.createElement("div");
-        sugField.className = "evidence-field";
-        var sugLabel = document.createElement("div");
-        sugLabel.className = "evidence-label";
-        sugLabel.textContent = "Suggested Fix (optional)";
-        var sugInput = document.createElement("textarea");
-        sugInput.className = "evidence-suggestion-input";
-        sugInput.id = "evidence-suggestion-text";
-        sugInput.placeholder = "Enter a suggested fix...";
-        sugField.appendChild(sugLabel);
-        sugField.appendChild(sugInput);
-        content.appendChild(sugField);
-      }
     }
 
     function renderEvidenceFooter(ev) {
@@ -3807,20 +3969,9 @@
         groundBtn.addEventListener("click", function () { performGrounding(ev.nodeId); });
         footer.appendChild(groundBtn);
       }
-      if (ev.kind === "redhat" && ev.data.status === "open") {
-        var reviseBtn = document.createElement("button");
-        reviseBtn.type = "button";
-        reviseBtn.className = "evidence-action primary";
-        reviseBtn.textContent = "Revise with LLM";
-        reviseBtn.addEventListener("click", function () { performRevision(ev.nodeId, ev.data.text); });
-        footer.appendChild(reviseBtn);
-        var dismissBtn = document.createElement("button");
-        dismissBtn.type = "button";
-        dismissBtn.className = "evidence-action";
-        dismissBtn.textContent = "Dismiss";
-        dismissBtn.addEventListener("click", function () { performDismissal(ev); });
-        footer.appendChild(dismissBtn);
-      }
+      // No Red-Hat branch: the pane owns the findings and their one wired
+      // action (click a finding → prefilled rephrase). The drawer copy wrote
+      // ui.selection.evidence, which the same click cleared in _applyRightView.
       evidenceBodyEl.appendChild(footer);
     }
 
@@ -3838,65 +3989,11 @@
       });
     }
 
-    function performRevision(nodeId, findingText) {
-      var sseStartedAt = Date.now();
-      var sseTokens = 0;
-      var sseEndpoint = "";
-      ensureProjectId().then(function (projectId) {
-        var url = "/api/projects/" + projectId + "/inquire/stream";
-        sseEndpoint = url;
-        var body = { intent: findingText, target_node_id: nodeId };
-        return jsonPost(url, body);
-      }).then(function (resp) {
-        if (!resp.ok) { var rerr = new Error("Revise failed: " + resp.status); logSseFailure(sseEndpoint, sseStartedAt, sseTokens, rerr, false); throw rerr; }
-        if (!resp.body) { var nerr = new Error("No stream body"); logSseFailure(sseEndpoint, sseStartedAt, sseTokens, nerr, false); throw nerr; }
-        var reader = resp.body.getReader();
-        var decoder = new TextDecoder();
-        var preview = document.createElement("div");
-        preview.className = "evidence-revision-preview";
-        preview.id = "revision-preview";
-        var content = evidenceBodyEl.querySelector(".evidence-content");
-        if (content) content.appendChild(preview);
-        function read() {
-          reader.read().then(function (result) {
-            if (result.done) {
-              var acceptBtn = document.createElement("button");
-              acceptBtn.type = "button";
-              acceptBtn.className = "evidence-action primary";
-              acceptBtn.textContent = "Accept revision";
-              acceptBtn.style.marginTop = "12px";
-              acceptBtn.addEventListener("click", function () {
-                alert("Accept revision not fully wired. Would update JDF here.");
-              });
-              if (content) content.appendChild(acceptBtn);
-              return;
-            }
-            var chunk = decoder.decode(result.value, { stream: true });
-            sseTokens += chunk.length;
-            preview.textContent += chunk;
-            read();
-          }).catch(function (err) {
-            logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, !!(err && err.name === "AbortError"));
-            alert("Stream read error: " + (err.message || err));
-          });
-        }
-        read();
-      }).catch(function (err) {
-        logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, !!(err && err.name === "AbortError"));
-        alert("Revision error: " + (err.message || err));
-      });
-    }
-
-    function performDismissal(ev) {
-      var rationale = "Reviewed by operator.";
-      if (!ev.data.id) {
-        alert("Cannot dismiss: missing finding ID.");
-        return;
-      }
-      alert("Dismissal would PATCH /api/runs/{runId}/findings/" + ev.data.id + ". Marking locally.");
-      ev.data.status = "dismissed";
-      renderEvidenceDrawer(ev);
-    }
+    // Revise with LLM / Dismiss were removed with the Red-Hat drawer route.
+    // Revise's only terminal state was alert("Accept revision not fully
+    // wired…"); the wired rewrite path is _attachNodeRephrase. Dismiss made
+    // no request at all and mutated the drawer's copy of the finding, so it
+    // implied a closable finding that nothing could close.
 
     // Send is only meaningful with a non-empty ask. The click/keydown paths
     // keep their own guards (submitIntent) as defense.
