@@ -185,14 +185,21 @@ The compile was deliberately **not** re-run cold: a cold run persists `v45` and 
 document §10.1 pins, and §7 forbids re-running live to move a counter. No row was deleted by
 this pass.
 
-**A peer pass then landed that very `v45` (2026-09-18 20:00:12).** `jdf_revisions` v45 is a
-`compile` (change summary *"Underwriting Obligations for Boston Commercial Property
-Insurance"*) from a `DRAFT_STREAM` at 20:00:12, which raised the row to `current_version=45`,
-`node_count=7`, `lock_count=8` — 13 minutes after the check above, and by a different pass.
-Everything in the table stands as measured at that time, and nothing was deleted; but **§10.1's
-"the frozen document is v44" is now pre-v45**, so the demo-state owner should re-measure §10.1
-against v45 (or restore v44) before handing the one-pager out. That re-measure is not this
-pass's: the frozen-document numbers belong to the demo-state owner.
+**A peer pass then landed that very `v45` (2026-09-18 20:00:12).** It is the 2A retention
+pass's acceptance check ("verify the demo document compiles"): one cold `DRAFT_STREAM` on
+`demo-3235f5` with the §5 intent and the project's included source (`sub-d3eab1f0fa9c486d`).
+What it wrote, per that pass: `jdf_revisions` 44→45 (`compile`, change summary *"Underwriting
+Obligations for Boston Commercial Property Insurance"*), `pipeline_cache` 47→53,
+`token_ledger_entries` 192→199, `audit_log` 63→64, `user_activity_log` 356→357,
+`projects.current_version` 44→45 (row now `node_count=7`, `lock_count=8`). **Nothing deleted**,
+and the document still serves. Everything in the table above stands as measured before it, 13
+minutes earlier.
+
+**So §10.1's "the frozen document is v44" is now pre-v45.** Restoring v44 is a demo-state
+decision (W1) that neither pass owns, and the 2A pass deliberately did not revert it; the
+pre-migration v44 tree is byte-identical to `prompt_matrix/projects/demo-3235f5/document.jdf`
+and the `jdf_revisions` v44 row, so the owner can re-measure §10.1 against v45 or restore v44
+before handing the one-pager out.
 
 ---
 
