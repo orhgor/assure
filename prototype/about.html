@@ -107,18 +107,18 @@
       <p>Is there a source for this claim? The claim is matched to a specific sentence or passage in your uploaded material. If nothing matches, the claim is unanchored.</p>
       <p>Does the source support this claim? The matched passage is read against the claim by a verification model. The verdict is supported, partial, or unsupported.</p>
       <p>Do the numbers reconcile? A figure the draft states as a labelled measure is checked against the source, independently of the prose. A mismatch flags both values. A draft that states none reports a skipped check, not a pass.</p>
-      <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unverified.</p>
+      <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unanchored.</p>
       <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged and wrapped as content, not obeyed. If the compiled output drifts from the source — whether from a hallucination or from an instruction embedded in the material — the document is refused before you see it.</p>
 
       <h2>The adversarial layer</h2>
-      <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, coverage language that shifts meaning between paragraphs, assertions about intent that nothing supports.</p>
+      <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, and assertions about intent that nothing supports.</p>
       <p>Findings quote the sentence they're worried about, and the source wording behind it. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
-      <p>Two defenses, layered. Verification asks: is this true to the source? Red-Hat asks: is this defensible in your hands?</p>
+      <p>Two defenses, layered — on separate paths. Verification runs in the compile and asks: is this true to the source? Red-Hat runs on demand against the persisted document and asks: is this defensible in your hands?</p>
 
       <h2>What you'll find in the shell</h2>
       <p><span class="about-cap">Evidence</span> — click any paragraph. The source, the page, and the quoted sentence the claim was drawn from.</p>
       <p><span class="about-cap">Math Check</span> — the numeral audit. Every labelled figure, its source line, its verdict; a draft that states none is reported as skipped.</p>
-      <p><span class="about-cap">Red-Hat</span> — the adversarial review. Runs on any paragraph; returns specific findings with the source behind each.</p>
+      <p><span class="about-cap">Red-Hat</span> — the adversarial review, on a path of its own. Runs on demand, one node at a time; returns specific findings with the source behind each.</p>
       <p><span class="about-cap">Surgical Edit</span> — click a paragraph or a Red-Hat finding. The rephrase editor opens, pre-filled from a finding. Every version is preserved.</p>
       <p><span class="about-cap">Compare</span> — two models on the same question, side by side. Read both, keep the one you prefer.</p>
       <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to open it in the editor.</p>
@@ -143,7 +143,7 @@
       <p>Every figure is checked against the source independently of the prose. The numeral audit runs separate from the language check. A mismatch flags both values side by side.</p>
       <h3>On control</h3>
       <p class="about-q"><strong>4. Can I see what the model was asked and which model answered?</strong></p>
-      <p>Yes. The left pane shows the compiled prompt and the routed model. Both are persisted across a reload.</p>
+      <p>Yes, for the run in front of you: the left pane shows the compiled prompt and the routed model. Neither is carried by the document, so a reload clears them — the row then reads Compiled · model not carried by the document.</p>
       <p class="about-q"><strong>5. What if I want a second opinion from another model?</strong></p>
       <p>Compare runs two models on the same question. Read both, keep the one you prefer. Per-clause merging across models is on the roadmap.</p>
       <p class="about-q"><strong>6. Can I edit a claim without breaking the rest of the document?</strong></p>
@@ -180,7 +180,7 @@
       </blockquote>
       <p>This is the same memo the underwriter would write. The difference is what happens next.</p>
       <h3>Step 3 — The compile</h3>
-      <p>The pipeline runs — Retrieve, Draft, Anchor, Verify. The stages tick in the left pane. The progress line fills under the header. The underwriter waits while it runs. The left pane shows the compiled prompt that was sent to the model and the model that answered.</p>
+      <p>The pipeline runs. The left pane's Stages list is its view: four rows — Retrieve, Draft, Anchor, Verify — each ticking when the steps the stream reports under it land (Preparing; Drafting and Lock Inference; Compile and Math Check; Verify and Complete). The progress line fills under the header. The underwriter waits while it runs. The left pane shows the compiled prompt that was sent to the model and the model that answered.</p>
       <h3>Step 4 — The document appears, verified</h3>
       <p>The memo renders in the center. Every paragraph carries a verification state: green underline (supported), amber underline (partially supported), grey (unanchored).</p>
       <p>The counters report the distribution. The underwriter knows before reading a line which claims are clean, which need attention, and which are ungrounded.</p>
