@@ -12,9 +12,55 @@ used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 ## ⚠️ DEMO LOCKED? ONE LINE, NO RESTART
 
-**File:** `/home/ubuntu/assure-prototype/.env.staging` — **line:** `ASSURE_CLERK_ONLY=1` → set it to `ASSURE_CLERK_ONLY=0`.
+**DEMO-DAY SIGN-IN — TWO STEPS**
 
-**Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** The flag is read per request from that file by the API and per request from `/api/auth/config` by the edge gate (measured 2026-09-18: flipped across all three states with the process ids unchanged, api `1271572` / edge `1271580`).
+```
+Step 1 — the gate key.
+  Open https://app.getassureai.com
+  The page reads: "This build is not public. Enter the access key to continue."
+  Paste SHELL_ACCESS_KEY (from /etc/assure/shell-access.env).
+
+Step 2 — the Clerk session.
+  The Clerk sign-in appears. Enter the demo account email and password.
+  If a code is requested, enter it from the address your Clerk instance sends codes to.
+
+If either step fails:
+  Set ASSURE_CLERK_ONLY=0 in /home/ubuntu/assure-prototype/.env.staging. No restart.
+  The gate key alone opens the shell. Restore: ASSURE_CLERK_ONLY=1.
+```
+
+**The two steps are two doors, checked in this order** (`prototype/dev-server.py:362`,
+`_route`): `/auth` carries the key and nothing else and is handled first (`:46 AUTH_PATH`,
+`:189 _authorized` → `:192 _deny`); the Clerk session is checked only on the document path
+after that (`:392` `clerk_only_mode() and is_document_path(...)` → `_redirect_to_signin()`).
+Measured 2026-09-18T21:25Z with no cookie: `GET /` → `302 location: /auth`; `GET /auth` →
+`200` carrying `This build is not public. Enter the access key to continue.`
+(`dev-server.py:137`).
+
+**File — this one, and not the other.** The flag is
+`ASSURE_CLERK_ONLY` in **`/home/ubuntu/assure-prototype/.env.staging`** and nowhere else.
+`_flag_value("ASSURE_CLERK_ONLY")` resolves the repo root and reads `.env`, `.env.local`,
+then `.env.<ASSURE_ENV>` — later files winning — through `_env_file_values`, which re-reads the
+file whenever its **mtime** changes (`prompt_matrix/cloud_auth.py:211`, root at `:221`, profile
+from `ASSURE_ENV` at `:222`, file list at `:223`/`:225`, read at `:228`, called by
+`clerk_only_enabled()` at `:236`; mtime cache at `:184`/`:187`). `ASSURE_ENV=staging` for the app
+(`assure-prototype.service:11`), and `.env`/`.env.local` do not exist on the box, so
+`.env.staging` is the only file consulted. Proved by executing the app's own resolver on the
+box: `files consulted, in order (later wins): ['.env', '.env.local', '.env.staging']` →
+`.env.staging exists=True ASSURE_CLERK_ONLY='1'` → `clerk_only_enabled() = True`.
+
+**`/etc/assure/shell-access.env` is NOT this file — do not "correct" this section toward it.**
+That file carries `SHELL_ACCESS_KEY` and **no** `ASSURE_CLERK_ONLY` (variable names read off the
+box; values not printed). It is loaded as an **`EnvironmentFile=`** by
+`assure-prototype-static.service:21`, so a value written there is read **at boot for that unit
+only** — and the whole point of `_flag_value()` reading the env *file* with an mtime cache is to
+put the switch **per request**, because a restart mid-presentation is the exact failure this
+line exists to prevent. Editing it there would convert a working one-line rollback into a
+service restart at the client table. The edge needs no edit of its own either: it does not read
+its own environment for this — `clerk_only_mode()` asks the app's `/api/auth/config` on every
+request, with no cache (`prototype/dev-server.py:76`, `:85`).
+
+**Effect:** Clerk stops gating the shell immediately. The next request gets today's behaviour back — the shared access key alone reopens `/` and `/api/projects`. **No restart.** Measured 2026-09-18T21:24Z by flipping that one line across all three states with the process ids unchanged — api `1271801` / edge `1271580`, both `ps -o lstart` unchanged throughout: `ASSURE_CLERK_ONLY=1` → `/api/auth/config {"clerk_only":true}`, `/` **302** `/signin`, `/api/projects` **401**; `=0` → `{"clerk_only":false}`, `/` **200**, `/api/projects` **200**; `=1` again → `{"clerk_only":true}`, `/` **302**, `/api/projects` **401**.
 
 **Pre-flight, know this before you present:** the demo now requires a **Clerk sign-in**. The gate key alone gives `/` → **302 `/signin`** and `/api/projects` → **401**; only `/api/health` still answers on the key alone (monitoring). So it is **a session, or the flag** — there is no third way in.
 
