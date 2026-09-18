@@ -15,6 +15,32 @@ Sources: the four read-only Phase 1 investigations (A1 Pi surface, A2 OMP contra
 
 Shell behaviour measured on all three shell hosts: `/` 200, `/shell.js` 200, `/shell.css` 200, `/api/health` 200 (2181 bytes byte-identical on all three), `/api/projects/<id>/jdf/health` 200 (`jdf_bin /opt/node-v24.11.1-linux-arm64/bin/jdf`), `/api/projects/<id>/jdf/search` without `query` → 400 (A3 §0, A3.3h).
 
+## The entry gate (added 2026-09-18)
+
+Every one of those 200s was unauthenticated, and `/api/projects` returned all
+99 projects. `prototype/dev-server.py` now requires `SHELL_ACCESS_KEY`; with it
+unset the process refuses to start rather than serving an open door.
+
+| Request | Unauthenticated | With the key |
+|---|---|---|
+| `/`, `/shell.js`, `/shell.css` | 302 → `/auth` | 200 |
+| `/api/*` (incl. the JDF routes) | 401 | 200, proxied |
+
+`/auth` is the only public path: it takes the key, keeps it in `localStorage`,
+and a successful POST sets an HttpOnly cookie so `<link>`, `<script>` and the
+streaming SSE frames carry it without JS. `shell.js` also puts the key on every
+same-origin call as `X-Shell-Key`; a 401 sends the tab back to `/auth`.
+
+- The key lives in `/etc/assure/shell-access.env` (mode `600 root:root`), pulled
+  in by the drop-in `/etc/systemd/system/assure-prototype-static.service.d/access-key.conf`.
+  Keep it out of the unit file and out of the repo.
+- `/etc/assure/shell-access.env` is the **only** source; systemd reads it at exec
+  time, so changing the key means editing that file and
+  `systemctl restart assure-prototype-static.service`.
+- The gate is per process, not per hostname. `app.getassureai.com` reaches this
+  same `:8891` (measured 2026-09-18: its `/auth` is byte-identical to this box's),
+  so the gate covers it too.
+
 Nothing listens on `:8765`; the only listeners are `127.0.0.1:8890`, `0.0.0.0:8891`, `*:3456` (SSM `ss -ltnp`, A3 §0).
 
 ## Deploy path
@@ -32,6 +58,30 @@ sudo systemctl restart assure-prototype.service assure-prototype-static.service
 ```
 
 The last line is **an assumption, not a Phase 1 finding**: A3 records the two units and their `ExecStart`s (`assure-prototype.service` = `prompt_matrix.web --port 8890 --host 127.0.0.1`; `assure-prototype-static.service` = `prototype/dev-server.py`, `PORT=8891`, `UPSTREAM_BASE=http://localhost:8890`) but records no deploy script or restart command. What would settle it: the unit files' full contents (`ExecReload`) and any deploy script on the box.
+
+**Re-tested 2026-09-18 (Phase 0).** The box's deploy key is still read-only —
+`git push origin HEAD:refs/heads/prototype/shell-skeleton` → `ERROR: The key you
+are authenticating with has been marked as read only.`, and the same to a
+throwaway ref. `git ls-remote` on the same remote works, so the box can read and
+cannot write.
+
+The path that does work: **push from the workstation to `origin`, then fetch on
+the box.** `git push origin prototype/shell-skeleton` from the checkout here
+succeeded (`8115964..1934165`), and the box then ran
+
+```
+git fetch origin prototype/shell-skeleton
+git checkout prototype/shell-skeleton
+git reset --hard origin/prototype/shell-skeleton
+sudo systemctl daemon-reload && sudo systemctl restart assure-prototype-static.service
+```
+
+leaving box HEAD == origin == local at `1934165`. There is **no SSH ingress** from
+the workstation to the box (TCP 22 times out), so `rsync` cannot be the transport;
+the commit is the transport. `sudo` is needed on the box for `systemctl` and for
+the `git config --global --add safe.directory` the checkout needs (it is owned by
+`ubuntu` while SSM runs as `root`, and `HOME` is unset there — `export HOME=/root`
+first).
 
 Push-based promotion is additionally paused out of band: `.cursor/rules/deploy-flow.mdc:44` says do not `git push` to `staging`/`main` (A3, `v1.5-production-promotion.md` correction). The GHCR/docker paths in `docs/deploy-flow.md` and `docs/runbooks/v1.5-production-promotion.md` describe a mechanism that is gone from this box (A3 acceptance table).
 
