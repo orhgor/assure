@@ -397,3 +397,53 @@ per-claim verdict** is the open piece. Not started. It writes `shell.js`, whose 
 7. **Found while working:** `db/project_files.py` `_parse_compiled` returns a fresh
    `empty_manifest()` for an unparseable `last_compiled_json`, so a corrupt blob reads as "no
    document" rather than as an error. Silent by construction.
+
+---
+
+# BRANCH REBASE — `postaudit/fixes` onto `429fd09` (the box tip)
+
+`git rebase --onto 429fd09 7c8a422 postaudit/fixes`, plus one restore commit.
+Content is fully preserved: **`git diff ab31fdd b34ff97` is EMPTY.**
+
+## The finding: a box tip is NOT a superset of the local lineage
+
+`git diff --name-status 7c8a422 429fd09` returns exactly one line:
+
+```
+D	docs/evidence/success-marker/b3-samples.txt
+```
+
+**`429fd09` is missing a path `7c8a422` carries.** So advancing this branch to the
+box tip was not a pure reconciliation — it dropped 101 lines of B1's success-marker
+evidence, and it did so **silently**. The replay produced **no conflict**, because
+`prototype/shell.js` is byte-identical on both tips
+(`86ed7820b3dbed2721dc62459838918b8ef60ae2`), so nothing in the rebase output
+mentioned the file. A conflict is the safe failure — it refuses to proceed. This was
+the other kind.
+
+This is the only reason it is known: the two tips were diffed **before** the replay
+rather than read afterwards. `git diff ab31fdd <tip>` would have caught it after the
+fact, but only if someone thought to run it on a rebase that reported success. The
+restore commit `b34ff97` carries the same account.
+
+**Carry forward:** an advance to a box tip can DELETE a local-only file with no
+conflict and no warning, and a box tip is the one that serves production. Diff the
+two tips before replaying, not after.
+
+## The rebase, audited
+
+| role | pre-rebase | post-rebase |
+|---|---|---|
+| base | `7c8a422` | `429fd09` |
+| C1 (about) | `3999c38` | `36a97b7` |
+| C3 (sandbox) | `7e18dc8` | `bf65b8c` |
+| A2 (cache key) | `6f9074a` | `9128fe1` |
+| B2 (cap) | `5680948` | `f91c12e` |
+| C1 (counter) | `9cf7c9b` | `3682135` |
+| C2 (route) | `e4295f9` | `29574be` |
+| docs | `ab31fdd` | `652b30f` |
+| restore | — | `b34ff97` (new tip) |
+
+`git diff ab31fdd b34ff97` → **empty**. `prototype/shell.js` blob
+`63fb9166ac73c656dd9dc02cafbb275628a8fa91` — my C2 change on top of the box's
+`86ed7820b3db`. Nothing pushed; `fixa/*` untouched.
