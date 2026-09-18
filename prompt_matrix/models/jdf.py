@@ -551,7 +551,12 @@ def attach_redhat_annotation(
     node = copy.deepcopy(node)
     node = _ensure_annotations(node)
     node["annotations"]["redhat"].append(
-        {"id": new_node_id("crit"), "text": text.strip(), "status": status}
+        {
+            "id": new_node_id("crit"),
+            "node_id": node_id,
+            "text": text.strip(),
+            "status": status,
+        }
     )
     return splice_node(tree, node_id, node)
 
