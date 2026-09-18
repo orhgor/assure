@@ -4,8 +4,8 @@
 **Deployed revision:** `1cde23b` (`prototype/shell-skeleton`) on `i-03e39eccc57572191`.
 **Verified:** 2026-09-18, against `https://staging.getassureai.com` (the box checkout is
 `/home/ubuntu/assure-prototype`; `prototype/shell.js|shell.css|index.html` are byte-identical
-to the committed revision — md5 `7c71c486…`, `f56c4650…`, `968b6843…`, measured
-2026-09-18T20:00Z after the hygiene pass recorded in §3a). The fixture material this runbook
+to the committed revision — md5 `9da3f758…`, `cb8e3e88…`, `4fff7756…`, measured
+2026-09-18T20:09Z after the hygiene pass recorded in §3a). The fixture material this runbook
 used to read out of `docs/demo/` now lives on the `test-fixtures` branch (§4).
 
 ---
@@ -68,7 +68,7 @@ artefact is `/home/ubuntu/.omp/` holding the server DB and key).
 | App health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8890/api/health` | `200` |
 | Shell health | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8891/` | `302` — the entry gate's redirect to `/auth`; the shell itself is `200` with `-H "X-Shell-Key: $SHELL_ACCESS_KEY"` |
 | Public shell | `curl -s -o /dev/null -w '%{http_code}' -L https://staging.getassureai.com/` | `200` |
-| Build identity | `md5sum prototype/shell.js` in the box checkout | `7c71c486e8866698b656e4dc737f7271` (2026-09-18T20:00Z) |
+| Build identity | `md5sum prototype/shell.js` in the box checkout | `9da3f7588aa7bb8d7f9687246799122e` (2026-09-18T20:09Z) |
 | Browser | 1440×900 or larger, **zoom 100 %** | see §7 |
 
 All six commands above were run again after the 2026-09-18 hygiene pass (§3a) and returned
