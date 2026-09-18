@@ -2125,6 +2125,171 @@
       return String(r.text || r.content || "").trim();
     }
 
+    // ---------------------------------------------------------------
+    // Phase F1 — the finding is model markdown.
+    //
+    // The audit is prose from a reasoning model: it arrives with `**` around
+    // its verdicts, `#` above its headings, `-`/`•`/`1.` in front of its
+    // lists and `>` in front of the sentence it quotes. Setting all of that
+    // as one text node showed the reader the model's own markup, so it is
+    // parsed into elements instead — never stripped, so the weight the model
+    // gave a phrase survives.
+    //
+    // Built with createElement/textContent only: the finding is untrusted
+    // text and nothing here goes through innerHTML, so a finding cannot
+    // introduce markup of its own.
+    // ---------------------------------------------------------------
+    var REDHAT_MODE_SOURCED = "Source-audited";
+    var REDHAT_MODE_UNSOURCED = "Self-critique — no source anchored";
+
+    // The audit's own test, mirrored: routers/draft.py:_anchoring_provenance_row
+    // returns the first provenance row whose extracted_quote is non-empty, and
+    // that row decides which prompt ran — with a sentence, the claim is checked
+    // against it; without one, the review is of the claim alone. The pane names
+    // the finding with the same distinction the pipeline made.
+    function _redhatFindingMode(node) {
+      var prov = (node && node.provenance) || (node && node.meta && node.meta.provenance) || [];
+      if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+      for (var i = 0; i < prov.length; i++) {
+        var row = prov[i];
+        if (row && typeof row === "object" && String(row.extracted_quote || "").trim()) {
+          return REDHAT_MODE_SOURCED;
+        }
+      }
+      return REDHAT_MODE_UNSOURCED;
+    }
+
+    // Text nodes carry no marker: a `*` that survived the inline pass is an
+    // unbalanced marker, and the pane never shows it as prose punctuation.
+    function _redhatMdText(value) {
+      return document.createTextNode(String(value == null ? "" : value).replace(/\*+ ?/g, ""));
+    }
+
+    // Inline markdown — `**strong**`, `*em*`, `` `code` `` — inside a block
+    // element. Emphasis must open and close on the same text; `_` is left out
+    // deliberately, because source filenames and node ids carry it.
+    function _redhatMdInline(el, text) {
+      var s = String(text == null ? "" : text);
+      var re = /\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*|`([^`]+?)`/g;
+      var last = 0;
+      var m;
+      while ((m = re.exec(s)) !== null) {
+        if (m.index > last) el.appendChild(_redhatMdText(s.slice(last, m.index)));
+        var node = document.createElement(
+          m[1] !== undefined ? "strong" : (m[2] !== undefined ? "em" : "code")
+        );
+        node.textContent = m[1] || m[2] || m[3] || "";
+        el.appendChild(node);
+        last = re.lastIndex;
+      }
+      if (last < s.length) el.appendChild(_redhatMdText(s.slice(last)));
+      return el;
+    }
+
+    // Block markdown → a fragment of elements. Headings, ordered and unordered
+    // lists (their indented continuation lines belong to the item), fenced code
+    // and quoted sentences each get their own element; everything else is a
+    // paragraph.
+    function _renderFindingMarkdown(text) {
+      var frag = document.createDocumentFragment();
+      var lines = String(text == null ? "" : text).replace(/\r\n?/g, "\n").split("\n");
+      var para = [];
+      var i = 0;
+
+      function flushParagraph() {
+        if (!para.length) return;
+        var p = document.createElement("p");
+        p.className = "redhat-md-p";
+        _redhatMdInline(p, para.join(" "));
+        frag.appendChild(p);
+        para = [];
+      }
+      function listBody(raw) {
+        return String(raw == null ? "" : raw).trim().replace(/^>\s?/, "");
+      }
+      // A continuation line is indented under its marker; it belongs to the
+      // item, not to a new paragraph.
+      function indented(line) { return /^\s{2,}\S/.test(line); }
+      // One list, items and all. Markdown lets an item wrap onto indented
+      // lines and lets a blank line sit between two items — both stay inside
+      // the list, so the model's `1. … 2. …` reads as one list and not as one
+      // list per item. Only a blank line before something that is not another
+      // item ends it.
+      function consumeList(itemRe, tag, className) {
+        flushParagraph();
+        var list = document.createElement(tag);
+        list.className = className;
+        while (i < lines.length) {
+          var m = itemRe.exec(lines[i].trim());
+          if (!m) {
+            if (!lines[i].trim()) {
+              var next = i + 1;
+              while (next < lines.length && !lines[next].trim()) next++;
+              if (next < lines.length && itemRe.test(lines[next].trim())) { i = next; continue; }
+            }
+            break;
+          }
+          var parts = [m[1]];
+          i++;
+          while (i < lines.length && indented(lines[i])) { parts.push(listBody(lines[i])); i++; }
+          var item = document.createElement("li");
+          _redhatMdInline(item, parts.join(" "));
+          list.appendChild(item);
+        }
+        frag.appendChild(list);
+      }
+
+      while (i < lines.length) {
+        var t = lines[i].trim();
+        if (t.indexOf("```") === 0) {
+          flushParagraph();
+          var code = [];
+          i++;
+          while (i < lines.length && lines[i].trim().indexOf("```") !== 0) { code.push(lines[i]); i++; }
+          i++;   // the closing fence
+          var pre = document.createElement("pre");
+          pre.className = "redhat-md-pre";
+          var preCode = document.createElement("code");
+          preCode.textContent = code.join("\n");
+          pre.appendChild(preCode);
+          frag.appendChild(pre);
+          continue;
+        }
+        if (!t) { flushParagraph(); i++; continue; }
+        var h = /^#{1,6}\s+(.*)$/.exec(t);
+        if (h) {
+          flushParagraph();
+          var head = document.createElement("div");
+          head.className = "redhat-md-h";
+          _redhatMdInline(head, h[1]);
+          frag.appendChild(head);
+          i++;
+          continue;
+        }
+        if (/^[-*•+]\s+/.test(t)) {
+          consumeList(/^[-*•+]\s+(.*)$/, "ul", "redhat-md-ul");
+          continue;
+        }
+        if (/^\d{1,3}[.)]\s+/.test(t)) {
+          consumeList(/^\d{1,3}[.)]\s+(.*)$/, "ol", "redhat-md-ol");
+          continue;
+        }
+        if (/^>\s?/.test(t)) {
+          flushParagraph();
+          var quote = document.createElement("blockquote");
+          quote.className = "redhat-md-quote";
+          _redhatMdInline(quote, t.replace(/^>\s?/, ""));
+          frag.appendChild(quote);
+          i++;
+          continue;
+        }
+        para.push(t);
+        i++;
+      }
+      flushParagraph();
+      return frag;
+    }
+
     function _handleRedhatFrame(frame, cb) {
       if (!frame) return;
       var ev = ""; var dataStr = "";
@@ -4307,10 +4472,23 @@
           var li = document.createElement("li");
           li.className = "redhat-finding";
           var text = _redhatFindingText(r);
-          var parts = [];
-          if (r.severity) parts.push(String(r.severity));
-          if (text) parts.push(text);
-          li.textContent = parts.join(" — ");
+          // Phase F3 — what the audit actually did, named on the finding it
+          // produced: a claim checked against its source sentence, or a review
+          // of the claim alone.
+          var modeEl = document.createElement("div");
+          modeEl.className = "redhat-finding-mode";
+          modeEl.textContent = _redhatFindingMode(node);
+          li.appendChild(modeEl);
+          if (r.severity) {
+            var sevEl = document.createElement("span");
+            sevEl.className = "redhat-finding-severity";
+            sevEl.textContent = String(r.severity);
+            li.appendChild(sevEl);
+          }
+          var bodyEl = document.createElement("div");
+          bodyEl.className = "redhat-finding-body";
+          if (text) bodyEl.appendChild(_renderFindingMarkdown(text));
+          li.appendChild(bodyEl);
           // A finding is already an instruction: click seeds the existing
           // rephrase editor rather than opening a second rewrite path.
           if (text) {
@@ -4370,16 +4548,21 @@
     function _applyRightView() {
       var insp = rightInspectorEl;
       var cmp = compareModeEl;
+      // Phase F2 — which pane-mode is shown is this function's decision; HOW it
+      // is laid out is shell.css's (#pane-right is the three-row grid and
+      // .pane-mode is its third row). Writing "block" here would pin the inline
+      // value over that rule and collapse the body back to its content height,
+      // so the visible pane reverts to the stylesheet's flex column.
       if (inspectorCompareActive) {
         if (rightModeToggleEl) rightModeToggleEl.style.display = "none";
         if (insp) insp.style.display = "none";
-        if (cmp) cmp.style.display = "block";
+        if (cmp) cmp.style.display = "";
         if (compareToggleEl) compareToggleEl.classList.add("is-active");
         return;
       }
       if (rightModeToggleEl) rightModeToggleEl.style.display = "";
       if (compareToggleEl) compareToggleEl.classList.remove("is-active");
-      if (insp) insp.style.display = "block";
+      if (insp) insp.style.display = "";
       if (cmp) cmp.style.display = "none";
       var nodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
       if (!nodeId) {

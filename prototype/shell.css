@@ -1306,6 +1306,83 @@ body.collapsed .pane-left {
   color: var(--contradicted);
 }
 
+/* Phase F1 — the finding's markdown, as elements. The model's own weight is
+   kept (strong/em), its structure is kept (lists, headings, quotes, code) and
+   its markers are not: the pane never shows `**`, `#`, `-` or `>` as prose. */
+.redhat-finding-mode {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.redhat-finding-severity {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.redhat-finding-body {
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  line-height: var(--lh-body);
+}
+.redhat-finding-body > * { margin: 0 0 var(--space-2); }
+.redhat-finding-body > *:last-child { margin-bottom: 0; }
+.redhat-md-h {
+  font-weight: 600;
+  color: var(--ink);
+}
+.redhat-md-ul,
+.redhat-md-ol {
+  padding-left: var(--space-5);
+}
+.redhat-md-quote {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--rule);
+  color: var(--muted);
+}
+.redhat-md-pre {
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font: var(--fs-xs)/1.5 var(--mono);
+}
+
+/* Phase F2 — the right pane is three rows: the tab bar and the counters are
+   pinned, and the body below them is the only thing that scrolls. Without
+   the 0-minimum third row the body's own height is its content (a finding can
+   run to thousands of pixels), so it overflowed the pane and the reader could
+   not reach the rest of the finding at all. */
+#pane-right {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+#pane-right > #counters-section {
+  grid-row: 2;
+}
+#pane-right > .pane-mode {
+  grid-row: 3;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+#pane-right > .pane-mode > .pane-body {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ---- Confidence legend (always visible above the doc) ---- */
 .conf-legend {
   display: flex;
