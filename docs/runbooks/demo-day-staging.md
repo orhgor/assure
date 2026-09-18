@@ -85,7 +85,8 @@ demo machine (`localStorage.assure_project_id`), and it is the one the probes an
 fixture files off this branch and left every row where it was — the frozen document (§10.1,
 `v44`, 3 paragraphs, 3 anchored) and all 44 `jdf_revisions` included (§3b). Seeding makes a new
 id, and the frozen numbers stay with the old one, so it is the **last resort** — never a
-pre-flight step, and never done live.
+pre-flight step, and never done live (§3b: a cold compile of the project is refused outright,
+so the frozen document cannot move by accident).
 
 **Seeding it from scratch** (only if the row is gone), with the source from the
 `test-fixtures` branch (§4):
@@ -181,9 +182,23 @@ Read-only on the box, through the served path (`:8891`, gate header) and the app
 | `GET /api/projects/demo-3235f5/jdf` → `200` | 1 section (*Massachusetts Commercial Real Estate Underwriting Obligations Summary*), **3** paragraphs, **3** anchored, 5 confidence spans |
 | `POST …/draft/stream` with the §5 intent and source `sub-d3eab1f0fa9c486d` | `200`; frames `status → compiled → verified → complete` (`ok: true`); **cache-warm** (`omp_cached: true`, `cache_key=ast:demo-3235f5:1e9c9516`, 0.02 s); `provenance_stats` = eligible **3** / anchored **3** / supported **2** / partial **1** / unsupported **0** / unverified **0**; **no new revision**, so the frozen `v44` stands |
 
-The compile was deliberately **not** re-run cold: a cold run persists `v45` and replaces the
-document §10.1 pins, and §7 forbids re-running live to move a counter. No row was deleted by
-this pass.
+The compile was deliberately **not** re-run cold: a cold run would move the document §10.1
+pins, and §7 forbids re-running live to move a counter. No row was deleted by this pass.
+
+**Since the 20:03Z landing a cold compile of this project is refused anyway.** `routers/draft.py`
+carries `_FROZEN_PROJECTS_DEFAULT = "demo-3235f5,a4-d3-1789759434-4a6346"`, read from
+`ASSURE_FROZEN_PROJECTS` by `frozen_projects()` (line 271), and
+`frozen_cold_compile_blocked(project_id, cached_hit, force)` (line 277) returns the refusal
+reason `frozen_project_cold_compile` with the message:
+
+> This project holds a frozen document: a compile now would replace the revision it is pinned
+> to. Its cached compile still runs unchanged. To recompile it deliberately, send `force=true`
+> and the override is written to the audit log.
+
+So the **warm** compile in the table above is the demo path and stays repeatable, a deliberate
+recompile takes `force=true` and lands an audit entry, and `demo-3235f5.current_version` stays
+**45** unless the demo-state owner says otherwise. The frozen set is an env knob, not a code
+change: add an id to `ASSURE_FROZEN_PROJECTS` rather than editing the file.
 
 **A peer pass then landed that very `v45` (2026-09-18 20:00:12).** It is the 2A retention
 pass's acceptance check ("verify the demo document compiles"): one cold `DRAFT_STREAM` on
