@@ -269,7 +269,12 @@
     var pane = _rightPane();
     if (!pane) return;
     var run = pane.querySelector(".redhat-run");
-    if (run && typeof run.focus === "function") run.focus();
+    // §3: the run button is the target when it can take focus. While a run is
+    // in flight that button is deliberately disabled (a second run is refused)
+    // and a disabled control cannot be focused, so the fallback is the pane's
+    // active tab — always reachable, and the one control that swaps the pane.
+    if (run && !run.disabled && typeof run.focus === "function") { run.focus(); return; }
+    _focusRightPaneDefault();
   }
   function openRight() {
     // Focus is handed over only when this call is what revealed the pane —
@@ -1810,7 +1815,11 @@
       if (selId !== __redhatRunningNodeId) return; // another node's pane has nothing to tick
       var s = _redhatElapsedSeconds();
       var btn = redhatModeEl ? redhatModeEl.querySelector(".redhat-run") : null;
-      if (btn) btn.textContent = "Running Red-Hat… (" + s + "s)";
+      if (btn) {
+        btn.textContent = "Running Red-Hat… (" + s + "s)";
+        btn.classList.add("is-running");
+        btn.setAttribute("aria-busy", "true");
+      }
       var statusEl = redhatModeEl ? redhatModeEl.querySelector(".redhat-status") : null;
       if (statusEl) statusEl.textContent = "Running… " + s + " s";
     }
@@ -2470,7 +2479,7 @@
         markDone("Verify");
         markActive("Complete");
         markDone("Complete");
-        runInProgress = false;
+        _setRunInProgress(false);
         clearIntentSlot();
         _clearCompilerPromptIfStale();
         // The run is over: bring the retained stage rows back into view.
@@ -2481,7 +2490,7 @@
           (currentStageIndex >= 0) ? currentStageIndex : 0
         ];
         markFailed(active);
-        runInProgress = false;
+        _setRunInProgress(false);
         // A failed run is still an ended run: drop the success bar left by
         // the intent compile and bring the retained stage rows back into
         // view, so the failed row is visible instead of a stale
@@ -2729,6 +2738,9 @@
       // B) abort in-flight streams
       if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
       setShell("streams.draft", null);
+      // §5 row 3: a switched-away run is over, so the dock must stop claiming
+      // it is running (the aborted stream's own error path may never arrive).
+      _setRunInProgress(false);
       if (SHELL.streams.compareA) { try { SHELL.streams.compareA.abort(); } catch (_) {} }
       setShell("streams.compareA", null);
       if (SHELL.streams.compareB) { try { SHELL.streams.compareB.abort(); } catch (_) {} }
@@ -2881,7 +2893,7 @@
         function (err) {
           var active = findActiveStage() || STAGE_ORDER[Math.max(0, currentStageIndex)];
           markFailed(active);
-          runInProgress = false;
+          _setRunInProgress(false);
           // A parse error also ends the run: drop the success bar left by the
           // intent compile and bring the retained stage rows back into view,
           // so the failed row is visible instead of a stale
@@ -2974,6 +2986,13 @@
     var intentPanelOpen = false;
     var lastCompile = null;       // last /api/compile-system response
     var runInProgress = false;    // a draft/stream is actively running
+
+    // §5 row 3: the dock's running state follows the draft flag, so every
+    // write to it goes through here and the surface cannot drift.
+    function _setRunInProgress(v) {
+      runInProgress = Boolean(v);
+      _syncDockSubmit();
+    }
     var healthSnapshot = null;    // last /health JSON when available
 
     function submitIntent() {
@@ -3061,7 +3080,7 @@
       var raw = pendingIntent;
       intentPanelOpen = false;
       renderIntentSummary(raw);
-      runInProgress = true;
+      _setRunInProgress(true);
       runDraft(raw); // ORIGINAL raw ask, NOT the compiled prompt
     }
 
@@ -3069,7 +3088,7 @@
       if (!raw) return;
       intentPanelOpen = false;
       clearIntentSlot();
-      runInProgress = true;
+      _setRunInProgress(true);
       runDraft(raw);
     }
 
@@ -4010,6 +4029,12 @@
       runBtn.textContent = runningHere
         ? "Running Red-Hat… (" + _redhatElapsedSeconds() + "s)"
         : "Run Red-Hat";
+      // §5 row 11: the run's only visible state used to be its label; carry it
+      // as a class plus aria-busy so assistive tech sees the run too.
+      if (runningHere) {
+        runBtn.classList.add("is-running");
+        runBtn.setAttribute("aria-busy", "true");
+      }
       // Any in-flight run locks every node's button (a second run is refused),
       // and an unauditable node — one with no text field — is disabled and told
       // why, immediately below. No enabled button ever bails silently.
@@ -4268,6 +4293,11 @@
     // keep their own guards (submitIntent) as defense.
     function _syncDockSubmit() {
       if (!submit || !text) return;
+      // §5 row 3: a draft in flight is the dock's loading state. The class
+      // and aria-busy are the only surface runInProgress has ever had.
+      submit.classList.toggle("is-running", Boolean(runInProgress));
+      if (runInProgress) submit.setAttribute("aria-busy", "true");
+      else               submit.removeAttribute("aria-busy");
       submit.disabled = !String(text.value || "").trim();
     }
     if (text) {
