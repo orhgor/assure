@@ -67,6 +67,7 @@ try:
         check_relation,
         facts_from_locks,
         split_claims,
+        states_a_range,
         violation_text as relational_violation_text,
         z3_version as relational_z3_version,
     )
@@ -122,6 +123,7 @@ except ImportError:
         check_relation,
         facts_from_locks,
         split_claims,
+        states_a_range,
         violation_text as relational_violation_text,
         z3_version as relational_z3_version,
     )
@@ -511,12 +513,17 @@ def verify_locks(
             candidates = _tier2_candidates(draft_text)
             for index, claim in enumerate(candidates):
                 if index >= _MAX_RELATIONAL_CLAIMS:
-                    unverified_claims.append(
-                        {
-                            "claim": claim,
-                            "reason": f"not checked: the per-compile translation cap "
-                            f"({_MAX_RELATIONAL_CLAIMS}) was reached",
-                        }
+                    reason = (
+                        f"the per-compile translation cap "
+                        f"({_MAX_RELATIONAL_CLAIMS}) was reached"
+                    )
+                    unverified_claims.append({"claim": claim, "reason": reason})
+                    # Recorded here too, not only in the count: the tab lists what
+                    # went unchecked, and a reason that exists only as a number is
+                    # not a reason a reader can act on.
+                    claim_results.append(
+                        {"claim": claim, "tier": "unverified", "verdict": RELATIONAL_UNKNOWN,
+                         "reason": reason, "model": translator_model}
                     )
                     continue
                 outcome = _check_claim(claim, facts, translate, truth)
@@ -602,20 +609,32 @@ def _check_claim(
     a verdict, a Tier 1 value comparison (translation failed) marked as checked by
     value rather than relationship, or a reason it could not be checked at all.
     """
-    outcome = translate(claim, facts)
-    model = str(outcome.get("model") or "")
     result: dict[str, Any] = {
         "claim": claim,
-        "tier": "relational",
+        "tier": "unverified",
         "verdict": RELATIONAL_UNKNOWN,
         "reason": "",
-        "model": model,
+        "model": "",
     }
+
+    if states_a_range(claim):
+        # Not translated at all: this tier cannot express it, and a single-operand
+        # encoding of two bounds produces a verdict about the encoding.
+        result["reason"] = (
+            "the claim states a range, and a range comparison is Tier 3 "
+            "(layered limits) — not built, so this claim is unchecked"
+        )
+        return {"verdict": RELATIONAL_UNKNOWN, "reason": result["reason"], "result": result}
+
+    outcome = translate(claim, facts)
+    model = str(outcome.get("model") or "")
+    result["model"] = model
 
     if outcome.get("ok"):
         decision = check_relation(outcome["claim"], facts)
         result.update(
             {
+                "tier": "relational",
                 "verdict": decision["verdict"],
                 "reason": decision.get("reason") or "",
                 "counterexample": decision.get("counterexample"),

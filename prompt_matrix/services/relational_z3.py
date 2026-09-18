@@ -94,6 +94,13 @@ _NUMBER_RE = re.compile(r"\d")
 _WORD_RE = re.compile(r"\w+")
 _NON_NAME_RE = re.compile(r"[^a-z0-9]+")
 
+#: A claim that compares two bounds is not a single-value comparison. Tier 2
+#: checks one value against one locked value; a range needs two, which is Tier 3
+#: (named as a follow-up, deliberately not built).
+_RANGE_RES = (
+    re.compile(r"\bbetween\s+\$?\d[\d,.]*\s+and\s+\$?\d", re.IGNORECASE),
+    re.compile(r"\$?\d[\d,.]*\s*(?:to|through|–|—|-)\s*\$?\d", re.IGNORECASE),
+)
 #: A sentence this long is a paragraph, not a claim: one translation call is not
 #: going to produce a well-formed relation for it, so it is not offered.
 MAX_CLAIM_CHARS = 400
@@ -139,8 +146,13 @@ def normalize_name(name: Any) -> str:
     ``"Q3 Revenue ($M)"`` and ``"q3_revenue"`` are the same metric to this
     lookup; the ledger's canonical keys are written by the lock inference, so
     exact spelling is not something the model can be relied on to reproduce.
+
+    Separators collapse to a single ``_`` rather than disappearing: the
+    normalized form is also what the translation prompt shows the model, and
+    ``cpt_90837_minimum_time_per_session`` is a name a model can match, while
+    ``cpt90837minimumtimepersession`` is a string it will misspell.
     """
-    return _NON_NAME_RE.sub("", str(name or "").strip().lower())
+    return _NON_NAME_RE.sub("_", str(name or "").strip().lower()).strip("_")
 
 
 def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
@@ -164,6 +176,24 @@ def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
             if key:
                 facts.setdefault(key, value)
     return facts
+
+
+def states_a_range(sentence: str) -> bool:
+    """Whether the claim compares two bounds rather than stating one value.
+
+    Measured on the fixture: "the documented face-to-face psychotherapy time
+    falls between 38 and 52 minutes" was translated as the ledger's *range* key
+    with the lower bound as its value, and the locked upper bound (52) then made
+    a sentence the source agrees with read as a violation. Whichever bound the
+    model picks, one of them disagrees with a single locked value — so the
+    verdict would be the schema's artefact, not the draft's error.
+
+    A range is Tier 3. Nothing here decides it; the caller reports it unchecked
+    with this reason, which is also why this runs before the translation call
+    rather than after it.
+    """
+    text = str(sentence or "")
+    return any(pattern.search(text) for pattern in _RANGE_RES)
 
 
 def split_claims(text: str) -> list[str]:
@@ -269,6 +299,19 @@ def check_relation(
     }
 
     # Query 1 — does the draft's figure contradict the locked source value?
+    # A translation whose own numbers do not satisfy its own relation is not a
+    # faithful encoding of the sentence (measured on a real fixture: "gravitational
+    # forces exceeding 9G" came back as value 9, expected 9, relation gt — the
+    # threshold in both fields). Deciding that would report the encoding, not the
+    # draft, so it is left unchecked with the reason instead.
+    if not _OPS[relation](claimed, expected):
+        return _verdict(
+            UNKNOWN,
+            f"the translation is not self-consistent: {_fmt(claimed)} does not satisfy "
+            f"{relation} {_fmt(expected)}, so there is nothing here to check against the source",
+            detail,
+        )
+
     solver.push()
     solver.add(primary_var != claimed)
     value_result = solver.check()

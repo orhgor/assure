@@ -43,7 +43,10 @@ import logging
 import re
 from typing import Any, Callable
 
-from .relational_z3 import RELATIONS, z3_version
+try:  # pragma: no cover - import layout differs between package and script use
+    from .relational_z3 import RELATIONS, z3_version
+except ImportError:  # pragma: no cover - flat layout (probes, scripts)
+    from relational_z3 import RELATIONS, z3_version
 
 try:  # pragma: no cover - import layout differs between package and script use
     from ..db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache
