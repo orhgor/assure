@@ -564,7 +564,14 @@ def _stream_model(
             model=model,
             messages=guarded,
             max_tokens=max_out,
-            temperature=0.4,
+            # Greedy decoding. This call IS the document: at temperature 0.4 the
+            # same intent and the same sources produced a different tree on every
+            # run (measured eligible 5/5/4, anchored 4/4/3 across three compiles
+            # with the cache cleared), which moved the provenance gate between
+            # runs. The matcher and the entailment verdicts are deterministic and
+            # cached, so the draft was the only source of the swing — and a
+            # document that changes when nothing does cannot be reported as one.
+            temperature=0.0,
             stream=True,
             stream_options={"include_usage": True},
             # Fallback handled at the provider layer (OpenRouter) later.
