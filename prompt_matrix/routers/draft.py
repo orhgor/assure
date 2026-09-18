@@ -261,6 +261,42 @@ _NO_SOURCE_MESSAGE = (
     "Upload a source first. Assure grounds every claim against the source you provide."
 )
 
+#: The pre-flight refusal for a source longer than the compile carries in one pass.
+#:
+#: ``_build_substrate_context`` excerpts each file to
+#: ``SUBSTRATE_CONTEXT_CHARS_PER_FILE`` characters before it reaches the model, so
+#: a longer document is drafted from its opening page and then judged against the
+#: whole source — and the refusal that follows says "The source may not cover the
+#: question" about a source that covers it. Measured on staging: 36,647 -> 4,039
+#: characters (11.0 %), 58,862 -> 4,038 (6.9 %), 43,167 -> 4,035 (9.3 %); the cut
+#: lands mid-word. The refusal below names the cap and the pipeline, never the
+#: document: the honest report is that this length cannot be processed in one
+#: pass. Raising the cap and chunk-and-summarise are separate work.
+_SOURCE_TOO_LONG_REASON = "source_exceeds_context_cap"
+
+
+def _source_too_long_message(limit: int) -> str:
+    return (
+        f"The source exceeds {limit} characters; the current pipeline cannot "
+        "process it in one pass. Upload a shorter document, or split the source "
+        "across multiple uploads."
+    )
+
+
+def _oversized_source(substrate_rows: list[dict[str, Any]]) -> tuple[str, int] | None:
+    """The first source longer than the excerpt cap, as (filename, characters).
+
+    The cap is in characters, and ``_build_substrate_context`` measures the same
+    string this does — the excerpt is ``text[:SUBSTRATE_CONTEXT_CHARS_PER_FILE]``
+    — so a source that trips this is exactly one the model would have seen a
+    prefix of.
+    """
+    for row in substrate_rows:
+        text = str(row.get("extracted_text") or "").strip()
+        if len(text) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
+            return str(row.get("filename") or "substrate"), len(text)
+    return None
+
 
 def _refusal_frames(message: str, reason: str, request_id: str) -> Iterator[str]:
     yield _typed_sse(
@@ -1012,6 +1048,36 @@ def run_draft_pipeline(
                 "note": "cold compile of a frozen artifact was explicitly forced",
             },
         )
+
+    # The source-length refusal, above the budget preflight and above the model:
+    # nothing has run yet, so it costs no call and persists no revision. It sits in
+    # the cold path on purpose — a replay built no prompt, so there is no prefix for
+    # it to be about, and refusing a warm compile would be a refusal of a document
+    # this pipeline already produced.
+    _oversized = _oversized_source(substrate_rows)
+    if _oversized:
+        _oversized_name, _oversized_chars = _oversized
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message="compile refused: source_exceeds_context_cap",
+            details={
+                "rejection": _SOURCE_TOO_LONG_REASON,
+                "limit_chars": SUBSTRATE_CONTEXT_CHARS_PER_FILE,
+                "source_chars": _oversized_chars,
+                "source_name": _oversized_name,
+                "cache_key": cache_key,
+            },
+        )
+        yield from _refusal_frames(
+            _source_too_long_message(SUBSTRATE_CONTEXT_CHARS_PER_FILE),
+            _SOURCE_TOO_LONG_REASON,
+            rid,
+        )
+        return
 
     yield _typed_sse(
         "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
