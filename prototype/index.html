@@ -117,6 +117,14 @@
            rather than rendered as a dash (D3, D4, E). -->
       <div id="left-compiler" class="pane-mode" role="tabpanel">
         <div class="pane-body pane-body-sections">
+          <section class="pane-section" id="section-ask" data-state="empty">
+            <h3>Your ask</h3>
+            <div id="compiler-ask" class="val"></div>
+          </section>
+          <section class="pane-section" id="section-route">
+            <h3>Routed to</h3>
+            <div id="compiler-route" class="mono"></div>
+          </section>
           <!-- STAGES sits above the compiled prompt: the run's progress has to
                be visible without scrolling at 1440 and 1920, and the prompt is
                the one section that can grow. -->
