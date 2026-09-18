@@ -217,11 +217,16 @@ def test_gate_counts_only_entailed_claims() -> None:
         has_substrate=True,
     )
 
+    # Grounding: all five paragraphs carry the quote they were anchored to.
+    # Verdicts: one yes, one partial, one no, one unverified, one never checked
+    # (`p-lexical`). `anchored` no longer stands in for the verdict.
     assert summary["provenance_stats"] == {
         "eligible": 5,
-        "anchored": 1,
+        "anchored": 5,
+        "supported": 1,
         "partial": 1,
-        "unanchored": 3,
+        "unsupported": 1,
+        "unanchored": 0,
         "unverified": 1,
     }
     # One entailed claim still unlocks the Z3 gate (unchanged rule); the other
@@ -246,9 +251,11 @@ def test_gate_names_partial_and_unverified_when_nothing_is_entailed() -> None:
 
     assert summary["provenance_stats"] == {
         "eligible": 3,
-        "anchored": 0,
+        "anchored": 3,
+        "supported": 0,
         "partial": 1,
-        "unanchored": 2,
+        "unsupported": 1,
+        "unanchored": 0,
         "unverified": 1,
     }
     assert summary["gate_status"] == "review"
@@ -256,7 +263,8 @@ def test_gate_names_partial_and_unverified_when_nothing_is_entailed() -> None:
     assert summary["unverified"] is True
     assert summary["unverified_reason"] == (
         "0 of 3 claims were entailed by their matched source sentence "
-        "(1 supported only in part, 1 could not be checked)."
+        "(1 supported only in part, 1 contradicted by their source, "
+        "1 could not be checked)."
     )
 
 
@@ -281,8 +289,9 @@ def test_gate_passes_only_on_an_entailed_claim() -> None:
 def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
     """The real policy fixture: lexical anchoring happens, entailment does not.
 
-    This is the behaviour change — the same document used to be counted anchored
-    (and "verified") on token overlap alone.
+    This is the behaviour change — the gate used to read this document as
+    verified on token overlap alone. `anchored` reports the anchor it has (1);
+    `supported` reports what the missing verdict is worth (0).
     """
     from tests.test_audit_summary import _passing_z3, _policy_document
 
@@ -297,11 +306,17 @@ def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
     )
     assert summary["provenance_stats"] == {
         "eligible": 1,
-        "anchored": 0,
+        "anchored": 1,
+        "supported": 0,
         "partial": 0,
-        "unanchored": 1,
+        "unsupported": 0,
+        "unanchored": 0,
         "unverified": 0,
     }
+    assert summary["unverified_reason"] == (
+        "0 of 1 claims were entailment-checked against their matched source sentence "
+        "(1 anchored but never checked)."
+    )
     assert summary["ok"] is False
     assert summary["gate_status"] == "review"
 

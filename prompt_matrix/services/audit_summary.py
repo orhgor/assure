@@ -46,22 +46,45 @@ def _entailment_verdict(node: dict[str, Any]) -> str:
     return str(record.get("verdict") or "")
 
 
-def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
-    """Claim-eligible paragraphs, bucketed by what the entailment check said.
+def _anchoring_quote(node: dict[str, Any]) -> str:
+    """The source sentence this node is anchored to — "" when there is none.
 
-    ``anchored`` keeps its name and meaning ("verified against a source") and is
-    now strictly ``entailment.verdict == "yes"`` — the lexical anchor alone no
-    longer counts. ``no``, a missing verdict, and ``unverified`` all sit in
-    ``unanchored``; ``partial`` is its own bucket; ``unverified`` (a call that
-    could not be made or parsed) is also counted separately so a broken check is
-    visible instead of silently reading as "no claim matched". ``unchecked`` is
-    not part of the reported shape: it only distinguishes "anchored but never
-    entailed" from "matched no source at all" in the reason text.
+    The quote the lexical matcher stamped (``models/jdf.py``); read from the
+    node's provenance row, never from ``meta.provenance.excerpt``, which falls
+    back to the claim text itself. Same rule as ``entailment._claim_source``.
+    """
+    for row in node.get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return str(row["extracted_quote"]).strip()
+    return ""
+
+
+def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
+    """Claim-eligible paragraphs, bucketed by grounding and by entailment.
+
+    The two layers are counted separately, because they answer different
+    questions and used to be reported as one number:
+
+    ``anchored``   the paragraph has a source sentence (a quote) — grounding.
+    ``supported``  the entailment check read that sentence and said yes.
+    ``partial``    it said the source supports the claim only in part.
+    ``unsupported`` it said the source does not support the claim.
+    ``unverified`` the call could not be made or parsed — visible, not "no".
+    ``unchecked``  anchored but never checked; not reported, it only tells
+                   "anchored but never entailed" from "matched no source".
+    ``unanchored`` no quote at all: the matcher refused every candidate.
+
+    Collapsing the first into the second (``anchored`` used to mean
+    ``verdict == "yes"``) made a document whose paragraphs genuinely quote their
+    sources read as "0 of 8 anchored" — and left no number for the grounding the
+    document does have.
     """
     counts = {
         "eligible": 0,
         "anchored": 0,
+        "supported": 0,
         "partial": 0,
+        "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
         "unchecked": 0,
@@ -72,29 +95,33 @@ def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
         if len(_tokenize(str(node.get("content") or ""))) < _MIN_CLAIM_TOKENS:
             continue
         counts["eligible"] += 1
-        verdict = _entailment_verdict(node)
-        if verdict == "yes":
+        if _anchoring_quote(node):
             counts["anchored"] += 1
-        elif verdict == "partial":
-            counts["partial"] += 1
-            counts["unanchored"] += 1
         else:
             counts["unanchored"] += 1
-            if verdict == "unverified":
-                counts["unverified"] += 1
-            elif node.get("provenance"):
-                counts["unchecked"] += 1
+        verdict = _entailment_verdict(node)
+        if verdict == "yes":
+            counts["supported"] += 1
+        elif verdict == "partial":
+            counts["partial"] += 1
+        elif verdict == "no":
+            counts["unsupported"] += 1
+        elif verdict == "unverified":
+            counts["unverified"] += 1
+        elif node.get("provenance"):
+            counts["unchecked"] += 1
     return counts
 
 
 def _eligible_and_anchored(document: dict[str, Any]) -> tuple[int, int]:
     """Count paragraph nodes (>= _MIN_CLAIM_TOKENS content tokens) and how many
-    are anchored.
+    carry a source sentence.
 
     Same claim floor as the substrate matcher in models/jdf.py, so a paragraph the
     gate counts is a paragraph the matcher was allowed to anchor. Headers/stubs are
-    excluded. Anchored means the anchored source sentence *entails* the claim
-    (``entailment.verdict == "yes"``) — see ``_provenance_counts``.
+    excluded. Anchored means the paragraph has a matched source sentence (the
+    matcher's quote) — its *truthfulness* is the separate verdict read from
+    ``provenance_stats.supported``; see ``_provenance_counts``.
     """
     counts = _provenance_counts(document)
     return counts["eligible"], counts["anchored"]
@@ -146,7 +173,9 @@ def build_audit_summary(
 
     eligible = 0
     anchored = 0
+    supported = 0
     partial = 0
+    unsupported = 0
     unverified_claims = 0
     unchecked = 0
     if document is not None:
@@ -167,29 +196,42 @@ def build_audit_summary(
         counts = _provenance_counts(document)
         eligible = counts["eligible"]
         anchored = counts["anchored"]
+        supported = counts["supported"]
         partial = counts["partial"]
+        unsupported = counts["unsupported"]
         unverified_claims = counts["unverified"]
         unchecked = counts["unchecked"]
 
+    # Two layers, two numbers: `anchored` is the grounding the document has (a
+    # source sentence matched), `supported` is what the entailment check made of
+    # it. The gate below still reads the verdict — an anchored paragraph the
+    # check refused is not a verified claim — but the two are reported side by
+    # side instead of `anchored` standing in for both.
     summary["provenance_stats"] = {
         "eligible": eligible,
         "anchored": anchored,
+        "supported": supported,
         "partial": partial,
-        "unanchored": eligible - anchored - partial,
+        "unsupported": unsupported,
+        "unanchored": eligible - anchored,
         "unverified": unverified_claims,
     }
 
-    if anchored > 0:
-        # Gate unchanged from Z3 + Red-Hat once at least one claim is anchored.
+    if supported > 0:
+        # Gate unchanged from Z3 + Red-Hat once at least one claim is entailed by
+        # the source sentence it anchored to.
         summary["ok"] = z3_status == "PASS"
     else:
-        # A document with no entailment-verified claim is unverified, not "pass".
+        # A document with no entailed claim is unverified, not "pass" — however
+        # many of its paragraphs quote a source.
         if document is None:
             reason = "No document to inspect."
-        elif partial or unverified_claims:
+        elif partial or unsupported or unverified_claims:
             bits = []
             if partial:
                 bits.append(f"{partial} supported only in part")
+            if unsupported:
+                bits.append(f"{unsupported} contradicted by their source")
             if unverified_claims:
                 bits.append(f"{unverified_claims} could not be checked")
             reason = (

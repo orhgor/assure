@@ -1653,7 +1653,8 @@ html[data-theme="dark"] .node-rephrase button[data-action="submit"]:hover {
   color: var(--danger-text);
 }
 
-.doc-ungrounded-banner {
+.doc-ungrounded-banner,
+.doc-entailment-note {
   /* Overlay: appears/disappears without reflowing the document row. */
   position: absolute;
   top: 12px;
@@ -1672,12 +1673,22 @@ html[data-theme="dark"] .node-rephrase button[data-action="submit"]:hover {
   font-size: var(--fs-lg);
   line-height: 1.4;
 }
+/* The entailment note fills the same slot in its informational register. It
+   never shows at the same time as the banner (one is anchored == 0, the other
+   anchored > 0), so it needs the geometry above but not the warning's amber:
+   the document IS grounded, and only its truthfulness check came back empty. */
+.doc-entailment-note {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
 /* The slot sits in the same top band as the banner. With content rendered
    there (the post-Run summary bar, or the compile panel) drop the banner
    below it: the bar's 33px (6px padding + 1px border + the 19px line box)
    clipped the first line of the warning. 40px clears it with a 7px gap.
    Empty slot => banner keeps its original 12px anchor. */
-#intent-panel-slot:not(:empty) ~ .doc-surface .doc-ungrounded-banner {
+#intent-panel-slot:not(:empty) ~ .doc-surface .doc-ungrounded-banner,
+#intent-panel-slot:not(:empty) ~ .doc-surface .doc-entailment-note {
   top: 40px;
 }
 /* #version-chip is the first flow item of that same top band (24px surface
@@ -1688,7 +1699,8 @@ html[data-theme="dark"] .node-rephrase button[data-action="submit"]:hover {
    the banner below the other top-band content: 24 + 8 + 51 + 9 = 92px
    clears the chip and leaves the warning's own text uncovered. A hidden chip
    (fewer than two versions) keeps the original 12px anchor. */
-.doc-surface:has(#version-chip:not([hidden])) > .doc-ungrounded-banner {
+.doc-surface:has(#version-chip:not([hidden])) > .doc-ungrounded-banner,
+.doc-surface:has(#version-chip:not([hidden])) > .doc-entailment-note {
   top: 92px;
 }
 

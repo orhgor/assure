@@ -1227,12 +1227,13 @@
     // ingest, node rewrite) instead of being a write-once snapshot that
     // drifts from the cite chips and the source summary.
     // Anchoring mirrors prompt_matrix/services/audit_summary.py
-    // (_eligible_and_anchored): paragraph nodes with >= _MIN_CLAIM_TOKENS
-    // content tokens (models/jdf.py _tokenize — tokens are >2 chars and not
-    // stopwords, counted as a set). "Anchored" is the stricter, post-entailment
-    // meaning: eligible AND entailment.verdict == "yes" (partial/no/missing/
-    // unverified are all NOT anchored). When the caller supplies the server's
-    // provenance_stats, that wins (DB parity with the persisted gate).
+    // (_provenance_counts): paragraph nodes with >= _MIN_CLAIM_TOKENS content
+    // tokens (models/jdf.py _tokenize — tokens are >2 chars and not stopwords,
+    // counted as a set). The two layers stay separate: `anchored` is the
+    // grounding — the node's provenance row carries the matched source sentence
+    // (_anchoring_quote) — and `supported` is what the entailment check made of
+    // it (verdict "yes"). When the caller supplies the server's
+    // provenance_stats, those win (DB parity with the persisted gate).
     // ---------------------------------------------------------------
     var _ANCHOR_STOPWORDS = {
       a: 1, an: 1, the: 1, of: 1, and: 1, or: 1, to: 1, in: 1, on: 1, for: 1,
@@ -1310,8 +1311,13 @@
       return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
         (pageStr ? " \u00b7 page " + pageStr : "");
     }
-    function _derivedAnchoredCount(doc) {
-      var anchored = 0;
+    // The two numbers the gate reports, derived from the same tree the shell
+    // renders: `anchored` (a matched source sentence exists) and `supported`
+    // (the entailment check said yes). Kept apart so a document that quotes its
+    // sources is not called ungrounded, and a document whose every quote was
+    // refused is not called verified.
+    function _derivedCounts(doc) {
+      var counts = { anchored: 0, supported: 0 };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1322,42 +1328,76 @@
           if (!node || typeof node !== "object") continue;
           if (String(node.type || "") !== "paragraph") continue;
           if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
-          var meta = node.meta || {};
           // Python treats [] as falsy; JS does not. Payloads carry
-          // provenance: [] for unanchored paragraphs, so mirror the server
-          // predicate exactly (audit_summary._eligible_and_anchored).
-          var prov = meta.provenance || node.provenance;
-          var hasAnchor = Array.isArray(prov) ? prov.length > 0 : !!prov;
-          var provItem = Array.isArray(prov) ? (prov[0] || null) : prov;
-          // Stricter than presence: only an explicit entailment "yes" is
-          // anchored. A payload whose paragraphs carry an anchor but no verdict
-          // (or "partial"/"no"/"unverified") derives 0 anchored, so the banner
-          // fires rather than the shell claiming a truthfulness check the
-          // document never passed.
-          if (hasAnchor && _entailmentVerdict(node, provItem) === "yes") anchored++;
+          // provenance: [] for unanchored paragraphs, so mirror
+          // audit_summary._anchoring_quote: a row carrying the matched source
+          // sentence. meta.provenance.excerpt is NOT that — it falls back to
+          // the claim text itself.
+          var prov = node.provenance;
+          if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+          var isAnchored = false;
+          for (var p = 0; p < prov.length; p++) {
+            var row = prov[p];
+            if (row && typeof row === "object" &&
+                String(row.extracted_quote || "").trim()) { isAnchored = true; break; }
+          }
+          if (!isAnchored) continue;
+          counts.anchored++;
+          if (_entailmentVerdict(node, prov[0] || null) === "yes") counts.supported++;
         }
       }
-      return anchored;
+      return counts;
+    }
+    // "N of M claims cite a source, but the entailment check verified none of
+    // them" — the honest state after the count stopped folding the verdict into
+    // the anchor. Rendered beside the ungrounded banner, never instead of it:
+    // the banner stays exactly `anchored == 0`.
+    function _syncEntailmentNote(stats, derived) {
+      var existing = document.querySelectorAll(".doc-entailment-note");
+      for (var i = 0; i < existing.length; i++) {
+        if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
+      }
+      var anchored, supported, eligible;
+      if (stats && typeof stats === "object" && typeof stats.supported === "number" &&
+          typeof stats.anchored === "number") {
+        anchored = stats.anchored;
+        supported = stats.supported;
+        eligible = (typeof stats.eligible === "number") ? stats.eligible : anchored;
+      } else {
+        anchored = derived.anchored;
+        supported = derived.supported;
+        eligible = anchored;
+      }
+      if (anchored === 0 || supported > 0) return;
+      var note = document.createElement("div");
+      note.className = "doc-entailment-note";
+      note.textContent = "Grounded, not verified — " + anchored +
+        " of " + eligible + " claims cite an uploaded source, and the source " +
+        "check verified none of them. Review before use.";
+      var surface = document.querySelector(".doc-surface");
+      if (surface) surface.insertBefore(note, surface.firstChild);
     }
     function _syncUngroundedBanner(stats) {
       var show;
-      // The server's provenance_stats are the stricter, persisted numbers
-      // (anchored == entailment.verdict "yes" only; partial is its own bucket;
-      // no/missing/unverified are unanchored). They win whenever present; the
-      // local derivation below applies the same verdict rule, never the old
-      // "provenance is present" rule.
+      var derived = null;
+      // The server's provenance_stats are the authoritative numbers (anchored is
+      // the grounding, supported is the entailment verdict; neither stands in
+      // for the other). They win whenever present; the derivation below applies
+      // the same two rules.
       if (stats && typeof stats === "object" && typeof stats.anchored === "number") {
         show = (stats.anchored === 0);
       } else {
         var doc = SHELL.document.current;
         if (!doc || !Array.isArray(doc.body)) return;
-        show = (_derivedAnchoredCount(doc) === 0);
+        derived = _derivedCounts(doc);
+        show = (derived.anchored === 0);
       }
       // At most one banner, always.
       var existing = document.querySelectorAll(".doc-ungrounded-banner");
       for (var i = 0; i < existing.length; i++) {
         if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
       }
+      _syncEntailmentNote(stats, derived || { anchored: 0, supported: 0 });
       if (!show) return;
       var banner = document.createElement("div");
       banner.className = "doc-ungrounded-banner";

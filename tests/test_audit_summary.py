@@ -57,7 +57,9 @@ def test_build_audit_summary_shape():
     assert summary["provenance_stats"] == {
         "eligible": 0,
         "anchored": 0,
+        "supported": 0,
         "partial": 0,
+        "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
     }
@@ -116,8 +118,9 @@ def _passing_z3() -> dict:
 )
 def test_gate_anchors_policy_restatement(claim):
     doc = _policy_document(claim)
-    # The anchor itself is lexical; "verified" now means the entailment check
-    # said yes to this claim against the quote it anchored to.
+    # The anchor itself is lexical — that is `anchored`; `supported` is the
+    # entailment check that said yes to this claim against the quote it
+    # anchored to. Two layers, two numbers.
     attach_entailment_to_tree(doc, checker=_yes_checker)
     summary = build_audit_summary(
         z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
@@ -125,7 +128,9 @@ def test_gate_anchors_policy_restatement(claim):
     assert summary["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
+        "supported": 1,
         "partial": 0,
+        "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
     }
@@ -152,7 +157,9 @@ def test_gate_refuses_unsupported_claim(claim):
     assert summary["provenance_stats"] == {
         "eligible": 1,
         "anchored": 0,
+        "supported": 0,
         "partial": 0,
+        "unsupported": 0,
         "unanchored": 1,
         "unverified": 0,
     }

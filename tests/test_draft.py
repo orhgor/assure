@@ -179,10 +179,15 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     assert calls == [(claim, claim.rstrip("."))]
 
     verified = next(d for d in frames_by_type if d.get("type") == "verified")
+    # Separated layers: the paragraph is anchored (it carries a matched source
+    # sentence — `node["provenance"]` below) and the verdict on that anchor is
+    # "partial", so anchored is 1 while supported is 0.
     assert verified["provenance_stats"] == {
         "eligible": 1,
-        "anchored": 0,
+        "anchored": 1,
+        "supported": 0,
         "partial": 1,
+        "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
     }

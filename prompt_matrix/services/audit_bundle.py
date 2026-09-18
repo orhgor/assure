@@ -59,9 +59,11 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
     stats = g.get("provenance_stats") or g
     eligible = int(stats.get("eligible") or 0)
     anchored = int(stats.get("anchored") or 0)
+    supported = int(stats.get("supported") or 0)
     partial = int(stats.get("partial") or 0)
+    unsupported = int(stats.get("unsupported") or 0)
     unverified_claims = int(stats.get("unverified") or 0)
-    unanchored = int(stats.get("unanchored") or (eligible - anchored - partial))
+    unanchored = int(stats.get("unanchored") or (eligible - anchored))
     return {
         "gate_status": str(g.get("gate_status") or "review"),
         "z3_status": str(g.get("z3_status") or "SKIPPED"),
@@ -70,12 +72,16 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
         "unverified_reason": str(g.get("unverified_reason") or ""),
         "eligible": eligible,
         "anchored": anchored,
+        "supported": supported,
+        "unsupported": unsupported,
         "unanchored": unanchored,
         "has_substrate": bool(g.get("has_substrate", False)),
         "provenance_stats": {
             "eligible": eligible,
             "anchored": anchored,
+            "supported": supported,
             "partial": partial,
+            "unsupported": unsupported,
             "unanchored": unanchored,
             "unverified": unverified_claims,
         },
@@ -129,7 +135,9 @@ def compute_export_gate(
     counts = _provenance_counts(tree)
     eligible = counts["eligible"]
     anchored = counts["anchored"]
+    supported = counts["supported"]
     partial = counts["partial"]
+    unsupported = counts["unsupported"]
     unverified_claims = counts["unverified"]
     z3_status = str((z3_results or {}).get("status") or _derive_z3_from_tree(tree) or "SKIPPED")
     redhat_count = (
@@ -137,13 +145,17 @@ def compute_export_gate(
     )
     has_substrate = bool(list_substrate_for_project(project_id))
 
-    if anchored == 0:
+    # Two layers, as in build_audit_summary: `anchored` is the grounding, the
+    # verdicts are the truthfulness. The gate reads the verdict.
+    if supported == 0:
         gate_status = "review"
         unverified = True
-        if partial or unverified_claims:
+        if partial or unsupported or unverified_claims:
             bits = []
             if partial:
                 bits.append(f"{partial} supported only in part")
+            if unsupported:
+                bits.append(f"{unsupported} contradicted by their source")
             if unverified_claims:
                 bits.append(f"{unverified_claims} could not be checked")
             reason = (
@@ -172,12 +184,16 @@ def compute_export_gate(
         "unverified_reason": reason,
         "eligible": eligible,
         "anchored": anchored,
+        "supported": supported,
+        "unsupported": unsupported,
         "unanchored": counts["unanchored"],
         "has_substrate": has_substrate,
         "provenance_stats": {
             "eligible": eligible,
             "anchored": anchored,
+            "supported": supported,
             "partial": partial,
+            "unsupported": unsupported,
             "unanchored": counts["unanchored"],
             "unverified": unverified_claims,
         },
@@ -189,6 +205,10 @@ def gate_markdown(project_id: str, tree: dict[str, Any], gate: dict[str, Any]) -
     if gate.get("unverified"):
         lines.append(gate.get("unverified_reason") or "")
         lines.append(f"Claims anchored: {gate.get('anchored')} of {gate.get('eligible')}")
+        lines.append(
+            f"Claims verified against their source: {gate.get('supported', 0)} "
+            f"of {gate.get('eligible')}"
+        )
     return "\n".join(l for l in lines if l)
 
 
@@ -246,11 +266,14 @@ def build_audit_bundle_html(
     else:
         gate_status = gate.get("gate_status") or "review"
         anchored = gate.get("anchored", 0)
+        supported = gate.get("supported", 0)
         eligible = gate.get("eligible", 0)
         gate_html = (
             "<h1>0. Verification Gate</h1>\n"
             f"<p><strong>Gate: {_esc(str(gate_status))}</strong></p>\n"
-            f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>"
+            f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>\n"
+            f"<p>Claims verified against their source: {_esc(str(supported))} "
+            f"of {_esc(str(eligible))}</p>"
         )
         reason = gate.get("unverified_reason") or ""
         if reason:
