@@ -76,25 +76,25 @@
     <aside class="pane pane-left" aria-label="Sources & Compiler">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Left pane mode">
-          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false" title="Sources">
+          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false" aria-controls="left-sources" aria-label="Sources" title="Sources">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
             </svg>
           </button>
-          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true" title="Compiler">
+          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true" aria-controls="left-compiler" aria-label="Compiler" title="Compiler">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path>
             </svg>
           </button>
-          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false" title="Pipeline">
+          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false" aria-controls="left-pipeline" aria-label="Pipeline" title="Pipeline">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </button>
-          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false" title="History">
+          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false" aria-controls="left-history" aria-label="History" title="History">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
@@ -111,7 +111,7 @@
         </button>
       </header>
 
-      <div id="left-sources" class="pane-mode" style="display:none;">
+      <div id="left-sources" class="pane-mode" role="tabpanel" style="display:none;">
         <div class="pane-body">
           <p class="empty-hint">Upload a .txt or .md to ground this project.</p>
           <button type="button" class="btn-secondary" id="source-upload-btn">Upload source document</button>
@@ -120,7 +120,7 @@
         </div>
       </div>
 
-      <div id="left-compiler" class="pane-mode">
+      <div id="left-compiler" class="pane-mode" role="tabpanel">
         <div class="pane-body compiler-body">
           <div class="compiler-label">YOUR ASK</div>
           <div id="compiler-ask" class="compiler-ask"></div>
@@ -134,7 +134,7 @@
         </div>
       </div>
 
-      <div id="left-pipeline" class="pane-mode" style="display:none;">
+      <div id="left-pipeline" class="pane-mode" role="tabpanel" style="display:none;">
         <div class="pane-body pipeline-body">
           <ul class="stage-list" role="list">
             <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
@@ -151,7 +151,7 @@
         </div>
       </div>
 
-      <div id="left-history" class="pane-mode" style="display:none;">
+      <div id="left-history" class="pane-mode" role="tabpanel" style="display:none;">
         <div class="pane-body">
           <p class="empty-hint">Your versions appear here after your first draft.</p>
         </div>
@@ -183,6 +183,7 @@
           <input type="text"
                  class="dock-text"
                  id="dock-text"
+                 aria-label="Draft intent"
                  placeholder="Draft intent..."
                  autocomplete="off"
                  spellcheck="false">
@@ -197,7 +198,7 @@
         <div class="dock-jdf" id="dock-jdf">
           <button type="button" id="dock-ingest" title="Ingest PDF">Ingest</button>
           <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
-          <input type="text" id="dock-search" placeholder="Search documents…" autocomplete="off" spellcheck="false">
+          <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents…" autocomplete="off" spellcheck="false">
           <div id="dock-search-results" hidden></div>
         </div>
       </footer>
@@ -209,11 +210,11 @@
     <aside class="pane pane-right" aria-label="Inspector & Compare" id="pane-right">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
-          <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true">Evidence</button>
-          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false">Z3</button>
-          <button type="button" class="mode-tab" data-right-tab="redhat" role="tab" aria-selected="false">Red-Hat</button>
+          <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true" aria-controls="right-evidence">Evidence</button>
+          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false" aria-controls="right-z3">Z3</button>
+          <button type="button" class="mode-tab" data-right-tab="redhat" role="tab" aria-selected="false" aria-controls="right-redhat">Red-Hat</button>
         </div>
-        <button type="button" id="compare-toggle" title="Compare">⇄</button>
+        <button type="button" id="compare-toggle" aria-label="Compare" title="Compare">⇄</button>
         <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -224,16 +225,16 @@
       </header>
       <div id="right-inspector" class="pane-mode">
         <div class="inspector-empty" id="inspector-empty">Click a paragraph to inspect.</div>
-        <div id="right-evidence" class="pane-body" hidden></div>
-        <div id="right-z3" class="pane-body" hidden></div>
-        <div id="right-redhat" class="pane-body" hidden></div>
+        <div id="right-evidence" class="pane-body" role="tabpanel" hidden></div>
+        <div id="right-z3" class="pane-body" role="tabpanel" hidden></div>
+        <div id="right-redhat" class="pane-body" role="tabpanel" hidden></div>
         <details id="right-node-history" class="inspector-node-history">
           <summary>Node history</summary>
           <ul id="right-node-history-list"></ul>
         </details>
       </div>
       <div id="right-compare" class="pane-mode" style="display:none;">
-        <div class="pane-body compare-body" id="compare-body">
+        <div class="pane-body compare-body" id="compare-body" role="tabpanel">
           <p class="empty-hint">Run a draft first, then compare.</p>
         </div>
       </div>
@@ -241,7 +242,7 @@
 
     <aside class="rail rail-right" aria-label="Right pane rail">
       <nav class="rail-nav" aria-label="Right pane">
-        <button type="button" class="rail-btn" data-rail-btn="swap" title="Compare">
+        <button type="button" class="rail-btn" data-rail-btn="swap" aria-label="Compare" title="Compare">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 7h13l-3-3"></path>
