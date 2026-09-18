@@ -11,11 +11,13 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 try:
-    from ..history import DB_PATH
+    from ..history import DB_PATH, _apply_pragmas
     from ..paths import user_data_dir
 except ImportError:
-    from history import DB_PATH
+    from history import DB_PATH, _apply_pragmas
     from paths import user_data_dir
+
+_log = logging.getLogger(__name__)
 
 _audit_singleton: AuditLogger | None = None
 
@@ -109,7 +111,35 @@ class AuditLogger:
     ) -> None:
         try:
             conn = sqlite3.connect(self.db_path, timeout=5.0)
-            conn.execute("PRAGMA busy_timeout=5000;")
+            # The audit trail's connection is the fifth path to this database and
+            # the only one that did not apply the shared pragmas, so its
+            # `foreign_keys` defaulted to SQLite's OFF like every other
+            # connection's would. It is applied here for parity with
+            # history.get_db, db/pool.py and db/connection.py.
+            #
+            # On the repo's own DDL this changes nothing for an audit write:
+            # audit_log declares no FOREIGN KEY on project_id (connection.py, and
+            # history.py names audit_log among the six tables a project delete
+            # orphans and no pragma can reach), so a database created from that
+            # DDL is BORN without the constraint. But a database that has run
+            # scripts/aws/migrate_fk_constraints.py carries audit_log REBUILT
+            # with `FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE
+            # CASCADE` — measured on the staging box on 2026-09-18 — and there
+            # this pragma makes an audit write for an unknown project FAIL. The
+            # pragma's effect therefore depends on which DDL the database
+            # carries, which is why db/connection.py declaring the FK for its
+            # own seven tables (and bumping _SCHEMA_VERSION) is a real follow-up
+            # rather than tidying: until it lands, a fresh database is the one
+            # that cannot enforce this.
+            #
+            # And a failed write is what the except below historically answered
+            # with a log line and a return: it becomes an invisible missing
+            # entry, which is worse than the orphan row it replaces. The guard
+            # that keeps a missing project out of the trail is therefore the
+            # route-level check in routers/retrieval_routes.py, and it has to run
+            # BEFORE this write. Enforcement here is the second line, not the
+            # first.
+            _apply_pragmas(conn)
             conn.execute(
                 """
                 INSERT INTO audit_log
@@ -133,6 +163,19 @@ class AuditLogger:
             conn.commit()
             conn.close()
         except Exception as exc:
+            # The row is gone and nothing else will miss it. Logging that to the
+            # audit file is not the same as surfacing it, so the drop is stated
+            # where an operator looks (the service log, at ERROR) with a marker
+            # that can be grepped or counted: an audit trail with a silently
+            # missing entry is worse than one with a visible orphan, and this is
+            # the failure mode the pragma above can now trigger.
+            _log.error(
+                "AUDIT ROW DROPPED — %s (project=%s action=%s request=%s)",
+                exc,
+                project_id,
+                action,
+                request_id,
+            )
             self._file.error(
                 f"Audit log failed (SQLite): {exc}",
                 extra={"request_id": request_id},
