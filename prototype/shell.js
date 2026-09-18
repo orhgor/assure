@@ -2,7 +2,10 @@
   "use strict";
 
   var STAGE_ORDER = [
-    "Preflight",
+    // B2: the stage's display name is also its key (`stageRow` matches
+    // `[data-stage]`, index.html authors the row). The SSE frame value stays
+    // the server's `preflight` (handleEvent below) — this is the label only.
+    "Preparing",
     "Drafting",
     "Lock Inference",
     "Compile",
@@ -69,6 +72,7 @@
   var leftTemplatesEl = null;
   var evidenceModeEl = null;
   var compareModeEl = null;
+  var exportBtnEl = null;
   var docBodyEl = null;
   var versionChipEl = null;
   var versionPrevEl = null;
@@ -104,11 +108,16 @@
 
   function _syncShellPathToDom(path, value, prev) {
     if (path === "document.current") {
-      // no-op — renderJdfDocument renders; caller sets current explicitly
+      // no-op for the document itself — renderJdfDocument renders; caller sets
+      // current explicitly. What does follow the document is Export's
+      // availability: with no document loaded there is nothing to export.
+      _syncExportEnabled();
     } else if (path === "document.mode") {
       if (docEmpty) {
         docEmpty.style.display = (value === "empty") ? "" : "none";
       }
+      // The mode is the other half of "there is a document" (_canExport).
+      _syncExportEnabled();
     } else if (path === "document.signoff.status") {
       var el = document.getElementById("signoff-indicator");
       if (!el) return;
@@ -309,6 +318,32 @@
     var wasCollapsed = Boolean(SHELL.ui.layout.rightCollapsed);
     setShell("ui.layout.rightCollapsed", false);
     if (wasCollapsed) _focusRightPaneDefault();
+  }
+
+  // B4: Export is a top-bar action that had nothing to act on until a project
+  // document was loaded, and the click reached a console.warn and stopped. The
+  // shell's pattern for a control whose action is unavailable is to disable it
+  // and sync that from state — the dock's Submit (_syncDockSubmit), the version
+  // stepper, the Red-Hat run button — rather than to raise a message from the
+  // top bar (jdfMessage writes into the dock's search panel). So Export is
+  // disabled while it cannot export, and enabled again when it can.
+  function _exportProjectId() {
+    var id = SHELL.project.id;
+    if (!id) {
+      try { id = window.localStorage.getItem(STORAGE_KEY); } catch (_) { id = null; }
+    }
+    return id || "";
+  }
+  function _canExport() {
+    // The document is what there is to export; the id is what the export URL
+    // is addressed to. Both, or the button has nothing to do.
+    return Boolean(SHELL.document.current) &&
+           SHELL.document.mode === "ready" &&
+           Boolean(_exportProjectId());
+  }
+  function _syncExportEnabled() {
+    if (!exportBtnEl) return;
+    exportBtnEl.disabled = !_canExport();
   }
 
   function _refreshCompilerPromptSummary() {
@@ -558,7 +593,7 @@
           })
           .then(function (r) {
             if (r.ok && r.j && r.j.ok) {
-              jdfMessage("Indexed " + (r.j.chunks_stored || 0) + " chunks from " + f.name, false);
+              jdfMessage((r.j.chunks_stored || 0) + " figures found in " + f.name, false);
               // The ingest also lands a substrate entry for this project, so
               // re-read the project's sources from the server: SHELL.sources is
               // what the next compile posts as substrate_file_ids and what the
@@ -1240,9 +1275,9 @@
     // label never falls back to "the provenance dict exists".
     // ---------------------------------------------------------------
     var _ENTAILMENT_LABELS = {
-      yes: "Verified in source",
+      yes: "Verified against policy",
       partial: "Partial match",
-      no: "Not supported by source",
+      no: "Not verified",
       unverified: "Source check failed",
     };
     function _entailmentFor(node, provItem) {
@@ -2399,9 +2434,9 @@
       if (event === "status" && data && typeof data === "object") {
         var stage = data.stage;
         if (stage === "preflight") {
-          transitionTo("Preflight");
+          transitionTo("Preparing");
         } else if (stage === "model") {
-          markDone("Preflight");
+          markDone("Preparing");
           transitionTo("Drafting");
           // status{stage:"model"} carries the model the compile path routed to
           // (draft.py:543-546). This frame is the only client-reachable source
@@ -2863,21 +2898,18 @@
       _restoreProjectDocument(initId);
     }
 
-    // Export (top bar) → audit PDF download for the active project.
-    var exportBtn = document.getElementById("export-btn");
-    if (exportBtn) {
-      exportBtn.addEventListener("click", function () {
-        var id = SHELL.project.id;
-        if (!id) {
-          try { id = window.localStorage.getItem(STORAGE_KEY); } catch (_) { id = null; }
-        }
-        if (!id) {
-          console.warn("[export] no active project");
-          return;
-        }
+    // Export (top bar) → audit PDF download for the active project. Disabled
+    // until _canExport() (see _syncExportEnabled), which the document paths
+    // re-evaluate; the click re-reads the same state instead of dead-ending in
+    // a console.warn.
+    exportBtnEl = document.getElementById("export-btn");
+    if (exportBtnEl) {
+      exportBtnEl.addEventListener("click", function () {
+        if (!_canExport()) { _syncExportEnabled(); return; }
         window.location.href =
-          "/api/projects/" + encodeURIComponent(id) + "/export?format=audit-pdf";
+          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=audit-pdf";
       });
+      _syncExportEnabled();
     }
 
     function runDraft(intent) {
@@ -3198,6 +3230,18 @@
       if (!e.target.closest(".conf-span") && !e.target.closest(".chip")) {
         setShell("ui.selection.nodeId", nid);
         setShell("ui.selection.evidence", null);
+        // A plain paragraph is a selection like a confidence span's or a
+        // chip's, so it reveals the pane and names its tab exactly the way
+        // those two handlers do (handleConfidenceClick, handleChipClick:
+        // openRight() then setMode("evidence")). Writing the selection alone
+        // left the pane collapsed, and left it on whatever tab it already had
+        // when it was open. Inside this guard, like the writes above: a span
+        // and a chip own their own click, so a Red-Hat chip must still leave
+        // the pane on Red-Hat rather than have this handler name Evidence.
+        if (nid) {
+          openRight();
+          setMode("evidence");
+        }
       }
       if (nid) {
         if (typeof _attachNodeRephrase === "function") _attachNodeRephrase(nid);
@@ -4151,7 +4195,7 @@
         if (!resp.ok) throw new Error("Ground failed: " + resp.status);
         return resp.json();
       }).then(function (result) {
-        alert("Grounding complete. Node updated with provenance.");
+        alert("Grounding complete. Node updated with source citation.");
         setMode("pipeline");
       }).catch(function (err) {
         alert("Grounding error: " + (err.message || err));

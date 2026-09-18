@@ -45,7 +45,7 @@ test("prototype JDF ingest and search", async ({ page }) => {
   await page.locator("#dock-ingest-file").setInputFiles(FIXTURE);
   try {
     await expect(page.locator("#dock-search-results")).toContainText(
-      /Indexed \d+ chunks/,
+      /\d+ figures found in/,
       { timeout: 60_000 }
     );
     console.log("INGEST_OK");

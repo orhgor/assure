@@ -24,7 +24,7 @@ test("prototype surgical revision from search (Path B — defines missing capabi
   await expect(page.locator(".app-shell")).toBeVisible({ timeout: 30_000 });
   await page.locator("#dock-ingest").click();
   await page.locator("#dock-ingest-file").setInputFiles(FIXTURE);
-  await expect(page.locator("#dock-search-results")).toContainText(/Indexed \d+ chunks/, {
+  await expect(page.locator("#dock-search-results")).toContainText(/\d+ figures found in/, {
     timeout: 60_000,
   });
 

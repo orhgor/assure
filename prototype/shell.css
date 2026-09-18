@@ -312,6 +312,12 @@ button {
   background: var(--hover-surface);
   border-color: var(--accent);
 }
+/* B4: Export is disabled while there is no document to export, and a control
+   that cannot act has to look it (same two declarations as .compare-btn's). */
+.btn-secondary[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* =============================================================
    Shell Grid Layout
@@ -465,6 +471,9 @@ body.collapsed .pane-left {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  /* The right pane's header carries the claim-colour legend on its own line
+     (B3), so the row has to be allowed to wrap. */
+  flex-wrap: wrap;
   min-height: 44px;
 }
 
@@ -1366,6 +1375,18 @@ body.collapsed .pane-left {
 .conf-legend-dot.green  { background: #10b981; }
 .conf-legend-dot.yellow { background: var(--warning); }
 .conf-legend-dot.red    { background: #dc2626; }
+/* B3: the third claim colour is the unhighlighted span — ordinary text, so its
+   swatch is the text colour rather than a fourth status colour. */
+.conf-legend-dot.grey   { background: var(--text-muted); }
+
+/* B3: the same three colours, named once, in the right pane's header. It reads
+   the .conf-legend row/dot rules; only the document-side spacing is dropped. */
+.pane-legend {
+  flex: 1 0 100%;
+  padding: 0;
+  margin: 0;
+  border-bottom: none;
+}
 
 /* ---- Confidence spans are interactive ---- */
 .conf-span {

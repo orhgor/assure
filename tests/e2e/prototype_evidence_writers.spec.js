@@ -130,7 +130,7 @@ test("a confidence span paints #right-evidence exactly once (panel + ledger)", a
   // Exactly one build, and it is the whole view: the paragraph panel's verdict
   // header and provenance fields, with the span's ledger tail appended.
   expect(builds, `#right-evidence builds: ${JSON.stringify(builds)}`).toHaveLength(1);
-  expect(builds[0]).toContain("Verified in source · page 3");
+  expect(builds[0]).toContain("Verified against policy · page 3");
   expect(builds[0]).toContain(SOURCE_NAME);
   expect(builds[0]).toContain("Ledger check score: 90%");
 
