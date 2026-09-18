@@ -118,6 +118,15 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
         raise AssertionError("Claude must not run on cache hit")
 
     monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
+    # The pre-flight refuses a compile with no source attached before the cache
+    # probe, so this project carries one — a cache hit is a compile that was
+    # grounded when it was first made.
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": "Limit 5,000,000."}
+        ],
+    )
 
     class _Gov:
         class _Acct:
@@ -137,7 +146,14 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
 
     from prompt_matrix.routers.draft import run_draft_pipeline
 
-    frames = list(run_draft_pipeline("cache-hit", intent="same text twice", governor=_Gov()))
+    frames = list(
+        run_draft_pipeline(
+            "cache-hit",
+            intent="same text twice",
+            substrate_file_ids=["sub-1"],
+            governor=_Gov(),
+        )
+    )
     joined = "".join(frames)
     assert "omp_cached" in joined
     assert "cached draft" in joined

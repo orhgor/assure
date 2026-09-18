@@ -67,6 +67,45 @@ def test_verify_locks_zero_metrics_is_skipped_not_pass():
     assert "key: value" in result["skip_reason"]
 
 
+def test_run_draft_pipeline_refuses_a_project_with_no_source(monkeypatch):
+    """No source attached: the compile is refused before its first stage.
+
+    The provenance gate refuses a zero-anchor draft too, but only after the whole
+    draft has streamed into the document pane — the state a user cannot read as a
+    verdict. The pre-flight refuses in the same frames (an `error` carrying
+    http_status 422 and the reason, the `complete` that ends the run, `[DONE]`)
+    with nothing before them: no status frame, no budget call, no model call, no
+    token frame, and the cache is not even probed.
+    """
+
+    def fail_stream(*_a, **_k):
+        raise AssertionError("the model must not run without a source")
+
+    probed: list[str] = []
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.load_ast_cache", lambda key: probed.append(key) or None
+    )
+
+    frames = list(
+        run_draft_pipeline("no-source", intent="write about physiology", governor=_FakeGovernor())
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    types = [ev for ev, _data in events if ev != "done"]
+
+    assert types == ["error", "complete"], f"unexpected frames: {types}"
+    error = next(data for _ev, data in events if data.get("type") == "error")
+    assert error["http_status"] == 422
+    assert error["reason"] == "no_source_attached"
+    assert error["error"] == (
+        "Upload a source first. Assure grounds every claim against the source you provide."
+    )
+    complete = next(data for _ev, data in events if data.get("type") == "complete")
+    assert complete["ok"] is False and complete["http_status"] == 422
+    assert frames[-1].strip() == "data: [DONE]"
+    assert probed == [], "the cache must not be probed for a compile that cannot be grounded"
+
+
 def test_run_draft_pipeline_progressive(monkeypatch):
     """Draft pipeline ends at "verified" (Math Check gate). Red-Hat is
     opt-in and never runs automatically — see test_run_redhat_pipeline.
@@ -268,6 +307,15 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     }
 
     monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
+    # A compile with no source attached is refused before the cache is even
+    # probed (routers/draft.py pre-flight), so the cached path is reached with a
+    # source attached — which is the only way a real compile reaches it.
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": "Limit 5,000,000."}
+        ],
+    )
     wrapped = {
         "compiled": {
             "document": cached["document"],
@@ -290,6 +338,7 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
         run_draft_pipeline(
             "default",
             intent="Same intent as before.",
+            substrate_file_ids=["sub-1"],
             governor=_FakeGovernor(),
         )
     )

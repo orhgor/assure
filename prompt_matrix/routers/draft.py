@@ -202,6 +202,37 @@ def _done_sse() -> str:
     return "data: [DONE]\n\n"
 
 
+# Every refusal on this path speaks in these three frames — an ``error`` frame
+# carrying ``http_status: 422`` and the machine reason, the ``complete`` frame
+# that ends the run, and ``[DONE]``. The shell keys its refusal card on the 422
+# (shell.js ``_showRefusalCard``, which replaces the streamed draft with the
+# card), so a refusal that did not use this shape would leave the partial draft
+# on the canvas. One shape for both refusals: the pre-flight below and the
+# provenance gate after the draft.
+_NO_SOURCE_REASON = "no_source_attached"
+_NO_SOURCE_MESSAGE = (
+    "Upload a source first. Assure grounds every claim against the source you provide."
+)
+
+
+def _refusal_frames(message: str, reason: str, request_id: str) -> Iterator[str]:
+    yield _typed_sse(
+        "error",
+        {
+            "ok": False,
+            "error": message,
+            "http_status": 422,
+            "reason": reason,
+            "request_id": request_id,
+        },
+    )
+    yield _typed_sse(
+        "complete",
+        {"ok": False, "error": message, "request_id": request_id, "http_status": 422},
+    )
+    yield _done_sse()
+
+
 def _check_cancel(cancel_check: CancelCheck | None) -> None:
     if cancel_check and cancel_check():
         raise DraftCancelledError("client disconnected")
@@ -656,6 +687,36 @@ def run_draft_pipeline(
     substrate_rows = (
         fetch_substrate_entries_by_ids(project_id, substrate_file_ids) if substrate_file_ids else []
     )
+    # Pre-flight: a compile with no source attached has nothing to ground on, so
+    # it is refused before the first stage runs — no model call, no tokens
+    # painted into the document pane, no revision and no cache entry. The
+    # provenance gate at the end of this pipeline refuses the same compile, but
+    # only after the whole draft has streamed, which is exactly the state the
+    # user cannot read as a verdict. Nothing below this line has run yet.
+    if not substrate_rows:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=f"compile refused: {_NO_SOURCE_REASON}",
+            details={
+                "rejection": _NO_SOURCE_REASON,
+                "intent_sha256": _sha256_text(intent),
+                "source_count": 0,
+            },
+        )
+        _log.warning(
+            "[compile-refused] %s project=%s intent=%s sources=%s",
+            _NO_SOURCE_REASON,
+            project_id,
+            _sha256_text(intent),
+            _sha256_text(""),
+        )
+        yield from _refusal_frames(_NO_SOURCE_MESSAGE, _NO_SOURCE_REASON, rid)
+        return
+
     substrate_context = _build_substrate_context(substrate_rows)
     combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
     messages = _draft_messages(intent, combined_context)
@@ -865,21 +926,7 @@ def run_draft_pipeline(
                 "model": model_id,
             },
         )
-        yield _typed_sse(
-            "error",
-            {
-                "ok": False,
-                "error": _outcome.message,
-                "http_status": 422,
-                "reason": _outcome.reason,
-                "request_id": rid,
-            },
-        )
-        yield _typed_sse(
-            "complete",
-            {"ok": False, "error": _outcome.message, "request_id": rid, "http_status": 422},
-        )
-        yield _done_sse()
+        yield from _refusal_frames(_outcome.message, _outcome.reason, rid)
         return
 
     # The JDF tree is NOT persisted here: this is the pre-audit document. The
