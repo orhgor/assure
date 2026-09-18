@@ -243,6 +243,19 @@ ORCHESTRATOR_ENV_MAP: dict[str, str] = {
 ORCHESTRATOR_ENV_MAP_KEYS = frozenset(ORCHESTRATOR_ENV_MAP)
 
 
+#: The upstream provider OpenRouter must use, named. Every call that produces a
+#: document or checks one pins this: at temperature 0 the *provider* is what makes
+#: a call reproducible, since an unpinned request is routed per call and OpenRouter
+#: still samples across them. Measured on the compile path: Alibaba 8/8 identical,
+#: Novita 8/8 identical, unpinned 8/8 distinct — and Alibaba and Novita do not
+#: agree with each other (sha 25bbbc92… vs 585f6e9d…), which is why fallbacks stay
+#: off: a provider outage must read as a failed call, never as a different result
+#: under the same inputs. ``extra_body`` carries it, because litellm passes a
+#: caller's extra_body through to the OpenRouter request body and a named kwarg
+#: has no route to that field.
+PROVIDER_PIN: dict = {"order": ["Alibaba"], "allow_fallbacks": False}
+
+
 def provider_slug_for_litellm(model: str | None) -> str | None:
     """Map a LiteLLM model id to the slug recognized by api_key_for / save_provider_key
     (and by orchestrator's provider env_map). Returns None for unknown models — never

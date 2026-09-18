@@ -1,10 +1,11 @@
 """Shared utilities for observability and audit."""
 
-from .logger import AuditLogger, get_assure_logger, get_audit_logger
+from .logger import AuditLogger, audit_drop_count, get_assure_logger, get_audit_logger
 from .telemetry import collect_system_metrics, prune_old_logs
 
 __all__ = [
     "AuditLogger",
+    "audit_drop_count",
     "collect_system_metrics",
     "get_assure_logger",
     "get_audit_logger",

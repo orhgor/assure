@@ -101,13 +101,32 @@ The client's asks are mostly built. The work is exposing, not creating.
 
 ## CRITICAL ISSUES — needs its own design session
 
-### I1. Auth boundary is a single env var
-`ASSURE_ENFORCE_OWNERSHIP=off` on staging makes ALL `/api/projects/<id>/*`
-routes effectively public. `/api/projects/p1/jdf/search` returns 400
-(validation) instead of 401 (unauthorized) because the gate is bypassed.
+### I1. Auth boundary — three layers, not one switch
+*Measured on staging 2026-09-18T20:48Z. Note the flag is `ASSURE_` (the brief
+sometimes spells it `ASSUME_`); it is **unset**, and it does not govern this.*
 
-In production it gates properly. But the design has a single toggle
-between "public" and "isolated." No middle ground.
+- **Outer — the shell access key** (`SHELL_ACCESS_KEY`, `/etc/assure/shell-access.env`):
+  still required, and the only factor for `/api/health` and the programmatic API. A
+  bearer token on that key carries no user identity — it returns the unrestricted
+  workspace, so it is an operator credential, not a session.
+- **Inner — the Clerk session**: required for the shell documents and for
+  `/api/projects`; `/api/*` generally takes a session except the paths in
+  `PUBLIC_API` (the sign-in flow itself, health/status probes, provider webhooks, and
+  the worker-secret substrate ingest). Session required, key alone → 401 on
+  `/api/projects`, 302 to `/signin` on `/`.
+- **`ASSURE_ENFORCE_OWNERSHIP` is UNSET and does not govern any of this.** It was the
+  old single toggle. What switches ownership on now is the presence of a Clerk
+  identity: `middleware.ownership_enforced()` falls back to
+  `auth_required() and current_user_id()`, admins bypass the owner comparison, and a
+  NULL-owner row stays open. Setting that variable is neither required nor sufficient.
+
+`ASSURE_CLERK_ONLY=0` in the box env restores the pre-Clerk posture (key alone opens
+`/` and `/api/projects`) on the **next request — no restart**. See the demo-day
+runbook's rollback section.
+
+Still open, and the reason this section survives: the outer and inner factors are
+independent, so the shared key remains a full-access credential for the programmatic
+path until it is rotated or retired (deferred until after the demo).
 
 ### I2. JDF carries three kinds of sensitive input
 The JDF ingested via `/api/projects/<id>/jdf/ingest` may contain:

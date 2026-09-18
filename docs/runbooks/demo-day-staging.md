@@ -1027,3 +1027,87 @@ from two different source positions is refused** by the pre-existing numeric gua
 are out of scope for this pass and are unchanged — this is the guard behaving as written, not a
 defect introduced for the demo. Practically: a question that asks for two numbers from two places
 will refuse instead of answering, so ask for them one at a time in front of the audience.
+
+---
+
+## 11. Multi-agent discipline — the rules this wave earned
+
+**Why these cluster.** All three collisions on 2026-09-18 — one shared tree's HEAD twice, and one
+shared worktree — were the same shape: **a resource one writer assumed it owned and a second
+writer did not know about.** Every one was caught by an agent noticing that its own state had
+moved underneath it. **The detection worked; the assumptions failed.** The four rules below exist
+so the next wave relies on the second and not the first.
+
+**Each rule carries the incident that earned it, deliberately.** A rule without its reason gets
+overruled by the next person who finds it inconvenient — which is exactly what happened to the
+audit-path comment asserting `audit_log` declares no foreign key (true of the repo DDL, false of
+the migrated box; reported to its author) and to §3's and §7's "six tables declare no foreign
+key". Both are superseded in place by §3d rather than quietly deleted, so the reason survives the
+rule.
+
+### Rule 1 (required) — Rebase only branches you own
+
+*Earned when a rebase rewrote five SHAs on a branch another agent had checked out with uncommitted
+work in that worktree.* The edits survived **only because the hunks happened to apply cleanly** —
+which is luck, not design, and luck does not survive a second occurrence. A rebase takes another
+agent's uncommitted work **silently when it conflicts**: from git's perspective nothing went
+wrong, so nothing reports it, and the loss surfaces as "my change is missing" hours later. If a
+branch can have more than one writer, either own it explicitly (and say so) or take a fresh
+branch — never rebase a branch that is someone else's working surface.
+
+### Rule 2 (required) — Every result names its base commit and the md5 it was measured against
+
+*Earned because `prototype/shell.js` moved through a long series of md5s in a single day.* Measured
+here, and it is not hypothetical: **29 commits rewrote `prototype/shell.js` inside 2026-09-18
+alone**, and at the time of writing the **committed blob is
+`bef198bf2110389013f7964021f828c9` while the box serves
+`1883c520e346e46f52b92c8c29971726`** — HEAD and the served build disagree right now. This runbook's
+own front matter had already carried two values for the same file in one day (`9da3f758…` →
+`ccb0f4e9…`, §2's table), and §3a keeps a paragraph about exactly this drift.
+
+**A result without both a base and an md5 is attributable to no revision.** The form:
+
+> verified on `<branch>` at `<md5>`, base `<sha>`
+
+Never a bare *"verified."* — unattributable evidence is what this project spent the day deleting.
+
+### Rule 3 (recommended) — One worktree per agent
+
+*Earned when two agents landed on `/tmp/wt-postaudit` and `postaudit/fixes` from two dispatches*,
+one of them discovering a rebase underneath its uncommitted edits. `git worktree add` gives each
+agent its own HEAD and index; sharing one tree recreates Rule 1's hazard one level down, with the
+added twist that the *paths* differ while the *refs* do not. Treat it as the default for any batch
+with more than one writer.
+
+### Rule 4 (recommended) — Name the branch alongside the tree, never the tree alone
+
+*Earned when the local `.venv`'s editable install of `prompt_matrix` was found to follow HEAD* — so
+**an import's meaning changes as branches move**, and a test run inside a worktree can read a
+different branch's source than the one it believes it is testing. Measured in this checkout, and
+it is worse than a single root:
+
+| | |
+|---|---|
+| the editable finder's mapping | `MAPPING = {'prompt_matrix': '/Users/og/Untitled/prompt_matrix'}` — an **absolute path to the main tree**, not to whatever directory the interpreter is standing in (`__editable__.prompt_matrix-0.1.0.pth` → `__editable___prompt_matrix_0_1_0_finder`) |
+| the bare-import fallback root | with `prompt_matrix/` on `sys.path`, a bare `import db` resolves to `/Users/og/Untitled/prompt_matrix/db/__init__.py` — the same main tree, which is the root the `from db.connection import …` fallbacks rely on |
+| the hazard, demonstrated | running `/Users/og/Untitled/.venv/bin/python -c "import prompt_matrix; print(prompt_matrix.__file__)"` **from inside the worktree `/Users/og/Untitled.worktrees/cline-identity-query`** (branch `agents/cline-identity-query`, at `d5d6842`) printed **`/Users/og/Untitled/prompt_matrix/__init__.py`** — the run would have exercised the main tree's source while appearing to test that worktree's |
+
+Because both roots point at one tree, neutralising one is not enough. **The practical form: every
+test result names the branch, and where a worktree was used it prints the module file path to prove
+which source the interpreter read** — `python -c "import prompt_matrix; print(prompt_matrix.__file__)"`,
+and add the `prompt_matrix/` root to anything that exercises the bare-import fallbacks.
+
+### This section's own residual — §11 exists twice
+
+**§11 is byte-identical on `prototype/shell-skeleton` and `feat/math-check-tier2` by content, not
+by ancestry.** The two branches share the *text*, not a commit: it was cherry-picked, because
+fast-forwarding the shell branch would have carried the whole Math Check tier-2 workstream along
+with a documentation commit — a promotion nobody decided. That bought a clean promotion boundary
+at the price of **two copies of this section**, and the price is worth stating here rather than
+left for the next editor to rediscover.
+
+**So any later edit to §11 must be applied to both branches.** Otherwise the copies diverge
+silently, and a reader on one branch quotes a rule that the other no longer states — which is the
+same failure this section already documents, one level up: the document is the shared resource,
+and both writers have to know they share it. **This paragraph is itself an example**: it had to be
+written twice, in the same way, for the same reason.
