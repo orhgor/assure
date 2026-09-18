@@ -2002,6 +2002,18 @@
       cancel.addEventListener("click", function () { _removeNodeRephrase(); });
       input.focus();
     }
+    // The locator. A finding names the paragraph it is about (`node_id` on the
+    // annotation, written by models/jdf.py:attach_redhat_annotation), so acting
+    // on one puts that paragraph on screen: the caller writes the selection,
+    // which paints .is-selected, and this brings the node into view. Scrolling
+    // lives here rather than in the selection writer because selecting a
+    // paragraph by clicking it should not move the document under the reader.
+    function _scrollToNode(nodeId) {
+      if (!nodeId || !draftEl) return;
+      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+      if (!wrapper) return;
+      try { wrapper.scrollIntoView({ block: "center" }); } catch (_) {}
+    }
     function _handleRephraseFrame(frame, cb) {
       if (!frame) return;
       var ev = ""; var dataStr = "";
@@ -4291,6 +4303,7 @@
         if (!node.annotations || !node.annotations.redhat || !node.annotations.redhat[index]) return;
         setShell("ui.selection.nodeId", nodeId);
         setShell("ui.rightTab", "redhat");
+        _scrollToNode(nodeId);
         return;
       }
       var evidence = null;
@@ -4598,6 +4611,7 @@
               if (!node || !node.id) return;
               setShell("ui.selection.nodeId", node.id);
               _attachNodeRephrase(node.id, text);
+              _scrollToNode(node.id);
             });
           }
           list.appendChild(li);
