@@ -1,9 +1,12 @@
 """Adversarial claim entailment for anchored paragraphs.
 
 ``models/jdf.py:attach_substrate_provenance_to_tree`` anchors a paragraph to a
-substrate sentence by *wording* similarity (token overlap + numeric matching) and
-says so in its own TODO. This module adds the missing step: does the anchored
-source sentence actually *entail* the claim the paragraph makes?
+*run of consecutive substrate sentences* by *wording* similarity (token overlap +
+numeric matching) and says so in its own TODO. This module adds the missing step:
+does the anchored evidence actually *entail* the claim the paragraph makes? It is
+given the same run the matcher scored (the provenance row's ``anchor_window``),
+not one sentence quoted out of it — a claim the source states across two sentences
+is not judged against half of them.
 
 Verdicts (frozen contract, persisted at ``node.meta.provenance.entailment``):
 
@@ -176,18 +179,30 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
 
 
 def _claim_source(node: dict[str, Any]) -> tuple[str, str]:
-    """(claim, anchored source quote) for a paragraph node.
+    """(claim, anchored source evidence) for a paragraph node.
 
-    The source is the ``extracted_quote`` of the anchoring provenance row — never
-    ``meta.provenance.excerpt``, which falls back to the claim text itself and
-    would make the check a tautology.
+    The evidence is the provenance row's ``anchor_window`` — the run of consecutive
+    source sentences the matcher actually cleared its floors against — and only
+    falls back to ``extracted_quote`` when the row predates the window (or the
+    window was a single sentence, where the two are the same text). Checking the
+    claim against one sentence of a two-sentence anchor asks the model to judge a
+    claim against evidence the matcher never used, and it answers ``partial`` for
+    the half the sentence does not carry: the paragraph is then reported as a
+    weaker claim than the source it was anchored to.
+
+    Never ``meta.provenance.excerpt``, which falls back to the claim text itself
+    and would make the check a tautology.
     """
     claim = str(node.get("content") or "").strip()
     rows = node.get("provenance") or []
     source = ""
     for row in rows:
-        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
-            source = str(row["extracted_quote"]).strip()
+        if not isinstance(row, dict):
+            continue
+        window = str(row.get("anchor_window") or "").strip()
+        quote = str(row.get("extracted_quote") or "").strip()
+        if window or quote:
+            source = window or quote
             break
     return claim, source
 

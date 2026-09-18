@@ -172,6 +172,40 @@ def test_attach_skips_nodes_without_a_source_quote() -> None:
     assert "entailment" not in (doc["body"][0]["children"][0]["meta"].get("provenance") or {})
 
 
+def test_attach_checks_a_two_sentence_anchor_against_the_whole_window() -> None:
+    """The check reads the window the matcher cleared its floors against.
+
+    A paragraph anchored across two source sentences asks a question the single
+    quoted sentence cannot answer — it carries half the claim — and the model then
+    reports a supported claim as partial. The window is what the anchor rests on,
+    so it is what the check is given.
+    """
+    claim = (
+        "Physical inspections are required every 24 months and properties vacant "
+        "over 60 consecutive days trigger a referral."
+    )
+    sentence = "Physical inspection of occupied commercial properties is required at least once every 24 months"
+    window = (
+        sentence + " Vacant properties exceeding 60 consecutive days require referral"
+    )
+    calls: list[tuple[str, str]] = []
+    node = _paragraph("p1", claim, sentence)
+    node["provenance"][0]["anchor_window"] = window
+    attach_entailment_to_tree(_document(node), checker=_stub({claim: "yes"}, calls))
+    assert calls == [(claim, window)]
+
+
+def test_attach_falls_back_to_the_quote_when_a_row_carries_no_window() -> None:
+    """Rows written before the window existed are still checked, on their quote."""
+    claim = "Physical inspections are required every 24 months."
+    sentence = "Physical inspection of occupied commercial properties is required at least once every 24 months"
+    calls: list[tuple[str, str]] = []
+    attach_entailment_to_tree(
+        _document(_paragraph("p1", claim, sentence)), checker=_stub({claim: "yes"}, calls)
+    )
+    assert calls == [(claim, sentence)]
+
+
 # ---------------------------------------------------------------------------
 # The gate
 # ---------------------------------------------------------------------------

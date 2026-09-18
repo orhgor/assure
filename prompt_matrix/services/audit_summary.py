@@ -51,7 +51,9 @@ def _anchoring_quote(node: dict[str, Any]) -> str:
 
     The quote the lexical matcher stamped (``models/jdf.py``); read from the
     node's provenance row, never from ``meta.provenance.excerpt``, which falls
-    back to the claim text itself. Same rule as ``entailment._claim_source``.
+    back to the claim text itself. The entailment check reads the same row's
+    ``anchor_window`` — the run of sentences the anchor was scored against — so
+    this is the sentence *cited*, not the whole evidence behind it.
     """
     for row in node.get("provenance") or []:
         if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():

@@ -336,8 +336,11 @@ _REDHAT_WHOLE_DOCUMENT_PROMPT = (
 def _anchoring_provenance_row(node: dict[str, Any] | None) -> dict[str, Any] | None:
     """First provenance row whose ``extracted_quote`` is non-empty.
 
-    Same rule as ``entailment._claim_source`` (services/entailment.py:187-193),
-    so the prompt and the entailment check call the same text "the source".
+    This is the *cited* sentence — the one the Evidence pane shows. The entailment
+    check reads the same row's ``anchor_window`` instead (entailment._claim_source),
+    because it judges the claim against the evidence the matcher used rather than
+    the sentence quoted out of it; Red-Hat's prompt names a source *sentence*, so a
+    sentence is what it gets.
     """
     for row in (node or {}).get("provenance") or []:
         if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
