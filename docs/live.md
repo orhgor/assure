@@ -50,6 +50,17 @@ Push-based promotion is additionally paused out of band: `.cursor/rules/deploy-f
 | repo tunnel assets as the source of truth | the box's live tunnel | repo `scripts/aws/cloudflared-config*.yml` name tunnel `3c71a11e-e98b-4f11-802e-8674b8bca524`; the box's tunnel id is `fe93535b-a2cb-461d-a8ef-143f07c35876` (SSM, A3 §0) |
 | docs that describe all of the above | stale — do not trust them | `docs/state.md`, `deploy-flow.md`, `post-launch-ops.md`, `product-status.md`, `webpage-all-content.md`, `runbooks/staging-launch-execution.md`, `runbooks/v1.5-production-promotion.md`, `runbooks/clerk-marketing-workbench.md`, `functionality-test-report.md`, `launch-checklist.md` (staging rows), `ship-timeline.md` (environment refs), `workbench-ui-current-state.md`, `assure-ai-all-functions.md` (staging rows), demo `README.md`/`demo-script.md`/`one-pager.md`, `cloudflare-fix.md`, `cloudflare/cache-rules-v2.md`, `queue.md` item 2. Current: `anti-claims.md`, `queue-3-4-designs.md`, `github-actions-minutes.md`, `deferred.md`, `user-experience.md`, `visual-checklist.md`, `audits/*` dated records, `runbooks/marketing-r2-free-tier.md`, `runbooks/substrate-r2-ephemeral-uploads.md` (A3 acceptance table) |
 
+## Brand source
+
+The shell's mark and palette are **sourced from marketing**, not owned by the shell:
+
+- `prototype/favicon.svg` is a byte-identical copy of `prompt_matrix/static/favicon.svg` — both md5 `ecc3567873e8feb2045829160f672b64` (CODE).
+- The brand block in `prototype/shell.css:32-34` cites marketing's tokens by name: `--brand-navy: #1A4B8C` = `--assure-trust-blue`, `--brand-green: #2E7D32` = `--assure-confidence-green`, `--brand-gold: #D4A843` = `--assure-accent-gold`, all defined at `prompt_matrix/static/landing.css:2-4` (CODE).
+
+Moving one side alone is what makes the two surfaces drift: the shell would serve a stale mark, or a colour marketing no longer uses. **When marketing's brand changes, update `prototype/favicon.svg` and the brand tokens in `shell.css`'s `:root` in the same commit** — re-copy the mark rather than redrawing it. `shell.css:28-31` states the same rule at the point of use, so neither surface can be changed in ignorance of the other.
+
+Not covered by that rule: the shell's own tokens (`--bg-*`, `--text-*`, `--border`, type scale) are the shell's and were only *aligned* to marketing's values — a marketing canvas-colour change is not a shell edit unless the shell reads that token by name.
+
 ## Constraints
 
 - **The box deploy key is read-only.** `git push --dry-run` → "marked as read only" (SSM, A3 §0); both `/home/ubuntu/.ssh/id_ed25519` and `assure_deploy` authenticate as repo deploy keys; fetch still works. Anything that assumes a push from the box is invalid.
