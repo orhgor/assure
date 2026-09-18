@@ -4,47 +4,47 @@
 
 /* ---- Light theme: default (:root) ---- */
 :root {
-  /* Backgrounds (3 tiers: canvas / panels / rails) */
+  /* ---- colour: surfaces (3 tiers: canvas / panels / rails) ---- */
   --bg-body:     #ffffff;
   --bg-center:   #ffffff;
-  --bg-doc:      #ffffff;
   --bg-surface:  #f8fafc;
   --bg-rail:     #1e293b;
-  /* NEW phase5: panel separation + header surface + panel tint 218 (#f1f5f9) */
   --bg-header:   #ffffff;
   --bg-panel:    #f1f5f9;
 
-  /* Text & ink */
+  /* ---- colour: ink ---- */
   --text-primary: #0f172a;
   --text-muted:   #64748b;
   --text-on-dark: #e2e8f0;
   --text-surface: #ffffff;
 
-  /* Linework & chrome */
+  /* ---- colour: linework & chrome ---- */
   --border:      #e2e8f0;
   --border-1:    1px solid var(--border);
   --dot-idle:    #94a3b8;
   --scroll-thumb:#cbd5e1;
   --scroll-hover:#94a3b8;
 
-  /* Three accents exactly */
+  /* ---- colour: accents (three exactly, plus the strong text pair) ---- */
   --trust-blue:   #3b82f6;
+  --accent-strong: #2563eb;
   --verified:     #10b981;
   --warning:      #f59e0b;
   --danger:       #dc2626;
 
-  /* Semantic aliases (stay var() downstream) */
+  /* ---- colour: semantic aliases (stay var() downstream) ---- */
   --accent:         var(--trust-blue);
-  --accent-hover:   #2563eb;
+  --accent-hover:   var(--accent-strong);
+  --accent-ink:     var(--accent-strong);
   --accent-soft:    rgba(59, 130, 246, 0.18);
   --accent-softest: rgba(59, 130, 246, 0.12);
   --accent-glow:    rgba(59, 130, 246, 0.28);
   --success:        var(--verified);
   --success-soft:   rgba(16, 185, 129, 0.18);
   --success-text:   #059669;
+  --warning-ink:    #92400e;
   --danger-soft:    rgba(220, 38, 38, 0.12);
   --danger-text:    #b91c1c;
-  --danger-fg:      #fef2f2;
   --hover-surface:  #f1f5f9;
   --pane-hover:     rgba(15, 23, 42, 0.04);
   --rail-btn-active-bg: rgba(59, 130, 246, 0.12);
@@ -86,7 +86,6 @@
 html[data-theme="dark"] {
   --bg-body:     #0f111a;
   --bg-center:   #0f111a;
-  --bg-doc:      #131620;
   --bg-surface:  #131620;
   --bg-rail:     #090a0f;
   --bg-header:   #0c0e17;
@@ -104,21 +103,23 @@ html[data-theme="dark"] {
   --scroll-hover:#475569;
 
   --trust-blue:   #3b82f6;
+  --accent-strong: #2563eb;
   --verified:     #10b981;
   --warning:      #f59e0b;
   --danger:       #ef4444;
 
   --accent:        var(--trust-blue);
-  --accent-hover:  #2563eb;
+  --accent-hover:  var(--accent-strong);
+  --accent-ink:    var(--accent-strong);
   --accent-soft:   rgba(59, 130, 246, 0.25);
   --accent-softest: rgba(59, 130, 246, 0.12);
   --accent-glow:   rgba(59, 130, 246, 0.45);
   --success:       var(--verified);
   --success-soft:  rgba(16, 185, 129, 0.25);
   --success-text:  #86efac;
+  --warning-ink:   #f59e0b;
   --danger-soft:   rgba(239, 68, 68, 0.08);
   --danger-text:   #fca5a5;
-  --danger-fg:     #fca5a5;
   --hover-surface: var(--bg-surface);
   --pane-hover:    rgba(226, 232, 240, 0.05);
   --rail-btn-active-bg: rgba(59, 130, 246, 0.12);
@@ -1480,7 +1481,7 @@ body.collapsed .pane-left {
   border-radius: 50%;
 }
 .conf-legend-dot.green  { background: #10b981; }
-.conf-legend-dot.yellow { background: #f59e0b; }
+.conf-legend-dot.yellow { background: var(--warning); }
 .conf-legend-dot.red    { background: #dc2626; }
 
 /* ---- Confidence spans are interactive ---- */
@@ -1822,8 +1823,8 @@ body.collapsed .pane-left {
   margin: 0;
   pointer-events: auto;
   background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #f59e0b;
+  color: var(--warning-ink);
+  border: 1px solid var(--warning);
   border-radius: 6px;
   padding: 12px 16px;
   font-size: 14px;
@@ -1919,7 +1920,7 @@ body.collapsed .pane-left {
   min-width: 260px;
   max-height: 240px;
   overflow-y: auto;
-  background: var(--bg-surface, #fff);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -1936,7 +1937,7 @@ body.collapsed .pane-left {
   border-bottom: 1px solid var(--border);
 }
 .version-row:last-child { border-bottom: none; }
-.version-row:hover { background: var(--bg-hover, #f1f5f9); }
+.version-row:hover { background: var(--hover-surface); }
 .version-row.is-current {
   font-weight: 600;
   color: var(--accent);
@@ -2184,7 +2185,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
   padding: 4px 10px;
   font: inherit;
   color: inherit;
-  background: var(--surface, #ffffff);
+  background: var(--bg-body);
   border: 1px solid rgba(120, 130, 150, 0.4);
   border-radius: 4px;
   cursor: pointer;
