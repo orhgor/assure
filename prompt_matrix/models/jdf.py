@@ -27,6 +27,12 @@ class JDFProvenance(BaseModel):
     page_number: str = ""
     extracted_quote: str = ""
     accessed_date: str = ""
+    # The evidence the anchoring coefficient was actually taken against: the
+    # joined run of consecutive source sentences that cleared the floors, and its
+    # sentence span inside the source ("7-8"). ``extracted_quote`` stays the single
+    # sentence the Evidence pane presents; these two record what vouched for it.
+    anchor_window: str = ""
+    anchor_window_span: str = ""
 
 
 class JDFRedhatAnnotation(BaseModel):
@@ -348,6 +354,8 @@ def strip_unknown_jdf_keys(raw: dict[str, Any]) -> dict[str, Any]:
         "page_number",
         "extracted_quote",
         "accessed_date",
+        "anchor_window",
+        "anchor_window_span",
     )
     ann_keys = ("redhat", "z3")
 
@@ -849,6 +857,15 @@ _MIN_CLAIM_TOKENS = 4
 _MIN_ANCHOR_OVERLAP = 4
 _MIN_ANCHOR_COEFFICIENT = 0.60
 
+# How many consecutive source sentences one anchor may span. A claim is routinely
+# carried by two or three neighbouring sentences ("…deductible is 2 percent" then
+# "…applies in Suffolk, Norfolk and Essex"), and each sentence on its own covers too
+# little of the paragraph to reach _MIN_ANCHOR_COEFFICIENT — the paragraph then read
+# as ungrounded even though the source states it. Widening the *candidate* does not
+# move either floor: the window is scored by the same coefficient, against the union
+# of its sentences' tokens.
+_MAX_ANCHOR_WINDOW = 3
+
 _NUM_RE = re.compile(r"\d+(?:,\d+)*(?:\.\d+)?")
 
 # A numeral is a *reference*, not a quantity, in three shapes. The claim guard
@@ -945,14 +962,36 @@ def attach_substrate_provenance_to_tree(
         return tree
     mutated = document_to_dict(tree)
 
-    # Precompute source sentences that carry enough content tokens to anchor.
+    # Precompute source windows that carry enough content tokens to anchor. The
+    # candidate is a sliding window of up to _MAX_ANCHOR_WINDOW consecutive
+    # sentences from one source, scored against the union of their tokens; the
+    # one-sentence window stays in the set, so this is a superset of the previous
+    # sentence-at-a-time matcher rather than a replacement for it.
     source_sentences = []
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
+        eligible = []
         for sent, sent_page in _split_sentences(text):
             toks = _tokenize(sent)
             if len(toks) >= _MIN_ANCHOR_OVERLAP:
-                source_sentences.append((row, sent, toks, sent_page, _numbers(sent)))
+                eligible.append((sent, toks, sent_page, _numbers(sent)))
+        for start in range(len(eligible)):
+            window_toks: set = set()
+            window_numbers: set = set()
+            for end in range(start, min(start + _MAX_ANCHOR_WINDOW, len(eligible))):
+                _sent, sent_toks, _page, sent_numbers = eligible[end]
+                window_toks = window_toks | sent_toks
+                window_numbers = window_numbers | sent_numbers
+                source_sentences.append(
+                    (
+                        row,
+                        eligible[start : end + 1],
+                        window_toks,
+                        eligible[start][2],
+                        window_numbers,
+                        f"{start}-{end}",
+                    )
+                )
 
     if not source_sentences:
         return mutated
@@ -971,26 +1010,54 @@ def attach_substrate_provenance_to_tree(
 
         best_score = 0.0
         best_row = None
-        best_sent = ""
+        best_window = ""
         best_page = None
-        for row, sent, sent_toks, sent_page, sent_numbers in source_sentences:
-            # A figure the source sentence does not carry cannot be vouched for by
-            # that sentence. Without this, lexical overlap anchors a fabricated
+        best_window_sentences = []
+        best_span = ""
+        for row, window, window_toks, window_page, window_numbers, span in source_sentences:
+            # A figure the source window does not carry cannot be vouched for by
+            # that window. Without this, lexical overlap anchors a fabricated
             # "$250,000" to a source "$5,000,000" — both tokenize to "000".
-            if claim_numbers - sent_numbers:
+            if claim_numbers - window_numbers:
                 continue
+            inter = len(content_toks & window_toks)
+            if inter < _MIN_ANCHOR_OVERLAP:
+                continue
+            score = inter / min(len(content_toks), len(window_toks))
+            # A tie goes to the narrowest window: the anchor stays as tight as the
+            # evidence allows, so a paragraph one sentence already covers keeps that
+            # sentence as its window and does not carry its neighbours into the
+            # entailment prompt. Widening only ever happens on a strictly better score.
+            if score > best_score or (score == best_score and len(window) < len(best_window_sentences)):
+                best_score = score
+                best_row = row
+                best_window = " ".join(entry[0] for entry in window)
+                best_page = window_page
+                best_window_sentences = window
+                best_span = span
+
+        if best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None:
+            continue
+
+        # The cited sentence is the best-matching sentence *inside* the anchor
+        # window, so the quote and the window cannot disagree about the evidence.
+        # The numeric check belongs to the window — it is what the anchor rests on —
+        # and is deliberately not re-applied here: a claim that cites figures from
+        # two sentences has no single sentence inside the window that carries them
+        # all, and quoting the whole window instead would put two or three sentences
+        # in a field the Evidence pane presents as one.
+        best_sent = ""
+        best_sent_score = 0.0
+        for sent, sent_toks, _sent_page, _sent_numbers in best_window_sentences:
             inter = len(content_toks & sent_toks)
             if inter < _MIN_ANCHOR_OVERLAP:
                 continue
             score = inter / min(len(content_toks), len(sent_toks))
-            if score > best_score:
-                best_score = score
-                best_row = row
+            if score > best_sent_score:
+                best_sent_score = score
                 best_sent = sent
-                best_page = sent_page
-
-        if best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None:
-            continue
+        if not best_sent:
+            best_sent = best_window
 
         node_id = str(node.get("id") or "")
         if not node_id:
@@ -1016,6 +1083,11 @@ def attach_substrate_provenance_to_tree(
                 "page_number": page_str,
                 "extracted_quote": best_sent[:280].strip(),
                 "accessed_date": "",
+                # The evidence the coefficient was actually taken against: the joined
+                # window, whole and never truncated, plus its sentence span inside the
+                # source, so the anchor can be audited against what cleared the floor.
+                "anchor_window": best_window.strip(),
+                "anchor_window_span": best_span,
             }
         )
         node_copy["provenance"] = existing

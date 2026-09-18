@@ -13,6 +13,7 @@ from prompt_matrix.models.jdf import (
     _tokenize,
     attach_substrate_provenance_to_tree,
     build_document_from_draft,
+    parse_document,
 )
 
 
@@ -320,3 +321,55 @@ def test_anchor_rejects_figure_the_matched_sentence_does_not_carry():
     # Control: identical wording carrying the source's own figure does anchor, so
     # the rejection above is the figure and not the phrasing.
     assert _provenance_of(fabricated.replace("$5,000,000", "$2,000,000"), rows)
+
+
+def test_anchor_spans_consecutive_sentences_no_single_sentence_carries():
+    # The claim cites two figures the source states in two neighbouring sentences.
+    # Matched one sentence at a time it anchors to neither: the 24-month sentence
+    # does not carry 60 days and the 60-day sentence does not carry 24 months, so
+    # for each candidate the claim cites a figure that candidate lacks. The window
+    # spanning both sentences carries both figures and clears the same floors.
+    rows = [
+        {
+            "id": "sub-inspection",
+            "filename": "policy.md",
+            "extracted_text": (
+                "Physical inspection of occupied commercial properties is required "
+                "at least once every 24 months. Vacant properties exceeding 60 "
+                "consecutive days require referral."
+            ),
+        }
+    ]
+    claim = (
+        "Physical inspections of occupied commercial properties are mandatory at "
+        "least once every 24 months, and properties vacant for more than 60 "
+        "consecutive days trigger a referral requirement."
+    )
+    entries = _provenance_of(claim, rows)
+    assert entries, "expected the two-sentence window to anchor the claim"
+    entry = entries[0]
+    assert entry["anchor_window_span"] == "0-1"
+    assert "24 months" in entry["anchor_window"]
+    assert "60 consecutive days" in entry["anchor_window"]
+    # The quoted sentence stays inside the window that cleared the floor.
+    assert entry["extracted_quote"] == (
+        "Physical inspection of occupied commercial properties is required at "
+        "least once every 24 months"
+    )
+    # And the evidence for the anchor survives the round trip the save path takes:
+    # strip_unknown_jdf_keys drops any provenance key it does not know, which would
+    # silently persist the anchor with no record of what cleared the floor.
+    persisted = parse_document(
+        build_document_from_draft("p1", claim).model_dump(mode="json")
+    ).model_dump(mode="json")
+    assert persisted["body"][0]["children"][0].get("provenance") == []
+    saved = parse_document(
+        attach_substrate_provenance_to_tree(
+            build_document_from_draft("p1", claim).model_dump(mode="json"), [], rows
+        )
+    ).model_dump(mode="json")
+    saved_entry = saved["body"][0]["children"][0]["provenance"][0]
+    assert saved_entry["anchor_window_span"] == "0-1"
+    assert saved_entry["anchor_window"] == entry["extracted_quote"] + (
+        " Vacant properties exceeding 60 consecutive days require referral"
+    )
