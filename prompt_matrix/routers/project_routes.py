@@ -130,12 +130,30 @@ def _dashboard_payload(
     }
 
 
+def _visible_projects_clause():
+    """SQL fragment + params limiting the dashboard to what the caller may open.
+
+    A signed-in underwriter sees the rows it owns plus rows nobody owns; an admin
+    sees everything; the shared-key operator (no Clerk identity) is unrestricted,
+    matching `middleware.ownership_enforced()`.
+    """
+    try:
+        from ..cloud_auth import ROLE_ADMIN, current_role, current_user_id
+    except ImportError:
+        from cloud_auth import ROLE_ADMIN, current_role, current_user_id
+    user_id = current_user_id()
+    if not user_id or current_role() == ROLE_ADMIN:
+        return "", ()
+    return "WHERE (p.owner_id = ? OR p.owner_id IS NULL OR p.owner_id = '')", (user_id,)
+
+
 def register_project_routes(app) -> None:
     @app.get("/api/projects")
     def list_projects():
         init_db()
         db = get_db()
         ensure_project("default", "Default project")
+        scope, scope_params = _visible_projects_clause()
         rows = db.execute(
             """
             SELECT p.id, p.title, p.current_version, p.created_at, p.updated_at,
@@ -148,8 +166,12 @@ def register_project_routes(app) -> None:
                    (SELECT COUNT(*) FROM substrate_vault sv
                     WHERE sv.project_id = p.id) as source_count
             FROM projects p
-            ORDER BY p.updated_at DESC, p.title ASC
             """
+            + scope
+            + """
+            ORDER BY p.updated_at DESC, p.title ASC
+            """,
+            scope_params,
         ).fetchall()
         projects = [_dashboard_payload(row) for row in rows]
         return jsonify({"ok": True, "projects": projects, "count": len(projects)})

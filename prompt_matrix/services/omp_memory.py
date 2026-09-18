@@ -31,6 +31,11 @@ def omp_cache_enabled() -> bool:
     return os.getenv("PEM_OMP_CACHE", "1").strip() not in {"0", "false", "no"}
 
 
+# Unchanged by the ask-shaped compile prompt (services/answer_shape) on purpose:
+# the version is inside the cache key, so bumping it would invalidate every entry
+# — and a cold compile on a warm project persists a new revision. The shape is
+# folded into the key where the prompt actually differs (routers/draft), which
+# leaves every memo entry — the demo's warm compile among them — matching.
 PIPELINE_VERSION = 3
 
 
