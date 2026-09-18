@@ -16,46 +16,25 @@
   var STORAGE_KEY = "assure_project";
 
   // ---------------------------------------------------------------
-  // The entry gate. /auth leaves the key in localStorage and the POST
-  // sets the cookie; here we put it on every same-origin call as
-  // `X-Shell-Key` so the API is closed even if the cookie is dropped.
-  // A 401 means the key is wrong or was rotated — go back to the gate.
+  // The entry gate. POST /auth sets an HttpOnly `assure_shell_key`
+  // cookie for this origin, so every same-origin call — fetch, <script>,
+  // SSE — carries the key without JavaScript ever holding it. Nothing is
+  // persisted client-side: a localStorage copy outlives the session and
+  // any script on the page can read it. A 401 means the cookie is gone
+  // or the key was rotated — go back to the gate.
   // ---------------------------------------------------------------
-  var ACCESS_KEY_STORAGE = "assure_shell_key";
+  (function dropLegacyAccessKey() {
+    // Browsers that loaded the shell before the cookie-only gate still hold a
+    // readable copy; drop it rather than keep using it.
+    try { window.localStorage.removeItem("assure_shell_key"); } catch (_) {}
+  })();
 
-  function accessKey() {
-    try { return window.localStorage.getItem(ACCESS_KEY_STORAGE) || ""; } catch (_) { return ""; }
-  }
-
-  (function attachAccessKey() {
+  (function bounceOnUnauthorized() {
     var raw = window.fetch;
     if (typeof raw !== "function") return;
     window.fetch = function (input, init) {
       var url = typeof input === "string" ? input : ((input && input.url) || "");
       var sameOrigin = url.charAt(0) === "/" || url.indexOf(window.location.origin) === 0;
-      var key = accessKey();
-      if (key && sameOrigin) {
-        init = init || {};
-        var hdrs = init.headers;
-        if (typeof Headers !== "undefined" && hdrs instanceof Headers) {
-          if (!hdrs.has("X-Shell-Key")) hdrs.set("X-Shell-Key", key);
-        } else if (Object.prototype.toString.call(hdrs) === "[object Array]") {
-          var present = false;
-          for (var i = 0; i < hdrs.length; i++) {
-            if (String(hdrs[i][0]).toLowerCase() === "x-shell-key") present = true;
-          }
-          if (!present) hdrs.push(["X-Shell-Key", key]);
-        } else {
-          var merged = {};
-          if (hdrs) {
-            for (var k in hdrs) {
-              if (Object.prototype.hasOwnProperty.call(hdrs, k)) merged[k] = hdrs[k];
-            }
-          }
-          if (!Object.prototype.hasOwnProperty.call(merged, "X-Shell-Key")) merged["X-Shell-Key"] = key;
-          init.headers = merged;
-        }
-      }
       return raw.call(this, input, init).then(function (resp) {
         if (resp && resp.status === 401 && sameOrigin) {
           try { window.location.replace("/auth"); } catch (_) {}
@@ -204,7 +183,7 @@
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
-      if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "workspace";
     } else if (path === "ui.leftTab") {
       var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, history: leftHistoryEl, references: leftReferencesEl, templates: leftTemplatesEl };
       Object.keys(lp).forEach(function (k) {
@@ -1551,6 +1530,12 @@
       var wrapper = document.createElement("div");
       wrapper.className = "jdf-node";
       if (node.id) wrapper.setAttribute("data-node-id", node.id);
+      // The audit map is part of the document, not of the pane: a paragraph
+      // carrying a finding keeps its `--contradicted` left rule at rest, so the
+      // audit is visible without opening anything. renderJdfNode is the only
+      // place a wrapper is built, so every path — first paint, a re-render, a
+      // version jump — takes the class from here.
+      if (_nodeHasFindings(node)) wrapper.classList.add("has-finding");
       var el = null;
       if (node.type === "section") {
         el = document.createElement("h2");
@@ -2270,14 +2255,89 @@
     // The locator. A finding names the paragraph it is about (`node_id` on the
     // annotation, written by models/jdf.py:attach_redhat_annotation), so acting
     // on one puts that paragraph on screen: the caller writes the selection,
-    // which paints .is-selected, and this brings the node into view. Scrolling
-    // lives here rather than in the selection writer because selecting a
-    // paragraph by clicking it should not move the document under the reader.
-    function _scrollToNode(nodeId) {
-      if (!nodeId || !draftEl) return;
-      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+    // which paints .is-selected, and this brings the node into view and marks
+    // it for 2.4 s with the `--contradicted` rule (.jdf-node.is-located,
+    // shell.css) so the eye lands on the paragraph rather than at the end of a
+    // scroll. Scrolling lives here rather than in the selection writer because
+    // selecting a paragraph by clicking it should not move the document under
+    // the reader.
+    //
+    // The mark is transient because at rest a paragraph that carries a finding
+    // already keeps the same rule (.has-finding): what the click has to add is
+    // "this one, now", and a third permanent state would say nothing the map
+    // does not. One mark at a time — a second click moves it rather than
+    // stacking.
+    var LOCATE_MARK_MS = 2400;
+    var __locateMarkTimer = null;
+    var __locatedNodeEl = null;
+    function _nodeWrapper(nodeId) {
+      if (!nodeId || !draftEl) return null;
+      return draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
+    }
+    // A paragraph carries a finding when one is placed on it: every finding in
+    // the box lives in `annotations.redhat` of the node its audit ran on, and
+    // carries that node's id from this release onward.
+    function _nodeHasFindings(node) {
+      var f = node && node.annotations && node.annotations.redhat;
+      return Boolean(f && f.length);
+    }
+    function _markLocated(el) {
+      if (__locateMarkTimer) { clearTimeout(__locateMarkTimer); __locateMarkTimer = null; }
+      if (__locatedNodeEl && __locatedNodeEl !== el) {
+        __locatedNodeEl.classList.remove("is-located");
+        __locatedNodeEl = null;
+      }
+      __locatedNodeEl = el;
+      el.classList.add("is-located");
+      __locateMarkTimer = setTimeout(function () {
+        __locateMarkTimer = null;
+        if (__locatedNodeEl) {
+          __locatedNodeEl.classList.remove("is-located");
+          __locatedNodeEl = null;
+        }
+      }, LOCATE_MARK_MS);
+    }
+    function _locateNode(nodeId) {
+      var wrapper = _nodeWrapper(nodeId);
       if (!wrapper) return;
-      try { wrapper.scrollIntoView({ block: "center" }); } catch (_) {}
+      // Align the paragraph's top with the top of the visible area, not its
+      // centre: an audit reads downward from the paragraph it was sent to, and
+      // a centred paragraph leaves the rest of the finding's prose below the
+      // fold. `start` is the scroller's own edge, so no magic offset.
+      try { wrapper.scrollIntoView({ block: "start" }); } catch (_) {}
+      _markLocated(wrapper);
+      _collapseOverlayRightPane();
+    }
+    // Landing on the paragraph is only half of showing it. Below the shell's own
+    // overlay breakpoint the right pane is a drawer lying over the document
+    // (shell.css: .pane-right is position:absolute in the <=900px block), so a
+    // marked paragraph can be behind it — at 375px the drawer is 320px wide on a
+    // 375px viewport and the paragraph's own centre sits under it. In that mode
+    // the pane is collapsed, through the shell's own state path so its state and
+    // the screen cannot disagree, and only AFTER the mark: LOCATE_MARK_MS (2400)
+    // runs far past the drawer's 200ms transition, so the paragraph is on screen
+    // and marked for the rest of the flash. Above the breakpoint the pane is a
+    // track beside the document and nothing is collapsed.
+    //
+    // Overlay mode is read from the pane's own computed position, never from a
+    // width repeated here: the media query in shell.css stays the single
+    // declaration of where the breakpoint is, and if it moves this follows. The
+    // reader re-opens the pane from the rail; the locator does not re-open it.
+    //
+    // INTERIM — this is a stopgap, not the fix, and it is named here so it does
+    // not become the design by default. The collapse solves the occlusion by
+    // hiding the finding the reader just clicked to read, which is exactly the
+    // thing they asked to see. The replacement is a bottom sheet below 640px
+    // (peek/half/full snap points, drag handle, keyboard and screen-reader
+    // affordances); it is deferred, not forgotten — docs/deferred.md, "Evidence
+    // pane as a bottom sheet below 640px". Until that lands this keeps the
+    // marked paragraph visible at the width where the overlay would cover it.
+    function _collapseOverlayRightPane() {
+      var pane = _rightPane();
+      if (!pane || SHELL.ui.layout.rightCollapsed) return;
+      var overlay = false;
+      try { overlay = getComputedStyle(pane).position === "absolute"; } catch (_) {}
+      if (overlay) setShell("ui.layout.rightCollapsed", true);
     }
     function _handleRephraseFrame(frame, cb) {
       if (!frame) return;
@@ -3535,7 +3595,7 @@
           return Promise.resolve(existing);
         }
       } catch (_) {}
-      return jsonPost("/api/projects", { title: "Untitled" })
+      return jsonPost("/api/projects", { title: "workspace" })
         .then(function (resp) {
           if (!resp.ok) throw new Error("projects POST " + resp.status);
           return resp.json();
@@ -3694,14 +3754,14 @@
     function _refreshProjectName() {
       var active = SHELL.project.id || "";
       if (!active) { try { active = window.localStorage.getItem(STORAGE_KEY) || ""; } catch (_) {} }
-      if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "Untitled"; return; }
+      if (!active) { if (projectCurrentNameEl) projectCurrentNameEl.textContent = "workspace"; return; }
       fetch("/api/projects")
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           var projects = (j && j.projects) || [];
           var found = null;
           for (var i = 0; i < projects.length; i++) { if (projects[i].id === active) { found = projects[i]; break; } }
-          if (found && projectCurrentNameEl) projectCurrentNameEl.textContent = found.title || "Untitled";
+          if (found && projectCurrentNameEl) projectCurrentNameEl.textContent = found.title || "workspace";
         })
         .catch(function () {});
     }
@@ -3874,7 +3934,7 @@
       setShell("streams.compareB", null);
       // C) persist active project
       try { window.localStorage.setItem(STORAGE_KEY, id); } catch (_) {}
-      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "Untitled";
+      if (projectCurrentNameEl) projectCurrentNameEl.textContent = title || "workspace";
       setShell("project.id", id);
       setShell("project.title", title || "");
       // D) fetch target project's latest document (parallel with E)
@@ -3919,9 +3979,9 @@
       _loadProjectSourceList(id);
     }
     function _createNewProject() {
-      var name = window.prompt("New project name", "Untitled");
+      var name = window.prompt("New project name", "workspace");
       if (name === null) return;
-      var title = String(name || "").trim() || "Untitled";
+      var title = String(name || "").trim() || "workspace";
       jsonPost("/api/projects", { title: title })
         .then(function (resp) { if (!resp.ok) throw new Error("projects POST " + resp.status); return resp.json(); })
         .then(function (j) {
@@ -3985,16 +4045,20 @@
       _restoreProjectDocument(initId);
     }
 
-    // Export (top bar) → audit PDF download for the active project. Disabled
-    // until _canExport() (see _syncExportEnabled), which the document paths
-    // re-evaluate; the click re-reads the same state instead of dead-ending in
-    // a console.warn.
+    // Export (top bar) → the export pair for the active project: the audit PDF
+    // and the .jdf sidecar that carries the provenance, each node's verification
+    // state, the source manifest, the version chain and the drafting model.
+    // Disabled until _canExport() (see _syncExportEnabled), which the document
+    // paths re-evaluate; the click re-reads the same state instead of dead-ending
+    // in a console.warn.
     exportBtnEl = document.getElementById("export-btn");
     if (exportBtnEl) {
       exportBtnEl.addEventListener("click", function () {
         if (!_canExport()) { _syncExportEnabled(); return; }
+        // 2D.1: one download holding both files, so the readable dossier and the
+        // verifiable one cannot be separated. `format=jdf` serves the sidecar alone.
         window.location.href =
-          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=audit-pdf";
+          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=bundle";
       });
       _syncExportEnabled();
     }
@@ -4186,8 +4250,8 @@
       if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
     }
     // ROUTED TO — the model this compile was routed to, taken from the draft
-    // stream itself. /api/compile-system answers {prompt} only (web.py:1180-1187),
-    // so it can supply no runtime fact. The suffix is the model and nothing else:
+    // stream itself. /api/compile-system answers the system message and the answer
+    // shape, not the model, so it can supply no runtime fact. The suffix is the model and nothing else:
     // the Red-Hat pass is a stage of the pipeline, reported by its own row and its
     // own pane, so "Red-Hat skipped" beside the model read as a second thing the
     // request had been routed to.
@@ -4215,8 +4279,9 @@
       setCompilerPrompt("Compiling\u2026");
       populateCompilerRoute("");
       // Preview + draft stream run in parallel; do not wait for preview.
-      // /api/compile-system takes no body and answers {prompt} (web.py).
-      jsonPost("/api/compile-system", {})
+      // The ask goes with it: the compile system message is static except for the
+      // answer-shape block, which follows the ask (web.py, services/answer_shape).
+      jsonPost("/api/compile-system", { intent: raw })
         .then(function (res) { return res.json(); })
         .then(function (j) {
           if (!j || typeof j !== "object") return;
@@ -4819,7 +4884,7 @@
         if (!node.annotations || !node.annotations.redhat || !node.annotations.redhat[index]) return;
         setShell("ui.selection.nodeId", nodeId);
         setShell("ui.rightTab", "redhat");
-        _scrollToNode(nodeId);
+        _locateNode(nodeId);
         return;
       }
       var evidence = null;
@@ -5112,9 +5177,13 @@
             li.title = "Rephrase this paragraph with this finding";
             li.addEventListener("click", function () {
               if (!node || !node.id) return;
-              setShell("ui.selection.nodeId", node.id);
-              _attachNodeRephrase(node.id, text);
-              _scrollToNode(node.id);
+              // The paragraph the finding names, when it is still on screen;
+              // the node it is placed on otherwise (findings written before
+              // `node_id` existed carry only their placement).
+              var target = _nodeWrapper(r.node_id) ? r.node_id : node.id;
+              setShell("ui.selection.nodeId", target);
+              _attachNodeRephrase(target, text);
+              _locateNode(target);
             });
           }
           list.appendChild(li);
