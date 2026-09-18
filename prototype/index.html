@@ -31,26 +31,26 @@
         <p>Assure does not produce an ungrounded document. When claims cannot be traced directly to source evidence, they are isolated and flagged for review — and a document that fails grounding is refused outright.</p>
 
         <h2>What verification looks like</h2>
-        <p>Three checks run on every claim.</p>
+        <p>Three checks run — on claims, and on labelled figures.</p>
         <p>Is there a source for this claim? The claim is matched to a specific sentence or passage in your uploaded material. If nothing matches, the claim is unanchored.</p>
         <p>Does the source support this claim? The matched passage is read against the claim by a verification model. The verdict is supported, partial, or unsupported.</p>
-        <p>Do the numbers reconcile? Every figure is checked against the source independently of the prose. A mismatch flags both values.</p>
+        <p>Do the numbers reconcile? A figure the draft states as a labelled measure is checked against the source, independently of the prose. A mismatch flags both values. A draft that states none reports a skipped check, not a pass.</p>
         <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unverified.</p>
         <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged and wrapped as content, not obeyed. If the compiled output drifts from the source — whether from a hallucination or from an instruction embedded in the material — the document is refused before you see it.</p>
 
         <h2>The adversarial layer</h2>
         <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, coverage language that shifts meaning between paragraphs, assertions about intent that nothing supports.</p>
-        <p>Every finding quotes the sentence it's worried about and the source line behind it. Each finding cites the paragraph it's about. You decide whether to apply the suggested fix.</p>
+        <p>Findings quote the sentence they're worried about, and the source wording behind it. Each finding cites the paragraph it's about. You decide whether to apply the suggested fix.</p>
         <p>Two defenses, layered. Verification asks: is this true to the source? Red-Hat asks: is this defensible in your hands?</p>
 
         <h2>What you'll find in the shell</h2>
         <p><span class="about-cap">Evidence</span> — click any paragraph. The source, the page, and the quoted sentence the claim was drawn from.</p>
-        <p><span class="about-cap">Math Check</span> — the numeral audit. Every figure, its source line, its verdict.</p>
+        <p><span class="about-cap">Math Check</span> — the numeral audit. Every labelled figure, its source line, its verdict; a draft that states none is reported as skipped.</p>
         <p><span class="about-cap">Red-Hat</span> — the adversarial review. Runs on any paragraph; returns specific findings with the source behind each.</p>
-        <p><span class="about-cap">Surgical Edit</span> — click a paragraph, a Red-Hat finding, or a Math Check flag. The rephrase editor opens pre-filled. Every version is preserved.</p>
+        <p><span class="about-cap">Surgical Edit</span> — click a paragraph or a Red-Hat finding. The rephrase editor opens, pre-filled from a finding. Every version is preserved.</p>
         <p><span class="about-cap">Compare</span> — two models on the same question, side by side. Read both, keep the one you prefer.</p>
         <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to open it in the editor.</p>
-        <p><span class="about-cap">Export</span> — a dossier: the compiled document, every source, every finding, the version history. One file for a colleague or an auditor.</p>
+        <p><span class="about-cap">Export</span> — a compliance report: the compiled document, the numeral audit, every finding, the sign-offs and the document lock hash, with the truth ledger in the appendix. One file for a colleague or an auditor.</p>
 
         <h2>What's underneath</h2>
         <p>Your sources are stored in an open format — they move with you. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
