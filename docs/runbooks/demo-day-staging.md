@@ -86,14 +86,20 @@ On the box, a project's current document is
 `/home/ubuntu/assure-prototype/prompt_matrix/projects/<project_id>/document.jdf`; version
 history, substrate rows and JDF rows live in the single SQLite file
 `/home/ubuntu/assure-prototype/prompt_matrix/history.sqlite` (`substrate_vault`,
-`jdf_documents`, `projects`). **The API call deletes the `projects` row only** — measured
-2026-09-18, `DELETE /api/projects/<id>` returned `200 {"ok":true}` and left 18 `jdf_revisions`,
-1 `substrate_vault`, 1 `jdf_documents`, 3 `node_revisions`, 27 `audit_log`, 82
-`token_ledger_entries` and 8 `pipeline_cache` rows plus the project directory behind, because
-the `ON DELETE CASCADE` clauses never fire (SQLite runs with `PRAGMA foreign_keys` off). The
-switcher reads `projects`, so the reset still works for the demo — the project is gone from the
-shell and re-seeding makes a new id — but the orphan rows and directory stay on disk. Clear
-them by id if the box is to be handed over clean.
+`jdf_documents`, `projects`). **The API call still deletes the `projects` row only, and part of
+the cascade now fires** — re-measured 2026-09-18 after `97246c9` (`PRAGMA foreign_keys=ON` in
+`history.py:_apply_pragmas`, the one place every connection passes through). Three of the nine
+tables a project delete can strand declare the cascade and now honour it: `jdf_revisions` and
+`substrate_vault` (`FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE`) and
+`daily_compile_limits`. **Six do not** — `jdf_documents`, `node_revisions`, `audit_log`,
+`project_budgets`, `token_ledger_entries`, `pipeline_cache` carry a `project_id` with **no
+`FOREIGN KEY` clause at all**, so no pragma can reach them; they are a schema migration, not a
+pragma. Orphan census of the live DB: 6 `jdf_documents`, 2 `node_revisions`, 45 `audit_log`,
+10 `project_budgets`, 58 `token_ledger_entries`, 15 `pipeline_cache` rows reference a project
+id that no longer exists (the residue of deletes before the pragma; the counts include
+pre-`97246c9` deletions). The switcher reads `projects`, so the reset still works for the demo
+— the project is gone from the shell and re-seeding makes a new id — but the orphan rows and
+the project directory stay on disk. Clear them by id if the box is to be handed over clean.
 
 ---
 
@@ -229,3 +235,158 @@ Say these, in these words; they are the measured facts, not aspirations.
 Reset or re-seed the demo project (§3), delete any project created during the demo
 (`DELETE /api/projects/<id>`), and note anything that failed in
 `docs/demo/insurance-boston-real-estate/feedback-template.md`.
+
+---
+
+## 10. The demo state in one page (hand this to the insurance team)
+
+Measured read-only on `i-03e39eccc57572191`, box HEAD `34ce046`, project `demo-3235f5`, source
+`sub-d3eab1f0fa9c486d` (`naic-underwriting-policy-redacted.md`, 1 page). Nothing below is
+re-run for the handout — it is read out of the persisted document and the DB.
+
+### 10.1 The frozen document
+
+Source of truth: `prompt_matrix/projects/demo-3235f5/document.jdf`, byte-identical to
+`jdf_documents.tree_json` and to `jdf_revisions` **v44** (`mutation_type` `compile`, created
+`2026-09-18 16:49:54`).
+
+| | |
+|---|---|
+| Sections | **1** — *Massachusetts Commercial Real Estate Underwriting Obligations Summary* |
+| Paragraphs | **3** |
+| Anchored | **3 of 3** — every paragraph carries one provenance row with an `extracted_quote` |
+| Supported (`entailment.verdict == "yes"`) | **2** |
+| Partial (`entailment.verdict == "partial"`) | **1** |
+| Unverified / unsupported | **0** |
+| Confidence spans | 5 |
+
+Per paragraph (verdict and reasoning read from `node.meta.provenance.entailment`):
+
+| # | node | anchored to | verdict | the check's own reason |
+|---|---|---|---|---|
+| 1 | `para-0dc42860abf3` | `naic-underwriting-policy-redacted.md p.1` — *"the wind/hail deductible is **2 percent** of insured value at each location"* | **partial** | "confirms the 2 percent deductible for the specified counties but does not mention commercial real estate properties or Section 3, so those material elements are unsupported" |
+| 2 | `para-1c4f277b0c79` | same, §2 — *"Maximum general liability per occurrence shall not exceed **$2,000,000 USD**…"* | **yes** | "directly states the exact limit of $2,000,000 USD and the condition for exceeding it…" |
+| 3 | `para-f32e4c85e0a5` | same, §4 — window sentences 7-8 (inspection + vacancy referral) | **yes** | "directly states both that occupied commercial properties require inspection at least every 24 months and that vacant properties exceeding 60 consecutive days require referral…" |
+
+The gate counts 3 eligible claims here, and all three anchor — 100 %, above the 80 % floor.
+**The floor only bites when the draft opens with a lead-in sentence.** In the five-run
+measurement of the same intent (cache cleared before each run), two runs drafted an extra
+introductory paragraph — *"The underwriting policy for commercial real estate in Massachusetts,
+effective January 1, 2026, establishes the following key obligations:"* (`para-26374bfdce83`
+in run 1, `para-e303112d9fdf` in run 2) — which lifted `eligible` to 4 and left `anchored` at
+3, i.e. 75 %, below the floor. Nothing is wrong with the source: the paragraph does not clear
+the anchor matcher's 0.60 coefficient, because its evidence (*"**Jurisdiction:** Massachusetts"*,
+*"**Effective:** January 1, 2026"*) sits in source **header lines that tokenize to 3 content
+tokens** and so are not eligible anchor windows at all (`_MIN_ANCHOR_OVERLAP = 4`,
+`models/jdf.py:857`), while its only ≥0.60 window is rejected by the number guard. When the
+draft goes straight to the three claims (runs 3-5, and the document that is frozen now) the
+counters read 3 / 3.
+
+### 10.2 The Red-Hat finding, in full
+
+Where it lives: `jdf_revisions` **v4** of `demo-3235f5` (`mutation_type` `redhat_audit`,
+`target_node_id` `para-272b2de84877`, created `2026-09-18 14:25:56`), under
+`body[*].children[*].annotations.redhat[0]` as
+`{"id": "crit-0bb78763ea96", "text": …, "status": "open"}`. Persisted findings are attached to
+the node the audit ran on, and this one is quoted verbatim:
+
+> **Verdict: partial match.** The source supports the core numeric and geographic rule, but the
+> claim adds several assertions the source sentence does not carry.
+>
+> **Source wording relied on:**
+> > "For coastal and high-wind exposure zones (Suffolk, Norfolk, Essex counties), the wind/hail
+> > deductible is **2 percent** of insured value at each location"
+>
+> ## Findings
+>
+> 1. **Unsupported scope limitation: "commercial properties."**
+>    The source says "For coastal and high-wind exposure zones," not "For commercial
+>    properties." The claim narrows the rule to commercial properties without support in the
+>    supplied source. If the larger guideline elsewhere defines commercial scope, the claim
+>    should cite that; on the supplied source alone, this is an unsupported qualifier.
+>
+> 2. **Unsupported universality: "applies uniformly across all policies bound under this
+>    guideline."**
+>    The source does not say "uniformly," "all policies," or "bound under this guideline." It
+>    states a deductible for listed zones. A stated rule is not the same as an exceptionless
+>    application to every policy. This is an overstatement.
+>
+> 3. **Unsupported cross-reference: "explicitly tied to geographic exposure as defined in the
+>    policy."**
+>    The source ties the deductible to "coastal and high-wind exposure zones," but it does not
+>    say "explicitly tied" or "as defined in the policy." It also appears to be an underwriting
+>    guideline, not necessarily the policy itself. The claim conflates guideline language with
+>    a policy definition.
+>
+> 4. **Potential overbreadth on geography.**
+>    The source lists "(Suffolk, Norfolk, Essex counties)" as the zones, but it does not
+>    explicitly say those counties are wholly coastal/high-wind zones. The claim's phrasing
+>    could be read as applying countywide. If the actual exposure zones are partial-county or
+>    sub-county, the claim overgeneralizes.
+>
+> ## Other concrete risks
+>
+> - **"Insured value" is undefined.** The source does not specify whether this means building
+>   value, contents, blanket limit, total insured value, or some other valuation basis. The
+>   claim repeats the phrase without resolving it.
+> - **No treatment of exceptions, minimums, maximums, or endorsements.** The claim's
+>   "uniformly" language implies no exceptions. The source does not rule out dollar minimums,
+>   per-occurrence caps, endorsements, or underwriting exceptions.
+> - **"Set at" vs. "is."** Minor, but the source says the deductible "is" 2 percent, not that it
+>   is "set at" 2 percent. Usually immaterial, but in a legal/underwriting context wording can
+>   matter.
+> - **"Threshold" terminology.** The source calls it a "wind/hail deductible," not a
+>   "threshold." The claim's term may be acceptable shorthand, but it is not source language.
+> - **Redacted source risk.** The provenance gate points to a redacted underwriting-policy
+>   file. Missing context could change scope, applicability, or definitions. The claim should
+>   flag that it relies on a redacted p.1.
+> - **Guideline vs. policy.** The claim says "as defined in the policy," but the source is an
+>   underwriting guideline. If the actual policy defines coastal/high-wind zones differently,
+>   the claim may misstate the binding document.
+>
+> **Bottom line:** The 2 percent figure and the listed counties are supported. The claim's first
+> sentence is mostly supported except for the unsupported "commercial properties" limitation.
+> The second sentence is materially overbroad and unsupported: "uniformly across all policies
+> bound under this guideline" and "explicitly tied to geographic exposure as defined in the
+> policy" are not in the source.
+
+Two things to say out loud with it, because they are true of the artefact:
+
+- **The finding is not in the document that is frozen now.** `run_redhat_pipeline` persists it
+  only for a node-scoped audit (`save_jdf_revision(..., mutation_type="redhat_audit",
+  target_node_id=…)`, `routers/draft.py:1186-1192`), and the latest compile (v44) replaced the
+  tree, so `para-272b2de84877` — and with it the finding — is no longer in the project's
+  current document. The finding is real and persisted, but recoverable from the revision, not
+  from the live tree; run Red-Hat live (step 6) if you want it on screen.
+- **The finding object carries no `node_id` field.** Every persisted finding is
+  `{id, status, text}` (`models/jdf.py:553-555`), so a client that has only the finding cannot
+  say which paragraph it belongs to. The node is carried by *placement* inside
+  `annotations.redhat`, not by the object. Across the box's current documents that is 12
+  findings, none with a `node_id` (and 58 across all revisions).
+
+### 10.3 Three honest notes for the runbook
+
+**(a) The compile is not reproducible — the sampling parameters do not survive the provider.**
+Five compiles of the one demo intent with the compile cache cleared, all under `temperature=0.0`
+(`routers/draft.py:574`), produced **five different drafts** (`draft_sha`
+`d2961e17…`, `858c3a1b…`, `993968c1…`, `1d78e406…`, `f690d7dc…`; output 171/169/145/117/144
+tokens) while the **outgoing request was the same every time** — the local token count of the
+messages was 678 in all five runs, and the call carries no `seed`, `top_p` or `top_k` anywhere
+(the only other kwargs are the provider api key/base from `keys.py:261-275`). The service had
+been restarted onto `74c91fd` (greedy decoding) 15 s before the first run. So this is the
+provider side, not a per-run parameter: the same payload does not come back the same.
+Consequence to state plainly: **the same intent can produce a differently-worded document, and
+therefore a different claim count, on a re-run.** Do not re-run live to "fix" a counter; the
+numbers below are for the frozen document.
+
+**(b) The document is short (3 claims) by design.** The check refuses to overclaim: every
+sentence that asserts a figure is matched to a source window, and the gate's eligible count is
+the number of paragraphs that clear the claim floor — not the model's word count. A longer
+draft was measured too: it scored eligible 4 / anchored 3, because the extra paragraph was a
+lead-in sentence the source cannot vouch for. Prefer the short document; it is the one whose
+numbers are about the source.
+
+**(c) The locator is the next release.** Today, a finding is displayed against the paragraph it
+was run on, but clicking it does not scroll the document to that paragraph. Anchoring the
+finding to its node in the UI (and carrying a `node_id` on the finding object itself) is the
+next release, not this demo.
