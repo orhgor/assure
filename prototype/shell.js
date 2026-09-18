@@ -3099,7 +3099,6 @@
     }
 
     var PREVIEW_TARGET = "claude";                       // for /api/preview only (bare slug)
-    var COMPILE_MODEL  = "anthropic/claude-sonnet-4-5";  // for /draft/stream only (full id)
 
     function populateCompilerAsk(v)  { setShell("compiler.ask", v || ""); }
     function setCompilerPrompt(v)    { setShell("compiler.prompt", v || ""); }

@@ -9,7 +9,7 @@ Verdicts (frozen contract, persisted at ``node.meta.provenance.entailment``):
 
     {"verdict": "yes" | "no" | "partial" | "unverified",
      "reasoning": "<one sentence>",
-     "model": "z-ai/glm-5.3-flash",
+     "model": "qwen/qwen3-next-80b-a3b-instruct",
      "checked_at": "<ISO8601>"}
 
 ``yes`` is the only verdict that means verified. ``no``/``partial`` are real
