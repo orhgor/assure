@@ -13,16 +13,14 @@
 </head>
 <body class="right-hidden">
   <div id="modal-layer" class="modal-layer" hidden></div>
+
   <!-- ============================================================= -->
-  <!-- TOP HEADER BAR (48px, full width, over rail+panes)            -->
+  <!-- HEADER (56px). A grid that mirrors the pane widths, so the     -->
+  <!-- version control sits over the document column: 280 | 1fr | 320  -->
   <!-- ============================================================= -->
   <header class="app-header" role="banner">
     <div class="app-header-left">
       <span class="app-brand">
-        <svg class="app-brand-icon" viewBox="0 0 36 36" width="20" height="20" aria-hidden="true">
-          <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
-          <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
         <span class="app-brand-name">Assure</span>
       </span>
       <div class="project-switcher">
@@ -36,12 +34,25 @@
         </div>
       </div>
     </div>
-    <div class="app-header-center" aria-hidden="true"></div>
-    <div class="app-header-right">
-      <span id="signoff-indicator" class="signoff-indicator" title="Sign-off status">● Draft</span>
+    <div class="app-header-center">
+      <!-- Version control: out of the document pane, in the header's middle
+           cell, over the document column (Phase C / D9). Hidden until the
+           document has more than one version. -->
+      <nav class="version" id="version-chip" aria-label="Document versions" hidden>
+        <button type="button" id="version-prev" class="version-arrow" aria-label="Previous version">&#9664;</button>
+        <button type="button" id="version-label" class="version-label" aria-haspopup="true" aria-expanded="false"></button>
+        <button type="button" id="version-next" class="version-arrow" aria-label="Next version">&#9654;</button>
+        <div id="version-dropdown" class="version-dropdown" hidden></div>
+      </nav>
+    </div>
+    <div class="app-header-right actions">
+      <span id="signoff-indicator" class="signoff-indicator" title="Sign-off status">&#9679; Draft</span>
       <button type="button" class="btn-secondary" id="export-btn">Export</button>
     </div>
   </header>
+
+  <!-- Compile progress: a 2px line under the header, filling left to right -->
+  <div class="app-progress" id="app-progress" aria-hidden="true" hidden><i></i></div>
 
   <div class="app-shell">
 
@@ -51,35 +62,14 @@
     <aside class="rail rail-left" aria-label="Navigation rail">
       <div class="rail-logo" title="Assure AI">
         <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
-          <text x="16" y="22" text-anchor="middle" fill="#ffffff"
+          <text x="16" y="22" text-anchor="middle" fill="currentColor"
                 font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="14">A</text>
         </svg>
-      </div>
-
-      <div class="rail-footer">
-        <button type="button" class="rail-btn" id="theme-toggle" data-theme="light" title="Toggle theme (light/dark)" aria-label="Toggle theme">
-          <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2"></path>
-            <path d="M12 20v2"></path>
-            <path d="m4.93 4.93 1.41 1.41"></path>
-            <path d="m17.66 17.66 1.41 1.41"></path>
-            <path d="M2 12h2"></path>
-            <path d="M20 12h2"></path>
-            <path d="m6.34 17.66-1.41 1.41"></path>
-            <path d="m19.07 4.93-1.41 1.41"></path>
-          </svg>
-          <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-          </svg>
-        </button>
       </div>
     </aside>
 
     <!-- ============================================================= -->
-    <!-- LEFT PANE (260px, collapsible, starts open)                   -->
+    <!-- LEFT PANE (280px, collapsible, starts open)                   -->
     <!-- ============================================================= -->
     <aside class="pane pane-left" aria-label="Sources & Compiler">
       <header class="pane-header">
@@ -94,12 +84,6 @@
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path>
-            </svg>
-          </button>
-          <button type="button" class="mode-tab" data-left-tab="pipeline" role="tab" aria-selected="false" aria-controls="left-pipeline" aria-label="Pipeline" title="Pipeline">
-            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </button>
           <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false" aria-controls="left-history" aria-label="History" title="History">
@@ -128,33 +112,30 @@
         </div>
       </div>
 
+      <!-- The compiler pane: a stack of sections. Each one is a label and its
+           value, separated by whitespace; a section with no value is hidden
+           rather than rendered as a dash (D3, D4, E). -->
       <div id="left-compiler" class="pane-mode" role="tabpanel">
-        <div class="pane-body compiler-body">
-          <div class="compiler-label">YOUR ASK</div>
-          <div id="compiler-ask" class="compiler-ask"></div>
-          <div class="compiler-label">COMPILED PROMPT</div>
-          <details id="compiler-prompt-details" class="compiler-prompt-details">
-            <summary id="compiler-prompt-summary">—</summary>
-            <pre id="compiler-prompt" class="compiler-prompt"></pre>
-          </details>
-          <div class="compiler-label">ROUTED TO</div>
-          <div id="compiler-route" class="compiler-route"></div>
-        </div>
-      </div>
-
-      <div id="left-pipeline" class="pane-mode" role="tabpanel" style="display:none;">
-        <div class="pane-body pipeline-body">
-          <ul class="stage-list" role="list">
-            <li class="stage-row" data-stage="Preflight"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Preflight</span></li>
-            <li class="stage-row" data-stage="Drafting"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Drafting</span></li>
-            <li class="stage-row" data-stage="Lock Inference"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Lock Inference</span></li>
-            <li class="stage-row" data-stage="Compile"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Compile</span></li>
-            <li class="stage-row" data-stage="Math Check"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Math Check</span></li>
-            <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
-            <li class="stage-row" data-stage="Complete"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Complete</span></li>
-          </ul>
-          <section class="output-area">
-            <p class="empty-hint">Model outputs will appear here.</p>
+        <div class="pane-body pane-body-sections">
+          <!-- STAGES sits above the compiled prompt: the run's progress has to
+               be visible without scrolling at 1440 and 1920, and the prompt is
+               the one section that can grow. -->
+          <section class="pane-section" id="section-stages">
+            <h3>Stages</h3>
+            <ul class="stages-list" role="list">
+              <li class="stage-row" data-stage="Retrieve"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Retrieve</span></li>
+              <li class="stage-row" data-stage="Draft"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Draft</span></li>
+              <li class="stage-row" data-stage="Anchor"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Anchor</span></li>
+              <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
+            </ul>
+          </section>
+          <section class="pane-section" id="section-manifest">
+            <h3>Sources</h3>
+            <div id="source-manifest" class="manifest"></div>
+          </section>
+          <section class="pane-section" id="section-prompt" data-state="empty">
+            <h3>Compiled prompt</h3>
+            <pre id="compiler-prompt" class="mono"></pre>
           </section>
         </div>
       </div>
@@ -173,18 +154,7 @@
       <!-- Intent Compilation panel slot: holds the compile panel (while
            compiling) or the one-line summary (after Run); empty otherwise. -->
       <section id="intent-panel-slot" aria-label="Intent compilation"></section>
-      <section class="doc-surface" aria-label="Document">
-        <div class="empty-hero" id="doc-empty-hero">
-          <h2>Start a new draft</h2>
-          <p>Type an intent below to compile a grounded document from the sources in this project.</p>
-        </div>
-        <div id="version-chip" class="version-chip" hidden>
-          <button type="button" id="version-prev" class="version-arrow" aria-label="Previous version">◀</button>
-          <button type="button" id="version-label" class="version-label">v— of —</button>
-          <button type="button" id="version-next" class="version-arrow" aria-label="Next version">▶</button>
-          <div id="version-dropdown" class="version-dropdown" hidden></div>
-        </div>
-      </section>
+      <section class="doc-surface" aria-label="Document"></section>
 
       <footer class="dock" aria-label="Prompt input">
         <div class="dock-input" id="dock-input-wrap">
@@ -192,7 +162,7 @@
                  class="dock-text"
                  id="dock-text"
                  aria-label="Draft intent"
-                 placeholder="Draft intent..."
+                 placeholder="Draft intent"
                  autocomplete="off"
                  spellcheck="false">
           <button type="button" class="dock-submit" id="dock-submit" aria-label="Submit">
@@ -206,20 +176,20 @@
         <div class="dock-jdf" id="dock-jdf">
           <button type="button" id="dock-ingest" title="Ingest PDF">Ingest</button>
           <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
-          <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents…" autocomplete="off" spellcheck="false">
+          <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents" autocomplete="off" spellcheck="false">
           <div id="dock-search-results" hidden></div>
         </div>
       </footer>
     </main>
 
     <!-- ============================================================= -->
-    <!-- RIGHT PANE (400px, collapsible, hidden by default)           -->
+    <!-- RIGHT PANE (320px, collapsible)                               -->
     <!-- ============================================================= -->
     <aside class="pane pane-right" aria-label="Inspector & Compare" id="pane-right">
       <header class="pane-header">
         <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
           <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true" aria-controls="right-evidence">Evidence</button>
-          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false" aria-controls="right-z3">Z3</button>
+          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false" aria-controls="right-z3">Math check (Z3)</button>
           <button type="button" class="mode-tab" data-right-tab="redhat" role="tab" aria-selected="false" aria-controls="right-redhat">Red-Hat</button>
         </div>
         <button type="button" id="compare-toggle" aria-label="Compare" title="Compare">⇄</button>
@@ -232,9 +202,39 @@
         </button>
         <div class="conf-legend pane-legend" role="note"><span class="conf-legend-item"><span class="conf-legend-dot green" aria-hidden="true"></span>Verified against policy</span><span class="conf-legend-item"><span class="conf-legend-dot yellow" aria-hidden="true"></span>Partial match</span><span class="conf-legend-item"><span class="conf-legend-dot grey" aria-hidden="true"></span>Not verified</span></div>
       </header>
+
+      <!-- The counters: the pane's at-rest state, always visible at the top.
+           2x2, tabular numerals. Zero reads muted; a live number reads ink. -->
+      <section class="pane-section" id="counters-section" aria-label="Claim counters">
+        <table class="counters">
+          <tbody>
+            <tr>
+              <td>
+                <div class="counter-label" id="counter-label-anchored">Anchored</div>
+                <div class="counter-value is-zero" id="count-anchored">0</div>
+              </td>
+              <td>
+                <div class="counter-label" id="counter-label-supported">Supported</div>
+                <div class="counter-value is-zero" id="count-supported">0</div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="counter-label" id="counter-label-partial">Partial</div>
+                <div class="counter-value is-zero" id="count-partial">0</div>
+              </td>
+              <td>
+                <div class="counter-label" id="counter-label-unverified">Unverified</div>
+                <div class="counter-value is-zero" id="count-unverified">0</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="counter-line" id="counter-line" hidden></p>
+      </section>
+
       <div id="right-inspector" class="pane-mode">
-        <div class="inspector-empty" id="inspector-empty">Click a paragraph to inspect.</div>
-        <div id="right-evidence" class="pane-body" role="tabpanel" hidden></div>
+        <div id="right-evidence" class="pane-body" role="tabpanel"></div>
         <div id="right-z3" class="pane-body" role="tabpanel" hidden></div>
         <div id="right-redhat" class="pane-body" role="tabpanel" hidden></div>
         <details id="right-node-history" class="inspector-node-history">

@@ -48,25 +48,21 @@
     compare:  { a: null, b: null, inflight: false, loaded: false },
     document: { current: null, mode: "empty", versions: { list: [], current: null }, signoff: { status: "draft" } },
     compiler: { ask: "", prompt: "", route: "" },
-    pipeline: { activeIndex: null },
     ui: {
       leftTab: "sources",
       rightTab: "evidence",
       selection: { nodeId: null, evidence: null },
       modal: null,
-      layout: { leftWidth: 320, rightWidth: 480, leftCollapsed: false, rightCollapsed: false },
+      layout: { leftWidth: 280, rightWidth: 320, leftCollapsed: false, rightCollapsed: false },
     },
   };
 
-  var docEmpty = null;
   var compilerAskEl = null;
   var compilerPromptEl = null;
   var compilerRouteEl = null;
-  var compilerPromptSummaryEl = null;
   var projectCurrentNameEl = null;
   var leftSourcesEl = null;
   var leftCompilerEl = null;
-  var leftPipelineEl = null;
   var leftHistoryEl = null;
   var leftReferencesEl = null;
   var leftTemplatesEl = null;
@@ -81,11 +77,13 @@
   var versionDropdownEl = null;
   var z3ModeEl = null;
   var redhatModeEl = null;
-  var inspectorEmptyEl = null;
+  var progressEl = null;
   var rightInspectorEl = null;
   var compareToggleEl = null;
   var rightModeToggleEl = null;
   var _applyRightViewFn = null;
+  var _renderManifestFn = null;
+  var _syncCountersFn = null;
   var inspectorCompareActive = false;
 
   function setShell(path, value) {
@@ -108,16 +106,16 @@
 
   function _syncShellPathToDom(path, value, prev) {
     if (path === "document.current") {
-      // no-op for the document itself — renderJdfDocument renders; caller sets
-      // current explicitly. What does follow the document is Export's
-      // availability: with no document loaded there is nothing to export.
+      // The document is rendered by renderJdfDocument; the caller sets current
+      // explicitly. What follows it is Export's availability and the SOURCES
+      // manifest (its "anchored N of M" is read off the document).
       _syncExportEnabled();
+      if (_renderManifestFn) _renderManifestFn();
     } else if (path === "document.mode") {
-      if (docEmpty) {
-        docEmpty.style.display = (value === "empty") ? "" : "none";
-      }
-      // The mode is the other half of "there is a document" (_canExport).
+      // The mode is the other half of "there is a document" (_canExport), and
+      // the manifest's counters follow the document too.
       _syncExportEnabled();
+      if (_renderManifestFn) _renderManifestFn();
     } else if (path === "document.signoff.status") {
       var el = document.getElementById("signoff-indicator");
       if (!el) return;
@@ -130,23 +128,26 @@
       }
     } else if (path === "compiler.ask") {
       if (compilerAskEl) compilerAskEl.textContent = value;
+      _syncCompilerSections();
     } else if (path === "compiler.prompt") {
       if (compilerPromptEl) compilerPromptEl.textContent = value;
-      _refreshCompilerPromptSummary();
+      _syncCompilerSections();
     } else if (path === "compiler.route") {
       if (compilerRouteEl) compilerRouteEl.textContent = value;
-      _refreshCompilerPromptSummary();
+      _syncCompilerSections();
     } else if (path === "sources") {
-      // The grounding list is what the compiler summary counts ("route · N
-      // sources") and what every compile posts as substrate_file_ids, so the
-      // visible count must follow any write to it (upload, ingest, remove).
-      _refreshCompilerPromptSummary();
+      // The grounding list is what every compile posts as substrate_file_ids
+      // and what the SOURCES manifest counts, so the pane follows any write
+      // to it (upload, ingest, remove).
+      _syncCompilerSections();
+      if (_renderManifestFn) _renderManifestFn();
+      if (_syncCountersFn) _syncCountersFn();
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
       if (projectCurrentNameEl) projectCurrentNameEl.textContent = value || "Untitled";
     } else if (path === "ui.leftTab") {
-      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, pipeline: leftPipelineEl, history: leftHistoryEl, references: leftReferencesEl, templates: leftTemplatesEl };
+      var lp = { sources: leftSourcesEl, compiler: leftCompilerEl, history: leftHistoryEl, references: leftReferencesEl, templates: leftTemplatesEl };
       Object.keys(lp).forEach(function (k) {
         if (lp[k]) lp[k].style.display = (k === value) ? "block" : "none";
       });
@@ -346,17 +347,26 @@
     exportBtnEl.disabled = !_canExport();
   }
 
-  function _refreshCompilerPromptSummary() {
-    if (!compilerPromptSummaryEl) return;
-    var prompt = SHELL.compiler.prompt || "";
-    if (!prompt) {
-      compilerPromptSummaryEl.textContent = "—";
-      return;
+  // The compiler pane's sections own their empty state: a section with no
+  // value is hidden (data-state="empty"), never rendered as a dash. ROUTED TO
+  // is the one section that is always present — before a compile it says so.
+  function _syncCompilerSections() {
+    var askSection = document.getElementById("section-ask");
+    if (askSection) {
+      askSection.setAttribute("data-state", (SHELL.compiler.ask || "") ? "ready" : "empty");
     }
-    var route = SHELL.compiler.route || "";
-    var n = (SHELL.sources && SHELL.sources.length) || 0;
-    var src = n + " source" + (n === 1 ? "" : "s");
-    compilerPromptSummaryEl.textContent = route ? (route + " · " + src) : src;
+    var promptSection = document.getElementById("section-prompt");
+    if (promptSection) {
+      promptSection.setAttribute("data-state", (SHELL.compiler.prompt || "") ? "ready" : "empty");
+    }
+    var routeSection = document.getElementById("section-route");
+    if (routeSection) {
+      routeSection.setAttribute("data-state", (SHELL.compiler.route || "") ? "ready" : "awaiting");
+    }
+    // Before a compile the section says where it stands rather than sitting
+    // empty: "Awaiting route" is a state, and it is muted.
+    var routeEl = document.getElementById("compiler-route");
+    if (routeEl && !SHELL.compiler.route) routeEl.textContent = "Awaiting route";
   }
   var DRAFT_TYPE = "full";
 
@@ -374,20 +384,22 @@
     setShell("ui.layout.leftWidth",  SHELL.ui.layout.leftWidth);
     setShell("ui.layout.rightWidth", SHELL.ui.layout.rightWidth);
     var docSurface = document.querySelector(".doc-surface");
-    docEmpty = docSurface ? docSurface.querySelector(".empty-hero") : null;
+    progressEl = document.getElementById("app-progress");
     compilerAskEl    = document.getElementById("compiler-ask");
     compilerPromptEl = document.getElementById("compiler-prompt");
     compilerRouteEl  = document.getElementById("compiler-route");
-    compilerPromptSummaryEl = document.getElementById("compiler-prompt-summary");
     versionChipEl     = document.getElementById("version-chip");
     versionPrevEl     = document.getElementById("version-prev");
     versionNextEl     = document.getElementById("version-next");
     versionLabelEl    = document.getElementById("version-label");
     versionDropdownEl = document.getElementById("version-dropdown");
+    _syncCompilerSections();
     if (versionPrevEl) versionPrevEl.addEventListener("click", function () { _versionStep(-1); });
     if (versionNextEl) versionNextEl.addEventListener("click", function () { _versionStep(1); });
     if (versionLabelEl) versionLabelEl.addEventListener("click", function () {
       if (versionDropdownEl) versionDropdownEl.hidden = !versionDropdownEl.hidden;
+      versionLabelEl.setAttribute("aria-expanded",
+        versionDropdownEl && !versionDropdownEl.hidden ? "true" : "false");
     });
     var wrap = document.getElementById("dock-input-wrap");
     var text = document.getElementById("dock-text");
@@ -432,7 +444,6 @@
             src = src.filter(function (s) { return s !== String(id); });
           }
           setShell("sources", src);
-          if (typeof _refreshCompilerPromptSummary === "function") _refreshCompilerPromptSummary();
         })
         .catch(function (err) {
           if (checkboxEl) checkboxEl.checked = !included;
@@ -447,7 +458,7 @@
         .then(function (r) {
           if (!r.ok) throw new Error("DELETE substrate " + r.status);
           setShell("sources", (SHELL.sources || []).map(String).filter(function (s) { return s !== String(id); }));
-          if (typeof _refreshCompilerPromptSummary === "function") _refreshCompilerPromptSummary();
+          _refreshManifest();
           if (row && row.parentNode) row.parentNode.removeChild(row);
         })
         .catch(function (err) {
@@ -521,10 +532,8 @@
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
           setShell("sources", SHELL.sources.concat([String(j.id)]));
-          if (typeof _refreshCompilerPromptSummary === "function") {
-            _refreshCompilerPromptSummary();
-          }
           appendSourceItem(name, String(j.id));
+          _refreshManifest();
         })
         .catch(function (err) {
           sourceUploadError(String(err && err.message ? err.message : err));
@@ -842,41 +851,12 @@
         var kind = btn.getAttribute("data-rail-btn");
         if (kind === "folder")        leftGroupSetTab("sources");
         else if (kind === "sparkle")  leftGroupSetTab("compiler");
-        else if (kind === "activity") leftGroupSetTab("pipeline");
         else if (kind === "history")  leftGroupSetTab("history");
         else if (kind === "shield")   rightGroupSetTab("evidence");
         else if (kind === "swap")     _toggleCompareView();
       });
     });
 
-    // ---------------------------------------------------------------
-    // Theme toggle (light default / dark override)
-    // ---------------------------------------------------------------
-    var THEME_KEY = "assure_theme";
-    var htmlEl = document.documentElement;
-    var themeToggle = document.getElementById("theme-toggle");
-    var iconSun  = themeToggle ? themeToggle.querySelector(".theme-icon-sun")  : null;
-    var iconMoon = themeToggle ? themeToggle.querySelector(".theme-icon-moon") : null;
-    function applyTheme(name) {
-      var isDark = (name === "dark");
-      htmlEl.setAttribute("data-theme", isDark ? "dark" : "light");
-      if (themeToggle) themeToggle.setAttribute("data-theme", isDark ? "dark" : "light");
-      if (iconSun)  iconSun.style.display  = isDark ? "none" : "";
-      if (iconMoon) iconMoon.style.display = isDark ? ""     : "none";
-    }
-    (function initTheme() {
-      var stored = null;
-      try { stored = window.localStorage.getItem(THEME_KEY); } catch (_) { stored = null; }
-      applyTheme(stored === "dark" ? "dark" : "light");
-    })();
-    if (themeToggle) {
-      themeToggle.addEventListener("click", function () {
-        var cur = htmlEl.getAttribute("data-theme") === "dark" ? "dark" : "light";
-        var next = (cur === "dark") ? "light" : "dark";
-        try { window.localStorage.setItem(THEME_KEY, next); } catch (_) {}
-        applyTheme(next);
-      });
-    }
 
     // ---------------------------------------------------------------
     // Docked input focus styles (phase 1)
@@ -884,63 +864,115 @@
     if (wrap && text) {
       text.addEventListener("focus", function () { wrap.classList.add("focused"); });
       text.addEventListener("blur", function () { wrap.classList.remove("focused"); });
+      // YOUR ASK mirrors the dock: with no compile yet the pane still shows the
+      // intent as typed rather than an empty section.
+      text.addEventListener("input", function () {
+        populateCompilerAsk(String(text.value || ""));
+      });
     }
 
     // ---------------------------------------------------------------
-    // Stage state helpers
+    // Stages. The pane shows the pipeline as four stages — Retrieve, Draft,
+    // Anchor, Verify — while the stream still reports its seven finer steps.
+    // The finer steps remain the state (STAGE_ORDER above is their order);
+    // the four rows are the view, and they are what the header's progress
+    // line reads. A stage ticks when every step under it has landed.
     // ---------------------------------------------------------------
+    var STAGE_GROUPS = [
+      { name: "Retrieve", steps: ["Preparing"] },
+      { name: "Draft",    steps: ["Drafting", "Lock Inference"] },
+      { name: "Anchor",   steps: ["Compile", "Math Check"] },
+      { name: "Verify",   steps: ["Verify", "Complete"] },
+    ];
+    var STAGE_PROGRESS = { Retrieve: 0.25, Draft: 0.5, Anchor: 0.75, Verify: 1 };
+    var stageState = {};    // finer step -> "active" | "done" | "failed" | "skipped"
+    var stageReason = {};   // finer step -> why it was skipped
+
     function stageRow(name) {
       return document.querySelector('.stage-row[data-stage="' + name + '"]');
     }
+    function _groupState(group) {
+      var active = false, failed = false, landed = 0;
+      for (var i = 0; i < group.steps.length; i++) {
+        var s = stageState[group.steps[i]];
+        if (s === "active") active = true;
+        else if (s === "failed") failed = true;
+        else if (s === "done" || s === "skipped") landed++;
+      }
+      if (failed) return "failed";
+      if (active) return "active";
+      if (landed === group.steps.length) return "done";
+      return "idle";
+    }
+    // The 2px line under the header: how far the run has got, in ink. No
+    // spinner, no overlay, no skeleton — the line and the ticks are the
+    // whole progress signal.
+    function _syncProgress() {
+      if (!progressEl) return;
+      var frac = 0;
+      for (var i = 0; i < STAGE_GROUPS.length; i++) {
+        var state = _groupState(STAGE_GROUPS[i]);
+        if (state === "done" || state === "active") {
+          frac = STAGE_PROGRESS[STAGE_GROUPS[i].name];
+        }
+      }
+      var bar = progressEl.firstElementChild;
+      if (bar) bar.style.transform = "scaleX(" + frac + ")";
+    }
+    function _renderStages() {
+      for (var i = 0; i < STAGE_GROUPS.length; i++) {
+        var group = STAGE_GROUPS[i];
+        var row = stageRow(group.name);
+        if (!row) continue;
+        var state = _groupState(group);
+        row.classList.remove("active", "done", "failed", "skipped");
+        if (state !== "idle") row.classList.add(state);
+        var notes = [];
+        for (var j = 0; j < group.steps.length; j++) {
+          var why = stageReason[group.steps[j]];
+          if (why) notes.push(group.steps[j] + " skipped: " + why);
+        }
+        if (notes.length) row.setAttribute("title", notes.join("; "));
+        else row.removeAttribute("title");
+      }
+      _syncProgress();
+    }
+    function _startProgress() {
+      if (!progressEl) return;
+      progressEl.hidden = false;
+      var bar = progressEl.firstElementChild;
+      if (bar) bar.style.transform = "scaleX(0)";
+    }
+    function _endProgress() {
+      if (!progressEl) return;
+      // Hold the full line for a beat so the finish is visible, then clear it.
+      setTimeout(function () {
+        if (progressEl) progressEl.hidden = true;
+      }, 700);
+    }
     function resetStages() {
-      STAGE_ORDER.forEach(function (n) {
-        var r = stageRow(n);
-        if (!r) return;
-        r.classList.remove("active", "done", "failed", "skipped");
-        r.removeAttribute("title");
-      });
+      stageState = {};
+      stageReason = {};
+      _renderStages();
+      if (progressEl) progressEl.hidden = true;
       var banner = document.querySelector(".doc-ungrounded-banner");
       if (banner) banner.remove();
     }
     function findActiveStage() {
-      for (var i = 0; i < STAGE_ORDER.length; i++) {
-        var r = stageRow(STAGE_ORDER[i]);
-        if (r && r.classList.contains("active")) return STAGE_ORDER[i];
+      for (var i = STAGE_ORDER.length - 1; i >= 0; i--) {
+        if (stageState[STAGE_ORDER[i]] === "active") return STAGE_ORDER[i];
       }
       return null;
     }
-    function markDone(name) {
-      var r = stageRow(name);
-      if (!r) return;
-      r.classList.remove("skipped");
-      r.removeAttribute("title");
-      r.classList.remove("active", "failed");
-      r.classList.add("done");
-    }
-    function markActive(name) {
-      var r = stageRow(name);
-      if (!r) return;
-      r.classList.remove("skipped");
-      r.removeAttribute("title");
-      r.classList.remove("done", "failed");
-      r.classList.add("active");
-    }
-    function markFailed(name) {
-      var r = stageRow(name);
-      if (!r) return;
-      r.classList.remove("skipped");
-      r.removeAttribute("title");
-      r.classList.remove("active", "done");
-      r.classList.add("failed");
-    }
+    function markDone(name)   { stageState[name] = "done"; _renderStages(); }
+    function markActive(name) { stageState[name] = "active"; _renderStages(); }
+    function markFailed(name) { stageState[name] = "failed"; _renderStages(); }
     // A stage that had nothing to check is neither done nor failed: a green
     // dot would claim a pass that never ran (Math Check with 0 metrics).
     function markSkipped(name, reason) {
-      var r = stageRow(name);
-      if (!r) return;
-      r.classList.remove("active", "done", "failed");
-      r.classList.add("skipped");
-      r.setAttribute("title", name + " skipped: " + (reason || "no checks ran"));
+      stageState[name] = "skipped";
+      if (reason) stageReason[name] = reason;
+      _renderStages();
     }
 
     // ---------------------------------------------------------------
@@ -1050,7 +1082,13 @@
       var idx = -1;
       for (var i = 0; i < list.length; i++) { if (list[i].version === current) { idx = i; break; } }
       if (idx < 0) idx = 0;
-      if (versionLabelEl) versionLabelEl.textContent = "v" + current + " of " + list.length;
+      if (versionLabelEl) {
+        versionLabelEl.textContent = "v" + current + " of " + list.length;
+        // "v18 of 18" is what the eye needs; the accessible name has to name
+        // the thing it navigates, so it does not read as a bare "18 of 18".
+        versionLabelEl.setAttribute("aria-label",
+          "document version " + current + " of " + list.length);
+      }
       if (versionPrevEl) versionPrevEl.disabled = (idx >= list.length - 1);
       if (versionNextEl) versionNextEl.disabled = (idx <= 0);
       if (versionDropdownEl) {
@@ -1317,7 +1355,7 @@
     // sources is not called ungrounded, and a document whose every quote was
     // refused is not called verified.
     function _derivedCounts(doc) {
-      var counts = { anchored: 0, supported: 0 };
+      var counts = { anchored: 0, supported: 0, partial: 0, unverified: 0 };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1343,7 +1381,13 @@
           }
           if (!isAnchored) continue;
           counts.anchored++;
-          if (_entailmentVerdict(node, prov[0] || null) === "yes") counts.supported++;
+          // The verdict buckets the anchored claims exactly as the server's
+          // _provenance_counts does: yes -> supported, partial -> partial,
+          // everything else (no, unverified) -> unverified.
+          var verdict = _entailmentVerdict(node, prov[0] || null);
+          if (verdict === "yes") counts.supported++;
+          else if (verdict === "partial") counts.partial++;
+          else counts.unverified++;
         }
       }
       return counts;
@@ -1374,9 +1418,18 @@
       note.textContent = "Grounded, not verified — " + anchored +
         " of " + eligible + " claims cite an uploaded source, and the source " +
         "check verified none of them. Review before use.";
-      var surface = document.querySelector(".doc-surface");
-      if (surface) surface.insertBefore(note, surface.firstChild);
+      _insertDocNotice(note);
     }
+    // The banner and the note sit at the top of the document column, in flow:
+    // found first, they push the document down instead of covering its first
+    // lines. They are the only body-level notices the document carries.
+    function _insertDocNotice(el) {
+      var column = document.querySelector(".doc-draft") ||
+                   document.querySelector(".doc-surface");
+      if (!column) return;
+      column.insertBefore(el, column.firstChild);
+    }
+
     function _syncUngroundedBanner(stats) {
       var show;
       var derived = null;
@@ -1388,7 +1441,10 @@
         show = (stats.anchored === 0);
       } else {
         var doc = SHELL.document.current;
-        if (!doc || !Array.isArray(doc.body)) return;
+        if (!doc || !Array.isArray(doc.body)) {
+          _renderCounters(null, null);
+          return;
+        }
         derived = _derivedCounts(doc);
         show = (derived.anchored === 0);
       }
@@ -1398,12 +1454,55 @@
         if (existing[i].parentNode) existing[i].parentNode.removeChild(existing[i]);
       }
       _syncEntailmentNote(stats, derived || { anchored: 0, supported: 0 });
+      _renderCounters(stats, derived);
       if (!show) return;
       var banner = document.createElement("div");
       banner.className = "doc-ungrounded-banner";
       banner.textContent = "This document is ungrounded — none of its claims match the uploaded sources. Verify before use.";
-      var surface = document.querySelector(".doc-surface");
-      if (surface) surface.insertBefore(banner, surface.firstChild);
+      _insertDocNotice(banner);
+    }
+
+    // The right pane's 2x2 counters. The server's persisted stats win when
+    // they are present (DB parity with the gate); otherwise the numbers come
+    // from the same tree the shell renders. Zero reads muted, a live number
+    // reads ink, and a changed numeral fades in over 200ms — no slide.
+    function _setCounter(id, value) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var next = String(value);
+      if (el.textContent === next) return;
+      el.textContent = next;
+      if (value) el.classList.remove("is-zero");
+      else el.classList.add("is-zero");
+      el.classList.remove("is-updating");
+      void el.offsetWidth;                     // restart the fade
+      el.classList.add("is-updating");
+      setTimeout(function () { el.classList.remove("is-updating"); }, 220);
+    }
+    function _num(stats, derived, key) {
+      if (stats && typeof stats[key] === "number") return stats[key];
+      if (derived && typeof derived[key] === "number") return derived[key];
+      return 0;
+    }
+    function _renderCounters(stats, derived) {
+      _setCounter("count-anchored",   _num(stats, derived, "anchored"));
+      _setCounter("count-supported",  _num(stats, derived, "supported"));
+      _setCounter("count-partial",    _num(stats, derived, "partial"));
+      _setCounter("count-unverified", _num(stats, derived, "unverified"));
+      var line = document.getElementById("counter-line");
+      if (!line) return;
+      var n = (SHELL.sources && SHELL.sources.length) || 0;
+      // The line describes a compiled document, so it needs a document with
+      // content: a blank tree is still "no document yet".
+      var doc = SHELL.document.current;
+      var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
+      if (hasDoc && n > 0) {
+        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s");
+        line.hidden = false;
+      } else {
+        line.textContent = "";
+        line.hidden = true;
+      }
     }
 
     // ---------------------------------------------------------------
@@ -2155,12 +2254,14 @@
       });
     }
 
+    // Monochrome text glyphs only: the shell spends no colour on emoji, so a
+    // chip reads in the same palette as the rule it sits in.
     function getChipIcon(kind, status) {
-      if (kind === "z3") return status === "pass" ? "\ud83d\udd12" : "\u26a0";
-      else if (kind === "cite") return "\ud83d\udcce";
+      if (kind === "z3") return status === "pass" ? "\u2713" : "!";
+      else if (kind === "cite") return "\u00a7";
       // A Red-Hat finding has no closing state (see Dismiss removal): the
       // check-mark branch had no writer, so the chip is always the flag.
-      else if (kind === "redhat") return "\ud83d\udea9";
+      else if (kind === "redhat") return "\u2691";
       return "";
     }
 
@@ -2299,17 +2400,13 @@
         var text = textEl.textContent || "";
         if (text.length === 0) continue;
 
-        // Provenance-derived tooltip: source_name · p.page. Only used when
-        // the node carries real provenance; otherwise fall back to the short
-        // confidence reason. Never the 280-char excerpt in a tooltip.
+        // No tooltip: the 1px semantic underline is the signal (Phase F), and
+        // the drawer behind a click carries source, page and quote. Only the
+        // node's first provenance row is needed, to band the span.
         var provNode = findJdfNodeById(nodeId, doc);
         var provMeta = provNode ? (provNode.meta && provNode.meta.provenance) : null;
         var provList = Array.isArray(provMeta) ? provMeta : (provMeta ? [provMeta] : []);
         var prov0 = provList[0] || null;
-        var provSrc = prov0 ? String(prov0.source_name || "") : "";
-        var provPageRaw = prov0 ? prov0.page_number : "";
-        var provPage = (provPageRaw != null && provPageRaw !== "") ? String(provPageRaw) : "";
-        var provTitle = provSrc ? (provSrc + (provPage ? " \u00b7 p." + provPage : "")) : "";
 
         // Keep only in-range spans and sort by startChar DESCENDING so
         // wrapping higher spans first never shifts the indices used by
@@ -2339,7 +2436,6 @@
             else if (sp.score >= 0.4) confClass += " conf-yellow";
             else confClass += " conf-red";
           }
-          var title = prov0 ? (provTitle || String(sp.reason || "")) : "(no source matched)";
           // §4 A7: the span is a click target, so it is authored as a control —
           // role, tab stop and a name that states its confidence band. The
           // neutral wording is deliberate; persuasive phrasing goes to the
@@ -2348,7 +2444,7 @@
                    : (sp.score > 0.8) ? "high"
                    : (sp.score >= 0.4) ? "medium" : "low";
           var wrapped = '<span class="' + confClass + '" data-node-id="' + escapeAttr(nodeId) +
-            '" data-score="' + escapeAttr(String(sp.score)) + '" title="' + escapeAttr(title) +
+            '" data-score="' + escapeAttr(String(sp.score)) +
             '" role="button" tabindex="0" aria-label="' + escapeAttr("Confidence span: " + band) + '">' +
             escapeHtml(text.slice(start, end)) + "</span>";
           html = wrapped + plain + html;
@@ -2460,15 +2556,6 @@
       markActive(stageName);
       currentStageIndex = idx;
     }
-    function markRemainingIdle() {
-      for (var i = 0; i < STAGE_ORDER.length; i++) {
-        var r = stageRow(STAGE_ORDER[i]);
-        if (!r) continue;
-        if (r.classList.contains("active") ||
-            r.classList.contains("done") ||
-            r.classList.contains("failed")) continue;
-      }
-    }
     function handleEvent(event, data) {
       if (event === "[DONE]") return;
       if (event === "status" && data && typeof data === "object") {
@@ -2567,29 +2654,31 @@
         markDone("Verify");
         markActive("Complete");
         markDone("Complete");
+        _endProgress();
+        _refreshManifest();
         _setRunInProgress(false);
         clearIntentSlot();
         _clearCompilerPromptIfStale();
         // The run is over: bring the retained stage rows back into view.
         // beginIntentCompile had forced the left pane onto the COMPILER tab.
-        leftGroupSetTab("pipeline");
+        leftGroupSetTab("compiler");
       } else if (event === "error") {
         var active = findActiveStage() || STAGE_ORDER[
           (currentStageIndex >= 0) ? currentStageIndex : 0
         ];
         markFailed(active);
+        _endProgress();
         _setRunInProgress(false);
         // A failed run is still an ended run: drop the success bar left by
         // the intent compile and bring the retained stage rows back into
         // view, so the failed row is visible instead of a stale
-        // "\u2713 Intent compiled" slot hiding the pipeline tab.
+        // "\u2713 Intent compiled" slot hiding the stages.
         clearIntentSlot();
-        leftGroupSetTab("pipeline");
+        leftGroupSetTab("compiler");
         var msg = (data && data.error) ? data.error : (data ? JSON.stringify(data) : "unknown error");
         appendDocError(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
       }
-      markRemainingIdle();
     }
 
     // ---------------------------------------------------------------
@@ -2814,10 +2903,106 @@
             rows.forEach(function (f) {
               el.appendChild(_buildSourceRow(f.filename || "", f.id));
             });
-        }
-      })
+          }
+          // The manifest reads the same response: filename, size, indexed date.
+          manifestRows = rows;
+          _renderManifest();
+        })
       .catch(function () {});
     }
+    // ---------------------------------------------------------------
+    // SOURCES — the OMP manifest: filename, size, indexed date, and after a
+    // compile each source's "anchored N of M". Read from the same vault route
+    // the Sources tab lists, so the two surfaces cannot disagree.
+    // ---------------------------------------------------------------
+    var manifestRows = [];
+    function _manifestSize(bytes) {
+      var b = Number(bytes) || 0;
+      if (b < 1024) return b + " B";
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB";
+      return (b / (1024 * 1024)).toFixed(1) + " MB";
+    }
+    // created_at is written by SQLite as "YYYY-MM-DD HH:MM:SS" in UTC. The
+    // date is read off the string, never re-derived through the local clock.
+    function _manifestDate(raw) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw || ""));
+      if (!m) return "";
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return parseInt(m[3], 10) + " " + months[parseInt(m[2], 10) - 1] + " " + m[1];
+    }
+    function _anchoredBySource(doc) {
+      var by = {};
+      var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
+      for (var s = 0; s < sections.length; s++) {
+        if (!sections[s] || typeof sections[s] !== "object") continue;
+        var group = [sections[s]];
+        if (Array.isArray(sections[s].children)) group = group.concat(sections[s].children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || String(node.type || "") !== "paragraph") continue;
+          var prov = node.provenance;
+          if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+          for (var i = 0; i < prov.length; i++) {
+            var row = prov[i];
+            if (!row || typeof row !== "object") continue;
+            var sid = String(row.source_id || "");
+            if (!sid) continue;
+            var bucket = by[sid] || (by[sid] = { anchored: 0, total: 0 });
+            bucket.total++;
+            if (String(row.extracted_quote || "").trim()) bucket.anchored++;
+          }
+        }
+      }
+      return by;
+    }
+    function _renderManifest() {
+      var el = document.getElementById("source-manifest");
+      if (!el) return;
+      var by = _anchoredBySource(SHELL.document.current);
+      while (el.firstChild) el.removeChild(el.firstChild);
+      manifestRows.forEach(function (f) {
+        var row = document.createElement("div");
+        row.className = "manifest-row";
+        var name = document.createElement("span");
+        name.className = "manifest-name";
+        name.textContent = f.filename || f.id || "";
+        var meta = document.createElement("span");
+        meta.className = "manifest-meta";
+        meta.textContent = [_manifestSize(f.file_size_bytes), _manifestDate(f.created_at)]
+          .filter(Boolean).join(" \u00b7 ");
+        row.appendChild(name);
+        row.appendChild(meta);
+        var counts = by[String(f.id)];
+        if (counts && counts.total > 0) {
+          var seen = document.createElement("span");
+          seen.className = "manifest-count";
+          seen.textContent = "anchored " + counts.anchored + " of " + counts.total;
+          row.appendChild(seen);
+        }
+        el.appendChild(row);
+      });
+    }
+    _renderManifestFn = _renderManifest;
+    // The counter line counts sources, so it is re-rendered whenever the
+    // source list or the document changes.
+    function _refreshCounters() {
+      var doc = SHELL.document.current;
+      _renderCounters((doc && doc.meta && doc.meta.provenance_stats) || null,
+                      doc ? _derivedCounts(doc) : null);
+    }
+    _syncCountersFn = _refreshCounters;
+    function _refreshManifest() {
+      var pid = _sourceProjectId();
+      if (!pid) return;
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/substrate")
+        .then(function (r) { return r.ok ? r.json() : { files: [] }; })
+        .then(function (j) {
+          manifestRows = (j && j.files) || [];
+          _renderManifest();
+        })
+        .catch(function () {});
+    }
+
     var _switchToken = 0;
     function _switchProject(id, title) {
       _closeProjectPanel();
@@ -2958,6 +3143,7 @@
       setShell("streams.draft", new AbortController());
       var thisRequest = SHELL.streams.draft;
       resetStages();
+      _startProgress();
       clearDocument();
       currentStageIndex = -1;
       __lastRunModel = "";
@@ -2982,10 +3168,10 @@
           // A parse error also ends the run: drop the success bar left by the
           // intent compile and bring the retained stage rows back into view,
           // so the failed row is visible instead of a stale
-          // "Intent compiled" slot hiding the pipeline tab — the same
+          // "Intent compiled" slot hiding the stages — the same
           // stale-slot defect the handleEvent error branch fixed.
           clearIntentSlot();
-          leftGroupSetTab("pipeline");
+          leftGroupSetTab("compiler");
           appendDocError(String(err && err.message ? err.message : err));
           logSseFailure(sseEndpoint, sseStartedAt, sseTokens, err, false);
           try { console.error("[shell] stream parse error:", err); } catch (_) {}
@@ -3238,7 +3424,6 @@
 
     leftSourcesEl  = document.getElementById("left-sources");
     leftCompilerEl = document.getElementById("left-compiler");
-    leftPipelineEl = document.getElementById("left-pipeline");
     leftHistoryEl  = document.getElementById("left-history");
     leftReferencesEl = document.getElementById("left-references");
     leftTemplatesEl = document.getElementById("left-templates");
@@ -3246,7 +3431,6 @@
     compareModeEl  = document.getElementById("right-compare");
     z3ModeEl         = document.getElementById("right-z3");
     redhatModeEl     = document.getElementById("right-redhat");
-    inspectorEmptyEl = document.getElementById("inspector-empty");
     rightInspectorEl = document.getElementById("right-inspector");
     compareToggleEl  = document.getElementById("compare-toggle");
     rightModeToggleEl = document.querySelector("#pane-right .mode-toggle");
@@ -3300,7 +3484,6 @@
     var LEFT_TABPANE = {
       sources:   leftSourcesEl,
       compiler:  leftCompilerEl,
-      pipeline:  leftPipelineEl,
       history:   leftHistoryEl,
       references: leftReferencesEl,
       templates:  leftTemplatesEl,
@@ -3436,9 +3619,8 @@
       if (!docSurface) return;
       // 1. Clear the center document.
       clearDocument();
-      if (docEmpty) docEmpty.style.display = "none";
       if (!doc || !doc.body || !Array.isArray(doc.body)) {
-        setMode("pipeline");
+        setMode("compiler");
         return;
       }
       setShell("document.mode", "ready");
@@ -3452,7 +3634,7 @@
       var oldErrs = docSurface.querySelectorAll(".doc-error");
       for (var i = 0; i < oldErrs.length; i++) oldErrs[i].remove();
       docSurface.scrollTop = 0;
-      setMode("pipeline");
+      setMode("compiler");
     }
 
     function compareStreamFinished() {
@@ -3840,9 +4022,9 @@
     function _idleHint(tab) {
       var hint = document.createElement("p");
       hint.className = "empty-hint";
-      hint.textContent = "No paragraph selected — " +
-        (tab === "z3" ? "Z3 findings" : (tab === "redhat" ? "Red-Hat findings" : "evidence")) +
-        " appear here.";
+      hint.textContent = (tab === "z3")
+        ? "No numbers checked yet"
+        : "Run an audit on a paragraph";
       return hint;
     }
     function renderEvidencePanel(node, opts) {
@@ -3861,7 +4043,9 @@
       // dispatcher-side precedence to reorder — the call sites that produced
       // the extra builds were the handlers themselves.
       if (opts && opts.drawer) { renderEvidenceDrawer(opts.drawer); return; }
-      if (!node) { evidenceBodyEl.appendChild(_idleHint("evidence")); return; }
+      // Nothing selected: the pane's content is the counters above this body,
+      // so the body stays empty rather than announcing an empty pane.
+      if (!node) return;
       // The clicked span's ledger tail is appended wherever this function
       // exits: the score is a ledger signal, so it survives a paragraph whose
       // source did not match. `tail` runs at most once per call.
@@ -4083,21 +4267,17 @@
       if (insp) insp.style.display = "block";
       if (cmp) cmp.style.display = "none";
       var nodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
-      var emptyEl = inspectorEmptyEl;
       if (!nodeId) {
-        if (emptyEl) emptyEl.style.display = "";
         _setInspectorPane(SHELL.ui.rightTab || "evidence");
         _renderInspectorIdlePane();
         return;
       }
       var node = (SHELL.document.current) ? findJdfNodeById(nodeId, SHELL.document.current) : null;
       if (!node) {
-        if (emptyEl) emptyEl.style.display = "";
         _setInspectorPane(SHELL.ui.rightTab || "evidence");
         _renderInspectorIdlePane();
         return;
       }
-      if (emptyEl) emptyEl.style.display = "none";
       // §6: the pane's third input rides along with the selection, so this
       // dispatcher renders the whole view in one pass — the drawer for a
       // z3/cite chip, the ledger tail for a confidence span. A payload that
@@ -4235,7 +4415,7 @@
         return resp.json();
       }).then(function (result) {
         alert("Grounding complete. Node updated with source citation.");
-        setMode("pipeline");
+        setMode("compiler");
       }).catch(function (err) {
         alert("Grounding error: " + (err.message || err));
       });
