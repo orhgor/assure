@@ -182,6 +182,7 @@
     } else if (path === "ui.layout.rightCollapsed") {
       if (value) docBodyEl.classList.add("right-hidden");
       else       docBodyEl.classList.remove("right-hidden");
+      _setRightPaneHidden(Boolean(value));   // §3: inert/aria-hidden + tabindex fallback
       try { localStorage.setItem("assure.right_collapsed", value ? "1" : "0"); } catch (_) {}
     } else if (path === "ui.modal") {
       var layer = document.getElementById("modal-layer");
@@ -215,6 +216,68 @@
         layer.innerHTML = "<div class='modal'>Modal: " + value + "</div>";
       }
     }
+  }
+
+  // ---- Right-pane reachability (§3) --------------------------------
+  // body.right-hidden hides the pane with `visibility: hidden`, which takes
+  // the whole subtree out of the tab order and the accessibility tree, so
+  // revealing the pane never handed focus to anything reachable. The hidden
+  // state is made explicit here and focus is moved on reveal.
+  //
+  // `inert` is used where the engine supports it. No browser target is
+  // stated anywhere in this repo (grep "inert" and any browserslist both
+  // return nothing), so the explicit fallback — aria-hidden plus
+  // tabindex="-1" on every focusable descendant, restored on reveal — is
+  // applied as well; it also keeps the subtree out of the tab order if the
+  // visibility rule is ever refactored.
+  var rightPaneEl = null;
+  var rightPaneTabStops = [];
+  function _rightPane() {
+    if (!rightPaneEl) rightPaneEl = document.getElementById("pane-right");
+    return rightPaneEl;
+  }
+  function _setRightPaneHidden(hidden) {
+    var pane = _rightPane();
+    if (!pane) return;
+    if ("inert" in pane) pane.inert = Boolean(hidden);
+    if (hidden) {
+      pane.setAttribute("aria-hidden", "true");
+      rightPaneTabStops = [];
+      var els = pane.querySelectorAll("a[href], button, input, select, textarea, [tabindex]");
+      for (var i = 0; i < els.length; i++) {
+        rightPaneTabStops.push([els[i], els[i].getAttribute("tabindex")]);
+        els[i].setAttribute("tabindex", "-1");
+      }
+    } else {
+      pane.removeAttribute("aria-hidden");
+      for (var j = 0; j < rightPaneTabStops.length; j++) {
+        var pair = rightPaneTabStops[j];
+        if (pair[1] === null) pair[0].removeAttribute("tabindex");
+        else pair[0].setAttribute("tabindex", pair[1]);
+      }
+      rightPaneTabStops = [];
+    }
+  }
+  function _focusRightPaneDefault() {
+    var pane = _rightPane();
+    if (!pane) return;
+    var target = pane.querySelector("[data-right-tab].is-active") ||
+                 pane.querySelector("[data-right-tab]");
+    if (target && typeof target.focus === "function") target.focus();
+  }
+  function _focusRedhatRun() {
+    var pane = _rightPane();
+    if (!pane) return;
+    var run = pane.querySelector(".redhat-run");
+    if (run && typeof run.focus === "function") run.focus();
+  }
+  function openRight() {
+    // Focus is handed over only when this call is what revealed the pane —
+    // a compile that merely re-expands an already-open pane must not steal
+    // focus from the dock.
+    var wasCollapsed = Boolean(SHELL.ui.layout.rightCollapsed);
+    setShell("ui.layout.rightCollapsed", false);
+    if (wasCollapsed) _focusRightPaneDefault();
   }
 
   function _refreshCompilerPromptSummary() {
@@ -558,7 +621,6 @@
       });
     }
     var rightClose = document.getElementById("right-close");
-    function openRight() { setShell("ui.layout.rightCollapsed", false); }
     function closeRight() { setShell("ui.layout.rightCollapsed", true); }
     if (rightClose) rightClose.addEventListener("click", closeRight);
     function openLeft() { setShell("ui.layout.leftCollapsed", false); }
@@ -586,7 +648,10 @@
         setShell("ui.layout.rightCollapsed", target);
       } else if (k === "j") {
         e.preventDefault();
-        setShell("ui.layout.rightCollapsed", !SHELL.ui.layout.rightCollapsed);
+        // §3: a keyboard reveal must hand focus to the pane, so this goes
+        // through the opener rather than toggling the class directly.
+        if (SHELL.ui.layout.rightCollapsed) openRight();
+        else closeRight();
       }
     });
 
@@ -1854,6 +1919,7 @@
       // The pane owns the findings, so a run always reveals it.
       setShell("ui.rightTab", "redhat");
       renderRedhatPanel(startNode);
+      _focusRedhatRun();   // §3: a run reveals the pane, so hand focus to its own action
 
       function finish(ok, why) {
         // The latch names the run that owns the UI. A late callback from a run
