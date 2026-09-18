@@ -29,10 +29,15 @@ Use **production** for stable ICP demos; use **staging** for Difference Engine (
 4. **Step 3 — Prompt:** Use starter or paste:
 
    ```
-   Summarize Massachusetts commercial real estate underwriting obligations from Sources.
-   Include wind/hail deductible, max liability, and inspection interval.
-   Flag any mismatch between the policy PDF and the rating engine JSON configuration.
+   Summarize the Massachusetts commercial real estate underwriting obligations in the source.
+   Report the wind/hail deductible percentage, the maximum liability in USD, and the inspection
+   interval in months. Cite each figure.
    ```
+
+   > The policy alone carries all three figures. The drift comparison
+   > (`rating-engine-config.json` vs the policy) is answerable **only** when the engine config is
+   > uploaded alongside the policy — see the `Flag any mismatch…` variant below and the
+   > two-source note in `demo-script.md` step 2.
 
 5. Name: **`Boston RE Insurance Demo`** → **Create project**.
 

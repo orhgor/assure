@@ -121,11 +121,16 @@ zoom 100 %, on `https://staging.getassureai.com`, at revision `8115964`. Record 
 the URL bar so the build is identifiable. Shot list — every step ends on a visible artefact:
 
 1. Open the shell on project `demo` — the Main document and the dock are on screen.
-2. Write the intent in the dock and submit:
-   *"Summarize Massachusetts commercial real estate underwriting obligations from Sources.
-   Include wind/hail deductible percentage, maximum liability USD, and inspection interval in
-   months. Explicitly compare policy language to the rating engine configuration and note any
-   drift."*
+2. Write the intent in the dock and submit — the exact text in
+   `scripts/aws/_demo_intent.txt`, and it is **typed into the dock**: nothing reads the file at
+   compile time, so the file is the source of truth for the presenter, not for the pipeline:
+   *"Summarize the Massachusetts commercial real estate underwriting obligations in the source.
+   Report the wind/hail deductible percentage, the maximum liability in USD, and the inspection
+   interval in months. Cite each figure."*
+   The earlier wording also asked to "compare policy language to the rating engine configuration
+   and note any drift". That clause needs **two** sources; on a policy-only project the engine's
+   own numbers are nowhere in the vault, so the comparison invites invention. Add the clause only
+   when `rating-engine-config.json` is uploaded alongside the policy.
 3. Watch the four STAGES tick (Retrieve → Draft → Anchor → Verify) and the header line fill;
    the document streams into the canvas.
 4. Read the compiler pane: YOUR ASK, **ROUTED TO** (the model `cost_governance` chose), and the

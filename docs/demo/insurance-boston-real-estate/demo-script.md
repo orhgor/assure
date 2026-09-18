@@ -48,10 +48,16 @@
 2. Paste or confirm prompt:
 
    ```
-   Summarize Massachusetts commercial real estate underwriting obligations from Sources.
-   Include wind/hail deductible percentage, maximum liability USD, and inspection interval in months.
-   Explicitly compare policy language to the rating engine configuration and note any drift.
+   Summarize the Massachusetts commercial real estate underwriting obligations in the source.
+   Report the wind/hail deductible percentage, the maximum liability in USD, and the inspection
+   interval in months. Cite each figure.
    ```
+
+   > **Do not ask for a policy-vs-engine drift comparison on a policy-only project.** The drift
+   > clause needs `rating-engine-config.json` in the vault as well as the policy: the policy alone
+   > states the *duty* to match the engine ("Material drift between policy language and engine
+   > parameters requires immediate escalation"), never the engine's own numbers. Ask for the drift
+   > comparison only when both sources are uploaded (step 1).
 
 3. Click **✨ Assemble** → wait for stream → **Accept & Dock**.
 
