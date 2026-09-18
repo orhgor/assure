@@ -44,7 +44,7 @@ def compile_cache_key(
     source_text: str,
     target_ai: str = "",
     version: int = PIPELINE_VERSION,
-    prompt_version: int = 0,
+    prompt_material: str = "",
 ) -> str:
     # Stable order: project_id | source_text | target_ai | str(version)
     parts = [
@@ -53,16 +53,20 @@ def compile_cache_key(
         str(target_ai or ""),
         str(version),
     ]
-    # The prompt's version is appended only when it is set. Nothing above names
-    # the prompt, so before this an edit to it left every warm entry warm and
-    # replayed a draft written under the old one; the version moves the key.
+    # The prompt is KEY MATERIAL, not a note beside the key. `prompt_material` is
+    # "<version>:<sha256 of the prompt>[:8]": the hash is the half that matters,
+    # because it moves the key *because the prompt changed* with nobody remembering
+    # to bump anything. The version rides in front of it for readability only.
     #
-    # `prompt_version=0` composes the byte-identical pre-version key. A frozen
-    # artifact (routers/draft.frozen_projects) is pinned to the prompt it was
-    # compiled by, so it keeps that key and still replays: its document is the
-    # artifact, and a pipeline change is not allowed to move it.
-    if prompt_version:
-        parts.append(f"prompt:{int(prompt_version)}")
+    # Before this, nothing in the digest named the prompt, so an edit left every warm
+    # entry warm and replayed a draft written under the old prompt — measured: an
+    # edit moved the prompt's sha256 (c2b7926f -> 1cac8b13) and the key did not move
+    # (ast:p:de9116cd).
+    #
+    # Empty for a frozen artifact (routers/draft._prompt_key_material), so the key it
+    # was written under is the key it still composes and its document still replays.
+    if prompt_material:
+        parts.append(f"prompt:{prompt_material}")
     digest = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
     pid = sanitize_omp_tag(project_id or "", max_len=32)
     return f"ast:{pid}:{digest}"

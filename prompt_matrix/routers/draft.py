@@ -9,7 +9,7 @@ import os
 import sys
 import time
 import uuid
-from typing import Any, Callable, Generator, Iterator, Literal, Mapping
+from typing import Any, Callable, Generator, Iterator, Literal
 
 from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
@@ -161,29 +161,33 @@ _DRAFT_SYSTEM = (
 # sources live in the user message.
 _COMPILE_SYSTEM = (_PEM_DOMAIN.rstrip() + "\n\n---\n\n" + _DRAFT_SYSTEM.rstrip()).strip()
 
-#: The compile prompt's version — the integer the cache key moves on.
+#: The compile prompt's version — a readable label in the cache key.
 #:
-#: ``compile_cache_key`` hashes the ask, the source excerpt and the model. The
-#: system prompt is in none of them, so editing it left every warm entry warm and
-#: replayed a draft written under the old prompt: a measured edit moved the
-#: prompt's own sha256 (c2b7926f -> 1cac8b13) and the key did not move
-#: (ast:p:de9116cd). Bump this whenever _COMPILE_SYSTEM, _DRAFT_SYSTEM,
-#: _INJECTION_DIRECTIVES or a shape block changes, and the entry written under
-#: the old prompt becomes a miss instead of a replay.
+#: It is NOT what makes a prompt edit move the key; ``prompt_fingerprint`` is, and
+#: the fingerprint rides in the key beside this integer. A version alone closes
+#: nothing, because it closes it only if someone remembers to bump it — and
+#: forgetting is the discipline that produced every stale artifact this project has
+#: had to delete. The hash closes it structurally: the key changes *because the
+#: prompt changed*, with nobody remembering anything.
 #:
-#: Forgetting is caught rather than silent: ``prompt_fingerprint`` is recorded
-#: with each entry and compared on load, so a prompt edited without a bump warns
-#: instead of serving the old draft under the new prompt's name.
+#: So this stays for readability in the key string (``ast:p:1:37b4da61`` reads as a
+#: version and a fingerprint) and as the deliberate knob for a change to the
+#: prompt's *meaning* with no change to its text. Bump it freely; the fingerprint
+#: is what carries the guarantee.
 PROMPT_VERSION = 1
 
 
 def prompt_fingerprint() -> str:
     """sha256[:8] of the compile prompt — the part that is the same for every ask.
 
-    The ask is in the prompt too (it is the user's instruction), but the ask is
-    already key material, so this covers the static half: the merged system prompt
-    and both shape blocks. A change here without a PROMPT_VERSION bump is the one
-    case the key cannot see, which is what the recorded fingerprint is for.
+    This is key material (``_prompt_key_material`` puts it in the compile cache
+    key), not a note recorded beside the key. The ask is in the prompt too, but the
+    ask is already key material itself, so this covers the static half: the merged
+    system prompt and both shape blocks.
+
+    The bug it closes, measured: an edit moved the prompt's own sha256
+    (c2b7926f -> 1cac8b13) and the key did not move (ast:p:de9116cd), so the old
+    draft replayed under the new prompt's name.
     """
     static = [
         _COMPILE_SYSTEM,
@@ -355,52 +359,22 @@ def frozen_cold_compile_blocked(*, project_id: str, cached_hit: bool, force: boo
     return _FROZEN_COLD_MESSAGE
 
 
-def _prompt_version_for(project_id: str) -> int:
-    """The prompt version this project's key carries — 0 for a frozen artifact.
+def _prompt_key_material(project_id: str) -> str:
+    """The prompt's place in this project's cache key — "" for a frozen artifact.
 
-    A frozen project's document is a pinned artifact: the runbook's demo path
-    replays it and the guard refuses a cold compile so the pin cannot move. If the
-    prompt version moved its key, that replay would become a miss and the guard
-    would then refuse a document that is not stale, only pinned. So a frozen
-    project composes the key it always did, and ``force=true`` stays the deliberate
-    way to recompile one.
-    """
-    return 0 if project_id in frozen_projects() else PROMPT_VERSION
+    ``"<PROMPT_VERSION>:<prompt_fingerprint()>"``: the fingerprint is what makes a
+    prompt edit move the key with nobody remembering anything, and the version rides
+    in front of it for readability.
 
-
-def _prompt_diverged(project_id: str, cache_key: str, cached: Mapping[str, Any]) -> bool:
-    """True when a replayed entry was written under a different prompt.
-
-    The key carries ``PROMPT_VERSION``, so a hit means the version matched — which
-    means the prompt should match too. It does not when the prompt was edited and
-    the version was not bumped, and that is exactly the stale replay this pair
-    exists to stop: the entry would serve its old draft under the new prompt's
-    name. So the mismatch is logged and the entry is not replayed.
-
-    A frozen project is exempt. Its entry was written under the prompt it is
-    pinned to and carries no fingerprint; treating the pin as divergence would
-    turn the demo's replay into a cold compile, which the frozen guard then
-    refuses — breaking a document that is not stale, only pinned.
+    A frozen project gets "". Its document is a pinned artifact — the runbook's demo
+    path replays it and the guard refuses a cold compile so the pin cannot move — so
+    it composes the key it was written under and still replays, rather than becoming
+    a miss that the guard then refuses. ``force=true`` stays the deliberate way to
+    recompile one.
     """
     if project_id in frozen_projects():
-        return False
-    recorded = str(cached.get("prompt_fingerprint") or "")
-    if not recorded:
-        return False
-    live = prompt_fingerprint()
-    if recorded == live:
-        return False
-    _log.warning(
-        "[compile-prompt-divergence] project=%s key=%s recorded=%s live=%s "
-        "prompt_version=%s — the prompt changed without a PROMPT_VERSION bump; "
-        "the entry is not replayed",
-        project_id,
-        cache_key,
-        recorded,
-        live,
-        PROMPT_VERSION,
-    )
-    return True
+        return ""
+    return f"{PROMPT_VERSION}:{prompt_fingerprint()}"
 
 
 def _compile_cache_key(
@@ -418,9 +392,10 @@ def _compile_cache_key(
     pre-shape entry was written under. A memo ask composes the key it always did,
     so a warm compile stays warm (a miss would persist a new revision).
 
-    The prompt is part of that too, and it is carried as ``PROMPT_VERSION`` rather
-    than as its text: the version is one integer in the digest, and the fingerprint
-    recorded alongside each entry catches a prompt edited without a bump.
+    The prompt is part of that too, and the fingerprint is what carries it: the key
+    changes because the prompt changed, with no bump for anyone to remember. See
+    ``_prompt_key_material`` for why a frozen artifact is the one project whose key
+    does not carry it.
     """
     text = _compile_source_text(intent, context, substrate_context)
     if choose_shape(intent) == ANSWER_SHAPE_DIRECT:
@@ -429,7 +404,7 @@ def _compile_cache_key(
         project_id,
         text,
         target_ai=model,
-        prompt_version=_prompt_version_for(project_id),
+        prompt_material=_prompt_key_material(project_id),
     )
 
 
@@ -970,15 +945,6 @@ def run_draft_pipeline(
         cached = load_ast_cache(cache_key)
     except Exception:
         cached = None
-    if (
-        isinstance(cached, dict)
-        and cached.get("compiled")
-        and _prompt_diverged(project_id, cache_key, cached)
-    ):
-        # A draft written under a different prompt is not a replay of this one. The
-        # key carries only the version, so an edit that forgot the bump would
-        # otherwise serve the old draft under the new prompt's name.
-        cached = None
     if isinstance(cached, dict) and cached.get("compiled"):
         # The gates run on a replayed draft too. A cache hit is a draft rendered
         # again from memory, so a document cached before a gate existed must not
@@ -1457,14 +1423,7 @@ def run_draft_pipeline(
         save_ast_cache(
             cache_key,
             project_id,
-            {
-                "compiled": compiled_payload,
-                "verified": verified_payload,
-                # What the prompt was when this entry was written. The key carries
-                # only the version, so this is what catches a prompt edited without
-                # a bump (see _log_prompt_divergence).
-                "prompt_fingerprint": prompt_fingerprint(),
-            },
+            {"compiled": compiled_payload, "verified": verified_payload},
         )
     except Exception:
         pass
