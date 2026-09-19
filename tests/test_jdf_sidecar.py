@@ -383,8 +383,24 @@ def test_source_manifest_reports_what_the_compile_carried(client, monkeypatch):
     file's full text. The cap is lowered here rather than uploading 500k characters.
     """
     from prompt_matrix.services import source_carry
+    from prompt_matrix.services.source_carry import numbered_source_blocks
 
-    monkeypatch.setattr(source_carry, "SUBSTRATE_CONTEXT_CHARS_TOTAL", 200)
+    # The cap is derived from the block the walk actually emits (the fenced block,
+    # numbered sentences and all) so two sources fit and the third does not —
+    # rather than hardcoded against a block size that changes with the framing.
+    block = len(
+        numbered_source_blocks(
+            [
+                {
+                    "id": "sub-carry-1",
+                    "filename": "policy-1.md",
+                    "extracted_text": "Clause 1. The limit is 5,000,000 dollars for each occurrence.",
+                    "page_number": 1,
+                }
+            ]
+        )[0][0]
+    )
+    monkeypatch.setattr(source_carry, "SUBSTRATE_CONTEXT_CHARS_TOTAL", block * 2)
     ensure_project("sidecar-carry", "Carry")
     for index in range(1, 5):
         save_substrate_entry(

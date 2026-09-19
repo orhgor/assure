@@ -14,7 +14,14 @@ walk and not two: the prompt, the sentence map, the citation resolver and this
 report all read the same function, and a cited id cannot drift from the sentence
 the model was shown. ``carry_plan`` is the record: per source, whether it was
 carried, how many of its characters reached the model, which ``[S<n>]`` ids it was
-given, and why it was dropped when it was. A compile persists it beside its gate;
+given, and why it was dropped when it was.
+
+Every block is emitted inside the untrusted delimiter (``_source_block``), whether
+or not the ingest scan flagged it: the framing is a property of where the text came
+from, and gating it on the phrase list handed a reworded instruction to the model as
+ordinary material. The source is defused before it is numbered, so the fence cannot
+be closed from inside it and the sentences the map holds are the sentences the model
+was shown. A compile persists it beside its gate;
 the export reads it, and falls back to recomputing it (flagged ``derived``) for
 documents compiled before the record existed.
 """
@@ -27,10 +34,10 @@ from typing import Any, Iterable, Iterator
 
 try:
     from ..models.jdf import _merge_short_sentences, _split_sentences
-    from .compile_guard import scan_source_instruction_like, wrap_untrusted_source
+    from .compile_guard import _defuse_delimiter, wrap_untrusted_source
 except ImportError:
     from models.jdf import _merge_short_sentences, _split_sentences
-    from compile_guard import scan_source_instruction_like, wrap_untrusted_source
+    from compile_guard import _defuse_delimiter, wrap_untrusted_source
 
 #: Characters of one source that may reach the prompt. A source longer than this
 #: is numbered up to the cap and reported ``truncated``.
@@ -54,6 +61,38 @@ NOT_ATTACHED_REASON = "not attached to the compile this document came from"
 
 def _sha256(text: str) -> str:
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
+
+
+def _source_block(filename: str, lines: list[str]) -> str:
+    """The prompt block for one source: its numbered sentences, fenced as untrusted.
+
+    Every source is fenced, not only a scanned one. The fence is a property of
+    where the text came from — a source that matches none of the eight phrases is
+    still text the user did not type — and gating it on the phrase list meant a
+    reworded instruction reached the model as ordinary material with no framing at
+    all, which is the case the scan misses by construction.
+
+    The fence wraps the *block*, never a numbered sentence: a marker inside the
+    numbered run would be numbered with it, and from there reach the sentence map,
+    the Evidence pane's quote, the entailment claim and the export. The source is
+    defused before it is split (``_defused_text``), so the body here carries no
+    close marker of its own and the fence cannot be closed from inside.
+
+    Both walks build the block through this one function, so the block the prompt
+    carries is the block the carry plan measured.
+    """
+    return f"### Source file: {filename}\n" + wrap_untrusted_source("\n".join(lines))
+
+
+def _defused_text(text: str) -> str:
+    """Source text that cannot close the fence it is about to be wrapped in.
+
+    ``_defuse_delimiter`` is applied to the source itself rather than to the
+    assembled block, so the text the walk numbers is the text the model is shown:
+    defusing afterwards would edit the sentences after their ids were assigned and
+    put the map and the prompt out of step.
+    """
+    return _defuse_delimiter(text)
 
 
 def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
@@ -96,9 +135,7 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
             yield entry
             continue
 
-        text = full_text
-        if scan_source_instruction_like(text):
-            text = wrap_untrusted_source(text)
+        text = _defused_text(full_text)
         lines: list[str] = []
         numbered: list[str] = []
         used = 0
@@ -120,7 +157,7 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
             yield entry
             continue
 
-        block = f"### Source file: {filename}\n" + "\n".join(lines)
+        block = _source_block(filename, lines)
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
             entry["dropped_reason"] = _TOTAL_CAP_REASON
             stopped = True
@@ -170,8 +207,7 @@ def numbered_source_blocks(
             continue
         filename = str(row.get("filename") or "substrate")
         page_no = row.get("page_number") or row.get("page") or 1
-        if scan_source_instruction_like(text):
-            text = wrap_untrusted_source(text)
+        text = _defused_text(text)
         lines: list[str] = []
         entries: list[tuple[str, str, str, Any]] = []
         used = 0
@@ -194,7 +230,7 @@ def numbered_source_blocks(
             n += 1
         if not lines:
             continue
-        block = f"### Source file: {filename}\n" + "\n".join(lines)
+        block = _source_block(filename, lines)
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
             break
         out.append((block, entries))

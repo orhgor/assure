@@ -179,7 +179,14 @@ def test_scan_flags_every_listed_phrase_and_leaves_a_clean_source_alone():
     assert scan_source_instruction_like(SOURCE) == []
 
 
-def test_flagged_source_is_handed_over_inside_the_untrusted_delimiter():
+def test_every_source_is_handed_over_inside_the_untrusted_delimiter():
+    """The fence is a property of where the text came from, not of the phrase scan.
+
+    It used to be applied only to a source the scan flagged, which meant a reworded
+    instruction — the case the phrase list misses by construction — reached the
+    model as ordinary material with no framing at all. ``_build_substrate_context``
+    is the compile's own prompt builder, so this is the path the model reads.
+    """
     from prompt_matrix.routers.draft import _build_substrate_context
 
     flagged = _build_substrate_context(
@@ -188,8 +195,14 @@ def test_flagged_source_is_handed_over_inside_the_untrusted_delimiter():
     assert flagged.count(UNTRUSTED_OPEN) == 1
     assert UNTRUSTED_CLOSE in flagged
     assert wrap_untrusted_source("x").startswith(UNTRUSTED_OPEN)
+
     clean = _build_substrate_context([{"filename": "policy.md", "extracted_text": SOURCE}])
-    assert UNTRUSTED_OPEN not in clean
+    assert clean.count(UNTRUSTED_OPEN) == 1
+    assert clean.rstrip().endswith(UNTRUSTED_CLOSE)
+    # The fence is framing, not content: it is not numbered, so it cannot become a
+    # citation target or an Evidence-pane quote.
+    assert "[S1] SOURCE MATERIAL" not in clean
+    assert "[S1] " in clean
 
 
 def test_compile_system_prompt_carries_the_hardening_directives():
