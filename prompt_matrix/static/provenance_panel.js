@@ -84,10 +84,19 @@
             });
           }
           var status = canvas.computeNodeStatus(node);
-          var meta = (docNode && docNode.meta) || node.meta || {};
+          // The button is the reader's way into a node's evidence, so it follows
+          // the panel's own test for having something to open. It cannot follow
+          // the canvas status alone: `computeNodeStatus` reads redhat/z3 — never
+          // entailment — and reports every node "unverified" while the root is a
+          // draft preview. The tree a compile streams is the PRE-audit one, before
+          // services/audit_summary attaches meta.provenance, so a compiled
+          // paragraph whose provenance rides on its rows got no button at all
+          // while the panel explained it perfectly once opened.
+          // `resolveProvenance` reads those rows; ask it what it can show.
           var verified =
             status === "verified" ||
-            (isPreview && (meta.provenance || el.querySelector(".ink-stamp")));
+            Boolean(Panel.resolveProvenance(docNode) || Panel.resolveProvenance(node)) ||
+            (isPreview && !!el.querySelector(".ink-stamp"));
           var existing = el.querySelector(".provenance-info-btn");
           if (!verified) {
             if (existing) existing.remove();
