@@ -279,11 +279,26 @@
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
-        <div class="conf-legend pane-legend" role="note"><span class="conf-legend-item"><span class="conf-legend-dot green" aria-hidden="true"></span>Verified against policy</span><span class="conf-legend-item"><span class="conf-legend-dot yellow" aria-hidden="true"></span>Partial match</span><span class="conf-legend-item"><span class="conf-legend-dot grey" aria-hidden="true"></span>Not verified</span></div>
+        <!-- The document's margin marks, named once, in the pane that reports
+             them. Every item is the shape the paragraph carries: the item's own
+             left rule is the state's rule (solid / dashed / doubled / dotted),
+             the glyph is the chip's glyph, and the word is the state's name.
+             Colour is the fourth channel, never the first: this audience prints
+             in black and white. -->
+        <div class="state-legend pane-legend" role="note" aria-label="Verification states">
+          <span class="state-legend-item anchor-supported"><b aria-hidden="true">&#10003;</b><span data-i18n="state.supported">Supported</span></span>
+          <span class="state-legend-item anchor-partial"><b aria-hidden="true">~</b><span data-i18n="state.partial">Partial</span></span>
+          <span class="state-legend-item anchor-unsupported"><b aria-hidden="true">&#10007;</b><span data-i18n="state.unsupported">Contradicted</span></span>
+          <span class="state-legend-item anchor-anchored"><b aria-hidden="true">?</b><span data-i18n="state.anchored">Not confirmed</span></span>
+          <span class="state-legend-item anchor-unanchored"><b aria-hidden="true">&#8212;</b><span data-i18n="state.unanchored">No source</span></span>
+        </div>
       </header>
 
       <!-- The counters: the pane's at-rest state, always visible at the top.
-           2x2, tabular numerals. Zero reads muted; a live number reads ink. -->
+           They read as a verification summary rather than as a dashboard, in
+           the order a reader checks a document: what cites a source, what the
+           source carries, what the source denies, what nothing was found for.
+           Tabular numerals; zero reads muted, a live number reads ink. -->
       <section class="pane-section" id="counters-section" aria-label="Claim counters">
         <table class="counters">
           <tbody>
@@ -295,12 +310,23 @@
               <td>
                 <div class="counter-label" id="counter-label-supported" data-i18n="counter.label.supported">Supported</div>
                 <div class="counter-value is-zero" id="count-supported">0</div>
+                <!-- Partial counts inside Supported, so it is a line under the
+                     number rather than a tile beside it: a fifth tile read as a
+                     fifth bucket, and the legend had to explain it away. -->
+                <div class="counter-sub" id="counter-sub-supported" hidden><span data-i18n="counter.label.partial">Partial</span> <span class="counter-sub-value" id="count-supported-partial">0</span></div>
               </td>
             </tr>
             <tr>
-              <td>
-                <div class="counter-label" id="counter-label-partial" data-i18n="counter.label.partial">Partial</div>
-                <div class="counter-value is-zero" id="count-partial">0</div>
+              <td id="counter-unsupported-cell">
+                <div class="counter-label" id="counter-label-unsupported" data-i18n="counter.label.unsupported">Not supported</div>
+                <div class="counter-value is-zero" id="count-unsupported">0</div>
+                <!-- The one counter that is a finding rather than a state. When
+                     it is non-zero it says so in words under the number, in the
+                     same glyph the paragraph carries in the document margin. -->
+                <div class="counter-note" id="counter-note-unsupported" hidden>
+                  <span class="counter-note-mark" aria-hidden="true">&#10007;</span>
+                  <span data-i18n="counter.unsupported.note">the source does not carry these claims</span>
+                </div>
               </td>
               <td>
                 <div class="counter-label" id="counter-label-unanchored" data-i18n="counter.label.unanchored">Unanchored</div>
@@ -315,11 +341,11 @@
              allowlisted domain. Hidden until the source list has been read,
              because an unread list is not an empty one. -->
         <p class="counter-line counter-origin" id="counter-origin-line" hidden></p>
-        <!-- The four counters are a breakdown, not a partition: Anchored is the
-             total that cites a source, and Partial counts inside Supported
+        <!-- The counters are a breakdown, not a partition: Anchored is the total
+             that cites a source, and Partial counts inside Supported
              (services/audit_summary._provenance_counts). The legend says so,
              because the row is only checkable if it does. -->
-        <p class="counter-legend" id="counter-legend" hidden data-i18n="counter.legend">Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.</p>
+        <p class="counter-legend" id="counter-legend" hidden data-i18n="counter.legend">Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Not supported = the source check found the claim is not in the sentence it cites · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.</p>
       </section>
 
       <div id="right-inspector" class="pane-mode">

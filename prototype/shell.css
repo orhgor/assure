@@ -930,18 +930,36 @@ body.collapsed .pane-left {
   color: var(--ink);
 }
 
+/* What the card happened to. The lead line is the fact — "Nothing was saved." —
+   and it carries the weight; this is the sentence that explains it. */
+.doc-state-detail {
+  margin: var(--space-2) 0 0;
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+.doc-refusal .doc-state-line,
+.doc-halt .doc-state-line {
+  font-weight: 600;
+}
+
 /* A stream in flight is not a document. The column says so while the tokens
    arrive and until the run is verified, so mid-flight text is never read as
-   output; the marker goes with the mode, and a refusal or a halt replaces both. */
-.doc-surface[data-mode="streaming"] > .doc-draft::before {
-  content: "Compiling\2026";
-  display: block;
-  margin-bottom: var(--space-2);
+   output; the marker goes with the mode, and a refusal or a halt replaces both.
+   The marker is an element, not a `::before` string: a generated string cannot
+   carry `data-i18n`, and this was the one visible string on the surface that
+   stayed English in every locale (shell.js:ensureDraftArea). */
+.doc-stream-marker {
+  margin: 0 0 var(--space-3);
   color: var(--muted);
   font-family: var(--sans);
   font-size: var(--fs-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+.doc-draft-text {
+  white-space: pre-wrap;
 }
 
 /* ========== Phase 3: Right-pane mode toggle + Compare grid + Pinned list ========== */
@@ -1266,33 +1284,65 @@ body.collapsed .pane-left {
 .conf-red    { border-bottom-color: var(--contradicted); }
 
 /* A5 — the paragraph's own evidence state, sized to be read at conversational
-   distance rather than at the caret. The 1px underline above stays the
-   sub-claim signal; this is the paragraph: a 3px left rule, a state chip at the
-   paragraph's left, and a 3% wash on the paragraphs nothing grounded.
+   distance rather than at the caret, and off a projector in a compliance
+   review. The 1px underline above stays the sub-claim signal; this is the
+   paragraph.
 
-   The colours are the source-verification legend's three (the right pane's
-   header): verified green, partial amber, not verified grey. An unanchored
-   paragraph has no citation — it is not a contradiction — so it reads grey with
-   the state, like the `anchored` paragraph beside it; the chip's own words
-   (`· unanchored` / `· anchored`) carry which of the two it is. `--contradicted`
-   stays for the state that does contradict a source: the numeric lock's
-   "Contradicts ledger lock" (renderConfidenceLegend, .conf-red). */
+   Five states, three non-colour channels, in this order of importance:
+
+     1. the rule's PATTERN — solid (the source states it), dashed (in part),
+        doubled (the source denies it), dotted (a citation with no confirmation
+        recorded), dotted plus a wash (no citation at all). The pattern survives
+        a black-and-white print, a photocopy and a colour-blind reader; the hue
+        does not.
+     2. the GLYPH in the chip — ✓ ~ ✗ ? —, which is also the chip's shape: the
+        contradiction chip is filled, the unanchored chip is hollow, the rest
+        are tinted. Shape carries where the eye lands before the word does.
+     3. the WORD, from the catalog, so a chip reads in the reader's language.
+
+   Colour is the fourth channel and only the fourth. It is still drawn — the
+   palette's four semantic colours, unchanged — because a colour screen is the
+   common case and the redundancy is what makes the mark legible, not what makes
+   it work. `_anchorStateOf` is the one place the five are decided, and
+   `_ANCHOR_STATES` (shell.js) is the one place they are named. */
 .jdf-p.anchor-state {
   border-left: 3px solid transparent;
   padding-left: var(--space-2);
 }
-.jdf-p.anchor-supported  { border-left-color: var(--verified); }
-.jdf-p.anchor-partial    { border-left-color: var(--partial); }
-.jdf-p.anchor-anchored   { border-left-color: var(--unverified); }
+/* The source states the claim. */
+.jdf-p.anchor-supported {
+  border-left: 3px solid var(--verified);
+}
+/* The source carries the claim only in part: same colour, broken rule. */
+.jdf-p.anchor-partial {
+  border-left: 3px dashed var(--partial);
+}
+/* The source was read against the claim and does not carry it — a finding, not
+   an absence. The heaviest rule on the page, doubled so the weight reads in
+   greyscale, with the faintest wash so a scanning reader sees the block before
+   they read it. */
+.jdf-p.anchor-unsupported {
+  border-left: 6px double var(--contradicted);
+  background: color-mix(in srgb, var(--contradicted) 5%, transparent);
+  padding-left: var(--space-2);
+}
+/* Cited, and nothing confirmed it: a dotted rule, no wash. */
+.jdf-p.anchor-anchored {
+  border-left: 3px dotted var(--unverified);
+}
+/* No citation at all: a dotted rule and a wash, because nothing was found for
+   this paragraph — different from "found and unconfirmed", and the wash is what
+   separates them at a glance. */
 .jdf-p.anchor-unanchored {
-  border-left-color: var(--unverified);
-  background: color-mix(in srgb, var(--unverified) 3%, transparent);
+  border-left: 3px dotted var(--unverified);
+  background: color-mix(in srgb, var(--unverified) 5%, transparent);
 }
 .anchor-chip {
   display: inline-block;
   margin-right: var(--space-2);
   padding: 1px 6px;
   border-radius: 999px;
+  border: 1px solid transparent;
   font-family: var(--sans);
   font-size: 10px;
   font-weight: 600;
@@ -1300,11 +1350,73 @@ body.collapsed .pane-left {
   text-transform: uppercase;
   vertical-align: 2px;
   white-space: nowrap;
+  /* Tabular, and wide enough for the longest state name, so a chip does not
+     change width as a version moves a paragraph between states. */
+  font-variant-numeric: tabular-nums;
 }
-.anchor-chip-supported  { color: var(--verified);     background: color-mix(in srgb, var(--verified) 12%, transparent); }
-.anchor-chip-partial    { color: var(--partial);      background: color-mix(in srgb, var(--partial) 12%, transparent); }
-.anchor-chip-anchored   { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 16%, transparent); }
-.anchor-chip-unanchored { color: var(--unverified);   background: color-mix(in srgb, var(--unverified) 12%, transparent); }
+.anchor-chip-supported {
+  color: var(--verified);
+  background: color-mix(in srgb, var(--verified) 12%, transparent);
+}
+.anchor-chip-partial {
+  color: var(--partial);
+  background: color-mix(in srgb, var(--partial) 12%, transparent);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--partial) 45%, transparent);
+}
+/* Filled, and the only chip that is: the one state a reader must not skim past. */
+.anchor-chip-unsupported {
+  color: var(--surface);
+  background: var(--contradicted);
+  border-color: var(--contradicted);
+  font-weight: 700;
+}
+/* Hollow: nothing confirmed it, so the chip carries no fill to read as one. */
+.anchor-chip-anchored {
+  color: var(--unverified);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--unverified) 60%, transparent);
+  border-style: dotted;
+}
+.anchor-chip-unanchored {
+  color: var(--unverified);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--unverified) 45%, transparent);
+  border-style: dashed;
+}
+
+/* The state key, in the pane header that reports the states. Each item wears the
+   state's own rule pattern and glyph, so the key is a specimen of the mark
+   rather than a caption about it. */
+.state-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  line-height: 1.3;
+}
+.state-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 6px;
+  border-left: 3px solid transparent;
+}
+.state-legend-item b {
+  font-weight: 700;
+}
+.state-legend-item.anchor-supported    { border-left: 3px solid var(--verified); }
+.state-legend-item.anchor-partial      { border-left: 3px dashed var(--partial); }
+.state-legend-item.anchor-unsupported  {
+  border-left: 6px double var(--contradicted);
+  padding-left: 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.state-legend-item.anchor-anchored     { border-left: 3px dotted var(--unverified); }
+.state-legend-item.anchor-unanchored   { border-left: 3px dotted var(--unverified); }
 
 /* Evidence drawer body */
 .evidence-body {
@@ -1360,6 +1472,192 @@ body.collapsed .pane-left {
   background: var(--surface);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   line-height: var(--lh-body);
+}
+
+/* ---- The verdict block: the paragraph's state and the check's own label ----
+   The same shape as the margin mark — the rule pattern and the badge glyph come
+   from the state, not from this file — so the pane names a state the way the
+   document does. */
+.evidence-verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  border-left: 3px solid var(--unverified);
+  background: var(--surface);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+.evidence-verdict-badge {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+}
+.evidence-verdict-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.evidence-verdict-state {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.evidence-verdict-label {
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.evidence-verdict.anchor-supported           { border-left: 3px solid var(--verified); }
+.evidence-verdict.anchor-supported .evidence-verdict-state { color: var(--verified); }
+.evidence-verdict.anchor-partial             { border-left: 3px dashed var(--partial); }
+.evidence-verdict.anchor-partial .evidence-verdict-state { color: var(--partial); }
+.evidence-verdict.anchor-unsupported         {
+  border-left: 6px double var(--contradicted);
+  background: color-mix(in srgb, var(--contradicted) 5%, transparent);
+}
+.evidence-verdict.anchor-unsupported .evidence-verdict-state { color: var(--contradicted); }
+.evidence-verdict.anchor-unsupported .evidence-verdict-badge {
+  background: var(--contradicted);
+  border-color: var(--contradicted);
+  color: var(--surface);
+}
+.evidence-verdict.anchor-anchored            { border-left: 3px dotted var(--unverified); }
+.evidence-verdict.anchor-unanchored          { border-left: 3px dotted var(--unverified); }
+/* The unanchored drawer's own header said one sentence before this; it keeps the
+   drawer's ink and weight over the verdict block's muted label. */
+.gap-claim-header .evidence-verdict-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- The citations themselves: the pane's unit of work ----
+   The cited sentence is the block's subject, so it is set in the document's own
+   serif at document weight in ink, and everything that identifies it sits under
+   it. The old drawer rendered the quote in 13px muted sans with a 2px hairline —
+   the same figure as the labels around it — which made the one thing the pane
+   exists to show the quietest thing in it. */
+.evidence-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.evidence-breakdown-item {
+  display: inline-block;
+}
+.evidence-reason {
+  margin: 0;
+}
+.citation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: var(--space-3);
+}
+.citation-quote,
+.citation .evidence-blockquote {
+  margin: 0;
+  border-left: 3px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 0 var(--space-3);
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.citation-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+}
+.citation-index {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.citation-id {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--hover-wash);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  cursor: pointer;
+}
+.citation-id:hover:enabled,
+.citation-id:focus-visible {
+  border-color: var(--ink);
+}
+.citation-id:disabled {
+  cursor: default;
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+}
+.citation-source {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted var(--muted);
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  word-break: break-all;
+}
+.citation-source:disabled {
+  cursor: default;
+  color: var(--muted);
+  border-bottom-style: dashed;
+}
+.citation-source:focus-visible,
+.citation-id:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.citation-page {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.citation-meta {
+  padding-left: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  color: var(--muted);
 }
 .evidence-status {
   display: inline-flex;
@@ -1902,11 +2200,19 @@ body.collapsed .pane-left {
    names, marked for 2.4 s. The wash is what makes the mark readable on exactly
    the paragraphs the reader clicks — those already carry the at-rest rule, so
    the rule alone would be a no-op. It outranks .is-selected because the click
-   writes a selection in the same turn. */
+   writes a selection in the same turn.
+
+   A source row takes the same mark, because it is the same gesture: an Evidence
+   drawer's citation id or source name lands here (shell.js:_locateSource). */
 .jdf-node.is-located,
 .jdf-node.is-located.is-selected {
   border-left: 2px solid var(--contradicted);
   background: var(--contradicted-wash);
+}
+.source-item.is-located,
+.manifest-row.is-located {
+  background: var(--contradicted-wash);
+  box-shadow: inset 2px 0 0 var(--contradicted);
 }
 
 .inspector-node-history {
@@ -2525,6 +2831,47 @@ body.collapsed.right-hidden #resize-right { display: none; }
 @keyframes counter-fade {
   from { opacity: 0.2; }
   to   { opacity: 1; }
+}
+/* Partial rides under Supported: a line, not a tile. */
+.counter-sub {
+  margin-top: 2px;
+  font: 11px/1.4 var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.counter-sub-value {
+  color: var(--ink);
+}
+/* The one counter that is a finding rather than a state. When it is non-zero it
+   takes the document's own contradiction rule — the same 3px rule the paragraph
+   it counts wears in the margin — its label and number take the ink's heaviest
+   weight, and the sentence under it says what the number means. A regulator asks
+   this question, and the answer must not be the quietest thing in the pane. */
+.counter-note {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+  font: 11px/1.4 var(--sans);
+  color: var(--contradicted);
+}
+.counter-note-mark {
+  font-weight: 700;
+  line-height: 1.4;
+}
+#counter-unsupported-cell.is-alarm {
+  border-left: 3px solid var(--contradicted);
+  padding-left: var(--space-2);
+  background: color-mix(in srgb, var(--contradicted) 4%, transparent);
+}
+#counter-unsupported-cell.is-alarm .counter-label {
+  color: var(--contradicted);
+  font-weight: 600;
+}
+#counter-unsupported-cell.is-alarm .counter-value {
+  color: var(--contradicted);
+  font-size: 15px;
+  font-weight: 700;
 }
 .counter-line {
   margin: 0;

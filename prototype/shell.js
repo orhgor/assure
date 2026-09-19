@@ -1413,13 +1413,29 @@
       if (!docSurface) return null;
       draftEl = document.createElement("div");
       draftEl.className = "doc-draft";
+      // The in-flight state, as an element rather than as a CSS `::before`: a
+      // generated string cannot carry `data-i18n`, so the one mark that says the
+      // column is working was the one string on the surface that stayed English
+      // in every locale. It is the first child, and `renderJdfDocument` clears
+      // the column when the document lands, so the marker goes with the draft.
+      var marker = document.createElement("p");
+      marker.className = "doc-stream-marker";
+      marker.setAttribute("data-i18n", "doc.state.compiling");
+      marker.textContent = _t("doc.state.compiling", "Compiling\u2026");
+      draftEl.appendChild(marker);
       docSurface.appendChild(draftEl);
       return draftEl;
     }
     function appendDraftText(delta) {
       var el = ensureDraftArea();
       if (!el) return;
-      el.textContent += delta;
+      var text = el.querySelector(".doc-draft-text");
+      if (!text) {
+        text = document.createElement("div");
+        text.className = "doc-draft-text";
+        el.appendChild(text);
+      }
+      text.textContent += delta;
       docSurface.scrollTop = docSurface.scrollHeight;
     }
     function appendDocError(message) {
@@ -1447,12 +1463,23 @@
     // so a second card mechanism cannot appear beside the first. A stream in
     // flight is the fourth: mid-flight text is not output, so the surface carries
     // data-mode="streaming" while the tokens arrive.
-    var REFUSAL_TEXT = "This document could not be grounded in the source. " +
-                       "Nothing was saved.";
-    var HALT_TEXT = "This compile stopped before the document was verified. " +
-                    "Nothing was saved.";
-    var PREREQ_TEXT = "Add a source to compile. Assure grounds every claim " +
-                      "against the source you provide.";
+    //
+    // Each card states two things, and the order is the point: what was written
+    // (nothing), then what happened. A refusal is the one state where the reader
+    // must not be left wondering whether half a document is sitting in their
+    // project, so "Nothing was saved." is the card's first line in every card of
+    // this family, in ink and at reading weight; the sentence that explains it
+    // follows in the muted body type. The server's own message stays on the
+    // card's title and in the console, so the reason is still readable without a
+    // second copy of the same sentence on screen.
+    var REFUSAL_LEAD = "Nothing was saved.";
+    var REFUSAL_DETAIL = "This document could not be grounded in the source. " +
+                         "The project's stored document is unchanged.";
+    var HALT_LEAD = "Nothing was saved.";
+    var HALT_DETAIL = "This compile stopped before the document was verified. " +
+                      "The project's stored document is unchanged.";
+    var PREREQ_LEAD = "Add a source to compile.";
+    var PREREQ_DETAIL = "Assure grounds every claim against the source you provide.";
     // The source list is fetched on load and after a project switch; until that
     // answer lands, an empty SHELL.sources means "not known yet", not "none".
     var _sourcesLoaded = false;
@@ -1467,7 +1494,7 @@
     }
     // The streamed draft goes first, always: whatever the column is about to
     // say, it can never say it beside half a document.
-    function _renderStateCard(cls, lineText, message, mode) {
+    function _renderStateCard(cls, leadKey, leadText, detailKey, detailText, message, mode) {
       if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
       draftEl = null;
       if (!docSurface) {
@@ -1481,20 +1508,30 @@
       if (message) card.title = String(message);
       var line = document.createElement("p");
       line.className = "doc-state-line";
-      line.textContent = lineText;
+      line.setAttribute("data-i18n", leadKey);
+      line.textContent = _t(leadKey, leadText);
       card.appendChild(line);
+      if (detailText) {
+        var detail = document.createElement("p");
+        detail.className = "doc-state-detail";
+        detail.setAttribute("data-i18n", detailKey);
+        detail.textContent = _t(detailKey, detailText);
+        card.appendChild(detail);
+      }
       docSurface.appendChild(card);
       setShell("document.mode", mode);
     }
     function _showRefusalCard(message) {
-      _renderStateCard("doc-refusal", REFUSAL_TEXT, message, "refused");
+      _renderStateCard("doc-refusal", "doc.refusal.lead", REFUSAL_LEAD,
+                       "doc.refusal.detail", REFUSAL_DETAIL, message, "refused");
     }
     // A compile that stopped without a verdict: the stream ended, or failed,
     // before the server said the run was over. The streamed text goes with it —
     // a client must never be left reading half a document that no refusal and no
     // `verified` frame ever claimed.
     function _showHaltCard(message) {
-      _renderStateCard("doc-halt", HALT_TEXT, message, "failed");
+      _renderStateCard("doc-halt", "doc.halt.lead", HALT_LEAD,
+                       "doc.halt.detail", HALT_DETAIL, message, "failed");
     }
     // The empty project: there is nothing to compile from, so the column names
     // the missing source instead of sitting blank behind a button that refuses
@@ -1509,7 +1546,8 @@
         return;
       }
       if (docSurface && docSurface.querySelector(".doc-prereq")) return;
-      _renderStateCard("doc-prereq", PREREQ_TEXT, "", "empty");
+      _renderStateCard("doc-prereq", "doc.prereq.lead", PREREQ_LEAD,
+                       "doc.prereq.detail", PREREQ_DETAIL, "", "empty");
     }
     _syncDocStateFn = _syncDocState;
     // The ingest scan's verdict on a source, as the SOURCES label. The label
@@ -1858,9 +1896,52 @@
     var _ENTAILMENT_LABELS = {
       yes: "Verified against policy",
       partial: "Partial match",
-      no: "Not verified",
+      // "no" is the check saying the sentence does not carry the claim — a
+      // finding, not a missing check. The label used to read "Not verified",
+      // which is what a reader would take for "nobody looked".
+      no: "Not carried by the source",
       unverified: "Source check failed",
     };
+    var _ENTAILMENT_KEYS = {
+      yes: "entailment.yes",
+      partial: "entailment.partial",
+      no: "entailment.no",
+      unverified: "entailment.unverified",
+    };
+    // Verdict -> the document's own state vocabulary, so a per-citation verdict
+    // and the paragraph's margin mark are the same five states with the same
+    // glyphs and the same words.
+    var _ENTAILMENT_STATE = {
+      yes: "supported",
+      partial: "partial",
+      no: "unsupported",
+      unverified: "anchored",
+    };
+    function _entailmentLabelOf(verdict) {
+      var key = _ENTAILMENT_KEYS[verdict];
+      return key ? _t(key, _ENTAILMENT_LABELS[verdict]) : "";
+    }
+    // The check's per-citation record, aligned to the provenance rows it was
+    // written for. `meta.provenance.entailment.citations[k]` is the verdict on
+    // the sentence row `k` cites — the entailment pass walks the same rows in the
+    // same order — and the two are matched by the sentence text itself, so a
+    // verdict can never be shown against a sentence it was not written about. A
+    // row with no record gets `null`, never a default: the check may have read
+    // fewer rows than the paragraph carries, and that gap is reported as a gap.
+    function _citationVerdicts(node, prov) {
+      var out = [];
+      var ent = _entailmentFor(node, (prov && prov[0]) || null);
+      var recs = (ent && Array.isArray(ent.citations)) ? ent.citations : [];
+      for (var i = 0; i < (prov || []).length; i++) {
+        var rec = recs[i];
+        if (!rec || typeof rec !== "object") { out.push(null); continue; }
+        var rowText = String((prov[i] && (prov[i].extracted_quote || prov[i].excerpt)) || "");
+        var recText = String(rec.source || "");
+        if (recText && rowText && recText !== rowText) { out.push(null); continue; }
+        out.push(rec);
+      }
+      return out;
+    }
     function _entailmentFor(node, provItem) {
       if (provItem && typeof provItem === "object" &&
           provItem.entailment && typeof provItem.entailment === "object") {
@@ -1892,11 +1973,11 @@
         // No verdict was ever recorded: a fetched anchor before its check,
         // or a tree from before the entailment pass. "Source check failed"
         // would claim a check that never ran.
-        return "Anchored \u00b7 not yet verified" +
-          (pageStr ? " \u00b7 page " + pageStr : "");
+        return _t("entailment.unrecorded", "Anchored \u00b7 not yet verified") +
+          (pageStr ? " \u00b7 " + _tf("evidence.page", "page {page}", { page: pageStr }) : "");
       }
-      return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
-        (pageStr ? " \u00b7 page " + pageStr : "");
+      return _entailmentLabelOf(_entailmentVerdict(node, provItem)) +
+        (pageStr ? " \u00b7 " + _tf("evidence.page", "page {page}", { page: pageStr }) : "");
     }
     // The page a provenance row names. ``page_number`` is the field the JDF model
     // and the served tree carry; the compile's citation rows are stamped with
@@ -1995,10 +2076,18 @@
     // verdict buckets beside it — `derived.anchored` is that same total
     // (`_derivedCounts`) — so the tiles are a breakdown of the document, not a
     // partition: `partial` sits inside `supported`.
+    //
+    // `unsupported` is the one bucket that is a finding rather than a state: the
+    // source check read the cited sentence against the claim and did not find the
+    // claim there. It is reported whether or not a stats payload names it, from
+    // the same tree the tiles' other three numbers come from, because a
+    // paragraph the source denies must not go missing from the summary that
+    // reports the document's verification state.
     function _counterBuckets(stats, derived) {
       var eligible = _num(stats, derived, "eligible");
       var supported = _num(stats, derived, "supported");
       var partial = _num(stats, derived, "partial");
+      var unsupported = _num(stats, derived, "unsupported");
       var anchored = (stats && typeof stats.anchored === "number")
         ? stats.anchored
         : (derived ? derived.anchored : 0);
@@ -2015,6 +2104,7 @@
         anchored: anchored,
         supported: supported,
         partial: partial,
+        unsupported: unsupported,
         unanchored: unanchored,
       };
     }
@@ -2176,16 +2266,32 @@
     }
     function _renderCounters(stats, derived) {
       var b = _counterBuckets(stats, derived);
-      _setCounter("count-anchored",   b.anchored);
-      _setCounter("count-supported",  b.supported);
-      _setCounter("count-partial",    b.partial);
-      _setCounter("count-unanchored", b.unanchored);
+      _setCounter("count-anchored",    b.anchored);
+      _setCounter("count-supported",   b.supported);
+      _setCounter("count-unsupported", b.unsupported);
+      _setCounter("count-unanchored",  b.unanchored);
       var legend = document.getElementById("counter-legend");
       var line = document.getElementById("counter-line");
       var doc = SHELL.document.current;
       // The line describes a compiled document, so it needs a document with
       // content: a blank tree is still "no document yet".
       var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length);
+      // The unsupported tile's own weight. Same glyph the paragraph carries in
+      // its margin (`_ANCHOR_STATES.unsupported`), so the tile and the document
+      // point at each other, and the sentence under the number says what the
+      // number is: this is the one counter that is a finding, not a state.
+      var alarm = hasDoc && b.unsupported > 0;
+      var unsupportedCell = document.getElementById("counter-unsupported-cell");
+      var unsupportedNote = document.getElementById("counter-note-unsupported");
+      if (unsupportedCell) unsupportedCell.classList.toggle("is-alarm", alarm);
+      if (unsupportedNote) unsupportedNote.hidden = !alarm;
+      // Partial rides under Supported, not beside it: it counts inside Supported
+      // (services/audit_summary._provenance_counts), and a fifth tile for it read
+      // as a fifth bucket.
+      var partialValue = document.getElementById("count-supported-partial");
+      var partialLine = document.getElementById("counter-sub-supported");
+      if (partialValue) partialValue.textContent = String(b.partial);
+      if (partialLine) partialLine.hidden = !(hasDoc && b.eligible > 0);
       if (!hasDoc || !b.eligible) {
         if (line) { line.textContent = ""; line.hidden = true; }
         if (legend) legend.hidden = true;
@@ -2203,7 +2309,7 @@
           n === 1 ? "Compiled from 1 source" : "Compiled from {sources} sources",
           { sources: n }
         );
-        line.textContent = _tf(
+        var text = _tf(
           "counter.line",
           "{from} \u00b7 {anchored} anchored of {eligible} eligible \u00b7 " +
             "{supported} supported ({partial} in part) \u00b7 {unanchored} unanchored",
@@ -2216,6 +2322,14 @@
             unanchored: b.unanchored,
           }
         );
+        // The finding is named in the line too, and only when there is one: a
+        // "0 not supported" clause would report a clean document in the same
+        // breath as a dirty one.
+        if (b.unsupported > 0) {
+          text += " \u00b7 " + _tf("counter.line.unsupported",
+            "{unsupported} not supported", { unsupported: b.unsupported });
+        }
+        line.textContent = text;
         line.hidden = false;
       }
       if (legend) legend.hidden = false;
@@ -3441,16 +3555,61 @@
     // ---------------------------------------------------------------
     // Evidence colouring, read at conversational distance. The 1px confidence
     // underline stays as the sub-claim signal it is; the *paragraph's* state is
-    // carried by a 3px left rule, a tint, and a chip, because a reader standing
-    // back could not see the underline at all. States are the same four the
-    // counters partition: verified, partial, anchored (cited, unconfirmed),
-    // unanchored (no citation).
-    var _ANCHOR_STATE_CHIP = {
-      supported: "\u2713 verified",
-      partial: "~ partial",
-      anchored: "\u00b7 anchored",
-      unanchored: "\u00b7 unanchored",
+    // carried by a left rule, a tint, and a chip, because a reader standing back
+    // could not see the underline at all.
+    //
+    // One table for the five states, and the table is the whole state surface:
+    // the margin mark, the chip, the paragraph's accessible name, the pane's
+    // legend and the drawer all read their wording from it, so a state cannot be
+    // drawn one way in the document and named another way in the pane.
+    //
+    // Why five and not four: "the source denies this" and "nobody checked this"
+    // are different findings with different consequences for a reader signing
+    // the memo, and `_anchorStateOf` used to render both as the same grey
+    // `anchored` chip — every verdict it did not recognise fell through to
+    // `anchored`. A contradiction is not an absence. `unsupported` is that
+    // verdict (the entailment check answered `no`, or a citation was flagged
+    // contradicted), and `anchored` shrinks to what it always meant: cited, with
+    // no confirmation recorded.
+    //
+    // Colour is the fourth channel, never the first: this audience prints in
+    // black and white and a meaningful share of readers are colour-blind. Every
+    // state is separable by its glyph (`✓ ~ ✗ ? —`), by its rule pattern
+    // (solid / dashed / doubled / dotted / dotted+wash), and by its word.
+    var _ANCHOR_STATES = {
+      supported:   { glyph: "\u2713", key: "state.supported",
+                     fallback: "Supported",
+                     hintKey: "state.hint.supported",
+                     hint: "The source states this claim, wholly." },
+      partial:     { glyph: "~", key: "state.partial",
+                     fallback: "Partial",
+                     hintKey: "state.hint.partial",
+                     hint: "The source supports this claim only in part." },
+      unsupported: { glyph: "\u2717", key: "state.unsupported",
+                     fallback: "Contradicted",
+                     hintKey: "state.hint.unsupported",
+                     hint: "The source check did not find this claim in the sentence it cites." },
+      anchored:    { glyph: "?", key: "state.anchored",
+                     fallback: "Not confirmed",
+                     hintKey: "state.hint.anchored",
+                     hint: "This paragraph cites a source, and no source check has confirmed it." },
+      unanchored:  { glyph: "\u2014", key: "state.unanchored",
+                     fallback: "No source",
+                     hintKey: "state.hint.unanchored",
+                     hint: "No source sentence was matched to this paragraph." },
     };
+    function _anchorStateName(state) {
+      var spec = _ANCHOR_STATES[state];
+      return spec ? _t(spec.key, spec.fallback) : "";
+    }
+    function _anchorStateWords(state) {
+      var spec = _ANCHOR_STATES[state];
+      return spec ? spec.glyph + " " + _anchorStateName(state) : "";
+    }
+    function _anchorStateHint(state) {
+      var spec = _ANCHOR_STATES[state];
+      return spec ? _t(spec.hintKey, spec.hint) : "";
+    }
     function _anchorStateOf(node) {
       if (!node || String(node.type || "") !== "paragraph") return null;
       if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) return null;
@@ -3463,7 +3622,15 @@
             String(row.extracted_quote || "").trim()) { anchored = true; break; }
       }
       if (!anchored) return "unanchored";
-      var verdict = _entailmentVerdict(node, prov[0] || null);
+      // The raw verdict, not `_entailmentVerdict`'s label fallback: the two
+      // fields the server's own counter reads (audit_summary._is_contradicted)
+      // are the verdict string and the citation's contradicted flag, and this
+      // mirror has to read the same two or the margin would disagree with the
+      // tile beside it.
+      var ent = _entailmentFor(node, prov[0] || null);
+      var verdict = ent ? String(ent.verdict || "").toLowerCase() : "";
+      var contradicted = Boolean(ent && ent.contradicted);
+      if (verdict === "no" || contradicted) return "unsupported";
       if (verdict === "yes") return "supported";
       if (verdict === "partial") return "partial";
       return "anchored";
@@ -3484,11 +3651,18 @@
           var el = scope.querySelector('.jdf-node[data-node-id="' + node.id + '"] .jdf-p');
           if (!el) continue;
           el.classList.add("anchor-state", "anchor-" + state);
+          // The state is on the element, not only in the class list: the pane,
+          // a test and the export's own reading of the DOM ask what state this
+          // paragraph is in, and a class name is a styling detail.
+          el.setAttribute("data-anchor-state", state);
           if (el.querySelector(".anchor-chip")) continue;
           var chip = document.createElement("span");
           chip.className = "anchor-chip anchor-chip-" + state;
-          chip.setAttribute("aria-hidden", "false");
-          chip.textContent = _ANCHOR_STATE_CHIP[state];
+          chip.setAttribute("role", "note");
+          chip.setAttribute("aria-label", _anchorStateName(state) + " \u2014 " +
+                            _anchorStateHint(state));
+          chip.setAttribute("title", _anchorStateHint(state));
+          chip.textContent = _anchorStateWords(state);
           // A paragraph is markdown blocks now, so the chip goes into the first
           // of them: it reads at the start of the paragraph's first line, the
           // way it did when the paragraph was one text node.
@@ -4196,6 +4370,9 @@
       manifestRows.forEach(function (f) {
         var row = document.createElement("div");
         row.className = "manifest-row";
+        // The row is addressable: an Evidence drawer's citation jumps here when
+        // the Sources tab has no row to land on (same id, one vault list).
+        row.setAttribute("data-source-id", String(f.id || ""));
         var name = document.createElement("span");
         name.className = "manifest-name";
         name.textContent = f.filename || f.id || "";
@@ -4222,6 +4399,78 @@
       });
     }
     _renderManifestFn = _renderManifest;
+    // ---------------------------------------------------------------
+    // From a citation to the file it came from.
+    //
+    // `cited_id` is `S<N>` — the sentence's number in the map the compile built
+    // (`routers/draft.build_sentence_map` over the numbered source blocks), which
+    // is the position the model wrote in `[S<N>]`. The shell has no sentence-map
+    // surface, so the control can honestly offer the two things it does have: the
+    // number itself, and the source row for the file that sentence came from.
+    // Both routes end in `_locateSource`, which opens the Sources tab that lists
+    // the file and flashes the row — the same landing mark the document locator
+    // uses (`_markLocated`), so a jump reads the same wherever it is made from.
+    // ---------------------------------------------------------------
+    function _citationJumpTitle(citedId, sourceName, page) {
+      var parts = [];
+      if (citedId) parts.push(citedId);
+      if (sourceName) parts.push(sourceName);
+      if (page) parts.push(_tf("evidence.page", "page {page}", { page: page }));
+      return parts.join(" \u00b7 ") + " \u2014 " +
+        _t("evidence.citation.jump", "show this source in the Sources list");
+    }
+    // Which vault row a citation came from. The compile's own rows carry
+    // `source_id`, but the *persisted* tree is written through the JDF model,
+    // whose provenance row keeps `source_name` and drops the id — so a memo
+    // reloaded from the project would show every citation as unlinkable. The
+    // row names the file; the vault list is the authority on which file that is,
+    // so the name resolves to the id. Two rows sharing a filename are ambiguous
+    // and resolve to nothing, rather than to the wrong source.
+    function _sourceIdForRow(row) {
+      var direct = String((row && row.source_id) || "");
+      if (direct) return direct;
+      var name = String((row && row.source_name) || "").trim();
+      if (!name) return "";
+      var hits = (manifestRows || []).filter(function (f) {
+        return String((f && f.filename) || "").trim() === name;
+      });
+      return hits.length === 1 ? String(hits[0].id || "") : "";
+    }
+    function _wireSourceJump(btn, sourceId, citedId) {
+      var sid = String(sourceId || "");
+      btn.setAttribute("data-source-id", sid);
+      if (citedId) btn.setAttribute("data-citation", String(citedId));
+      if (!sid) {
+        // Nothing in the Sources list answers to this citation: the control
+        // stays, and says which list it could not open.
+        btn.disabled = true;
+        btn.title = _t("evidence.source.unknown",
+          "This citation names no source the Sources list carries, so it cannot be opened there.");
+        return;
+      }
+      btn.addEventListener("click", function (e) {
+        if (e && e.stopPropagation) e.stopPropagation();
+        _locateSource(sid);
+      });
+    }
+    // Open the pane that lists the sources, select it, and flash the row. Nothing
+    // is asserted about the source beyond it being the one the row names.
+    function _locateSource(sourceId) {
+      var sid = String(sourceId || "");
+      if (!sid) return;
+      if (typeof openLeft === "function") openLeft();
+      if (typeof leftGroupSetTab === "function") leftGroupSetTab("sources");
+      // The Sources tab's rows are built from the vault list; the manifest row in
+      // the Compiler tab carries the same id, so either surface can take the
+      // landing mark and the first one present wins.
+      var target = document.querySelector('#source-list [data-source-id="' + sid + '"]') ||
+                   document.querySelector('#source-manifest [data-source-id="' + sid + '"]');
+      if (!target) return;
+      try { target.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {}
+      // The document locator's own mark and its own timer: a jump reads the same
+      // wherever it is made from.
+      _markLocated(target);
+    }
     // The counter line counts sources, so it is re-rendered whenever the
     // source list or the document changes.
     function _refreshCounters() {
@@ -5344,10 +5593,15 @@
       if (!Array.isArray(prov)) prov = (node.meta && node.meta.provenance);
       if (!Array.isArray(prov)) prov = prov ? [prov] : [];
       var p0 = prov[0] || null;
-      var ent = _entailmentFor(node, p0);
-      var header = document.createElement("div");
-      header.className = "evidence-header";
-      if (!p0 && !ent) {
+      // No cited sentence resolved: the paragraph is unanchored, and that is
+      // this pane's message. It used to be reached only when the *verdict* was
+      // absent too, so a paragraph with no citation but a recorded verdict
+      // (an `unverified` from a check that never had a sentence to read, or a
+      // stale `no`) fell through to the paragraph panel and rendered as though
+      // it had provenance. Nothing was matched to the claim, so there is nothing
+      // to quote; the drawer says the claim is not traceable and, when a verdict
+      // exists, names it.
+      if (!p0) {
         // 2B/2C: unanchored is not "nothing to say". The drawer names the
         // state, the model names the gap, and the two ways to close it sit
         // under it — upload a document, or fetch an allowlisted page.
@@ -5355,8 +5609,31 @@
         return;
       }
       var pageStr = _rowPage(p0);
+      // The verdict block: the paragraph's state, in the same glyph and the same
+      // word the margin chip uses, with the check's own label under it. The two
+      // surfaces name one state once — a reader who has learned the marks in the
+      // document reads the pane without a second legend.
+      var state = _anchorStateOf(node);
+      var header = document.createElement("div");
+      header.className = "evidence-header evidence-verdict" +
+        (state ? " anchor-" + state : "");
+      var badge = document.createElement("span");
+      badge.className = "evidence-verdict-badge";
+      badge.setAttribute("aria-hidden", "true");
+      badge.textContent = state ? _ANCHOR_STATES[state].glyph : "\u00b7";
+      var headText = document.createElement("span");
+      headText.className = "evidence-verdict-text";
+      var stateName = document.createElement("span");
+      stateName.className = "evidence-verdict-state";
+      stateName.textContent = state ? _anchorStateName(state) : "";
+      var stateLabel = document.createElement("span");
+      stateLabel.className = "evidence-verdict-label";
       // Label from the entailment verdict, not from the anchor's presence.
-      header.textContent = _entailmentLabel(node, p0, pageStr);
+      stateLabel.textContent = _entailmentLabel(node, p0, pageStr);
+      headText.appendChild(stateName);
+      headText.appendChild(stateLabel);
+      header.appendChild(badge);
+      header.appendChild(headText);
       evidenceBodyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
@@ -5365,11 +5642,14 @@
       var reasoning = _entailmentReasoning(node, p0);
       if (reasoning) {
         var reasonEl = document.createElement("p");
-        reasonEl.className = "evidence-value";
+        reasonEl.className = "evidence-value evidence-reason";
         reasonEl.textContent = reasoning;
         content.appendChild(reasonEl);
       }
-      if (!p0) { evidenceBodyEl.appendChild(content); return; }
+      // The paragraph's own citations, counted from the rows about to be drawn —
+      // not from a stat, so the tally and the list under it cannot disagree.
+      var verdicts = _citationVerdicts(node, prov);
+      _renderCitationBreakdown(content, prov, verdicts);
       function field(label, value) {
         var s = String(value == null ? "" : value);
         if (!s) return;
@@ -5385,6 +5665,15 @@
       // (routers/draft.py:attach_citations_to_tree) — and not from
       // ``meta.provenance.excerpt``, which falls back to the claim's own text
       // when no row carried a sentence and would present the claim as its source.
+      //
+      // The block is the pane's unit of work, and the quote is its subject: the
+      // sentence the claim rests on is set larger and in ink, and the metadata
+      // that identifies it (source, page, citation id) sits under it rather than
+      // above it. The citation id is a control, not a label: it names the
+      // sentence's own number and takes the reader to that source in the Sources
+      // list, which is the only place the shell can show them the file it came
+      // from.
+      var index = 0;
       for (var r = 0; r < prov.length; r++) {
         var row = prov[r];
         if (!row || typeof row !== "object") continue;
@@ -5393,21 +5682,142 @@
         var rowPage = _rowPage(row);
         var citedId = String(row.cited_id || "");
         if (!quote && !srcName && !rowPage && !citedId) continue;
+        index++;
+        var card = document.createElement("article");
+        card.className = "citation";
         if (quote) {
           var q = document.createElement("blockquote");
-          q.className = "evidence-blockquote";
+          q.className = "citation-quote evidence-blockquote";
           q.textContent = quote;
-          content.appendChild(q);
+          card.appendChild(q);
         }
-        field("Source", srcName);
-        if (rowPage) field("Page", rowPage);
-        // The id the model wrote, shown as the label the paragraph carried:
-        // "S1228" is stored, "[S1228]" is what the citation looked like.
-        if (citedId) field("Citation", citedId.charAt(0) === "[" ? citedId : "[" + citedId + "]");
-        field("Rule", row.rule);
-        field("Confidence", row.confidence);
+        var head = document.createElement("div");
+        head.className = "citation-head";
+        var ord = document.createElement("span");
+        ord.className = "citation-index";
+        ord.setAttribute("aria-hidden", "true");
+        ord.textContent = String(index);
+        head.appendChild(ord);
+        var jumpId = _sourceIdForRow(row);
+        if (citedId) {
+          var idBtn = document.createElement("button");
+          idBtn.type = "button";
+          idBtn.className = "citation-id";
+          // The id the model wrote, shown as the label the paragraph carried:
+          // "S1228" is stored, "[S1228]" is what the citation looked like.
+          idBtn.textContent = citedId.charAt(0) === "[" ? citedId : "[" + citedId + "]";
+          idBtn.title = _citationJumpTitle(citedId, srcName, rowPage);
+          _wireSourceJump(idBtn, jumpId, citedId);
+          head.appendChild(idBtn);
+        }
+        if (srcName) {
+          var srcBtn = document.createElement("button");
+          srcBtn.type = "button";
+          srcBtn.className = "citation-source";
+          srcBtn.textContent = srcName;
+          srcBtn.title = _t("evidence.source.jump", "Show this source in the Sources list");
+          _wireSourceJump(srcBtn, jumpId, citedId);
+          head.appendChild(srcBtn);
+        }
+        if (rowPage) {
+          var pageEl = document.createElement("span");
+          pageEl.className = "citation-page";
+          pageEl.textContent = _tf("evidence.page", "page {page}", { page: rowPage });
+          head.appendChild(pageEl);
+        }
+        // This sentence's own verdict, when the check recorded one — the same
+        // chip the paragraph wears, one row down. Absent when the check wrote no
+        // record for this row: the badge is never filled in with the paragraph's
+        // aggregate, which would put a verdict on a sentence nobody read.
+        var rec = verdicts[r] || null;
+        if (rec) {
+          var rv = String(rec.verdict || "").toLowerCase();
+          var rowState = _ENTAILMENT_STATE[rv] || null;
+          if (rowState) {
+            var vBadge = document.createElement("span");
+            vBadge.className = "anchor-chip anchor-chip-" + rowState + " citation-verdict";
+            vBadge.setAttribute("role", "note");
+            vBadge.setAttribute("title", String(rec.reasoning || _anchorStateHint(rowState)));
+            vBadge.textContent = _ANCHOR_STATES[rowState].glyph + " " + _anchorStateName(rowState);
+            head.appendChild(vBadge);
+          }
+        }
+        card.appendChild(head);
+        var extra = [];
+        if (row.rule) extra.push(String(row.rule));
+        if (row.confidence) extra.push(_t("evidence.field.confidence", "Confidence") + " " + row.confidence);
+        if (extra.length) {
+          var metaEl = document.createElement("div");
+          metaEl.className = "citation-meta";
+          metaEl.textContent = extra.join(" \u00b7 ");
+          card.appendChild(metaEl);
+        }
+        content.appendChild(card);
       }
       evidenceBodyEl.appendChild(content);
+    }
+    // The pane's count of what it is about to show. Every number is read off the
+    // rows: citations the compile resolved to a sentence, citations it could not
+    // resolve (a row with no sentence — it still cites, it just has nothing to
+    // quote), the sources those sentences came from, and the pages they were on.
+    // Nothing here is inferred from the verdict.
+    function _renderCitationBreakdown(content, prov, verdicts) {
+      var rows = [];
+      for (var i = 0; i < (prov || []).length; i++) {
+        var row = prov[i];
+        if (row && typeof row === "object") rows.push(row);
+      }
+      if (!rows.length) return;
+      var withQuote = 0, sources = [], pages = [], checked = 0, notCarried = 0;
+      rows.forEach(function (row, i) {
+        if (String(row.extracted_quote || row.excerpt || "").trim()) withQuote++;
+        var name = String(row.source_name || "");
+        if (name && sources.indexOf(name) === -1) sources.push(name);
+        var page = _rowPage(row);
+        if (page && pages.indexOf(page) === -1) pages.push(page);
+        var rec = (verdicts || [])[i];
+        if (rec) {
+          checked++;
+          var v = String(rec.verdict || "").toLowerCase();
+          if (v === "no" || rec.contradicted) notCarried++;
+        }
+      });
+      var el = document.createElement("div");
+      el.className = "evidence-breakdown";
+      function part(text) {
+        var s = document.createElement("span");
+        s.className = "evidence-breakdown-item";
+        s.textContent = text;
+        el.appendChild(s);
+      }
+      part(_tf(rows.length === 1 ? "evidence.cited_one" : "evidence.cited_many",
+        rows.length === 1 ? "{n} cited sentence" : "{n} cited sentences",
+        { n: rows.length }));
+      if (withQuote !== rows.length) {
+        part(_tf("evidence.cited_unresolved", "{n} not resolved to a sentence",
+          { n: rows.length - withQuote }));
+      }
+      // The check reads its own number of sentences and may record fewer
+      // verdicts than the paragraph has citations; both numbers are shown, and
+      // the difference is left visible rather than smoothed over.
+      if (checked) {
+        part(_tf("evidence.checked", "{n} checked against the source", { n: checked }));
+      }
+      if (notCarried) {
+        var alarm = document.createElement("span");
+        alarm.className = "evidence-breakdown-item is-alarm";
+        alarm.textContent = _tf("evidence.notcarried",
+          "{n} the cited sentence does not carry", { n: notCarried });
+        el.appendChild(alarm);
+      }
+      if (sources.length) {
+        part(_tf(sources.length === 1 ? "evidence.sources_one" : "evidence.sources_many",
+          sources.length === 1 ? "{n} source" : "{n} sources", { n: sources.length }));
+      }
+      if (pages.length) {
+        part(_tf("evidence.pages", "pages {pages}", { pages: pages.join(", ") }));
+      }
+      content.appendChild(el);
     }
     function renderZ3Panel(node) {
       var el = z3ModeEl; if (!el) return;
@@ -5630,17 +6040,36 @@
     function renderEvidenceDrawer(ev) {
       if (!evidenceBodyEl) return;
       var header = document.createElement("div");
-      header.className = "evidence-header";
-      header.textContent = ev.kind.toUpperCase() + " · Node: " + ev.nodeId;
+      header.className = "evidence-header evidence-verdict";
+      header.textContent = _t(ev.kind === "z3" ? "evidence.drawer.z3" : "evidence.drawer.cite",
+        ev.kind === "z3" ? "Math check" : "Cited sentence") +
+        " \u00b7 " + _t("evidence.drawer.node", "node") + " " + ev.nodeId;
       evidenceBodyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
+      // The three field labels, in the drawer's own vocabulary — the same words
+      // the paragraph panel uses for the same things, from the same keys.
+      function drawerField(label, value) {
+        var s = String(value == null ? "" : value);
+        if (!s) return;
+        var f = document.createElement("div");
+        f.className = "evidence-field";
+        var l = document.createElement("div");
+        l.className = "evidence-label";
+        l.textContent = label;
+        var v = document.createElement("div");
+        v.className = "evidence-value";
+        v.textContent = s;
+        f.appendChild(l);
+        f.appendChild(v);
+        content.appendChild(f);
+      }
       if (ev.kind === "z3") {
         var statusField = document.createElement("div");
         statusField.className = "evidence-field";
         var statusLabel = document.createElement("div");
         statusLabel.className = "evidence-label";
-        statusLabel.textContent = "Status";
+        statusLabel.textContent = _t("evidence.field.status", "Status");
         var statusValue = document.createElement("div");
         statusValue.className = "evidence-value";
         var statusBadge = document.createElement("span");
@@ -5650,66 +6079,53 @@
         statusField.appendChild(statusLabel);
         statusField.appendChild(statusValue);
         content.appendChild(statusField);
-        if (ev.data.canonical_key) {
-          var keyField = document.createElement("div");
-          keyField.className = "evidence-field";
-          var keyLabel = document.createElement("div");
-          keyLabel.className = "evidence-label";
-          keyLabel.textContent = "Canonical Key";
-          var keyValue = document.createElement("div");
-          keyValue.className = "evidence-value";
-          keyValue.textContent = ev.data.canonical_key;
-          keyField.appendChild(keyLabel);
-          keyField.appendChild(keyValue);
-          content.appendChild(keyField);
-        }
-        if (ev.data.message) {
-          var msgField = document.createElement("div");
-          msgField.className = "evidence-field";
-          var msgLabel = document.createElement("div");
-          msgLabel.className = "evidence-label";
-          msgLabel.textContent = "Message";
-          var msgValue = document.createElement("div");
-          msgValue.className = "evidence-value";
-          msgValue.textContent = ev.data.message;
-          msgField.appendChild(msgLabel);
-          msgField.appendChild(msgValue);
-          content.appendChild(msgField);
-        }
+        drawerField(_t("evidence.field.canonical_key", "Canonical key"), ev.data.canonical_key);
+        drawerField(_t("evidence.field.message", "Message"), ev.data.message);
       } else if (ev.kind === "cite") {
+        // The same unit the paragraph panel draws, one row deep: the sentence the
+        // claim cites is the block's subject, and the citation id under it is the
+        // control that opens its source. A chip is a citation, so it gets the
+        // citation treatment rather than three labelled fields.
+        var card = document.createElement("article");
+        card.className = "citation";
         if (ev.data.extracted_quote) {
           var quoteEl = document.createElement("blockquote");
-          quoteEl.className = "evidence-blockquote";
+          quoteEl.className = "citation-quote evidence-blockquote";
           quoteEl.textContent = ev.data.extracted_quote;
-          content.appendChild(quoteEl);
+          card.appendChild(quoteEl);
+        }
+        var head = document.createElement("div");
+        head.className = "citation-head";
+        var cited = String(ev.data.cited_id || "");
+        var sourceId = _sourceIdForRow(ev.data);
+        if (cited) {
+          var idBtn = document.createElement("button");
+          idBtn.type = "button";
+          idBtn.className = "citation-id";
+          idBtn.textContent = cited.charAt(0) === "[" ? cited : "[" + cited + "]";
+          idBtn.title = _citationJumpTitle(cited, String(ev.data.source_name || ""),
+                                           _rowPage(ev.data));
+          _wireSourceJump(idBtn, sourceId, cited);
+          head.appendChild(idBtn);
         }
         if (ev.data.source_name) {
-          var srcField = document.createElement("div");
-          srcField.className = "evidence-field";
-          var srcLabel = document.createElement("div");
-          srcLabel.className = "evidence-label";
-          srcLabel.textContent = "Source";
-          var srcValue = document.createElement("div");
-          srcValue.className = "evidence-value";
-          srcValue.textContent = ev.data.source_name;
-          srcField.appendChild(srcLabel);
-          srcField.appendChild(srcValue);
-          content.appendChild(srcField);
+          var srcBtn = document.createElement("button");
+          srcBtn.type = "button";
+          srcBtn.className = "citation-source";
+          srcBtn.textContent = ev.data.source_name;
+          srcBtn.title = _t("evidence.source.jump", "Show this source in the Sources list");
+          _wireSourceJump(srcBtn, sourceId, cited);
+          head.appendChild(srcBtn);
         }
         var drawerPage = _rowPage(ev.data);
         if (drawerPage) {
-          var pageField = document.createElement("div");
-          pageField.className = "evidence-field";
-          var pageLabel = document.createElement("div");
-          pageLabel.className = "evidence-label";
-          pageLabel.textContent = "Page";
-          var pageValue = document.createElement("div");
-          pageValue.className = "evidence-value";
-          pageValue.textContent = drawerPage;
-          pageField.appendChild(pageLabel);
-          pageField.appendChild(pageValue);
-          content.appendChild(pageField);
+          var pageEl = document.createElement("span");
+          pageEl.className = "citation-page";
+          pageEl.textContent = _tf("evidence.page", "page {page}", { page: drawerPage });
+          head.appendChild(pageEl);
         }
+        if (head.childNodes.length) card.appendChild(head);
+        if (card.childNodes.length) content.appendChild(card);
       }
       evidenceBodyEl.appendChild(content);
     }
@@ -5760,13 +6176,46 @@
     }
 
     function _renderUnanchoredDrawer(node) {
+      // The same header shape the panel uses: the state's glyph and name first,
+      // then the sentence that says what the state means. The sentence is the
+      // drawer's own, and it says the plain thing — the claim is not traceable to
+      // any uploaded source — rather than implying a check that failed or a
+      // citation that was lost. `node.provenance` is empty for this paragraph;
+      // nothing was matched, and that is the whole finding.
       var header = document.createElement("div");
-      header.className = "evidence-header gap-claim-header";
-      header.textContent = _t("gap.heading", "This claim is not grounded in any uploaded source.");
+      header.className = "evidence-header evidence-verdict gap-claim-header anchor-unanchored";
+      var badge = document.createElement("span");
+      badge.className = "evidence-verdict-badge";
+      badge.setAttribute("aria-hidden", "true");
+      badge.textContent = _ANCHOR_STATES.unanchored.glyph;
+      var headText = document.createElement("span");
+      headText.className = "evidence-verdict-text";
+      var stateName = document.createElement("span");
+      stateName.className = "evidence-verdict-state";
+      stateName.textContent = _anchorStateName("unanchored");
+      var stateLabel = document.createElement("span");
+      stateLabel.className = "evidence-verdict-label";
+      stateLabel.textContent = _t("gap.heading",
+        "No sentence in the uploaded sources could be traced to this claim.");
+      headText.appendChild(stateName);
+      headText.appendChild(stateLabel);
+      header.appendChild(badge);
+      header.appendChild(headText);
       evidenceBodyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content gap-content";
       evidenceBodyEl.appendChild(content);
+
+      // A verdict recorded for a paragraph with no citation is still a fact about
+      // it: name it, rather than let an empty pane imply no check ever ran.
+      // `_entailmentLabel` is the pane's one spelling of a verdict.
+      if (_entailmentFor(node, null)) {
+        var verdictEl = document.createElement("p");
+        verdictEl.className = "evidence-value gap-verdict";
+        verdictEl.textContent = _t("gap.verdict", "Source check") + ": " +
+          _entailmentLabel(node, null, "");
+        content.appendChild(verdictEl);
+      }
 
       var token = ++__gapToken;
       var nodeId = String((node && node.id) || "");

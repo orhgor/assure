@@ -194,3 +194,93 @@ def test_the_browser_counts_a_contradicted_partial_paragraph_as_unsupported() ->
     assert client["partial"] == 1
     assert client["supported"] == 1
     assert client["unsupported"] == 1, "the browser dropped the contradicted citation"
+
+
+def _client_states(documents: list[dict[str, Any]]) -> list[list[Any]]:
+    """``[[node_id, state], …]`` per document, from the shipped `_anchorStateOf`."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed, so the rendered state cannot be executed")
+    source = SHELL_JS.read_text(encoding="utf-8")
+    harness = "\n".join(
+        [
+            "var _ANCHOR_WORD_FLOOR = 4;",
+            "function _anchorContentTokens(content) {",
+            "  return String(content == null ? '' : content).split(/\\s+/).filter(Boolean).length;",
+            "}",
+            _extract_function(source, "_entailmentFor"),
+            _extract_function(source, "_anchorStateOf"),
+            f"var docs = {json.dumps(documents)};",
+            "var out = docs.map(function (d) {",
+            "  return (d.body[0].children || []).map(function (n) { return [n.id, _anchorStateOf(n)]; });",
+            "});",
+            "process.stdout.write(JSON.stringify(out));",
+        ]
+    )
+    result = subprocess.run([node, "-e", harness], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
+
+
+#: What each mark means, as the server's own counters report the same document. A
+#: reader who sees the mark and the tile reads one document state twice, so the two
+#: have to agree; a state that a bucket contradicts is a mark that lies.
+_STATE_BUCKET = {
+    "supported": lambda s: s["supported"] == 1 and s["unsupported"] == 0,
+    "partial": lambda s: s["partial"] == 1 and s["supported"] == 1,
+    "unsupported": lambda s: s["unsupported"] == 1,
+    "anchored": lambda s: s["anchored"] == 1 and s["supported"] == 0 and s["unsupported"] == 0,
+    "unanchored": lambda s: s["unanchored"] == 1,
+}
+
+
+@pytest.mark.parametrize(
+    ("verdicts", "quotes"),
+    [
+        (["yes"], 1),
+        (["partial"], 1),
+        (["no"], 1),
+        (["yes", "no"], 2),
+        (["partial", "no"], 2),
+        (["unverified"], 1),
+        (["yes", "unverified"], 2),
+        (None, 1),
+        (None, 0),
+    ],
+)
+def test_the_mark_a_paragraph_wears_agrees_with_the_bucket_it_is_counted_in(
+    verdicts, quotes
+) -> None:
+    """One verdict, one state, one bucket — the contradiction included.
+
+    `_anchorStateOf` decides the mark a paragraph wears in the document. It used to
+    map `yes` to supported, `partial` to partial, and *every other verdict* to the
+    grey `anchored` — so a paragraph the source check denied rendered exactly like one
+    nobody had checked, while the counters beside it counted the denial in
+    `unsupported`. That is the defect: the reader could not tell "not checked" from
+    "checked and denied" on the paragraph itself. `(["no"], 1)` is the row that fails
+    pre-fix; `(["partial", "no"], 2)` is the same loss on a contradiction flag.
+    """
+    record = None
+    if verdicts is not None:
+        record = {
+            "verdict": _aggregate_verdicts(verdicts),
+            "contradicted": _contradicted(verdicts),
+        }
+    doc = _document(
+        _paragraph(
+            "p1",
+            quotes=[f"The limit is five million dollars ({n})." for n in range(quotes)],
+            verdict=(record or {}).get("verdict"),
+            contradicted=bool((record or {}).get("contradicted")),
+        )
+    )
+    state = _client_states([doc])[0][0][1]
+    server = _reported_stats(_provenance_counts(doc))
+    assert state in _STATE_BUCKET, f"unknown mark {state!r}"
+    assert _STATE_BUCKET[state](server), (
+        f"the paragraph wears {state!r} while the server counts it "
+        f"anchored={server['anchored']} supported={server['supported']} "
+        f"partial={server['partial']} unsupported={server['unsupported']} "
+        f"unanchored={server['unanchored']}"
+    )
