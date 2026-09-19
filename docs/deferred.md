@@ -1642,3 +1642,66 @@ Expected ')', found '{'`. Line 1 of shell.js is `(function () {` — an
 IIFE wrapper. The parser is likely an ESM-mode JSX plugin that
 rejects classic-script syntax. Non-blocking; the commit succeeds.
 Investigate the hook config when time permits.
+
+## Evidence pane as a bottom sheet below 640px — 2026-09-18
+
+**Deferred by owner decision, 2026-09-18.** What ships now is a stopgap: when the locator
+lands on a paragraph and the right pane is in its overlay mode (`getComputedStyle(.pane-right)
+.position === "absolute"`, i.e. the `max-width: 900px` block in `shell.css`), the locator
+collapses the right pane after the 2.4s mark — `prototype/shell.js:_collapseOverlayRightPane`.
+That is marked INTERIM in the code. It solves the occlusion by hiding the finding the reader
+just clicked to read, which is the thing they asked to see, so it is a stopgap and not the
+fix. The sheet below replaces it; when the sheet ships, the collapse in the overlay range goes
+(note the collapse fires across the whole ≤900px overlay range, not only at ≤640px — see the
+first decision below).
+
+**Pattern:** below 640px the right pane renders as a **bottom sheet** — fixed at the bottom of
+the viewport, full width, rounded top corners, **drag handle at the top centre**. Above 640px
+the sheet pattern does not apply: the pane sits beside the document as today, and the shipped
+scroll-to-top alignment stays.
+
+**FIRST DECISION THE TASK REQUIRES — the 641–900px band is undefined above.** This spec puts
+the sheet below 640px, but the shell's existing overlay breakpoint is 900px (`@media
+(max-width: 900px)` in `shell.css` puts `.pane-right` in `position: absolute`): across
+**641–900px** the pane is neither a sheet (above 640) nor side-by-side (the CSS overlays it
+there). The builder must choose one, and the choice moves both the CSS contract and the scope
+of the work:
+
+| Option | Consequence |
+| --- | --- |
+| **Move the overlay breakpoint to 640px** | The sheet covers the entire overlay range; above 640px the pane is side-by-side. Smallest sheet scope, but it changes when the pane overlays for every width in 641–900 — the D1 responsive contract in `shell.css` moves with it. |
+| **Apply the sheet across the whole existing ≤900px overlay range** | The breakpoint stays where it is; the sheet is wider in scope (and covers widths where a 320px side pane was previously workable). |
+
+Do not pick one here; pick it when the sheet is scheduled, and record which was chosen. The
+interim collapse (`prototype/shell.js:_collapseOverlayRightPane`) fires across the whole
+overlay range today, so it is consistent with either option until one is chosen.
+
+**Snap points:** three — **peek (25% of viewport height)**, **half (50%)**, **full (90%)**.
+**Default: peek**, so the document is fully readable above the sheet.
+
+**Interactions:**
+
+| Action | Result |
+| --- | --- |
+| Click a finding | The sheet snaps to **half**; the document scrolls the paragraph to the **top of the visible area above the sheet**; paragraph and sheet are both visible |
+| Click a paragraph | The sheet goes to **peek** |
+| Drag the handle | Snaps to the nearest snap point |
+| Tap the handle | Toggles peek / half |
+
+**Accessibility:** the drag handle is **keyboard-reachable via Tab**; **Up/Down arrows move
+between snap points**; **`aria-expanded`** on the sheet; **`aria-label` "Evidence pane"**; and
+**the paragraph mark survives every snap transition** (the 2.4s `is-located` mark must not be
+cancelled or shortened by a snap).
+
+**Verification when it is built.** At 375px: finding click → sheet at half + paragraph marked
+at the top + both visible + the mark fades at 2.4s; paragraph click → peek + document
+readable; drag → clean snap to the nearest point; Tab to the handle then arrows → snaps; the
+sheet state is announced on each snap. At 640px and above: sheet off, the pane beside the
+document as today, and the locator still top-aligns.
+
+**Riskiest surface, and why this is deferred rather than landed:** drag gestures, three snap
+points, keyboard navigation and screen-reader announcements. Estimated 2–3 days. Landing that
+immediately before a demo is a larger risk than a known, documented occlusion — the reason the
+stopgap ships first. This entry and the INTERIM comment in `shell.js` are meant to be read
+together; if the sheet ships, remove the collapse from the overlay range (narrowing it if the
+breakpoint moves) and delete the comment with it.
