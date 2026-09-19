@@ -78,8 +78,13 @@ MAX_INPUT_TOKENS: dict[TaskType, int] = {
     TaskType.SEMANTIC_VALIDATION: 4000,
     TaskType.DRAFT_COMPILE: 100_000,
     TaskType.REDHAT: 8000,
-    TaskType.DEEP_SYNTHESIS: 100_000,
-    TaskType.MACRO_AUDIT: 100_000,
+    # Only DRAFT_COMPILE was raised (it must hold two numbered policies).
+    # These two were raised alongside it on the reasoning that they carried the
+    # same 30,000, which widened the input ceiling on two task types nobody
+    # asked to change and moved the per-compile cost without anyone measuring
+    # it. They go back.
+    TaskType.DEEP_SYNTHESIS: 30000,
+    TaskType.MACRO_AUDIT: 30000,
 }
 
 
