@@ -11,8 +11,12 @@ import pytest
 @pytest.fixture()
 def feedback_client(tmp_path, monkeypatch):
     db_path = tmp_path / "history.sqlite"
+    monkeypatch.setenv("RESEND_API_KEY", "")
     monkeypatch.setenv("DATABASE_PATH", str(db_path))
     monkeypatch.setenv("WTF_CSRF_ENABLED", "0")
+    from prompt_matrix.db.pool import reset_engine_for_tests
+
+    reset_engine_for_tests()
     import prompt_matrix.history as history_mod
 
     history_mod.DB_PATH = history_mod._resolve_db_path()
@@ -30,6 +34,7 @@ def feedback_client(tmp_path, monkeypatch):
     from prompt_matrix.web import create_app
 
     app = create_app(require_auth=False)
+    app.config["RESEND_API_KEY"] = ""
     return app.test_client(), str(db_path)
 
 
@@ -41,6 +46,7 @@ def test_tester_feedback_requires_text(feedback_client):
 
 def test_tester_feedback_logs_audit_row(feedback_client):
     client, db_path = feedback_client
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post(
         "/api/tester-feedback",
         json={"text": "Export button was unclear", "page": "/app"},

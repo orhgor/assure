@@ -33,6 +33,30 @@ TERMS_KEYS = (
     "terms.providers.h",
     "terms.providers",
     "privacy.terms.note",
+    "terms.advice.h",
+    "terms.advice",
+    "terms.verify.h",
+    "terms.verify",
+    "terms.accuracy.h",
+    "terms.accuracy",
+    "terms.use.h",
+    "terms.use",
+    "terms.third.h",
+    "terms.third",
+    "terms.indemnity.h",
+    "terms.indemnity",
+    "disclaimer.title",
+    "disclaimer.body",
+    "disclaimer.ack",
+    "disclaimer.terms",
+    "disclaimer.banner",
+    "audit.disclaimer.h",
+    "audit.disclaimer",
+    "privacy.privilege.h",
+    "privacy.privilege",
+    "landing.disclaimer.title",
+    "landing.disclaimer.body",
+    "landing.disclaimer.link",
 )
 LAUNCH_KEYS = (
     "nav.library",
@@ -247,6 +271,9 @@ class LandingTests(unittest.TestCase):
         self.assertIn("Violence, threats, or harassment", terms)
         self.assertIn("Provider policies", terms)
         self.assertIn("without warranties", terms)
+        self.assertIn("Not professional advice", terms)
+        self.assertIn("Human review", terms)
+        self.assertIn("Liability", terms)
         self.assertIn("getassureai.com", terms)
         self.assertNotIn("assure.ai", terms)
         self.assertNotIn("OpenAI", terms)
@@ -357,6 +384,9 @@ class ComposePageTests(unittest.TestCase):
         self.assertIn("Violence, threats, or harassment", body)
         self.assertIn("Provider policies", body)
         self.assertIn("without warranties", body)
+        self.assertIn("Not professional advice", body)
+        self.assertIn("Human review", body)
+        self.assertIn("Liability", body)
         self.assertNotIn("OpenAI", body)
 
 

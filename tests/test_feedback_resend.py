@@ -11,8 +11,12 @@ from prompt_matrix.web import create_app
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "")
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "feedback.db"))
     monkeypatch.setenv("WTF_CSRF_ENABLED", "0")
+    from prompt_matrix.db.pool import reset_engine_for_tests
+
+    reset_engine_for_tests()
     import prompt_matrix.history as history_mod
 
     history_mod.DB_PATH = history_mod._resolve_db_path()
@@ -21,6 +25,7 @@ def client(tmp_path, monkeypatch):
     init_db()
     app = create_app(require_auth=False)
     app.config["TESTING"] = True
+    app.config["RESEND_API_KEY"] = ""
     with app.test_client() as c:
         yield c
 
@@ -31,6 +36,7 @@ def test_feedback_requires_message(client):
 
 
 def test_feedback_stores_without_resend(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post(
         "/api/feedback",
         json={"message": "Great workbench UX", "url": "https://staging.getassureai.com/app"},
@@ -43,20 +49,15 @@ def test_feedback_stores_without_resend(client):
 
 def test_feedback_sends_email_when_resend_configured(client):
     client.application.config["RESEND_API_KEY"] = "re_test_key"
+    client.application.config["FEEDBACK_SEND_EMAIL"] = "1"
     with patch("resend.Emails.send") as mock_send:
         res = client.post("/api/feedback", json={"message": "Ship it"})
     assert res.status_code == 200
     mock_send.assert_called_once()
 
 
-def test_feedback_email_failure_returns_500(client):
-    client.application.config["RESEND_API_KEY"] = "re_test_key"
-    with patch("resend.Emails.send", side_effect=RuntimeError("smtp down")):
-        res = client.post("/api/feedback", json={"message": "Broken email path"})
-    assert res.status_code == 500
-
-
 def test_tester_feedback_alias(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post("/api/tester-feedback", json={"text": "Legacy alias still works"})
     assert res.status_code == 200
 

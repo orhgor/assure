@@ -2,6 +2,7 @@
   "use strict";
 
   var ONBOARDING_KEY = "assure_onboarding_complete";
+  var DISCLAIMER_KEY = "assure_disclaimer_ack";
   var STEPS = [
     {
       selector: "#view-generate",
@@ -107,6 +108,55 @@
       return false;
     }
   }
+
+  var disclaimerWaiters = [];
+
+  function isDisclaimerAcked() {
+    try {
+      return localStorage.getItem(DISCLAIMER_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hideDisclaimerGate() {
+    var gate = document.getElementById("disclaimer-gate");
+    if (gate) gate.hidden = true;
+    document.body.classList.remove("disclaimer-gate-open");
+  }
+
+  function showDisclaimerGate() {
+    var gate = document.getElementById("disclaimer-gate");
+    if (!gate) return;
+    gate.hidden = false;
+    document.body.classList.add("disclaimer-gate-open");
+    var ackBtn = document.getElementById("disclaimer-ack");
+    if (ackBtn) ackBtn.focus();
+  }
+
+  function ackDisclaimer() {
+    try {
+      localStorage.setItem(DISCLAIMER_KEY, "1");
+    } catch (_) {}
+    hideDisclaimerGate();
+    var waiters = disclaimerWaiters.slice();
+    disclaimerWaiters = [];
+    waiters.forEach(function (fn) {
+      fn(true);
+    });
+  }
+
+  function ensureAck() {
+    if (isDisclaimerAcked()) {
+      hideDisclaimerGate();
+      return Promise.resolve(true);
+    }
+    showDisclaimerGate();
+    return new Promise(function (resolve) {
+      disclaimerWaiters.push(resolve);
+    });
+  }
+
 
   function completeOnboarding() {
     try {
@@ -278,18 +328,28 @@
 
   function maybeStart() {
     if (isComplete()) return;
-    waitForElement("#assure-app", 10000)
-      .then(function () {
-        return waitForElement("#view-generate", 10000);
-      })
-      .then(function () {
-        if (!isComplete()) showStep(0);
-      })
-      .catch(function () {});
+    ensureAck().then(function () {
+      if (isComplete()) return;
+      waitForElement("#assure-app", 10000)
+        .then(function () {
+          return waitForElement("#view-generate", 10000);
+        })
+        .then(function () {
+          if (!isComplete()) showStep(0);
+        })
+        .catch(function () {});
+    });
   }
 
   function init() {
-    if (isComplete()) return;
+    var ackBtn = document.getElementById("disclaimer-ack");
+    if (ackBtn) {
+      ackBtn.addEventListener("click", ackDisclaimer);
+    }
+    if (!isDisclaimerAcked()) {
+      showDisclaimerGate();
+    }
+    if (isComplete() && isDisclaimerAcked()) return;
     maybeStart();
     document.addEventListener("assure:view", function () {
       if (isComplete() || !state.callout || !state.activeEl) return;
@@ -320,6 +380,12 @@
     init: init,
     completeOnboarding: completeOnboarding,
     waitForElement: waitForElement,
+  };
+  global.AssureDisclaimer = {
+    isAcked: isDisclaimerAcked,
+    ensureAck: ensureAck,
+    ack: ackDisclaimer,
+    KEY: DISCLAIMER_KEY,
   };
 
   if (document.readyState === "loading") {

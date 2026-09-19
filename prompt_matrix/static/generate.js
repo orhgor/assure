@@ -462,6 +462,17 @@
     startDraftStream: function (isRetry, opts) {
       var self = this;
       opts = opts || {};
+      if (
+        !isRetry &&
+        global.AssureDisclaimer &&
+        typeof global.AssureDisclaimer.ensureAck === "function" &&
+        !global.AssureDisclaimer.isAcked()
+      ) {
+        global.AssureDisclaimer.ensureAck().then(function (ok) {
+          if (ok) self.startDraftStream(false, opts);
+        });
+        return;
+      }
       var payload = this.getCompilePayload();
       var intent = payload.intent;
       if (!intent) {

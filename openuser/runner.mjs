@@ -441,6 +441,7 @@ async function runStep(page, step, ctx, spec, stepIndex) {
 function pageInitScript() {
   try {
     localStorage.setItem("assure_onboarding_complete", "1");
+    localStorage.setItem("assure_disclaimer_ack", "1");
   } catch (_) {}
   window.__openUserSseEvents = window.__openUserSseEvents || [];
   window.__openUserErrors = window.__openUserErrors || [];

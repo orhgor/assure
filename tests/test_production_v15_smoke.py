@@ -10,6 +10,10 @@ import urllib.request
 import pytest
 
 PRODUCTION = (os.environ.get("ASSURE_PRODUCTION_URL") or "https://getassureai.com").rstrip("/")
+pytestmark = pytest.mark.skipif(
+    os.environ.get("ASSURE_LIVE_SMOKE") != "1",
+    reason="Set ASSURE_LIVE_SMOKE=1 to hit production.",
+)
 
 
 def _get(path: str) -> dict:
@@ -28,8 +32,8 @@ def test_production_health_v15():
     assert data.get("ok") is True
     assert data.get("status") == "healthy"
     ui = data.get("ui") or {}
-    assert ui.get("css_version") == "assure-97"
-    assert ui.get("js_version") == "assure-97"
+    assert ui.get("css_version") == "assure-98"
+    assert ui.get("js_version") == "assure-98"
     sha = str(data.get("build_sha") or "")
     assert len(sha) >= 7
 
