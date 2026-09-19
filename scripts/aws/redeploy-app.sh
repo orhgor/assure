@@ -145,15 +145,15 @@ disk_free_gb() {
 }
 
 acquire_redeploy_lock() {
+  # Create lock file as ubuntu user to avoid permission issues
+  sudo -u ubuntu touch "$LOCK_FILE"
+  sudo -u ubuntu chmod 644 "$LOCK_FILE"
   exec 9>"$LOCK_FILE"
   if ! flock -n 9; then
     echo "ERROR: another redeploy holds ${LOCK_FILE} — aborting." >&2
     exit 1
   fi
 }
-
-echo "==> Git sync (${BRANCH})"
-acquire_redeploy_lock
 if [[ ! -d /home/ubuntu/assure/.git ]]; then
   echo "    Initial clone..."
   sudo -u ubuntu git clone "https://github.com/orhgor/assure.git" /home/ubuntu/assure
