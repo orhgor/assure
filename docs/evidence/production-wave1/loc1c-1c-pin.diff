@@ -1,0 +1,20 @@
+--- prompt_matrix/routers/draft.py (before 1C pin)
++++ prompt_matrix/routers/draft.py (after 1C pin)
+@@ -706,6 +706,17 @@
+             # cached, so the draft was the only source of the swing — and a
+             # document that changes when nothing does cannot be reported as one.
+             temperature=0.0,
++            # Sampling is pinned next to routing. The routing pin above fixes
++            # WHICH provider serves the call and says nothing about sampling: a
++            # ten-run measurement with it in place still produced one draft that
++            # differed from the other nine in both length and structure (len 3189
++            # vs 3137, eligible 12 vs 13, box 2026-09-18). `temperature=0.0` is
++            # not a guarantee either — a provider still reads `top_p`, and a seed
++            # is the only thing that makes a repeatable call repeatable on the
++            # providers that honour one. Both are written explicitly so "same
++            # intent, same sources" cannot rest on a provider default.
++            top_p=1.0,
++            seed=0,
+             stream=True,
+             stream_options={"include_usage": True},
+             # Fallback handled at the provider layer (OpenRouter) later.
