@@ -11,11 +11,11 @@ from typing import Any
 try:
     from ..db.document_lock_repository import latest_lock
     from ..db.sign_off_repository import list_sign_offs
-    from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
+    from ..exporters.text_ast import jdf_to_html
 except ImportError:
     from db.document_lock_repository import latest_lock
     from db.sign_off_repository import list_sign_offs
-    from exporters.text_ast import jdf_to_html, jdf_to_markdown
+    from exporters.text_ast import jdf_to_html
 
 
 def _esc(text: str) -> str:
@@ -241,18 +241,6 @@ def compute_export_gate(
     }
 
 
-def gate_markdown(project_id: str, tree: dict[str, Any], gate: dict[str, Any]) -> str:
-    lines = [f"Verification Gate: {gate.get('gate_status')}"]
-    if gate.get("unverified"):
-        lines.append(gate.get("unverified_reason") or "")
-        lines.append(f"Claims anchored: {gate.get('anchored')} of {gate.get('eligible')}")
-        lines.append(
-            f"Claims verified against their source: {gate.get('supported', 0)} "
-            f"of {gate.get('eligible')}"
-        )
-    return "\n".join(l for l in lines if l)
-
-
 def build_audit_bundle_html(
     project_id: str,
     tree: dict[str, Any],
@@ -301,26 +289,29 @@ def build_audit_bundle_html(
     body_nodes = tree.get("body") or []
     doc_html = jdf_to_html(tree) if body_nodes else "<p><em>No document body recorded.</em></p>"
 
-    # FIX 3 — Verification Gate: always populated, never empty.
+    # FIX 3 — Verification Gate: always populated, never empty. The counters come
+    # from the persisted block when there is one, and from the same counter the
+    # compile runs (recounted against the document this report renders) when there
+    # is not — a pre-fix revision still reports its gate and its counts.
+    gate_status = gate.get("gate_status") or "review"
+    anchored = gate.get("anchored", 0)
+    supported = gate.get("supported", 0)
+    eligible = gate.get("eligible", 0)
+    gate_html = (
+        "<h1>0. Verification Gate</h1>\n"
+        f"<p><strong>Gate: {_esc(str(gate_status))}</strong></p>\n"
+        f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>\n"
+        f"<p>Claims verified against their source: {_esc(str(supported))} "
+        f"of {_esc(str(eligible))}</p>"
+    )
+    reason = gate.get("unverified_reason") or ""
+    if reason:
+        gate_html += f"\n<p>{_esc(reason)}</p>"
     if not gate_has_block:
-        gate_html = (
-            "<h1>0. Verification Gate</h1>\n" "<p>No verification run for this document.</p>"
+        gate_html += (
+            "\n<p>No gate block was persisted at compile time; the counts above are "
+            "recounted from the document in this report.</p>"
         )
-    else:
-        gate_status = gate.get("gate_status") or "review"
-        anchored = gate.get("anchored", 0)
-        supported = gate.get("supported", 0)
-        eligible = gate.get("eligible", 0)
-        gate_html = (
-            "<h1>0. Verification Gate</h1>\n"
-            f"<p><strong>Gate: {_esc(str(gate_status))}</strong></p>\n"
-            f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>\n"
-            f"<p>Claims verified against their source: {_esc(str(supported))} "
-            f"of {_esc(str(eligible))}</p>"
-        )
-        reason = gate.get("unverified_reason") or ""
-        if reason:
-            gate_html += f"\n<p>{_esc(reason)}</p>"
 
     # FIX 2 — Z3 Verification Results: gate-level status, not a confidence span
     # table. Lock / metric / violation detail is rendered only when the persisted
@@ -456,9 +447,17 @@ def export_audit_bundle_pdf(
         redhat_critiques=redhat_critiques,
     )
     try:
-        from ..exporters.pdf_ast import _pdf_via_weasyprint, _pdf_via_playwright, _pdf_via_simple
+        from ..exporters.pdf_ast import (
+            _pdf_via_playwright,
+            _pdf_via_weasyprint,
+            pdf_bytes_from_html,
+        )
     except ImportError:
-        from exporters.pdf_ast import _pdf_via_weasyprint, _pdf_via_playwright, _pdf_via_simple
+        from exporters.pdf_ast import (
+            _pdf_via_playwright,
+            _pdf_via_weasyprint,
+            pdf_bytes_from_html,
+        )
 
     pdf = _pdf_via_weasyprint(html_body)
     if pdf:
@@ -466,16 +465,12 @@ def export_audit_bundle_pdf(
     pdf = _pdf_via_playwright(html_body)
     if pdf:
         return pdf
-    # Fallback text PDF — surface the gate at the top so the exported artifact
-    # reflects verification state even without an HTML renderer.
-    gate = compute_export_gate(
-        project_id, tree, z3_results=z3_results, redhat_critiques=redhat_critiques
-    )
-    prefix = gate_markdown(project_id, tree, gate)
-    md = jdf_to_markdown(tree)
-    body = (prefix + "\n\n" + md) if prefix else md
-    try:
-        from ..history import _simple_pdf
-    except ImportError:
-        from history import _simple_pdf
-    return _simple_pdf(f"Audit-{project_id}", body)
+    # No HTML engine here. Measured on the deployment box: its venv carries
+    # neither WeasyPrint nor Playwright, so both probes return None (and neither
+    # is installable from the repo — see exporters/pdf_ast.py). The bundle's
+    # sections still travel: this is the same HTML just built, reduced to
+    # paginated text, so the gate, the counters, the Z3 rows, the Red-Hat
+    # findings, the sign-offs, the lock hash, the appendix and the document body
+    # all reach the file. The engines that could not be used are named on page 1.
+    title = str((tree.get("meta") or {}).get("title") or project_id)
+    return pdf_bytes_from_html(html_body, title=f"Compliance Audit Report - {title}")
