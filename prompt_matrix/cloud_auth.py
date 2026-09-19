@@ -273,7 +273,7 @@ def _try_bearer_session() -> bool:
 def protect_request():
     """Redirect HTML, or 401 JSON, when cloud login is on and the session is empty."""
     path = request.path
-    if path.startswith("/static/") or path.startswith("/workbench/"):
+    if path.startswith("/static/"):
         return None
     if path in PUBLIC_HTML or path in PUBLIC_API:
         return None

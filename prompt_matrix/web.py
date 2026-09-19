@@ -628,13 +628,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def favicon():
         return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
 
+    # Prototype shell disabled — use /app for the real workbench
     @app.route("/workbench/")
-    def workbench_index():
-        return send_from_directory(str(PROTOTYPE_DIR), "index.html")
-
     @app.route("/workbench/<path:filename>")
-    def workbench_static(filename):
-        return send_from_directory(str(PROTOTYPE_DIR), filename)
+    def workbench_disabled(*_args, **_kwargs):
+        from flask import abort
+        abort(404)
 
     @app.get("/architecture")
     def architecture_page():
