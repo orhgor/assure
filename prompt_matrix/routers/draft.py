@@ -311,8 +311,8 @@ class DraftCancelledError(Exception):
 # 200,000-character source is roughly 50K tokens, so a real 30-page commercial
 # property policy fits in one pass. A source beyond the cap is refused by name
 # rather than truncated. (Was 4000/16000, which refused every real policy.)
-SUBSTRATE_CONTEXT_CHARS_PER_FILE = 200_000
-SUBSTRATE_CONTEXT_CHARS_TOTAL = 400_000
+SUBSTRATE_CONTEXT_CHARS_PER_FILE = 45000
+SUBSTRATE_CONTEXT_CHARS_TOTAL = 90000
 
 
 class DraftPayload(BaseModel):
@@ -532,80 +532,85 @@ def _draft_messages(intent: str, context: str | None, system_prompt: str) -> lis
     ]
 
 
-def build_sentence_map(substrate_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Number every source sentence so the model can cite it and the validator can
-    resolve it. The ids are assigned in document order, so the same rows always
-    produce the same ids: ``build_sentence_map`` is the single place the numbering
-    is defined, and ``_build_substrate_context`` writes the ``[S<N>]`` prefixes
-    from the same walk. A model that cites ``[S17]`` is citing the sentence this
-    function put at position 17, because both read the same splitter in the same
-    order.
+def _numbered_source_blocks(
+    substrate_rows: list[dict[str, Any]],
+) -> list[tuple[str, list[tuple[str, str, str, Any]]]]:
+    """The one place the source is numbered.
 
-    Uses ``models.jdf._split_sentences`` — the matcher's splitter — so the
-    validator's fallback path and the citation path segment the source
-    identically.
+    Returns ``[(prompt block, [(id, sentence, filename, page), …]), …]``, the
+    block already carrying its ``[S<N>]`` prefixes and already bounded by the
+    per-file and total budgets. ``_build_substrate_context`` writes the blocks;
+    ``build_sentence_map`` reads the entries. Both walk this function, so an id
+    the model cites resolves to the sentence it was shown — numbering the whole
+    document while the prompt truncates is how a citation lands on the wrong
+    sentence, and numbering the whole document also blew the 30k input cap
+    (35,382 tokens measured on two policies) because every sentence now carries
+    a prefix.
+
+    Ids are assigned in document order and advance across files, so ``S<n>`` is
+    stable for a given set of rows.
     """
-    out: dict[str, dict[str, Any]] = {}
-    n = 1
-    for row in substrate_rows:
-        text = str(row.get("extracted_text") or "").strip()
-        if not text:
-            continue
-        filename = str(row.get("filename") or "substrate")
-        fallback_page = row.get("page_number") or row.get("page") or 1
-        for sent, page in _split_sentences(text):
-            clean = str(sent or "").strip()
-            if not clean:
-                continue
-            out[f"S{n}"] = {
-                "text": clean,
-                "filename": filename,
-                "page": page if page else fallback_page,
-            }
-            n += 1
-    return out
-
-
-def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
-    """Concatenate selected Substrate Vault files (bounded) so the draft is
-    actually grounded in them, not just told they exist.
-
-    Sentences are numbered ``[S<N>]`` from the same walk ``build_sentence_map``
-    uses, so the model can cite what it was given. A source the ingest scan
-    flagged as instruction-like is wrapped in the untrusted-data delimiter: it
-    still reaches the model — the user's document is the user's document — but as
-    material to report, not orders to follow. Both the compile and the cache key
-    read this one function, so a flagged source changes the prompt and the key
-    together.
-    """
-    if not substrate_rows:
-        return ""
-    blocks: list[str] = []
+    out: list[tuple[str, list[tuple[str, str, str, Any]]]] = []
     total = 0
     n = 1
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "").strip()
         if not text:
             continue
-        untrusted = scan_source_instruction_like(text)
-        if untrusted:
+        filename = str(row.get("filename") or "substrate")
+        page_no = row.get("page_number") or row.get("page") or 1
+        if scan_source_instruction_like(text):
             text = wrap_untrusted_source(text)
         lines: list[str] = []
-        for sent, _page in _split_sentences(text):
+        entries: list[tuple[str, str, str, Any]] = []
+        used = 0
+        for sent, page in _split_sentences(text):
             clean = str(sent or "").strip()
             if not clean:
                 continue
-            lines.append(f"[S{n}] {clean}")
+            line = f"[S{n}] {clean}"
+            if used + len(line) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
+                break
+            lines.append(line)
+            entries.append((f"S{n}", clean, filename, page if page else page_no))
+            used += len(line) + 1
             n += 1
-        excerpt = "\n".join(lines)
-        if len(excerpt) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
-            excerpt = excerpt[:SUBSTRATE_CONTEXT_CHARS_PER_FILE]
-        block = f"### Source file: {row.get('filename') or 'substrate'}\n{excerpt}"
+        if not lines:
+            continue
+        block = f"### Source file: {filename}\n" + "\n".join(lines)
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
             break
-        blocks.append(block)
+        out.append((block, entries))
         total += len(block)
-    return "\n\n".join(blocks)
+    return out
+
+
+def build_sentence_map(substrate_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """``{id: {"text", "filename", "page"}}`` for exactly what the prompt showed.
+
+    Read from ``_numbered_source_blocks``, so the map and the prompt are the same
+    walk and a cited id cannot drift. Threaded to the parser, the validator, the
+    counters, the Evidence pane and the JDF serializer.
+    """
+    return {
+        sid: {"text": text, "filename": filename, "page": page}
+        for _block, entries in _numbered_source_blocks(substrate_rows)
+        for sid, text, filename, page in entries
+    }
+
+
+def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
+    """Concatenate selected Substrate Vault files (bounded) so the draft is
+    actually grounded in them, not just told they exist.
+
+    Sentences are numbered ``[S<N>]`` by ``_numbered_source_blocks``, so the
+    model cites what it was given. A source the ingest scan flagged as
+    instruction-like is wrapped in the untrusted-data delimiter: it still reaches
+    the model — the user's document is the user's document — but as material to
+    report, not orders to follow. Both the compile and the cache key read this one
+    function, so a flagged source changes the prompt and the key together.
+    """
+    return "\n\n".join(block for block, _entries in _numbered_source_blocks(substrate_rows))
 
 
 def run_lock_inference(text: str) -> tuple[list[dict[str, Any]], str]:
