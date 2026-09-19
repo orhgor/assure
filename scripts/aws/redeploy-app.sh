@@ -158,17 +158,21 @@ if [[ ! -d /home/ubuntu/assure/.git ]]; then
   echo "    Initial clone..."
   sudo -u ubuntu git clone "https://github.com/orhgor/assure.git" /home/ubuntu/assure
 fi
-cd /home/ubuntu/assure
-sudo -u ubuntu git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-sudo -u ubuntu git fetch origin "$BRANCH"
-sudo -u ubuntu git checkout -B "$BRANCH" "origin/$BRANCH"
-FULL_SHA="$(git rev-parse HEAD)"
-SHORT_SHA="$(git rev-parse --short HEAD)"
-echo "    HEAD: ${SHORT_SHA} $(git log -1 --oneline)"
-
-IMAGE_TAG="${DEPLOY_TAG:-${ASSURE_IMAGE_TAG:-$FULL_SHA}}"
-export ASSURE_BUILD_SHA="$SHORT_SHA"
-export ASSURE_IMAGE_TAG="$IMAGE_TAG"
+sudo -u ubuntu bash -c "
+  cd /home/ubuntu/assure
+  git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+  git fetch origin \"${BRANCH}\"
+  git checkout -B \"${BRANCH}\" \"origin/${BRANCH}\"
+  FULL_SHA=\"\$(git rev-parse HEAD)\"
+  SHORT_SHA=\"\$(git rev-parse --short HEAD)\"
+  echo \"    HEAD: \${SHORT_SHA} \$(git log -1 --oneline)\"
+  echo \"FULL_SHA=\${FULL_SHA}\" > /tmp/assure-git-sha
+  echo \"SHORT_SHA=\${SHORT_SHA}\" >> /tmp/assure-git-sha
+"
+source /tmp/assure-git-sha
+IMAGE_TAG="${DEPLOY_TAG:-${ASSURE_IMAGE_TAG:-${FULL_SHA}}}"
+export ASSURE_BUILD_SHA="${SHORT_SHA}"
+export ASSURE_IMAGE_TAG="${IMAGE_TAG}"
 export ASSURE_IMAGE="${IMAGE_REPO}:${IMAGE_TAG}"
 PREVIOUS_IMAGE="$(running_app_image)"
 if [[ -z "$PREVIOUS_IMAGE" && -f "$STATE_FILE" ]]; then
