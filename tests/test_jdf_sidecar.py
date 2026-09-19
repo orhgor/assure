@@ -258,7 +258,35 @@ def test_round_trip_reports_an_anchor_whose_source_is_not_in_the_manifest(client
     report = audit_jdf_payload(sidecar)
     assert report["anchors_total"] == 1
     assert report["anchors_resolved"] == 0
-    assert report["anchors_unresolved"] == [{"node_id": "para-anchored", "source_id": SRC_ID}]
+    assert report["anchors_unresolved"] == [
+        {"node_id": "para-anchored", "source_id": SRC_ID, "source_name": "wind-policy.md"}
+    ]
+
+
+def test_a_cited_anchor_resolves_by_the_file_it_names(client):
+    """The compile's citation rows name a file, not a vault id, and still resolve.
+
+    Resolving on ``source_id`` alone reported a compiled policy — every row of it
+    carrying an empty id and its source's filename — as a document that had lost
+    all of its anchors.
+    """
+    _seed_project(client)
+    sidecar = client.get("/api/projects/sidecar-src/export?format=jdf").get_json()
+    node = sidecar["document"]["body"][0]["children"][0]
+    node["provenance"] = [
+        {
+            "source_type": "internal_doc",
+            "source_name": "wind-policy.md",
+            "extracted_quote": ANCHOR_QUOTE,
+            "cited_id": "S2",
+            "page": 1,
+        }
+    ]
+
+    report = audit_jdf_payload(sidecar)
+    assert report["anchors_total"] == 1
+    assert report["anchors_resolved"] == 1
+    assert report["anchors_unresolved"] == []
 
 
 def test_frozen_project_refuses_a_cold_compile_and_allows_a_warm_one(client, monkeypatch):

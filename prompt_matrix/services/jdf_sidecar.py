@@ -499,22 +499,44 @@ def audit_jdf_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
     Resolution is against the manifest **the JDF carries** — a fresh project has
     no vault rows, and the file is the only thing the reader took away — so an
-    anchor resolves when its ``source_id`` names a manifest entry, and the
-    manifest entry carries the hash of the text the anchor was matched against.
-    A document whose anchors do not resolve has lost its evidence, and this is
-    where that is said out loud instead of being read as a clean import.
+    anchor resolves when the source it names is a manifest entry, and that entry
+    carries the hash of the text the anchor was matched against. A document whose
+    anchors do not resolve has lost its evidence, and this is where that is said
+    out loud instead of being read as a clean import.
     """
     document = sidecar_document(payload)
     manifest = payload.get("source_manifest") if isinstance(payload, dict) else None
     if not isinstance(manifest, list):
         manifest = []
-    known = {str(row.get("source_id") or "") for row in manifest if isinstance(row, dict)}
+    known_ids = {str(row.get("source_id") or "") for row in manifest if isinstance(row, dict)}
+    known_files = {
+        str(row.get("filename") or "").strip() for row in manifest if isinstance(row, dict)
+    }
+    known_files.discard("")
     index = node_verification_index(document)
     anchors = [entry for entry in index if entry.get("anchor")]
+
+    def _resolved(anchor: dict[str, Any]) -> bool:
+        """Either identity is enough: a matcher row names a vault id, a cited row a file.
+
+        The compile's citation rows carry ``source_name`` and no ``source_id``
+        (measured: every row of a compiled policy has an empty one), so resolving
+        on ``source_id`` alone reported a document whose quotes travel with the
+        file as having lost every anchor it had.
+        """
+        source_id = str(anchor.get("source_id") or "")
+        if source_id and source_id in known_ids:
+            return True
+        return str(anchor.get("source_name") or "").strip() in known_files
+
     unresolved = [
-        {"node_id": entry["node_id"], "source_id": (entry["anchor"] or {}).get("source_id", "")}
+        {
+            "node_id": entry["node_id"],
+            "source_id": (entry["anchor"] or {}).get("source_id", ""),
+            "source_name": (entry["anchor"] or {}).get("source_name", ""),
+        }
         for entry in anchors
-        if str((entry["anchor"] or {}).get("source_id") or "") not in known
+        if not _resolved(entry["anchor"] or {})
     ]
     verdicts: dict[str, int] = {}
     for entry in index:
@@ -529,7 +551,7 @@ def audit_jdf_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "document_sha256": actual,
         "document_sha256_matches": bool(declared) and declared == actual,
         "manifest_entries": len(manifest),
-        "manifest_source_ids": sorted(known),
+        "manifest_source_ids": sorted(known_ids),
         "nodes_total": len(index),
         "claims_eligible": sum(1 for entry in index if entry.get("claim_eligible")),
         "anchors_total": len(anchors),
