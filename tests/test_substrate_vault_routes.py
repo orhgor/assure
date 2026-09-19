@@ -113,9 +113,12 @@ def test_upload_persists_and_labels_instruction_like_source(vault_client):
     assert res.status_code == 200, res.get_data(as_text=True)
     payload = res.get_json()
     assert payload["instruction_like"] is True
+    # "you must" was removed from the scan (9fc4c4c): it is ordinary policy prose
+    # ("You must give notice within 30 days") and flagged every real commercial
+    # property policy as instruction-like. The order in this fixture is caught by
+    # the determiner family of "begin your response with", which is the signal.
     assert payload["instruction_hits"] == [
         "ignore all previous",
-        "you must",
         "begin your response with",
     ]
     assert payload["instruction_flag_label"] == SOURCE_FLAG_LABEL
