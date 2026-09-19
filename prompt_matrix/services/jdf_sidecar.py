@@ -29,7 +29,12 @@ What a reader needs beyond the tree, and could not get from the PDF:
   provably one link of that chain;
 * ``drafting_model`` — the model that wrote the draft, resolved from what the
   compile persisted (``projects.last_compiled_json.gate.measure`` or the
-  ``DRAFT_STREAM`` audit row), or an explicit null when neither recorded one.
+  ``DRAFT_STREAM`` audit row), or an explicit null when neither recorded one;
+* ``redhat_findings`` — the Red-Hat record the document came with: the critiques on
+  its own nodes (``annotations.redhat``) and the project's persisted
+  ``redhat_findings`` rows. ``ran`` separates a pass that found nothing from a pass
+  that never happened, which the PDF's old "No Red-Hat critiques recorded." line
+  could not.
 
 ``GET /api/projects/<id>/export?format=jdf`` serves this file; ``POST
 /api/projects/<id>/import-jdf`` loads it into a fresh project and answers with
@@ -50,13 +55,13 @@ try:
     from ..db.jdf_repository import list_jdf_revisions
     from ..db.substrate_repository import list_substrate_for_project
     from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
-    from .audit_bundle import compute_export_gate
+    from .audit_bundle import compute_export_gate, project_redhat_findings
 except ImportError:
     from db.document_lock_repository import hash_jdf_tree
     from db.jdf_repository import list_jdf_revisions
     from db.substrate_repository import list_substrate_for_project
     from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
-    from audit_bundle import compute_export_gate
+    from audit_bundle import compute_export_gate, project_redhat_findings
 
 SIDECAR_FORMAT = "assure-jdf-sidecar"
 SIDECAR_VERSION = 1
@@ -456,6 +461,7 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
     index = node_verification_index(tree)
     meta = tree.get("meta") if isinstance(tree.get("meta"), dict) else {}
     gate = compute_export_gate(project_id, tree)
+    redhat = project_redhat_findings(project_id, tree)
     chain = build_version_chain(project_id)
     document_hash = hash_jdf_tree(tree)
     latest = chain["revisions"][-1]["document_sha256"] if chain["revisions"] else None
@@ -481,6 +487,12 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
         "source_manifest": build_source_manifest(project_id),
         "version_chain": chain,
         "drafting_model": resolve_drafting_model(project_id),
+        "redhat_findings": {
+            "count": redhat["count"],
+            "ran": redhat["ran"],
+            "reason": redhat["reason"],
+            "items": redhat["items"],
+        },
     }
 
 

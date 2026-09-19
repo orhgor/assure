@@ -241,6 +241,150 @@ def compute_export_gate(
     }
 
 
+def _node_label(node: dict[str, Any], limit: int = 60) -> str:
+    raw = str(node.get("title") or node.get("content") or "").strip()
+    return raw[:limit]
+
+
+def _tree_redhat_items(tree: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every critique the document itself carries, in document order.
+
+    A node-scoped Red-Hat audit writes into ``annotations.redhat`` on its target
+    node (``models/jdf.attach_redhat_annotation``), so these are the findings that
+    belong to the document rather than to a run.
+    """
+    items: list[dict[str, Any]] = []
+    for node in _walk_nodes(tree):
+        for annotation in (node.get("annotations") or {}).get("redhat") or []:
+            if not isinstance(annotation, dict):
+                continue
+            text = str(annotation.get("text") or annotation.get("content") or "").strip()
+            if not text:
+                continue
+            items.append(
+                {
+                    "severity": str(annotation.get("severity") or "info"),
+                    "title": str(annotation.get("title") or "") or _node_label(node),
+                    "message": text,
+                    "status": str(annotation.get("status") or "open"),
+                    "node_id": str(annotation.get("node_id") or node.get("id") or ""),
+                    "run_id": "",
+                    "source": "annotations.redhat",
+                }
+            )
+    return items
+
+
+def _run_redhat_items(project_id: str) -> list[dict[str, Any]]:
+    """The project's persisted findings (``redhat_findings``, keyed by workspace).
+
+    The run/founder path stores findings here against a workspace id; for a
+    project that workspace is the project id (``routers/redhat_routes.py``).
+    """
+    try:
+        from ..db.redhat_findings_repository import list_findings_for_workspace
+    except ImportError:
+        from db.redhat_findings_repository import list_findings_for_workspace
+    try:
+        rows = list_findings_for_workspace(project_id)
+    except Exception:
+        return []
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        message = str(row.get("content") or "").strip()
+        if not message:
+            continue
+        items.append(
+            {
+                "severity": str(row.get("severity") or "info"),
+                "title": str(row.get("title") or ""),
+                "message": message,
+                "status": str(row.get("status") or "open"),
+                "node_id": "",
+                "run_id": str(row.get("run_id") or ""),
+                "source": "redhat_findings",
+            }
+        )
+    return items
+
+
+def _redhat_pass_recorded(project_id: str) -> bool:
+    """Whether any Red-Hat pass left a record for this project, findings or not.
+
+    A pass that ran and found nothing and a pass that never ran are different
+    facts and the report has to say which it is; this is the evidence that
+    separates them (``routers/draft.py`` writes ``DRAFT_STREAM_REDHAT``, the run
+    path writes ``redhat_audit_telemetry``).
+    """
+    try:
+        from ..db.connection import init_db
+        from ..db.redhat_telemetry_repository import fetch_telemetry
+        from ..history import get_db
+    except ImportError:
+        from db.connection import init_db
+        from db.redhat_telemetry_repository import fetch_telemetry
+        from history import get_db
+    try:
+        init_db()
+        if fetch_telemetry(project_id):
+            return True
+        row = get_db().execute(
+            "SELECT 1 FROM audit_log WHERE project_id = ? AND success = 1 "
+            "AND action LIKE '%REDHAT%' LIMIT 1",
+            (project_id,),
+        ).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+def _redhat_skip_reason(project_id: str) -> str:
+    """Why no run is recorded, in the compile's own words when it left them."""
+    try:
+        from ..db.connection import init_db
+        from ..history import get_db
+    except ImportError:
+        from db.connection import init_db
+        from history import get_db
+    try:
+        init_db()
+        row = get_db().execute(
+            "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
+        ).fetchone()
+        data = json.loads(row[0]) if (row and row[0]) else {}
+        payload = ((data or {}).get("gate") or {}).get("redhat")
+        if isinstance(payload, dict):
+            status = str(payload.get("status") or "")
+            if status in ("failed", "error"):
+                return f"The Red-Hat pass failed: {payload.get('error') or 'no reason recorded'}."
+            reason = str(payload.get("skip_reason") or "").strip()
+            if reason:
+                return f"{reason}."
+    except Exception:
+        pass
+    return "Red-Hat has not been run for this project."
+
+
+def project_redhat_findings(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
+    """This project's Red-Hat findings, and whether Red-Hat has run at all.
+
+    The export's Red-Hat section was empty on every document because it rendered
+    only its ``redhat_critiques`` argument and no caller passed one
+    (``routers/export_routes.py`` calls the builders with ``(project_id, tree)``).
+    The findings that do exist are read here instead: the document's own
+    ``annotations.redhat`` and the project's ``redhat_findings`` rows. ``ran`` is
+    reported separately so a section with nothing to list can say whether a pass
+    happened and found nothing or never happened — "No Red-Hat critiques
+    recorded." stated the first for both.
+    """
+    items = _tree_redhat_items(tree) + _run_redhat_items(project_id)
+    if items:
+        return {"items": items, "count": len(items), "ran": True, "reason": ""}
+    if _redhat_pass_recorded(project_id):
+        return {"items": [], "count": 0, "ran": True, "reason": ""}
+    return {"items": [], "count": 0, "ran": False, "reason": _redhat_skip_reason(project_id)}
+
+
 def build_audit_bundle_html(
     project_id: str,
     tree: dict[str, Any],
@@ -254,7 +398,34 @@ def build_audit_bundle_html(
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "local").strip()
     sign_offs = list_sign_offs(project_id)
     lock = latest_lock(project_id)
-    redhat = redhat_critiques or []
+
+    # The Red-Hat section's own data. An explicit list is a caller stating the
+    # findings; with none, the project's real ones are read (the document's
+    # `annotations.redhat` and the `redhat_findings` rows), because the section
+    # used to render only the argument and every export called it without one.
+    if redhat_critiques is None:
+        redhat_view = project_redhat_findings(project_id, tree)
+    else:
+        redhat_view = {
+            "items": [
+                {
+                    "severity": str(item.get("severity") or "info"),
+                    "title": str(item.get("title") or ""),
+                    "message": str(
+                        item.get("message") or item.get("critique") or item.get("content") or ""
+                    ),
+                    "status": str(item.get("status") or "open"),
+                    "node_id": str(item.get("node_id") or ""),
+                    "run_id": str(item.get("run_id") or ""),
+                    "source": str(item.get("source") or "caller"),
+                }
+                for item in redhat_critiques
+                if isinstance(item, dict)
+            ],
+            "count": len(redhat_critiques),
+            "ran": bool(redhat_critiques),
+            "reason": "",
+        }
 
     # FIX 4 — TOC: toc_items carry no numbers; the <ol> is the single source
     # of numbering. Entries are newline-separated so they don't mash together.
@@ -348,10 +519,25 @@ def build_audit_bundle_html(
             )
 
     redhat_html = ""
-    for item in redhat[:20]:
-        redhat_html += f"<li><strong>{_esc(item.get('severity', 'info'))}</strong>: {_esc(item.get('message') or item.get('critique') or '')}</li>"
+    for item in redhat_view["items"][:20]:
+        where = str(item.get("node_id") or item.get("run_id") or "")
+        placement = f" <span class='meta'>[{_esc(where)}]</span>" if where else ""
+        redhat_html += (
+            f"<li><strong>{_esc(str(item.get('severity') or 'info'))}</strong>: "
+            f"{_esc(str(item.get('message') or ''))}{placement}</li>"
+        )
+    if redhat_view["count"] > 20:
+        redhat_html += f"<li>… and {redhat_view['count'] - 20} more recorded finding(s).</li>"
     if not redhat_html:
-        redhat_html = "<li>No Red-Hat critiques recorded.</li>"
+        if redhat_view["ran"]:
+            redhat_html = "<li>Red-Hat ran for this document and recorded no findings.</li>"
+        elif redhat_view["reason"]:
+            redhat_html = (
+                "<li>No Red-Hat critique is recorded for this document. "
+                f"{_esc(redhat_view['reason'])}</li>"
+            )
+        else:
+            redhat_html = "<li>No Red-Hat critique is recorded for this document.</li>"
 
     signoff_html = ""
     for so in sign_offs:
@@ -408,7 +594,7 @@ th {{ background: #f5f5f5; }}
 <p>This report bundles the verified JDF document, Z3 verification results, Red-Hat critique,
 sign-off records, and document lock hash for compliance review.</p>
 <p>Z3 status: <strong>{_esc(gate.get('z3_status') or 'N/A')}</strong>.
-Red-Hat items: <strong>{len(redhat)}</strong>.
+Red-Hat items: <strong>{redhat_view['count'] if redhat_view['ran'] else 'not run'}</strong>.
 Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
 
 <h1>2. Document Body</h1>
