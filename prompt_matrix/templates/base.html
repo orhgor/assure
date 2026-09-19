@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ locale|default('en') }}">
+<html lang="{{ locale|default('en') }}"{% if page_class is defined %} class="{{ page_class }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -32,7 +32,7 @@
     })();
   </script>
 </head>
-<body{% if initial_pane is defined %} data-pane="{{ initial_pane }}"{% endif %}>
+<body{% if page_class is defined %} class="{{ page_class }}"{% endif %}{% if initial_pane is defined %} data-pane="{{ initial_pane }}"{% endif %}>
   {% set q = '?lang=' ~ locale %}
   <div class="shell">
     <header class="site-header">

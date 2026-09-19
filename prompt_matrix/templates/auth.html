@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% set is_signup = auth_mode == 'signup' %}
 {% block title %}{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %} · {{ gettext('Assure') }}{% endblock %}
+{% block extra_head %}
+  {# The page is a shell document: shell.css is where the shell's tokens and
+     base type live, and the shell's own server (prototype/dev-server.py) is
+     what serves it — from its static root, at this path. #}
+  <link rel="stylesheet" href="/shell.css">
+{% endblock %}
 {% block body %}
   <div class="page">
     <div class="page-hero">

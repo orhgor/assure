@@ -2194,6 +2194,295 @@ body.about-page { background: var(--paper); }
   .about-page .about-col { max-width: none; padding: 0; }
 }
 
+/* =============================================================
+   The sign-in page — /signin and /signup (prompt_matrix/templates/auth.html).
+
+   That template extends the app's base.html, so the markup is the app's
+   header, nav and footer, not the shell's .app-shell. The page links this
+   file for the two things it cannot do without: the tokens in `:root` and
+   the base type above. Everything below is the page's own composition,
+   written to those tokens — no second palette, no second scale.
+
+   Not /auth: the entry gate's key page is `_AUTH_PAGE` in
+   prototype/dev-server.py, self-contained, and carries none of these classes.
+
+   This file writes exactly one rule for every document — the viewport lock
+   (`html, body { height:100%; overflow:hidden }`) — which belongs to the app
+   shell. It is undone here the way .about-page undoes it. Nothing else in
+   this file can reach the page: the pane, rail, dock and drawer rules are all
+   keyed on .app-shell / body.collapsed / body.right-hidden, and this page
+   carries none of them.
+   ============================================================= */
+html.auth-page, body.auth-page {
+  height: auto;
+  overflow: auto;
+}
+body.auth-page {
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-lg);   /* chrome, not the 18px document body */
+}
+
+/* The header. It is the app's markup, so it is laid out here: brand, then
+   the one row of links, then the controls — one line at desktop width,
+   the links on their own line below 640px. */
+.auth-page .site-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  min-height: var(--header-h);
+  padding: var(--space-2) var(--space-6);
+  background: var(--surface);
+  border-bottom: var(--hairline);
+}
+.auth-page .brand-home {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+/* 32px, and only on this page. The shell's own header is a wordmark with no
+   mark at all (.app-brand), and the landing page carries the size as inline
+   width/height attributes on its own <svg>, so neither is reached by this
+   rule. Unconstrained, the viewBox-scaling <svg> fills whatever box it is
+   given — which, with no stylesheet at all, was the viewport. */
+.auth-page .brand-mark {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+.auth-page .wordmark {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* The links the page inherits from the app's header: one row, muted, and
+   the shell's own secondary-chrome treatment — a hairline on hover, nothing
+   at rest. */
+.auth-page .site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+  white-space: nowrap;
+}
+.auth-page .site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--fs-md);
+  font-weight: 450;
+  border-bottom: 1px solid transparent;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.auth-page .site-nav a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.auth-page .site-nav a.is-on { color: var(--ink); }
+
+.auth-page .header-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-left: auto;
+  color: var(--muted);
+}
+.auth-page .header-privacy { font-size: var(--fs-xs); color: var(--muted); }
+.auth-page .meta-link {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.auth-page .meta-link:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.auth-page .meta-link.is-on { color: var(--ink); font-weight: 500; }
+.auth-page .privacy-chip,
+.auth-page .edition-chip {
+  font-family: var(--sans);
+  font-size: var(--fs-micro);
+  color: var(--muted);
+  background: var(--hover-wash);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  line-height: 1.5;
+}
+.auth-page .brand-home:focus-visible,
+.auth-page .site-nav a:focus-visible,
+.auth-page .meta-link:focus-visible,
+.auth-page .select-control:focus-visible,
+.auth-page .hint a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The language control, in the shell's control shape: hairline, small
+   radius, the page's own surface. base.html marks the wrapper
+   .visually-hidden for the pages where it is a keyboard-only control; here
+   it is a visible one, and it is un-hidden property by property so the page
+   is the same in both topologies — with or without the app's own stylesheet
+   answering for .visually-hidden. */
+.auth-page .lang-wrap {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  clip: auto;
+  overflow: visible;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.auth-page .select-control {
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  height: 26px;
+  padding: 0 var(--space-2);
+}
+.auth-page .select-control:hover { border-color: var(--muted); }
+
+/* Heading, description and Clerk's card are one composition, not three
+   stacked elements: one measure (400px — the card's, which is also the
+   widest thing in the group), one axis (all three centred on it), and one
+   8px-grid rhythm — the description sits one step under the heading, the
+   card one step under the description, so the card reads as the body of the
+   head above it. The card is the only filled plane (--surface on --paper),
+   which is what makes the group one body rather than three boxes. */
+.auth-page .page {
+  width: min(calc(100% - var(--space-8)), 400px);
+  margin: 0 auto;
+  padding: clamp(var(--space-8), 14vh, var(--space-20)) 0 var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.auth-page .page-hero { margin: 0; text-align: center; }
+.auth-page .page-hero h1 {
+  margin: 0;
+  font-size: var(--fs-h1);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+.auth-page .lede {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+.auth-page .auth-card {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  text-align: center;
+}
+/* The two branches with no widget (self-hosted, keys unset) are prose, and
+   the prose takes the plane the widget brings itself. */
+.auth-page .auth-card:not(:has(#clerk-mount)) {
+  padding: var(--space-6) var(--space-5);
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-1);
+}
+/* Clerk's widget is Clerk's: it is centred and given the card's measure,
+   and not restyled. The container draws no plane of its own — a second
+   border and shadow around Clerk's card is what makes one card read as two
+   boxes, one inside the other. */
+.auth-page #clerk-mount {
+  display: flex;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+.auth-page .hint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+/* #auth-status is empty until a session fails to verify; the empty line is
+   not part of the composition. */
+.auth-page .hint:empty { display: none; }
+.auth-page .hint a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+.auth-page .hint a:hover { border-bottom-color: var(--ink); }
+
+/* The app's footer, one step quieter than the card. */
+.auth-page .site-footer {
+  padding: var(--space-6) var(--space-5);
+  border-top: var(--hairline);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.auth-page .site-footer p { max-width: 1080px; margin: 0 auto var(--space-2); }
+.auth-page .site-footer p:last-child { margin-bottom: 0; }
+.auth-page .site-footer strong { color: var(--ink); font-weight: 600; }
+.auth-page .site-footer a { color: var(--muted); text-decoration: none; }
+.auth-page .site-footer a:hover { color: var(--ink); }
+
+/* Help and feedback: the app pins them in a corner, so they stay a corner
+   and not a fourth element in the composition. */
+.auth-page .tester-support-cluster {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--fs-xs);
+}
+.auth-page .tester-support-cluster a,
+.auth-page .tester-support-cluster button {
+  color: var(--muted);
+  text-decoration: none;
+}
+.auth-page .tester-support-cluster a:hover,
+.auth-page .tester-support-cluster button:hover { color: var(--ink); }
+
+/* Below the shell's own 640px breakpoint the header keeps one row of links
+   and gives up the chips and the long privacy line instead: the page's job is
+   the card, and the footer repeats every link those two were carrying. The
+   row wraps to its own line, so the links themselves never have to shrink
+   into an ellipsis or push the viewport sideways. */
+@media (max-width: 640px) {
+  .auth-page .site-header {
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-2) var(--space-3);
+  }
+  .auth-page .header-privacy,
+  .auth-page .privacy-chip,
+  .auth-page .edition-chip { display: none; }
+  .auth-page .site-nav {
+    order: 3;
+    width: 100%;
+    gap: var(--space-4);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .auth-page .site-nav::-webkit-scrollbar { display: none; }
+  .auth-page .site-nav a { font-size: var(--fs-sm); }
+  .auth-page .page {
+    padding: var(--space-8) 0 var(--space-10);
+    gap: var(--space-4);
+  }
+  .auth-page .tester-support-cluster { display: none; }
+}
+
 /* Sign-off status indicator in the top bar. */.signoff-indicator {
   font-size: var(--fs-xs);
   font-weight: 500;

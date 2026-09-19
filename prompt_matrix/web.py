@@ -702,6 +702,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signin",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signup")
@@ -712,6 +713,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signup",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signout")
