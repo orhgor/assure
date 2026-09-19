@@ -64,8 +64,10 @@ def save_substrate_entry(
     """Persist a Textract extraction in substrate_vault.
 
     ``instruction_like``/``instruction_hits`` are the ingest scan's verdict
-    (``services/compile_guard.scan_source_instruction_like``). Stored rather than
-    re-derived on read so the SOURCES pane does not pull every source's text.
+    (``services/compile_guard.scan_source_instruction_like``), kept on the row as
+    the record of what the scan that ran at ingest said. They are not the verdict
+    a reader sees: ``list_substrate_for_project`` re-runs the scan on read, since
+    the phrase set changes and a stored verdict can outlive it.
     """
     with db_scope() as db:
         init_db(db)
@@ -187,10 +189,18 @@ def upsert_substrate_entry(
 
 
 def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> list[dict[str, Any]]:
-    """List vault entries for a project (no extracted_text — keep the list light).
+    """List vault entries for a project (``extracted_text`` only when asked).
 
-    Carries the ingest scan's flag and its matched phrases, so the SOURCES pane
-    can label an instruction-like source without pulling its text.
+    ``instruction_like``/``instruction_hits`` are the ingest scan **re-run on
+    read**, not the columns as written. The columns are the record of the scan
+    that ran at ingest and that scan is not stable: the phrase set changes when a
+    phrase turns out to flag ordinary policy prose. Measured on the deployed box,
+    ``sub-c52ef4b8e63e45aa`` (brim-cp-media371.pdf) carries ``instruction_like=1``
+    with hits ``['you must']`` while its text scans clean under the shipped
+    ``FLAG_PHRASES`` — the row kept a verdict no code would reach again, and both
+    the SOURCES pane and the export's source manifest reported it. The text is
+    read in order to scan it either way; it is put in the entry only when
+    ``with_text`` is set, so the payload is as light as it was.
 
     ``fetched_url`` is the retrieval path's tag, read back off the row's label
     (``lib/source_labels.py``): the host when the source was fetched from the web,
@@ -201,16 +211,17 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
     ``with_text`` pulls ``extracted_text`` too, for the one caller that matches
     against it (the anchoring gate re-run after a fetch).
     """
+    try:
+        from ..services.compile_guard import flag_fields
+    except ImportError:
+        from services.compile_guard import flag_fields
+
     init_db()
     db = get_db()
-    cols = {r[1] for r in db.execute("PRAGMA table_info(substrate_vault)").fetchall()}
-    has_flag = "instruction_like" in cols and "instruction_hits" in cols
-    flag_expr = "instruction_like, instruction_hits" if has_flag else "0, '[]'"
-    text_expr = "extracted_text" if with_text else "''"
     rows = db.execute(
-        f"""
+        """
         SELECT id, filename, page_count, file_size_bytes, included, created_at,
-               {flag_expr}, {text_expr}
+               extracted_text
         FROM substrate_vault
         WHERE project_id = ?
         ORDER BY created_at DESC
@@ -219,23 +230,21 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
     ).fetchall()
     entries: list[dict[str, Any]] = []
     for row in rows:
-        try:
-            hits = json.loads(row[7] or "[]")
-        except (TypeError, ValueError):
-            hits = []
+        text = row[6] or ""
+        flag = flag_fields(text)
         entry = {
             "id": row[0],
-                "filename": row[1],
-                "page_count": int(row[2] or 1),
-                "file_size_bytes": int(row[3] or 0),
-                "included": bool(row[4]),
-                "created_at": row[5],
-                "instruction_like": bool(row[6]),
-                "instruction_hits": hits if isinstance(hits, list) else [],
-                "fetched_url": fetched_url_of(row[1]),
-            }
+            "filename": row[1],
+            "page_count": int(row[2] or 1),
+            "file_size_bytes": int(row[3] or 0),
+            "included": bool(row[4]),
+            "created_at": row[5],
+            "instruction_like": bool(flag["instruction_like"]),
+            "instruction_hits": list(flag["instruction_hits"]),
+            "fetched_url": fetched_url_of(row[1]),
+        }
         if with_text:
-            entry["extracted_text"] = row[8] or ""
+            entry["extracted_text"] = text
         entries.append(entry)
     return entries
 
