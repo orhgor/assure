@@ -109,6 +109,9 @@ one of them.
 "$100 billion" is 100000000000, "40 million" is 40000000, "5,000" is 5000, \
 "1.2 million" is 1200000. Never write "100 billion" as 100000000. "unit" is \
 USD, %, count, ratio or other — never a magnitude word.
+8. When two locked names differ only by their subject — two policies, two periods, \
+two scenarios — use the one the sentence's own words name. A sentence about the \
+prior policy is not checked against the renewal policy's value.
 """
 #: The prompt with its placeholders filled, for the fingerprint below — the
 #: fingerprint must cover the text actually sent, not the template.

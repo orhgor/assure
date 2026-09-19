@@ -22,6 +22,10 @@ Deciding rule, in order:
    source facts. **No locked fact means no verdict**: the result is UNKNOWN with
    the reason, never a pass. A check that did not happen is never reported as
    passing, which is the same intent ``verify_locks`` already pins for Tier 1.
+   The lookup is by name, so a name that two locked values answer to — two
+   policies on one project both lock ``minimum earned premium`` — is a name no
+   verdict can rest on: ``facts_from_locks`` leaves it out, and the verdict says
+   which locks it could have meant instead of deciding against one of them.
 3. With the fact pinned to the locked value, both assertions are put to Z3 as
    separate queries, so the verdict names which one the source refutes:
    * **value** — is ``v ≠ claimed`` satisfiable? The locked value is the only
@@ -59,7 +63,7 @@ from __future__ import annotations
 import logging
 import math
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from z3 import Not, Real, Solver, sat, unknown
 
@@ -187,15 +191,32 @@ def normalize_name(name: Any) -> str:
     return _NON_NAME_RE.sub("_", str(name or "").strip().lower()).strip("_")
 
 
+def _lock_names(lock: dict[str, Any]) -> list[str]:
+    """Every name a lock answers to, normalized: canonical key, metric, entity."""
+    names: list[str] = []
+    for raw in (lock.get("canonical_key"), lock.get("metric"), lock.get("entity")):
+        key = normalize_name(raw)
+        if key:
+            names.append(key)
+    return names
+
+
 def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
     """``{normalized name: value}`` — the locked source values, both names a lock carries.
 
     A lock records ``canonical_key`` and often a shorter ``metric`` alias
     (``Revenue`` / ``ARR``); either may be the name a claim uses, so both are
-    registered. Unparsable values are skipped — an unusable lock is the
-    inference's problem, not a fact.
+    registered — but only while every lock that carries a name agrees on the
+    value. Two policies on one project both lock ``minimum earned premium``, with
+    their own figures, and the first-wins alias that used to resolve one of them
+    decided a claim about the prior policy against the renewal policy's 35%: a
+    violation the draft does not have, reported as a finding about the source. A
+    name two locks disagree about is left out of this map and reported by
+    ``ambiguous_fact_names`` instead, so the verdict is unchecked with a reason
+    rather than decided against the wrong source. Unparsable values are skipped —
+    an unusable lock is the inference's problem, not a fact.
     """
-    facts: dict[str, float] = {}
+    values: dict[str, set[float]] = {}
     for lock in locks or []:
         if not isinstance(lock, dict):
             continue
@@ -203,11 +224,36 @@ def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
             value = float(lock.get("value"))
         except (TypeError, ValueError):
             continue
-        for raw in (lock.get("canonical_key"), lock.get("metric"), lock.get("entity")):
-            key = normalize_name(raw)
-            if key:
-                facts.setdefault(key, value)
-    return facts
+        for key in _lock_names(lock):
+            values.setdefault(key, set()).add(value)
+    return {name: next(iter(found)) for name, found in values.items() if len(found) == 1}
+
+
+def ambiguous_fact_names(locks: Iterable[dict[str, Any]]) -> dict[str, list[str]]:
+    """``{name: [canonical key]}`` for every name the locks disagree about.
+
+    The lookup is by name, so a name that two locked values answer to is a name no
+    verdict can rest on. This is what a verdict says instead of resolving it: the
+    claim is unchecked, and the reader is told which locks the name could have
+    meant.
+    """
+    found: dict[str, dict[float, set[str]]] = {}
+    for lock in locks or []:
+        if not isinstance(lock, dict):
+            continue
+        try:
+            value = float(lock.get("value"))
+        except (TypeError, ValueError):
+            continue
+        key = str(lock.get("canonical_key") or lock.get("metric") or "").strip()
+        for name in _lock_names(lock):
+            found.setdefault(name, {}).setdefault(value, set()).add(key or name)
+    return {
+        name: sorted({key for keys in by_value.values() for key in keys})
+        for name, by_value in found.items()
+        if len(by_value) > 1
+    }
+
 
 
 def _decimal(text: str) -> float:
@@ -327,11 +373,25 @@ def _safe_symbol(name: str) -> str:
     return normalize_name(name) or "operand"
 
 
+def _ambiguous_choices(
+    ambiguous: Mapping[str, list[str]] | None, operand_name: str, metric: str
+) -> list[str]:
+    """The locked keys a claim's name could mean, when the locks disagree about it."""
+    if not ambiguous:
+        return []
+    for raw in (operand_name, metric):
+        name = normalize_name(raw)
+        if name and name in ambiguous:
+            return list(ambiguous[name])
+    return []
+
+
 def check_relation(
     claim: dict[str, Any],
     facts: dict[str, float],
     *,
     timeout_ms: int = DEFAULT_TIMEOUT_MS,
+    ambiguous: Mapping[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Decide one translated claim against ``facts``. Never raises.
 
@@ -363,6 +423,15 @@ def check_relation(
     if source is None and metric:
         source = facts.get(normalize_name(metric))
     if source is None:
+        choices = _ambiguous_choices(ambiguous, operand_name, metric)
+        if choices:
+            return _verdict(
+                UNKNOWN,
+                f"{operand_name or metric or '(unnamed operand)'} names "
+                f"{len(choices)} locked metrics with different values "
+                f"({', '.join(choices[:3])}) — the claim does not say which source it "
+                f"means, so it is left unchecked rather than decided against the wrong one",
+            )
         return _verdict(
             UNKNOWN,
             f"no locked source value for {operand_name or '(unnamed operand)'}"
@@ -512,6 +581,7 @@ __all__ = [
     "VERIFIED",
     "VIOLATED",
     "Z3_PINNED_VERSION",
+    "ambiguous_fact_names",
     "check_relation",
     "facts_from_locks",
     "normalize_name",

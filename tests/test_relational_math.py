@@ -17,6 +17,7 @@ different assertion. See the report note on ``test_draft.py``'s skipif marker.
 
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -48,6 +49,49 @@ def test_facts_from_locks_registers_every_name_a_lock_carries():
     assert FACTS[rz.normalize_name("Churn Rate")] == 0.04
     # An unusable lock is skipped, not carried as a fact of zero.
     assert "broken" not in rz.facts_from_locks([{"canonical_key": "Broken", "value": "n/a"}])
+
+
+#: Two policies of the same kind on one project, as the extraction writes them: the
+#: canonical key carries the entity, and the short metric name is registered beside
+#: it. Real values from project walk-underwriting-2026-09-19-68e596's ledger, whose
+#: two `minimum earned premium` locks read 25 (Hallmark) and 35 (Texas).
+TWO_POLICIES = [
+    {
+        "canonical_key": "Hallmark_Specialty_Insurance_Company_minimum_earned_premium",
+        "metric": "minimum earned premium",
+        "entity": "Hallmark Specialty Insurance Company",
+        "value": 25.0,
+    },
+    {
+        "canonical_key": "Texas_Insurance_Company_minimum_earned_premium",
+        "metric": "minimum earned premium",
+        "entity": "Texas Insurance Company",
+        "value": 35.0,
+    },
+]
+
+
+def test_a_name_two_locks_disagree_about_is_not_a_fact():
+    """A name two sources carry is a name no verdict can rest on."""
+    facts = rz.facts_from_locks(TWO_POLICIES)
+    assert "minimum_earned_premium" not in facts
+    assert facts[rz.normalize_name("Texas_Insurance_Company_minimum_earned_premium")] == 35.0
+    assert (
+        facts[rz.normalize_name("Hallmark_Specialty_Insurance_Company_minimum_earned_premium")]
+        == 25.0
+    )
+    assert rz.ambiguous_fact_names(TWO_POLICIES)["minimum_earned_premium"] == [
+        "Hallmark_Specialty_Insurance_Company_minimum_earned_premium",
+        "Texas_Insurance_Company_minimum_earned_premium",
+    ]
+
+    # An alias every lock agrees about is still a fact, and still resolves.
+    agreed = [
+        {"canonical_key": "Policy_A_churn", "metric": "churn", "value": 0.04},
+        {"canonical_key": "Policy_B_churn_rate", "metric": "churn", "value": 0.04},
+    ]
+    assert rz.facts_from_locks(agreed)["churn"] == 0.04
+    assert rz.ambiguous_fact_names(agreed) == {}
 
 
 def test_parse_claim_rejects_what_a_verdict_could_not_rest_on():
@@ -256,6 +300,75 @@ def test_a_scale_the_sentence_itself_states_is_still_a_violation():
     }
     assert rz.check_relation(plain, {"deductible": 7_000_000.0})["verdict"] == rz.VIOLATED
     assert rz.check_relation(plain, {"deductible": 5_000_000.0})["verdict"] == rz.VERIFIED
+
+
+@z3_skip
+def test_a_metric_two_sources_carry_is_decided_against_the_source_the_claim_names():
+    """The claim's own source decides it, never the extraction order.
+
+    Measured on the renewal memo: a claim about the prior policy's 25% minimum
+    earned premium was decided against the renewal policy's locked 35% — "draft
+    claims 25 %, locked source value is 35 %" — because the shared `minimum earned
+    premium` alias resolved to whichever lock the extraction wrote first. The same
+    claim with the locks in the other order was VERIFIED. A verdict that turns on
+    the order of a list is not a finding about the draft.
+    """
+    facts = rz.facts_from_locks(TWO_POLICIES)
+    ambiguous = rz.ambiguous_fact_names(TWO_POLICIES)
+
+    named = {
+        "metric": "minimum earned premium",
+        "operands": [
+            {
+                "name": "Texas_Insurance_Company_minimum_earned_premium",
+                "value": 35.0,
+                "unit": "%",
+                "source_sentence": (
+                    "The policy issued by Texas Insurance Company has a minimum earned "
+                    "premium of 35.00%."
+                ),
+            }
+        ],
+        "relation": "eq",
+        "expected": 35.0,
+    }
+    # The claim naming its own source resolves to that source's figure, either way
+    # the extraction happens to order its locks.
+    assert rz.check_relation(named, facts, ambiguous=ambiguous)["verdict"] == rz.VERIFIED
+
+    alias = json.loads(json.dumps(named))
+    alias["operands"][0]["name"] = "minimum earned premium"
+    alias["operands"][0]["value"] = 25.0
+    alias["expected"] = 25.0
+    alias["operands"][0]["source_sentence"] = (
+        "The prior policy’s minimum earned premium is 25.00% of the total premium."
+    )
+    verdict = rz.check_relation(alias, facts, ambiguous=ambiguous)
+    assert verdict["verdict"] == rz.UNKNOWN
+    assert "names 2 locked metrics with different values" in verdict["reason"]
+    assert "Texas_Insurance_Company_minimum_earned_premium" in verdict["reason"]
+    assert verdict["counterexample"] is None
+
+    # Through the tier: unchecked, not a violation, and the reader is told why.
+    result = verify_locks(
+        [
+            {
+                "canonical_key": "Hallmark_Specialty_Insurance_Company_minimum_earned_premium",
+                "metric": "minimum earned premium",
+                "value": 25.0,
+            },
+            {
+                "canonical_key": "Texas_Insurance_Company_minimum_earned_premium",
+                "metric": "minimum earned premium",
+                "value": 35.0,
+            },
+        ],
+        "This is a change from the prior policy, which had a minimum earned premium of 25.00%.",
+        translate=_translator(alias),
+    )
+    assert result["violated"] == 0
+    assert result["violations"] == []
+    assert result["unverified"] == 1
 
 
 @z3_skip
