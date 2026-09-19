@@ -755,9 +755,9 @@
     function handleSourceFile(file) {
       if (!file) return;
       var name = file.name || "source.txt";
-      if (!/\.(txt|md)$/i.test(name)) {
+      if (!/\.(pdf|txt|md|csv|json)$/i.test(name)) {
         sourceUploadError(
-          "Only .txt or .md are supported in this shell. PDF and DOCX need Textract, which is not wired locally."
+          "Only .pdf, .txt, .md, .csv and .json are accepted here. DOCX is not wired."
         );
         var fi = document.getElementById("source-file-input");
         if (fi) fi.value = "";
