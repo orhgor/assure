@@ -2022,14 +2022,10 @@ ES = {
     "landing.cta.sub": "Ingeniería documental respaldada por certeza matemática.",
     "landing.cta.btn": "Abrir espacio Assure",
     "landing.social_proof": "Usado por analistas, investigadores e ingenieros en instituciones de alta consecuencia.",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — El Motor de Verdad Determinista",
-=======
     "landing.footer.copy": "Assure — El Compilador Intelectual — Compila intención. Verifica lógica. Entrega verdad.",
     "landing.disclaimer.title": "Una nota sobre la verificación",
     "landing.disclaimer.body": "Assure compila y verifica documentos para que envíes con un rastro. Los resultados no son asesoramiento legal, financiero ni profesional. La revisión humana es obligatoria antes de confiar en cualquier documento.",
     "landing.disclaimer.link": "Leer las condiciones de uso",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "stream.reconnect": "Conexión interrumpida — reintentando…",
     "context": "Contexto extra (opcional)",
     "file": "Adjuntar un archivo (opcional)",
@@ -3583,14 +3579,10 @@ ZH = {
     "landing.cta.sub": "以数学确定性为支撑的文档工程。",
     "landing.cta.btn": "启动 Assure 工作台",
     "landing.social_proof": "被高风险机构的分析师、研究人员和工程师使用。",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — 确定性真相引擎",
-=======
     "landing.footer.copy": "Assure — 智能编译器 — 编译意图。验证逻辑。交付真相。",
     "landing.disclaimer.title": "关于核验的说明",
     "landing.disclaimer.body": "Assure 汇编并核验文档，让你带着轨迹交付。输出不是法律、财务或专业意见。在依赖任何文档之前必须人工审阅。",
     "landing.disclaimer.link": "阅读使用条款",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "stream.reconnect": "连接中断 — 正在重试…",
     "context": "额外说明（可选）",
     "file": "附加文件（可选）",
@@ -5152,14 +5144,10 @@ FR = {
     "landing.cta.sub": "Ingénierie documentaire fondée sur la certitude mathématique.",
     "landing.cta.btn": "Lancer l'espace Assure",
     "landing.social_proof": "Utilisé par analystes, chercheurs et ingénieurs dans des institutions à haute conséquence.",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — Le Moteur de Vérité Déterministe",
-=======
     "landing.footer.copy": "Assure — Le Compilateur Intellectuel — Compilez l'intention. Vérifiez la logique. Livrez la vérité.",
     "landing.disclaimer.title": "Une note sur la vérification",
     "landing.disclaimer.body": "Assure compile et vérifie des documents pour que vous envoyiez avec une trace. Les résultats ne sont pas un avis juridique, financier ou professionnel. Une revue humaine est obligatoire avant de vous fier à un document.",
     "landing.disclaimer.link": "Lire les conditions d'utilisation",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "settings.show_citations": "Inclure la section Références dans l'export DOCX",
     "arch.back": "← Retour à",
     "arch.hero.eyebrow": "Comment ça marche",
@@ -6711,14 +6699,10 @@ DE = {
     "landing.cta.sub": "Dokumentenengineering mit mathematischer Sicherheit.",
     "landing.cta.btn": "Assure-Arbeitsbereich starten",
     "landing.social_proof": "Genutzt von Analysten, Forschern und Ingenieuren in hochriskanten Institutionen.",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — Die Deterministische Wahrheits-Engine",
-=======
     "landing.footer.copy": "Assure — Der Intellektuelle Compiler — Absicht kompilieren. Logik prüfen. Wahrheit liefern.",
     "landing.disclaimer.title": "Ein Hinweis zur Prüfung",
     "landing.disclaimer.body": "Assure kompiliert und prüft Dokumente, damit Sie mit einer Spur ausliefern. Ausgaben sind keine Rechts-, Finanz- oder Fachberatung. Vor dem Verlassen auf ein Dokument ist eine menschliche Prüfung Pflicht.",
     "landing.disclaimer.link": "Nutzungsbedingungen lesen",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "stream.reconnect": "Verbindung unterbrochen — erneuter Versuch…",
     "context": "Zusätzlicher Kontext (optional)",
     "file": "Datei anhängen (optional)",
@@ -8279,14 +8263,10 @@ JA = {
     "landing.cta.sub": "数学的確実性に基づくドキュメントエンジニアリング。",
     "landing.cta.btn": "Assure ワークスペースを起動",
     "landing.social_proof": "高リスク機関の分析官、研究者、エンジニアが利用。",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — 決定論的真実エンジン",
-=======
     "landing.footer.copy": "Assure — インテレクチュアル・コンパイラー — 意図をコンパイル。論理を検証。真実を届ける。",
     "landing.disclaimer.title": "検証についての注記",
     "landing.disclaimer.body": "Assure は文書を編纂し検証し、軌跡付きで出荷できるようにする。出力は法律、財務、専門的助言ではない。文書に依拠する前に人による確認は必須である。",
     "landing.disclaimer.link": "利用条件を読む",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "stream.reconnect": "接続が切れました — 再試行中…",
     "context": "追加の文脈（任意）",
     "file": "ファイルを添付（任意）",
@@ -9894,14 +9874,10 @@ TR = {
     "landing.cta.sub": "Matematiksel kesinlikle desteklenen belge mühendisliği.",
     "landing.cta.btn": "Assure çalışma alanını aç",
     "landing.social_proof": "Yüksek sonuçlu kurumlarda analist, araştırmacı ve mühendisler tarafından kullanılır.",
-<<<<<<< HEAD
-    "landing.footer.copy": "Assure — Deterministik Gerçek Motoru",
-=======
     "landing.footer.copy": "Assure — Yapay zeka tahmin eder. Assure kanıtlar. — Bilgiyi derleyin. Mantığı doğrulayın. Gerçeği teslim edin.",
     "landing.disclaimer.title": "Doğrulama üzerine bir not",
     "landing.disclaimer.body": "Assure belgeleri derler ve doğrular ki izle birlikte gönderebilesin. Çıktılar hukuki, mali veya mesleki tavsiye değildir. Herhangi bir belgeye güvenmeden önce insan incelemesi zorunludur.",
     "landing.disclaimer.link": "Kullanım koşullarını oku",
->>>>>>> 23a2ad5 (chore: commit all staging changes)
     "stream.reconnect": "Bağlantı koptu — yeniden deneniyor…",
     "context": "Ek bağlam (isteğe bağlı)",
     "context.placeholder": "Notlar, veya ./src/app.py gibi bir dosya yolu",
