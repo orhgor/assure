@@ -261,8 +261,13 @@ class DraftCancelledError(Exception):
     """Raised when the client disconnects or aborts the stream."""
 
 
-SUBSTRATE_CONTEXT_CHARS_PER_FILE = 4000
-SUBSTRATE_CONTEXT_CHARS_TOTAL = 16000
+# The grounding budget. The deployed drafting model is
+# openrouter/qwen/qwen3-next-80b-a3b-instruct with a 262K-token context; a
+# 200,000-character source is roughly 50K tokens, so a real 30-page commercial
+# property policy fits in one pass. A source beyond the cap is refused by name
+# rather than truncated. (Was 4000/16000, which refused every real policy.)
+SUBSTRATE_CONTEXT_CHARS_PER_FILE = 200_000
+SUBSTRATE_CONTEXT_CHARS_TOTAL = 400_000
 
 
 class DraftPayload(BaseModel):
