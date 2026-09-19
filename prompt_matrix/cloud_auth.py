@@ -276,6 +276,7 @@ def protect_request():
     if path.startswith("/static/") or path.startswith("/workbench/"):
         return None
     if path in PUBLIC_HTML or path in PUBLIC_API:
+        return None
     if loopback_api_bypass():
         return None
     if current_user_id():
