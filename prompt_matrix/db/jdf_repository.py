@@ -251,56 +251,95 @@ def save_jdf_revision(
         except Exception:
             change_summary = None
 
-    row = db.execute(
-        "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
-        (project_id,),
-    ).fetchone()
-    current_version = int(row[0] or 0)
-    if expected_version is not None and current_version != int(expected_version):
-        raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
-    next_version = current_version + 1
     revision_id = f"rev-{uuid.uuid4().hex[:16]}"
     truth = json.dumps(tree.get("truth_ledger") or {})
+    #: Assigned inside ``_persist_revision``, under the write lock. Read after the
+    #: call for the node snapshot and the return value.
+    next_version = 0
 
     def _persist_revision() -> None:
-        db.execute(
-            """
-            UPDATE projects
-            SET current_version = ?, updated_at = datetime('now')
-            WHERE id = ?
-            """,
-            (next_version, project_id),
-        )
-        db.execute(
-            """
-            INSERT INTO jdf_revisions (
-                id, project_id, version, jdf_tree, truth_ledger,
-                mutation_type, target_node_id, change_summary
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                revision_id,
-                project_id,
-                next_version,
-                json.dumps(tree),
-                truth,
-                mutation_type,
-                target_node_id,
-                change_summary,
-            ),
-        )
-        db.execute(
-            """
-            INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
-            VALUES (?, ?, ?, datetime('now'))
-            ON CONFLICT(project_id) DO UPDATE SET
-                document_id = excluded.document_id,
-                tree_json = excluded.tree_json,
-                updated_at = datetime('now')
-            """,
-            (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
-        )
-        db.commit()
+        """Assign this revision's version and write it, as one transaction.
+
+        ``UNIQUE (project_id, version)`` makes the version a lock that the read and
+        the write have to share, and they did not: ``SELECT MAX(version)`` ran
+        outside the closure, so two compiles whose persists landed in the same
+        instant both read the same maximum and both tried to insert the same
+        version. Measured with a write lock held by a second connection (the window,
+        forced open) and eight callers: seven raised ``database is locked`` and one
+        raised ``UNIQUE constraint failed: jdf_revisions.project_id,
+        jdf_revisions.version`` — and three rows appeared anyway, because a retry
+        after a failed commit re-ran the INSERT against the still-open transaction
+        and wrote a second revision. The invariant is that two concurrent compiles
+        both persist and neither raises.
+
+        So the first statement here is a write: SQLite takes the write lock on it,
+        which is what makes the ``MAX(version)`` below and the INSERT that uses it
+        one transaction. A retried attempt re-reads against the state that actually
+        exists instead of reusing a stale maximum, and the rollback keeps a failed
+        attempt from leaving a row behind for the next one to duplicate.
+        """
+        nonlocal next_version
+        try:
+            db.execute(
+                "UPDATE projects SET updated_at = datetime('now') WHERE id = ?",
+                (project_id,),
+            )
+            current_version = int(
+                db.execute(
+                    "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()[0]
+                or 0
+            )
+            if expected_version is not None and current_version != int(expected_version):
+                # Roll back first: the conflict payload reads the database through
+                # init_db, and a PRAGMA cannot run inside the transaction this
+                # statement just opened.
+                db.rollback()
+                raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
+            next_version = current_version + 1
+            db.execute(
+                """
+                INSERT INTO jdf_revisions (
+                    id, project_id, version, jdf_tree, truth_ledger,
+                    mutation_type, target_node_id, change_summary
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    revision_id,
+                    project_id,
+                    next_version,
+                    json.dumps(tree),
+                    truth,
+                    mutation_type,
+                    target_node_id,
+                    change_summary,
+                ),
+            )
+            db.execute(
+                """
+                UPDATE projects
+                SET current_version = ?, updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                (next_version, project_id),
+            )
+            db.execute(
+                """
+                INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
+                VALUES (?, ?, ?, datetime('now'))
+                ON CONFLICT(project_id) DO UPDATE SET
+                    document_id = excluded.document_id,
+                    tree_json = excluded.tree_json,
+                    updated_at = datetime('now')
+                """,
+                (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
+            )
+            db.commit()
+        except Exception:
+            # A retry must start from the state this attempt did not change.
+            db.rollback()
+            raise
 
     try:
         from .connection import execute_write_with_retry
