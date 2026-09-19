@@ -34,7 +34,11 @@ What a reader needs beyond the tree, and could not get from the PDF:
   its own nodes (``annotations.redhat``) and the project's persisted
   ``redhat_findings`` rows. ``ran`` separates a pass that found nothing from a pass
   that never happened, which the PDF's old "No Red-Hat critiques recorded." line
-  could not.
+  could not;
+* ``compiled_prompt`` — the hash of the compiled prompt that produced the draft
+  (``projects.last_compiled_json.gate.measure``), never the prompt text: the shell
+  holds the text for the session and does not persist it. A project whose compile
+  predates the hash reports it absent with the reason.
 
 ``GET /api/projects/<id>/export?format=jdf`` serves this file; ``POST
 /api/projects/<id>/import-jdf`` loads it into a fresh project and answers with
@@ -417,6 +421,39 @@ def resolve_drafting_model(project_id: str) -> dict[str, Any]:
     }
 
 
+def resolve_compiled_prompt(project_id: str) -> dict[str, Any]:
+    """The compiled prompt's hash, and where it came from.
+
+    The prompt text is not persisted: the shell holds it for the session
+    (``shell.js``) and the compile stores only this hash beside its gate
+    (``projects.last_compiled_json.gate.measure``, written by ``routers/draft.py``).
+    The hash is what lets a reader who holds the prompt confirm it is the one
+    behind this document without the export carrying the text. A document
+    compiled before the hash was recorded reports it absent with the reason rather
+    than a guess.
+    """
+    measure = _gate_measure(project_id) or {}
+    digest = str(measure.get("prompt_sha256") or "").strip()
+    if digest:
+        chars = measure.get("prompt_chars")
+        return {
+            "sha256": digest,
+            "chars": int(chars) if isinstance(chars, (int, float)) else None,
+            "covers": "the compiled prompt sent as the model's user turn (system instruction excluded)",
+            "source": "projects.last_compiled_json.gate.measure",
+        }
+    return {
+        "sha256": None,
+        "chars": None,
+        "covers": "",
+        "source": "",
+        "reason": (
+            "No compile recorded a prompt hash for this project; the compiled prompt "
+            "is not persisted, so the export can only name its absence."
+        ),
+    }
+
+
 def _gate_measure(project_id: str) -> dict[str, Any] | None:
     try:
         from ..db.connection import init_db
@@ -500,6 +537,7 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
         "source_manifest": build_source_manifest(project_id),
         "version_chain": chain,
         "drafting_model": resolve_drafting_model(project_id),
+        "compiled_prompt": resolve_compiled_prompt(project_id),
         "redhat_findings": {
             "count": redhat["count"],
             "ran": redhat["ran"],

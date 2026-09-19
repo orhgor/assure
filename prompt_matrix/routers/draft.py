@@ -553,6 +553,22 @@ def _draft_messages(intent: str, context: str | None, system_prompt: str) -> lis
     ]
 
 
+def _compiled_prompt_text(messages: list[dict[str, Any]]) -> str:
+    """The user turns of a compile call, in order — the compiled prompt.
+
+    The system turn is excluded on purpose: it is the pipeline's own instruction,
+    not what the reader saw or can re-hash, and the language guard rewrites it per
+    request. What is hashed for the export is the text the compiled prompt is made
+    of — the intent and the labelled source material — so a reader holding the
+    prompt can recompute the hash in one step.
+    """
+    return "\n\n".join(
+        str(msg.get("content") or "")
+        for msg in messages
+        if str(msg.get("role") or "").lower() == "user"
+    )
+
+
 def _numbered_source_blocks(
     substrate_rows: list[dict[str, Any]],
 ) -> list[tuple[str, list[tuple[str, str, str, Any]]]]:
@@ -1389,6 +1405,19 @@ def _stream_model(
             "output_tokens": getattr(_usage, "completion_tokens", None) if _usage else None,
             "cache_read": getattr(_usage, "cache_read_input_tokens", 0) if _usage else 0,
             "duration_ms": int((time.time() - _measure_t0) * 1000),
+            # The compiled prompt's identity. The prompt itself is not persisted —
+            # the shell holds it for the session — so the export cannot carry it,
+            # and a reader who has it can still confirm it is the one behind this
+            # document: the hash covers the user turns sent, which is the text the
+            # compiled prompt is made of (`_compiled_prompt_text`; the system turn
+            # is the pipeline's own and the language guard rewrites it per
+            # request). Without it the sidecar's `compiled_prompt` block had
+            # nothing to report and the export could not back the claim that the
+            # compiled prompt is part of what the reader takes away.
+            "prompt_sha256": hashlib.sha256(
+                _compiled_prompt_text(guarded).encode("utf-8")
+            ).hexdigest(),
+            "prompt_chars": len(_compiled_prompt_text(guarded)),
         }
         _measure["usd"] = compute_usd(
             model,
