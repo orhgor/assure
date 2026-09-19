@@ -40,6 +40,9 @@
   --hover-wash:  color-mix(in srgb, var(--ink) 5%, transparent);
   --soft-wash:   color-mix(in srgb, var(--ink) 3%, transparent);
   --focus-ring:  0 0 0 2px color-mix(in srgb, var(--ink) 22%, transparent);
+  /* The locator's landing wash (shell.js:_markLocated): the same hue the rule
+     beside it is drawn in, faint enough to sit under body text. */
+  --contradicted-wash: color-mix(in srgb, var(--contradicted) 10%, transparent);
 
   /* type scale (Phase B) — document is serif, chrome is sans, data is mono */
   --fs-h1: 24px;   /* document headings */
@@ -1876,11 +1879,34 @@ body.collapsed .pane-left {
   color: var(--ink);
 }
 
+/* The audit map (1B): a paragraph that carries a Red-Hat finding keeps the
+   `--contradicted` left rule at rest, so which paragraphs the audit touched is
+   visible with the pane shut. Same geometry as .is-selected below — the rule
+   takes the place of the margin, so the text never moves — and .is-selected
+   still wins the border, because that one is the reader's own selection while
+   this is the document's own annotation. */
+.jdf-node.has-finding {
+  border-left: 2px solid var(--contradicted);
+  margin-left: -4px;
+  padding-left: var(--space-3);
+}
+
 .jdf-node.is-selected {
   border-left: 2px solid var(--ink);
   background: var(--soft-wash);
   margin-left: -4px;
   padding-left: var(--space-3);
+}
+
+/* Where the locator lands (shell.js:_locateNode): the paragraph a finding
+   names, marked for 2.4 s. The wash is what makes the mark readable on exactly
+   the paragraphs the reader clicks — those already carry the at-rest rule, so
+   the rule alone would be a no-op. It outranks .is-selected because the click
+   writes a selection in the same turn. */
+.jdf-node.is-located,
+.jdf-node.is-located.is-selected {
+  border-left: 2px solid var(--contradicted);
+  background: var(--contradicted-wash);
 }
 
 .inspector-node-history {
