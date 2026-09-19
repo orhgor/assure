@@ -30,6 +30,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..keys import PROVIDER_PIN
     from ..models.jdf import (
+        _split_sentences,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
         attach_substrate_provenance_to_tree,
@@ -90,6 +91,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from keys import PROVIDER_PIN
     from models.jdf import (
+        _split_sentences,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
         attach_substrate_provenance_to_tree,
@@ -195,8 +197,31 @@ _FABRICATION_DIRECTIVES = (
     "Every number you write must appear in the source. Do not compute, "
     "aggregate, or derive a number the source does not state."
 )
+# The source reaches the model numbered, one sentence per line, as [S1] [S2] …
+# (see _build_substrate_context). Numbering it is only useful if the model cites
+# it, so the citation contract is stated here and enforced downstream: the
+# validator resolves each cited id against build_sentence_map and runs entailment
+# against the sentence, instead of searching the source for a lexical match the
+# way the matcher does. R2 measured the matcher's ceiling on a synthesis memo at
+# 1 of 4 anchored; a claim that names its own sentence does not have to be found.
+_CITATION_DIRECTIVES = (
+    "CITATIONS\n"
+    "Every factual claim must cite the source sentences it came from. Write the "
+    "citation inline, immediately after the claim, as bracketed ids:\n"
+    "The renewal carries a $5,000,000 excess layer [S4] provided by Texas "
+    "Insurance Company [S17].\n"
+    "A claim that cites nothing is a claim you are inventing — do not write it.\n"
+    "If a claim summarises or compares multiple sentences, cite all of them: "
+    "[S4][S17][S22].\n"
+    "Numbers you quote must come from a cited sentence. Do not aggregate figures "
+    "across sentences.\n"
+    "If the source does not state what the user asked for, say so plainly and "
+    "cite nothing."
+)
 _DRAFT_SYSTEM = (
     _FABRICATION_DIRECTIVES
+    + " "
+    + _CITATION_DIRECTIVES
     + " "
     + "You are Assure document engineering, grounded in the "
     "user's uploaded sources. No live internet, no invented "
@@ -507,27 +532,74 @@ def _draft_messages(intent: str, context: str | None, system_prompt: str) -> lis
     ]
 
 
+def build_sentence_map(substrate_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Number every source sentence so the model can cite it and the validator can
+    resolve it. The ids are assigned in document order, so the same rows always
+    produce the same ids: ``build_sentence_map`` is the single place the numbering
+    is defined, and ``_build_substrate_context`` writes the ``[S<N>]`` prefixes
+    from the same walk. A model that cites ``[S17]`` is citing the sentence this
+    function put at position 17, because both read the same splitter in the same
+    order.
+
+    Uses ``models.jdf._split_sentences`` — the matcher's splitter — so the
+    validator's fallback path and the citation path segment the source
+    identically.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    n = 1
+    for row in substrate_rows:
+        text = str(row.get("extracted_text") or "").strip()
+        if not text:
+            continue
+        filename = str(row.get("filename") or "substrate")
+        fallback_page = row.get("page_number") or row.get("page") or 1
+        for sent, page in _split_sentences(text):
+            clean = str(sent or "").strip()
+            if not clean:
+                continue
+            out[f"S{n}"] = {
+                "text": clean,
+                "filename": filename,
+                "page": page if page else fallback_page,
+            }
+            n += 1
+    return out
+
+
 def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
     """Concatenate selected Substrate Vault files (bounded) so the draft is
     actually grounded in them, not just told they exist.
 
-    A source the ingest scan flagged as instruction-like is wrapped in the
-    untrusted-data delimiter: it still reaches the model — the user's document is
-    the user's document — but as material to report, not orders to follow. Both
-    the compile and the cache key read this one function, so a flagged source
-    changes the prompt and the key together.
+    Sentences are numbered ``[S<N>]`` from the same walk ``build_sentence_map``
+    uses, so the model can cite what it was given. A source the ingest scan
+    flagged as instruction-like is wrapped in the untrusted-data delimiter: it
+    still reaches the model — the user's document is the user's document — but as
+    material to report, not orders to follow. Both the compile and the cache key
+    read this one function, so a flagged source changes the prompt and the key
+    together.
     """
     if not substrate_rows:
         return ""
     blocks: list[str] = []
     total = 0
+    n = 1
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "").strip()
         if not text:
             continue
-        if scan_source_instruction_like(text):
+        untrusted = scan_source_instruction_like(text)
+        if untrusted:
             text = wrap_untrusted_source(text)
-        excerpt = text[:SUBSTRATE_CONTEXT_CHARS_PER_FILE]
+        lines: list[str] = []
+        for sent, _page in _split_sentences(text):
+            clean = str(sent or "").strip()
+            if not clean:
+                continue
+            lines.append(f"[S{n}] {clean}")
+            n += 1
+        excerpt = "\n".join(lines)
+        if len(excerpt) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
+            excerpt = excerpt[:SUBSTRATE_CONTEXT_CHARS_PER_FILE]
         block = f"### Source file: {row.get('filename') or 'substrate'}\n{excerpt}"
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
             break
