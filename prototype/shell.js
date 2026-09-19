@@ -5615,10 +5615,9 @@
     }
 
     // §6: demoted — no longer a writer. renderEvidencePanel owns #right-evidence
-    // and clears it; this builds the drawer body into the pane it was given,
-    // which is why the "Ground with sources" action it appends now stays on
-    // screen instead of being wiped by the dispatcher's repaint in the same
-    // click.
+    // and clears it; this builds the drawer body into the pane it was given, so
+    // what it appends stays on screen instead of being wiped by the dispatcher's
+    // repaint in the same click.
     function renderEvidenceDrawer(ev) {
       if (!evidenceBodyEl) return;
       var header = document.createElement("div");
@@ -5704,6 +5703,384 @@
         }
       }
       evidenceBodyEl.appendChild(content);
+    }
+
+    // ---------------------------------------------------------------
+    // 2B — the unanchored drawer; 2C — the allowlisted fetch that can ground it.
+    //
+    // The unanchored state used to say "No source matched this paragraph" and
+    // stop. It now says four things: that the claim is not grounded in any
+    // uploaded source, what is missing (one sentence from the model), what would
+    // ground it (the document category), and the two ways to act on that — upload
+    // a document, or search the authoritative domains and fetch one page.
+    //
+    // Two rules this code keeps:
+    //   * a failed gap call shows the first line and the upload button, and
+    //     nothing else. No invented reason, no placeholder analysis.
+    //   * a fetched page is only ever *matched* against the claim. Nothing here
+    //     rewrites the paragraph, and nothing here paints it verified — the
+    //     anchoring gate on the server decides, and the counters report it.
+    // ---------------------------------------------------------------
+    var __gapToken = 0;
+    var __gapCache = {};          // nodeId -> analysis | null (null = it failed)
+    var __retrievalCards = {};    // nodeId -> the last card set for that node
+    var __fetchNotes = {};        // nodeId -> the last fetch's outcome line
+    var __retrievalBusy = false;
+
+    function _gapAnalysisFor(nodeId) {
+      if (Object.prototype.hasOwnProperty.call(__gapCache, nodeId)) {
+        return Promise.resolve(__gapCache[nodeId]);
+      }
+      return ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) +
+                          "/nodes/" + encodeURIComponent(nodeId) + "/gap-analysis", {});
+        })
+        .then(function (resp) { return resp.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          // The three lines or nothing: a payload missing one of them is treated
+          // as the failure it is, so a partial answer is never rendered.
+          var analysis = (j && j.ok && j.missing && j.grounded_by && j.search_query) ? j : null;
+          __gapCache[nodeId] = analysis;
+          return analysis;
+        })
+        .catch(function () {
+          __gapCache[nodeId] = null;
+          return null;
+        });
+    }
+
+    function _renderUnanchoredDrawer(node) {
+      var header = document.createElement("div");
+      header.className = "evidence-header gap-claim-header";
+      header.textContent = _t("gap.heading", "This claim is not grounded in any uploaded source.");
+      evidenceBodyEl.appendChild(header);
+      var content = document.createElement("div");
+      content.className = "evidence-content gap-content";
+      evidenceBodyEl.appendChild(content);
+
+      var token = ++__gapToken;
+      var nodeId = String((node && node.id) || "");
+      var status = document.createElement("p");
+      status.className = "evidence-value gap-status";
+      status.textContent = _t("gap.reading", "Reading why this claim is unanchored\u2026");
+      content.appendChild(status);
+
+      function stillHere() {
+        return token === __gapToken &&
+          String((SHELL.ui.selection || {}).nodeId || "") === nodeId;
+      }
+      function uploadButton() {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "evidence-action gap-upload";
+        btn.textContent = _t("gap.action.upload", "Upload a document instead");
+        btn.addEventListener("click", function () {
+          leftGroupSetTab("sources");
+          var input = document.getElementById("source-file-input");
+          if (input) input.click();
+        });
+        return btn;
+      }
+      function note() {
+        var stored = __fetchNotes[nodeId];
+        if (!stored) return null;
+        var el = document.createElement("p");
+        el.className = "evidence-value gap-fetch-note" + (stored.ok ? "" : " gap-error");
+        el.textContent = stored.text;
+        return el;
+      }
+
+      _gapAnalysisFor(nodeId).then(function (analysis) {
+        if (!stillHere()) return;
+        if (status.parentNode) status.parentNode.removeChild(status);
+        var actions = document.createElement("div");
+        actions.className = "gap-actions";
+        if (analysis) {
+          _renderGapLines(content, analysis);
+        }
+        var upload = uploadButton();
+        if (!analysis) {
+          // Failure path: the first line and the upload button. Nothing else,
+          // because a reason the model did not give is not a reason.
+          actions.appendChild(upload);
+          content.appendChild(actions);
+          var outcome = note();
+          if (outcome) content.appendChild(outcome);
+          return;
+        }
+        var searchBtn = document.createElement("button");
+        searchBtn.type = "button";
+        searchBtn.className = "evidence-action primary gap-search";
+        searchBtn.textContent = _t("gap.action.search", "Search authoritative sources");
+        searchBtn.addEventListener("click", function () {
+          _runAuthoritativeSearch(nodeId, analysis.search_query, content, searchBtn);
+        });
+        actions.appendChild(searchBtn);
+        actions.appendChild(upload);
+        content.appendChild(actions);
+        var stored = note();
+        if (stored) content.appendChild(stored);
+        if (__retrievalCards[nodeId]) {
+          _renderRetrievalCards(nodeId, __retrievalCards[nodeId], content);
+        }
+      });
+    }
+
+    // The model's three lines, labelled with the drawer's own questions. Nothing
+    // is paraphrased and nothing is added; the search query is shown as the text
+    // the search runs, so the reader can see what was asked on their behalf.
+    function _renderGapLines(content, analysis) {
+      function field(label, value, cls) {
+        var f = document.createElement("div");
+        f.className = "evidence-field gap-field" + (cls ? " " + cls : "");
+        var l = document.createElement("div");
+        l.className = "evidence-label";
+        l.textContent = label;
+        var v = document.createElement("div");
+        v.className = "evidence-value";
+        v.textContent = String(value || "");
+        f.appendChild(l);
+        f.appendChild(v);
+        content.appendChild(f);
+      }
+      field(_t("gap.field.missing", "What is missing"), analysis.missing);
+      field(_t("gap.field.grounded_by", "What would ground it"), analysis.grounded_by);
+      field(_t("gap.field.query", "Search query"), analysis.search_query, "gap-query");
+    }
+
+    function _runAuthoritativeSearch(nodeId, query, content, button) {
+      var label = _t("gap.action.search", "Search authoritative sources");
+      if (button) { button.disabled = true; button.textContent = _t("gap.action.searching", "Searching\u2026"); }
+      var results = content.querySelector(".gap-results");
+      if (!results) {
+        results = document.createElement("div");
+        results.className = "gap-results";
+        content.appendChild(results);
+      }
+      while (results.firstChild) results.removeChild(results.firstChild);
+      var pending = document.createElement("p");
+      pending.className = "empty-hint";
+      pending.textContent = _t("gap.search.running", "Searching the authoritative domains\u2026");
+      results.appendChild(pending);
+
+      function restore() {
+        if (button) { button.disabled = false; button.textContent = label; }
+      }
+      function fail(message) {
+        restore();
+        while (results.firstChild) results.removeChild(results.firstChild);
+        var err = document.createElement("p");
+        err.className = "evidence-value gap-error";
+        err.textContent = message;
+        results.appendChild(err);
+      }
+
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/search", { query: query });
+        })
+        .then(function (resp) {
+          return resp.json().catch(function () { return {}; })
+            .then(function (j) { return { status: resp.status, j: j || {} }; });
+        })
+        .then(function (r) {
+          restore();
+          if (!r.j || !r.j.ok) {
+            fail((r.j && r.j.error) || _tf("gap.search.refused",
+              "The search was refused (HTTP {status}).", { status: r.status }));
+            return;
+          }
+          __retrievalCards[nodeId] = r.j;
+          while (results.firstChild) results.removeChild(results.firstChild);
+          if (!r.j.cards || !r.j.cards.length) {
+            var none = document.createElement("p");
+            none.className = "empty-hint";
+            none.textContent = _t("gap.search.none", "No allowlisted source came back for this query.");
+            results.appendChild(none);
+            return;
+          }
+          _renderCardsInto(results, nodeId, r.j.cards);
+        })
+        .catch(function (err) {
+          fail(_tf("gap.search.failed", "The search failed: {error}",
+                 { error: String((err && err.message) || err) }));
+        });
+    }
+
+    // Three cards at most, the host named and never the full URL: the decision
+    // the reader is making is "is this an authority for this claim", and the host
+    // is what answers it. The URL travels only in the fetch request.
+    function _renderRetrievalCards(nodeId, result, content) {
+      var results = content.querySelector(".gap-results");
+      if (!results) {
+        results = document.createElement("div");
+        results.className = "gap-results";
+        content.appendChild(results);
+      }
+      _renderCardsInto(results, nodeId, result.cards || []);
+    }
+
+    function _renderCardsInto(host, nodeId, cards) {
+      cards.forEach(function (card) {
+        var el = document.createElement("div");
+        el.className = "gap-card";
+        el.setAttribute("data-host", String(card.host || ""));
+        var hostEl = document.createElement("div");
+        hostEl.className = "gap-card-host";
+        hostEl.textContent = String(card.host || "");
+        var titleEl = document.createElement("div");
+        titleEl.className = "gap-card-title";
+        titleEl.textContent = String(card.title || card.host || "");
+        var snipEl = document.createElement("div");
+        snipEl.className = "gap-card-snippet";
+        snipEl.textContent = String(card.snippet || "");
+        var row = document.createElement("div");
+        row.className = "gap-card-actions";
+        var fetchBtn = document.createElement("button");
+        fetchBtn.type = "button";
+        fetchBtn.className = "evidence-action primary gap-fetch";
+        fetchBtn.textContent = _t("gap.card.fetch", "Fetch and verify");
+        fetchBtn.addEventListener("click", function () {
+          _fetchAndVerify(nodeId, card, el, row);
+        });
+        var rejectBtn = document.createElement("button");
+        rejectBtn.type = "button";
+        rejectBtn.className = "evidence-action gap-reject";
+        rejectBtn.textContent = _t("gap.card.reject", "Reject");
+        rejectBtn.addEventListener("click", function () { _rejectResult(nodeId, card, el); });
+        row.appendChild(fetchBtn);
+        row.appendChild(rejectBtn);
+        el.appendChild(hostEl);
+        el.appendChild(titleEl);
+        el.appendChild(snipEl);
+        el.appendChild(row);
+        host.appendChild(el);
+      });
+    }
+
+    function _fetchAndVerify(nodeId, card, cardEl, row) {
+      if (__retrievalBusy) return;
+      __retrievalBusy = true;
+      var btns = cardEl.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+      var state = document.createElement("p");
+      state.className = "empty-hint gap-fetch-state";
+      state.textContent = _tf("gap.fetch.fetching", "Fetching {host}\u2026", { host: card.host });
+      cardEl.appendChild(state);
+
+      function release() {
+        __retrievalBusy = false;
+        for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+      }
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/fetch",
+                          { url: card.url, host: card.host, title: card.title });
+        })
+        .then(function (resp) {
+          return resp.json().catch(function () { return {}; })
+            .then(function (j) { return { status: resp.status, j: j || {} }; });
+        })
+        .then(function (r) {
+          release();
+          if (!r.j || !r.j.ok) {
+            var refused = (r.j && r.j.error) ||
+              _tf("gap.fetch.refused", "The fetch was refused (HTTP {status}).",
+                  { status: r.status });
+            state.className = "evidence-value gap-error";
+            state.textContent = refused;
+            __fetchNotes[nodeId] = { ok: false, text: refused };
+            return;
+          }
+          var j = r.j;
+          var host = String((j.source && j.source.fetched_url) || card.host || "");
+          var when = String((j.page && j.page.retrieved_on) || "");
+          var verdict = String((j.entailment && j.entailment.verdict) || "");
+          var outcome = !j.anchored
+            ? _t("gap.outcome.unanchored", "this page did not ground the claim")
+            : (verdict === "yes"
+              ? _t("gap.outcome.yes", "the claim now cites this page, and the source check verified it")
+              : (verdict === "partial"
+                ? _t("gap.outcome.partial", "the claim cites this page; the source supports it only in part")
+                : (verdict === "no"
+                  ? _t("gap.outcome.no", "the claim cites this page; the source check did not confirm it")
+                  : (verdict === "unverified"
+                    ? _t("gap.outcome.unverified", "the claim cites this page; the source check could not be made")
+                    : _t("gap.outcome.cited", "the claim now cites this page")))));
+          var retrieved = when
+            ? _tf("gap.fetch.retrieved", " (retrieved {when})", { when: when })
+            : "";
+          var text = _tf("gap.fetch.done", "Fetched: {host}{retrieved} \u00b7 {outcome}",
+                         { host: host, retrieved: retrieved, outcome: outcome });
+          if (j.page && j.page.instruction_like) {
+            // The same scan an upload gets, reported the same way: the page is a
+            // source to quote, and the reader is told it also contains
+            // instruction-like text.
+            text += _t("gap.fetch.instruction_like",
+              " \u00b7 contains instruction-like content (treated as data)");
+          }
+          __fetchNotes[nodeId] = { ok: true, text: text };
+          state.className = "evidence-value gap-fetch-note";
+          state.textContent = text;
+          // Adopt the server's tree: the gate ran there, and the counters have to
+          // report what it decided rather than what this pane hoped for.
+          _applyFetchedDocument(j.document, j.stats);
+        })
+        .catch(function (err) {
+          release();
+          var message = "The fetch failed: " + String((err && err.message) || err);
+          state.className = "evidence-value gap-error";
+          state.textContent = message;
+          __fetchNotes[nodeId] = { ok: false, text: message };
+        });
+    }
+
+    function _rejectResult(nodeId, card, cardEl) {
+      // A rejection is a decision about one card, not about the claim: the claim
+      // stays unanchored, the audit trail records who was offered it, and the
+      // search stays available.
+      __fetchNotes[nodeId] = { ok: true, text: _tf("gap.reject.note", "Rejected {host} \u00b7 logged", { host: card.host }) };
+      var stored = __retrievalCards[nodeId];
+      if (stored && stored.cards) {
+        stored.cards = stored.cards.filter(function (c) { return c.url !== card.url; });
+      }
+      if (cardEl && cardEl.parentNode) {
+        var results = cardEl.parentNode;
+        cardEl.parentNode.removeChild(cardEl);
+        // The card goes and the decision stays on screen: a rejected result that
+        // simply vanishes reads as a failed click.
+        var note = document.createElement("p");
+        note.className = "empty-hint gap-reject-note";
+        note.textContent = _tf("gap.reject.note", "Rejected {host} \u00b7 logged", { host: card.host });
+        results.appendChild(note);
+      }
+      ensureProjectId()
+        .then(function (pid) {
+          return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/nodes/" +
+                          encodeURIComponent(nodeId) + "/retrieval/reject",
+                          { url: card.url, host: card.host, title: card.title,
+                            reason: "rejected in the evidence drawer" });
+        })
+        .catch(function () { /* the local removal stands; the log is best effort */ });
+    }
+
+    // The fetch route returns the tree the gate just produced. Everything the
+    // document surface shows is re-derived from it — chips, counters, sources —
+    // so the pane cannot keep a state the server did not produce.
+    function _applyFetchedDocument(doc, stats) {
+      if (!doc || !Array.isArray(doc.body)) return;
+      setShell("document.mode", "ready");
+      setShell("document.current", doc);
+      renderJdfDocument(doc);
+      applyConfidenceSpans(doc);
+      applyAnchorStates(doc);
+      addEvidenceChips(doc);
+      _renderCounters(stats || null, _derivedCounts(doc));
+      _loadProjectSourceList(_sourceProjectId());
+      _applyRightView();
     }
 
     // renderEvidenceFooter and performGrounding are gone with the /ground path.
