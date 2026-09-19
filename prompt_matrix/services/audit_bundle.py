@@ -325,12 +325,10 @@ def _redhat_pass_recorded(project_id: str) -> bool:
     """
     try:
         from ..db.connection import init_db
-        from ..db.jdf_repository import list_jdf_revisions
         from ..db.redhat_telemetry_repository import fetch_telemetry
         from ..history import get_db
     except ImportError:
         from db.connection import init_db
-        from db.jdf_repository import list_jdf_revisions
         from db.redhat_telemetry_repository import fetch_telemetry
         from history import get_db
     try:
@@ -344,12 +342,12 @@ def _redhat_pass_recorded(project_id: str) -> bool:
         ).fetchone()
         if row is not None:
             return True
-        return any(
-            str(revision.get("mutation_type") or "") == "redhat_audit"
-            for revision in list_jdf_revisions(project_id, limit=_REDHAT_REVISION_SCAN)
-        )
     except Exception:
         return False
+    return any(
+        "redhat" in revision["mutation_type"].lower()
+        for revision in _redhat_revisions(project_id)
+    )
 
 
 def _redhat_skip_reason(project_id: str) -> str:
@@ -386,6 +384,33 @@ def _redhat_skip_reason(project_id: str) -> str:
 _REDHAT_REVISION_SCAN = 20
 
 
+def _redhat_revisions(project_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
+    """``(version, mutation_type)`` per revision, newest first — read-only.
+
+    ``list_jdf_revisions`` would do here and is what this mirrors, except that it
+    calls ``ensure_project``: rendering a dossier must not create the project it is
+    rendering, so the two readers below ask the table directly.
+    """
+    try:
+        from ..db.connection import init_db
+        from ..history import get_db
+    except ImportError:
+        from db.connection import init_db
+        from history import get_db
+    try:
+        init_db()
+        rows = get_db().execute(
+            "SELECT version, mutation_type FROM jdf_revisions WHERE project_id = ? "
+            "ORDER BY version DESC LIMIT ?",
+            (project_id, int(limit)),
+        ).fetchall()
+    except Exception:
+        return []
+    return [
+        {"version": int(row[0]), "mutation_type": str(row[1] or "")} for row in rows
+    ]
+
+
 def _revision_redhat_items(
     project_id: str, seen: set[tuple[str, str]]
 ) -> list[dict[str, Any]]:
@@ -396,32 +421,28 @@ def _revision_redhat_items(
     tree in hand) and the revisions a Red-Hat audit saved — a node-scoped audit
     writes its critique into the revision it saves under
     ``mutation_type="redhat_audit"`` (``routers/draft.py``), and the next compile
-    replaces that tree. Measured on the box: ``default`` holds four findings in
-    revision 4 while its newest revision carries none, so an export of the newest
-    revision said "Red-Hat ran for this document and recorded no findings" — the
-    sentence a regulator reads — about a project that holds the finding.
-    ``seen`` is what the caller already has, so a finding the tree in hand or a
-    ``redhat_findings`` row already carries is not listed twice.
+    replaces that tree. Measured on the box: ``default`` holds three findings in
+    revision 4 (``redhat_audit``) while its newest revision carries none, so an
+    export of the newest revision said "Red-Hat ran for this document and recorded
+    no findings" — the sentence a regulator reads — about a project that holds
+    them. ``seen`` is what the caller already has, so a finding the tree in hand or
+    a ``redhat_findings`` row already carries is not listed twice.
     """
     try:
-        from ..db.jdf_repository import fetch_jdf_at_version, list_jdf_revisions
+        from ..db.jdf_repository import fetch_jdf_at_version
     except ImportError:
-        from db.jdf_repository import fetch_jdf_at_version, list_jdf_revisions
-    out: list[dict[str, Any]] = []
-    try:
-        revisions = list_jdf_revisions(project_id, limit=100)
-    except Exception:
-        return out
+        from db.jdf_repository import fetch_jdf_at_version
+    revisions = _redhat_revisions(project_id)
     if not revisions:
-        return out
-    latest_version = int(revisions[0]["version"])
-    audited = [
-        revision
+        return []
+    wanted = {int(revisions[0]["version"])} | {
+        int(revision["version"])
         for revision in revisions
-        if "redhat" in str(revision.get("mutation_type") or "").lower()
-    ][:_REDHAT_REVISION_SCAN]
-    wanted = {latest_version} | {int(revision["version"]) for revision in audited}
-    for version in sorted(wanted, reverse=True):
+        if "redhat" in revision["mutation_type"].lower()
+    }
+    ordered = sorted(wanted, reverse=True)[: _REDHAT_REVISION_SCAN + 1]
+    out: list[dict[str, Any]] = []
+    for version in ordered:
         try:
             tree = fetch_jdf_at_version(project_id, version)
         except Exception:
