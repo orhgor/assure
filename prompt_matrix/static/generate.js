@@ -755,8 +755,42 @@
               });
             }
           }
+          return;
         }
       }
+
+      // Halt card for streams that end without verdict
+      var streamEnded = false;
+      function showHaltCard(message) {
+        if (streamEnded) return;
+        streamEnded = true;
+        var canvas = global.assureJdfRender && global.assureJdfRender("#jdf-render-target");
+        if (canvas && canvas.renderStateCard) {
+          canvas.renderStateCard("halt", message);
+        }
+      }
+
+      var parser = parseSseLoop(
+        function (event, data) {
+          if (event === "verified" || (event === "complete" && data && data.ok === true)) {
+            streamEnded = true;
+          }
+          if (event === "error" && data && Number(data.http_status) === 422) {
+            streamEnded = true;
+          }
+          handleFrame(event, data);
+        },
+        function () {
+          if (!streamEnded) {
+            showHaltCard("The compile stream ended before the run finished.");
+          }
+        },
+        function (err) {
+          if (!streamEnded) {
+            showHaltCard(String(err && err.message ? err.message : err));
+          }
+        }
+      );
 
       var streamPromise;
       if (postStream) {
