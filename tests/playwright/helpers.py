@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 ONBOARDING_KEY = "assure_onboarding_complete"
+DISCLAIMER_KEY = "assure_disclaimer_ack"
 SESSION_COMPILE_KEY = "assure_session_compiles"
 DESKTOP_VIEWPORT = {"width": 1440, "height": 900}
 
@@ -60,6 +61,7 @@ def prime_page(
         try {{
           localStorage.setItem({ONBOARDING_KEY!r}, '1');
           localStorage.setItem('assure_founder_workbench', '{founder}');
+          localStorage.setItem({DISCLAIMER_KEY!r}, '1');
           sessionStorage.setItem({SESSION_COMPILE_KEY!r}, '{int(compiles)}');
           window.__ASSURE_WOW_EFFECTS__ = {wow};
         }} catch (e) {{}}

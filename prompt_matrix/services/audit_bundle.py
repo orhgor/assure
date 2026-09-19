@@ -12,10 +12,14 @@ try:
     from ..db.document_lock_repository import latest_lock
     from ..db.sign_off_repository import list_sign_offs
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
+    from ..i18n import t
+    from ..services.confidence_spans import build_confidence_spans
 except ImportError:
     from db.document_lock_repository import latest_lock
     from db.sign_off_repository import list_sign_offs
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
+    from i18n import t
+    from services.confidence_spans import build_confidence_spans
 
 
 def _esc(text: str) -> str:
@@ -230,13 +234,14 @@ def build_audit_bundle_html(
     # FIX 4 — TOC: toc_items carry no numbers; the <ol> is the single source
     # of numbering. Entries are newline-separated so they don't mash together.
     toc_items = [
-        "Executive Summary",
-        "Document Body",
-        "Z3 Verification Results",
-        "Red-Hat Critique",
-        "Sign-Offs",
-        "Document Lock",
-        "Appendix",
+        "1. Executive Summary",
+        "2. Document Body",
+        "3. Z3 Verification Results",
+        "4. Red-Hat Critique",
+        "5. Sign-Offs",
+        "6. Document Lock",
+        "7. Appendix",
+        "8. Disclaimer",
     ]
     toc_html = "".join(f"<li>{_esc(item)}</li>\n" for item in toc_items)
 
@@ -346,6 +351,7 @@ th, td {{ border: 1px solid #ccc; padding: 0.4em 0.6em; text-align: left; font-s
 th {{ background: #f5f5f5; }}
 .cover {{ text-align: center; padding: 4cm 0; }}
 .cover h1 {{ border: none; font-size: 2em; }}
+.disclaimer {{ font-size: 0.9em; border-top: 1px solid #333; margin-top: 2em; padding-top: 1em; }}
 </style>
 </head>
 <body>
@@ -386,6 +392,9 @@ Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
 
 <h1>7. Appendix</h1>
 <pre>{_esc(json.dumps({'truth_ledger': tree.get('truth_ledger') or {}}, indent=2)[:4000])}</pre>
+
+<h1>8. {_esc(t('audit.disclaimer.h'))}</h1>
+<p class="disclaimer">{_esc(t('audit.disclaimer'))}</p>
 </body>
 </html>"""
 

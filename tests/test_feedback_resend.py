@@ -36,6 +36,7 @@ def test_feedback_requires_message(client):
 
 
 def test_feedback_stores_without_resend(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post(
         "/api/feedback",
         json={"message": "Great workbench UX", "url": "https://staging.getassureai.com/app"},
@@ -63,8 +64,8 @@ def test_feedback_email_failure_still_stores(client):
     assert res.status_code == 200
     assert res.get_json()["status"] == "ok"
 
-
 def test_tester_feedback_alias(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post("/api/tester-feedback", json={"text": "Legacy alias still works"})
     assert res.status_code == 200
 

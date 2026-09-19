@@ -48,6 +48,8 @@ def test_audit_bundle_html_sections():
     assert "Z3 Verification Results" in html
     assert "Sign-Offs" in html
     assert "Document Lock" in html
+    assert "Disclaimer" in html
+    assert "Human sign-off is the liability transfer" in html
 
 
 def test_audit_bundle_pdf_bytes():

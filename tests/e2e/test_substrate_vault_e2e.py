@@ -34,6 +34,7 @@ WORKBENCH = "#jdf-workbench"
 COMPILE_BTN = "#generate-compile-btn"
 LOCALE_SELECT = "#locale-select"
 ONBOARDING_KEY = "assure_onboarding_complete"
+DISCLAIMER_KEY = "assure_disclaimer_ack"
 
 
 def _app_url(base_url: str) -> str:
@@ -43,7 +44,9 @@ def _app_url(base_url: str) -> str:
 
 
 def _goto_workbench(page, base_url: str):
-    page.add_init_script(f"try {{ localStorage.setItem({ONBOARDING_KEY!r}, '1'); }} catch (e) {{}}")
+    page.add_init_script(
+        f"try {{ localStorage.setItem({ONBOARDING_KEY!r}, '1'); localStorage.setItem({DISCLAIMER_KEY!r}, '1'); }} catch (e) {{}}"
+    )
     page.goto(_app_url(base_url), wait_until="domcontentloaded")
     page.wait_for_selector(WORKBENCH, state="visible")
     page.wait_for_function(

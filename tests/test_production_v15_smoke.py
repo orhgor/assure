@@ -10,6 +10,10 @@ import urllib.request
 import pytest
 
 PRODUCTION = (os.environ.get("ASSURE_PRODUCTION_URL") or "https://getassureai.com").rstrip("/")
+pytestmark = pytest.mark.skipif(
+    os.environ.get("ASSURE_LIVE_SMOKE") != "1",
+    reason="Set ASSURE_LIVE_SMOKE=1 to hit production.",
+)
 
 
 def _get(path: str) -> dict:

@@ -33,6 +33,7 @@ pytestmark = pytest.mark.playwright
 
 DRAFT_STORAGE_KEY = "assure_draft_prompt"
 ONBOARDING_KEY = "assure_onboarding_complete"
+DISCLAIMER_KEY = "assure_disclaimer_ack"
 SESSION_COMPILE_KEY = "assure_session_compiles"
 SESSION_COMPILE_LIMIT = 15
 # assure_unsaved.js DEBOUNCE_MS = 1000; wait past that before reload.
@@ -89,6 +90,7 @@ def _init_script(*, compiles: int | None = 0) -> str:
     return f"""
     try {{
       localStorage.setItem({ONBOARDING_KEY!r}, '1');
+      localStorage.setItem({DISCLAIMER_KEY!r}, '1');
       {compile_js}
     }} catch (e) {{}}
     """

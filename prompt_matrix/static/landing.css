@@ -2654,6 +2654,30 @@ body.waitlist-open {
     padding: var(--space-8) 0;
 }
 
+.enterprise-landing .landing-disclaimer {
+    padding: 3rem 0 2rem;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    color: #475569;
+}
+
+.enterprise-landing .landing-disclaimer .section-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.enterprise-landing .landing-disclaimer p {
+    max-width: 40rem;
+    margin: 0 auto 0.75rem;
+    line-height: 1.55;
+}
+
+.enterprise-landing .landing-disclaimer a {
+    color: #0a0a0a;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 .enterprise-landing .footer-links {
     margin-top: var(--space-2);
 }

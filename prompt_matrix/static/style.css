@@ -2609,6 +2609,78 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   min-height: 36px;
 }
 
+.disclaimer-strip {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted, #64748b);
+  background: var(--color-surface);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+}
+
+.disclaimer-strip a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.disclaimer-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.disclaimer-gate[hidden] {
+  display: none;
+}
+
+.disclaimer-gate-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.disclaimer-gate-panel {
+  position: relative;
+  z-index: 1;
+  max-width: 28rem;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+}
+
+.disclaimer-gate-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.disclaimer-gate-panel p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.disclaimer-gate-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+body.disclaimer-gate-open {
+  overflow: hidden;
+}
+
 body.onboarding-active .sidebar-backdrop {
   pointer-events: none;
 }
