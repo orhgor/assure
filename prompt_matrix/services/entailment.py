@@ -206,33 +206,54 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
     return record
 
 
-def _claim_source(node: dict[str, Any]) -> tuple[str, str]:
-    """(claim, anchored source evidence) for a paragraph node.
+def _claim_sources(node: dict[str, Any]) -> list[str]:
+    """Every source sentence this node cites — one entry per provenance row.
 
-    The evidence is the provenance row's ``anchor_window`` — the run of consecutive
-    source sentences the matcher actually cleared its floors against — and only
-    falls back to ``extracted_quote`` when the row predates the window (or the
-    window was a single sentence, where the two are the same text). Checking the
-    claim against one sentence of a two-sentence anchor asks the model to judge a
-    claim against evidence the matcher never used, and it answers ``partial`` for
-    the half the sentence does not carry: the paragraph is then reported as a
-    weaker claim than the source it was anchored to.
+    The evidence is the row's ``anchor_window`` — the run of consecutive source
+    sentences the matcher cleared its floors against — and only falls back to
+    ``extracted_quote`` when the row predates the window (or the window was a
+    single sentence, where the two are the same text). For a cited paragraph the
+    row is the model's own citation, so ``extracted_quote`` is the cited
+    sentence.
 
-    Never ``meta.provenance.excerpt``, which falls back to the claim text itself
-    and would make the check a tautology.
+    Returns all of them, not the first: a paragraph that cites three sentences is
+    supported by the three together, and judging it against one of them reports a
+    weaker claim than the source carries. Never ``meta.provenance.excerpt``,
+    which falls back to the claim text itself and would make the check a
+    tautology.
     """
-    claim = str(node.get("content") or "").strip()
-    rows = node.get("provenance") or []
-    source = ""
-    for row in rows:
+    out: list[str] = []
+    for row in node.get("provenance") or []:
         if not isinstance(row, dict):
             continue
-        window = str(row.get("anchor_window") or "").strip()
-        quote = str(row.get("extracted_quote") or "").strip()
-        if window or quote:
-            source = window or quote
-            break
-    return claim, source
+        evidence = str(row.get("anchor_window") or "").strip() or str(
+            row.get("extracted_quote") or ""
+        ).strip()
+        if evidence and evidence not in out:
+            out.append(evidence)
+    return out
+
+
+def _aggregate_verdicts(verdicts: list[str]) -> str:
+    """Per-citation verdicts → the paragraph's verdict.
+
+    A citation that contradicts the claim fails the paragraph, and that is the
+    ``no`` the counters report as ``unsupported``. A citation that carries only
+    part of the claim makes the paragraph ``partial`` — not ``no``. Judging a
+    multi-citation paragraph against a single citation scored three of R2's five
+    paragraphs ``no`` while every one of their citations was individually
+    defensible; the paragraph is the sum of what it cites, so the verdict is the
+    sum of the verdicts.
+    """
+    if not verdicts:
+        return "unverified"
+    if "no" in verdicts:
+        return "no"
+    if "partial" in verdicts:
+        return "partial"
+    if all(verdict == "yes" for verdict in verdicts):
+        return "yes"
+    return "unverified"
 
 
 def attach_entailment_to_tree(
@@ -261,24 +282,50 @@ def attach_entailment_to_tree(
         for node in [section, *(section.get("children") or [])]:
             if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
                 continue
-            claim, source = _claim_source(node)
-            if not claim or not source:
+            claim = str(node.get("content") or "").strip()
+            sources = _claim_sources(node)
+            if not claim or not sources:
                 # Anchored nodes always carry a quote. A node that does not is not
                 # checked and gets no verdict — the gate counts it as unanchored.
                 continue
-            key = (claim, source)
-            record = seen.get(key)
-            if record is None:
-                try:
-                    record = check(claim, source)
-                except Exception as exc:
-                    record = unverified(f"{type(exc).__name__}: {exc}")
-                if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
-                    record = unverified(f"checker returned no usable verdict: {record!r}")
-                seen[key] = record
+            per_citation: list[dict[str, Any]] = []
+            verdicts: list[str] = []
+            for source in sources:
+                key = (claim, source)
+                record = seen.get(key)
+                if record is None:
+                    try:
+                        record = check(claim, source)
+                    except Exception as exc:
+                        record = unverified(f"{type(exc).__name__}: {exc}")
+                    if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                        record = unverified(f"checker returned no usable verdict: {record!r}")
+                    seen[key] = record
+                verdict = str(record.get("verdict") or "unverified")
+                verdicts.append(verdict)
+                per_citation.append(
+                    {
+                        "source": source,
+                        "verdict": verdict,
+                        "reason": str(record.get("reason") or ""),
+                    }
+                )
+            # The paragraph's verdict is the aggregate of its citations, not the
+            # verdict of whichever one happened to be first.
+            aggregate = _aggregate_verdicts(verdicts)
+            record_out: dict[str, Any] = {
+                "verdict": aggregate,
+                "reason": (
+                    f"{len(verdicts)} citation(s): "
+                    + ", ".join(sorted({v for v in verdicts}))
+                    if len(verdicts) > 1
+                    else str((per_citation[0] if per_citation else {}).get("reason") or "")
+                ),
+                "citations": per_citation,
+            }
             meta = dict(node.get("meta") or {})
             prov = dict(meta.get("provenance") or {})
-            prov["entailment"] = dict(record)
+            prov["entailment"] = record_out
             meta["provenance"] = prov
             node["meta"] = meta
 
