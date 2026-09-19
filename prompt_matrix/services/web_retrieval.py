@@ -40,7 +40,7 @@ try:
     from .audit_summary import _entailment_verdict, _provenance_counts
     from .authoritative_domains import ALLOW, decision_for, host_of
     from .compile_guard import scan_source_instruction_like, wrap_untrusted_source
-    from .entailment import _claim_source, check_entailment
+    from .entailment import _claim_sources, check_entailment
     from .evidence_gap import strip_urls
 except ImportError:  # pragma: no cover
     from db.jdf_repository import fetch_latest_jdf_or_empty, save_jdf_revision
@@ -65,7 +65,7 @@ except ImportError:  # pragma: no cover
         wrap_untrusted_source,
     )
     from services.entailment import (  # type: ignore[no-redef]
-        _claim_source,
+        _claim_sources,
         check_entailment,
     )
     from services.evidence_gap import strip_urls  # type: ignore[no-redef]
@@ -537,7 +537,9 @@ def reanchor(project_id: str, *, node_id: str = "") -> dict[str, Any]:
     )
     verdict: dict[str, Any] = {}
     if watched is not None and _anchored_by_origin(watched, fetched_hosts) and not _entailment_verdict(watched):
-        claim, source = _claim_source(watched)
+        _sources = _claim_sources(watched)
+        claim = str(watched.get("content") or "").strip()
+        source = _sources[0] if _sources else ""
         if claim and source:
             try:
                 verdict = dict(check_entailment(claim, source, project_id=project_id))
