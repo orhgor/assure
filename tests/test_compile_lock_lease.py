@@ -30,6 +30,7 @@ pre-fix wrapper has none of. ``test_legacy_holder_is_never_taken_over`` and
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import pathlib
 import re
@@ -227,6 +228,54 @@ def test_legacy_holder_is_never_taken_over(tmp_path, lock_path):
     assert "LOCK-LEGACY-HOLDER" in out, out
     assert "NOT RUN" in out, out
     assert not after.exists()
+
+
+def _alive(pid: int) -> bool:
+    return subprocess.run(["ps", "-p", str(pid), "-o", "pid="],
+                          capture_output=True, text=True).stdout.strip() != ""
+
+
+def test_interrupted_holder_takes_its_command_with_it(tmp_path, lock_path):
+    """SIGTERM to the holder must not leave the wrapped compile running.
+
+    A command that outlives its holder is the exact thing the lock is for: the
+    next holder takes the lease at expiry while that command is still writing.
+    The lease must also not still claim a hold, or every later taker reads this
+    as a crash. Detector: the pre-lease wrapper leaks the child and exits without
+    releasing anything.
+    """
+    if LEGACY:
+        pytest.skip("the pre-fix wrapper has no lease to release")
+    pid_file = tmp_path / "child.pid"
+    child_src = "import os, sys, time; open(sys.argv[1], 'w').write(str(os.getpid())); time.sleep(120)"
+    holder = _spawn(lock_path, "interrupted", "kill-me", 5.0, 60.0,
+                    [sys.executable, "-c", child_src, str(pid_file)])
+    child = None
+    try:
+        _wait_for_lease(lock_path)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not pid_file.exists():
+            time.sleep(0.05)
+        child = int(pid_file.read_text())
+        assert _alive(child), "the wrapped command never started"
+        os.kill(holder.pid, signal.SIGTERM)
+        holder.wait(timeout=15)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and _alive(child):
+            time.sleep(0.1)
+        assert not _alive(child), (
+            "the command outlived its holder — it runs the compile the lock "
+            "serializes, concurrently with the next holder")
+        assert holder.returncode == 143, (
+            "128 + SIGTERM, the conventional code; got %s" % holder.returncode)
+        lease = json.loads(pathlib.Path(lock_path + ".lease").read_text())
+        assert lease["holding"] is False, (
+            "the lease still claims a hold after the holder was interrupted")
+        assert lease.get("aborted") == "SIGTERM", lease
+    finally:
+        if child is not None and _alive(child):
+            os.kill(child, signal.SIGKILL)
+        _kill(holder)
 
 
 def test_busy_line_keeps_its_shape(tmp_path, lock_path):

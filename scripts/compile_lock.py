@@ -375,12 +375,26 @@ def _run_under_lease(cmd, path, holder, phase, lease, acquired: Acquired) -> int
     child = subprocess.Popen(cmd)
     heartbeat = max(1.0, lease / 3.0)
     superseded = False
-    while child.poll() is None:
+    aborted: list = []
+
+    def _on_signal(signo, _frame):
+        # A flag, not the work: the loop below owns the cleanup, so the handler
+        # stays re-entrant and the command is still torn down in one place.
+        aborted.append(signo)
+
+    previous = {}
+    for signo in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            previous[signo] = signal.signal(signo, _on_signal)
+        except (ValueError, OSError):
+            pass
+
+    while child.poll() is None and not aborted:
         slept = 0.0
-        while slept < heartbeat and child.poll() is None:
+        while slept < heartbeat and child.poll() is None and not aborted:
             time.sleep(min(0.25, heartbeat - slept))
             slept += 0.25
-        if child.poll() is not None:
+        if child.poll() is not None or aborted:
             break
         gate = Lock.try_acquire(path + ".gate")
         if gate is None:
@@ -411,13 +425,37 @@ def _run_under_lease(cmd, path, holder, phase, lease, acquired: Acquired) -> int
                 print("LOCK-MUTEX-ATTACHED gen=%d" % acquired.gen, flush=True)
                 _write_breadcrumb(path, holder, phase)
 
-    if superseded:
+    if aborted:
+        # An interrupted holder must not leave its command running: that command
+        # is the compile the lock exists to serialize, and the next holder takes
+        # over at lease expiry while it is still writing. It dies with its
+        # holder, and the lease is marked released so the next taker acquires
+        # cleanly instead of reading this as a crash.
+        signo = aborted[0]
+        _terminate(child)
+        child.wait()
+        try:
+            name = signal.Signals(signo).name
+        except ValueError:
+            name = "SIG%d" % signo
+        rc = 128 + signo
+        line = "LOCK-ABORTED signal=%s rc=%d gen=%d" % (name, rc, acquired.gen)
+        print(line, flush=True)
+        _journal(path, line)
+        state["aborted"] = name
+    elif superseded:
         # The lease is gone: the command does not get to finish. It is killed
         # rather than reported as a result, because its run was a double-run.
         _terminate(child)
         rc = EXIT_SUPERSEDED
     else:
         rc = child.wait()
+
+    for signo, handler in previous.items():
+        try:
+            signal.signal(signo, handler)
+        except (ValueError, OSError):
+            pass
 
     gate = Lock.try_acquire(path + ".gate")
     try:
