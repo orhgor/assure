@@ -1484,10 +1484,18 @@ def _run_draft_pipeline(
         project_id, intent, context, substrate_context, _draft_model
     )
     cached: dict[str, Any] | None = None
-    try:
-        cached = load_ast_cache(cache_key)
-    except Exception:
-        cached = None
+    # ``force`` has to mean "do the work again". The probe below ignored it, so the
+    # only thing force overrode was the frozen-project refusal, and an acceptance
+    # run against a warm project replayed a memo written by earlier code instead of
+    # compiling: measured on this project, two DRAFT_STREAM rows 77 ms and 78 ms
+    # apart, both `cache_hit: true`, after a change to the counters. A forced
+    # compile is the only way to test a changed counter, prompt or citation path
+    # against the same ask, so the cache is skipped outright when it is set.
+    if not force:
+        try:
+            cached = load_ast_cache(cache_key)
+        except Exception:
+            cached = None
     if isinstance(cached, dict) and cached.get("compiled"):
         # The gates run on a replayed draft too. A cache hit is a draft rendered
         # again from memory, so a document cached before a gate existed must not

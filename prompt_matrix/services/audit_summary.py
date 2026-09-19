@@ -118,7 +118,11 @@ def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
             counts["unsupported"] += 1
         elif verdict == "unverified":
             counts["unverified"] += 1
-        elif node.get("provenance"):
+        elif not verdict and node.get("provenance"):
+            # Anchored but never checked. ``not verdict`` is load-bearing: without
+            # it this branch also caught ``yes``, so ``unchecked`` counted supported
+            # claims and the raw dict handed to web_retrieval overstated it. The
+            # reported projection dropped the key, so no reported number was wrong.
             counts["unchecked"] += 1
     return counts
 
