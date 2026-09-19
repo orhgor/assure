@@ -62,6 +62,12 @@ try:
     )
     from ..services.entailment import attach_entailment_to_tree, check_entailment
     from ..services.lock_inference import infer_lock_candidates
+    from ..services.source_carry import (
+        SUBSTRATE_CONTEXT_CHARS_PER_FILE,
+        SUBSTRATE_CONTEXT_CHARS_TOTAL,
+        carry_plan,
+        numbered_source_blocks,
+    )
     from ..services.omp_memory import (
         compile_cache_key,
         load_ast_cache,
@@ -128,6 +134,12 @@ except ImportError:
     )
     from services.entailment import attach_entailment_to_tree, check_entailment
     from services.lock_inference import infer_lock_candidates
+    from services.source_carry import (
+        SUBSTRATE_CONTEXT_CHARS_PER_FILE,
+        SUBSTRATE_CONTEXT_CHARS_TOTAL,
+        carry_plan,
+        numbered_source_blocks,
+    )
     from services.omp_memory import (
         compile_cache_key,
         load_ast_cache,
@@ -316,13 +328,9 @@ class DraftCancelledError(Exception):
     """Raised when the client disconnects or aborts the stream."""
 
 
-# The grounding budget. The deployed drafting model is
-# openrouter/qwen/qwen3-next-80b-a3b-instruct with a 262K-token context; a
-# 200,000-character source is roughly 50K tokens, so a real 30-page commercial
-# property policy fits in one pass. A source beyond the cap is refused by name
-# rather than truncated. (Was 4000/16000, which refused every real policy.)
-SUBSTRATE_CONTEXT_CHARS_PER_FILE = 200_000
-SUBSTRATE_CONTEXT_CHARS_TOTAL = 400_000
+# The grounding budget (SUBSTRATE_CONTEXT_CHARS_PER_FILE / _TOTAL) lives in
+# `services/source_carry.py`, with the numbering walk that spends it, so the cap
+# and the walk that applies it cannot drift apart.
 
 
 class DraftPayload(BaseModel):
@@ -569,75 +577,17 @@ def _compiled_prompt_text(messages: list[dict[str, Any]]) -> str:
     )
 
 
-def _numbered_source_blocks(
-    substrate_rows: list[dict[str, Any]],
-) -> list[tuple[str, list[tuple[str, str, str, Any]]]]:
-    """The one place the source is numbered.
-
-    Returns ``[(prompt block, [(id, sentence, filename, page), …]), …]``, the
-    block already carrying its ``[S<N>]`` prefixes and already bounded by the
-    per-file and total budgets. ``_build_substrate_context`` writes the blocks;
-    ``build_sentence_map`` reads the entries. Both walk this function, so an id
-    the model cites resolves to the sentence it was shown — numbering the whole
-    document while the prompt truncates is how a citation lands on the wrong
-    sentence, and numbering the whole document also blew the 30k input cap
-    (35,382 tokens measured on two policies) because every sentence now carries
-    a prefix.
-
-    Ids are assigned in document order and advance across files, so ``S<n>`` is
-    stable for a given set of rows.
-    """
-    out: list[tuple[str, list[tuple[str, str, str, Any]]]] = []
-    total = 0
-    n = 1
-    for row in substrate_rows:
-        text = str(row.get("extracted_text") or "").strip()
-        if not text:
-            continue
-        filename = str(row.get("filename") or "substrate")
-        page_no = row.get("page_number") or row.get("page") or 1
-        if scan_source_instruction_like(text):
-            text = wrap_untrusted_source(text)
-        lines: list[str] = []
-        entries: list[tuple[str, str, str, Any]] = []
-        used = 0
-        # ``_merge_short_sentences`` joins fragments into their neighbours, which is
-        # what the matcher has always done and what this function was missing:
-        # numbering raw ``_split_sentences`` output on a policy PDF produced
-        # sentences like "this Policy", and a citation to a fragment cannot be
-        # entailed by anything — the model answers ``no`` and the paragraph lands
-        # unsupported however the verdicts are aggregated.
-        for sent, page in _merge_short_sentences(_split_sentences(text)):
-            clean = str(sent or "").strip()
-            if not clean:
-                continue
-            line = f"[S{n}] {clean}"
-            if used + len(line) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
-                break
-            lines.append(line)
-            entries.append((f"S{n}", clean, filename, page if page else page_no))
-            used += len(line) + 1
-            n += 1
-        if not lines:
-            continue
-        block = f"### Source file: {filename}\n" + "\n".join(lines)
-        if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
-            break
-        out.append((block, entries))
-        total += len(block)
-    return out
-
-
 def build_sentence_map(substrate_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """``{id: {"text", "filename", "page"}}`` for exactly what the prompt showed.
 
-    Read from ``_numbered_source_blocks``, so the map and the prompt are the same
+    Read from ``numbered_source_blocks`` (services/source_carry), so the map and the
+    prompt are the same
     walk and a cited id cannot drift. Threaded to the parser, the validator, the
     counters, the Evidence pane and the JDF serializer.
     """
     return {
         sid: {"text": text, "filename": filename, "page": page}
-        for _block, entries in _numbered_source_blocks(substrate_rows)
+        for _block, entries in numbered_source_blocks(substrate_rows)
         for sid, text, filename, page in entries
     }
 
@@ -732,14 +682,14 @@ def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
     """Concatenate selected Substrate Vault files (bounded) so the draft is
     actually grounded in them, not just told they exist.
 
-    Sentences are numbered ``[S<N>]`` by ``_numbered_source_blocks``, so the
+    Sentences are numbered ``[S<N>]`` by ``numbered_source_blocks``, so the
     model cites what it was given. A source the ingest scan flagged as
     instruction-like is wrapped in the untrusted-data delimiter: it still reaches
     the model — the user's document is the user's document — but as material to
     report, not orders to follow. Both the compile and the cache key read this one
     function, so a flagged source changes the prompt and the key together.
     """
-    return "\n\n".join(block for block, _entries in _numbered_source_blocks(substrate_rows))
+    return "\n\n".join(block for block, _entries in numbered_source_blocks(substrate_rows))
 
 
 def run_lock_inference(text: str) -> tuple[list[dict[str, Any]], str]:
@@ -1969,6 +1919,16 @@ def _run_draft_pipeline(
         document=verified_doc,
         has_substrate=bool(substrate_rows),
     )
+    # What this compile carried of the sources it was handed, by the same walk that
+    # numbered the prompt (`services/source_carry`). The prompt cannot hold every
+    # attached source — the walk stops at the first block that would pass
+    # SUBSTRATE_CONTEXT_CHARS_TOTAL — and nothing recorded which sources that left
+    # behind, so the export's manifest listed every attached file as included
+    # (measured: 24 attached, 18 carried, all 24 reported). One plan is written in
+    # three places the reader already looks: the `verified` frame, the gate block
+    # the export reads, and this compile's audit row.
+    _carry = carry_plan(substrate_rows)
+    verified_payload["sources"] = _carry
     # Persist the AUDITED jdf tree — the exact document streamed in `verified` —
     # so export/history/versions read a real document that carries
     # meta.confidenceSpans (document level and per node) and survives a reload.
@@ -2024,6 +1984,7 @@ def _run_draft_pipeline(
             "provenance_stats": verified_payload.get("provenance_stats") or {},
             "measure": _measure,
             "redhat": redhat_payload,
+            "sources": _carry,
             # The Math Check's own numbers. They were computed on every compile and
             # then dropped here, so the export report's "Metrics checked" row was
             # always absent — see services/audit_bundle.py. `z3_unverified` is named
@@ -2096,6 +2057,12 @@ def _run_draft_pipeline(
             "lock_count": len(locks),
             "model": model_id,
             "z3_status": z3_results.get("status"),
+            # The compile's own coverage of what it was handed. A run that drops
+            # six of twenty-four sources must leave that in the audit trail, not
+            # only in the dossier.
+            "sources_attached": _carry["attached"],
+            "sources_carried": _carry["carried"],
+            "sources_dropped": _carry["dropped"],
         },
     )
     yield _typed_sse(

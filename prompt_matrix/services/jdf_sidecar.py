@@ -21,9 +21,15 @@ stored field is renamed or dropped.
 
 What a reader needs beyond the tree, and could not get from the PDF:
 
-* ``source_manifest`` — the vault entries this document was grounded in, with the
-  identity an anchor points at (``source_id``) and a hash of the text the anchor
-  was matched against, so evidence can be checked rather than trusted;
+* ``source_manifest`` — one entry per source this document was compiled from, with
+  the identity an anchor points at (``source_id``) and what the compile actually
+  carried of it: ``included`` means **reached the model**, ``chars`` counts the
+  characters that did, ``text_sha256`` is over that carried text, and a source the
+  prompt never got to carries ``dropped_reason`` instead. The whole file's hash is
+  ``full_text_sha256`` and the reader's own include toggle is ``included_by_user``;
+* ``source_carry`` — the counts behind that list (``attached`` / ``carried`` /
+  ``dropped`` / ``carried_chars`` / ``limit_chars``), plus ``derived: true`` when no
+  compile record existed and the selection was re-run over the vault instead;
 * ``version_chain`` — every revision, oldest first, each hashed in the form this
   export writes it (citation lists included), so the sidecar's document is
   provably one link of that chain;
@@ -60,12 +66,26 @@ try:
     from ..db.substrate_repository import list_substrate_for_project
     from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
     from .audit_bundle import compute_export_gate, project_redhat_findings
+    from .source_carry import (
+        NOT_ATTACHED_REASON,
+        carry_plan,
+        plan_sources_by_id,
+        source_carry_for,
+        summarize,
+    )
 except ImportError:
     from db.document_lock_repository import hash_jdf_tree
     from db.jdf_repository import list_jdf_revisions
     from db.substrate_repository import list_substrate_for_project
     from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
     from audit_bundle import compute_export_gate, project_redhat_findings
+    from source_carry import (
+        NOT_ATTACHED_REASON,
+        carry_plan,
+        plan_sources_by_id,
+        source_carry_for,
+        summarize,
+    )
 
 SIDECAR_FORMAT = "assure-jdf-sidecar"
 SIDECAR_VERSION = 1
@@ -315,34 +335,77 @@ def state_counts(index: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
-def build_source_manifest(project_id: str) -> list[dict[str, Any]]:
-    """The vault entries the document was grounded in, hashed for checking.
-
-    ``text_sha256`` is over the extracted text the anchor was matched against: a
-    reader holding the same file can hash it and confirm the evidence the claim
-    cites is the evidence it was checked against.
-    """
-    manifest: list[dict[str, Any]] = []
+def _vault_rows(project_id: str) -> list[dict[str, Any]]:
+    """The project's vault rows with their text — what the manifest is built from."""
     try:
-        rows = list_substrate_for_project(project_id, with_text=True)
+        return list_substrate_for_project(project_id, with_text=True)
     except TypeError:  # pragma: no cover - older repository signature
-        rows = list_substrate_for_project(project_id)
+        return list_substrate_for_project(project_id)
+
+
+def build_source_manifest(
+    project_id: str,
+    *,
+    rows: list[dict[str, Any]] | None = None,
+    plan: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """The vault entries this document was compiled from, and what reached the model.
+
+    ``included`` is the **compile's** answer, not the vault's toggle: true only for
+    a source the prompt actually carried. It used to be read from the vault's
+    ``included`` column (default 1), so the manifest listed every attached file —
+    measured on ``fv-v3-twenty-1789808891-21a860``, 24 sources attached, 18 carried
+    and 6 dropped by the context cap, all 24 reported as included. A dossier that
+    claims coverage the compile never had is the one claim this product exists to
+    prevent, so the toggle survives as ``included_by_user`` and ``chars`` is the
+    number of characters of this source that reached the model.
+
+    ``text_sha256`` is over the text that was carried — the sentences the model was
+    shown — so a reader holding the same file can hash the same span and confirm
+    the evidence. It used to hash the file's *full* text, which is a hash of what
+    the model never saw; the whole file's hash is ``full_text_sha256``, and
+    ``changed_since_compile`` marks a source whose text no longer matches the
+    compile that used it.
+
+    ``dropped_reason`` says why a source was not carried: the per-file cap, the
+    context cap the compile stopped at, empty text, or ``NOT_ATTACHED_REASON`` for
+    a source uploaded after the compile this document came from.
+    """
+    rows = rows if rows is not None else _vault_rows(project_id)
+    plan = plan if plan is not None else source_carry_for(project_id, rows)
+    by_id = plan_sources_by_id(plan)
+    manifest: list[dict[str, Any]] = []
     for row in rows:
+        source_id = str(row.get("id") or "")
         text = str(row.get("extracted_text") or "")
-        if not text and not row.get("text_sha256"):
-            text = ""
-        manifest.append(
-            {
-                "source_id": str(row.get("id") or ""),
-                "filename": str(row.get("filename") or ""),
-                "page_count": int(row.get("page_count") or 1),
-                "chars": len(text),
-                "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text else "",
-                "included": bool(row.get("included")),
-                "instruction_like": bool(row.get("instruction_like")),
-                "created_at": row.get("created_at"),
-            }
-        )
+        record = by_id.get(source_id)
+        carried = bool(record and record.get("included"))
+        full_sha = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+        reason = str((record or {}).get("dropped_reason") or "")
+        if not carried and not reason:
+            reason = NOT_ATTACHED_REASON
+        entry = {
+            "source_id": source_id,
+            "filename": str(row.get("filename") or ""),
+            "page_count": int(row.get("page_count") or 1),
+            "included": carried,
+            "included_by_user": bool(row.get("included")),
+            "chars": int((record or {}).get("chars") or 0),
+            "full_chars": len(text),
+            "sentences": int((record or {}).get("sentences") or 0),
+            "first_id": str((record or {}).get("first_id") or ""),
+            "last_id": str((record or {}).get("last_id") or ""),
+            "truncated": bool((record or {}).get("truncated")),
+            "dropped_reason": "" if carried else reason,
+            "text_sha256": str((record or {}).get("text_sha256") or "") if carried else "",
+            "full_text_sha256": full_sha,
+            "instruction_like": bool(row.get("instruction_like")),
+            "created_at": row.get("created_at"),
+        }
+        recorded_sha = str((record or {}).get("full_text_sha256") or "")
+        if carried and recorded_sha and full_sha and recorded_sha != full_sha:
+            entry["changed_since_compile"] = True
+        manifest.append(entry)
     return manifest
 
 
@@ -515,6 +578,14 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
     chain = build_version_chain(project_id)
     document_hash = hash_jdf_tree(tree)
     latest = chain["revisions"][-1]["document_sha256"] if chain["revisions"] else None
+    # One read of the vault, one walk: the manifest and the summary describe the
+    # same selection, and the sidecar cannot report 18 carried beside 24 included.
+    vault_rows = _vault_rows(project_id)
+    carry = source_carry_for(project_id, vault_rows)
+    carry_summary = summarize(carry)
+    carry_summary["per_file_limit_chars"] = carry.get("per_file_limit_chars")
+    carry_summary["derived"] = bool(carry.get("derived"))
+    carry_summary["note"] = str(carry.get("note") or "")
     return {
         "format": SIDECAR_FORMAT,
         "sidecar_version": SIDECAR_VERSION,
@@ -534,7 +605,8 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
             "states": state_counts(index),
         },
         "nodes": index,
-        "source_manifest": build_source_manifest(project_id),
+        "source_manifest": build_source_manifest(project_id, rows=vault_rows, plan=carry),
+        "source_carry": carry_summary,
         "version_chain": chain,
         "drafting_model": resolve_drafting_model(project_id),
         "compiled_prompt": resolve_compiled_prompt(project_id),

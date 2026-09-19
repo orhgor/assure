@@ -12,10 +12,12 @@ try:
     from ..db.document_lock_repository import latest_lock
     from ..db.sign_off_repository import list_sign_offs
     from ..exporters.text_ast import jdf_to_html
+    from .source_carry import source_carry_for
 except ImportError:
     from db.document_lock_repository import latest_lock
     from db.sign_off_repository import list_sign_offs
     from exporters.text_ast import jdf_to_html
+    from source_carry import source_carry_for
 
 
 def _esc(text: str) -> str:
@@ -543,6 +545,37 @@ def build_audit_bundle_html(
         else:
             redhat_html = "<li>No Red-Hat critique is recorded for this document.</li>"
 
+    # What the compile carried of the sources it was handed. The prompt cannot
+    # hold every attachment, and nothing said which ones it left behind: the
+    # dossier is where a client reads coverage, so the counts and the names of the
+    # sources that did not reach the model are stated beside every other number.
+    carry = source_carry_for(project_id)
+    carry_html = ""
+    if carry.get("attached"):
+        dropped = [item for item in carry.get("sources") or [] if not item.get("included")]
+        carry_html = (
+            f"<p>Sources carried into the model: "
+            f"<strong>{int(carry.get('carried') or 0)} of {int(carry.get('attached') or 0)}</strong> "
+            f"({int(carry.get('carried_chars') or 0):,} of {int(carry.get('limit_chars') or 0):,} "
+            "characters)."
+        )
+        if dropped:
+            listed = dropped[:12]
+            carry_html += " Not carried:</p>\n<ul>\n" + "\n".join(
+                f"<li>{_esc(str(item.get('filename') or ''))} — "
+                f"{_esc(str(item.get('dropped_reason') or ''))}</li>"
+                for item in listed
+            ) + "\n</ul>"
+            if len(dropped) > len(listed):
+                carry_html += f"<p>… and {len(dropped) - len(listed)} more.</p>"
+        else:
+            carry_html += "</p>"
+        if carry.get("derived"):
+            carry_html += (
+                '<p class="meta">This compile did not record which sources it carried; '
+                "the counts are recomputed from the sources in the vault.</p>"
+            )
+
     signoff_html = ""
     for so in sign_offs:
         signoff_html += (
@@ -600,6 +633,7 @@ sign-off records, and document lock hash for compliance review.</p>
 <p>Z3 status: <strong>{_esc(gate.get('z3_status') or 'N/A')}</strong>.
 Red-Hat items: <strong>{redhat_view['count'] if redhat_view['ran'] else 'not run'}</strong>.
 Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
+{carry_html}
 
 <h1>2. Document Body</h1>
 {doc_html}

@@ -371,3 +371,46 @@ def test_frozen_project_refuses_a_cold_compile_and_allows_a_warm_one(client, mon
     body = res.get_data(as_text=True)
     assert "frozen_project_cold_compile" in body
     assert "frozen document" in body
+
+
+def test_source_manifest_reports_what_the_compile_carried(client, monkeypatch):
+    """The dossier must not claim sources the compile never carried.
+
+    The prompt cannot hold every attached source — the numbering walk stops at the
+    first block that would pass the context cap. Measured on the deployed box
+    (`fv-v3-twenty-1789808891-21a860`): 24 sources attached, 18 numbered into the
+    prompt, and the manifest listed all 24 as ``included`` with a hash of each
+    file's full text. The cap is lowered here rather than uploading 500k characters.
+    """
+    from prompt_matrix.services import source_carry
+
+    monkeypatch.setattr(source_carry, "SUBSTRATE_CONTEXT_CHARS_TOTAL", 200)
+    ensure_project("sidecar-carry", "Carry")
+    for index in range(1, 5):
+        save_substrate_entry(
+            "sidecar-carry",
+            filename=f"policy-{index}.md",
+            page_count=1,
+            extracted_text=f"Clause {index}. The limit is 5,000,000 dollars for each occurrence.",
+            entry_id=f"sub-carry-{index}",
+        )
+    res = client.put(
+        "/api/projects/sidecar-carry/jdf",
+        json={"document": TREE, "mutation_type": "compile"},
+    )
+    assert res.status_code == 200, res.get_data(as_text=True)
+
+    sidecar = client.get("/api/projects/sidecar-carry/export?format=jdf").get_json()
+    carry = sidecar["source_carry"]
+    assert carry["attached"] == 4
+    assert (carry["carried"], carry["dropped"]) == (2, 2), carry
+    carried = [row for row in sidecar["source_manifest"] if row["included"]]
+    dropped = [row for row in sidecar["source_manifest"] if not row["included"]]
+    assert len(carried) == 2 and len(dropped) == 2
+    # A carried source states how much of it reached the model and hashes that text.
+    assert all(row["chars"] > 0 and row["text_sha256"] for row in carried)
+    # A dropped source says why, and does not offer a hash of text never seen.
+    assert all(row["dropped_reason"] and row["text_sha256"] == "" for row in dropped)
+    # The reader's own toggle is not the compile's answer.
+    assert all(row["included_by_user"] for row in sidecar["source_manifest"])
+    assert carry["derived"] is True  # no gate block recorded a selection here
