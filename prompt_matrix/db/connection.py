@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from typing import Callable, TypeVar
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, Iterator, TypeVar
 
 T = TypeVar("T")
 
@@ -12,9 +14,27 @@ DB_LOCKED_MAX_RETRIES = 3
 DB_LOCKED_BACKOFF_S = 0.5
 
 try:
-    from ..history import _apply_pragmas, _new_connection, get_db
+    from ..db.open_connections import note_connection_open
+    from ..history import (
+        _apply_pragmas,
+        _new_connection,
+        _release_direct_connection,
+        _resolve_db_path,
+        _rollback_quietly,
+        db_scope,
+        get_db,
+    )
 except ImportError:
-    from history import _apply_pragmas, _new_connection, get_db
+    from db.open_connections import note_connection_open
+    from history import (
+        _apply_pragmas,
+        _new_connection,
+        _release_direct_connection,
+        _resolve_db_path,
+        _rollback_quietly,
+        db_scope,
+        get_db,
+    )
 
 # The migration counter. It gates the _migrate_vN functions below against the
 # schema_migrations table, so it moves only when a new migration step is added.
@@ -784,8 +804,37 @@ def _migrate_v3(db: sqlite3.Connection) -> None:
 
 
 def init_db(conn: sqlite3.Connection | None = None) -> None:
-    """Create or migrate tables on startup. Safe to call repeatedly."""
-    db = conn or get_db()
+    """Create or migrate tables on startup. Safe to call repeatedly.
+
+    A migration that fails half way used to leave its DDL uncommitted on whatever
+    connection it was given — the request-scoped one, for the callers that reach it
+    through `get_db()`. Both damages that follow are the family's: the connection
+    holds SQLite's write lock while the failed migration waits for a commit that
+    will never come, and whoever commits that connection next — the request's own
+    write — commits the partial migration along with it. Rolled back here, on the
+    failure path, before the error travels.
+
+    Given no connection, it takes one from `db_scope()`: this is called by nearly
+    every repository function, so an unscoped `get_db()` here was the single
+    largest source of the unreturned checkouts db_scope measures.
+    """
+    if conn is not None:
+        _migrations_guarded(conn)
+        return
+    with db_scope() as db:
+        _migrations_guarded(db)
+
+
+def _migrations_guarded(db: sqlite3.Connection) -> None:
+    """Run the migrations, rolling back whatever a failure left pending."""
+    try:
+        _migrate_db(db)
+    except BaseException:
+        _rollback_quietly(db)
+        raise
+
+
+def _migrate_db(db: sqlite3.Connection) -> None:
     db.execute("PRAGMA journal_mode=WAL;")
     db.execute("PRAGMA busy_timeout=5000;")
     _apply_pragmas(db)
@@ -981,13 +1030,15 @@ def _connect_with_retry() -> sqlite3.Connection:
             _apply_pragmas(conn)
             conn.execute("SELECT 1")
             return conn
-        except sqlite3.OperationalError as exc:
+        except BaseException as exc:
+            # Every failure here abandons the connection that was just opened — a
+            # retry opens another one — so it is released before either the retry
+            # (a lock, worth another attempt) or the raise (anything else, but a
+            # DatabaseError from a pragma reaches here too) is decided.
+            _release_direct_connection(conn)
+            if not isinstance(exc, sqlite3.OperationalError):
+                raise
             last_exc = exc
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
             if "locked" not in str(exc).lower() or attempt >= DB_LOCKED_MAX_RETRIES - 1:
                 raise
             time.sleep(DB_LOCKED_BACKOFF_S * (attempt + 1))
@@ -1018,9 +1069,43 @@ def run_with_db_retry(
     raise sqlite3.OperationalError("database is locked")
 
 
+@contextmanager
+def closing_connection(
+    path: str | Path | None = None,
+    *,
+    timeout: float = 5.0,
+    site: str = "db.connection.closing_connection",
+) -> Iterator[sqlite3.Connection]:
+    """A direct connection that is rolled back and closed on every path.
+
+    For the callers that need a connection *of their own* rather than the
+    request-scoped `get_db()` handle: the audit trail, the metrics collector, the
+    /health probes, the compliance export. They open their connection, do their
+    work and close it inside one `try`, and their handler swallows the failure —
+    because a metrics sample or an audit row is best-effort by design. What that
+    shape hid is the connection itself: when anything between the connect and the
+    close raised, the connection stayed open, holding the write lock of whatever
+    statement had just failed, and the next writer — a different connection
+    entirely — waited on that lock and timed out. That is the family.
+
+    The failure policy stays with the caller; the resource does not. Rolled back
+    before the close so the lock goes with it, and closed in a `finally` so the
+    policy cannot outlive the block.
+    """
+    conn = sqlite3.connect(
+        str(path if path is not None else _resolve_db_path()), timeout=timeout
+    )
+    note_connection_open(conn, site=site)
+    try:
+        conn.row_factory = sqlite3.Row
+        _apply_pragmas(conn)
+        yield conn
+    finally:
+        _release_direct_connection(conn)
+
+
 def open_connection() -> sqlite3.Connection:
     return _connect_with_retry()
-
 
 try:
     from sqlalchemy.exc import OperationalError as SAOperationalError

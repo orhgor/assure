@@ -1048,6 +1048,18 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from lib.logger import cache_drop_count
         payload["cache_drops"] = cache_drop_count()
+        # Connections this process has taken from SQLite and not given back. Both
+        # counters above are cumulative counts of writes that did not land; this one
+        # is the resource those failures used to leave behind — a connection held
+        # open with its statement uncommitted is what makes the *next* writer fail,
+        # which is the family the two of them are instances of. A gauge, so it falls
+        # as well as rises: it reads 0 with nothing in flight, and a number that
+        # only grows is a leak that no longer needs a stack sample to find.
+        try:
+            from .db.open_connections import db_open_connection_count
+        except ImportError:
+            from db.open_connections import db_open_connection_count
+        payload["db_open_connections"] = db_open_connection_count()
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")

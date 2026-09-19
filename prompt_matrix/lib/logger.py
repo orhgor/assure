@@ -12,10 +12,10 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 try:
-    from ..history import DB_PATH, _apply_pragmas
+    from ..history import DB_PATH, _apply_pragmas, _release_direct_connection
     from ..paths import user_data_dir
 except ImportError:
-    from history import DB_PATH, _apply_pragmas
+    from history import DB_PATH, _apply_pragmas, _release_direct_connection
     from paths import user_data_dir
 
 _log = logging.getLogger(__name__)
@@ -249,12 +249,15 @@ class AuditLogger:
                     extra={"request_id": request_id},
                 )
         finally:
-            # Closed on both paths. A connection abandoned by a failed insert
-            # keeps that insert's transaction open, and the next audit write
-            # then fails on "database is locked" — one dropped row turning into
-            # a run of them. Closing also rolls the failed transaction back.
-            if conn is not None:
-                conn.close()
+            # Released on both paths. A connection abandoned by a failed insert
+            # keeps that insert's transaction open, so the next audit write — from
+            # a connection of its own — waits on SQLite's write lock and times out:
+            # one dropped row turning into a run of them. Rolled back rather than
+            # relying on the close to discard the transaction, closed quietly
+            # because this runs in a `finally` on a path whose whole contract is
+            # that it never raises to its caller, and dropped from
+            # db_open_connections so a leak here would show on /api/health.
+            _release_direct_connection(conn)
 
     def log_exception(
         self,

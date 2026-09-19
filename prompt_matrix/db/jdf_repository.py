@@ -8,7 +8,7 @@ from typing import Any
 
 try:
     from ..db.connection import init_db
-    from ..history import get_db
+    from ..history import db_scope, get_db
     from ..models.jdf import JDFDocumentTree, parse_document
 except ImportError:
     from db.connection import init_db
@@ -62,27 +62,27 @@ def empty_document(project_id: str) -> dict[str, Any]:
 
 
 def ensure_project(project_id: str, title: str | None = None, owner_id: str | None = None) -> None:
-    init_db()
-    db = get_db()
-    label = (title or project_id).strip() or project_id
-    db.execute(
-        """
-        INSERT INTO projects (id, title, current_version, owner_id)
-        VALUES (?, ?, 1, ?)
-        ON CONFLICT(id) DO NOTHING
-        """,
-        (project_id, label, owner_id),
-    )
-    if owner_id:
+    with db_scope() as db:
+        init_db(db)
+        label = (title or project_id).strip() or project_id
         db.execute(
             """
-            UPDATE projects
-            SET owner_id = ?
-            WHERE id = ? AND (owner_id IS NULL OR owner_id = '')
+            INSERT INTO projects (id, title, current_version, owner_id)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(id) DO NOTHING
             """,
-            (owner_id, project_id),
+            (project_id, label, owner_id),
         )
-    db.commit()
+        if owner_id:
+            db.execute(
+                """
+                UPDATE projects
+                SET owner_id = ?
+                WHERE id = ? AND (owner_id IS NULL OR owner_id = '')
+                """,
+                (owner_id, project_id),
+            )
+        db.commit()
 
 
 def fetch_jdf_at_version(project_id: str, version: int) -> dict[str, Any] | None:
