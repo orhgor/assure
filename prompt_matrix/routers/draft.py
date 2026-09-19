@@ -23,6 +23,7 @@ try:
         TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..history import db_scope
@@ -95,6 +96,7 @@ except ImportError:
         TASK_POLICIES,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from db.substrate_repository import fetch_substrate_entries_by_ids
     from history import db_scope
@@ -1067,12 +1069,16 @@ def run_redhat_audit(
     target_node_id: str | None = None,
     document: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """DeepSeek-R1 adversarial critique (Stage 4 — heavy).
+    """DeepSeek-V3 adversarial critique (Stage 4 — heavy).
 
     Node-scoped audits (``target_node_id``) are source-aware: the prompt carries
     the provenance quote the gate attached to that node, or states that no quote
     is attached. Whole-document audits (no ``target_node_id``) get no source at
     all, so their prompt is a risk review and never claims a grounding verdict.
+
+    Returns at most one entry. An entry with ``status == "error"`` is not a
+    finding: it is a refusal (the answer was cut off at the output ceiling) or a
+    model failure, and callers must not attach it to the document.
     """
     _check_cancel(cancel_check)
     content = (draft_text or "").strip()[:8000]
@@ -1129,21 +1135,36 @@ def run_redhat_audit(
 
     critiques: list[dict[str, Any]] = []
     text = (red.text or "").strip()
-    if text and not text.startswith("ERROR:"):
-        critiques.append(
-            {
-                "title": "Red-hat review",
-                "content": text,
-                "model": red.model_id,
-            }
-        )
-    elif text.startswith("ERROR:"):
+    # A response cut off at the output ceiling is a partial answer, and a
+    # partial answer persisted as a finding reaches a client as if it were a
+    # review. Refuse it here, at the top: nothing downstream should have to
+    # know that "a finding" can also be a fragment.
+    refusal = answer_refusal_reason(red, TaskType.REDHAT)
+    if text.startswith("ERROR:"):
         critiques.append(
             {
                 "title": "Red-hat review",
                 "content": text,
                 "model": red.model_id or "",
                 "status": "error",
+            }
+        )
+    elif refusal:
+        critiques.append(
+            {
+                "title": "Red-hat review",
+                "content": refusal,
+                "model": red.model_id or "",
+                "status": "error",
+                "code": "redhat_truncated",
+            }
+        )
+    elif text:
+        critiques.append(
+            {
+                "title": "Red-hat review",
+                "content": text,
+                "model": red.model_id,
             }
         )
     elif red.output_tokens > 0:
@@ -2103,7 +2124,7 @@ def run_redhat_pipeline(
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> Iterator[str]:
-    """Opt-in Stage 4: DeepSeek-Reasoner adversarial critique.
+    """Opt-in Stage 4: DeepSeek-V3 adversarial critique.
 
     Two callers share this pipeline:
     - the hybrid compile gate (whole freshly-drafted document, no
@@ -2111,6 +2132,9 @@ def run_redhat_pipeline(
     - the surgical canvas, on demand, scoped to either the full docked
       document or a single node via ``target_node_id`` — see the node
       context menu / "Run Red-Hat on Full Document" button.
+
+    A finding is attached to the document; a refusal or a model failure is
+    reported and attached to nothing.
     """
     rid = request_id or str(uuid.uuid4())
     start = time.perf_counter()
@@ -2198,22 +2222,34 @@ def run_redhat_pipeline(
             }
         ]
 
-    if redhat_critiques and not target_node_id:
-        critique_text = str(redhat_critiques[0].get("content") or "").strip()
-        if critique_text and redhat_critiques[0].get("status") != "error":
+    # A finding is what the document may carry; an error entry is what the
+    # reader is told. They are different things: attaching a refusal (or a model
+    # failure, or a truncated answer) to the paragraph it could not review would
+    # record a finding that no review ever produced.
+    findings = [c for c in redhat_critiques if str(c.get("status") or "") != "error"]
+    error_entry = next(
+        (c for c in redhat_critiques if str(c.get("status") or "") == "error"), None
+    )
+
+    if findings and not target_node_id:
+        critique_text = str(findings[0].get("content") or "").strip()
+        if critique_text:
             try:
                 save_redhat_critique(project_id, critique_text)
             except Exception:
                 pass
 
     annotated = document
-    if redhat_critiques:
+    if findings:
         annotated = apply_redhat_critiques_to_tree(
-            annotated, redhat_critiques, target_node_id=target_node_id
+            annotated, findings, target_node_id=target_node_id
         )
     parse_document(annotated)
 
-    if target_node_id:  # whole-document audits fall back to nodes[0]
+    # A revision records what the audit did to the document. With nothing
+    # attached there is nothing to record, and a version bump would report an
+    # edit that did not happen.
+    if target_node_id and findings:  # whole-document audits fall back to nodes[0]
         persist_status = None
         try:
             save_jdf_revision(
@@ -2238,25 +2274,52 @@ def run_redhat_pipeline(
                 "status", {"stage": "persist_failed", "detail": persist_status}
             )
 
+    duration_ms = int((time.perf_counter() - start) * 1000)
+
+    if error_entry is not None:
+        # No finding was recorded, so there is no new document state to send:
+        # `audit_complete` is the frame that tells the client one landed.
+        code = str(error_entry.get("code") or "")
+        print(
+            f"REDHAT_AUDIT_REFUSED project={project_id} node={target_node_id} "
+            f"code={code or 'error'} detail={str(error_entry.get('content'))[:240]}",
+            file=sys.stderr,
+        )
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM_REDHAT",
+            success=False,
+            duration_ms=duration_ms,
+            error_message=code or "audit produced no finding",
+            details={"redhat_count": 0},
+        )
+        yield _typed_sse("error", {"ok": False, "error": code, "request_id": rid})
+        yield _typed_sse(
+            "complete",
+            {"ok": False, "error": code, "request_id": rid, "redhat_count": 0},
+        )
+        yield _done_sse()
+        return
+
     audit_payload = build_audit_summary(
         z3_results=z3_results,
-        redhat_critiques=redhat_critiques,
+        redhat_critiques=findings,
         document=annotated,
     )
     yield _typed_sse("audit_complete", audit_payload)
 
-    duration_ms = int((time.perf_counter() - start) * 1000)
     audit.log_audit(
         rid,
         project_id,
         "DRAFT_STREAM_REDHAT",
         success=True,
         duration_ms=duration_ms,
-        details={"redhat_count": len(redhat_critiques)},
+        details={"redhat_count": len(findings)},
     )
     yield _typed_sse(
         "complete",
-        {"ok": True, "request_id": rid, "redhat_count": len(redhat_critiques)},
+        {"ok": True, "request_id": rid, "redhat_count": len(findings)},
     )
     yield _done_sse()
 

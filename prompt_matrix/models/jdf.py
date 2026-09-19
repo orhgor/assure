@@ -896,8 +896,21 @@ def apply_redhat_critiques_to_tree(
     *,
     target_node_id: str | None = None,
 ) -> dict[str, Any]:
-    """Attach Red-Hat text to ``annotations.redhat`` on target node(s)."""
+    """Attach Red-Hat text to ``annotations.redhat`` on target node(s).
+
+    An entry with ``status == "error"`` is not a finding — it is a refusal or a
+    model failure — and is never attached: a paragraph carrying one would show a
+    review that no review produced.
+    """
     if not critiques:
+        return tree
+    texts = [
+        str(crit.get("content") or crit.get("text") or "").strip()
+        for crit in critiques
+        if str(crit.get("status") or "") != "error"
+    ]
+    texts = [text for text in texts if text]
+    if not texts:
         return tree
     mutated = copy.deepcopy(tree)
     node_id = target_node_id
@@ -906,10 +919,8 @@ def apply_redhat_critiques_to_tree(
         node_id = str(nodes[0]["id"]) if nodes else None
     if not node_id:
         return mutated
-    for crit in critiques:
-        text = str(crit.get("content") or crit.get("text") or "").strip()
-        if text:
-            mutated, _ = attach_redhat_annotation(mutated, node_id, text)
+    for text in texts:
+        mutated, _ = attach_redhat_annotation(mutated, node_id, text)
     return mutated
 
 

@@ -122,6 +122,61 @@ class CostGovernanceTests(unittest.TestCase):
         self.assertIsNotNone(result.node)
         self.assertEqual(result.node.get("status"), "VALIDATION_FAILED")
 
+    def test_executor_surfaces_a_completion_cut_off_at_the_ceiling(self):
+        """The provider's own finish_reason is what says "truncated", and it has
+        to survive the executor: the Red-Hat audit refuses to persist a finding
+        on nothing weaker. The reasoning channel must not arrive as the text."""
+
+        class Choice:
+            finish_reason = "length"
+            message = {
+                "content": "",
+                "reasoning_content": "We need answer user asks: Red-hat review…",
+            }
+
+        class Usage:
+            prompt_tokens = 732
+            completion_tokens = 8192
+
+        class Response:
+            choices = [Choice()]
+            usage = Usage()
+
+        with patch("litellm.completion", return_value=Response()):
+            result = self.governor.execute_with_retry_budget(
+                "proj-a",
+                TaskType.REDHAT,
+                [{"role": "user", "content": "review this claim"}],
+            )
+
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.finish_reason, "length")
+        self.assertNotIn("We need answer", result.text)
+
+    def test_executor_does_not_call_a_finished_completion_truncated(self):
+        class Choice:
+            finish_reason = "stop"
+            message = {"content": "**Finding** — the second sentence is unsupported."}
+
+        class Usage:
+            prompt_tokens = 364
+            completion_tokens = 3257
+
+        class Response:
+            choices = [Choice()]
+            usage = Usage()
+
+        with patch("litellm.completion", return_value=Response()):
+            result = self.governor.execute_with_retry_budget(
+                "proj-a",
+                TaskType.REDHAT,
+                [{"role": "user", "content": "review this claim"}],
+            )
+
+        self.assertFalse(result.truncated)
+        self.assertEqual(result.finish_reason, "stop")
+        self.assertEqual(result.text, "**Finding** — the second sentence is unsupported.")
+
 
 if __name__ == "__main__":
     unittest.main()

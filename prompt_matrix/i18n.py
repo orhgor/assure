@@ -1688,6 +1688,7 @@ EN = {
     "jdf.redhat.empty": "Nothing to analyze yet.",
     "jdf.redhat.none": "No issues found.",
     "redhat.finding.resolved": "Remediated by {by}{how}",
+    "redhat.reason.truncated": "The audit ran out of room before it finished — no finding was saved. Run it again.",
     # The unanchored claim's drawer (shell.js): the gap analysis (2B) and the
     # allowlisted fetch that can ground a claim (2C). The English is the fallback
     # for a catalog that could not be fetched, per this shell's locale rule.
@@ -3355,6 +3356,7 @@ ES = {
     "error.catalog": "No se pudo cargar el catálogo",
     "error.classes": "No se pudieron cargar las clases",
     "redhat.finding.resolved": "Resuelto en {by}{how}",
+    "redhat.reason.truncated": "La auditoría se quedó sin espacio antes de terminar: no se guardó ningún hallazgo. Vuelve a ejecutarla.",
 }
 
 ZH = {
@@ -4978,6 +4980,7 @@ ZH = {
     "error.catalog": "无法加载目录",
     "error.classes": "无法加载类",
     "redhat.finding.resolved": "已由 {by} 修复{how}",
+    "redhat.reason.truncated": "审计在完成前用尽了输出空间——未保存任何发现。请重新运行。",
 }
 
 FR = {
@@ -6602,6 +6605,7 @@ FR = {
     "error.catalog": "Impossible de charger le catalogue",
     "error.classes": "Impossible de charger les classes",
     "redhat.finding.resolved": "Corrigé dans {by}{how}",
+    "redhat.reason.truncated": "L'audit a manqué de place avant de terminer — aucun constat n'a été enregistré. Relancez-le.",
 }
 
 DE = {
@@ -8239,6 +8243,7 @@ DE = {
     "error.catalog": "Katalog konnte nicht geladen werden",
     "error.classes": "Klassen konnten nicht geladen werden",
     "redhat.finding.resolved": "Behoben in {by}{how}",
+    "redhat.reason.truncated": "Die Prüfung hat vor dem Ende ihren Ausgaberaum ausgeschöpft — es wurde kein Befund gespeichert. Führen Sie sie erneut aus.",
 }
 
 JA = {
@@ -9869,6 +9874,7 @@ JA = {
     "error.catalog": "カタログを読み込めませんでした",
     "error.classes": "クラスを読み込めませんでした",
     "redhat.finding.resolved": "{by} で修正済み{how}",
+    "redhat.reason.truncated": "監査は完了前に出力の上限に達しました。所見は保存されていません。もう一度実行してください。",
 }
 
 TR = {
@@ -11511,6 +11517,7 @@ TR = {
     "error.catalog": "Katalog yüklenemedi",
     "error.classes": "Sınıflar yüklenemedi",
     "redhat.finding.resolved": "{by} ile giderildi{how}",
+    "redhat.reason.truncated": "Denetim tamamlanmadan çıktı sınırına ulaştı — hiçbir bulgu kaydedilmedi. Yeniden çalıştırın.",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}

@@ -473,12 +473,19 @@ def test_run_redhat_pipeline_opt_in(monkeypatch):
 
 
 def test_run_redhat_pipeline_survives_model_error(monkeypatch):
-    """Red-Hat failures must still emit audit_complete so the UI can recover."""
+    """A Red-Hat model failure is a message to the reader, never a finding: the
+    run ends refused, and the paragraph keeps exactly what the document says.
+    Attaching the failure text would have recorded a review nobody wrote."""
 
     def boom(*_a, **_k):
         raise RuntimeError("API timeout")
 
     monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", boom)
+    saves = []
+    monkeypatch.setattr(
+        "prompt_matrix.db.jdf_repository.save_jdf_revision",
+        lambda *a, **k: saves.append(a),
+    )
 
     doc = {
         "document_id": "doc-default",
@@ -501,13 +508,87 @@ def test_run_redhat_pipeline_survives_model_error(monkeypatch):
             "default",
             draft_text="Revenue was $4.2M.",
             document=doc,
+            target_node_id="para-1",
             governor=_FakeGovernor(),
         )
     )
     events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
-    audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
-    assert audit["redhat_count"] == 1
-    assert "Audit failed" in audit["redhat_critiques"][0]["content"]
+
+    assert not any(data.get("type") == "audit_complete" for _ev, data in events)
+    refused = next(data for ev, data in events if ev == "error")
+    assert refused["ok"] is False
+    completed = next(data for ev, data in events if ev == "complete")
+    assert completed["ok"] is False
+    assert completed["redhat_count"] == 0
+    assert saves == []
+    assert not (doc["body"][0]["children"][0].get("annotations") or {}).get("redhat")
+
+
+def test_run_redhat_pipeline_refuses_a_truncated_answer(monkeypatch):
+    """The measured defect: the model hit its output ceiling, so what came back
+    was a fragment. The run must refuse it — no finding on the paragraph, no
+    revision — and say so, rather than put the fragment in front of a client."""
+
+    def refusing_redhat(*_a, **_k):
+        return [
+            {
+                "title": "Red-hat review",
+                "content": (
+                    "The audit hit its 8192-token output ceiling "
+                    "(finish_reason='length') and its answer was cut off, so it is "
+                    "not a review. No finding was recorded."
+                ),
+                "model": "deepseek/deepseek-chat",
+                "status": "error",
+                "code": "redhat_truncated",
+            }
+        ], {
+            "input_tokens": 732,
+            "output_tokens": 8192,
+            "model_id": "deepseek/deepseek-chat",
+            "task_type": "redhat",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", refusing_redhat)
+    saves = []
+    monkeypatch.setattr(
+        "prompt_matrix.db.jdf_repository.save_jdf_revision",
+        lambda *a, **k: saves.append(a),
+    )
+
+    doc = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {"type": "paragraph", "id": "para-1", "content": "Revenue was $4.2M."},
+                ],
+            }
+        ],
+    }
+
+    frames = list(
+        run_redhat_pipeline(
+            "default",
+            draft_text="Revenue was $4.2M.",
+            document=doc,
+            target_node_id="para-1",
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+
+    assert not any(data.get("type") == "audit_complete" for _ev, data in events)
+    refused = next(data for ev, data in events if ev == "error")
+    assert refused["error"] == "redhat_truncated"
+    assert refused["ok"] is False
+    assert saves == []
+    assert not (doc["body"][0]["children"][0].get("annotations") or {}).get("redhat")
 
 
 def test_run_redhat_pipeline_target_node_id(monkeypatch):
@@ -703,6 +784,66 @@ def test_redhat_whole_document_prompt_is_a_risk_review():
     assert "risk review of this document" in prompt
     assert "unsupported claims" not in prompt
     assert "missing citations" not in prompt
+
+
+def test_redhat_audit_refuses_a_completion_cut_off_at_the_ceiling():
+    """Measured 2026-09-19 on demo-commercial-property-2026 para-8a45837af15f:
+    the reasoner spent its 8192-token ceiling on hidden reasoning, ``content``
+    came back empty, and the reasoning channel — 31,418 chars beginning "We need
+    answer user asks:" — was persisted as the finding. A fragment is not a
+    review: the audit refuses it and records nothing."""
+
+    scratchpad = (
+        'We need answer user asks: Red-hat adversarial review of claim. Only source '
+        'sentence provided: "POLICY LIMIT: $5,000,000 Part of $25,000,000" from '
+        "brim-cp-media43.pdf. Also \"boiler and machinery\""
+    )
+
+    class TruncatedGovernor:
+        def execute_with_retry_budget(self, _project_id, _task, _messages, **_kwargs):
+            class R:
+                text = scratchpad
+                input_tokens = 732
+                output_tokens = 8192
+                model_id = "deepseek/deepseek-reasoner"
+                finish_reason = "length"
+                truncated = True
+
+            return R()
+
+    critiques, usage = run_redhat_audit("p1", "Claim text.", gov=TruncatedGovernor())
+
+    assert len(critiques) == 1
+    assert critiques[0]["status"] == "error"
+    assert critiques[0]["code"] == "redhat_truncated"
+    assert "We need answer" not in critiques[0]["content"]
+    assert "cut off" in critiques[0]["content"]
+    # The tokens were spent and the ledger still says so: the refusal is about
+    # what may be persisted, not about pretending the call did not happen.
+    assert usage["output_tokens"] == 8192
+
+
+def test_redhat_audit_keeps_a_complete_answer():
+    """The other side of the same boundary: a completion that finished on its own
+    terms is a finding, whatever its length."""
+
+    class CompleteGovernor:
+        def execute_with_retry_budget(self, _project_id, _task, _messages, **_kwargs):
+            class R:
+                text = "**Finding** — sentence two is unsupported by the source."
+                input_tokens = 364
+                output_tokens = 3257
+                model_id = "deepseek/deepseek-chat"
+                finish_reason = "stop"
+                truncated = False
+
+            return R()
+
+    critiques, _usage = run_redhat_audit("p1", "Claim text.", gov=CompleteGovernor())
+
+    assert len(critiques) == 1
+    assert critiques[0].get("status") is None
+    assert critiques[0]["content"].startswith("**Finding**")
 
 
 def test_get_node_by_id_resolves_a_nested_paragraph():

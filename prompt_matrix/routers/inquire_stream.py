@@ -7,6 +7,7 @@ import copy
 import json
 import os
 import re
+import sys
 import threading
 import time
 import uuid
@@ -25,6 +26,7 @@ try:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
@@ -46,6 +48,7 @@ except ImportError:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
@@ -615,7 +618,17 @@ def run_inquire_pipeline(
             phase="redhat",
         )
         critique_text = (red.text or "").strip()
-        if critique_text and not critique_text.startswith("ERROR:"):
+        # A response cut off at the output ceiling is a partial review, and a
+        # partial review stored on the paragraph reaches a client as if it were
+        # a finding. Refused here; the node keeps no annotation for it.
+        refusal = answer_refusal_reason(red, TaskType.REDHAT)
+        if refusal:
+            print(
+                f"REDHAT_AUDIT_REFUSED project={project_id} node={node_id} "
+                f"detail={refusal[:240]}",
+                file=sys.stderr,
+            )
+        elif critique_text and not critique_text.startswith("ERROR:"):
             node = _ensure_node_annotations(dict(node))
             annotation = {
                 "id": new_node_id("crit"),
