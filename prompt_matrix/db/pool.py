@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 from pathlib import Path
@@ -11,10 +12,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import QueuePool
 
+from .open_connections import note_connection_open, note_connection_released
+
 try:
     from ..history import _apply_pragmas, _resolve_db_path
 except ImportError:
     from history import _apply_pragmas, _resolve_db_path
+
+_log = logging.getLogger("assure")
 
 _engine: Engine | None = None
 _engine_db_path: str | None = None
@@ -75,10 +80,25 @@ def checkout_dbapi_connection() -> sqlite3.Connection:
     raw = get_engine().raw_connection()
     conn = raw.driver_connection
     if conn is None:
+        # The fairy is already checked out of the pool: raising here without
+        # returning it shrinks the pool by one for the life of the process, and the
+        # next writer that needs that slot waits out pool_timeout and fails. Give it
+        # back first, so this call's failure is not charged to the next one.
+        try:
+            raw.close()
+        except Exception as exc:
+            _log.error(
+                "SQLite pool connection not returned after a failed checkout "
+                "(%s: %s); db_open_connections still counts it as open",
+                exc.__class__.__name__,
+                exc,
+            )
+            note_connection_open(raw, site="db.pool.checkout_dbapi_connection/orphan")
         raise RuntimeError("pool returned connection without driver_connection")
     conn.row_factory = sqlite3.Row
     with _pool_holders_lock:
         _pool_holders[id(conn)] = raw
+    note_connection_open(conn, site="db.pool.checkout_dbapi_connection")
     return conn
 
 
@@ -89,12 +109,31 @@ def release_dbapi_connection(conn: sqlite3.Connection | None) -> None:
     with _pool_holders_lock:
         raw = _pool_holders.pop(id(conn), None)
     if raw is not None:
-        raw.close()
+        try:
+            raw.close()
+        except Exception as exc:
+            # Out of _pool_holders and not closed: nothing will take it back, so it
+            # stays in db_open_connections and is named here rather than swallowed.
+            _log.error(
+                "SQLite pool connection not returned to the pool (%s: %s); "
+                "db_open_connections still counts it as open",
+                exc.__class__.__name__,
+                exc,
+            )
+            return
+        note_connection_released(conn)
         return
     try:
         conn.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        _log.error(
+            "SQLite connection not closed (%s: %s); db_open_connections still "
+            "counts it as open",
+            exc.__class__.__name__,
+            exc,
+        )
+        return
+    note_connection_released(conn)
 
 
 def connection_is_pooled(conn: sqlite3.Connection | None) -> bool:

@@ -13,8 +13,12 @@ import json
 import logging
 import os
 import sqlite3
+import sys
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterator
 
 try:
     from .paths import user_data_dir
@@ -30,6 +34,12 @@ def _resolve_db_path() -> Path:
 
 
 DB_PATH = _resolve_db_path()
+
+#: The connection an open `db_scope()` owns, per thread. `get_db()` joins it
+#: instead of opening another, which is what keeps a standalone unit of work on one
+#: connection the way a request is, and what stops a pipeline from taking the whole
+#: pool. See db_scope's docstring for the measurement.
+_scope_state = threading.local()
 
 
 def _apply_pragmas(conn: sqlite3.Connection) -> None:
@@ -58,6 +68,24 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA foreign_keys=ON;")
 
 
+def _caller_site() -> str:
+    """`file:line:function` of the first frame outside this module.
+
+    The gauge's site tag. `db_open_connections` answers how many connections are
+    held; this answers by whom, from the health payload alone, without a stack
+    sample from the process that is holding them. One frame walk per connection
+    handed out, against a SQLAlchemy checkout — the cost is not measurable next to
+    the thing it describes.
+    """
+    frame = sys._getframe(1)
+    while frame is not None and frame.f_code.co_filename == __file__:
+        frame = frame.f_back
+    if frame is None:
+        return "history.unknown"
+    code = frame.f_code
+    return f"{os.path.basename(code.co_filename)}:{frame.f_lineno}:{code.co_name}"
+
+
 def _new_connection() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     use_pool = os.environ.get("SQLITE_USE_POOL", "1").lower() not in ("0", "false", "no")
@@ -65,7 +93,12 @@ def _new_connection() -> sqlite3.Connection:
         try:
             from .db.pool import checkout_dbapi_connection
 
-            return checkout_dbapi_connection()
+            conn = checkout_dbapi_connection()
+            # Re-tagged with the caller rather than the pool: the pool is the
+            # choke point, the caller is the holder, and when the pool runs out the
+            # holder is the thing to name.
+            note_connection_open(conn, site=_caller_site())
+            return conn
         except ImportError:
             pass
         except Exception as exc:
@@ -81,30 +114,162 @@ def _new_connection() -> sqlite3.Connection:
     # when the pool is saturated (or SQLITE_USE_POOL=0).
     conn = sqlite3.connect(str(DB_PATH), timeout=30.0, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    _apply_pragmas(conn)
+    note_connection_open(conn, site=_caller_site())
+    try:
+        _apply_pragmas(conn)
+    except BaseException:
+        # A pragma that fails leaves a connection no caller ever received, so no
+        # caller can release it. Released here before the error travels.
+        _release_direct_connection(conn)
+        raise
     return conn
 
 
+def _rollback_quietly(conn: sqlite3.Connection | None) -> None:
+    """Discard whatever statement the connection has open. Never raises.
+
+    An uncommitted statement is what holds SQLite's write lock, so this is the one
+    line that stops a failed write from stalling the next one: whether that next
+    writer is a different connection (waiting on the lock) or this same connection
+    (handed to the pool with the failed statement still on it).
+    """
+    if conn is None:
+        return
+    try:
+        conn.rollback()
+    except Exception:
+        pass
+
+
 def _release_connection(conn: sqlite3.Connection | None) -> None:
-    """Return a pooled checkout to SQLAlchemy; plain close for direct sqlite3."""
+    """Return a pooled checkout to SQLAlchemy; plain close for direct sqlite3.
+
+    One half of `db_open_connections`: a connection leaves the gauge only once it
+    is really back — handed to the pool, or closed. A release that fails keeps it
+    counted and names it in the service log, because a connection that is neither
+    in the pool nor closed is one nothing will ever take back, and this count is
+    the only place that is visible.
+    """
     if conn is None:
         return
     try:
         from .db.pool import connection_is_pooled, release_dbapi_connection
 
         if connection_is_pooled(conn):
+            # db/pool.py owns the release *and* the gauge for a pooled connection:
+            # it is the one that knows whether the fairy went back.
             release_dbapi_connection(conn)
             return
     except Exception:
         pass
     try:
         conn.close()
-    except Exception:
+    except Exception as exc:
+        logging.getLogger("assure").error(
+            "SQLite connection not released — close failed (%s: %s); "
+            "db_open_connections still counts it as open",
+            exc.__class__.__name__,
+            exc,
+        )
+        return
+    note_connection_released(conn)
+
+
+def _release_direct_connection(conn: sqlite3.Connection | None) -> None:
+    """Roll a connection's open statement back, then release it quietly.
+
+    The single exit for every connection this process opens on its own account —
+    the audit trail, the metrics collector, the /health probes, the compliance
+    export, and `borrowed_connection` below. A caller may swallow the failure of
+    the work, which is often the right policy for it; what it cannot swallow is a
+    connection left open holding the write lock of the statement that failed.
+    """
+    _rollback_quietly(conn)
+    _release_connection(conn)
+
+
+@contextmanager
+def borrowed_connection() -> Iterator[sqlite3.Connection]:
+    """A connection that is rolled back and given back on every path.
+
+    The connection-leakage family's common cause, in one place: `connect →
+    execute → commit → close` written as a single `try` whose handler swallows
+    leaves the connection open whenever anything between the connect and the close
+    raises — and an open connection with an uncommitted statement holds SQLite's
+    write lock, so the next writer fails, or inside one request is silently lost.
+
+    The rollback is unconditional rather than only on the failure path: a caller
+    that wanted the write commits inside the block, where rollback is then a no-op
+    and nothing is left behind for the next writer to trip over.
+    """
+    conn = _new_connection()
+    try:
+        yield conn
+    finally:
+        _release_direct_connection(conn)
+
+
+@contextmanager
+def db_scope() -> Iterator[sqlite3.Connection]:
+    """A connection that belongs to the block, in either execution mode.
+
+    Inside a request this is the request's own handle — `get_db()`'s `g.db`,
+    released at teardown by `close_db` — so a route's behaviour does not change:
+    one connection for the whole request, every nested `get_db()` joining it.
+
+    Outside one there is no teardown, and that is the whole defect. `get_db()`
+    handed out a NEW pooled checkout per call that nothing returns. Measured on a
+    standalone `run_draft_pipeline` (a probe with stubbed models, no network):
+
+        after one start   db_open_connections=20  pool_holders=20  59 open fds
+        after the second  db_open_connections=35  89 open fds   75s spent
+        after the third   db_open_connections=50  119 open fds  75s spent
+
+    20 is pool_size 5 + max_overflow 15 — the entire pool, taken by one pipeline
+    start. Every later `get_db()` then waited out pool_timeout, `_new_connection`
+    swallowed that TimeoutError and opened a direct connection instead, and the
+    process sat at 0% CPU holding both. That is the state a stub harness and the
+    pipeline were each found in, and the 119-descriptor count is what it looks
+    like from outside.
+
+    So the scope gives a standalone caller what a request already has: one
+    connection for the whole unit of work, which nested `get_db()` calls join
+    through the thread-local below, released when the block ends — including when
+    the generator holding it is closed early.
+    """
+    existing = getattr(_scope_state, "connection", None)
+    if existing is not None:
+        # Nested scope: the outermost one owns the connection and its release.
+        yield existing
+        return
+    try:
+        from flask import has_app_context
+
+        if has_app_context():
+            # Nothing to install: inside a request get_db() already answers with
+            # g.db, and the teardown closes it.
+            yield get_db()
+            return
+    except ImportError:
         pass
+    conn = _new_connection()
+    _scope_state.connection = conn
+    try:
+        yield conn
+    finally:
+        _scope_state.connection = None
+        _release_direct_connection(conn)
 
 
 def get_db() -> sqlite3.Connection:
-    """Request-scoped SQLite handle in Flask; standalone connection elsewhere."""
+    """Request-scoped SQLite handle in Flask; standalone connection elsewhere.
+
+    Third answer, between those two: inside an open `db_scope()` this joins the
+    connection that scope owns rather than opening another. A request already had
+    that property through `g.db`; outside one this is what keeps a unit of work on
+    a single connection instead of one per call — which is the defect db_scope
+    documents.
+    """
     try:
         from flask import g, has_app_context
 
@@ -116,6 +281,9 @@ def get_db() -> sqlite3.Connection:
             return db
     except ImportError:
         pass
+    scoped = getattr(_scope_state, "connection", None)
+    if scoped is not None:
+        return scoped
     return _new_connection()
 
 
@@ -126,9 +294,24 @@ def close_db(e=None) -> None:
         if has_app_context():
             db = g.pop("db", None)
             if db is not None:
-                _release_connection(db)
+                # Rolled back as well as released: a request that died between an
+                # execute and its commit hands back a connection whose statement
+                # would otherwise outlive the request that made it.
+                _release_direct_connection(db)
     except ImportError:
         pass
+
+
+# The gauge for connections taken and not returned. Imported here rather than at
+# the top of the module on purpose: db/__init__.py imports db/connection.py, which
+# imports `_apply_pragmas`, `_new_connection` and `get_db` from *this* module, so a
+# top-of-file import would re-enter this module — via db/__init__ — before those
+# three names exist. Below them, both orders resolve: history imported first, or
+# db.connection imported first.
+try:
+    from .db.open_connections import note_connection_open, note_connection_released
+except ImportError:  # the CLI's flat layout puts prompt_matrix/ on sys.path
+    from db.open_connections import note_connection_open, note_connection_released
 
 
 def ensure_user_subscriptions_table(conn: sqlite3.Connection | None = None) -> None:

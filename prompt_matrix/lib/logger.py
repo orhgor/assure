@@ -12,10 +12,10 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 try:
-    from ..history import DB_PATH, _apply_pragmas
+    from ..history import DB_PATH, _apply_pragmas, _release_direct_connection
     from ..paths import user_data_dir
 except ImportError:
-    from history import DB_PATH, _apply_pragmas
+    from history import DB_PATH, _apply_pragmas, _release_direct_connection
     from paths import user_data_dir
 
 _log = logging.getLogger(__name__)
@@ -148,6 +148,7 @@ class AuditLogger:
         error_message: str | None = None,
         details: dict | None = None,
     ) -> None:
+        conn: sqlite3.Connection | None = None
         try:
             conn = sqlite3.connect(self.db_path, timeout=5.0)
             # The audit trail's connection is the fifth path to this database and
@@ -200,7 +201,6 @@ class AuditLogger:
                 ),
             )
             conn.commit()
-            conn.close()
         except Exception as exc:
             # The row is gone and nothing else will miss it. Logging that to the
             # audit file is not the same as surfacing it, so the drop is stated
@@ -224,6 +224,16 @@ class AuditLogger:
                     f"Original action: {action}, error: {error_message}",
                     extra={"request_id": request_id},
                 )
+        finally:
+            # Released on both paths. A connection abandoned by a failed insert
+            # keeps that insert's transaction open, so the next audit write — from
+            # a connection of its own — waits on SQLite's write lock and times out:
+            # one dropped row turning into a run of them. Rolled back rather than
+            # relying on the close to discard the transaction, closed quietly
+            # because this runs in a `finally` on a path whose whole contract is
+            # that it never raises to its caller, and dropped from
+            # db_open_connections so a leak here would show on /api/health.
+            _release_direct_connection(conn)
 
     def log_exception(
         self,
