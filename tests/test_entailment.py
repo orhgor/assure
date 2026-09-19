@@ -17,7 +17,13 @@ from prompt_matrix.services.entailment import (
     unverified,
 )
 
-SCHEMA_KEYS = {"verdict", "reasoning", "model", "checked_at", "citations"}
+#: The record the node carries. ``contradicted`` is deliberate and newer than the
+#: rest: a ``[yes, no]`` paragraph is carried in part and simultaneously contains a
+#: citation its own source contradicts, and the aggregate verdict alone cannot say
+#: so. The other four are the contract the module documents — an aggregate that
+#: dropped ``model`` and ``checked_at`` read as the frozen shape while carrying
+#: neither, and left the failure reason only inside ``citations``.
+SCHEMA_KEYS = {"verdict", "contradicted", "reasoning", "model", "checked_at", "citations"}
 
 
 def _stub(verdicts: dict[str, str], calls: list[tuple[str, str]] | None = None):

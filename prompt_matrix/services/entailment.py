@@ -287,6 +287,29 @@ def _contradicted(verdicts: list[str]) -> bool:
     return any(verdict == "no" for verdict in verdicts)
 
 
+def _aggregate_reasoning(verdicts: list[str], citations: list[dict[str, Any]]) -> str:
+    """One sentence for the paragraph — the failure first, the mix behind it.
+
+    ``unverified`` is the visible failure of a call that could not be produced, and
+    this string is what the Evidence pane shows for it. An aggregate that reads
+    ``unverified over 1 citation(s)`` names the state and hides the reason
+    ("entailment transport down"), which is the one thing the reader can act on and
+    the reason ``unverified`` exists as a verdict rather than a silent pass. So a
+    failure is reported first, and the per-citation verdicts are summarized behind
+    it — the shape the record had when the check was one call per paragraph, with
+    the aggregate it now needs beside it.
+    """
+    reasons = [str(citation.get("reasoning") or "").strip() for citation in citations]
+    failures = [
+        reason
+        for verdict, reason in zip(verdicts, reasons)
+        if verdict == "unverified" and reason
+    ]
+    summary = ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)"
+    detail = failures[0] if failures else next((reason for reason in reasons if reason), "")
+    return _sanitize(f"{detail} ({summary})" if detail else summary)
+
+
 def attach_entailment_to_tree(
     document: dict[str, Any],
     *,
@@ -343,12 +366,26 @@ def attach_entailment_to_tree(
                         "source": source,
                         "verdict": verdict,
                         "reasoning": str(record.get("reasoning") or ""),
+                        # The judgement's own provenance, carried up from the
+                        # citation: the record's frozen shape is
+                        # ``{verdict, reasoning, model, checked_at}`` and the
+                        # aggregate is what a reader finds on the node.
+                        "model": str(record.get("model") or ""),
+                        "checked_at": str(record.get("checked_at") or ""),
                     }
                 )
+            # The judgements behind this paragraph, as the node reports them: one
+            # model when they agree (they are the same checker under the same
+            # prompt), the set when they do not, and the latest check time. An ISO
+            # 8601 timestamp in one format sorts chronologically as a string.
+            models = sorted({c["model"] for c in per_citation if c["model"]})
+            checked_times = sorted({c["checked_at"] for c in per_citation if c["checked_at"]})
             record_out: dict[str, Any] = {
                 "verdict": _aggregate_verdicts(verdicts),
                 "contradicted": _contradicted(verdicts),
-                "reasoning": ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)",
+                "reasoning": _aggregate_reasoning(verdicts, per_citation),
+                "model": ", ".join(models),
+                "checked_at": checked_times[-1] if checked_times else "",
                 "citations": per_citation,
             }
             meta = dict(node.get("meta") or {})
