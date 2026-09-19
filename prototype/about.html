@@ -99,33 +99,33 @@
       <!-- Part A — the five sections, the same text as the dialog. -->
       <h2>What Assure is</h2>
       <p>A document verification tool.</p>
-      <p>You give it a source and a question. It writes the document — then checks every claim in that document against the source it came from. Each claim carries a verification state you can see at a glance.</p>
-      <p>Assure does not produce an ungrounded document. When claims cannot be traced directly to source evidence, they are isolated and flagged for review — and a document that fails grounding is refused outright.</p>
+      <p>You give it a source and a question. It writes the document — then checks every claim in that document against the source it came from. Each claim carries a verification state, and the check is a flag, not a gate: a paragraph the source does not support is still shown and reported — the run names how many claims were not supported — and the document is produced.</p>
+      <p>Assure does not produce a document its sources cannot ground at all. When claims cannot be traced directly to source evidence they are isolated and flagged for review; a document none of whose claims can be anchored — or fewer than half — is refused outright, and nothing is saved. Whether the source also carries each claim is a separate check, reported per claim.</p>
 
       <h2>What verification looks like</h2>
-      <p>Three checks run — on claims, and on labelled figures.</p>
+      <p>Three checks run — anchoring, entailment, and the numeral audit on labelled figures.</p>
       <p>Is there a source for this claim? The claim is matched to a specific sentence or passage in your uploaded material. If nothing matches, the claim is unanchored.</p>
       <p>Does the source support this claim? The matched passage is read against the claim by a verification model. The verdict is supported, partial, or unsupported.</p>
       <p>Do the numbers reconcile? A figure the draft states as a labelled measure is checked against the source, independently of the prose. A mismatch flags both values. A draft that states none reports a skipped check, not a pass.</p>
       <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unanchored.</p>
-      <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged and wrapped as content, not obeyed. If the compiled output drifts from the source — whether from a hallucination or from an instruction embedded in the material — the document is refused before you see it.</p>
+      <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged, wrapped as content rather than obeyed, and cannot anchor a claim. A paragraph the source does not support is a flag, not a refusal: it is reported and the document is still produced. What is refused outright is a document that cannot be anchored to its source at all — or fewer than half of whose claims can be.</p>
 
       <h2>The adversarial layer</h2>
       <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, and assertions about intent that nothing supports.</p>
-      <p>Findings quote the sentence they're worried about, and the source wording behind it. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
+      <p>Findings quote the sentence they're worried about, and — where the paragraph carries one — the source wording behind it; a paragraph with no attached source is reviewed as a self-critique and the pane says so. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
       <p>Two defenses, layered — on separate paths. Verification runs in the compile and asks: is this true to the source? Red-Hat runs on demand against the persisted document and asks: is this defensible in your hands?</p>
 
       <h2>What you'll find in the shell</h2>
       <p><span class="about-cap">Evidence</span> — click any paragraph. The source, the page, and the quoted sentence the claim was drawn from.</p>
       <p><span class="about-cap">Math Check</span> — the numeral audit. Every labelled figure, its source line, its verdict; a draft that states none is reported as skipped.</p>
-      <p><span class="about-cap">Red-Hat</span> — the adversarial review, on a path of its own. Runs on demand, one node at a time; returns specific findings with the source behind each.</p>
+      <p><span class="about-cap">Red-Hat</span> — the adversarial review, on a path of its own. Runs on demand, on a paragraph, callout or signature node, one at a time; findings on an anchored paragraph carry the source sentence behind them.</p>
       <p><span class="about-cap">Surgical Edit</span> — click a paragraph or a Red-Hat finding. The rephrase editor opens, pre-filled from a finding. Every version is preserved.</p>
       <p><span class="about-cap">Compare</span> — two models on the same question, side by side. Read both, keep the one you prefer.</p>
-      <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to open it in the editor.</p>
-      <p><span class="about-cap">Export</span> — a compliance report: the compiled document, the numeral audit, every finding, the sign-offs and the document lock hash, with the truth ledger in the appendix. One file for a colleague or an auditor.</p>
+      <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to insert it into the working document as an editable paragraph.</p>
+      <p><span class="about-cap">Export</span> — a dossier: the compiled document, each claim's verification state, the source manifest with a hash per source, the version chain and the model that wrote it — with the readable memo as a PDF. One download for a colleague or an auditor.</p>
 
       <h2>What's underneath</h2>
-      <p>Your sources are stored in an open format — they move with you. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
+      <p>Your sources are stored as text in the project's own database, and the dossier carries each source's name, size and hash. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
       <p>This is a preview running for evaluation. Production ships with your authentication and deployment options.</p>
 
       <!-- Part B — the buyer's twelve questions. The user's text, verbatim:
@@ -136,33 +136,33 @@
       <p>Twelve questions. Each one has a specific answer the workspace can show.</p>
       <h3>On accuracy</h3>
       <p class="about-q"><strong>1. What happens when the AI is wrong?</strong></p>
-      <p>The system does not produce a document it cannot ground. Claims that cannot be traced are flagged, not smoothed over. A document that fails grounding is refused outright. Nothing persists.</p>
+      <p>The system does not produce a document its sources cannot ground: a document none of whose claims can be anchored — or fewer than half — is refused outright, and nothing is saved. Claims that cannot be traced are flagged, not smoothed over, and a claim the source does not carry is reported rather than withheld.</p>
       <p class="about-q"><strong>2. How do I know the model isn't hallucinating?</strong></p>
-      <p>Every claim carries an explicit verification state. Anchored claims link directly to their source sentence and page. Any claim the model generated that cannot be grounded in the source is visually isolated and flagged as unanchored — never hidden in flowing prose. A document with no grounding at all is refused.</p>
+      <p>Every claim carries an explicit verification state, and the check reports rather than withholds: a claim the source does not support is still shown to you. Anchored claims link directly to their source sentence and page. Any claim the model generated that cannot be grounded in the source is visually isolated and flagged as unanchored — never hidden in flowing prose. A document with no grounding at all is refused.</p>
       <p class="about-q"><strong>3. What about the numbers?</strong></p>
-      <p>Every figure is checked against the source independently of the prose. The numeral audit runs separate from the language check. A mismatch flags both values side by side.</p>
+      <p>Figures the draft states as labelled measures are checked against the source independently of the prose — a solver compares each against the value locked from the source, not a model. The numeral audit runs separate from the language check. A mismatch flags both values side by side.</p>
       <h3>On control</h3>
       <p class="about-q"><strong>4. Can I see what the model was asked and which model answered?</strong></p>
-      <p>Yes, for the run in front of you: the left pane shows the compiled prompt and the routed model. Neither is carried by the document, so a reload clears them — the row then reads Compiled · model not carried by the document.</p>
+      <p>Yes, for the run in front of you: the left pane shows the compiled prompt and the routed model. The routed model survives a reload — it is read back from the compile the project stored. The compiled prompt is not kept, so that section is empty after a reload.</p>
       <p class="about-q"><strong>5. What if I want a second opinion from another model?</strong></p>
-      <p>Compare runs two models on the same question. Read both, keep the one you prefer. Per-clause merging across models is on the roadmap.</p>
+      <p>Compare runs two models on the same question. Read both, keep the one you prefer. Per-clause merging across models is not built.</p>
       <p class="about-q"><strong>6. Can I edit a claim without breaking the rest of the document?</strong></p>
       <p>Yes. Surgical Edit operates on one paragraph at a time. The rest of the document is untouched. Every version is preserved and navigable.</p>
       <h3>On adversarial input</h3>
       <p class="about-q"><strong>7. What if someone uploads a source with instructions embedded in it?</strong></p>
-      <p>The source scan flags instruction-like content and wraps it as untrusted data. The pre-persist validator refuses any document whose output drifts from the source — whether the drift is a hallucination or an injected token.</p>
+      <p>The source scan flags instruction-like content and wraps it as untrusted data, and a sentence that orders the reader cannot anchor a claim. The pre-persist validator refuses a draft that carries a verbatim run of the compiled prompt, that cannot be anchored to the source at all, that anchors fewer than half of its claims, or whose opening word appears in no source. Whether an anchored claim is true to its source is not a refusal — the verification check reports it per claim.</p>
       <p class="about-q"><strong>8. Can the system be manipulated into revealing its prompt or producing arbitrary output?</strong></p>
-      <p>Direct and indirect injection variants have been tested. Both are refused. The prompt is not disclosed. The document is not produced.</p>
+      <p>Nothing here prevents the prompt from being disclosed: a model that echoes the compiled system prompt verbatim streams that echo to the screen and over the connection, and the guard runs at the end — it stops the document being saved, not the disclosure. On injection: a direct-injection test exists in this repository and it accepts either outcome, a refusal or a document that is produced and saved; there is no indirect-injection test. An instruction embedded in a source could once anchor a paragraph by its own wording; it cannot now.</p>
       <h3>On audit and compliance</h3>
       <p class="about-q"><strong>9. When the regulator asks how a decision was made, what do I show them?</strong></p>
-      <p>The dossier: the compiled document, every source, every finding, the version history. Every claim is traceable to a source sentence and page. Every verification state is recorded.</p>
+      <p>The dossier: the compiled document, each claim's verification state, the source manifest, the version history. Every claim is traceable to a source sentence and page. Every verification state is recorded.</p>
       <p class="about-q"><strong>10. Does the system support the NAIC bulletin requirements for explainability and auditability?</strong></p>
-      <p>Every claim is anchored and traceable. Every version preserved. Every finding documented. The export produces a single audit artifact.</p>
+      <p>Anchoring is enforced: a document none of whose claims can be anchored, or fewer than half, is refused rather than saved. Every version is preserved. Every verification state is recorded. Red-Hat findings are not yet carried by the export — that is a gap in the file, not a feature of it.</p>
       <h3>On vendor risk</h3>
       <p class="about-q"><strong>11. What happens if you change the model, or the vendor relationship ends?</strong></p>
-      <p>The model layer is swappable — it was changed without touching the data or the UI. Your sources are stored in an open format and move with you. Nothing locks you in.</p>
+      <p>The model layer is swappable — it was changed without touching the data or the UI. Your sources are stored as text in the project's own database, and the dossier carries each source's name, size and hash. Nothing locks you in.</p>
       <p class="about-q"><strong>12. What does the system not do?</strong></p>
-      <p>It does not search the internet. Sources are what you upload — no open-web retrieval. It does not make legal or actuarial judgments; it reports what the source says and whether the claim matches. The underwriter decides. It does not replace human sign-off. And it does not guarantee 100% legal defensibility — it produces a document that is traceable, defensible, and auditable.</p>
+      <p>The compile uses only the sources you upload — there is no open-web retrieval in the compile path. The application also ships an allow-listed web fetch for closing an unanchored claim; it is not wired into this preview. It does not make legal or actuarial judgments; it reports what the source says and whether the claim matches. The underwriter decides. It does not replace human sign-off. And it does not guarantee 100% legal defensibility — it produces a document that is traceable, defensible, and auditable.</p>
 
       <!-- Part C — the cycle, ten steps from submission to filed dossier,
            closing on the before/after comparison. The Step 2 question and the
@@ -171,7 +171,7 @@
       <h2>How Assure runs in the company</h2>
       <p>The full cycle, from submission to filed dossier.</p>
       <h3>Step 1 — The submission arrives</h3>
-      <p>A commercial property renewal. The broker submits three documents: the expiring policy, the proposed renewal terms, and a cover note. The underwriter opens Assure, selects the account's project, and uploads all three. Each lands in the manifest — filename, size, indexed date. Search returns them. The source scan checks each for instruction-like content. None flagged.</p>
+      <p>A commercial property renewal. The broker submits three documents: the expiring policy, the proposed renewal terms, and a cover note. The underwriter opens Assure, selects the account's project, and uploads all three. Each lands in the manifest — filename, size, indexed date. Search returns them. The source scan checks each for instruction-like content.</p>
       <p><strong>Time:</strong> two minutes.</p>
       <h3>Step 2 — The underwriter asks</h3>
       <p>The question is what the file requires:</p>
@@ -180,15 +180,15 @@
       </blockquote>
       <p>This is the same memo the underwriter would write. The difference is what happens next.</p>
       <h3>Step 3 — The compile</h3>
-      <p>The pipeline runs. The left pane's Stages list is its view: four rows — Retrieve, Draft, Anchor, Verify — each ticking when the steps the stream reports under it land (Preparing; Drafting and Lock Inference; Compile and Math Check; Verify and Complete). The progress line fills under the header. The underwriter waits while it runs. The left pane shows the compiled prompt that was sent to the model and the model that answered.</p>
+      <p>The pipeline runs. The left pane's Stages list is its view: four rows — Retrieve, Draft, Anchor, Verify — each ticking when the steps the stream reports under it land (Preparing; Drafting and Lock Inference; Compile and Math Check; Verify and Complete). The progress line fills under the header. The underwriter waits while it runs. The left pane shows the compiled system prompt that was sent to the model and the model that answered.</p>
       <h3>Step 4 — The document appears, verified</h3>
-      <p>The memo renders in the center. Every paragraph carries a verification state: green underline (supported), amber underline (partially supported), grey (unanchored).</p>
-      <p>The counters report the distribution. The underwriter knows before reading a line which claims are clean, which need attention, and which are ungrounded.</p>
+      <p>The memo renders in the center. Every paragraph carries a verification state: a green left rule with a "✓ verified" chip where the source carries the claim, amber with "~ partial" where it carries it in part, and grey with "· anchored" where there is no verdict to show — including a paragraph the check found the source does not support.</p>
+      <p>The counters report the distribution: anchored, and of those supported and partial; unanchored where no source is cited. A claim the check judged unsupported is reported in the run's summary and in the Evidence pane.</p>
       <p>If the compile produces zero anchors — a mismatched source, for instance — the document is refused outright. Nothing is persisted.</p>
       <h3>Step 5 — Reading with the evidence in reach</h3>
       <p>Any paragraph can be clicked. The right pane opens with the source filename, the page number, and the quoted sentence the claim was drawn from. Reading the memo is no longer an act of trust. It is an act of checking — one click per claim.</p>
       <h3>Step 6 — The numeral audit</h3>
-      <p>Every figure in the memo is checked against the source independently of the prose — limits, deductibles, percentages, effective dates. A mismatch flags both values in the Math Check tab.</p>
+      <p>Figures the draft states as labelled measures are checked against the source independently of the prose — limits, deductibles, percentages, effective dates. A mismatch flags both values in the Math Check tab.</p>
       <h3>Step 7 — Red-Hat finds what a human would miss</h3>
       <p>The underwriter clicks the paragraph the counters flagged as partial. Red-Hat returns a finding:</p>
       <blockquote>
@@ -196,12 +196,12 @@
       </blockquote>
       <p>The claim was 80% right. The 20% wrong would have mattered in a coverage dispute. The system caught it — and it quotes the sentence it's worried about and the source line behind it.</p>
       <h3>Step 8 — The underwriter applies the fix</h3>
-      <p>Click Apply. The rephrase editor opens, pre-filled with the suggested fix. Submit. A new version lands. The document re-verifies. The counters update. The version navigator moves between revisions. Every state is preserved.</p>
+      <p>Click Apply. The rephrase editor opens, pre-filled with the suggested fix. Submit. A new version lands and the counters update from the rewritten paragraph. The version navigator moves between revisions. Every state is preserved.</p>
       <h3>Step 9 — The reviewer signs off</h3>
       <p>The memo goes to the underwriting manager. She opens the same project. Everything is on screen: the document, the counters, the evidence, the Red-Hat finding, the version history. Her sign-off is not a rubber stamp. It is a review of a document whose every claim has already been checked.</p>
       <h3>Step 10 — The dossier is filed</h3>
-      <p>The underwriter exports the dossier: the compiled memo, every source document, every finding, the version history. One file. It goes into the file.</p>
-      <p>Three years later, when a claim is disputed and the regulator asks how the renewal decision was made, the file contains the memo as it was written, the sources it was built from, every claim traceable to a specific page and sentence, every finding the adversarial review surfaced, every version of every edit.</p>
+      <p>The underwriter exports the dossier: the compiled memo, each claim's verification state, the source manifest, the version history. One download. It goes into the file.</p>
+      <p>Three years later, when a claim is disputed and the regulator asks how the renewal decision was made, the file contains the memo as it was written, the manifest of the sources it was built from, every claim traceable to a specific page and sentence, and every version of every edit.</p>
       <p>The audit trail was produced by the system that made the document — not reconstructed after the fact.</p>
       <h3>The day changes shape</h3>
       <table>
@@ -226,22 +226,22 @@
           <tr>
             <td>Claim verification</td>
             <td>Manual — a reviewer reads the policy and the memo side by side</td>
-            <td>One click per claim</td>
+            <td>One click per anchored claim</td>
           </tr>
           <tr>
             <td>Number checking</td>
             <td>Manual cross-reference</td>
-            <td>Independent numeral audit</td>
+            <td>Numeral audit against the locked source values</td>
           </tr>
           <tr>
             <td>Adversarial review</td>
             <td>Depends on the reviewer's experience and attention</td>
-            <td>Red-Hat runs on every paragraph on demand</td>
+            <td>Red-Hat runs on a paragraph on demand, one at a time</td>
           </tr>
           <tr>
             <td>Edit and re-verify</td>
             <td>Manual, with version tracking by filename</td>
-            <td>Surgical Edit, re-verifies on submit, every version navigable</td>
+            <td>Surgical Edit, one paragraph at a time; every version navigable</td>
           </tr>
           <tr>
             <td>Audit trail</td>
