@@ -150,6 +150,17 @@ def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
     The read path settles it once, here, in place on the document this response is
     built from: ``fetch_latest_jdf_or_empty`` decodes a fresh copy per call and
     nothing is written back to SQLite.
+
+    The fold converts to ``page_number``'s declared type — a ``str`` — because the
+    two names do not agree on one: ``page`` is the substrate row's ``int``
+    (``models.jdf.JDFProvenance.page``) while ``page_number`` is the matcher's
+    ``str``. Serving the int verbatim made this response unparseable by the model
+    it was serialised from, so every route that takes the shell's own document
+    back refused it before a model was called — measured on the demo project:
+    ``parse_document`` raised 180 validation errors (one per provenance row) and
+    the room's own "Run Red-Hat" answered ``Invalid document: 180 validation
+    errors``. A display fold must not cross a type boundary: whatever this
+    function serves has to round-trip through ``parse_document``.
     """
     for section in document.get("body") or []:
         if not isinstance(section, dict):
@@ -163,7 +174,7 @@ def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
                 if row.get("page_number") in (None, ""):
                     page = row.get("page")
                     if page not in (None, ""):
-                        row["page_number"] = page
+                        row["page_number"] = str(page)
     return document
 
 
