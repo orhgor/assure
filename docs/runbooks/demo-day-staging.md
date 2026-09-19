@@ -1233,13 +1233,60 @@ while the warm path replays; `POST /api/projects/<pid>/nodes/<nid>/ground` → *
 answers `405`, and `GET /ground` is redirected to `/signin`); and `/api/health` answers `200` on
 the gate key alone.
 
-### 12.4 Still open
+### 12.4 The r2 deploy — what ships, and what is still open
 
-* **The compile-lock lease** (`0ff2462`) — not in this deploy.
-* **The leakage family** (`e161e0b`) — not in this deploy.
-* **The source-length fix** — `_SOURCE_TOO_LONG_REASON` and `_oversized_source` are in this tree
-  and refuse a source longer than `SUBSTRATE_CONTEXT_CHARS_PER_FILE` instead of drafting from a
-  prefix of it and then blaming the document. It is **unexercised**: no source used in this
-  deploy's checks was long enough to trip it.
-* **The counter-row divergence in §12.2.1** — cosmetic, reproducible, and worth a fix; the run
-  view and the hydrated view should agree on what `anchored` means.
+`deploy/staging-2026-09-19-r2`, built on the revision §12.1 records and landed on the same box.
+Three merges, in this order:
+
+| Merge | Content |
+|---|---|
+| `3ee8331` | **The leakage family.** `e161e0b` replayed onto this trunk with `git rebase --onto f18bb68 7c8a422` — `7c8a422` (the shell tick) is already in this tree, and dropping it is what keeps the branch's 63-commit divergence from being reverse-applied. Replays `6c9a1ab` (the cache-refusal fix), `69d02a1` (its test) and `b989168` (the connection family: pool, audit, substrate, migrations). |
+| `240531c` | **The compile-lock lease.** `2ac6443` + `0ff2462`, a real three-way merge. Its base `f112d84` predates `9c849f0` (the `b3-samples.txt` restore) and `c9d5ed3` (the `.bak` drop), so a tree-take would have reversed both — verified **after** the merge: `.bak` count `0`, `b3-samples.txt` md5 `dcf929bbc560c07097022ae5f5812879`, `shell.js` md5 `a3e68e68d57c22a92eefecd5bc867714`. |
+| `c74aba1` | **This runbook's own §12 record** (`98b736f`), docs only. It is **not** an ancestor of `f18bb68`, so without this merge the r2 trunk would have dropped §12 entirely. |
+
+**What ships**
+
+* **The connection-leakage family** — releasing is the single idiom on every path that can hold a
+  connection: `prompt_matrix/db/open_connections.py` (a gauge, `note_connection_open` /
+  `note_connection_released`), `history.borrowed_connection` / `closing_connection` /
+  `_release_direct_connection`, the pool returning its fairy when a checkout fails, a failed
+  migration rolled back instead of left inside the request's transaction, and the audit path
+  releasing instead of abandoning. It is countable, not just fixed: `/api/health` carries
+  `db_open_connections` (and `db_open_connection_sites`) beside the `audit_drops` counter and the
+  new `cache_drops` counter, the `or "entailment"` / `or CACHE_KIND` fallbacks that wrote a literal
+  as a `project_id` are gone, and `scripts/probe_pipeline_pool.py` stays in the tree as the
+  reproducer.
+* **The compile-lock lease** — `scripts/compile_lock.py`. The hold is bounded and observable: a
+  heartbeat lease (`<path>.lease`), a generation mutex (`<path>.gen.<N>`) that a waiter can
+  actually take, `LOCK-TAKEOVER` / `LOCK-STALE-RECOVERED` / `LOCK-LEASE-LOST` on stdout, the
+  counters in `<path>.takeovers` and `<path>.recoveries`, exit `3` = superseded and exit `4` =
+  NOT RUN. The waiter's deadline counts *no progress* rather than wall clock, so a holder doing
+  real work is never starved, and a silent **legacy** holder is never taken over. An interrupted
+  holder now takes the command it was running with it, rather than leaving it to run concurrently
+  with the next holder.
+
+The wrapper the lease replaces (`withlock_retry.py`) was never committed on any branch and no
+longer exists on the box, so its pre-fix behaviour is **recorded** rather than re-runnable (the
+postaudit notes carry the symptom: `NOT RUN: lock not acquired within 300s`, the bg_84 shape). The
+pre-fix tool that *is* in the tree is `2ac6443`'s own — the lease before the interrupted-holder
+commit — and the lease detector fails against it on **behaviour**
+(`test_interrupted_holder_takes_its_command_with_it`: the command outlived its holder, `assert not
+True`), while the whole file passes against the merged tool.
+
+**What is still open**
+
+* **The source-length fix** — `_SOURCE_TOO_LONG_REASON` and `_oversized_source` refuse a source
+  longer than `SUBSTRATE_CONTEXT_CHARS_PER_FILE` instead of drafting from a prefix of it and then
+  blaming the document. Still **unexercised**: no source used in r1's or r2's checks was long
+  enough to trip it.
+* **The memo/unanchorable structural finding** — in `models/jdf.attach_substrate_provenance_to_tree`,
+  a memo paragraph that aggregates figures from more than one section yields **no qualifying
+  window** and is unanchorable by construction, so the document is refused as `zero_anchored_claims`.
+  Measured, not guessed: `x1` (two sentences, figures `{2, 2000000}`) scores 1.00 and anchors, while
+  `y6` (four sentences, figures `{2, 2000000, 2025, 2026, 2027, 25000, 50000}`) has no qualifying
+  window with the figure rule on and scores 0.88 / 0.82 with it off. Same refusal class as the
+  source-length refusal beside it; neither is about prompt wording.
+* **The §12.2.1 counter-row divergence** — cosmetic, reproducible, still unfixed: the run view and
+  the hydrated view compute the anchor total differently, because the persisted document carries no
+  `meta.provenance_stats` (re-measured on r2: the document's `meta` keys are exactly `answer_shape`,
+  `confidenceSpans`, `project_id`, `source`).
