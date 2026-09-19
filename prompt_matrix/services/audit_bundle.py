@@ -532,9 +532,13 @@ def build_audit_bundle_html(
         if redhat_view["ran"]:
             redhat_html = "<li>Red-Hat ran for this document and recorded no findings.</li>"
         elif redhat_view["reason"]:
+            reason = str(redhat_view["reason"])
+            # The compile records its skip reason as a clause ("no Red-Hat audit
+            # was requested for this compile."), so it is set as its own sentence.
+            reason = reason[:1].upper() + reason[1:]
             redhat_html = (
                 "<li>No Red-Hat critique is recorded for this document. "
-                f"{_esc(redhat_view['reason'])}</li>"
+                f"{_esc(reason)}</li>"
             )
         else:
             redhat_html = "<li>No Red-Hat critique is recorded for this document.</li>"
