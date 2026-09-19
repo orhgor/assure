@@ -1833,6 +1833,19 @@
       return _ENTAILMENT_LABELS[_entailmentVerdict(node, provItem)] +
         (pageStr ? " \u00b7 page " + pageStr : "");
     }
+    // The page a provenance row names. ``page_number`` is the field the JDF model
+    // and the served tree carry; the compile's citation rows are stamped with
+    // ``page`` (the name the substrate rows use) and models.jdf folds one into the
+    // other, so a row on this side may carry either — the live `verified` frame
+    // streams the pre-persist tree, which still says ``page``. A row with neither
+    // renders no page rather than a "0".
+    function _rowPage(row) {
+      if (!row || typeof row !== "object") return "";
+      var p = row.page_number;
+      if (p == null || p === "") p = row.page;
+      if (p == null || p === "") return "";
+      return String(p);
+    }
     // The counters the gate reports, derived from the same tree the shell
     // renders. They are a *partition* of the eligible paragraphs: every eligible
     // paragraph lands in exactly one bucket, so the row sums to the count it
@@ -5253,9 +5266,7 @@
         _renderUnanchoredDrawer(node);
         return;
       }
-      var srcName = String((p0 && p0.source_name) || "");
-      var pageStr = (p0 && p0.page_number != null && p0.page_number !== "")
-        ? String(p0.page_number) : "";
+      var pageStr = _rowPage(p0);
       // Label from the entailment verdict, not from the anchor's presence.
       header.textContent = _entailmentLabel(node, p0, pageStr);
       evidenceBodyEl.appendChild(header);
@@ -5271,13 +5282,6 @@
         content.appendChild(reasonEl);
       }
       if (!p0) { evidenceBodyEl.appendChild(content); return; }
-      var excerpt = String(p0.excerpt || p0.extracted_quote || "");
-      if (excerpt) {
-        var quote = document.createElement("blockquote");
-        quote.className = "evidence-blockquote";
-        quote.textContent = excerpt;
-        content.appendChild(quote);
-      }
       function field(label, value) {
         var s = String(value == null ? "" : value);
         if (!s) return;
@@ -5287,10 +5291,34 @@
         var v = document.createElement("div"); v.className = "evidence-value"; v.textContent = s;
         f.appendChild(l); f.appendChild(v); content.appendChild(f);
       }
-      field("Source", srcName);
-      if (pageStr) field("Page", pageStr);
-      field("Rule", p0.rule);
-      field("Confidence", p0.confidence);
+      // One block per cited sentence, in the order the compile stored them: the
+      // paragraph's first citation first, the rest below. The quote is read from
+      // ``extracted_quote`` — the source sentence the compile stamped
+      // (routers/draft.py:attach_citations_to_tree) — and not from
+      // ``meta.provenance.excerpt``, which falls back to the claim's own text
+      // when no row carried a sentence and would present the claim as its source.
+      for (var r = 0; r < prov.length; r++) {
+        var row = prov[r];
+        if (!row || typeof row !== "object") continue;
+        var quote = String(row.extracted_quote || row.excerpt || "");
+        var srcName = String(row.source_name || "");
+        var rowPage = _rowPage(row);
+        var citedId = String(row.cited_id || "");
+        if (!quote && !srcName && !rowPage && !citedId) continue;
+        if (quote) {
+          var q = document.createElement("blockquote");
+          q.className = "evidence-blockquote";
+          q.textContent = quote;
+          content.appendChild(q);
+        }
+        field("Source", srcName);
+        if (rowPage) field("Page", rowPage);
+        // The id the model wrote, shown as the label the paragraph carried:
+        // "S1228" is stored, "[S1228]" is what the citation looked like.
+        if (citedId) field("Citation", citedId.charAt(0) === "[" ? citedId : "[" + citedId + "]");
+        field("Rule", row.rule);
+        field("Confidence", row.confidence);
+      }
       evidenceBodyEl.appendChild(content);
     }
     function renderZ3Panel(node) {
@@ -5581,7 +5609,8 @@
           srcField.appendChild(srcValue);
           content.appendChild(srcField);
         }
-        if (ev.data.page_number) {
+        var drawerPage = _rowPage(ev.data);
+        if (drawerPage) {
           var pageField = document.createElement("div");
           pageField.className = "evidence-field";
           var pageLabel = document.createElement("div");
@@ -5589,7 +5618,7 @@
           pageLabel.textContent = "Page";
           var pageValue = document.createElement("div");
           pageValue.className = "evidence-value";
-          pageValue.textContent = String(ev.data.page_number);
+          pageValue.textContent = drawerPage;
           pageField.appendChild(pageLabel);
           pageField.appendChild(pageValue);
           content.appendChild(pageField);

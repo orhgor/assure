@@ -138,6 +138,35 @@ def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     return tree
 
 
+def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
+    """Serve every provenance row with its page under ``page_number``.
+
+    A cited row is stamped ``{extracted_quote, source_name, page, cited_id}``
+    (``routers/draft.py:attach_citations_to_tree``) — the page under the name the
+    substrate rows use — while the matcher's rows and every reader on this side
+    (the Evidence pane, the JDF canvas, the source list, the .docx export) read
+    ``page_number``. ``models.jdf.JDFProvenance`` keeps both names, so a served
+    row may carry either, and a reader would otherwise have to know the alias.
+    The read path settles it once, here, in place on the document this response is
+    built from: ``fetch_latest_jdf_or_empty`` decodes a fresh copy per call and
+    nothing is written back to SQLite.
+    """
+    for section in document.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        for node in (section, *(section.get("children") or [])):
+            if not isinstance(node, dict):
+                continue
+            for row in node.get("provenance") or []:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("page_number") in (None, ""):
+                    page = row.get("page")
+                    if page not in (None, ""):
+                        row["page_number"] = page
+    return document
+
+
 def register_jdf_routes(app) -> None:
     @app.get("/api/projects/<project_id>/history")
     @project_ownership_required
@@ -190,12 +219,14 @@ def register_jdf_routes(app) -> None:
             doc = fetch_jdf_at_version(project_id, version)
             if doc is None:
                 return jsonify({"error": f"version {version} not found"}), 404
-            return jsonify({"ok": True, "document": doc, "version": version})
+            return jsonify(
+                {"ok": True, "document": _serve_citation_rows(doc), "version": version}
+            )
 
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
-        return jsonify({"ok": True, "document": doc})
+        return jsonify({"ok": True, "document": _serve_citation_rows(doc)})
 
     @app.put("/api/projects/<project_id>/jdf")
     @project_ownership_required
