@@ -1128,7 +1128,7 @@ def attach_substrate_provenance_to_tree(
             inter = len(content_toks & window_toks)
             if inter < _MIN_ANCHOR_OVERLAP:
                 continue
-            score = inter / min(len(claim_toks), len(window_toks))
+            score = inter / min(len(content_toks), len(window_toks))
             # A tie goes to the narrowest window: the anchor stays as tight as the
             # evidence allows, so a paragraph one sentence already covers keeps that
             # sentence as its window and does not carry its neighbours into the
@@ -1157,7 +1157,7 @@ def attach_substrate_provenance_to_tree(
             inter = len(content_toks & sent_toks)
             if inter < _MIN_ANCHOR_OVERLAP:
                 continue
-            score = inter / min(len(claim_toks), len(sent_toks))
+            score = inter / min(len(content_toks), len(sent_toks))
             if score > best_sent_score:
                 best_sent_score = score
                 best_sent = sent
