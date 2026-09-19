@@ -24,7 +24,7 @@ import zipfile
 
 import pytest
 
-from prompt_matrix.db.jdf_repository import ensure_project
+from prompt_matrix.db.jdf_repository import ensure_project, save_jdf_revision
 from prompt_matrix.db.substrate_repository import save_substrate_entry
 from prompt_matrix.services.jdf_sidecar import SIDECAR_FORMAT, audit_jdf_payload
 from prompt_matrix.web import create_app
@@ -247,6 +247,62 @@ def test_round_trip_into_a_fresh_project_keeps_anchors_and_state(client):
     ]
     assert node["meta"]["provenance"]["verdict"] == "supported"
     assert loaded["meta"]["answer_shape"] == "memo"
+
+
+def test_round_trip_keeps_text_that_carries_no_markup(client):
+    """A bare ``&`` and a bare ``<`` are data, and the load path leaves them alone.
+
+    The compile writes model text to the revision without the HTML guard, so an
+    exported memo can contain "&" and "<" as ordinary characters. Loading it must
+    not escape the first or strip the second: the escape made a real renewal memo's
+    export hash differently from the tree the import produced, and put "&amp;" in
+    the served text and the .docx/.markdown exports.
+    """
+    ensure_project("amp-src", "Ampersand Source")
+    content = (
+        "Issued by Princeton Excess & Surplus Lines Insurance Company; sublimit "
+        "$500,000 x/s $10,000,000 per occurrence, premium < $1,000,000."
+    )
+    save_jdf_revision(
+        "amp-src",
+        {
+            "document_id": "doc-amp",
+            "meta": {"title": "Ampersand"},
+            "truth_ledger": {},
+            "body": [
+                {
+                    "type": "section",
+                    "id": "sec-amp",
+                    "title": "Renewal",
+                    "meta": {},
+                    "annotations": {"redhat": [], "z3": []},
+                    "children": [
+                        {
+                            "type": "paragraph",
+                            "id": "para-amp",
+                            "content": content,
+                            "entities_referenced": [],
+                            "provenance": [],
+                            "meta": {},
+                            "annotations": {"redhat": [], "z3": []},
+                        }
+                    ],
+                }
+            ],
+        },
+        mutation_type="compile",
+    )
+    sidecar = client.get("/api/projects/amp-src/export?format=jdf").get_json()
+    exported = sidecar["document"]["body"][0]["children"][0]["content"]
+    assert exported == content
+    assert "&amp;" not in exported
+
+    fresh = (client.post("/api/projects", json={"title": "Amp Fresh"}).get_json() or {})["id"]
+    res = client.post(f"/api/projects/{fresh}/import-jdf", json=sidecar)
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert res.get_json()["round_trip"]["document_sha256_matches"] is True
+    loaded = client.get(f"/api/projects/{fresh}/jdf").get_json()["document"]
+    assert loaded["body"][0]["children"][0]["content"] == content
 
 
 def test_round_trip_reports_an_anchor_whose_source_is_not_in_the_manifest(client):

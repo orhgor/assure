@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from typing import Any
 
 ALLOWED_TAGS = [
@@ -40,16 +41,34 @@ _TEXT_KEYS = frozenset(
 
 
 def _clean_html(value: str) -> str:
+    """Strip dangerous markup; leave text that carries no markup byte-identical.
+
+    ``bleach.clean`` is an HTML *writer* as well as a filter: it escapes every bare
+    ``&`` into ``&amp;``, in a string that has no tag in it. Applied to a document's
+    own text, that escape never round-trips — a real renewal memo's "Princeton
+    Excess & Surplus Lines Insurance Company" was written to SQLite, served, and
+    exported as ``&amp;``, which an underwriter reads as a mangled company name and
+    which makes an exported JDF hash differently from the tree a re-import of it
+    produces. Text with no ``<`` cannot carry markup, so it is returned unchanged.
+    Text that does go through bleach has its entities unescaped afterwards, so the
+    clean is an identity for the text while the tags are still stripped — unescaping
+    cannot put a tag back, because the HTML parser never reads an entity as tag
+    syntax.
+    """
+    if "<" not in value:
+        return value
     try:
         import bleach
     except ImportError:
         return _fallback_strip(value)
-    return bleach.clean(
-        value,
-        tags=ALLOWED_TAGS,
-        attributes=ALLOWED_ATTRS,
-        strip=True,
-        strip_comments=True,
+    return html.unescape(
+        bleach.clean(
+            value,
+            tags=ALLOWED_TAGS,
+            attributes=ALLOWED_ATTRS,
+            strip=True,
+            strip_comments=True,
+        )
     )
 
 
