@@ -171,6 +171,93 @@ def test_a_translation_that_contradicts_itself_is_not_decided():
     assert result["unverified"] == 1
 
 
+#: The renewal memo's sentence and the cap the source locks, as measured on project
+#: walk-underwriting-2026-09-19-68e596: the translator wrote 100000000 for the
+#: draft's "100 billion" and the Math Check listed a violated cap the draft states
+#: correctly.
+TRIA_SENTENCE = (
+    "The prior policy’s terrorism coverage was provided under the Terrorism Risk "
+    "Insurance Act (TRIA) and was subject to a $100 billion cap on U."
+)
+TRIA_FACTS = {"tria_cap": 100_000_000_000.0}
+
+
+def _tria_claim(value: float, *, sentence: str = TRIA_SENTENCE) -> dict:
+    """The translation the model actually produced, with the value it wrote."""
+    return {
+        "metric": "tria_cap",
+        "operands": [
+            {"name": "tria_cap", "value": value, "unit": "USD", "source_sentence": sentence}
+        ],
+        "relation": "eq",
+        "expected": value,
+    }
+
+
+@z3_skip
+def test_a_transcription_that_lost_the_sentence_magnitude_is_not_a_violation():
+    """A dropped magnitude word is the translation's error, not a finding about the draft.
+
+    Measured on the renewal memo: "subject to a $100 billion cap" came back as
+    100000000 against a locked 100000000000, the value query reported it, and the
+    product listed a violated cap the draft states correctly. A wrong violation is
+    worse than no check, so the claim is left unchecked with the reason — with both
+    figures still in the record, since the tab shows them side by side.
+    """
+    verdict = rz.check_relation(_tria_claim(100_000_000), TRIA_FACTS)
+    assert verdict["verdict"] == rz.UNKNOWN
+    assert "lost the sentence's magnitude" in verdict["reason"]
+    assert "100000000000" in verdict["reason"]
+    assert verdict["counterexample"]["claimed"] == 100_000_000
+    assert verdict["counterexample"]["source"] == 100_000_000_000
+
+    # The same sentence transcribed with its magnitude is decided as before.
+    assert rz.check_relation(_tria_claim(100_000_000_000), TRIA_FACTS)["verdict"] == rz.VERIFIED
+
+    # And through the tier: unchecked, not a violation, not a pass.
+    result = verify_locks(
+        [{"canonical_key": "tria_cap", "value": 100_000_000_000}],
+        "The cap is $100 billion.",
+        translate=_translator(_tria_claim(100_000_000)),
+    )
+    assert result["violated"] == 0
+    assert result["violations"] == []
+    assert result["verified"] == 0
+    assert result["unverified"] == 1
+    assert result["status"] == "SKIPPED"
+
+
+@z3_skip
+def test_a_scale_the_sentence_itself_states_is_still_a_violation():
+    """The guard reads the quoted sentence, not the source.
+
+    A draft that really says "$100 million" where the source locks 100 billion is
+    the disagreement this path exists for, and the sentence carries its own
+    magnitude, so it still reaches the queries. Same for a sentence with no
+    magnitude word at all.
+    """
+    sentence = TRIA_SENTENCE.replace("$100 billion", "$100 million")
+    verdict = rz.check_relation(_tria_claim(100_000_000, sentence=sentence), TRIA_FACTS)
+    assert verdict["verdict"] == rz.VIOLATED
+    assert verdict["counterexample"]["claimed"] == 100_000_000
+
+    plain = {
+        "metric": "deductible",
+        "operands": [
+            {
+                "name": "deductible",
+                "value": 5_000_000,
+                "unit": "USD",
+                "source_sentence": "The deductible is $5,000,000 per occurrence.",
+            }
+        ],
+        "relation": "eq",
+        "expected": 5_000_000,
+    }
+    assert rz.check_relation(plain, {"deductible": 7_000_000.0})["verdict"] == rz.VIOLATED
+    assert rz.check_relation(plain, {"deductible": 5_000_000.0})["verdict"] == rz.VERIFIED
+
+
 @z3_skip
 def test_a_claim_with_no_locked_fact_is_unknown_never_verified():
     """No fact means no check, and no check is never a pass."""

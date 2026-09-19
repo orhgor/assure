@@ -105,6 +105,10 @@ one of them.
 5. If the sentence states no checkable number, return {{"metric": "", \
 "operands": [], "relation": "eq", "expected": 0}}.
 6. One operand is enough. Add a second only when the claim names two quantities.
+7. Write every number's full value, keeping the sentence's magnitude word: \
+"$100 billion" is 100000000000, "40 million" is 40000000, "5,000" is 5000, \
+"1.2 million" is 1200000. Never write "100 billion" as 100000000. "unit" is \
+USD, %, count, ratio or other — never a magnitude word.
 """
 #: The prompt with its placeholders filled, for the fingerprint below — the
 #: fingerprint must cover the text actually sent, not the template.

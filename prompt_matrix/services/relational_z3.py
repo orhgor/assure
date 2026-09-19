@@ -36,7 +36,12 @@ Deciding rule, in order:
 
 A translation whose own numbers are sloppy can only move the *relation* query,
 and only where the source value really fails it — "churn 0.04 stayed under 2%" is
-reported VIOLATED for a locked 0.04, which is exactly what the sentence says.
+reported VIOLATED for a locked 0.04, which is exactly what the sentence says. The
+one exception is a *magnitude* the transcription lost, because that moves the
+value query itself and would report an encoding error as a draft error: a claim
+quoting "$100 billion" transcribed as 100000000 contradicts the sentence it
+quotes, so it is caught before the queries run and left unchecked with the reason
+rather than listed as a violated cap.
 
 VERIFIED means "consistent with the locked source value", which is a weaker
 statement for an inequality claim than for an ``eq`` claim: ``ARR > 10M`` is
@@ -52,6 +57,7 @@ may disagree on the same input, and a cached verdict must not cross that line.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from typing import Any, Iterable
 
@@ -101,6 +107,32 @@ _RANGE_RES = (
     re.compile(r"\bbetween\s+\$?\d[\d,.]*\s+and\s+\$?\d", re.IGNORECASE),
     re.compile(r"\$?\d[\d,.]*\s*(?:to|through|–|—|-)\s*\$?\d", re.IGNORECASE),
 )
+
+#: Magnitude words a sentence scales its figure with, as powers of ten. A
+#: transcription has to carry the scale and not only the digits: "$100 billion" is
+#: 100000000000, and a translation that writes 100000000 quotes a sentence it
+#: contradicts.
+_SCALE_WORDS = {
+    "thousand": 3,
+    "k": 3,
+    "million": 6,
+    "mn": 6,
+    "m": 6,
+    "billion": 9,
+    "bn": 9,
+    "b": 9,
+    "trillion": 12,
+    "tn": 12,
+}
+_SCALED_NUMBER_RE = re.compile(
+    r"(?P<num>\d[\d,]*(?:\.\d+)?)\s*"
+    r"(?P<scale>thousand|million|billion|trillion|tn|bn|mn|k|m|b)\b",
+    re.IGNORECASE,
+)
+#: The powers a transcription switches between when it misreads a scale word:
+#: "100 billion" written as 100, 100000, 100000000 or 100000000000000.
+_SCALE_STEPS = (0, 3, 6, 9, 12)
+
 #: A sentence this long is a paragraph, not a claim: one translation call is not
 #: going to produce a well-formed relation for it, so it is not offered.
 MAX_CLAIM_CHARS = 400
@@ -176,6 +208,66 @@ def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
             if key:
                 facts.setdefault(key, value)
     return facts
+
+
+def _decimal(text: str) -> float:
+    """The number a numeral text denotes, thousands separators removed.
+
+    ``"5,000"`` is five thousand and ``"1.2"`` is one and two tenths. A comma that
+    is not a thousands separator is read as a decimal point, which is how the same
+    figure is written outside the US and is the only reading left.
+    """
+    raw = str(text or "").strip()
+    if re.fullmatch(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?", raw):
+        raw = raw.replace(",", "")
+    return float(raw.replace(",", "."))
+
+
+def _close(left: float, right: float) -> bool:
+    """Whether two figures are the same number, to float arithmetic's precision."""
+    return math.isclose(float(left), float(right), rel_tol=1e-9, abs_tol=0.0)
+
+
+def _transcription_scale_conflict(sentence: str, value: float) -> str:
+    """The reason a translated figure contradicts the sentence it quotes, or ``""``.
+
+    The model reads the claim and writes the number it states. When it writes the
+    digits but not the sentence's magnitude, it is the transcription — not the
+    draft — that disagrees with the source, and the *value* query would report a
+    violation of a figure the draft states correctly. Measured on the renewal memo:
+    "subject to a $100 billion cap" came back as 100000000 against a locked
+    100000000000, and the Math Check listed the TRIA cap as violated. A
+    transcription whose own number contradicts its own quoted sentence has no
+    verdict to give, so it is reported unchecked instead.
+
+    Only the sentence's magnitude words are read, and only to catch that one shape:
+    a figure the sentence scales by one power of ten and the transcription by
+    another. A draft that really disagrees with the source carries its own
+    magnitude in the sentence it is quoted from, so it still reaches the queries.
+    """
+    text = str(sentence or "")
+    if not text:
+        return ""
+    for match in _SCALED_NUMBER_RE.finditer(text):
+        try:
+            base = _decimal(match.group("num"))
+        except ValueError:  # pragma: no cover - the pattern is digits by construction
+            continue
+        phrase = match.group(0).strip()
+        exponent = _SCALE_WORDS[match.group("scale").lower()]
+        if _close(value, base * 10**exponent):
+            return ""
+        for step in _SCALE_STEPS:
+            if step == exponent:
+                continue
+            if _close(value, base * 10**step):
+                return (
+                    f"the translated figure {_fmt(value)} contradicts the sentence it "
+                    f"quotes ({phrase!r}): {phrase} is {_fmt(base * 10**exponent)}, so "
+                    f"the transcription lost the sentence's magnitude — left unchecked "
+                    f"rather than reported as a violation of the source"
+                )
+    return ""
 
 
 def states_a_range(sentence: str) -> bool:
@@ -311,6 +403,15 @@ def check_relation(
             f"{relation} {_fmt(expected)}, so there is nothing here to check against the source",
             detail,
         )
+
+    # The transcription's own figure has to agree with the sentence it quotes
+    # before either query means anything: a magnitude word the model dropped is the
+    # translation's error, and the value query would report it as the draft's.
+    # Measured: "$100 billion cap" transcribed as 100000000 against a locked
+    # 100000000000, reported as a violated cap the draft states correctly.
+    scale_conflict = _transcription_scale_conflict(detail["claimed_sentence"], claimed)
+    if scale_conflict:
+        return _verdict(UNKNOWN, scale_conflict, detail)
 
     solver.push()
     solver.add(primary_var != claimed)
