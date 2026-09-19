@@ -820,3 +820,135 @@ def test_draft_redhat_stream_requires_draft_text(client):
         json={"draft_text": "", "document": {}},
     )
     assert res.status_code == 400
+
+
+def _gate_block(project_id: str) -> dict:
+    import json as _json
+
+    from prompt_matrix.db.connection import init_db
+    from prompt_matrix.history import get_db
+
+    init_db()
+    row = get_db().execute(
+        "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    data = _json.loads(row[0]) if (row and row[0]) else {}
+    return (data or {}).get("gate") or {}
+
+
+def _grounded_compile(monkeypatch, project_id: str = "default", **kwargs):
+    """A cold compile that anchors and verifies, with no network."""
+    source = "The policy liability limit is set at $5,000,000 for combined single limit."
+    draft = source
+
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
+        yield (draft, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
+
+    def fake_locks(_text):
+        return [
+            {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
+        ], "deepseek/deepseek-chat"
+
+    def stub_check(_claim, _source, *, project_id=""):
+        return {
+            "verdict": "yes",
+            "reasoning": "The source states it.",
+            "model": "stub/model",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
+    monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
+        ],
+    )
+    frames = list(
+        run_draft_pipeline(
+            project_id,
+            intent="Restate the limit.",
+            substrate_file_ids=["sub-1"],
+            governor=_FakeGovernor(),
+            **kwargs,
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    return events
+
+
+def test_a_compile_writes_the_gate_block_the_export_reads(monkeypatch):
+    """The gate block is the export's only record of what the compile carried.
+
+    ``projects.last_compiled_json.gate`` is read back by the carry plan
+    (``services.source_carry._gate_sources``), the Red-Hat skip reason and the
+    dossier's Math Check rows. A compile that skips the write, or writes it without
+    one of these keys, leaves the export reporting a derived selection and no
+    numbers — silently, because nothing on the compile path reads it back.
+    """
+    events = _grounded_compile(monkeypatch)
+    verified = next(data for _ev, data in events if data.get("type") == "verified")
+    assert verified["provenance_stats"]["supported"] == 1, "the fixture must verify a claim"
+
+    gate = _gate_block("default")
+    assert gate, "the compile did not persist its gate block"
+    assert gate["gate_status"] == verified["gate_status"]
+    assert gate["z3_status"] == verified["z3_status"]
+    assert gate["provenance_stats"] == verified["provenance_stats"]
+    # What the prompt carried, per source, with the counts the export prints.
+    assert gate["sources"]["attached"] == 1
+    assert gate["sources"]["carried"] == 1
+    assert gate["sources"]["sources"][0]["included"] is True
+    # The Math Check's own numbers travel with it — they were computed on every
+    # compile and then dropped here, so the report's rows were always absent. Each
+    # is the number the compile computed, not a re-derivation at read time.
+    z3 = verified.get("z3_results") or {}
+    assert gate["metrics_checked"] == z3.get("metrics_checked")
+    assert gate["locks_verified"] == z3.get("locks_verified")
+    assert gate["checked_by_relational"] == z3.get("checked_by_relational")
+    # ``z3_unverified`` is the Math Check's, named apart from the provenance
+    # layer's ``unverified`` above, which is a different question.
+    assert gate["z3_unverified"] == z3.get("unverified")
+    assert gate["redhat"]["status"] == "skipped"
+
+
+def test_force_recompiles_instead_of_replaying_the_cache(monkeypatch):
+    """``force`` has to mean "do the work again".
+
+    The probe used to ignore it, so the only thing force overrode was the
+    frozen-project refusal: an acceptance run against a warm project replayed a memo
+    written by earlier code — measured as two DRAFT_STREAM rows 77 ms apart, both
+    ``cache_hit: true`` — after the counters had changed. A forced compile is the
+    only way to test a changed counter, prompt or citation path against the same ask.
+    """
+    warm = {
+        "compiled": {
+            "document": {"document_id": "cached", "meta": {}, "truth_ledger": {}, "body": []},
+            "nodes": [],
+            "locks": [],
+            "node_count": 0,
+            "lock_count": 0,
+            "draft_text": "A cached memo.",
+        },
+        "verified": {"ok": True, "gate_status": "pass", "document": {}},
+    }
+    monkeypatch.setattr("prompt_matrix.routers.draft.load_ast_cache", lambda _key: warm)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.save_ast_cache", lambda *_a, **_k: None
+    )
+
+    events = _grounded_compile(monkeypatch, force=True)
+
+    compiled = next(data for _ev, data in events if data.get("type") == "compiled")
+    assert not compiled.get("cache_hit"), "force replayed the cache instead of compiling"
+    assert not compiled.get("omp_cached")
+    assert not any(
+        data.get("stage") == "cache" for _ev, data in events if isinstance(data, dict)
+    )
+    assert compiled["draft_text"] != "A cached memo."
+    # The other half — that a warm entry is replayed when force is not set — is
+    # test_run_draft_pipeline_omp_cache_hit, which uses a cache entry whose document
+    # actually grounds a claim; the entry here is only a marker that the cache was
+    # consulted.
