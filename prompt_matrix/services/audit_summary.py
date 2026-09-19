@@ -102,9 +102,17 @@ def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
         else:
             counts["unanchored"] += 1
         verdict = _entailment_verdict(node)
-        if verdict == "yes":
+        # ``supported`` is the grounding number: the source carries the claim,
+        # wholly or in part, and nothing in it contradicts. ``partial`` is the
+        # detail bucket beside it. They answer different questions, the way
+        # ``anchored`` and ``supported`` do — a synthesis paragraph that cites
+        # three sentences is carried by them without any one of them stating
+        # every element, and the entailment auditor says ``partial`` for exactly
+        # that, correctly. Counting only ``yes`` reported a renewal memo whose
+        # every paragraph is carried and none is contradicted as ``supported 0``.
+        if verdict in ("yes", "partial"):
             counts["supported"] += 1
-        elif verdict == "partial":
+        if verdict == "partial":
             counts["partial"] += 1
         elif verdict == "no":
             counts["unsupported"] += 1
