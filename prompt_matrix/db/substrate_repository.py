@@ -194,13 +194,14 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
     ``instruction_like``/``instruction_hits`` are the ingest scan **re-run on
     read**, not the columns as written. The columns are the record of the scan
     that ran at ingest and that scan is not stable: the phrase set changes when a
-    phrase turns out to flag ordinary policy prose. Measured on the deployed box,
-    ``sub-c52ef4b8e63e45aa`` (brim-cp-media371.pdf) carries ``instruction_like=1``
-    with hits ``['you must']`` while its text scans clean under the shipped
-    ``FLAG_PHRASES`` — the row kept a verdict no code would reach again, and both
-    the SOURCES pane and the export's source manifest reported it. The text is
-    read in order to scan it either way; it is put in the entry only when
-    ``with_text`` is set, so the payload is as light as it was.
+    phrase turns out to flag ordinary policy prose. Measured read-only on the
+    deployed box, of the five vault rows carrying ``instruction_like = 1``, four
+    carry ``instruction_hits`` naming phrases the current scan does not report —
+    and one of them, ``brim-cp-media371.pdf``, scans clean, so its flag is wrong
+    outright. Both the SOURCES pane and the export's source manifest read those
+    columns, so both reported verdicts no code would reach again. The text is read
+    in order to scan it either way; it is put in the entry only when ``with_text``
+    is set, so the payload is as light as it was.
 
     ``fetched_url`` is the retrieval path's tag, read back off the row's label
     (``lib/source_labels.py``): the host when the source was fetched from the web,
