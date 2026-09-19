@@ -146,3 +146,33 @@ def test_the_zero_anchor_refusal_is_not_attributed_to_a_mismatched_source() -> N
         "about.html attributes the zero-anchor refusal to a mismatched source, "
         "which does not reliably produce zero anchors"
     )
+
+
+def test_q10_names_the_revision_a_replaced_finding_is_recorded_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Q10's second half, against the behaviour it claims.
+
+    The export now carries a finding that lives in a revision a later compile
+    replaced, and labels it with that revision (services/audit_bundle.py,
+    ``_revision_redhat_items``). Q10 says so, instead of leaving the reader to
+    assume the section only ever describes the document as it stands.
+    """
+    _reset(tmp_path, monkeypatch)
+    from prompt_matrix.db.jdf_repository import ensure_project, save_jdf_revision
+    from prompt_matrix.services.audit_bundle import build_audit_bundle_html
+
+    finding = "The memo states the cyber exclusion without its carve-out."
+    ensure_project("about-revision", "About revision")
+    save_jdf_revision("about-revision", _tree(finding=None), mutation_type="compile")
+    save_jdf_revision("about-revision", _tree(finding=finding), mutation_type="redhat")
+
+    html = build_audit_bundle_html("about-revision", _tree(finding=None))
+    assert finding[:40] in html, "the export dropped a finding the project records"
+    assert "recorded on revision 2" in html
+    assert "this export does not carry them" in html
+
+    assert "names the revision holding a finding" in _page(), (
+        "about.html does not state what the export now does with a finding a later "
+        "compile replaced"
+    )
