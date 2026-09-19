@@ -1,14 +1,39 @@
 # Clerk — marketing (R2) + workbench (EC2) design
 
-**Status:** **Wired, not enabled.** The server-side path exists and is complete — `prompt_matrix/cloud_auth.py:70-71`
-`clerk_configured()`, `:92-95` `require_clerk_login()`, `:104-107` `auth_required()` (which returns
-`clerk_configured()`), and `prompt_matrix/middleware.py:61` already reads `session["clerk_user_id"]`;
-`templates/auth.html` carries the Clerk mount and `.env.example` / `.env.production.example` carry
-`CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`. What is missing is the **configuration**, not the code:
-`.env.staging` contains no Clerk keys, so `auth_required()` is False and the only live gate is the
-shared bearer `SHELL_ACCESS_KEY` on `prototype/dev-server.py`. Enabling per-user auth is therefore a
-config change (publishable key, secret key, allowed domain) — it does **not** need a build.
-**Constraint:** Marketing stays static on R2. PEM, providers, SQLite, and all `/api/*` stay on EC2. Clerk **secret** never ships to R2.
+**Status:** **Enabled on staging (2026-09-18).** Both keys are in the box env
+(`/home/ubuntu/assure-prototype/.env.staging`, mode 600, gitignored — never in the repo) and
+`clerk_configured()` is True, so `auth_required()` is True and per-user auth is live on
+`staging.getassureai.com`. The shared `SHELL_ACCESS_KEY` gate is still the outer door; Clerk is the
+per-user identity inside it. Post-demo: rotate both keys (`test`/dev-mode credentials, and the secret
+has been transmitted in chat).
+
+Four things were broken beyond "configuration" and are fixed (all staging-verified):
+
+1. **`/signin` was unreachable.** The tunnel only reaches the static gate on `:8891`, which served
+   everything outside `/api/*` from disk, so `/signin` 404ed. `prototype/dev-server.py` now proxies
+   `PROXIED_PAGES` (`/signin`, `/signup`, `/signout`) upstream — still behind the gate.
+2. **The gate dropped the `Cookie` header** when proxying, so the Flask session never reached the
+   app: every signed-in request looked anonymous. `Cookie` is now forwarded.
+3. **`POST /sessions/{id}/verify` is retired** (HTTP 410, "endpoint is deprecated and pending
+   removal") — the old call made every login fail with "session not valid". `cloud_auth.py` now
+   verifies the token the way Clerk recommends: RS256 signature against the instance JWKS at the
+   issuer decoded from *our* publishable key, time claims enforced, then `GET /sessions/{id}` for a
+   live-session check.
+4. **`urllib`'s default user-agent is WAF-blocked** (Cloudflare 1010 on every Clerk Backend API call).
+   `_clerk_json` now sends `assure-cloud-auth/1.0`. The same reason `auth.html`/`index.html` were
+   fixed to the v5 script-tag contract (`data-clerk-publishable-key` + the `window.Clerk` instance):
+   `new window.Clerk(pk)` throws "Missing publishableKey" against `clerk.browser.js@5`.
+
+**Roles and ownership (1D2/1D3):** `ASSURE_ADMIN_USER_IDS` in the box env is the whole role model —
+listed ids are `admin`, every other signed-in user is `underwriter`. `role_required("admin")` is
+enforced on the team-wide analytics routes; admins bypass project ownership and see every project,
+underwriters see their own (plus unowned) only. `projects.owner_id` already existed — no schema
+change — and the pre-auth rows were backfilled to the `legacy` owner. Enforcement reads a Clerk
+identity, so the shared-key operator is unrestricted and the demo cannot be locked out.
+
+---
+
+## Original design notes (unchanged below)
 
 ---
 
