@@ -1255,6 +1255,17 @@ EN = {
     "jdf.provenance.view_source": "View Full Source",
     "jdf.provenance.empty": "No provenance recorded for this node yet.",
     "jdf.provenance.source_opened": "Opened {name} in Sources.",
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "Anchored",
+    "counter.label.supported": "Supported",
+    "counter.label.partial": "Partial",
+    "counter.label.unanchored": "Unanchored",
+    "counter.line.sources_one": "Compiled from 1 source",
+    "counter.line.sources_many": "Compiled from {sources} sources",
+    "counter.line": "{from} · {anchored} anchored of {eligible} eligible · {supported} supported ({partial} in part) · {unanchored} unanchored",
+    "counter.legend": "Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.",
     "role.label": "Role",
     "role.admin": "Admin",
     "role.compliance": "Compliance",
@@ -1680,6 +1691,17 @@ ES = {
     "stepper.advanced": "Avanzado",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "Anclado",
+    "counter.label.supported": "Respaldado",
+    "counter.label.partial": "Parcial",
+    "counter.label.unanchored": "Sin anclar",
+    "counter.line.sources_one": "Compilado a partir de 1 fuente",
+    "counter.line.sources_many": "Compilado a partir de {sources} fuentes",
+    "counter.line": "{from} · {anchored} anclados de {eligible} elegibles · {supported} respaldados ({partial} en parte) · {unanchored} sin anclar",
+    "counter.legend": "Anclado = el párrafo cita una fuente · Respaldado = la fuente sostiene la afirmación, total o parcialmente · Parcial cuenta dentro de Respaldado · Sin anclar = sin fuente citada. Anclado + Sin anclar = los párrafos elegibles.",
     "workbench.status.health_ok": "Verificado – No se encontraron alucinaciones.",
     "workbench.status.health_issues": "⚠️ {n} riesgos encontrados – Pulsa para ver detalles.",
     "workbench.status.health_working": "Trabajando en tu borrador…",
@@ -3230,6 +3252,17 @@ ZH = {
     "stepper.advanced": "高级",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "已锚定",
+    "counter.label.supported": "已支持",
+    "counter.label.partial": "部分支持",
+    "counter.label.unanchored": "未锚定",
+    "counter.line.sources_one": "由 1 个来源编译",
+    "counter.line.sources_many": "由 {sources} 个来源编译",
+    "counter.line": "{from} · {eligible} 个合格段落中 {anchored} 个已锚定 · {supported} 个已支持（其中 {partial} 个部分支持）· {unanchored} 个未锚定",
+    "counter.legend": "已锚定 = 该段落引用了来源 · 已支持 = 来源支持该主张，全部或部分 · 部分支持计入已支持 · 未锚定 = 未引用来源。已锚定 + 未锚定 = 合格段落。",
     "workbench.status.health_ok": "已验证 – 未发现幻觉。",
     "workbench.status.health_issues": "⚠️ 发现 {n} 项风险 – 点击查看详情。",
     "workbench.status.health_working": "正在处理你的草稿…",
@@ -4766,6 +4799,17 @@ FR = {
     "stepper.advanced": "Avancé",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "Ancré",
+    "counter.label.supported": "Étayé",
+    "counter.label.partial": "Partiel",
+    "counter.label.unanchored": "Non ancré",
+    "counter.line.sources_one": "Compilé à partir de 1 source",
+    "counter.line.sources_many": "Compilé à partir de {sources} sources",
+    "counter.line": "{from} · {anchored} ancrés sur {eligible} éligibles · {supported} étayés ({partial} en partie) · {unanchored} non ancrés",
+    "counter.legend": "Ancré = le paragraphe cite une source · Étayé = la source soutient l'affirmation, en tout ou en partie · Partiel compte dans Étayé · Non ancré = aucune source citée. Ancré + Non ancré = les paragraphes éligibles.",
     "workbench.status.health_ok": "Vérifié – Aucune hallucination trouvée.",
     "workbench.status.health_issues": "⚠️ {n} risques trouvés – Cliquez pour voir les détails.",
     "workbench.status.health_working": "Travail sur votre brouillon…",
@@ -6303,6 +6347,17 @@ DE = {
     "stepper.advanced": "Erweitert",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "Verankert",
+    "counter.label.supported": "Gestützt",
+    "counter.label.partial": "Teilweise",
+    "counter.label.unanchored": "Nicht verankert",
+    "counter.line.sources_one": "Kompiliert aus 1 Quelle",
+    "counter.line.sources_many": "Kompiliert aus {sources} Quellen",
+    "counter.line": "{from} · {anchored} verankert von {eligible} relevanten · {supported} gestützt ({partial} teilweise) · {unanchored} nicht verankert",
+    "counter.legend": "Verankert = der Absatz zitiert eine Quelle · Gestützt = die Quelle trägt die Aussage, ganz oder teilweise · Teilweise zählt unter Gestützt · Nicht verankert = keine Quelle zitiert. Verankert + Nicht verankert = die relevanten Absätze.",
     "workbench.status.health_ok": "Verifiziert – Keine Halluzinationen gefunden.",
     "workbench.status.health_issues": "⚠️ {n} Risiken gefunden – Klicken für Details.",
     "workbench.status.health_working": "Arbeitet an Ihrem Entwurf…",
@@ -7853,6 +7908,17 @@ JA = {
     "stepper.advanced": "詳細",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "アンカー済み",
+    "counter.label.supported": "裏付けあり",
+    "counter.label.partial": "一部裏付け",
+    "counter.label.unanchored": "未アンカー",
+    "counter.line.sources_one": "1 件のソースからコンパイル",
+    "counter.line.sources_many": "{sources} 件のソースからコンパイル",
+    "counter.line": "{from} · 対象 {eligible} 件中 {anchored} 件がアンカー済み · {supported} 件が裏付けあり（うち {partial} 件は一部）· {unanchored} 件が未アンカー",
+    "counter.legend": "アンカー済み = その段落がソースを引用 · 裏付けあり = ソースが主張を全体的または部分的に支える · 一部裏付けは裏付けありに含まれる · 未アンカー = ソース引用なし。アンカー済み + 未アンカー = 対象段落。",
     "workbench.status.health_ok": "検証済み – 幻覚は見つかりませんでした。",
     "workbench.status.health_issues": "⚠️ {n} 件のリスク – クリックして詳細を見る。",
     "workbench.status.health_working": "下書きを処理中…",
@@ -9396,6 +9462,17 @@ TR = {
     "stepper.advanced": "Gelişmiş",
     "generate.redhat_short": "Red-Hat",
     **EN,
+    # Evidence pane counters. The four tiles are a breakdown, not a
+    # partition: Anchored is the total that cites a source, and Partial
+    # counts inside Supported (services/audit_summary._provenance_counts).
+    "counter.label.anchored": "Kaynaklı",
+    "counter.label.supported": "Destekli",
+    "counter.label.partial": "Kısmi",
+    "counter.label.unanchored": "Kaynaksız",
+    "counter.line.sources_one": "1 kaynaktan derlendi",
+    "counter.line.sources_many": "{sources} kaynaktan derlendi",
+    "counter.line": "{from} · {eligible} uygun paragrafın {anchored} tanesi kaynaklı · {supported} tanesi destekli ({partial} kısmen) · {unanchored} tanesi kaynaksız",
+    "counter.legend": "Kaynaklı = paragraf bir kaynak gösterir · Destekli = kaynak iddiayı tamamen veya kısmen taşır · Kısmi, Destekli içinde sayılır · Kaynaksız = kaynak gösterilmemiş. Kaynaklı + Kaynaksız = uygun paragraflar.",
     "workbench.status.health_ok": "Doğrulandı – Uydurma bulunmadı.",
     "workbench.status.health_issues": "⚠️ {n} risk bulundu – Ayrıntılar için dokunun.",
     "workbench.status.health_working": "Taslak üzerinde çalışılıyor…",

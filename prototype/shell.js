@@ -196,6 +196,68 @@
   var _syncDockSubmitFn = null;
   var inspectorCompareActive = false;
 
+  // ---------------------------------------------------------------
+  // Locale. Every string this shell shows is addressed by catalog key
+  // (``prompt_matrix/i18n.py``) — the same keys and the same ``data-i18n``
+  // convention the app UI applies — so a label the reader sees is one string in
+  // every locale instead of English here and translated there. The catalog
+  // arrives from ``GET /api/i18n`` (the session's locale, the same response the
+  // app reads); until it does, the English in the markup renders, exactly as it
+  // did before this existed. A string the JS composes — the counter line's
+  // numbers — is assembled from catalog keys through ``_tf``; the English here
+  // is the fallback for a catalog that cannot be fetched, never the text.
+  // ---------------------------------------------------------------
+  var SHELL_I18N = { locale: "en", strings: {} };
+
+  function _t(key, fallback) {
+    var strings = SHELL_I18N.strings || {};
+    if (Object.prototype.hasOwnProperty.call(strings, key)) {
+      var val = strings[key];
+      if (val !== "" && val != null) return String(val);
+    }
+    return (fallback !== undefined && fallback !== "") ? fallback : key;
+  }
+  function _tf(key, fallback, vars) {
+    var text = _t(key, fallback);
+    Object.keys(vars || {}).forEach(function (name) {
+      text = text.split("{" + name + "}").join(String(vars[name]));
+    });
+    return text;
+  }
+  // The markup's own strings, in the same three shapes the app applies
+  // (templates/index.html:applyI18n). An element with children is left alone:
+  // its text is its markup.
+  function _applyI18n(root) {
+    var scope = root || document;
+    scope.querySelectorAll("[data-i18n]").forEach(function (el) {
+      if (el.children.length) return;
+      el.textContent = _t(el.getAttribute("data-i18n"), el.textContent);
+    });
+    scope.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      el.setAttribute("placeholder",
+        _t(el.getAttribute("data-i18n-placeholder"), el.getAttribute("placeholder") || ""));
+    });
+    scope.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
+      el.setAttribute("aria-label",
+        _t(el.getAttribute("data-i18n-aria"), el.getAttribute("aria-label") || ""));
+    });
+  }
+  function _loadI18n() {
+    return window.fetch("/api/i18n", { cache: "no-store" })
+      .then(function (resp) { return resp.ok ? resp.json() : null; })
+      .then(function (payload) {
+        if (!payload || typeof payload !== "object") return;
+        SHELL_I18N.locale = String(payload.locale || "en");
+        SHELL_I18N.strings = payload.strings || {};
+        document.documentElement.lang = SHELL_I18N.locale;
+        _applyI18n();
+        // The counter line is composed from keys when it renders, so it is
+        // painted again once the catalog is in hand.
+        if (_syncCountersFn) _syncCountersFn();
+      })
+      .catch(function () {});
+  }
+
   function setShell(path, value) {
     var parts = path.split(".");
     var target = SHELL;
@@ -649,6 +711,9 @@
     versionLabelEl    = document.getElementById("version-label");
     versionDropdownEl = document.getElementById("version-dropdown");
     _syncCompilerSections();
+    // The shell's strings are catalog keys; load the visitor's locale once and
+    // apply it (and repaint the one line the JS composes).
+    _loadI18n();
     if (versionPrevEl) versionPrevEl.addEventListener("click", function () { _versionStep(-1); });
     if (versionNextEl) versionNextEl.addEventListener("click", function () { _versionStep(1); });
     if (versionLabelEl) versionLabelEl.addEventListener("click", function () {
@@ -1847,15 +1912,21 @@
       return String(p);
     }
     // The counters the gate reports, derived from the same tree the shell
-    // renders. They are a *partition* of the eligible paragraphs: every eligible
-    // paragraph lands in exactly one bucket, so the row sums to the count it
-    // reports. `anchored` counts the paragraphs that cite a source sentence the
-    // entailment check did not confirm; `supported` and `partial` are the
-    // verdicts that did confirm one. Keeping the unconfirmed anchor out of
-    // `supported` is the point — a document that quotes its sources is not
-    // thereby a document whose sources bear it out.
+    // renders, on the server's own rule (services/audit_summary._provenance_counts):
+    // `anchored` is the TOTAL of the eligible paragraphs that cite a source
+    // sentence, with the verdict buckets beside it. `supported` is the grounding
+    // number — the source carries the claim, wholly or in part — so `partial` is
+    // a bucket INSIDE it, not a sibling; counting only "yes" reported a memo whose
+    // every paragraph its sources carry in part as supported 0. `unsupported` is
+    // the source denying the claim, `unverified` a check that could not be made,
+    // and a paragraph never checked is neither (the server's unreported
+    // `unchecked`). The four displayed values are therefore a breakdown, not a
+    // partition — see `_renderCounters`.
     function _derivedCounts(doc) {
-      var counts = { eligible: 0, anchored: 0, supported: 0, partial: 0, unanchored: 0, contradicted: 0 };
+      var counts = {
+        eligible: 0, anchored: 0, supported: 0, partial: 0,
+        unanchored: 0, unsupported: 0, unverified: 0,
+      };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
         if (!sections[s] || typeof sections[s] !== "object") continue;
@@ -1880,21 +1951,20 @@
             if (row && typeof row === "object" &&
                 String(row.extracted_quote || "").trim()) { isAnchored = true; break; }
           }
-          // `no` is the source denying the claim — the bucket the server reports
-          // as provenance_stats.unsupported ("N contradicted by their source",
-          // services/audit_summary.py). Read before the anchor test: the verdict
-          // lives at node.meta.provenance.entailment, so a payload that carries
-          // no anchor row still carries it, and no paragraph a source denies may
-          // be counted as one it supports.
-          if (_entailmentVerdict(node, prov[0] || null) === "no") counts.contradicted++;
-          if (!isAnchored) { counts.unanchored++; continue; }
-          // The verdict buckets the anchored claims exactly as the server's
-          // _provenance_counts does: yes -> supported, partial -> partial,
-          // everything else (no, unverified) -> the residual anchor bucket.
-          var verdict = _entailmentVerdict(node, prov[0] || null);
-          if (verdict === "yes") counts.supported++;
-          else if (verdict === "partial") counts.partial++;
-          else counts.anchored++;
+          if (isAnchored) counts.anchored++;
+          else counts.unanchored++;
+          // The verdict is read for every eligible paragraph, anchored or not:
+          // the server counts it that way, and the verdict lives at
+          // node.meta.provenance.entailment, which a payload carrying no anchor
+          // row still carries. Read raw rather than through `_entailmentVerdict`,
+          // whose label fallback turns "never checked" into "unverified" — that
+          // is the server's unreported `unchecked`, not a failed check.
+          var ent = _entailmentFor(node, prov[0] || null);
+          var verdict = ent ? String(ent.verdict || "").toLowerCase() : "";
+          if (verdict === "yes" || verdict === "partial") counts.supported++;
+          if (verdict === "partial") counts.partial++;
+          else if (verdict === "no") counts.unsupported++;
+          else if (verdict === "unverified") counts.unverified++;
         }
       }
       return counts;
@@ -1908,28 +1978,21 @@
       if (stats && typeof stats === "object" && typeof stats.unsupported === "number") {
         return stats.unsupported;
       }
-      return _derivedCounts(doc || SHELL.document.current || null).contradicted;
+      return _derivedCounts(doc || SHELL.document.current || null).unsupported;
     }
-    // The four counters and the number they must add up to, read from whichever
-    // source is authoritative: the server's persisted provenance_stats (DB parity
-    // with the gate) when present, the rendered tree otherwise. The server sends
-    // the anchor as a total with its verdict buckets beside it, so the residual
-    // bucket is what is left of the anchor once the verdicts have taken their
-    // share.
+    // The four counters, read from whichever source is authoritative: the
+    // server's persisted provenance_stats (DB parity with the gate) when present,
+    // the rendered tree otherwise. Both carry the anchor as a TOTAL with its
+    // verdict buckets beside it — `derived.anchored` is that same total
+    // (`_derivedCounts`) — so the tiles are a breakdown of the document, not a
+    // partition: `partial` sits inside `supported`.
     function _counterBuckets(stats, derived) {
       var eligible = _num(stats, derived, "eligible");
       var supported = _num(stats, derived, "supported");
       var partial = _num(stats, derived, "partial");
-      // The anchor TOTAL. The server sends `anchored` as the total with its
-      // verdict buckets beside it; the derived counts carry the residual bucket
-      // instead, so the total is that plus the verdicts.
-      var anchoredTotal = (stats && typeof stats.anchored === "number")
+      var anchored = (stats && typeof stats.anchored === "number")
         ? stats.anchored
-        : (derived ? derived.anchored + derived.supported + derived.partial : 0);
-      var unverified = _num(stats, derived, "unverified");
-      var unsupported = _num(stats, derived, "unsupported");
-      var anchored = anchoredTotal - supported - partial - unverified - unsupported;
-      if (anchored < 0) anchored = 0;
+        : (derived ? derived.anchored : 0);
       // Unanchored is what the anchor did not reach. Both sources report it
       // directly; the subtraction is only for a payload that carries neither.
       var reportsUnanchored =
@@ -1937,7 +2000,7 @@
         (derived && typeof derived.unanchored === "number");
       var unanchored = reportsUnanchored
         ? _num(stats, derived, "unanchored")
-        : Math.max(0, eligible - anchoredTotal);
+        : Math.max(0, eligible - anchored);
       return {
         eligible: eligible,
         anchored: anchored,
@@ -1962,9 +2025,9 @@
         supported = stats.supported;
         eligible = (typeof stats.eligible === "number") ? stats.eligible : anchored;
       } else {
-        // `derived.anchored` is the residual bucket, so the anchor total the
-        // note speaks about is every bucket that cites a source.
-        anchored = derived.anchored + derived.supported + derived.partial;
+        // `derived.anchored` is the same total the server sends (see
+        // `_derivedCounts`), so the note speaks about it directly.
+        anchored = derived.anchored;
         supported = derived.supported;
         eligible = derived.eligible || anchored;
       }
@@ -2121,13 +2184,29 @@
         return;
       }
       var n = (SHELL.sources && SHELL.sources.length) || 0;
-      var sum = b.anchored + b.supported + b.partial + b.unanchored;
       if (line) {
-        // The four values are quoted beside the number they must add up to, so
-        // the row can be checked without counting the document.
-        line.textContent = "Compiled from " + n + " source" + (n === 1 ? "" : "s") +
-          " \u00b7 " + b.anchored + " + " + b.supported + " + " + b.partial + " + " +
-          b.unanchored + " = " + sum + " of " + b.eligible + " eligible paragraphs";
+        // The line is composed from catalog keys — never from English joined
+        // here — so the words translate with the numbers this code supplies.
+        // "1 source" and "N sources" are two keys because not every locale
+        // inflects the count the same way.
+        var from = _tf(
+          n === 1 ? "counter.line.sources_one" : "counter.line.sources_many",
+          n === 1 ? "Compiled from 1 source" : "Compiled from {sources} sources",
+          { sources: n }
+        );
+        line.textContent = _tf(
+          "counter.line",
+          "{from} \u00b7 {anchored} anchored of {eligible} eligible \u00b7 " +
+            "{supported} supported ({partial} in part) \u00b7 {unanchored} unanchored",
+          {
+            from: from,
+            anchored: b.anchored,
+            eligible: b.eligible,
+            supported: b.supported,
+            partial: b.partial,
+            unanchored: b.unanchored,
+          }
+        );
         line.hidden = false;
       }
       if (legend) legend.hidden = false;

@@ -289,21 +289,21 @@
           <tbody>
             <tr>
               <td>
-                <div class="counter-label" id="counter-label-anchored">Anchored</div>
+                <div class="counter-label" id="counter-label-anchored" data-i18n="counter.label.anchored">Anchored</div>
                 <div class="counter-value is-zero" id="count-anchored">0</div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-supported">Supported</div>
+                <div class="counter-label" id="counter-label-supported" data-i18n="counter.label.supported">Supported</div>
                 <div class="counter-value is-zero" id="count-supported">0</div>
               </td>
             </tr>
             <tr>
               <td>
-                <div class="counter-label" id="counter-label-partial">Partial</div>
+                <div class="counter-label" id="counter-label-partial" data-i18n="counter.label.partial">Partial</div>
                 <div class="counter-value is-zero" id="count-partial">0</div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-unanchored">Unanchored</div>
+                <div class="counter-label" id="counter-label-unanchored" data-i18n="counter.label.unanchored">Unanchored</div>
                 <div class="counter-value is-zero" id="count-unanchored">0</div>
               </td>
             </tr>
@@ -315,9 +315,11 @@
              allowlisted domain. Hidden until the source list has been read,
              because an unread list is not an empty one. -->
         <p class="counter-line counter-origin" id="counter-origin-line" hidden></p>
-        <!-- The four counters are a partition of the eligible paragraphs, and
-             the row is only checkable if it says so. -->
-        <p class="counter-legend" id="counter-legend" hidden>Anchored = cited a source, not yet verified · Supported = verified · Partial = partly verified · Unanchored = no source citation. The four sum to the eligible paragraphs.</p>
+        <!-- The four counters are a breakdown, not a partition: Anchored is the
+             total that cites a source, and Partial counts inside Supported
+             (services/audit_summary._provenance_counts). The legend says so,
+             because the row is only checkable if it does. -->
+        <p class="counter-legend" id="counter-legend" hidden data-i18n="counter.legend">Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.</p>
       </section>
 
       <div id="right-inspector" class="pane-mode">
