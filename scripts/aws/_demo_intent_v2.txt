@@ -1,0 +1,1 @@
+Summarize the Massachusetts commercial real estate underwriting obligations in the source. Report the wind/hail deductible percentage, the maximum liability in USD, and the inspection interval in months. Cite each figure.
