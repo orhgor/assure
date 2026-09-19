@@ -234,6 +234,32 @@ def _claim_sources(node: dict[str, Any]) -> list[str]:
     return out
 
 
+def _aggregate_verdicts(verdicts: list[str]) -> str:
+    """Per-citation verdicts → the paragraph's verdict.
+
+    A synthesis paragraph cites several sentences and each carries part of it, so
+    a strict entailment reader answers ``no`` to every citation that covers one
+    clause of a four-clause claim. Judging the whole set at once hides that —
+    the joined evidence is compared against the whole paragraph and ``no`` comes
+    back for the set — and counting ``no`` alone reports a summary as a
+    contradiction, which it is not.
+
+    The rule: all citations support → ``supported``; all fail → ``unsupported``;
+    a mixture of support and failure → ``partial``, because the paragraph is
+    carried by some of what it cites. ``partial`` from any citation also lands
+    the paragraph in ``partial``.
+    """
+    if not verdicts:
+        return "unverified"
+    if all(verdict == "yes" for verdict in verdicts):
+        return "yes"
+    if all(verdict == "no" for verdict in verdicts):
+        return "no"
+    if any(verdict in ("yes", "partial") for verdict in verdicts):
+        return "partial"
+    return "unverified"
+
+
 def attach_entailment_to_tree(
     document: dict[str, Any],
     *,
@@ -266,34 +292,39 @@ def attach_entailment_to_tree(
                 # Anchored nodes always carry a quote. A node that does not is not
                 # checked and gets no verdict — the gate counts it as unanchored.
                 continue
-            # One entailment call against the evidence set, not one call per
-            # citation. A paragraph that cites three sentences is supported by the
-            # three together, so judging it against each one alone asks the model
-            # whether a single sentence entails a four-clause paragraph and gets
-            # ``no`` back from every sentence that carries one clause of it: that
-            # is where R2's ``supported 0/5`` came from, in both the first-row and
-            # the per-citation form. The joined text is the same evidence the
-            # matcher's ``anchor_window`` was — several consecutive sentences —
-            # and the model makes the aggregate judgement in one call.
-            evidence = "\n".join(sources)
-            key = (claim, evidence)
-            record = seen.get(key)
-            if record is None:
-                try:
-                    record = check(claim, evidence)
-                except Exception as exc:
-                    record = unverified(f"{type(exc).__name__}: {exc}")
-                if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
-                    record = unverified(f"checker returned no usable verdict: {record!r}")
-                seen[key] = record
-            verdict = str(record.get("verdict") or "unverified")
-            record_out: dict[str, Any] = dict(record)
-            # The cited sentences are recorded individually for the drawer, which
-            # shows which source each claim came from; the verdict is the one made
-            # against all of them.
-            record_out["citations"] = [
-                {"source": source, "verdict": verdict} for source in sources
-            ]
+            # One entailment call per citation, then aggregate. Judging the joined
+            # evidence in a single call cannot separate a paragraph carried by
+            # some of its citations from one carried by none: both come back
+            # ``no``, and the first is a summary while the second is a
+            # contradiction. Per citation, the mixture is visible and
+            # ``_aggregate_verdicts`` reads it.
+            per_citation: list[dict[str, Any]] = []
+            verdicts: list[str] = []
+            for source in sources:
+                key = (claim, source)
+                record = seen.get(key)
+                if record is None:
+                    try:
+                        record = check(claim, source)
+                    except Exception as exc:
+                        record = unverified(f"{type(exc).__name__}: {exc}")
+                    if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                        record = unverified(f"checker returned no usable verdict: {record!r}")
+                    seen[key] = record
+                verdict = str(record.get("verdict") or "unverified")
+                verdicts.append(verdict)
+                per_citation.append(
+                    {
+                        "source": source,
+                        "verdict": verdict,
+                        "reasoning": str(record.get("reasoning") or ""),
+                    }
+                )
+            record_out: dict[str, Any] = {
+                "verdict": _aggregate_verdicts(verdicts),
+                "reasoning": ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)",
+                "citations": per_citation,
+            }
             meta = dict(node.get("meta") or {})
             prov = dict(meta.get("provenance") or {})
             prov["entailment"] = record_out
