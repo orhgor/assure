@@ -1961,9 +1961,18 @@
           // is the server's unreported `unchecked`, not a failed check.
           var ent = _entailmentFor(node, prov[0] || null);
           var verdict = ent ? String(ent.verdict || "").toLowerCase() : "";
+          var contradicted = !!(ent && ent.contradicted);
           if (verdict === "yes" || verdict === "partial") counts.supported++;
           if (verdict === "partial") counts.partial++;
-          else if (verdict === "no") counts.unsupported++;
+          // The server counts a paragraph unsupported when the verdict is "no" OR
+          // when any citation of it was contradicted (audit_summary
+          // _is_contradicted), because a paragraph can be carried in part AND
+          // contain a contradiction. This mirror counted only the verdict, so the
+          // same document showed a lower "not supported" number once derived in
+          // the browser - and the derived path is what a first paint, a cold shell
+          // or a version jump takes. The number that went missing is the one the
+          // page promises.
+          if (verdict === "no" || contradicted) counts.unsupported++;
           else if (verdict === "unverified") counts.unverified++;
         }
       }
