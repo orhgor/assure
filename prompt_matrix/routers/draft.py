@@ -30,6 +30,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..keys import PROVIDER_PIN
     from ..models.jdf import (
+        _merge_short_sentences,
         _split_sentences,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -91,6 +92,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from keys import PROVIDER_PIN
     from models.jdf import (
+        _merge_short_sentences,
         _split_sentences,
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -564,7 +566,13 @@ def _numbered_source_blocks(
         lines: list[str] = []
         entries: list[tuple[str, str, str, Any]] = []
         used = 0
-        for sent, page in _split_sentences(text):
+        # ``_merge_short_sentences`` joins fragments into their neighbours, which is
+        # what the matcher has always done and what this function was missing:
+        # numbering raw ``_split_sentences`` output on a policy PDF produced
+        # sentences like "this Policy", and a citation to a fragment cannot be
+        # entailed by anything — the model answers ``no`` and the paragraph lands
+        # unsupported however the verdicts are aggregated.
+        for sent, page in _merge_short_sentences(_split_sentences(text)):
             clean = str(sent or "").strip()
             if not clean:
                 continue
