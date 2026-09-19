@@ -41,6 +41,12 @@ try:
         validate_compiled_draft,
         wrap_untrusted_source,
     )
+    from ..services.prompt_assembly import (
+        assemble_compile_prompt,
+        MissingRequiredInputError,
+        InvalidCompileTypeError,
+        RequiredSourceUnavailableError,
+    )
     from ..services.entailment import attach_entailment_to_tree, check_entailment
     from ..services.lock_inference import infer_lock_candidates
     from ..services.omp_memory import (
@@ -716,20 +722,62 @@ def run_draft_pipeline(
         )
         yield from _refusal_frames(_NO_SOURCE_MESSAGE, _NO_SOURCE_REASON, rid)
         return
+    substrate_rows = substrate_rows
 
-    substrate_context = _build_substrate_context(substrate_rows)
-    combined_context = "\n\n".join(p for p in [context, substrate_context] if p and p.strip())
-    messages = _draft_messages(intent, combined_context)
-    # Resolved once, before the cache probe: the cache key and the ROUTED TO
-    # panel both read this value, so a compile cannot report (or key on) a model
-    # it did not call.
-    _draft_model = _draft_route_model(target_ai)
+    # Assemble deterministic, source-grounded compile prompt
+    try:
+        raw_prompt_text, structured_prompt, prompt_metadata = assemble_compile_prompt(
+            intent=intent,
+            context=context,
+            substrate_file_ids=substrate_file_ids,
+            source_excerpts_raw=substrate_rows,
+            compile_type=payload.compile_type if hasattr(payload, "compile_type") else "full",
+            target_ai=target_ai,
+        )
+    except MissingRequiredInputError as exc:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=f"compile refused: {exc}",
+        )
+        _log.warning("[compile-refused] %s project=%s", exc, project_id)
+        yield from _refusal_frames(str(exc), "missing_required_input", rid)
+        return
+    except InvalidCompileTypeError as exc:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=f"compile refused: {exc}",
+        )
+        _log.warning("[compile-refused] %s project=%s", exc, project_id)
+        yield from _refusal_frames(str(exc), "invalid_compile_type", rid)
+        return
+    except RequiredSourceUnavailableError as exc:
+        audit.log_audit(
+            rid,
+            project_id,
+            "DRAFT_STREAM",
+            success=False,
+            duration_ms=int((time.perf_counter() - start) * 1000),
+            error_message=f"compile refused: {exc}",
+        )
+        _log.warning("[compile-refused] %s project=%s", exc, project_id)
+        yield from _refusal_frames(str(exc), "required_source_unavailable", rid)
+        return
+
+    # Extract model from structured prompt for cache key
+    _draft_model = structured_prompt.get("template_variables", {}).get("target_ai") or _draft_route_model(target_ai)
     cache_key = compile_cache_key(
         project_id,
-        _compile_source_text(intent, context, substrate_context),
+        _compile_source_text(intent, context, structured_prompt.get("user_prompt", "")),
         target_ai=_draft_model,
     )
-    cached: dict[str, Any] | None = None
     try:
         cached = load_ast_cache(cache_key)
     except Exception:
@@ -769,42 +817,29 @@ def run_draft_pipeline(
         "status",
         {"stage": "model", "message": f"Drafting with {_draft_model}…", "model": _draft_model},
     )
+    # Build messages from structured prompt for streaming
+    messages = [
+        {"role": "system", "content": structured_prompt.get("system_prompt", "")},
+        {"role": "user", "content": structured_prompt.get("user_prompt", "")},
+    ]
 
-    full_text = ""
-    in_tok = 0
-    out_tok = 0
-    model_id = _draft_model
-    _measure: dict[str, Any] = {}
+    yield _typed_sse(
+        "status", {"stage": "preflight", "message": "Checking budget…", "request_id": rid}
+    )
 
     try:
-        for item in _stream_model(
-            gov,
-            messages,
-            target_ai=target_ai,
-            cancel_check=cancel_check,
-        ):
-            if isinstance(item, str):
-                if '"type": "error"' in item:
-                    yield item
-                    yield _done_sse()
-                    return
-                yield item
-            else:
-                if len(item) >= 5:
-                    full_text, in_tok, out_tok, model_id, _measure = item
-                else:
-                    full_text, in_tok, out_tok, model_id = item
-    except DraftCancelledError:
-        audit.log_audit(rid, project_id, "DRAFT_STREAM", success=False, error_message="cancelled")
-        return
-
-    if not full_text.strip():
+        gov.preflight(project_id, TaskType.DRAFT_COMPILE, messages)
+    except (BudgetExhaustedError, QuotaExceededError) as exc:
         yield _typed_sse(
-            "error", {"ok": False, "error": "Empty draft from model.", "request_id": rid}
+            "error", {"ok": False, "error": str(exc), "http_status": 429, "request_id": rid}
         )
         yield _done_sse()
         return
-
+    except TokenLimitExceededError as exc:
+        yield _typed_sse(
+            "error", {"ok": False, "error": str(exc), "http_status": 400, "request_id": rid}
+        )
+        yield _done_sse()
     gov.record_usage(
         project_id,
         input_tokens=in_tok,
