@@ -36,7 +36,6 @@ try:
         attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
-        flatten_nodes,
         get_node_by_id,
         parse_document,
     )
@@ -98,7 +97,6 @@ except ImportError:
         attach_substrate_provenance_to_tree,
         build_document_from_draft,
         document_to_dict,
-        flatten_nodes,
         get_node_by_id,
         parse_document,
     )
@@ -629,34 +627,44 @@ def attach_citations_to_tree(
     sentence_map = build_sentence_map(substrate_rows)
     if not sentence_map:
         return tree
-    for node in flatten_nodes(tree):
-        if str(node.get("type") or "") != "paragraph":
+    # Walk ``body -> section -> children`` by reference, the way
+    # ``audit_summary._walk_nodes`` does. ``models.jdf.flatten_nodes`` returns the
+    # same nodes but built from ``document_to_dict``, so writing to them is
+    # discarded — the citations were being appended to copies (measured:
+    # ``prov_rows=0`` after the call, counter still ``anchored: 0``).
+    for section in tree.get("body") or []:
+        if not isinstance(section, dict):
             continue
-        content = str(node.get("content") or "")
-        if "[S" not in content:
-            continue
-        ids = _CITED_ID_RE.findall(content)
-        if not ids:
-            continue
-        stripped = _CITED_ID_RE.sub("", content)
-        stripped = re.sub(r"[ \t]{2,}", " ", stripped)
-        stripped = re.sub(r"\s+([.,;:])", r"\1", stripped)
-        node["content"] = stripped.strip()
-        rows = node.get("provenance")
-        if not isinstance(rows, list):
-            rows = node["provenance"] = []
-        for n in ids:
-            entry = sentence_map.get(f"S{n}")
-            if not entry:
+        for node in [section, *(section.get("children") or [])]:
+            if not isinstance(node, dict):
                 continue
-            rows.append(
-                {
-                    "extracted_quote": entry["text"],
-                    "source_name": entry["filename"],
-                    "page": entry["page"],
-                    "cited_id": f"S{n}",
-                }
-            )
+            if str(node.get("type") or "") != "paragraph":
+                continue
+            content = str(node.get("content") or "")
+            if "[S" not in content:
+                continue
+            ids = _CITED_ID_RE.findall(content)
+            if not ids:
+                continue
+            stripped = _CITED_ID_RE.sub("", content)
+            stripped = re.sub(r"[ \t]{2,}", " ", stripped)
+            stripped = re.sub(r"\s+([.,;:])", r"\1", stripped)
+            node["content"] = stripped.strip()
+            rows = node.get("provenance")
+            if not isinstance(rows, list):
+                rows = node["provenance"] = []
+            for n in ids:
+                entry = sentence_map.get(f"S{n}")
+                if not entry:
+                    continue
+                rows.append(
+                    {
+                        "extracted_quote": entry["text"],
+                        "source_name": entry["filename"],
+                        "page": entry["page"],
+                        "cited_id": f"S{n}",
+                    }
+                )
     return tree
 
 
