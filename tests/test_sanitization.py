@@ -197,3 +197,85 @@ def test_the_load_path_still_strips_markup(tmp_path, monkeypatch) -> None:
     assert "<script>" not in content.lower()
     assert "onerror" not in content.lower()
     assert "Excess & Surplus" in content
+
+
+# --------------------------------------------------------------------------- #
+# The guard's output is what gets stored and served
+# --------------------------------------------------------------------------- #
+def test_text_with_no_markup_is_returned_byte_identical() -> None:
+    """No ``<`` cannot carry markup, so there is nothing to clean and nothing to change."""
+    from prompt_matrix.lib.sanitize import _clean_html
+
+    for value in (
+        "Princeton Excess & Surplus Lines Insurance Company",
+        "Sublimit $500,000 x/s $10,000,000 per occurrence",
+        "a & b &amp; c",
+        "",
+    ):
+        assert _clean_html(value) == value
+
+
+def test_an_ampersand_beside_markup_comes_back_as_an_ampersand() -> None:
+    """The clean is an identity for the text it filters, entities included."""
+    pytest.importorskip("bleach")
+    from prompt_matrix.lib.sanitize import _clean_html
+
+    assert _clean_html("<p>Ben & Jerry</p>") == "<p>Ben & Jerry</p>"
+    assert _clean_html("<p>Ben &amp; Jerry</p>") == "<p>Ben &amp; Jerry</p>"
+    assert _clean_html("<p>a && b</p>") == "<p>a && b</p>"
+
+
+def test_a_script_tag_is_stripped() -> None:
+    pytest.importorskip("bleach")
+    from prompt_matrix.lib.sanitize import _clean_html
+
+    cleaned = _clean_html('<script>alert(1)</script><p>Deductible 25,000</p>')
+    assert "<script" not in cleaned.lower()
+    assert "Deductible 25,000" in cleaned
+
+
+def test_escaped_markup_is_not_unescaped_back_into_live_markup() -> None:
+    """A document that *shows* a tag must not have it turned into one.
+
+    ``html.unescape`` after ``bleach.clean`` put markup back: an escaped
+    ``&lt;script&gt;`` in the document was stored as a live ``<script>``, and an
+    escaped ``&lt;img src=x onerror=alert(1)&gt;`` was stored as a live element
+    with its event handler attached. The output of this function is written to
+    SQLite and served, so unescaping it undone the filter it had just run — the
+    docstring's claim that "unescaping cannot put a tag back" is false, and this is
+    the measurement. Escaped markup stays escaped.
+    """
+    pytest.importorskip("bleach")
+    from prompt_matrix.lib.sanitize import _clean_html, sanitize_jdf_node
+
+    for escaped in (
+        "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+        "<p>&lt;img src=x onerror=alert(1)&gt;</p>",
+        "<p>Premium &lt; $1,000,000</p>",
+    ):
+        cleaned = _clean_html(escaped)
+        assert "<script" not in cleaned.lower(), cleaned
+        assert "<img" not in cleaned.lower(), cleaned
+        # Idempotent: what the guard writes, the guard reads back unchanged. A
+        # second pass must not strip a tag the first pass created.
+        assert sanitize_jdf_node({"content": cleaned})["content"] == cleaned, cleaned
+    assert _clean_html("<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>") == (
+        "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>"
+    )
+
+
+def test_the_guard_is_idempotent_on_everything_it_accepts() -> None:
+    """One pass and two passes agree — on markup, entities and bare text alike."""
+    pytest.importorskip("bleach")
+    from prompt_matrix.lib.sanitize import sanitize_jdf_node
+
+    for value in (
+        "Princeton Excess & Surplus Lines Insurance Company",
+        "<p>Ben & Jerry &copy; 2026</p>",
+        '<p>See <a href="https://example.com">link</a></p>',
+        '<script>alert(1)</script>Sublimit $500,000 x/s $10,000,000',
+        "<p>&lt;b&gt;quoted&lt;/b&gt;</p>",
+        '<img src=x onerror="alert(2)">Excess & Surplus <strong>ok</strong>',
+    ):
+        once = sanitize_jdf_node({"content": value})["content"]
+        assert sanitize_jdf_node({"content": once})["content"] == once, value
