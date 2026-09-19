@@ -281,7 +281,17 @@ def node_verification_index(tree: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def state_counts(index: list[dict[str, Any]]) -> dict[str, int]:
-    """Verification states across the index — zero-filled, so an absent state reads 0."""
+    """Verification states across the index — zero-filled, so an absent state reads 0.
+
+    ``supported`` counts ``yes`` **and** ``partial``: that is the rule
+    ``services/audit_summary._provenance_counts`` counts by, and the one the
+    ``provenance_stats`` beside it in this file is built from — a claim the
+    sentences it cites carry in part, with nothing in them contradicting it, is
+    grounded. Counting only ``yes`` here made a single export contradict itself:
+    ``states.supported`` 2 next to ``provenance_stats.supported`` 5 on the same
+    document. ``partial`` stays beside it as the detail bucket, so the pair still
+    says how much of the supported total was whole and how much was in part.
+    """
     counts = {
         _STATE_SUPPORTED: 0,
         _STATE_PARTIAL: 0,
@@ -293,7 +303,10 @@ def state_counts(index: list[dict[str, Any]]) -> dict[str, int]:
     }
     for entry in index:
         state = str(entry.get("verification_state") or "")
-        if state in counts:
+        if state == _STATE_PARTIAL:
+            counts[_STATE_PARTIAL] += 1
+            counts[_STATE_SUPPORTED] += 1
+        elif state in counts:
             counts[state] += 1
     return counts
 
