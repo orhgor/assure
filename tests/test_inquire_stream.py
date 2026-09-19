@@ -92,6 +92,20 @@ async def _collect_events(client, project_id: str, payload: dict) -> list[tuple[
     return events
 
 
+async def _seed_project(client, project_id: str) -> None:
+    """Create the project row the stream's compile counter references.
+
+    ``daily_compile_limits.project_id`` carries an FK to ``projects(id)``, so a
+    stream for a project that was never created fails the counter insert — the
+    pre-FK suite never needed the row. Seed it through the app's own path.
+    """
+    response = await client.put(
+        f"/api/projects/{project_id}/jdf",
+        json={"document": _sample_tree(project_id), "mutation_type": "seed"},
+    )
+    assert response.status_code == 200
+
+
 @pytest.fixture
 def temp_db():
     tmp = tempfile.TemporaryDirectory()
@@ -130,6 +144,8 @@ async def client(temp_db):
 
 @pytest.mark.asyncio
 async def test_full_stream_lifecycle(client):
+    await _seed_project(client, "lifecycle")
+
     with patch("prompt_matrix.routers.inquire_stream.CostGovernor") as Gov:
         instance = Gov.return_value
         instance.preflight.return_value = object()
@@ -178,6 +194,8 @@ async def test_full_stream_lifecycle(client):
 
 @pytest.mark.asyncio
 async def test_surgical_diff_context(client):
+    await _seed_project(client, "surgical")
+
     with patch("prompt_matrix.routers.inquire_stream.CostGovernor") as Gov:
         instance = Gov.return_value
         instance.preflight.return_value = object()
@@ -201,6 +219,8 @@ async def test_surgical_diff_context(client):
 
 @pytest.mark.asyncio
 async def test_z3_violation_event(client):
+    await _seed_project(client, "z3")
+
     with patch("prompt_matrix.routers.inquire_stream.CostGovernor") as Gov:
         instance = Gov.return_value
         instance.preflight.return_value = object()
@@ -229,6 +249,8 @@ async def test_z3_violation_event(client):
 
 @pytest.mark.asyncio
 async def test_quota_429(client):
+    await _seed_project(client, "quota")
+
     with patch("prompt_matrix.routers.inquire_stream.CostGovernor") as Gov:
         instance = Gov.return_value
         instance.preflight.side_effect = QuotaExceededError("quota exceeded")
