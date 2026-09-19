@@ -22,8 +22,13 @@ checked; a draft that states no figures still reports 0 locks and SKIPPED.
 
 usage (on the box)::
 
-    cd /home/ubuntu/assure-prototype && ASSURE_ENV=staging \\
-        .venv/bin/python scripts/aws/_probe_lock_budget.py
+    cd /home/ubuntu/assure-prototype && ASSURE_ENV=staging .venv/bin/python \
+    scripts/aws/_probe_lock_budget.py
+
+Point ``LOCK_INFERENCE_FIXTURE`` at another copy of the module to measure it
+instead of the deployed one, which is how the before/after above was taken::
+
+    LOCK_INFERENCE_FIXTURE=/tmp/fixed/lock_inference.py ... _probe_lock_budget.py
 """
 
 from __future__ import annotations
@@ -34,7 +39,20 @@ import sqlite3
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+
+def _repo_root() -> Path:
+    """The app checkout: this file's own root, else the directory it is run from."""
+    parents = Path(__file__).resolve().parents
+    here = parents[2] if len(parents) > 2 else None
+    if here is not None and (here / "prompt_matrix").is_dir():
+        return here
+    cwd = Path.cwd()
+    if (cwd / "prompt_matrix").is_dir():
+        return cwd
+    raise SystemExit("run from the app checkout, or from scripts/aws inside it")
+
+
+REPO = _repo_root()
 os.chdir(REPO)
 sys.path.insert(0, str(REPO))
 os.environ.setdefault("ASSURE_ENV", "staging")
@@ -56,6 +74,22 @@ rt.store_translation = lambda key, project_id, parsed: None
 
 PROJECT = "walk-underwriting-2026-09-19-68e596"
 DB = Path("prompt_matrix/history.sqlite")
+
+# Optional: measure a lock-inference file other than the deployed one, loaded under
+# the product's own module name. That is how the before/after numbers above were
+# taken and the only way to measure this fix before it is deployed; unset, the
+# deployed module is the one measured.
+ALT_MODULE = os.environ.get("LOCK_INFERENCE_FIXTURE", "").strip()
+if ALT_MODULE:
+    import importlib.util
+
+    _spec = importlib.util.spec_from_file_location(
+        "prompt_matrix.services.lock_inference", ALT_MODULE
+    )
+    _module = importlib.util.module_from_spec(_spec)
+    sys.modules["prompt_matrix.services.lock_inference"] = _module
+    _spec.loader.exec_module(_module)
+    lock_inference = _module
 
 # brim-cp-media43.pdf (50,200 ch) and brim-cp-media371.pdf (57,759 ch) are both
 # attached to this project's compiles. v9 answers the coverage-limits ask on the
