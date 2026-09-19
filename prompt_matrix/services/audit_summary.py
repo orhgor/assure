@@ -61,6 +61,24 @@ def _anchoring_quote(node: dict[str, Any]) -> str:
     return ""
 
 
+def _is_contradicted(node: dict[str, Any]) -> bool:
+    """``node.meta.provenance.entailment.contradicted`` — a citation of this
+    paragraph was contradicted by its own source, whatever the aggregate verdict.
+
+    Read beside the verdict, not instead of it. A paragraph can be carried in
+    part (verdict ``partial``) and simultaneously contain a contradicted citation;
+    the two facts are independent and the counters need both.
+    """
+    meta = node.get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    if not isinstance(prov, dict):
+        return False
+    record = prov.get("entailment")
+    if not isinstance(record, dict):
+        return False
+    return bool(record.get("contradicted"))
+
+
 def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
     """Claim-eligible paragraphs, bucketed by grounding and by entailment.
 
@@ -114,7 +132,14 @@ def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
             counts["supported"] += 1
         if verdict == "partial":
             counts["partial"] += 1
-        elif verdict == "no":
+        if verdict == "no" or _is_contradicted(node):
+            # A paragraph can be BOTH carried in part and contradicted: it cites
+            # three sentences, two support it and one is contradicted by its own
+            # source. The verdict is ``partial`` because the paragraph is partly
+            # carried, and it is also an unsupported claim because a citation of it
+            # was contradicted. Counting only the verdict made that contradiction
+            # invisible - measured: ['yes','no'] aggregated to partial, supported
+            # incremented, unsupported stayed 0, and nothing reported the ``no``.
             counts["unsupported"] += 1
         elif verdict == "unverified":
             counts["unverified"] += 1

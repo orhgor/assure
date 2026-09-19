@@ -251,14 +251,40 @@ def _aggregate_verdicts(verdicts: list[str]) -> str:
     because the paragraph is carried by some of what it cites.
     """
     if not verdicts:
+        # An empty list is not "everything passed" - ``all([])`` is vacuously
+        # True, so the all-yes test below would return ``yes`` and count the
+        # paragraph grounded. Reachable whenever a paragraph carries citations but
+        # no per-citation verdict was produced.
         return "unverified"
     if all(verdict == "yes" for verdict in verdicts):
         return "yes"
     if all(verdict == "no" for verdict in verdicts):
         return "no"
+    if any(verdict == "no" for verdict in verdicts):
+        # Some citations support the paragraph and at least one is contradicted by
+        # its source. The paragraph is genuinely partial - a summary is carried by
+        # some of what it cites - but it must ALSO be reported as contradicted.
+        # Returning a bare ``partial`` here was a real defect: the counter counts
+        # ``partial`` as grounded and leaves ``unsupported`` at zero, so a
+        # paragraph citing ``[S1]=yes, [S2]=no`` was counted supported and the
+        # ``no`` was never reported anywhere. ``_contradicted`` carries that fact
+        # to the counters, which count both.
+        return "partial"
     if any(verdict in ("yes", "partial") for verdict in verdicts):
         return "partial"
     return "unverified"
+
+
+def _contradicted(verdicts: list[str]) -> bool:
+    """True when any citation of the paragraph was contradicted by its source.
+
+    Separate from the aggregate verdict because the two answer different
+    questions and the counters need both: the paragraph is ``partial`` if some
+    citations carry it, and simultaneously ``unsupported`` if any citation
+    contradicts it. Folding the second into the first is how a contradicted claim
+    became invisible.
+    """
+    return any(verdict == "no" for verdict in verdicts)
 
 
 def attach_entailment_to_tree(
@@ -321,6 +347,7 @@ def attach_entailment_to_tree(
                 )
             record_out: dict[str, Any] = {
                 "verdict": _aggregate_verdicts(verdicts),
+                "contradicted": _contradicted(verdicts),
                 "reasoning": ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)",
                 "citations": per_citation,
             }
