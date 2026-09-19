@@ -37,10 +37,13 @@ What a reader needs beyond the tree, and could not get from the PDF:
   compile persisted (``projects.last_compiled_json.gate.measure`` or the
   ``DRAFT_STREAM`` audit row), or an explicit null when neither recorded one;
 * ``redhat_findings`` — the Red-Hat record the document came with: the critiques on
-  its own nodes (``annotations.redhat``) and the project's persisted
-  ``redhat_findings`` rows. ``ran`` separates a pass that found nothing from a pass
-  that never happened, which the PDF's old "No Red-Hat critiques recorded." line
-  could not;
+  its own nodes (``annotations.redhat``), the project's persisted
+  ``redhat_findings`` rows, and — because a later compile replaces the tree a
+  node-scoped audit wrote into — the findings a revision holds, each tagged with
+  it. ``ran`` separates a pass that found nothing from a pass that never happened,
+  which the PDF's old "No Red-Hat critiques recorded." line could not; and where a
+  finding is not in the document this file carries, ``other_revisions`` says which
+  revision holds it;
 * ``compiled_prompt`` — the hash of the compiled prompt that produced the draft
   (``projects.last_compiled_json.gate.measure``), never the prompt text: the shell
   holds the text for the session and does not persist it. A project whose compile
@@ -614,6 +617,11 @@ def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
             "count": redhat["count"],
             "ran": redhat["ran"],
             "reason": redhat["reason"],
+            # A finding recorded on another revision and not carried by the document
+            # in this file. The reader of a .jdf gets the same fact the PDF's
+            # section states, and not a list that reads as the document's own.
+            "other_revisions": redhat.get("other_revisions") or [],
+            "in_document": bool(redhat.get("in_export")),
             "items": redhat["items"],
         },
     }

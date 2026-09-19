@@ -315,15 +315,22 @@ def _redhat_pass_recorded(project_id: str) -> bool:
 
     A pass that ran and found nothing and a pass that never ran are different
     facts and the report has to say which it is; this is the evidence that
-    separates them (``routers/draft.py`` writes ``DRAFT_STREAM_REDHAT``, the run
-    path writes ``redhat_audit_telemetry``).
+    separates them. Three records count, because the three paths that run a pass
+    leave different ones: ``routers/draft.py`` writes ``DRAFT_STREAM_REDHAT`` to
+    the audit log, the run path writes ``redhat_audit_telemetry``, and a
+    node-scoped audit saves the revision it annotated
+    (``mutation_type="redhat_audit"``) — which was the record a project held when
+    neither of the other two was written, and the one that made "no pass is
+    recorded" false.
     """
     try:
         from ..db.connection import init_db
+        from ..db.jdf_repository import list_jdf_revisions
         from ..db.redhat_telemetry_repository import fetch_telemetry
         from ..history import get_db
     except ImportError:
         from db.connection import init_db
+        from db.jdf_repository import list_jdf_revisions
         from db.redhat_telemetry_repository import fetch_telemetry
         from history import get_db
     try:
@@ -335,7 +342,12 @@ def _redhat_pass_recorded(project_id: str) -> bool:
             "AND action LIKE '%REDHAT%' LIMIT 1",
             (project_id,),
         ).fetchone()
-        return row is not None
+        if row is not None:
+            return True
+        return any(
+            str(revision.get("mutation_type") or "") == "redhat_audit"
+            for revision in list_jdf_revisions(project_id, limit=_REDHAT_REVISION_SCAN)
+        )
     except Exception:
         return False
 
@@ -367,6 +379,65 @@ def _redhat_skip_reason(project_id: str) -> str:
     return "Red-Hat has not been run for this project."
 
 
+#: How many revisions back the Red-Hat section reads a stored tree. Bounded on
+#: purpose: only the revisions that can hold an annotation are read (see
+#: ``_revision_redhat_items``), and this section is a list of findings, not a
+#: history browser.
+_REDHAT_REVISION_SCAN = 20
+
+
+def _revision_redhat_items(
+    project_id: str, seen: set[tuple[str, str]]
+) -> list[dict[str, Any]]:
+    """Findings recorded in the project's revisions, tagged with the revision.
+
+    Two sets of revisions are read, both bounded, and neither is the whole
+    history: the newest revision (the document as it stands, when that is not the
+    tree in hand) and the revisions a Red-Hat audit saved — a node-scoped audit
+    writes its critique into the revision it saves under
+    ``mutation_type="redhat_audit"`` (``routers/draft.py``), and the next compile
+    replaces that tree. Measured on the box: ``default`` holds four findings in
+    revision 4 while its newest revision carries none, so an export of the newest
+    revision said "Red-Hat ran for this document and recorded no findings" — the
+    sentence a regulator reads — about a project that holds the finding.
+    ``seen`` is what the caller already has, so a finding the tree in hand or a
+    ``redhat_findings`` row already carries is not listed twice.
+    """
+    try:
+        from ..db.jdf_repository import fetch_jdf_at_version, list_jdf_revisions
+    except ImportError:
+        from db.jdf_repository import fetch_jdf_at_version, list_jdf_revisions
+    out: list[dict[str, Any]] = []
+    try:
+        revisions = list_jdf_revisions(project_id, limit=100)
+    except Exception:
+        return out
+    if not revisions:
+        return out
+    latest_version = int(revisions[0]["version"])
+    audited = [
+        revision
+        for revision in revisions
+        if "redhat" in str(revision.get("mutation_type") or "").lower()
+    ][:_REDHAT_REVISION_SCAN]
+    wanted = {latest_version} | {int(revision["version"]) for revision in audited}
+    for version in sorted(wanted, reverse=True):
+        try:
+            tree = fetch_jdf_at_version(project_id, version)
+        except Exception:
+            continue
+        if not isinstance(tree, dict):
+            continue
+        for item in _tree_redhat_items(tree):
+            key = (str(item.get("node_id") or ""), str(item.get("message") or ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            item["revision"] = version
+            out.append(item)
+    return out
+
+
 def project_redhat_findings(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
     """This project's Red-Hat findings, and whether Red-Hat has run at all.
 
@@ -374,17 +445,49 @@ def project_redhat_findings(project_id: str, tree: dict[str, Any]) -> dict[str, 
     only its ``redhat_critiques`` argument and no caller passed one
     (``routers/export_routes.py`` calls the builders with ``(project_id, tree)``).
     The findings that do exist are read here instead: the document's own
-    ``annotations.redhat`` and the project's ``redhat_findings`` rows. ``ran`` is
-    reported separately so a section with nothing to list can say whether a pass
-    happened and found nothing or never happened — "No Red-Hat critiques
-    recorded." stated the first for both.
+    ``annotations.redhat``, the project's ``redhat_findings`` rows, and — because a
+    later compile replaces the tree a node-scoped audit wrote into — the project's
+    revisions (``_revision_redhat_items``), each tagged with the revision holding
+    it. ``ran`` is reported separately so a section with nothing to list can say
+    whether a pass happened and found nothing or never happened; and it is only
+    reachable as "found nothing" once no revision holds a finding either.
+
+    ``other_revisions`` names the revisions a listed finding came from when the
+    tree in hand carries none of its own (``in_export``), which is what the section
+    states beside the list.
     """
-    items = _tree_redhat_items(tree) + _run_redhat_items(project_id)
+    tree_items = _tree_redhat_items(tree)
+    items = tree_items + _run_redhat_items(project_id)
+    seen = {(str(i.get("node_id") or ""), str(i.get("message") or "")) for i in items}
+    carried = _revision_redhat_items(project_id, seen)
+    items = items + carried
+    other_revisions = sorted({int(i["revision"]) for i in carried})
     if items:
-        return {"items": items, "count": len(items), "ran": True, "reason": ""}
+        return {
+            "items": items,
+            "count": len(items),
+            "ran": True,
+            "reason": "",
+            "other_revisions": other_revisions,
+            "in_export": bool(tree_items),
+        }
     if _redhat_pass_recorded(project_id):
-        return {"items": [], "count": 0, "ran": True, "reason": ""}
-    return {"items": [], "count": 0, "ran": False, "reason": _redhat_skip_reason(project_id)}
+        return {
+            "items": [],
+            "count": 0,
+            "ran": True,
+            "reason": "",
+            "other_revisions": [],
+            "in_export": False,
+        }
+    return {
+        "items": [],
+        "count": 0,
+        "ran": False,
+        "reason": _redhat_skip_reason(project_id),
+        "other_revisions": [],
+        "in_export": False,
+    }
 
 
 def build_audit_bundle_html(
@@ -523,6 +626,13 @@ def build_audit_bundle_html(
     redhat_html = ""
     for item in redhat_view["items"][:20]:
         where = str(item.get("node_id") or item.get("run_id") or "")
+        revision = item.get("revision")
+        if revision:
+            # A finding the document in this export does not carry: it is recorded
+            # on the revision that holds it, and the reader is told which.
+            where = f"{where} · recorded on revision {int(revision)}" if where else (
+                f"recorded on revision {int(revision)}"
+            )
         placement = f" <span class='meta'>[{_esc(where)}]</span>" if where else ""
         redhat_html += (
             f"<li><strong>{_esc(str(item.get('severity') or 'info'))}</strong>: "
@@ -530,6 +640,16 @@ def build_audit_bundle_html(
         )
     if redhat_view["count"] > 20:
         redhat_html += f"<li>… and {redhat_view['count'] - 20} more recorded finding(s).</li>"
+    other_revisions = redhat_view.get("other_revisions") or []
+    if other_revisions and not redhat_view.get("in_export"):
+        # The findings above are real and recorded; they are not in the document
+        # this report renders. Saying so is the difference between "recorded on an
+        # earlier revision" and the denial this section used to make.
+        listed = ", ".join(str(int(v)) for v in other_revisions)
+        redhat_html += (
+            f"<li>Recorded on revision {_esc(listed)} of this document; the version in "
+            "this export does not carry them.</li>"
+        )
     if not redhat_html:
         if redhat_view["ran"]:
             redhat_html = "<li>Red-Hat ran for this document and recorded no findings.</li>"
