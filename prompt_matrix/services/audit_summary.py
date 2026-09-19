@@ -190,6 +190,67 @@ def _eligible_and_anchored(document: dict[str, Any]) -> tuple[int, int]:
     return counts["eligible"], counts["anchored"]
 
 
+def _finding_counts(document: dict[str, Any] | None) -> dict[str, int]:
+    """Red-Hat findings on the tree, by state — the history beside the counters.
+
+    ``provenance_stats`` counts claims in the document as it stands; it cannot
+    say that a claim was once unsupported and a revision answered the warning,
+    because the paragraph that carried the finding was rewritten. Measured on the
+    demo project: applying the one open finding took the document from
+    ``8 anchored / 7 supported / 1 unsupported`` to ``7 anchored / 7 supported / 0
+    unsupported / 1 unanchored``, and the finding itself was gone from the tree —
+    a document with an open warning and then, one revision later, a document that
+    reads as if it never had one.
+
+    So the findings are counted beside the claims, from the tree's own
+    annotations:
+
+    ``open``        a warning nothing has answered yet.
+    ``resolved``    a revision rewrote the paragraph it was raised on
+                    (``models.jdf.resolve_findings_on_rewrite``), which is what
+                    ``resolved_by_revision_id`` / ``resolved_by_version`` /
+                    ``resolved_by_mutation_type`` record.
+    ``remediated_unsupported``
+                    of those, the ones raised on a paragraph the audit read as
+                    unsupported (verdict ``no``, or a citation contradicted). This
+                    is the number that says the fall in ``unsupported`` was work
+                    done, not an audit that came back clean.
+    ``dismissed``   closed without a rewrite.
+    ``remediated_unanchored``
+                    of the resolved ones, the paragraphs that held a citation
+                    when the finding was raised and hold none now — the anchor the
+                    rewrite did not inherit, so the count of unsupported claims
+                    fell because a paragraph lost its source rather than because
+                    one was grounded. The document total is
+                    ``provenance_stats.unanchored``; this is the part of it that
+                    remediation explains, which the total cannot say.
+    """
+    counts = {
+        "open": 0,
+        "resolved": 0,
+        "remediated_unsupported": 0,
+        "dismissed": 0,
+        "remediated_unanchored": 0,
+    }
+    for node in _walk_nodes(document or {}):
+        for finding in (node.get("annotations") or {}).get("redhat") or []:
+            if not isinstance(finding, dict):
+                continue
+            status = str(finding.get("status") or "open")
+            if status not in counts:
+                continue
+            counts[status] += 1
+            if status != "resolved":
+                continue
+            if str(finding.get("prior_verdict") or "") == "no" or finding.get(
+                "prior_contradicted"
+            ):
+                counts["remediated_unsupported"] += 1
+            if str(finding.get("prior_anchor_quote") or "").strip() and not _anchoring_quote(node):
+                counts["remediated_unanchored"] += 1
+    return counts
+
+
 def compute_gate_status(z3_status: str | None, redhat_count: int) -> GateStatus:
     """Map Z3 + Red-Hat counts to a single pre-flight gate state."""
     status = (z3_status or "").upper()
@@ -227,6 +288,12 @@ def provenance_gate_fields(
     ``unverified`` is left unset when the recount found support: there is nothing
     to report as unverified, and a stale refusal must not outlive the numbers
     behind it.
+
+    ``findings`` rides beside the stats rather than inside them: it counts the
+    Red-Hat warnings the tree carries, by state, including the ones a revision
+    has since answered. ``provenance_stats`` keeps its shape — six payload tests
+    assert it whole, and a claim counter is a claim counter — but the finding
+    counters are what keep a remediated document from reading as a clean one.
     """
     counts = (
         _provenance_counts(document)
@@ -237,6 +304,11 @@ def provenance_gate_fields(
         "provenance_stats": _reported_stats(counts),
         "gate_status": compute_gate_status(z3_status, redhat_count),
         "ok": z3_status == "PASS",
+        # The claims' history, beside the claims' state: `provenance_stats` counts
+        # the tree as it stands, so the revision that answered a finding reads
+        # there only as a paragraph that stopped being unsupported. See
+        # `_finding_counts`.
+        "findings": _finding_counts(document),
     }
     if counts["supported"] > 0:
         return fields

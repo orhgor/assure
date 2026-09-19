@@ -1687,6 +1687,7 @@ EN = {
     "jdf.redhat.analyze_full": "🛡️ Run Red-Hat on Full Document",
     "jdf.redhat.empty": "Nothing to analyze yet.",
     "jdf.redhat.none": "No issues found.",
+    "redhat.finding.resolved": "Remediated by {by}{how}",
     # The unanchored claim's drawer (shell.js): the gap analysis (2B) and the
     # allowlisted fetch that can ground a claim (2C). The English is the fallback
     # for a catalog that could not be fetched, per this shell's locale rule.
@@ -3353,6 +3354,7 @@ ES = {
     # errors
     "error.catalog": "No se pudo cargar el catálogo",
     "error.classes": "No se pudieron cargar las clases",
+    "redhat.finding.resolved": "Resuelto en {by}{how}",
 }
 
 ZH = {
@@ -4975,6 +4977,7 @@ ZH = {
     # errors
     "error.catalog": "无法加载目录",
     "error.classes": "无法加载类",
+    "redhat.finding.resolved": "已由 {by} 修复{how}",
 }
 
 FR = {
@@ -6598,6 +6601,7 @@ FR = {
     # errors
     "error.catalog": "Impossible de charger le catalogue",
     "error.classes": "Impossible de charger les classes",
+    "redhat.finding.resolved": "Corrigé dans {by}{how}",
 }
 
 DE = {
@@ -8234,6 +8238,7 @@ DE = {
     # errors
     "error.catalog": "Katalog konnte nicht geladen werden",
     "error.classes": "Klassen konnten nicht geladen werden",
+    "redhat.finding.resolved": "Behoben in {by}{how}",
 }
 
 JA = {
@@ -9863,6 +9868,7 @@ JA = {
     # errors
     "error.catalog": "カタログを読み込めませんでした",
     "error.classes": "クラスを読み込めませんでした",
+    "redhat.finding.resolved": "{by} で修正済み{how}",
 }
 
 TR = {
@@ -11504,6 +11510,7 @@ TR = {
     # errors
     "error.catalog": "Katalog yüklenemedi",
     "error.classes": "Sınıflar yüklenemedi",
+    "redhat.finding.resolved": "{by} ile giderildi{how}",
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}

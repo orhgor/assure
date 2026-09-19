@@ -236,16 +236,33 @@ def run_refine_node(
     if persist:
         save_last_compiled(project_id, applied["document"])
         try:
-            from ..db.jdf_repository import save_jdf_revision
+            from ..db.jdf_repository import close_findings_for_revision, save_jdf_revision
         except ImportError:
-            from db.jdf_repository import save_jdf_revision
+            from db.jdf_repository import close_findings_for_revision, save_jdf_revision
+        # The refine path replaces the same paragraph an inquire rewrite does, so
+        # it closes the findings the same way: the node keeps them, resolved, and
+        # names the revision that answered them. `_apply_text_to_node` already
+        # carries the old annotations over; this is what marks them closed.
+        closed = close_findings_for_revision(
+            project_id,
+            applied["document"],
+            node_id,
+            applied["node"],
+            mutation_type="surgical_refine",
+        )
+        applied["node"] = closed["node"]
+        replaced, _ = replace_node_in_tree(applied["document"], node_id, closed["node"])
+        applied["document"] = replaced
         save_jdf_revision(
             project_id,
             applied["document"],
             mutation_type="surgical_refine",
             target_node_id=node_id,
             change_summary="Surgical refine",
-            expected_version=expected_version,
+            expected_version=(
+                closed["version"] - 1 if expected_version is None else expected_version
+            ),
+            revision_id=closed["revision_id"],
         )
     applied["ok"] = True
     applied["ground_from_vault"] = bool(ground_from_vault)

@@ -1717,7 +1717,16 @@
       // audit is visible without opening anything. renderJdfNode is the only
       // place a wrapper is built, so every path — first paint, a re-render, a
       // version jump — takes the class from here.
-      if (_nodeHasFindings(node)) wrapper.classList.add("has-finding");
+      //
+      // A finding a revision has answered keeps a mark, not the alarm: the
+      // paragraph is still where the warning was, so it stays findable, but
+      // `--contradicted` says the claim is wrong now, and a remediated one is
+      // exactly the paragraph that is not (models/jdf.py:
+      // resolve_findings_on_rewrite writes the resolution). Two classes because
+      // the two states say different things.
+      if (_nodeHasFindings(node)) wrapper.classList.add(_nodeHasOpenFindings(node)
+        ? "has-finding"
+        : "has-remediated-finding");
       var el = null;
       if (node.type === "section") {
         el = document.createElement("h2");
@@ -2693,6 +2702,16 @@
       var f = node && node.annotations && node.annotations.redhat;
       return Boolean(f && f.length);
     }
+    // A finding nothing has answered. `status` is the only thing that separates
+    // the two states: the pane's card prints the resolution line, and the node's
+    // map mark keeps the contradicted rule only while one is still open.
+    function _nodeHasOpenFindings(node) {
+      var f = (node && node.annotations && node.annotations.redhat) || [];
+      for (var i = 0; i < f.length; i++) {
+        if (f[i] && String(f[i].status || "open") === "open") return true;
+      }
+      return false;
+    }
     function _markLocated(el) {
       if (__locateMarkTimer) { clearTimeout(__locateMarkTimer); __locateMarkTimer = null; }
       if (__locatedNodeEl && __locatedNodeEl !== el) {
@@ -2921,7 +2940,18 @@
       ConnectionError: "The audit could not reach the model provider.",
     };
     function _redhatReasonText(reason) {
-      return REDHAT_REASON_TEXT[String(reason || "").trim()] ||
+      var token = String(reason || "").trim();
+      // A truncated answer is refused, not recorded: the model hit its output
+      // ceiling, so what came back was a fragment. The sentence for it is
+      // addressed through the catalog here rather than in the map above, which
+      // is built before /api/i18n has answered.
+      if (token === "redhat_truncated") {
+        return _t(
+          "redhat.reason.truncated",
+          "The audit ran out of room before it finished — no finding was saved. Run it again."
+        );
+      }
+      return REDHAT_REASON_TEXT[token] ||
         "The audit could not run on this node.";
     }
     // A persist failure is not an audit failure: the run happened, the write
@@ -3458,8 +3488,10 @@
     function getChipIcon(kind, status) {
       if (kind === "z3") return status === "pass" ? "\u2713" : "!";
       else if (kind === "cite") return "\u00a7";
-      // A Red-Hat finding has no closing state (see Dismiss removal): the
-      // check-mark branch had no writer, so the chip is always the flag.
+      // A Red-Hat finding is the flag, open or answered: the chip's class
+      // carries which (shell.css .chip-redhat.open / .resolved), and the flag
+      // itself is the same mark either way — the document's note that a warning
+      // stood on this paragraph.
       else if (kind === "redhat") return "\u2691";
       return "";
     }
@@ -5921,6 +5953,28 @@
           bodyEl.className = "redhat-finding-body";
           if (text) bodyEl.appendChild(_renderFindingMarkdown(text));
           li.appendChild(bodyEl);
+          // A finding a revision answered says so, on the finding, and the
+          // paragraph it was raised on no longer shows it any other way: that
+          // paragraph has been rewritten, so what remains of the warning is this
+          // card. The resolution is the annotation's own record
+          // (models/jdf.py:resolve_findings_on_rewrite writes it when a rewrite
+          // closes a finding), never a run report about it, and it names both the
+          // revision that acted and how — "surgical_rewrite" — because the actor
+          // is the person who pressed Apply, whom the app cannot name and must not
+          // pretend to. Oldest revisions predate the field and simply have none.
+          if (r.status === "resolved" && (r.resolved_by_revision_id || r.resolved_by_version != null)) {
+            var byEl = document.createElement("div");
+            byEl.className = "redhat-finding-resolved";
+            var by = r.resolved_by_version != null
+              ? ("v" + r.resolved_by_version)
+              : String(r.resolved_by_revision_id || "");
+            var how = String(r.resolved_by_mutation_type || "").trim();
+            byEl.textContent = _tf("redhat.finding.resolved", "Remediated by {by}{how}", {
+              by: by,
+              how: how ? " \u00b7 " + how : "",
+            });
+            li.appendChild(byEl);
+          }
           // A finding is already an instruction: click seeds the existing
           // rephrase editor rather than opening a second rewrite path.
           if (text) {

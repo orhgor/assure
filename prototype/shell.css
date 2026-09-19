@@ -1268,8 +1268,13 @@ body.collapsed .pane-left {
 
 
 
-/* No .chip-redhat.resolved / .dismissed: findings have no closing state —
-   nothing writes anything but "open" (see the Dismiss removal). */
+/* A finding a revision has answered (models/jdf.py:resolve_findings_on_rewrite).
+   It keeps the flag — it is still the document's record that a warning stood
+   here — but not the alarm colour: the paragraph it was raised on has been
+   rewritten, so the claim is no longer the open question it was. */
+.chip-redhat.resolved {
+  color: var(--muted);
+}
 
 /* Phase F: confidence spans are a 1px underline, never a highlight fill.
    No tooltip — the underline is the signal (.conf-span carries no title). */
@@ -1770,6 +1775,18 @@ body.collapsed .pane-left {
 }
 .redhat-finding-body > * { margin: 0 0 var(--space-2); }
 .redhat-finding-body > *:last-child { margin-bottom: 0; }
+/* The line a remediated finding carries, under the warning it answers. It is a
+   fact about the finding, not a severity, so it reads in the pane's quiet voice
+   and is separated from the model's prose above it. */
+.redhat-finding-resolved {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
 .redhat-md-h {
   font-weight: 600;
   color: var(--ink);
@@ -2185,6 +2202,15 @@ body.collapsed .pane-left {
    this is the document's own annotation. */
 .jdf-node.has-finding {
   border-left: 2px solid var(--contradicted);
+  margin-left: -4px;
+  padding-left: var(--space-3);
+}
+/* A finding a revision has answered: the same mark in the same place, in the
+   pane's quiet voice. The paragraph is still findable as the one the warning was
+   about, and it no longer reads as a live contradiction — which is what the
+   counters say about it too (services/audit_summary._finding_counts). */
+.jdf-node.has-remediated-finding {
+  border-left: 2px solid var(--muted);
   margin-left: -4px;
   padding-left: var(--space-3);
 }

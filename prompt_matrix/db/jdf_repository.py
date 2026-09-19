@@ -42,6 +42,62 @@ def project_owner_id(project_id: str) -> str | None:
     return str(raw) if raw else None
 
 
+def new_revision_id() -> str:
+    """A document revision id.
+
+    ``save_jdf_revision`` generates one itself; a caller that has to know the id
+    *before* the write — a surgical rewrite stamps the revision that closed a
+    finding onto the node it rewrote, and that node is serialized by that same
+    write — generates it here and passes it in.
+    """
+    return f"rev-{uuid.uuid4().hex[:16]}"
+
+
+def close_findings_for_revision(
+    project_id: str,
+    tree: JDFDocumentTree | dict[str, Any],
+    node_id: str,
+    node: dict[str, Any],
+    *,
+    mutation_type: str,
+    resolved_at: str | None = None,
+) -> dict[str, Any]:
+    """``node`` with the findings this rewrite closes, named against the next revision.
+
+    Returns ``{"node", "revision_id", "version"}``: the node as it is to be
+    written, and the identity the write has to carry — the same
+    ``revision_id`` passed to ``save_jdf_revision`` and the version it will
+    assign when every revision so far is still in place. The node records the
+    revision that answered the finding, so the id has to exist before the write
+    rather than being read back from it.
+
+    A rewrite that replaces a paragraph the audit convicted used to drop the
+    finding with it, and the document then read as one that never had a finding.
+    See ``models.jdf.resolve_findings_on_rewrite``: the finding survives,
+    ``resolved``, and the paragraph's own grounding does not — it keeps no
+    citation it was not matched against.
+    """
+    try:
+        from ..models.jdf import get_node_by_id, resolve_findings_on_rewrite
+    except ImportError:
+        from models.jdf import get_node_by_id, resolve_findings_on_rewrite
+
+    revision_id = new_revision_id()
+    version = current_document_version(project_id) + 1
+    return {
+        "node": resolve_findings_on_rewrite(
+            node,
+            get_node_by_id(tree, node_id),
+            revision_id=revision_id,
+            version=version,
+            mutation_type=mutation_type,
+            resolved_at=resolved_at,
+        ),
+        "revision_id": revision_id,
+        "version": version,
+    }
+
+
 def current_document_version(project_id: str) -> int:
     init_db()
     db = get_db()
@@ -232,6 +288,7 @@ def save_jdf_revision(
     target_node_id: str | None = None,
     change_summary: str | None = None,
     expected_version: int | None = None,
+    revision_id: str | None = None,
 ) -> dict[str, Any]:
     init_db()
     ensure_project(project_id)
@@ -251,7 +308,7 @@ def save_jdf_revision(
         except Exception:
             change_summary = None
 
-    revision_id = f"rev-{uuid.uuid4().hex[:16]}"
+    revision_id = revision_id or new_revision_id()
     truth = json.dumps(tree.get("truth_ledger") or {})
     #: Assigned inside ``_persist_revision``, under the write lock. Read after the
     #: call for the node snapshot and the return value.

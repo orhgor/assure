@@ -10,6 +10,7 @@ import copy
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any, Callable, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -56,6 +57,32 @@ class JDFRedhatAnnotation(BaseModel):
     # without walking the tree. ``extra="ignore"`` means an unlisted field never
     # survives validation, so this has to be declared to reach SQLite at all.
     node_id: str = ""
+    # --- What closed it ------------------------------------------------------
+    # Written when a revision rewrote the paragraph this finding was raised on
+    # (``resolve_findings_on_rewrite``). A finding that closes leaves no trace
+    # otherwise: the paragraph it convicted is replaced by text the audit never
+    # saw, and the document then reads as one that never had a finding. The
+    # revision that acted on the warning is the record that it existed.
+    #
+    # ``resolved_by_mutation_type`` names how the warning was answered
+    # ("surgical_rewrite"), which is the level of provenance the system has: the
+    # human who pressed Apply is the actor, and the app cannot name them and must
+    # not pretend to.
+    resolved_by_revision_id: str = ""
+    resolved_by_version: int | None = None
+    resolved_by_mutation_type: str = ""
+    resolved_at: str = ""
+    # What the finding was raised against, read off the paragraph as it stood
+    # when the audit ran (the per-row ``extracted_quote`` and the entailment
+    # verdict at ``meta.provenance.entailment``). The rewritten paragraph keeps
+    # neither: its citations are not carried over, because a paragraph that
+    # inherited its predecessor's quotes would read as anchored to sentences its
+    # new text was never matched against. So the history lives here — the
+    # paragraph that lost its anchor keeps saying so ("unanchored"), and the
+    # finding keeps saying what the anchor was and how it read.
+    prior_anchor_quote: str = ""
+    prior_verdict: str = ""
+    prior_contradicted: bool = False
 
 
 class JDFZ3Annotation(BaseModel):
@@ -581,6 +608,100 @@ def attach_redhat_annotation(
         }
     )
     return splice_node(tree, node_id, node)
+
+
+def _first_anchor_quote(node: dict[str, Any] | None) -> str:
+    """The source sentence ``node`` was anchored to — "" when it had none.
+
+    The same row ``services/audit_summary._anchoring_quote`` reads: the first
+    provenance row carrying an ``extracted_quote``.
+    """
+    for row in (node or {}).get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return str(row["extracted_quote"]).strip()
+    return ""
+
+
+def _entailment_record(node: dict[str, Any] | None) -> dict[str, Any]:
+    """``node.meta.provenance.entailment`` — {} when the claim was never checked."""
+    meta = (node or {}).get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    record = prov.get("entailment") if isinstance(prov, dict) else None
+    return record if isinstance(record, dict) else {}
+
+
+def resolve_findings_on_rewrite(
+    rewritten: dict[str, Any],
+    previous: dict[str, Any] | None,
+    *,
+    revision_id: str,
+    version: int | None,
+    mutation_type: str,
+    resolved_at: str | None = None,
+) -> dict[str, Any]:
+    """Carry ``previous``'s findings onto the node this revision rewrote.
+
+    A finding is evidence about the paragraph it was raised on, and remediating
+    that paragraph used to destroy the evidence: the rewritten node replaced the
+    convicted one wholesale, so the finding, the node's annotations and its
+    citations all went with it and the document read as one that never had a
+    finding. The one moment the system should record most carefully is when a
+    human acts on its own warning.
+
+    So the finding survives the rewrite, ``resolved``, naming the revision that
+    closed it and how ("surgical_rewrite") — and carrying the evidence it was
+    raised against: the source sentence the paragraph was anchored to and the
+    entailment verdict it was given. The rewritten paragraph keeps none of that
+    on itself (its quotes are not copied over: text that inherited its
+    predecessor's citations would read as anchored to sentences it was never
+    matched against), so ``prior_*`` here is the only record of what was wrong,
+    and the paragraph's own ``unanchored`` state stays true and visible.
+
+    A finding already closed — dismissed, or resolved by an earlier revision — is
+    carried as it stands; a rewrite does not re-close it. Entries on
+    ``rewritten`` that are new (a fresh audit folded in after the rewrite) are
+    kept after the carried ones.
+
+    ``extra="ignore"`` on the annotation model means every field written here has
+    to be declared on ``JDFRedhatAnnotation`` or it is dropped on the way to
+    SQLite.
+    """
+    carried_source = list((previous or {}).get("annotations", {}).get("redhat") or [])
+    if not carried_source:
+        return copy.deepcopy(rewritten)
+
+    if not resolved_at:
+        resolved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    previous_ids = {str(f.get("id") or "") for f in carried_source if isinstance(f, dict)}
+    node = copy.deepcopy(rewritten)
+    fresh = [
+        f
+        for f in ((node.get("annotations") or {}).get("redhat") or [])
+        if str(f.get("id") or "") not in previous_ids
+    ]
+
+    anchor_quote = _first_anchor_quote(previous)
+    entailment = _entailment_record(previous)
+    carried: list[dict[str, Any]] = []
+    for finding in carried_source:
+        if not isinstance(finding, dict):
+            continue
+        item = copy.deepcopy(finding)
+        if str(item.get("status") or "open") == "open":
+            item["status"] = "resolved"
+            item["resolved_by_revision_id"] = revision_id
+            item["resolved_by_version"] = version
+            item["resolved_by_mutation_type"] = mutation_type
+            item["resolved_at"] = resolved_at
+            item["prior_anchor_quote"] = anchor_quote
+            item["prior_verdict"] = str(entailment.get("verdict") or "")
+            item["prior_contradicted"] = bool(entailment.get("contradicted"))
+        carried.append(item)
+
+    node = _ensure_annotations(node)
+    node["annotations"]["redhat"] = carried + fresh
+    return node
 
 
 def attach_z3_annotation(
@@ -1212,6 +1333,7 @@ __all__ = [
     "JDFRedhatAnnotation",
     "JDFZ3Annotation",
     "attach_redhat_annotation",
+    "resolve_findings_on_rewrite",
     "attach_z3_annotation",
     "build_document_from_draft",
     "draft_text_to_sections",
