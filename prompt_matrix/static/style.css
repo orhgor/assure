@@ -649,6 +649,80 @@ header.site-header {
 .auth-card {
   max-width: none;
 }
+
+.signin-body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.signin-header {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.signin-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.signin-brand-mark {
+  flex-shrink: 0;
+}
+
+.signin-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-8) var(--space-6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.signin-card h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.signin-card .lede {
+  margin: 0 0 var(--space-6);
+  color: var(--muted);
+  font-size: var(--font-size-base);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.signin-card .auth-card {
+  max-width: none;
+}
+
+.signin-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.signin-copyright {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}
+
 #clerk-mount {
   min-height: 120px;
 }
