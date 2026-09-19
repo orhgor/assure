@@ -54,6 +54,41 @@ def test_parse_model_json_embedded_object():
     assert out[0]["value"] == 32.0
 
 
+def test_parse_model_json_recovers_a_cut_off_answer():
+    """A truncated answer still yields the candidates it did write.
+
+    The measured failure this guards: a memo of coverage limits asks for ~30
+    candidates, the answer is cut off mid-object at the model's output limit, and
+    the whole extraction used to be dropped — the draft then reported "no locks
+    inferred from the draft" and checked none of its figures, while a smaller memo
+    in the same project checked its own. Complete objects are still real
+    extractions; only the cut object is discarded.
+    """
+    content = (
+        '{"candidates":['
+        '{"entity":"Coverage","metric":"limit","value":5000000,"confidence":0.95},'
+        '{"entity":"Coverage","metric":"attachment","value":150000000,"confidence":0.9},'
+        '{"entity":"Coverage","metric":"cut off","val'
+    )
+    out = _parse_model_json(content)
+    assert [c["value"] for c in out] == [5000000.0, 150000000.0]
+    # The same acceptance rules as a clean answer: the low-confidence candidate in
+    # the recovered tail is still dropped.
+    mixed = (
+        '{"candidates":['
+        '{"entity":"Coverage","metric":"kept","value":2500,"confidence":0.95},'
+        '{"entity":"Coverage","metric":"vague","value":900,"confidence":0.2},'
+        '{"entity":"Coverage","metric":"cut'
+    )
+    assert [c["value"] for c in _parse_model_json(mixed)] == [2500.0]
+
+
+def test_parse_model_json_unreadable_answer_is_not_a_ledger():
+    """No candidates key, nothing invented — the failure stays a failure."""
+    assert _parse_model_json("I cannot extract values from that text.") == []
+    assert _parse_model_json('{"candidates": []}') == []
+
+
 def test_resolve_lock_inference_model():
     assert resolve_lock_inference_model(False) == "deepseek/deepseek-chat"
     assert resolve_lock_inference_model(True) == "gemini/gemini-3.6-flash"

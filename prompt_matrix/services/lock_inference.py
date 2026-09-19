@@ -29,8 +29,14 @@ _SYSTEM = (
     'Respond with JSON only: {"candidates": [...]}.'
 )
 
+#: Both templates ask for one line of JSON. A memo of coverage limits states ~30
+#: figures, and the same extraction pretty-printed costs ~250 characters per
+#: candidate — more than the model is allowed to write, so the answer ends
+#: mid-object and no candidate can be read back at all (measured on the renewal
+#: memo: 6,709 characters cut at the output limit, 0 candidates parsed). Compact
+#: JSON fits the same 30 candidates in ~4.9k characters.
 _USER_TEMPLATE = """Extract all numerical and factual assertions from the text below.
-Return JSON: {{"candidates": [{{"entity": str, "metric": str, "period": str, "scenario": str, "value": number, "unit": str, "confidence": float}}]}}
+Return one line of JSON with no indentation and no newlines between tokens: {{"candidates": [{{"entity": str, "metric": str, "period": str, "scenario": str, "value": number, "unit": str, "confidence": float}}]}}
 Use confidence 0.0–1.0. Omit vague claims (e.g. "approx. 50%") or set confidence below 0.5.
 
 Text:
@@ -38,7 +44,7 @@ Text:
 """
 
 _VISION_USER_TEMPLATE = """Extract all numerical and factual assertions from this document, including values shown in charts, tables, and diagrams.
-Return JSON: {{"candidates": [{{"entity": str, "metric": str, "period": str, "scenario": str, "value": number, "unit": str, "confidence": float}}]}}
+Return one line of JSON with no indentation and no newlines between tokens: {{"candidates": [{{"entity": str, "metric": str, "period": str, "scenario": str, "value": number, "unit": str, "confidence": float}}]}}
 Use confidence 0.0–1.0. Omit vague claims or set confidence below 0.5.
 
 Additional extracted text (may be incomplete):
@@ -183,6 +189,60 @@ def _log_parse_failure(content: str) -> None:
     )
 
 
+def _recover_complete_candidates(text: str) -> list[dict[str, Any]]:
+    """The candidates an unreadable answer still carries, taken object by object.
+
+    ``_extract_json_block`` needs the answer's braces to balance, so a reply the
+    model's output limit cut short yields nothing and the draft reads as having no
+    figures at all. The complete objects in the array are still real extractions,
+    so they are read back one at a time and pass the same acceptance rules as a
+    clean answer (``_coerce_candidates``: confidence floor, numeric value, a named
+    metric). Nothing is inferred from the truncated object itself.
+    """
+    start = text.find('"candidates"')
+    if start == -1:
+        return []
+    # Scan the array that follows the key. A '{' at array depth 0 opens a
+    # candidate; the matching '}' closes it. The scan ends at the array's ']' or
+    # at the end of the text, whichever comes first — the truncated tail simply
+    # never closes its object.
+    index = text.find("[", start)
+    if index == -1:
+        return []
+    items: list[Any] = []
+    depth = 0
+    opened_at = -1
+    in_string = False
+    escaped = False
+    while index < len(text):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char == "{":
+            if depth == 0:
+                opened_at = index
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0 and opened_at != -1:
+                try:
+                    items.append(json.loads(text[opened_at : index + 1]))
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    pass
+                opened_at = -1
+        elif char == "]" and depth == 0:
+            break
+        index += 1
+    return _coerce_candidates(items)
+
+
 def _parse_model_json(content: str) -> list[dict[str, Any]]:
     text = (content or "").strip()
     if not text:
@@ -201,6 +261,16 @@ def _parse_model_json(content: str) -> list[dict[str, Any]]:
             return _coerce_candidates(parsed)
         except (json.JSONDecodeError, TypeError, ValueError):
             continue
+
+    recovered = _recover_complete_candidates(text)
+    if recovered:
+        _log.warning(
+            "[LOCK_INFERENCE] answer is not one JSON document (raw %d chars); "
+            "recovered %d complete candidate(s) from it",
+            len(text),
+            len(recovered),
+        )
+        return recovered
     _log_parse_failure(text)
     return []
 
@@ -223,7 +293,12 @@ def _call_text_model(model: str, prompt: str) -> str:
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        max_tokens=1024,
+        # No explicit ``max_tokens``: the runner asks for the intent's budget
+        # (``min(PEM_MAX_TOKENS, cap_output_tokens("analysis", model))``, 2048 for
+        # deepseek-chat). The 1024 that used to sit here was under the cap and cut
+        # a figures-dense memo's extraction off mid-object — the 30 candidates of
+        # the renewal memo need ~1.5k tokens. A truncated answer is not a partial
+        # ledger: it is no ledger, and the draft's figures went unchecked.
         temperature=0.1,
         response_format={"type": "json_object"},
         intent="analysis",
@@ -246,7 +321,6 @@ def _call_vision_model(model: str, prompt: str, pdf_bytes: bytes) -> str:
                 ],
             }
         ],
-        max_tokens=1024,
         temperature=0.1,
         response_format={"type": "json_object"},
         intent="analysis",
