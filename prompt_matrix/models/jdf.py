@@ -792,7 +792,24 @@ def _numeric_string_forms(value: float) -> list[str]:
 def _tokenize(text):
     import re
 
-    text = re.sub(r"[^\w\s]", " ", str(text or "").lower())
+    raw = str(text or "")
+
+    def _money_tok(m):
+        v = m.group(1).replace(",", "")
+        try:
+            f = float(v)
+        except ValueError:
+            return " money" + v + " "
+        return " money%d " % int(f) if f == int(f) else " money%s " % f
+
+    raw = re.sub(r"\$\s*(\d[\d,]*(?:\.\d+)?)", _money_tok, raw)
+    raw = re.sub(
+        r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b)",
+        lambda m: " pct" + m.group(1).replace(",", "").rstrip(".") + " ",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"[^\w\s]", " ", raw.lower())
     STOP = {
         "a",
         "an",
@@ -1029,17 +1046,31 @@ def attach_substrate_provenance_to_tree(
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
         eligible = []
+        # Every sentence in order with its own figures, so a window's figure set
+        # can include short neighbours that carry a figure but too few content
+        # tokens to anchor on their own. A real policy's declarations line splits
+        # into fragments like "$5,000,000 Part of $25,000,000 per Occurrence", and
+        # dropping the short ones made their figures unmatchable by ANY claim —
+        # which is how every real policy anchored zero paragraphs.
+        all_sentences: list[tuple[set, Any]] = []
         for sent, sent_page in _merge_short_sentences(_split_sentences(text)):
             toks = _tokenize(sent)
+            idx = len(all_sentences)
+            all_sentences.append((_numbers(sent), sent_page))
             if len(toks) >= _MIN_ANCHOR_OVERLAP:
-                eligible.append((sent, toks, sent_page, _numbers(sent)))
+                eligible.append((sent, toks, sent_page, _numbers(sent), idx))
         for start in range(len(eligible)):
             window_toks: set = set()
             window_numbers: set = set()
             for end in range(start, min(start + _MAX_ANCHOR_WINDOW, len(eligible))):
-                _sent, sent_toks, _page, sent_numbers = eligible[end]
+                _sent, sent_toks, _page, sent_numbers, _idx = eligible[end]
                 window_toks = window_toks | sent_toks
                 window_numbers = window_numbers | sent_numbers
+                # The window's figures are those of every sentence it SPANS, not
+                # only the eligible ones — a figure the window carries is
+                # vouched for however short the sentence that states it.
+                for k in range(eligible[start][4], eligible[end][4] + 1):
+                    window_numbers = window_numbers | all_sentences[k][0]
                 source_sentences.append(
                     (
                         row,
@@ -1106,7 +1137,7 @@ def attach_substrate_provenance_to_tree(
         # in a field the Evidence pane presents as one.
         best_sent = ""
         best_sent_score = 0.0
-        for sent, sent_toks, _sent_page, _sent_numbers in best_window_sentences:
+        for sent, sent_toks, _sent_page, _sent_numbers, _sent_idx in best_window_sentences:
             inter = len(content_toks & sent_toks)
             if inter < _MIN_ANCHOR_OVERLAP:
                 continue
