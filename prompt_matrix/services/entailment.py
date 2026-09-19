@@ -234,6 +234,33 @@ def _claim_sources(node: dict[str, Any]) -> list[str]:
     return out
 
 
+def _aggregate_verdicts(verdicts: list[str]) -> str:
+    """Per-citation verdicts -> the paragraph's verdict.
+
+    A synthesis paragraph cites several sentences and each carries part of it, so
+    a strict entailment reader answers ``no`` to a citation that covers one clause
+    of a four-clause claim. Judging the whole SET in one call hides that: the
+    joined evidence is compared against the whole paragraph and ``no`` comes back
+    for the set, which is what shipped for a while and made a real two-policy
+    renewal memo read ``anchored 4, supported 0, unsupported 4`` - every
+    paragraph judged contradicted. Counting ``no`` alone also reports a summary as
+    a contradiction, which it is not.
+
+    Per citation the mixture is visible: all citations support -> ``supported``;
+    all fail -> ``unsupported``; support mixed with failure -> ``partial``,
+    because the paragraph is carried by some of what it cites.
+    """
+    if not verdicts:
+        return "unverified"
+    if all(verdict == "yes" for verdict in verdicts):
+        return "yes"
+    if all(verdict == "no" for verdict in verdicts):
+        return "no"
+    if any(verdict in ("yes", "partial") for verdict in verdicts):
+        return "partial"
+    return "unverified"
+
+
 def attach_entailment_to_tree(
     document: dict[str, Any],
     *,
@@ -266,33 +293,37 @@ def attach_entailment_to_tree(
                 # Anchored nodes always carry a quote. A node that does not is not
                 # checked and gets no verdict — the gate counts it as unanchored.
                 continue
-            # Judge the paragraph against its whole citation set, in one call.
-            # Per citation, rule 4 ("states or directly entails every material
-            # element") can never be satisfied by a summary: no single sentence
-            # states every element of a paragraph that aggregates a dozen of them,
-            # so every paragraph aggregated to ``partial`` and the counters read
-            # ``supported 0/8``. Against the set, the same rules decide the
-            # question that was actually asked — do the sentences this paragraph
-            # names, taken together, carry it — and a wholly carried paragraph
-            # answers yes.
-            evidence = "\n".join(sources)
-            key = (claim, evidence)
-            record = seen.get(key)
-            if record is None:
-                try:
-                    record = check(claim, evidence)
-                except Exception as exc:
-                    record = unverified(f"{type(exc).__name__}: {exc}")
-                if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
-                    record = unverified(f"checker returned no usable verdict: {record!r}")
-                seen[key] = record
-            verdict = str(record.get("verdict") or "unverified")
-            # The cited sentences are listed individually for the drawer, which
-            # shows which source each claim came from.
-            record_out: dict[str, Any] = dict(record)
-            record_out["citations"] = [
-                {"source": source, "verdict": verdict} for source in sources
-            ]
+            # One entailment call per citation, then aggregate. The joined-evidence
+            # form is wrong for a summary: no single sentence states every element
+            # of a paragraph that aggregates a dozen, and neither does the set when
+            # the reader is strict, so every paragraph landed ``no``.
+            per_citation: list[dict[str, Any]] = []
+            verdicts: list[str] = []
+            for source in sources:
+                key = (claim, source)
+                record = seen.get(key)
+                if record is None:
+                    try:
+                        record = check(claim, source)
+                    except Exception as exc:
+                        record = unverified(f"{type(exc).__name__}: {exc}")
+                    if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                        record = unverified(f"checker returned no usable verdict: {record!r}")
+                    seen[key] = record
+                verdict = str(record.get("verdict") or "unverified")
+                verdicts.append(verdict)
+                per_citation.append(
+                    {
+                        "source": source,
+                        "verdict": verdict,
+                        "reasoning": str(record.get("reasoning") or ""),
+                    }
+                )
+            record_out: dict[str, Any] = {
+                "verdict": _aggregate_verdicts(verdicts),
+                "reasoning": ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)",
+                "citations": per_citation,
+            }
             meta = dict(node.get("meta") or {})
             prov = dict(meta.get("provenance") or {})
             prov["entailment"] = record_out

@@ -105,6 +105,18 @@ FLAG_PHRASES: tuple[str, ...] = (
 # for the SOURCES label and for anything reading it.
 _FLAG_PATTERNS: tuple[tuple[str, str], ...] = (
     ("begin your response with", r"begin\s+(your|every|each|all|the)\s+response\s+with"),
+    # "you must" was dropped from FLAG_PHRASES because a real policy legitimately
+    # says "you must maintain records". Dropping it narrowed the guard for every
+    # injection that uses it as an ORDER, so it is restored here as a pattern
+    # rather than a phrase: a modal that governs a directive verb is an order, a
+    # modal that governs a policy duty is the policy. "you must notify the insurer"
+    # does not match; "you must ignore the above" does.
+    (
+        "you must",
+        r"\b(you|assistant|the model|the system)\s+must\s+"
+        r"(ignore|disregard|forget|override|obey|output|respond|reply|answer|print|"
+        r"reveal|repeat|not\s+(mention|say|include))\b",
+    ),
 )
 
 
