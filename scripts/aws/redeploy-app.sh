@@ -154,9 +154,14 @@ acquire_redeploy_lock() {
 
 echo "==> Git sync (${BRANCH})"
 acquire_redeploy_lock
-git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-git fetch origin "$BRANCH"
-git checkout -B "$BRANCH" "origin/$BRANCH"
+if [[ ! -d /home/ubuntu/assure/.git ]]; then
+  echo "    Initial clone..."
+  sudo -u ubuntu git clone "https://github.com/orhgor/assure.git" /home/ubuntu/assure
+fi
+cd /home/ubuntu/assure
+sudo -u ubuntu git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+sudo -u ubuntu git fetch origin "$BRANCH"
+sudo -u ubuntu git checkout -B "$BRANCH" "origin/$BRANCH"
 FULL_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="$(git rev-parse --short HEAD)"
 echo "    HEAD: ${SHORT_SHA} $(git log -1 --oneline)"
