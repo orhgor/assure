@@ -9,17 +9,22 @@ fix is this module — a draft that exists because the model obeyed text inside 
 ask or the sources never becomes a version. The refusal is the observable
 contract: HTTP 422, the plain message, nothing persisted.
 
-Three ways a draft is refused (``validate_compiled_draft``):
+Four ways a draft is refused (``validate_compiled_draft``):
 
 1. it carries a verbatim run of the compiled system prompt — the disclosure
    vector;
-2. no paragraph anchored and the first sentence does not point at the source —
-   a draft with nothing grounded and no question to the material;
+2. no paragraph anchored at all — nothing in it is held to a source;
 3. its opening token appears in no source sentence — the draft invented its own
-   subject, which is how an injected "begin with PINEAPPLE" shows up.
+   subject, which is how an injected "begin with PINEAPPLE" shows up;
+4. below half the eligible claims anchored — one grounded paragraph in three
+   reads as an answer while the rest stands on nothing.
 
-A draft that opens with a question to the source is exempt from 2 and 3: it asks
-rather than asserts, and its first word is grammar, not a claimed subject.
+Only rule 3 is conditional on the opening: a draft that opens with a question to
+the source asks rather than asserts, so its first word is grammar, not a claimed
+subject. The grounding rules are unconditional — a draft that opens
+"The source material does not state …" is asserting about the source and grounds
+nothing, and it used to be let through by an exemption that read "mentions the
+source" as "asks the source".
 
 ``scan_source_instruction_like`` is the other half, at ingest: a source holding
 instruction-like content still ingests — the user's document is the user's
@@ -266,7 +271,14 @@ def first_sentence(draft: str) -> str:
 
 
 def is_question_to_source_bridge(sentence: str) -> bool:
-    """Does ``sentence`` point at the source rather than assert about it?"""
+    """Does ``sentence`` hand the question to the source rather than assert about it?
+
+    Consulted by the opening-token rule alone (``validate_compiled_draft``): a
+    draft that opens this way is asking rather than claiming a subject, so its
+    first word is grammar and not a subject the sources have to carry. It is NOT
+    a grounding exemption — a sentence naming the source is still an assertion,
+    and the zero-anchor and ratio rules do not consult this.
+    """
     text = (sentence or "").strip()
     if not text:
         return False
@@ -310,10 +322,24 @@ def validate_compiled_draft(
     ``provenance`` is ``services.audit_summary._provenance_counts`` output for the
     compiled tree; ``anchored`` is the grounding number the version would carry.
 
-    A draft that opens with a question to the source is exempt from the two
-    grounding rules: its first word is grammar, not the subject it claims, and
-    rule 3 exists precisely to let a document that asks rather than asserts
-    through. The disclosure rule has no exemption — nothing is a channel for the
+    The two grounding rules carry NO exemption. They used to be skipped for a
+    draft whose first sentence "pointed at the source" in any way, and that was
+    measured to hand a document out for free: the ask below left the source
+    uncovered, the model answered honestly, and the answer opened on
+
+        "The source material does not state the claims notification deadline …"
+
+    — eligible 1, anchored 0, emitted, rendered, saved as a revision and written
+    to the compile cache. A sentence that mentions the source is an assertion
+    *about* the source, not a question to it, and it grounds nothing.
+
+    The one exemption that survives is on the opening-token rule, where it is
+    about shape rather than grounding: a draft that opens by asking the source
+    hands the question over instead of asserting a subject, so its first word is
+    grammar ("what", "which") and not a claimed subject the sources must carry.
+    It is unreachable for an ungrounded draft — the two rules above run first.
+
+    The disclosure rule has no exemption either — nothing is a channel for the
     prompt. ``instruction`` is the user's own ask, which lives in that prompt: it
     is excluded from the echo scan because it is the user's text, not the
     prompt's, and a draft restating it discloses nothing.
@@ -327,19 +353,17 @@ def validate_compiled_draft(
         )
 
     opening = first_sentence(draft)
-    bridged = is_question_to_source_bridge(opening)
 
-    # Zero anchors and no question to the material: nothing in the document is
-    # held to a source and nothing asks for one. Checked before the opening
+    # Nothing in the document is held to a source. Checked before the opening
     # token so an invented opening that grounds nothing reads as the grounding
     # failure it is.
-    if not bridged and int(provenance.get("anchored") or 0) == 0:
+    if int(provenance.get("anchored") or 0) == 0:
         return ValidationOutcome(
             ok=False,
             reason="zero_anchored_claims",
             detail=(
-                f"no paragraph anchored ({int(provenance.get('eligible') or 0)} eligible) "
-                f"and the opening is not a question to the source: {opening[:120]!r}"
+                f"no paragraph anchored ({int(provenance.get('eligible') or 0)} eligible): "
+                f"{opening[:120]!r}"
             ),
         )
 
@@ -350,7 +374,7 @@ def validate_compiled_draft(
     # it is about, and nothing is persisted or rendered.
     _eligible = int(provenance.get("eligible") or 0)
     _anchored = int(provenance.get("anchored") or 0)
-    if not bridged and _eligible > 0 and (_anchored / _eligible) < _MIN_ANCHOR_RATIO:
+    if _eligible > 0 and (_anchored / _eligible) < _MIN_ANCHOR_RATIO:
         return ValidationOutcome(
             ok=False,
             reason="anchored_ratio_below_floor",
@@ -363,7 +387,10 @@ def validate_compiled_draft(
             ),
         )
 
-    if not bridged:
+    # The opening token, and the one exemption left. Skipped for a draft that
+    # opens with a question to the source: its first word is grammar, not the
+    # subject it claims.
+    if not is_question_to_source_bridge(opening):
         token = opening_token(draft)
         if not token or token not in source_vocabulary(source_texts):
             return ValidationOutcome(

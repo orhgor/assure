@@ -60,13 +60,48 @@ def test_grounded_draft_is_accepted():
     assert outcome.message == ""
 
 
-def test_grounded_draft_accepted_when_zero_anchored_but_opening_points_at_source():
-    """Rule 3 is conditional on the opening, not a blanket refusal of zero anchors."""
+def test_zero_anchored_draft_is_refused_even_when_the_opening_names_the_source():
+    """The exemption that used to skip both grounding rules is gone.
+
+    Measured on the box before the fix: the ask below left the source uncovered,
+    the model answered "The source material does not state …", and that sentence
+    named the source — so the draft was emitted, rendered and persisted with
+    eligible 1 / anchored 0. A sentence about the source grounds nothing.
+    """
     outcome = _validate(
-        "What do the sources limit liability to? Coverage limits apply per occurrence.",
+        "The source material does not state the claims notification deadline.",
+        provenance={"eligible": 1, "anchored": 0, "unanchored": 1},
+    )
+    assert not outcome.ok
+    assert outcome.reason == "zero_anchored_claims"
+    assert outcome.message == REJECTION_MESSAGE
+
+
+def test_question_to_the_source_exempts_only_the_opening_token_rule():
+    """Asking the source is a shape exemption, not a grounding one."""
+    # Anchored, and the opening word ("what") is not source vocabulary: accepted,
+    # because a question hands the subject over instead of claiming one.
+    grounded = _validate(
+        "What does the source say about liability? Coverage limits apply per occurrence.",
+        provenance={"eligible": 2, "anchored": 2},
+    )
+    assert grounded.ok, grounded.detail
+    # Same shape, but standing on nothing.
+    ungrounded = _validate(
+        "What does the source say about the deductible?",
         provenance={"eligible": 1, "anchored": 0},
     )
-    assert outcome.ok, outcome.detail
+    assert not ungrounded.ok
+    assert ungrounded.reason == "zero_anchored_claims"
+    # And the floor is not skipped for a question either: one anchored claim in
+    # three is still a document standing on nothing.
+    below_floor = _validate(
+        "What does the source say about liability? Coverage limits apply per "
+        "occurrence. The policy was issued in Texas.",
+        provenance={"eligible": 3, "anchored": 1},
+    )
+    assert not below_floor.ok
+    assert below_floor.reason == "anchored_ratio_below_floor"
 
 
 # --------------------------------------------------------------------------- #
@@ -214,3 +249,4 @@ def test_bridge_is_question_or_source_reference():
     assert is_question_to_source_bridge("What does the source say?")
     assert is_question_to_source_bridge("According to the uploaded document, limits apply.")
     assert not is_question_to_source_bridge("The material has been reviewed.")
+
