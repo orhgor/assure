@@ -374,17 +374,28 @@ _NO_SOURCE_MESSAGE = (
 #: whole source — and the refusal that follows says "The source may not cover the
 #: question" about a source that covers it. Measured on staging: 36,647 -> 4,039
 #: characters (11.0 %), 58,862 -> 4,038 (6.9 %), 43,167 -> 4,035 (9.3 %); the cut
-#: lands mid-word. The refusal below names the cap and the pipeline, never the
-#: document: the honest report is that this length cannot be processed in one
-#: pass. Raising the cap and chunk-and-summarise are separate work.
+#: lands mid-word. The refusal below names the cap, the document and its length:
+#: the honest report is that this document cannot be processed in one pass, and
+#: a user with several files attached cannot act on a count without knowing which
+#: file carries it. Raising the cap and chunk-and-summarise are separate work.
 _SOURCE_TOO_LONG_REASON = "source_exceeds_context_cap"
 
 
-def _source_too_long_message(limit: int) -> str:
+def _source_too_long_message(limit: int, name: str = "", chars: int = 0) -> str:
+    """The refusal for an over-long source: the file, its length, and the cap.
+
+    ``name`` and ``chars`` come from ``_oversized_source`` — the source this
+    refusal is about, which the user has to be able to find among their uploads.
+    """
+    document = (name or "").strip() or "The source"
+    measured = (
+        f"{chars} characters, over the {limit}-character limit"
+        if chars
+        else f"more than the {limit}-character limit"
+    )
     return (
-        f"The source exceeds {limit} characters; the current pipeline cannot "
-        "process it in one pass. Upload a shorter document, or split the source "
-        "across multiple uploads."
+        f"{document} is {measured}; the current pipeline cannot process it in one "
+        "pass. Upload a shorter document, or split the source across multiple uploads."
     )
 
 
@@ -1608,7 +1619,9 @@ def _run_draft_pipeline(
             },
         )
         yield from _refusal_frames(
-            _source_too_long_message(SUBSTRATE_CONTEXT_CHARS_PER_FILE),
+            _source_too_long_message(
+                SUBSTRATE_CONTEXT_CHARS_PER_FILE, _oversized_name, _oversized_chars
+            ),
             _SOURCE_TOO_LONG_REASON,
             rid,
         )
