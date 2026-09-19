@@ -50,7 +50,11 @@ try:
         normalized_ask,
         shape_instruction,
     )
-    from ..services.audit_summary import _provenance_counts, build_audit_summary
+    from ..services.audit_summary import (
+        _provenance_counts,
+        build_audit_summary,
+        provenance_gate_fields,
+    )
     from ..services.compile_guard import (
         scan_source_instruction_like,
         validate_compiled_draft,
@@ -112,7 +116,11 @@ except ImportError:
         normalized_ask,
         shape_instruction,
     )
-    from services.audit_summary import _provenance_counts, build_audit_summary
+    from services.audit_summary import (
+        _provenance_counts,
+        build_audit_summary,
+        provenance_gate_fields,
+    )
     from services.compile_guard import (
         scan_source_instruction_like,
         validate_compiled_draft,
@@ -1179,14 +1187,47 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256((value or "").encode("utf-8")).hexdigest()
 
 
+def _recount_cached_verified(cached: dict[str, Any], *, has_substrate: bool) -> dict[str, Any]:
+    """The `verified` payload to replay, with its provenance layer recounted.
+
+    A cache hit replays the frame as it was written, but the document inside it
+    is the tree that compile produced — so the counters are recounted from that
+    document by the one counter (`services.audit_summary.provenance_gate_fields`,
+    over `_provenance_counts`) rather than trusted as written. A cache entry made
+    before the counting rule changed would otherwise report its numbers forever,
+    and the refusal gate below reads the same stats. `supported` there counts a
+    verdict of `yes` OR `partial`: a claim the sentences it cites carry in part,
+    with nothing contradicting it, is grounded.
+    """
+    payload = dict(cached.get("verified") or {})
+    document = payload.get("document")
+    if not isinstance(document, dict):
+        return payload
+    z3 = payload.get("z3_results") or {}
+    fields = provenance_gate_fields(
+        document=document,
+        z3_status=str(payload.get("z3_status") or z3.get("status") or "SKIPPED"),
+        redhat_count=int(payload.get("redhat_count") or 0),
+        has_substrate=has_substrate,
+    )
+    # Clear the cached refusal before writing the new verdict: an entry that read
+    # "unverified" under the old counting must not keep refusing once the recount
+    # finds the claims supported.
+    payload.pop("unverified", None)
+    payload.pop("unverified_reason", None)
+    payload.update(fields)
+    return payload
+
+
 def _replay_cached_compile(
     project_id: str,
     cache_key: str,
     cached: dict[str, Any],
     rid: str,
+    verified: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     compiled = cached.get("compiled") or {}
-    verified = cached.get("verified") or {}
+    verified = verified if verified is not None else (cached.get("verified") or {})
     yield _typed_sse(
         "status",
         {
@@ -1453,12 +1494,15 @@ def _run_draft_pipeline(
         # be the one path that renders what the gate refuses — otherwise a
         # below-floor compile cached yesterday would still reach the canvas
         # today, and the refusal would look like it worked only sometimes.
+        _replay_verified = _recount_cached_verified(
+            cached, has_substrate=bool(substrate_rows)
+        )
         _cached_outcome = validate_compiled_draft(
             draft=str((cached.get("compiled") or {}).get("draft_text") or ""),
             source_texts=[str(row.get("extracted_text") or "") for row in substrate_rows],
             system_prompt=_system_prompt,
             instruction=normalized_ask(intent),
-            provenance=(cached.get("verified") or {}).get("provenance_stats") or {},
+            provenance=_replay_verified.get("provenance_stats") or {},
         )
         if not _cached_outcome.ok:
             audit.log_audit(
@@ -1477,7 +1521,9 @@ def _run_draft_pipeline(
             )
             yield from _refusal_frames(_cached_outcome.message, _cached_outcome.reason, rid)
             return
-        yield from _replay_cached_compile(project_id, cache_key, cached, rid)
+        yield from _replay_cached_compile(
+            project_id, cache_key, cached, rid, verified=_replay_verified
+        )
         audit.log_audit(
             rid,
             project_id,

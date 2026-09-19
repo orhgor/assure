@@ -123,6 +123,30 @@ def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
     return counts
 
 
+# The buckets a payload reports. `unchecked` is deliberately not among them: it
+# only feeds the reason text, so it never reaches a surface as a number.
+_PROVENANCE_REPORTED = (
+    "eligible",
+    "anchored",
+    "supported",
+    "partial",
+    "unsupported",
+    "unanchored",
+    "unverified",
+)
+
+
+def _reported_stats(counts: dict[str, int]) -> dict[str, int]:
+    """``_provenance_counts`` projected onto the reported buckets, in one shape.
+
+    Every surface that reports provenance counters (the audit summary, the
+    export gate, a replayed compile) builds them here, so a payload persisted or
+    cached by an earlier compile cannot hand a surface numbers the current tree
+    no longer supports.
+    """
+    return {key: int(counts.get(key) or 0) for key in _PROVENANCE_REPORTED}
+
+
 def _eligible_and_anchored(document: dict[str, Any]) -> tuple[int, int]:
     """Count paragraph nodes (>= _MIN_CLAIM_TOKENS content tokens) and how many
     carry a source sentence.
@@ -149,6 +173,85 @@ def compute_gate_status(z3_status: str | None, redhat_count: int) -> GateStatus:
     return "review"
 
 
+def provenance_gate_fields(
+    *,
+    document: dict[str, Any] | None,
+    z3_status: str,
+    redhat_count: int,
+    has_substrate: bool | None,
+) -> dict[str, Any]:
+    """The provenance-derived fields of an audit payload: the stats and the gate.
+
+    THE counter is ``_provenance_counts`` (projected by ``_reported_stats``), and
+    this is the only writer of the stats and the verdict they drive — so a fresh
+    compile, a compile replayed from cache and an export of a persisted gate all
+    report the same numbers for the same tree.
+
+    ``supported`` counts a verdict of ``yes`` OR ``partial``: ``partial`` means
+    the anchored sentences carry the claim in part and nothing in them
+    contradicts it, which is grounded. A synthesis paragraph citing three
+    sentences is carried by them without any one of them stating every element,
+    and a correct entailment auditor answers ``partial`` for exactly that;
+    counting only ``yes`` reported a renewal memo whose every paragraph was
+    carried and none contradicted as ``supported 0``.
+
+    ``unverified`` is left unset when the recount found support: there is nothing
+    to report as unverified, and a stale refusal must not outlive the numbers
+    behind it.
+    """
+    counts = (
+        _provenance_counts(document)
+        if isinstance(document, dict)
+        else {key: 0 for key in (*_PROVENANCE_REPORTED, "unchecked")}
+    )
+    fields: dict[str, Any] = {
+        "provenance_stats": _reported_stats(counts),
+        "gate_status": compute_gate_status(z3_status, redhat_count),
+        "ok": z3_status == "PASS",
+    }
+    if counts["supported"] > 0:
+        return fields
+
+    # A document with no supported claim is unverified, not "pass" — however many
+    # of its paragraphs quote a source. `partial` is not among the buckets below:
+    # a partly carried claim already counts as supported, so a document holding
+    # one never reaches this reason, and naming it here would be a bucket that
+    # could not be filled.
+    eligible = counts["eligible"]
+    unsupported = counts["unsupported"]
+    unverified_claims = counts["unverified"]
+    if document is None:
+        reason = "No document to inspect."
+    elif unsupported or unverified_claims:
+        bits = []
+        if unsupported:
+            bits.append(f"{unsupported} contradicted by their source")
+        if unverified_claims:
+            bits.append(f"{unverified_claims} could not be checked")
+        reason = (
+            f"0 of {eligible} claims were entailed by their matched source sentence "
+            f"({', '.join(bits)})."
+        )
+    elif counts["unchecked"]:
+        reason = (
+            f"0 of {eligible} claims were entailment-checked against their matched "
+            f"source sentence ({counts['unchecked']} anchored but never checked)."
+        )
+    elif has_substrate is True:
+        reason = f"0 of {eligible} claims matched any source sentence."
+    elif has_substrate is False:
+        reason = "No sources included in this compile — output is ungrounded."
+    elif eligible == 0:
+        reason = "No sources uploaded — compile is ungrounded."
+    else:
+        reason = f"0 of {eligible} claims matched any source sentence."
+    fields["gate_status"] = "review"
+    fields["ok"] = False
+    fields["unverified"] = True
+    fields["unverified_reason"] = reason
+    return fields
+
+
 def build_audit_summary(
     *,
     z3_results: dict[str, Any],
@@ -163,11 +266,10 @@ def build_audit_summary(
     """Canonical audit payload shared by sandbox verify and draft audit_complete."""
     z3_status = str(z3_results.get("status") or "SKIPPED")
     redhat_count = len(redhat_critiques)
-    gate_status = compute_gate_status(z3_status, redhat_count)
 
     summary: dict[str, Any] = {
         "ok": False,
-        "gate_status": gate_status,
+        "gate_status": compute_gate_status(z3_status, redhat_count),
         "z3_status": z3_status,
         "z3_results": z3_results,
         "redhat_critiques": redhat_critiques,
@@ -181,13 +283,6 @@ def build_audit_summary(
         summary["locks"] = locks
         summary["lock_count"] = lock_count if lock_count is not None else len(locks)
 
-    eligible = 0
-    anchored = 0
-    supported = 0
-    partial = 0
-    unsupported = 0
-    unverified_claims = 0
-    unchecked = 0
     if document is not None:
         spans = build_confidence_spans(document, z3_results=z3_results)
         document = attach_confidence_spans_to_document(document, spans)
@@ -203,68 +298,19 @@ def build_audit_summary(
         summary["confidence_spans"] = spans
         summary["audit_manifest"] = appendix
         summary["claims"] = appendix
-        counts = _provenance_counts(document)
-        eligible = counts["eligible"]
-        anchored = counts["anchored"]
-        supported = counts["supported"]
-        partial = counts["partial"]
-        unsupported = counts["unsupported"]
-        unverified_claims = counts["unverified"]
-        unchecked = counts["unchecked"]
 
-    # Two layers, two numbers: `anchored` is the grounding the document has (a
-    # source sentence matched), `supported` is what the entailment check made of
-    # it. The gate below still reads the verdict — an anchored paragraph the
-    # check refused is not a verified claim — but the two are reported side by
-    # side instead of `anchored` standing in for both.
-    summary["provenance_stats"] = {
-        "eligible": eligible,
-        "anchored": anchored,
-        "supported": supported,
-        "partial": partial,
-        "unsupported": unsupported,
-        "unanchored": eligible - anchored,
-        "unverified": unverified_claims,
-    }
-
-    if supported > 0:
-        # Gate unchanged from Z3 + Red-Hat once at least one claim is entailed by
-        # the source sentence it anchored to.
-        summary["ok"] = z3_status == "PASS"
-    else:
-        # A document with no entailed claim is unverified, not "pass" — however
-        # many of its paragraphs quote a source.
-        if document is None:
-            reason = "No document to inspect."
-        elif partial or unsupported or unverified_claims:
-            bits = []
-            if partial:
-                bits.append(f"{partial} supported only in part")
-            if unsupported:
-                bits.append(f"{unsupported} contradicted by their source")
-            if unverified_claims:
-                bits.append(f"{unverified_claims} could not be checked")
-            reason = (
-                f"0 of {eligible} claims were entailed by their matched source sentence "
-                f"({', '.join(bits)})."
-            )
-        elif unchecked:
-            reason = (
-                f"0 of {eligible} claims were entailment-checked against their matched "
-                f"source sentence ({unchecked} anchored but never checked)."
-            )
-        elif has_substrate is True:
-            reason = f"0 of {eligible} claims matched any source sentence."
-        elif has_substrate is False:
-            reason = "No sources included in this compile — output is ungrounded."
-        elif eligible == 0:
-            reason = "No sources uploaded — compile is ungrounded."
-        else:
-            reason = f"0 of {eligible} claims matched any source sentence."
-        summary["gate_status"] = "review"
-        summary["ok"] = False
-        summary["unverified"] = True
-        summary["unverified_reason"] = reason
+    # The provenance layer — `supported` (a claim its citations carry, in whole
+    # or in part) and the gate verdict it drives — is written in exactly one
+    # place, from the document just attached, so a replayed or exported payload
+    # can be rewritten by the same rule. See `provenance_gate_fields`.
+    summary.update(
+        provenance_gate_fields(
+            document=document,
+            z3_status=z3_status,
+            redhat_count=redhat_count,
+            has_substrate=has_substrate,
+        )
+    )
     return summary
 
 

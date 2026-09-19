@@ -200,8 +200,9 @@ def test_run_draft_pipeline_progressive(monkeypatch):
 
 def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     """The compile stream entailment-checks anchored paragraphs and the gate reads
-    the verdict: a lexically anchored paragraph the check calls "partial" is no
-    longer reported as a verified claim."""
+    the verdict: a lexically anchored paragraph the check calls "partial" is
+    carried by the sentence it cites — grounded, so it earns the gate — with the
+    verdict reported beside it as `partial`."""
     source = "The policy liability limit is set at $5,000,000 for combined single limit."
     claim = "The policy liability limit is set at $5,000,000 for combined single limit."
 
@@ -246,21 +247,26 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     assert calls == [(claim, claim.rstrip("."))]
 
     verified = next(d for d in frames_by_type if d.get("type") == "verified")
-    # Separated layers: the paragraph is anchored (it carries a matched source
-    # sentence — `node["provenance"]` below) and the verdict on that anchor is
-    # "partial", so anchored is 1 while supported is 0.
+    # `supported` is the grounded count: the paragraph is anchored (it carries a
+    # matched source sentence — `node["provenance"]` below) and the verdict on
+    # that anchor is "partial" — the source states the limit, so it carries the
+    # claim in part and contradicts nothing. `partial` is reported beside it as
+    # the verdict detail, so neither number stands in for the other.
     assert verified["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
-        "supported": 0,
+        "supported": 1,
         "partial": 1,
         "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
     }
+    # The provenance layer is earned and nothing is refused; the gate is still
+    # Z3's to decide, and this fixture's draft yields no locks, so Math Check
+    # reports SKIPPED and the gate reads "review" rather than "pass".
     assert verified["gate_status"] == "review"
     assert verified["ok"] is False
-    assert "1 supported only in part" in verified["unverified_reason"]
+    assert not verified.get("unverified_reason")
     node = verified["document"]["body"][0]["children"][0]
     assert node["meta"]["provenance"]["entailment"]["verdict"] == "partial"
     assert node["provenance"], "the paragraph is still lexically anchored"
@@ -272,37 +278,75 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     def fail_stream(*_a, **_k):
         raise AssertionError("_stream_model must not run on cache hit")
 
+    source = "The liability limit is 5,000,000 per occurrence."
+    draft = "Limit 5,000,000 per occurrence."
+    audited = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Cached",
+                "children": [
+                    {
+                        "type": "paragraph",
+                        "id": "para-1",
+                        "content": draft,
+                        "provenance": [
+                            {
+                                "extracted_quote": source,
+                                "source_name": "policy.pdf",
+                                "page": 1,
+                                "cited_id": "S1",
+                            }
+                        ],
+                        "meta": {
+                            "provenance": {
+                                "entailment": {
+                                    "verdict": "yes",
+                                    "reasoning": "The source states the limit.",
+                                    "model": "stub/model",
+                                    "checked_at": "2026-09-18T00:00:00+00:00",
+                                }
+                            }
+                        },
+                    },
+                ],
+            }
+        ],
+    }
     cached = {
-        "draft_text": "Cached draft.",
-        "document": {
-            "document_id": "doc-default",
-            "meta": {},
-            "truth_ledger": {},
-            "body": [
-                {
-                    "type": "section",
-                    "id": "sec-1",
-                    "title": "Cached",
-                    "children": [
-                        {"type": "paragraph", "id": "para-1", "content": "Cached draft."},
-                    ],
-                }
-            ],
-        },
+        "draft_text": draft,
+        "document": audited,
         "locks": [],
         "verified": {
-            "ok": True,
-            "gate_status": "pass",
+            "ok": False,
+            "gate_status": "review",
             "z3_status": "PASS",
             "z3_results": {"status": "PASS"},
             "redhat_count": 0,
             "redhat_critiques": [],
-            "document": {
-                "document_id": "doc-default",
-                "meta": {},
-                "truth_ledger": {},
-                "body": [],
+            # The counters as an earlier compile wrote them, and the refusal they
+            # earned. The counting rule has changed under this entry, so replaying
+            # them verbatim would report `supported 0` — and refuse — a paragraph
+            # the sentence it cites carries.
+            "provenance_stats": {
+                "eligible": 1,
+                "anchored": 1,
+                "supported": 0,
+                "partial": 0,
+                "unsupported": 0,
+                "unanchored": 0,
+                "unverified": 0,
             },
+            "unverified": True,
+            "unverified_reason": (
+                "0 of 1 claims were entailed by their matched source sentence "
+                "(1 anchored but never checked)."
+            ),
+            "document": audited,
         },
     }
 
@@ -313,13 +357,13 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
         lambda _pid, _ids: [
-            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": "Limit 5,000,000."}
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
         ],
     )
     wrapped = {
         "compiled": {
-            "document": cached["document"],
-            "nodes": cached["document"]["body"],
+            "document": audited,
+            "nodes": audited["body"],
             "locks": cached["locks"],
             "node_count": 1,
             "lock_count": 0,
@@ -348,6 +392,21 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     assert "verified" in types
     compiled = next(data for _ev, data in events if data.get("type") == "compiled")
     assert compiled.get("cache_hit") is True
+    verified = next(data for _ev, data in events if data.get("type") == "verified")
+    # A cache hit replays the frames but not the counters: they are recounted
+    # from the document in the entry (and the refusal they used to carry is
+    # dropped with them), so the replayed frame reports the tree it renders.
+    assert verified["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 1,
+        "supported": 1,
+        "partial": 0,
+        "unsupported": 0,
+        "unanchored": 0,
+        "unverified": 0,
+    }
+    assert verified["gate_status"] == "pass"
+    assert not verified.get("unverified_reason")
     assert remember_calls == []
 
 

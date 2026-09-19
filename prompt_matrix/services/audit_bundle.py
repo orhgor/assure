@@ -66,7 +66,7 @@ def _opt_int(value: Any) -> int | None:
         return None
 
 
-def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
+def _normalize_gate(g: dict[str, Any], tree: dict[str, Any] | None = None) -> dict[str, Any]:
     stats = g.get("provenance_stats") or g
     eligible = int(stats.get("eligible") or 0)
     anchored = int(stats.get("anchored") or 0)
@@ -75,7 +75,7 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
     unsupported = int(stats.get("unsupported") or 0)
     unverified_claims = int(stats.get("unverified") or 0)
     unanchored = int(stats.get("unanchored") or (eligible - anchored))
-    return {
+    gate = {
         "gate_status": str(g.get("gate_status") or "review"),
         "z3_status": str(g.get("z3_status") or "SKIPPED"),
         "redhat_count": int(g.get("redhat_count") or 0),
@@ -114,9 +114,53 @@ def _normalize_gate(g: dict[str, Any]) -> dict[str, Any]:
             "unverified": unverified_claims,
         },
     }
+    if isinstance(tree, dict):
+        _recount_gate_provenance(gate, tree)
+    return gate
 
 
-def _read_persisted_gate(project_id: str) -> dict[str, Any] | None:
+def _recount_gate_provenance(gate: dict[str, Any], tree: dict[str, Any]) -> None:
+    """Replace a gate's provenance counters with the tree's, in place.
+
+    A persisted gate describes the compile that wrote it, and the tree in hand
+    may be a later revision — so every stats number shown beside that tree is
+    recounted from it. ``services.audit_summary._provenance_counts`` is THE
+    counter and ``provenance_gate_fields`` its only writer; there ``supported``
+    counts a verdict of ``yes`` OR ``partial``, because a claim the sentences it
+    cites carry in part, with nothing in them contradicting it, is grounded.
+    The gate's flat copies of the counters are synced from the same stats dict so
+    the two cannot disagree.
+    """
+    try:
+        from ..services.audit_summary import provenance_gate_fields
+    except ImportError:
+        from services.audit_summary import provenance_gate_fields
+    layer = provenance_gate_fields(
+        document=tree,
+        z3_status=str(gate.get("z3_status") or "SKIPPED"),
+        redhat_count=int(gate.get("redhat_count") or 0),
+        has_substrate=bool(gate.get("has_substrate")),
+    )
+    # The recount's verdict replaces the persisted one outright, refusal
+    # included: a gate that read "unverified" under the old counting must not
+    # keep refusing once the recount finds the claims supported.
+    gate["unverified"] = bool(layer.get("unverified"))
+    gate["unverified_reason"] = str(layer.get("unverified_reason") or "")
+    gate["gate_status"] = layer["gate_status"]
+    stats = layer["provenance_stats"]
+    gate["provenance_stats"] = stats
+    gate.update(
+        eligible=stats["eligible"],
+        anchored=stats["anchored"],
+        supported=stats["supported"],
+        unsupported=stats["unsupported"],
+        unanchored=stats["unanchored"],
+    )
+
+
+def _read_persisted_gate(
+    project_id: str, tree: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     try:
         from ..history import get_db
         from ..db.connection import init_db
@@ -133,7 +177,7 @@ def _read_persisted_gate(project_id: str) -> dict[str, Any] | None:
             return None
         data = json.loads(row[0])
         gate = (data or {}).get("gate")
-        return _normalize_gate(gate) if isinstance(gate, dict) else None
+        return _normalize_gate(gate, tree) if isinstance(gate, dict) else None
     except Exception:
         return None
 
@@ -147,84 +191,53 @@ def compute_export_gate(
 ) -> dict[str, Any]:
     """Recompute the verification gate for an export. No persistence added."""
     # Prefer the gate block persisted at compile time; compute only as a
-    # fallback for revisions (pre-fix docs) without a persisted block.
-    persisted = _read_persisted_gate(project_id)
+    # fallback for revisions (pre-fix docs) without a persisted block. The
+    # persisted block supplies the Math Check's own numbers and the Red-Hat
+    # count; its provenance counters are recounted against `tree` on the way in
+    # (`_normalize_gate`), because the tree being exported may be newer than the
+    # compile that wrote the block.
+    persisted = _read_persisted_gate(project_id, tree)
     if persisted is not None:
         return persisted
     try:
-        from ..services.audit_summary import _provenance_counts, compute_gate_status
+        from ..services.audit_summary import provenance_gate_fields
     except ImportError:
-        from services.audit_summary import _provenance_counts, compute_gate_status
+        from services.audit_summary import provenance_gate_fields
     try:
         from ..db.substrate_repository import list_substrate_for_project
     except ImportError:
         from db.substrate_repository import list_substrate_for_project
 
-    counts = _provenance_counts(tree)
-    eligible = counts["eligible"]
-    anchored = counts["anchored"]
-    supported = counts["supported"]
-    partial = counts["partial"]
-    unsupported = counts["unsupported"]
-    unverified_claims = counts["unverified"]
     z3_status = str((z3_results or {}).get("status") or _derive_z3_from_tree(tree) or "SKIPPED")
     redhat_count = (
         len(redhat_critiques) if redhat_critiques is not None else _derive_redhat_count(tree)
     )
     has_substrate = bool(list_substrate_for_project(project_id))
 
-    # Two layers, as in build_audit_summary: `anchored` is the grounding, the
-    # verdicts are the truthfulness. The gate reads the verdict.
-    if supported == 0:
-        gate_status = "review"
-        unverified = True
-        if partial or unsupported or unverified_claims:
-            bits = []
-            if partial:
-                bits.append(f"{partial} supported only in part")
-            if unsupported:
-                bits.append(f"{unsupported} contradicted by their source")
-            if unverified_claims:
-                bits.append(f"{unverified_claims} could not be checked")
-            reason = (
-                f"0 of {eligible} claims were entailed by their matched source sentence "
-                f"({', '.join(bits)})."
-            )
-        elif counts["unchecked"]:
-            reason = (
-                f"0 of {eligible} claims were entailment-checked against their matched "
-                f"source sentence ({counts['unchecked']} anchored but never checked)."
-            )
-        elif has_substrate:
-            reason = f"0 of {eligible} claims matched any source sentence."
-        else:
-            reason = "No sources included in this compile — output is ungrounded."
-    else:
-        gate_status = compute_gate_status(z3_status, redhat_count)
-        unverified = False
-        reason = ""
-
+    # Same provenance layer as the compile (`build_audit_summary`): `anchored` is
+    # the grounding, `supported` is the verdict — `yes` or `partial`, a claim the
+    # sentences it cites carry in part with nothing contradicting it, which is
+    # grounded. No persisted block here, so the tree is the only source.
+    layer = provenance_gate_fields(
+        document=tree,
+        z3_status=z3_status,
+        redhat_count=redhat_count,
+        has_substrate=has_substrate,
+    )
+    stats = layer["provenance_stats"]
     return {
-        "gate_status": gate_status,
+        "gate_status": layer["gate_status"],
         "z3_status": z3_status,
         "redhat_count": redhat_count,
-        "unverified": unverified,
-        "unverified_reason": reason,
-        "eligible": eligible,
-        "anchored": anchored,
-        "supported": supported,
-        "unsupported": unsupported,
-        "unanchored": counts["unanchored"],
+        "unverified": bool(layer.get("unverified")),
+        "unverified_reason": str(layer.get("unverified_reason") or ""),
+        "eligible": stats["eligible"],
+        "anchored": stats["anchored"],
+        "supported": stats["supported"],
+        "unsupported": stats["unsupported"],
+        "unanchored": stats["unanchored"],
         "has_substrate": has_substrate,
-        "provenance_stats": {
-            "eligible": eligible,
-            "anchored": anchored,
-            "supported": supported,
-            "partial": partial,
-            "unsupported": unsupported,
-            "unanchored": counts["unanchored"],
-            "unverified": unverified_claims,
-        },
+        "provenance_stats": stats,
     }
 
 
@@ -270,8 +283,10 @@ def build_audit_bundle_html(
 
     # Gate / Z3 data comes solely from the persisted last_compiled_json row via
     # the existing helpers (the route passes only (project_id, tree)). Use the
-    # fallback recompute only for revisions without a persisted gate block.
-    persisted_gate = _read_persisted_gate(project_id)
+    # fallback recompute only for revisions without a persisted gate block. The
+    # tree is handed in so the persisted block's provenance counters are
+    # recounted from the document this report actually renders.
+    persisted_gate = _read_persisted_gate(project_id, tree)
     gate_has_block = persisted_gate is not None
     gate = (
         persisted_gate
