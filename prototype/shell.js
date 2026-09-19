@@ -5745,7 +5745,7 @@
         card.appendChild(head);
         var extra = [];
         if (row.rule) extra.push(String(row.rule));
-        if (row.confidence) extra.push(_t("evidence.field.confidence", "Confidence") + " " + row.confidence);
+        if (row.confidence) extra.push(_t("jdf.provenance.confidence", "Confidence") + " " + row.confidence);
         if (extra.length) {
           var metaEl = document.createElement("div");
           metaEl.className = "citation-meta";
