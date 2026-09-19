@@ -84,4 +84,6 @@ jobs:
           playwright install chromium --with-deps
 
       - name: Run Playwright pytest suite
+        env:
+          ASSURE_REQUIRE_LOGIN: "false"
         run: pytest tests/playwright/ -v --tb=short
