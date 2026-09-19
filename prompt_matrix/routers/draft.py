@@ -311,8 +311,8 @@ class DraftCancelledError(Exception):
 # 200,000-character source is roughly 50K tokens, so a real 30-page commercial
 # property policy fits in one pass. A source beyond the cap is refused by name
 # rather than truncated. (Was 4000/16000, which refused every real policy.)
-SUBSTRATE_CONTEXT_CHARS_PER_FILE = 45000
-SUBSTRATE_CONTEXT_CHARS_TOTAL = 90000
+SUBSTRATE_CONTEXT_CHARS_PER_FILE = 200_000
+SUBSTRATE_CONTEXT_CHARS_TOTAL = 400_000
 
 
 class DraftPayload(BaseModel):

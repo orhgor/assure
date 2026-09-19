@@ -76,10 +76,10 @@ MAX_INPUT_TOKENS: dict[TaskType, int] = {
     TaskType.SURGICAL_EDIT: 2000,
     TaskType.SUMMARIZE_NODE: 2000,
     TaskType.SEMANTIC_VALIDATION: 4000,
-    TaskType.DRAFT_COMPILE: 30000,
+    TaskType.DRAFT_COMPILE: 100_000,
     TaskType.REDHAT: 8000,
-    TaskType.DEEP_SYNTHESIS: 30000,
-    TaskType.MACRO_AUDIT: 30000,
+    TaskType.DEEP_SYNTHESIS: 100_000,
+    TaskType.MACRO_AUDIT: 100_000,
 }
 
 
