@@ -12,7 +12,7 @@ import zipfile
 from flask import Response, jsonify
 
 try:
-    from ..db.jdf_repository import fetch_latest_jdf_or_empty
+    from ..db.jdf_repository import current_document_version, fetch_latest_jdf_or_empty
     from ..exporters.docx_ast import export_jdf_to_docx
     from ..exporters.pdf_ast import export_jdf_to_pdf
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
@@ -20,7 +20,7 @@ try:
     from ..middleware import project_ownership_required
     from ..services.jdf_sidecar import build_jdf_sidecar
 except ImportError:
-    from db.jdf_repository import fetch_latest_jdf_or_empty
+    from db.jdf_repository import current_document_version, fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
     from exporters.pdf_ast import export_jdf_to_pdf
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
@@ -38,6 +38,18 @@ def _doc_title(tree: dict) -> str:
     )
     cleaned = _SAFE_NAME.sub("-", raw.strip()).strip("-") or "assure-document"
     return cleaned[:80]
+
+
+def _dossier_base(project_id: str, version: int) -> str:
+    """``<project>-<version>-dossier`` — the stem both halves of the export share.
+
+    Named from the project and the revision, not the document title: the two files
+    travel together, and a reader holding one has to be able to tell which export
+    the other belongs to. A title is prose and repeats across projects; the id and
+    the version do not.
+    """
+    slug = _SAFE_NAME.sub("-", str(project_id or "").strip()).strip("-") or "assure"
+    return f"{slug}-{int(version or 0)}-dossier"
 
 
 def _bundle_zip(*members: tuple[str, bytes]) -> bytes:
@@ -263,13 +275,18 @@ def register_export_routes(app) -> None:
             # state, the source manifest, the version chain and the drafting model.
             # `jdf` serves it alone; `bundle` serves it with the same audit PDF the
             # export button produced before, as two files in one download, so the
-            # readable document and the verifiable one cannot be separated.
+            # readable document and the verifiable one cannot be separated. Both
+            # halves carry the export's own name — `<project>-<version>-dossier` —
+            # so a reader holding the PDF or the JSON can tell which export the
+            # other belongs to.
+            dossier = _dossier_base(project_id, current_document_version(project_id))
+            jdf_name = f"{dossier}.jdf.json"
             try:
                 sidecar = build_jdf_sidecar(project_id, tree)
                 sidecar_bytes = json.dumps(sidecar, indent=2, ensure_ascii=False).encode("utf-8")
                 if fmt == "jdf":
                     action = "EXPORT_JDF"
-                    filename = f"{filename_base}.jdf"
+                    filename = jdf_name
                     mimetype = "application/vnd.assure.jdf+json"
                     payload = sidecar_bytes
                 else:
@@ -279,11 +296,11 @@ def register_export_routes(app) -> None:
                         from services.audit_bundle import export_audit_bundle_pdf
                     pdf_bytes = export_audit_bundle_pdf(project_id, tree)
                     action = "EXPORT_BUNDLE"
-                    filename = f"{filename_base}-dossier.zip"
+                    filename = f"{dossier}.zip"
                     mimetype = "application/zip"
                     payload = _bundle_zip(
-                        (f"{filename_base}-audit-report.pdf", pdf_bytes),
-                        (f"{filename_base}.jdf", sidecar_bytes),
+                        (f"{dossier}.pdf", pdf_bytes),
+                        (jdf_name, sidecar_bytes),
                     )
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)

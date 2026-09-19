@@ -33,6 +33,15 @@ class JDFProvenance(BaseModel):
     # sentence the Evidence pane presents; these two record what vouched for it.
     anchor_window: str = ""
     anchor_window_span: str = ""
+    # A *cited* row — the compile's reading of the model's ``[S<N>]`` markers —
+    # names the numbered source sentence it came from and the page that sentence
+    # sits on. Neither was declared, and ``extra="ignore"`` is what an undeclared
+    # field gets, so a persisted row read back as quote + filename with no id and
+    # no page: the export could not say which sentence of which page a claim
+    # rested on, and the Evidence pane showed the page as empty. ``page`` is the
+    # cited row's own int page; ``page_number`` stays the matcher's string.
+    cited_id: str = ""
+    page: int | str | None = None
 
 
 class JDFRedhatAnnotation(BaseModel):
@@ -241,6 +250,11 @@ def _migrate_legacy_provenance_entry(prov: dict[str, Any]) -> dict[str, Any]:
         "page_number": prov.get("page_number") or prov.get("page_or_timestamp") or "",
         "extracted_quote": prov.get("extracted_quote") or prov.get("exact_quote") or "",
         "accessed_date": prov.get("accessed_date") or "",
+        # Read through the migration too: it rebuilds the row from a fixed key
+        # list, so a citation's id and page are dropped here even after they are
+        # declared on the model.
+        "cited_id": prov.get("cited_id") or "",
+        "page": prov.get("page"),
     }
     if prov.get("source_type") not in ("internal_doc", "academic_paper", "news_article", "web_url"):
         if migrated["url_or_doi"]:
@@ -362,6 +376,8 @@ def strip_unknown_jdf_keys(raw: dict[str, Any]) -> dict[str, Any]:
         "accessed_date",
         "anchor_window",
         "anchor_window_span",
+        "cited_id",
+        "page",
     )
     ann_keys = ("redhat", "z3")
 

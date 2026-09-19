@@ -82,6 +82,11 @@ def _node(node_id: str, content: str, verdict: str) -> dict:
                 "extracted_quote": ANCHOR_QUOTE,
                 "anchor_window": ANCHOR_QUOTE,
                 "anchor_window_span": "1-1",
+                # What the compile stamps when it reads the model's ``[S<N>]``
+                # markers: which numbered source sentence the claim cites, and the
+                # page that sentence sits on.
+                "cited_id": "S2",
+                "page": 1,
             }
         ],
         "meta": {
@@ -150,12 +155,27 @@ def test_sidecar_carries_verification_manifest_chain_and_model(client):
     res = client.get("/api/projects/sidecar-src/export?format=jdf")
     assert res.status_code == 200
     assert "vnd.assure.jdf+json" in res.headers["Content-Type"]
-    assert res.headers["Content-Disposition"].endswith('.jdf"')
+    assert res.headers["Content-Disposition"].endswith('.jdf.json"')
 
     sidecar = res.get_json()
     assert sidecar["format"] == SIDECAR_FORMAT
     document = sidecar["document"]
-    assert document["body"][0]["children"][0]["meta"]["provenance"]["source_id"] == SRC_ID
+    cited = document["body"][0]["children"][0]
+    assert cited["meta"]["provenance"]["source_id"] == SRC_ID
+    # The exported node carries the citation list a reader has to be able to act
+    # on: which numbered source sentence, from which file, on which page, and what
+    # the entailment check made of the claim.
+    assert cited["meta"]["provenance"]["cited_ids"] == ["S2"]
+    assert cited["meta"]["provenance"]["sentences"] == [
+        {"id": "S2", "text": ANCHOR_QUOTE, "filename": "wind-policy.md", "page": 1}
+    ]
+    assert cited["meta"]["provenance"]["verdict"] == "supported"
+    # Adding the citation list must not cost the record already stored on the node.
+    assert cited["meta"]["provenance"]["entailment"]["verdict"] == "yes"
+    uncited = document["body"][0]["children"][1]["meta"]["provenance"]
+    assert uncited["cited_ids"] == []
+    assert uncited["sentences"] == []
+    assert uncited["verdict"] == "unanchored"
 
     states = {entry["node_id"]: entry["verification_state"] for entry in sidecar["nodes"]}
     assert states["para-anchored"] == "supported"
@@ -187,8 +207,8 @@ def test_sidecar_bundle_holds_the_pdf_and_the_jdf(client):
     archive = zipfile.ZipFile(io.BytesIO(res.data))
     names = archive.namelist()
     assert len(names) == 2
-    assert any(name.endswith("-audit-report.pdf") for name in names)
-    inner = json.loads(archive.read([n for n in names if n.endswith(".jdf")][0]))
+    assert any(name.endswith("-dossier.pdf") for name in names)
+    inner = json.loads(archive.read([n for n in names if n.endswith(".jdf.json")][0]))
     assert inner["format"] == SIDECAR_FORMAT
     assert inner["document_sha256"] == sidecar_hash
 
@@ -217,6 +237,15 @@ def test_round_trip_into_a_fresh_project_keeps_anchors_and_state(client):
         TREE["body"][0]["children"][0]["provenance"][0]["extracted_quote"]
     )
     assert node["meta"]["provenance"]["entailment"]["verdict"] == "yes"
+    # The citation the file carried in is what the fresh project renders from: the
+    # source sentence's id and page survive the load, not just its text.
+    assert node["provenance"][0]["cited_id"] == "S2"
+    assert node["provenance"][0]["page"] == 1
+    assert node["meta"]["provenance"]["cited_ids"] == ["S2"]
+    assert node["meta"]["provenance"]["sentences"] == [
+        {"id": "S2", "text": ANCHOR_QUOTE, "filename": "wind-policy.md", "page": 1}
+    ]
+    assert node["meta"]["provenance"]["verdict"] == "supported"
     assert loaded["meta"]["answer_shape"] == "memo"
 
 

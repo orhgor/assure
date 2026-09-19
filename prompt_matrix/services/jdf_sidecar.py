@@ -6,21 +6,27 @@ stay in SQLite. "Nothing locks you in" is only true if the JDF a reader takes aw
 carries what Assure decided about the document, so this module assembles the file
 that does.
 
-It reads the persisted tree and never rewrites it: ``meta.provenance`` per node is
-already written by the compile pipeline (``services/audit_summary`` ->
-``services/provenance_meta``) before the revision is saved, so the sidecar emits
-the stored tree verbatim and adds an index over it — one entry per node, with the
-anchor that node matched and the state the pipeline reached for it (``supported``,
-``partial``, ``unsupported``, ``unverified``, ``anchored``, ``unanchored``,
-``not_a_claim``). No field is renamed, added or restructured in the stored tree.
+It reads the persisted tree and never rewrites what the compile stored: the anchor
+rows, the entailment verdicts and the prose travel verbatim. The one thing it adds
+to a node is the citation list the export exists to make readable — on each
+paragraph's ``meta.provenance``, ``cited_ids``, ``sentences`` (the cited row's id,
+quote, filename and page) and ``verdict`` — because the stored rows are loose
+per-sentence rows and nothing in the file gathers them per claim. ``meta.provenance``
+per node is otherwise already written by the compile pipeline
+(``services/audit_summary`` -> ``services/provenance_meta``) before the revision is
+saved. It also adds an index over the tree: one entry per node, with the anchor that
+node matched and the state the pipeline reached for it (``supported``, ``partial``,
+``unsupported``, ``unverified``, ``anchored``, ``unanchored``, ``not_a_claim``). No
+stored field is renamed or dropped.
 
 What a reader needs beyond the tree, and could not get from the PDF:
 
 * ``source_manifest`` — the vault entries this document was grounded in, with the
   identity an anchor points at (``source_id``) and a hash of the text the anchor
   was matched against, so evidence can be checked rather than trusted;
-* ``version_chain`` — every revision, oldest first, each with the hash of its own
-  tree, so the sidecar's document is provably one link of that chain;
+* ``version_chain`` — every revision, oldest first, each hashed in the form this
+  export writes it (citation lists included), so the sidecar's document is
+  provably one link of that chain;
 * ``drafting_model`` — the model that wrote the draft, resolved from what the
   compile persisted (``projects.last_compiled_json.gate.measure`` or the
   ``DRAFT_STREAM`` audit row), or an explicit null when neither recorded one.
@@ -116,6 +122,95 @@ def _entailment(node: dict[str, Any]) -> dict[str, Any] | None:
         "model": str(record.get("model") or ""),
         "checked_at": str(record.get("checked_at") or ""),
     }
+
+
+def _cited_rows(node: dict[str, Any]) -> list[dict[str, Any]]:
+    """The rows carrying a quote, as the export's per-claim citation list.
+
+    Two producers write a paragraph's rows and they do not spell the page the same
+    way: the compile's citation rows carry the numbered sentence it came from
+    (``cited_id``, e.g. ``S4``) and that sentence's page (``page``), while the
+    lexical matcher's rows carry ``page_number`` as a string and no id. Both are
+    emitted here, each with the id it has (empty when it has none) and the page it
+    can state, so a reader never has to know which producer wrote a row. A sentence
+    cited twice is one citation.
+    """
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in node.get("provenance") or []:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("extracted_quote") or "").strip()
+        if not text:
+            continue
+        cited_id = str(row.get("cited_id") or "")
+        key = cited_id or f"{row.get('source_name')}:{text}"
+        if key in seen:
+            continue
+        seen.add(key)
+        page = row.get("page")
+        if page in (None, ""):
+            page = row.get("page_number") or None
+        if isinstance(page, str) and page.isdigit():
+            page = int(page)
+        out.append(
+            {
+                "id": cited_id,
+                "text": text,
+                "filename": str(row.get("source_name") or ""),
+                "page": page,
+            }
+        )
+    return out
+
+
+def _citation_verdict(node: dict[str, Any], rows: list[dict[str, Any]]) -> str:
+    """The node's state, in the vocabulary the counters report.
+
+    ``yes``/``partial``/``no`` are the entailment check's own verdicts, under the
+    names the gate counts them by; a call that failed or could not be parsed is
+    ``unverified``, as is a paragraph whose citations were never checked — the
+    state *is* "no verdict", and calling it anything else would contradict the
+    ``sentences`` beside it. ``unanchored`` keeps its one honest meaning, the same
+    one ``audit_summary`` counts: no source sentence at all.
+    """
+    record = _entailment(node)
+    if record:
+        return _VERDICT_STATE.get(str(record.get("verdict") or ""), _STATE_UNVERIFIED)
+    return _STATE_UNVERIFIED if rows else _STATE_UNANCHORED
+
+
+def attach_export_citations_to_tree(tree: dict[str, Any]) -> dict[str, Any]:
+    """Write each paragraph's citations and verdict into ``meta.provenance``, in place.
+
+    The stored tree keeps citations as loose provenance rows — one per cited
+    sentence, in whatever shape the producer wrote them — and a reader holding the
+    exported file should not have to join those rows to the entailment record to
+    answer "what does this claim rest on, and what did the check make of it". So
+    the answer is written where the Evidence pane and the round trip already look
+    for a node's provenance::
+
+        "cited_ids": ["S4", "S12"],
+        "sentences": [{"id": "S4", "text": "...", "filename": "...", "page": 3}],
+        "verdict": "supported" | "partial" | "unsupported" | "unanchored" | "unverified"
+
+    ``entailment`` and every other key already on ``meta.provenance`` are kept —
+    this adds to the stored record rather than replacing it. Non-paragraph nodes
+    carry no claim and are left alone.
+    """
+    for node in _walk_nodes(tree):
+        if str(node.get("type") or "") != "paragraph":
+            continue
+        rows = _cited_rows(node)
+        meta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
+        prov = meta.get("provenance") if isinstance(meta.get("provenance"), dict) else {}
+        prov = dict(prov)
+        prov["cited_ids"] = [row["id"] for row in rows if row["id"]]
+        prov["sentences"] = rows
+        prov["verdict"] = _citation_verdict(node, rows)
+        meta["provenance"] = prov
+        node["meta"] = meta
+    return tree
 
 
 def _label(node: dict[str, Any], limit: int = 90) -> str:
@@ -256,6 +351,17 @@ def build_version_chain(project_id: str) -> dict[str, Any]:
 
 
 def _revision_hash(project_id: str, version: int) -> str | None:
+    """The hash of a revision **as this export presents it**.
+
+    Hashing the stored tree would put the chain out of step with the document in
+    the file: the export writes each paragraph's citation list into its
+    ``meta.provenance`` (``attach_export_citations_to_tree``), and that enriched
+    tree is what a reader holds and re-imports. Hashing the same form here is what
+    keeps the newest link — and ``chain_head_sha256`` — equal to
+    ``document_sha256``, so the file still proves it is one link of the chain it
+    names. The enrichment is a pure function of the stored tree, so both sides
+    compute the same bytes.
+    """
     try:
         from ..db.jdf_repository import fetch_jdf_at_version
     except ImportError:
@@ -264,7 +370,9 @@ def _revision_hash(project_id: str, version: int) -> str | None:
         tree = fetch_jdf_at_version(project_id, version)
     except Exception:
         return None
-    return hash_jdf_tree(tree) if isinstance(tree, dict) and tree else None
+    if not isinstance(tree, dict) or not tree:
+        return None
+    return hash_jdf_tree(attach_export_citations_to_tree(tree))
 
 
 def resolve_drafting_model(project_id: str) -> dict[str, Any]:
@@ -338,7 +446,13 @@ def _audit_stream_model(project_id: str) -> str:
 
 
 def build_jdf_sidecar(project_id: str, tree: dict[str, Any]) -> dict[str, Any]:
-    """The .jdf export: the persisted tree plus everything a reader needs to verify it."""
+    """The .jdf export: the persisted tree plus everything a reader needs to verify it.
+
+    ``tree`` is enriched in place — each paragraph gains ``meta.provenance``
+    ``cited_ids``/``sentences``/``verdict`` — so the tree inside the file and the
+    tree a reader re-imports carry the citations, not just the prose.
+    """
+    tree = attach_export_citations_to_tree(tree)
     index = node_verification_index(tree)
     meta = tree.get("meta") if isinstance(tree.get("meta"), dict) else {}
     gate = compute_export_gate(project_id, tree)
