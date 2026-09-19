@@ -47,6 +47,14 @@ try:
         InvalidCompileTypeError,
         RequiredSourceUnavailableError,
     )
+    from ..services.evidence_assembly import (
+        assemble_evidence,
+        EvidenceAssemblyError,
+        MissingRequiredInputError,
+        InvalidCompileTypeError,
+        RequiredSourceUnavailableError,
+        EvidenceBudget,
+    )
     from ..services.entailment import attach_entailment_to_tree, check_entailment
     from ..services.lock_inference import infer_lock_candidates
     from ..services.omp_memory import (
