@@ -157,7 +157,7 @@
       <p class="about-q"><strong>9. When the regulator asks how a decision was made, what do I show them?</strong></p>
       <p>The dossier: the compiled document, each claim's verification state, the source manifest, the version history. Every claim is traceable to a source sentence and page. Every verification state is recorded.</p>
       <p class="about-q"><strong>10. Does the system support the NAIC bulletin requirements for explainability and auditability?</strong></p>
-      <p>Anchoring is enforced: a document none of whose claims can be anchored, or fewer than half, is refused rather than saved. Every version is preserved. Every verification state is recorded. Red-Hat findings are not yet carried by the export — that is a gap in the file, not a feature of it.</p>
+      <p>Anchoring is enforced: a document none of whose claims can be anchored, or fewer than half, is refused rather than saved. Every version is preserved. Every verification state is recorded. The dossier's Red-Hat section carries the findings recorded against the document and the project.</p>
       <h3>On vendor risk</h3>
       <p class="about-q"><strong>11. What happens if you change the model, or the vendor relationship ends?</strong></p>
       <p>The model layer is swappable — it was changed without touching the data or the UI. Your sources are stored as text in the project's own database, and the dossier carries each source's name, size and hash. Nothing locks you in.</p>
@@ -184,7 +184,7 @@
       <h3>Step 4 — The document appears, verified</h3>
       <p>The memo renders in the center. Every paragraph carries a verification state: a green left rule with a "✓ verified" chip where the source carries the claim, amber with "~ partial" where it carries it in part, and grey with "· anchored" where there is no verdict to show — including a paragraph the check found the source does not support.</p>
       <p>The counters report the distribution: anchored, and of those supported and partial; unanchored where no source is cited. A claim the check judged unsupported is reported in the run's summary and in the Evidence pane.</p>
-      <p>If the compile produces zero anchors — a mismatched source, for instance — the document is refused outright. Nothing is persisted.</p>
+      <p>If the compile produces zero anchors — a draft that cites nothing, for instance — the document is refused outright. Nothing is persisted.</p>
       <h3>Step 5 — Reading with the evidence in reach</h3>
       <p>Any paragraph can be clicked. The right pane opens with the source filename, the page number, and the quoted sentence the claim was drawn from. Reading the memo is no longer an act of trust. It is an act of checking — one click per claim.</p>
       <h3>Step 6 — The numeral audit</h3>
