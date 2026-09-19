@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import subprocess
 from datetime import datetime
 from functools import lru_cache
@@ -12,8 +11,10 @@ from pathlib import Path
 from flask import Blueprint, jsonify
 
 try:
+    from ..db.connection import closing_connection
     from ..lib.logger import resolve_db_path
 except ImportError:
+    from db.connection import closing_connection
     from lib.logger import resolve_db_path
 
 health_bp = Blueprint("health", __name__)
@@ -57,10 +58,12 @@ def health_check():
     db_path = resolve_db_path()
 
     try:
-        conn = sqlite3.connect(db_path, timeout=5.0)
-        conn.execute("PRAGMA busy_timeout=5000;")
-        conn.execute("SELECT 1")
-        conn.close()
+        # A probe of a database that may be exactly the thing that is broken: the
+        # connection is closed on the failure path too. It did not used to be, and
+        # /health is polled — so a failing probe leaked one connection per poll,
+        # each holding whatever read transaction its last statement left open.
+        with closing_connection(db_path, site="routers.health.sqlite_probe") as conn:
+            conn.execute("SELECT 1")
         status["checks"]["sqlite"] = "ok"
     except Exception as exc:
         status["ok"] = False
@@ -90,22 +93,21 @@ def health_check():
         status["checks"]["disk"] = f"error: {exc}"
 
     try:
-        conn = sqlite3.connect(db_path, timeout=5.0)
-        row = conn.execute(
-            """
-            SELECT created_at FROM audit_log
-            WHERE action='BACKUP' AND success=1
-            ORDER BY created_at DESC LIMIT 1
-            """
-        ).fetchone()
-        metrics = conn.execute(
-            """
-            SELECT memory_used_mb, memory_total_mb, cpu_percent
-            FROM system_metrics
-            ORDER BY created_at DESC LIMIT 1
-            """
-        ).fetchone()
-        conn.close()
+        with closing_connection(db_path, site="routers.health.backup_probe") as conn:
+            row = conn.execute(
+                """
+                SELECT created_at FROM audit_log
+                WHERE action='BACKUP' AND success=1
+                ORDER BY created_at DESC LIMIT 1
+                """
+            ).fetchone()
+            metrics = conn.execute(
+                """
+                SELECT memory_used_mb, memory_total_mb, cpu_percent
+                FROM system_metrics
+                ORDER BY created_at DESC LIMIT 1
+                """
+            ).fetchone()
         if row:
             last_backup = _parse_created_at(row[0])
             hours_since = round((datetime.now() - last_backup).total_seconds() / 3600, 2)

@@ -8,7 +8,7 @@ from typing import Any
 
 try:
     from ..db.connection import init_db
-    from ..history import get_db
+    from ..history import db_scope, get_db
     from ..lib.source_labels import fetched_url_of
     from ..services.vault_tfidf_cache import invalidate_workspace_cache
 except ImportError:
@@ -67,44 +67,44 @@ def save_substrate_entry(
     (``services/compile_guard.scan_source_instruction_like``). Stored rather than
     re-derived on read so the SOURCES pane does not pull every source's text.
     """
-    init_db()
-    db = get_db()
-    vault_id = entry_id or f"sub-{uuid.uuid4().hex[:16]}"
-    db.execute(
-        """
-        INSERT INTO substrate_vault (
-            id, project_id, filename, page_count,
-            extracted_text, tables_json, forms_json, file_size_bytes,
-            instruction_like, instruction_hits
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            vault_id,
-            project_id,
-            filename,
-            int(page_count),
-            extracted_text or "",
-            json.dumps(tables or []),
-            json.dumps(forms or []),
-            int(file_size_bytes or 0),
-            1 if instruction_like else 0,
-            json.dumps(list(instruction_hits or [])),
-        ),
-    )
-    db.commit()
-    invalidate_workspace_cache(project_id)
-    return {
-        "id": vault_id,
-        "project_id": project_id,
-        "filename": filename,
-        "page_count": int(page_count),
-        "extracted_text": extracted_text or "",
-        "tables": tables or [],
-        "forms": forms or [],
-        "file_size_bytes": int(file_size_bytes or 0),
-        "instruction_like": bool(instruction_like),
-        "instruction_hits": list(instruction_hits or []),
-    }
+    with db_scope() as db:
+        init_db(db)
+        vault_id = entry_id or f"sub-{uuid.uuid4().hex[:16]}"
+        db.execute(
+            """
+            INSERT INTO substrate_vault (
+                id, project_id, filename, page_count,
+                extracted_text, tables_json, forms_json, file_size_bytes,
+                instruction_like, instruction_hits
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                vault_id,
+                project_id,
+                filename,
+                int(page_count),
+                extracted_text or "",
+                json.dumps(tables or []),
+                json.dumps(forms or []),
+                int(file_size_bytes or 0),
+                1 if instruction_like else 0,
+                json.dumps(list(instruction_hits or [])),
+            ),
+        )
+        db.commit()
+        invalidate_workspace_cache(project_id)
+        return {
+            "id": vault_id,
+            "project_id": project_id,
+            "filename": filename,
+            "page_count": int(page_count),
+            "extracted_text": extracted_text or "",
+            "tables": tables or [],
+            "forms": forms or [],
+            "file_size_bytes": int(file_size_bytes or 0),
+            "instruction_like": bool(instruction_like),
+            "instruction_hits": list(instruction_hits or []),
+        }
 
 
 def upsert_substrate_entry(
@@ -285,25 +285,25 @@ def fetch_substrate_entries_by_ids(project_id: str, file_ids: list[str]) -> list
     """Fetch full rows (including extracted_text) for the given ids — used to ground compile."""
     if not file_ids:
         return []
-    init_db()
-    db = get_db()
-    placeholders = ",".join("?" for _ in file_ids)
-    cols = {r[1] for r in db.execute(
-        "PRAGMA table_info(substrate_vault)").fetchall()}
-    has_pages = "page_count" in cols
-    page_expr = "page_count" if has_pages else "NULL as page_count"
-    sql = f"""
-        SELECT id, filename, extracted_text, {page_expr}
-        FROM substrate_vault
-        WHERE project_id = ? AND id IN ({placeholders})
-    """
-    rows = db.execute(sql, (project_id, *file_ids)).fetchall()
-    return [
-        {"id": row[0], "filename": row[1],
-         "extracted_text": row[2] or "",
-         "page_count": row[3]}
-        for row in rows
-    ]
+    with db_scope() as db:
+        init_db(db)
+        placeholders = ",".join("?" for _ in file_ids)
+        cols = {r[1] for r in db.execute(
+            "PRAGMA table_info(substrate_vault)").fetchall()}
+        has_pages = "page_count" in cols
+        page_expr = "page_count" if has_pages else "NULL as page_count"
+        sql = f"""
+            SELECT id, filename, extracted_text, {page_expr}
+            FROM substrate_vault
+            WHERE project_id = ? AND id IN ({placeholders})
+        """
+        rows = db.execute(sql, (project_id, *file_ids)).fetchall()
+        return [
+            {"id": row[0], "filename": row[1],
+             "extracted_text": row[2] or "",
+             "page_count": row[3]}
+            for row in rows
+        ]
 
 
 def list_included_vault_text(project_id: str) -> list[dict[str, Any]]:

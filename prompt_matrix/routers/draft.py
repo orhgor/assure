@@ -25,6 +25,7 @@ try:
         TokenLimitExceededError,
     )
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
+    from ..history import db_scope
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
     from ..keys import PROVIDER_PIN
@@ -84,6 +85,7 @@ except ImportError:
         TokenLimitExceededError,
     )
     from db.substrate_repository import fetch_substrate_entries_by_ids
+    from history import db_scope
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
     from keys import PROVIDER_PIN
@@ -1157,6 +1159,44 @@ def _stream_model(
 
 
 def run_draft_pipeline(
+    project_id: str,
+    *,
+    intent: str,
+    context: str | None = None,
+    substrate_file_ids: list[str] | None = None,
+    target_ai: str | None = None,
+    governor: CostGovernor | None = None,
+    request_id: str | None = None,
+    cancel_check: CancelCheck | None = None,
+    force: bool = False,
+) -> Iterator[str]:
+    """The compile pipeline, on one connection for its whole run.
+
+    Inside a request that connection is the request's own (`g.db`), which is what
+    this already did. Standalone — the CLI, a probe, a Celery task, any consumer
+    outside a request — there was no such thing, and every `get_db()` inside the
+    pipeline opened a pooled checkout that nothing returned: one start took the
+    whole pool (20), and every later call then waited out pool_timeout, had the
+    timeout swallowed, and opened a direct connection instead. Measured, that is
+    the pipeline sitting at 0% CPU with 119 open descriptors — the state it was
+    found in. `db_scope()` gives the standalone run the scope a request already
+    has, and releases it when the generator ends (or is closed early).
+    """
+    with db_scope():
+        yield from _run_draft_pipeline(
+            project_id,
+            intent=intent,
+            context=context,
+            substrate_file_ids=substrate_file_ids,
+            target_ai=target_ai,
+            governor=governor,
+            request_id=request_id,
+            cancel_check=cancel_check,
+            force=force,
+        )
+
+
+def _run_draft_pipeline(
     project_id: str,
     *,
     intent: str,

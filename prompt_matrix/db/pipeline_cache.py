@@ -59,24 +59,43 @@ def save_pipeline_cache(
 ) -> None:
     if not cache_key or not isinstance(payload, dict):
         return
+    if not project_id:
+        # `pipeline_cache.project_id` references `projects(id)`. A falsy id
+        # references nothing, so it can be no project's row — and the refusal is
+        # made here rather than left to the table, because a database that has not
+        # run scripts/aws/migrate_fk_constraints.py declares no constraint and would
+        # store the empty string as if it named a project (measured). Raised as the
+        # error the constraint raises, so a call site counts both refusals alike.
+        raise sqlite3.IntegrityError(
+            f"pipeline_cache write refused: project_id={project_id!r} names no project"
+        )
     init_db()
     days = ttl_days if ttl_days is not None else _ttl_days()
     expires_at = (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
     db = get_db()
-    db.execute(
-        """
-        INSERT INTO pipeline_cache (cache_key, project_id, kind, payload_json, updated_at, expires_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
-        ON CONFLICT(cache_key) DO UPDATE SET
-            project_id = excluded.project_id,
-            kind = excluded.kind,
-            payload_json = excluded.payload_json,
-            updated_at = CURRENT_TIMESTAMP,
-            expires_at = excluded.expires_at
-        """,
-        (cache_key, project_id, kind, json.dumps(payload, ensure_ascii=False), expires_at),
-    )
-    db.commit()
+    try:
+        db.execute(
+            """
+            INSERT INTO pipeline_cache (cache_key, project_id, kind, payload_json, updated_at, expires_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT(cache_key) DO UPDATE SET
+                project_id = excluded.project_id,
+                kind = excluded.kind,
+                payload_json = excluded.payload_json,
+                updated_at = CURRENT_TIMESTAMP,
+                expires_at = excluded.expires_at
+            """,
+            (cache_key, project_id, kind, json.dumps(payload, ensure_ascii=False), expires_at),
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        # The row was refused — a project_id no `projects` row owns. Roll the
+        # failed statement back before it propagates: SQLite holds the write lock
+        # for an uncommitted statement, so a swallowed rejection left the shared
+        # connection unusable and the NEXT write failed `database is locked`
+        # (measured 2026-09-19; the same cascade the audit-row counter fixed).
+        db.rollback()
+        raise
 
 
 def prune_expired_pipeline_cache() -> int:
