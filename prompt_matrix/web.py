@@ -24,6 +24,23 @@ from flask import (
     session,
 )
 
+
+def _read_text(path: str, default: str = "unknown") -> str:
+    try:
+        p = Path(path)
+        if p.exists():
+            value = p.read_text(encoding="utf-8").strip()
+            return value or default
+    except Exception:
+        pass
+    return default
+
+
+try:
+    from .service_auth import is_service_api_request, service_api_authorized
+except ImportError:
+    from service_auth import is_service_api_request, service_api_authorized
+
 try:
     from .engine import (
         MatrixError,
@@ -531,6 +548,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
             template_state,
             verify_session_token,
         )
+    try:
+        from .service_auth import is_service_api_request, service_api_authorized
+    except ImportError:
+        from service_auth import is_service_api_request, service_api_authorized
     @app.before_request
     def _set_language_guard_locale():
         try:
@@ -553,6 +574,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
         return None
     @app.before_request
     def _cloud_login():
+        # Bypass service API (ingest-and-verify) - uses service token auth
+        if is_service_api_request(request.path):
+            if service_api_authorized(request):
+                return None
+            return jsonify({"error": "Missing or invalid service token."}), 401
+
         if not is_self_hosted() and require_clerk_login():
             return protect_request()
         return None
@@ -1018,6 +1045,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
             payload.update(library_status())
         except Exception:
             pass
+        # Add build identity for immutable deploy verification
+        payload["build_sha"] = os.getenv("ASSURE_BUILD_SHA") or os.getenv("BUILD_SHA") or _read_text("/app/ASSURE_BUILD_SHA") or _read_text("/app/BUILD_SHA")
+        payload["build_branch"] = os.getenv("ASSURE_BUILD_BRANCH") or os.getenv("BUILD_BRANCH") or _read_text("/app/ASSURE_BUILD_BRANCH") or _read_text("/app/BUILD_BRANCH")
+        payload["build_time"] = os.getenv("ASSURE_BUILD_TIME") or os.getenv("BUILD_TIME") or _read_text("/app/ASSURE_BUILD_TIME") or _read_text("/app/BUILD_TIME")
+        payload["image_ref"] = os.getenv("APP_IMAGE", "unknown")
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")

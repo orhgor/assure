@@ -32,6 +32,56 @@ ENV PYTHONPATH=/app \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     USE_DOCLING=1
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY . .
+
+# Build metadata args - placed AFTER dependency installation to preserve cache
+ARG BUILD_SHA=unknown
+ARG BUILD_BRANCH=unknown
+ARG BUILD_TIME=unknown
+
+ENV ASSURE_BUILD_SHA=${BUILD_SHA} \
+    ASSURE_BUILD_BRANCH=${BUILD_BRANCH} \
+    ASSURE_BUILD_TIME=${BUILD_TIME}
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY . .
+COPY --from=sentry /build/prompt_matrix/static/sentry.bundle.js prompt_matrix/static/sentry.bundle.js
+COPY --from=sentry /build/prompt_matrix/static/tiptap.bundle.js prompt_matrix/static/tiptap.bundle.js
+COPY package.json package-lock.json ./
+COPY scripts/bundle-sentry.mjs scripts/bundle-sentry.mjs
+COPY scripts/bundle-tiptap.mjs scripts/bundle-tiptap.mjs
+COPY scripts/bundle-jdf.mjs scripts/bundle-jdf.mjs
+COPY prompt_matrix/static/src/ prompt_matrix/static/src/
+RUN npm ci && npm run bundle:sentry && npm run bundle:tiptap && npm run bundle:jdf
+
+FROM python:3.11-slim AS builder
+WORKDIR /app
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+COPY requirements.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && pip install --upgrade pip \
+    && pip install --prefer-binary -r requirements.txt gunicorn gevent flask-cors httpx asgiref \
+    && apt-get purge -y gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM python:3.11-slim AS runtime
+WORKDIR /app
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PORT=8765 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    USE_DOCLING=1
+
 ARG ASSURE_BUILD_SHA=unknown
 ENV ASSURE_BUILD_SHA=${ASSURE_BUILD_SHA}
 
