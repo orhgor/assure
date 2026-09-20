@@ -48,7 +48,9 @@
       unanchored: "Unanchored",
       unverified: "Unverified"
     };
-    return labels[type] || type;
+    // The catalogue carries these under evidence.inspector.verdict.<type>; the
+    // literal is the fallback for a type the catalogue has not been given yet.
+    return translate("evidence.inspector.verdict." + type, labels[type] || type);
   }
 
   function verdictBadgeClass(verdict) {
@@ -79,13 +81,14 @@
     var el = panel();
     if (!el) return;
     var page = data.page_number != null ? String(data.page_number) : "--";
-    var verdict = data.verdict || "unverified";
-    var verdictLabel = translate("evidence.verdict." + verdict, verdict);
-    var badgeClass = "evidence-inspector-verdict__badge is-" + verdict;
     var satLabel = z3StatusLabel(data.z3_proof);
     var satClass = satLabel.indexOf("UNSAT") >= 0 ? "is-unsat" : "is-sat";
     var badgeClass2 =
       satClass === "is-unsat" ? "evidence-inspector-proof__badge is-unsat" : "evidence-inspector-proof__badge";
+    // The verdict arrives as {type, reason} from /api/locks/<hash>/evidence.
+    // These three were previously computed from `data.verdict` read as a string,
+    // which both shadowed `verdictLabel` (the function below) and called it as
+    // one — a TypeError on every render, so the section never appeared.
     var verdictLabelText = verdictLabel(data.verdict);
     var verdictBadge = verdictBadgeClass(data.verdict);
     var verdictReason = (data.verdict && data.verdict.reason) ? esc(data.verdict.reason) : "";

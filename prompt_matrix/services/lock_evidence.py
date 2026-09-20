@@ -99,5 +99,61 @@ def find_lock_evidence(lock_hash: str) -> dict[str, Any] | None:
                 "excerpt": excerpt or str(lock.get("metric") or lock.get("canonical_key") or ""),
                 "z3_proof": _z3_proof_for_lock(lock, run),
                 "run_id": run.get("id"),
+                "verdict": _lock_verdict(lock, entry),
             }
     return None
+
+
+def _lock_verdict(lock: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, Any]:
+    """The evidence verdict for one lock, shaped for the inspector drawer.
+
+    ``services.evidence_assembly`` is the only producer of the six verdict
+    states the inspector renders (supported, partial, not_supported,
+    contradicted, unanchored, unverified). It was unreferenced: the drawer asked
+    the API for a ``verdict`` the endpoint never sent, so the section rendered
+    empty for every lock.
+
+    The claim is the lock's own statement, because that is what the source is
+    being asked to support. The verdict is returned as ``{"type", "reason"}``
+    rather than the module's bare string, because the drawer reads
+    ``verdict.type`` for the badge and ``verdict.reason`` for the line under it.
+
+    Never raises: a lock with no resolvable source is ``unverified``, which is a
+    verdict about the evidence, not a failure of the endpoint.
+    """
+    fallback = {"type": "unverified", "reason": "No source text resolved for this lock."}
+    if not entry:
+        return fallback
+
+    claim = str(lock.get("claim") or lock.get("metric") or lock.get("canonical_key") or "").strip()
+    if not claim:
+        return fallback
+
+    text = str(entry.get("extracted_text") or "").strip()
+    if not text:
+        return fallback
+
+    try:
+        from ..services.evidence_assembly import EvidenceAssemblyError, assemble_evidence
+    except ImportError:
+        try:
+            from services.evidence_assembly import EvidenceAssemblyError, assemble_evidence
+        except ImportError:
+            return fallback
+
+    row = {
+        "id": str(entry.get("id") or ""),
+        "filename": str(entry.get("filename") or ""),
+        "extracted_text": text,
+    }
+    try:
+        result = assemble_evidence(claim, [row])
+    except EvidenceAssemblyError:
+        # A refused assembly still says something about the evidence: the source
+        # was there and did not carry the claim.
+        return {"type": "unanchored", "reason": "The source does not anchor this claim."}
+    except Exception:
+        return fallback
+
+    v = result.verdict.to_dict()
+    return {"type": str(v.get("verdict") or "unverified"), "reason": str(v.get("reason") or "")}
