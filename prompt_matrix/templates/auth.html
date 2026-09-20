@@ -35,7 +35,8 @@
       fail: {{ gettext('Could not verify that session. Sign in again.') | tojson }}
     };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+          data-clerk-publishable-key="{{ auth.publishable_key }}"></script>
   <script>
     (function () {
       var cfg = window.ASSURE_CLERK || {};
@@ -61,8 +62,10 @@
           });
         }).catch(function () { setErr(cfg.fail); });
       }
-      if (!window.Clerk || !cfg.pk) return;
-      var clerk = new window.Clerk(cfg.pk);
+      // clerk.browser.js builds the instance from data-clerk-publishable-key and
+      // leaves it on window.Clerk; constructing one here fails (no key in scope).
+      if (!window.Clerk) { setErr(cfg.fail); return; }
+      var clerk = window.Clerk;
       clerk.load().then(function () {
         if (clerk.session) { syncThenGo(clerk); return; }
         var opts = { afterSignInUrl: window.location.href, afterSignUpUrl: window.location.href };

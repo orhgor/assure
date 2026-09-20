@@ -960,72 +960,24 @@
     },
 
     renderAuditGate: function (data) {
-      if (global.AssureAuditGate) {
-        global.AssureAuditGate.renderWorkbenchAudit(data, {
-          z3El: $("z3-status"),
-          redhatEl: $("redhat-preview"),
-          gateBanner: $("preflight-gate-banner"),
-          gateText: $("preflight-gate-text"),
-        });
+      // One Math Check renderer lives in the shell: AssureAuditGate
+      // (static/audit_gate.js, loaded by index.html). The copy that used to be
+      // here rendered the same panel from the same payload and had already
+      // drifted — it never read the Math Check counters, so it could only ever
+      // print a status line. Kept in step by hand it would drift again; the
+      // asset is always present, so this delegates and says so if it is not.
+      if (!global.AssureAuditGate) {
+        if (global.console && global.console.warn) {
+          global.console.warn("audit_gate.js is not loaded: Math Check panel not rendered");
+        }
         return;
       }
-      var z3 = data.z3_results || {};
-      var z3El = $("z3-status");
-      var jdf = global.__assureJdf;
-      if (z3El) {
-        var status = z3.z3_status || z3.status || "UNKNOWN";
-        z3El.hidden = false;
-        z3El.className = "gate-z3-status verification-badge " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
-        if (status === "PASS") {
-          z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
-            (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("verified");
-          } else if (jdf && typeof jdf.setTruthBadge === "function") {
-            jdf.setTruthBadge("PASS");
-          }
-        } else if (status === "VIOLATION") {
-          var viol = (z3.violations || []).join(" ");
-          z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("issues");
-          } else if (jdf && typeof jdf.setTruthBadge === "function") {
-            jdf.setTruthBadge("FAIL");
-          }
-        } else {
-          z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
-        }
-      }
-
-      var critiques = data.redhat_critiques || [];
-      var redhatEl = $("redhat-preview");
-      if (redhatEl) {
-        redhatEl.innerHTML = "";
-        if (critiques.length) {
-          redhatEl.hidden = false;
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("issues");
-          } else if (jdf && typeof jdf.setStressTestStatus === "function") {
-            jdf.setStressTestStatus(critiques.length);
-          }
-          critiques.forEach(function (c) {
-            var li = document.createElement("li");
-            var title = document.createElement("div");
-            title.className = "redhat-preview-title";
-            title.textContent = c.title || t("jdf.redhat.findings", "Stress Test Alert");
-            var body = document.createElement("div");
-            body.textContent = c.content || "";
-            li.appendChild(title);
-            li.appendChild(body);
-            redhatEl.appendChild(li);
-          });
-        } else {
-          redhatEl.hidden = true;
-          if (jdf && typeof jdf.setStressTestStatus === "function") {
-            jdf.setStressTestStatus(0);
-          }
-        }
-      }
+      global.AssureAuditGate.renderWorkbenchAudit(data, {
+        z3El: $("z3-status"),
+        redhatEl: $("redhat-preview"),
+        gateBanner: $("preflight-gate-banner"),
+        gateText: $("preflight-gate-text"),
+      });
     },
 
     acceptAndDock: function () {

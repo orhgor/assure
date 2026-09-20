@@ -7,10 +7,12 @@ import copy
 import json
 import os
 import re
+import sys
 import threading
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from typing import Any, Callable, Generator, Iterator
 
 from flask import Response, request, stream_with_context
@@ -24,6 +26,7 @@ try:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
@@ -45,6 +48,7 @@ except ImportError:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
@@ -223,39 +227,88 @@ def persist_surgical_rewrite(
     Uses ``save_jdf_revision`` (document revision + node snapshot), the same path the
     rest of the app takes. Never raises: a failed/conflicting write is reported back to
     the SSE stream so it can surface in the final frame instead of killing the stream.
+
+    The findings that were open on the paragraph this rewrite replaces are carried
+    onto the node it writes, marked ``resolved`` and naming the revision (and its
+    mutation type) that closed them — see ``resolve_findings_on_rewrite``. The
+    revision's id and version are read before the write and the id is passed to
+    ``save_jdf_revision``, because the node naming the revision is the node that
+    same write serializes; ``expected_version`` is pinned to the version just read
+    so the recorded version cannot be a guess, and a write that lost a race is
+    retried once against the version that actually won rather than recording a
+    revision number that is not the one that acted.
+
+    Returns the node as written under ``"node"``, so the caller can show what the
+    document now holds: a failed write returns no ``"node"`` and the caller keeps
+    the one it passed (findings still open).
     """
     try:
-        from ..db.jdf_repository import RevisionConflict, save_jdf_revision
+        from ..db.jdf_repository import (
+            RevisionConflict,
+            close_findings_for_revision,
+            save_jdf_revision,
+        )
     except ImportError:
-        from db.jdf_repository import RevisionConflict, save_jdf_revision
+        from db.jdf_repository import (
+            RevisionConflict,
+            close_findings_for_revision,
+            save_jdf_revision,
+        )
 
-    mutated, found = _mutate_node_in_tree(tree, node_id, node)
-    if not found:
-        return {"persisted": False, "persist_error": f"target node not found: {node_id}"}
+    resolved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    try:
+    def _write_once() -> dict[str, Any]:
+        """Read the next version, stamp the findings against it, write the revision."""
+        closed = close_findings_for_revision(
+            project_id,
+            tree,
+            node_id,
+            node,
+            mutation_type="surgical_rewrite",
+            resolved_at=resolved_at,
+        )
+        written = closed["node"]
+        mutated, found = _mutate_node_in_tree(tree, node_id, written)
+        if not found:
+            return {"persisted": False, "persist_error": f"target node not found: {node_id}"}
         result = save_jdf_revision(
             project_id,
             mutated,
             mutation_type="surgical_rewrite",
             target_node_id=node_id,
             change_summary=change_summary,
-            expected_version=expected_version,
+            expected_version=(
+                closed["version"] - 1 if expected_version is None else expected_version
+            ),
+            revision_id=closed["revision_id"],
         )
-    except RevisionConflict as exc:
         return {
-            "persisted": False,
-            "persist_conflict": True,
-            "persist_error": str(exc),
-            "latest_version": exc.latest_version,
+            "persisted": True,
+            "version": result.get("version"),
+            "revision_id": result.get("revision_id"),
+            "node": written,
         }
+
+    try:
+        return _write_once()
+    except RevisionConflict as exc:
+        # Someone wrote between the read and the write: the revision the node
+        # names would not be the one that lands. Re-read and re-stamp once — the
+        # stamp is the record, and a wrong revision number in it is worse than a
+        # failed write the stream reports.
+        try:
+            return _write_once()
+        except RevisionConflict as second:
+            return {
+                "persisted": False,
+                "persist_conflict": True,
+                "persist_error": str(second),
+                "latest_version": second.latest_version,
+            }
+        except Exception as retry_exc:  # a persistence failure must not abort the stream
+            return {"persisted": False, "persist_error": str(retry_exc)}
     except Exception as exc:  # a persistence failure must not abort the stream
         return {"persisted": False, "persist_error": str(exc)}
-    return {
-        "persisted": True,
-        "version": result.get("version"),
-        "revision_id": result.get("revision_id"),
-    }
 
 
 def _build_messages(user_intent: str, aperture: dict[str, Any] | None) -> list[dict[str, str]]:
@@ -416,9 +469,11 @@ def run_inquire_pipeline(
 
     original_content = ""
     is_mutation = bool(target_node_id)
+    original_node: dict[str, Any] | None = None
     if target_node_id:
         hit = get_node_by_id(tree, target_node_id)
         if hit:
+            original_node = hit
             original_content = node_text(hit)
 
     aperture: dict[str, Any] | None = None
@@ -456,6 +511,25 @@ def run_inquire_pipeline(
             return False, violations[0] if violations else "Z3 Conflict"
         return True, None
 
+    def _rewritten_node(text: str) -> dict[str, Any]:
+        """The node a surgical rewrite yields: new text, same findings.
+
+        The paragraph's own grounding does not survive — its citations belong to
+        the text that was replaced — but a Red-Hat finding is evidence about the
+        paragraph rather than about its wording, and the node it hangs on is the
+        only place the document keeps it. Rebuilding the node from
+        ``_paragraph_node`` dropped it, which is how applying a finding destroyed
+        the finding. Here it comes across untouched, still ``open``:
+        ``persist_surgical_rewrite`` closes it, naming the revision, only when the
+        write actually lands.
+        """
+        built = _paragraph_node(node_id, text)
+        if original_node:
+            built["annotations"]["redhat"] = copy.deepcopy(
+                (original_node.get("annotations") or {}).get("redhat") or []
+            )
+        return built
+
     yield _sse("status", _status_payload("model", task_type=task_type.value))
 
     result = yield from _blocking_with_keepalive(
@@ -464,7 +538,7 @@ def run_inquire_pipeline(
             task_type,
             messages,
             validate_fn=_validate,
-            build_node_fn=lambda text: _paragraph_node(node_id, text),
+            build_node_fn=_rewritten_node,
             defer_budget_record=True,
         ),
         # Fresh budget per phase: model and Red-Hat each get the deadline, so a
@@ -544,7 +618,17 @@ def run_inquire_pipeline(
             phase="redhat",
         )
         critique_text = (red.text or "").strip()
-        if critique_text and not critique_text.startswith("ERROR:"):
+        # A response cut off at the output ceiling is a partial review, and a
+        # partial review stored on the paragraph reaches a client as if it were
+        # a finding. Refused here; the node keeps no annotation for it.
+        refusal = answer_refusal_reason(red, TaskType.REDHAT)
+        if refusal:
+            print(
+                f"REDHAT_AUDIT_REFUSED project={project_id} node={node_id} "
+                f"detail={refusal[:240]}",
+                file=sys.stderr,
+            )
+        elif critique_text and not critique_text.startswith("ERROR:"):
             node = _ensure_node_annotations(dict(node))
             annotation = {
                 "id": new_node_id("crit"),
@@ -568,6 +652,23 @@ def run_inquire_pipeline(
 
     yield _sse("status", _status_payload("ready"))
 
+    # The write lands before the frame that shows it, so the node on screen is the
+    # node the document holds — the finding it closed, and the revision that
+    # closed it, arrive with the new text rather than a reload later. Ordering is
+    # all this changes: `persist_surgical_rewrite` never raises, and a write that
+    # fails returns the node it was given, its findings still open, which is what
+    # the document still says.
+    persist_info: dict[str, Any] = {}
+    if is_mutation and result.ok:
+        persist_info = persist_surgical_rewrite(
+            project_id,
+            tree,
+            node_id=node_id,
+            node=node,
+            change_summary=f"Surgical rewrite: {user_intent.strip()[:120]}",
+        )
+        node = persist_info.pop("node", None) or node
+
     yield _sse(
         "jdf_node_ready",
         {
@@ -579,16 +680,6 @@ def run_inquire_pipeline(
             "is_mutation": is_mutation,
         },
     )
-
-    persist_info: dict[str, Any] = {}
-    if is_mutation and result.ok:
-        persist_info = persist_surgical_rewrite(
-            project_id,
-            tree,
-            node_id=node_id,
-            node=node,
-            change_summary=f"Surgical rewrite: {user_intent.strip()[:120]}",
-        )
 
     usage_payload = _record_llm_usage(
         gov,

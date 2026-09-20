@@ -1949,12 +1949,58 @@ body:has(#assure-app) .shell {
   margin-left: auto;
 }
 
+/* The Math Check surface carries the numbers now — the count line, the finding
+   with both values, and the reason a claim went unchecked — so the pill became a
+   panel. Same pass/fail tinting; the shape changed because the content did. */
 #z3-status.verification-badge {
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 9999px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  display: block;
+  text-align: left;
+}
+
+#z3-status .z3-totals {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+#z3-status .z3-findings {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#z3-status .z3-findings li {
+  font-weight: 500;
+}
+
+#z3-status .z3-finding-metric {
+  font-weight: 600;
+}
+
+#z3-status .z3-finding-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#z3-status .z3-value {
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+#z3-status .z3-value-draft {
+  background: var(--color-danger-bg, rgba(185, 28, 28, 0.12));
+}
+
+#z3-status .z3-value-source {
+  background: var(--color-success-bg, rgba(46, 125, 50, 0.12));
 }
 
 #z3-status.verification-badge.is-pass {

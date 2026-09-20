@@ -27,33 +27,33 @@
       <div class="about-body">
         <h2>What Assure is</h2>
         <p>A document verification tool.</p>
-        <p>You give it a source and a question. It writes the document — then checks every claim in that document against the source it came from. Each claim carries a verification state you can see at a glance.</p>
-        <p>Assure does not produce an ungrounded document. When claims cannot be traced directly to source evidence, they are isolated and flagged for review — and a document that fails grounding is refused outright.</p>
+        <p>You give it a source and a question. It writes the document — then checks every claim in that document against the source it came from. Each claim carries a verification state, and the check is a flag, not a gate: a paragraph the source does not support is still shown and reported — the run names how many claims were not supported — and the document is produced.</p>
+        <p>Assure does not produce a document its sources cannot ground at all. When claims cannot be traced directly to source evidence they are isolated and flagged for review; a document none of whose claims can be anchored — or fewer than half — is refused outright, and nothing is saved. Whether the source also carries each claim is a separate check, reported per claim.</p>
 
         <h2>What verification looks like</h2>
-        <p>Three checks run — on claims, and on labelled figures.</p>
+        <p>Three checks run — anchoring, entailment, and the numeral audit on labelled figures.</p>
         <p>Is there a source for this claim? The claim is matched to a specific sentence or passage in your uploaded material. If nothing matches, the claim is unanchored.</p>
         <p>Does the source support this claim? The matched passage is read against the claim by a verification model. The verdict is supported, partial, or unsupported.</p>
         <p>Do the numbers reconcile? A figure the draft states as a labelled measure is checked against the source, independently of the prose. A mismatch flags both values. A draft that states none reports a skipped check, not a pass.</p>
-        <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unverified.</p>
-        <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged and wrapped as content, not obeyed. If the compiled output drifts from the source — whether from a hallucination or from an instruction embedded in the material — the document is refused before you see it.</p>
+        <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unanchored.</p>
+        <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged, wrapped as content rather than obeyed, and cannot anchor a claim. A paragraph the source does not support is a flag, not a refusal: it is reported and the document is still produced. What is refused outright is a document that cannot be anchored to its source at all — or fewer than half of whose claims can be.</p>
 
         <h2>The adversarial layer</h2>
-        <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, coverage language that shifts meaning between paragraphs, assertions about intent that nothing supports.</p>
-        <p>Findings quote the sentence they're worried about, and the source wording behind it. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
-        <p>Two defenses, layered. Verification asks: is this true to the source? Red-Hat asks: is this defensible in your hands?</p>
+        <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, and assertions about intent that nothing supports.</p>
+        <p>Findings quote the sentence they're worried about, and — where the paragraph carries one — the source wording behind it; a paragraph with no attached source is reviewed as a self-critique and the pane says so. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
+        <p>Two defenses, layered — on separate paths. Verification runs in the compile and asks: is this true to the source? Red-Hat runs on demand against the persisted document and asks: is this defensible in your hands?</p>
 
         <h2>What you'll find in the shell</h2>
         <p><span class="about-cap">Evidence</span> — click any paragraph. The source, the page, and the quoted sentence the claim was drawn from.</p>
         <p><span class="about-cap">Math Check</span> — the numeral audit. Every labelled figure, its source line, its verdict; a draft that states none is reported as skipped.</p>
-        <p><span class="about-cap">Red-Hat</span> — the adversarial review. Runs on any paragraph; returns specific findings with the source behind each.</p>
+        <p><span class="about-cap">Red-Hat</span> — the adversarial review, on a path of its own. Runs on demand, on a paragraph, callout or signature node, one at a time; findings on an anchored paragraph carry the source sentence behind them.</p>
         <p><span class="about-cap">Surgical Edit</span> — click a paragraph or a Red-Hat finding. The rephrase editor opens, pre-filled from a finding. Every version is preserved.</p>
         <p><span class="about-cap">Compare</span> — two models on the same question, side by side. Read both, keep the one you prefer.</p>
-        <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to open it in the editor.</p>
-        <p><span class="about-cap">Export</span> — a compliance report: the compiled document, the numeral audit, every finding, the sign-offs and the document lock hash, with the truth ledger in the appendix. One file for a colleague or an auditor.</p>
+        <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to insert it into the working document as an editable paragraph.</p>
+        <p><span class="about-cap">Export</span> — a dossier: the compiled document, each claim's verification state, the source manifest with a hash per source, the version chain and the model that wrote it — with the readable memo as a PDF. One download for a colleague or an auditor.</p>
 
         <h2>What's underneath</h2>
-        <p>Your sources are stored in an open format — they move with you. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
+        <p>Your sources are stored as text in the project's own database, and the dossier carries each source's name, size and hash. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
         <p>This is a preview running for evaluation. Production ships with your authentication and deployment options.</p>
 
         <a class="about-more" href="./about.html">Read more</a>
@@ -72,7 +72,7 @@
       </span>
       <div class="project-switcher">
         <button type="button" id="project-switcher" class="project-switcher-btn" aria-haspopup="true" aria-expanded="false" title="Switch project">
-          <span id="project-current-name">Untitled</span>
+          <span id="project-current-name">workspace</span>
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div id="project-switcher-panel" class="project-switcher-panel" hidden>
@@ -119,6 +119,17 @@
                 font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="14">A</text>
         </svg>
       </div>
+      <!-- D1: below 900px a pane is an overlay, so opening it cannot be done
+           from inside it. The rail carries the opener; above 900px the pane's
+           own header does, and this button is not rendered. -->
+      <button type="button" class="rail-btn rail-pane-open" id="left-open"
+              aria-label="Sources and compiler" title="Sources and compiler">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <line x1="9" y1="4" x2="9" y2="20"></line>
+        </svg>
+      </button>
     </aside>
 
     <!-- ============================================================= -->
@@ -158,9 +169,9 @@
 
       <div id="left-sources" class="pane-mode" role="tabpanel" style="display:none;">
         <div class="pane-body">
-          <p class="empty-hint">Upload a .txt or .md to ground this project.</p>
+          <p class="empty-hint">Upload a .pdf, .txt or .md to ground this project.</p>
           <button type="button" class="btn-secondary" id="source-upload-btn">Upload source document</button>
-          <input type="file" id="source-file-input" accept=".txt,.md,text/plain,text/markdown" style="display:none;">
+          <input type="file" id="source-file-input" accept=".pdf,.txt,.md,.csv,.json,application/pdf,text/plain,text/markdown" style="display:none;">
           <div id="source-list" class="source-list"></div>
         </div>
       </div>
@@ -191,7 +202,16 @@
             </ul>
           </section>
           <section class="pane-section" id="section-manifest">
-            <h3>Sources</h3>
+            <div class="pane-section-head">
+              <h3>Sources</h3>
+              <!-- A7 — the PDF ingest belongs with the sources it feeds, not in
+                   the prompt dock: the dock is where a question is asked, and a
+                   control that changes the grounding surface sat beside it as if
+                   it were part of the ask. The id is kept (the shell and the e2e
+                   specs address this control by it). -->
+              <button type="button" id="dock-ingest" title="Ingest PDF">Ingest PDF</button>
+              <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
+            </div>
             <div id="source-manifest" class="manifest"></div>
           </section>
           <section class="pane-section" id="section-prompt" data-state="empty">
@@ -235,8 +255,6 @@
           </button>
         </div>
         <div class="dock-jdf" id="dock-jdf">
-          <button type="button" id="dock-ingest" title="Ingest PDF">Ingest</button>
-          <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
           <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents" autocomplete="off" spellcheck="false">
           <div id="dock-search-results" hidden></div>
         </div>
@@ -261,37 +279,73 @@
             <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
-        <div class="conf-legend pane-legend" role="note"><span class="conf-legend-item"><span class="conf-legend-dot green" aria-hidden="true"></span>Verified against policy</span><span class="conf-legend-item"><span class="conf-legend-dot yellow" aria-hidden="true"></span>Partial match</span><span class="conf-legend-item"><span class="conf-legend-dot grey" aria-hidden="true"></span>Not verified</span></div>
+        <!-- The document's margin marks, named once, in the pane that reports
+             them. Every item is the shape the paragraph carries: the item's own
+             left rule is the state's rule (solid / dashed / doubled / dotted),
+             the glyph is the chip's glyph, and the word is the state's name.
+             Colour is the fourth channel, never the first: this audience prints
+             in black and white. -->
+        <div class="state-legend pane-legend" role="note" aria-label="Verification states">
+          <span class="state-legend-item anchor-supported"><b aria-hidden="true">&#10003;</b><span data-i18n="state.supported">Supported</span></span>
+          <span class="state-legend-item anchor-partial"><b aria-hidden="true">~</b><span data-i18n="state.partial">Partial</span></span>
+          <span class="state-legend-item anchor-unsupported"><b aria-hidden="true">&#10007;</b><span data-i18n="state.unsupported">Contradicted</span></span>
+          <span class="state-legend-item anchor-anchored"><b aria-hidden="true">?</b><span data-i18n="state.anchored">Not confirmed</span></span>
+          <span class="state-legend-item anchor-unanchored"><b aria-hidden="true">&#8212;</b><span data-i18n="state.unanchored">No source</span></span>
+        </div>
       </header>
 
       <!-- The counters: the pane's at-rest state, always visible at the top.
-           2x2, tabular numerals. Zero reads muted; a live number reads ink. -->
+           They read as a verification summary rather than as a dashboard, in
+           the order a reader checks a document: what cites a source, what the
+           source carries, what the source denies, what nothing was found for.
+           Tabular numerals; zero reads muted, a live number reads ink. -->
       <section class="pane-section" id="counters-section" aria-label="Claim counters">
         <table class="counters">
           <tbody>
             <tr>
               <td>
-                <div class="counter-label" id="counter-label-anchored">Anchored</div>
+                <div class="counter-label" id="counter-label-anchored" data-i18n="counter.label.anchored">Anchored</div>
                 <div class="counter-value is-zero" id="count-anchored">0</div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-supported">Supported</div>
+                <div class="counter-label" id="counter-label-supported" data-i18n="counter.label.supported">Supported</div>
                 <div class="counter-value is-zero" id="count-supported">0</div>
+                <!-- Partial counts inside Supported, so it is a line under the
+                     number rather than a tile beside it: a fifth tile read as a
+                     fifth bucket, and the legend had to explain it away. -->
+                <div class="counter-sub" id="counter-sub-supported" hidden><span data-i18n="counter.label.partial">Partial</span> <span class="counter-sub-value" id="count-supported-partial">0</span></div>
               </td>
             </tr>
             <tr>
-              <td>
-                <div class="counter-label" id="counter-label-partial">Partial</div>
-                <div class="counter-value is-zero" id="count-partial">0</div>
+              <td id="counter-unsupported-cell">
+                <div class="counter-label" id="counter-label-unsupported" data-i18n="counter.label.unsupported">Not supported</div>
+                <div class="counter-value is-zero" id="count-unsupported">0</div>
+                <!-- The one counter that is a finding rather than a state. When
+                     it is non-zero it says so in words under the number, in the
+                     same glyph the paragraph carries in the document margin. -->
+                <div class="counter-note" id="counter-note-unsupported" hidden>
+                  <span class="counter-note-mark" aria-hidden="true">&#10007;</span>
+                  <span data-i18n="counter.unsupported.note">the source does not carry these claims</span>
+                </div>
               </td>
               <td>
-                <div class="counter-label" id="counter-label-unverified">Unverified</div>
-                <div class="counter-value is-zero" id="count-unverified">0</div>
+                <div class="counter-label" id="counter-label-unanchored" data-i18n="counter.label.unanchored">Unanchored</div>
+                <div class="counter-value is-zero" id="count-unanchored">0</div>
               </td>
             </tr>
           </tbody>
         </table>
         <p class="counter-line" id="counter-line" hidden></p>
+        <!-- 2C.6: the same eligible paragraphs, split by where the cited
+             source came from — an uploaded file or a page fetched from an
+             allowlisted domain. Hidden until the source list has been read,
+             because an unread list is not an empty one. -->
+        <p class="counter-line counter-origin" id="counter-origin-line" hidden></p>
+        <!-- The counters are a breakdown, not a partition: Anchored is the total
+             that cites a source, and Partial counts inside Supported
+             (services/audit_summary._provenance_counts). The legend says so,
+             because the row is only checkable if it does. -->
+        <p class="counter-legend" id="counter-legend" hidden data-i18n="counter.legend">Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Not supported = the source check found the claim is not in the sentence it cites · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.</p>
       </section>
 
       <div id="right-inspector" class="pane-mode">
@@ -312,6 +366,14 @@
 
     <aside class="rail rail-right" aria-label="Right pane rail">
       <nav class="rail-nav" aria-label="Right pane">
+        <button type="button" class="rail-btn rail-pane-open" id="right-open"
+                aria-label="Inspector" title="Inspector">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="15" y1="4" x2="15" y2="20"></line>
+          </svg>
+        </button>
         <button type="button" class="rail-btn" data-rail-btn="swap" aria-label="Compare" title="Compare">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

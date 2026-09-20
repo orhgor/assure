@@ -11,10 +11,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sqlite3
 from typing import Any
 
 try:
     from ..db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
+    from ..lib.logger import note_cache_drop
     from ..omp_client import (
         sanitize_omp_tag,
         safe_omp_recall,
@@ -22,6 +24,7 @@ try:
     )
 except ImportError:
     from db.pipeline_cache import fetch_pipeline_cache, save_pipeline_cache, sqlite_cache_expired
+    from lib.logger import note_cache_drop
     from omp_client import sanitize_omp_tag, safe_omp_recall, safe_omp_remember
 
 CACHE_MARKER = "PEM_CACHE_V1"
@@ -31,6 +34,11 @@ def omp_cache_enabled() -> bool:
     return os.getenv("PEM_OMP_CACHE", "1").strip() not in {"0", "false", "no"}
 
 
+# Unchanged by the ask-shaped compile prompt (services/answer_shape) on purpose:
+# the version is inside the cache key, so bumping it would invalidate every entry
+# — and a cold compile on a warm project persists a new revision. The shape is
+# folded into the key where the prompt actually differs (routers/draft), which
+# leaves every memo entry — the demo's warm compile among them — matching.
 PIPELINE_VERSION = 3
 
 
@@ -39,18 +47,30 @@ def compile_cache_key(
     source_text: str,
     target_ai: str = "",
     version: int = PIPELINE_VERSION,
+    prompt_material: str = "",
 ) -> str:
     # Stable order: project_id | source_text | target_ai | str(version)
-    digest = hashlib.sha256(
-        "|".join(
-            [
-                str(project_id or ""),
-                str(source_text or ""),
-                str(target_ai or ""),
-                str(version),
-            ]
-        ).encode("utf-8")
-    ).hexdigest()[:8]
+    parts = [
+        str(project_id or ""),
+        str(source_text or ""),
+        str(target_ai or ""),
+        str(version),
+    ]
+    # The prompt is KEY MATERIAL, not a note beside the key. `prompt_material` is
+    # "<version>:<sha256 of the prompt>[:8]": the hash is the half that matters,
+    # because it moves the key *because the prompt changed* with nobody remembering
+    # to bump anything. The version rides in front of it for readability only.
+    #
+    # Before this, nothing in the digest named the prompt, so an edit left every warm
+    # entry warm and replayed a draft written under the old prompt — measured: an
+    # edit moved the prompt's sha256 (c2b7926f -> 1cac8b13) and the key did not move
+    # (ast:p:de9116cd).
+    #
+    # Empty for a frozen artifact (routers/draft._prompt_key_material), so the key it
+    # was written under is the key it still composes and its document still replays.
+    if prompt_material:
+        parts.append(f"prompt:{prompt_material}")
+    digest = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
     pid = sanitize_omp_tag(project_id or "", max_len=32)
     return f"ast:{pid}:{digest}"
 
@@ -127,8 +147,10 @@ def save_ast_cache(cache_key: str, project_id: str, payload: dict[str, Any]) -> 
         return
     try:
         save_pipeline_cache(cache_key, project_id, "ast", payload)
-    except Exception:
-        pass
+    except sqlite3.IntegrityError:
+        # Refused: no `projects` row owns this id. Counted, not raised — see
+        # lib.logger.note_cache_drop. Anything else propagates.
+        note_cache_drop(site="omp_memory.save_ast_cache", project_id=project_id, kind="ast")
     summary = {
         "k": cache_key,
         "node_count": (payload.get("compiled") or {}).get("node_count"),
@@ -186,8 +208,8 @@ def save_redhat_critique(project_id: str, critique: str) -> None:
     payload = {"critique": text}
     try:
         save_pipeline_cache(key, project_id, "redhat", payload)
-    except Exception:
-        pass
+    except sqlite3.IntegrityError:
+        note_cache_drop(site="omp_memory.save_redhat_critique", project_id=project_id, kind="redhat")
     try:
         safe_omp_remember(
             key,

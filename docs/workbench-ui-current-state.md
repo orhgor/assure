@@ -104,7 +104,7 @@ Active draft autosave already uses **`PUT /api/drafts`** → `drafts` table (`fo
 | Question | Answer |
 |----------|--------|
 | **7.1 Remaining UI issues** | (1) **Wow stack still cluttered** — gutter + overlay + stamp + check + ⓘ. (2) **Dual diff** (left panel + x-ray). (3) **Reasoning graph** orphaned in footer. (4) **Full Audit** re-runs compile. (5) **Active Works** dashboard hierarchy not addressed. (6) Standalone **`/analytics`** page remains (backend unchanged). (7) Chart dataset labels **hardcoded English**. (8) Dead CSS for `#generate-accept-dock`. (9) Docs drift (`assure-ai-all-functions.md`, `product-status.md`). (10) Production behind this branch. |
-| **7.2 User feedback** | Still **no structured pilot quotes** in repo. Empty `docs/demo/insurance-boston-real-estate/feedback-template.md`. |
+| **7.2 User feedback** | Still **no structured pilot quotes** in repo. Empty `docs/demo/insurance-boston-real-estate/feedback-template.md` — moved off this branch 2026-09-18, now on `test-fixtures` (`git show test-fixtures:docs/demo/insurance-boston-real-estate/feedback-template.md`). |
 
 ---
 

@@ -29,6 +29,11 @@ class CostGovernanceTests(unittest.TestCase):
         self.conn.row_factory = sqlite3.Row
         self.mock_get_db.return_value = self.conn
         self.store = ProjectBudgetStore(self.conn)
+        self.store.ensure_tables()
+        # project_budgets declares the FK to projects, so the project a budget row
+        # names has to exist before the row can be written.
+        self.conn.execute("INSERT INTO projects (id, title) VALUES ('proj-a', 'proj-a')")
+        self.conn.commit()
         self.store.ensure_project("proj-a", token_limit=1000)
         self.governor = CostGovernor(budget_store=self.store)
 
@@ -116,6 +121,61 @@ class CostGovernanceTests(unittest.TestCase):
         self.assertEqual(result.retries, MAX_RETRIES)
         self.assertIsNotNone(result.node)
         self.assertEqual(result.node.get("status"), "VALIDATION_FAILED")
+
+    def test_executor_surfaces_a_completion_cut_off_at_the_ceiling(self):
+        """The provider's own finish_reason is what says "truncated", and it has
+        to survive the executor: the Red-Hat audit refuses to persist a finding
+        on nothing weaker. The reasoning channel must not arrive as the text."""
+
+        class Choice:
+            finish_reason = "length"
+            message = {
+                "content": "",
+                "reasoning_content": "We need answer user asks: Red-hat review…",
+            }
+
+        class Usage:
+            prompt_tokens = 732
+            completion_tokens = 8192
+
+        class Response:
+            choices = [Choice()]
+            usage = Usage()
+
+        with patch("litellm.completion", return_value=Response()):
+            result = self.governor.execute_with_retry_budget(
+                "proj-a",
+                TaskType.REDHAT,
+                [{"role": "user", "content": "review this claim"}],
+            )
+
+        self.assertTrue(result.truncated)
+        self.assertEqual(result.finish_reason, "length")
+        self.assertNotIn("We need answer", result.text)
+
+    def test_executor_does_not_call_a_finished_completion_truncated(self):
+        class Choice:
+            finish_reason = "stop"
+            message = {"content": "**Finding** — the second sentence is unsupported."}
+
+        class Usage:
+            prompt_tokens = 364
+            completion_tokens = 3257
+
+        class Response:
+            choices = [Choice()]
+            usage = Usage()
+
+        with patch("litellm.completion", return_value=Response()):
+            result = self.governor.execute_with_retry_budget(
+                "proj-a",
+                TaskType.REDHAT,
+                [{"role": "user", "content": "review this claim"}],
+            )
+
+        self.assertFalse(result.truncated)
+        self.assertEqual(result.finish_reason, "stop")
+        self.assertEqual(result.text, "**Finding** — the second sentence is unsupported.")
 
 
 if __name__ == "__main__":

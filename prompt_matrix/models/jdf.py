@@ -10,6 +10,7 @@ import copy
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any, Callable, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -33,6 +34,15 @@ class JDFProvenance(BaseModel):
     # sentence the Evidence pane presents; these two record what vouched for it.
     anchor_window: str = ""
     anchor_window_span: str = ""
+    # A *cited* row — the compile's reading of the model's ``[S<N>]`` markers —
+    # names the numbered source sentence it came from and the page that sentence
+    # sits on. Neither was declared, and ``extra="ignore"`` is what an undeclared
+    # field gets, so a persisted row read back as quote + filename with no id and
+    # no page: the export could not say which sentence of which page a claim
+    # rested on, and the Evidence pane showed the page as empty. ``page`` is the
+    # cited row's own int page; ``page_number`` stays the matcher's string.
+    cited_id: str = ""
+    page: int | str | None = None
 
 
 class JDFRedhatAnnotation(BaseModel):
@@ -47,6 +57,32 @@ class JDFRedhatAnnotation(BaseModel):
     # without walking the tree. ``extra="ignore"`` means an unlisted field never
     # survives validation, so this has to be declared to reach SQLite at all.
     node_id: str = ""
+    # --- What closed it ------------------------------------------------------
+    # Written when a revision rewrote the paragraph this finding was raised on
+    # (``resolve_findings_on_rewrite``). A finding that closes leaves no trace
+    # otherwise: the paragraph it convicted is replaced by text the audit never
+    # saw, and the document then reads as one that never had a finding. The
+    # revision that acted on the warning is the record that it existed.
+    #
+    # ``resolved_by_mutation_type`` names how the warning was answered
+    # ("surgical_rewrite"), which is the level of provenance the system has: the
+    # human who pressed Apply is the actor, and the app cannot name them and must
+    # not pretend to.
+    resolved_by_revision_id: str = ""
+    resolved_by_version: int | None = None
+    resolved_by_mutation_type: str = ""
+    resolved_at: str = ""
+    # What the finding was raised against, read off the paragraph as it stood
+    # when the audit ran (the per-row ``extracted_quote`` and the entailment
+    # verdict at ``meta.provenance.entailment``). The rewritten paragraph keeps
+    # neither: its citations are not carried over, because a paragraph that
+    # inherited its predecessor's quotes would read as anchored to sentences its
+    # new text was never matched against. So the history lives here — the
+    # paragraph that lost its anchor keeps saying so ("unanchored"), and the
+    # finding keeps saying what the anchor was and how it read.
+    prior_anchor_quote: str = ""
+    prior_verdict: str = ""
+    prior_contradicted: bool = False
 
 
 class JDFZ3Annotation(BaseModel):
@@ -250,6 +286,11 @@ def _migrate_legacy_provenance_entry(prov: dict[str, Any]) -> dict[str, Any]:
         "page_number": prov.get("page_number") or prov.get("page_or_timestamp") or "",
         "extracted_quote": prov.get("extracted_quote") or prov.get("exact_quote") or "",
         "accessed_date": prov.get("accessed_date") or "",
+        # Read through the migration too: it rebuilds the row from a fixed key
+        # list, so a citation's id and page are dropped here even after they are
+        # declared on the model.
+        "cited_id": prov.get("cited_id") or "",
+        "page": prov.get("page"),
     }
     if prov.get("source_type") not in ("internal_doc", "academic_paper", "news_article", "web_url"):
         if migrated["url_or_doi"]:
@@ -371,6 +412,8 @@ def strip_unknown_jdf_keys(raw: dict[str, Any]) -> dict[str, Any]:
         "accessed_date",
         "anchor_window",
         "anchor_window_span",
+        "cited_id",
+        "page",
     )
     ann_keys = ("redhat", "z3")
 
@@ -576,6 +619,100 @@ def attach_redhat_annotation(
     return splice_node(tree, node_id, node)
 
 
+def _first_anchor_quote(node: dict[str, Any] | None) -> str:
+    """The source sentence ``node`` was anchored to — "" when it had none.
+
+    The same row ``services/audit_summary._anchoring_quote`` reads: the first
+    provenance row carrying an ``extracted_quote``.
+    """
+    for row in (node or {}).get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return str(row["extracted_quote"]).strip()
+    return ""
+
+
+def _entailment_record(node: dict[str, Any] | None) -> dict[str, Any]:
+    """``node.meta.provenance.entailment`` — {} when the claim was never checked."""
+    meta = (node or {}).get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    record = prov.get("entailment") if isinstance(prov, dict) else None
+    return record if isinstance(record, dict) else {}
+
+
+def resolve_findings_on_rewrite(
+    rewritten: dict[str, Any],
+    previous: dict[str, Any] | None,
+    *,
+    revision_id: str,
+    version: int | None,
+    mutation_type: str,
+    resolved_at: str | None = None,
+) -> dict[str, Any]:
+    """Carry ``previous``'s findings onto the node this revision rewrote.
+
+    A finding is evidence about the paragraph it was raised on, and remediating
+    that paragraph used to destroy the evidence: the rewritten node replaced the
+    convicted one wholesale, so the finding, the node's annotations and its
+    citations all went with it and the document read as one that never had a
+    finding. The one moment the system should record most carefully is when a
+    human acts on its own warning.
+
+    So the finding survives the rewrite, ``resolved``, naming the revision that
+    closed it and how ("surgical_rewrite") — and carrying the evidence it was
+    raised against: the source sentence the paragraph was anchored to and the
+    entailment verdict it was given. The rewritten paragraph keeps none of that
+    on itself (its quotes are not copied over: text that inherited its
+    predecessor's citations would read as anchored to sentences it was never
+    matched against), so ``prior_*`` here is the only record of what was wrong,
+    and the paragraph's own ``unanchored`` state stays true and visible.
+
+    A finding already closed — dismissed, or resolved by an earlier revision — is
+    carried as it stands; a rewrite does not re-close it. Entries on
+    ``rewritten`` that are new (a fresh audit folded in after the rewrite) are
+    kept after the carried ones.
+
+    ``extra="ignore"`` on the annotation model means every field written here has
+    to be declared on ``JDFRedhatAnnotation`` or it is dropped on the way to
+    SQLite.
+    """
+    carried_source = list((previous or {}).get("annotations", {}).get("redhat") or [])
+    if not carried_source:
+        return copy.deepcopy(rewritten)
+
+    if not resolved_at:
+        resolved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    previous_ids = {str(f.get("id") or "") for f in carried_source if isinstance(f, dict)}
+    node = copy.deepcopy(rewritten)
+    fresh = [
+        f
+        for f in ((node.get("annotations") or {}).get("redhat") or [])
+        if str(f.get("id") or "") not in previous_ids
+    ]
+
+    anchor_quote = _first_anchor_quote(previous)
+    entailment = _entailment_record(previous)
+    carried: list[dict[str, Any]] = []
+    for finding in carried_source:
+        if not isinstance(finding, dict):
+            continue
+        item = copy.deepcopy(finding)
+        if str(item.get("status") or "open") == "open":
+            item["status"] = "resolved"
+            item["resolved_by_revision_id"] = revision_id
+            item["resolved_by_version"] = version
+            item["resolved_by_mutation_type"] = mutation_type
+            item["resolved_at"] = resolved_at
+            item["prior_anchor_quote"] = anchor_quote
+            item["prior_verdict"] = str(entailment.get("verdict") or "")
+            item["prior_contradicted"] = bool(entailment.get("contradicted"))
+        carried.append(item)
+
+    node = _ensure_annotations(node)
+    node["annotations"]["redhat"] = carried + fresh
+    return node
+
+
 def attach_z3_annotation(
     tree: dict[str, Any],
     node_id: str,
@@ -768,8 +905,21 @@ def apply_redhat_critiques_to_tree(
     *,
     target_node_id: str | None = None,
 ) -> dict[str, Any]:
-    """Attach Red-Hat text to ``annotations.redhat`` on target node(s)."""
+    """Attach Red-Hat text to ``annotations.redhat`` on target node(s).
+
+    An entry with ``status == "error"`` is not a finding — it is a refusal or a
+    model failure — and is never attached: a paragraph carrying one would show a
+    review that no review produced.
+    """
     if not critiques:
+        return tree
+    texts = [
+        str(crit.get("content") or crit.get("text") or "").strip()
+        for crit in critiques
+        if str(crit.get("status") or "") != "error"
+    ]
+    texts = [text for text in texts if text]
+    if not texts:
         return tree
     mutated = copy.deepcopy(tree)
     node_id = target_node_id
@@ -778,10 +928,8 @@ def apply_redhat_critiques_to_tree(
         node_id = str(nodes[0]["id"]) if nodes else None
     if not node_id:
         return mutated
-    for crit in critiques:
-        text = str(crit.get("content") or crit.get("text") or "").strip()
-        if text:
-            mutated, _ = attach_redhat_annotation(mutated, node_id, text)
+    for text in texts:
+        mutated, _ = attach_redhat_annotation(mutated, node_id, text)
     return mutated
 
 
@@ -801,7 +949,24 @@ def _numeric_string_forms(value: float) -> list[str]:
 def _tokenize(text):
     import re
 
-    text = re.sub(r"[^\w\s]", " ", str(text or "").lower())
+    raw = str(text or "")
+
+    def _money_tok(m):
+        v = m.group(1).replace(",", "")
+        try:
+            f = float(v)
+        except ValueError:
+            return " money" + v + " "
+        return " money%d " % int(f) if f == int(f) else " money%s " % f
+
+    raw = re.sub(r"\$\s*(\d[\d,]*(?:\.\d+)?)", _money_tok, raw)
+    raw = re.sub(
+        r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b)",
+        lambda m: " pct" + m.group(1).replace(",", "").rstrip(".") + " ",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"[^\w\s]", " ", raw.lower())
     STOP = {
         "a",
         "an",
@@ -962,6 +1127,53 @@ def _numbers(text: str) -> set[str]:
     return out
 
 
+def _merge_short_sentences(sentences):
+    """Fold a sentence below the overlap floor into the sentence that follows it.
+
+    `_split_sentences` splits on newlines as well as on sentence punctuation, so
+    a *line* of the document is a sentence to the rest of this module — including
+    the lines that are not prose: a heading, a `Jurisdiction: Massachusetts`-style
+    label, a reference-list fragment, a run of citation numbers. Judged on its
+    own, each falls below `_MIN_ANCHOR_OVERLAP` and the eligible filter discarded
+    it outright. Two things then went wrong at once: a claim whose only evidence
+    was such a line could never anchor to it, and the line could never contribute
+    its tokens to a window either, so a heading that a paragraph plainly quotes
+    was invisible to the match.
+
+    Merging keeps the text instead of dropping it. A short sentence joins the
+    next one, and the pair is judged on the union of their tokens; if that still
+    falls short, the next sentence joins too. A sentence already at or above the
+    floor is emitted on its own, exactly as before — so this changes nothing for
+    prose, and rescues the lines that had been thrown away.
+
+    The merge is forward-only and a trailing short run has nothing to join: it is
+    kept whole rather than discarded, and the floor still judges it.
+    """
+    out = []
+    pending = []
+    for sent, page in sentences:
+        text = str(sent or "").strip()
+        if not text:
+            continue
+        pending.append((text, page))
+        joined = " ".join(part for part, _page in pending)
+        if len(_tokenize(joined)) < _MIN_ANCHOR_OVERLAP:
+            continue
+        out.append((joined, _first_page(pending)))
+        pending = []
+    if pending:
+        out.append((" ".join(part for part, _page in pending), _first_page(pending)))
+    return out
+
+
+def _first_page(pending):
+    """The first real page number in a merged run, so a window keeps a citable page."""
+    for _text, page in pending:
+        if page is not None:
+            return page
+    return None
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],
@@ -991,17 +1203,31 @@ def attach_substrate_provenance_to_tree(
     for row in substrate_rows:
         text = str(row.get("extracted_text") or "")
         eligible = []
-        for sent, sent_page in _split_sentences(text):
+        # Every sentence in order with its own figures, so a window's figure set
+        # can include short neighbours that carry a figure but too few content
+        # tokens to anchor on their own. A real policy's declarations line splits
+        # into fragments like "$5,000,000 Part of $25,000,000 per Occurrence", and
+        # dropping the short ones made their figures unmatchable by ANY claim —
+        # which is how every real policy anchored zero paragraphs.
+        all_sentences: list[tuple[set, Any]] = []
+        for sent, sent_page in _merge_short_sentences(_split_sentences(text)):
             toks = _tokenize(sent)
+            idx = len(all_sentences)
+            all_sentences.append((_numbers(sent), sent_page))
             if len(toks) >= _MIN_ANCHOR_OVERLAP:
-                eligible.append((sent, toks, sent_page, _numbers(sent)))
+                eligible.append((sent, toks, sent_page, _numbers(sent), idx))
         for start in range(len(eligible)):
             window_toks: set = set()
             window_numbers: set = set()
             for end in range(start, min(start + _MAX_ANCHOR_WINDOW, len(eligible))):
-                _sent, sent_toks, _page, sent_numbers = eligible[end]
+                _sent, sent_toks, _page, sent_numbers, _idx = eligible[end]
                 window_toks = window_toks | sent_toks
                 window_numbers = window_numbers | sent_numbers
+                # The window's figures are those of every sentence it SPANS, not
+                # only the eligible ones — a figure the window carries is
+                # vouched for however short the sentence that states it.
+                for k in range(eligible[start][4], eligible[end][4] + 1):
+                    window_numbers = window_numbers | all_sentences[k][0]
                 source_sentences.append(
                     (
                         row,
@@ -1068,7 +1294,7 @@ def attach_substrate_provenance_to_tree(
         # in a field the Evidence pane presents as one.
         best_sent = ""
         best_sent_score = 0.0
-        for sent, sent_toks, _sent_page, _sent_numbers in best_window_sentences:
+        for sent, sent_toks, _sent_page, _sent_numbers, _sent_idx in best_window_sentences:
             inter = len(content_toks & sent_toks)
             if inter < _MIN_ANCHOR_OVERLAP:
                 continue
@@ -1127,6 +1353,7 @@ __all__ = [
     "JDFRedhatAnnotation",
     "JDFZ3Annotation",
     "attach_redhat_annotation",
+    "resolve_findings_on_rewrite",
     "attach_z3_annotation",
     "build_document_from_draft",
     "draft_text_to_sections",

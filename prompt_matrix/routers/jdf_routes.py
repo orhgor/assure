@@ -33,6 +33,7 @@ try:
         parse_document,
         splice_node,
     )
+    from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -59,6 +60,7 @@ except ImportError:
         parse_document,
         splice_node,
     )
+    from services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -136,6 +138,46 @@ def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     return tree
 
 
+def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
+    """Serve every provenance row with its page under ``page_number``.
+
+    A cited row is stamped ``{extracted_quote, source_name, page, cited_id}``
+    (``routers/draft.py:attach_citations_to_tree``) — the page under the name the
+    substrate rows use — while the matcher's rows and every reader on this side
+    (the Evidence pane, the JDF canvas, the source list, the .docx export) read
+    ``page_number``. ``models.jdf.JDFProvenance`` keeps both names, so a served
+    row may carry either, and a reader would otherwise have to know the alias.
+    The read path settles it once, here, in place on the document this response is
+    built from: ``fetch_latest_jdf_or_empty`` decodes a fresh copy per call and
+    nothing is written back to SQLite.
+
+    The fold converts to ``page_number``'s declared type — a ``str`` — because the
+    two names do not agree on one: ``page`` is the substrate row's ``int``
+    (``models.jdf.JDFProvenance.page``) while ``page_number`` is the matcher's
+    ``str``. Serving the int verbatim made this response unparseable by the model
+    it was serialised from, so every route that takes the shell's own document
+    back refused it before a model was called — measured on the demo project:
+    ``parse_document`` raised 180 validation errors (one per provenance row) and
+    the room's own "Run Red-Hat" answered ``Invalid document: 180 validation
+    errors``. A display fold must not cross a type boundary: whatever this
+    function serves has to round-trip through ``parse_document``.
+    """
+    for section in document.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        for node in (section, *(section.get("children") or [])):
+            if not isinstance(node, dict):
+                continue
+            for row in node.get("provenance") or []:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("page_number") in (None, ""):
+                    page = row.get("page")
+                    if page not in (None, ""):
+                        row["page_number"] = str(page)
+    return document
+
+
 def register_jdf_routes(app) -> None:
     @app.get("/api/projects/<project_id>/history")
     @project_ownership_required
@@ -192,14 +234,16 @@ def register_jdf_routes(app) -> None:
             if include_omp:
                 omp_artifact_ids = get_omp_linkages_for_revision(f"rev-{project_id}-{version}")
                 doc["ompArtifactIds"] = omp_artifact_ids
-            return jsonify({"ok": True, "document": doc, "version": version})
+            return jsonify(
+                {"ok": True, "document": _serve_citation_rows(doc), "version": version}
+            )
 
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
         if include_omp:
             doc["ompArtifactIds"] = doc.get("ompArtifactIds") or doc.get("meta", {}).get("ompArtifactIds") or []
-        return jsonify({"ok": True, "document": doc})
+        return jsonify({"ok": True, "document": _serve_citation_rows(doc)})
 
     @app.get("/api/projects/<project_id>/omp")
     @project_ownership_required
@@ -310,6 +354,85 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             raise
+
+    @app.post("/api/projects/<project_id>/import-jdf")
+    @project_ownership_required
+    def import_project_jdf(project_id: str):
+        """Load a exported ``.jdf`` (or a bare JDF tree) into a project.
+
+        This is the other half of the export: the file a reader took away has to
+        come back as the document that was exported, with its verification state
+        and its anchors, or "nothing locks you in" is a slogan. The response
+        carries ``round_trip`` — the document hash against the one the sidecar
+        declared, every anchor resolved against the manifest the file brought with
+        it, and the per-state node counts — so a document that lost an anchor
+        fails a number here instead of failing silently in a reader's hands.
+        """
+        request_id = str(uuid.uuid4())
+        start_time = time.perf_counter()
+        audit = get_audit_logger()
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Provide the .jdf as a JSON body."}), 400
+        source = sidecar_document(payload)
+        if not isinstance(source.get("body"), list) or not source.get("body"):
+            return jsonify({"ok": False, "error": "JDF body is missing or empty."}), 400
+        try:
+            tree = sanitize_jdf_node(
+                parse_document(
+                    {
+                        "document_id": str(source.get("document_id") or f"doc-{project_id}"),
+                        "meta": dict(source.get("meta") or {}),
+                        "truth_ledger": dict(source.get("truth_ledger") or {}),
+                        "body": source.get("body") or [],
+                    }
+                ).model_dump(mode="json")
+            )
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_exception(
+                request_id, project_id, "JDF_IMPORT", exc, duration_ms=duration_ms
+            )
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+        report = audit_jdf_payload(
+            {
+                "format": payload.get("format"),
+                "document_sha256": payload.get("document_sha256"),
+                "source_manifest": payload.get("source_manifest"),
+                "document": tree,
+            }
+        )
+        try:
+            result = save_jdf_revision(
+                project_id,
+                tree,
+                mutation_type="JDF_IMPORT",
+                change_summary=(
+                    f"Imported JDF ({report['anchors_resolved']}/{report['anchors_total']} "
+                    "anchors resolved)"
+                ),
+            )
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_exception(
+                request_id, project_id, "JDF_IMPORT", exc, duration_ms=duration_ms
+            )
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        audit.log_audit(
+            request_id,
+            project_id,
+            "JDF_IMPORT",
+            success=True,
+            duration_ms=duration_ms,
+            details={
+                "anchors_total": report["anchors_total"],
+                "anchors_resolved": report["anchors_resolved"],
+                "document_sha256_matches": report["document_sha256_matches"],
+            },
+        )
+        return jsonify({**result, "ok": True, "round_trip": report})
 
     @app.post("/api/projects/<project_id>/import-pdf")
     @project_ownership_required

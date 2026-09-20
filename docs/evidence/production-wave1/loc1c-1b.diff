@@ -1,0 +1,186 @@
+--- prototype/shell.js (before 1B)
++++ prototype/shell.js (after 1B: map, mark, top-align, overlay collapse)
+@@ -1530,6 +1530,12 @@
+       var wrapper = document.createElement("div");
+       wrapper.className = "jdf-node";
+       if (node.id) wrapper.setAttribute("data-node-id", node.id);
++      // The audit map is part of the document, not of the pane: a paragraph
++      // carrying a finding keeps its `--contradicted` left rule at rest, so the
++      // audit is visible without opening anything. renderJdfNode is the only
++      // place a wrapper is built, so every path — first paint, a re-render, a
++      // version jump — takes the class from here.
++      if (_nodeHasFindings(node)) wrapper.classList.add("has-finding");
+       var el = null;
+       if (node.type === "section") {
+         el = document.createElement("h2");
+@@ -2249,14 +2255,89 @@
+     // The locator. A finding names the paragraph it is about (`node_id` on the
+     // annotation, written by models/jdf.py:attach_redhat_annotation), so acting
+     // on one puts that paragraph on screen: the caller writes the selection,
+-    // which paints .is-selected, and this brings the node into view. Scrolling
+-    // lives here rather than in the selection writer because selecting a
+-    // paragraph by clicking it should not move the document under the reader.
+-    function _scrollToNode(nodeId) {
+-      if (!nodeId || !draftEl) return;
+-      var wrapper = draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
++    // which paints .is-selected, and this brings the node into view and marks
++    // it for 2.4 s with the `--contradicted` rule (.jdf-node.is-located,
++    // shell.css) so the eye lands on the paragraph rather than at the end of a
++    // scroll. Scrolling lives here rather than in the selection writer because
++    // selecting a paragraph by clicking it should not move the document under
++    // the reader.
++    //
++    // The mark is transient because at rest a paragraph that carries a finding
++    // already keeps the same rule (.has-finding): what the click has to add is
++    // "this one, now", and a third permanent state would say nothing the map
++    // does not. One mark at a time — a second click moves it rather than
++    // stacking.
++    var LOCATE_MARK_MS = 2400;
++    var __locateMarkTimer = null;
++    var __locatedNodeEl = null;
++    function _nodeWrapper(nodeId) {
++      if (!nodeId || !draftEl) return null;
++      return draftEl.querySelector('.jdf-node[data-node-id="' + nodeId + '"]');
++    }
++    // A paragraph carries a finding when one is placed on it: every finding in
++    // the box lives in `annotations.redhat` of the node its audit ran on, and
++    // carries that node's id from this release onward.
++    function _nodeHasFindings(node) {
++      var f = node && node.annotations && node.annotations.redhat;
++      return Boolean(f && f.length);
++    }
++    function _markLocated(el) {
++      if (__locateMarkTimer) { clearTimeout(__locateMarkTimer); __locateMarkTimer = null; }
++      if (__locatedNodeEl && __locatedNodeEl !== el) {
++        __locatedNodeEl.classList.remove("is-located");
++        __locatedNodeEl = null;
++      }
++      __locatedNodeEl = el;
++      el.classList.add("is-located");
++      __locateMarkTimer = setTimeout(function () {
++        __locateMarkTimer = null;
++        if (__locatedNodeEl) {
++          __locatedNodeEl.classList.remove("is-located");
++          __locatedNodeEl = null;
++        }
++      }, LOCATE_MARK_MS);
++    }
++    function _locateNode(nodeId) {
++      var wrapper = _nodeWrapper(nodeId);
+       if (!wrapper) return;
+-      try { wrapper.scrollIntoView({ block: "center" }); } catch (_) {}
++      // Align the paragraph's top with the top of the visible area, not its
++      // centre: an audit reads downward from the paragraph it was sent to, and
++      // a centred paragraph leaves the rest of the finding's prose below the
++      // fold. `start` is the scroller's own edge, so no magic offset.
++      try { wrapper.scrollIntoView({ block: "start" }); } catch (_) {}
++      _markLocated(wrapper);
++      _collapseOverlayRightPane();
++    }
++    // Landing on the paragraph is only half of showing it. Below the shell's own
++    // overlay breakpoint the right pane is a drawer lying over the document
++    // (shell.css: .pane-right is position:absolute in the <=900px block), so a
++    // marked paragraph can be behind it — at 375px the drawer is 320px wide on a
++    // 375px viewport and the paragraph's own centre sits under it. In that mode
++    // the pane is collapsed, through the shell's own state path so its state and
++    // the screen cannot disagree, and only AFTER the mark: LOCATE_MARK_MS (2400)
++    // runs far past the drawer's 200ms transition, so the paragraph is on screen
++    // and marked for the rest of the flash. Above the breakpoint the pane is a
++    // track beside the document and nothing is collapsed.
++    //
++    // Overlay mode is read from the pane's own computed position, never from a
++    // width repeated here: the media query in shell.css stays the single
++    // declaration of where the breakpoint is, and if it moves this follows. The
++    // reader re-opens the pane from the rail; the locator does not re-open it.
++    //
++    // INTERIM — this is a stopgap, not the fix, and it is named here so it does
++    // not become the design by default. The collapse solves the occlusion by
++    // hiding the finding the reader just clicked to read, which is exactly the
++    // thing they asked to see. The replacement is a bottom sheet below 640px
++    // (peek/half/full snap points, drag handle, keyboard and screen-reader
++    // affordances); it is deferred, not forgotten — docs/deferred.md, "Evidence
++    // pane as a bottom sheet below 640px". Until that lands this keeps the
++    // marked paragraph visible at the width where the overlay would cover it.
++    function _collapseOverlayRightPane() {
++      var pane = _rightPane();
++      if (!pane || SHELL.ui.layout.rightCollapsed) return;
++      var overlay = false;
++      try { overlay = getComputedStyle(pane).position === "absolute"; } catch (_) {}
++      if (overlay) setShell("ui.layout.rightCollapsed", true);
+     }
+     function _handleRephraseFrame(frame, cb) {
+       if (!frame) return;
+@@ -4803,7 +4884,7 @@
+         if (!node.annotations || !node.annotations.redhat || !node.annotations.redhat[index]) return;
+         setShell("ui.selection.nodeId", nodeId);
+         setShell("ui.rightTab", "redhat");
+-        _scrollToNode(nodeId);
++        _locateNode(nodeId);
+         return;
+       }
+       var evidence = null;
+@@ -5096,9 +5177,13 @@
+             li.title = "Rephrase this paragraph with this finding";
+             li.addEventListener("click", function () {
+               if (!node || !node.id) return;
+-              setShell("ui.selection.nodeId", node.id);
+-              _attachNodeRephrase(node.id, text);
+-              _scrollToNode(node.id);
++              // The paragraph the finding names, when it is still on screen;
++              // the node it is placed on otherwise (findings written before
++              // `node_id` existed carry only their placement).
++              var target = _nodeWrapper(r.node_id) ? r.node_id : node.id;
++              setShell("ui.selection.nodeId", target);
++              _attachNodeRephrase(target, text);
++              _locateNode(target);
+             });
+           }
+           list.appendChild(li);
+
+--- prototype/shell.css (before 1B)
++++ prototype/shell.css (after 1B)
+@@ -40,6 +40,9 @@
+   --hover-wash:  color-mix(in srgb, var(--ink) 5%, transparent);
+   --soft-wash:   color-mix(in srgb, var(--ink) 3%, transparent);
+   --focus-ring:  0 0 0 2px color-mix(in srgb, var(--ink) 22%, transparent);
++  /* The locator's landing wash (shell.js:_markLocated): the same hue the rule
++     beside it is drawn in, faint enough to sit under body text. */
++  --contradicted-wash: color-mix(in srgb, var(--contradicted) 10%, transparent);
+ 
+   /* type scale (Phase B) — document is serif, chrome is sans, data is mono */
+   --fs-h1: 24px;   /* document headings */
+@@ -1876,11 +1879,34 @@
+   color: var(--ink);
+ }
+ 
++/* The audit map (1B): a paragraph that carries a Red-Hat finding keeps the
++   `--contradicted` left rule at rest, so which paragraphs the audit touched is
++   visible with the pane shut. Same geometry as .is-selected below — the rule
++   takes the place of the margin, so the text never moves — and .is-selected
++   still wins the border, because that one is the reader's own selection while
++   this is the document's own annotation. */
++.jdf-node.has-finding {
++  border-left: 2px solid var(--contradicted);
++  margin-left: -4px;
++  padding-left: var(--space-3);
++}
++
+ .jdf-node.is-selected {
+   border-left: 2px solid var(--ink);
+   background: var(--soft-wash);
+   margin-left: -4px;
+   padding-left: var(--space-3);
++}
++
++/* Where the locator lands (shell.js:_locateNode): the paragraph a finding
++   names, marked for 2.4 s. The wash is what makes the mark readable on exactly
++   the paragraphs the reader clicks — those already carry the at-rest rule, so
++   the rule alone would be a no-op. It outranks .is-selected because the click
++   writes a selection in the same turn. */
++.jdf-node.is-located,
++.jdf-node.is-located.is-selected {
++  border-left: 2px solid var(--contradicted);
++  background: var(--contradicted-wash);
+ }
+ 
+ .inspector-node-history {

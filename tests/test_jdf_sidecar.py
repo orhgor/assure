@@ -1,0 +1,432 @@
+"""The JDF sidecar and its round trip.
+
+Two contracts, both observable from outside the app:
+
+* ``GET /api/projects/<id>/export?format=jdf`` serves the document AND what the
+  compile decided about it — per-node provenance, each node's verification state,
+  the source manifest, the version chain, the drafting model. A reader who takes
+  the file away can re-derive every anchor without Assure.
+* ``POST /api/projects/<id>/import-jdf`` into a fresh project preserves that: the
+  document hashes to the exported one, every anchor still resolves (against the
+  manifest the file carries), and the verification states and entailment verdicts
+  are unchanged. A sidecar that reproduces the prose but loses the anchors has
+  failed the promise the export exists to keep.
+
+No model call: the tree is seeded through ``PUT /jdf`` with the provenance rows a
+compile would have written.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import zipfile
+
+import pytest
+
+from prompt_matrix.db.jdf_repository import ensure_project, save_jdf_revision
+from prompt_matrix.db.substrate_repository import save_substrate_entry
+from prompt_matrix.services.jdf_sidecar import SIDECAR_FORMAT, audit_jdf_payload
+from prompt_matrix.web import create_app
+
+SRC_ID = "sub-sidecartest0001"
+SOURCE = (
+    "## 3 Wind and hail deductible\n"
+    "For coastal and high-wind exposure zones (Suffolk, Norfolk, Essex counties), the wind/hail "
+    "deductible is 2 percent of insured value at each location.\n"
+    "## 2 General liability\n"
+    "The maximum general liability per occurrence is $2,000,000 unless a senior underwriter "
+    "approves a documented exception.\n"
+)
+CLAIM = (
+    "For properties in coastal and high-wind exposure zones — Suffolk, Norfolk, and Essex "
+    "counties — the wind and hail deductible is 2 percent of the insured value at each location."
+)
+ANCHOR_QUOTE = (
+    "For coastal and high-wind exposure zones (Suffolk, Norfolk, Essex counties), the wind/hail "
+    "deductible is 2 percent of insured value at each location."
+)
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "sidecar.db"))
+    monkeypatch.setenv("ASSURE_JDF_DIR", str(tmp_path / "jdf"))
+    monkeypatch.setenv("SQLITE_USE_POOL", "0")
+    monkeypatch.delenv("ASSURE_FROZEN_PROJECTS", raising=False)
+    (tmp_path / "jdf").mkdir()
+    import prompt_matrix.history as history_mod
+
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    from prompt_matrix.db.connection import init_db
+
+    init_db()
+    app = create_app(require_auth=False)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        yield c
+
+
+def _node(node_id: str, content: str, verdict: str) -> dict:
+    return {
+        "type": "paragraph",
+        "id": node_id,
+        "content": content,
+        "entities_referenced": [],
+        "provenance": [
+            {
+                "source_type": "internal_doc",
+                "source_name": "wind-policy.md",
+                "source_id": SRC_ID,
+                "page_number": "1",
+                "extracted_quote": ANCHOR_QUOTE,
+                "anchor_window": ANCHOR_QUOTE,
+                "anchor_window_span": "1-1",
+                # What the compile stamps when it reads the model's ``[S<N>]``
+                # markers: which numbered source sentence the claim cites, and the
+                # page that sentence sits on.
+                "cited_id": "S2",
+                "page": 1,
+            }
+        ],
+        "meta": {
+            "source": "generate_draft",
+            "provenance": {
+                "source_id": SRC_ID,
+                "source_name": "wind-policy.md",
+                "page_number": 1,
+                "excerpt": content[:120],
+                "confidence": 0.92,
+                "entailment": {
+                    "verdict": verdict,
+                    "reasoning": "seeded for the round-trip contract",
+                    "model": "seed/model",
+                    "checked_at": "2026-09-18T20:00:00+00:00",
+                },
+            },
+        },
+        "annotations": {"redhat": [], "z3": []},
+    }
+
+
+TREE = {
+    "document_id": "doc-sidecar",
+    "meta": {"title": "Sidecar Round Trip", "answer_shape": "memo"},
+    "truth_ledger": {"wind_and_hail_deductible": 2.0},
+    "body": [
+        {
+            "type": "section",
+            "id": "sec-sidecar",
+            "title": "Underwriting Obligations",
+            "children": [
+                _node("para-anchored", CLAIM, "yes"),
+                {
+                    "type": "paragraph",
+                    "id": "para-unanchored",
+                    "content": "The insured must also notify the carrier within five business days.",
+                    "entities_referenced": [],
+                    "provenance": [],
+                    "meta": {"source": "generate_draft"},
+                    "annotations": {"redhat": [], "z3": []},
+                },
+            ],
+            "meta": {},
+            "annotations": {"redhat": [], "z3": []},
+        }
+    ],
+}
+
+
+def _seed_project(client, project_id: str = "sidecar-src") -> None:
+    ensure_project(project_id, "Sidecar Source")
+    save_substrate_entry(
+        project_id,
+        filename="wind-policy.md",
+        page_count=1,
+        extracted_text=SOURCE,
+        entry_id=SRC_ID,
+    )
+    res = client.put(f"/api/projects/{project_id}/jdf", json={"document": TREE, "mutation_type": "compile"})
+    assert res.status_code == 200, res.get_data(as_text=True)
+
+
+def test_sidecar_carries_verification_manifest_chain_and_model(client):
+    _seed_project(client)
+    res = client.get("/api/projects/sidecar-src/export?format=jdf")
+    assert res.status_code == 200
+    assert "vnd.assure.jdf+json" in res.headers["Content-Type"]
+    assert res.headers["Content-Disposition"].endswith('.jdf.json"')
+
+    sidecar = res.get_json()
+    assert sidecar["format"] == SIDECAR_FORMAT
+    document = sidecar["document"]
+    cited = document["body"][0]["children"][0]
+    assert cited["meta"]["provenance"]["source_id"] == SRC_ID
+    # The exported node carries the citation list a reader has to be able to act
+    # on: which numbered source sentence, from which file, on which page, and what
+    # the entailment check made of the claim.
+    assert cited["meta"]["provenance"]["cited_ids"] == ["S2"]
+    assert cited["meta"]["provenance"]["sentences"] == [
+        {"id": "S2", "text": ANCHOR_QUOTE, "filename": "wind-policy.md", "page": 1}
+    ]
+    assert cited["meta"]["provenance"]["verdict"] == "supported"
+    # Adding the citation list must not cost the record already stored on the node.
+    assert cited["meta"]["provenance"]["entailment"]["verdict"] == "yes"
+    uncited = document["body"][0]["children"][1]["meta"]["provenance"]
+    assert uncited["cited_ids"] == []
+    assert uncited["sentences"] == []
+    assert uncited["verdict"] == "unanchored"
+
+    states = {entry["node_id"]: entry["verification_state"] for entry in sidecar["nodes"]}
+    assert states["para-anchored"] == "supported"
+    assert states["para-unanchored"] == "unanchored"
+    assert sidecar["verification"]["states"]["supported"] == 1
+
+    manifest = sidecar["source_manifest"]
+    assert [row["source_id"] for row in manifest] == [SRC_ID]
+    assert manifest[0]["filename"] == "wind-policy.md"
+    assert manifest[0]["text_sha256"]
+
+    chain = sidecar["version_chain"]
+    assert chain["ordered"] == "oldest_first"
+    assert chain["revisions"][-1]["document_sha256"] == sidecar["document_sha256"]
+    assert chain["revisions"][-1]["mutation_type"] == "compile"
+
+    # No compile ran, so the model is reported as absent with its reason rather
+    # than left out or invented.
+    assert sidecar["drafting_model"]["model"] is None
+    assert sidecar["drafting_model"]["reason"]
+
+
+def test_sidecar_bundle_holds_the_pdf_and_the_jdf(client):
+    _seed_project(client)
+    sidecar_hash = client.get("/api/projects/sidecar-src/export?format=jdf").get_json()["document_sha256"]
+    res = client.get("/api/projects/sidecar-src/export?format=bundle")
+    assert res.status_code == 200
+    assert res.headers["Content-Type"] == "application/zip"
+    archive = zipfile.ZipFile(io.BytesIO(res.data))
+    names = archive.namelist()
+    assert len(names) == 2
+    assert any(name.endswith("-dossier.pdf") for name in names)
+    inner = json.loads(archive.read([n for n in names if n.endswith(".jdf.json")][0]))
+    assert inner["format"] == SIDECAR_FORMAT
+    assert inner["document_sha256"] == sidecar_hash
+
+
+def test_round_trip_into_a_fresh_project_keeps_anchors_and_state(client):
+    _seed_project(client)
+    sidecar = client.get("/api/projects/sidecar-src/export?format=jdf").get_json()
+
+    fresh = (client.post("/api/projects", json={"title": "Round Trip Fresh"}).get_json() or {})["id"]
+    res = client.post(f"/api/projects/{fresh}/import-jdf", json=sidecar)
+    assert res.status_code == 200, res.get_data(as_text=True)
+    report = res.get_json()["round_trip"]
+
+    assert report["document_sha256_matches"] is True
+    assert report["anchors_total"] == 1
+    assert report["anchors_resolved"] == 1
+    assert report["anchors_unresolved"] == []
+    assert report["verification_states"]["supported"] == 1
+    assert report["verification_states"]["unanchored"] == 1
+    assert report["entailment_verdicts"] == {"yes": 1}
+
+    loaded = client.get(f"/api/projects/{fresh}/jdf").get_json()["document"]
+    node = loaded["body"][0]["children"][0]
+    assert node["provenance"][0]["source_id"] == SRC_ID
+    assert node["provenance"][0]["extracted_quote"] == (
+        TREE["body"][0]["children"][0]["provenance"][0]["extracted_quote"]
+    )
+    assert node["meta"]["provenance"]["entailment"]["verdict"] == "yes"
+    # The citation the file carried in is what the fresh project renders from: the
+    # source sentence's id and page survive the load, not just its text.
+    assert node["provenance"][0]["cited_id"] == "S2"
+    assert node["provenance"][0]["page"] == 1
+    assert node["meta"]["provenance"]["cited_ids"] == ["S2"]
+    assert node["meta"]["provenance"]["sentences"] == [
+        {"id": "S2", "text": ANCHOR_QUOTE, "filename": "wind-policy.md", "page": 1}
+    ]
+    assert node["meta"]["provenance"]["verdict"] == "supported"
+    assert loaded["meta"]["answer_shape"] == "memo"
+
+
+def test_round_trip_keeps_text_that_carries_no_markup(client):
+    """A bare ``&`` and a bare ``<`` are data, and the load path leaves them alone.
+
+    The compile writes model text to the revision without the HTML guard, so an
+    exported memo can contain "&" and "<" as ordinary characters. Loading it must
+    not escape the first or strip the second: the escape made a real renewal memo's
+    export hash differently from the tree the import produced, and put "&amp;" in
+    the served text and the .docx/.markdown exports.
+    """
+    ensure_project("amp-src", "Ampersand Source")
+    content = (
+        "Issued by Princeton Excess & Surplus Lines Insurance Company; sublimit "
+        "$500,000 x/s $10,000,000 per occurrence, premium < $1,000,000."
+    )
+    save_jdf_revision(
+        "amp-src",
+        {
+            "document_id": "doc-amp",
+            "meta": {"title": "Ampersand"},
+            "truth_ledger": {},
+            "body": [
+                {
+                    "type": "section",
+                    "id": "sec-amp",
+                    "title": "Renewal",
+                    "meta": {},
+                    "annotations": {"redhat": [], "z3": []},
+                    "children": [
+                        {
+                            "type": "paragraph",
+                            "id": "para-amp",
+                            "content": content,
+                            "entities_referenced": [],
+                            "provenance": [],
+                            "meta": {},
+                            "annotations": {"redhat": [], "z3": []},
+                        }
+                    ],
+                }
+            ],
+        },
+        mutation_type="compile",
+    )
+    sidecar = client.get("/api/projects/amp-src/export?format=jdf").get_json()
+    exported = sidecar["document"]["body"][0]["children"][0]["content"]
+    assert exported == content
+    assert "&amp;" not in exported
+
+    fresh = (client.post("/api/projects", json={"title": "Amp Fresh"}).get_json() or {})["id"]
+    res = client.post(f"/api/projects/{fresh}/import-jdf", json=sidecar)
+    assert res.status_code == 200, res.get_data(as_text=True)
+    assert res.get_json()["round_trip"]["document_sha256_matches"] is True
+    loaded = client.get(f"/api/projects/{fresh}/jdf").get_json()["document"]
+    assert loaded["body"][0]["children"][0]["content"] == content
+
+
+def test_round_trip_reports_an_anchor_whose_source_is_not_in_the_manifest(client):
+    """A stripped manifest must read as unresolved, not as a clean import."""
+    _seed_project(client)
+    sidecar = client.get("/api/projects/sidecar-src/export?format=jdf").get_json()
+    sidecar["source_manifest"] = []
+
+    report = audit_jdf_payload(sidecar)
+    assert report["anchors_total"] == 1
+    assert report["anchors_resolved"] == 0
+    assert report["anchors_unresolved"] == [
+        {"node_id": "para-anchored", "source_id": SRC_ID, "source_name": "wind-policy.md"}
+    ]
+
+
+def test_a_cited_anchor_resolves_by_the_file_it_names(client):
+    """The compile's citation rows name a file, not a vault id, and still resolve.
+
+    Resolving on ``source_id`` alone reported a compiled policy — every row of it
+    carrying an empty id and its source's filename — as a document that had lost
+    all of its anchors.
+    """
+    _seed_project(client)
+    sidecar = client.get("/api/projects/sidecar-src/export?format=jdf").get_json()
+    node = sidecar["document"]["body"][0]["children"][0]
+    node["provenance"] = [
+        {
+            "source_type": "internal_doc",
+            "source_name": "wind-policy.md",
+            "extracted_quote": ANCHOR_QUOTE,
+            "cited_id": "S2",
+            "page": 1,
+        }
+    ]
+
+    report = audit_jdf_payload(sidecar)
+    assert report["anchors_total"] == 1
+    assert report["anchors_resolved"] == 1
+    assert report["anchors_unresolved"] == []
+
+
+def test_frozen_project_refuses_a_cold_compile_and_allows_a_warm_one(client, monkeypatch):
+    """The demo's document is a pinned artifact: cold means refused, warm means replayed."""
+    monkeypatch.setenv("ASSURE_FROZEN_PROJECTS", "sidecar-frozen")
+    from prompt_matrix.routers.draft import frozen_cold_compile_blocked, frozen_projects
+
+    assert frozen_projects() == {"sidecar-frozen"}
+    assert frozen_cold_compile_blocked(project_id="sidecar-frozen", cached_hit=False)
+    assert frozen_cold_compile_blocked(project_id="sidecar-frozen", cached_hit=True) == ""
+    assert frozen_cold_compile_blocked(project_id="sidecar-frozen", cached_hit=False, force=True) == ""
+    assert frozen_cold_compile_blocked(project_id="sidecar-other", cached_hit=False) == ""
+
+    ensure_project("sidecar-frozen", "Frozen")
+    save_substrate_entry(
+        "sidecar-frozen",
+        filename="wind-policy.md",
+        page_count=1,
+        extracted_text=SOURCE,
+        entry_id="sub-sidecarfrozen01",
+    )
+    res = client.post(
+        "/api/projects/sidecar-frozen/draft/stream",
+        json={"intent": "Summarize the coverage limits", "substrate_file_ids": ["sub-sidecarfrozen01"]},
+    )
+    body = res.get_data(as_text=True)
+    assert "frozen_project_cold_compile" in body
+    assert "frozen document" in body
+
+
+def test_source_manifest_reports_what_the_compile_carried(client, monkeypatch):
+    """The dossier must not claim sources the compile never carried.
+
+    The prompt cannot hold every attached source — the numbering walk stops at the
+    first block that would pass the context cap. Measured on the deployed box
+    (`fv-v3-twenty-1789808891-21a860`): 24 sources attached, 18 numbered into the
+    prompt, and the manifest listed all 24 as ``included`` with a hash of each
+    file's full text. The cap is lowered here rather than uploading 500k characters.
+    """
+    from prompt_matrix.services import source_carry
+    from prompt_matrix.services.source_carry import numbered_source_blocks
+
+    # The cap is derived from the block the walk actually emits (the fenced block,
+    # numbered sentences and all) so two sources fit and the third does not —
+    # rather than hardcoded against a block size that changes with the framing.
+    block = len(
+        numbered_source_blocks(
+            [
+                {
+                    "id": "sub-carry-1",
+                    "filename": "policy-1.md",
+                    "extracted_text": "Clause 1. The limit is 5,000,000 dollars for each occurrence.",
+                    "page_number": 1,
+                }
+            ]
+        )[0][0]
+    )
+    monkeypatch.setattr(source_carry, "SUBSTRATE_CONTEXT_CHARS_TOTAL", block * 2)
+    ensure_project("sidecar-carry", "Carry")
+    for index in range(1, 5):
+        save_substrate_entry(
+            "sidecar-carry",
+            filename=f"policy-{index}.md",
+            page_count=1,
+            extracted_text=f"Clause {index}. The limit is 5,000,000 dollars for each occurrence.",
+            entry_id=f"sub-carry-{index}",
+        )
+    res = client.put(
+        "/api/projects/sidecar-carry/jdf",
+        json={"document": TREE, "mutation_type": "compile"},
+    )
+    assert res.status_code == 200, res.get_data(as_text=True)
+
+    sidecar = client.get("/api/projects/sidecar-carry/export?format=jdf").get_json()
+    carry = sidecar["source_carry"]
+    assert carry["attached"] == 4
+    assert (carry["carried"], carry["dropped"]) == (2, 2), carry
+    carried = [row for row in sidecar["source_manifest"] if row["included"]]
+    dropped = [row for row in sidecar["source_manifest"] if not row["included"]]
+    assert len(carried) == 2 and len(dropped) == 2
+    # A carried source states how much of it reached the model and hashes that text.
+    assert all(row["chars"] > 0 and row["text_sha256"] for row in carried)
+    # A dropped source says why, and does not offer a hash of text never seen.
+    assert all(row["dropped_reason"] and row["text_sha256"] == "" for row in dropped)
+    # The reader's own toggle is not the compile's answer.
+    assert all(row["included_by_user"] for row in sidecar["source_manifest"])
+    assert carry["derived"] is True  # no gate block recorded a selection here

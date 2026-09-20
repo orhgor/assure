@@ -53,6 +53,20 @@ def last_completion_meta() -> CompletionMeta:
     return _last_meta.get() or CompletionMeta()
 
 
+def completion_meta(finish_reason: Any, max_tokens: int) -> CompletionMeta:
+    """One reading of a raw ``finish_reason``, so "truncated" is defined once.
+
+    ``hit_length`` is the honest signal that a response was cut off at the
+    output ceiling: the provider's own reason, not a guess from token counts.
+    """
+    finish_s = str(finish_reason).strip() if finish_reason is not None else None
+    return CompletionMeta(
+        finish_reason=finish_s,
+        max_tokens=max_tokens,
+        hit_length=(finish_s or "").lower().replace(" ", "_") in _LENGTH_REASONS,
+    )
+
+
 def reset_completion_meta() -> None:
     _last_meta.set(None)
 
@@ -165,11 +179,7 @@ def call_model(
             from services.model_utils import extract_litellm_response_text
 
         finish = getattr(choice, "finish_reason", None)
-        finish_s = str(finish).strip() if finish is not None else None
-        hit = (finish_s or "").lower().replace(" ", "_") in _LENGTH_REASONS
-        _last_meta.set(
-            CompletionMeta(finish_reason=finish_s, max_tokens=_max_tokens, hit_length=hit)
-        )
+        _last_meta.set(completion_meta(finish, _max_tokens))
         text = extract_litellm_response_text(response)
         if not skip_guard:
             effective = locale if locale is not None else resolve_request_locale()

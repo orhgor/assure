@@ -5,11 +5,17 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
 
 import tiktoken
+
+try:
+    from .litellm_runner import CompletionMeta, completion_meta
+except ImportError:
+    from litellm_runner import CompletionMeta, completion_meta
 
 try:
     from .history import get_db
@@ -76,8 +82,13 @@ MAX_INPUT_TOKENS: dict[TaskType, int] = {
     TaskType.SURGICAL_EDIT: 2000,
     TaskType.SUMMARIZE_NODE: 2000,
     TaskType.SEMANTIC_VALIDATION: 4000,
-    TaskType.DRAFT_COMPILE: 30000,
+    TaskType.DRAFT_COMPILE: 100_000,
     TaskType.REDHAT: 8000,
+    # Only DRAFT_COMPILE was raised (it must hold two numbered policies).
+    # These two were raised alongside it on the reasoning that they carried the
+    # same 30,000, which widened the input ceiling on two task types nobody
+    # asked to change and moved the per-compile cost without anyone measuring
+    # it. They go back.
     TaskType.DEEP_SYNTHESIS: 30000,
     TaskType.MACRO_AUDIT: 30000,
 }
@@ -149,13 +160,23 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
     ),
-    # Red-Hat adversary → DeepSeek-R1 (CoT reasoning; headroom for hidden reasoning tokens)
+    # Red-Hat adversary → DeepSeek-V3 chat (non-reasoning). Was DeepSeek-R1
+    # (deepseek-reasoner) for its chain-of-thought. Measured 2026-09-19 on
+    # demo-commercial-property-2026 para-8a45837af15f: the reasoner's hidden
+    # reasoning spent the whole 8192-token output budget, `content` came back
+    # empty, and the 31,418-char reasoning channel was persisted as the finding
+    # (ledger ids 2361/2362, output_tokens=8192 on an identical 732-token
+    # prompt; a 3257-token run of the same prompt produced the real review).
+    # Same lesson as SEMANTIC_VALIDATION and DRAFT_COMPILE above: the cap is for
+    # the answer, and a reasoning model spends it before writing one. Cap
+    # unchanged — this node's answers came back at 1255 and 1436 output tokens
+    # on the chat model.
     TaskType.REDHAT: ModelPolicy(
-        model_id="deepseek/deepseek-reasoner",
+        model_id="deepseek/deepseek-chat",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
         max_output_tokens=8192,
         caching=False,
-        litellm_model="deepseek/deepseek-reasoner",
+        litellm_model="deepseek/deepseek-chat",
     ),
 }
 
@@ -371,6 +392,35 @@ class ExecutionResult:
     output_tokens: int = 0
     retries: int = 0
     model_id: str = ""
+    finish_reason: str | None = None
+    truncated: bool = False
+
+
+# The executor's return contract is a 3-tuple consumed by four other modules, so
+# the completion's own metadata travels beside it rather than in it: the
+# executor sets this and ``execute_with_retry_budget`` reads it straight back.
+# An executor that does not set it (a stub, a test double) reports no metadata,
+# which reads as "not truncated" — the same as before this existed.
+_completion_meta: ContextVar[CompletionMeta | None] = ContextVar(
+    "pem_governor_completion_meta", default=None
+)
+
+
+def answer_refusal_reason(result: ExecutionResult, task_type: TaskType) -> str | None:
+    """Why this completion cannot be used as a finding, or ``None`` if it can.
+
+    A response cut off at the output ceiling is a partial answer, and a partial
+    answer persisted as a finding reaches a client as if it were a review. The
+    reader gets a sentence naming what happened instead.
+    """
+    if not getattr(result, "truncated", False):
+        return None
+    cap = TASK_POLICIES[task_type].max_output_tokens
+    return (
+        f"The audit hit its {cap}-token output ceiling "
+        f"(finish_reason={getattr(result, 'finish_reason', None)!r}) and its "
+        "answer was cut off, so it is not a review. No finding was recorded."
+    )
 
 
 @dataclass
@@ -488,6 +538,9 @@ class CostGovernor:
                 text = "".join(part.get("text", "") for part in out if isinstance(part, dict))
                 usage = resp.get("usage") or {}
                 text = ensure_response_language(text, locale)
+                # Converse spells the ceiling "max_tokens", which the one
+                # reading in litellm_runner already counts as truncation.
+                _completion_meta.set(completion_meta(resp.get("stopReason"), max_output))
                 return (
                     text,
                     int(usage.get("inputTokens") or self.accountant.count_messages(messages)),
@@ -524,6 +577,11 @@ class CostGovernor:
                 from services.model_utils import extract_litellm_response_text
 
             text = ensure_response_language(extract_litellm_response_text(resp), locale)
+            choices = getattr(resp, "choices", None) or []
+            if choices:
+                _completion_meta.set(
+                    completion_meta(getattr(choices[0], "finish_reason", None), max_output)
+                )
             usage = getattr(resp, "usage", None)
             in_tok = int(
                 getattr(usage, "prompt_tokens", 0) or self.accountant.count_messages(messages)
@@ -550,9 +608,13 @@ class CostGovernor:
         last_error: str | None = None
         total_in = 0
         total_out = 0
+        last_meta = CompletionMeta()
 
         for attempt in range(MAX_RETRIES + 1):
+            _completion_meta.set(None)
             text, in_tok, out_tok = run(model, messages, policy.max_output_tokens, policy.caching)
+            meta = _completion_meta.get() or CompletionMeta()
+            last_meta = meta
             total_in += in_tok
             total_out += out_tok
             if not defer_budget_record:
@@ -587,6 +649,8 @@ class CostGovernor:
                         output_tokens=total_out,
                         retries=attempt,
                         model_id=policy.model_id,
+                        finish_reason=meta.finish_reason,
+                        truncated=meta.hit_length,
                     )
             node = build_node_fn(text) if build_node_fn else None
             return ExecutionResult(
@@ -598,6 +662,8 @@ class CostGovernor:
                 output_tokens=total_out,
                 retries=attempt,
                 model_id=policy.model_id,
+                finish_reason=meta.finish_reason,
+                truncated=meta.hit_length,
             )
 
         return ExecutionResult(
@@ -607,4 +673,6 @@ class CostGovernor:
             input_tokens=total_in,
             output_tokens=total_out,
             model_id=policy.model_id,
+            finish_reason=last_meta.finish_reason,
+            truncated=last_meta.hit_length,
         )

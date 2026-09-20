@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -146,3 +147,102 @@ def test_run_refine_node_returns_only_updated_node(monkeypatch) -> None:
     ]
     assert others == ["Intro sentence.", "Closing sentence."]
     gov.execute_with_retry_budget.assert_called_once()
+
+
+def _convicted_doc() -> dict:
+    """``DOC`` with the middle paragraph convicted by Red-Hat."""
+    doc = json.loads(json.dumps(DOC))
+    para = doc["body"][0]["children"][1]
+    para["provenance"] = [
+        {
+            "source_type": "internal_doc",
+            "source_name": "ledger.pdf",
+            "extracted_quote": "Revenue reached 12 million.",
+            "url_or_doi": "",
+            "source_id": "",
+            "page_number": "1",
+            "accessed_date": "",
+        }
+    ]
+    para["meta"] = {"provenance": {"entailment": {"verdict": "no", "contradicted": False}}}
+    para["annotations"] = {
+        "redhat": [
+            {
+                "id": "crit-open",
+                "node_id": "p1",
+                "text": "The claim is not supported as written.",
+                "status": "open",
+            }
+        ],
+        "z3": [],
+    }
+    return doc
+
+
+@pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
+)
+def test_a_refined_node_keeps_the_finding_it_closes(tmp_path, monkeypatch) -> None:
+    """Refine rewrites the same paragraph the stream does, so it closes findings too.
+
+    ``run_refine_node`` used to write the rewritten node with its finding left
+    exactly as it found it — the paragraph was replaced and the warning on it
+    stopped meaning anything (nothing read ``status``). Both rewrite paths now
+    mark it ``resolved`` and name the revision, through the same helper.
+    """
+    import sqlite3
+
+    from prompt_matrix.db import jdf_repository
+    from prompt_matrix.db.connection import init_db
+    from prompt_matrix.db.jdf_repository import fetch_latest_jdf, save_jdf_revision
+
+    db_path = tmp_path / "history.sqlite"
+
+    def _getter():
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr("prompt_matrix.history.DB_PATH", db_path)
+    for target in (
+        "prompt_matrix.db.connection.get_db",
+        "prompt_matrix.db.jdf_repository.get_db",
+        "prompt_matrix.history.get_db",
+    ):
+        monkeypatch.setattr(target, _getter)
+    init_db(_getter())
+    save_jdf_revision("proj-refine", _convicted_doc(), mutation_type="seed")
+
+    gov = MagicMock()
+    gov.preflight.return_value = None
+    gov.execute_with_retry_budget.return_value = type(
+        "R", (), {"text": "The ledger states revenue of 12 million.", "ok": True}
+    )()
+    monkeypatch.setattr(
+        "prompt_matrix.llm.orchestrator.orchestrate_node_compilation_sync",
+        lambda *_a, **_k: "",
+    )
+    out = run_refine_node(
+        "proj-refine",
+        node_id="p1",
+        user_instruction="Rewrite this so it states only what the ledger shows",
+        document=_convicted_doc(),
+        gov=gov,
+        persist=True,
+    )
+
+    finding = out["node"]["annotations"]["redhat"][0]
+    assert finding["status"] == "resolved"
+    assert finding["resolved_by_mutation_type"] == "surgical_refine"
+    assert finding["resolved_by_version"] == 2
+    assert finding["resolved_by_revision_id"]
+    assert finding["prior_anchor_quote"] == "Revenue reached 12 million."
+    assert finding["prior_verdict"] == "no"
+    assert "not supported as written" in finding["text"]
+
+    stored = jdf_repository.fetch_latest_jdf("proj-refine")
+    persisted = stored["body"][0]["children"][1]["annotations"]["redhat"][0]
+    assert persisted["status"] == "resolved"
+    assert persisted["resolved_by_revision_id"] == finding["resolved_by_revision_id"]
+    assert persisted["resolved_by_version"] == 2

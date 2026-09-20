@@ -301,6 +301,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from db.connection import init_db
     init_db()
     try:
+        from .routers.sandbox import ensure_sandbox_project
+    except ImportError:
+        from routers.sandbox import ensure_sandbox_project
+    # The sandbox is a fixed identifier with no creation path, and its budget row
+    # references `projects`; without this row its first request fails at the
+    # foreign key before any model call (routers/sandbox.ensure_sandbox_project).
+    ensure_sandbox_project()
+    try:
         from .signals import connect_redhat_signals
     except ImportError:
         from signals import connect_redhat_signals
@@ -522,6 +530,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
@@ -538,6 +547,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
@@ -744,6 +754,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "configured": clerk_configured(),
                 "self_hosted": is_self_hosted(),
                 "signed_in": bool(current_user_id()),
+                # The edge reads this to decide whether shell documents need a
+                # session, so the flag lives in the app's env only.
+                "clerk_only": clerk_only_enabled(),
             }
         )
 
@@ -1050,6 +1063,35 @@ def create_app(*, require_auth: bool = True) -> Flask:
         payload["build_branch"] = os.getenv("ASSURE_BUILD_BRANCH") or os.getenv("BUILD_BRANCH") or _read_text("/app/ASSURE_BUILD_BRANCH") or _read_text("/app/BUILD_BRANCH")
         payload["build_time"] = os.getenv("ASSURE_BUILD_TIME") or os.getenv("BUILD_TIME") or _read_text("/app/ASSURE_BUILD_TIME") or _read_text("/app/BUILD_TIME")
         payload["image_ref"] = os.getenv("APP_IMAGE", "unknown")
+        # Audit rows this process failed to write. The insert is best-effort, so
+        # without this the loss is only in the service log; here it is a number a
+        # probe or a human can read.
+        try:
+            from .lib.logger import audit_drop_count
+        except ImportError:
+            from lib.logger import audit_drop_count
+        payload["audit_drops"] = audit_drop_count()
+        # Pipeline-cache rows a write was refused — a project_id no `projects` row
+        # owns. The insert is best-effort, so without this the loss is only in the
+        # service log; here it is a number a probe or a human can read. Same idiom
+        # as the audit-row counter on f674370.
+        try:
+            from .lib.logger import cache_drop_count
+        except ImportError:
+            from lib.logger import cache_drop_count
+        payload["cache_drops"] = cache_drop_count()
+        # Connections this process has taken from SQLite and not given back. Both
+        # counters above are cumulative counts of writes that did not land; this one
+        # is the resource those failures used to leave behind — a connection held
+        # open with its statement uncommitted is what makes the *next* writer fail,
+        # which is the family the two of them are instances of. A gauge, so it falls
+        # as well as rises: it reads 0 with nothing in flight, and a number that
+        # only grows is a leak that no longer needs a stack sample to find.
+        try:
+            from .db.open_connections import db_open_connection_count
+        except ImportError:
+            from db.open_connections import db_open_connection_count
+        payload["db_open_connections"] = db_open_connection_count()
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")
@@ -1211,12 +1253,22 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.post("/api/compile-system")
     def compile_system_view():
-        """Static system message the compile path sends. Consumed by
-        the prototype shell panel so it can show the model what the
-        model receives. No body, no params; always the same string."""
-        from .routers.draft import _COMPILE_SYSTEM
+        """The system message the compile path sends, for the ask it is compiling.
 
-        return jsonify({"prompt": _COMPILE_SYSTEM})
+        Consumed by the prototype shell panel so it can show the model what the
+        model receives. The message is static except for the answer-shape block
+        (services/answer_shape), which follows the ask — so a body carrying the ask
+        returns the prompt the pipeline builds for it, and a body carrying nothing
+        returns the static message, unchanged."""
+        from .routers.draft import _COMPILE_SYSTEM, _compile_system
+        from .services.answer_shape import choose_shape
+
+        data = request.get_json(silent=True) or {}
+        intent = str(data.get("intent") or "").strip()
+        if not intent:
+            return jsonify({"prompt": _COMPILE_SYSTEM})
+        shape = choose_shape(intent)
+        return jsonify({"prompt": _compile_system(shape, intent), "answer_shape": shape})
 
     @app.post("/api/render")
     @login_required
@@ -1691,10 +1743,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_refine_node_routes(app)
 
     try:
-        from .routers.ground_routes import register_ground_routes
+        from .routers.retrieval_routes import register_retrieval_routes
     except ImportError:
-        from routers.ground_routes import register_ground_routes
-    register_ground_routes(app)
+        from routers.retrieval_routes import register_retrieval_routes
+    register_retrieval_routes(app)
 
     try:
         from .routers.conflict_routes import register_conflict_routes

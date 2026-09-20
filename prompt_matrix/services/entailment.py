@@ -206,33 +206,108 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
     return record
 
 
-def _claim_source(node: dict[str, Any]) -> tuple[str, str]:
-    """(claim, anchored source evidence) for a paragraph node.
+def _claim_sources(node: dict[str, Any]) -> list[str]:
+    """Every source sentence this node cites — one entry per provenance row.
 
-    The evidence is the provenance row's ``anchor_window`` — the run of consecutive
-    source sentences the matcher actually cleared its floors against — and only
-    falls back to ``extracted_quote`` when the row predates the window (or the
-    window was a single sentence, where the two are the same text). Checking the
-    claim against one sentence of a two-sentence anchor asks the model to judge a
-    claim against evidence the matcher never used, and it answers ``partial`` for
-    the half the sentence does not carry: the paragraph is then reported as a
-    weaker claim than the source it was anchored to.
+    The evidence is the row's ``anchor_window`` — the run of consecutive source
+    sentences the matcher cleared its floors against — and only falls back to
+    ``extracted_quote`` when the row predates the window (or the window was a
+    single sentence, where the two are the same text). For a cited paragraph the
+    row is the model's own citation, so ``extracted_quote`` is the cited
+    sentence.
 
-    Never ``meta.provenance.excerpt``, which falls back to the claim text itself
-    and would make the check a tautology.
+    Returns all of them, not the first: a paragraph that cites three sentences is
+    supported by the three together, and judging it against one of them reports a
+    weaker claim than the source carries. Never ``meta.provenance.excerpt``,
+    which falls back to the claim text itself and would make the check a
+    tautology.
     """
-    claim = str(node.get("content") or "").strip()
-    rows = node.get("provenance") or []
-    source = ""
-    for row in rows:
+    out: list[str] = []
+    for row in node.get("provenance") or []:
         if not isinstance(row, dict):
             continue
-        window = str(row.get("anchor_window") or "").strip()
-        quote = str(row.get("extracted_quote") or "").strip()
-        if window or quote:
-            source = window or quote
-            break
-    return claim, source
+        evidence = str(row.get("anchor_window") or "").strip() or str(
+            row.get("extracted_quote") or ""
+        ).strip()
+        if evidence and evidence not in out:
+            out.append(evidence)
+    return out
+
+
+def _aggregate_verdicts(verdicts: list[str]) -> str:
+    """Per-citation verdicts -> the paragraph's verdict.
+
+    A synthesis paragraph cites several sentences and each carries part of it, so
+    a strict entailment reader answers ``no`` to a citation that covers one clause
+    of a four-clause claim. Judging the whole SET in one call hides that: the
+    joined evidence is compared against the whole paragraph and ``no`` comes back
+    for the set, which is what shipped for a while and made a real two-policy
+    renewal memo read ``anchored 4, supported 0, unsupported 4`` - every
+    paragraph judged contradicted. Counting ``no`` alone also reports a summary as
+    a contradiction, which it is not.
+
+    Per citation the mixture is visible: all citations support -> ``supported``;
+    all fail -> ``unsupported``; support mixed with failure -> ``partial``,
+    because the paragraph is carried by some of what it cites.
+    """
+    if not verdicts:
+        # An empty list is not "everything passed" - ``all([])`` is vacuously
+        # True, so the all-yes test below would return ``yes`` and count the
+        # paragraph grounded. Reachable whenever a paragraph carries citations but
+        # no per-citation verdict was produced.
+        return "unverified"
+    if all(verdict == "yes" for verdict in verdicts):
+        return "yes"
+    if all(verdict == "no" for verdict in verdicts):
+        return "no"
+    if any(verdict == "no" for verdict in verdicts):
+        # Some citations support the paragraph and at least one is contradicted by
+        # its source. The paragraph is genuinely partial - a summary is carried by
+        # some of what it cites - but it must ALSO be reported as contradicted.
+        # Returning a bare ``partial`` here was a real defect: the counter counts
+        # ``partial`` as grounded and leaves ``unsupported`` at zero, so a
+        # paragraph citing ``[S1]=yes, [S2]=no`` was counted supported and the
+        # ``no`` was never reported anywhere. ``_contradicted`` carries that fact
+        # to the counters, which count both.
+        return "partial"
+    if any(verdict in ("yes", "partial") for verdict in verdicts):
+        return "partial"
+    return "unverified"
+
+
+def _contradicted(verdicts: list[str]) -> bool:
+    """True when any citation of the paragraph was contradicted by its source.
+
+    Separate from the aggregate verdict because the two answer different
+    questions and the counters need both: the paragraph is ``partial`` if some
+    citations carry it, and simultaneously ``unsupported`` if any citation
+    contradicts it. Folding the second into the first is how a contradicted claim
+    became invisible.
+    """
+    return any(verdict == "no" for verdict in verdicts)
+
+
+def _aggregate_reasoning(verdicts: list[str], citations: list[dict[str, Any]]) -> str:
+    """One sentence for the paragraph — the failure first, the mix behind it.
+
+    ``unverified`` is the visible failure of a call that could not be produced, and
+    this string is what the Evidence pane shows for it. An aggregate that reads
+    ``unverified over 1 citation(s)`` names the state and hides the reason
+    ("entailment transport down"), which is the one thing the reader can act on and
+    the reason ``unverified`` exists as a verdict rather than a silent pass. So a
+    failure is reported first, and the per-citation verdicts are summarized behind
+    it — the shape the record had when the check was one call per paragraph, with
+    the aggregate it now needs beside it.
+    """
+    reasons = [str(citation.get("reasoning") or "").strip() for citation in citations]
+    failures = [
+        reason
+        for verdict, reason in zip(verdicts, reasons)
+        if verdict == "unverified" and reason
+    ]
+    summary = ", ".join(sorted(set(verdicts))) + f" over {len(verdicts)} citation(s)"
+    detail = failures[0] if failures else next((reason for reason in reasons if reason), "")
+    return _sanitize(f"{detail} ({summary})" if detail else summary)
 
 
 def attach_entailment_to_tree(
@@ -261,24 +336,61 @@ def attach_entailment_to_tree(
         for node in [section, *(section.get("children") or [])]:
             if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
                 continue
-            claim, source = _claim_source(node)
-            if not claim or not source:
+            claim = str(node.get("content") or "").strip()
+            sources = _claim_sources(node)
+            if not claim or not sources:
                 # Anchored nodes always carry a quote. A node that does not is not
                 # checked and gets no verdict — the gate counts it as unanchored.
                 continue
-            key = (claim, source)
-            record = seen.get(key)
-            if record is None:
-                try:
-                    record = check(claim, source)
-                except Exception as exc:
-                    record = unverified(f"{type(exc).__name__}: {exc}")
-                if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
-                    record = unverified(f"checker returned no usable verdict: {record!r}")
-                seen[key] = record
+            # One entailment call per citation, then aggregate. The joined-evidence
+            # form is wrong for a summary: no single sentence states every element
+            # of a paragraph that aggregates a dozen, and neither does the set when
+            # the reader is strict, so every paragraph landed ``no``.
+            per_citation: list[dict[str, Any]] = []
+            verdicts: list[str] = []
+            for source in sources:
+                key = (claim, source)
+                record = seen.get(key)
+                if record is None:
+                    try:
+                        record = check(claim, source)
+                    except Exception as exc:
+                        record = unverified(f"{type(exc).__name__}: {exc}")
+                    if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                        record = unverified(f"checker returned no usable verdict: {record!r}")
+                    seen[key] = record
+                verdict = str(record.get("verdict") or "unverified")
+                verdicts.append(verdict)
+                per_citation.append(
+                    {
+                        "source": source,
+                        "verdict": verdict,
+                        "reasoning": str(record.get("reasoning") or ""),
+                        # The judgement's own provenance, carried up from the
+                        # citation: the record's frozen shape is
+                        # ``{verdict, reasoning, model, checked_at}`` and the
+                        # aggregate is what a reader finds on the node.
+                        "model": str(record.get("model") or ""),
+                        "checked_at": str(record.get("checked_at") or ""),
+                    }
+                )
+            # The judgements behind this paragraph, as the node reports them: one
+            # model when they agree (they are the same checker under the same
+            # prompt), the set when they do not, and the latest check time. An ISO
+            # 8601 timestamp in one format sorts chronologically as a string.
+            models = sorted({c["model"] for c in per_citation if c["model"]})
+            checked_times = sorted({c["checked_at"] for c in per_citation if c["checked_at"]})
+            record_out: dict[str, Any] = {
+                "verdict": _aggregate_verdicts(verdicts),
+                "contradicted": _contradicted(verdicts),
+                "reasoning": _aggregate_reasoning(verdicts, per_citation),
+                "model": ", ".join(models),
+                "checked_at": checked_times[-1] if checked_times else "",
+                "citations": per_citation,
+            }
             meta = dict(node.get("meta") or {})
             prov = dict(meta.get("provenance") or {})
-            prov["entailment"] = dict(record)
+            prov["entailment"] = record_out
             meta["provenance"] = prov
             node["meta"] = meta
 

@@ -200,8 +200,9 @@ def test_run_draft_pipeline_progressive(monkeypatch):
 
 def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     """The compile stream entailment-checks anchored paragraphs and the gate reads
-    the verdict: a lexically anchored paragraph the check calls "partial" is no
-    longer reported as a verified claim."""
+    the verdict: a lexically anchored paragraph the check calls "partial" is
+    carried by the sentence it cites — grounded, so it earns the gate — with the
+    verdict reported beside it as `partial`."""
     source = "The policy liability limit is set at $5,000,000 for combined single limit."
     claim = "The policy liability limit is set at $5,000,000 for combined single limit."
 
@@ -246,21 +247,26 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     assert calls == [(claim, claim.rstrip("."))]
 
     verified = next(d for d in frames_by_type if d.get("type") == "verified")
-    # Separated layers: the paragraph is anchored (it carries a matched source
-    # sentence — `node["provenance"]` below) and the verdict on that anchor is
-    # "partial", so anchored is 1 while supported is 0.
+    # `supported` is the grounded count: the paragraph is anchored (it carries a
+    # matched source sentence — `node["provenance"]` below) and the verdict on
+    # that anchor is "partial" — the source states the limit, so it carries the
+    # claim in part and contradicts nothing. `partial` is reported beside it as
+    # the verdict detail, so neither number stands in for the other.
     assert verified["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
-        "supported": 0,
+        "supported": 1,
         "partial": 1,
         "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
     }
+    # The provenance layer is earned and nothing is refused; the gate is still
+    # Z3's to decide, and this fixture's draft yields no locks, so Math Check
+    # reports SKIPPED and the gate reads "review" rather than "pass".
     assert verified["gate_status"] == "review"
     assert verified["ok"] is False
-    assert "1 supported only in part" in verified["unverified_reason"]
+    assert not verified.get("unverified_reason")
     node = verified["document"]["body"][0]["children"][0]
     assert node["meta"]["provenance"]["entailment"]["verdict"] == "partial"
     assert node["provenance"], "the paragraph is still lexically anchored"
@@ -272,37 +278,75 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     def fail_stream(*_a, **_k):
         raise AssertionError("_stream_model must not run on cache hit")
 
+    source = "The liability limit is 5,000,000 per occurrence."
+    draft = "Limit 5,000,000 per occurrence."
+    audited = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Cached",
+                "children": [
+                    {
+                        "type": "paragraph",
+                        "id": "para-1",
+                        "content": draft,
+                        "provenance": [
+                            {
+                                "extracted_quote": source,
+                                "source_name": "policy.pdf",
+                                "page": 1,
+                                "cited_id": "S1",
+                            }
+                        ],
+                        "meta": {
+                            "provenance": {
+                                "entailment": {
+                                    "verdict": "yes",
+                                    "reasoning": "The source states the limit.",
+                                    "model": "stub/model",
+                                    "checked_at": "2026-09-18T00:00:00+00:00",
+                                }
+                            }
+                        },
+                    },
+                ],
+            }
+        ],
+    }
     cached = {
-        "draft_text": "Cached draft.",
-        "document": {
-            "document_id": "doc-default",
-            "meta": {},
-            "truth_ledger": {},
-            "body": [
-                {
-                    "type": "section",
-                    "id": "sec-1",
-                    "title": "Cached",
-                    "children": [
-                        {"type": "paragraph", "id": "para-1", "content": "Cached draft."},
-                    ],
-                }
-            ],
-        },
+        "draft_text": draft,
+        "document": audited,
         "locks": [],
         "verified": {
-            "ok": True,
-            "gate_status": "pass",
+            "ok": False,
+            "gate_status": "review",
             "z3_status": "PASS",
             "z3_results": {"status": "PASS"},
             "redhat_count": 0,
             "redhat_critiques": [],
-            "document": {
-                "document_id": "doc-default",
-                "meta": {},
-                "truth_ledger": {},
-                "body": [],
+            # The counters as an earlier compile wrote them, and the refusal they
+            # earned. The counting rule has changed under this entry, so replaying
+            # them verbatim would report `supported 0` — and refuse — a paragraph
+            # the sentence it cites carries.
+            "provenance_stats": {
+                "eligible": 1,
+                "anchored": 1,
+                "supported": 0,
+                "partial": 0,
+                "unsupported": 0,
+                "unanchored": 0,
+                "unverified": 0,
             },
+            "unverified": True,
+            "unverified_reason": (
+                "0 of 1 claims were entailed by their matched source sentence "
+                "(1 anchored but never checked)."
+            ),
+            "document": audited,
         },
     }
 
@@ -313,13 +357,13 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
         lambda _pid, _ids: [
-            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": "Limit 5,000,000."}
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
         ],
     )
     wrapped = {
         "compiled": {
-            "document": cached["document"],
-            "nodes": cached["document"]["body"],
+            "document": audited,
+            "nodes": audited["body"],
             "locks": cached["locks"],
             "node_count": 1,
             "lock_count": 0,
@@ -348,6 +392,21 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     assert "verified" in types
     compiled = next(data for _ev, data in events if data.get("type") == "compiled")
     assert compiled.get("cache_hit") is True
+    verified = next(data for _ev, data in events if data.get("type") == "verified")
+    # A cache hit replays the frames but not the counters: they are recounted
+    # from the document in the entry (and the refusal they used to carry is
+    # dropped with them), so the replayed frame reports the tree it renders.
+    assert verified["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 1,
+        "supported": 1,
+        "partial": 0,
+        "unsupported": 0,
+        "unanchored": 0,
+        "unverified": 0,
+    }
+    assert verified["gate_status"] == "pass"
+    assert not verified.get("unverified_reason")
     assert remember_calls == []
 
 
@@ -414,12 +473,19 @@ def test_run_redhat_pipeline_opt_in(monkeypatch):
 
 
 def test_run_redhat_pipeline_survives_model_error(monkeypatch):
-    """Red-Hat failures must still emit audit_complete so the UI can recover."""
+    """A Red-Hat model failure is a message to the reader, never a finding: the
+    run ends refused, and the paragraph keeps exactly what the document says.
+    Attaching the failure text would have recorded a review nobody wrote."""
 
     def boom(*_a, **_k):
         raise RuntimeError("API timeout")
 
     monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", boom)
+    saves = []
+    monkeypatch.setattr(
+        "prompt_matrix.db.jdf_repository.save_jdf_revision",
+        lambda *a, **k: saves.append(a),
+    )
 
     doc = {
         "document_id": "doc-default",
@@ -442,13 +508,87 @@ def test_run_redhat_pipeline_survives_model_error(monkeypatch):
             "default",
             draft_text="Revenue was $4.2M.",
             document=doc,
+            target_node_id="para-1",
             governor=_FakeGovernor(),
         )
     )
     events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
-    audit = next(data for _ev, data in events if data.get("type") == "audit_complete")
-    assert audit["redhat_count"] == 1
-    assert "Audit failed" in audit["redhat_critiques"][0]["content"]
+
+    assert not any(data.get("type") == "audit_complete" for _ev, data in events)
+    refused = next(data for ev, data in events if ev == "error")
+    assert refused["ok"] is False
+    completed = next(data for ev, data in events if ev == "complete")
+    assert completed["ok"] is False
+    assert completed["redhat_count"] == 0
+    assert saves == []
+    assert not (doc["body"][0]["children"][0].get("annotations") or {}).get("redhat")
+
+
+def test_run_redhat_pipeline_refuses_a_truncated_answer(monkeypatch):
+    """The measured defect: the model hit its output ceiling, so what came back
+    was a fragment. The run must refuse it — no finding on the paragraph, no
+    revision — and say so, rather than put the fragment in front of a client."""
+
+    def refusing_redhat(*_a, **_k):
+        return [
+            {
+                "title": "Red-hat review",
+                "content": (
+                    "The audit hit its 8192-token output ceiling "
+                    "(finish_reason='length') and its answer was cut off, so it is "
+                    "not a review. No finding was recorded."
+                ),
+                "model": "deepseek/deepseek-chat",
+                "status": "error",
+                "code": "redhat_truncated",
+            }
+        ], {
+            "input_tokens": 732,
+            "output_tokens": 8192,
+            "model_id": "deepseek/deepseek-chat",
+            "task_type": "redhat",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_redhat_audit", refusing_redhat)
+    saves = []
+    monkeypatch.setattr(
+        "prompt_matrix.db.jdf_repository.save_jdf_revision",
+        lambda *a, **k: saves.append(a),
+    )
+
+    doc = {
+        "document_id": "doc-default",
+        "meta": {},
+        "truth_ledger": {},
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-1",
+                "title": "Draft",
+                "children": [
+                    {"type": "paragraph", "id": "para-1", "content": "Revenue was $4.2M."},
+                ],
+            }
+        ],
+    }
+
+    frames = list(
+        run_redhat_pipeline(
+            "default",
+            draft_text="Revenue was $4.2M.",
+            document=doc,
+            target_node_id="para-1",
+            governor=_FakeGovernor(),
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+
+    assert not any(data.get("type") == "audit_complete" for _ev, data in events)
+    refused = next(data for ev, data in events if ev == "error")
+    assert refused["error"] == "redhat_truncated"
+    assert refused["ok"] is False
+    assert saves == []
+    assert not (doc["body"][0]["children"][0].get("annotations") or {}).get("redhat")
 
 
 def test_run_redhat_pipeline_target_node_id(monkeypatch):
@@ -646,6 +786,66 @@ def test_redhat_whole_document_prompt_is_a_risk_review():
     assert "missing citations" not in prompt
 
 
+def test_redhat_audit_refuses_a_completion_cut_off_at_the_ceiling():
+    """Measured 2026-09-19 on demo-commercial-property-2026 para-8a45837af15f:
+    the reasoner spent its 8192-token ceiling on hidden reasoning, ``content``
+    came back empty, and the reasoning channel — 31,418 chars beginning "We need
+    answer user asks:" — was persisted as the finding. A fragment is not a
+    review: the audit refuses it and records nothing."""
+
+    scratchpad = (
+        'We need answer user asks: Red-hat adversarial review of claim. Only source '
+        'sentence provided: "POLICY LIMIT: $5,000,000 Part of $25,000,000" from '
+        "brim-cp-media43.pdf. Also \"boiler and machinery\""
+    )
+
+    class TruncatedGovernor:
+        def execute_with_retry_budget(self, _project_id, _task, _messages, **_kwargs):
+            class R:
+                text = scratchpad
+                input_tokens = 732
+                output_tokens = 8192
+                model_id = "deepseek/deepseek-reasoner"
+                finish_reason = "length"
+                truncated = True
+
+            return R()
+
+    critiques, usage = run_redhat_audit("p1", "Claim text.", gov=TruncatedGovernor())
+
+    assert len(critiques) == 1
+    assert critiques[0]["status"] == "error"
+    assert critiques[0]["code"] == "redhat_truncated"
+    assert "We need answer" not in critiques[0]["content"]
+    assert "cut off" in critiques[0]["content"]
+    # The tokens were spent and the ledger still says so: the refusal is about
+    # what may be persisted, not about pretending the call did not happen.
+    assert usage["output_tokens"] == 8192
+
+
+def test_redhat_audit_keeps_a_complete_answer():
+    """The other side of the same boundary: a completion that finished on its own
+    terms is a finding, whatever its length."""
+
+    class CompleteGovernor:
+        def execute_with_retry_budget(self, _project_id, _task, _messages, **_kwargs):
+            class R:
+                text = "**Finding** — sentence two is unsupported by the source."
+                input_tokens = 364
+                output_tokens = 3257
+                model_id = "deepseek/deepseek-chat"
+                finish_reason = "stop"
+                truncated = False
+
+            return R()
+
+    critiques, _usage = run_redhat_audit("p1", "Claim text.", gov=CompleteGovernor())
+
+    assert len(critiques) == 1
+    assert critiques[0].get("status") is None
+    assert critiques[0]["content"].startswith("**Finding**")
+
+
 def test_get_node_by_id_resolves_a_nested_paragraph():
     node = get_node_by_id(_sourced_document(), "para-b")
     assert node is not None
@@ -761,3 +961,135 @@ def test_draft_redhat_stream_requires_draft_text(client):
         json={"draft_text": "", "document": {}},
     )
     assert res.status_code == 400
+
+
+def _gate_block(project_id: str) -> dict:
+    import json as _json
+
+    from prompt_matrix.db.connection import init_db
+    from prompt_matrix.history import get_db
+
+    init_db()
+    row = get_db().execute(
+        "SELECT last_compiled_json FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    data = _json.loads(row[0]) if (row and row[0]) else {}
+    return (data or {}).get("gate") or {}
+
+
+def _grounded_compile(monkeypatch, project_id: str = "default", **kwargs):
+    """A cold compile that anchors and verifies, with no network."""
+    source = "The policy liability limit is set at $5,000,000 for combined single limit."
+    draft = source
+
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
+        yield (draft, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
+
+    def fake_locks(_text):
+        return [
+            {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
+        ], "deepseek/deepseek-chat"
+
+    def stub_check(_claim, _source, *, project_id=""):
+        return {
+            "verdict": "yes",
+            "reasoning": "The source states it.",
+            "model": "stub/model",
+            "checked_at": "2026-09-18T00:00:00+00:00",
+        }
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
+    monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
+        ],
+    )
+    frames = list(
+        run_draft_pipeline(
+            project_id,
+            intent="Restate the limit.",
+            substrate_file_ids=["sub-1"],
+            governor=_FakeGovernor(),
+            **kwargs,
+        )
+    )
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    return events
+
+
+def test_a_compile_writes_the_gate_block_the_export_reads(monkeypatch):
+    """The gate block is the export's only record of what the compile carried.
+
+    ``projects.last_compiled_json.gate`` is read back by the carry plan
+    (``services.source_carry._gate_sources``), the Red-Hat skip reason and the
+    dossier's Math Check rows. A compile that skips the write, or writes it without
+    one of these keys, leaves the export reporting a derived selection and no
+    numbers — silently, because nothing on the compile path reads it back.
+    """
+    events = _grounded_compile(monkeypatch)
+    verified = next(data for _ev, data in events if data.get("type") == "verified")
+    assert verified["provenance_stats"]["supported"] == 1, "the fixture must verify a claim"
+
+    gate = _gate_block("default")
+    assert gate, "the compile did not persist its gate block"
+    assert gate["gate_status"] == verified["gate_status"]
+    assert gate["z3_status"] == verified["z3_status"]
+    assert gate["provenance_stats"] == verified["provenance_stats"]
+    # What the prompt carried, per source, with the counts the export prints.
+    assert gate["sources"]["attached"] == 1
+    assert gate["sources"]["carried"] == 1
+    assert gate["sources"]["sources"][0]["included"] is True
+    # The Math Check's own numbers travel with it — they were computed on every
+    # compile and then dropped here, so the report's rows were always absent. Each
+    # is the number the compile computed, not a re-derivation at read time.
+    z3 = verified.get("z3_results") or {}
+    assert gate["metrics_checked"] == z3.get("metrics_checked")
+    assert gate["locks_verified"] == z3.get("locks_verified")
+    assert gate["checked_by_relational"] == z3.get("checked_by_relational")
+    # ``z3_unverified`` is the Math Check's, named apart from the provenance
+    # layer's ``unverified`` above, which is a different question.
+    assert gate["z3_unverified"] == z3.get("unverified")
+    assert gate["redhat"]["status"] == "skipped"
+
+
+def test_force_recompiles_instead_of_replaying_the_cache(monkeypatch):
+    """``force`` has to mean "do the work again".
+
+    The probe used to ignore it, so the only thing force overrode was the
+    frozen-project refusal: an acceptance run against a warm project replayed a memo
+    written by earlier code — measured as two DRAFT_STREAM rows 77 ms apart, both
+    ``cache_hit: true`` — after the counters had changed. A forced compile is the
+    only way to test a changed counter, prompt or citation path against the same ask.
+    """
+    warm = {
+        "compiled": {
+            "document": {"document_id": "cached", "meta": {}, "truth_ledger": {}, "body": []},
+            "nodes": [],
+            "locks": [],
+            "node_count": 0,
+            "lock_count": 0,
+            "draft_text": "A cached memo.",
+        },
+        "verified": {"ok": True, "gate_status": "pass", "document": {}},
+    }
+    monkeypatch.setattr("prompt_matrix.routers.draft.load_ast_cache", lambda _key: warm)
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.save_ast_cache", lambda *_a, **_k: None
+    )
+
+    events = _grounded_compile(monkeypatch, force=True)
+
+    compiled = next(data for _ev, data in events if data.get("type") == "compiled")
+    assert not compiled.get("cache_hit"), "force replayed the cache instead of compiling"
+    assert not compiled.get("omp_cached")
+    assert not any(
+        data.get("stage") == "cache" for _ev, data in events if isinstance(data, dict)
+    )
+    assert compiled["draft_text"] != "A cached memo."
+    # The other half — that a warm entry is replayed when force is not set — is
+    # test_run_draft_pipeline_omp_cache_hit, which uses a cache entry whose document
+    # actually grounds a claim; the entry here is only a marker that the cache was
+    # consulted.

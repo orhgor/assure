@@ -66,12 +66,16 @@ def check_project_ownership(project_id: str):
     if is_service_api_request():
         return None
     try:
-        from .cloud_auth import current_user_id
+        from .cloud_auth import ROLE_ADMIN, current_role, current_user_id
     except ImportError:
-        from cloud_auth import current_user_id
+        from cloud_auth import ROLE_ADMIN, current_role, current_user_id
     user_id = current_user_id() or session.get("clerk_user_id")
     if not user_id:
         return jsonify({"ok": False, "error": "Authentication required."}), 401
+    # Admin owns the workspace, not just its own rows: every project, including
+    # the pre-auth ones backfilled to the `legacy` owner, stays reachable.
+    if current_role() == ROLE_ADMIN:
+        return None
     try:
         from .db.jdf_repository import project_owner_id
     except ImportError:

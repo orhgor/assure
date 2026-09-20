@@ -6,36 +6,29 @@ import json
 from typing import Any
 
 try:
-    from ..db.connection import init_db
-    from ..lib.logger import resolve_db_path
+    from ..db.connection import closing_connection, init_db
 except ImportError:
-    from db.connection import init_db
-    from lib.logger import resolve_db_path
-
-
-def _connect():
-    import sqlite3
-
-    path = resolve_db_path()
-    conn = sqlite3.connect(path, timeout=5.0)
-    conn.execute("PRAGMA busy_timeout=5000;")
-    return conn
+    from db.connection import closing_connection, init_db
 
 
 def fetch_audit_entries(project_id: str, *, limit: int = 500) -> list[dict[str, Any]]:
     init_db()
-    db = _connect()
-    rows = db.execute(
-        """
-        SELECT id, request_id, action, target_node_id, success,
-               duration_ms, error_type, error_message, details, created_at
-        FROM audit_log
-        WHERE project_id = ?
-        ORDER BY created_at DESC
-        LIMIT ?
-        """,
-        (project_id, max(1, min(limit, 2000))),
-    ).fetchall()
+    # Used to open a connection and never close it — not on the failure path (there
+    # was none) but on the success path either: every export abandoned one
+    # connection and left its read transaction open. `closing` would have closed it
+    # without rolling back and without removing it from db_open_connections.
+    with closing_connection(site="db.audit_repository.fetch_audit_entries") as db:
+        rows = db.execute(
+            """
+            SELECT id, request_id, action, target_node_id, success,
+                   duration_ms, error_type, error_message, details, created_at
+            FROM audit_log
+            WHERE project_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (project_id, max(1, min(limit, 2000))),
+        ).fetchall()
     out: list[dict[str, Any]] = []
     for row in rows:
         details = row[8]

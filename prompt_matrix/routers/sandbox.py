@@ -36,6 +36,29 @@ except ImportError:
 SANDBOX_PROJECT_ID = "sandbox"
 
 
+def ensure_sandbox_project() -> None:
+    """Seed the sandbox's ``projects`` row.
+
+    ``project_budgets.project_id`` carries ``REFERENCES projects(id)`` (the
+    migrated stores have it, and ``history.get_db`` turns ``PRAGMA
+    foreign_keys`` on), and the sandbox is a fixed identifier with no creation
+    path of its own — nothing ever creates a project for it. So the first
+    ``POST /api/sandbox/verify`` failed at ``run_sandbox_verify``'s first act,
+    ``BudgetStore.ensure_project``, with ``FOREIGN KEY constraint failed`` and an
+    HTTP 500, before any model call. Measured on staging 2026-09-19: ``{"error":
+    "FOREIGN KEY constraint failed", "ok": false}``.
+
+    The row is created at boot rather than in the request path so the fixed
+    identifier stays in one place and the failure cannot come back with the next
+    cold start.
+    """
+    try:
+        from ..db.jdf_repository import ensure_project
+    except ImportError:
+        from db.jdf_repository import ensure_project
+    ensure_project(SANDBOX_PROJECT_ID, "Sandbox")
+
+
 class SandboxVerifyPayload(BaseModel):
     text: str = Field(default="")
 

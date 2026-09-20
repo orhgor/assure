@@ -5,15 +5,20 @@ from __future__ import annotations
 from flask import jsonify
 
 try:
+    from ..cloud_auth import role_required
     from ..db.analytics_views import ensure_analytics_views
     from ..history import get_db
 except ImportError:
+    from cloud_auth import role_required
     from db.analytics_views import ensure_analytics_views
     from history import get_db
 
 
 def register_analytics_routes(app, page_renderer=None) -> None:
+    # These three views aggregate every project in the workspace — other people's
+    # titles, locks and critiques — so they are the admin-only surface.
     @app.get("/api/analytics/z3-health")
+    @role_required("admin")
     def analytics_z3_health():
         ensure_analytics_views()
         db = get_db()
@@ -33,6 +38,7 @@ def register_analytics_routes(app, page_renderer=None) -> None:
         )
 
     @app.get("/api/analytics/redhat-critiques")
+    @role_required("admin")
     def analytics_redhat_critiques():
         ensure_analytics_views()
         db = get_db()
@@ -46,6 +52,7 @@ def register_analytics_routes(app, page_renderer=None) -> None:
         return jsonify({"ok": True, "rows": [dict(r) for r in rows]})
 
     @app.get("/api/analytics/compliance-velocity")
+    @role_required("admin")
     def analytics_compliance_velocity():
         ensure_analytics_views()
         db = get_db()

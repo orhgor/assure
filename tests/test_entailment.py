@@ -17,7 +17,13 @@ from prompt_matrix.services.entailment import (
     unverified,
 )
 
-SCHEMA_KEYS = {"verdict", "reasoning", "model", "checked_at"}
+#: The record the node carries. ``contradicted`` is deliberate and newer than the
+#: rest: a ``[yes, no]`` paragraph is carried in part and simultaneously contains a
+#: citation its own source contradicts, and the aggregate verdict alone cannot say
+#: so. The other four are the contract the module documents — an aggregate that
+#: dropped ``model`` and ``checked_at`` read as the frozen shape while carrying
+#: neither, and left the failure reason only inside ``citations``.
+SCHEMA_KEYS = {"verdict", "contradicted", "reasoning", "model", "checked_at", "citations"}
 
 
 def _stub(verdicts: dict[str, str], calls: list[tuple[str, str]] | None = None):
@@ -253,11 +259,14 @@ def test_gate_counts_only_entailed_claims() -> None:
 
     # Grounding: all five paragraphs carry the quote they were anchored to.
     # Verdicts: one yes, one partial, one no, one unverified, one never checked
-    # (`p-lexical`). `anchored` no longer stands in for the verdict.
+    # (`p-lexical`). `supported` is the grounded count — yes OR partial, a claim
+    # its citations carry in whole or in part with nothing contradicting it —
+    # reported beside `partial` as the verdict detail, and beside `anchored` as
+    # the grounding, so no number stands in for another.
     assert summary["provenance_stats"] == {
         "eligible": 5,
         "anchored": 5,
-        "supported": 1,
+        "supported": 2,
         "partial": 1,
         "unsupported": 1,
         "unanchored": 0,
@@ -269,11 +278,13 @@ def test_gate_counts_only_entailed_claims() -> None:
     assert summary["ok"] is True
 
 
-def test_gate_names_partial_and_unverified_when_nothing_is_entailed() -> None:
-    """A broken or partial check must read differently from 'no source matched'."""
+def test_gate_names_contradicted_and_unverified_when_nothing_is_supported() -> None:
+    """A denied claim and a broken check must read differently from 'no source matched'."""
     doc = _four_verdict_document()
     doc["body"][0]["children"] = [
-        node for node in doc["body"][0]["children"] if node["id"] != "p-yes"
+        node
+        for node in doc["body"][0]["children"]
+        if node["id"] not in ("p-yes", "p-partial")
     ]
 
     summary = build_audit_summary(
@@ -284,10 +295,10 @@ def test_gate_names_partial_and_unverified_when_nothing_is_entailed() -> None:
     )
 
     assert summary["provenance_stats"] == {
-        "eligible": 3,
-        "anchored": 3,
+        "eligible": 2,
+        "anchored": 2,
         "supported": 0,
-        "partial": 1,
+        "partial": 0,
         "unsupported": 1,
         "unanchored": 0,
         "unverified": 1,
@@ -296,10 +307,45 @@ def test_gate_names_partial_and_unverified_when_nothing_is_entailed() -> None:
     assert summary["ok"] is False
     assert summary["unverified"] is True
     assert summary["unverified_reason"] == (
-        "0 of 3 claims were entailed by their matched source sentence "
-        "(1 supported only in part, 1 contradicted by their source, "
-        "1 could not be checked)."
+        "0 of 2 claims were entailed by their matched source sentence "
+        "(1 contradicted by their source, 1 could not be checked)."
     )
+
+
+def test_gate_treats_a_partly_carried_claim_as_supported() -> None:
+    """A verdict of `partial` is grounded, so it earns the gate.
+
+    `partial` is what the auditor answers for a claim its cited sentences carry
+    without any one of them stating every element, and for a claim the source
+    restates only in part — in both cases something carries it and nothing
+    contradicts it. Counting only `yes` reported such a document as `supported 0`
+    and refused it with a reason built for documents no source matched.
+    """
+    doc = _four_verdict_document()
+    doc["body"][0]["children"] = [
+        node for node in doc["body"][0]["children"] if node["id"] == "p-partial"
+    ]
+
+    summary = build_audit_summary(
+        z3_results={"status": "PASS", "violations": [], "lock_results": []},
+        redhat_critiques=[],
+        document=doc,
+        has_substrate=True,
+    )
+
+    assert summary["provenance_stats"] == {
+        "eligible": 1,
+        "anchored": 1,
+        "supported": 1,
+        "partial": 1,
+        "unsupported": 0,
+        "unanchored": 0,
+        "unverified": 0,
+    }
+    assert summary["gate_status"] == "pass"
+    assert summary["ok"] is True
+    assert not summary.get("unverified")
+    assert not summary.get("unverified_reason")
 
 
 def test_gate_passes_only_on_an_entailed_claim() -> None:

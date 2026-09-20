@@ -2,26 +2,31 @@
 
 from __future__ import annotations
 
+import io
+import json
 import re
 import time
 import uuid
+import zipfile
 
 from flask import Response, jsonify
 
 try:
-    from ..db.jdf_repository import fetch_latest_jdf_or_empty
+    from ..db.jdf_repository import current_document_version, fetch_latest_jdf_or_empty
     from ..exporters.docx_ast import export_jdf_to_docx
     from ..exporters.pdf_ast import export_jdf_to_pdf
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
     from ..lib.logger import get_audit_logger
     from ..middleware import project_ownership_required
+    from ..services.jdf_sidecar import build_jdf_sidecar
 except ImportError:
-    from db.jdf_repository import fetch_latest_jdf_or_empty
+    from db.jdf_repository import current_document_version, fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
     from exporters.pdf_ast import export_jdf_to_pdf
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
     from lib.logger import get_audit_logger
     from middleware import project_ownership_required
+    from services.jdf_sidecar import build_jdf_sidecar
 
 _SAFE_NAME = re.compile(r"[^\w\-]+")
 
@@ -33,6 +38,31 @@ def _doc_title(tree: dict) -> str:
     )
     cleaned = _SAFE_NAME.sub("-", raw.strip()).strip("-") or "assure-document"
     return cleaned[:80]
+
+
+def _dossier_base(project_id: str, version: int) -> str:
+    """``<project>-<version>-dossier`` — the stem both halves of the export share.
+
+    Named from the project and the revision, not the document title: the two files
+    travel together, and a reader holding one has to be able to tell which export
+    the other belongs to. A title is prose and repeats across projects; the id and
+    the version do not.
+    """
+    slug = _SAFE_NAME.sub("-", str(project_id or "").strip()).strip("-") or "assure"
+    return f"{slug}-{int(version or 0)}-dossier"
+
+
+def _bundle_zip(*members: tuple[str, bytes]) -> bytes:
+    """One download holding the export pair, so neither file can arrive alone.
+
+    ``ZIP_DEFLATED`` with the default level: the PDF is already compressed and the
+    JDF is text, so the saving is on the sidecar and the cost is bounded.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, payload in members:
+            archive.writestr(name, payload)
+    return buffer.getvalue()
 
 
 def register_export_routes(app) -> None:
@@ -239,6 +269,69 @@ def register_export_routes(app) -> None:
                 headers={"Content-Disposition": f'attachment; filename="{filename}"'},
             )
 
+        if fmt in ("jdf", "bundle"):
+            # The sidecar is the half of the export that used to stay behind: the
+            # document tree with its per-node provenance, each node's verification
+            # state, the source manifest, the version chain and the drafting model.
+            # `jdf` serves it alone; `bundle` serves it with the same audit PDF the
+            # export button produced before, as two files in one download, so the
+            # readable document and the verifiable one cannot be separated. Both
+            # halves carry the export's own name — `<project>-<version>-dossier` —
+            # so a reader holding the PDF or the JSON can tell which export the
+            # other belongs to.
+            dossier = _dossier_base(project_id, current_document_version(project_id))
+            jdf_name = f"{dossier}.jdf.json"
+            try:
+                sidecar = build_jdf_sidecar(project_id, tree)
+                sidecar_bytes = json.dumps(sidecar, indent=2, ensure_ascii=False).encode("utf-8")
+                if fmt == "jdf":
+                    action = "EXPORT_JDF"
+                    filename = jdf_name
+                    mimetype = "application/vnd.assure.jdf+json"
+                    payload = sidecar_bytes
+                else:
+                    try:
+                        from ..services.audit_bundle import export_audit_bundle_pdf
+                    except ImportError:
+                        from services.audit_bundle import export_audit_bundle_pdf
+                    pdf_bytes = export_audit_bundle_pdf(project_id, tree)
+                    action = "EXPORT_BUNDLE"
+                    filename = f"{dossier}.zip"
+                    mimetype = "application/zip"
+                    payload = _bundle_zip(
+                        (f"{dossier}.pdf", pdf_bytes),
+                        (jdf_name, sidecar_bytes),
+                    )
+            except Exception as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_exception(
+                    request_id,
+                    project_id,
+                    "EXPORT_JDF",
+                    exc,
+                    duration_ms=duration_ms,
+                    details={"format": fmt},
+                )
+                return jsonify({"ok": False, "error": str(exc)}), 500
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_audit(
+                request_id,
+                project_id,
+                action,
+                success=True,
+                duration_ms=duration_ms,
+                details={
+                    "format": fmt,
+                    "filename": filename,
+                    "anchors": sum(1 for node in sidecar.get("nodes") or [] if node.get("anchor")),
+                },
+            )
+            return Response(
+                payload,
+                mimetype=mimetype,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
         if fmt != "docx":
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -253,7 +346,17 @@ def register_export_routes(app) -> None:
             return jsonify(
                 {
                     "error": "Unsupported format",
-                    "supported": ["docx", "json", "md", "html", "pdf", "audit-pdf", "dossier-pdf"],
+                    "supported": [
+                        "docx",
+                        "json",
+                        "md",
+                        "html",
+                        "pdf",
+                        "audit-pdf",
+                        "dossier-pdf",
+                        "jdf",
+                        "bundle",
+                    ],
                 }
             ), 400
 
