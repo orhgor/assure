@@ -1,9 +1,6 @@
 name: deploy-immutable
 
 on:
-  push:
-    branches:
-      - staging
   workflow_dispatch:
     inputs:
       target_environment:
@@ -14,183 +11,28 @@ on:
           - staging
           - production
       image_sha:
-        description: Exact SHA to deploy for production
-        required: false
+        description: Exact SHA to deploy (must exist in GHCR)
+        required: true
         type: string
 
 permissions:
   contents: read
-  packages: write
 
 env:
   AWS_REGION: us-east-1
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/assure
 
 jobs:
-  build_push_staging:
-    if: github.event_name == 'push' && github.ref_name == 'staging'
+  deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout exact commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          clean: true
-
-      - name: Confirm checkout
-        run: |
-          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
-          git status --short
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          platforms: linux/arm64
-
-      - name: Log in to GHCR for push
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push staging image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: linux/arm64
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:staging
-          build-args: |
-            BUILD_SHA=${{ github.sha }}
-            BUILD_BRANCH=staging
-            BUILD_TIME=${{ github.run_id }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.version=${{ github.sha }}
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: Sync repo files to staging EC2 via HTTPS
-        env:
-          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
-        run: |
-          set -euo pipefail
-          
-          # Sync repo files to EC2 via SSM (no SSH needed)
-          aws ssm send-command             --region "${AWS_REGION}"             --instance-ids "${STAGING_INSTANCE_ID}"             --document-name "AWS-RunShellScript"             --parameters "commands=[
-              "set -euo pipefail",
-              "cd /srv/assure",
-              "export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}",
-              "export GITHUB_REPOSITORY=${{ github.repository }}",
-              "export GITHUB_SHA=${{ github.sha }}",
-              "export BRANCH=staging",
-              "mkdir -p /srv/assure",
-              "cd /srv/assure",
-              "curl -sL -H \"Authorization: Bearer \$GITHUB_TOKEN\" \"https://api.github.com/repos/\$GITHUB_REPOSITORY/zipball/\$BRANCH\" -o repo.zip",
-              "unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true",
-              "rm -f repo.zip",
-              "ls -la /srv/assure"
-            ]"             --query 'Command.CommandId'             --output text
-            
-      - name: Wait for file sync to complete
-        env:
-          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
-        run: |
-          sleep 10
-          aws ssm wait             --region "${AWS_REGION}"             --instance-id "${STAGING_INSTANCE_ID}"             --for "pattern"             --pattern "File sync complete"             --timeout 60 2>/dev/null || true
-      - name: Deploy staging via SSM
-        env:
-          APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          EXPECTED_SHA: ${{ github.sha }}
-          EXPECTED_BRANCH: staging
-          EXPECTED_TIME: ${{ github.run_id }}
-          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
-          ASSURE_SERVICE_API_TOKEN: ${{ secrets.ASSURE_SERVICE_API_TOKEN }}
-          STAGING_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
-        run: |
-          set -euo pipefail
-          COMMAND_ID=$(aws ssm send-command             --region "${AWS_REGION}"             --instance-ids "${STAGING_INSTANCE_ID}"             --document-name "AWS-RunShellScript"             --parameters "commands=[
-              "set -euo pipefail",
-              "cd /srv/assure",
-              "export APP_IMAGE=${APP_IMAGE}",
-              "export EXPECTED_SHA=${EXPECTED_SHA}",
-              "export EXPECTED_BRANCH=${EXPECTED_BRANCH}",
-              "export EXPECTED_TIME=${EXPECTED_TIME}",
-              "export GHCR_READ_USER=${GHCR_READ_USER}",
-              "export GHCR_READ_TOKEN=${GHCR_READ_TOKEN}",
-              "export ASSURE_SERVICE_API_TOKEN=${ASSURE_SERVICE_API_TOKEN}",
-              "export APP_PORT=8765",
-              "bash /srv/assure/scripts/remote_deploy.sh"
-            ]"             --query 'Command.CommandId'             --output text)
-
-          echo "Waiting for SSM command ${COMMAND_ID} to complete..."
-          aws ssm wait command-executed             --region "${AWS_REGION}"             --command-id "${COMMAND_ID}"             --instance-id "${STAGING_INSTANCE_ID}"             --timeout 300
-
-          STATUS=$(aws ssm get-command-invocation             --region "${AWS_REGION}"             --command-id "${COMMAND_ID}"             --instance-id "${STAGING_INSTANCE_ID}"             --query 'Status'             --output text)
-
-          if [ "${STATUS}" != "Success" ]; then
-            echo "SSM execution failed with status: ${STATUS}"
-            aws ssm get-command-invocation               --region "${AWS_REGION}"               --command-id "${COMMAND_ID}"               --instance-id "${STAGING_INSTANCE_ID}"               --query 'StandardErrorContent'               --output text
-            exit 1
-          fi
-
-          echo "Staging deployment successful!"
-
-  deploy_production:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target_environment == 'production'
-    runs-on: ubuntu-latest
+    env:
+      TARGET_ENV: ${{ github.event.inputs.target_environment }}
+      DEPLOY_SHA: ${{ github.event.inputs.image_sha }}
     steps:
       - name: Validate SHA input
         run: |
-          test -n "${{ github.event.inputs.image_sha }}"
-
-      - name: Checkout exact production commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.image_sha }}
-          fetch-depth: 0
-          clean: true
-
-      - name: Confirm checkout
-        run: |
-          test "$(git rev-parse HEAD)" = "${{ github.event.inputs.image_sha }}"
-          git status --short
-
-      - name: Log in to GHCR for push
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push production image if missing
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          platforms: linux/arm64
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_sha }}
-          build-args: |
-            BUILD_SHA=${{ github.event.inputs.image_sha }}
-            BUILD_BRANCH=main
-            BUILD_TIME=${{ github.run_id }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.event.inputs.image_sha }}
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.version=${{ github.event.inputs.image_sha }}
+          test -n "${DEPLOY_SHA}"
+          echo "Deploying ${TARGET_ENV} with image ${IMAGE_NAME}:${DEPLOY_SHA}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -199,71 +41,113 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sync repo files to production EC2 via HTTPS
+      - name: Set instance ID
+        id: instance
+        run: |
+          if [ "${TARGET_ENV}" = "staging" ]; then
+            echo "instance_id=${{ secrets.STAGING_INSTANCE_ID }}" >> $GITHUB_OUTPUT
+            echo "branch=staging" >> $GITHUB_OUTPUT
+          else
+            echo "instance_id=${{ secrets.PROD_INSTANCE_ID }}" >> $GITHUB_OUTPUT
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sync repo files to EC2 via HTTPS
         env:
-          PROD_INSTANCE_ID: ${{ secrets.PROD_INSTANCE_ID }}
+          INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
+          BRANCH: ${{ steps.instance.outputs.branch }}
         run: |
           set -euo pipefail
           
           # Sync repo files to EC2 via SSM (no SSH needed)
-          aws ssm send-command             --region "${AWS_REGION}"             --instance-ids "${PROD_INSTANCE_ID}"             --document-name "AWS-RunShellScript"             --parameters "commands=[
-              "set -euo pipefail",
-              "cd /srv/assure",
-              "export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}",
-              "export GITHUB_REPOSITORY=${{ github.repository }}",
-              "export GITHUB_SHA=${{ github.event.inputs.image_sha }}",
-              "export BRANCH=main",
-              "mkdir -p /srv/assure",
-              "cd /srv/assure",
-              "curl -sL -H \"Authorization: Bearer \$GITHUB_TOKEN\" \"https://api.github.com/repos/\$GITHUB_REPOSITORY/zipball/\$BRANCH\" -o repo.zip",
-              "unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true",
-              "rm -f repo.zip",
-              "ls -la /srv/assure"
-            ]"             --query 'Command.CommandId'             --output text
-            
-      - name: Wait for file sync to complete
+          aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              \"set -euo pipefail\",
+              \"cd /srv/assure\",
+              \"export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}\",
+              \"export GITHUB_REPOSITORY=${{ github.repository }}\",
+              \"export GITHUB_SHA=${DEPLOY_SHA}\",
+              \"export BRANCH=${BRANCH}\",
+              \"mkdir -p /srv/assure\",
+              \"cd /srv/assure\",
+              \"curl -sL -H \\\"Authorization: Bearer \\$GITHUB_TOKEN\\\" \\\"https://api.github.com/repos/\\$GITHUB_REPOSITORY/zipball/\\$BRANCH\\\" -o repo.zip\",
+              \"unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true\",
+              \"rm -f repo.zip\",
+              \"ls -la /srv/assure\"
+            ]" \
+            --query 'Command.CommandId' \
+            --output text
+
+      - name: Wait for file sync
         env:
-          PROD_INSTANCE_ID: ${{ secrets.PROD_INSTANCE_ID }}
+          INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
         run: |
           sleep 10
-          aws ssm wait             --region "${AWS_REGION}"             --instance-id "${PROD_INSTANCE_ID}"             --for "pattern"             --pattern "File sync complete"             --timeout 60 2>/dev/null || true
+          aws ssm wait \
+            --region "${AWS_REGION}" \
+            --instance-id "${INSTANCE_ID}" \
+            --for "pattern" \
+            --pattern "File sync complete" \
+            --timeout 60 2>/dev/null || true
 
-      - name: Deploy production via SSM
+      - name: Deploy via SSM
         env:
-          APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.event.inputs.image_sha }}
-          EXPECTED_SHA: ${{ github.event.inputs.image_sha }}
-          EXPECTED_BRANCH: main
+          APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }}
+          EXPECTED_SHA: ${{ env.DEPLOY_SHA }}
+          EXPECTED_BRANCH: ${{ steps.instance.outputs.branch }}
           EXPECTED_TIME: ${{ github.run_id }}
           GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
           ASSURE_SERVICE_API_TOKEN: ${{ secrets.ASSURE_SERVICE_API_TOKEN }}
-          PROD_INSTANCE_ID: ${{ secrets.PROD_INSTANCE_ID }}
+          INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
         run: |
           set -euo pipefail
-          COMMAND_ID=$(aws ssm send-command             --region "${AWS_REGION}"             --instance-ids "${PROD_INSTANCE_ID}"             --document-name "AWS-RunShellScript"             --parameters "commands=[
-              "set -euo pipefail",
-              "cd /srv/assure",
-              "export APP_IMAGE=${APP_IMAGE}",
-              "export EXPECTED_SHA=${EXPECTED_SHA}",
-              "export EXPECTED_BRANCH=${EXPECTED_BRANCH}",
-              "export EXPECTED_TIME=${EXPECTED_TIME}",
-              "export GHCR_READ_USER=${GHCR_READ_USER}",
-              "export GHCR_READ_TOKEN=${GHCR_READ_TOKEN}",
-              "export ASSURE_SERVICE_API_TOKEN=${ASSURE_SERVICE_API_TOKEN}",
-              "export APP_PORT=8765",
-              "bash /srv/assure/scripts/remote_deploy.sh"
-            ]"             --query 'Command.CommandId'             --output text)
+          COMMAND_ID=$(aws ssm send-command \
+            --region "${AWS_REGION}" \
+            --instance-ids "${INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              \"set -euo pipefail\",
+              \"cd /srv/assure\",
+              \"export APP_IMAGE=${APP_IMAGE}\",
+              \"export EXPECTED_SHA=${EXPECTED_SHA}\",
+              \"export EXPECTED_BRANCH=${EXPECTED_BRANCH}\",
+              \"export EXPECTED_TIME=${EXPECTED_TIME}\",
+              \"export GHCR_READ_USER=${GHCR_READ_USER}\",
+              \"export GHCR_READ_TOKEN=${GHCR_READ_TOKEN}\",
+              \"export ASSURE_SERVICE_API_TOKEN=${ASSURE_SERVICE_API_TOKEN}\",
+              \"export APP_PORT=8765\",
+              \"bash /srv/assure/scripts/remote_deploy.sh\"
+            ]" \
+            --query 'Command.CommandId' \
+            --output text)
 
           echo "Waiting for SSM command ${COMMAND_ID} to complete..."
-          aws ssm wait command-executed             --region "${AWS_REGION}"             --command-id "${COMMAND_ID}"             --instance-id "${PROD_INSTANCE_ID}"             --timeout 300
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${INSTANCE_ID}" \
+            --timeout 300
 
-          STATUS=$(aws ssm get-command-invocation             --region "${AWS_REGION}"             --command-id "${COMMAND_ID}"             --instance-id "${PROD_INSTANCE_ID}"             --query 'Status'             --output text)
+          STATUS=$(aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${COMMAND_ID}" \
+            --instance-id "${INSTANCE_ID}" \
+            --query 'Status' \
+            --output text)
 
           if [ "${STATUS}" != "Success" ]; then
             echo "SSM execution failed with status: ${STATUS}"
-            aws ssm get-command-invocation               --region "${AWS_REGION}"               --command-id "${COMMAND_ID}"               --instance-id "${PROD_INSTANCE_ID}"               --query 'StandardErrorContent'               --output text
+            aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --command-id "${COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query 'StandardErrorContent' \
+              --output text
             exit 1
           fi
 
-          echo "Production deployment successful!"
-
+          echo "${TARGET_ENV} deployment successful!"
