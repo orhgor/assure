@@ -1,0 +1,74 @@
+event: status
+data: {"type": "status", "stage": "preflight", "message": "Checking budget…", "request_id": "0d5e2a24-8adf-4df2-99cb-a6d6c73aaddd"}
+
+event: status
+data: {"type": "status", "stage": "model", "message": "Drafting with openrouter/qwen/qwen3-next-80b-a3b-instruct…", "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct"}
+
+event: token
+data: {"type": "token", "delta": "The"}
+
+event: token
+data: {"type": "token", "delta": " proposed premium"}
+
+event: token
+data: {"type": "token", "delta": " rates for Plan Year"}
+
+event: token
+data: {"type": "token", "delta": " 202"}
+
+event: token
+data: {"type": "token", "delta": "6 in the Non-Grand"}
+
+event: token
+data: {"type": "token", "delta": "fathered Individual Market"}
+
+event: token
+data: {"type": "token", "delta": " by Molina Healthcare"}
+
+event: token
+data: {"type": "token", "delta": " of Illinois, Inc. were approved"}
+
+event: token
+data: {"type": "token", "delta": " without an unreasonable rate increase or"}
+
+event: token
+data: {"type": "token", "delta": " inadequate rate, as"}
+
+event: token
+data: {"type": "token", "delta": " determined by the Illinois"}
+
+event: token
+data: {"type": "token", "delta": " Department of Insurance on"}
+
+event: token
+data: {"type": "token", "delta": " September 5, 20"}
+
+event: token
+data: {"type": "token", "delta": "25, following"}
+
+event: token
+data: {"type": "token", "delta": " review by Risk & Regulatory Consulting"}
+
+event: token
+data: {"type": "token", "delta": ", LLC."}
+
+event: usage
+data: {"type": "usage", "input_tokens": 1344, "output_tokens": 66, "model_id": "openrouter/qwen/qwen3-next-80b-a3b-instruct", "task_type": "draft_compile", "measure": {"model": "openrouter/qwen/qwen3-next-80b-a3b-instruct", "input_tokens": 1488, "output_tokens": 70, "cache_read": 0, "duration_ms": 1538, "usd": null}}
+
+event: status
+data: {"type": "status", "stage": "locks", "message": "Inferring locks…"}
+
+event: usage
+data: {"type": "usage", "input_tokens": 66, "output_tokens": 5, "model_id": "deepseek/deepseek-chat", "task_type": "summarize_node"}
+
+event: redhat
+data: {"type": "redhat", "redhat": {"status": "skipped", "findings_count": 0, "error": null, "skip_reason": "no Red-Hat audit was requested for this compile"}, "status": "skipped", "findings_count": 0, "error": null, "skip_reason": "no Red-Hat audit was requested for this compile"}
+
+event: error
+data: {"type": "error", "ok": false, "error": "The compiled document could not be grounded in the source. Review the intent or the source material and try again.", "http_status": 422, "reason": "zero_anchored_claims", "request_id": "0d5e2a24-8adf-4df2-99cb-a6d6c73aaddd"}
+
+event: complete
+data: {"type": "complete", "ok": false, "error": "The compiled document could not be grounded in the source. Review the intent or the source material and try again.", "request_id": "0d5e2a24-8adf-4df2-99cb-a6d6c73aaddd", "http_status": 422}
+
+data: [DONE]
+
