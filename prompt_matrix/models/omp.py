@@ -116,6 +116,68 @@ class OMPStateRecord:
 
 
 @dataclass
+class OMPPromptReadySpan:
+    """One retrievable unit of a parsed document, ready for prompt assembly.
+
+    Produced once by the parser and reused, so the compiler ranks what it is
+    given instead of re-deriving structure from a text blob. ``text`` is the
+    smallest unit the compile can cite, which is why the character budget is
+    enforced over spans rather than over whole documents.
+    """
+
+    span_id: str
+    text: str
+    source_id: str | None = None
+    source_name: str | None = None
+    artifact_id: str | None = None
+    node_id: str | None = None
+    page: int | None = None
+    section: str | None = None
+    row: str | None = None
+    trust: str = "trusted"
+    parse_confidence: float | None = None
+    ocr_confidence: float | None = None
+    layout_confidence: float | None = None
+    provenance: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "span_id": self.span_id,
+            "text": self.text,
+            "source_id": self.source_id,
+            "source_name": self.source_name,
+            "artifact_id": self.artifact_id,
+            "node_id": self.node_id,
+            "page": self.page,
+            "section": self.section,
+            "row": self.row,
+            "trust": self.trust,
+            "parse_confidence": self.parse_confidence,
+            "ocr_confidence": self.ocr_confidence,
+            "layout_confidence": self.layout_confidence,
+            "provenance": self.provenance,
+            "metadata": self.metadata or {},
+        }
+
+
+@dataclass
+class OMPPromptReadySection:
+    """The spans of one document section, in document order."""
+
+    section_id: str
+    section_name: str
+    spans: list[OMPPromptReadySpan] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "section_id": self.section_id,
+            "section_name": self.section_name,
+            "spans": [s.to_dict() for s in self.spans],
+        }
+
+
+@dataclass
 class ParseArtifactPayload:
     """Normalized parse artifact payload from substrate ingestion."""
 
@@ -130,6 +192,8 @@ class ParseArtifactPayload:
     parse_confidence: int | None = None
     ocr_confidence: int | None = None
     spans: list[dict[str, Any]] | None = None
+    sections: list[dict[str, Any]] | None = None
+    prompt_ready_summary: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -144,6 +208,8 @@ class ParseArtifactPayload:
             "parse_confidence": self.parse_confidence,
             "ocr_confidence": self.ocr_confidence,
             "spans": self.spans,
+            "sections": self.sections,
+            "prompt_ready_summary": self.prompt_ready_summary,
         }
 
 

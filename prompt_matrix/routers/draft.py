@@ -271,17 +271,26 @@ def prompt_fingerprint() -> str:
     This is key material (``_prompt_key_material`` puts it in the compile cache
     key), not a note recorded beside the key. The ask is in the prompt too, but the
     ask is already key material itself, so this covers the static half: the merged
-    system prompt and both shape blocks.
+    system prompt, both shape blocks, and every ICP block.
 
     The bug it closes, measured: an edit moved the prompt's own sha256
     (c2b7926f -> 1cac8b13) and the key did not move (ast:p:de9116cd), so the old
     draft replayed under the new prompt's name.
+
+    Every profile's block is folded in, not just the requested one, so that
+    editing a profile moves the key the same way editing the prompt does — and a
+    compile assembled for one audience cannot replay for another.
     """
+    try:
+        from ..services.icp_profiles import PROFILES, icp_prompt_block
+    except ImportError:
+        from services.icp_profiles import PROFILES, icp_prompt_block
     static = [
         _COMPILE_SYSTEM,
         shape_instruction(ANSWER_SHAPE_DIRECT),
         shape_instruction(ANSWER_SHAPE_MEMO),
     ]
+    static.extend(icp_prompt_block(name) for name in sorted(PROFILES))
     return hashlib.sha256("\n\n---\n\n".join(static).encode("utf-8")).hexdigest()[:8]
 
 # OpenRouter load-balances one model id across several upstream providers, and
@@ -333,6 +342,13 @@ class DraftPayload(BaseModel):
     target_ai: str | None = None
     lock_numbers: bool | None = None
     force: bool = False
+    #: Which audience this compile is for. Resolved through
+    #: services.icp_profiles, so an unknown or absent value falls back to the
+    #: default profile rather than refusing the compile.
+    icp_profile: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("icpProfile", "icp_profile"),
+    )
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -512,22 +528,32 @@ def _compile_cache_key(
     )
 
 
-def _compile_system(shape: str, intent: str) -> str:
+def _compile_system(shape: str, intent: str, icp_profile: str | None = None) -> str:
     """The compile system prompt for this ask.
 
     The ask lands here as the instruction the draft answers, next to the shape
-    block that fixes how much document there is. Both are appended, never
-    substituted: the instructions above them are the same for every ask. The
-    source is not here — it is the user turn's material (``_draft_messages``) —
-    so this message is instructions only, and the guard
+    block that fixes how much document there is, and the ICP block that fixes
+    who it is for. All three are appended, never substituted: the grounding,
+    injection and output constraints above them are the same for every ask and
+    every audience. The source is not here — it is the user turn's material
+    (``_draft_messages``) — so this message is instructions only, and the guard
     (``validate_compiled_draft``) is handed this exact string: a draft that
     echoes the prompt the model was sent is refused whether the echo came from
-    the ask directive, the shape block, or above them, and a draft that quotes a
-    source sentence is not, because the source is not in the string it scans.
+    the ask directive, the shape block, the ICP block, or above them, and a
+    draft that quotes a source sentence is not, because the source is not in
+    the string it scans.
+
+    The ICP block carries emphasis only. It cannot loosen a gate: every rule
+    that decides whether a draft is grounded is above it and is profile-blind.
     """
+    try:
+        from ..services.icp_profiles import icp_prompt_block
+    except ImportError:
+        from services.icp_profiles import icp_prompt_block
     return (
         f"{_COMPILE_SYSTEM}\n\n---\n\n{ask_directive(shape, intent)}"
         f"\n\n{shape_instruction(shape)}"
+        f"\n\n---\n\n{icp_prompt_block(icp_profile)}"
     ).strip()
 
 
@@ -1410,6 +1436,7 @@ def run_draft_pipeline(
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
     force: bool = False,
+    icp_profile: str | None = None,
 ) -> Iterator[str]:
     """The compile pipeline, on one connection for its whole run.
 
@@ -1434,6 +1461,7 @@ def run_draft_pipeline(
             request_id=request_id,
             cancel_check=cancel_check,
             force=force,
+            icp_profile=icp_profile,
         )
 
 
@@ -1448,6 +1476,7 @@ def _run_draft_pipeline(
     request_id: str | None = None,
     cancel_check: CancelCheck | None = None,
     force: bool = False,
+    icp_profile: str | None = None,
 ) -> Iterator[str]:
     rid = request_id or str(uuid.uuid4())
     start = time.perf_counter()
@@ -1495,7 +1524,9 @@ def _run_draft_pipeline(
     # cache key already carries the ask (see _compile_source_text), which is what
     # makes a cache hit the same shape as the ask that earned it.
     _shape = choose_shape(intent)
-    _system_prompt = _compile_system(_shape, intent)
+    # The profile is part of the prompt, so it is part of the cache key below:
+    # a compile assembled for one audience must not replay for another.
+    _system_prompt = _compile_system(_shape, intent, icp_profile)
     messages = _draft_messages(intent, combined_context, _system_prompt)
     # Resolved once, before the cache probe: the cache key and the ROUTED TO
     # panel both read this value, so a compile cannot report (or key on) a model
@@ -2436,6 +2467,7 @@ def register_draft_routes(app) -> None:
                     request_id=request_id,
                     cancel_check=cancel_check,
                     force=payload.force,
+                    icp_profile=payload.icp_profile,
                 )
             except GeneratorExit:
                 return

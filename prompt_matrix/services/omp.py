@@ -4,6 +4,7 @@ Provides structured artifact persistence and lineage tracking."""
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ from ..models.omp import (
     OMPArtifact,
     OMPArtifactType,
     OMPLinkage,
+    OMPPromptReadySpan,
     OMPRelation,
     OMPStateRecord,
     ParseArtifactPayload,
@@ -426,20 +428,121 @@ def get_omp_states(artifact_id: str) -> list[OMPStateRecord]:
     ]
 
 
+def build_prompt_ready_spans(
+    *,
+    source_id: str,
+    source_name: str,
+    text: str,
+    artifact_id: str | None = None,
+    page_count: int | None = None,
+    parse_confidence: int | None = None,
+    ocr_confidence: int | None = None,
+) -> dict[str, Any]:
+    """Split parsed text into prompt-ready spans, sections and a summary.
+
+    Boundary is the paragraph — a blank line — because that is the unit the
+    compile can cite and the unit the anchoring gate measures. Deriving spans
+    here rather than in the compiler means the work happens once, at parse time,
+    and the compiler ranks what it is handed instead of re-splitting a blob.
+
+    Deterministic: the same text always yields the same span ids, so a span
+    reference survives a re-read of the artifact.
+    """
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return {"spans": [], "sections": [], "prompt_ready_summary": _span_summary([])}
+
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", cleaned) if p.strip()]
+    if not paragraphs:
+        paragraphs = [cleaned]
+
+    spans: list[dict[str, Any]] = []
+    for idx, para in enumerate(paragraphs):
+        spans.append(
+            OMPPromptReadySpan(
+                span_id=f"span_{idx}",
+                text=" ".join(para.split()),
+                source_id=source_id,
+                source_name=source_name,
+                artifact_id=artifact_id,
+                page=None,
+                section=None,
+                trust="trusted",
+                parse_confidence=float(parse_confidence) if parse_confidence is not None else None,
+                ocr_confidence=float(ocr_confidence) if ocr_confidence is not None else None,
+                provenance={"source_name": source_name, "page_count": page_count},
+            ).to_dict()
+        )
+    return {
+        "spans": spans,
+        "sections": [],
+        "prompt_ready_summary": _span_summary(spans),
+    }
+
+
+def _span_summary(spans: list[dict[str, Any]]) -> dict[str, Any]:
+    """Counts a probe or a human can read, without walking the span list."""
+    def _bucket(lo: float, hi: float | None) -> int:
+        n = 0
+        for s in spans:
+            c = s.get("parse_confidence")
+            if c is None:
+                continue
+            if c >= lo and (hi is None or c < hi):
+                n += 1
+        return n
+
+    return {
+        "span_count": len(spans),
+        "high_confidence_count": _bucket(0.85, None),
+        "medium_confidence_count": _bucket(0.60, 0.85),
+        "low_confidence_count": _bucket(0.0, 0.60),
+        "total_chars": sum(len(str(s.get("text") or "")) for s in spans),
+    }
+
+
 def normalize_parse_artifact(raw_parse: dict[str, Any]) -> dict[str, Any]:
-    """Normalize substrate parse output into a parse artifact payload."""
+    """Normalize substrate parse output into a parse artifact payload.
+
+    When the parser supplied no spans, they are derived here from the text, so
+    every parse artifact carries the prompt-ready channel the compiler consumes
+    — a parser that has not been taught to emit spans still produces them.
+    """
+    source_id = raw_parse.get("id", "")
+    source_name = raw_parse.get("filename", "")
+    parse_conf = raw_parse.get("parse_confidence")
+    ocr_conf = raw_parse.get("ocr_confidence")
+    spans = raw_parse.get("spans")
+    sections = raw_parse.get("sections")
+    summary = raw_parse.get("prompt_ready_summary")
+
+    if not spans:
+        derived = build_prompt_ready_spans(
+            source_id=source_id,
+            source_name=source_name,
+            text=raw_parse.get("text", ""),
+            page_count=raw_parse.get("page_count"),
+            parse_confidence=parse_conf,
+            ocr_confidence=ocr_conf,
+        )
+        spans = derived["spans"]
+        summary = summary or derived["prompt_ready_summary"]
+        sections = sections or derived["sections"]
+
     payload = ParseArtifactPayload(
-        source_id=raw_parse.get("id", ""),
-        source_name=raw_parse.get("filename", ""),
+        source_id=source_id,
+        source_name=source_name,
         page_count=raw_parse.get("page_count", 1),
         text=raw_parse.get("text", ""),
         tables=raw_parse.get("tables", []),
         forms=raw_parse.get("forms", []),
         file_size_bytes=raw_parse.get("size_bytes", 0),
         is_image=raw_parse.get("is_image", False),
-        parse_confidence=raw_parse.get("parse_confidence"),
-        ocr_confidence=raw_parse.get("ocr_confidence"),
-        spans=raw_parse.get("spans"),
+        parse_confidence=parse_conf,
+        ocr_confidence=ocr_conf,
+        spans=spans,
+        sections=sections,
+        prompt_ready_summary=summary,
     )
     return payload.to_dict()
 
