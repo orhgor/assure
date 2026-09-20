@@ -1,29 +1,39 @@
-{% extends "signin_base.html" %}
+{% extends "base.html" %}
 {% set is_signup = auth_mode == 'signup' %}
 {% block title %}{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %} · {{ gettext('Assure') }}{% endblock %}
-{% block signin_content %}
-  <h1 data-i18n="{{ 'auth.signup.title' if is_signup else 'auth.signin.title' }}">{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %}</h1>
-  <p class="lede" data-i18n="{{ 'auth.signup.lead' if is_signup else 'auth.signin.lead' }}">{% if is_signup %}{{ gettext('Create an account. Keys and questions stay on this computer.') }}{% else %}{{ gettext('Sign in to use Compose. Keys and questions stay on this computer.') }}{% endif %}</p>
-  <section class="card auth-card">
-    {% if auth.self_hosted %}
-      <p class="hint" data-i18n="auth.self_hosted">{{ gettext('Self-hosted skips cloud login. Compose is open.') }}</p>
-      <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
-    {% elif not auth.configured %}
-      <p class="hint" data-i18n="auth.missing">{{ gettext('Cloud login is not set up. Add CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to prompt_matrix/.env. Compose stays open until then.') }}</p>
-      <p class="hint" data-i18n="auth.clerk_help">{{ gettext("Create a Clerk application at clerk.com. Add this site's origin as an allowed host. Put both keys in prompt_matrix/.env and restart Assure.") }}</p>
-      <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
-    {% else %}
-      <div id="clerk-mount"></div>
-      <p class="hint" id="auth-status"></p>
-      <p class="hint">
-        {% if is_signup %}
-          <a href="/signin" data-i18n="auth.have">{{ gettext('Already have an account?') }}</a>
-        {% else %}
-          <a href="/signup" data-i18n="auth.switch">{{ gettext('Need an account?') }}</a>
-        {% endif %}
-      </p>
-    {% endif %}
-  </section>
+{% block extra_head %}
+  {# The page is a shell document: shell.css is where the shell's tokens and
+     base type live, and the shell's own server (prototype/dev-server.py) is
+     what serves it — from its static root, at this path. #}
+  <link rel="stylesheet" href="/shell.css">
+{% endblock %}
+{% block body %}
+  <div class="page">
+    <div class="page-hero">
+      <h1 data-i18n="{{ 'auth.signup.title' if is_signup else 'auth.signin.title' }}">{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %}</h1>
+      <p class="lede" data-i18n="{{ 'auth.signup.lead' if is_signup else 'auth.signin.lead' }}">{% if is_signup %}{{ gettext('Create an account. Keys and questions stay on this computer.') }}{% else %}{{ gettext('Sign in to use Compose. Keys and questions stay on this computer.') }}{% endif %}</p>
+    </div>
+    <section class="card auth-card">
+      {% if auth.self_hosted %}
+        <p class="hint" data-i18n="auth.self_hosted">{{ gettext('Self-hosted skips cloud login. Compose is open.') }}</p>
+        <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
+      {% elif not auth.configured %}
+        <p class="hint" data-i18n="auth.missing">{{ gettext('Cloud login is not set up. Add CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to prompt_matrix/.env. Compose stays open until then.') }}</p>
+        <p class="hint" data-i18n="auth.clerk_help">{{ gettext("Create a Clerk application at clerk.com. Add this site's origin as an allowed host. Put both keys in prompt_matrix/.env and restart Assure.") }}</p>
+        <p><a class="btn btn-primary" href="/" data-i18n="auth.continue">{{ gettext('Continue to Compose') }}</a></p>
+      {% else %}
+        <div id="clerk-mount"></div>
+        <p class="hint" id="auth-status"></p>
+        <p class="hint">
+          {% if is_signup %}
+            <a href="/signin" data-i18n="auth.have">{{ gettext('Already have an account?') }}</a>
+          {% else %}
+            <a href="/signup" data-i18n="auth.switch">{{ gettext('Need an account?') }}</a>
+          {% endif %}
+        </p>
+      {% endif %}
+    </section>
+  </div>
 {% endblock %}
 {% block scripts %}
   {% if auth.publishable_key %}
