@@ -5,7 +5,10 @@ to that query: a Brave search filtered to ``config/authoritative_domains.yaml``,
 then — only when the user asks for one card to be fetched — one HTTPS page, read
 under hard caps, scanned for instruction-like content with the same scan an
 upload gets, stored as an ordinary source row, and followed by a re-run of the
-anchoring gate so the paragraph is grounded or it is not.
+anchoring gate so the paragraph is grounded or it is not. A PDF is a page this
+path reads: most of the allowlist's model sources are served as one, so a fetched
+PDF goes through the vault upload's own extractor, and a PDF whose pages carry no
+text layer is refused rather than stored as an empty source.
 
 What this path does *not* do is the point of it. It never rewrites the claim: the
 paragraph either anchors to the fetched page's own sentence or it stays
@@ -25,6 +28,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import unescape
 from html.parser import HTMLParser
+from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
@@ -36,6 +40,13 @@ try:
         _MIN_CLAIM_TOKENS,
         _tokenize,
         attach_substrate_provenance_to_tree,
+    )
+
+    # The vault upload's own extractor, reused for a fetched PDF.
+    from ..routers.substrate import (
+        MIN_EXTRACTED_TEXT_CHARS,
+        SubstrateIngestError,
+        extract_document_text,
     )
     from .audit_summary import _entailment_verdict, _provenance_counts
     from .authoritative_domains import ALLOW, decision_for, host_of
@@ -50,6 +61,11 @@ except ImportError:  # pragma: no cover
         _MIN_CLAIM_TOKENS,
         _tokenize,
         attach_substrate_provenance_to_tree,
+    )
+    from routers.substrate import (  # type: ignore[no-redef]
+        MIN_EXTRACTED_TEXT_CHARS,
+        SubstrateIngestError,
+        extract_document_text,
     )
     from services.audit_summary import (  # type: ignore[no-redef]
         _entailment_verdict,
@@ -82,9 +98,14 @@ MIN_PAGE_CHARS = 200
 QUERY_CHARS = 200
 USER_AGENT = "AssureBot/1.0 (+https://getassureai.com; source verification)"
 
-# A page of these types is text the matcher can quote. A PDF or an image is not a
-# fetch this path can read, so it is refused rather than stored as gibberish.
+# A page of these types is text the matcher can quote. An image is not a fetch
+# this path can read, so it is refused rather than stored as gibberish.
 TEXT_CONTENT_TYPES = {"text/html", "application/xhtml+xml", "text/plain", "text/markdown"}
+
+# A PDF is read too, and it is the type most of the allowlist's model sources are
+# served as — NAIC bulletins, DOI guidance, ISO forms. It carries no charset and
+# the HTML extractor cannot read it, so it goes to the upload path's extractor.
+PDF_CONTENT_TYPE = "application/pdf"
 
 
 class RetrievalError(Exception):
@@ -296,6 +317,48 @@ def _decode(body: bytes, charset: str | None) -> str:
     return body.decode("utf-8", errors="replace")
 
 
+def _is_pdf(url: str, content_type: str) -> bool:
+    """True when a response is a PDF: it says so, or its URL names one.
+
+    The declaration is the reliable signal and the suffix is the fallback: a
+    bulletin served as ``application/octet-stream`` is still a PDF, and a URL that
+    ends ``.pdf`` is one even when the header is missing.
+    """
+    return content_type == PDF_CONTENT_TYPE or urlsplit(url).path.lower().endswith(".pdf")
+
+
+def _pdf_filename(url: str) -> str:
+    """A ``.pdf`` name for the extractor, from the URL's own last path segment.
+
+    The extractor keys on the suffix (page counting, and Docling's handling), so a
+    URL with no name of its own gets one rather than being read as a text upload.
+    """
+    name = PurePosixPath(urlsplit(url).path).name
+    return name if name.lower().endswith(".pdf") else "fetched.pdf"
+
+
+def _read_pdf_text(body: bytes, url: str) -> tuple[str, str]:
+    """``(text, filename)`` for a fetched PDF, read by the vault upload's extractor.
+
+    The call an upload makes (``routers.substrate.extract_document_text``): Docling
+    when ``USE_DOCLING`` is set, Textract otherwise. A PDF whose pages carry no
+    text layer extracts to nothing here — the caller refuses that, so an unreadable
+    scan never becomes an empty source row.
+    """
+    filename = _pdf_filename(url)
+    try:
+        extracted = extract_document_text(filename, body)
+    except SubstrateIngestError as exc:      # the upload path's own page cap
+        raise RetrievalError("pdf_page_limit", str(exc), status=502) from exc
+    except Exception as exc:
+        raise RetrievalError(
+            "pdf_unreadable",
+            f"The PDF could not be read: {type(exc).__name__}.",
+            status=502,
+        ) from exc
+    return str(extracted.get("text") or "").strip(), filename
+
+
 def fetch_authoritative_page(url: str, *, client: Any = None) -> FetchedPage:
     """Fetch one allowlisted HTTPS page under the size and time caps.
 
@@ -315,6 +378,10 @@ def fetch_authoritative_page(url: str, *, client: Any = None) -> FetchedPage:
     )
     current = target
     total = 0
+    is_pdf = False
+    content_type = ""
+    charset: str | None = None
+    body = b""
     try:
         for _hop in range(MAX_REDIRECTS + 1):
             with http.stream("GET", current) as response:
@@ -332,7 +399,8 @@ def fetch_authoritative_page(url: str, *, client: Any = None) -> FetchedPage:
                         status=502,
                     )
                 content_type = (response.headers.get("content-type") or "").split(";")[0].strip().lower()
-                if content_type and content_type not in TEXT_CONTENT_TYPES:
+                is_pdf = _is_pdf(current, content_type)
+                if content_type and content_type not in TEXT_CONTENT_TYPES and not is_pdf:
                     raise RetrievalError(
                         "unsupported_content_type",
                         f"{content_type} is not a page this path can read.",
@@ -352,7 +420,8 @@ def fetch_authoritative_page(url: str, *, client: Any = None) -> FetchedPage:
                             f"The page is larger than {MAX_FETCH_BYTES // (1024 * 1024)} MB.",
                         )
                     chunks.append(chunk)
-                body = _decode(b"".join(chunks), response.charset_encoding)
+                body = b"".join(chunks)
+                charset = response.charset_encoding
             break
         else:
             raise RetrievalError("too_many_redirects", "The page redirected too many times.")
@@ -368,26 +437,36 @@ def fetch_authoritative_page(url: str, *, client: Any = None) -> FetchedPage:
         if owns_client:
             http.close()
 
-    extractor = _MainTextExtractor()
-    try:
-        extractor.feed(body)
-        extractor.close()
-    except Exception:   # a malformed page still has the text parsed before the break
-        _log.warning("[retrieval] partial parse of %s", current)
-    text = extractor.text()
-    if len(text) < MIN_PAGE_CHARS:
-        raise RetrievalError(
-            "no_readable_text",
-            "The page has no readable text to ground a claim in.",
-            status=502,
-        )
+    if is_pdf:
+        text, title = _read_pdf_text(body, current)
+        if len(text) <= MIN_EXTRACTED_TEXT_CHARS:
+            raise RetrievalError(
+                "pdf_no_text",
+                "We could not extract text from this PDF: its pages carry no text layer.",
+                status=502,
+            )
+    else:
+        extractor = _MainTextExtractor()
+        try:
+            extractor.feed(_decode(body, charset))
+            extractor.close()
+        except Exception:   # a malformed page still has the text parsed before the break
+            _log.warning("[retrieval] partial parse of %s", current)
+        text = extractor.text()
+        if len(text) < MIN_PAGE_CHARS:
+            raise RetrievalError(
+                "no_readable_text",
+                "The page has no readable text to ground a claim in.",
+                status=502,
+            )
+        title = extractor.title()
     hits = scan_source_instruction_like(text)
     return FetchedPage(
         url=current,
         host=host,
-        title=extractor.title(),
+        title=title,
         text=text,
-        content_type="text/html",
+        content_type=content_type or (PDF_CONTENT_TYPE if is_pdf else "text/html"),
         bytes_read=total,
         instruction_like=bool(hits),
         instruction_hits=tuple(hits),

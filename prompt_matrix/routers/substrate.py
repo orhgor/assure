@@ -57,6 +57,11 @@ except ImportError:
 
 TEXTRACT_MAX_PAGES = 50
 
+#: A document whose extraction carries no more than this many characters is a scan
+#: with no text layer, not a source. The vault upload and the fetched-PDF path
+#: (``services/web_retrieval``) refuse at the same floor.
+MIN_EXTRACTED_TEXT_CHARS = 10
+
 
 class SubstrateIngestError(ValueError):
     """Validation/extraction failure with optional response fields."""
@@ -93,10 +98,14 @@ def _substrate_async_enabled() -> bool:
     return os.environ.get("SUBSTRATE_ASYNC_UPLOAD", "").lower() in ("1", "true", "yes")
 
 
-def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
-    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
-    validate_upload_bytes(filename, file_bytes)
+def extract_document_text(filename: str, file_bytes: bytes) -> dict:
+    """Text, tables, forms and page count of a document, by the upload path's own rules.
 
+    The one extraction path: a .txt/.md upload carries its own text, Docling reads
+    everything else when ``USE_DOCLING`` is set, and Textract is the fallback. The
+    fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF fetched
+    from an allowlisted host is read by the same extractor an upload is.
+    """
     use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
     extracted: dict | None = None
     page_count = 1
@@ -144,6 +153,15 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         extracted = client.extract_text(file_bytes, filename)
         page_count = int(extracted.get("page_count") or page_count)
 
+    return {**extracted, "page_count": int(extracted.get("page_count") or page_count)}
+
+
+def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
+    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
+    validate_upload_bytes(filename, file_bytes)
+
+    extracted = extract_document_text(filename, file_bytes)
+    page_count = int(extracted.get("page_count") or 1)
     if page_count > TEXTRACT_MAX_PAGES:
         raise SubstrateIngestError(
             f"This document has {page_count} pages. Substrate Vault accepts up to "
@@ -152,7 +170,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         )
 
     extracted_text = str(extracted.get("text") or "").strip()
-    if len(extracted_text) <= 10:
+    if len(extracted_text) <= MIN_EXTRACTED_TEXT_CHARS:
         raise SubstrateIngestError(
             "Could not extract enough readable text from this file "
             f"({len(extracted_text)} characters). Upload a clearer scan or "
@@ -165,7 +183,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
     entry = upsert_substrate_entry(
         project_id,
         filename=filename,
-        page_count=extracted.get("page_count") or page_count,
+        page_count=page_count,
         extracted_text=extracted_text,
         tables=extracted.get("tables") or [],
         forms=extracted.get("forms") or [],
