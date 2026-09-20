@@ -26,7 +26,7 @@
     <main id="main-content">
         <section class="hero-section">
             <div class="container">
-                <h1 data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', strings.get('brand.hero_title', ''))|safe }}</h1>
+                <h1 class="hero-title" data-i18n-html="brand.hero_title_html">{{ strings.get('brand.hero_title_html', strings.get('brand.hero_title', ''))|safe }}</h1>
                 <p class="hero-sub" data-i18n="landing.hero.subtitle">{{ strings.get('landing.hero.subtitle', '') }}</p>
                 <div class="hero-cta-group">
                     <button type="button" class="btn-primary" data-waitlist-open data-i18n="landing.hero.cta_primary">{{ strings.get('landing.hero.cta_primary', 'Request Enterprise Pilot') }}</button>
@@ -67,19 +67,19 @@
                 <h2 class="section-title" data-i18n="landing.trust.title">{{ strings.get('landing.trust.title', 'Enterprise trust architecture') }}</h2>
                 <p class="trust-badge" data-i18n="landing.hero.badge">{{ strings.get('landing.hero.badge', '') }}</p>
                 <div class="trust-arch-grid trust-arch-grid-four">
-                    <article>
+                    <article class="trust-card">
                         <h3 data-i18n="landing.trust.card1.title">{{ strings.get('landing.trust.card1.title', '') }}</h3>
                         <p data-i18n="landing.trust.card1.body">{{ strings.get('landing.trust.card1.body', '') }}</p>
                     </article>
-                    <article>
+                    <article class="trust-card">
                         <h3 data-i18n="landing.trust.card2.title">{{ strings.get('landing.trust.card2.title', '') }}</h3>
                         <p data-i18n="landing.trust.card2.body">{{ strings.get('landing.trust.card2.body', '') }}</p>
                     </article>
-                    <article>
+                    <article class="trust-card">
                         <h3 data-i18n="landing.trust.card3.title">{{ strings.get('landing.trust.card3.title', '') }}</h3>
                         <p data-i18n="landing.trust.card3.body">{{ strings.get('landing.trust.card3.body', '') }}</p>
                     </article>
-                    <article>
+                    <article class="trust-card">
                         <h3 data-i18n="landing.trust.card4.title">{{ strings.get('landing.trust.card4.title', '') }}</h3>
                         <p data-i18n="landing.trust.card4.body">{{ strings.get('landing.trust.card4.body', '') }}</p>
                     </article>
