@@ -255,9 +255,15 @@ def list_omp_artifacts(
     init_db()
     db = get_db()
 
-    query = "SELECT artifact_id, project_id, artifact_type, source_id, parent_artifact_id, "
-    "payload_json, confidence_json, provenance_json, created_at, updated_at, metadata_json "
-    "FROM omp_artifacts WHERE project_id = ?"
+    # The literals must be parenthesised: adjacent string literals concatenate
+    # only inside parentheses or a continued expression, and as bare statements
+    # after a completed assignment the second and third were discarded, leaving
+    # a SELECT with no FROM clause.
+    query = (
+        "SELECT artifact_id, project_id, artifact_type, source_id, parent_artifact_id, "
+        "payload_json, confidence_json, provenance_json, created_at, updated_at, metadata_json "
+        "FROM omp_artifacts WHERE project_id = ?"
+    )
     params = [project_id]
 
     if artifact_type:
