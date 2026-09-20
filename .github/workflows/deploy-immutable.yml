@@ -76,6 +76,7 @@ jobs:
           unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true
           rm -f repo.zip
           ls -la /srv/assure
+          echo "File sync complete"
           EOF
           )
           
@@ -90,20 +91,48 @@ jobs:
             --output text)
           
           echo "Sync command ID: ${COMMAND_ID}"
-          echo "COMMAND_ID=${COMMAND_ID}" >> $GITHUB_OUTPUT
+          echo "SYNC_COMMAND_ID=${COMMAND_ID}" >> $GITHUB_OUTPUT
 
-      - name: Wait for file sync
+      - name: Wait for file sync command to complete
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
-          COMMAND_ID: ${{ steps.sync.outputs.COMMAND_ID }}
+          SYNC_COMMAND_ID: ${{ steps.sync.outputs.SYNC_COMMAND_ID }}
         run: |
-          sleep 10
-          aws ssm wait \
-            --region "${AWS_REGION}" \
-            --instance-id "${INSTANCE_ID}" \
-            --for "pattern" \
-            --pattern "File sync complete" \
-            --timeout 60 2>/dev/null || true
+          set -euo pipefail
+          echo "Waiting for sync command ${SYNC_COMMAND_ID} to complete..."
+          
+          TIMEOUT=120
+          INTERVAL=10
+          ELAPSED=0
+          while [ ${ELAPSED} -lt ${TIMEOUT} ]; do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "${AWS_REGION}" \
+              --command-id "${SYNC_COMMAND_ID}" \
+              --instance-id "${INSTANCE_ID}" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+            
+            if [ "${STATUS}" = "Success" ]; then
+              echo "Sync completed successfully"
+              exit 0
+            elif [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ] || [ "${STATUS}" = "TimedOut" ]; then
+              echo "Sync failed with status: ${STATUS}"
+              aws ssm get-command-invocation \
+                --region "${AWS_REGION}" \
+                --command-id "${SYNC_COMMAND_ID}" \
+                --instance-id "${INSTANCE_ID}" \
+                --query 'StandardErrorContent' \
+                --output text
+              exit 1
+            fi
+            
+            echo "  Sync status: ${STATUS} (${ELAPSED}s elapsed)"
+            sleep ${INTERVAL}
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+          
+          echo "Timeout after ${TIMEOUT}s waiting for sync command"
+          exit 1
 
       - name: Deploy via SSM
         env:
