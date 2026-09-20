@@ -36,6 +36,21 @@ echo "[1/7] Authenticate with GHCR"
 printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GHCR_READ_USER" --password-stdin
 
 echo "[2/7] Write persistent .env for reboot survival"
+# The service token is a secret the deploy is not always given: it is not in
+# the image, not in git, and only a workflow that has the repository secret can
+# supply it. Writing a blank over an existing token would break the service API
+# until someone re-set it by hand — and writing a placeholder would be worse,
+# since the endpoint compares against it with hmac.compare_digest, so any caller
+# presenting the placeholder is authorised. When this script is not given one,
+# the value already on the box is kept.
+if [ -z "$ASSURE_SERVICE_API_TOKEN" ] && [ -f .env ]; then
+  ASSURE_SERVICE_API_TOKEN="$(sed -n 's/^ASSURE_SERVICE_API_TOKEN=//p' .env | head -1)"
+  [ -n "$ASSURE_SERVICE_API_TOKEN" ] && echo "    service token: kept from existing .env"
+fi
+if [ -z "$ASSURE_SERVICE_API_TOKEN" ]; then
+  echo "    service token: not set (service API endpoints will refuse every caller)"
+fi
+
 # The ghcr overlay reads ASSURE_IMAGE_TAG; the app reads ASSURE_BUILD_* and the
 # service token. Write both names so compose and the container agree.
 ASSURE_IMAGE_TAG="$EXPECTED_SHA"
