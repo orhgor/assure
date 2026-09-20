@@ -111,11 +111,20 @@ def _lock_verdict(
 ) -> dict[str, Any]:
     """The evidence verdict for one lock, shaped for the inspector drawer.
 
-    ``services.evidence_assembly`` is the only producer of the six verdict
-    states the inspector renders (supported, partial, not_supported,
-    contradicted, unanchored, unverified). It was unreferenced: the drawer asked
+    ``services.evidence_assembly`` produces the six verdict states the inspector
+    draws (supported, partial, not_supported, contradicted, unanchored,
+    unverified) from lexical overlap, and it was unreferenced: the drawer asked
     the API for a ``verdict`` the endpoint never sent, so the section rendered
     empty for every lock.
+
+    ``services.entailment`` is the other producer, and the stronger one — it
+    judges semantically with a model call and already writes
+    ``node.meta.provenance.entailment`` on the draft path
+    (``routers/draft.attach_entailment_to_tree``). It is deliberately not called
+    here: a model call per lock would put seconds on a GET that a reader opens
+    by clicking a pill, and this route has no project budget context to spend
+    against. The lexical verdict is what a synchronous read can afford; the
+    semantic one belongs on the compile, where the cost is already paid.
 
     The claim is the lock's own statement, because that is what the source is
     being asked to support. The verdict is returned as ``{"type", "reason"}``
