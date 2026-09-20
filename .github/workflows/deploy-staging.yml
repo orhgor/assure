@@ -1,8 +1,10 @@
 name: Deploy to Staging
 
+# Manual only. Pushing to `staging` must not deploy: the immutable path
+# (deploy-immutable.yml) deploys a pinned SHA on demand, and the old
+# build-and-push-here flow is superseded by it.
 on:
-  push:
-    branches: [staging]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-staging-${{ github.ref }}
@@ -47,7 +49,9 @@ jobs:
             ${{ env.IMAGE_NAME }}:staging
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           build-args: |
-            ASSURE_BUILD_SHA=${{ github.sha }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ github.run_id }}
 
   deploy:
     needs: build

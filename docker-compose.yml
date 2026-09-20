@@ -18,6 +18,7 @@ services:
       ASSURE_BUILD_BRANCH: ${ASSURE_BUILD_BRANCH:-${BUILD_BRANCH:-unknown}}
       ASSURE_BUILD_TIME: ${ASSURE_BUILD_TIME:-${BUILD_TIME:-unknown}}
       ASSURE_SERVICE_API_TOKEN: ${ASSURE_SERVICE_API_TOKEN:-}
+      APP_IMAGE: ${APP_IMAGE:-unknown}
     volumes:
       - ./data:/app/data
     restart: unless-stopped

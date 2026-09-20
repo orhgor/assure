@@ -52,97 +52,105 @@ jobs:
             echo "branch=main" >> $GITHUB_OUTPUT
           fi
 
-      - name: Sync repo files to EC2 via HTTPS
+      - name: Push compose files to EC2
+        id: sync
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
-          BRANCH: ${{ steps.instance.outputs.branch }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
+          TARGET_ENV: ${{ github.event.inputs.target_environment }}
         run: |
           set -euo pipefail
-          
-          # Build the SSM command script with token expanded
+          # Only the compose manifests and the deploy script are synced. The
+          # application code lives inside the pinned image, so no source tarball
+          # is fetched and nothing on the box is clobbered.
+          FILES="docker-compose.yml docker-compose.staging.yml docker-compose.prod.yml docker-compose.ghcr.yml scripts/remote_deploy.sh"
+          for f in ${FILES}; do
+            test -f "${f}" || { echo "missing ${f}" >&2; exit 1; }
+          done
+          TARBALL="$(mktemp -d)/deploy-files.tgz"
+          tar -czf "${TARBALL}" ${FILES}
+          B64="$(base64 -w0 < "${TARBALL}")"
+
           SCRIPT=$(cat <<'EOF'
           set -euo pipefail
-          cd /srv/assure
-          export GITHUB_TOKEN="${GITHUB_TOKEN}"
-          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
-          export GITHUB_SHA="${DEPLOY_SHA}"
-          export BRANCH="${BRANCH}"
-          mkdir -p /srv/assure
-          cd /srv/assure
-          curl -sL -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/zipball/${BRANCH}" -o repo.zip
-          unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true
-          rm -f repo.zip
-          ls -la /srv/assure
-          echo "File sync complete"
+          cd /home/ubuntu/assure
+          rm -rf /tmp/assure-deploy-files && mkdir -p /tmp/assure-deploy-files
+          echo "${B64_PAYLOAD}" | base64 -d | tar -xzf - -C /tmp/assure-deploy-files
+          cp /tmp/assure-deploy-files/docker-compose*.yml /home/ubuntu/assure/
+          mkdir -p /home/ubuntu/assure/scripts
+          cp /tmp/assure-deploy-files/scripts/remote_deploy.sh /home/ubuntu/assure/scripts/
+          chmod +x /home/ubuntu/assure/scripts/remote_deploy.sh
+          chown -R ubuntu:ubuntu /home/ubuntu/assure/docker-compose*.yml /home/ubuntu/assure/scripts/remote_deploy.sh 2>/dev/null || true
+          rm -rf /tmp/assure-deploy-files
+          echo "compose files synced"
           EOF
           )
-          
-          # Base64 encode and send via SSM (piped to bash)
-          B64=$(printf '%s' "${SCRIPT}" | base64 -w0)
+          SCRIPT="${SCRIPT//\$\{B64_PAYLOAD\}/${B64}}"
+          SCRIPT_B64="$(printf '%s' "${SCRIPT}" | base64 -w0)"
+
           COMMAND_ID=$(aws ssm send-command \
             --region "${AWS_REGION}" \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[\"echo ${B64} | base64 -d | bash\"]" \
+            --parameters "commands=[\"echo ${SCRIPT_B64} | base64 -d | bash\"]" \
             --query 'Command.CommandId' \
             --output text)
-          
-          echo "Sync command ID: ${COMMAND_ID}"
-          echo "SYNC_COMMAND_ID=${COMMAND_ID}" >> $GITHUB_OUTPUT
+          echo "sync command id: ${COMMAND_ID}"
 
-      - name: Wait for file sync command to complete
-        env:
-          INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
-          SYNC_COMMAND_ID: ${{ steps.sync.outputs.SYNC_COMMAND_ID }}
-        run: |
-          set -euo pipefail
-          echo "Waiting for sync command ${SYNC_COMMAND_ID} to complete..."
-          
-          TIMEOUT=120
-          INTERVAL=10
-          ELAPSED=0
-          while [ ${ELAPSED} -lt ${TIMEOUT} ]; do
-            STATUS=$(aws ssm get-command-invocation \
-              --region "${AWS_REGION}" \
-              --command-id "${SYNC_COMMAND_ID}" \
-              --instance-id "${INSTANCE_ID}" \
-              --query 'Status' \
-              --output text 2>/dev/null || echo "Pending")
-            
-            if [ "${STATUS}" = "Success" ]; then
-              echo "Sync completed successfully"
-              exit 0
-            elif [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ] || [ "${STATUS}" = "TimedOut" ]; then
-              echo "Sync failed with status: ${STATUS}"
-              aws ssm get-command-invocation \
-                --region "${AWS_REGION}" \
-                --command-id "${SYNC_COMMAND_ID}" \
-                --instance-id "${INSTANCE_ID}" \
-                --query 'StandardErrorContent' \
-                --output text
+          TIMEOUT=120; INTERVAL=10; ELAPSED=0
+          while [ "${ELAPSED}" -lt "${TIMEOUT}" ]; do
+            STATUS=$(aws ssm get-command-invocation --region "${AWS_REGION}" \
+              --command-id "${COMMAND_ID}" --instance-id "${INSTANCE_ID}" \
+              --query 'Status' --output text 2>/dev/null || echo "Pending")
+            if [ "${STATUS}" = "Success" ]; then echo "sync completed"; exit 0; fi
+            if [ "${STATUS}" = "Failed" ] || [ "${STATUS}" = "Cancelled" ] || [ "${STATUS}" = "TimedOut" ]; then
+              echo "sync failed: ${STATUS}" >&2
+              aws ssm get-command-invocation --region "${AWS_REGION}" \
+                --command-id "${COMMAND_ID}" --instance-id "${INSTANCE_ID}" \
+                --query 'StandardErrorContent' --output text >&2
               exit 1
             fi
-            
-            echo "  Sync status: ${STATUS} (${ELAPSED}s elapsed)"
-            sleep ${INTERVAL}
-            ELAPSED=$((ELAPSED + INTERVAL))
+            echo "  sync status: ${STATUS} (${ELAPSED}s)"
+            sleep ${INTERVAL}; ELAPSED=$((ELAPSED + INTERVAL))
           done
-          
-          echo "Timeout after ${TIMEOUT}s waiting for sync command"
+          echo "sync timed out after ${TIMEOUT}s" >&2
           exit 1
+
+      - name: Read build identity from image
+        id: image
+        env:
+          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${GHCR_READ_TOKEN}" | docker login ghcr.io -u "${GHCR_READ_USER}" --password-stdin
+          docker pull "${APP_IMAGE}"
+          # The image carries its own build identity; deploy must match what was baked in,
+          # not the deploy run's own id.
+          BUILD_SHA=$(docker image inspect "${APP_IMAGE}" --format '{{index .Config.Env}}' | tr ' ' '\n' | sed -n 's/^ASSURE_BUILD_SHA=//p')
+          BUILD_BRANCH=$(docker image inspect "${APP_IMAGE}" --format '{{index .Config.Env}}' | tr ' ' '\n' | sed -n 's/^ASSURE_BUILD_BRANCH=//p')
+          BUILD_TIME=$(docker image inspect "${APP_IMAGE}" --format '{{index .Config.Env}}' | tr ' ' '\n' | sed -n 's/^ASSURE_BUILD_TIME=//p')
+          if [ -z "${BUILD_SHA}" ]; then
+            echo "Image ${APP_IMAGE} carries no ASSURE_BUILD_SHA; rebuild it with build-args." >&2
+            exit 1
+          fi
+          echo "Image identity: sha=${BUILD_SHA} branch=${BUILD_BRANCH} time=${BUILD_TIME}"
+          {
+            echo "build_sha=${BUILD_SHA}"
+            echo "build_branch=${BUILD_BRANCH}"
+            echo "build_time=${BUILD_TIME}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Deploy via SSM
         env:
           APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ env.DEPLOY_SHA }}
-          EXPECTED_SHA: ${{ env.DEPLOY_SHA }}
-          EXPECTED_BRANCH: ${{ steps.instance.outputs.branch }}
-          EXPECTED_TIME: ${{ github.run_id }}
+          EXPECTED_SHA: ${{ steps.image.outputs.build_sha }}
+          EXPECTED_BRANCH: ${{ steps.image.outputs.build_branch }}
+          EXPECTED_TIME: ${{ steps.image.outputs.build_time }}
           GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
           ASSURE_SERVICE_API_TOKEN: ${{ secrets.ASSURE_SERVICE_API_TOKEN }}
+          APP_ENV: ${{ github.event.inputs.target_environment }}
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
         run: |
           set -euo pipefail
@@ -150,7 +158,7 @@ jobs:
           # Build deploy script (will be piped to bash on EC2)
           SCRIPT=$(cat <<'EOF'
           set -euo pipefail
-          cd /srv/assure
+          cd /home/ubuntu/assure
           export APP_IMAGE="${APP_IMAGE}"
           export EXPECTED_SHA="${EXPECTED_SHA}"
           export EXPECTED_BRANCH="${EXPECTED_BRANCH}"
@@ -159,7 +167,8 @@ jobs:
           export GHCR_READ_TOKEN="${GHCR_READ_TOKEN}"
           export ASSURE_SERVICE_API_TOKEN="${ASSURE_SERVICE_API_TOKEN}"
           export APP_PORT=8765
-          bash /srv/assure/scripts/remote_deploy.sh
+          export APP_ENV="${APP_ENV}"
+          bash /home/ubuntu/assure/scripts/remote_deploy.sh
           EOF
           )
           
@@ -176,7 +185,7 @@ jobs:
           echo "Waiting for SSM command ${COMMAND_ID} to complete..."
           
           # Manual timeout polling (aws ssm wait command-executed doesn't support --timeout on all versions)
-          TIMEOUT=300
+          TIMEOUT=600
           INTERVAL=10
           ELAPSED=0
           while [ ${ELAPSED} -lt ${TIMEOUT} ]; do

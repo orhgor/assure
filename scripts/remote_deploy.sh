@@ -1,15 +1,34 @@
 #!/usr/bin/env bash
+# Immutable deploy: pull an exact image from GHCR, recreate the container, then
+# verify the build identity the container reports matches what was deployed.
+#
+# Runs on the EC2 box (invoked over SSM). No build happens here — the image must
+# already exist in GHCR. Fails closed on any identity mismatch.
 set -euo pipefail
 
-: "${APP_DIR:=/srv/assure}"
-: "${APP_PORT:=8765}"
-: "${APP_IMAGE:?missing APP_IMAGE}"
+APP_DIR="${APP_DIR:-/home/ubuntu/assure}"
+APP_PORT="${APP_PORT:-8765}"
+APP_ENV="${APP_ENV:-staging}"
+IMAGE_REPO="${ASSURE_IMAGE_REPO:-ghcr.io/orhgor/assure-app}"
+HEALTH_URL="${ASSURE_HEALTH_URL:-http://127.0.0.1:${APP_PORT}/api/health}"
+HEALTH_TIMEOUT_SEC="${ASSURE_HEALTH_TIMEOUT_SEC:-120}"
+
 : "${EXPECTED_SHA:?missing EXPECTED_SHA}"
 : "${EXPECTED_BRANCH:?missing EXPECTED_BRANCH}"
-: "${EXPECTED_TIME:?missing EXPECTED_TIME}"
-: "${ASSURE_SERVICE_API_TOKEN:?missing ASSURE_SERVICE_API_TOKEN}"
 : "${GHCR_READ_USER:?missing GHCR_READ_USER}"
 : "${GHCR_READ_TOKEN:?missing GHCR_READ_TOKEN}"
+
+EXPECTED_TIME="${EXPECTED_TIME:-}"
+APP_IMAGE="${APP_IMAGE:-${IMAGE_REPO}:${EXPECTED_SHA}}"
+ASSURE_SERVICE_API_TOKEN="${ASSURE_SERVICE_API_TOKEN:-}"
+
+# Compose overlay set must match how the box is already running (see
+# scripts/aws/redeploy-app.sh): base + environment + GHCR pull-only overlay.
+if [[ "$APP_ENV" == "staging" ]]; then
+  COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.staging.yml -f docker-compose.ghcr.yml)
+else
+  COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ghcr.yml)
+fi
 
 cd "$APP_DIR"
 
@@ -17,8 +36,12 @@ echo "[1/7] Authenticate with GHCR"
 printf '%s' "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GHCR_READ_USER" --password-stdin
 
 echo "[2/7] Write persistent .env for reboot survival"
+# The ghcr overlay reads ASSURE_IMAGE_TAG; the app reads ASSURE_BUILD_* and the
+# service token. Write both names so compose and the container agree.
+ASSURE_IMAGE_TAG="$EXPECTED_SHA"
 cat > .env <<EOF
 APP_IMAGE=$APP_IMAGE
+ASSURE_IMAGE_TAG=$ASSURE_IMAGE_TAG
 BUILD_SHA=$EXPECTED_SHA
 BUILD_BRANCH=$EXPECTED_BRANCH
 BUILD_TIME=$EXPECTED_TIME
@@ -27,66 +50,76 @@ ASSURE_BUILD_BRANCH=$EXPECTED_BRANCH
 ASSURE_BUILD_TIME=$EXPECTED_TIME
 ASSURE_SERVICE_API_TOKEN=$ASSURE_SERVICE_API_TOKEN
 EOF
+export ASSURE_IMAGE_TAG
+export ASSURE_BUILD_SHA="$EXPECTED_SHA"
+export ASSURE_BUILD_BRANCH="$EXPECTED_BRANCH"
+export ASSURE_BUILD_TIME="$EXPECTED_TIME"
+export APP_IMAGE
+export ASSURE_SERVICE_API_TOKEN
 
 echo "[3/7] Pull exact image: $APP_IMAGE"
 docker pull "$APP_IMAGE"
 
 echo "[4/7] Recreate container from exact image"
-docker compose up -d --force-recreate --no-deps
+"${COMPOSE[@]}" up -d --no-build --pull never --force-recreate --no-deps assure-app
 
 echo "[5/7] Wait for health"
-for i in $(seq 1 60); do
-  if python3 - <<'PY'
-import json, os, sys, urllib.request
-port = os.environ.get("APP_PORT", "8765")
-url = f"http://127.0.0.1:{port}/api/health"
-try:
-    data = json.load(urllib.request.urlopen(url, timeout=2))
-    print(json.dumps(data))
-    sys.exit(0)
-except Exception:
-    sys.exit(1)
-PY
-  then
+HEALTHY=0
+for _ in $(seq 1 $((HEALTH_TIMEOUT_SEC / 2))); do
+  if curl -sf --max-time 2 "$HEALTH_URL" >/dev/null 2>&1; then
+    HEALTHY=1
     break
   fi
   sleep 2
 done
+if [ "$HEALTHY" != "1" ]; then
+  echo "Health endpoint never became ready after ${HEALTH_TIMEOUT_SEC}s: $HEALTH_URL"
+  "${COMPOSE[@]}" logs --tail 50 assure-app || true
+  exit 1
+fi
 
 echo "[6/7] Verify deployed build identity"
-ACTUAL_JSON=$(python3 - <<'PY'
-import json, os, urllib.request
-port = os.environ.get("APP_PORT", "8765")
-url = f"http://127.0.0.1:{port}/api/health"
-data = json.load(urllib.request.urlopen(url, timeout=5))
-print(json.dumps(data))
-PY
-)
+ACTUAL_JSON="$(curl -sf --max-time 5 "$HEALTH_URL")"
 
-ACTUAL_SHA=$(echo "$ACTUAL_JSON" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("build_sha", ""))')
+json_field() {
+  printf '%s' "$ACTUAL_JSON" | python3 -c "
+import json, sys
+try:
+    print(json.load(sys.stdin).get('$1') or '')
+except Exception:
+    print('')
+"
+}
 
-ACTUAL_BRANCH=$(echo "$ACTUAL_JSON" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("build_branch", ""))')
+ACTUAL_SHA="$(json_field build_sha)"
+ACTUAL_BRANCH="$(json_field build_branch)"
+ACTUAL_IMAGE="$(json_field image_ref)"
+ACTUAL_TIME="$(json_field build_time)"
 
-ACTUAL_IMAGE=$(echo "$ACTUAL_JSON" | python3 -c 'import sys, json; print(json.load(sys.stdin).get("image_ref", ""))')
-
+fail=0
 if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
   echo "SHA mismatch: expected=$EXPECTED_SHA actual=$ACTUAL_SHA"
-  exit 1
+  fail=1
 fi
-
-if [ "$ACTUAL_BRANCH" != "$EXPECTED_BRANCH" ]; then
+if [ -n "$EXPECTED_BRANCH" ] && [ "$ACTUAL_BRANCH" != "$EXPECTED_BRANCH" ]; then
   echo "Branch mismatch: expected=$EXPECTED_BRANCH actual=$ACTUAL_BRANCH"
-  exit 1
+  fail=1
 fi
-
 if [ "$ACTUAL_IMAGE" != "$APP_IMAGE" ]; then
   echo "Image mismatch: expected=$APP_IMAGE actual=$ACTUAL_IMAGE"
+  fail=1
+fi
+# build_time is only checked when the caller knows it (an immutable image carries
+# its own; a caller that can't read it passes empty and the check is skipped).
+if [ -n "$EXPECTED_TIME" ] && [ "$ACTUAL_TIME" != "$EXPECTED_TIME" ]; then
+  echo "Build time mismatch: expected=$EXPECTED_TIME actual=$ACTUAL_TIME"
+  fail=1
+fi
+if [ "$fail" != "0" ]; then
+  echo "Identity verification failed — deployment is NOT confirmed."
   exit 1
 fi
 
-echo "[7/7] Deployment verified"
-
-echo "[8/8] Pruning unused images older than 7 days"
-docker image prune -af --filter "until=168h" || true
-
+echo "[7/7] Deployment verified: sha=$ACTUAL_SHA branch=$ACTUAL_BRANCH image=$ACTUAL_IMAGE"
+docker image prune -f --filter "until=168h" >/dev/null 2>&1 || true
 echo "Deployment verified and complete."

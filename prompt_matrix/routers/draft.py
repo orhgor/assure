@@ -1593,4 +1593,3 @@ def register_draft_routes(app) -> None:
 
         return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
-    return Response(generate(), headers=headers)
