@@ -20,7 +20,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/assure
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/assure-app
 
 jobs:
   deploy:
@@ -56,34 +56,46 @@ jobs:
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
           BRANCH: ${{ steps.instance.outputs.branch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_SHA: ${{ env.DEPLOY_SHA }}
         run: |
           set -euo pipefail
           
-          # Sync repo files to EC2 via SSM (no SSH needed)
-          aws ssm send-command \
+          # Build the SSM command script with token expanded
+          SCRIPT=$(cat <<'EOF'
+          set -euo pipefail
+          cd /srv/assure
+          export GITHUB_TOKEN="${GITHUB_TOKEN}"
+          export GITHUB_REPOSITORY="${GITHUB_REPOSITORY}"
+          export GITHUB_SHA="${DEPLOY_SHA}"
+          export BRANCH="${BRANCH}"
+          mkdir -p /srv/assure
+          cd /srv/assure
+          curl -sL -H "Authorization: Bearer ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/zipball/${BRANCH}" -o repo.zip
+          unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true
+          rm -f repo.zip
+          ls -la /srv/assure
+          EOF
+          )
+          
+          # Base64 encode and send via SSM
+          B64=$(printf '%s' "${SCRIPT}" | base64 -w0)
+          COMMAND_ID=$(aws ssm send-command \
             --region "${AWS_REGION}" \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[
-              \"set -euo pipefail\",
-              \"cd /srv/assure\",
-              \"export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}\",
-              \"export GITHUB_REPOSITORY=${{ github.repository }}\",
-              \"export GITHUB_SHA=${DEPLOY_SHA}\",
-              \"export BRANCH=${BRANCH}\",
-              \"mkdir -p /srv/assure\",
-              \"cd /srv/assure\",
-              \"curl -sL -H \\\"Authorization: Bearer \\$GITHUB_TOKEN\\\" \\\"https://api.github.com/repos/\\$GITHUB_REPOSITORY/zipball/\\$BRANCH\\\" -o repo.zip\",
-              \"unzip -o repo.zip -d /tmp/repo && mv /tmp/repo/*/* /srv/assure/ 2>/dev/null || true\",
-              \"rm -f repo.zip\",
-              \"ls -la /srv/assure\"
-            ]" \
+            --parameters "commands=[\"echo ${B64} | base64 -d | bash\"]" \
             --query 'Command.CommandId' \
-            --output text
+            --output text)
+          
+          echo "Sync command ID: ${COMMAND_ID}"
+          echo "COMMAND_ID=${COMMAND_ID}" >> $GITHUB_OUTPUT
 
       - name: Wait for file sync
         env:
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
+          COMMAND_ID: ${{ steps.sync.outputs.COMMAND_ID }}
         run: |
           sleep 10
           aws ssm wait \
