@@ -1,0 +1,15 @@
+# Worker-only packages: the async parse path.
+#
+# The web image deliberately excludes these. Parsing is not a request-path
+# operation (SUBSTRATE_ASYNC_UPLOAD routes it to Celery), and Docling is ML
+# inference — pulling it into the web container adds gigabytes and a CUDA
+# payload that an ARM64 box with no GPU cannot use.
+#
+#   python -m pip install -r requirements.txt -r requirements-worker.txt
+#
+# docling: layout/table extraction, the substrate path when USE_DOCLING=1.
+# Pinned to the version the deployed environment runs (docling 2.129.0,
+# docling-parse 7.20.0, docling-ibm-models 4.0.3, pypdfium2 5.13.0).
+# Requires Python >=3.10,<4.0; the images are 3.11.
+docling==2.129.0
+pypdfium2==5.13.0

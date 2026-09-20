@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+# Worker image: the async parse path.
+#
+# This is the app image plus the ML extraction stack. It exists as its own file
+# because Docling pulls a CUDA toolkit and NVIDIA libraries that an ARM64 box
+# with no GPU cannot use — carrying them in the web container would add
+# gigabytes to every request worker for capability only the worker needs.
+#
+# Build after the app image, since it extends it:
+#   docker build -t ghcr.io/<owner>/assure-app:<sha> .
+#   docker build -f Dockerfile.worker --build-arg BASE_IMAGE=ghcr.io/<owner>/assure-app:<sha> \
+#     -t ghcr.io/<owner>/assure-worker:<sha> .
+#
+# Parsing is not a request-path operation: SUBSTRATE_ASYNC_UPLOAD routes an
+# upload to the `sqlite_writes` queue, where tasks/substrate_tasks.py calls
+# ingest_substrate_file -> extract_document_text -> Docling.
+ARG BASE_IMAGE=ghcr.io/orhgor/assure-app:latest
+
+FROM python:3.11-slim AS mlbuilder
+WORKDIR /app
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+COPY requirements-worker.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && pip install --upgrade pip \
+    && pip install --prefer-binary -r requirements-worker.txt \
+    && apt-get purge -y gcc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM ${BASE_IMAGE} AS runtime
+# Only the site-packages the worker's requirements added. The app image already
+# carries the application code, node and the jdf CLI.
+COPY --from=mlbuilder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=mlbuilder /usr/local/bin /usr/local/bin
+
+ARG BUILD_SHA=unknown
+ARG BUILD_BRANCH=unknown
+ARG BUILD_TIME=unknown
+ENV ASSURE_BUILD_SHA=${BUILD_SHA} \
+    ASSURE_BUILD_BRANCH=${BUILD_BRANCH} \
+    ASSURE_BUILD_TIME=${BUILD_TIME} \
+    USE_DOCLING=1 \
+    SUBSTRATE_ASYNC_UPLOAD=1

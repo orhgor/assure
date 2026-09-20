@@ -44,7 +44,7 @@ ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PORT=8765 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    USE_DOCLING=1
+    USE_DOCLING=0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends poppler-utils \
