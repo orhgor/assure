@@ -31,9 +31,11 @@ def ownership_enforced() -> bool:
     if raw in {"0", "false", "no", "off"}:
         return False
     try:
-        from .cloud_auth import auth_required, current_user_id
+        from .cloud_auth import auth_required, current_user_id, is_self_hosted, require_clerk_login
     except ImportError:
-        from cloud_auth import auth_required, current_user_id
+        from cloud_auth import auth_required, current_user_id, is_self_hosted, require_clerk_login
+    if is_self_hosted() and not require_clerk_login():
+        return False
     return bool(auth_required() and current_user_id())
 
 
