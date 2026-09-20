@@ -288,6 +288,43 @@ def _classify_source(text: str) -> Literal["trusted", "untrusted"]:
     return "trusted"
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _rank_source_rows(
+    source_rows: list[dict[str, Any]], icp_profile: str | None
+) -> list[dict[str, Any]]:
+    """Order sources so the claim-relevant ones are the ones the budget keeps.
+
+    The budget below is far tighter than the compile prompt's (4k per file,
+    16k total against 200k/400k), and it stops at the first source that does not
+    fit, so ordering decides which evidence is assembled at all. Ranking by
+    confidence first and ICP vocabulary second keeps a poorly parsed but
+    vocabulary-dense source from displacing a clean one; ties stay in document
+    order, so the same rows always assemble the same way.
+
+    The key matches routers/draft._rank_substrate_rows deliberately: the
+    evidence a verdict is drawn from and the sources the draft was written from
+    should rank the same material first, or a compile can cite a source the
+    evidence pass never read.
+    """
+    try:
+        from .icp_profiles import icp_keyword_boost
+    except ImportError:
+        from icp_profiles import icp_keyword_boost
+
+    def _confidence(row: dict[str, Any]) -> float:
+        for key in ("parse_confidence", "confidence"):
+            raw = row.get(key)
+            if isinstance(raw, (int, float)):
+                return float(raw)
+        return 0.0
+
+    def _key(item: tuple[int, dict[str, Any]]):
+        idx, row = item
+        text = str(row.get("extracted_text") or "")
+        return (-_confidence(row), -icp_keyword_boost(text, icp_profile), idx)
+
+    return [row for _idx, row in sorted(enumerate(source_rows), key=_key)]
+
+
 def _enforce_source_budget(
     source_rows: list[dict[str, Any]],
     budget: EvidenceBudget,
@@ -660,6 +697,7 @@ def assemble_evidence(
     compile_type: Literal["full", "selection"] = "full",
     selected_node_ids: list[str] | None = None,
     budget: EvidenceBudget | None = None,
+    icp_profile: str | None = None,
 ) -> EvidenceAssemblyResult:
     """
     Assemble deterministic, provenance-rich evidence for a claim.
@@ -705,7 +743,8 @@ def assemble_evidence(
     
     # 4) Enforce source budget
     budget = budget or EvidenceBudget()
-    excerpts, truncation_summary = _enforce_source_budget(substrate_rows, budget)
+    ranked_rows = _rank_source_rows(substrate_rows, icp_profile)
+    excerpts, truncation_summary = _enforce_source_budget(ranked_rows, budget)
     
     # 2) Candidate anchor selection (lexical overlap ONLY for candidate finding)
     candidates = _find_candidate_anchors(

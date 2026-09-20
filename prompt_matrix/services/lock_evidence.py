@@ -104,7 +104,11 @@ def find_lock_evidence(lock_hash: str) -> dict[str, Any] | None:
     return None
 
 
-def _lock_verdict(lock: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, Any]:
+def _lock_verdict(
+    lock: dict[str, Any],
+    entry: dict[str, Any] | None,
+    icp_profile: str | None = None,
+) -> dict[str, Any]:
     """The evidence verdict for one lock, shaped for the inspector drawer.
 
     ``services.evidence_assembly`` is the only producer of the six verdict
@@ -147,7 +151,7 @@ def _lock_verdict(lock: dict[str, Any], entry: dict[str, Any] | None) -> dict[st
         "extracted_text": text,
     }
     try:
-        result = assemble_evidence(claim, [row])
+        result = assemble_evidence(claim, [row], icp_profile=icp_profile)
     except EvidenceAssemblyError:
         # A refused assembly still says something about the evidence: the source
         # was there and did not carry the claim.

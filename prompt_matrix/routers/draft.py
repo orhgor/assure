@@ -698,6 +698,44 @@ def attach_citations_to_tree(
     return tree
 
 
+def _rank_substrate_rows(
+    substrate_rows: list[dict[str, Any]], icp_profile: str | None
+) -> list[dict[str, Any]]:
+    """Order sources so the claim-relevant ones reach the prompt first.
+
+    ``numbered_source_blocks`` assigns ``[S<N>]`` ids in the order it is given
+    and stops at the per-file and total budgets, so ordering decides *which*
+    material the model sees when the budget bites — not merely how it reads.
+    The profile therefore has to be applied here, before numbering, or a
+    keyword-rich source can be truncated away by a boilerplate one that came
+    first.
+
+    Parse confidence leads the key and the ICP boost is a tiebreaker inside it:
+    a paragraph dense in policy vocabulary but poorly parsed must not outrank a
+    cleanly parsed one, which is the failure mode of ranking on vocabulary
+    alone. Ties fall back to document order, so the result is deterministic and
+    a re-read of the same vault yields the same numbering.
+    """
+    try:
+        from ..services.icp_profiles import icp_keyword_boost
+    except ImportError:
+        from services.icp_profiles import icp_keyword_boost
+
+    def _confidence(row: dict[str, Any]) -> float:
+        for key in ("parse_confidence", "confidence"):
+            raw = row.get(key)
+            if isinstance(raw, (int, float)):
+                return float(raw)
+        return 0.0
+
+    def _key(item: tuple[int, dict[str, Any]]):
+        idx, row = item
+        text = str(row.get("extracted_text") or "")
+        return (-_confidence(row), -icp_keyword_boost(text, icp_profile), idx)
+
+    return [row for _idx, row in sorted(enumerate(substrate_rows), key=_key)]
+
+
 def _build_substrate_context(substrate_rows: list[dict[str, Any]]) -> str:
     """Concatenate selected Substrate Vault files (bounded) so the draft is
     actually grounded in them, not just told they exist.
@@ -1486,6 +1524,11 @@ def _run_draft_pipeline(
     substrate_rows = (
         fetch_substrate_entries_by_ids(project_id, substrate_file_ids) if substrate_file_ids else []
     )
+    # Ranked before anything reads them: the prompt's numbering, the citation
+    # map and the source budget all walk this list in order, so ordering here is
+    # what decides which material survives the budget and which [S<N>] ids the
+    # claim-relevant sources get.
+    substrate_rows = _rank_substrate_rows(substrate_rows, icp_profile)
     # Pre-flight: a compile with no source attached has nothing to ground on, so
     # it is refused before the first stage runs — no model call, no tokens
     # painted into the document pane, no revision and no cache entry. The
