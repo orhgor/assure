@@ -27,7 +27,11 @@ gevent>=24.2.0
 celery[sqs]>=5.4.0
 sqlalchemy>=2.0.0
 resend>=2.0.0
-# Optional Sprint 2 stack (install on workers that ingest PDFs / run minimizer):
-# docling>=2.0.0
-# groundrails (Python ~=3.12): see requirements-groundrails.txt
+# PDF parse paths. Each is required by a distinct endpoint:
+#   pymupdf  -> services/pdf_import.pdf_bytes_to_jdf   (POST /api/projects/<id>/import-pdf)
+#   docling  -> verification/docling_extractor         (substrate upload when USE_DOCLING=1)
+# Textract is the substrate fallback and needs AWS credentials, not a package.
+pymupdf>=1.24.0
+docling==2.129.0
+pypdfium2==5.13.0
 Pillow>=10.0
