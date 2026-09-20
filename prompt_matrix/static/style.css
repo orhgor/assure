@@ -10918,3 +10918,86 @@ body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
   letter-spacing: 0.05em;
   pointer-events: none;
 }
+/* Evidence Inspector Verdict Badges */
+.evidence-inspector-verdict {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.evidence-inspector-verdict__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.evidence-inspector-verdict__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.evidence-inspector-verdict__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--border-radius-full);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.evidence-inspector-verdict__badge.is-supported {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.evidence-inspector-verdict__badge.is-partial {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.evidence-inspector-verdict__badge.is-not_supported {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.evidence-inspector-verdict__badge.is-contradicted {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.evidence-inspector-verdict__badge.is-unanchored {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.evidence-inspector-verdict__badge.is-unverified {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.evidence-inspector-verdict__reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-top: var(--space-2);
+}
+
+/* Verdict badge in origin meta (top right of source card) */
+.evidence-inspector-origin__meta .evidence-inspector-verdict__badge {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+}
