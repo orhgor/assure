@@ -79,7 +79,7 @@ jobs:
           EOF
           )
           
-          # Base64 encode and send via SSM
+          # Base64 encode and send via SSM (piped to bash)
           B64=$(printf '%s' "${SCRIPT}" | base64 -w0)
           COMMAND_ID=$(aws ssm send-command \
             --region "${AWS_REGION}" \
@@ -117,23 +117,30 @@ jobs:
           INSTANCE_ID: ${{ steps.instance.outputs.instance_id }}
         run: |
           set -euo pipefail
+          
+          # Build deploy script (will be piped to bash on EC2)
+          SCRIPT=$(cat <<'EOF'
+          set -euo pipefail
+          cd /srv/assure
+          export APP_IMAGE="${APP_IMAGE}"
+          export EXPECTED_SHA="${EXPECTED_SHA}"
+          export EXPECTED_BRANCH="${EXPECTED_BRANCH}"
+          export EXPECTED_TIME="${EXPECTED_TIME}"
+          export GHCR_READ_USER="${GHCR_READ_USER}"
+          export GHCR_READ_TOKEN="${GHCR_READ_TOKEN}"
+          export ASSURE_SERVICE_API_TOKEN="${ASSURE_SERVICE_API_TOKEN}"
+          export APP_PORT=8765
+          bash /srv/assure/scripts/remote_deploy.sh
+          EOF
+          )
+          
+          # Base64 encode and send via SSM (piped to bash)
+          B64=$(printf '%s' "${SCRIPT}" | base64 -w0)
           COMMAND_ID=$(aws ssm send-command \
             --region "${AWS_REGION}" \
             --instance-ids "${INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[
-              \"set -euo pipefail\",
-              \"cd /srv/assure\",
-              \"export APP_IMAGE=${APP_IMAGE}\",
-              \"export EXPECTED_SHA=${EXPECTED_SHA}\",
-              \"export EXPECTED_BRANCH=${EXPECTED_BRANCH}\",
-              \"export EXPECTED_TIME=${EXPECTED_TIME}\",
-              \"export GHCR_READ_USER=${GHCR_READ_USER}\",
-              \"export GHCR_READ_TOKEN=${GHCR_READ_TOKEN}\",
-              \"export ASSURE_SERVICE_API_TOKEN=${ASSURE_SERVICE_API_TOKEN}\",
-              \"export APP_PORT=8765\",
-              \"bash /srv/assure/scripts/remote_deploy.sh\"
-            ]" \
+            --parameters "commands=[\"echo ${B64} | base64 -d | bash\"]" \
             --query 'Command.CommandId' \
             --output text)
 
