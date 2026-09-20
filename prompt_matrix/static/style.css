@@ -11362,3 +11362,105 @@ body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
   font-size: var(--font-size-xs);
   padding: var(--space-1) var(--space-2);
 }
+
+/* ── Surgical revision proposal ──────────────────────────────────────────────
+   The refine proposal renders a computed diff rather than swapping text, and
+   three properties below are load-bearing rather than cosmetic.
+
+   `white-space: pre-wrap` — <ins> and <del> are inline elements, and HTML
+   collapses whitespace between inline siblings. A one-word substitution then
+   renders as "patientshows" with no visible gap where the space was.
+
+   `padding: 0.1em 0` on the changed spans — vertical padding on an inline
+   element forces its line box taller, so toggling the diff view shifts every
+   line below it.
+
+   `:empty::after { content: "\00a0" }` — a diff that is only a deleted space
+   produces an empty element, which paints nothing at all and makes a structural
+   edit invisible.
+
+   Colour is not the only channel: deletions carry a 2px strikethrough and
+   insertions a heavier weight, so the two states stay distinguishable under
+   red-green colour blindness.
+
+   The palette reuses the existing diff tokens (.diff-del / .diff-ins, defined
+   above) so the reviewer sees one diff idiom in this product, not two.
+   ------------------------------------------------------------------------- */
+.surgical-diff-viewer {
+  font-family: inherit;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  margin-top: var(--space-sm);
+}
+
+.surgical-diff-del,
+.surgical-diff-ins {
+  padding: 0.1em 0;
+  margin: 0 0.05em;
+  border-radius: var(--radius-sm);
+}
+
+.surgical-diff-del {
+  text-decoration-thickness: 2px;
+  opacity: 0.85;
+}
+
+.surgical-diff-ins {
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.surgical-diff-del:empty::after,
+.surgical-diff-ins:empty::after {
+  content: "\00a0";
+}
+
+.surgical-diff-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+.surgical-verify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+.surgical-verify.is-pass {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.surgical-verify.is-fail {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.surgical-verify.is-error {
+  background: var(--color-surface-muted, var(--color-surface));
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.surgical-verify__icon {
+  font-weight: 700;
+}
+.surgical-verify__detail {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+}
+
+/* The target node is held still while its proposal is in flight: the call takes
+   seconds, and a keystroke landing in that window is overwritten by the reply. */
+[data-node-id].is-surgical-pending {
+  pointer-events: none;
+  opacity: 0.6;
+}
