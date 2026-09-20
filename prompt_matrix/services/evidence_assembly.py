@@ -400,6 +400,90 @@ def _tokenize(text: str) -> set[str]:
     """Tokenize text into normalized tokens."""
     return {t.lower() for t in _WORD_RE.findall(text or "") if len(t) > 1}
 
+
+def _numeric_tokens(text: str) -> set[str]:
+    """The numbers a text states, normalized so "25,000" and "25000" are equal.
+
+    Compared as written values rather than as floats: a policy's figures are
+    identifiers as much as quantities, and "5,000,000" against "5000000" is the
+    same figure stated two ways, not a conflict.
+    """
+    out: set[str] = set()
+    for raw in re.findall(r"\d+(?:[,\d]*)(?:\.\d+)?", text or ""):
+        cleaned = raw.replace(",", "").rstrip(".")
+        if cleaned:
+            out.add(cleaned)
+    return out
+
+
+def _weighted_match_ratio(claim: str, excerpt: str) -> float:
+    """How much of the claim the excerpt carries, weighting the terms that decide it.
+
+    A flat bag-of-words count over the whole excerpt cannot see the word that
+    changes the answer. Measured: "The policy covers flood damage" against "The
+    policy covers fire damage." scores 3 of 4 key words and cleared the 0.7
+    support threshold, because "policy", "covers" and "damage" matched and
+    "flood" carried no more weight than they did — yet flood-versus-fire is the
+    entire question.
+
+    Three terms are therefore weighted: a number, a negation, and a token the
+    excerpt does not carry. The last is what lets a distinguishing noun count —
+    an unmatched word is evidence about the claim's subject, not noise to be
+    averaged away. A term that *is* matched keeps weight 1, so an ordinary
+    verbatim claim still scores 1.0 and the threshold keeps its meaning.
+    """
+    claim_tokens = [t for t in _WORD_RE.findall(claim or "") if len(t) > 3]
+    if not claim_tokens:
+        return 0.0
+    excerpt_words = {t.lower() for t in _WORD_RE.findall(excerpt or "")}
+    excerpt_lower = (excerpt or "").lower()
+    claim_numbers = _numeric_tokens(claim)
+    excerpt_numbers = _numeric_tokens(excerpt)
+    claim_negated = any(n in claim.lower() for n in _NEGATIONS)
+
+    total = 0.0
+    matched = 0.0
+    for token in claim_tokens:
+        token_l = token.lower()
+        hit = token_l in excerpt_words
+        weight = 1.0
+        if token_l in _DISTINGUISHING or token_l in claim_numbers:
+            weight = 2.0
+        elif token_l in _NEGATIONS:
+            weight = 2.0
+        total += weight
+        if hit:
+            matched += weight
+    # A claim that states a figure the excerpt states differently cannot be
+    # supported by the words around the figure, however many of them match.
+    if claim_numbers and excerpt_numbers and not (claim_numbers & excerpt_numbers):
+        matched = min(matched, total * 0.5)
+    if claim_negated != any(n in excerpt_lower for n in _NEGATIONS):
+        matched = min(matched, total * 0.5)
+    return matched / total if total else 0.0
+
+
+#: Tokens that select the claim's subject rather than describe it. A miss on one
+#: of these is the difference between the claim and its near-neighbour, so it is
+#: weighted above a match on shared vocabulary.
+_DISTINGUISHING = frozenset(
+    {
+        "flood", "fire", "water", "wind", "earthquake", "storm", "hail", "theft",
+        "vandalism", "mold", "collapse", "flooding", "smoke", "explosion",
+        "suffolk", "nassau", "county", "borough", "premises", "building",
+        "deductible", "limit", "limits", "exclusion", "exclusions",
+        "endorsement", "endorsements", "coverage", "excluded", "included",
+        "replacement", "actual", "cash", "value", "insured", "mortgagee",
+        "additional", "loss", "payee", "location", "property", "schedule",
+    }
+)
+
+_NEGATIONS = (
+    "not ", "no ", "never ", "n't ", "cannot ", "doesn't ", "does not ",
+    "won't ", "will not ", "isn't ", "is not ", "without ",
+)
+
+
 def _find_candidate_anchors(
     claim: str,
     source_excerpts: list[dict[str, Any]],
@@ -525,9 +609,9 @@ def _classify_verdict(
     if not claim_key_words:
         return "unverified", "Claim has no meaningful keywords.", None, ()
     
-    # Count matching key words for semantic support assessment
-    matches = sum(1 for w in claim_key_words if w in excerpt_lower)
-    match_ratio = matches / len(claim_key_words) if claim_key_words else 0.0
+    # Weighted rather than a flat count: see _weighted_match_ratio for the
+    # measured case where an unweighted ratio called flood-vs-fire supported.
+    match_ratio = _weighted_match_ratio(claim, best_excerpt)
     
     # Extract numbers for numeric verification
     claim_numbers = re.findall(r"-?\d+(?:,\d+)*(?:\.\d+)?", claim)
@@ -609,12 +693,50 @@ def _has_explicit_opposition(claim: str, excerpt: str) -> bool:
         ("profit", "deficit"), ("surplus", "deficit"),
         ("approve", "reject"), ("accept", "reject"),
         ("yes", "no"), ("true", "false"),
+        # Insurance and policy vocabulary. The table above is financial, and a
+        # policy states its coverage with include/exclude rather than with
+        # increase/decrease — measured, "Coverage includes flood damage" against
+        # "Coverage excludes flood damage" returned no opposition at all, so the
+        # one state reserved for a source that says the opposite never fired on
+        # the most ordinary policy contradiction there is.
+        ("include", "exclude"), ("includes", "excludes"),
+        ("included", "excluded"), ("including", "excluding"),
+        ("cover", "exclude"), ("covers", "excludes"),
+        ("covered", "excluded"), ("coverage", "exclusion"),
+        ("affirm", "deny"), ("affirmed", "denied"),
+        ("grant", "deny"), ("granted", "denied"),
+        ("permit", "prohibit"), ("permitted", "prohibited"),
+        ("allow", "disallow"), ("allowed", "disallowed"),
+        ("applicable", "inapplicable"),
+        ("eligible", "ineligible"),
+        ("valid", "invalid"),
+        ("within", "outside"),
+        ("mandatory", "optional"),
+        ("admitted", "denied"),
     ]
-    
+
+    # Whole words only. A substring test fires the pair ("cover", "exclude") on
+    # the single sentence "Coverage excludes flood damage" against itself —
+    # "cover" is inside "coverage" — so an identical claim and source were
+    # reported contradicted. Measured before this guard: an ordinary
+    # excludes-a-peril sentence contradicted itself.
+    claim_words = set(_WORD_RE.findall(claim_lower))
+    excerpt_words = set(_WORD_RE.findall(excerpt_lower))
     for w1, w2 in antonym_pairs:
-        if w1 in claim_lower and w2 in excerpt_lower:
+        if w1 in claim_words and w2 in excerpt_words:
             return True
-        if w2 in claim_lower and w1 in excerpt_lower:
+        if w2 in claim_words and w1 in excerpt_words:
+            return True
+
+    # A figure the claim states and the source states differently is an explicit
+    # contradiction, not silence: "the deductible is 25,000" against a source
+    # reading "the deductible is 50,000" is the source denying the claim, and
+    # the lexical ratio below cannot see it because the surrounding words all
+    # match. Compared as written values so "25,000" and "25000" agree.
+    claim_numbers = _numeric_tokens(claim)
+    excerpt_numbers = _numeric_tokens(excerpt)
+    if claim_numbers and excerpt_numbers:
+        if not (claim_numbers & excerpt_numbers):
             return True
     
     # Check for explicit contradiction phrases
