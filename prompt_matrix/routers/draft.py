@@ -1527,9 +1527,70 @@ def register_draft_routes(app) -> None:
                 )
                 yield _done_sse()
 
-        headers = {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        }
-        return Response(generate(), headers=headers)
+    # NEW: Ingest-and-verify endpoint for direct PDF/image → JDF → Verify flow
+    @app.post("/api/projects/<project_id>/ingest-and-verify")
+    def ingest_and_verify(project_id: str):
+        from flask import request, Response, stream_with_context
+
+        # Parse multipart form data
+        file = request.files.get("file")
+        intent = request.form.get("intent", "").strip()
+        target_ai = request.form.get("target_ai", None)
+        compile_type = request.form.get("compile_type", "full")
+
+        if not file or not file.filename:
+            return Response(
+                _typed_sse("error", {"ok": False, "error": "No file provided", "http_status": 400}),
+                status=400,
+                mimetype="text/event-stream",
+            )
+
+        if not intent:
+            return Response(
+                _typed_sse("error", {"ok": False, "error": "Intent is required", "http_status": 400}),
+                status=400,
+                mimetype="text/event-stream",
+            )
+
+        # Read file bytes
+        file_bytes = file.read()
+        filename = file.filename or "upload"
+
+        # Import the services we need
+        from ..routers.substrate import ingest_substrate_file
+        from ..services.confidence import assemble_evidence, EvidenceBudget
+
+        # Step 1: Ingest the file into Substrate Vault
+        try:
+            substrate_result = ingest_substrate_file(project_id, filename, file_bytes)
+            substrate_id = substrate_result["id"]
+        except Exception as exc:
+            return Response(
+                _typed_sse("error", {"ok": False, "error": f"File ingestion failed: {exc}", "http_status": 500}),
+                status=500,
+                mimetype="text/event-stream",
+            )
+
+        # Step 2: Run the compile/verify pipeline
+        substrate_file_ids = [substrate_id]
+        intent_text = intent or filename
+
+        def generate():
+            try:
+                for event in run_draft_pipeline(
+                    project_id=project_id,
+                    intent=intent_text,
+                    substrate_file_ids=substrate_file_ids,
+                    target_ai=target_ai,
+                    request_id=None,
+                    cancel_check=None,
+                ):
+                    yield event
+            except Exception as exc:
+                yield _typed_sse("error", {"ok": False, "error": str(exc), "http_status": 500})
+                yield _done_sse()
+                return
+
+        return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+    return Response(generate(), headers=headers)

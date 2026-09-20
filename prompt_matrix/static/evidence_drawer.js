@@ -1,5 +1,5 @@
 /**
- * Founder workbench — Evidence Inspector (right drawer).
+ * Founder workbench -- Evidence Inspector (right drawer).
  */
 (function (global) {
   "use strict";
@@ -61,10 +61,13 @@
   function renderEvidence(data) {
     var el = panel();
     if (!el) return;
-    var page = data.page_number != null ? String(data.page_number) : "—";
+    var page = data.page_number != null ? String(data.page_number) : "--";
+    var verdict = data.verdict || "unverified";
+    var verdictLabel = translate("evidence.verdict." + verdict, verdict);
+    var badgeClass = "evidence-inspector-verdict__badge is-" + verdict;
     var satLabel = z3StatusLabel(data.z3_proof);
     var satClass = satLabel.indexOf("UNSAT") >= 0 ? "is-unsat" : "is-sat";
-    var badgeClass =
+    var badgeClass2 =
       satClass === "is-unsat" ? "evidence-inspector-proof__badge is-unsat" : "evidence-inspector-proof__badge";
     el.innerHTML =
       '<section class="evidence-inspector-section">' +
@@ -74,12 +77,17 @@
       '<div class="evidence-inspector-origin">' +
       '<div class="evidence-inspector-origin__meta">' +
       '<span class="evidence-inspector-origin__name">' +
-      esc(data.source_name || data.source_id || "—") +
+      esc(data.source_name || data.source_id || "--") +
       "</span>" +
       '<span class="evidence-inspector-origin__page">' +
       esc(translate("founder.drawer.page", "Page")) +
       " " +
       esc(page) +
+      "</span>" +
+      '<span class="evidence-inspector-verdict__badge is-' +
+      verdict +
+      '">' +
+      esc(verdictLabel) +
       "</span>" +
       "</div>" +
       '<p class="evidence-inspector-origin__excerpt">' +
@@ -95,13 +103,29 @@
       "</h3>" +
       '<div class="evidence-inspector-proof">' +
       '<span class="' +
-      badgeClass +
+      badgeClass2 +
       '">' +
       esc(satLabel) +
       "</span>" +
       '<pre class="evidence-inspector-proof__log drawer-evidence-z3">' +
       esc(data.z3_proof || "") +
-      "</pre></div></section>";
+      "</pre>" +
+      "</div>" +
+      "</section>" +
+      '<section class="evidence-inspector-section">' +
+      '<h3 class="evidence-inspector-section__title">' +
+      esc(translate("evidence.inspector.verdict", "Evidence Verdict")) +
+      "</h3>" +
+      '<div class="evidence-inspector-verdict">' +
+      '<span class="evidence-inspector-verdict__badge is-' +
+      verdict +
+      '">' +
+      esc(verdictLabel) +
+      "</span>" +
+      (data.verdict_reason
+        ? '<p class="evidence-inspector-verdict__reason">' + esc(data.verdict_reason) + "</p>"
+        : "") +
+      "</div></section>";
   }
 
   function renderError(message) {

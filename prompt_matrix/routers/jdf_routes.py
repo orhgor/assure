@@ -180,6 +180,7 @@ def register_jdf_routes(app) -> None:
     @project_ownership_required
     def get_project_jdf(project_id: str):
         version_raw = request.args.get("version")
+        include_omp = request.args.get("include_omp", "false").lower() in ("1", "true", "yes")
         if version_raw is not None:
             try:
                 version = int(version_raw)
@@ -188,12 +189,29 @@ def register_jdf_routes(app) -> None:
             doc = fetch_jdf_at_version(project_id, version)
             if doc is None:
                 return jsonify({"error": f"version {version} not found"}), 404
+            if include_omp:
+                omp_artifact_ids = get_omp_linkages_for_revision(f"rev-{project_id}-{version}")
+                doc["ompArtifactIds"] = omp_artifact_ids
             return jsonify({"ok": True, "document": doc, "version": version})
 
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
+        if include_omp:
+            doc["ompArtifactIds"] = doc.get("ompArtifactIds") or doc.get("meta", {}).get("ompArtifactIds") or []
         return jsonify({"ok": True, "document": doc})
+
+    @app.get("/api/projects/<project_id>/omp")
+    @project_ownership_required
+    def get_project_omp(project_id: str):
+        from ..services.omp import list_omp_artifacts
+        artifact_type = request.args.get("type")
+        omp_artifacts = list_omp_artifacts(project_id, artifact_type=artifact_type)
+        return jsonify({
+            "ok": True,
+            "artifacts": [a.to_dict() for a in omp_artifacts],
+            "count": len(omp_artifacts),
+        })
 
     @app.put("/api/projects/<project_id>/jdf")
     @project_ownership_required
@@ -243,6 +261,18 @@ def register_jdf_routes(app) -> None:
                     change_summary=payload.change_summary,
                     expected_version=expected,
                 )
+
+                # Save OMP linkages if present in JDF meta
+                meta = tree.get("meta", {})
+                omp_artifact_ids = meta.get("ompArtifactIds") or []
+                source_artifact_ids = meta.get("sourceArtifactIds") or []
+                all_omp_ids = list(set(omp_artifact_ids + source_artifact_ids))
+                if all_omp_ids:
+                    try:
+                        save_omp_linkage(project_id, result.get("revision_id", ""), all_omp_ids)
+                    except Exception:
+                        pass
+
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,

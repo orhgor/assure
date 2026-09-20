@@ -26,6 +26,10 @@ try:
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
     from ..services.compile_guard import flag_fields, flag_response
+    from ..services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from ..services.omp_memory import remember_vault_file
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -44,6 +48,10 @@ except ImportError:
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
     from services.compile_guard import flag_fields, flag_response
+    from services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -165,6 +173,25 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         **flag,
     )
     remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
+
+    # Store parse artifact in OMP
+    try:
+        substrate_result = {
+            "id": entry["id"],
+            "filename": filename,
+            "page_count": page_count,
+            "text": entry["extracted_text"],
+            "tables": entry["tables"],
+            "forms": entry["forms"],
+            "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
+            "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+        }
+        omp_artifact = build_omp_artifact_from_parse(project_id, substrate_result)
+        store_omp_artifact(project_id, omp_artifact)
+    except Exception as exc:
+        # OMP storage is best-effort; don't fail the ingest
+        pass
+
     return {
         "ok": True,
         "id": entry["id"],

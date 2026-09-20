@@ -179,6 +179,16 @@ class JDFDocumentTree(BaseModel):
     truth_ledger: dict[str, float | str | int] = Field(default_factory=dict)
     body: list[JDFSectionNode] = Field(default_factory=list)
 
+    # Confidence fields for verification results
+    confidence: int | None = None
+    confidenceBreakdown: dict[str, int] | None = None
+    lowConfidenceNodes: list[dict[str, Any]] | None = None
+
+    # OMP lineage fields for audit trail
+    ompArtifactIds: list[str] | None = None
+    sourceArtifactIds: list[str] | None = None
+    verificationLineage: list[dict[str, Any]] | None = None
+
     @model_validator(mode="before")
     @classmethod
     def _compat_frontend_envelope(cls, data: Any) -> Any:
@@ -193,7 +203,6 @@ class JDFDocumentTree(BaseModel):
             meta.setdefault("title", title)
             data["meta"] = meta
         return data
-
 
 def new_node_id(prefix: str = "node") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
