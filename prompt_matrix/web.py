@@ -509,6 +509,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
@@ -524,12 +525,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
             verify_session_token,
         )
-
     @app.before_request
     def _set_language_guard_locale():
         try:
@@ -550,11 +551,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 code=301,
             )
         return None
-
     @app.before_request
     def _cloud_login():
-        return protect_request()
-
+        if not is_self_hosted() and require_clerk_login():
+            return protect_request()
+        return None
     def _apply_browser_api_keys() -> None:
         """Apply in-memory BYOK keys from request headers. Never logged or persisted."""
         gemini = (request.headers.get("X-Gemini-Key") or "").strip()
