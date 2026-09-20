@@ -63,7 +63,14 @@ def _sha256(text: str) -> str:
     return hashlib.sha256((text or "").encode("utf-8")).hexdigest()
 
 
-def _source_block(filename: str, lines: list[str]) -> str:
+def _source_block(
+    filename: str,
+    lines: list[str],
+    *,
+    truncated: bool = False,
+    original_length: int = 0,
+    carried_chars: int = 0,
+) -> str:
     """The prompt block for one source: its numbered sentences, fenced as untrusted.
 
     Every source is fenced, not only a scanned one. The fence is a property of
@@ -80,8 +87,30 @@ def _source_block(filename: str, lines: list[str]) -> str:
 
     Both walks build the block through this one function, so the block the prompt
     carries is the block the carry plan measured.
+
+    A truncated source says so, inside the fence and after the last numbered
+    sentence. Measured before this: a 20,000-sentence policy cut at the 200,000
+    character cap reached the model as 4,595 numbered sentences ending in a clean
+    fence marker, with nothing anywhere in the block indicating that the document
+    continued — which is the one condition under which a model asked about the
+    missing part has no choice but to invent it. The notice names the cut, so a
+    claim the source cannot support reads as "beyond what was carried" rather
+    than as silence.
     """
-    return f"### Source file: {filename}\n" + wrap_untrusted_source("\n".join(lines))
+    body = "\n".join(lines)
+    if truncated:
+        # Deliberately does not begin with "[S" — that prefix is the citation
+        # namespace, and a notice opening with it is indistinguishable from a
+        # numbered sentence to anything scanning for ids.
+        notice = (
+            f"--- SOURCE TRUNCATED: the last sentence carried is the {len(lines)}th "
+            f"and the file continues. {carried_chars:,} of {original_length:,} "
+            f"characters were carried. Do not answer from the part that was not "
+            f"carried: if the ask concerns it, say the source continues beyond "
+            f"what was provided. ---"
+        )
+        body = f"{body}\n\n{notice}"
+    return f"### Source file: {filename}\n" + wrap_untrusted_source(body)
 
 
 def _defused_text(text: str) -> str:
@@ -207,10 +236,14 @@ def numbered_source_blocks(
             continue
         filename = str(row.get("filename") or "substrate")
         page_no = row.get("page_number") or row.get("page") or 1
+        # Measured before defusing, so the count is of the document the reader
+        # attached rather than of the text this function rewrote.
+        original_length = len(text)
         text = _defused_text(text)
         lines: list[str] = []
         entries: list[tuple[str, str, str, Any]] = []
         used = 0
+        cut_at_per_file_cap = False
         # ``_merge_short_sentences`` joins fragments into their neighbours, which is
         # what the matcher has always done and what this function was missing:
         # numbering raw ``_split_sentences`` output on a policy PDF produced
@@ -223,6 +256,7 @@ def numbered_source_blocks(
                 continue
             line = f"[S{n}] {clean}"
             if used + len(line) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
+                cut_at_per_file_cap = True
                 break
             lines.append(line)
             entries.append((f"S{n}", clean, filename, page if page else page_no))
@@ -230,8 +264,16 @@ def numbered_source_blocks(
             n += 1
         if not lines:
             continue
-        block = _source_block(filename, lines)
+        block = _source_block(
+            filename,
+            lines,
+            truncated=cut_at_per_file_cap,
+            original_length=original_length,
+            carried_chars=used,
+        )
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
+            # This source did not fit the total budget at all. The block is not
+            # sent, so the notice above is moot; the carry plan records it.
             break
         out.append((block, entries))
         total += len(block)
