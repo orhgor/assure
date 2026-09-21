@@ -1,9 +1,9 @@
 name: Deploy to Staging
 
-# Manual only. Pushing to `staging` must not deploy: the immutable path
-# (deploy-immutable.yml) deploys a pinned SHA on demand, and the old
-# build-and-push-here flow is superseded by it.
+# Auto-deploy on push to staging; manual dispatch still available
 on:
+  push:
+    branches: [staging]
   workflow_dispatch:
 
 concurrency:
