@@ -10,7 +10,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
+from langsmith import traceable
 
 from jinja2 import (
     Environment,
@@ -212,6 +212,7 @@ def apply_runtime_options(
         os.environ["PEM_HTTP_PASS"] = auth_pass
 
 
+@traceable(name="formatPrompt")
 def render_prompt(
     target_ai: str,
     intent: str,
@@ -324,6 +325,7 @@ def render_prompt_detailed(
     )
 
 
+@traceable(name="runPipeline")
 def execute(
     target_ai: str,
     intent: str,
@@ -948,6 +950,7 @@ def _send_structured_fallback(
     return parsed.answer, parsed
 
 
+@traceable(name="parseOutput")
 def _parse_json_model(content: str) -> StructuredAIResponse:
     stripped = content.strip()
     if stripped.startswith("```"):
