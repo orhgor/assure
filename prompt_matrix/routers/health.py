@@ -3,18 +3,45 @@
 from __future__ import annotations
 
 import os
-import sqlite3
+import subprocess
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 from flask import Blueprint, jsonify
 
 try:
+    from ..db.connection import closing_connection
     from ..lib.logger import resolve_db_path
 except ImportError:
+    from db.connection import closing_connection
     from lib.logger import resolve_db_path
 
 health_bp = Blueprint("health", __name__)
+
+
+@lru_cache(maxsize=1)
+def _deployed_commit() -> str:
+    """Commit the running checkout is on.
+
+    Used when ASSURE_BUILD_SHA is unset — the systemd staging app, where the
+    docker/GHCR deploy path that exports that var never runs. Without it the
+    deploy postflight gate sees no build_sha and degrades to a 200-only check,
+    so a stale process serving old code cannot be detected. Cached: /health is
+    polled and `git` is not cheap.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+    except Exception:
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
 
 
 def _data_dir() -> Path:
@@ -31,10 +58,12 @@ def health_check():
     db_path = resolve_db_path()
 
     try:
-        conn = sqlite3.connect(db_path, timeout=5.0)
-        conn.execute("PRAGMA busy_timeout=5000;")
-        conn.execute("SELECT 1")
-        conn.close()
+        # A probe of a database that may be exactly the thing that is broken: the
+        # connection is closed on the failure path too. It did not used to be, and
+        # /health is polled — so a failing probe leaked one connection per poll,
+        # each holding whatever read transaction its last statement left open.
+        with closing_connection(db_path, site="routers.health.sqlite_probe") as conn:
+            conn.execute("SELECT 1")
         status["checks"]["sqlite"] = "ok"
     except Exception as exc:
         status["ok"] = False
@@ -64,22 +93,21 @@ def health_check():
         status["checks"]["disk"] = f"error: {exc}"
 
     try:
-        conn = sqlite3.connect(db_path, timeout=5.0)
-        row = conn.execute(
-            """
-            SELECT created_at FROM audit_log
-            WHERE action='BACKUP' AND success=1
-            ORDER BY created_at DESC LIMIT 1
-            """
-        ).fetchone()
-        metrics = conn.execute(
-            """
-            SELECT memory_used_mb, memory_total_mb, cpu_percent
-            FROM system_metrics
-            ORDER BY created_at DESC LIMIT 1
-            """
-        ).fetchone()
-        conn.close()
+        with closing_connection(db_path, site="routers.health.backup_probe") as conn:
+            row = conn.execute(
+                """
+                SELECT created_at FROM audit_log
+                WHERE action='BACKUP' AND success=1
+                ORDER BY created_at DESC LIMIT 1
+                """
+            ).fetchone()
+            metrics = conn.execute(
+                """
+                SELECT memory_used_mb, memory_total_mb, cpu_percent
+                FROM system_metrics
+                ORDER BY created_at DESC LIMIT 1
+                """
+            ).fetchone()
         if row:
             last_backup = _parse_created_at(row[0])
             hours_since = round((datetime.now() - last_backup).total_seconds() / 3600, 2)
@@ -122,6 +150,20 @@ def health_check():
         "jdf_workbench": True,
     }
     try:
+        from ..llm.orchestrator import orchestrator_model_pairs, use_free_models
+    except ImportError:
+        from llm.orchestrator import orchestrator_model_pairs, use_free_models
+    status["use_free_models"] = use_free_models()
+    try:
+        from ..llm.orchestrator import get_active_model_stack
+    except ImportError:
+        from llm.orchestrator import get_active_model_stack
+    status["stack"] = get_active_model_stack()
+    if use_free_models():
+        status["orchestrator_models"] = {
+            key: pair.get("litellm_model") or "" for key, pair in orchestrator_model_pairs().items()
+        }
+    try:
         from ..upload_limits import limits_snapshot
     except ImportError:
         from upload_limits import limits_snapshot
@@ -134,7 +176,7 @@ def health_check():
     status["checks"]["omp"] = omp.get("status") or "down"
     if omp.get("version"):
         status["checks"]["omp_version"] = omp["version"]
-    build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip()
+    build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip() or _deployed_commit()
     if build_sha:
         status["build_sha"] = build_sha
 

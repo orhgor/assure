@@ -8,12 +8,12 @@ from typing import Any
 
 try:
     from ..db.connection import init_db
-    from ..history import get_db
-    from ..models.jdf import JDFDocumentTree
+    from ..history import db_scope, get_db
+    from ..models.jdf import JDFDocumentTree, parse_document
 except ImportError:
     from db.connection import init_db
     from history import get_db
-    from models.jdf import JDFDocumentTree
+    from models.jdf import JDFDocumentTree, parse_document
 
 DEFAULT_PROJECT_ID = "default"
 
@@ -42,6 +42,62 @@ def project_owner_id(project_id: str) -> str | None:
     return str(raw) if raw else None
 
 
+def new_revision_id() -> str:
+    """A document revision id.
+
+    ``save_jdf_revision`` generates one itself; a caller that has to know the id
+    *before* the write — a surgical rewrite stamps the revision that closed a
+    finding onto the node it rewrote, and that node is serialized by that same
+    write — generates it here and passes it in.
+    """
+    return f"rev-{uuid.uuid4().hex[:16]}"
+
+
+def close_findings_for_revision(
+    project_id: str,
+    tree: JDFDocumentTree | dict[str, Any],
+    node_id: str,
+    node: dict[str, Any],
+    *,
+    mutation_type: str,
+    resolved_at: str | None = None,
+) -> dict[str, Any]:
+    """``node`` with the findings this rewrite closes, named against the next revision.
+
+    Returns ``{"node", "revision_id", "version"}``: the node as it is to be
+    written, and the identity the write has to carry — the same
+    ``revision_id`` passed to ``save_jdf_revision`` and the version it will
+    assign when every revision so far is still in place. The node records the
+    revision that answered the finding, so the id has to exist before the write
+    rather than being read back from it.
+
+    A rewrite that replaces a paragraph the audit convicted used to drop the
+    finding with it, and the document then read as one that never had a finding.
+    See ``models.jdf.resolve_findings_on_rewrite``: the finding survives,
+    ``resolved``, and the paragraph's own grounding does not — it keeps no
+    citation it was not matched against.
+    """
+    try:
+        from ..models.jdf import get_node_by_id, resolve_findings_on_rewrite
+    except ImportError:
+        from models.jdf import get_node_by_id, resolve_findings_on_rewrite
+
+    revision_id = new_revision_id()
+    version = current_document_version(project_id) + 1
+    return {
+        "node": resolve_findings_on_rewrite(
+            node,
+            get_node_by_id(tree, node_id),
+            revision_id=revision_id,
+            version=version,
+            mutation_type=mutation_type,
+            resolved_at=resolved_at,
+        ),
+        "revision_id": revision_id,
+        "version": version,
+    }
+
+
 def current_document_version(project_id: str) -> int:
     init_db()
     db = get_db()
@@ -58,31 +114,34 @@ def empty_document(project_id: str) -> dict[str, Any]:
         meta={"project_id": project_id},
         truth_ledger={},
         body=[],
+        confidence=None,
+        confidenceBreakdown=None,
+        lowConfidenceNodes=None,
     ).model_dump(mode="json")
 
 
 def ensure_project(project_id: str, title: str | None = None, owner_id: str | None = None) -> None:
-    init_db()
-    db = get_db()
-    label = (title or project_id).strip() or project_id
-    db.execute(
-        """
-        INSERT INTO projects (id, title, current_version, owner_id)
-        VALUES (?, ?, 1, ?)
-        ON CONFLICT(id) DO NOTHING
-        """,
-        (project_id, label, owner_id),
-    )
-    if owner_id:
+    with db_scope() as db:
+        init_db(db)
+        label = (title or project_id).strip() or project_id
         db.execute(
             """
-            UPDATE projects
-            SET owner_id = ?
-            WHERE id = ? AND (owner_id IS NULL OR owner_id = '')
+            INSERT INTO projects (id, title, current_version, owner_id)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(id) DO NOTHING
             """,
-            (owner_id, project_id),
+            (project_id, label, owner_id),
         )
-    db.commit()
+        if owner_id:
+            db.execute(
+                """
+                UPDATE projects
+                SET owner_id = ?
+                WHERE id = ? AND (owner_id IS NULL OR owner_id = '')
+                """,
+                (owner_id, project_id),
+            )
+        db.commit()
 
 
 def fetch_jdf_at_version(project_id: str, version: int) -> dict[str, Any] | None:
@@ -232,6 +291,7 @@ def save_jdf_revision(
     target_node_id: str | None = None,
     change_summary: str | None = None,
     expected_version: int | None = None,
+    revision_id: str | None = None,
 ) -> dict[str, Any]:
     init_db()
     ensure_project(project_id)
@@ -240,58 +300,106 @@ def save_jdf_revision(
     if isinstance(document, JDFDocumentTree):
         tree = document.model_dump(mode="json")
     else:
-        tree = JDFDocumentTree.model_validate(document).model_dump(mode="json")
+        tree = parse_document(document).model_dump(mode="json")
 
-    row = db.execute(
-        "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
-        (project_id,),
-    ).fetchone()
-    current_version = int(row[0] or 0)
-    if expected_version is not None and current_version != int(expected_version):
-        raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
-    next_version = current_version + 1
-    revision_id = f"rev-{uuid.uuid4().hex[:16]}"
+    if change_summary is None:
+        try:
+            body = tree.get("body") if isinstance(tree, dict) else None
+            first = body[0] if body and isinstance(body, list) else {}
+            title = first.get("title") if isinstance(first, dict) else ""
+            change_summary = str(title)[:120] if title else None
+        except Exception:
+            change_summary = None
+
+    revision_id = revision_id or new_revision_id()
     truth = json.dumps(tree.get("truth_ledger") or {})
+    #: Assigned inside ``_persist_revision``, under the write lock. Read after the
+    #: call for the node snapshot and the return value.
+    next_version = 0
 
     def _persist_revision() -> None:
-        db.execute(
-            """
-            UPDATE projects
-            SET current_version = ?, updated_at = datetime('now')
-            WHERE id = ?
-            """,
-            (next_version, project_id),
-        )
-        db.execute(
-            """
-            INSERT INTO jdf_revisions (
-                id, project_id, version, jdf_tree, truth_ledger,
-                mutation_type, target_node_id, change_summary
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                revision_id,
-                project_id,
-                next_version,
-                json.dumps(tree),
-                truth,
-                mutation_type,
-                target_node_id,
-                change_summary,
-            ),
-        )
-        db.execute(
-            """
-            INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
-            VALUES (?, ?, ?, datetime('now'))
-            ON CONFLICT(project_id) DO UPDATE SET
-                document_id = excluded.document_id,
-                tree_json = excluded.tree_json,
-                updated_at = datetime('now')
-            """,
-            (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
-        )
-        db.commit()
+        """Assign this revision's version and write it, as one transaction.
+
+        ``UNIQUE (project_id, version)`` makes the version a lock that the read and
+        the write have to share, and they did not: ``SELECT MAX(version)`` ran
+        outside the closure, so two compiles whose persists landed in the same
+        instant both read the same maximum and both tried to insert the same
+        version. Measured with a write lock held by a second connection (the window,
+        forced open) and eight callers: seven raised ``database is locked`` and one
+        raised ``UNIQUE constraint failed: jdf_revisions.project_id,
+        jdf_revisions.version`` — and three rows appeared anyway, because a retry
+        after a failed commit re-ran the INSERT against the still-open transaction
+        and wrote a second revision. The invariant is that two concurrent compiles
+        both persist and neither raises.
+
+        So the first statement here is a write: SQLite takes the write lock on it,
+        which is what makes the ``MAX(version)`` below and the INSERT that uses it
+        one transaction. A retried attempt re-reads against the state that actually
+        exists instead of reusing a stale maximum, and the rollback keeps a failed
+        attempt from leaving a row behind for the next one to duplicate.
+        """
+        nonlocal next_version
+        try:
+            db.execute(
+                "UPDATE projects SET updated_at = datetime('now') WHERE id = ?",
+                (project_id,),
+            )
+            current_version = int(
+                db.execute(
+                    "SELECT COALESCE(MAX(version), 0) FROM jdf_revisions WHERE project_id = ?",
+                    (project_id,),
+                ).fetchone()[0]
+                or 0
+            )
+            if expected_version is not None and current_version != int(expected_version):
+                # Roll back first: the conflict payload reads the database through
+                # init_db, and a PRAGMA cannot run inside the transaction this
+                # statement just opened.
+                db.rollback()
+                raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
+            next_version = current_version + 1
+            db.execute(
+                """
+                INSERT INTO jdf_revisions (
+                    id, project_id, version, jdf_tree, truth_ledger,
+                    mutation_type, target_node_id, change_summary
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    revision_id,
+                    project_id,
+                    next_version,
+                    json.dumps(tree),
+                    truth,
+                    mutation_type,
+                    target_node_id,
+                    change_summary,
+                ),
+            )
+            db.execute(
+                """
+                UPDATE projects
+                SET current_version = ?, updated_at = datetime('now')
+                WHERE id = ?
+                """,
+                (next_version, project_id),
+            )
+            db.execute(
+                """
+                INSERT INTO jdf_documents (project_id, document_id, tree_json, updated_at)
+                VALUES (?, ?, ?, datetime('now'))
+                ON CONFLICT(project_id) DO UPDATE SET
+                    document_id = excluded.document_id,
+                    tree_json = excluded.tree_json,
+                    updated_at = datetime('now')
+                """,
+                (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
+            )
+            db.commit()
+        except Exception:
+            # A retry must start from the state this attempt did not change.
+            db.rollback()
+            raise
 
     try:
         from .connection import execute_write_with_retry
@@ -341,3 +449,62 @@ def save_jdf_revision(
         "document": tree,
         "disk_path": str(disk_path),
     }
+
+
+def save_omp_linkage(project_id: str, jdf_revision_id: str, omp_artifact_ids: list[str]) -> None:
+    """Persist OMP artifact IDs linked to a JDF revision for audit trail."""
+    init_db()
+    db = get_db()
+
+    for artifact_id in omp_artifact_ids:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO jdf_omp_linkages (jdf_revision_id, omp_artifact_id, project_id, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+            """,
+            (jdf_revision_id, artifact_id, project_id),
+        )
+    db.commit()
+
+
+def get_omp_linkages_for_revision(jdf_revision_id: str) -> list[str]:
+    """Get OMP artifact IDs linked to a JDF revision."""
+    init_db()
+    db = get_db()
+
+    rows = db.execute(
+        "SELECT omp_artifact_id FROM jdf_omp_linkages WHERE jdf_revision_id = ?",
+        (jdf_revision_id,),
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
+def init_omp_linkage_table() -> None:
+    """Initialize the JDF-OMP linkage table."""
+    init_db()
+    db = get_db()
+
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS jdf_omp_linkages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            jdf_revision_id TEXT NOT NULL,
+            omp_artifact_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_jdf_omp_linkages_revision
+        ON jdf_omp_linkages(jdf_revision_id)
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_jdf_omp_linkages_artifact
+        ON jdf_omp_linkages(omp_artifact_id)
+        """
+    )
+    db.commit()

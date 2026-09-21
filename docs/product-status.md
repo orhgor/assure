@@ -1,33 +1,73 @@
 # Assure — full product status
 
-**Date:** 2026-09-06
-**Git:** `staging` and `main` include merge `36e532a` (PR #6 + Trust & Clarity).
-**Live EC2:** Staging health still `f04ec7f`; production still `bac3d40`. **GitHub Actions deploy failed** (account billing / spending limit) — code is on GitHub, images were not rebuilt.
+**Date:** 2026-09-10
+**GitHub Actions:** included cap is **3,000 minutes**. Policy: [github-actions-minutes.md](./github-actions-minutes.md). Deploy via SSM to EC2 when Actions billing blocks `ubuntu-latest`.
 
-## Current snapshot (2026-09-06)
+**v1.0 execution:** [user-experience.md](./user-experience.md) · [ship-timeline.md](./ship-timeline.md) · [frozen-shell.md](./frozen-shell.md) · golden path **Steps 1–4 only** → `tests/e2e/golden_path.spec.js`. Steps 5–10 → [deferred.md § v1.1 backlog](./deferred.md).
+
+## Current snapshot (2026-09-10)
 
 | Environment | Git (origin) | Live `/health` |
 | :--- | :--- | :--- |
-| **Production** | `main` includes `36e532a` after this promote | `bac3d40` — Wow only until Actions billing is fixed and deploy succeeds |
-| **Staging** | `36e532a` Merge PR #6 | `f04ec7f` — Trust & Clarity grid, not yet the stepper |
+| **Production** | `main` @ `f4e2d20` | **healthy** — `f4e2d20`, UI `assure-127`, ~9.9 GB disk free, production model stack |
+| **Staging** | `staging` @ `3cb82a7` (PR #51; includes **#46**) | **healthy** — EC2 git `3cb82a7`, UI `assure-140`, ~9.6 GB disk (80% used), container **healthy**, **`stack: free`** |
 
-**Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app`
-**CI:** PR #6 `test` + `playwright-tests` **SUCCESS** (2026-09-06).
+**Live URLs:** https://getassureai.com · https://staging.getassureai.com · workbench `/app?view=founder`
+**Staging free stack (live):** `gemini/gemini-3.6-flash` + `deepseek/deepseek-chat` — keys wired in `.env.staging` on EC2; `POST /api/runs/compare` verified both models respond.
+**Tests (local HEAD):** free-stack + compare route tests **8/8**; frozen-shell quality check **5/5**; **v1.0 E2E gate = Steps 1–4 only** (Steps 5–10 deferred to v1.1).
+**Staging SSM health (2026-09-10):** loopback `/health` ok; `assure-assure-app-1` running; CPU ~0.1%, mem ~122 MiB / 1.5 GiB; providers gemini + deepseek connected. **No redeploy required** — box matches PR #46+ lineage; origin `8f4bf0f` (PR #52 docs-only) not on box yet.
+**Auth:** Clerk **not configured** on production (`/api/auth/config` → `configured: false`). No workbench sign-in required.
 
-### Workbench (after this sprint)
+### Recent merges on `staging`
+
+| PR | Theme | Notes |
+| :--- | :--- | :--- |
+| **#41** | API key env tiers | `test_api_keys.py` — always-required vs production-only keys in quality-check CI |
+| **#42–#43** | v1.0 execution docs | `user-experience.md`, `ship-timeline.md`, `frozen-shell.md`, Day 1 shell tests, Day 2 golden path spec |
+| **#44** | Sprint 1 + 2 — Difference Engine + Polish Main | `POST /api/projects/<id>/orchestrate`, `POST /api/projects/<id>/polish`, staging 60/40 shell, `.main-polish-btn`, click-to-merge |
+| **#46** | Full-context scan + golden-path wiring | `POST /api/projects/<id>/scan`, `founder_scan.js`, Fix Locally / orchestrator JS fixes |
+| **#47** | Self-hosted CI | Deploy to Staging + App Docker (Staging) use `[self-hosted, staging]` — no paid `ubuntu-latest` |
+| **#48–#51** | Free-model Difference Engine | `ASSURE_USE_FREE_MODELS=1`, `get_compare_pair()`, `POST /api/runs/compare`, live orchestrate when keys present, `ast_diff_for_compare`, UI `assure-140` |
+
+### v1.0 sprint progress (founder workbench) — **Steps 1–4 ship gate**
 
 | Item | Status |
 | :--- | :--- |
-| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ Analytics is in-shell (`#view-analytics`), not a full navigation away |
-| Document Lifecycle stepper (Write → Verify → Audit → Ship) | ✅ `workbench_stepper.js` |
-| Single Accept & Dock | ✅ `#generate-accept-dock-phase` only |
-| Provenance ⓘ drawer | ✅ `#provenance-panel-drawer.is-open` |
-| Role switcher | ✅ Admin / Compliance / Developer / Executive |
-| Wow effects | ✅ Optional layer — **not unified** with gutters/overlay/ⓘ |
-| Active Works visual hierarchy | ❌ Not in this sprint |
-| Full Audit as verify-only (no re-compile) | ❌ Still re-runs compile stream |
+| Frozen shell (48px \| 320px \| 60/40 main+staging) | ✅ Day 1 gate — `tests/quality_check/test_frozen_shell.py` |
+| Golden path E2E Steps 1–4 | ✅ v1.0 validation scope — orchestrator, diff, click-to-merge |
+| Step 2 — ⌘K orchestrator intent | ✅ `operator_prompt.js` → orchestrate / compare on staging |
+| Step 3 — side-by-side diff | ✅ `.staging-canvas`, two model panes, `.diff-highlight` |
+| Step 4 — click-to-merge | ✅ `.push-to-main-btn` → Main document |
+| `POST /api/projects/<id>/orchestrate` | ✅ Staging: **live** Gemini 3.6 Flash + DeepSeek when keys set |
+| `POST /api/runs/compare` | ✅ Parallel two-model dispatch |
 
-**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Function catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md)
+**v1.1 backlog (not v1.0 gate):** Steps 5–10 — Red-Hat multi-pass, polish gate, full-context scan UI, benchmark, local fix, export dossier. See [deferred.md § v1.1 backlog](./deferred.md).
+
+### Workbench (staging vs production)
+
+| Item | Staging | Production |
+| :--- | :--- | :--- |
+| Founder shell — state rail + runs stack | ✅ | ❌ (`assure-127`) |
+| Orchestrator staging panes + polish | ✅ live free stack | ❌ |
+| Free-model compare (`ASSURE_USE_FREE_MODELS`) | ✅ staging only | ❌ |
+| Sidebar Write / Draft / Polish / Sources / Analytics / Settings | ✅ | ✅ |
+| Document Lifecycle stepper | ✅ | ✅ |
+| Provenance ⓘ drawer | ✅ | ✅ |
+| Full Audit as verify-only | ❌ Still re-runs compile stream | ❌ |
+
+**Detail UI Q&A:** [workbench-ui-current-state.md](./workbench-ui-current-state.md) · **Workbench catalog:** [assure-ai-all-functions.md](./assure-ai-all-functions.md) · **Webpage catalog:** [webpage-all-content.md](./webpage-all-content.md)
+
+---
+
+## Historical snapshot — 2026-09-06
+
+**Git:** `staging` and `main` included merge `36e532a` (PR #6 + Trust & Clarity).
+**Live EC2 (that day):** Staging `f04ec7f`; production `bac3d40`. Actions deploy blocked on billing.
+
+| Environment | Git | Live `/health` |
+| :--- | :--- | :--- |
+| **Production** | `36e532a` on `main` | `bac3d40` |
+| **Staging** | `36e532a` | `f04ec7f` |
 
 ---
 
@@ -269,10 +309,14 @@ Assure is **bring your own key (BYOK)**. Key facts:
 
 | Item | Status |
 | :--- | :--- |
-| SQLite backup cron | ⚠️ `never_run` in health check |
-| EC2 disk after image pull | ⚠️ **3.51 GB** free on last health (guard refuses fallback build under 3 GB) |
+| **Staging EC2 disk** | ✅ ~**9.6 GB** free — `i-03e39eccc57572191`; on-box Docker build deploy path |
+| **Production EC2 disk** | ✅ ~**9.9 GB** free (`f4e2d20` health) |
+| **GitHub Actions billing** | ⚠️ Blocks paid `ubuntu-latest`; staging deploy via **self-hosted runner** (PR #47) or SSM on-box build |
+| **Self-hosted runner** | ✅ Staging workflows target `[self-hosted, staging]`; SSM fallback when GHCR tag stale |
+| **Staging provider keys** | ✅ Gemini + DeepSeek connected (`/api/status` on staging); wired via `wire-provider-keys-via-ssm.sh` |
+| SQLite backup cron | ⚠️ `never_run` in production health check |
 | `test_resolve_lock_inference_model` | ⚠️ Expects `gemini-1.5-pro`; runtime is `gemini-3.6-flash` |
-| Landing page i18n | ✅ Marketing strings in 7 locales (`fe247c8`); extend architecture body if needed |
+| Landing page i18n | ✅ Marketing strings in 7 locales |
 | GHCR image race on manual redeploy | ✅ Mitigated — pull retries in `redeploy-app.sh` |
 
 ---
@@ -357,6 +401,7 @@ Export DOCX and/or Audit Manifest JSON
 | Document | Purpose |
 | :--- | :--- |
 | [launch-checklist.md](./launch-checklist.md) | Item-by-item pass/fail with probe notes |
+| [webpage-all-content.md](./webpage-all-content.md) | **Webpage master** — live Flask marketing, static `landing/`, copy, APIs |
 | [../landing/ICP.md](../landing/ICP.md) | Personas and jobs |
 | [../landing/objections.md](../landing/objections.md) | Sales objection answers |
 | [../prompt_matrix/PEM.md](../prompt_matrix/PEM.md) | Engine and swarm log |

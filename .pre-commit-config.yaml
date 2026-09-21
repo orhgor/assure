@@ -21,7 +21,12 @@ repos:
     hooks:
       - id: unittest-quick
         name: unittest (quick)
-        entry: .venv/bin/pytest tests/ --ignore=tests/e2e --ignore=tests/playwright --ignore=tests/test_sanitization.py --ignore=tests/test_confidence_overlay.py --ignore=tests/test_full_audit.py --ignore=tests/test_z3_benchmark.py --ignore=tests/test_z3_explanation.py --ignore=tests/test_inquire_stream.py -q --tb=no
+        entry: bash scripts/precommit_unittest_quick.sh
         language: system
         pass_filenames: false
         always_run: true
+      - id: cache-invariant
+        name: pipeline-cache writes name a real project
+        entry: python scripts/precommit_cache_invariant.py
+        language: system
+        files: ^prompt_matrix/.*\.py$

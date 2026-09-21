@@ -6,9 +6,7 @@
     "build:sentry": "npm run bundle:sentry",
     "bundle:tiptap": "node scripts/bundle-tiptap.mjs",
     "build:static": "npm run bundle:sentry && npm run bundle:tiptap && npm run bundle:jdf",
-    "bundle:jdf": "node scripts/bundle-jdf.mjs",
-    "ux:test": "node openuser/runner.mjs run --headless --spec 'openuser/specs/*.ux' --project prj_YhR-5cBgb_7E",
-    "ux:compile-cache": "node openuser/runner.mjs run --headless --spec openuser/specs/compile-cache.ux --project prj_YhR-5cBgb_7E"
+    "bundle:jdf": "node scripts/bundle-jdf.mjs"
   },
   "dependencies": {
     "@sentry/browser": "^9.47.1",
@@ -18,6 +16,7 @@
     "@uurtech/jdf": "^0.1.25"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@uurtech/jdf-cli": "^0.1.25",
     "commander": "^13.1.0",
     "esbuild": "^0.25.9",

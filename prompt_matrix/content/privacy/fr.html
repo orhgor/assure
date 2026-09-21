@@ -1,0 +1,245 @@
+<p class="privacy-intro">Assure AI (&laquo;&nbsp;nous&nbsp;&raquo;, &laquo;&nbsp;notre&nbsp;&raquo; ou &laquo;&nbsp;nos&nbsp;&raquo;) s&rsquo;engage &agrave; prot&eacute;ger votre vie priv&eacute;e. La pr&eacute;sente Politique de confidentialit&eacute; explique comment nous collectons, utilisons et prot&eacute;geons vos informations lorsque vous utilisez notre plateforme et nos services.</p>
+
+<section id="collect" aria-labelledby="privacy-s1">
+<h2 id="privacy-s1">1. Donn&eacute;es que nous collectons et stockons</h2>
+
+<h3>a. Donn&eacute;es stock&eacute;es dans le cloud (serveur)</h3>
+<p>Nous stockons les donn&eacute;es suivantes sur nos serveurs s&eacute;curis&eacute;s (AWS EC2) pour fournir le service&nbsp;:</p>
+<ul>
+  <li><strong>Donn&eacute;es de compte&nbsp;:</strong> Adresse e-mail, niveau d&rsquo;abonnement et identifiant client Stripe.</li>
+  <li><strong>Questions et prompts&nbsp;:</strong> Le texte que vous saisissez dans la barre de commandes ou l&rsquo;interface de compilation (stock&eacute; dans les projets de la base de donn&eacute;es et les journaux d&rsquo;ex&eacute;cution).</li>
+  <li><strong>Fichiers sources t&eacute;l&eacute;vers&eacute;s&nbsp;:</strong> PDF, images, JSON, YAML et autres documents que vous t&eacute;l&eacute;versez (stock&eacute;s dans la table <code>substrate_vault</code>).</li>
+  <li><strong>Brouillons compil&eacute;s&nbsp;:</strong> AST JDF, journaux de v&eacute;rification et hashes de verrouillage (stock&eacute;s dans la table <code>jdf_revisions</code>).</li>
+  <li><strong>Journaux d&rsquo;audit&nbsp;:</strong> Journaux d&rsquo;activit&eacute; et de requ&ecirc;tes pour la conformit&eacute; entreprise (stock&eacute;s dans <code>user_activity_log</code> et <code>audit_log</code>).</li>
+  <li><strong>Inscriptions &agrave; la liste d&rsquo;attente&nbsp;:</strong> E-mail, nom de l&rsquo;entreprise et type de flux de travail (si vous rejoignez la liste d&rsquo;attente).</li>
+</ul>
+<p class="privacy-emphasis"><strong>Nous n&rsquo;utilisons pas</strong> vos donn&eacute;es pour entra&icirc;ner nos mod&egrave;les. <strong>Nous ne vendons ni ne partageons</strong> vos donn&eacute;es avec des tiers &agrave; des fins publicitaires ou marketing.</p>
+
+<h3>b. Donn&eacute;es stock&eacute;es localement sur votre machine</h3>
+<p>Les donn&eacute;es suivantes restent <strong>sur votre ordinateur</strong> et ne sont jamais transmises &agrave; nos serveurs&nbsp;:</p>
+<ul>
+  <li>Cl&eacute;s API des fournisseurs connect&eacute;s (Claude, Gemini, DeepSeek, Kimi, etc.).</li>
+  <li>&Eacute;tat de l&rsquo;interface workbench et pr&eacute;f&eacute;rences (p.&nbsp;ex., param&egrave;tres de mise en page, pr&eacute;f&eacute;rences de th&egrave;me).</li>
+</ul>
+
+<h3>c. Fournisseurs d&rsquo;IA tiers (lorsque vous &laquo;&nbsp;Envoyez&nbsp;&raquo;)</h3>
+<p>Lorsque vous choisissez d&rsquo;<strong>Envoyer</strong> un prompt &agrave; un fournisseur connect&eacute;&nbsp;:</p>
+<ul>
+  <li>Votre question et tout fichier joint sont transmis <strong>directement</strong> de votre session au fournisseur que vous avez s&eacute;lectionn&eacute;.</li>
+  <li>Les conditions et politiques de confidentialit&eacute; propres au fournisseur s&rsquo;appliquent. Vous devez les consulter et les accepter avant utilisation.</li>
+  <li>Assure n&rsquo;enregistre ni ne conserve de mani&egrave;re ind&eacute;pendante les r&eacute;ponses brutes d&rsquo;API tierces au-del&agrave; de ce qui est persistamment enregistr&eacute; dans vos fichiers de projet et brouillons dans le cadre de l&rsquo;historique habituel de votre espace de travail.</li>
+</ul>
+
+<h3>d. Mode &laquo;&nbsp;Ferm&eacute; &agrave; internet&nbsp;&raquo;</h3>
+<p>Lorsque &laquo;&nbsp;Ferm&eacute; &agrave; internet&nbsp;&raquo; est s&eacute;lectionn&eacute;&nbsp;:</p>
+<ul>
+  <li>Vos donn&eacute;es ne sont <strong>pas</strong> envoy&eacute;es &agrave; un fournisseur externe.</li>
+  <li>Le traitement (y compris la v&eacute;rification Z3 et <code>groundrails</code>) s&rsquo;ex&eacute;cute <strong>sur les serveurs s&eacute;curis&eacute;s d&rsquo;Assure</strong>&mdash;et non sur votre machine locale.</li>
+  <li>Vos donn&eacute;es restent stock&eacute;es sur les serveurs d&rsquo;Assure comme d&eacute;crit &agrave; la Section&nbsp;1a.</li>
+</ul>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="use" aria-labelledby="privacy-s2">
+<h2 id="privacy-s2">2. Comment nous utilisons vos donn&eacute;es</h2>
+<table>
+  <thead><tr><th scope="col">Type de donn&eacute;es</th><th scope="col">Finalit&eacute;</th></tr></thead>
+  <tbody>
+    <tr><td><strong>E-mail et niveau d&rsquo;abonnement</strong></td><td>Gestion du compte, facturation et assistance.</td></tr>
+    <tr><td><strong>Questions, prompts et fichiers sources</strong></td><td>Pour compiler, v&eacute;rifier et auditer vos documents.</td></tr>
+    <tr><td><strong>Brouillons compil&eacute;s et hashes de verrouillage</strong></td><td>Pour fournir l&rsquo;historique des versions et les pistes d&rsquo;audit.</td></tr>
+    <tr><td><strong>Journaux d&rsquo;audit</strong></td><td>Pour suivre l&rsquo;utilisation et maintenir la s&eacute;curit&eacute; pour les clients entreprise.</td></tr>
+    <tr><td><strong>Inscriptions &agrave; la liste d&rsquo;attente</strong></td><td>Pour vous notifier au lancement du service ou lorsque nous avons besoin de testeurs b&ecirc;ta.</td></tr>
+    <tr><td><strong>Cl&eacute;s API</strong></td><td>Utilis&eacute;es exclusivement pour connecter votre instance locale aux fournisseurs d&rsquo;IA tiers. Les cl&eacute;s ne quittent jamais votre machine.</td></tr>
+    <tr><td><strong>Analytique d&rsquo;utilisation (optionnelle)</strong></td><td>Donn&eacute;es d&rsquo;utilisation anonymis&eacute;es et agr&eacute;g&eacute;es via Plausible. Aucune donn&eacute;e personnelle n&rsquo;est collect&eacute;e.</td></tr>
+  </tbody>
+</table>
+<p class="privacy-emphasis"><strong>Nous n&rsquo;utilisons pas</strong> vos donn&eacute;es pour entra&icirc;ner nos mod&egrave;les. <strong>Nous ne vendons ni ne partageons</strong> vos donn&eacute;es avec des tiers &agrave; des fins publicitaires ou marketing.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="sharing" aria-labelledby="privacy-s3">
+<h2 id="privacy-s3">3. Partage de vos donn&eacute;es</h2>
+
+<h3>a. Fournisseurs d&rsquo;IA tiers</h3>
+<p>Lorsque vous choisissez d&rsquo;<strong>Envoyer</strong> un prompt &agrave; un fournisseur connect&eacute; (p.&nbsp;ex., Claude, Gemini, DeepSeek, Kimi)&nbsp;:</p>
+<ul>
+  <li>Votre question et tout fichier joint sont transmis <strong>directement</strong> au fournisseur que vous avez s&eacute;lectionn&eacute;.</li>
+  <li>Les conditions et politiques de confidentialit&eacute; propres au fournisseur s&rsquo;appliquent.</li>
+  <li>Assure n&rsquo;enregistre ni ne conserve de mani&egrave;re ind&eacute;pendante les r&eacute;ponses brutes de tiers au-del&agrave; de votre historique de projet enregistr&eacute;.</li>
+</ul>
+
+<h3>b. Mode &laquo;&nbsp;Ferm&eacute; &agrave; internet&nbsp;&raquo;</h3>
+<p>Lorsque &laquo;&nbsp;Ferm&eacute; &agrave; internet&nbsp;&raquo; est s&eacute;lectionn&eacute;&nbsp;:</p>
+<ul>
+  <li>Vos donn&eacute;es ne sont pas envoy&eacute;es &agrave; un fournisseur externe.</li>
+  <li>Le traitement s&rsquo;ex&eacute;cute sur les serveurs s&eacute;curis&eacute;s d&rsquo;Assure.</li>
+  <li>Vos donn&eacute;es restent stock&eacute;es sur les serveurs d&rsquo;Assure comme d&eacute;crit &agrave; la Section&nbsp;1a.</li>
+</ul>
+
+<h3>c. Prestataires de services</h3>
+<p>Nous utilisons des services externes pour exploiter la plateforme&nbsp;:</p>
+<table>
+  <thead><tr><th scope="col">Service</th><th scope="col">Finalit&eacute;</th><th scope="col">Donn&eacute;es partag&eacute;es</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stripe</strong></td><td>Facturation et traitement des paiements</td><td>E-mail, identifiant client Stripe, d&eacute;tails de paiement</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>Gestion des comptes et des abonnements</td><td>E-mail, niveau d&rsquo;abonnement</td></tr>
+    <tr><td><strong>Clerk</strong></td><td>Authentification et gestion des utilisateurs (lorsque configur&eacute;)</td><td>E-mail, identifiant utilisateur</td></tr>
+    <tr><td><strong>Plausible</strong></td><td>Analytique d&rsquo;utilisation anonyme</td><td>Donn&eacute;es agr&eacute;g&eacute;es et anonymis&eacute;es uniquement</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="rights" aria-labelledby="privacy-s4">
+<h2 id="privacy-s4">4. Vos droits</h2>
+<p>Selon votre juridiction (y compris GDPR et CCPA), vous pouvez disposer des droits suivants&nbsp;:</p>
+<table>
+  <thead><tr><th scope="col">Droit</th><th scope="col">Comment l&rsquo;exercer</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Acc&egrave;s</strong></td><td>Demander une copie des donn&eacute;es personnelles que nous d&eacute;tenons &agrave; votre sujet.</td></tr>
+    <tr><td><strong>Rectification</strong></td><td>Demander la correction de donn&eacute;es personnelles inexactes.</td></tr>
+    <tr><td><strong>Effacement</strong></td><td>Demander la suppression de votre compte et des donn&eacute;es associ&eacute;es.</td></tr>
+    <tr><td><strong>Portabilit&eacute; des donn&eacute;es</strong></td><td>Demander une copie de vos donn&eacute;es dans un format lisible par machine.</td></tr>
+    <tr><td><strong>Opposition / limitation du traitement</strong></td><td>Vous opposer &agrave; certains types de traitement.</td></tr>
+  </tbody>
+</table>
+<p>Pour exercer l&rsquo;un de ces droits, contactez-nous &agrave;&nbsp;: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="security" aria-labelledby="privacy-s5">
+<h2 id="privacy-s5">5. S&eacute;curit&eacute; des donn&eacute;es</h2>
+<table>
+  <thead><tr><th scope="col">Mesure</th><th scope="col">Description</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Chiffrement c&ocirc;t&eacute; serveur</strong></td><td>Toutes les donn&eacute;es stock&eacute;es sur les serveurs d&rsquo;Assure sont chiffr&eacute;es au repos (configuration d&rsquo;infrastructure cloud v&eacute;rifi&eacute;e).</td></tr>
+    <tr><td><strong>Chiffrement en transit</strong></td><td>Toutes les donn&eacute;es transmises entre votre navigateur et les serveurs d&rsquo;Assure utilisent un chiffrement de transport s&eacute;curis&eacute; (TLS).</td></tr>
+    <tr><td><strong>Conservation minimale des donn&eacute;es</strong></td><td>Les donn&eacute;es ne sont conserv&eacute;es que le temps n&eacute;cessaire pour fournir le service et respecter les obligations l&eacute;gales.</td></tr>
+    <tr><td><strong>Aucune utilisation des donn&eacute;es pour l&rsquo;entra&icirc;nement</strong></td><td>Nous n&rsquo;utilisons jamais vos donn&eacute;es pour entra&icirc;ner nos mod&egrave;les.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="retention" aria-labelledby="privacy-s6">
+<h2 id="privacy-s6">6. Conservation des donn&eacute;es</h2>
+<table>
+  <thead><tr><th scope="col">Type de donn&eacute;es</th><th scope="col">Dur&eacute;e de conservation</th></tr></thead>
+  <tbody>
+    <tr><td><strong>E-mail et niveau d&rsquo;abonnement</strong></td><td>Conserv&eacute;s pendant la dur&eacute;e de votre compte. Supprim&eacute;s &agrave; la fermeture du compte.</td></tr>
+    <tr><td><strong>Identifiant client Stripe</strong></td><td>Conserv&eacute; &agrave; des fins de facturation et d&rsquo;historique des paiements, conform&eacute;ment aux r&eacute;glementations financi&egrave;res.</td></tr>
+    <tr><td><strong>Questions, fichiers et brouillons</strong></td><td>Stock&eacute;s sur les serveurs s&eacute;curis&eacute;s d&rsquo;Assure jusqu&rsquo;&agrave; ce que vous supprimiez explicitement le projet, effaciez l&rsquo;historique de l&rsquo;espace de travail ou fermiez votre compte.</td></tr>
+    <tr><td><strong>Analytique d&rsquo;utilisation (Plausible)</strong></td><td>Anonymis&eacute;e et agr&eacute;g&eacute;e&nbsp;; aucune donn&eacute;e personnelle n&rsquo;est conserv&eacute;e.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="children" aria-labelledby="privacy-s7">
+<h2 id="privacy-s7">7. Confidentialit&eacute; des enfants</h2>
+<p>Assure AI n&rsquo;est pas destin&eacute; aux personnes de moins de 16&nbsp;ans. Nous ne collectons pas sciemment de donn&eacute;es personnelles aupr&egrave;s d&rsquo;enfants. Si vous pensez qu&rsquo;un enfant nous a fourni des donn&eacute;es personnelles, contactez-nous et nous les supprimerons.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="disclaimer" aria-labelledby="privacy-s8">
+<h2 id="privacy-s8">8. Avertissement &ndash; Contenu g&eacute;n&eacute;r&eacute; par l&rsquo;IA</h2>
+<p>Les r&eacute;sultats g&eacute;n&eacute;r&eacute;s par Assure AI sont produits par des mod&egrave;les de langage &agrave; grande &eacute;chelle et des moteurs de v&eacute;rification d&eacute;terministes. Bien que nous nous efforcions d&rsquo;assurer pr&eacute;cision et fiabilit&eacute;, nous ne faisons <strong>aucune d&eacute;claration ni garantie</strong> quant &agrave; l&rsquo;exhaustivit&eacute;, l&rsquo;exactitude ou l&rsquo;ad&eacute;quation &agrave; un usage particulier de tout contenu g&eacute;n&eacute;r&eacute; par l&rsquo;IA.</p>
+
+<p><strong>Pas un conseil juridique, financier ou professionnel.</strong></p>
+<p>Le contenu g&eacute;n&eacute;r&eacute; par Assure AI est fourni &agrave; titre informatif et d&rsquo;assistance &agrave; la r&eacute;daction uniquement. Il ne constitue pas un conseil juridique, financier, m&eacute;dical ou autre conseil professionnel. Consultez toujours un professionnel qualifi&eacute; avant de prendre des d&eacute;cisions fond&eacute;es sur du contenu g&eacute;n&eacute;r&eacute; par l&rsquo;IA.</p>
+
+<p><strong>Responsabilit&eacute; de l&rsquo;utilisateur.</strong></p>
+<p>Vous &ecirc;tes seul responsable de l&rsquo;examen, de la v&eacute;rification et de la validation de tous les r&eacute;sultats avant de les utiliser dans un contexte professionnel, juridique ou commercial.</p>
+
+<p><strong>Hallucinations et erreurs.</strong></p>
+<p>Les mod&egrave;les d&rsquo;IA peuvent produire du contenu incorrect, trompeur ou hallucin&eacute;. Les outils de v&eacute;rification d&rsquo;Assure AI (Z3, Red-Hat, Substrate Vault) sont con&ccedil;us pour r&eacute;duire ces risques, mais ne les &eacute;liminent pas enti&egrave;rement.</p>
+
+<p><strong>Aucune garantie d&rsquo;exactitude.</strong></p>
+<p>Nous ne garantissons pas que le r&eacute;sultat sera exempt d&rsquo;erreurs, complet ou &agrave; jour.</p>
+
+<p><strong>Aucune responsabilit&eacute; pour la confiance accord&eacute;e.</strong></p>
+<p>Dans toute la mesure permise par la loi, Assure AI d&eacute;cline toute responsabilit&eacute; pour toute perte, dommage ou pr&eacute;judice r&eacute;sultant de votre confiance dans les r&eacute;sultats g&eacute;n&eacute;r&eacute;s par la plateforme.</p>
+
+<p><strong>En utilisant Assure AI, vous reconnaissez et acceptez ces limitations.</strong></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="dpa" aria-labelledby="privacy-s9">
+<h2 id="privacy-s9">9. Document sur les donn&eacute;es personnelles (Accord de traitement des donn&eacute;es)</h2>
+<p>Pour les utilisateurs dans des juridictions soumises au GDPR, au CCPA ou &agrave; des lois similaires sur la protection des donn&eacute;es, cette section d&eacute;crit comment vos donn&eacute;es personnelles sont trait&eacute;es.</p>
+
+<h3>a. Responsable du traitement et sous-traitant</h3>
+<table>
+  <thead><tr><th scope="col">R&ocirc;le</th><th scope="col">Entit&eacute;</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Responsable du traitement</strong></td><td>Vous (l&rsquo;utilisateur) &ecirc;tes le responsable du traitement de vos questions, documents et prompts. Vous d&eacute;terminez les finalit&eacute;s et les moyens du traitement de vos donn&eacute;es.</td></tr>
+    <tr><td><strong>Sous-traitant</strong></td><td>Assure AI agit en tant que sous-traitant, traitant vos donn&eacute;es uniquement en votre nom et selon vos instructions.</td></tr>
+  </tbody>
+</table>
+
+<h3>b. Cat&eacute;gories de donn&eacute;es personnelles trait&eacute;es</h3>
+<table>
+  <thead><tr><th scope="col">Cat&eacute;gorie</th><th scope="col">&Eacute;l&eacute;ments de donn&eacute;es</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Donn&eacute;es de compte</strong></td><td>Adresse e-mail, niveau d&rsquo;abonnement, identifiant client Stripe</td></tr>
+    <tr><td><strong>Donn&eacute;es d&rsquo;utilisation</strong></td><td>Analytique anonymis&eacute;e et agr&eacute;g&eacute;e (sans identifiants personnels)</td></tr>
+    <tr><td><strong>Donn&eacute;es de contenu</strong></td><td>Vos questions, prompts, fichiers t&eacute;l&eacute;vers&eacute;s et brouillons compil&eacute;s &ndash; trait&eacute;s et stock&eacute;s en s&eacute;curit&eacute; sur nos serveurs AWS</td></tr>
+  </tbody>
+</table>
+
+<h3>c. Finalit&eacute; du traitement</h3>
+<table>
+  <thead><tr><th scope="col">Finalit&eacute;</th><th scope="col">Base l&eacute;gale</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Fourniture du service</strong></td><td>Ex&eacute;cution du contrat &ndash; pour compiler, v&eacute;rifier et auditer vos documents</td></tr>
+    <tr><td><strong>Facturation et gestion du compte</strong></td><td>Ex&eacute;cution du contrat &ndash; pour g&eacute;rer les abonnements et les paiements</td></tr>
+    <tr><td><strong>Am&eacute;lioration du service</strong></td><td>Int&eacute;r&ecirc;t l&eacute;gitime &ndash; pour am&eacute;liorer la plateforme via une analytique anonymis&eacute;e</td></tr>
+  </tbody>
+</table>
+
+<h3>d. Droits des personnes concern&eacute;es</h3>
+<p>Vous avez le droit de&nbsp;:</p>
+<ul>
+  <li><strong>Acc&egrave;s</strong> &ndash; demander une copie de vos donn&eacute;es personnelles</li>
+  <li><strong>Rectification</strong> &ndash; corriger des donn&eacute;es inexactes</li>
+  <li><strong>Effacement</strong> &ndash; demander la suppression de votre compte et des donn&eacute;es associ&eacute;es</li>
+  <li><strong>Portabilit&eacute;</strong> &ndash; demander une copie de vos donn&eacute;es dans un format lisible par machine</li>
+  <li><strong>Opposition</strong> &ndash; vous opposer &agrave; certains types de traitement</li>
+</ul>
+<p>Pour exercer ces droits, contactez-nous &agrave;&nbsp;: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+
+<h3>e. Transferts de donn&eacute;es</h3>
+<p>Lorsque vous <strong>Envoyez</strong> un prompt &agrave; un fournisseur tiers (p.&nbsp;ex., Claude, Gemini, DeepSeek), vos donn&eacute;es peuvent &ecirc;tre transf&eacute;r&eacute;es vers des serveurs situ&eacute;s en dehors de votre juridiction. Ces fournisseurs sont des responsables du traitement ind&eacute;pendants et sont soumis &agrave; leurs propres politiques de protection des donn&eacute;es.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="transfers" aria-labelledby="privacy-s10">
+<h2 id="privacy-s10">10. Transferts internationaux de donn&eacute;es</h2>
+<p>Lorsque vous <strong>Envoyez</strong> une question &agrave; un fournisseur tiers (p.&nbsp;ex., Claude, Gemini, DeepSeek), vos donn&eacute;es peuvent &ecirc;tre transf&eacute;r&eacute;es vers des serveurs situ&eacute;s en dehors de votre pays de r&eacute;sidence. Ces fournisseurs sont soumis &agrave; leurs propres politiques de protection des donn&eacute;es et peuvent ne pas offrir le m&ecirc;me niveau de protection que votre juridiction locale.</p>
+<p>En utilisant Assure AI et en choisissant un fournisseur, vous consentez &agrave; ce transfert.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="changes" aria-labelledby="privacy-s11">
+<h2 id="privacy-s11">11. Modifications de la pr&eacute;sente politique</h2>
+<p>Nous pouvons mettre &agrave; jour cette Politique de confidentialit&eacute; de temps &agrave; autre. La version la plus r&eacute;cente sera toujours disponible &agrave; l&rsquo;adresse <a href="https://getassureai.com/privacy">https://getassureai.com/privacy</a>. Nous vous informerons des modifications importantes via le workbench ou par e-mail.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="contact" aria-labelledby="privacy-s12">
+<h2 id="privacy-s12">12. Nous contacter</h2>
+<p>Si vous avez des questions concernant cette Politique de confidentialit&eacute; ou vos donn&eacute;es&nbsp;:</p>
+<p class="privacy-contact"><strong>E-mail&nbsp;:</strong> <a href="mailto:privacy@getassureai.com">privacy@getassureai.com</a></p>
+</section>

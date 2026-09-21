@@ -1,0 +1,72 @@
+name: Quality Check
+
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging]
+
+concurrency:
+  group: quality-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest requests pytest-playwright pymupdf
+          playwright install chromium --with-deps
+
+      - name: Source staging env
+        run: |
+          ENV_FILE=""
+          if [ -f .env.staging ]; then
+            ENV_FILE=".env.staging"
+          elif [ -f /home/ubuntu/assure/.env.staging ]; then
+            ENV_FILE="/home/ubuntu/assure/.env.staging"
+          fi
+          if [ -n "$ENV_FILE" ]; then
+            set -a
+            # shellcheck disable=SC1090
+            source "$ENV_FILE"
+            set +a
+          fi
+        shell: bash
+
+      - name: API key audit (staging tier)
+        env:
+          QUALITY_CHECK_ENV: staging
+          QUALITY_CHECK_STRICT: "1"
+        run: |
+          PY=pytest
+          if [ -x /home/ubuntu/assure/.venv-qc/bin/pytest ]; then
+            PY=/home/ubuntu/assure/.venv-qc/bin/pytest
+          fi
+          $PY tests/quality_check/test_api_keys.py -v
+
+      - name: Backend smoke tests
+        env:
+          ASSURE_REQUIRE_LOGIN: "false"
+        run: pytest tests/quality_check/test_backend_endpoints.py -v
+
+      - name: Design token lint
+        run: pytest tests/quality_check/test_design_tokens.py -v
+
+      - name: Frontend UI smoke tests
+        run: pytest tests/quality_check/test_frontend_ui.py -v
+
+      - name: Visual regression
+        run: pytest tests/quality_check/test_visual_regression.py -v
+        continue-on-error: true

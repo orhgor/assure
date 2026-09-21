@@ -24,6 +24,23 @@ from flask import (
     session,
 )
 
+
+def _read_text(path: str, default: str = "unknown") -> str:
+    try:
+        p = Path(path)
+        if p.exists():
+            value = p.read_text(encoding="utf-8").strip()
+            return value or default
+    except Exception:
+        pass
+    return default
+
+
+try:
+    from .service_auth import is_service_api_request, service_api_authorized
+except ImportError:
+    from service_auth import is_service_api_request, service_api_authorized
+
 try:
     from .engine import (
         MatrixError,
@@ -85,6 +102,7 @@ except ImportError:
 PACKAGE_DIR = resource_dir()
 STATIC_DIR = PACKAGE_DIR / "static"
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
+PROTOTYPE_DIR = PACKAGE_DIR.parent / "prototype"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_BASIC_USER = "admin"
@@ -159,18 +177,18 @@ except ImportError:
     )
 
 CANONICAL_PUBLIC_HOST = os.environ.get("CANONICAL_HOST", "getassureai.com").strip().lower()
-_LEGACY_PUBLIC_HOSTS = frozenset({"app.getassureai.com", "www.getassureai.com"})
+_LEGACY_PUBLIC_HOSTS = frozenset({"www.getassureai.com"})
 
 BRAND = {
     "name": "Assure",
-    "category": "The Intellectual Compiler",
-    "tagline": "Compile intent. Verify logic. Ship truth.",
-    "page_title": "Assure — AI guesses. Assure proves.",
+    "category": "The Deterministic Truth Engine",
+    "tagline": "The enterprise standard for verified AI drafting.",
+    "page_title": "Assure AI — The Deterministic Truth Engine for High-Stakes Professionals",
     "meta_description": (
-        "Traditional AI is a black box that makes things up. Assure uses formal logic "
-        "to turn raw chaos into mathematically airtight deliverables."
+        "Assure AI is the deterministic truth engine built for insurance, legal, and compliance "
+        "professionals to mathematically ground every citation, exclusion, and financial figure before it ships."
     ),
-    "architecture_title": "How It Works · Assure — The Intellectual Compiler",
+    "architecture_title": "How It Works · Assure — The Deterministic Truth Engine",
     "architecture_meta_description": (
         "Why guessing fails—and how Assure turns your intent into verified documents you can ship with confidence."
     ),
@@ -179,7 +197,7 @@ _WAITLIST_ORIGINS = frozenset(
     {
         "https://getassureai.com",
         "https://www.getassureai.com",
-        "https://assure.orhangorenn.workers.dev",
+        "https://app.getassureai.com",
     }
 )
 
@@ -283,6 +301,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from db.connection import init_db
     init_db()
     try:
+        from .routers.sandbox import ensure_sandbox_project
+    except ImportError:
+        from routers.sandbox import ensure_sandbox_project
+    # The sandbox is a fixed identifier with no creation path, and its budget row
+    # references `projects`; without this row its first request fails at the
+    # foreign key before any model call (routers/sandbox.ensure_sandbox_project).
+    ensure_sandbox_project()
+    try:
+        from .signals import connect_redhat_signals
+    except ImportError:
+        from signals import connect_redhat_signals
+    connect_redhat_signals()
+    try:
         from .cloud_billing import load_cloud_env
     except ImportError:
         from cloud_billing import load_cloud_env
@@ -312,13 +343,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
         CORS(
             app,
-            origins=[
-                "https://getassureai.com",
-                "https://www.getassureai.com",
-                "https://app.getassureai.com",
-                "http://127.0.0.1:8765",
-                "http://localhost:8765",
-            ],
+            origins=os.environ.get(
+                "CORS_ORIGINS",
+                ",".join([
+                    "https://getassureai.com",
+                    "https://www.getassureai.com",
+                    "https://app.getassureai.com",
+                    "https://staging.getassureai.com",
+                    "http://127.0.0.1:8765",
+                    "http://localhost:8765",
+                ]),
+            ).split(","),
             allow_headers=[
                 "Content-Type",
                 "Authorization",
@@ -428,9 +463,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         cookie = request.cookies.get("assure_lang")
         if cookie:
             return normalize_locale(cookie)
-        match = request.accept_languages.best_match(list(LOCALES))
-        if match:
-            return normalize_locale(match)
+        # Default English — do not infer locale from Accept-Language (avoids mixed TR/EN UI).
         return "en"
 
     if Babel is not None:
@@ -497,10 +530,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
@@ -512,16 +547,21 @@ def create_app(*, require_auth: bool = True) -> Flask:
             auth_required,
             clear_user,
             clerk_configured,
+            clerk_only_enabled,
             current_user_id,
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
             verify_session_token,
         )
-
+    try:
+        from .service_auth import is_service_api_request, service_api_authorized
+    except ImportError:
+        from service_auth import is_service_api_request, service_api_authorized
     @app.before_request
     def _set_language_guard_locale():
         try:
@@ -542,11 +582,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 code=301,
             )
         return None
-
     @app.before_request
     def _cloud_login():
-        return protect_request()
+        # Bypass service API (ingest-and-verify) - uses service token auth
+        if is_service_api_request(request.path):
+            if service_api_authorized(request):
+                return None
+            return jsonify({"error": "Missing or invalid service token."}), 401
 
+        if not is_self_hosted() and require_clerk_login():
+            return protect_request()
+        return None
     def _apply_browser_api_keys() -> None:
         """Apply in-memory BYOK keys from request headers. Never logged or persisted."""
         gemini = (request.headers.get("X-Gemini-Key") or "").strip()
@@ -620,23 +666,29 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def favicon():
         return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
 
+    # Prototype shell disabled — use /app for the real workbench
+    @app.route("/workbench/")
+    @app.route("/workbench/<path:filename>")
+    def workbench_disabled(*_args, **_kwargs):
+        from flask import abort
+        abort(404)
+
     @app.get("/architecture")
     def architecture_page():
         return _landing_page("architecture.html")
 
     def _workspace_page():
         try:
-            from .db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from .db.jdf_repository import DEFAULT_PROJECT_ID
         except ImportError:
-            from db.jdf_repository import DEFAULT_PROJECT_ID, fetch_latest_jdf_or_empty
+            from db.jdf_repository import DEFAULT_PROJECT_ID
         project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
-        initial_jdf = fetch_latest_jdf_or_empty(project_id)
         return _page(
             "index.html",
             "compose",
             initial_pane="compose",
             include_pk=True,
-            initial_jdf=initial_jdf,
+            initial_jdf=None,
             project_id=project_id,
         )
 
@@ -677,6 +729,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signin",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signup")
@@ -687,6 +740,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signup",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signout")
@@ -702,6 +756,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "configured": clerk_configured(),
                 "self_hosted": is_self_hosted(),
                 "signed_in": bool(current_user_id()),
+                # The edge reads this to decide whether shell documents need a
+                # session, so the flag lives in the app's env only.
+                "clerk_only": clerk_only_enabled(),
             }
         )
 
@@ -768,7 +825,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.get("/privacy")
     def privacy():
-        return _page("privacy.html", "privacy")
+        return _landing_page("landing_privacy.html")
 
     @app.get("/terms")
     def terms():
@@ -1003,6 +1060,40 @@ def create_app(*, require_auth: bool = True) -> Flask:
             payload.update(library_status())
         except Exception:
             pass
+        # Add build identity for immutable deploy verification
+        payload["build_sha"] = os.getenv("ASSURE_BUILD_SHA") or os.getenv("BUILD_SHA") or _read_text("/app/ASSURE_BUILD_SHA") or _read_text("/app/BUILD_SHA")
+        payload["build_branch"] = os.getenv("ASSURE_BUILD_BRANCH") or os.getenv("BUILD_BRANCH") or _read_text("/app/ASSURE_BUILD_BRANCH") or _read_text("/app/BUILD_BRANCH")
+        payload["build_time"] = os.getenv("ASSURE_BUILD_TIME") or os.getenv("BUILD_TIME") or _read_text("/app/ASSURE_BUILD_TIME") or _read_text("/app/BUILD_TIME")
+        payload["image_ref"] = os.getenv("APP_IMAGE", "unknown")
+        # Audit rows this process failed to write. The insert is best-effort, so
+        # without this the loss is only in the service log; here it is a number a
+        # probe or a human can read.
+        try:
+            from .lib.logger import audit_drop_count
+        except ImportError:
+            from lib.logger import audit_drop_count
+        payload["audit_drops"] = audit_drop_count()
+        # Pipeline-cache rows a write was refused — a project_id no `projects` row
+        # owns. The insert is best-effort, so without this the loss is only in the
+        # service log; here it is a number a probe or a human can read. Same idiom
+        # as the audit-row counter on f674370.
+        try:
+            from .lib.logger import cache_drop_count
+        except ImportError:
+            from lib.logger import cache_drop_count
+        payload["cache_drops"] = cache_drop_count()
+        # Connections this process has taken from SQLite and not given back. Both
+        # counters above are cumulative counts of writes that did not land; this one
+        # is the resource those failures used to leave behind — a connection held
+        # open with its statement uncommitted is what makes the *next* writer fail,
+        # which is the family the two of them are instances of. A gauge, so it falls
+        # as well as rises: it reads 0 with nothing in flight, and a number that
+        # only grows is a leak that no longer needs a stack sample to find.
+        try:
+            from .db.open_connections import db_open_connection_count
+        except ImportError:
+            from db.open_connections import db_open_connection_count
+        payload["db_open_connections"] = db_open_connection_count()
         return jsonify(payload), 200
 
     @app.post("/api/upload/validate")
@@ -1161,6 +1252,25 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "files_read": rendered.files_read,
             }
         )
+
+    @app.post("/api/compile-system")
+    def compile_system_view():
+        """The system message the compile path sends, for the ask it is compiling.
+
+        Consumed by the prototype shell panel so it can show the model what the
+        model receives. The message is static except for the answer-shape block
+        (services/answer_shape), which follows the ask — so a body carrying the ask
+        returns the prompt the pipeline builds for it, and a body carrying nothing
+        returns the static message, unchanged."""
+        from .routers.draft import _COMPILE_SYSTEM, _compile_system
+        from .services.answer_shape import choose_shape
+
+        data = request.get_json(silent=True) or {}
+        intent = str(data.get("intent") or "").strip()
+        if not intent:
+            return jsonify({"prompt": _COMPILE_SYSTEM})
+        shape = choose_shape(intent)
+        return jsonify({"prompt": _compile_system(shape, intent), "answer_shape": shape})
 
     @app.post("/api/render")
     @login_required
@@ -1575,6 +1685,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_jdf_routes(app)
 
     try:
+        from .routers.jdf_memory_routes import register_jdf_memory_routes
+    except ImportError:
+        from routers.jdf_memory_routes import register_jdf_memory_routes
+    register_jdf_memory_routes(app)
+
+    try:
         from .routers.export_routes import register_export_routes
     except ImportError:
         from routers.export_routes import register_export_routes
@@ -1629,10 +1745,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
     register_refine_node_routes(app)
 
     try:
-        from .routers.ground_routes import register_ground_routes
+        from .routers.retrieval_routes import register_retrieval_routes
     except ImportError:
-        from routers.ground_routes import register_ground_routes
-    register_ground_routes(app)
+        from routers.retrieval_routes import register_retrieval_routes
+    register_retrieval_routes(app)
 
     try:
         from .routers.conflict_routes import register_conflict_routes
@@ -1668,7 +1784,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from .routers.feedback_routes import register_feedback_routes
     except ImportError:
         from routers.feedback_routes import register_feedback_routes
-    register_feedback_routes(app)
+    register_feedback_routes(app, page_renderer=_page)
 
     try:
         from .routers.compliance_routes import register_compliance_routes
@@ -1694,6 +1810,51 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from routers.async_tasks_routes import register_async_task_routes
     register_async_task_routes(app)
     register_audit_log_routes(app)
+
+    try:
+        from .routers.runs_routes import register_runs_routes
+        from .routers.drafts_routes import register_drafts_routes
+    except ImportError:
+        from routers.runs_routes import register_runs_routes
+        from routers.drafts_routes import register_drafts_routes
+    register_runs_routes(app)
+    register_drafts_routes(app)
+
+    try:
+        from .routers.locks_routes import register_locks_routes
+    except ImportError:
+        from routers.locks_routes import register_locks_routes
+    register_locks_routes(app)
+
+    try:
+        from .routers.redhat_routes import register_redhat_routes
+    except ImportError:
+        from routers.redhat_routes import register_redhat_routes
+    register_redhat_routes(app)
+
+    try:
+        from .routers.orchestrator_routes import register_orchestrator_routes
+    except ImportError:
+        from routers.orchestrator_routes import register_orchestrator_routes
+    register_orchestrator_routes(app)
+
+    try:
+        from .routers.compare_routes import register_compare_routes
+    except ImportError:
+        from routers.compare_routes import register_compare_routes
+    register_compare_routes(app)
+
+    try:
+        from .routers.polish_routes import register_polish_routes
+    except ImportError:
+        from routers.polish_routes import register_polish_routes
+    register_polish_routes(app)
+
+    try:
+        from .routers.scan_routes import register_scan_routes
+    except ImportError:
+        from routers.scan_routes import register_scan_routes
+    register_scan_routes(app)
 
     try:
         from .middleware_activity import register_activity_audit_middleware

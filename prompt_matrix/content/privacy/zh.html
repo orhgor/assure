@@ -1,0 +1,245 @@
+<p class="privacy-intro">Assure AI（&ldquo;我们&rdquo;、&ldquo;我们的&rdquo;或&ldquo;我方&rdquo;）致力于保护您的隐私。本隐私政策说明当您使用我们的平台和服务时，我们如何收集、使用和保护您的信息。</p>
+
+<section id="collect" aria-labelledby="privacy-s1">
+<h2 id="privacy-s1">1. 我们收集和存储的数据</h2>
+
+<h3>a. 存储在云端的（服务器）数据</h3>
+<p>为提供服务，我们在安全服务器（AWS EC2）上存储以下数据：</p>
+<ul>
+  <li><strong>账户数据：</strong>电子邮件地址、订阅层级和 Stripe 客户 ID。</li>
+  <li><strong>问题和提示词：</strong>您在命令栏或编译界面中输入的文本（存储在数据库项目和运行日志中）。</li>
+  <li><strong>上传的源文件：</strong>您上传的 PDF、图片、JSON、YAML 及其他文档（存储在 <code>substrate_vault</code> 表中）。</li>
+  <li><strong>编译草稿：</strong>JDF AST、验证日志和锁定哈希（存储在 <code>jdf_revisions</code> 表中）。</li>
+  <li><strong>审计日志：</strong>用于企业合规的活动和请求日志（存储在 <code>user_activity_log</code> 和 <code>audit_log</code> 中）。</li>
+  <li><strong>候补名单提交：</strong>电子邮件、公司名称和工作流类型（如您加入候补名单）。</li>
+</ul>
+<p class="privacy-emphasis"><strong>我们不会</strong>使用您的数据训练我们的模型。<strong>我们不会</strong>出于广告或营销目的向第三方出售或共享您的数据。</p>
+
+<h3>b. 本地存储在您设备上的数据</h3>
+<p>以下数据保留<strong>在您的计算机上</strong>，绝不会传输至我们的服务器：</p>
+<ul>
+  <li>已连接提供商的 API 密钥（Claude、Gemini、DeepSeek、Kimi 等）。</li>
+  <li>Workbench 界面状态和偏好设置（例如布局设置、主题偏好）。</li>
+</ul>
+
+<h3>c. 第三方 AI 提供商（当您&ldquo;发送&rdquo;时）</h3>
+<p>当您选择向已连接的提供商<strong>发送</strong>提示词时：</p>
+<ul>
+  <li>您的问题及任何附加文件会<strong>直接</strong>从您的会话传输至您选择的提供商。</li>
+  <li>适用该提供商自身的条款和隐私政策。使用前您须审阅并接受。</li>
+  <li>Assure 不会独立记录或保留原始第三方 API 响应，超出作为标准工作区历史一部分持久保存至项目文件和草稿的范围。</li>
+</ul>
+
+<h3>d. &ldquo;对互联网关闭&rdquo;模式</h3>
+<p>选择&ldquo;对互联网关闭&rdquo;时：</p>
+<ul>
+  <li>您的数据<strong>不会</strong>发送至任何外部提供商。</li>
+  <li>处理（包括 Z3 验证和 <code>groundrails</code>）在 <strong>Assure 的安全服务器</strong>上运行&mdash;而非您的本地机器。</li>
+  <li>您的数据仍按第 1a 节所述存储在 Assure 的服务器上。</li>
+</ul>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="use" aria-labelledby="privacy-s2">
+<h2 id="privacy-s2">2. 我们如何使用您的数据</h2>
+<table>
+  <thead><tr><th scope="col">数据类型</th><th scope="col">用途</th></tr></thead>
+  <tbody>
+    <tr><td><strong>电子邮件和订阅层级</strong></td><td>账户管理、账单和客户支持。</td></tr>
+    <tr><td><strong>问题、提示词和源文件</strong></td><td>用于编译、验证和审计您的文档。</td></tr>
+    <tr><td><strong>编译草稿和锁定哈希</strong></td><td>提供版本历史和审计追踪。</td></tr>
+    <tr><td><strong>审计日志</strong></td><td>跟踪使用情况并为企业客户维护安全。</td></tr>
+    <tr><td><strong>候补名单提交</strong></td><td>在服务上线或需要 beta 测试人员时通知您。</td></tr>
+    <tr><td><strong>API 密钥</strong></td><td>仅用于将您的本地实例连接至第三方 AI 提供商。密钥绝不会离开您的设备。</td></tr>
+    <tr><td><strong>使用分析（可选）</strong></td><td>通过 Plausible 收集匿名、汇总的使用数据。不收集个人数据。</td></tr>
+  </tbody>
+</table>
+<p class="privacy-emphasis"><strong>我们不会</strong>使用您的数据训练我们的模型。<strong>我们不会</strong>出于广告或营销目的向第三方出售或共享您的数据。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="sharing" aria-labelledby="privacy-s3">
+<h2 id="privacy-s3">3. 共享您的数据</h2>
+
+<h3>a. 第三方 AI 提供商</h3>
+<p>当您选择向已连接的提供商（例如 Claude、Gemini、DeepSeek、Kimi）<strong>发送</strong>提示词时：</p>
+<ul>
+  <li>您的问题及任何附加文件会<strong>直接</strong>传输至您选择的提供商。</li>
+  <li>适用该提供商自身的条款和隐私政策。</li>
+  <li>Assure 不会独立记录或保留原始第三方响应，超出您已保存的项目历史范围。</li>
+</ul>
+
+<h3>b. &ldquo;对互联网关闭&rdquo;模式</h3>
+<p>选择&ldquo;对互联网关闭&rdquo;时：</p>
+<ul>
+  <li>您的数据不会发送至任何外部提供商。</li>
+  <li>处理在 Assure 的安全服务器上运行。</li>
+  <li>您的数据仍按第 1a 节所述存储在 Assure 的服务器上。</li>
+</ul>
+
+<h3>c. 服务提供商</h3>
+<p>我们使用外部服务运营平台：</p>
+<table>
+  <thead><tr><th scope="col">服务</th><th scope="col">用途</th><th scope="col">共享的数据</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stripe</strong></td><td>账单和支付处理</td><td>电子邮件、Stripe 客户 ID、支付详情</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>账户和订阅管理</td><td>电子邮件、订阅层级</td></tr>
+    <tr><td><strong>Clerk</strong></td><td>身份验证和用户管理（配置时）</td><td>电子邮件、用户 ID</td></tr>
+    <tr><td><strong>Plausible</strong></td><td>匿名使用分析</td><td>仅汇总、匿名数据</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="rights" aria-labelledby="privacy-s4">
+<h2 id="privacy-s4">4. 您的权利</h2>
+<p>根据您所在司法管辖区（包括 GDPR 和 CCPA），您可能享有以下权利：</p>
+<table>
+  <thead><tr><th scope="col">权利</th><th scope="col">如何行使</th></tr></thead>
+  <tbody>
+    <tr><td><strong>访问</strong></td><td>请求获取我们持有的关于您的个人数据副本。</td></tr>
+    <tr><td><strong>更正</strong></td><td>请求更正不准确的个人数据。</td></tr>
+    <tr><td><strong>删除</strong></td><td>请求删除您的账户及相关数据。</td></tr>
+    <tr><td><strong>数据可携性</strong></td><td>请求获取机器可读格式的数据副本。</td></tr>
+    <tr><td><strong>反对/限制处理</strong></td><td>反对某些类型的处理。</td></tr>
+  </tbody>
+</table>
+<p>如需行使上述任何权利，请联系我们：<a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="security" aria-labelledby="privacy-s5">
+<h2 id="privacy-s5">5. 数据安全</h2>
+<table>
+  <thead><tr><th scope="col">措施</th><th scope="col">说明</th></tr></thead>
+  <tbody>
+    <tr><td><strong>服务端加密</strong></td><td>存储在 Assure 服务器上的所有数据均静态加密（经核实的云基础设施配置）。</td></tr>
+    <tr><td><strong>传输中加密</strong></td><td>浏览器与 Assure 服务器之间传输的所有数据均使用安全传输加密（TLS）。</td></tr>
+    <tr><td><strong>最小数据保留</strong></td><td>数据仅在提供服务及履行法定义务所需期间保留。</td></tr>
+    <tr><td><strong>不用于训练的数据</strong></td><td>我们绝不会使用您的数据训练我们的模型。</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="retention" aria-labelledby="privacy-s6">
+<h2 id="privacy-s6">6. 数据保留</h2>
+<table>
+  <thead><tr><th scope="col">数据类型</th><th scope="col">保留期限</th></tr></thead>
+  <tbody>
+    <tr><td><strong>电子邮件和订阅层级</strong></td><td>在账户存续期间保留。账户终止时删除。</td></tr>
+    <tr><td><strong>Stripe 客户 ID</strong></td><td>为账单和支付历史目的保留，按金融法规要求。</td></tr>
+    <tr><td><strong>问题、文件和草稿</strong></td><td>存储在 Assure 安全服务器上，直至您明确删除项目、清除工作区历史或关闭账户。</td></tr>
+    <tr><td><strong>使用分析（Plausible）</strong></td><td>匿名且汇总；不保留个人数据。</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="children" aria-labelledby="privacy-s7">
+<h2 id="privacy-s7">7. 儿童隐私</h2>
+<p>Assure AI 不面向 16 岁以下人士使用。我们不会故意收集儿童的个人数据。如您认为儿童向我们提供了个人数据，请联系我们，我们将予以删除。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="disclaimer" aria-labelledby="privacy-s8">
+<h2 id="privacy-s8">8. 免责声明 &ndash; AI 生成内容</h2>
+<p>Assure AI 生成的输出由大型语言模型和确定性验证引擎产生。尽管我们力求准确可靠，我们<strong>不对</strong>任何 AI 生成内容的完整性、正确性或适用性作出<strong>任何陈述或保证</strong>。</p>
+
+<p><strong>非法律、财务或专业建议。</strong></p>
+<p>Assure AI 生成的内容仅供信息和起草辅助之用。不构成法律、财务、医疗或其他专业建议。在基于 AI 生成内容做出决策前，请务必咨询合格专业人士。</p>
+
+<p><strong>用户自行承担责任。</strong></p>
+<p>您全权负责在任何专业、法律或商业环境中使用前，审阅、验证和确认所有输出。</p>
+
+<p><strong>幻觉和错误。</strong></p>
+<p>AI 模型可能产生不正确、误导性或幻觉内容。Assure AI 的验证工具（Z3、Red-Hat、Substrate Vault）旨在降低这些风险，但无法完全消除。</p>
+
+<p><strong>不保证准确性。</strong></p>
+<p>我们不保证输出无错误、完整或最新。</p>
+
+<p><strong>不对依赖承担责任。</strong></p>
+<p>在法律允许的最大范围内，Assure AI 对因您依赖平台生成的输出而产生的任何损失、损害或伤害不承担任何责任。</p>
+
+<p><strong>使用 Assure AI 即表示您承认并接受这些限制。</strong></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="dpa" aria-labelledby="privacy-s9">
+<h2 id="privacy-s9">9. 个人数据文件（数据处理协议）</h2>
+<p>对于受 GDPR、CCPA 或类似数据保护法律约束的司法管辖区的用户，本节说明您的个人数据如何被处理。</p>
+
+<h3>a. 数据控制者和数据处理者</h3>
+<table>
+  <thead><tr><th scope="col">角色</th><th scope="col">实体</th></tr></thead>
+  <tbody>
+    <tr><td><strong>数据控制者</strong></td><td>您（用户）是您的问题、文档和提示词的数据控制者。您决定处理数据的目的和方式。</td></tr>
+    <tr><td><strong>数据处理者</strong></td><td>Assure AI 作为数据处理者，仅代表您并按您的指示处理您的数据。</td></tr>
+  </tbody>
+</table>
+
+<h3>b. 处理的个人数据类别</h3>
+<table>
+  <thead><tr><th scope="col">类别</th><th scope="col">数据元素</th></tr></thead>
+  <tbody>
+    <tr><td><strong>账户数据</strong></td><td>电子邮件地址、订阅层级、Stripe 客户 ID</td></tr>
+    <tr><td><strong>使用数据</strong></td><td>匿名、汇总分析（无个人标识符）</td></tr>
+    <tr><td><strong>内容数据</strong></td><td>您的问题、提示词、上传文件和编译草稿 &ndash; 在我们的 AWS 服务器上安全处理和存储</td></tr>
+  </tbody>
+</table>
+
+<h3>c. 处理目的</h3>
+<table>
+  <thead><tr><th scope="col">目的</th><th scope="col">法律依据</th></tr></thead>
+  <tbody>
+    <tr><td><strong>提供服务</strong></td><td>合同履行 &ndash; 编译、验证和审计您的文档</td></tr>
+    <tr><td><strong>账单和账户管理</strong></td><td>合同履行 &ndash; 管理订阅和支付</td></tr>
+    <tr><td><strong>服务改进</strong></td><td>合法利益 &ndash; 通过匿名分析改进平台</td></tr>
+  </tbody>
+</table>
+
+<h3>d. 数据主体权利</h3>
+<p>您有权：</p>
+<ul>
+  <li><strong>访问</strong> &ndash; 请求获取个人数据副本</li>
+  <li><strong>更正</strong> &ndash; 更正不准确的数据</li>
+  <li><strong>删除</strong> &ndash; 请求删除账户及相关数据</li>
+  <li><strong>可携性</strong> &ndash; 请求获取机器可读格式的数据副本</li>
+  <li><strong>反对</strong> &ndash; 反对某些类型的处理</li>
+</ul>
+<p>如需行使这些权利，请联系我们：<a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+
+<h3>e. 数据传输</h3>
+<p>当您向第三方提供商（例如 Claude、Gemini、DeepSeek）<strong>发送</strong>提示词时，您的数据可能被传输至您司法管辖区以外的服务器。这些提供商为独立的数据控制者，受各自的数据保护政策约束。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="transfers" aria-labelledby="privacy-s10">
+<h2 id="privacy-s10">10. 国际数据传输</h2>
+<p>当您向第三方提供商（例如 Claude、Gemini、DeepSeek）<strong>发送</strong>问题时，您的数据可能被传输至您居住国以外的服务器。这些提供商受各自的数据保护政策约束，可能无法提供与您本地司法管辖区同等的保护水平。</p>
+<p>使用 Assure AI 并选择提供商即表示您同意此传输。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="changes" aria-labelledby="privacy-s11">
+<h2 id="privacy-s11">11. 本政策的变更</h2>
+<p>我们可能不时更新本隐私政策。最新版本始终可在 <a href="https://getassureai.com/privacy">https://getassureai.com/privacy</a> 获取。我们将通过 workbench 或电子邮件通知您重大变更。</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="contact" aria-labelledby="privacy-s12">
+<h2 id="privacy-s12">12. 联系我们</h2>
+<p>如您对本隐私政策或您的数据有任何疑问：</p>
+<p class="privacy-contact"><strong>电子邮件：</strong> <a href="mailto:privacy@getassureai.com">privacy@getassureai.com</a></p>
+</section>

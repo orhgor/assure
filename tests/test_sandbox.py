@@ -74,16 +74,23 @@ def test_sandbox_verify_success(monkeypatch, client):
     assert res.status_code == 200
     data = res.get_json()
 
-    assert data["ok"] is True
+    assert data["ok"] is False
+    # Ungrounded fixture (no matching substrate) → gate returns review.
+    assert data["ok"] is False
+    assert data["gate_status"] == "review"
+    assert data["unverified"] is True
     assert data["node_count"] >= 1
     assert data["lock_count"] == 1
     assert data["gate_status"] == "review"
-    assert data["z3_status"] == "PASS"
+    # "$4.2M" carries no ``key: value`` metric, so Math Check ran no
+    # comparison: SKIPPED, not a PASS over zero checks.
+    assert data["z3_status"] == "SKIPPED"
+    assert data["z3_results"]["skip_reason"]
     assert data["redhat_count"] == 1
     assert "redhat_critiques" in data
     assert data["redhat_results"] == data["redhat_critiques"]
     assert "document" in data
-    assert data["z3_results"]["status"] == "PASS"
+    assert data["z3_results"]["status"] == "SKIPPED"
     assert len(data["redhat_results"]) == 1
     assert any(n.get("type") == "paragraph" for n in data["nodes"])
 
@@ -103,7 +110,7 @@ def test_run_sandbox_verify_unit(monkeypatch):
     )
 
     result = run_sandbox_verify("Plain paragraph text.", governor=_FakeGovernor())
-    assert result["ok"] is True
-    assert result["gate_status"] == "pass"
+    assert result["ok"] is False
+    assert result["gate_status"] == "review"
     assert result["node_count"] >= 1
     assert result["document"]["meta"]["project_id"] == "sandbox"

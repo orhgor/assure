@@ -1,0 +1,59 @@
+---
+description: v1.0 Execution Mode — golden path only, frozen shell, defer everything else
+alwaysApply: true
+---
+
+# User journey — v1.0 Execution Mode
+
+**Authoritative specs:** `docs/user-experience.md`, `docs/ship-timeline.md`, `docs/frozen-shell.md`, `docs/visual-checklist.md`, `docs/deferred.md`.
+
+## The single rule
+
+The shell is frozen on Day 1. The golden path test decides done. Everything else goes to `docs/deferred.md`.
+
+## What to build
+
+Only code that advances the **Golden Path** in `docs/user-experience.md`:
+
+1. Main document + orchestrator command bar
+2. Multi-model side-by-side staging with **visual diff** (`ast_diff.py`)
+3. Hybrid merge into Main document (TipTap `insertContentAt`)
+4. Red-Hat (≥2 passes)
+5. Grammar/flow revision on Main
+6. Full-context scan, benchmark, targeted rewrite
+7. Export dossier
+
+**Technical order:** Orchestrator Celery task → diff UI → click-to-merge. See `docs/user-experience.md` § Technical path.
+
+## What NOT to do
+
+- Do **not** change the 3-pane grid (`48px | 320px | 1fr | drawer`) during Sprints 1–3.
+- Do **not** fix visual polish mid-sprint — log in `docs/deferred.md`.
+- Do **not** add features not on the golden path — log in `docs/deferred.md`.
+- Do **not** expect Cursor to make product or ship decisions.
+
+## Bug triage
+
+| Type | Action |
+| --- | --- |
+| Layout break (resize, rail width, pane overlap) | Fix immediately — screenshot + prompt |
+| Functional golden-path failure | Fix immediately |
+| Visual / copy / nice-to-have | `docs/deferred.md` — batch in Days 22–24 |
+| Scope request | `docs/deferred.md` — no exceptions |
+
+## Human vs AI
+
+| Cursor | Human (product owner) |
+| --- | --- |
+| Functional code | v1.0 scope decisions |
+| Tests for golden path | Visual acceptance (screenshots) |
+| Diff engine, merge, APIs | Copy approval (read aloud) |
+| | ICP demo, ship/rollback calls |
+
+## Sprint gates
+
+Refer to `docs/ship-timeline.md`. If Day 7 slips, cut Sprint 1 scope — do not move Day 14.
+
+## Visual standard
+
+Executive-grade criteria live in `docs/visual-checklist.md`. Apply only during Convergence (Days 22–24).

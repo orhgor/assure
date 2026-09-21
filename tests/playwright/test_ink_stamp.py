@@ -18,6 +18,14 @@ def test_ink_stamp_appears_on_verified_nodes(workbench_page):
     page = workbench_page
     page.route("**/draft/stream", route_draft_success)
 
+    page.evaluate(
+        """() => {
+          document.body.classList.add('ink-stamps-on');
+          const toggle = document.getElementById('ink-stamp-toggle');
+          if (toggle) toggle.checked = true;
+          try { localStorage.setItem('assure_ink_stamps', '1'); } catch (e) {}
+        }"""
+    )
     fill_and_compile(page, "Write a short paragraph about revenue growth.")
     wait_compile_ready(page)
 

@@ -1,20 +1,27 @@
 services:
   assure-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE:?missing APP_IMAGE}
+    env_file:
+      - .env
     ports:
-      - "8765:8765"
+      - "127.0.0.1:8765:8765"
     environment:
       DATABASE_PATH: /app/data/history.sqlite
-      ENVIRONMENT: development
+      ENVIRONMENT: production
       PORT: "8765"
       PYTHONUNBUFFERED: "1"
-      STRIPE_WEBHOOK_SECRET: whsec_test_secret_for_local_validation
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      BUILD_SHA: ${BUILD_SHA:-unknown}
+      BUILD_BRANCH: ${BUILD_BRANCH:-unknown}
+      BUILD_TIME: ${BUILD_TIME:-unknown}
+      ASSURE_BUILD_SHA: ${ASSURE_BUILD_SHA:-${BUILD_SHA:-unknown}}
+      ASSURE_BUILD_BRANCH: ${ASSURE_BUILD_BRANCH:-${BUILD_BRANCH:-unknown}}
+      ASSURE_BUILD_TIME: ${ASSURE_BUILD_TIME:-${BUILD_TIME:-unknown}}
+      ASSURE_SERVICE_API_TOKEN: ${ASSURE_SERVICE_API_TOKEN:-}
+      APP_IMAGE: ${APP_IMAGE:-unknown}
     volumes:
       - ./data:/app/data
     restart: unless-stopped
-
   # Optional: expose assure-app via Cloudflare Tunnel (set TUNNEL_TOKEN in .env).
   # cloudflared:
   #   image: cloudflare/cloudflared:latest

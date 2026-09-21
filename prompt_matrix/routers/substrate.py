@@ -19,11 +19,17 @@ try:
         save_substrate_entry,
         save_substrate_text,
         set_substrate_included,
+        upsert_substrate_entry,
     )
     from ..lib.logger import get_audit_logger
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
+    from ..services.compile_guard import flag_fields, flag_response
+    from ..services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from ..services.omp_memory import remember_vault_file
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -35,15 +41,26 @@ except ImportError:
         save_substrate_entry,
         save_substrate_text,
         set_substrate_included,
+        upsert_substrate_entry,
     )
     from lib.logger import get_audit_logger
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
+    from services.compile_guard import flag_fields, flag_response
+    from services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from services.omp_memory import remember_vault_file
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 50
+
+#: A document whose extraction carries no more than this many characters is a scan
+#: with no text layer, not a source. The vault upload and the fetched-PDF path
+#: (``services/web_retrieval``) refuse at the same floor.
+MIN_EXTRACTED_TEXT_CHARS = 10
 
 
 class SubstrateIngestError(ValueError):
@@ -61,6 +78,14 @@ class SubstrateIngestError(ValueError):
         self.page_count = page_count
 
 
+_TEXT_UPLOAD_SUFFIXES = {".txt", ".md"}
+
+
+def _is_text_upload(filename: str) -> bool:
+    """True for vault uploads that carry their own text (no extraction needed)."""
+    return Path(filename).suffix.lower() in _TEXT_UPLOAD_SUFFIXES
+
+
 def _temp_upload_dir() -> Path:
     override = (os.environ.get("TEMP_UPLOAD_DIR") or "").strip()
     if override:
@@ -73,15 +98,28 @@ def _substrate_async_enabled() -> bool:
     return os.environ.get("SUBSTRATE_ASYNC_UPLOAD", "").lower() in ("1", "true", "yes")
 
 
-def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
-    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
-    validate_upload_bytes(filename, file_bytes)
+def extract_document_text(filename: str, file_bytes: bytes) -> dict:
+    """Text, tables, forms and page count of a document, by the upload path's own rules.
 
+    The one extraction path: a .txt/.md upload carries its own text, Docling reads
+    everything else when ``USE_DOCLING`` is set, and Textract is the fallback. The
+    fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF fetched
+    from an allowlisted host is read by the same extractor an upload is.
+    """
     use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
     extracted: dict | None = None
     page_count = 1
 
-    if use_docling:
+    if _is_text_upload(filename):
+        # Plain text is already its own extracted form. Textract and Docling
+        # only read documents, so skip both rather than fail inside AWS.
+        extracted = {
+            "text": file_bytes.decode("utf-8", errors="replace"),
+            "tables": [],
+            "forms": [],
+            "page_count": 1,
+        }
+    elif use_docling:
         try:
             from ..verification.docling_extractor import extract_substrate_bytes
 
@@ -115,6 +153,15 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         extracted = client.extract_text(file_bytes, filename)
         page_count = int(extracted.get("page_count") or page_count)
 
+    return {**extracted, "page_count": int(extracted.get("page_count") or page_count)}
+
+
+def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
+    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
+    validate_upload_bytes(filename, file_bytes)
+
+    extracted = extract_document_text(filename, file_bytes)
+    page_count = int(extracted.get("page_count") or 1)
     if page_count > TEXTRACT_MAX_PAGES:
         raise SubstrateIngestError(
             f"This document has {page_count} pages. Substrate Vault accepts up to "
@@ -123,7 +170,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         )
 
     extracted_text = str(extracted.get("text") or "").strip()
-    if len(extracted_text) <= 10:
+    if len(extracted_text) <= MIN_EXTRACTED_TEXT_CHARS:
         raise SubstrateIngestError(
             "Could not extract enough readable text from this file "
             f"({len(extracted_text)} characters). Upload a clearer scan or "
@@ -132,16 +179,37 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         )
 
     ensure_project(project_id)
-    entry = save_substrate_entry(
+    flag = flag_fields(extracted_text)
+    entry = upsert_substrate_entry(
         project_id,
         filename=filename,
-        page_count=extracted.get("page_count") or page_count,
+        page_count=page_count,
         extracted_text=extracted_text,
         tables=extracted.get("tables") or [],
         forms=extracted.get("forms") or [],
         file_size_bytes=len(file_bytes),
+        **flag,
     )
-    _index_vault_file(project_id, entry)
+    remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
+
+    # Store parse artifact in OMP
+    try:
+        substrate_result = {
+            "id": entry["id"],
+            "filename": filename,
+            "page_count": page_count,
+            "text": entry["extracted_text"],
+            "tables": entry["tables"],
+            "forms": entry["forms"],
+            "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
+            "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+        }
+        omp_artifact = build_omp_artifact_from_parse(project_id, substrate_result)
+        store_omp_artifact(project_id, omp_artifact)
+    except Exception as exc:
+        # OMP storage is best-effort; don't fail the ingest
+        pass
+
     return {
         "ok": True,
         "id": entry["id"],
@@ -152,19 +220,8 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         "forms": entry["forms"],
         "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
         "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+        **flag_response(flag),
     }
-
-
-def _index_vault_file(project_id: str, entry: dict) -> None:
-    try:
-        remember_vault_file(
-            project_id,
-            str(entry.get("id") or ""),
-            filename=str(entry.get("filename") or ""),
-            text=str(entry.get("extracted_text") or ""),
-        )
-    except Exception:
-        pass
 
 
 class SubstrateIngestPayload(BaseModel):
@@ -220,6 +277,8 @@ def register_substrate_routes(app) -> None:
             )
 
         project_id = payload.projectId.strip()
+        filename = (payload.filename or "edge-upload.pdf").strip() or "edge-upload.pdf"
+        flag = flag_fields(text)
         try:
             ensure_project(project_id)
             edge_row = save_substrate_text(
@@ -228,7 +287,6 @@ def register_substrate_routes(app) -> None:
                 page_count=payload.pageCount,
                 source=payload.source or "edge",
             )
-            filename = (payload.filename or "edge-upload.pdf").strip() or "edge-upload.pdf"
             save_substrate_entry(
                 project_id,
                 filename=filename,
@@ -237,6 +295,7 @@ def register_substrate_routes(app) -> None:
                 tables=[],
                 forms=[],
                 entry_id=edge_row["id"],
+                **flag,
             )
         except Exception as exc:
             audit.log_audit(
@@ -248,7 +307,7 @@ def register_substrate_routes(app) -> None:
             )
             return jsonify({"ok": False, "error": "Database write failed."}), 500
 
-        _index_vault_file(project_id, {**edge_row, "filename": filename, "extracted_text": text})
+        remember_vault_file(project_id, str(edge_row["id"]), filename=filename, text=text)
 
         audit.log_audit(
             request_id,
@@ -259,9 +318,12 @@ def register_substrate_routes(app) -> None:
                 "page_count": payload.pageCount,
                 "text_chars": len(text),
                 "source": payload.source or "edge",
+                "instruction_like": flag["instruction_like"],
             },
         )
-        return jsonify({"ok": True, "id": edge_row["id"], "text_chars": len(text)})
+        return jsonify(
+            {"ok": True, "id": edge_row["id"], "text_chars": len(text), **flag_response(flag)}
+        )
 
     @app.post("/api/projects/<project_id>/substrate/upload")
     @project_ownership_required
@@ -364,7 +426,7 @@ def register_substrate_routes(app) -> None:
 
         files = [
             {
-                **entry,
+                **flag_response(entry),
                 "claims_count": claims_by_source_id.get(entry["id"], 0),
             }
             for entry in entries

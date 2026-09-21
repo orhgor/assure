@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import contextvars
+import copy
 import json
+import os
 import re
+import sys
+import threading
 import time
 import uuid
-from typing import Any, Generator, Iterator
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Any, Callable, Generator, Iterator
 
-from flask import Response, request
-from pydantic import BaseModel, Field
+from flask import Response, request, stream_with_context
+from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from ..compiler.aperture import build_aperture_context
@@ -19,16 +26,19 @@ try:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
+        document_to_dict,
         empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
         parse_document,
+        splice_node,
     )
 except ImportError:
     from compiler.aperture import build_aperture_context
@@ -38,16 +48,19 @@ except ImportError:
         QuotaExceededError,
         TaskType,
         TokenLimitExceededError,
+        answer_refusal_reason,
     )
     from ledger.truth_engine import TruthLedgerEngine
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
+        document_to_dict,
         empty_annotations,
         get_node_by_id,
         new_node_id,
         node_text,
         parse_document,
+        splice_node,
     )
 
 _METRIC_RE = re.compile(
@@ -56,15 +69,76 @@ _METRIC_RE = re.compile(
 
 
 class InquiryPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     user_intent: str
     target_node_id: str | None = None
     run_redhat: bool = True
-    document: JDFDocumentTree | None = None
+    document: dict[str, Any] | None = None
     incoming_metrics: list[list[Any]] = Field(default_factory=list)
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+# The edge closes an idle streaming connection at ~100s; keep bytes flowing and end
+# the stream ourselves before then. Comment frames are ignored by the SSE parsers.
+_KEEPALIVE_INTERVAL_SECONDS = 12.0
+_KEEPALIVE_FRAME = ": keepalive\n\n"
+DEFAULT_STREAM_DEADLINE_SECONDS = 90.0
+
+
+class StreamDeadlineExceeded(RuntimeError):
+    """A model phase outlived the SSE stream deadline (Cloudflare 524 guard)."""
+
+
+def _stream_deadline_seconds() -> float:
+    raw = (os.environ.get("INQUIRE_STREAM_DEADLINE_SECONDS") or "").strip()
+    try:
+        return float(raw) if raw else DEFAULT_STREAM_DEADLINE_SECONDS
+    except ValueError:
+        return DEFAULT_STREAM_DEADLINE_SECONDS
+
+
+def _blocking_with_keepalive(
+    fn: Callable[[], Any],
+    *,
+    deadline_at: float,
+    phase: str,
+) -> Generator[str, None, Any]:
+    """Run a blocking model call on a worker thread, yielding SSE keepalive comments.
+
+    The worker inherits a copy of the caller's context variables, so Flask's request
+    context (BYOK keys, locale, request id) stays visible to the governor. Raises
+    StreamDeadlineExceeded once the overall stream deadline passes, so the client gets
+    a `complete` frame instead of a silently dead connection.
+    """
+    box: dict[str, Any] = {}
+    done = threading.Event()
+    ctx = contextvars.copy_context()
+
+    def _worker() -> None:
+        try:
+            box["result"] = ctx.run(fn)
+        except BaseException as exc:  # surfaced on the request thread below
+            box["error"] = exc
+        finally:
+            done.set()
+
+    threading.Thread(target=_worker, name=f"inquire-{phase}", daemon=True).start()
+    while not done.is_set():
+        remaining = deadline_at - time.monotonic()
+        if remaining <= 0:
+            raise StreamDeadlineExceeded(
+                f"{phase} phase exceeded the {_stream_deadline_seconds():g}s stream deadline"
+            )
+        if done.wait(min(_KEEPALIVE_INTERVAL_SECONDS, remaining)):
+            break
+        yield _KEEPALIVE_FRAME
+    if "error" in box:
+        raise box["error"]
+    return box.get("result")
 
 
 def _status_payload(stage: str, **extra: Any) -> dict[str, Any]:
@@ -122,6 +196,119 @@ def resolve_active_document(
     if stored:
         return parse_document(stored)
     return _default_document(project_id)
+
+
+def _mutate_node_in_tree(
+    tree: JDFDocumentTree | dict[str, Any], node_id: str, node: dict[str, Any]
+) -> tuple[dict[str, Any], bool]:
+    """Replace node_id in a copy of the tree (section child or top-level block)."""
+    doc = document_to_dict(tree)
+    mutated, found = splice_node(doc, node_id, node)
+    if found:
+        return mutated, True
+    for index, block in enumerate(mutated.get("body") or []):
+        if isinstance(block, dict) and block.get("id") == node_id:
+            mutated["body"][index] = copy.deepcopy(node)
+            return mutated, True
+    return mutated, False
+
+
+def persist_surgical_rewrite(
+    project_id: str,
+    tree: JDFDocumentTree | dict[str, Any],
+    *,
+    node_id: str,
+    node: dict[str, Any],
+    change_summary: str | None = None,
+    expected_version: int | None = None,
+) -> dict[str, Any]:
+    """Snapshot a surgical rewrite into the tree the pipeline ran against.
+
+    Uses ``save_jdf_revision`` (document revision + node snapshot), the same path the
+    rest of the app takes. Never raises: a failed/conflicting write is reported back to
+    the SSE stream so it can surface in the final frame instead of killing the stream.
+
+    The findings that were open on the paragraph this rewrite replaces are carried
+    onto the node it writes, marked ``resolved`` and naming the revision (and its
+    mutation type) that closed them — see ``resolve_findings_on_rewrite``. The
+    revision's id and version are read before the write and the id is passed to
+    ``save_jdf_revision``, because the node naming the revision is the node that
+    same write serializes; ``expected_version`` is pinned to the version just read
+    so the recorded version cannot be a guess, and a write that lost a race is
+    retried once against the version that actually won rather than recording a
+    revision number that is not the one that acted.
+
+    Returns the node as written under ``"node"``, so the caller can show what the
+    document now holds: a failed write returns no ``"node"`` and the caller keeps
+    the one it passed (findings still open).
+    """
+    try:
+        from ..db.jdf_repository import (
+            RevisionConflict,
+            close_findings_for_revision,
+            save_jdf_revision,
+        )
+    except ImportError:
+        from db.jdf_repository import (
+            RevisionConflict,
+            close_findings_for_revision,
+            save_jdf_revision,
+        )
+
+    resolved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    def _write_once() -> dict[str, Any]:
+        """Read the next version, stamp the findings against it, write the revision."""
+        closed = close_findings_for_revision(
+            project_id,
+            tree,
+            node_id,
+            node,
+            mutation_type="surgical_rewrite",
+            resolved_at=resolved_at,
+        )
+        written = closed["node"]
+        mutated, found = _mutate_node_in_tree(tree, node_id, written)
+        if not found:
+            return {"persisted": False, "persist_error": f"target node not found: {node_id}"}
+        result = save_jdf_revision(
+            project_id,
+            mutated,
+            mutation_type="surgical_rewrite",
+            target_node_id=node_id,
+            change_summary=change_summary,
+            expected_version=(
+                closed["version"] - 1 if expected_version is None else expected_version
+            ),
+            revision_id=closed["revision_id"],
+        )
+        return {
+            "persisted": True,
+            "version": result.get("version"),
+            "revision_id": result.get("revision_id"),
+            "node": written,
+        }
+
+    try:
+        return _write_once()
+    except RevisionConflict as exc:
+        # Someone wrote between the read and the write: the revision the node
+        # names would not be the one that lands. Re-read and re-stamp once — the
+        # stamp is the record, and a wrong revision number in it is worse than a
+        # failed write the stream reports.
+        try:
+            return _write_once()
+        except RevisionConflict as second:
+            return {
+                "persisted": False,
+                "persist_conflict": True,
+                "persist_error": str(second),
+                "latest_version": second.latest_version,
+            }
+        except Exception as retry_exc:  # a persistence failure must not abort the stream
+            return {"persisted": False, "persist_error": str(retry_exc)}
+    except Exception as exc:  # a persistence failure must not abort the stream
+        return {"persisted": False, "persist_error": str(exc)}
 
 
 def _build_messages(user_intent: str, aperture: dict[str, Any] | None) -> list[dict[str, str]]:
@@ -200,6 +387,35 @@ def _record_llm_usage(
     }
 
 
+# Request-scoped Z3 ledgers, held for as long as the stream that owns them lives.
+_LIVE_LEDGERS: set[TruthLedgerEngine] = set()
+
+
+@contextmanager
+def _open_ledger() -> Iterator[TruthLedgerEngine]:
+    """Request-scoped Z3 ledger, released by the index instead of by the collector.
+
+    `ledger.truth_engine` pools its solvers: close() resets the solver and appends it to a
+    module-level pool for the next request. A pooled solver is only sound while its wrapper
+    is still reachable, and CPython runs the finalizers of a whole cyclic-garbage set: an
+    engine closed from __del__ can hand its solver to the pool, and that solver's own
+    __del__ still runs in the same pass, dec-refing the native solver the pool now points
+    at. The next borrow then resets freed memory (SIGSEGV). A streaming response is the
+    worst case, because an aborted stream finalizes its generator through the cycle
+    collector. Keeping the ledger reachable here means close() always runs from a plain
+    finally: on stream end, on error, and on client disconnect alike.
+    """
+    ledger = TruthLedgerEngine()
+    _LIVE_LEDGERS.add(ledger)
+    try:
+        yield ledger
+    finally:
+        try:
+            ledger.close()
+        finally:
+            _LIVE_LEDGERS.discard(ledger)
+
+
 def run_inquire_pipeline(
     project_id: str,
     *,
@@ -209,9 +425,14 @@ def run_inquire_pipeline(
     document: JDFDocumentTree | dict[str, Any] | None = None,
     incoming_metrics: list[list[Any]] | None = None,
     governor: CostGovernor | None = None,
+    ledger: TruthLedgerEngine | None = None,
     request_id: str | None = None,
 ) -> Iterator[str]:
-    """Yield SSE frames for the inquire pipeline. No blocking sleep."""
+    """Yield SSE frames for the inquire pipeline. No blocking sleep.
+
+    `ledger` is owned by the caller (`_open_ledger`): it has to stay reachable for the
+    whole stream and be closed from a plain finally, never from a GC finalizer.
+    """
     rid = request_id or str(uuid.uuid4())
     start_time = time.perf_counter()
     audit = get_audit_logger()
@@ -237,7 +458,7 @@ def run_inquire_pipeline(
 
     tree = resolve_active_document(project_id, document)
 
-    truth = TruthLedgerEngine()
+    truth = ledger or TruthLedgerEngine()
     truth.load_from_document(tree)
     for pair in incoming_metrics or []:
         if len(pair) >= 2:
@@ -248,9 +469,11 @@ def run_inquire_pipeline(
 
     original_content = ""
     is_mutation = bool(target_node_id)
+    original_node: dict[str, Any] | None = None
     if target_node_id:
         hit = get_node_by_id(tree, target_node_id)
         if hit:
+            original_node = hit
             original_content = node_text(hit)
 
     aperture: dict[str, Any] | None = None
@@ -288,15 +511,41 @@ def run_inquire_pipeline(
             return False, violations[0] if violations else "Z3 Conflict"
         return True, None
 
+    def _rewritten_node(text: str) -> dict[str, Any]:
+        """The node a surgical rewrite yields: new text, same findings.
+
+        The paragraph's own grounding does not survive — its citations belong to
+        the text that was replaced — but a Red-Hat finding is evidence about the
+        paragraph rather than about its wording, and the node it hangs on is the
+        only place the document keeps it. Rebuilding the node from
+        ``_paragraph_node`` dropped it, which is how applying a finding destroyed
+        the finding. Here it comes across untouched, still ``open``:
+        ``persist_surgical_rewrite`` closes it, naming the revision, only when the
+        write actually lands.
+        """
+        built = _paragraph_node(node_id, text)
+        if original_node:
+            built["annotations"]["redhat"] = copy.deepcopy(
+                (original_node.get("annotations") or {}).get("redhat") or []
+            )
+        return built
+
     yield _sse("status", _status_payload("model", task_type=task_type.value))
 
-    result = gov.execute_with_retry_budget(
-        project_id,
-        task_type,
-        messages,
-        validate_fn=_validate,
-        build_node_fn=lambda text: _paragraph_node(node_id, text),
-        defer_budget_record=True,
+    result = yield from _blocking_with_keepalive(
+        lambda: gov.execute_with_retry_budget(
+            project_id,
+            task_type,
+            messages,
+            validate_fn=_validate,
+            build_node_fn=_rewritten_node,
+            defer_budget_record=True,
+        ),
+        # Fresh budget per phase: model and Red-Hat each get the deadline, so a
+        # legit 90-110s total (each call under its own cap, total under the
+        # edge's ~100s idle timer because keepalives flow) no longer dies.
+        deadline_at=time.monotonic() + _stream_deadline_seconds(),
+        phase="model",
     )
 
     text = result.text or ""
@@ -358,17 +607,32 @@ def run_inquire_pipeline(
                 "content": f"Red-hat critique this node:\n\n{node.get('content', '')}\n\nIntent: {user_intent}",
             }
         ]
-        red = gov.execute_with_retry_budget(
-            project_id,
-            TaskType.REDHAT,
-            red_messages,
-            defer_budget_record=True,
+        red = yield from _blocking_with_keepalive(
+            lambda: gov.execute_with_retry_budget(
+                project_id,
+                TaskType.REDHAT,
+                red_messages,
+                defer_budget_record=True,
+            ),
+            deadline_at=time.monotonic() + _stream_deadline_seconds(),
+            phase="redhat",
         )
         critique_text = (red.text or "").strip()
-        if critique_text and not critique_text.startswith("ERROR:"):
+        # A response cut off at the output ceiling is a partial review, and a
+        # partial review stored on the paragraph reaches a client as if it were
+        # a finding. Refused here; the node keeps no annotation for it.
+        refusal = answer_refusal_reason(red, TaskType.REDHAT)
+        if refusal:
+            print(
+                f"REDHAT_AUDIT_REFUSED project={project_id} node={node_id} "
+                f"detail={refusal[:240]}",
+                file=sys.stderr,
+            )
+        elif critique_text and not critique_text.startswith("ERROR:"):
             node = _ensure_node_annotations(dict(node))
             annotation = {
                 "id": new_node_id("crit"),
+                "node_id": node_id,
                 "text": critique_text,
                 "status": "open",
             }
@@ -387,6 +651,23 @@ def run_inquire_pipeline(
         )
 
     yield _sse("status", _status_payload("ready"))
+
+    # The write lands before the frame that shows it, so the node on screen is the
+    # node the document holds — the finding it closed, and the revision that
+    # closed it, arrive with the new text rather than a reload later. Ordering is
+    # all this changes: `persist_surgical_rewrite` never raises, and a write that
+    # fails returns the node it was given, its findings still open, which is what
+    # the document still says.
+    persist_info: dict[str, Any] = {}
+    if is_mutation and result.ok:
+        persist_info = persist_surgical_rewrite(
+            project_id,
+            tree,
+            node_id=node_id,
+            node=node,
+            change_summary=f"Surgical rewrite: {user_intent.strip()[:120]}",
+        )
+        node = persist_info.pop("node", None) or node
 
     yield _sse(
         "jdf_node_ready",
@@ -426,6 +707,7 @@ def run_inquire_pipeline(
             "retries": result.retries,
             "model_id": result.model_id,
             "request_id": rid,
+            **persist_info,
         },
     )
 
@@ -484,15 +766,17 @@ def register_inquire_routes(app) -> None:
             start_time = time.perf_counter()
             audit = get_audit_logger()
             try:
-                yield from run_inquire_pipeline(
-                    project_id,
-                    user_intent=payload.user_intent.strip(),
-                    target_node_id=(payload.target_node_id or "").strip() or None,
-                    run_redhat=payload.run_redhat,
-                    document=payload.document,
-                    incoming_metrics=payload.incoming_metrics,
-                    request_id=request_id,
-                )
+                with _open_ledger() as ledger:
+                    yield from run_inquire_pipeline(
+                        project_id,
+                        user_intent=payload.user_intent.strip(),
+                        target_node_id=(payload.target_node_id or "").strip() or None,
+                        run_redhat=payload.run_redhat,
+                        document=payload.document,
+                        incoming_metrics=payload.incoming_metrics,
+                        ledger=ledger,
+                        request_id=request_id,
+                    )
             except (BudgetExhaustedError, QuotaExceededError) as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -538,4 +822,4 @@ def register_inquire_routes(app) -> None:
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         }
-        return Response(generate(), headers=headers)
+        return Response(stream_with_context(generate()), headers=headers)

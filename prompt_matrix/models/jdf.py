@@ -10,13 +10,14 @@ import copy
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any, Callable, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
 class JDFProvenance(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     source_type: Literal["internal_doc", "academic_paper", "news_article", "web_url"] = (
         "internal_doc"
@@ -27,18 +28,65 @@ class JDFProvenance(BaseModel):
     page_number: str = ""
     extracted_quote: str = ""
     accessed_date: str = ""
+    # The evidence the anchoring coefficient was actually taken against: the
+    # joined run of consecutive source sentences that cleared the floors, and its
+    # sentence span inside the source ("7-8"). ``extracted_quote`` stays the single
+    # sentence the Evidence pane presents; these two record what vouched for it.
+    anchor_window: str = ""
+    anchor_window_span: str = ""
+    # A *cited* row — the compile's reading of the model's ``[S<N>]`` markers —
+    # names the numbered source sentence it came from and the page that sentence
+    # sits on. Neither was declared, and ``extra="ignore"`` is what an undeclared
+    # field gets, so a persisted row read back as quote + filename with no id and
+    # no page: the export could not say which sentence of which page a claim
+    # rested on, and the Evidence pane showed the page as empty. ``page`` is the
+    # cited row's own int page; ``page_number`` stays the matcher's string.
+    cited_id: str = ""
+    page: int | str | None = None
 
 
 class JDFRedhatAnnotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: str
     text: str
     status: Literal["open", "resolved", "dismissed"] = "open"
+    # The node this finding is about. Held on the annotation, not only on the node
+    # it hangs on, because a finding is read back on its own: the locator, the
+    # evidence pane's list and the export all resolve a finding to a paragraph
+    # without walking the tree. ``extra="ignore"`` means an unlisted field never
+    # survives validation, so this has to be declared to reach SQLite at all.
+    node_id: str = ""
+    # --- What closed it ------------------------------------------------------
+    # Written when a revision rewrote the paragraph this finding was raised on
+    # (``resolve_findings_on_rewrite``). A finding that closes leaves no trace
+    # otherwise: the paragraph it convicted is replaced by text the audit never
+    # saw, and the document then reads as one that never had a finding. The
+    # revision that acted on the warning is the record that it existed.
+    #
+    # ``resolved_by_mutation_type`` names how the warning was answered
+    # ("surgical_rewrite"), which is the level of provenance the system has: the
+    # human who pressed Apply is the actor, and the app cannot name them and must
+    # not pretend to.
+    resolved_by_revision_id: str = ""
+    resolved_by_version: int | None = None
+    resolved_by_mutation_type: str = ""
+    resolved_at: str = ""
+    # What the finding was raised against, read off the paragraph as it stood
+    # when the audit ran (the per-row ``extracted_quote`` and the entailment
+    # verdict at ``meta.provenance.entailment``). The rewritten paragraph keeps
+    # neither: its citations are not carried over, because a paragraph that
+    # inherited its predecessor's quotes would read as anchored to sentences its
+    # new text was never matched against. So the history lives here — the
+    # paragraph that lost its anchor keeps saying so ("unanchored"), and the
+    # finding keeps saying what the anchor was and how it read.
+    prior_anchor_quote: str = ""
+    prior_verdict: str = ""
+    prior_contradicted: bool = False
 
 
 class JDFZ3Annotation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     id: str
     message: str
@@ -49,7 +97,7 @@ class JDFZ3Annotation(BaseModel):
 class JDFNodeAnnotations(BaseModel):
     """Metadata attached to nodes — never exported to .docx."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     redhat: list[JDFRedhatAnnotation] = Field(default_factory=list)
     z3: list[JDFZ3Annotation] = Field(default_factory=list)
@@ -60,7 +108,7 @@ def empty_annotations() -> dict[str, Any]:
 
 
 class JDFParagraphNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["paragraph"] = "paragraph"
     id: str
@@ -74,7 +122,7 @@ class JDFParagraphNode(BaseModel):
 class JDFCalloutNode(BaseModel):
     """In-document callouts (warning/insight). Red-Hat critiques use ``annotations.redhat``."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["callout"] = "callout"
     id: str
@@ -85,7 +133,7 @@ class JDFCalloutNode(BaseModel):
 
 
 class JDFTableNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["table"] = "table"
     id: str
@@ -97,7 +145,7 @@ class JDFTableNode(BaseModel):
 
 
 class JDFImageNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["image"] = "image"
     id: str
@@ -111,7 +159,7 @@ class JDFImageNode(BaseModel):
 
 
 class JDFSignatureNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["signature"] = "signature"
     id: str
@@ -123,7 +171,7 @@ class JDFSignatureNode(BaseModel):
 
 
 class JDFCheckboxNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["checkbox"] = "checkbox"
     id: str
@@ -149,7 +197,7 @@ JDFBlockNode = JDFLeafNode
 
 
 class JDFSectionNode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     type: Literal["section"] = "section"
     id: str
@@ -160,13 +208,37 @@ class JDFSectionNode(BaseModel):
 
 
 class JDFDocumentTree(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     document_id: str
     meta: dict[str, Any] = Field(default_factory=dict)
     truth_ledger: dict[str, float | str | int] = Field(default_factory=dict)
     body: list[JDFSectionNode] = Field(default_factory=list)
 
+    # Confidence fields for verification results
+    confidence: int | None = None
+    confidenceBreakdown: dict[str, int] | None = None
+    lowConfidenceNodes: list[dict[str, Any]] | None = None
+
+    # OMP lineage fields for audit trail
+    ompArtifactIds: list[str] | None = None
+    sourceArtifactIds: list[str] | None = None
+    verificationLineage: list[dict[str, Any]] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compat_frontend_envelope(cls, data: Any) -> Any:
+        """Accept canvas/TipTap envelopes that send type/title on the document root."""
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        data.pop("type", None)
+        title = data.pop("title", None)
+        if title:
+            meta = dict(data.get("meta") or {})
+            meta.setdefault("title", title)
+            data["meta"] = meta
+        return data
 
 def new_node_id(prefix: str = "node") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
@@ -214,6 +286,11 @@ def _migrate_legacy_provenance_entry(prov: dict[str, Any]) -> dict[str, Any]:
         "page_number": prov.get("page_number") or prov.get("page_or_timestamp") or "",
         "extracted_quote": prov.get("extracted_quote") or prov.get("exact_quote") or "",
         "accessed_date": prov.get("accessed_date") or "",
+        # Read through the migration too: it rebuilds the row from a fixed key
+        # list, so a citation's id and page are dropped here even after they are
+        # declared on the model.
+        "cited_id": prov.get("cited_id") or "",
+        "page": prov.get("page"),
     }
     if prov.get("source_type") not in ("internal_doc", "academic_paper", "news_article", "web_url"):
         if migrated["url_or_doi"]:
@@ -305,11 +382,87 @@ def collect_unique_provenance(tree: JDFDocumentTree | dict[str, Any]) -> list[di
     return refs
 
 
+def strip_unknown_jdf_keys(raw: dict[str, Any]) -> dict[str, Any]:
+    """Drop canvas-only fields so extra=forbid validation can stay strict."""
+    doc_keys = ("document_id", "meta", "truth_ledger", "body", "type", "title")
+    section_keys = ("type", "id", "title", "children", "meta", "annotations")
+    leaf_keys = {
+        "paragraph": (
+            "type",
+            "id",
+            "content",
+            "entities_referenced",
+            "provenance",
+            "meta",
+            "annotations",
+        ),
+        "callout": ("type", "id", "variant", "title", "content", "annotations"),
+        "table": ("type", "id", "caption", "headers", "rows", "bound_entities", "annotations"),
+        "image": ("type", "id", "src", "alt", "caption", "width", "height", "meta", "annotations"),
+        "signature": ("type", "id", "signer_name", "signed_at", "content", "meta", "annotations"),
+        "checkbox": ("type", "id", "label", "checked", "meta", "annotations"),
+    }
+    prov_keys = (
+        "source_type",
+        "source_name",
+        "url_or_doi",
+        "source_id",
+        "page_number",
+        "extracted_quote",
+        "accessed_date",
+        "anchor_window",
+        "anchor_window_span",
+        "cited_id",
+        "page",
+    )
+    ann_keys = ("redhat", "z3")
+
+    def pick(src: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+        return {k: src[k] for k in keys if k in src}
+
+    doc = pick(raw, doc_keys)
+    title = str(doc.pop("title", None) or "").strip()
+    doc.pop("type", None)
+    if title:
+        meta = dict(doc.get("meta") or {})
+        if not str(meta.get("title") or "").strip():
+            meta["title"] = title
+        doc["meta"] = meta
+    body: list[dict[str, Any]] = []
+    for section in raw.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        sec = pick(section, section_keys)
+        children: list[dict[str, Any]] = []
+        for child in section.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            keys = leaf_keys.get(str(child.get("type") or ""), leaf_keys["paragraph"])
+            node = pick(child, keys)
+            if isinstance(node.get("provenance"), list):
+                node["provenance"] = [
+                    pick(_migrate_legacy_provenance_entry(item), prov_keys)
+                    if isinstance(item, dict)
+                    else item
+                    for item in node["provenance"]
+                ]
+            if isinstance(node.get("annotations"), dict):
+                node["annotations"] = pick(node["annotations"], ann_keys)
+            children.append(node)
+        sec["children"] = children
+        if isinstance(sec.get("annotations"), dict):
+            sec["annotations"] = pick(sec["annotations"], ann_keys)
+        body.append(sec)
+    doc["body"] = body
+    return doc
+
+
 def parse_document(raw: dict[str, Any] | str) -> JDFDocumentTree:
     """Strict Pydantic validation before any SQLite write."""
     if isinstance(raw, str):
         raw = json.loads(raw)
     if isinstance(raw, dict):
+        raw = strip_unknown_jdf_keys(raw)
         raw = enrich_document_citations(raw)
     return JDFDocumentTree.model_validate(raw)
 
@@ -456,9 +609,108 @@ def attach_redhat_annotation(
     node = copy.deepcopy(node)
     node = _ensure_annotations(node)
     node["annotations"]["redhat"].append(
-        {"id": new_node_id("crit"), "text": text.strip(), "status": status}
+        {
+            "id": new_node_id("crit"),
+            "node_id": node_id,
+            "text": text.strip(),
+            "status": status,
+        }
     )
     return splice_node(tree, node_id, node)
+
+
+def _first_anchor_quote(node: dict[str, Any] | None) -> str:
+    """The source sentence ``node`` was anchored to — "" when it had none.
+
+    The same row ``services/audit_summary._anchoring_quote`` reads: the first
+    provenance row carrying an ``extracted_quote``.
+    """
+    for row in (node or {}).get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return str(row["extracted_quote"]).strip()
+    return ""
+
+
+def _entailment_record(node: dict[str, Any] | None) -> dict[str, Any]:
+    """``node.meta.provenance.entailment`` — {} when the claim was never checked."""
+    meta = (node or {}).get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    record = prov.get("entailment") if isinstance(prov, dict) else None
+    return record if isinstance(record, dict) else {}
+
+
+def resolve_findings_on_rewrite(
+    rewritten: dict[str, Any],
+    previous: dict[str, Any] | None,
+    *,
+    revision_id: str,
+    version: int | None,
+    mutation_type: str,
+    resolved_at: str | None = None,
+) -> dict[str, Any]:
+    """Carry ``previous``'s findings onto the node this revision rewrote.
+
+    A finding is evidence about the paragraph it was raised on, and remediating
+    that paragraph used to destroy the evidence: the rewritten node replaced the
+    convicted one wholesale, so the finding, the node's annotations and its
+    citations all went with it and the document read as one that never had a
+    finding. The one moment the system should record most carefully is when a
+    human acts on its own warning.
+
+    So the finding survives the rewrite, ``resolved``, naming the revision that
+    closed it and how ("surgical_rewrite") — and carrying the evidence it was
+    raised against: the source sentence the paragraph was anchored to and the
+    entailment verdict it was given. The rewritten paragraph keeps none of that
+    on itself (its quotes are not copied over: text that inherited its
+    predecessor's citations would read as anchored to sentences it was never
+    matched against), so ``prior_*`` here is the only record of what was wrong,
+    and the paragraph's own ``unanchored`` state stays true and visible.
+
+    A finding already closed — dismissed, or resolved by an earlier revision — is
+    carried as it stands; a rewrite does not re-close it. Entries on
+    ``rewritten`` that are new (a fresh audit folded in after the rewrite) are
+    kept after the carried ones.
+
+    ``extra="ignore"`` on the annotation model means every field written here has
+    to be declared on ``JDFRedhatAnnotation`` or it is dropped on the way to
+    SQLite.
+    """
+    carried_source = list((previous or {}).get("annotations", {}).get("redhat") or [])
+    if not carried_source:
+        return copy.deepcopy(rewritten)
+
+    if not resolved_at:
+        resolved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    previous_ids = {str(f.get("id") or "") for f in carried_source if isinstance(f, dict)}
+    node = copy.deepcopy(rewritten)
+    fresh = [
+        f
+        for f in ((node.get("annotations") or {}).get("redhat") or [])
+        if str(f.get("id") or "") not in previous_ids
+    ]
+
+    anchor_quote = _first_anchor_quote(previous)
+    entailment = _entailment_record(previous)
+    carried: list[dict[str, Any]] = []
+    for finding in carried_source:
+        if not isinstance(finding, dict):
+            continue
+        item = copy.deepcopy(finding)
+        if str(item.get("status") or "open") == "open":
+            item["status"] = "resolved"
+            item["resolved_by_revision_id"] = revision_id
+            item["resolved_by_version"] = version
+            item["resolved_by_mutation_type"] = mutation_type
+            item["resolved_at"] = resolved_at
+            item["prior_anchor_quote"] = anchor_quote
+            item["prior_verdict"] = str(entailment.get("verdict") or "")
+            item["prior_contradicted"] = bool(entailment.get("contradicted"))
+        carried.append(item)
+
+    node = _ensure_annotations(node)
+    node["annotations"]["redhat"] = carried + fresh
+    return node
 
 
 def attach_z3_annotation(
@@ -484,6 +736,17 @@ def attach_z3_annotation(
         }
     )
     return splice_node(tree, node_id, node)
+
+
+def _strip_inline_markdown(text: str) -> str:
+    """Remove inline markdown artifacts so JDF node strings are plain text
+    (provenance exact-matching sees clean source copy)."""
+    t = str(text or "")
+    t = t.replace("**", "").replace("__", "")  # bold
+    t = t.replace("*", " ").replace("_", " ")  # italics / emphasis
+    t = t.replace("`", "")  # code spans / backticks
+    t = re.sub(r"^#{1,6}\s*", "", t)  # leading '#' remnants
+    return re.sub(r"\s{2,}", " ", t).strip()
 
 
 def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
@@ -519,13 +782,13 @@ def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
         heading = re.match(r"^(#{1,3})\s+(.+)$", block)
         if heading:
             _flush_section()
-            current_title = heading.group(2).strip()
+            current_title = _strip_inline_markdown(heading.group(2))
             continue
         current_children.append(
             {
                 "type": "paragraph",
                 "id": new_node_id("para"),
-                "content": block,
+                "content": _strip_inline_markdown(block),
                 "entities_referenced": [],
                 "meta": {"source": "generate_draft"},
                 "annotations": empty_annotations(),
@@ -544,7 +807,7 @@ def draft_text_to_sections(text: str) -> list[dict[str, Any]]:
                     {
                         "type": "paragraph",
                         "id": new_node_id("para"),
-                        "content": stripped,
+                        "content": _strip_inline_markdown(stripped),
                         "entities_referenced": [],
                         "meta": {"source": "generate_draft"},
                         "annotations": empty_annotations(),
@@ -642,8 +905,21 @@ def apply_redhat_critiques_to_tree(
     *,
     target_node_id: str | None = None,
 ) -> dict[str, Any]:
-    """Attach Red-Hat text to ``annotations.redhat`` on target node(s)."""
+    """Attach Red-Hat text to ``annotations.redhat`` on target node(s).
+
+    An entry with ``status == "error"`` is not a finding — it is a refusal or a
+    model failure — and is never attached: a paragraph carrying one would show a
+    review that no review produced.
+    """
     if not critiques:
+        return tree
+    texts = [
+        str(crit.get("content") or crit.get("text") or "").strip()
+        for crit in critiques
+        if str(crit.get("status") or "") != "error"
+    ]
+    texts = [text for text in texts if text]
+    if not texts:
         return tree
     mutated = copy.deepcopy(tree)
     node_id = target_node_id
@@ -652,10 +928,8 @@ def apply_redhat_critiques_to_tree(
         node_id = str(nodes[0]["id"]) if nodes else None
     if not node_id:
         return mutated
-    for crit in critiques:
-        text = str(crit.get("content") or crit.get("text") or "").strip()
-        if text:
-            mutated, _ = attach_redhat_annotation(mutated, node_id, text)
+    for text in texts:
+        mutated, _ = attach_redhat_annotation(mutated, node_id, text)
     return mutated
 
 
@@ -672,81 +946,398 @@ def _numeric_string_forms(value: float) -> list[str]:
     return [f for f in forms if f and len(f) >= 2]
 
 
+def _tokenize(text):
+    import re
+
+    raw = str(text or "")
+
+    def _money_tok(m):
+        v = m.group(1).replace(",", "")
+        try:
+            f = float(v)
+        except ValueError:
+            return " money" + v + " "
+        return " money%d " % int(f) if f == int(f) else " money%s " % f
+
+    raw = re.sub(r"\$\s*(\d[\d,]*(?:\.\d+)?)", _money_tok, raw)
+    raw = re.sub(
+        r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent\b|per\s+cent\b)",
+        lambda m: " pct" + m.group(1).replace(",", "").rstrip(".") + " ",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"[^\w\s]", " ", raw.lower())
+    STOP = {
+        "a",
+        "an",
+        "the",
+        "of",
+        "and",
+        "or",
+        "to",
+        "in",
+        "on",
+        "for",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "by",
+        "with",
+        "as",
+        "at",
+        "this",
+        "that",
+        "it",
+        "its",
+        "from",
+        "but",
+        "shall",
+        "will",
+        "may",
+        "any",
+        "all",
+    }
+    return {t for t in text.split() if len(t) > 2 and t not in STOP}
+
+
+def _split_sentences(text):
+    import re
+
+    text = str(text or "")
+    pieces = re.split(r"(--- Page \d+ ---)", text)
+    out = []
+    current_page = None
+    for piece in pieces:
+        m = re.match(r"--- Page (\d+) ---", piece.strip())
+        if m:
+            current_page = int(m.group(1))
+            continue
+        for sent in re.split(r"[.!?\n]+", piece):
+            s = sent.strip()
+            if not s:
+                continue
+            out.append((s, current_page))
+    return out
+
+
+# Anchor rule, shared with the gate counter in services/audit_summary.py:
+#   * a paragraph is claim-eligible at >= _MIN_CLAIM_TOKENS content tokens,
+#   * a source sentence is eligible at >= _MIN_ANCHOR_OVERLAP content tokens, and
+#   * a source sentence anchors the paragraph when they share >= _MIN_ANCHOR_OVERLAP
+#     content tokens AND those shared tokens cover >= _MIN_ANCHOR_COEFFICIENT of the
+#     shorter of the two texts.
+# _MIN_ANCHOR_OVERLAP is the minimum evidence mass for an anchor, so it also bounds
+# the shortest text on either side that can anchor: a paragraph below it can never
+# reach the overlap, and a source sentence below it can never supply it. Both floors
+# used to be a hardcoded 8 while the overlap floor was 6, which made the overlap
+# constant dead code: no source sentence shorter than 8 content tokens was even
+# considered, and no paragraph shorter than 8 was either. A policy whose sentences
+# are 7 and 6 content tokens ("The policy liability limit is set at $5,000,000 for
+# combined single limit.") therefore reported every compile ungrounded, including a
+# draft that quoted it verbatim — which is exactly how a grounded demo document got
+# stamped "none of its claims match the uploaded sources".
+_MIN_CLAIM_TOKENS = 4
+_MIN_ANCHOR_OVERLAP = 4
+_MIN_ANCHOR_COEFFICIENT = 0.60
+
+# How many consecutive source sentences one anchor may span. A claim is routinely
+# carried by two or three neighbouring sentences ("…deductible is 2 percent" then
+# "…applies in Suffolk, Norfolk and Essex"), and each sentence on its own covers too
+# little of the paragraph to reach _MIN_ANCHOR_COEFFICIENT — the paragraph then read
+# as ungrounded even though the source states it. Widening the *candidate* does not
+# move either floor: the window is scored by the same coefficient, against the union
+# of its sentences' tokens.
+_MAX_ANCHOR_WINDOW = 3
+
+_NUM_RE = re.compile(r"\d+(?:,\d+)*(?:\.\d+)?")
+
+# A numeral is a *reference*, not a quantity, in three shapes. The claim guard
+# below compares quantities only, so reading a cross-reference or the draft's own
+# numbering as a figure refuses every candidate sentence: a paragraph numbered
+# "1. Wind/hail deductible … 2 percent" carried {1, 2} against a source sentence
+# that carries only the 2, and so matched nothing at all.
+#   * introduced by a reference keyword — "Section 3", "Sections 5 and 6",
+#     "Page 4", "No. 7", "§ 2";
+#   * inside a hyphenated identifier — "DEMO-MA-RE-2026-001", "XXXX-NN-NN-NNNN";
+#   * a bare line-leading list marker — "1. " / "2) " opening a line.
+# Everything else is a quantity: money, percentages, dates, durations, counts.
+_REF_KEYWORD_RE = re.compile(
+    r"(?:\b(?:Sections?|Articles?|Clauses?|Exhibits?|Appendi(?:x|ces)|"
+    r"Schedules?|Paragraphs?|Pages?|Nos?)\.?|§)",
+    re.IGNORECASE,
+)
+# What may stand between that keyword and the numeral it introduces: the bare
+# form ("Section 3") and the list form ("Sections 5 and 6"), where only blanks,
+# joining words and the other numerals of the list separate the two.
+_REF_LIST_ITEM_RE = re.compile(
+    r"\d+(?:,\d+)*(?:\.\d+)?|and|or|to|through|thru|&|,|;|–|—|-", re.IGNORECASE
+)
+_BLANK_RE = re.compile(r"[ \t]*")
+_HYPHENATED_ID_RE = re.compile(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}")
+_LINE_LIST_MARKER_RE = re.compile(r"^[ \t]*\d+[.)][ \t\n]", re.MULTILINE)
+
+
+def _numbers(text: str) -> set[str]:
+    """Quantities in text, normalized so $5,000,000 == 5000000.0 == 5,000,000.
+
+    Reference markers and identifiers are dropped (see ``_REF_KEYWORD_RE``):
+    the guard in ``attach_substrate_provenance_to_tree`` requires every claim
+    quantity to appear in the candidate source sentence, and a paragraph's own
+    numbering and cross-references appear in no source sentence at all.
+    """
+    raw = str(text or "")
+    identifiers = [(m.start(), m.end()) for m in _HYPHENATED_ID_RE.finditer(raw)]
+    out: set[str] = set()
+    for match in _NUM_RE.finditer(raw):
+        start, end = match.start(), match.end()
+        if any(a <= start and end <= b for a, b in identifiers):
+            continue
+        line_start = raw.rfind("\n", 0, start) + 1
+        if (
+            not raw[line_start:start].strip()
+            and end < len(raw)
+            and raw[end] in ".)"
+            and _LINE_LIST_MARKER_RE.match(raw, line_start)
+        ):
+            continue
+        keyword = None
+        for found in _REF_KEYWORD_RE.finditer(raw, 0, start):
+            keyword = found
+        if keyword is not None:
+            pos = keyword.end()
+            is_reference = True
+            while pos < start:
+                pos = _BLANK_RE.match(raw, pos).end()
+                if pos >= start:
+                    break
+                item = _REF_LIST_ITEM_RE.match(raw, pos)
+                if item is None:
+                    is_reference = False
+                    break
+                pos = item.end()
+            if is_reference:
+                continue
+        try:
+            value = float(match.group(0).replace(",", ""))
+        except ValueError:
+            continue
+        out.add(f"{value:.6f}".rstrip("0").rstrip("."))
+    return out
+
+
+def _merge_short_sentences(sentences):
+    """Fold a sentence below the overlap floor into the sentence that follows it.
+
+    `_split_sentences` splits on newlines as well as on sentence punctuation, so
+    a *line* of the document is a sentence to the rest of this module — including
+    the lines that are not prose: a heading, a `Jurisdiction: Massachusetts`-style
+    label, a reference-list fragment, a run of citation numbers. Judged on its
+    own, each falls below `_MIN_ANCHOR_OVERLAP` and the eligible filter discarded
+    it outright. Two things then went wrong at once: a claim whose only evidence
+    was such a line could never anchor to it, and the line could never contribute
+    its tokens to a window either, so a heading that a paragraph plainly quotes
+    was invisible to the match.
+
+    Merging keeps the text instead of dropping it. A short sentence joins the
+    next one, and the pair is judged on the union of their tokens; if that still
+    falls short, the next sentence joins too. A sentence already at or above the
+    floor is emitted on its own, exactly as before — so this changes nothing for
+    prose, and rescues the lines that had been thrown away.
+
+    The merge is forward-only and a trailing short run has nothing to join: it is
+    kept whole rather than discarded, and the floor still judges it.
+    """
+    out = []
+    pending = []
+    for sent, page in sentences:
+        text = str(sent or "").strip()
+        if not text:
+            continue
+        pending.append((text, page))
+        joined = " ".join(part for part, _page in pending)
+        if len(_tokenize(joined)) < _MIN_ANCHOR_OVERLAP:
+            continue
+        out.append((joined, _first_page(pending)))
+        pending = []
+    if pending:
+        out.append((" ".join(part for part, _page in pending), _first_page(pending)))
+    return out
+
+
+def _first_page(pending):
+    """The first real page number in a merged run, so a window keeps a citable page."""
+    for _text, page in pending:
+        if page is not None:
+            return page
+    return None
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],
     substrate_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Best-effort provenance stamping for the Substrate Vault.
-
-    If a lock's numeric value shows up in both a substrate file's extracted
-    text and a paragraph's content, attach a ``JDFProvenance`` entry naming
-    that file to that paragraph. This is a text-match heuristic — the same
-    rigor ``apply_z3_violations_to_tree`` already uses for locating the node
-    a violation belongs to — not claim-level NLP attribution.
+    # Lexical overlap anchors provenance by wording similarity, not claim
+    # truthfulness — so this is the *candidate* anchor, not a verdict. Numbers are
+    # checked (a paragraph may not cite a figure its matched sentence does not
+    # carry), but a paragraph that drops or flips a negation can still anchor to
+    # the sentence it contradicts. Truthfulness is decided one layer up, by
+    # services/entailment.py (TaskType.SEMANTIC_VALIDATION), whose verdict the gate
+    # in services/audit_summary.py reads.
+    """Best-effort provenance: for each paragraph, find the substrate
+    sentence with the highest token-overlap coefficient. Stamp the
+    real filename, source_id, page, and quote onto node["provenance"].
     """
-    if not locks or not substrate_rows:
+    if not substrate_rows:
         return tree
     mutated = document_to_dict(tree)
 
-    for lock in locks:
-        try:
-            value = float(lock.get("value"))
-        except (TypeError, ValueError):
-            continue
-        value_forms = _numeric_string_forms(value)
-        if not value_forms:
-            continue
+    # Precompute source windows that carry enough content tokens to anchor. The
+    # candidate is a sliding window of up to _MAX_ANCHOR_WINDOW consecutive
+    # sentences from one source, scored against the union of their tokens; the
+    # one-sentence window stays in the set, so this is a superset of the previous
+    # sentence-at-a-time matcher rather than a replacement for it.
+    source_sentences = []
+    for row in substrate_rows:
+        text = str(row.get("extracted_text") or "")
+        eligible = []
+        # Every sentence in order with its own figures, so a window's figure set
+        # can include short neighbours that carry a figure but too few content
+        # tokens to anchor on their own. A real policy's declarations line splits
+        # into fragments like "$5,000,000 Part of $25,000,000 per Occurrence", and
+        # dropping the short ones made their figures unmatchable by ANY claim —
+        # which is how every real policy anchored zero paragraphs.
+        all_sentences: list[tuple[set, Any]] = []
+        for sent, sent_page in _merge_short_sentences(_split_sentences(text)):
+            toks = _tokenize(sent)
+            idx = len(all_sentences)
+            all_sentences.append((_numbers(sent), sent_page))
+            if len(toks) >= _MIN_ANCHOR_OVERLAP:
+                eligible.append((sent, toks, sent_page, _numbers(sent), idx))
+        for start in range(len(eligible)):
+            window_toks: set = set()
+            window_numbers: set = set()
+            for end in range(start, min(start + _MAX_ANCHOR_WINDOW, len(eligible))):
+                _sent, sent_toks, _page, sent_numbers, _idx = eligible[end]
+                window_toks = window_toks | sent_toks
+                window_numbers = window_numbers | sent_numbers
+                # The window's figures are those of every sentence it SPANS, not
+                # only the eligible ones — a figure the window carries is
+                # vouched for however short the sentence that states it.
+                for k in range(eligible[start][4], eligible[end][4] + 1):
+                    window_numbers = window_numbers | all_sentences[k][0]
+                source_sentences.append(
+                    (
+                        row,
+                        eligible[start : end + 1],
+                        window_toks,
+                        eligible[start][2],
+                        window_numbers,
+                        f"{start}-{end}",
+                    )
+                )
 
-        matched_row: dict[str, Any] | None = None
-        matched_quote = ""
-        for row in substrate_rows:
-            text = str(row.get("extracted_text") or "")
-            for form in value_forms:
-                idx = text.find(form)
-                if idx >= 0:
-                    matched_row = row
-                    start = max(0, idx - 40)
-                    end = min(len(text), idx + len(form) + 40)
-                    matched_quote = text[start:end].strip()
-                    break
-            if matched_row:
-                break
-        if not matched_row:
-            continue
+    if not source_sentences:
+        return mutated
 
-        target_id: str | None = None
-        for node in flatten_nodes(mutated):
-            if node.get("type") != "paragraph":
+    # Materialize — splicing during generator iteration skips siblings.
+    for node in list(flatten_nodes(mutated)):
+        if node.get("type") != "paragraph":
+            continue
+        content = str(node.get("content") or "").strip()
+        if not content:
+            continue
+        content_toks = _tokenize(content)
+        if len(content_toks) < _MIN_CLAIM_TOKENS:
+            continue
+        claim_numbers = _numbers(content)
+
+        best_score = 0.0
+        best_row = None
+        best_window = ""
+        best_page = None
+        best_window_sentences = []
+        best_span = ""
+        for row, window, window_toks, window_page, window_numbers, span in source_sentences:
+            # A figure the source window does not carry cannot be vouched for by
+            # that window. Without this, lexical overlap anchors a fabricated
+            # "$250,000" to a source "$5,000,000" — both tokenize to "000".
+            if claim_numbers - window_numbers:
                 continue
-            content = str(node.get("content") or "")
-            if any(form in content for form in value_forms):
-                target_id = str(node.get("id"))
-                break
-        if not target_id:
+            inter = len(content_toks & window_toks)
+            if inter < _MIN_ANCHOR_OVERLAP:
+                continue
+            score = inter / min(len(content_toks), len(window_toks))
+            # A tie goes to the narrowest window: the anchor stays as tight as the
+            # evidence allows, so a paragraph one sentence already covers keeps that
+            # sentence as its window and does not carry its neighbours into the
+            # entailment prompt. Widening only ever happens on a strictly better score.
+            if score > best_score or (score == best_score and len(window) < len(best_window_sentences)):
+                best_score = score
+                best_row = row
+                best_window = " ".join(entry[0] for entry in window)
+                best_page = window_page
+                best_window_sentences = window
+                best_span = span
+
+        if best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None:
             continue
 
-        node = get_node_by_id(mutated, target_id)
-        if not node:
+        # The cited sentence is the best-matching sentence *inside* the anchor
+        # window, so the quote and the window cannot disagree about the evidence.
+        # The numeric check belongs to the window — it is what the anchor rests on —
+        # and is deliberately not re-applied here: a claim that cites figures from
+        # two sentences has no single sentence inside the window that carries them
+        # all, and quoting the whole window instead would put two or three sentences
+        # in a field the Evidence pane presents as one.
+        best_sent = ""
+        best_sent_score = 0.0
+        for sent, sent_toks, _sent_page, _sent_numbers, _sent_idx in best_window_sentences:
+            inter = len(content_toks & sent_toks)
+            if inter < _MIN_ANCHOR_OVERLAP:
+                continue
+            score = inter / min(len(content_toks), len(sent_toks))
+            if score > best_sent_score:
+                best_sent_score = score
+                best_sent = sent
+        if not best_sent:
+            best_sent = best_window
+
+        node_id = str(node.get("id") or "")
+        if not node_id:
             continue
-        node = copy.deepcopy(node)
-        existing = node.get("provenance") or []
-        source_id = str(matched_row.get("id") or "")
+        node_copy = copy.deepcopy(node)
+        existing = node_copy.get("provenance") or []
+        source_id = str(best_row.get("id") or "")
         if any(isinstance(p, dict) and p.get("source_id") == source_id for p in existing):
             continue
+
+        page_val = best_page if best_page is not None else best_row.get("page_count")
+        try:
+            page_str = str(int(page_val)) if page_val else ""
+        except (TypeError, ValueError):
+            page_str = ""
+
         existing.append(
             {
                 "source_type": "internal_doc",
-                "source_name": matched_row.get("filename") or "",
+                "source_name": best_row.get("filename") or "",
                 "url_or_doi": "",
                 "source_id": source_id,
-                "page_number": "",
-                "extracted_quote": matched_quote,
+                "page_number": page_str,
+                "extracted_quote": best_sent[:280].strip(),
                 "accessed_date": "",
+                # The evidence the coefficient was actually taken against: the joined
+                # window, whole and never truncated, plus its sentence span inside the
+                # source, so the anchor can be audited against what cleared the floor.
+                "anchor_window": best_window.strip(),
+                "anchor_window_span": best_span,
             }
         )
-        node["provenance"] = existing
-        mutated, _ = splice_node(mutated, target_id, node)
+        node_copy["provenance"] = existing
+        mutated, _ = splice_node(mutated, node_id, node_copy)
 
     return mutated
 
@@ -762,6 +1353,7 @@ __all__ = [
     "JDFRedhatAnnotation",
     "JDFZ3Annotation",
     "attach_redhat_annotation",
+    "resolve_findings_on_rewrite",
     "attach_z3_annotation",
     "build_document_from_draft",
     "draft_text_to_sections",

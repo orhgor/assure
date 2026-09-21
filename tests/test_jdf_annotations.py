@@ -55,3 +55,54 @@ def test_malformed_jdf_rejected():
 
     with pytest.raises(ValidationError):
         parse_document({"document_id": "x", "body": [{"type": "paragraph", "content": "no id"}]})
+
+
+def test_parse_document_strips_unknown_keys():
+    from prompt_matrix.models.jdf import parse_document
+
+    parsed = parse_document(
+        {
+            "document_id": "doc-x",
+            "type": "document",
+            "title": "Root",
+            "meta": {},
+            "truth_ledger": {},
+            "body": [
+                {
+                    "type": "section",
+                    "id": "s1",
+                    "title": "S",
+                    "confidence": 0.9,
+                    "children": [
+                        {
+                            "type": "paragraph",
+                            "id": "p1",
+                            "content": "Hello.",
+                            "gutter": "verified",
+                            "entities_referenced": [],
+                            "provenance": [],
+                            "meta": {},
+                            "annotations": {"redhat": [], "z3": []},
+                        }
+                    ],
+                    "meta": {},
+                    "annotations": {"redhat": [], "z3": []},
+                }
+            ],
+        }
+    )
+    dumped = parsed.model_dump(mode="json")
+    assert dumped["body"][0]["children"][0]["content"] == "Hello."
+    assert "gutter" not in dumped["body"][0]["children"][0]
+    assert "confidence" not in dumped["body"][0]
+    assert (dumped.get("meta") or {}).get("title") == "Root"
+
+
+def test_unknown_leaf_key_ignored_on_model():
+    from prompt_matrix.models.jdf import JDFParagraphNode
+
+    node = JDFParagraphNode.model_validate(
+        {"type": "paragraph", "id": "p-1", "content": "Hello", "gutter": "verified"}
+    )
+    assert node.content == "Hello"
+    assert not hasattr(node, "gutter") or "gutter" not in node.model_dump()

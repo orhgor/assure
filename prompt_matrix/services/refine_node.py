@@ -206,7 +206,35 @@ def run_refine_node(
         if excerpts:
             instruction = f"{instruction}\n\n# Substrate Vault excerpts\n{excerpts}"
 
-    messages = _build_messages(instruction, aperture)
+    # The surgical prompt carries the target fenced, the neighbours as
+    # read-only context, and the node's own citations as the source window.
+    try:
+        from ..services.refine_diff import (
+            build_surgical_prompt,
+            compute_word_diff,
+            diff_summary,
+            format_drift,
+            parse_surgical_response,
+            restore_edge_whitespace,
+        )
+    except ImportError:
+        from services.refine_diff import (
+            build_surgical_prompt,
+            compute_word_diff,
+            diff_summary,
+            format_drift,
+            parse_surgical_response,
+            restore_edge_whitespace,
+        )
+
+    _original_text = str(original.get("content") or original.get("title") or "")
+    messages = build_surgical_prompt(
+        original_text=_original_text,
+        user_instruction=instruction,
+        preceding=str(aperture.get("preceding") or ""),
+        following=str(aperture.get("succeeding") or ""),
+        source_context=_cited_source_context(original),
+    )
     governor = gov or CostGovernor()
     governor.preflight(project_id, TaskType.SURGICAL_EDIT, messages)
     node_type = str(original.get("type") or "paragraph")
@@ -230,28 +258,84 @@ def run_refine_node(
     if not text or text.startswith("ERROR:"):
         raise RuntimeError(text or "Refine failed.")
 
+    # The model may answer with the structured object or with the bare string
+    # the previous prompt produced. Both are accepted; a malformed one is not.
+    rationale = ""
+    try:
+        extracted, rationale = parse_surgical_response(text)
+    except ValueError as exc:
+        raise RuntimeError(f"refine returned an unusable proposal: {exc}") from exc
+
+    # Edge whitespace belongs to the document's layout, not to the sentence the
+    # model rewrote, so the original's is re-applied rather than lost.
+    text = restore_edge_whitespace(_original_text, extracted)
+
+    _drifted, _drift_reasons = format_drift(_original_text, text, instruction)
+    _verification = verify_surgical_patch(original, text, project_id=project_id)
+    if _drifted:
+        # A prompt rule is a request; this is the check. Drift is reported as a
+        # failed verification so the reader decides, rather than silently
+        # committing structure the instruction did not ask for.
+        _verification = {
+            "status": "Fail",
+            "reason": "; ".join(_drift_reasons),
+            "verdict": "drift",
+        }
+    _computed_diff = compute_word_diff(_original_text, text)
+
     applied = apply_refined_text(doc, node_id, text)
     applied["document"] = sanitize_jdf_node(applied["document"])
     applied["node"] = sanitize_jdf_node(applied.get("node") or {})
     if persist:
         save_last_compiled(project_id, applied["document"])
         try:
-            from ..db.jdf_repository import save_jdf_revision
+            from ..db.jdf_repository import close_findings_for_revision, save_jdf_revision
         except ImportError:
-            from db.jdf_repository import save_jdf_revision
+            from db.jdf_repository import close_findings_for_revision, save_jdf_revision
+        # The refine path replaces the same paragraph an inquire rewrite does, so
+        # it closes the findings the same way: the node keeps them, resolved, and
+        # names the revision that answered them. `_apply_text_to_node` already
+        # carries the old annotations over; this is what marks them closed.
+        closed = close_findings_for_revision(
+            project_id,
+            applied["document"],
+            node_id,
+            applied["node"],
+            mutation_type="surgical_refine",
+        )
+        applied["node"] = closed["node"]
+        replaced, _ = replace_node_in_tree(applied["document"], node_id, closed["node"])
+        applied["document"] = replaced
         save_jdf_revision(
             project_id,
             applied["document"],
             mutation_type="surgical_refine",
             target_node_id=node_id,
             change_summary="Surgical refine",
-            expected_version=expected_version,
+            expected_version=(
+                closed["version"] - 1 if expected_version is None else expected_version
+            ),
+            revision_id=closed["revision_id"],
         )
     applied["ok"] = True
     applied["ground_from_vault"] = bool(ground_from_vault)
     applied["context"] = {
         "preceding": aperture.get("preceding"),
         "succeeding": aperture.get("succeeding"),
+    }
+    # The Proposal: what the UI renders instead of swapping text blind. The
+    # diff is computed here because a model writing unified-diff syntax is
+    # unreliable, and both strings are already in hand.
+    applied["proposal"] = {
+        "node_id": node_id,
+        "original_text": _original_text,
+        "proposed_text": text,
+        "computed_diff": _computed_diff,
+        "diff_summary": diff_summary(_computed_diff),
+        "verification_status": _verification["status"],
+        "verification_reason": _verification["reason"],
+        "verification_verdict": _verification["verdict"],
+        "rationale": rationale,
     }
     try:
         from ..services.omp_memory import remember_refine_diff
@@ -267,3 +351,78 @@ def run_refine_node(
     except Exception:
         pass
     return applied
+
+
+def _cited_source_context(node: dict[str, Any]) -> str:
+    """The source sentences this node already cites, joined for the prompt.
+
+    The node's own citations, not the whole vault: a surgical edit must stay
+    supported by what the paragraph was grounded in, and handing the model a
+    wider corpus invites it to bring in material the node never claimed.
+    """
+    try:
+        from ..services.entailment import _claim_sources
+    except ImportError:
+        from services.entailment import _claim_sources
+    return "\n".join(_claim_sources(node or {}))
+
+
+def verify_surgical_patch(
+    node: dict[str, Any],
+    proposed_text: str,
+    *,
+    project_id: str = "",
+) -> dict[str, Any]:
+    """Grounding verdict for a proposed node text.
+
+    Returns ``{"status": "Pass"|"Fail"|"Error", "reason", "verdict"}``.
+
+    Judged against the sources the node already cites. A node that cites nothing
+    is ``Error``, not ``Pass``: an edit with no source to check against has not
+    been verified, and reporting that as a pass is the one outcome that would
+    make the gate worse than absent.
+
+    Z3 runs first because it is local and fast, and a numeric violation is
+    decisive. Entailment runs second and is the grounding question. A failure to
+    reach the model is ``Error`` — never ``Pass``.
+    """
+    text = (proposed_text or "").strip()
+    if not text:
+        return {"status": "Error", "reason": "Empty proposal.", "verdict": "unverified"}
+
+    sources = _cited_source_context(node)
+    if not sources:
+        return {
+            "status": "Error",
+            "reason": "The node cites no source, so the edit cannot be verified against one.",
+            "verdict": "unverified",
+        }
+
+    try:
+        from ..services.entailment import check_entailment
+    except ImportError:
+        from services.entailment import check_entailment
+
+    try:
+        record = check_entailment(text, sources, project_id=project_id)
+    except Exception as exc:
+        return {
+            "status": "Error",
+            "reason": f"Verification could not run: {type(exc).__name__}: {exc}",
+            "verdict": "unverified",
+        }
+
+    verdict = str((record or {}).get("verdict") or "unverified").lower()
+    if verdict == "yes":
+        return {"status": "Pass", "reason": "Supported by the node's cited sources.", "verdict": verdict}
+    if verdict in {"no", "partial"}:
+        return {
+            "status": "Fail",
+            "reason": str((record or {}).get("reasoning") or "Not supported by the node's cited sources."),
+            "verdict": verdict,
+        }
+    return {
+        "status": "Error",
+        "reason": str((record or {}).get("reasoning") or "Verification did not complete."),
+        "verdict": verdict,
+    }

@@ -15,6 +15,7 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-db+sqlite:///data/celery-results.sqlite}
       TEMP_UPLOAD_DIR: /app/data/tmp_uploads
       SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-0}
+      USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
     env_file:
       - path: .env.production
         required: false

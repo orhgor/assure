@@ -11,6 +11,7 @@ try:
         build_macro_appendix,
     )
     from .provenance_meta import attach_provenance_meta_to_tree
+    from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 except ImportError:
     from services.confidence_spans import (
         attach_confidence_spans_to_document,
@@ -18,8 +19,236 @@ except ImportError:
         build_macro_appendix,
     )
     from services.provenance_meta import attach_provenance_meta_to_tree
+    from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 
 GateStatus = Literal["pass", "blocked", "review"]
+
+
+def _walk_nodes(document: dict[str, Any]):
+    for section in document.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        yield section
+        for child in section.get("children") or []:
+            if isinstance(child, dict):
+                yield child
+
+
+def _entailment_verdict(node: dict[str, Any]) -> str:
+    """``node.meta.provenance.entailment.verdict`` — "" when never checked."""
+    meta = node.get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    if not isinstance(prov, dict):
+        return ""
+    record = prov.get("entailment")
+    if not isinstance(record, dict):
+        return ""
+    return str(record.get("verdict") or "")
+
+
+def _anchoring_quote(node: dict[str, Any]) -> str:
+    """The source sentence this node is anchored to — "" when there is none.
+
+    The quote the lexical matcher stamped (``models/jdf.py``); read from the
+    node's provenance row, never from ``meta.provenance.excerpt``, which falls
+    back to the claim text itself. The entailment check reads the same row's
+    ``anchor_window`` — the run of sentences the anchor was scored against — so
+    this is the sentence *cited*, not the whole evidence behind it.
+    """
+    for row in node.get("provenance") or []:
+        if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
+            return str(row["extracted_quote"]).strip()
+    return ""
+
+
+def _is_contradicted(node: dict[str, Any]) -> bool:
+    """``node.meta.provenance.entailment.contradicted`` — a citation of this
+    paragraph was contradicted by its own source, whatever the aggregate verdict.
+
+    Read beside the verdict, not instead of it. A paragraph can be carried in
+    part (verdict ``partial``) and simultaneously contain a contradicted citation;
+    the two facts are independent and the counters need both.
+    """
+    meta = node.get("meta")
+    prov = meta.get("provenance") if isinstance(meta, dict) else None
+    if not isinstance(prov, dict):
+        return False
+    record = prov.get("entailment")
+    if not isinstance(record, dict):
+        return False
+    return bool(record.get("contradicted"))
+
+
+def _provenance_counts(document: dict[str, Any]) -> dict[str, int]:
+    """Claim-eligible paragraphs, bucketed by grounding and by entailment.
+
+    The two layers are counted separately, because they answer different
+    questions and used to be reported as one number:
+
+    ``anchored``   the paragraph has a source sentence (a quote) — grounding.
+    ``supported``  the entailment check read that sentence and said yes.
+    ``partial``    it said the source supports the claim only in part.
+    ``unsupported`` it said the source does not support the claim.
+    ``unverified`` the call could not be made or parsed — visible, not "no".
+    ``unchecked``  anchored but never checked; not reported, it only tells
+                   "anchored but never entailed" from "matched no source".
+    ``unanchored`` no quote at all: the matcher refused every candidate.
+
+    Collapsing the first into the second (``anchored`` used to mean
+    ``verdict == "yes"``) made a document whose paragraphs genuinely quote their
+    sources read as "0 of 8 anchored" — and left no number for the grounding the
+    document does have.
+    """
+    counts = {
+        "eligible": 0,
+        "anchored": 0,
+        "supported": 0,
+        "partial": 0,
+        "unsupported": 0,
+        "unanchored": 0,
+        "unverified": 0,
+        "unchecked": 0,
+    }
+    for node in _walk_nodes(document):
+        if str(node.get("type") or "") != "paragraph":
+            continue
+        if len(_tokenize(str(node.get("content") or ""))) < _MIN_CLAIM_TOKENS:
+            continue
+        counts["eligible"] += 1
+        if _anchoring_quote(node):
+            counts["anchored"] += 1
+        else:
+            counts["unanchored"] += 1
+        verdict = _entailment_verdict(node)
+        # ``supported`` is the grounding number: the source carries the claim,
+        # wholly or in part, and nothing in it contradicts. ``partial`` is the
+        # detail bucket beside it. They answer different questions, the way
+        # ``anchored`` and ``supported`` do — a synthesis paragraph that cites
+        # three sentences is carried by them without any one of them stating
+        # every element, and the entailment auditor says ``partial`` for exactly
+        # that, correctly. Counting only ``yes`` reported a renewal memo whose
+        # every paragraph is carried and none is contradicted as ``supported 0``.
+        if verdict in ("yes", "partial"):
+            counts["supported"] += 1
+        if verdict == "partial":
+            counts["partial"] += 1
+        if verdict == "no" or _is_contradicted(node):
+            # A paragraph can be BOTH carried in part and contradicted: it cites
+            # three sentences, two support it and one is contradicted by its own
+            # source. The verdict is ``partial`` because the paragraph is partly
+            # carried, and it is also an unsupported claim because a citation of it
+            # was contradicted. Counting only the verdict made that contradiction
+            # invisible - measured: ['yes','no'] aggregated to partial, supported
+            # incremented, unsupported stayed 0, and nothing reported the ``no``.
+            counts["unsupported"] += 1
+        elif verdict == "unverified":
+            counts["unverified"] += 1
+        elif not verdict and node.get("provenance"):
+            # Anchored but never checked. ``not verdict`` is load-bearing: without
+            # it this branch also caught ``yes``, so ``unchecked`` counted supported
+            # claims and the raw dict handed to web_retrieval overstated it. The
+            # reported projection dropped the key, so no reported number was wrong.
+            counts["unchecked"] += 1
+    return counts
+
+
+# The buckets a payload reports. `unchecked` is deliberately not among them: it
+# only feeds the reason text, so it never reaches a surface as a number.
+_PROVENANCE_REPORTED = (
+    "eligible",
+    "anchored",
+    "supported",
+    "partial",
+    "unsupported",
+    "unanchored",
+    "unverified",
+)
+
+
+def _reported_stats(counts: dict[str, int]) -> dict[str, int]:
+    """``_provenance_counts`` projected onto the reported buckets, in one shape.
+
+    Every surface that reports provenance counters (the audit summary, the
+    export gate, a replayed compile) builds them here, so a payload persisted or
+    cached by an earlier compile cannot hand a surface numbers the current tree
+    no longer supports.
+    """
+    return {key: int(counts.get(key) or 0) for key in _PROVENANCE_REPORTED}
+
+
+def _eligible_and_anchored(document: dict[str, Any]) -> tuple[int, int]:
+    """Count paragraph nodes (>= _MIN_CLAIM_TOKENS content tokens) and how many
+    carry a source sentence.
+
+    Same claim floor as the substrate matcher in models/jdf.py, so a paragraph the
+    gate counts is a paragraph the matcher was allowed to anchor. Headers/stubs are
+    excluded. Anchored means the paragraph has a matched source sentence (the
+    matcher's quote) — its *truthfulness* is the separate verdict read from
+    ``provenance_stats.supported``; see ``_provenance_counts``.
+    """
+    counts = _provenance_counts(document)
+    return counts["eligible"], counts["anchored"]
+
+
+def _finding_counts(document: dict[str, Any] | None) -> dict[str, int]:
+    """Red-Hat findings on the tree, by state — the history beside the counters.
+
+    ``provenance_stats`` counts claims in the document as it stands; it cannot
+    say that a claim was once unsupported and a revision answered the warning,
+    because the paragraph that carried the finding was rewritten. Measured on the
+    demo project: applying the one open finding took the document from
+    ``8 anchored / 7 supported / 1 unsupported`` to ``7 anchored / 7 supported / 0
+    unsupported / 1 unanchored``, and the finding itself was gone from the tree —
+    a document with an open warning and then, one revision later, a document that
+    reads as if it never had one.
+
+    So the findings are counted beside the claims, from the tree's own
+    annotations:
+
+    ``open``        a warning nothing has answered yet.
+    ``resolved``    a revision rewrote the paragraph it was raised on
+                    (``models.jdf.resolve_findings_on_rewrite``), which is what
+                    ``resolved_by_revision_id`` / ``resolved_by_version`` /
+                    ``resolved_by_mutation_type`` record.
+    ``remediated_unsupported``
+                    of those, the ones raised on a paragraph the audit read as
+                    unsupported (verdict ``no``, or a citation contradicted). This
+                    is the number that says the fall in ``unsupported`` was work
+                    done, not an audit that came back clean.
+    ``dismissed``   closed without a rewrite.
+    ``remediated_unanchored``
+                    of the resolved ones, the paragraphs that held a citation
+                    when the finding was raised and hold none now — the anchor the
+                    rewrite did not inherit, so the count of unsupported claims
+                    fell because a paragraph lost its source rather than because
+                    one was grounded. The document total is
+                    ``provenance_stats.unanchored``; this is the part of it that
+                    remediation explains, which the total cannot say.
+    """
+    counts = {
+        "open": 0,
+        "resolved": 0,
+        "remediated_unsupported": 0,
+        "dismissed": 0,
+        "remediated_unanchored": 0,
+    }
+    for node in _walk_nodes(document or {}):
+        for finding in (node.get("annotations") or {}).get("redhat") or []:
+            if not isinstance(finding, dict):
+                continue
+            status = str(finding.get("status") or "open")
+            if status not in counts:
+                continue
+            counts[status] += 1
+            if status != "resolved":
+                continue
+            if str(finding.get("prior_verdict") or "") == "no" or finding.get(
+                "prior_contradicted"
+            ):
+                counts["remediated_unsupported"] += 1
+            if str(finding.get("prior_anchor_quote") or "").strip() and not _anchoring_quote(node):
+                counts["remediated_unanchored"] += 1
+    return counts
 
 
 def compute_gate_status(z3_status: str | None, redhat_count: int) -> GateStatus:
@@ -34,6 +263,96 @@ def compute_gate_status(z3_status: str | None, redhat_count: int) -> GateStatus:
     return "review"
 
 
+def provenance_gate_fields(
+    *,
+    document: dict[str, Any] | None,
+    z3_status: str,
+    redhat_count: int,
+    has_substrate: bool | None,
+) -> dict[str, Any]:
+    """The provenance-derived fields of an audit payload: the stats and the gate.
+
+    THE counter is ``_provenance_counts`` (projected by ``_reported_stats``), and
+    this is the only writer of the stats and the verdict they drive — so a fresh
+    compile, a compile replayed from cache and an export of a persisted gate all
+    report the same numbers for the same tree.
+
+    ``supported`` counts a verdict of ``yes`` OR ``partial``: ``partial`` means
+    the anchored sentences carry the claim in part and nothing in them
+    contradicts it, which is grounded. A synthesis paragraph citing three
+    sentences is carried by them without any one of them stating every element,
+    and a correct entailment auditor answers ``partial`` for exactly that;
+    counting only ``yes`` reported a renewal memo whose every paragraph was
+    carried and none contradicted as ``supported 0``.
+
+    ``unverified`` is left unset when the recount found support: there is nothing
+    to report as unverified, and a stale refusal must not outlive the numbers
+    behind it.
+
+    ``findings`` rides beside the stats rather than inside them: it counts the
+    Red-Hat warnings the tree carries, by state, including the ones a revision
+    has since answered. ``provenance_stats`` keeps its shape — six payload tests
+    assert it whole, and a claim counter is a claim counter — but the finding
+    counters are what keep a remediated document from reading as a clean one.
+    """
+    counts = (
+        _provenance_counts(document)
+        if isinstance(document, dict)
+        else {key: 0 for key in (*_PROVENANCE_REPORTED, "unchecked")}
+    )
+    fields: dict[str, Any] = {
+        "provenance_stats": _reported_stats(counts),
+        "gate_status": compute_gate_status(z3_status, redhat_count),
+        "ok": z3_status == "PASS",
+        # The claims' history, beside the claims' state: `provenance_stats` counts
+        # the tree as it stands, so the revision that answered a finding reads
+        # there only as a paragraph that stopped being unsupported. See
+        # `_finding_counts`.
+        "findings": _finding_counts(document),
+    }
+    if counts["supported"] > 0:
+        return fields
+
+    # A document with no supported claim is unverified, not "pass" — however many
+    # of its paragraphs quote a source. `partial` is not among the buckets below:
+    # a partly carried claim already counts as supported, so a document holding
+    # one never reaches this reason, and naming it here would be a bucket that
+    # could not be filled.
+    eligible = counts["eligible"]
+    unsupported = counts["unsupported"]
+    unverified_claims = counts["unverified"]
+    if document is None:
+        reason = "No document to inspect."
+    elif unsupported or unverified_claims:
+        bits = []
+        if unsupported:
+            bits.append(f"{unsupported} contradicted by their source")
+        if unverified_claims:
+            bits.append(f"{unverified_claims} could not be checked")
+        reason = (
+            f"0 of {eligible} claims were entailed by their matched source sentence "
+            f"({', '.join(bits)})."
+        )
+    elif counts["unchecked"]:
+        reason = (
+            f"0 of {eligible} claims were entailment-checked against their matched "
+            f"source sentence ({counts['unchecked']} anchored but never checked)."
+        )
+    elif has_substrate is True:
+        reason = f"0 of {eligible} claims matched any source sentence."
+    elif has_substrate is False:
+        reason = "No sources included in this compile — output is ungrounded."
+    elif eligible == 0:
+        reason = "No sources uploaded — compile is ungrounded."
+    else:
+        reason = f"0 of {eligible} claims matched any source sentence."
+    fields["gate_status"] = "review"
+    fields["ok"] = False
+    fields["unverified"] = True
+    fields["unverified_reason"] = reason
+    return fields
+
+
 def build_audit_summary(
     *,
     z3_results: dict[str, Any],
@@ -41,18 +360,17 @@ def build_audit_summary(
     nodes: list[Any] | None = None,
     locks: list[Any] | None = None,
     document: dict[str, Any] | None = None,
+    has_substrate: bool | None = None,
     node_count: int | None = None,
     lock_count: int | None = None,
 ) -> dict[str, Any]:
     """Canonical audit payload shared by sandbox verify and draft audit_complete."""
     z3_status = str(z3_results.get("status") or "SKIPPED")
     redhat_count = len(redhat_critiques)
-    ok = z3_status == "PASS"
-    gate_status = compute_gate_status(z3_status, redhat_count)
 
     summary: dict[str, Any] = {
-        "ok": ok,
-        "gate_status": gate_status,
+        "ok": False,
+        "gate_status": compute_gate_status(z3_status, redhat_count),
         "z3_status": z3_status,
         "z3_results": z3_results,
         "redhat_critiques": redhat_critiques,
@@ -65,6 +383,7 @@ def build_audit_summary(
     if locks is not None:
         summary["locks"] = locks
         summary["lock_count"] = lock_count if lock_count is not None else len(locks)
+
     if document is not None:
         spans = build_confidence_spans(document, z3_results=z3_results)
         document = attach_confidence_spans_to_document(document, spans)
@@ -80,6 +399,19 @@ def build_audit_summary(
         summary["confidence_spans"] = spans
         summary["audit_manifest"] = appendix
         summary["claims"] = appendix
+
+    # The provenance layer — `supported` (a claim its citations carry, in whole
+    # or in part) and the gate verdict it drives — is written in exactly one
+    # place, from the document just attached, so a replayed or exported payload
+    # can be rewritten by the same rule. See `provenance_gate_fields`.
+    summary.update(
+        provenance_gate_fields(
+            document=document,
+            z3_status=z3_status,
+            redhat_count=redhat_count,
+            has_substrate=has_substrate,
+        )
+    )
     return summary
 
 

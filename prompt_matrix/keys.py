@@ -29,6 +29,8 @@ PROVIDER_ENV = {
     "gemini": "GEMINI_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
 }
 
 PROVIDER_LABEL = {
@@ -36,13 +38,43 @@ PROVIDER_LABEL = {
     "gemini": "Google Gemini",
     "deepseek": "DeepSeek",
     "kimi": "Kimi",
+    "groq": "Groq",
+    "openrouter": "OpenRouter",
 }
+
+
+def provider_slug_for_litellm(model: str) -> str:
+    """Map a LiteLLM model id (provider/model) to keys.py provider slug."""
+    prefix = str(model or "").split("/")[0].lower()
+    return {
+        "anthropic": "claude",
+        "deepseek": "deepseek",
+        "gemini": "gemini",
+        "groq": "groq",
+        "openrouter": "openrouter",
+    }.get(prefix, prefix)
 
 
 def load_keys() -> None:
     if load_dotenv is not None:
         load_dotenv(ENV_PATH, override=False)
-        if Path.cwd() != PACKAGE_DIR:
+        repo_root = Path(__file__).resolve().parent.parent
+        env_profile = (os.environ.get("ASSURE_ENV") or "").strip().lower()
+        # Precedence: shell env > .env.staging > .env.local > .env. Capture the
+        # shell env, apply files with override=True so the later file wins in file
+        # order, then re-apply the shell env on top so the shell always wins and
+        # file-loaded values never override a caller's pre-set environment.
+        _shell_env = dict(os.environ)
+        for name in (".env", ".env.local"):
+            f = repo_root / name
+            if f.exists():
+                load_dotenv(f, override=True)
+        if env_profile == "staging":
+            f = repo_root / ".env.staging"
+            if f.exists():
+                load_dotenv(f, override=True)
+        os.environ.update(_shell_env)
+        if Path.cwd() != PACKAGE_DIR and (Path.cwd() / ".env").exists():
             load_dotenv(Path.cwd() / ".env", override=False)
 
 
@@ -176,6 +208,69 @@ def save_anthropic_workspace_id(workspace_id: str) -> None:
         _append_env("ANTHROPIC_WORKSPACE_ID", value)
 
 
+# First path segment of a LiteLLM model id → slug used by orchestrator env_map /
+# api_key_for / save_provider_key vocabulary (where overlapping).
+_LITELLM_SLUG_ALIASES: dict[str, str] = {
+    "anthropic": "claude",
+    "gemini": "gemini",
+    "google": "gemini",
+    "deepseek": "deepseek",
+    "moonshot": "kimi",
+    "openrouter": "openrouter",
+    "groq": "groq",
+}
+
+# Bare model ids (no slash). Longer / more specific prefixes first.
+# slug may be None when the vendor is not in the keys/orchestrator vocabulary.
+_BARE_MODEL_PREFIXES: tuple[tuple[str, str | None], ...] = (
+    ("claude", "claude"),
+    ("gemini", "gemini"),
+    ("deepseek", "deepseek"),
+    ("moonshot", "kimi"),
+    ("kimi", "kimi"),
+    ("gpt-", None),
+)
+
+# Single source of truth for orchestrator._api_key_env_for_model.
+# keys.py and llm/orchestrator.py are a coupled deploy unit — ship together.
+ORCHESTRATOR_ENV_MAP: dict[str, str] = {
+    "claude": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
+ORCHESTRATOR_ENV_MAP_KEYS = frozenset(ORCHESTRATOR_ENV_MAP)
+
+
+#: The upstream provider OpenRouter must use, named. Every call that produces a
+#: document or checks one pins this: at temperature 0 the *provider* is what makes
+#: a call reproducible, since an unpinned request is routed per call and OpenRouter
+#: still samples across them. Measured on the compile path: Alibaba 8/8 identical,
+#: Novita 8/8 identical, unpinned 8/8 distinct — and Alibaba and Novita do not
+#: agree with each other (sha 25bbbc92… vs 585f6e9d…), which is why fallbacks stay
+#: off: a provider outage must read as a failed call, never as a different result
+#: under the same inputs. ``extra_body`` carries it, because litellm passes a
+#: caller's extra_body through to the OpenRouter request body and a named kwarg
+#: has no route to that field.
+PROVIDER_PIN: dict = {"order": ["Alibaba"], "allow_fallbacks": False}
+
+
+def provider_slug_for_litellm(model: str | None) -> str | None:
+    """Map a LiteLLM model id to the slug recognized by api_key_for / save_provider_key
+    (and by orchestrator's provider env_map). Returns None for unknown models — never
+    invent a default slug."""
+    if not model:
+        return None
+    head = str(model).split("/", 1)[0].strip().lower()
+    if "/" in str(model):
+        return _LITELLM_SLUG_ALIASES.get(head)  # no default
+    for prefix, slug in _BARE_MODEL_PREFIXES:
+        if head.startswith(prefix):
+            return slug
+    return None
+
+
 def litellm_kwargs_for(target: str) -> dict:
     """API key plus Claude workspace header. Never log the values."""
     extra: dict = {}
@@ -184,6 +279,11 @@ def litellm_kwargs_for(target: str) -> dict:
         extra["api_key"] = api_key
     if target == "kimi":
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
+    if target == "openrouter":
+        extra["api_base"] = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
+        referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com")
+        title = os.environ.get("OPENROUTER_APP_TITLE", "Assure AI")
+        extra["extra_headers"] = {"HTTP-Referer": referer, "X-Title": title}
     if target == "claude":
         workspace = anthropic_workspace_id()
         if workspace:

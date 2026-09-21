@@ -24,23 +24,54 @@
     },
 
     bindEvents: function () {
+      var self = this;
       var toggleBtn = $("workbench-advanced-toggle-btn");
-      if (!toggleBtn) return;
-      toggleBtn.addEventListener("click", function () {
-        var show = !document.body.classList.contains("workbench-advanced-on");
-        if (global.AssureWorkbenchClarity && typeof global.AssureWorkbenchClarity.applyAdvancedState === "function") {
-          global.AssureWorkbenchClarity.applyAdvancedState(show);
-          try {
-            localStorage.setItem("assure_show_advanced", show ? "1" : "0");
-          } catch (_) {}
-        } else {
-          document.body.classList.toggle("workbench-advanced-on", show);
-          document.body.classList.toggle("workbench-advanced-off", !show);
-        }
-        toggleBtn.setAttribute("aria-expanded", show ? "true" : "false");
+      if (toggleBtn) {
+        toggleBtn.addEventListener("click", function () {
+          var show = !document.body.classList.contains("workbench-advanced-on");
+          if (
+            global.AssureWorkbenchClarity &&
+            typeof global.AssureWorkbenchClarity.applyAdvancedState === "function"
+          ) {
+            global.AssureWorkbenchClarity.applyAdvancedState(show);
+            try {
+              localStorage.setItem("assure_show_advanced", show ? "1" : "0");
+            } catch (_) {}
+          } else {
+            document.body.classList.toggle("workbench-advanced-on", show);
+            document.body.classList.toggle("workbench-advanced-off", !show);
+          }
+          toggleBtn.setAttribute("aria-expanded", show ? "true" : "false");
+        });
+        var expanded = document.body.classList.contains("workbench-advanced-on");
+        toggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+      }
+
+      document.querySelectorAll(".step-item[data-phase]").forEach(function (el) {
+        el.addEventListener("click", function () {
+          if (el.classList.contains("is-disabled")) return;
+          var phase = el.getAttribute("data-phase");
+          if (!phase) return;
+          self.setPhase(phase, el.classList.contains("is-completed") ? "completed" : "active");
+        });
+        el.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          el.click();
+        });
+        el.setAttribute("tabindex", el.classList.contains("is-disabled") ? "-1" : "0");
       });
-      var expanded = document.body.classList.contains("workbench-advanced-on");
-      toggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    },
+
+    syncStagePanels: function () {
+      document.body.setAttribute("data-workbench-phase", this.currentPhase);
+      document.querySelectorAll(".step-item[data-phase]").forEach(function (el) {
+        var disabled = el.classList.contains("is-disabled");
+        el.setAttribute("tabindex", disabled ? "-1" : "0");
+      });
+      if (this.currentPhase === "verify" && global.AssureGenerate && typeof global.AssureGenerate.showAuditAppendixPending === "function") {
+        global.AssureGenerate.showAuditAppendixPending();
+      }
     },
 
     setPhase: function (phaseName, state) {
@@ -67,6 +98,11 @@
           el.setAttribute("aria-selected", "false");
           if (marker) marker.textContent = String(idx + 1);
         }
+        var conn = document.querySelector('.step-connector[data-after="' + p + '"]');
+        if (conn) {
+          conn.classList.toggle("is-complete", completed);
+          conn.classList.toggle("is-active", active);
+        }
         if (p === "ship" && targetIdx >= PHASES.indexOf("verify") && !completed && !active) {
           el.classList.remove("is-disabled");
         }
@@ -79,12 +115,16 @@
         }
       }
       self.currentPhase = phaseName;
+      self.syncStagePanels();
     },
 
     syncWithCompiler: function () {
       var self = this;
       document.addEventListener("assure:compile:start", function () {
         self.setPhase("write", "active");
+      });
+      document.addEventListener("assure:compile:complete", function () {
+        self.setPhase("verify", "active");
       });
       document.addEventListener("assure:compile:verified", function () {
         self.setPhase("audit", "active");

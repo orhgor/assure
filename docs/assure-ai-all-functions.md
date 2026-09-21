@@ -1,9 +1,9 @@
 # Assure AI — All Functions
 
-**Production git:** `main` includes `36e532a` (PR #6). **Live EC2** still `bac3d40` until deploy billing is fixed.
-**Staging git:** `36e532a`. **Live EC2** still `f04ec7f`.
+**Production git:** `main` @ `f4e2d20`. **Live EC2:** `f4e2d20`, UI `assure-127`, healthy.
+**Staging git:** `staging` @ `3cb82a7` (PRs #46–#51). **Live EC2:** healthy, UI `assure-140`, free stack (Gemini 3.6 Flash + DeepSeek).
 **Stack:** Flask · Vanilla JS · TipTap · SQLite · JDF (JSON Document Format)
-**Last updated:** 2026-09-06 (UI revision sprint — git promoted; GHCR/EC2 not rebuilt)
+**Last updated:** 2026-09-10
 
 This document inventories every major product function as implemented in the codebase. It is a reference for demos, onboarding, and release planning—not a marketing brochure.
 
@@ -43,7 +43,7 @@ This document inventories every major product function as implemented in the cod
 | **All Functions reference** | ✅ Doc | This file (`docs/assure-ai-all-functions.md`) |
 | **Tests (pytest)** | ✅ Green | 422+ pass (incl. 8 new v1.5 test modules) |
 | **Tests (Playwright)** | ✅ Green locally | 22/22 pass; lock UI uses API + reload (no `refreshLockState` race) |
-| **Deploy staging** | ✅ Live | `staging.getassureai.com/health` → `assure-97`, healthy |
+| **Deploy staging** | ✅ Live | On-box Docker build; `ASSURE_USE_FREE_MODELS=1`; ~9.6 GB disk free |
 
 **Branch:** `feat/v1.5-enterprise-compliance` → merged **`staging`** @ `c5d979a` (+ lock-test fixes `0629e66`, `bc7515c`)
 
@@ -57,7 +57,7 @@ This document inventories every major product function as implemented in the cod
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Wow effects | ✅ Production `bac3d40` | Laser beam, ink stamps, diff x-ray, reasoning graph (`wow_effects.js`) |
+| Wow effects | ✅ Production `1d6bf798` | Laser beam, ink stamps, diff x-ray, reasoning graph (`wow_effects.js`) |
 | Provenance panel | ✅ This sprint / staging PR | ⓘ on verified nodes → slide-in `#provenance-panel-drawer` |
 | Role switcher | ✅ Trust & Clarity | Admin / Compliance / Developer / Executive |
 | Lifecycle stepper | ✅ UI revision | Write → Verify → Audit (Red-Hat) → Ship; single Accept & Dock |
@@ -65,6 +65,20 @@ This document inventories every major product function as implemented in the cod
 | **Tests** | ✅ PR #6 CI | pytest + Playwright (`test_ui_revision_sprint.py`) green |
 
 **Not unified yet:** wow stamps/gutters/overlay still stack; Full Audit still re-compiles; `/analytics` standalone page remains; Active Works hierarchy unchanged.
+
+---
+
+### Founder UI + Auto-Compiler (2026-09-08) — git on `staging`, not live on EC2
+
+| Area | Status | Notes |
+|------|--------|-------|
+| 48px `#state-rail` | ✅ Merged PR #30 | Icons, tooltips, status dots; 3-track grid `48px \| 320px \| 1fr` |
+| `#runs-stack` filters | ✅ Merged PR #30 | Empty states; Shift+1–5 + guarded Cmd+K |
+| `PromptCompiler` + strict `[claim: N]` envelope | ✅ Merged PR #31 | `services/compiler.py`, `parser.py`, `router.py` |
+| Orchestrator SSE | ✅ Merged PR #31 | Tokens first → parse claims → `verification_complete` lock schema |
+| `POST /api/runs/execute` | ✅ Merged PR #31 | Wired in `command_bar.js` for lock pills |
+| Playwright founder suite | ✅ 15/15 | `test_state_rail.py` + existing founder tests |
+| **Staging deploy** | 🔴 Blocked | EC2 disk + GHA billing; self-hosted runner offline |
 
 ---
 
@@ -88,6 +102,8 @@ This document inventories every major product function as implemented in the cod
 ## 1. Product surfaces
 
 ### 1.1 Public / marketing
+
+**Master webpage inventory:** [webpage-all-content.md](./webpage-all-content.md) — all routes, templates, static `landing/`, i18n, APIs, deploy.
 
 | Route | Function |
 |-------|----------|
@@ -559,6 +575,7 @@ DOCX optional **References / citations** section via project setting `show_citat
 
 ## Related documents
 
+- [Webpage & marketing (master)](./webpage-all-content.md)
 - [Workbench UI current state](./workbench-ui-current-state.md)
 - [Product status](./product-status.md)
 - [Insurance demo pack](./demo/insurance-boston-real-estate/README.md)
@@ -571,9 +588,9 @@ DOCX optional **References / citations** section via project setting `show_citat
 | Milestone | Branch / SHA | Environment | UI cache |
 |-----------|--------------|-------------|----------|
 | v1.4.0 | `main` / `ee6a9ee` | Production (historical) | `assure-96` |
-| v2.0.0 Wow | `main` / `bac3d40` | Production (pre-promote) | — |
-| Trust & Clarity | `staging` / `f04ec7f` | Staging (pre-promote) | — |
-| UI revision sprint | `36e532a` (PR #6) | Git on `staging` + `main`; live EC2 pending Actions billing | — |
+| v3.2.0 groundrails | `main` / `f4e2d20` | **Production live** | `assure-127` |
+| Founder UI + orchestrator + free stack | `staging` / `3cb82a7` (PRs #46–#51) | **Staging live** | `assure-140` |
+| UI revision sprint | `36e532a` (PR #6) | Superseded on `staging` git | — |
 
 ---
 

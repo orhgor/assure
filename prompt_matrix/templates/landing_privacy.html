@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="{{ locale|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="privacy.enterprise.page_title">{{ strings.get('privacy.enterprise.page_title', 'Privacy Policy · Assure AI') }}</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <meta name="description" content="{{ strings.get('privacy.enterprise.meta', brand.meta_description) }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='landing.css') }}?v={{ landing_css_version|default('55') }}">
+    {% include 'includes/plausible.html' %}
+    {% include 'includes/sentry.html' %}
+    <script>window.__assureLandingStrings = {{ strings|tojson }};</script>
+</head>
+<body class="enterprise-landing privacy-landing">
+    {% set nav_current = 'privacy' %}
+    {% include 'includes/landing_header.html' %}
+
+    <main id="main-content" class="privacy-page">
+        <header class="privacy-header">
+            <h1 data-i18n="privacy.enterprise.title">{{ strings.get('privacy.enterprise.title', 'Privacy Policy') }}</h1>
+            <p class="last-updated" data-i18n="privacy.enterprise.updated">{{ strings.get('privacy.enterprise.updated', 'Last updated: September 8, 2026') }}</p>
+            <div class="summary-box" data-i18n="privacy.enterprise.summary">{{ strings.get('privacy.enterprise.summary', '') }}</div>
+            <nav class="privacy-toc" aria-label="{{ strings.get('privacy.enterprise.toc_label', 'On this page') }}">
+                <p class="privacy-toc-title" data-i18n="privacy.enterprise.toc_title">{{ strings.get('privacy.enterprise.toc_title', 'Quick links') }}</p>
+                <ul>
+                    <li><a href="#collect" data-i18n="privacy.enterprise.s1.title">{{ strings.get('privacy.enterprise.s1.title', 'What data we collect') }}</a></li>
+                    <li><a href="#use" data-i18n="privacy.enterprise.s2.title">{{ strings.get('privacy.enterprise.s2.title', 'How we use your data') }}</a></li>
+                    <li><a href="#sharing" data-i18n="privacy.enterprise.s3.title">{{ strings.get('privacy.enterprise.s3.title', 'Sharing your data') }}</a></li>
+                    <li><a href="#rights" data-i18n="privacy.enterprise.s4.title">{{ strings.get('privacy.enterprise.s4.title', 'Your rights') }}</a></li>
+                    <li><a href="#security" data-i18n="privacy.enterprise.s5.title">{{ strings.get('privacy.enterprise.s5.title', 'Data security') }}</a></li>
+                    <li><a href="#retention" data-i18n="privacy.enterprise.s6.title">{{ strings.get('privacy.enterprise.s6.title', 'Data retention') }}</a></li>
+                    <li><a href="#children" data-i18n="privacy.enterprise.s7.title">{{ strings.get('privacy.enterprise.s7.title', "Children's privacy") }}</a></li>
+                    <li><a href="#disclaimer" data-i18n="privacy.enterprise.s8.title">{{ strings.get('privacy.enterprise.s8.title', 'Disclaimer') }}</a></li>
+                    <li><a href="#dpa" data-i18n="privacy.enterprise.s9.title">{{ strings.get('privacy.enterprise.s9.title', 'Data processing agreement') }}</a></li>
+                    <li><a href="#transfers" data-i18n="privacy.enterprise.s10.title">{{ strings.get('privacy.enterprise.s10.title', 'International transfers') }}</a></li>
+                    <li><a href="#changes" data-i18n="privacy.enterprise.s11.title">{{ strings.get('privacy.enterprise.s11.title', 'Changes to this policy') }}</a></li>
+                    <li><a href="#contact" data-i18n="privacy.enterprise.s12.title">{{ strings.get('privacy.enterprise.s12.title', 'Contact us') }}</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <div class="privacy-body">
+            {{ strings.get('privacy.enterprise.body_html', '')|safe }}
+        </div>
+    </main>
+
+    {% include 'includes/landing_footer.html' %}
+    <script src="{{ url_for('static', filename='landing-pilot.js') }}?v={{ landing_js_version|default('43') }}"></script>
+</body>
+</html>

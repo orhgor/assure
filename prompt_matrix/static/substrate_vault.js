@@ -21,6 +21,9 @@
   }
 
   function projectId() {
+    if (global.AssureFounderMode && typeof global.AssureFounderMode.getWorkspaceId === "function") {
+      return global.AssureFounderMode.getWorkspaceId();
+    }
     return global.__ASSURE_PROJECT_ID__ || "default";
   }
 
@@ -57,9 +60,9 @@
 
   function iconFor(filename) {
     var ext = extOf(filename);
-    if (IMAGE_EXT.indexOf(ext) >= 0) return "🖼️";
-    if (SHEET_EXT.indexOf(ext) >= 0) return "📊";
-    return "📄";
+    if (IMAGE_EXT.indexOf(ext) >= 0) return "image";
+    if (SHEET_EXT.indexOf(ext) >= 0) return "bar-chart";
+    return "file";
   }
 
   function truncateName(name, max) {
@@ -205,7 +208,11 @@
       var icon = doc.createElement("span");
       icon.className = "substrate-file-icon";
       icon.setAttribute("aria-hidden", "true");
-      icon.textContent = iconFor(file.filename);
+      icon.appendChild(
+        global.AssureLucideIcon
+          ? global.AssureLucideIcon(doc, iconFor(file.filename))
+          : doc.createTextNode("")
+      );
       var name = doc.createElement("span");
       name.className = "substrate-file-name";
       name.textContent = truncateName(file.filename, 28);
@@ -220,13 +227,13 @@
       status.className = "substrate-file-status";
       if (file._optimistic) {
         status.classList.add("status-processing");
-        status.textContent = "⏳ " + t("substrate.vault.processing", "Processing");
+        status.textContent = t("substrate.vault.processing", "Processing");
       } else if (file._failed) {
         status.classList.add("status-failed");
-        status.textContent = "❌ " + t("substrate.vault.failed", "Failed");
+        status.textContent = t("substrate.vault.failed", "Failed");
       } else {
         status.classList.add("status-verified");
-        status.textContent = "✅ " + t("substrate.vault.verified", "Verified");
+        status.textContent = t("substrate.vault.verified", "Verified");
       }
       metaRow.appendChild(status);
 
@@ -435,11 +442,14 @@
 
     bindCollapse: function () {
       var self = this;
-      if (!this.detailsEl) return;
+      if (!this.detailsEl || this.detailsEl.tagName !== "DETAILS") return;
       try {
         var stored = global.localStorage.getItem(COLLAPSE_KEY);
-        if (stored === "1") this.detailsEl.open = false;
+        var navView = global.AssureNav && global.AssureNav.activeView;
+        if (navView === "generate") this.detailsEl.open = false;
+        else if (stored === "1") this.detailsEl.open = false;
         else if (stored === "0") this.detailsEl.open = true;
+        else this.detailsEl.open = false;
       } catch (_) {}
       this.detailsEl.addEventListener("toggle", function () {
         try {

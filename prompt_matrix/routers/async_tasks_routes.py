@@ -7,10 +7,10 @@ from flask import jsonify, request
 
 try:
     from ..celery_app import celery_app
-    from ..tasks.llm_tasks import compile_preview_task, ground_substrate_task, run_workflow_task
+    from ..tasks.llm_tasks import compile_preview_task, run_workflow_task
 except ImportError:
     from celery_app import celery_app
-    from tasks.llm_tasks import compile_preview_task, ground_substrate_task, run_workflow_task
+    from tasks.llm_tasks import compile_preview_task, run_workflow_task
 
 
 def _task_status(result: AsyncResult) -> dict:
@@ -88,27 +88,6 @@ def register_async_task_routes(app) -> None:
             audience=str(data.get("audience") or "general"),
         )
         return jsonify({"ok": True, "task_id": async_result.id, "status": "PENDING"}), 202
-
-    @app.post("/api/projects/<project_id>/tasks/ground")
-    def enqueue_ground(project_id: str):
-        data = request.get_json(silent=True) or {}
-        substrate_ids = data.get("substrate_file_ids") or data.get("substrate_ids") or []
-        query = str(data.get("query") or data.get("intent") or "").strip()
-        if not query:
-            return jsonify({"error": "query required"}), 400
-        if not isinstance(substrate_ids, list):
-            return jsonify({"error": "substrate_file_ids must be a list"}), 400
-        async_result = ground_substrate_task.delay(
-            project_id,
-            [str(x) for x in substrate_ids],
-            query,
-        )
-        return jsonify({"ok": True, "task_id": async_result.id, "status": "PENDING"}), 202
-
-    @app.get("/api/tasks/<task_id>")
-    def task_status(task_id: str):
-        result = AsyncResult(task_id, app=celery_app)
-        return jsonify(_task_status(result))
 
     @app.post("/api/projects/<project_id>/compile/safe")
     def enqueue_safe_compile(project_id: str):

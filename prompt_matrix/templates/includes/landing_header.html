@@ -18,14 +18,14 @@
             <a href="{% if nav_current|default('landing') == 'landing' %}#trust{% else %}/#trust{% endif %}" data-i18n="landing.nav.sandbox">{{ strings.get('landing.nav.sandbox', 'Trust') }}</a>
             <a href="/privacy" data-i18n="landing.nav.privacy">{{ strings.get('landing.nav.privacy', 'Privacy') }}</a>
             <label class="landing-lang-wrap" for="landing-lang">
-                <span class="visually-hidden" data-i18n="landing.lang">Language</span>
+                <span class="landing-lang-label" data-i18n="landing.lang">Language</span>
                 <select id="landing-lang" class="landing-lang-select" data-i18n-aria="landing.lang" aria-label="Language">
                     {% for code, label in languages.items() %}
                     <option value="{{ code }}" {% if locale == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </label>
-            <a href="/app?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">{{ strings.get('landing.nav.launch', 'Launch App') }}</a>
+            <a href="https://app.getassureai.com/?lang={{ locale|default('en') }}" class="btn-primary-small" data-i18n="landing.nav.launch">{{ strings.get('landing.nav.launch', 'Launch App') }}</a>
         </nav>
     </div>
 </header>

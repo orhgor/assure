@@ -1,0 +1,55 @@
+{
+  "artifact_id": "omp-parse-c62de5112a42",
+  "project_id": "perf-test-47123625",
+  "artifact_type": "parse",
+  "source_id": "sub-cf7769ddcbb04a82",
+  "parent_artifact_id": null,
+  "payload": {
+    "source_id": "sub-cf7769ddcbb04a82",
+    "source_name": "test.pdf",
+    "page_count": 1,
+    "text": "Revenue reached $4.2M in Q3, up 15% YoY.\nOperating expenses were $1.1M.",
+    "tables": [
+      {
+        "id": "fallback",
+        "rows": [
+          [
+            "Revenue reached $4.2M in Q3, up 15% YoY."
+          ],
+          [
+            "Operating expenses were $1.1M."
+          ]
+        ],
+        "row_count": 2,
+        "column_count": 1,
+        "fallback": true
+      }
+    ],
+    "forms": [
+      {
+        "key": "Operating expenses were",
+        "value": "$1.1M."
+      },
+      {
+        "key": "Revenue reached",
+        "value": "$4.2M in Q3, up 15%"
+      },
+      {
+        "key": "YoY.",
+        "value": ""
+      }
+    ],
+    "file_size_bytes": 543,
+    "is_image": false,
+    "parse_confidence": null,
+    "ocr_confidence": null,
+    "spans": null
+  },
+  "confidence": null,
+  "provenance": {
+    "source_name": "test.pdf"
+  },
+  "created_at": "2026-09-20T11:06:50.202001",
+  "updated_at": "2026-09-20T11:06:50.205388",
+  "metadata": {}
+}

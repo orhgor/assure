@@ -345,7 +345,7 @@
 
           if (key === "enter") {
             // Compile in the compile view, Refine in the refine view.
-            var handled = viewIsActive("view-generate")
+            var handled = viewIsActive("panel-draft") || viewIsActive("view-generate")
               ? Shortcuts.compile()
               : Shortcuts.refine();
             if (handled) {
@@ -383,6 +383,29 @@
             e.preventDefault();
             e.stopPropagation();
             Shortcuts.upload();
+            return;
+          }
+
+          if (!e.shiftKey && key === "k") {
+            if (isTyping(e.target)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var founderOn =
+              document.body.classList.contains("founder-workbench") &&
+              !document.body.classList.contains("legacy-workbench");
+            if (founderOn && global.AssureCommandBar) {
+              if (typeof global.AssureCommandBar.openWithSelectionContext === "function") {
+                global.AssureCommandBar.openWithSelectionContext();
+                return;
+              }
+              if (typeof global.AssureCommandBar.open === "function") {
+                global.AssureCommandBar.open();
+                return;
+              }
+            }
+            if (global.AssureCommandPalette && typeof global.AssureCommandPalette.open === "function") {
+              global.AssureCommandPalette.open();
+            }
             return;
           }
 

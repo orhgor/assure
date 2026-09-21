@@ -8,7 +8,7 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 
 try:
     from ..db.connection import init_db
@@ -31,10 +31,14 @@ except ImportError:
 
 
 class ProjectSettingsPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     show_citations: bool = True
 
 
 class ProjectCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     title: str
     template_id: str | None = None
     prompt: str | None = None
@@ -122,7 +126,25 @@ def _dashboard_payload(
         "redhat_count": counts["redhat_count"],
         "z3_violations": counts["z3_violations"],
         "status": status,
+        "source_count": int(row[7] or 0) if len(row) > 7 else 0,
     }
+
+
+def _visible_projects_clause():
+    """SQL fragment + params limiting the dashboard to what the caller may open.
+
+    A signed-in underwriter sees the rows it owns plus rows nobody owns; an admin
+    sees everything; the shared-key operator (no Clerk identity) is unrestricted,
+    matching `middleware.ownership_enforced()`.
+    """
+    try:
+        from ..cloud_auth import ROLE_ADMIN, current_role, current_user_id
+    except ImportError:
+        from cloud_auth import ROLE_ADMIN, current_role, current_user_id
+    user_id = current_user_id()
+    if not user_id or current_role() == ROLE_ADMIN:
+        return "", ()
+    return "WHERE (p.owner_id = ? OR p.owner_id IS NULL OR p.owner_id = '')", (user_id,)
 
 
 def register_project_routes(app) -> None:
@@ -131,6 +153,7 @@ def register_project_routes(app) -> None:
         init_db()
         db = get_db()
         ensure_project("default", "Default project")
+        scope, scope_params = _visible_projects_clause()
         rows = db.execute(
             """
             SELECT p.id, p.title, p.current_version, p.created_at, p.updated_at,
@@ -139,10 +162,16 @@ def register_project_routes(app) -> None:
                     ORDER BY r.version DESC LIMIT 1) as truth_ledger,
                    (SELECT r.jdf_tree FROM jdf_revisions r
                     WHERE r.project_id = p.id
-                    ORDER BY r.version DESC LIMIT 1) as jdf_tree
+                    ORDER BY r.version DESC LIMIT 1) as jdf_tree,
+                   (SELECT COUNT(*) FROM substrate_vault sv
+                    WHERE sv.project_id = p.id) as source_count
             FROM projects p
-            ORDER BY p.updated_at DESC, p.title ASC
             """
+            + scope
+            + """
+            ORDER BY p.updated_at DESC, p.title ASC
+            """,
+            scope_params,
         ).fetchall()
         projects = [_dashboard_payload(row) for row in rows]
         return jsonify({"ok": True, "projects": projects, "count": len(projects)})

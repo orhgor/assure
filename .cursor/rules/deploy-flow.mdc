@@ -11,40 +11,65 @@ Default targets:
 - **Staging:** https://staging.getassureai.com
 - **Production:** https://getassureai.com
 
+## Stack split (do not mix)
+
+| Surface | Host | Runtime | Deploy |
+| --- | --- | --- | --- |
+| **Marketing** (apex `/`, locales, `/static/*`, legal pages) | `getassureai.com` | **Cloudflare R2** + `assure-marketing-proxy` Worker | `scripts/deploy-marketing-r2.sh` only |
+| **Staging workbench and API** | `staging.getassureai.com` | `assure-prototype-static.service` (`:8891`) → `assure-prototype.service` (`:8890`) | Fast-forward `/home/ubuntu/assure-prototype` to `origin/staging`, then restart both units |
+| **Restricted app/prototype hosts** | `app.getassureai.com`, `prototype.getassureai.com` | Same `:8891` shell and `:8890` backend | Same staging worktree and services |
+
+**EC2 owns all runtime product logic** — not just the UI shell:
+- PEM engine, orchestrator, compiler, swarm, JDF pipeline
+- `/api/*` routes, WebSocket/SSE streams, sandbox verify
+- SQLite (`/home/ubuntu/assure-prototype/prompt_matrix/history.sqlite`), substrate vault (extracted text only on EC2/SQLite)
+- Ephemeral document uploads → **separate R2 staging bucket**, deleted after Textract/ingest (`docs/runbooks/substrate-r2-ephemeral-uploads.md`)
+- SQLite backups → R2 (`assure-prod-backups`, retention policy — not uploads)
+- Provider integrations: Gemini, Claude, DeepSeek, Kimi, **Ollama**, LiteLLM, OpenRouter-style routing
+- Auth/billing: Clerk (sign-in UI + `/api/auth/*` on EC2; marketing gets client-only Clerk JS at static build — see `docs/runbooks/clerk-marketing-workbench.md`), credits/wallet, user settings, API keys (`/home/ubuntu/assure-prototype/.env.staging` on staging)
+- Observability hooks (Sentry, Plausible on app templates) — server-side on EC2
+
+Rules:
+- Never deploy marketing HTML/CSS/JS to EC2 as the live apex source.
+- Never move workbench, API, provider calls, or PEM execution to Workers, R2, or edge compute.
+- Flask landing routes in `web.py` are for **local render + static export** (`scripts/render_static.py`), not production apex traffic.
+- Cloudflare routes `staging`, `app`, and `prototype` hosts to the shell on `:8891`; the shell proxies `/api/*` to `:8890`.
+- Marketing copy: `prompt_matrix/i18n.py` → build → R2. Staging product code runs directly from `/home/ubuntu/assure-prototype` on branch `staging`.
+
 ## Branch workflow
 
-1. Feature branch → PR → **CI** (pytest + OpenUser against staging).
-2. Merge to **`staging`** → **UX Regression (OpenUser)** + **Deploy to Staging**.
-3. Merge **`staging` → `main`** → **Deploy to Production**.
+1. Feature branch → PR → **CI** (pytest + Playwright).
+2. Merge to **`staging`**.
+3. On EC2 `i-03e39eccc57572191`, fast-forward `/home/ubuntu/assure-prototype` to `origin/staging` without replacing ignored `.venv`, `.env.staging`, or runtime SQLite data.
+4. Restart `assure-prototype.service` and `assure-prototype-static.service`; verify `:8890`, `:8891`, compile-system, JDF health, and served shell asset hashes.
+5. Merge **`staging` → `main`** only after staging verification.
 
-Push to `staging` and `main`; do not rely on local servers for verification or demos.
+The old Docker service on `127.0.0.1:8765` is rollback-only. Do not route `staging.getassureai.com` to it during normal staging operation. Never track `.venv`; it is an EC2-local 6.4 GB runtime environment.
 
-## OpenUser / UX tests
+## UX tests
 
-- CI and UX workflows hit **staging**, not localhost.
-- Use project `prj_YhR-5cBgb_7E` via `--project` / `init_workbench` (not the polluted `default` project on staging).
+- CI Playwright hits an embedded local Flask app (see `.github/workflows/ci.yml`), not a long-running agent-shell server.
+- Optional live checks against **staging** use `ASSURE_BASE_URL=https://staging.getassureai.com`.
 - Import PDF lives under footer **More** → `#command-deck-more`.
 
 ## Deploy mechanisms
 
-**Automatic (on push):**
-- `deploy-staging.yml` — push to `staging` (SSH + `git pull` on EC2).
-- `deploy-production.yml` — push to `main`.
+**Staging (authoritative):**
+- Source: GitHub `staging` branch.
+- Worktree: `/home/ubuntu/assure-prototype` on local branch `staging` tracking `origin/staging`.
+- Backend: `/home/ubuntu/assure-prototype/.venv/bin/python -m prompt_matrix.web --port 8890 --host 127.0.0.1`.
+- Shell: `/home/ubuntu/assure-prototype/.venv/bin/python prototype/dev-server.py` on `:8891`.
+- Ingress: `/etc/cloudflared/config.yml` routes `staging.getassureai.com` to `http://localhost:8891`.
+- Before changing the worktree or ingress, back up `history.sqlite`, `.env.staging`, the shell access environment, systemd units, and Cloudflare configuration.
 
-Requires GitHub environment secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GHCR_DEPLOY_TOKEN`, `ASSURE_INSTANCE_ID` (production), `STAGING_INSTANCE_ID` (staging).
-
-Legacy SSH deploy secrets (`EC2_SSH_PRIVATE_KEY`, `EC2_HOST_*`) are no longer used.
-
-**Manual (Actions → workflow_dispatch):**
-- **App Docker (Staging)** — GHCR build + SSM redeploy to staging EC2.
-- **App Docker** — GHCR build + SSM redeploy to production EC2.
-
-Requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, instance IDs, `GHCR_DEPLOY_TOKEN` as configured in repo secrets.
+**Immutable Docker rollback / production mechanism:**
+- `.github/workflows/deploy-immutable.yml` deploys an exact prebuilt GHCR SHA through SSM.
+- The staging Docker container on `:8765` remains available only as a rollback target unless the user explicitly chooses the Docker lineage.
+- Application code is never built or edited directly on EC2.
 
 ## When local server is OK
 
 Only if the user asks, or you need to reproduce a bug that does not appear on staging:
 - Local: `ASSURE_REQUIRE_LOGIN=false .venv/bin/python -c "from prompt_matrix.web import create_app; … port=8801"`
-- OpenUser local: `ASSURE_BASE_URL=http://127.0.0.1:8801`
 
-Stop local servers when done; prefer staging for day-to-day work.
+Stop local servers when done; prefer staging for day-to-day work. Do not wait on them in the agent shell.

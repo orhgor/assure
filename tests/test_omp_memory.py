@@ -4,8 +4,29 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from prompt_matrix.omp_client import sanitize_omp_tag
 from prompt_matrix.services import omp_memory as mem
+
+
+@pytest.fixture
+def cache_db(tmp_path, monkeypatch):
+    """A throwaway database for the SQLite round-trip tests.
+
+    pipeline_cache.project_id declares the FK to projects, so a cache row names a
+    project that has to exist. Pointing these tests at their own file also makes
+    the round trip prove itself instead of reading a row an earlier run left in
+    the shared database.
+    """
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "history.sqlite"))
+    import prompt_matrix.history as history_mod
+
+    monkeypatch.setattr(history_mod, "DB_PATH", history_mod._resolve_db_path())
+    from prompt_matrix.db.connection import init_db
+
+    init_db()
+    yield
 
 
 def test_compile_cache_key_is_omp_safe():
@@ -15,10 +36,13 @@ def test_compile_cache_key_is_omp_safe():
     assert len(key) <= 50
 
 
-def test_ast_cache_roundtrip_sqlite(monkeypatch):
+def test_ast_cache_roundtrip_sqlite(monkeypatch, cache_db):
     monkeypatch.setenv("PEM_OMP_CACHE", "1")
     monkeypatch.setattr(mem, "safe_omp_recall", lambda *_a, **_k: None)
     monkeypatch.setattr(mem, "safe_omp_remember", lambda *_a, **_k: None)
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("cache-test")
     key = mem.compile_cache_key("cache-test", "same source")
     payload = {
         "compiled": {"document": {"body": [{"id": "n1"}]}, "node_count": 1, "lock_count": 0},
@@ -59,10 +83,13 @@ def test_save_ast_cache_survives_omp_down(monkeypatch):
     assert saved["payload"]["compiled"]["node_count"] == 2
 
 
-def test_redhat_memory_roundtrip(monkeypatch):
+def test_redhat_memory_roundtrip(monkeypatch, cache_db):
     monkeypatch.setenv("PEM_OMP_CACHE", "1")
     monkeypatch.setattr(mem, "safe_omp_recall", lambda *_a, **_k: None)
     monkeypatch.setattr(mem, "safe_omp_remember", lambda *_a, **_k: None)
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("rh-proj")
     mem.save_redhat_critique("rh-proj", "Unsupported ARR claim.")
     assert mem.load_redhat_critique("rh-proj") == "Unsupported ARR claim."
 
@@ -117,7 +144,16 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
     def fail_stream(*_a, **_k):
         raise AssertionError("Claude must not run on cache hit")
 
-    monkeypatch.setattr("prompt_matrix.routers.draft._stream_claude", fail_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fail_stream)
+    # The pre-flight refuses a compile with no source attached before the cache
+    # probe, so this project carries one — a cache hit is a compile that was
+    # grounded when it was first made.
+    monkeypatch.setattr(
+        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": "Limit 5,000,000."}
+        ],
+    )
 
     class _Gov:
         class _Acct:
@@ -137,7 +173,14 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
 
     from prompt_matrix.routers.draft import run_draft_pipeline
 
-    frames = list(run_draft_pipeline("cache-hit", intent="same text twice", governor=_Gov()))
+    frames = list(
+        run_draft_pipeline(
+            "cache-hit",
+            intent="same text twice",
+            substrate_file_ids=["sub-1"],
+            governor=_Gov(),
+        )
+    )
     joined = "".join(frames)
     assert "omp_cached" in joined
     assert "cached draft" in joined

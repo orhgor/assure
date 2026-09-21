@@ -131,15 +131,19 @@ def omp_remember(key: str, content: str, tags: list | None = None) -> dict[str, 
     return _request("POST", "/v1/memories", body=payload, timeout=SAFE_OMP_TIMEOUT)
 
 
-def omp_recall(key: str) -> dict[str, Any]:
-    """Search memories for ``key`` (keyword recall, not a REST path key)."""
+def omp_recall(key: str, limit: int = 10) -> dict[str, Any]:
+    """Search memories for ``key`` (keyword recall, not a REST path key).
+
+    ``limit`` is the ranking window: a caller whose payload competes with large
+    cache blobs must widen it, or its memories never appear in the result.
+    """
     query = str(key or "").strip()
     if not query:
         return {"memories": [], "total": 0}
     return _request(
         "POST",
         "/v1/memories/search",
-        body={"q": query, "limit": 10, "mode": "keyword"},
+        body={"q": query, "limit": int(limit), "mode": "keyword"},
         timeout=SAFE_OMP_TIMEOUT,
     )
 
@@ -206,12 +210,44 @@ def safe_omp_recall(key: str) -> Any | None:
         return None
 
 
-def omp_list_memories(tags: list | None = None) -> dict[str, Any]:
-    """List recent memories, optionally filtered by tags."""
-    params: dict[str, Any] = {"limit": 20, "namespace": DEFAULT_NAMESPACE}
+def omp_list_memories(
+    tags: list | None = None,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    namespace: str | None = DEFAULT_NAMESPACE,
+) -> dict[str, Any]:
+    """List memories, optionally filtered by tags.
+
+    ``tags`` is applied by the server *after* its own LIMIT/OFFSET, so it is only
+    a convenience for the first page; callers that need every row of a namespace
+    (e.g. the jdf prune pass) pass a large ``limit`` and page with ``offset``.
+    """
+    params: dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if namespace:
+        params["namespace"] = namespace
     if tags:
         params["tags"] = ",".join(str(t) for t in tags if t)
     return _request("GET", "/v1/memories", params=params)
+
+
+def omp_delete_memory(memory_id: str) -> bool:
+    """Delete one memory by id. True when the server removed it.
+
+    OMP identifies rows by id: the key this app writes is only a tag, so
+    replacing a document's chunk index means deleting the rows it wrote before.
+    """
+    if not memory_id:
+        return False
+    result = _request(
+        "DELETE",
+        f"/v1/memories/{urllib.parse.quote(str(memory_id), safe='')}",
+        timeout=SAFE_OMP_TIMEOUT,
+    )
+    if result.get("ok") or int(result.get("status") or 0) == 204:
+        return True
+    _log_error(f"OMP DELETE /v1/memories/{memory_id} failed: {result.get('error')}")
+    return False
 
 
 def omp_health() -> dict[str, Any]:

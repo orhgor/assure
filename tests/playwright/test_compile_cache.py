@@ -38,6 +38,9 @@ def test_second_compile_is_faster_than_first(workbench_page):
     cold_ms = (time.monotonic() - t0) * 1000
 
     page.wait_for_timeout(800)
+    page.evaluate(
+        "() => { if (window.AssureStepper) window.AssureStepper.setPhase('write', 'active'); }"
+    )
     click_workbench(page, COMPILE_BTN)
     t1 = time.monotonic()
     wait_compile_ready(page)
@@ -63,6 +66,9 @@ def test_cache_hit_shows_in_status_bar(workbench_page):
     prompt = f"Draft a one-paragraph overview of supply chain resilience. ts={time.time_ns()}"
     fill_and_compile(page, prompt)
     wait_compile_ready(page)
+    page.evaluate(
+        "() => { if (window.AssureStepper) window.AssureStepper.setPhase('write', 'active'); }"
+    )
     page.locator(COMPILE_BTN).click()
     wait_compile_ready(page)
     status = page.locator(".workbench-status-bar").inner_text().lower()

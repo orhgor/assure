@@ -1,0 +1,245 @@
+<p class="privacy-intro">Assure AI (&ldquo;biz&rdquo;, &ldquo;bizim&rdquo; veya &ldquo;bize&rdquo;) gizliliğinizi korumaya kararlıdır. Bu Gizlilik Politikası, platformumuzu ve hizmetlerimizi kullandığınızda bilgilerinizi nasıl topladığımızı, kullandığımızı ve koruduğumuzu açıklar.</p>
+
+<section id="collect" aria-labelledby="privacy-s1">
+<h2 id="privacy-s1">1. Topladığımız ve Sakladığımız Veriler</h2>
+
+<h3>a. Bulutta Saklanan Veriler (Sunucu)</h3>
+<p>Hizmeti sunmak için aşağıdaki verileri güvenli sunucularımızda (AWS EC2) saklarız:</p>
+<ul>
+  <li><strong>Hesap verileri:</strong> E-posta adresi, abonelik katmanı ve Stripe müşteri kimliği.</li>
+  <li><strong>Sorular ve promptlar:</strong> Komut çubuğuna veya derleme arayüzüne girdiğiniz metin (veritabanı projelerinde ve çalıştırma günlüklerinde saklanır).</li>
+  <li><strong>Yüklenen kaynak dosyalar:</strong> Yüklediğiniz PDF, görüntü, JSON, YAML ve diğer belgeler (<code>substrate_vault</code> tablosunda saklanır).</li>
+  <li><strong>Derlenmiş taslaklar:</strong> JDF AST&rsquo;leri, doğrulama günlükleri ve kilit hash&rsquo;leri (<code>jdf_revisions</code> tablosunda saklanır).</li>
+  <li><strong>Denetim günlükleri:</strong> Kurumsal uyumluluk için etkinlik ve istek günlükleri (<code>user_activity_log</code> ve <code>audit_log</code> içinde saklanır).</li>
+  <li><strong>Bekleme listesi başvuruları:</strong> E-posta, şirket adı ve iş akışı türü (bekleme listesine katılırsanız).</li>
+</ul>
+<p class="privacy-emphasis"><strong>Verilerinizi</strong> modellerimizi eğitmek için <strong>kullanmayız</strong>. <strong>Verilerinizi</strong> reklam veya pazarlama amacıyla üçüncü taraflarla satmayız veya paylaşmayız.</p>
+
+<h3>b. Bilgisayarınızda Yerel Olarak Saklanan Veriler</h3>
+<p>Aşağıdaki veriler <strong>bilgisayarınızda</strong> kalır ve sunucularımıza asla iletilmez:</p>
+<ul>
+  <li>Bağlı sağlayıcılar için API anahtarları (Claude, Gemini, DeepSeek, Kimi vb.).</li>
+  <li>Workbench arayüz durumu ve tercihleri (ör. düzen ayarları, tema tercihleri).</li>
+</ul>
+
+<h3>c. Üçüncü Taraf Yapay Zeka Sağlayıcıları (&ldquo;Gönder&rdquo; Dediğinizde)</h3>
+<p>Bağlı bir sağlayıcıya prompt <strong>Göndermeyi</strong> seçtiğinizde:</p>
+<ul>
+  <li>Sorunuz ve ekli dosyalar oturumunuzdan seçtiğiniz sağlayıcıya <strong>doğrudan</strong> iletilir.</li>
+  <li>Sağlayıcının kendi şartları ve gizlilik politikaları geçerlidir. Kullanmadan önce incelemeniz ve kabul etmeniz gerekir.</li>
+  <li>Assure, standart çalışma alanı geçmişinizin parçası olarak proje dosyalarınıza ve taslaklarınıza kalıcı olarak kaydedilenlerin ötesinde ham üçüncü taraf API yanıtlarını bağımsız olarak günlüklemez veya saklamaz.</li>
+</ul>
+
+<h3>d. &ldquo;İnternete kapalı&rdquo; Modu</h3>
+<p>&ldquo;İnternete kapalı&rdquo; seçildiğinde:</p>
+<ul>
+  <li>Verileriniz hiçbir harici sağlayıcıya <strong>gönderilmez</strong>.</li>
+  <li>İşleme (Z3 doğrulaması ve <code>groundrails</code> dahil) <strong>Assure&rsquo;un güvenli sunucularında</strong> çalışır&mdash;yerel makinenizde değil.</li>
+  <li>Verileriniz Bölüm 1a&rsquo;da açıklandığı gibi Assure sunucularında saklanmaya devam eder.</li>
+</ul>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="use" aria-labelledby="privacy-s2">
+<h2 id="privacy-s2">2. Verilerinizi Nasıl Kullanırız</h2>
+<table>
+  <thead><tr><th scope="col">Veri Türü</th><th scope="col">Amaç</th></tr></thead>
+  <tbody>
+    <tr><td><strong>E-posta ve abonelik katmanı</strong></td><td>Hesap yönetimi, faturalandırma ve destek.</td></tr>
+    <tr><td><strong>Sorular, promptlar ve kaynak dosyalar</strong></td><td>Belgelerinizi derlemek, doğrulamak ve denetlemek için.</td></tr>
+    <tr><td><strong>Derlenmiş taslaklar ve kilit hash&rsquo;leri</strong></td><td>Sürüm geçmişi ve denetim izleri sağlamak için.</td></tr>
+    <tr><td><strong>Denetim günlükleri</strong></td><td>Kullanımı izlemek ve kurumsal müşteriler için güvenliği sürdürmek için.</td></tr>
+    <tr><td><strong>Bekleme listesi başvuruları</strong></td><td>Hizmet başladığında veya beta test kullanıcılarına ihtiyaç duyduğumuzda sizi bilgilendirmek için.</td></tr>
+    <tr><td><strong>API anahtarları</strong></td><td>Yalnızca yerel örneğinizi üçüncü taraf yapay zeka sağlayıcılarına bağlamak için kullanılır. Anahtarlar makinenizden asla ayrılmaz.</td></tr>
+    <tr><td><strong>Kullanım analitiği (isteğe bağlı)</strong></td><td>Plausible aracılığıyla anonimleştirilmiş, toplu kullanım verileri. Kişisel veri toplanmaz.</td></tr>
+  </tbody>
+</table>
+<p class="privacy-emphasis"><strong>Verilerinizi</strong> modellerimizi eğitmek için <strong>kullanmayız</strong>. <strong>Verilerinizi</strong> reklam veya pazarlama amacıyla üçüncü taraflarla satmayız veya paylaşmayız.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="sharing" aria-labelledby="privacy-s3">
+<h2 id="privacy-s3">3. Verilerinizi Paylaşma</h2>
+
+<h3>a. Üçüncü Taraf Yapay Zeka Sağlayıcıları</h3>
+<p>Bağlı bir sağlayıcıya (ör. Claude, Gemini, DeepSeek, Kimi) prompt <strong>Göndermeyi</strong> seçtiğinizde:</p>
+<ul>
+  <li>Sorunuz ve ekli dosyalar seçtiğiniz sağlayıcıya <strong>doğrudan</strong> iletilir.</li>
+  <li>Sağlayıcının kendi şartları ve gizlilik politikaları geçerlidir.</li>
+  <li>Assure, kayıtlı proje geçmişinizin ötesinde ham üçüncü taraf yanıtlarını bağımsız olarak günlüklemez veya saklamaz.</li>
+</ul>
+
+<h3>b. &ldquo;İnternete kapalı&rdquo; Modu</h3>
+<p>&ldquo;İnternete kapalı&rdquo; seçildiğinde:</p>
+<ul>
+  <li>Verileriniz hiçbir harici sağlayıcıya gönderilmez.</li>
+  <li>İşleme Assure&rsquo;un güvenli sunucularında çalışır.</li>
+  <li>Verileriniz Bölüm 1a&rsquo;da açıklandığı gibi Assure sunucularında saklanmaya devam eder.</li>
+</ul>
+
+<h3>c. Hizmet Sağlayıcıları</h3>
+<p>Platformu işletmek için harici hizmetler kullanırız:</p>
+<table>
+  <thead><tr><th scope="col">Hizmet</th><th scope="col">Amaç</th><th scope="col">Paylaşılan Veriler</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Stripe</strong></td><td>Faturalandırma ve ödeme işleme</td><td>E-posta, Stripe müşteri kimliği, ödeme ayrıntıları</td></tr>
+    <tr><td><strong>Supabase</strong></td><td>Hesap ve abonelik yönetimi</td><td>E-posta, abonelik katmanı</td></tr>
+    <tr><td><strong>Clerk</strong></td><td>Kimlik doğrulama ve kullanıcı yönetimi (yapılandırıldığında)</td><td>E-posta, kullanıcı kimliği</td></tr>
+    <tr><td><strong>Plausible</strong></td><td>Anonim kullanım analitiği</td><td>Yalnızca toplu, anonimleştirilmiş veriler</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="rights" aria-labelledby="privacy-s4">
+<h2 id="privacy-s4">4. Haklarınız</h2>
+<p>Yargı alanınıza bağlı olarak (GDPR ve CCPA dahil) aşağıdaki haklara sahip olabilirsiniz:</p>
+<table>
+  <thead><tr><th scope="col">Hak</th><th scope="col">Nasıl Kullanılır</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Erişim</strong></td><td>Hakkınızda tuttuğumuz kişisel verilerin bir kopyasını talep edin.</td></tr>
+    <tr><td><strong>Düzeltme</strong></td><td>Yanlış kişisel verilerin düzeltilmesini talep edin.</td></tr>
+    <tr><td><strong>Silme</strong></td><td>Hesabınızın ve ilişkili verilerin silinmesini talep edin.</td></tr>
+    <tr><td><strong>Veri Taşınabilirliği</strong></td><td>Verilerinizin makine tarafından okunabilir bir kopyasını talep edin.</td></tr>
+    <tr><td><strong>İtiraz / İşlemeyi Kısıtlama</strong></td><td>Belirli işleme türlerine itiraz edin.</td></tr>
+  </tbody>
+</table>
+<p>Bu haklardan herhangi birini kullanmak için bizimle iletişime geçin: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="security" aria-labelledby="privacy-s5">
+<h2 id="privacy-s5">5. Veri Güvenliği</h2>
+<table>
+  <thead><tr><th scope="col">Önlem</th><th scope="col">Açıklama</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sunucu tarafı şifreleme</strong></td><td>Assure sunucularında saklanan tüm veriler beklemede şifrelenir (doğrulanmış bulut altyapısı yapılandırması).</td></tr>
+    <tr><td><strong>Aktarım sırasında şifreleme</strong></td><td>Tarayıcınız ile Assure sunucuları arasında iletilen tüm veriler güvenli aktarım şifrelemesi (TLS) kullanır.</td></tr>
+    <tr><td><strong>Minimum veri saklama</strong></td><td>Veriler yalnızca hizmeti sunmak ve yasal yükümlülüklere uymak için gerekli olduğu sürece saklanır.</td></tr>
+    <tr><td><strong>Eğitim için veri kullanılmaz</strong></td><td>Verilerinizi modellerimizi eğitmek için asla kullanmayız.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="retention" aria-labelledby="privacy-s6">
+<h2 id="privacy-s6">6. Veri Saklama</h2>
+<table>
+  <thead><tr><th scope="col">Veri Türü</th><th scope="col">Saklama Süresi</th></tr></thead>
+  <tbody>
+    <tr><td><strong>E-posta ve abonelik katmanı</strong></td><td>Hesabınız süresince saklanır. Hesap sonlandırıldığında silinir.</td></tr>
+    <tr><td><strong>Stripe müşteri kimliği</strong></td><td>Finansal düzenlemelerin gerektirdiği şekilde faturalandırma ve ödeme geçmişi amacıyla saklanır.</td></tr>
+    <tr><td><strong>Sorular, dosyalar ve taslaklar</strong></td><td>Projeyi açıkça silene, çalışma alanı geçmişinizi temizleyene veya hesabınızı kapatana kadar Assure&rsquo;un güvenli sunucularında saklanır.</td></tr>
+    <tr><td><strong>Kullanım analitiği (Plausible)</strong></td><td>Anonimleştirilmiş ve toplu; kişisel veri saklanmaz.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="children" aria-labelledby="privacy-s7">
+<h2 id="privacy-s7">7. Çocukların Gizliliği</h2>
+<p>Assure AI, 16 yaşından küçük bireyler için tasarlanmamıştır. Bilerek çocuklardan kişisel veri toplamayız. Bir çocuğun bize kişisel veri sağladığını düşünüyorsanız lütfen bizimle iletişime geçin; sileceğiz.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="disclaimer" aria-labelledby="privacy-s8">
+<h2 id="privacy-s8">8. Sorumluluk Reddi &ndash; Yapay Zeka Tarafından Üretilen İçerik</h2>
+<p>Assure AI tarafından üretilen çıktılar, büyük dil modelleri ve deterministik doğrulama motorları tarafından oluşturulur. Doğruluk ve güvenilirlik için çaba göstermemize rağmen, yapay zeka tarafından üretilen herhangi bir içeriğin eksiksizliği, doğruluğu veya amaca uygunluğu hakkında <strong>hiçbir beyan veya garanti vermeyiz</strong>.</p>
+
+<p><strong>Hukuki, finansal veya profesyonel tavsiye değildir.</strong></p>
+<p>Assure AI tarafından üretilen içerik yalnızca bilgilendirme ve taslak hazırlama amacıyla sunulur. Hukuki, finansal, tıbbi veya başka profesyonel tavsiye teşkil etmez. Yapay zeka tarafından üretilen içeriğe dayanarak karar vermeden önce her zaman nitelikli bir profesyonele danışın.</p>
+
+<p><strong>Kullanıcı sorumluluğu.</strong></p>
+<p>Herhangi bir profesyonel, hukuki veya iş bağlamında kullanmadan önce tüm çıktıları incelemek, doğrulamak ve onaylamaktan yalnızca siz sorumlusunuz.</p>
+
+<p><strong>Hallüsinasyonlar ve hatalar.</strong></p>
+<p>Yapay zeka modelleri yanlış, yanıltıcı veya hallüsinatif içerik üretebilir. Assure AI&rsquo;ın doğrulama araçları (Z3, Red-Hat, Substrate Vault) bu riskleri azaltmak için tasarlanmıştır, ancak tamamen ortadan kaldırmaz.</p>
+
+<p><strong>Doğruluk garantisi yoktur.</strong></p>
+<p>Çıktının hatasız, eksiksiz veya güncel olacağını garanti etmeyiz.</p>
+
+<p><strong>Güvenmeye dayalı sorumluluk reddi.</strong></p>
+<p>Yasanın izin verdiği azami ölçüde Assure AI, platform tarafından üretilen çıktılara güvenmenizden kaynaklanan herhangi bir kayıp, hasar veya zarar için tüm sorumluluğu reddeder.</p>
+
+<p><strong>Assure AI&rsquo;ı kullanarak bu sınırlamaları kabul etmiş olursunuz.</strong></p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="dpa" aria-labelledby="privacy-s9">
+<h2 id="privacy-s9">9. Kişisel Veri Belgesi (Veri İşleme Sözleşmesi)</h2>
+<p>GDPR, CCPA veya benzer veri koruma yasalarına tabi yargı alanlarındaki kullanıcılar için bu bölüm, kişisel verilerinizin nasıl işlendiğini özetler.</p>
+
+<h3>a. Veri Sorumlusu ve Veri İşleyen</h3>
+<table>
+  <thead><tr><th scope="col">Rol</th><th scope="col">Taraf</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Veri sorumlusu</strong></td><td>Siz (kullanıcı), sorularınız, belgeleriniz ve promptlarınız için veri sorumlususunuz. Verilerinizin işlenme amaçlarını ve yöntemlerini siz belirlersiniz.</td></tr>
+    <tr><td><strong>Veri işleyen</strong></td><td>Assure AI, yalnızca sizin adınıza ve talimatlarınıza göre verilerinizi işleyen veri işleyen olarak hareket eder.</td></tr>
+  </tbody>
+</table>
+
+<h3>b. İşlenen Kişisel Veri Kategorileri</h3>
+<table>
+  <thead><tr><th scope="col">Kategori</th><th scope="col">Veri Öğeleri</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hesap verileri</strong></td><td>E-posta adresi, abonelik katmanı, Stripe müşteri kimliği</td></tr>
+    <tr><td><strong>Kullanım verileri</strong></td><td>Anonimleştirilmiş, toplu analitik (kişisel tanımlayıcı yok)</td></tr>
+    <tr><td><strong>İçerik verileri</strong></td><td>Sorularınız, promptlarınız, yüklenen dosyalarınız ve derlenmiş taslaklarınız &ndash; AWS sunucularımızda güvenle işlenir ve saklanır</td></tr>
+  </tbody>
+</table>
+
+<h3>c. İşleme Amacı</h3>
+<table>
+  <thead><tr><th scope="col">Amaç</th><th scope="col">Hukuki Dayanak</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Hizmetin sunulması</strong></td><td>Sözleşmenin ifası &ndash; belgelerinizi derlemek, doğrulamak ve denetlemek için</td></tr>
+    <tr><td><strong>Faturalandırma ve hesap yönetimi</strong></td><td>Sözleşmenin ifası &ndash; abonelikleri ve ödemeleri yönetmek için</td></tr>
+    <tr><td><strong>Hizmet iyileştirme</strong></td><td>Meşru menfaat &ndash; anonimleştirilmiş analitik yoluyla platformu geliştirmek için</td></tr>
+  </tbody>
+</table>
+
+<h3>d. Veri Sahibi Hakları</h3>
+<p>Şu haklara sahipsiniz:</p>
+<ul>
+  <li><strong>Erişim</strong> &ndash; kişisel verilerinizin bir kopyasını talep edin</li>
+  <li><strong>Düzeltme</strong> &ndash; yanlış verileri düzeltin</li>
+  <li><strong>Silme</strong> &ndash; hesabınızın ve ilişkili verilerin silinmesini talep edin</li>
+  <li><strong>Taşınabilirlik</strong> &ndash; verilerinizin makine tarafından okunabilir bir kopyasını talep edin</li>
+  <li><strong>İtiraz</strong> &ndash; belirli işleme türlerine itiraz edin</li>
+</ul>
+<p>Bu hakları kullanmak için bizimle iletişime geçin: <a href="mailto:privacy@getassureai.com"><strong>privacy@getassureai.com</strong></a></p>
+
+<h3>e. Veri Aktarımları</h3>
+<p>Bir promptu üçüncü taraf bir sağlayıcıya (ör. Claude, Gemini, DeepSeek) <strong>Gönderdiğinizde</strong>, verileriniz yargı alanınızın dışındaki sunuculara aktarılabilir. Bu sağlayıcılar bağımsız veri sorumlularıdır ve kendi veri koruma politikalarına tabidir.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="transfers" aria-labelledby="privacy-s10">
+<h2 id="privacy-s10">10. Uluslararası Veri Aktarımları</h2>
+<p>Bir soruyu üçüncü taraf bir sağlayıcıya (ör. Claude, Gemini, DeepSeek) <strong>Gönderdiğinizde</strong>, verileriniz ikamet ettiğiniz ülkenin dışındaki sunuculara aktarılabilir. Bu sağlayıcılar kendi veri koruma politikalarına tabidir ve yerel yargı alanınızdaki koruma düzeyini sunmayabilir.</p>
+<p>Assure AI&rsquo;ı kullanarak ve bir sağlayıcı seçerek bu aktarıma onay verirsiniz.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="changes" aria-labelledby="privacy-s11">
+<h2 id="privacy-s11">11. Bu Politikadaki Değişiklikler</h2>
+<p>Bu Gizlilik Politikasını zaman zaman güncelleyebiliriz. En güncel sürüm her zaman <a href="https://getassureai.com/privacy">https://getassureai.com/privacy</a> adresinde mevcut olacaktır. Önemli değişiklikleri workbench veya e-posta yoluyla bildiririz.</p>
+</section>
+
+<hr class="privacy-divider">
+
+<section id="contact" aria-labelledby="privacy-s12">
+<h2 id="privacy-s12">12. Bize Ulaşın</h2>
+<p>Bu Gizlilik Politikası veya verileriniz hakkında sorularınız varsa:</p>
+<p class="privacy-contact"><strong>E-posta:</strong> <a href="mailto:privacy@getassureai.com">privacy@getassureai.com</a></p>
+</section>

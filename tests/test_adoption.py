@@ -54,6 +54,41 @@ def test_parse_model_json_embedded_object():
     assert out[0]["value"] == 32.0
 
 
+def test_parse_model_json_recovers_a_cut_off_answer():
+    """A truncated answer still yields the candidates it did write.
+
+    The measured failure this guards: a memo of coverage limits asks for ~30
+    candidates, the answer is cut off mid-object at the model's output limit, and
+    the whole extraction used to be dropped — the draft then reported "no locks
+    inferred from the draft" and checked none of its figures, while a smaller memo
+    in the same project checked its own. Complete objects are still real
+    extractions; only the cut object is discarded.
+    """
+    content = (
+        '{"candidates":['
+        '{"entity":"Coverage","metric":"limit","value":5000000,"confidence":0.95},'
+        '{"entity":"Coverage","metric":"attachment","value":150000000,"confidence":0.9},'
+        '{"entity":"Coverage","metric":"cut off","val'
+    )
+    out = _parse_model_json(content)
+    assert [c["value"] for c in out] == [5000000.0, 150000000.0]
+    # The same acceptance rules as a clean answer: the low-confidence candidate in
+    # the recovered tail is still dropped.
+    mixed = (
+        '{"candidates":['
+        '{"entity":"Coverage","metric":"kept","value":2500,"confidence":0.95},'
+        '{"entity":"Coverage","metric":"vague","value":900,"confidence":0.2},'
+        '{"entity":"Coverage","metric":"cut'
+    )
+    assert [c["value"] for c in _parse_model_json(mixed)] == [2500.0]
+
+
+def test_parse_model_json_unreadable_answer_is_not_a_ledger():
+    """No candidates key, nothing invented — the failure stays a failure."""
+    assert _parse_model_json("I cannot extract values from that text.") == []
+    assert _parse_model_json('{"candidates": []}') == []
+
+
 def test_resolve_lock_inference_model():
     assert resolve_lock_inference_model(False) == "deepseek/deepseek-chat"
     assert resolve_lock_inference_model(True) == "gemini/gemini-3.6-flash"
@@ -95,6 +130,17 @@ def test_export_audit_manifest(audit_db, monkeypatch):
     from prompt_matrix.web import create_app
 
     client = create_app(require_auth=False).test_client()
+    # The suite runs with SQLITE_USE_POOL=0, so get_db() uses the module-level
+    # DB_PATH; rebind it to this test's file the way the other DB tests do, or
+    # the project row and the audit rows land in different databases.
+    import prompt_matrix.history as history_mod
+
+    history_mod.DB_PATH = history_mod._resolve_db_path()
+    # audit_log declares the FK to projects, so the project an audit row names
+    # has to exist before the row can be written at all.
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("default", "Default project")
     audit = AuditLogger(audit_db)
     audit.log_audit("req-z3", "default", "Z3_VIOLATION", success=False, details={"metric": "ARR"})
     audit.log_audit(

@@ -14,10 +14,10 @@ def test_role_views_executive_hides_draft_tools(page, base_url):
     goto_workbench(page, base_url)
     page.select_option(ROLE_SWITCHER, "executive")
     page.wait_for_function(
-        """() => document.querySelector('.app-sidebar-link[data-tool="surgical"]')?.hidden""",
+        """() => document.querySelectorAll('.app-sidebar-link[data-tool="surgical"]').length === 0""",
         timeout=15_000,
     )
-    assert page.locator('.app-sidebar-link[data-tool="surgical"]').is_hidden()
+    assert page.locator('.app-sidebar-link[data-tool="surgical"]').count() == 0
 
 
 def test_role_views_compliance_shows_analytics(page, base_url):

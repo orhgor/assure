@@ -374,9 +374,18 @@
       var streamWrap = $("generate-stream-wrap");
       if (streamWrap) streamWrap.hidden = !on;
       var btn = $("generate-compile-btn");
-      if (btn) btn.disabled = !!on;
+      if (btn) {
+        btn.disabled = !!on;
+        btn.classList.toggle("is-busy", !!on);
+        btn.setAttribute("aria-busy", on ? "true" : "false");
+      }
       var auditBtn = $("generate-full-audit-btn");
       if (auditBtn) auditBtn.disabled = !!on;
+      var root = $("workbench-root");
+      if (root) {
+        if (on) root.classList.add("is-busy");
+        else root.classList.remove("is-busy");
+      }
       if (on) {
         if (global.setWorkbenchState) global.setWorkbenchState("compiling");
         if (global.AssureFirstCompileCoachmark && typeof global.AssureFirstCompileCoachmark.dismiss === "function") {
@@ -457,6 +466,9 @@
         dockBtn.disabled = true;
         dockBtn.hidden = false;
       });
+      if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+        global.AssureStepper.setPhase("write", "active");
+      }
     },
 
     startDraftStream: function (isRetry, opts) {
@@ -621,6 +633,10 @@
             });
           }
           self.setSummaryVisible(true);
+          document.dispatchEvent(new CustomEvent("assure:compile:complete"));
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("verify", "active");
+          }
           var gateBanner = $("preflight-gate-banner");
           if (gateBanner) gateBanner.hidden = false;
           self.setGateLoading(
@@ -664,6 +680,9 @@
             verifiedDockBtn.disabled = false;
             verifiedDockBtn.hidden = false;
           });
+          if (global.AssureStepper && typeof global.AssureStepper.setPhase === "function") {
+            global.AssureStepper.setPhase("ship", "active");
+          }
           document.dispatchEvent(new CustomEvent("assure:compile:verified"));
           var z3s = ((data.z3_results || {}).z3_status || "UNKNOWN");
           var gutterVerified = z3s === "VIOLATION" ? "error" : "verified";
@@ -689,11 +708,11 @@
           };
           if (global.AssureCompilerStatus) {
             global.AssureCompilerStatus.setLastAction(
-              t("generate.draft_ready", "✅ Draft ready!")
+              t("generate.draft_ready", "Draft ready!")
             );
           }
           if (global.AssureToast) {
-            global.AssureToast.show(t("generate.draft_ready", "✅ Draft ready!"), "success");
+            global.AssureToast.show(t("generate.draft_ready", "Draft ready!"), "success");
           }
           self.mergeAuditManifest(data);
           if (self.fullAudit) {
@@ -736,8 +755,42 @@
               });
             }
           }
+          return;
         }
       }
+
+      // Halt card for streams that end without verdict
+      var streamEnded = false;
+      function showHaltCard(message) {
+        if (streamEnded) return;
+        streamEnded = true;
+        var canvas = global.assureJdfRender && global.assureJdfRender("#jdf-render-target");
+        if (canvas && canvas.renderStateCard) {
+          canvas.renderStateCard("halt", message);
+        }
+      }
+
+      var parser = parseSseLoop(
+        function (event, data) {
+          if (event === "verified" || (event === "complete" && data && data.ok === true)) {
+            streamEnded = true;
+          }
+          if (event === "error" && data && Number(data.http_status) === 422) {
+            streamEnded = true;
+          }
+          handleFrame(event, data);
+        },
+        function () {
+          if (!streamEnded) {
+            showHaltCard("The compile stream ended before the run finished.");
+          }
+        },
+        function (err) {
+          if (!streamEnded) {
+            showHaltCard(String(err && err.message ? err.message : err));
+          }
+        }
+      );
 
       var streamPromise;
       if (postStream) {
@@ -758,7 +811,20 @@
           body: JSON.stringify(requestBody),
           signal: self.controller.signal,
         }).then(function (res) {
-          if (!res.ok || !res.body) throw new Error("Stream failed (" + res.status + ")");
+          if (!res.ok || !res.body) {
+            return res.text().then(function (txt) {
+              var msg = "Stream failed (" + res.status + ")";
+              try {
+                var parsed = JSON.parse(txt);
+                msg = parsed.error || parsed.message || msg;
+              } catch (_) {
+                if (txt && txt.trim()) msg = String(txt).slice(0, 400);
+              }
+              var err = new Error(msg);
+              err.status = res.status;
+              throw err;
+            });
+          }
           var reader = res.body.getReader();
           var decoder = new TextDecoder();
           var buffer = "";
@@ -782,9 +848,13 @@
           self.setCompiling(false);
           self.setPreviewSkeleton(false);
           self.setGateLoading(false);
+          if (global.setWorkbenchState) global.setWorkbenchState("idle");
+          if (typeof global.updateCompilerStatus === "function") {
+            global.updateCompilerStatus("idle");
+          }
           if (global.AssureUnsaved) global.AssureUnsaved.setGenerating(false);
           if (err && err.name === "AbortError") return;
-          if (!self.auditComplete && self._streamRetryCount < 1) {
+          if (!self.auditComplete && self._streamRetryCount < 1 && !(err && err.status >= 400 && err.status < 500)) {
             self._streamRetryCount += 1;
             if (global.AssureToast) {
               global.AssureToast.show(
@@ -799,8 +869,17 @@
             return;
           }
           if (global.AssureToast) {
-            global.AssureToast.show(String(err.message || err), "error");
+            global.AssureToast.show(String((err && err.message) || err || t("generate.failed", "Compilation failed.")), "error");
           }
+        })
+        .then(function () {
+          var btn = $("generate-compile-btn");
+          if (btn) {
+            btn.classList.remove("is-busy");
+            btn.setAttribute("aria-busy", "false");
+          }
+          var root = $("workbench-root");
+          if (root) root.classList.remove("is-busy");
         });
     },
 
@@ -881,72 +960,24 @@
     },
 
     renderAuditGate: function (data) {
-      if (global.AssureAuditGate) {
-        global.AssureAuditGate.renderWorkbenchAudit(data, {
-          z3El: $("z3-status"),
-          redhatEl: $("redhat-preview"),
-          gateBanner: $("preflight-gate-banner"),
-          gateText: $("preflight-gate-text"),
-        });
+      // One Math Check renderer lives in the shell: AssureAuditGate
+      // (static/audit_gate.js, loaded by index.html). The copy that used to be
+      // here rendered the same panel from the same payload and had already
+      // drifted — it never read the Math Check counters, so it could only ever
+      // print a status line. Kept in step by hand it would drift again; the
+      // asset is always present, so this delegates and says so if it is not.
+      if (!global.AssureAuditGate) {
+        if (global.console && global.console.warn) {
+          global.console.warn("audit_gate.js is not loaded: Math Check panel not rendered");
+        }
         return;
       }
-      var z3 = data.z3_results || {};
-      var z3El = $("z3-status");
-      var jdf = global.__assureJdf;
-      if (z3El) {
-        var status = z3.z3_status || z3.status || "UNKNOWN";
-        z3El.hidden = false;
-        z3El.className = "gate-z3-status verification-badge " + (status === "PASS" ? "is-pass" : status === "VIOLATION" ? "is-fail" : "");
-        if (status === "PASS") {
-          z3El.textContent = t("generate.z3.pass", "Z3 verification passed.") +
-            (z3.locks_verified ? " (" + z3.locks_verified + " locks)" : "");
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("verified");
-          } else if (jdf && typeof jdf.setTruthBadge === "function") {
-            jdf.setTruthBadge("PASS");
-          }
-        } else if (status === "VIOLATION") {
-          var viol = (z3.violations || []).join(" ");
-          z3El.textContent = t("generate.z3.fail", "Z3 found contradictions.") + (viol ? " " + viol : "");
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("issues");
-          } else if (jdf && typeof jdf.setTruthBadge === "function") {
-            jdf.setTruthBadge("FAIL");
-          }
-        } else {
-          z3El.textContent = t("generate.z3.skipped", "Z3 verification skipped.");
-        }
-      }
-
-      var critiques = data.redhat_critiques || [];
-      var redhatEl = $("redhat-preview");
-      if (redhatEl) {
-        redhatEl.innerHTML = "";
-        if (critiques.length) {
-          redhatEl.hidden = false;
-          if (typeof global.updateCompilerStatus === "function") {
-            global.updateCompilerStatus("issues");
-          } else if (jdf && typeof jdf.setStressTestStatus === "function") {
-            jdf.setStressTestStatus(critiques.length);
-          }
-          critiques.forEach(function (c) {
-            var li = document.createElement("li");
-            var title = document.createElement("div");
-            title.className = "redhat-preview-title";
-            title.textContent = c.title || t("jdf.redhat.findings", "Stress Test Alert");
-            var body = document.createElement("div");
-            body.textContent = c.content || "";
-            li.appendChild(title);
-            li.appendChild(body);
-            redhatEl.appendChild(li);
-          });
-        } else {
-          redhatEl.hidden = true;
-          if (jdf && typeof jdf.setStressTestStatus === "function") {
-            jdf.setStressTestStatus(0);
-          }
-        }
-      }
+      global.AssureAuditGate.renderWorkbenchAudit(data, {
+        z3El: $("z3-status"),
+        redhatEl: $("redhat-preview"),
+        gateBanner: $("preflight-gate-banner"),
+        gateText: $("preflight-gate-text"),
+      });
     },
 
     acceptAndDock: function () {
@@ -1094,7 +1125,10 @@
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          document: doc,
+          document:
+            typeof global.sanitizeJDFDocument === "function"
+              ? global.sanitizeJDFDocument(doc)
+              : doc,
           mutation_type: "GENERATE_DOCK",
           change_summary: "Generate: docked " + self.compiledNodes.length + " section(s)",
         }),
@@ -1582,12 +1616,63 @@
 
   var AssureFirstCompileCoachmark = {
     _dismissed: false,
+    _step: 0,
+    _steps: [
+      { selector: "#generate-intent", i18n: "coachmark.tour.step1", fallback: "Start here – type your intent" },
+      { selector: "#generate-compile-btn", i18n: "coachmark.tour.step2", fallback: "Click Assemble to compile" },
+      { selector: "#jdf-render-target", i18n: "coachmark.tour.step3", fallback: "See verification results on the canvas" },
+    ],
+
+    _copy: function (step) {
+      var key = this._steps[step] && this._steps[step].i18n;
+      var fallback = this._steps[step] && this._steps[step].fallback;
+      if (typeof global.__assureT === "function") return global.__assureT(key, fallback);
+      return fallback;
+    },
+
+    renderStep: function () {
+      var mark = $("first-compile-coachmark");
+      var copy = $("coachmark-copy");
+      var progress = $("coachmark-progress");
+      var back = $("first-compile-coachmark-back");
+      var next = $("first-compile-coachmark-next");
+      if (!mark) return;
+      var step = this._steps[this._step];
+      if (!step) {
+        this.dismiss();
+        return;
+      }
+      if (copy) {
+        copy.setAttribute("data-i18n", step.i18n);
+        copy.textContent = this._copy(this._step);
+      }
+      if (progress) progress.textContent = this._step + 1 + " / " + this._steps.length;
+      if (back) back.hidden = this._step === 0;
+      if (next) {
+        next.textContent =
+          this._step >= this._steps.length - 1
+            ? (typeof global.__assureT === "function" ? global.__assureT("coachmark.tour.done", "Done") : "Done")
+            : (typeof global.__assureT === "function" ? global.__assureT("coachmark.tour.next", "Next") : "Next");
+      }
+      mark.hidden = false;
+      mark.classList.add("coachmark-tour");
+      mark.dataset.tourStep = String(this._step + 1);
+      var target = document.querySelector(step.selector);
+      var assembleWrap = document.querySelector(".compile-action-row") || mark.parentElement;
+      if (this._step === 1 && assembleWrap) {
+        assembleWrap.appendChild(mark);
+      } else if (target && target.parentElement && this._step !== 1) {
+        target.parentElement.appendChild(mark);
+      }
+    },
 
     check: function (force) {
       if (this._dismissed && !force) return;
       var mark = $("first-compile-coachmark");
-      if (!mark) return;
+      var assemble = $("generate-compile-btn");
+      if (!mark || !assemble) return;
       var pid = projectId();
+      var self = this;
       fetch("/api/projects/" + encodeURIComponent(pid) + "/files", { credentials: "same-origin" })
         .then(function (r) {
           return r.json();
@@ -1596,11 +1681,28 @@
           var manifest = (data && data.manifest) || {};
           var nodes = manifest.lastCompiledOutput || [];
           var empty = !nodes || !nodes.length;
-          if (empty && !AssureFirstCompileCoachmark._dismissed) {
-            mark.hidden = false;
+          var assembleVisible = !!(assemble.offsetParent || assemble.getClientRects().length);
+          if (empty && assembleVisible && !self._dismissed) {
+            self._step = 0;
+            self.renderStep();
           }
         })
         .catch(function () {});
+    },
+
+    next: function () {
+      if (this._step >= this._steps.length - 1) {
+        this.dismiss();
+        return;
+      }
+      this._step += 1;
+      this.renderStep();
+    },
+
+    back: function () {
+      if (this._step <= 0) return;
+      this._step -= 1;
+      this.renderStep();
     },
 
     dismiss: function () {
@@ -1610,10 +1712,23 @@
     },
 
     init: function () {
+      var self = this;
       var dismissBtn = $("first-compile-coachmark-dismiss");
+      var nextBtn = $("first-compile-coachmark-next");
+      var backBtn = $("first-compile-coachmark-back");
       if (dismissBtn) {
         dismissBtn.addEventListener("click", function () {
-          AssureFirstCompileCoachmark.dismiss();
+          self.dismiss();
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener("click", function () {
+          self.next();
+        });
+      }
+      if (backBtn) {
+        backBtn.addEventListener("click", function () {
+          self.back();
         });
       }
       this.check(false);

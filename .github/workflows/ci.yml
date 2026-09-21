@@ -2,11 +2,25 @@ name: CI
 
 on:
   push:
+    branches: [main, staging]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
   pull_request:
+    branches: [main, staging]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -31,11 +45,11 @@ jobs:
             --ignore=tests/test_z3_benchmark.py \
             --ignore=tests/test_z3_explanation.py \
             --ignore=tests/test_inquire_stream.py \
+            --ignore=tests/quality_check/test_visual_regression.py \
             -v
 
       - name: Run Z3-heavy tests serially (prevents segfault)
         run: |
-          # inquire_stream can segfault on process teardown after all tests pass (exit 139).
           pytest tests/test_inquire_stream.py -v || test $? -eq 139
           pytest tests/test_sanitization.py -v || test $? -eq 139
           pytest tests/test_confidence_overlay.py -v || test $? -eq 139
@@ -53,7 +67,9 @@ jobs:
         run: pytest tests/test_z3_benchmark.py -v
 
   playwright-tests:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -69,4 +85,6 @@ jobs:
           playwright install chromium --with-deps
 
       - name: Run Playwright pytest suite
+        env:
+          ASSURE_REQUIRE_LOGIN: "false"
         run: pytest tests/playwright/ -v --tb=short

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assure</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./shell.css">
+</head>
+<body class="right-hidden">
+  <div id="modal-layer" class="modal-layer" hidden></div>
+
+  <!-- ============================================================= -->
+  <!-- ABOUT — the `?` in the header opens the dialog below. Kept here  -->
+  <!-- as a <template> rather than in a JS string so the copy sits with -->
+  <!-- the rest of the shell's text; shell.js clones it into the modal  -->
+  <!-- layer. These five sections are Part A of ./about.html, which is  -->
+  <!-- the same text as a page that can be linked, printed and shared.  -->
+  <!-- ============================================================= -->
+  <template id="about-template">
+    <div class="modal about-modal" role="dialog" aria-modal="true"
+         aria-label="About Assure">
+      <div class="about-body">
+        <h2>What Assure is</h2>
+        <p>A document verification tool.</p>
+        <p>You give it a source and a question. It writes the document — then checks every claim in that document against the source it came from. Each claim carries a verification state, and the check is a flag, not a gate: a paragraph the source does not support is still shown and reported — the run names how many claims were not supported — and the document is produced.</p>
+        <p>Assure does not produce a document its sources cannot ground at all. When claims cannot be traced directly to source evidence they are isolated and flagged for review; a document none of whose claims can be anchored — or fewer than half — is refused outright, and nothing is saved. Whether the source also carries each claim is a separate check, reported per claim.</p>
+
+        <h2>What verification looks like</h2>
+        <p>Three checks run — anchoring, entailment, and the numeral audit on labelled figures.</p>
+        <p>Is there a source for this claim? The claim is matched to a specific sentence or passage in your uploaded material. If nothing matches, the claim is unanchored.</p>
+        <p>Does the source support this claim? The matched passage is read against the claim by a verification model. The verdict is supported, partial, or unsupported.</p>
+        <p>Do the numbers reconcile? A figure the draft states as a labelled measure is checked against the source, independently of the prose. A mismatch flags both values. A draft that states none reports a skipped check, not a pass.</p>
+        <p>The result is a distribution, not a yes/no. The counters in the right pane show it — how many claims anchored, supported, partial, unanchored.</p>
+        <p>Assure treats your sources as untrusted data. Text inside an uploaded source that looks like an instruction is flagged, wrapped as content rather than obeyed, and cannot anchor a claim. A paragraph the source does not support is a flag, not a refusal: it is reported and the document is still produced. What is refused outright is a document that cannot be anchored to its source at all — or fewer than half of whose claims can be.</p>
+
+        <h2>The adversarial layer</h2>
+        <p>Red-Hat reads the verified draft the way a skeptical colleague would. It flags claims stated as fact that the source only implies, and assertions about intent that nothing supports.</p>
+        <p>Findings quote the sentence they're worried about, and — where the paragraph carries one — the source wording behind it; a paragraph with no attached source is reviewed as a self-critique and the pane says so. Click a finding, and the document scrolls to the paragraph it's about. You decide whether to apply the suggested fix.</p>
+        <p>Two defenses, layered — on separate paths. Verification runs in the compile and asks: is this true to the source? Red-Hat runs on demand against the persisted document and asks: is this defensible in your hands?</p>
+
+        <h2>What you'll find in the shell</h2>
+        <p><span class="about-cap">Evidence</span> — click any paragraph. The source, the page, and the quoted sentence the claim was drawn from.</p>
+        <p><span class="about-cap">Math Check</span> — the numeral audit. Every labelled figure, its source line, its verdict; a draft that states none is reported as skipped.</p>
+        <p><span class="about-cap">Red-Hat</span> — the adversarial review, on a path of its own. Runs on demand, on a paragraph, callout or signature node, one at a time; findings on an anchored paragraph carry the source sentence behind them.</p>
+        <p><span class="about-cap">Surgical Edit</span> — click a paragraph or a Red-Hat finding. The rephrase editor opens, pre-filled from a finding. Every version is preserved.</p>
+        <p><span class="about-cap">Compare</span> — two models on the same question, side by side. Read both, keep the one you prefer.</p>
+        <p><span class="about-cap">Search</span> — across your uploaded sources. Click a result to insert it into the working document as an editable paragraph.</p>
+        <p><span class="about-cap">Export</span> — a dossier: the compiled document, each claim's verification state, the source manifest with a hash per source, the version chain and the model that wrote it — with the readable memo as a PDF. One download for a colleague or an auditor.</p>
+
+        <h2>What's underneath</h2>
+        <p>Your sources are stored as text in the project's own database, and the dossier carries each source's name, size and hash. The model that does the writing can be swapped without touching your data. Nothing here locks you in.</p>
+        <p>This is a preview running for evaluation. Production ships with your authentication and deployment options.</p>
+
+        <a class="about-more" href="./about.html">Read more</a>
+      </div>
+    </div>
+  </template>
+
+  <!-- ============================================================= -->
+  <!-- HEADER (56px). A grid that mirrors the pane widths, so the     -->
+  <!-- version control sits over the document column: 280 | 1fr | 320  -->
+  <!-- ============================================================= -->
+  <header class="app-header" role="banner">
+    <div class="app-header-left">
+      <span class="app-brand">
+        <span class="app-brand-name">Assure</span>
+      </span>
+      <div class="project-switcher">
+        <button type="button" id="project-switcher" class="project-switcher-btn" aria-haspopup="true" aria-expanded="false" title="Switch project">
+          <span id="project-current-name">workspace</span>
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div id="project-switcher-panel" class="project-switcher-panel" hidden>
+          <button type="button" id="project-new-btn" class="project-new-btn">+ New project</button>
+          <div id="project-list" class="project-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="app-header-center">
+      <!-- Version control: out of the document pane, in the header's middle
+           cell, over the document column (Phase C / D9). Hidden until the
+           document has more than one version. -->
+      <nav class="version" id="version-chip" aria-label="Document versions" hidden>
+        <button type="button" id="version-prev" class="version-arrow" aria-label="Previous version">&#9664;</button>
+        <button type="button" id="version-label" class="version-label" aria-haspopup="true" aria-expanded="false"></button>
+        <button type="button" id="version-next" class="version-arrow" aria-label="Next version">&#9654;</button>
+        <div id="version-dropdown" class="version-dropdown" hidden></div>
+      </nav>
+    </div>
+    <div class="app-header-right actions">
+      <span id="signoff-indicator" class="signoff-indicator" title="Sign-off status">&#9679; Draft</span>
+      <!-- The About mark: a hairline circle, no fill. Its accessible name is
+           the dialog it opens, so a screen reader never announces "question
+           mark". -->
+      <button type="button" id="about-btn" class="about-btn"
+              aria-haspopup="dialog" aria-label="About Assure"
+              title="About Assure">?</button>
+      <button type="button" class="btn-secondary" id="export-btn">Export</button>
+    </div>
+  </header>
+
+  <!-- Compile progress: a 2px line under the header, filling left to right -->
+  <div class="app-progress" id="app-progress" aria-hidden="true" hidden><i></i></div>
+
+  <div class="app-shell">
+
+    <!-- ============================================================= -->
+    <!-- ICON RAIL (48px, always on)                                   -->
+    <!-- ============================================================= -->
+    <aside class="rail rail-left" aria-label="Navigation rail">
+      <div class="rail-logo" title="Assure AI">
+        <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
+          <text x="16" y="22" text-anchor="middle" fill="currentColor"
+                font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="14">A</text>
+        </svg>
+      </div>
+      <!-- D1: below 900px a pane is an overlay, so opening it cannot be done
+           from inside it. The rail carries the opener; above 900px the pane's
+           own header does, and this button is not rendered. -->
+      <button type="button" class="rail-btn rail-pane-open" id="left-open"
+              aria-label="Sources and compiler" title="Sources and compiler">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <line x1="9" y1="4" x2="9" y2="20"></line>
+        </svg>
+      </button>
+    </aside>
+
+    <!-- ============================================================= -->
+    <!-- LEFT PANE (280px, collapsible, starts open)                   -->
+    <!-- ============================================================= -->
+    <aside class="pane pane-left" aria-label="Sources & Compiler">
+      <header class="pane-header">
+        <div class="mode-toggle" role="tablist" aria-label="Left pane mode">
+          <button type="button" class="mode-tab" data-left-tab="sources" role="tab" aria-selected="false" aria-controls="left-sources" aria-label="Sources" title="Sources">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+          <button type="button" class="mode-tab is-active" data-left-tab="compiler" role="tab" aria-selected="true" aria-controls="left-compiler" aria-label="Compiler" title="Compiler">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"></path>
+            </svg>
+          </button>
+          <button type="button" class="mode-tab" data-left-tab="history" role="tab" aria-selected="false" aria-controls="left-history" aria-label="History" title="History">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+              <polyline points="3 3 3 8 8 8"></polyline>
+              <polyline points="12 7 12 12 15 15"></polyline>
+            </svg>
+          </button>
+        </div>
+        <button type="button" class="pane-collapse" id="left-collapse" aria-label="Collapse left pane" title="Collapse">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </header>
+
+      <div id="left-sources" class="pane-mode" role="tabpanel" style="display:none;">
+        <div class="pane-body">
+          <p class="empty-hint">Upload a .pdf, .txt or .md to ground this project.</p>
+          <button type="button" class="btn-secondary" id="source-upload-btn">Upload source document</button>
+          <input type="file" id="source-file-input" accept=".pdf,.txt,.md,.csv,.json,application/pdf,text/plain,text/markdown" style="display:none;">
+          <div id="source-list" class="source-list"></div>
+        </div>
+      </div>
+
+      <!-- The compiler pane: a stack of sections. Each one is a label and its
+           value, separated by whitespace; a section with no value is hidden
+           rather than rendered as a dash (D3, D4, E). -->
+      <div id="left-compiler" class="pane-mode" role="tabpanel">
+        <div class="pane-body pane-body-sections">
+          <section class="pane-section" id="section-ask" data-state="empty">
+            <h3>Your ask</h3>
+            <div id="compiler-ask" class="val"></div>
+          </section>
+          <section class="pane-section" id="section-route">
+            <h3>Routed to</h3>
+            <div id="compiler-route" class="mono"></div>
+          </section>
+          <!-- STAGES sits above the compiled prompt: the run's progress has to
+               be visible without scrolling at 1440 and 1920, and the prompt is
+               the one section that can grow. -->
+          <section class="pane-section" id="section-stages">
+            <h3>Stages</h3>
+            <ul class="stages-list" role="list">
+              <li class="stage-row" data-stage="Retrieve"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Retrieve</span></li>
+              <li class="stage-row" data-stage="Draft"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Draft</span></li>
+              <li class="stage-row" data-stage="Anchor"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Anchor</span></li>
+              <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name">Verify</span></li>
+            </ul>
+          </section>
+          <section class="pane-section" id="section-manifest">
+            <div class="pane-section-head">
+              <h3>Sources</h3>
+              <!-- A7 — the PDF ingest belongs with the sources it feeds, not in
+                   the prompt dock: the dock is where a question is asked, and a
+                   control that changes the grounding surface sat beside it as if
+                   it were part of the ask. The id is kept (the shell and the e2e
+                   specs address this control by it). -->
+              <button type="button" id="dock-ingest" title="Ingest PDF">Ingest PDF</button>
+              <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
+            </div>
+            <div id="source-manifest" class="manifest"></div>
+          </section>
+          <section class="pane-section" id="section-prompt" data-state="empty">
+            <h3>Compiled prompt</h3>
+            <pre id="compiler-prompt" class="mono"></pre>
+          </section>
+        </div>
+      </div>
+
+      <div id="left-history" class="pane-mode" role="tabpanel" style="display:none;">
+        <div class="pane-body">
+          <p class="empty-hint">Your versions appear here after your first draft.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============================================================= -->
+    <!-- CENTER (flex, document + docked prompt)                       -->
+    <!-- ============================================================= -->
+    <main class="center" aria-label="Workspace">
+      <!-- Intent Compilation panel slot: holds the compile panel (while
+           compiling) or the one-line summary (after Run); empty otherwise. -->
+      <section id="intent-panel-slot" aria-label="Intent compilation"></section>
+      <section class="doc-surface" aria-label="Document"></section>
+
+      <footer class="dock" aria-label="Prompt input">
+        <div class="dock-input" id="dock-input-wrap">
+          <input type="text"
+                 class="dock-text"
+                 id="dock-text"
+                 aria-label="Draft intent"
+                 placeholder="Draft intent"
+                 autocomplete="off"
+                 spellcheck="false">
+          <button type="button" class="dock-submit" id="dock-submit" aria-label="Submit">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="dock-jdf" id="dock-jdf">
+          <input type="text" id="dock-search" aria-label="Search documents" placeholder="Search documents" autocomplete="off" spellcheck="false">
+          <div id="dock-search-results" hidden></div>
+        </div>
+      </footer>
+    </main>
+
+    <!-- ============================================================= -->
+    <!-- RIGHT PANE (320px, collapsible)                               -->
+    <!-- ============================================================= -->
+    <aside class="pane pane-right" aria-label="Inspector & Compare" id="pane-right">
+      <header class="pane-header">
+        <div class="mode-toggle" role="tablist" aria-label="Right pane mode">
+          <button type="button" class="mode-tab is-active" data-right-tab="evidence" role="tab" aria-selected="true" aria-controls="right-evidence">Evidence</button>
+          <button type="button" class="mode-tab" data-right-tab="z3" role="tab" aria-selected="false" aria-controls="right-z3">Math check (Z3)</button>
+          <button type="button" class="mode-tab" data-right-tab="redhat" role="tab" aria-selected="false" aria-controls="right-redhat">Red-Hat</button>
+        </div>
+        <button type="button" id="compare-toggle" aria-label="Compare" title="Compare">⇄</button>
+        <button type="button" class="pane-close" id="right-close" aria-label="Close pipeline pane" title="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        <!-- The document's margin marks, named once, in the pane that reports
+             them. Every item is the shape the paragraph carries: the item's own
+             left rule is the state's rule (solid / dashed / doubled / dotted),
+             the glyph is the chip's glyph, and the word is the state's name.
+             Colour is the fourth channel, never the first: this audience prints
+             in black and white. -->
+        <div class="state-legend pane-legend" role="note" aria-label="Verification states">
+          <span class="state-legend-item anchor-supported"><b aria-hidden="true">&#10003;</b><span data-i18n="state.supported">Supported</span></span>
+          <span class="state-legend-item anchor-partial"><b aria-hidden="true">~</b><span data-i18n="state.partial">Partial</span></span>
+          <span class="state-legend-item anchor-unsupported"><b aria-hidden="true">&#10007;</b><span data-i18n="state.unsupported">Contradicted</span></span>
+          <span class="state-legend-item anchor-anchored"><b aria-hidden="true">?</b><span data-i18n="state.anchored">Not confirmed</span></span>
+          <span class="state-legend-item anchor-unanchored"><b aria-hidden="true">&#8212;</b><span data-i18n="state.unanchored">No source</span></span>
+        </div>
+      </header>
+
+      <!-- The counters: the pane's at-rest state, always visible at the top.
+           They read as a verification summary rather than as a dashboard, in
+           the order a reader checks a document: what cites a source, what the
+           source carries, what the source denies, what nothing was found for.
+           Tabular numerals; zero reads muted, a live number reads ink. -->
+      <section class="pane-section" id="counters-section" aria-label="Claim counters">
+        <table class="counters">
+          <tbody>
+            <tr>
+              <td>
+                <div class="counter-label" id="counter-label-anchored" data-i18n="counter.label.anchored">Anchored</div>
+                <div class="counter-value is-zero" id="count-anchored">0</div>
+              </td>
+              <td>
+                <div class="counter-label" id="counter-label-supported" data-i18n="counter.label.supported">Supported</div>
+                <div class="counter-value is-zero" id="count-supported">0</div>
+                <!-- Partial counts inside Supported, so it is a line under the
+                     number rather than a tile beside it: a fifth tile read as a
+                     fifth bucket, and the legend had to explain it away. -->
+                <div class="counter-sub" id="counter-sub-supported" hidden><span data-i18n="counter.label.partial">Partial</span> <span class="counter-sub-value" id="count-supported-partial">0</span></div>
+              </td>
+            </tr>
+            <tr>
+              <td id="counter-unsupported-cell">
+                <div class="counter-label" id="counter-label-unsupported" data-i18n="counter.label.unsupported">Not supported</div>
+                <div class="counter-value is-zero" id="count-unsupported">0</div>
+                <!-- The one counter that is a finding rather than a state. When
+                     it is non-zero it says so in words under the number, in the
+                     same glyph the paragraph carries in the document margin. -->
+                <div class="counter-note" id="counter-note-unsupported" hidden>
+                  <span class="counter-note-mark" aria-hidden="true">&#10007;</span>
+                  <span data-i18n="counter.unsupported.note">the source does not carry these claims</span>
+                </div>
+              </td>
+              <td>
+                <div class="counter-label" id="counter-label-unanchored" data-i18n="counter.label.unanchored">Unanchored</div>
+                <div class="counter-value is-zero" id="count-unanchored">0</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="counter-line" id="counter-line" hidden></p>
+        <!-- 2C.6: the same eligible paragraphs, split by where the cited
+             source came from — an uploaded file or a page fetched from an
+             allowlisted domain. Hidden until the source list has been read,
+             because an unread list is not an empty one. -->
+        <p class="counter-line counter-origin" id="counter-origin-line" hidden></p>
+        <!-- The counters are a breakdown, not a partition: Anchored is the total
+             that cites a source, and Partial counts inside Supported
+             (services/audit_summary._provenance_counts). The legend says so,
+             because the row is only checkable if it does. -->
+        <p class="counter-legend" id="counter-legend" hidden data-i18n="counter.legend">Anchored = the paragraph cites a source · Supported = the source carries the claim, wholly or in part · Partial counts inside Supported · Not supported = the source check found the claim is not in the sentence it cites · Unanchored = no source cited. Anchored + Unanchored = the eligible paragraphs.</p>
+      </section>
+
+      <div id="right-inspector" class="pane-mode">
+        <div id="right-evidence" class="pane-body" role="tabpanel"></div>
+        <div id="right-z3" class="pane-body" role="tabpanel" hidden></div>
+        <div id="right-redhat" class="pane-body" role="tabpanel" hidden></div>
+        <details id="right-node-history" class="inspector-node-history">
+          <summary>Node history</summary>
+          <ul id="right-node-history-list"></ul>
+        </details>
+      </div>
+      <div id="right-compare" class="pane-mode" style="display:none;">
+        <div class="pane-body compare-body" id="compare-body" role="tabpanel">
+          <p class="empty-hint">Run a draft first, then compare.</p>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="rail rail-right" aria-label="Right pane rail">
+      <nav class="rail-nav" aria-label="Right pane">
+        <button type="button" class="rail-btn rail-pane-open" id="right-open"
+                aria-label="Inspector" title="Inspector">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="15" y1="4" x2="15" y2="20"></line>
+          </svg>
+        </button>
+        <button type="button" class="rail-btn" data-rail-btn="swap" aria-label="Compare" title="Compare">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h13l-3-3"></path>
+            <path d="M20 17H7l3 3"></path>
+          </svg>
+        </button>
+      </nav>
+    </aside>
+
+    <div class="pane-resizer" id="resize-left"  role="separator"
+         aria-orientation="vertical" aria-label="Resize left pane"
+         aria-valuemin="200" aria-valuemax="600" aria-valuenow="280"
+         tabindex="0"></div>
+    <div class="pane-resizer" id="resize-right" role="separator"
+         aria-orientation="vertical" aria-label="Resize right pane"
+         aria-valuemin="320" aria-valuemax="720" aria-valuenow="320"
+         tabindex="0"></div>
+
+  </div>
+
+  <script src="./shell.js" defer></script>
+  <script src="./wow_effects.js" defer></script>
+</body>
+</html>

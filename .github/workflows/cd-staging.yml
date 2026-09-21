@@ -17,11 +17,15 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 20
     environment: staging
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,11 +51,14 @@ jobs:
             ${{ env.IMAGE_NAME }}:staging
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           build-args: |
-            ASSURE_BUILD_SHA=${{ github.sha }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ github.run_id }}
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
+    timeout-minutes: 15
     environment: staging
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:

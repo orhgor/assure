@@ -62,9 +62,43 @@ sudo -u ubuntu git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin
 sudo -u ubuntu git fetch origin ${GIT_BRANCH}
 sudo -u ubuntu git checkout -B ${GIT_BRANCH} origin/${GIT_BRANCH}
 sudo -u ubuntu git log -1 --oneline
-sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' ASSURE_DEPLOY_BRANCH='${GIT_BRANCH}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
+sudo -u ubuntu env GHCR_TOKEN='${GHCR_TOKEN}' GHCR_USER='${GHCR_USER}' ASSURE_IMAGE_TAG='${ASSURE_IMAGE_TAG}' ASSURE_ENVIRONMENT='${ASSURE_ENVIRONMENT}' ASSURE_DEPLOY_BRANCH='${GIT_BRANCH}' ASSURE_SSM_BACKGROUND=1 ASSURE_DEPLOY_PULL_ONLY=1 ASSURE_HEALTH_URL='${ASSURE_HEALTH_URL:-}' bash scripts/aws/redeploy-app.sh ${REDEPLOY_ARGS}
 echo ---HEALTH---
-curl -sf http://127.0.0.1:8765/health || true
+# Postflight gate. The workflow treats this script's SSM status as "deploy
+# done", so success must mean the app on this box is serving. A stale
+# container left over from an earlier compose project answers on the same
+# port, so a bare 200 is not enough: when the payload carries a build_sha,
+# require it to be the revision just checked out. ABSENT build_sha (staging
+# today) can only be gated on 200 — reported, not hidden.
+HEALTH_URL="${ASSURE_HEALTH_URL:-http://127.0.0.1:8765/health}"
+DEPLOY_LOG="${ASSURE_DEPLOY_LOG:-/var/log/assure-deploy.log}"
+DEPLOYED_SHA="\$(sudo -u ubuntu git -C /home/ubuntu/assure rev-parse --short HEAD 2>/dev/null || true)"
+health_ok=0
+served_sha=""
+for i in \$(seq 1 20); do
+  if curl -sf "\$HEALTH_URL" >/tmp/assure-ssm-health.json 2>/dev/null && [[ -s /tmp/assure-ssm-health.json ]]; then
+    served_sha="\$(sed -n 's/.*"build_sha"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /tmp/assure-ssm-health.json | head -1)"
+    if [[ -z "\$served_sha" || -z "\${DEPLOYED_SHA}" || "\$served_sha" == "\${DEPLOYED_SHA}"* ]]; then
+      health_ok=1
+      break
+    fi
+  fi
+  sleep 3
+done
+cat /tmp/assure-ssm-health.json 2>/dev/null || true
+if [[ "\$health_ok" != "1" ]]; then
+  echo "HEALTH_TIMEOUT: \${HEALTH_URL} served no 200 for this deploy within 60s"
+  if [[ -n "\$served_sha" ]]; then
+    echo "  served build_sha=\$served_sha expected=\${DEPLOYED_SHA}"
+  fi
+  tail -n 20 "\$DEPLOY_LOG" 2>/dev/null || true
+  exit 1
+fi
+if [[ -n "\$served_sha" ]]; then
+  echo "health: ok build_sha=\$served_sha"
+else
+  echo "health: ok (payload has no build_sha — served revision unverified)"
+fi
 SCRIPT
 
 B64="$(base64 < "$BODY" | tr -d '\n')"
@@ -83,8 +117,8 @@ CMD_ID="$(aws ssm send-command \
 echo "Command ID: $CMD_ID"
 echo "Polling..."
 
-POLL_SEC="${ASSURE_SSM_POLL_SEC:-15}"
-POLL_MAX="${ASSURE_SSM_POLL_MAX:-40}"
+POLL_SEC="${ASSURE_SSM_POLL_SEC:-10}"
+POLL_MAX="${ASSURE_SSM_POLL_MAX:-24}"
 STATUS="Pending"
 
 for i in $(seq 1 "$POLL_MAX"); do
@@ -111,6 +145,7 @@ echo "$INVOCATION" > /tmp/assure-ssm-redeploy.json
 
 python3 - <<'PY'
 import json
+import sys
 p = json.load(open("/tmp/assure-ssm-redeploy.json"))
 print("=== SSM status ===", p.get("Status"))
 out = p.get("StandardOutputContent") or ""
@@ -118,14 +153,22 @@ err = p.get("StandardErrorContent") or ""
 for line in out.splitlines():
     if any(k in line for k in ("HEAD:", "Pull", "Pulling", "Started", "OK:", "FAIL:", "Done.", "build_sha", "css_version")):
         print(line)
+health_block = ""
 if "---HEALTH---" in out:
-    block = out.split("---HEALTH---", 1)[1].strip()
+    health_block = out.split("---HEALTH---", 1)[1].strip()
     print("=== Loopback health ===")
-    print(block[:2000])
+    print(health_block[:2000])
 if err.strip():
     print("=== stderr (tail) ===")
     print("\n".join(err.splitlines()[-15:]))
 if p.get("Status") != "Success":
+    raise SystemExit(1)
+# Terminal postflight assertion: SSM Success only means the remote script
+# exited 0, which now requires the on-box gate to have printed its pass line.
+# Declare success here only when that line is actually present.
+if "health: ok" not in health_block:
+    print("=== Postflight ===")
+    print("no 'health: ok' from the box — deploy unverified", file=sys.stderr)
     raise SystemExit(1)
 PY
 
@@ -133,17 +176,22 @@ if [[ "${SSM_STRICT_HEALTH:-}" == "1" ]]; then
   curl -sf "https://getassureai.com/health" >/dev/null || exit 1
 fi
 
-if curl -sf "https://getassureai.com/health" | python3 -c "
+PUBLIC_HEALTH_URL="${ASSURE_PUBLIC_HEALTH_URL:-https://staging.getassureai.com/health}"
+if [[ "$GIT_BRANCH" == "main" ]]; then
+  PUBLIC_HEALTH_URL="${ASSURE_PUBLIC_HEALTH_URL:-https://getassureai.com/health}"
+fi
+if curl -sf "$PUBLIC_HEALTH_URL" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 ui = d.get('ui') or {}
 print('=== Public health ===')
+print('url:', sys.argv[1] if len(sys.argv) > 1 else '')
 print('build_sha:', d.get('build_sha'))
 print('css_version:', ui.get('css_version'))
 print('js_version:', ui.get('js_version'))
 print('status:', d.get('status'))
-" 2>/dev/null; then
-  echo "Hard refresh https://getassureai.com (Cmd+Shift+R)."
+" "$PUBLIC_HEALTH_URL" 2>/dev/null; then
+  echo "Hard refresh ${PUBLIC_HEALTH_URL%/health} (Cmd+Shift+R)."
 else
-  echo "Public /health not reachable yet (tunnel may be warming up)." >&2
+  echo "Public /health not reachable yet (tunnel may be warming up): ${PUBLIC_HEALTH_URL}" >&2
 fi

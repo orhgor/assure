@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from typing import Callable, TypeVar
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, Iterator, TypeVar
 
 T = TypeVar("T")
 
@@ -12,11 +14,297 @@ DB_LOCKED_MAX_RETRIES = 3
 DB_LOCKED_BACKOFF_S = 0.5
 
 try:
-    from ..history import _apply_pragmas, _new_connection, get_db
+    from ..db.open_connections import note_connection_open
+    from ..history import (
+        _apply_pragmas,
+        _new_connection,
+        _release_direct_connection,
+        _resolve_db_path,
+        _rollback_quietly,
+        db_scope,
+        get_db,
+    )
 except ImportError:
-    from history import _apply_pragmas, _new_connection, get_db
+    from db.open_connections import note_connection_open
+    from history import (
+        _apply_pragmas,
+        _new_connection,
+        _release_direct_connection,
+        _resolve_db_path,
+        _rollback_quietly,
+        db_scope,
+        get_db,
+    )
 
-_SCHEMA_VERSION = 19
+# The migration counter. It gates the _migrate_vN functions below against the
+# schema_migrations table, so it moves only when a new migration step is added.
+#
+# The seven FOREIGN KEY clauses on the tables a project delete orphans — audit_log,
+# jdf_documents, node_revisions, pipeline_cache, project_budgets,
+# token_ledger_entries, user_activity_log — are declarations inside
+# CREATE TABLE IF NOT EXISTS. They reach a database that does not have the table
+# yet (a fresh install, CI, this repo's tests) and leave an existing one alone,
+# where the constraint comes from scripts/aws/migrate_fk_constraints.py instead.
+# SQLite cannot add a foreign key to an existing table, so there is no migration
+# step to write and the version stays where it is: bumping it would either do
+# nothing or record a step that never ran.
+_SCHEMA_VERSION = 25
+
+
+def _migrate_v25(db: sqlite3.Connection) -> None:
+    """Substrate Vault: the ingest scan for instruction-like source content.
+
+    Flagged at ingest, read by the SOURCES pane and by the compile, which wraps
+    a flagged source's text in the untrusted-data delimiter
+    (``services/compile_guard``). The source still ingests — the user's document
+    is the user's document — so the flag is a label, not a gate.
+    """
+    if not _column_exists(db, "substrate_vault", "instruction_like"):
+        db.execute(
+            "ALTER TABLE substrate_vault ADD COLUMN instruction_like INTEGER NOT NULL DEFAULT 0"
+        )
+    if not _column_exists(db, "substrate_vault", "instruction_hits"):
+        db.execute(
+            "ALTER TABLE substrate_vault ADD COLUMN instruction_hits TEXT NOT NULL DEFAULT '[]'"
+        )
+
+
+def _migrate_v24(db: sqlite3.Connection) -> None:
+    """Red-Hat multi-pass audit live telemetry for founder drawer polling."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_audit_telemetry (
+            project_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL DEFAULT '',
+            run_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            pass1_complete INTEGER NOT NULL DEFAULT 0,
+            pass2_running INTEGER NOT NULL DEFAULT 0,
+            findings_json TEXT NOT NULL DEFAULT '[]',
+            error TEXT NOT NULL DEFAULT '',
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _migrate_v23(db: sqlite3.Connection) -> None:
+    """Multi-pass Red-Hat — block hash cache and audit concurrency locks."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_cache (
+            block_hash TEXT PRIMARY KEY,
+            findings_json TEXT NOT NULL,
+            pass1_model TEXT NOT NULL DEFAULT '',
+            pass2_model TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_redhat_cache_hash ON redhat_cache(block_hash)")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_audit_locks (
+            project_id TEXT PRIMARY KEY,
+            active_task_id TEXT NOT NULL DEFAULT '',
+            generation INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _migrate_v22(db: sqlite3.Connection) -> None:
+    """Founder workbench Phase 2 — Red-Hat findings on runs."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS redhat_findings (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'medium',
+            suggested_fix TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'open',
+            dismissal_rationale TEXT NOT NULL DEFAULT '',
+            model_used TEXT NOT NULL DEFAULT '',
+            highlight_text TEXT NOT NULL DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (run_id) REFERENCES runs(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_redhat_findings_run ON redhat_findings(run_id, created_at DESC)"
+    )
+
+
+def _migrate_v21(db: sqlite3.Connection) -> None:
+    """Founder workbench Phase 1 — runs and drafts."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS runs (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT,
+            directive TEXT NOT NULL,
+            content TEXT NOT NULL,
+            model TEXT NOT NULL DEFAULT 'gemini',
+            sources_used TEXT NOT NULL DEFAULT '[]',
+            extracted_locks TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE SET NULL
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_runs_workspace ON runs(workspace_id, created_at DESC)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS drafts (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL UNIQUE,
+            content TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (workspace_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+def _migrate_v20(db: sqlite3.Connection) -> None:
+    """Big Four ICP templates — research dossier + refreshed copy."""
+    import json as _json
+
+    def _structure(template_id: str, fallback: dict) -> dict:
+        row = db.execute(
+            "SELECT jdf_structure FROM project_templates WHERE id = ?",
+            (template_id,),
+        ).fetchone()
+        if not row or not row[0]:
+            return fallback
+        try:
+            return _json.loads(row[0])
+        except (TypeError, ValueError):
+            return fallback
+
+    research_dossier = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-summary",
+                "title": "Executive Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-sources",
+                "title": "Source Map",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-citations",
+                "title": "Verified Citations",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+    contract_default = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-parties",
+                "title": "Parties & Scope",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-risks",
+                "title": "Risk Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+    compliance_default = {
+        "body": [
+            {
+                "type": "section",
+                "id": "sec-compliance",
+                "title": "Executive Summary",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+            {
+                "type": "section",
+                "id": "sec-findings",
+                "title": "Findings",
+                "children": [],
+                "meta": {},
+                "annotations": {"redhat": [], "z3": []},
+            },
+        ]
+    }
+
+    rows = [
+        (
+            "research-dossier",
+            "Research Dossier",
+            research_dossier,
+            (
+                "Synthesize scattered findings, map each claim to primary sources, "
+                "and verify citations before publishing."
+            ),
+            ["sources.zip"],
+        ),
+        (
+            "compliance-memo",
+            "Compliance Memo",
+            _structure("compliance-memo", compliance_default),
+            (
+                "Audit regulatory filings, policies, and statutory statements "
+                "against binding guidelines."
+            ),
+            ["policy-handbook.pdf"],
+        ),
+        (
+            "contract-review",
+            "Contract Review",
+            _structure("contract-review", contract_default),
+            "Cross-check terms, redlines, and commitments across multi-party agreements.",
+            ["contract.pdf"],
+        ),
+        ("blank", "Blank Workspace", {"body": []}, "", []),
+    ]
+    for tid, name, structure, prompt, sources in rows:
+        db.execute(
+            """
+            INSERT INTO project_templates
+              (id, name, jdf_structure, default_prompt, suggested_sources)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              jdf_structure = excluded.jdf_structure,
+              default_prompt = excluded.default_prompt,
+              suggested_sources = excluded.suggested_sources
+            """,
+            (tid, name, _json.dumps(structure), prompt, _json.dumps(sources)),
+        )
 
 
 def _migrate_v19(db: sqlite3.Connection) -> None:
@@ -87,7 +375,8 @@ def _migrate_v17(db: sqlite3.Connection) -> None:
             project_id TEXT,
             action TEXT NOT NULL,
             details TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -368,7 +657,8 @@ def _migrate_v13(db: sqlite3.Connection) -> None:
             mutation_type TEXT NOT NULL DEFAULT 'NODE_UPDATE',
             change_summary TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (project_id, node_id, version)
+            UNIQUE (project_id, node_id, version),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -389,7 +679,8 @@ def _migrate_v12(db: sqlite3.Connection) -> None:
             project_id TEXT NOT NULL,
             kind TEXT NOT NULL,
             payload_json TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -513,8 +804,37 @@ def _migrate_v3(db: sqlite3.Connection) -> None:
 
 
 def init_db(conn: sqlite3.Connection | None = None) -> None:
-    """Create or migrate tables on startup. Safe to call repeatedly."""
-    db = conn or get_db()
+    """Create or migrate tables on startup. Safe to call repeatedly.
+
+    A migration that fails half way used to leave its DDL uncommitted on whatever
+    connection it was given — the request-scoped one, for the callers that reach it
+    through `get_db()`. Both damages that follow are the family's: the connection
+    holds SQLite's write lock while the failed migration waits for a commit that
+    will never come, and whoever commits that connection next — the request's own
+    write — commits the partial migration along with it. Rolled back here, on the
+    failure path, before the error travels.
+
+    Given no connection, it takes one from `db_scope()`: this is called by nearly
+    every repository function, so an unscoped `get_db()` here was the single
+    largest source of the unreturned checkouts db_scope measures.
+    """
+    if conn is not None:
+        _migrations_guarded(conn)
+        return
+    with db_scope() as db:
+        _migrations_guarded(db)
+
+
+def _migrations_guarded(db: sqlite3.Connection) -> None:
+    """Run the migrations, rolling back whatever a failure left pending."""
+    try:
+        _migrate_db(db)
+    except BaseException:
+        _rollback_quietly(db)
+        raise
+
+
+def _migrate_db(db: sqlite3.Connection) -> None:
     db.execute("PRAGMA journal_mode=WAL;")
     db.execute("PRAGMA busy_timeout=5000;")
     _apply_pragmas(db)
@@ -571,7 +891,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             token_limit INTEGER NOT NULL DEFAULT 250000,
             tokens_used INTEGER NOT NULL DEFAULT 0,
             last_reset DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -587,7 +908,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             cache_read_tokens INTEGER DEFAULT 0,
             cache_write_tokens INTEGER DEFAULT 0,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            meta TEXT
+            meta TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -597,7 +919,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             project_id TEXT PRIMARY KEY,
             document_id TEXT NOT NULL,
             tree_json TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -615,7 +938,8 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
             error_type TEXT,
             error_message TEXT,
             details TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         )
         """
     )
@@ -673,6 +997,18 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
         _migrate_v18(db)
     if current < 19:
         _migrate_v19(db)
+    if current < 20:
+        _migrate_v20(db)
+    if current < 21:
+        _migrate_v21(db)
+    if current < 22:
+        _migrate_v22(db)
+    if current < 23:
+        _migrate_v23(db)
+    if current < 24:
+        _migrate_v24(db)
+    if current < 25:
+        _migrate_v25(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
@@ -694,13 +1030,15 @@ def _connect_with_retry() -> sqlite3.Connection:
             _apply_pragmas(conn)
             conn.execute("SELECT 1")
             return conn
-        except sqlite3.OperationalError as exc:
+        except BaseException as exc:
+            # Every failure here abandons the connection that was just opened — a
+            # retry opens another one — so it is released before either the retry
+            # (a lock, worth another attempt) or the raise (anything else, but a
+            # DatabaseError from a pragma reaches here too) is decided.
+            _release_direct_connection(conn)
+            if not isinstance(exc, sqlite3.OperationalError):
+                raise
             last_exc = exc
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
             if "locked" not in str(exc).lower() or attempt >= DB_LOCKED_MAX_RETRIES - 1:
                 raise
             time.sleep(DB_LOCKED_BACKOFF_S * (attempt + 1))
@@ -731,9 +1069,43 @@ def run_with_db_retry(
     raise sqlite3.OperationalError("database is locked")
 
 
+@contextmanager
+def closing_connection(
+    path: str | Path | None = None,
+    *,
+    timeout: float = 5.0,
+    site: str = "db.connection.closing_connection",
+) -> Iterator[sqlite3.Connection]:
+    """A direct connection that is rolled back and closed on every path.
+
+    For the callers that need a connection *of their own* rather than the
+    request-scoped `get_db()` handle: the audit trail, the metrics collector, the
+    /health probes, the compliance export. They open their connection, do their
+    work and close it inside one `try`, and their handler swallows the failure —
+    because a metrics sample or an audit row is best-effort by design. What that
+    shape hid is the connection itself: when anything between the connect and the
+    close raised, the connection stayed open, holding the write lock of whatever
+    statement had just failed, and the next writer — a different connection
+    entirely — waited on that lock and timed out. That is the family.
+
+    The failure policy stays with the caller; the resource does not. Rolled back
+    before the close so the lock goes with it, and closed in a `finally` so the
+    policy cannot outlive the block.
+    """
+    conn = sqlite3.connect(
+        str(path if path is not None else _resolve_db_path()), timeout=timeout
+    )
+    note_connection_open(conn, site=site)
+    try:
+        conn.row_factory = sqlite3.Row
+        _apply_pragmas(conn)
+        yield conn
+    finally:
+        _release_direct_connection(conn)
+
+
 def open_connection() -> sqlite3.Connection:
     return _connect_with_retry()
-
 
 try:
     from sqlalchemy.exc import OperationalError as SAOperationalError

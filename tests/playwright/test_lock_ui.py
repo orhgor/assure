@@ -20,6 +20,10 @@ def _fresh_project(page: Page, base_url: str) -> str:
     assert created.status in (200, 201)
     project_id = created.json()["id"]
     page.goto(f"{root}/app?project={project_id}", wait_until="domcontentloaded")
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    from tests.playwright.helpers import enter_compiler
+
+    enter_compiler(page, project_id)
     page.evaluate(
         """(pid) => {
           window.__ASSURE_PROJECT_ID__ = pid;
@@ -57,6 +61,9 @@ def test_lock_document(page: Page, base_url: str):
     assert lock_response.status == 200
 
     page.reload(wait_until="domcontentloaded")
+    from tests.playwright.helpers import enter_compiler
+
+    enter_compiler(page, project_id)
     page.evaluate(
         """(pid) => { window.__ASSURE_PROJECT_ID__ = pid; }""",
         project_id,

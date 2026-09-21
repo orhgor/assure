@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
-# Multi-stage: sentry bundle → Python deps → slim runtime.
-# Keep CPU ML wheels out of this image; runtime deps are requirements.txt plus gunicorn.
+# Multi-stage: sentry bundle → Python deps → node/jdf CLI → slim runtime.
+# Runtime carries every parse path the app can take: poppler, PyMuPDF and
+# Docling from requirements.txt, plus node and the jdf CLI for
+# services/jdf_converter.py.
 
 FROM node:22-slim AS sentry
 WORKDIR /build
@@ -24,26 +26,51 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+FROM python:3.11-slim AS jdfcli
+# The JDF CLI is TypeScript; its bin shim is `#!/usr/bin/env node`. The app
+# shells out to it from services/jdf_converter.py, so the runtime image needs
+# both the interpreter and the package.
+WORKDIR /jdfcli
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @uurtech/jdf-cli
+
 FROM python:3.11-slim AS runtime
 WORKDIR /app
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PORT=8765 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    USE_DOCLING=1
-
-ARG ASSURE_BUILD_SHA=unknown
-ENV ASSURE_BUILD_SHA=${ASSURE_BUILD_SHA}
+    USE_DOCLING=0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends poppler-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# node + the jdf CLI. jdf_converter.py looks for `jdf` on PATH and falls back to
+# /opt/node-*/bin/jdf; both now resolve.
+COPY --from=jdfcli /usr/bin/node /usr/bin/node
+COPY --from=jdfcli /usr/lib/node_modules /usr/lib/node_modules
+RUN ln -sf /usr/lib/node_modules/@uurtech/jdf-cli/dist/index.js /usr/local/bin/jdf \
+    && chmod +x /usr/lib/node_modules/@uurtech/jdf-cli/dist/index.js
 
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 COPY --from=sentry /build/prompt_matrix/static/sentry.bundle.js prompt_matrix/static/sentry.bundle.js
 COPY --from=sentry /build/prompt_matrix/static/tiptap.bundle.js prompt_matrix/static/tiptap.bundle.js
+
+# Build metadata args - placed AFTER dependency installation to preserve their cache
+ARG BUILD_SHA=unknown
+ARG BUILD_BRANCH=unknown
+ARG BUILD_TIME=unknown
+
+ENV ASSURE_BUILD_SHA=${BUILD_SHA} \
+    ASSURE_BUILD_BRANCH=${BUILD_BRANCH} \
+    ASSURE_BUILD_TIME=${BUILD_TIME}
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8765') + '/api/health', timeout=3)"

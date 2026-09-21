@@ -64,7 +64,7 @@
       if (ok) {
         var badge = document.createElement("span");
         badge.className = "lw-badge ok";
-        badge.textContent = t("landing.demo.badge.locked", "✅ Verified");
+        badge.textContent = t("landing.demo.badge.locked", "Verified");
         card.appendChild(badge);
       }
       astCards.appendChild(card);

@@ -15,6 +15,13 @@ htmlcov/
 .env.*.local
 .env.production
 .env.staging
+.env.staging.bak-*
+.env*
+*.env.bak
+# An example file is committed on purpose: it names the variables a
+# deployment needs without carrying their values, so the broad rule above
+# must not swallow it (a protected secret and a blinded reader are two bugs).
+!.env*.example
 
 # Logs
 *.log
@@ -22,7 +29,9 @@ logs/
 
 # Build outputs
 dist/
+dist-test-render/
 build/
+.cache/
 
 # IDE
 .vscode/
@@ -30,12 +39,10 @@ build/
 *.iml
 
 # Test artifacts
-openuser/screenshots/
-openuser/results/*.jsonl
-
 # Temporary files
 *.tmp
 *.temp
+*.bak-*
 
 # Virtual environments
 .venv/
@@ -48,17 +55,15 @@ scripts/aws/.tunnel-credentials.json
 
 # OS / editor
 .DS_Store
+._*
 .cursor/settings.json
 
 # App data (local)
 prompt_matrix/library.json
-prompt_matrix/history.sqlite
 prompt_matrix/projects/
 data/
 data-staging/
-*.sqlite
-*.sqlite-wal
-*.sqlite-shm
+*.sqlite*
 
 # Swarm / worktrees
 .swarm_history
@@ -70,3 +75,6 @@ worker/node_modules/
 
 # One-off scripts (local)
 scripts/apply_jobs_copy.py
+CLINE_RULES.md
+test-results/
+test-results/

@@ -94,28 +94,3 @@ def run_workflow_task(
         "run_hash": getattr(result, "run_hash", None),
     }
 
-
-@celery_app.task(name="assure.ground_substrate", bind=True)
-def ground_substrate_task(
-    self,
-    project_id: str,
-    substrate_ids: list[str],
-    query: str,
-) -> dict[str, Any]:
-    """Ground a query against selected substrate vault entries."""
-    try:
-        from prompt_matrix.db.substrate_repository import fetch_substrate_entries_by_ids
-    except ImportError:
-        from db.substrate_repository import fetch_substrate_entries_by_ids
-
-    rows = fetch_substrate_entries_by_ids(project_id, substrate_ids)
-    chunks = [str(r.get("extracted_text") or "") for r in rows if isinstance(r, dict)]
-    context = "\n\n".join(chunks)
-    return {
-        "task_id": self.request.id,
-        "project_id": project_id,
-        "substrate_count": len(rows),
-        "context_chars": len(context),
-        "context_preview": context[:2000],
-        "query": query,
-    }

@@ -30,6 +30,11 @@ def limit_client(tmp_path, monkeypatch):
 
 def test_daily_compile_limit_blocks_after_cap(limit_client, monkeypatch):
     client, _db = limit_client
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    # ``daily_compile_limits.project_id`` is a FK to ``projects(id)``, so the
+    # stream's counter needs the project to exist.
+    ensure_project("limit-proj", "Limit")
 
     def fake_stream(*_a, **_k):
         yield 'data: {"event":"done"}\n\n'
@@ -48,8 +53,10 @@ def test_daily_compile_limit_blocks_after_cap(limit_client, monkeypatch):
 
 def test_daily_compile_limit_counter(limit_client):
     _client, db_path = limit_client
+    from prompt_matrix.db.jdf_repository import ensure_project
     from prompt_matrix.rate_limits import increment_daily_compile_limit
 
+    ensure_project("counter-proj", "Counter")
     increment_daily_compile_limit("counter-proj")
     increment_daily_compile_limit("counter-proj")
     conn = sqlite3.connect(db_path)

@@ -22,8 +22,12 @@ def test_project_templates_list(client):
     assert data["ok"] is True
     ids = {t["id"] for t in data["templates"]}
     assert "compliance-memo" in ids
-    assert "research-paper" in ids
+    assert "research-dossier" in ids
+    assert "contract-review" in ids
     assert "blank" in ids
+    assert len(data["templates"]) == 4
+    names = {t["id"]: t.get("name") for t in data["templates"]}
+    assert names["research-dossier"] == "Research Dossier"
 
 
 def test_prompts_crud(client):

@@ -7,11 +7,14 @@ import uuid
 from typing import Any
 
 from flask import jsonify, request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 try:
+    from ..db.drafts_repository import upsert_draft
+    from ..db.document_lock_repository import is_version_locked
     from ..db.jdf_repository import (
         RevisionConflict,
+        current_document_version,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -26,19 +29,19 @@ try:
     from ..lib.sanitize import sanitize_jdf_node
     from ..middleware import project_ownership_required
     from ..models.jdf import (
-        JDFDocumentTree,
-        document_to_dict,
         insert_node_after_anchor,
         parse_document,
         splice_node,
     )
+    from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
-    from ..db.document_lock_repository import is_version_locked
-    from ..db.jdf_repository import current_document_version
 except ImportError:
+    from db.drafts_repository import upsert_draft
+    from db.document_lock_repository import is_version_locked
     from db.jdf_repository import (
         RevisionConflict,
+        current_document_version,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
         list_jdf_revisions,
@@ -53,20 +56,27 @@ except ImportError:
     from lib.sanitize import sanitize_jdf_node
     from middleware import project_ownership_required
     from models.jdf import (
-        JDFDocumentTree,
-        document_to_dict,
         insert_node_after_anchor,
         parse_document,
         splice_node,
     )
+    from services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
-    from db.document_lock_repository import is_version_locked
-    from db.jdf_repository import current_document_version
+
+
+class RestoreJDFPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    version: int
+    workspace_id: str | None = None
 
 
 class SaveJDFPayload(BaseModel):
-    document: JDFDocumentTree | None = None
+    model_config = ConfigDict(extra="ignore")
+
+    document: dict[str, Any] | None = None
+    title: str | None = None
     mutation_type: str = "NODE_DOCK"
     target_node_id: str | None = None
     insert_after_id: str | None = None
@@ -75,6 +85,22 @@ class SaveJDFPayload(BaseModel):
     id: str | None = None
     node_data: dict[str, Any] | None = None
     expected_version: int | None = None
+
+
+def _incoming_document(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
+    raw = dict(payload.document or {})
+    raw.pop("type", None)
+    root_title = raw.pop("title", None)
+    if not str(raw.get("document_id") or "").strip():
+        raw["document_id"] = f"doc-{project_id}"
+    meta = dict(raw.get("meta") or {})
+    chosen = (payload.title or root_title or "").strip()
+    if chosen:
+        meta["title"] = chosen
+    raw["meta"] = meta
+    raw.setdefault("truth_ledger", {})
+    raw.setdefault("body", [])
+    return raw
 
 
 def _conflict_payload(exc: RevisionConflict):
@@ -93,9 +119,14 @@ def _conflict_payload(exc: RevisionConflict):
 
 def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     if payload.document is not None:
-        tree = document_to_dict(payload.document)
+        tree = parse_document(_incoming_document(payload, project_id)).model_dump(mode="json")
     else:
         tree = fetch_latest_jdf_or_empty(project_id)
+        chosen = (payload.title or "").strip()
+        if chosen:
+            meta = dict(tree.get("meta") or {})
+            meta["title"] = chosen
+            tree["meta"] = meta
 
     if payload.new_node and payload.insert_after_id:
         tree, _ = insert_node_after_anchor(tree, payload.insert_after_id, payload.new_node)
@@ -107,17 +138,91 @@ def _resolve_tree(payload: SaveJDFPayload, project_id: str) -> dict[str, Any]:
     return tree
 
 
+def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
+    """Serve every provenance row with its page under ``page_number``.
+
+    A cited row is stamped ``{extracted_quote, source_name, page, cited_id}``
+    (``routers/draft.py:attach_citations_to_tree``) — the page under the name the
+    substrate rows use — while the matcher's rows and every reader on this side
+    (the Evidence pane, the JDF canvas, the source list, the .docx export) read
+    ``page_number``. ``models.jdf.JDFProvenance`` keeps both names, so a served
+    row may carry either, and a reader would otherwise have to know the alias.
+    The read path settles it once, here, in place on the document this response is
+    built from: ``fetch_latest_jdf_or_empty`` decodes a fresh copy per call and
+    nothing is written back to SQLite.
+
+    The fold converts to ``page_number``'s declared type — a ``str`` — because the
+    two names do not agree on one: ``page`` is the substrate row's ``int``
+    (``models.jdf.JDFProvenance.page``) while ``page_number`` is the matcher's
+    ``str``. Serving the int verbatim made this response unparseable by the model
+    it was serialised from, so every route that takes the shell's own document
+    back refused it before a model was called — measured on the demo project:
+    ``parse_document`` raised 180 validation errors (one per provenance row) and
+    the room's own "Run Red-Hat" answered ``Invalid document: 180 validation
+    errors``. A display fold must not cross a type boundary: whatever this
+    function serves has to round-trip through ``parse_document``.
+    """
+    for section in document.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        for node in (section, *(section.get("children") or [])):
+            if not isinstance(node, dict):
+                continue
+            for row in node.get("provenance") or []:
+                if not isinstance(row, dict):
+                    continue
+                if row.get("page_number") in (None, ""):
+                    page = row.get("page")
+                    if page not in (None, ""):
+                        row["page_number"] = str(page)
+    return document
+
+
 def register_jdf_routes(app) -> None:
     @app.get("/api/projects/<project_id>/history")
     @project_ownership_required
     def get_project_history(project_id: str):
         revisions = list_jdf_revisions(project_id)
-        return jsonify({"ok": True, "revisions": revisions, "count": len(revisions)})
+        history = [
+            {
+                "version": row["version"],
+                "timestamp": row.get("created_at"),
+                "mutation_type": row.get("mutation_type"),
+                "change_summary": row.get("change_summary"),
+            }
+            for row in revisions
+        ]
+        return jsonify(
+            {
+                "ok": True,
+                "revisions": revisions,
+                "history": history,
+                "count": len(revisions),
+            }
+        )
+
+    @app.post("/api/projects/<project_id>/restore")
+    @project_ownership_required
+    def restore_project_version(project_id: str):
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = RestoreJDFPayload.model_validate(data)
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        if payload.version < 1:
+            return jsonify({"ok": False, "error": "version must be a positive integer"}), 400
+        doc = fetch_jdf_at_version(project_id, payload.version)
+        if doc is None:
+            return jsonify({"ok": False, "error": f"version {payload.version} not found"}), 404
+        workspace_id = (payload.workspace_id or project_id).strip() or project_id
+        upsert_draft(workspace_id=workspace_id, content=doc)
+        return jsonify({"ok": True, "document": doc, "version": payload.version})
 
     @app.get("/api/projects/<project_id>/jdf")
     @project_ownership_required
     def get_project_jdf(project_id: str):
         version_raw = request.args.get("version")
+        include_omp = request.args.get("include_omp", "false").lower() in ("1", "true", "yes")
         if version_raw is not None:
             try:
                 version = int(version_raw)
@@ -126,12 +231,31 @@ def register_jdf_routes(app) -> None:
             doc = fetch_jdf_at_version(project_id, version)
             if doc is None:
                 return jsonify({"error": f"version {version} not found"}), 404
-            return jsonify({"ok": True, "document": doc, "version": version})
+            if include_omp:
+                omp_artifact_ids = get_omp_linkages_for_revision(f"rev-{project_id}-{version}")
+                doc["ompArtifactIds"] = omp_artifact_ids
+            return jsonify(
+                {"ok": True, "document": _serve_citation_rows(doc), "version": version}
+            )
 
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
-        return jsonify({"ok": True, "document": doc})
+        if include_omp:
+            doc["ompArtifactIds"] = doc.get("ompArtifactIds") or doc.get("meta", {}).get("ompArtifactIds") or []
+        return jsonify({"ok": True, "document": _serve_citation_rows(doc)})
+
+    @app.get("/api/projects/<project_id>/omp")
+    @project_ownership_required
+    def get_project_omp(project_id: str):
+        from ..services.omp import list_omp_artifacts
+        artifact_type = request.args.get("type")
+        omp_artifacts = list_omp_artifacts(project_id, artifact_type=artifact_type)
+        return jsonify({
+            "ok": True,
+            "artifacts": [a.to_dict() for a in omp_artifacts],
+            "count": len(omp_artifacts),
+        })
 
     @app.put("/api/projects/<project_id>/jdf")
     @project_ownership_required
@@ -181,6 +305,18 @@ def register_jdf_routes(app) -> None:
                     change_summary=payload.change_summary,
                     expected_version=expected,
                 )
+
+                # Save OMP linkages if present in JDF meta
+                meta = tree.get("meta", {})
+                omp_artifact_ids = meta.get("ompArtifactIds") or []
+                source_artifact_ids = meta.get("sourceArtifactIds") or []
+                all_omp_ids = list(set(omp_artifact_ids + source_artifact_ids))
+                if all_omp_ids:
+                    try:
+                        save_omp_linkage(project_id, result.get("revision_id", ""), all_omp_ids)
+                    except Exception:
+                        pass
+
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,
@@ -218,6 +354,85 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             raise
+
+    @app.post("/api/projects/<project_id>/import-jdf")
+    @project_ownership_required
+    def import_project_jdf(project_id: str):
+        """Load a exported ``.jdf`` (or a bare JDF tree) into a project.
+
+        This is the other half of the export: the file a reader took away has to
+        come back as the document that was exported, with its verification state
+        and its anchors, or "nothing locks you in" is a slogan. The response
+        carries ``round_trip`` — the document hash against the one the sidecar
+        declared, every anchor resolved against the manifest the file brought with
+        it, and the per-state node counts — so a document that lost an anchor
+        fails a number here instead of failing silently in a reader's hands.
+        """
+        request_id = str(uuid.uuid4())
+        start_time = time.perf_counter()
+        audit = get_audit_logger()
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"ok": False, "error": "Provide the .jdf as a JSON body."}), 400
+        source = sidecar_document(payload)
+        if not isinstance(source.get("body"), list) or not source.get("body"):
+            return jsonify({"ok": False, "error": "JDF body is missing or empty."}), 400
+        try:
+            tree = sanitize_jdf_node(
+                parse_document(
+                    {
+                        "document_id": str(source.get("document_id") or f"doc-{project_id}"),
+                        "meta": dict(source.get("meta") or {}),
+                        "truth_ledger": dict(source.get("truth_ledger") or {}),
+                        "body": source.get("body") or [],
+                    }
+                ).model_dump(mode="json")
+            )
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_exception(
+                request_id, project_id, "JDF_IMPORT", exc, duration_ms=duration_ms
+            )
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+        report = audit_jdf_payload(
+            {
+                "format": payload.get("format"),
+                "document_sha256": payload.get("document_sha256"),
+                "source_manifest": payload.get("source_manifest"),
+                "document": tree,
+            }
+        )
+        try:
+            result = save_jdf_revision(
+                project_id,
+                tree,
+                mutation_type="JDF_IMPORT",
+                change_summary=(
+                    f"Imported JDF ({report['anchors_resolved']}/{report['anchors_total']} "
+                    "anchors resolved)"
+                ),
+            )
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            audit.log_exception(
+                request_id, project_id, "JDF_IMPORT", exc, duration_ms=duration_ms
+            )
+            return jsonify({"ok": False, "error": str(exc)}), 500
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        audit.log_audit(
+            request_id,
+            project_id,
+            "JDF_IMPORT",
+            success=True,
+            duration_ms=duration_ms,
+            details={
+                "anchors_total": report["anchors_total"],
+                "anchors_resolved": report["anchors_resolved"],
+                "document_sha256_matches": report["document_sha256_matches"],
+            },
+        )
+        return jsonify({**result, "ok": True, "round_trip": report})
 
     @app.post("/api/projects/<project_id>/import-pdf")
     @project_ownership_required

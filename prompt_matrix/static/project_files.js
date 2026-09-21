@@ -87,6 +87,9 @@
     return fetchFiles(id).then(function (data) {
       if (!data || !data.ok) return data;
       applySource(data.source_md || "");
+      if (!(data.source_md || "").trim() && global.AssureUnsaved && typeof global.AssureUnsaved.restoreDraftIfEmpty === "function") {
+        global.AssureUnsaved.restoreDraftIfEmpty();
+      }
       var restored = applyCompiledToCanvas(data.manifest || {});
       if (restored && global.AssureToast) {
         var msg = "Restored the last compiled document.";

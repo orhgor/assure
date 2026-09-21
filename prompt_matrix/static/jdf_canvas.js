@@ -424,6 +424,76 @@
     return wrap;
   };
 
+  // State card constants and rendering
+  JDFCanvasManager.prototype._stateCardTexts = {
+    halt: {
+      line: "This compile stopped before the document was verified. Nothing was saved.",
+      mode: "failed"
+    },
+    refusal: {
+      line: "This document could not be grounded in the source. Nothing was saved.",
+      mode: "refused"
+    },
+    prereq: {
+      line: "Add a source to compile. Assure grounds every claim against the source you provide.",
+      mode: "empty"
+    }
+  };
+
+  JDFCanvasManager.prototype.renderStateCard = function (type, message) {
+    if (!this.rootEl) return;
+    var texts = this._stateCardTexts[type] || this._stateCardTexts.halt;
+    var lineText = texts.line;
+    var mode = texts.mode;
+    var cls = "doc-" + type;
+
+    // Clear existing state cards and draft
+    this._clearStateCards();
+
+    var card = document.createElement("div");
+    card.className = cls;
+    card.setAttribute("role", "status");
+    if (message) card.title = String(message);
+
+    var line = document.createElement("p");
+    line.className = "doc-state-line";
+    line.textContent = lineText;
+    card.appendChild(line);
+
+    if (message) {
+      var msgEl = document.createElement("p");
+      msgEl.className = "doc-state-message";
+      msgEl.textContent = message;
+      card.appendChild(msgEl);
+    }
+
+    this.rootEl.appendChild(card);
+    this.rootEl.setAttribute("data-mode", mode);
+  };
+
+  JDFCanvasManager.prototype._clearStateCards = function () {
+    if (!this.rootEl) return;
+    var existing = this.rootEl.querySelectorAll(".doc-halt, .doc-refusal, .doc-prereq");
+    for (var i = 0; i < existing.length; i++) existing[i].remove();
+  };
+
+  JDFCanvasManager.prototype.clearDocument = function () {
+    if (!this.rootEl) return;
+    this._clearStateCards();
+    this.rootEl.innerHTML = "";
+    this.rootEl.removeAttribute("data-mode");
+  };
+
+  JDFCanvasManager.prototype.getCanvasMode = function () {
+    if (!this.rootEl) return "empty";
+    return this.rootEl.getAttribute("data-mode") || "empty";
+  };
+
+  JDFCanvasManager.prototype.setCanvasMode = function (mode) {
+    if (!this.rootEl) return;
+    this.rootEl.setAttribute("data-mode", mode);
+  }
+
   JDFCanvasManager.prototype.renderSkeleton = function (count) {
     if (!this.rootEl) return;
     this.rootEl.innerHTML = "";
@@ -446,7 +516,7 @@
     }
   };
 
-    JDFCanvasManager.prototype.loadProject = function () {
+  JDFCanvasManager.prototype.loadProject = function () {
     var self = this;
     if (this.isFirstLoad) {
       this.renderSkeleton(4);
@@ -711,12 +781,12 @@
     if (status === "PASS") {
       this.currentVerificationState = "verified";
       this._compilerIssueCount = 0;
-      this._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
+      this._syncCompilerStatus("verified", jdfT("compiler.status.verified", "Verified"));
       this._triggerLockAnimation();
     } else if (status === "FAIL") {
       this.currentVerificationState = "issues";
       this._compilerIssueCount = violationCount || 1;
-      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "❌ Issues Found"));
+      this._syncCompilerStatus("issues", jdfT("compiler.status.issues", "Issues Found"));
     } else {
       this.currentVerificationState = null;
       if (!this.isStreaming) {
@@ -731,6 +801,9 @@
     callout: ["type", "id", "variant", "title", "content", "annotations"],
     table: ["type", "id", "caption", "headers", "rows", "bound_entities", "annotations"],
     document: ["document_id", "meta", "truth_ledger", "body"],
+    image: ["type", "id", "src", "alt", "caption", "width", "height", "meta", "annotations"],
+    signature: ["type", "id", "signer_name", "signed_at", "content", "meta", "annotations"],
+    checkbox: ["type", "id", "label", "checked", "meta", "annotations"],
   };
 
   function sanitizeJDFNode(node) {
@@ -807,7 +880,7 @@
             mutationType === "MUTATION_ACCEPT" ||
             mutationType === "NODE_UPDATE")
         ) {
-          self._syncCompilerStatus("verified", jdfT("compiler.status.verified", "✅ Verified"));
+          self._syncCompilerStatus("verified", jdfT("compiler.status.verified", "Verified"));
         }
         self.loadRevisionHistory();
         return data;
@@ -1564,9 +1637,14 @@
       "aria-label",
       jdfT("jdf.citation.badge", "Citations") + " " + provList.length
     );
-    badge.innerHTML =
-      "📎 " +
-      jdfT("jdf.citation.count", "{count} source(s)", { count: String(provList.length) });
+    if (typeof global.AssureLucideIcon === "function") {
+      badge.appendChild(global.AssureLucideIcon(document, "paperclip"));
+    }
+    badge.appendChild(
+      document.createTextNode(
+        " " + jdfT("jdf.citation.count", "{count} source(s)", { count: String(provList.length) })
+      )
+    );
     var details = document.createElement("div");
     details.className = "citation-details";
     details.hidden = true;

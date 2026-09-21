@@ -1,18 +1,35 @@
 # Assure Workbench — Current UI State
 
 **Purpose:** Baseline for the next UI propagation prompt (revise, add, enhance).
-**Branch / deploy snapshot:** Git `36e532a` (PR #6 merged to `staging` and `main`). Live staging `/health` still `f04ec7f`; live production still `bac3d40` (Actions deploy blocked on billing).
+**Branch / deploy snapshot:** Git `staging` @ `3cb82a7` (PRs #46–#51). **Production live** `f4e2d20` / `assure-127`. **Staging EC2** **healthy** — UI `assure-140`, free stack (`gemini-3.6-flash` + DeepSeek), ~9.6 GB disk free.
 **Live inventory (product):** `docs/product-status.md` (current snapshot) · `docs/assure-ai-all-functions.md` §3.
 
-### What changed since the last status pass
+### Planned next — research synthesis (PR 1 / PR 2)
 
-| Area | Before (assessment) | Now (this branch) |
-|------|---------------------|-------------------|
-| Action phases | Broken 3–4 column grid; Audit empty; Accept & Dock ×3 | **Lifecycle stepper** with 4 numbered steps + Red-Hat button; **one** Accept & Dock |
-| Analytics | Full-page `/analytics` redirect; charts unstyled / oversized | **Embedded** `#view-analytics` in workbench; 280px chart cards |
-| Provenance | Drawer existed, `hidden` toggle, no slide | **Slide-in** `#provenance-panel-drawer.is-open` |
-| Advanced | Checkbox under the phase row | **Advanced** button in stepper header; checkbox visually hidden |
-| Wow effects | Bolt-on (laser, stamps, x-ray, graph) | **Unchanged** — still a parallel layer |
+**Spec:** [runbooks/research-synthesis-pr1-pr2.md](./runbooks/research-synthesis-pr1-pr2.md)
+**Blocked on:** golden path Steps 5–10 (Red-Hat multi-pass, benchmark, export complete). Staging infra recovered 2026-09-10.
+
+| Gap today | PR 1 fix | Persistence |
+|-----------|----------|-------------|
+| No run detail modal | `GET /api/runs/<id>` + UI modal | Already on server |
+| No iterate from prior run | `parent_run_id` + `previous_context` on `POST /api/runs` | SQLite `runs` v23 |
+| Verify/Red-Hat only per-run | `POST /api/drafts/verify`, `/api/drafts/redhat` | EC2 pipeline |
+| No draft version history | `draft_snapshots` table + snapshot/restore APIs | SQLite — **not** LocalStorage |
+| Compare / merge | PR 2 — client diff + selective insert to Active Draft | Draft via existing `PUT /api/drafts` |
+
+Active draft autosave already uses **`PUT /api/drafts`** → `drafts` table (`founder_draft.js`).
+
+---
+
+### What changed since the last status pass (2026-09-08)
+
+| Area | Before | Now (on `staging` git) |
+|------|--------|------------------------|
+| Layout shell | Multi-column sidebar + canvas | **Founder shell** — 48px `#state-rail` + 320px runs column + canvas (`48px \| 320px \| 1fr`) |
+| Runs / filters | Single list | **`#runs-stack`** with `data-filter`, empty states, card button hierarchy |
+| Hotkeys | Unguarded | **Shift+1–5** state filters; **Cmd+K** guarded in `command_bar.js` + `workbench_ux.js` |
+| Compile pipeline | Inline stream | **Orchestrator** SSE — tokens → parse claims → `verification_complete` lock pills |
+| Header | Show Workspaces / Active Draft eyebrow | Removed; document title **Untitled Document** |
 
 ---
 
@@ -87,7 +104,7 @@
 | Question | Answer |
 |----------|--------|
 | **7.1 Remaining UI issues** | (1) **Wow stack still cluttered** — gutter + overlay + stamp + check + ⓘ. (2) **Dual diff** (left panel + x-ray). (3) **Reasoning graph** orphaned in footer. (4) **Full Audit** re-runs compile. (5) **Active Works** dashboard hierarchy not addressed. (6) Standalone **`/analytics`** page remains (backend unchanged). (7) Chart dataset labels **hardcoded English**. (8) Dead CSS for `#generate-accept-dock`. (9) Docs drift (`assure-ai-all-functions.md`, `product-status.md`). (10) Production behind this branch. |
-| **7.2 User feedback** | Still **no structured pilot quotes** in repo. Empty `docs/demo/insurance-boston-real-estate/feedback-template.md`. |
+| **7.2 User feedback** | Still **no structured pilot quotes** in repo. Empty `docs/demo/insurance-boston-real-estate/feedback-template.md` — moved off this branch 2026-09-18, now on `test-fixtures` (`git show test-fixtures:docs/demo/insurance-boston-real-estate/feedback-template.md`). |
 
 ---
 
@@ -148,6 +165,9 @@ Still true:
 | Shell / markup | `prompt_matrix/templates/index.html` |
 | Styles | `prompt_matrix/static/style.css` |
 | Stepper | `prompt_matrix/static/workbench_stepper.js` |
+| Founder shell / state rail | `prompt_matrix/static/founder_shell.js`, `state_rail.js`, `runs_stack.js` |
+| Orchestrator / command bar | `prompt_matrix/services/orchestrator.py`, `static/command_bar.js`, `static/orchestrator.js`, `routers/orchestrator_routes.py` |
+| Polish Main | `prompt_matrix/services/polish_document.py`, `static/founder_polish.js`, `routers/polish_routes.py` |
 | Compile / SSE / dock | `prompt_matrix/static/generate.js` |
 | Nav | `prompt_matrix/static/app_nav.js` |
 | Analytics | `prompt_matrix/static/analytics.js` (`templates/analytics.html` leftover) |
@@ -155,7 +175,7 @@ Still true:
 | Provenance | `prompt_matrix/static/provenance_panel.js` |
 | Roles / clarity | `prompt_matrix/static/role_workbench.js`, `workbench_clarity.js` |
 | i18n | `prompt_matrix/i18n.py` — includes `stepper.title`, `stepper.advanced`, `generate.redhat_short` in all 7 locales |
-| Tests | `tests/playwright/test_ui_revision_sprint.py`, `test_action_grouping.py`, `test_clarity.py`, `test_provenance_panel.py` |
+| Tests | `tests/playwright/test_state_rail.py`, `test_ui_revision_sprint.py`, `test_action_grouping.py`, `test_clarity.py`, `test_provenance_panel.py` |
 
 ---
 
@@ -168,7 +188,7 @@ Still true:
 5. **Reasoning graph** inside the provenance/inspect drawer.
 6. **Active Works** visual hierarchy (not started).
 7. **Retire or redirect** `/analytics` when backend changes are allowed.
-8. **Promote** only after PR #6 is on staging and `/health` is green — production still Wow-only until then.
+8. **Promote** founder shell to production after staging EC2 recovery + green `/health` (`assure-124`, `build_sha` starts with `ffd422f` or later).
 
 ---
 
