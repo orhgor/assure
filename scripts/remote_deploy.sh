@@ -72,6 +72,14 @@ export ASSURE_BUILD_TIME="$EXPECTED_TIME"
 export APP_IMAGE
 export ASSURE_SERVICE_API_TOKEN
 
+# This script is invoked as root over SSM, and it writes .env into a worktree
+# owned by ubuntu. Unreconciled, every deploy leaves root-owned files behind;
+# after enough of them the git user can no longer write to .git/objects and the
+# next deploy dies with "insufficient permission for adding an object to
+# repository database". That is how the staging box accumulated 90 root-owned
+# files and most of its deploys failed. Reconcile where the writes happen.
+chown -R ubuntu:ubuntu "$APP_DIR" 2>/dev/null || true
+
 echo "[3/7] Pull exact image: $APP_IMAGE"
 docker pull "$APP_IMAGE"
 
