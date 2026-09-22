@@ -168,7 +168,9 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"Draft at the speed of AI. Verify with mathematical certainty.", res.data)
+        # Current brand hero (i18n.py brand.hero_title) — the marketing copy
+        # was rebranded; the tests assert the copy that actually ships.
+        self.assertIn(b"Zero hallucination. Absolute verification.", res.data)
         self.assertIn(b"Request Enterprise Pilot", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
 
@@ -184,8 +186,11 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/?lang=tr")
         self.assertEqual(res.status_code, 200)
-        self.assertIn("AI hızında taslak yazın".encode(), res.data)
-        self.assertIn("Şirket piloğu talep et".encode(), res.data)
+        # Turkish brand copy follows the same rebrand as the English page:
+        # hero is now "Sıfır halüsinasyon. Mutlak doğrulama." and the pilot
+        # CTA carries the English label on the localized page.
+        self.assertIn("Sıfır halüsinasyon. Mutlak doğrulama.".encode(), res.data)
+        self.assertIn(b"Request Enterprise Pilot", res.data)
         self.assertNotIn(b"The Intellectual Compiler", res.data)
         self.assertNotIn(b"Deterministic Truth Engine", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
@@ -206,7 +211,9 @@ class WebUsageTests(unittest.TestCase):
             with app.test_client() as client:
                 res = client.get("/")
         self.assertEqual(res.status_code, 200)
-        self.assertIn(b"One engine. Three high-stakes workflows.", res.data)
+        # The persona demo section: its headline was rewritten in the
+        # marketing pass, so assert the eyebrow that still ships.
+        self.assertIn(b"Compile. Verify. Trust what you ship.", res.data)
         self.assertIn(b"landing-pilot.js?v=" + LANDING_JS.encode(), res.data)
         self.assertIn(b'data-role-tab="tab1"', res.data)
         self.assertNotIn(b"hero-comparison", res.data)
