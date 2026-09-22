@@ -12,7 +12,7 @@ not built" version of this document. The same code runs on one laptop with
                     ├──────────────────► S3 ◄────────────────────┐
                     │                    ▲  get/delete            │
                     ▼                    │                        │
-   ALB ──► web (ECS Fargate, N replicas) ┼──► SQS `parse` ──► worker (Fargate Spot, 0..M)
+   ALB ──► web (ECS Fargate, N replicas) ┼──► SQS `parse` ──► worker (Fargate On-Demand, 0..M)
               │        │                 │                          │
               │        └── Redis ────────┼──────────────────────────┤  rate limits, debounce,
               │        (ElastiCache)     │                          │  task results
@@ -95,7 +95,7 @@ locally means running against the real bucket with real credentials.
 | Tier | Metric | Range |
 |---|---|---|
 | web | ECS CPU 60 %, ALB 400 req/target | 2–6 × 0.5 vCPU / 1 GB |
-| worker | SQS `parse` visible messages (step scaling), idle 10 min → min | 0–10 × 1 vCPU / 2 GB, Fargate On-Demand (Spot optional) |
+| worker | SQS `parse` visible messages (step scaling), idle 10 min → min | 0–10 × 1 vCPU / 2 GB, Fargate On-Demand (no Spot — user decision 2026-09-22; `worker_use_spot` exists but stays false) |
 | PostgreSQL | manual class change; storage autoscaling | db.t4g.micro → small → medium; Aurora Serverless v2 when needed |
 | Redis | — | cache.t4g.micro |
 
@@ -115,7 +115,7 @@ refuses to run without a PostgreSQL `DATABASE_URL`.
 | Resource | Control |
 |---|---|
 | Textract | Off by default: scans go to jdf-cli's bundled tesseract (`PARSER_SCAN_BACKEND=jdf-ocr`). Textract only as the fallback when OCR fails, or when explicitly configured. |
-| Worker compute | Scale to zero; On-Demand by default (Spot optional via Terraform); one vCPU per concurrency slot. |
+| Worker compute | Scale to zero; On-Demand only (Spot is not used); one vCPU per concurrency slot. |
 | Z3 | `Z3_SOLVER_TIMEOUT_MS` (30 s) per solver call, on the worker. |
 | S3 | `uploads/` expire after 1 day; artifacts stay in S3 Standard (no tiering). |
 | NAT | Single NAT gateway; S3/ECR/logs/Secrets/SQS through VPC endpoints. |

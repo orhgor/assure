@@ -61,7 +61,7 @@ compile engine is PEM.
 | `prompt_matrix/models/jdf.py`, `models/omp.py` | Pydantic document tree / artifact models |
 | `prompt_matrix/static/`, `templates/` | Vanilla JS + Jinja; bump `ui_cache.py` for cache-busting; all UI strings via `i18n.py` catalogs (7 locales, update all in the same change) |
 | `tests/` | pytest; runs against PostgreSQL (`docker compose -f docker-compose.dev.yml up -d`) |
-| `infra/terraform/` | AWS stack: ECS Fargate (ARM64) web + Spot worker, RDS PostgreSQL, ElastiCache, SQS, S3, ALB |
+| `infra/terraform/` | AWS stack: ECS Fargate (ARM64) web + On-Demand worker (Spot is opt-in via `worker_use_spot`, off by user decision), RDS PostgreSQL, ElastiCache, SQS, S3, ALB |
 | `docs/` | Read first: `scale_architecture.md`, `decisions.md`, `anti-claims.md`, `deferred.md`, `deploy-flow.md`, `deferred-parse-runtime.md` |
 | `scripts/migrate_sqlite_to_postgres.py` | One-time import of a legacy SQLite file |
 | `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's own `/app` is the legacy workbench. The `assure-shell` compose service runs it locally |
