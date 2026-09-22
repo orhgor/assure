@@ -79,6 +79,59 @@ def goto_workbench(page, base_url: str):
     return page
 
 
+def goto_founder_workbench(page, base_url: str):
+    """Open the founder-mode workbench shell.
+
+    The founder shell is a localStorage-flagged default (`assure_founder_workbench`)
+    — set it before load, then wait for the shell classes the founder tests
+    assert on. Used by tests that exercise the founder shell rather than the
+    legacy workbench.
+    """
+    page.add_init_script(
+        """
+        try {
+          localStorage.setItem('assure_onboarding_complete', '1');
+          localStorage.setItem('assure_founder_workbench', '1');
+        } catch (e) {}
+        """
+    )
+    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
+    page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
+    page.wait_for_function(
+        "() => document.body.classList.contains('founder-workbench') && "
+        "document.body.classList.contains('founder-mode-active')",
+        timeout=10_000,
+    )
+    return page
+
+
+def enter_compiler(page, project_id: str | None = None):
+    """Enter the compiler (generate) view from the /app shell.
+
+    Callers either navigate to `/app` (optionally `?project=<id>`) first or
+    rely on this helper to wait for the nav, then switch the view and wait
+    until the compile control is interactable.
+    """
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
+    page.evaluate(
+        "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
+    )
+    if project_id:
+        page.evaluate(
+            """(pid) => {
+              window.__ASSURE_PROJECT_ID__ = pid;
+            }""",
+            project_id,
+        )
+    page.wait_for_selector(COMPILE_BTN, state="visible")
+    return page
+
+
+def click_full_audit(page):
+    """Trigger the Full Audit action from the compiler toolbar."""
+    page.locator(FULL_AUDIT_BTN).click()
+
+
 def empty_annotations() -> dict[str, list]:
     return {"redhat": [], "z3": []}
 
