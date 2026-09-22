@@ -131,8 +131,8 @@ POST to `/api/substrate`) is replaced by the presigned S3 flow above. Migration:
 3. Leave `SUBSTRATE_INGEST_SECRET` / `ASSURE_EDGE_WORKER_URL` unset; the
    `/api/substrate` route then rejects edge posts.
 4. Delete the Cloudflare worker and the two R2 buckets. Database backups are
-   RDS snapshots; the SQLite→R2 backup cron and `scripts/aws/backup-sqlite.sh`
-   are obsolete.
+   RDS snapshots; the SQLite→R2 backup cron scripts (`backup-sqlite.sh`,
+   `setup-sqlite-backup.sh`, `setup-r2-backup-full.sh`) were removed 2026-09-23.
 
 Existing data: `scripts/migrate_sqlite_to_postgres.py <history.sqlite>` copies
 every table into PostgreSQL (tested; identity sequences reset).
