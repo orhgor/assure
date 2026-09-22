@@ -209,16 +209,20 @@ if [[ -n "$PREVIOUS_IMAGE" ]] && ! valid_image_ref "$PREVIOUS_IMAGE"; then
   echo "WARN: ignoring invalid PREVIOUS image ${PREVIOUS_IMAGE}" >&2
   PREVIOUS_IMAGE=""
 fi
-# Preflight: docker-compose.yml requires env_file .env for the assure-app
-# service runtime environment. A missing .env fails deep inside compose with
-# a cryptic interpolation/env-file error — fail here instead, with the exact
-# restoration instruction, before touching the running container.
-if [[ ! -f "$ROOT/.env" ]]; then
-  echo "ERROR: $ROOT/.env is missing on this instance." >&2
-  echo "docker-compose.yml mounts it as the assure-app env_file (runtime keys:" >&2
-  echo "API keys, session keys, etc.). Restore it from backup or re-create it," >&2
-  echo "then re-run this deploy. The running container was not touched." >&2
+# Preflight: docker-compose.yml needs a runtime env file for assure-app.
+# Production carries .env; staging carries .env.staging (the overlay's
+# env_file, optional in compose). Fail only when NEITHER exists — that
+# means compose would interpolate an empty runtime environment.
+if [[ ! -f "$ROOT/.env" && ! -f "$ROOT/.env.staging" ]]; then
+  echo "ERROR: no runtime env file on this instance — need $ROOT/.env (production)" >&2
+  echo "or $ROOT/.env.staging (staging). docker-compose.yml mounts it as the" >&2
+  echo "assure-app env_file (runtime keys: API keys, session keys, etc.)." >&2
+  echo "Restore it from backup or re-create it, then re-run this deploy." >&2
+  echo "The running container was not touched." >&2
   exit 1
+fi
+if [[ ! -f "$ROOT/.env" ]]; then
+  echo "NOTE: $ROOT/.env absent (staging) — runtime env comes from $ROOT/.env.staging" >&2
 fi
 write_deploy_state "${PREVIOUS_IMAGE:-unknown}" "$ASSURE_IMAGE"
 
