@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -39,6 +40,7 @@ try:
     from ..services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
+    from ..services.parser_router import select_parser
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -68,6 +70,7 @@ except ImportError:
     from services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from services.jdf_sidecar import audit_jdf_payload, sidecar_document
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
+    from services.parser_router import select_parser
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -183,6 +186,51 @@ def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
                     if page not in (None, ""):
                         row["page_number"] = str(page)
     return document
+def _textract_parse_bundle(file_bytes: bytes, filename: str) -> dict[str, Any]:
+    """Parse-bundle shape for the router's "textract" decision.
+
+    The router decided this document is a scan (no text layer), so Textract
+    reads it. The result is shaped exactly like a ``pdf_to_parse_bundle`` so
+    the route's downstream tree-building and OMP staging need no second code
+    path: chunks carry one paragraph each so ``jdf_to_document_tree`` renders
+    the text as real body paragraphs. Parse/OCR confidence is None — Textract
+    reports no confidence figure we trust, and None is the honest unknown.
+    """
+    try:
+        from ..lib.textract import TextractClient
+    except ImportError:  # pragma: no cover - flat-import fallback
+        from lib.textract import TextractClient
+
+    extracted = TextractClient().extract_text(file_bytes, filename)
+    text = str(extracted.get("text") or "").strip()
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    chunks = [
+        {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
+        for idx, para in enumerate(paragraphs)
+    ]
+    page_count = int(extracted.get("page_count") or 1)
+    return {
+        "jdf": {"$jdf": "1.0", "meta": {}, "pages": [{} for _ in range(page_count)]},
+        "chunks": chunks,
+        "text": text,
+        "page_count": page_count,
+        "parser_name": "textract",
+        "source_kind": "pdf",
+        "parse_confidence": None,
+        "ocr_confidence": None,
+        "tables": extracted.get("tables") or [],
+        "images": [],
+        "figures": [],
+        "table_count": len(extracted.get("tables") or []),
+        "image_count": 0,
+        "figure_count": 0,
+        "asset_summary": {
+            "tables": len(extracted.get("tables") or []),
+            "images": 0,
+            "figures": 0,
+        },
+        "filename": filename,
+    }
 
 
 def register_jdf_routes(app) -> None:
@@ -458,16 +506,24 @@ def register_jdf_routes(app) -> None:
         except UploadRejectedError as exc:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
         try:
-            # JDF CI is the default PDF parser: the bundle carries the JDF
-            # document, its chunks, structured content (tables/images/
-            # figures) and parse/OCR confidence — everything a route needs to
-            # both save the tree and stage the parse artifact into OMP.
-            bundle = pdf_to_parse_bundle(
-                file_bytes,
-                strategy="section",
-                filename=upload.filename.strip(),
-                source_kind="pdf",
-            )
+            # Parser *selection* is the router's call (services/parser_router):
+            # JDF CI for a text-layer PDF, Textract for a scan. This route then
+            # executes the decision — the JdfConversionError fallback below is
+            # execution, not a second router.
+            _parser = select_parser(file_bytes, filename=upload.filename.strip())
+            if _parser == "textract":
+                bundle = _textract_parse_bundle(file_bytes, upload.filename.strip())
+            else:
+                # JDF CI is the default PDF parser: the bundle carries the JDF
+                # document, its chunks, structured content (tables/images/
+                # figures) and parse/OCR confidence — everything a route needs
+                # to both save the tree and stage the parse artifact into OMP.
+                bundle = pdf_to_parse_bundle(
+                    file_bytes,
+                    strategy="section",
+                    filename=upload.filename.strip(),
+                    source_kind="pdf",
+                )
             parse_meta = {
                 "parser_name": bundle["parser_name"],
                 "source_kind": bundle["source_kind"],

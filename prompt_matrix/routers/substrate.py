@@ -104,17 +104,30 @@ def _substrate_async_enabled() -> bool:
 def extract_document_text(filename: str, file_bytes: bytes) -> dict:
     """Text, tables, forms and page count of a document, by the upload path's own rules.
 
-    The one extraction path: a .txt/.md upload carries its own text, Docling reads
-    everything else when ``USE_DOCLING`` is set, and Textract is the fallback. The
-    fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF fetched
-    from an allowlisted host is read by the same extractor an upload is.
+    Parser *selection* lives in ``services/parser_router.select_parser`` — this
+    function executes the decision it returns: a text-like file wraps its
+    content directly (no binary parsing, no probing), a clean PDF goes through
+    the JDF CI bundle, and a scan (or a JDF failure) falls back best-effort to
+    Docling/Textract — that fallback is execution, not a second router. The
+    fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF
+    fetched from an allowlisted host is read by the same extractor an upload is.
     """
+    from ..services.parser_router import _TEXT_LIKE_EXTENSIONS, select_parser
+
     use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
     extracted: dict | None = None
     page_count = 1
+    parser = select_parser(file_bytes, filename)
 
-    if _is_text_upload(filename):
-        # Plain text is already its own extracted form. Textract and Docling
+    def _suffix(filename: str) -> str:
+        return Path(filename).suffix.lower().lstrip(".")
+
+    if parser == "jdf" and (
+        _is_text_upload(filename) or _suffix(filename) in _TEXT_LIKE_EXTENSIONS
+    ):
+        # Text-like file, routed here without any binary probe: the content is
+        # already its own extracted form — wrap it directly (the "caller wraps
+        # text as JDF" branch of the router contract). Textract and Docling
         # only read documents, so skip both rather than fail inside AWS.
         extracted = {
             "text": file_bytes.decode("utf-8", errors="replace"),
@@ -132,7 +145,7 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
             "figure_count": 0,
             "asset_summary": {"tables": 0, "images": 0, "figures": 0},
         }
-    elif Path(filename).suffix.lower() == ".pdf":
+    elif parser == "jdf":
         # JDF CI first — the default PDF parser path. The bundle carries the
         # text, the structured content (tables/images/figures as distinct
         # lists) and the parse/OCR confidence the vault row and the OMP

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 
 from flask import jsonify, request
@@ -19,11 +20,13 @@ try:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
+    from ..lib.textract import TextractClient
     from ..services.compile_guard import flag_fields, flag_response
     from ..services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.omp_memory import remember_vault_file
+    from ..services.parser_router import select_parser
 except ImportError:
     from db.jdf_repository import ensure_project
     from db.substrate_repository import (
@@ -31,15 +34,57 @@ except ImportError:
         list_substrate_for_project,
         upsert_substrate_entry,
     )
+    from lib.textract import TextractClient
     from services.compile_guard import flag_fields, flag_response
     from services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
-    from services.omp_memory import remember_vault_file
+    from services.parser_router import select_parser
 
 log = logging.getLogger(__name__)
 
 _MAX_PDF_BYTES = 25 * 1024 * 1024
+
+
+def _textract_bundle_for_ingest(pdf_bytes: bytes, filename: str) -> dict:
+    """Bundle shape for the router's "textract" decision in the memory ingest.
+
+    The router decided this PDF is a scan, so Textract reads it and the text
+    is wrapped as a minimal JDF (one chunk per paragraph) so the downstream
+    vault row, OMP staging, and chunk indexing all run on the same shape a
+    JDF CI parse produces. Parse/OCR confidence stays None — Textract reports
+    none we trust, and None is the honest unknown, never a fabricated score.
+    """
+    extracted = TextractClient().extract_text(pdf_bytes, filename)
+    text = str(extracted.get("text") or "").strip()
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    chunks = [
+        {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
+        for idx, para in enumerate(paragraphs)
+    ]
+    page_count = int(extracted.get("page_count") or 1)
+    return {
+        "jdf": {"$jdf": "1.0", "meta": {}, "pages": [{} for _ in range(page_count)]},
+        "chunks": chunks,
+        "text": text,
+        "page_count": page_count,
+        "parser_name": "textract",
+        "source_kind": "pdf",
+        "parse_confidence": None,
+        "ocr_confidence": None,
+        "tables": extracted.get("tables") or [],
+        "images": [],
+        "figures": [],
+        "table_count": len(extracted.get("tables") or []),
+        "image_count": 0,
+        "figure_count": 0,
+        "asset_summary": {
+            "tables": len(extracted.get("tables") or []),
+            "images": 0,
+            "figures": 0,
+        },
+        "filename": filename,
+    }
 
 
 def _store_grounding_source(
@@ -141,10 +186,17 @@ def register_jdf_memory_routes(app) -> None:
             pdf_bytes = f.read()
             if not pdf_bytes:
                 return jsonify({"error": "Empty file."}), 400
-            # JDF is the default PDF parser: one bundle call carries the JDF
-            # document, its chunks, and the parse/OCR confidence a route or
-            # OMP staging needs — not just the raw JDF tree.
-            bundle = pdf_to_parse_bundle(pdf_bytes, strategy="section")
+            # Parser *selection* is the router's call (services/parser_router):
+            # JDF CI for a text-layer PDF, Textract for a scan. This handler
+            # executes the decision — no inline jdf/textract branching here.
+            _parser = select_parser(pdf_bytes, filename=f.filename)
+            if _parser == "textract":
+                bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
+            else:
+                # JDF is the default PDF parser: one bundle call carries the
+                # JDF document, its chunks, and the parse/OCR confidence a
+                # route or OMP staging needs — not just the raw JDF tree.
+                bundle = pdf_to_parse_bundle(pdf_bytes, strategy="section")
             jdf_dict = bundle["jdf"]
             chunks = bundle["chunks"]
             # Before the chunk index: a compile grounds from the project's
