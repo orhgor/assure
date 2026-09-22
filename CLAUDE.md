@@ -64,7 +64,7 @@ compile engine is PEM.
 | `infra/terraform/` | AWS stack: ECS Fargate (ARM64) web + Spot worker, RDS PostgreSQL, ElastiCache, SQS, S3, ALB |
 | `docs/` | Read first: `scale_architecture.md`, `decisions.md`, `anti-claims.md`, `deferred.md`, `deploy-flow.md`, `deferred-parse-runtime.md` |
 | `scripts/migrate_sqlite_to_postgres.py` | One-time import of a legacy SQLite file |
-| `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's own `/app` is the legacy workbench. The `assure-shell` compose service runs it locally |
+| `prototype/` | Prototype shell (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). **Not the UI we ship**: the product UI is Flask's `/app` workbench (`templates/` + `static/`), the one CI's Playwright suite tests via `tests/e2e/conftest.py::live_assure_server`. The shell is behind `docker compose --profile shell` |
 | `worker/`, `landing/`, `openuser/`, `scripts/aws/_probe_*` | Cloudflare edge worker (being retired), marketing site, UX runner, throwaway probes — don't extend |
 
 ## Document pipeline
@@ -88,7 +88,7 @@ uv sync --extra dev                                   # Python 3.11 venv (.venv)
 docker compose -f docker-compose.dev.yml up -d        # PostgreSQL :5432 + Redis :6379
 export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure
 export REDIS_URL=redis://localhost:6379/0
-.venv/bin/python -m prompt_matrix.web --web --port 8765   # or: assure --web
+.venv/bin/python -m prompt_matrix.web --web --port 8765   # or: assure --web → http://127.0.0.1:8765/app (how CI runs it)
 
 # full stack in containers (same topology as AWS; APP_IMAGE, POSTGRES_PASSWORD in .env)
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
