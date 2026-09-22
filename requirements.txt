@@ -27,6 +27,7 @@ gevent>=24.2.0
 celery[sqs]>=5.4.0
 sqlalchemy>=2.0.0
 resend>=2.0.0
+playwright>=1.49.0
 # PDF parse paths. Each is required by a distinct endpoint:
 #   pymupdf  -> services/pdf_import.pdf_bytes_to_jdf   (POST /api/projects/<id>/import-pdf)
 #   jdf CLI  -> services/jdf_converter                 (POST /api/projects/<id>/jdf/ingest)
