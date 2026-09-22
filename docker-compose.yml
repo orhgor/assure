@@ -27,6 +27,8 @@ x-app-env: &app-env
   PEM_SECRET_KEY: ${PEM_SECRET_KEY:-assure-local-dev-change-me}
   ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
   ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-false}
+  # Clerk is not configured locally; without this the shell sends every page to /signin.
+  ASSURE_CLERK_ONLY: ${ASSURE_CLERK_ONLY:-0}
   WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-0}
   PARSE_ASYNC: ${PARSE_ASYNC:-1}
   SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-1}

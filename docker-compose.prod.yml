@@ -19,6 +19,7 @@ services:
       ASSURE_ENV: production
       PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
       ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-true}
+      ASSURE_CLERK_ONLY: ${ASSURE_CLERK_ONLY:-1}
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
       # Queue: Redis on this host by default; sqs:// on AWS (results then in PostgreSQL).
