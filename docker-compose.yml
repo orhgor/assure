@@ -2,7 +2,12 @@ services:
   assure-app:
     image: ${APP_IMAGE:?missing APP_IMAGE}
     env_file:
-      - .env
+      # Production carries .env; staging carries .env.staging (optional
+      # overlay). Making the base file optional lets one compose definition
+      # serve both: a missing .env is not an error when the overlay's
+      # env_file supplies the runtime environment.
+      - path: .env
+        required: false
     ports:
       - "127.0.0.1:8765:8765"
     environment:
