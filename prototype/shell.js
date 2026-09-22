@@ -10,6 +10,10 @@
     "Lock Inference",
     "Compile",
     "Math Check",
+    // status{stage:"entailment"} (draft.py:1996) — the source-check pass that
+    // runs between Math Check and the `verified` frame. Ignored until 2026-09-22,
+    // so the line sat at Anchor while the longest step of the run was in flight.
+    "Entailment",
     "Verify",
     "Complete",
   ];
@@ -634,10 +638,12 @@
   // and the compile is a fact of the document, read from the same revision
   // list the version chip navigates.
   //
-  // After a reload the model is NOT reachable: the run persists it in
-  // audit_log.details.model and projects.last_compiled_json.gate.measure.model,
-  // and no route serves either of them, so the view names that gap instead of
-  // inventing a route or leaving the last draw on screen.
+  // After a reload the model is read back from the compile the project
+  // stored: GET /api/projects/<id>/files serves it as
+  // manifest.lastCompiledRoute (db/project_files.py, off
+  // last_compiled_json.gate.measure), and _hydrateDocument below writes it
+  // into __lastRunModel. COMPILE_MODEL_UNKNOWN is what the row reads only for
+  // a compile that predates the gate block or a manifest that failed to load.
   var NO_COMPILE = "No compile for this document";
   var COMPILE_MODEL_UNKNOWN = "Compiled \u00b7 model not carried by the document";
 
@@ -904,7 +910,16 @@
               var job = (body && body.job) || {};
               return { id: entry.id || job.substrate_file_id, entry: entry };
             }, function (err) {
-              if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
+              // The row stays where the file was listed and turns into the
+              // failure, so the reader sees which upload failed and why in one
+              // place rather than a vanished row and a bare message below.
+              var msg = String(err && err.message ? err.message : err);
+              if (pending && pending.parentNode) {
+                pending.className = "source-item is-error";
+                pending.textContent = name + " \u2014 " + msg;
+                err = new Error(msg);
+                err.__shownInRow = true;
+              }
               throw err;
             });
           }
@@ -912,11 +927,24 @@
         })
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
-          setShell("sources", SHELL.sources.concat([String(j.id)]));
-          appendSourceItem(name, String(j.id));
-          _refreshManifest();
+          var newId = String(j.id);
+          setShell("sources", SHELL.sources.concat([newId]));
+          appendSourceItem(name, newId);
+          // The task is terminal before the vault row is always visible to the
+          // manifest read (the worker commits after it reports); one re-read a
+          // second later closes that window without polling.
+          _refreshManifest().then(function () {
+            var listed = (manifestRows || []).some(function (f) {
+              return String(f && f.id) === newId;
+            });
+            if (!listed) setTimeout(_refreshManifest, 1000);
+          });
         })
         .catch(function (err) {
+          if (err && err.__shownInRow) {
+            try { console.error("[shell] source upload:", err.message); } catch (_) {}
+            return;
+          }
           sourceUploadError(String(err && err.message ? err.message : err));
         })
         .then(function () {
@@ -1351,7 +1379,7 @@
 
     // ---------------------------------------------------------------
     // Stages. The pane shows the pipeline as four stages — Retrieve, Draft,
-    // Anchor, Verify — while the stream still reports its seven finer steps.
+    // Anchor, Verify — while the stream still reports its eight finer steps.
     // The finer steps remain the state (STAGE_ORDER above is their order);
     // the four rows are the view, and they are what the header's progress
     // line reads. A stage ticks when every step under it has landed.
@@ -1360,7 +1388,7 @@
       { name: "Retrieve", steps: ["Preparing"] },
       { name: "Draft",    steps: ["Drafting", "Lock Inference"] },
       { name: "Anchor",   steps: ["Compile", "Math Check"] },
-      { name: "Verify",   steps: ["Verify", "Complete"] },
+      { name: "Verify",   steps: ["Entailment", "Verify", "Complete"] },
     ];
     var STAGE_PROGRESS = { Retrieve: 0.25, Draft: 0.5, Anchor: 0.75, Verify: 1 };
     var stageState = {};    // finer step -> "active" | "done" | "failed" | "skipped"
@@ -3999,6 +4027,13 @@
         } else if (stage === "locks") {
           markDone("Drafting");
           transitionTo("Lock Inference");
+        } else if (stage === "entailment") {
+          // The source check has started, so Math Check has returned. Its
+          // SKIPPED/ran verdict travels only on the `verified` frame below,
+          // which rewrites the state then; until it does, "done" is what the
+          // stream has reported (the check returned) and never a pass.
+          if (stageState["Math Check"] !== "skipped") markDone("Math Check");
+          transitionTo("Entailment");
         } else if (!stage && typeof data.message === "string" &&
                    /running math check/i.test(data.message)) {
           markDone("Compile");
@@ -4570,10 +4605,12 @@
                       doc ? _derivedCounts(doc) : null);
     }
     _syncCountersFn = _refreshCounters;
+    // Resolves once `manifestRows` has been re-read (or the read failed), so a
+    // caller that needs to know whether a row landed can look after it settles.
     function _refreshManifest() {
       var pid = _sourceProjectId();
-      if (!pid) return;
-      fetch("/api/projects/" + encodeURIComponent(pid) + "/substrate")
+      if (!pid) return Promise.resolve();
+      return fetch("/api/projects/" + encodeURIComponent(pid) + "/substrate")
         .then(function (r) { return r.ok ? r.json() : { files: [] }; })
         .then(function (j) {
           manifestRows = (j && j.files) || [];
@@ -5399,6 +5436,16 @@
       grid.className = "compare-grid";
       compareBodyEl.appendChild(grid);
 
+      // The pair is a REQUEST, not a report: each id goes out as `target_ai`
+      // on the draft stream, and the column's model line is overwritten by the
+      // status{stage:"model"} frame the server answers with (compareStreamSide),
+      // so the label never outlives the route. The server does publish its own
+      // pair (routers/health.py `/health`: `stack`, `orchestrator_models` when
+      // the free stack is on), but that blueprint is not under /api/ and the
+      // shell's dev-server proxies /api/* only; /api/health (web.py) carries
+      // neither field. Checked 2026-09-22 — until a proxied route serves the
+      // pair, these two ids are the defaults the production stack is configured
+      // with (llm/orchestrator.py PRODUCTION_MODEL_PAIRS).
       var colA = compareColumnShell("claude", "anthropic/claude-sonnet-4-5");
       var colB = compareColumnShell("deepseek", "deepseek/deepseek-chat");
       grid.appendChild(colA);
@@ -5916,8 +5963,21 @@
       var z3 = (node.annotations && node.annotations.z3) || [];
       var wrap = document.createElement("div"); wrap.className = "evidence-content";
       if (!z3.length) {
+        // An empty list is not a pass. The `verified` frame of the run on screen
+        // said whether Math Check ran or was SKIPPED (no labelled figure to
+        // check), and the Stages row keeps that verdict (markSkipped); the tab
+        // reads the same state, so a check that never ran is named as such
+        // rather than implied clean. After a reload the stage state is the
+        // document's (markAllStagesDone) and carries no skip reason, so the
+        // sentence claims only what the node records: no mismatch on it.
         var p = document.createElement("p"); p.className = "evidence-value";
-        p.textContent = "No Z3 findings for this node."; wrap.appendChild(p);
+        if (stageState["Math Check"] === "skipped") {
+          p.textContent = _tf("z3.skipped", "Math Check skipped: {reason}",
+            { reason: stageReason["Math Check"] || "no metrics to check" });
+        } else {
+          p.textContent = _t("z3.none", "No mismatches for this node.");
+        }
+        wrap.appendChild(p);
         el.appendChild(wrap); return;
       }
       var list = document.createElement("ul");
@@ -6037,8 +6097,7 @@
           // A finding is already an instruction: click seeds the existing
           // rephrase editor rather than opening a second rewrite path.
           if (text) {
-            li.title = "Rephrase this paragraph with this finding";
-            li.addEventListener("click", function () {
+            var applyFinding = function () {
               if (!node || !node.id) return;
               // The paragraph the finding names, when it is still on screen;
               // the node it is placed on otherwise (findings written before
@@ -6047,7 +6106,22 @@
               setShell("ui.selection.nodeId", target);
               _attachNodeRephrase(target, text);
               _locateNode(target);
+            };
+            li.title = "Rephrase this paragraph with this finding";
+            li.addEventListener("click", applyFinding);
+            // The same action as a visible control: a row that is only
+            // clickable is an affordance nobody is told about, and the About
+            // copy (Step 8) says "Click Apply". One handler, two entry points.
+            var applyBtn = document.createElement("button");
+            applyBtn.type = "button";
+            applyBtn.className = "evidence-action redhat-finding-apply";
+            applyBtn.textContent = _t("redhat.finding.apply", "Apply");
+            applyBtn.title = li.title;
+            applyBtn.addEventListener("click", function (ev) {
+              ev.stopPropagation();   // the row's own handler would fire twice
+              applyFinding();
             });
+            li.appendChild(applyBtn);
           }
           list.appendChild(li);
         });
