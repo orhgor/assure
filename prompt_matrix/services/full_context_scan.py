@@ -18,7 +18,24 @@ except ImportError:
     from routers.inquire_stream import _parse_metrics
 
 _SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
-_DOLLAR_RE = re.compile(r"\$\s*([\d,]+(?:\.\d+)?)")
+# ``$150M``, ``$2.4bn``, ``$5 million``: the magnitude is part of the claim. The
+# old pattern stopped at the digits and reported "$150" for "$150M" — a claim
+# the document never made — and compared 150 against a baseline in units.
+_DOLLAR_RE = re.compile(
+    r"\$\s*(?P<num>[\d,]+(?:\.\d+)?)"
+    r"(?P<suffix>\s?(?:bn|billion|million|thousand|trillion|[KMBTkmbt])(?![A-Za-z]))?"
+)
+_MAGNITUDE = {
+    "k": 1_000.0,
+    "thousand": 1_000.0,
+    "m": 1_000_000.0,
+    "million": 1_000_000.0,
+    "b": 1_000_000_000.0,
+    "bn": 1_000_000_000.0,
+    "billion": 1_000_000_000.0,
+    "t": 1_000_000_000_000.0,
+    "trillion": 1_000_000_000_000.0,
+}
 _LOCK_TOKEN_RE = re.compile(r"\[🔒 #\d+\]")
 
 
@@ -36,15 +53,27 @@ def _node_visible_text(node: dict[str, Any]) -> str:
     return str(node.get("content") or "")
 
 
-def _parse_dollar_amounts(text: str) -> list[float]:
-    amounts: list[float] = []
+def _parse_dollar_claims(text: str) -> list[tuple[float, str]]:
+    """``(value, claim_text)`` for each dollar figure, suffix applied and kept.
+
+    ``claim_text`` is the figure as written (``$150M``), so the issue names the
+    claim the reader will find in the document rather than a re-formatting of it.
+    """
+    claims: list[tuple[float, str]] = []
     for match in _DOLLAR_RE.finditer(text or ""):
-        raw = match.group(1).replace(",", "")
+        raw = match.group("num").replace(",", "")
         try:
-            amounts.append(float(raw))
+            value = float(raw)
         except ValueError:
             continue
-    return amounts
+        suffix = (match.group("suffix") or "").strip().lower()
+        value *= _MAGNITUDE.get(suffix, 1.0)
+        claims.append((value, re.sub(r"\s+", " ", match.group(0).strip())))
+    return claims
+
+
+def _parse_dollar_amounts(text: str) -> list[float]:
+    return [value for value, _ in _parse_dollar_claims(text)]
 
 
 def _human_key_label(key: str) -> str:
@@ -181,9 +210,10 @@ def _scan_unverified_numbers(issues: list[dict[str, Any]], document: dict[str, A
         text = _node_visible_text(node)
         if not text.strip():
             continue
-        amounts = _parse_dollar_amounts(text)
-        if not amounts:
+        claims = _parse_dollar_claims(text)
+        if not claims:
             continue
+        amounts = [value for value, _ in claims]
 
         meta = node.get("meta") or {}
         lock_pills = meta.get("lock_pills") or []
@@ -191,8 +221,7 @@ def _scan_unverified_numbers(issues: list[dict[str, Any]], document: dict[str, A
         has_provenance = bool(node.get("provenance"))
 
         if not has_lock:
-            largest = max(amounts)
-            formatted = f"${largest:,.0f}".replace(".00", "")
+            _, formatted = max(claims, key=lambda pair: pair[0])
             if not has_provenance:
                 _issue(
                     issues,

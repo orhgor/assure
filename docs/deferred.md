@@ -4,6 +4,28 @@ Everything that is **not** on the golden path goes here. No exceptions during Ex
 
 **v1.0 scope cut (2026-09-10):** Ship gate is **Golden Path Steps 1–4 only** (⌘K orchestrator → Difference Engine side-by-side diff → click-to-merge). Steps 5–10 move to **v1.1 backlog** below — do not block Day 25 ICP demo or Day 26 tag on audit/benchmark/export work.
 
+## Async verification — TODO (2026-09-22)
+
+`services/verification.run_verification_after_parse` verifies every document
+synchronously, including those over `SYNC_VERIFICATION_PAGE_LIMIT` (50 pages);
+the async branch only logs the deferral. It was deferred because there was no
+"storage contract" for a late result. As of 2026-09-22 the storage side exists
+(PostgreSQL revisions, object-store trees, Celery parse workers), and the
+parse itself already runs off the request path, so the remaining work is:
+
+1. Define the write-back: which `jdf_revisions` row and which OMP artifact a
+   late Z3 / Red-Hat result updates (`meta["z3"]`, `verification_json`), and the
+   status the UI shows meanwhile (`verification: pending`).
+2. Add `assure.verify_revision` (queue `default`) that loads the tree from the
+   revision, runs `_run_verification_sync`, and writes the result back.
+3. In `run_verification_after_parse`, enqueue instead of running inline when
+   `page_count > SYNC_VERIFICATION_PAGE_LIMIT` and a broker is configured.
+4. Surface `verification.status` in `GET /api/projects/<id>/jdf` and the
+   provenance drawer; never render an unverified tree as PASS.
+
+Owner: backend. Code marker: `TODO(async-verification)` in
+`prompt_matrix/services/verification.py`.
+
 ## v1.1 backlog — Golden Path Steps 5–10 (deferred from v1.0)
 
 Source: [user-experience.md](./user-experience.md) steps 5–10. Code may exist on `staging` (e.g. PR #46 scan routes); **not in v1.0 validation or ship gate**.

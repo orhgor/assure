@@ -27,13 +27,28 @@ _z3_pool: list[Solver] = []
 _z3_pool_lock = Lock()
 
 
+#: Wall-clock cap per solver call. Z3 is native code: without a timeout a
+#: pathological ledger blocks the worker (and, under gevent, every request on
+#: it) indefinitely. Milliseconds, as Z3 wants them.
+_Z3_SOLVER_TIMEOUT_MS = int(__import__("os").environ.get("Z3_SOLVER_TIMEOUT_MS", "30000"))
+
+
+def _new_solver() -> Solver:
+    solver = Solver()
+    try:
+        solver.set("timeout", _Z3_SOLVER_TIMEOUT_MS)
+    except Exception:
+        pass
+    return solver
+
+
 def _borrow_z3_solver() -> Solver:
     with _z3_pool_lock:
         if _z3_pool:
             solver = _z3_pool.pop()
             solver.reset()
             return solver
-    return Solver()
+    return _new_solver()
 
 
 def _return_z3_solver(solver: Solver) -> None:

@@ -5,9 +5,9 @@
     POST /api/projects/<project_id>/nodes/<node_id>/retrieval/fetch   (2C.4)
     POST /api/projects/<project_id>/nodes/<node_id>/retrieval/reject  (2C.5)
 
-The gap call's failure is a first-class state, not an HTTP error: a model that
-cannot answer returns ``{ok: false, reason}`` with 200, and the drawer renders the
-first line and the upload button. Refusals from the retrieval path — a denied
+The gap call's failure is a first-class state with its own status: a model that
+cannot answer returns ``{ok: false, reason: "gap_analysis_unavailable"}`` with
+503, and the drawer renders the first line and the upload button. Refusals from the retrieval path — a denied
 host, a non-HTTPS URL, a page over the caps — carry the reason and are logged;
 the fetch route answers 4xx/5xx for those, because nothing was collected.
 """
@@ -110,13 +110,19 @@ def register_retrieval_routes(app) -> None:
         if analysis is None:
             # The drawer's failure path: the statement and the upload button, no
             # invented reason. Near-misses are still reported so the caller can
-            # say whether the source came close at all.
-            return jsonify(
-                {
-                    "ok": False,
-                    "reason": "gap_analysis_unavailable",
-                    "near_miss_count": len(near_miss_sentences(claim, included)),
-                }
+            # say whether the source came close at all. 503, not 200: the
+            # analysis is a dependency that was unavailable, and a monitor
+            # reading status codes must see that.
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "reason": "gap_analysis_unavailable",
+                        "error": "Gap analysis is unavailable (no model answer).",
+                        "near_miss_count": len(near_miss_sentences(claim, included)),
+                    }
+                ),
+                503,
             )
         return jsonify({"ok": True, **analysis.as_payload()})
 

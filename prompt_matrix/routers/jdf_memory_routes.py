@@ -9,9 +9,9 @@ import shutil
 from flask import jsonify, request
 
 try:
-    from ..middleware import project_ownership_required
+    from ..middleware import check_project_ownership, project_ownership_required
 except ImportError:
-    from middleware import project_ownership_required
+    from middleware import check_project_ownership, project_ownership_required
 
 try:
     from ..db.jdf_repository import ensure_project
@@ -22,7 +22,13 @@ try:
     )
     from ..lib.textract import TextractClient
     from ..services.compile_guard import flag_fields, flag_response
-    from ..services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
+    from ..services.jdf_converter import (
+        JDF_BIN,
+        JdfConversionError,
+        chunks_to_text,
+        ocr_engine,
+        pdf_to_parse_bundle,
+    )
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.omp_memory import remember_vault_file
@@ -37,7 +43,13 @@ except ImportError:
     )
     from lib.textract import TextractClient
     from services.compile_guard import flag_fields, flag_response
-    from services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
+    from services.jdf_converter import (
+        JDF_BIN,
+        JdfConversionError,
+        chunks_to_text,
+        ocr_engine,
+        pdf_to_parse_bundle,
+    )
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.parser_router import select_parser
@@ -194,6 +206,19 @@ def register_jdf_memory_routes(app) -> None:
             _parser = select_parser(pdf_bytes, filename=f.filename)
             if _parser == "textract":
                 bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
+            elif _parser == "jdf-ocr":
+                # A scan: JDF CI with OCR first; Textract only if jdf-cli fails.
+                try:
+                    bundle = pdf_to_parse_bundle(
+                        pdf_bytes, strategy="section", source_kind="scanned", ocr=ocr_engine()
+                    )
+                except JdfConversionError as ocr_exc:
+                    log.warning(
+                        "JDF OCR parse failed for %s, falling back to Textract: %s",
+                        f.filename,
+                        ocr_exc,
+                    )
+                    bundle = _textract_bundle_for_ingest(pdf_bytes, f.filename)
             else:
                 # JDF is the default PDF parser: one bundle call carries the
                 # JDF document, its chunks, and the parse/OCR confidence a
@@ -339,7 +364,12 @@ def register_jdf_memory_routes(app) -> None:
         return jsonify({"ok": True, "project_id": project_id, "count": len(results), "results": results})
 
     @app.get("/api/projects/<project_id>/jdf/health")
-    @project_ownership_required
     def jdf_health(project_id: str):
+        # Ownership only, not the decorator's project-existence gate: this
+        # answers "does the jdf binary resolve", which reads no project row,
+        # and a 404 here would hide a tooling outage behind "Project not found."
+        denied = check_project_ownership(project_id)
+        if denied is not None:
+            return denied
         ok = bool(JDF_BIN and (os.path.exists(JDF_BIN) or shutil.which("jdf")))
         return jsonify({"ok": ok, "project_id": project_id, "jdf_bin": JDF_BIN}), (200 if ok else 503)

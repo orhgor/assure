@@ -1,33 +1,47 @@
-# Production overrides for EC2 deployment (Cloudflare Tunnel — no public ports).
+# Production overrides (EC2 single host behind Cloudflare Tunnel / ALB).
+# Fail-fast is on: POSTGRES_PASSWORD and PEM_SECRET_KEY must be set in .env or
+# .env.production; login and CSRF are enforced; the image is pulled, not built.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 services:
-  assure-app:
-    ports: !override
-      - "127.0.0.1:8765:8765"
+  postgres:
     environment:
-      ENVIRONMENT: production
-      DATABASE_PATH: /app/data/history.sqlite
-      PORT: "8765"
-      PYTHONUNBUFFERED: "1"
-      GUNICORN_WORKERS: "4"
-      GUNICORN_WORKER_CONNECTIONS: "100"
-      SQLITE_USE_POOL: "1"
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-sqs://}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-db+sqlite:///data/celery-results.sqlite}
-      TEMP_UPLOAD_DIR: /app/data/tmp_uploads
-      SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-0}
-      USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+  assure-app:
+    image: ${APP_IMAGE:?set APP_IMAGE (ghcr.io/orhgor/assure-app:<sha>)}
+    build: !reset null
     env_file:
       - path: .env.production
         required: false
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
+      ENVIRONMENT: production
+      ASSURE_ENV: production
+      PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
+      ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-true}
+      WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      # Queue: Redis on this host by default; sqs:// on AWS (results then in PostgreSQL).
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
     deploy:
       resources:
         limits:
           memory: 1536M
+  assure-worker:
+    image: ${APP_IMAGE:?set APP_IMAGE (ghcr.io/orhgor/assure-app:<sha>)}
+    build: !reset null
+    env_file:
+      - path: .env.production
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
+      ENVIRONMENT: production
+      ASSURE_ENV: production
+      PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+    deploy:
+      resources:
+        limits:
+          memory: 2048M

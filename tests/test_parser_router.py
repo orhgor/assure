@@ -40,13 +40,31 @@ class TestParserRouting:
     def test_clean_pdf_selects_jdf(self):
         assert select_parser(_pdf_with_text(), filename="doc.pdf") == "jdf"
 
-    def test_scanned_pdf_selects_textract(self):
+    def test_scanned_pdf_selects_jdf_ocr_by_default(self, monkeypatch):
+        # A scan goes to JDF CI's bundled OCR first: local, no per-page fee.
+        monkeypatch.delenv("PARSER_SCAN_BACKEND", raising=False)
+        monkeypatch.delenv("JDF_OCR", raising=False)
+        assert select_parser(_image_only_pdf(), filename="scan.pdf") == "jdf-ocr"
+
+    def test_scanned_pdf_selects_textract_when_configured(self, monkeypatch):
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
         assert select_parser(_image_only_pdf(), filename="scan.pdf") == "textract"
 
-    def test_source_kind_scanned_overrides_probe(self):
-        # A client that knows the document is scanned forces Textract — even
-        # for bytes that would probe as a clean text PDF.
+    def test_ocr_disabled_sends_scans_to_textract(self, monkeypatch):
+        # JDF CI without OCR would return empty pages for a scan, so turning
+        # OCR off must route the scan to Textract, not to an empty parse.
+        monkeypatch.delenv("PARSER_SCAN_BACKEND", raising=False)
+        monkeypatch.setenv("JDF_OCR", "none")
+        assert select_parser(_image_only_pdf(), filename="scan.pdf") == "textract"
+
+    def test_source_kind_scanned_overrides_probe(self, monkeypatch):
+        # A client that knows the document is scanned forces the scan backend
+        # — even for bytes that would probe as a clean text PDF.
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
         assert select_parser(_pdf_with_text(), source_kind="scanned") == "textract"
+        monkeypatch.delenv("PARSER_SCAN_BACKEND", raising=False)
+        monkeypatch.delenv("JDF_OCR", raising=False)
+        assert select_parser(_pdf_with_text(), source_kind="scanned") == "jdf-ocr"
 
     def test_source_kind_text_returns_jdf_with_explicit_meaning(self):
         # Returns "jdf" to signal "caller should wrap text as JDF", never to
@@ -86,8 +104,9 @@ class TestParserRouting:
         # parse fail naturally through the caller's fallback.
         assert _probe_pdf_for_parser(b"%PDF-1.4 broken") == "jdf"
 
-    def test_source_kind_none_and_unknown_probe(self):
+    def test_source_kind_none_and_unknown_probe(self, monkeypatch):
         # An unrecognized source_kind is not an override: probing decides.
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
         data = _image_only_pdf()
         assert select_parser(data, filename="scan.pdf", source_kind="weird") == "textract"
         assert select_parser(data, filename="scan.pdf", source_kind=None) == "textract"
@@ -96,9 +115,10 @@ class TestParserRouting:
         # filename None on pdf-ish bytes: default branch, no probe, jdf.
         assert select_parser(b"%PDF-1.4") == "jdf"
 
-    def test_multiline_empty_probe_selects_textract(self):
+    def test_multiline_empty_probe_selects_scan_backend(self, monkeypatch):
         # A 4-page PDF whose first 3 pages are empty is a scan: the probe
-        # reads only the first pages and decides textract.
+        # reads only the first pages and decides the scan backend.
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
         import fitz
 
         doc = fitz.open()

@@ -7,18 +7,34 @@ import os
 from flask import jsonify, request
 
 try:
+    from ..lib.http_errors import clean_error_message
     from ..middleware import project_ownership_required
     from ..services.compare_models import run_compare_pair
 except ImportError:
+    from lib.http_errors import clean_error_message
     from middleware import project_ownership_required
     from services.compare_models import run_compare_pair
 
 
+MOCK_NOTICE = (
+    "Illustrative output: no model keys are configured, so both panes show fixed "
+    "sample text, not a model's answer to this intent."
+)
+
+
 def _mock_orchestrate_payload(intent: str) -> dict:
-    """Fallback when provider keys are missing (local CI / offline)."""
+    """Fallback when provider keys are missing (local CI / offline).
+
+    Labelled as such in three places (``status``, ``mock``, ``notice``) because
+    the previous ``status: "success"`` let the founder pane render the two fixed
+    paragraphs as a real Claude/DeepSeek comparison (2026-09-22 product audit:
+    "$5,000,000" vs "$4,500,000" shown as a live difference with no keys set).
+    """
     _ = intent
     return {
-        "status": "success",
+        "status": "mock",
+        "mock": True,
+        "notice": MOCK_NOTICE,
         "stack": "mock",
         "models": {
             "claude": {
@@ -107,8 +123,7 @@ def register_orchestrator_routes(app) -> None:
                 payload = _live_orchestrate_payload(intent)
             except Exception as exc:
                 payload = _mock_orchestrate_payload(intent)
-                payload["stack"] = "mock"
-                payload["warning"] = str(exc)
+                payload["warning"] = clean_error_message(exc)
         else:
             payload = _mock_orchestrate_payload(intent)
 

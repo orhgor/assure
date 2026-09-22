@@ -78,3 +78,6 @@ scripts/apply_jobs_copy.py
 CLINE_RULES.md
 test-results/
 test-results/
+
+# local object store (ASSURE_S3_BUCKET unset)
+objects/

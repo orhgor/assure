@@ -360,6 +360,9 @@
           method: "POST",
           credentials: "same-origin",
           body: fd,
+        }).then(function (r) {
+          if (r.status === 202 && global.AssureIngestJobs) global.AssureIngestJobs.track();
+          return r;
         });
       });
       return Promise.all(uploads);

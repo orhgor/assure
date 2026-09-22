@@ -17,12 +17,17 @@ class JdfConversionError(RuntimeError):
     pass
 
 
-def _run(cmd, **kw):
+def _run(cmd, *, timeout: int | None = None, **kw):
     env = os.environ.copy()
     env["PATH"] = env.get("PATH", "") + ":/opt/node-v24.11.1-linux-arm64/bin"
     try:
         return subprocess.run(
-            cmd, capture_output=True, text=True, timeout=JDF_TIMEOUT, env=env, **kw
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout if timeout is not None else JDF_TIMEOUT,
+            env=env,
+            **kw,
         )
     except FileNotFoundError as exc:
         # A missing jdf binary is a conversion failure, not a crash: callers
@@ -30,13 +35,41 @@ def _run(cmd, **kw):
         raise JdfConversionError(f"jdf binary not found: {exc}") from exc
 
 
-def pdf_to_jdf(pdf_bytes: bytes) -> dict:
+#: OCR engine jdf-cli runs on pages that have no text layer. ``tesseract`` is
+#: tesseract.js, local and free (jdf-cli >= 0.2.3 bundles it); ``none`` turns
+#: OCR off so a scan comes back as image-only pages. ``JDF_OCR`` overrides.
+JDF_OCR_DEFAULT = "tesseract"
+#: OCR wall-clock: tesseract.js takes ~2 s per scanned page on one core, so a
+#: 50-page scan is well past the 60 s convert timeout used for text-layer PDFs.
+JDF_OCR_TIMEOUT = int(os.environ.get("JDF_OCR_TIMEOUT", "600"))
+
+
+def ocr_engine() -> str:
+    """The OCR engine jdf-cli should use for scanned pages (``none`` disables)."""
+    raw = (os.environ.get("JDF_OCR") or JDF_OCR_DEFAULT).strip().lower()
+    return raw if raw in ("tesseract", "openai", "none") else JDF_OCR_DEFAULT
+
+
+def pdf_to_jdf(pdf_bytes: bytes, *, ocr: str | None = None) -> dict:
+    """PDF → JDF via ``jdf convert``.
+
+    ``ocr`` names the engine for pages with no text layer (``"tesseract"``);
+    ``None`` runs a plain text-layer parse. jdf-cli emits per-line OCR blocks
+    with confidences under ``pages[].elements[].ocr`` and ``jdf chunk`` folds
+    that text into ordinary chunks, so a scanned PDF flows through the same
+    pipeline as a born-digital one.
+    """
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         f.write(pdf_bytes)
         pdf_path = f.name
     jdf_path = pdf_path[:-4] + ".jdf"
+    cmd = [JDF_BIN, "convert", pdf_path, "-o", jdf_path, "--json"]
+    timeout = JDF_TIMEOUT
+    if ocr and ocr != "none":
+        cmd += ["--ocr", ocr]
+        timeout = JDF_OCR_TIMEOUT
     try:
-        r = _run([JDF_BIN, "convert", pdf_path, "-o", jdf_path, "--json"])
+        r = _run(cmd, timeout=timeout)
         if r.returncode != 0:
             raise JdfConversionError(f"jdf convert failed: {r.stderr[:500]}")
         return json.loads(Path(jdf_path).read_text())
@@ -46,6 +79,37 @@ def pdf_to_jdf(pdf_bytes: bytes) -> dict:
                 os.unlink(p)
             except FileNotFoundError:
                 pass
+
+
+def _ocr_confidence_from_blocks(jdf_dict: dict) -> tuple[float | None, int]:
+    """Mean OCR line confidence over the document, and how many lines it covers.
+
+    Read from what jdf-cli actually emitted (``elements[].ocr.blocks[].confidence``,
+    tesseract's 0–1 per line). ``(None, 0)`` when no OCR block carries a
+    confidence: the honest unknown, never a fabricated score.
+    """
+    total = 0.0
+    count = 0
+    pages = jdf_dict.get("pages") if isinstance(jdf_dict, dict) else None
+    for page in pages or []:
+        if not isinstance(page, dict):
+            continue
+        for el in page.get("elements") or []:
+            if not isinstance(el, dict):
+                continue
+            ocr = el.get("ocr")
+            if not isinstance(ocr, dict):
+                continue
+            for block in ocr.get("blocks") or []:
+                if not isinstance(block, dict):
+                    continue
+                conf = block.get("confidence")
+                if isinstance(conf, (int, float)):
+                    total += float(conf)
+                    count += 1
+    if count == 0:
+        return None, 0
+    return round(total / count, 4), count
 
 
 def _jdf_page_count(jdf_dict: dict) -> int:
@@ -205,6 +269,7 @@ def pdf_to_parse_bundle(
     strategy: str = "section",
     filename: str | None = None,
     source_kind: str = "pdf",
+    ocr: str | None = None,
 ) -> dict:
     """PDF → JDF → chunks, plus the parse metadata routes/OMP staging need.
 
@@ -229,19 +294,29 @@ def pdf_to_parse_bundle(
     # pdf_to_jdf/jdf_to_chunks already raise JdfConversionError carrying the
     # failing step's stderr (`_run`'s stdout/stderr, truncated) — nothing to
     # translate here, just let it propagate as the one clean error type.
-    jdf = pdf_to_jdf(pdf_bytes)
+    jdf = pdf_to_jdf(pdf_bytes, ocr=ocr)
     chunks = jdf_to_chunks(jdf, strategy=strategy)
     text = chunks_to_text(chunks)
     assets = _bundle_assets(jdf, chunks)
+    # OCR confidence: what jdf-cli's meta says if it ever says anything, else
+    # the mean of the per-line tesseract confidences it emitted (None when the
+    # document carried no OCR blocks at all — a text-layer parse).
+    ocr_confidence = _jdf_confidence(jdf, "ocr_confidence")
+    ocr_lines = 0
+    if ocr_confidence is None:
+        ocr_confidence, ocr_lines = _ocr_confidence_from_blocks(jdf)
+    parser_name = "jdf-cli" if not (ocr and ocr != "none") else f"jdf-cli+{ocr}"
     return {
         "jdf": jdf,
         "chunks": chunks,
         "text": text,
         "page_count": _jdf_page_count(jdf),
-        "parser_name": "jdf-cli",
+        "parser_name": parser_name,
         "source_kind": source_kind,
         "parse_confidence": _jdf_confidence(jdf, "parse_confidence"),
-        "ocr_confidence": _jdf_confidence(jdf, "ocr_confidence"),
+        "ocr_confidence": ocr_confidence,
+        "ocr_line_count": ocr_lines,
+        "ocr_engine": ocr if (ocr and ocr != "none") else None,
         "tables": assets["tables"],
         "images": assets["images"],
         "figures": assets["figures"],
@@ -345,6 +420,15 @@ def jdf_to_document_tree(
                 children.append(_image_node(chunk, figure=True))
             elif "image" in types:
                 children.append(_image_node(chunk, figure=False))
+                # A scanned page is one image chunk whose text is the OCR
+                # output. The image node keeps the asset; the words must also
+                # be a paragraph, or the tree of a scan carries no readable,
+                # citable text at all.
+                ocr_text = str(chunk.get("text") or chunk.get("content") or "").strip()
+                if ocr_text:
+                    para = _paragraph(ocr_text)
+                    para["meta"] = {"ocr": True, "page": chunk.get("page")}
+                    children.append(para)
             else:
                 children.append(_paragraph(chunk))
         if not children:

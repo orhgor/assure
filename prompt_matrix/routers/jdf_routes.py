@@ -14,16 +14,20 @@ from pydantic import BaseModel, ConfigDict
 log = logging.getLogger(__name__)
 
 try:
-    from ..db.drafts_repository import upsert_draft
     from ..db.document_lock_repository import is_version_locked
+    from ..db.drafts_repository import upsert_draft
+    from ..db.ingest_jobs_repository import create_job, set_task
     from ..db.jdf_repository import (
         RevisionConflict,
         current_document_version,
+        ensure_project,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
+        get_omp_linkages_for_revision,
         list_jdf_revisions,
         patch_jdf_node,
         save_jdf_revision,
+        save_omp_linkage,
     )
     from ..db.node_revision_repository import (
         fetch_node_revision,
@@ -37,24 +41,35 @@ try:
         parse_document,
         splice_node,
     )
-    from ..services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
+    from ..services.jdf_converter import (
+        JdfConversionError,
+        jdf_to_document_tree,
+        ocr_engine,
+        pdf_to_parse_bundle,
+    )
     from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from ..services.object_store import get_object_store, key_belongs_to_project, upload_key
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.parser_router import select_parser
     from ..services.pdf_import import pdf_bytes_to_jdf
+    from ..services.pdf_ingest import PdfIngestError, ingest_pdf_for_project, parse_async_enabled
     from ..services.verification import run_verification_after_parse
-    from ..upload_limits import UploadRejectedError, validate_upload_bytes
+    from ..upload_limits import UploadRejectedError, max_upload_bytes, validate_upload_bytes
 except ImportError:
-    from db.drafts_repository import upsert_draft
     from db.document_lock_repository import is_version_locked
+    from db.drafts_repository import upsert_draft
+    from db.ingest_jobs_repository import create_job, set_task
     from db.jdf_repository import (
         RevisionConflict,
         current_document_version,
+        ensure_project,
         fetch_jdf_at_version,
         fetch_latest_jdf_or_empty,
+        get_omp_linkages_for_revision,
         list_jdf_revisions,
         patch_jdf_node,
         save_jdf_revision,
+        save_omp_linkage,
     )
     from db.node_revision_repository import (
         fetch_node_revision,
@@ -68,13 +83,20 @@ except ImportError:
         parse_document,
         splice_node,
     )
-    from services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
+    from services.jdf_converter import (
+        JdfConversionError,
+        jdf_to_document_tree,
+        ocr_engine,
+        pdf_to_parse_bundle,
+    )
     from services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from services.object_store import get_object_store, key_belongs_to_project, upload_key
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.parser_router import select_parser
     from services.pdf_import import pdf_bytes_to_jdf
+    from services.pdf_ingest import PdfIngestError, ingest_pdf_for_project, parse_async_enabled
     from services.verification import run_verification_after_parse
-    from upload_limits import UploadRejectedError, validate_upload_bytes
+    from upload_limits import UploadRejectedError, max_upload_bytes, validate_upload_bytes
 
 
 class RestoreJDFPayload(BaseModel):
@@ -491,201 +513,152 @@ def register_jdf_routes(app) -> None:
         )
         return jsonify({**result, "ok": True, "round_trip": report})
 
+    @app.post("/api/projects/<project_id>/uploads/presign")
+    @project_ownership_required
+    def presign_project_upload(project_id: str):
+        """A browser-direct upload target for a document.
+
+        With S3 configured the client PUTs the bytes straight to the bucket
+        (no web replica ever holds them) and then calls ``import-pdf`` with the
+        returned ``object_key``. Without S3 the answer is ``mode: "multipart"``
+        and the client posts the file to ``import-pdf`` as before.
+        """
+        data = request.get_json(silent=True) or {}
+        filename = str(data.get("filename") or "").strip()
+        content_type = str(data.get("content_type") or "application/pdf").strip()
+        size = int(data.get("size_bytes") or 0)
+        if not filename:
+            return jsonify({"ok": False, "error": "filename required"}), 400
+        if not filename.lower().endswith(".pdf") or not content_type.startswith("application/pdf"):
+            return jsonify({"ok": False, "error": "Only PDF uploads can be presigned."}), 400
+        if size and size > max_upload_bytes():
+            return jsonify({"ok": False, "error": "File exceeds the upload limit."}), 413
+        store = get_object_store()
+        key = upload_key(project_id, filename)
+        target = store.presign_put(key, content_type=content_type)
+        if target is None:
+            return jsonify({"ok": True, "mode": "multipart", "upload_url": f"/api/projects/{project_id}/import-pdf"})
+        return jsonify(
+            {
+                "ok": True,
+                "mode": "s3",
+                "object_key": key,
+                "upload": target,
+                "complete": {
+                    "url": f"/api/projects/{project_id}/import-pdf",
+                    "body": {"object_key": key, "filename": filename},
+                },
+            }
+        )
+
     @app.post("/api/projects/<project_id>/import-pdf")
     @project_ownership_required
     def import_project_pdf(project_id: str):
+        """Import a PDF as the project's next revision.
+
+        Two input shapes: a multipart ``file`` (the bytes travel through this
+        replica once, only to be staged), or a JSON ``{object_key, filename}``
+        naming an object the client already uploaded via ``uploads/presign``.
+
+        Two execution modes: with ``PARSE_ASYNC`` (the default when a broker is
+        configured) the document is staged in the object store, a worker task
+        is queued and the answer is 202 with a ``task_id`` to poll at
+        ``GET /api/tasks/<task_id>``; otherwise the same pipeline
+        (``services/pdf_ingest``) runs inline and answers 200.
+        """
         request_id = str(uuid.uuid4())
-        start_time = time.perf_counter()
         audit = get_audit_logger()
-        upload = request.files.get("file")
-        if upload is None or not upload.filename:
-            return jsonify({"ok": False, "error": "No file uploaded."}), 400
-        file_bytes = upload.read()
-        if not file_bytes:
-            return jsonify({"ok": False, "error": "Empty file."}), 400
-        try:
-            validate_upload_bytes(upload.filename.strip(), file_bytes)
-        except UploadRejectedError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), exc.http_status
-        try:
-            # Parser *selection* is the router's call (services/parser_router):
-            # JDF CI for a text-layer PDF, Textract for a scan. This route then
-            # executes the decision — the JdfConversionError fallback below is
-            # execution, not a second router.
-            _parser = select_parser(file_bytes, filename=upload.filename.strip())
-            if _parser == "textract":
-                bundle = _textract_parse_bundle(file_bytes, upload.filename.strip())
-            else:
-                # JDF CI is the default PDF parser: the bundle carries the JDF
-                # document, its chunks, structured content (tables/images/
-                # figures) and parse/OCR confidence — everything a route needs
-                # to both save the tree and stage the parse artifact into OMP.
-                bundle = pdf_to_parse_bundle(
-                    file_bytes,
-                    strategy="section",
-                    filename=upload.filename.strip(),
-                    source_kind="pdf",
-                )
-            parse_meta = {
-                "parser_name": bundle["parser_name"],
-                "source_kind": bundle["source_kind"],
-                "page_count": bundle["page_count"],
-                "parse_confidence": bundle["parse_confidence"],
-                "ocr_confidence": bundle["ocr_confidence"],
-                "table_count": bundle["table_count"],
-                "image_count": bundle["image_count"],
-                "figure_count": bundle["figure_count"],
-                "asset_summary": bundle["asset_summary"],
-            }
-            tree = jdf_to_document_tree(
-                bundle["jdf"],
-                bundle["chunks"],
-                document_id=f"doc-{project_id}",
-                title=upload.filename.strip(),
-                parse_meta=parse_meta,
-            )
-        except Exception as jdf_exc:
-            # JDF CI is the default, but the PyMuPDF importer is a best-effort
-            # fallback that still preserves structure (text + images per
-            # page) — a missing jdf-cli binary must not kill an import that
-            # can be parsed another way.
-            log.warning(
-                "JDF CI parse failed for %s, falling back to PyMuPDF: %s",
-                upload.filename,
-                jdf_exc,
-            )
-            tree = sanitize_jdf_node(
-                pdf_bytes_to_jdf(
-                    file_bytes,
-                    project_id=project_id,
-                    filename=upload.filename.strip(),
-                )
-            )
-            images = [
-                {
-                    "id": child.get("id"),
-                    "src": child.get("src"),
-                    "caption": child.get("caption") or child.get("alt") or "",
-                    "page": (child.get("meta") or {}).get("page"),
-                }
-                for section in tree.get("body") or []
-                for child in section.get("children") or []
-                if child.get("type") == "image"
-            ]
-            bundle = {
-                "jdf": tree,
-                "chunks": [],
-                "text": "",
-                "page_count": len(tree.get("body") or []) or 1,
-                "parser_name": "pymupdf",
-                "source_kind": "pdf",
-                "parse_confidence": None,
-                "ocr_confidence": None,
-                "tables": [],
-                "images": images,
-                "figures": [],
-                "table_count": 0,
-                "image_count": len(images),
-                "figure_count": 0,
-                "asset_summary": {"tables": 0, "images": len(images), "figures": 0},
-            }
-        try:
-            tree = sanitize_jdf_node(tree)
-            parse_document(tree)
-            # Shared verification hook: Z3 + Red-Hat run here and only here
-            # (services/verification). The tree already carries the hook's
-            # result in meta["z3"], and the result rides to the OMP artifact.
-            # The hook never raises by contract, but a revision must not fail
-            # on verification — so the call is guarded regardless.
-            bundle["jdf"] = tree
+        store = get_object_store()
+        object_key: str | None = None
+        file_bytes: bytes | None = None
+
+        payload = request.get_json(silent=True) if request.is_json else None
+        if isinstance(payload, dict) and payload.get("object_key"):
+            object_key = str(payload["object_key"]).strip()
+            filename = str(payload.get("filename") or object_key.rsplit("/", 1)[-1]).strip()
+            if not key_belongs_to_project(object_key, project_id):
+                return jsonify({"ok": False, "error": "object_key does not belong to this project."}), 403
+            if not store.exists(object_key):
+                return jsonify({"ok": False, "error": "Uploaded object not found."}), 404
+            if not parse_async_enabled():
+                file_bytes = store.get_bytes(object_key)
+        else:
+            upload = request.files.get("file")
+            if upload is None or not upload.filename:
+                return jsonify({"ok": False, "error": "No file uploaded."}), 400
+            filename = upload.filename.strip()
+            file_bytes = upload.read()
+            if not file_bytes:
+                return jsonify({"ok": False, "error": "Empty file."}), 400
+
+        if file_bytes is not None:
             try:
-                verification = run_verification_after_parse(bundle)
-            except Exception:
-                log.exception("post-parse verification failed; storing parse only")
-                verification = None
-            result = save_jdf_revision(
+                validate_upload_bytes(filename, file_bytes)
+            except UploadRejectedError as exc:
+                return jsonify({"ok": False, "error": str(exc)}), exc.http_status
+
+        ensure_project(project_id)
+        if parse_async_enabled():
+            if object_key is None:
+                object_key = upload_key(project_id, filename)
+                store.put_bytes(object_key, file_bytes or b"", content_type="application/pdf")
+            # The job row exists before the message does, so a poll that beats
+            # the worker still finds "queued" rather than nothing.
+            job_id = create_job(
                 project_id,
-                tree,
-                mutation_type="PDF_IMPORT",
-                change_summary=f"Imported {upload.filename}",
+                kind="import_pdf",
+                filename=filename,
+                object_key=object_key,
+                size_bytes=len(file_bytes) if file_bytes is not None else None,
             )
-        except Exception as exc:
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
-            audit.log_exception(
+            try:
+                from ..tasks.parse_tasks import import_project_pdf_task
+            except ImportError:
+                from tasks.parse_tasks import import_project_pdf_task
+            task = import_project_pdf_task.apply_async(args=[project_id, object_key, filename, job_id])
+            set_task(job_id, task.id)
+            audit.log_audit(
                 request_id,
                 project_id,
                 "PDF_IMPORT",
-                exc,
-                duration_ms=duration_ms,
+                success=True,
+                details={
+                    "filename": filename,
+                    "async": True,
+                    "task_id": task.id,
+                    "job_id": job_id,
+                    "object_key": object_key,
+                },
             )
-            return jsonify({"ok": False, "error": str(exc)}), 400
-        # Stage the parsed payload into OMP immediately after the revision is
-        # saved. Best-effort: the revision above is the durable record, so a
-        # staging failure is logged clearly but must not fail the import.
-        omp_artifact_id = None
-        try:
-            substrate_result = {
-                "id": result.get("document_id") or f"doc-{project_id}",
-                "filename": upload.filename.strip(),
-                "page_count": bundle["page_count"],
-                "text": bundle["text"],
-                "tables": bundle["tables"],
-                "images": bundle["images"],
-                "figures": bundle["figures"],
-                "size_bytes": len(file_bytes),
-                "is_image": False,
-                "table_count": bundle["table_count"],
-                "image_count": bundle["image_count"],
-                "figure_count": bundle["figure_count"],
-                "asset_summary": bundle["asset_summary"],
-            }
-            omp_artifact = build_omp_artifact_from_parse(
-                project_id,
-                substrate_result,
-                parse_confidence=bundle["parse_confidence"],
-                ocr_confidence=bundle["ocr_confidence"],
-                parser_name=bundle["parser_name"],
-                source_kind=bundle["source_kind"],
-                page_count=bundle["page_count"],
-                table_count=bundle["table_count"],
-                image_count=bundle["image_count"],
-                figure_count=bundle["figure_count"],
-                asset_summary=bundle["asset_summary"],
-                verification=verification,
+            return (
+                jsonify(
+                    {
+                        "ok": True,
+                        "status": "queued",
+                        "task_id": task.id,
+                        "job_id": job_id,
+                        "status_url": f"/api/tasks/{task.id}",
+                        "job_url": f"/api/projects/{project_id}/ingest-jobs/{job_id}",
+                        "filename": filename,
+                    }
+                ),
+                202,
             )
-            store_omp_artifact(project_id, omp_artifact)
-            omp_artifact_id = omp_artifact.artifact_id
-        except Exception:
-            log.exception("PDF import: OMP parse artifact staging failed")
-        duration_ms = int((time.perf_counter() - start_time) * 1000)
-        audit.log_audit(
-            request_id,
+
+        job_id = create_job(
             project_id,
-            "PDF_IMPORT",
-            success=True,
-            duration_ms=duration_ms,
-            details={
-                "filename": upload.filename,
-                "version": result.get("version"),
-                "parser_name": bundle["parser_name"],
-                "page_count": bundle["page_count"],
-            },
+            kind="import_pdf",
+            filename=filename,
+            object_key=object_key,
+            size_bytes=len(file_bytes or b""),
         )
-        return jsonify(
-            {
-                **result,
-                "ok": True,
-                "parser_name": bundle["parser_name"],
-                "source_kind": bundle["source_kind"],
-                "page_count": bundle["page_count"],
-                "parse_confidence": bundle["parse_confidence"],
-                "ocr_confidence": bundle["ocr_confidence"],
-                "table_count": bundle["table_count"],
-                "image_count": bundle["image_count"],
-                "figure_count": bundle["figure_count"],
-                "omp_artifact_id": omp_artifact_id,
-            }
-        )
+        try:
+            result = ingest_pdf_for_project(project_id, filename, file_bytes or b"", job_id=job_id)
+        except PdfIngestError as exc:
+            return jsonify({"ok": False, "error": str(exc), "job_id": job_id}), exc.http_status
+        if object_key is not None:
+            store.delete(object_key)
+        return jsonify(result)
 
     @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
     @project_ownership_required

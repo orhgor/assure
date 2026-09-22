@@ -1,26 +1,46 @@
-# Staging overrides — isolated SQLite from production.
-# Staging runs on its own EC2; keep host port 8765 so SSM health, auto-heal,
-# and the Cloudflare tunnel stay on the same loopback URL as production.
-# Do not share ./data with production. Image tag is ghcr.io/orhgor/assure-app:staging.
+# Staging overrides — own PostgreSQL volume and data directory, never
+# production's. Host port 8765 stays for SSM health, auto-heal and the tunnel.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 services:
-  assure-app:
-    ports: !override
-      - "127.0.0.1:8765:8765"
+  postgres:
     environment:
-      ENVIRONMENT: staging
-      ASSURE_ENV: staging
-      ASSURE_USE_FREE_MODELS: "1"
-      DATABASE_PATH: /app/data/history.sqlite
-      PORT: "8765"
-      PYTHONUNBUFFERED: "1"
-      USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes: !override
+      - pgdata-staging:/var/lib/postgresql/data
+  assure-app:
+    image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
+    build: !reset null
     env_file:
       - path: .env.staging
         required: false
-    volumes:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
+      ENVIRONMENT: staging
+      ASSURE_ENV: staging
+      ASSURE_USE_FREE_MODELS: "1"
+      PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
+      ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-true}
+      WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
+    volumes: !override
       - ./data-staging:/app/data
-    restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 1536M
+  assure-worker:
+    image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
+    build: !reset null
+    env_file:
+      - path: .env.staging
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
+      ENVIRONMENT: staging
+      ASSURE_ENV: staging
+      PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
+    volumes: !override
+      - ./data-staging:/app/data
+
+volumes:
+  pgdata-staging:

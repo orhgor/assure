@@ -1,4 +1,4 @@
-"""Orchestrator multi-model API — Sprint 1 mock."""
+"""Orchestrator multi-model API — the mock stack is labelled, never "success"."""
 
 from __future__ import annotations
 
@@ -36,7 +36,11 @@ def test_orchestrate_returns_claude_and_deepseek(founder_client) -> None:
     )
     assert res.status_code == 200
     body = res.get_json()
-    assert body["status"] == "success"
+    # No provider keys: the payload is the fixed mock stack and must say so.
+    assert body["status"] == "mock"
+    assert body["mock"] is True
+    assert body["stack"] == "mock"
+    assert "illustrative" in body["notice"].lower()
     assert body["intent"] == "Compare liability limits for Boston renewal."
     assert body["models"]["claude"]["name"] == "Claude 3.5 Sonnet"
     assert "$5,000,000" in body["models"]["claude"]["text"]

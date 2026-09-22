@@ -1,4 +1,4 @@
-"""SQLite connection and idempotent schema migrations for Assure on EBS."""
+"""Idempotent schema migrations and connection helpers (PostgreSQL via db/pg_compat)."""
 
 from __future__ import annotations
 
@@ -48,7 +48,83 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 26
+_SCHEMA_VERSION = 28
+
+
+def _migrate_v28(db: sqlite3.Connection) -> None:
+    """Integration settings: operator-entered configuration for external systems.
+
+    The AWS/S3 integration can be configured from the workbench (Sources panel)
+    instead of only from ``.env``; the entered access key id, region, bucket and
+    prefix are stored here and the secret is Fernet-encrypted
+    (``services/aws_integration``). One row per integration name; the value is a
+    JSON document so a new integration needs no new table.
+    """
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS integration_settings (
+            name TEXT PRIMARY KEY,
+            value_json TEXT NOT NULL DEFAULT '{}',
+            secret_enc TEXT,
+            updated_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _migrate_v27(db: sqlite3.Connection) -> None:
+    """Ingest jobs: one row per document going through the parse pipeline.
+
+    The web tier answers an upload with 202 and a task id; the worker does the
+    work. Until now the only trace of that work was the Celery result (which
+    expires) and the final revision (which says nothing about how it got
+    there). This table is the durable record a user and an operator can watch:
+    which stage the document is in, which parser took it, what OCR confidence
+    it produced, what Z3 and Red-Hat said, how long each step took, and — when
+    it failed — why. Rows outlive the task result and survive a worker restart.
+    """
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingest_jobs (
+            job_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'import_pdf',
+            filename TEXT NOT NULL DEFAULT '',
+            object_key TEXT,
+            task_id TEXT,
+            status TEXT NOT NULL DEFAULT 'queued',
+            stage_history TEXT NOT NULL DEFAULT '[]',
+            parser_name TEXT,
+            source_kind TEXT,
+            page_count INTEGER,
+            parse_confidence REAL,
+            ocr_confidence REAL,
+            z3_status TEXT,
+            z3_violation_count INTEGER,
+            redhat_status TEXT,
+            revision_id TEXT,
+            revision_version INTEGER,
+            omp_artifact_id TEXT,
+            substrate_file_id TEXT,
+            error TEXT,
+            worker TEXT,
+            size_bytes INTEGER,
+            duration_ms INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            started_at DATETIME,
+            finished_at DATETIME,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ingest_jobs_project ON ingest_jobs(project_id, created_at DESC)"
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_ingest_jobs_task ON ingest_jobs(task_id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_ingest_jobs_status ON ingest_jobs(project_id, status)")
 
 
 def _migrate_v26(db: sqlite3.Connection) -> None:
@@ -1036,6 +1112,10 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v25(db)
     if current < 26:
         _migrate_v26(db)
+    if current < 27:
+        _migrate_v27(db)
+    if current < 28:
+        _migrate_v28(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
@@ -1119,13 +1199,9 @@ def closing_connection(
     before the close so the lock goes with it, and closed in a `finally` so the
     policy cannot outlive the block.
     """
-    conn = sqlite3.connect(
-        str(path if path is not None else _resolve_db_path()), timeout=timeout
-    )
+    conn = _new_connection()
     note_connection_open(conn, site=site)
     try:
-        conn.row_factory = sqlite3.Row
-        _apply_pragmas(conn)
         yield conn
     finally:
         _release_direct_connection(conn)

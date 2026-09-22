@@ -461,6 +461,35 @@
                   </div>
                 </div>
               </div>
+              <div id="aws-integration-banner" class="aws-banner" hidden role="status"></div>
+              <div id="aws-integration-modal" class="aws-modal" hidden>
+                <div class="aws-modal-backdrop" id="aws-integration-backdrop"></div>
+                <form id="aws-integration-form" class="aws-modal-card card" autocomplete="off">
+                  <div class="aws-modal-head">
+                    <h3 data-i18n="aws.form.title">{{ gettext('Connect AWS S3 (IAM)') }}</h3>
+                    <button type="button" class="btn btn-sm btn-ghost" id="aws-integration-close" aria-label="{{ gettext('Close') }}" data-i18n-aria="aws.form.close">×</button>
+                  </div>
+                  <p class="hint" data-i18n="aws.form.intro">{{ gettext('Uploads, OMP artifacts and the JDF mirror go to this bucket. Leave the keys empty on AWS to use the machine IAM role; enter them here or in .env to run locally against the real bucket.') }}</p>
+                  <label>{{ gettext('Bucket') }}<input id="aws-bucket" class="form-control" required placeholder="assure-prod-objects"></label>
+                  <label>{{ gettext('Region') }}<input id="aws-region" class="form-control" required placeholder="eu-central-1"></label>
+                  <label>{{ gettext('Prefix') }}<input id="aws-prefix" class="form-control" placeholder="assure/"></label>
+                  <label>AWS_ACCESS_KEY_ID<input id="aws-access-key" class="form-control" placeholder="AKIA…" autocomplete="off"></label>
+                  <label>AWS_SECRET_ACCESS_KEY<input id="aws-secret-key" class="form-control" type="password" autocomplete="new-password"></label>
+                  <p id="aws-form-result" class="hint" aria-live="polite"></p>
+                  <div class="aws-modal-actions">
+                    <button type="submit" class="btn btn-primary btn-sm" id="aws-form-submit" data-i18n="aws.form.submit">{{ gettext('Save and test') }}</button>
+                  </div>
+                </form>
+              </div>
+              <section id="ingest-jobs-panel" class="ingest-jobs-panel" hidden aria-live="polite">
+                <div class="ingest-jobs-head">
+                  <h4 class="ingest-jobs-title" data-i18n="ingest.title">{{ gettext('Processing') }}</h4>
+                  <span id="ingest-jobs-summary" class="ingest-jobs-summary hint"></span>
+                  <button type="button" class="btn btn-sm btn-ghost" id="ingest-jobs-refresh" aria-label="{{ gettext('Refresh processing status') }}" data-i18n-aria="ingest.refresh" title="{{ gettext('Refresh processing status') }}" data-i18n-title="ingest.refresh">↻</button>
+                </div>
+                <p id="ingest-jobs-empty" class="hint" hidden data-i18n="ingest.empty">{{ gettext('No documents are being processed.') }}</p>
+                <ul id="ingest-jobs-list" class="ingest-jobs-list" role="list"></ul>
+              </section>
             </div>
 
             <div id="pane-versions" class="assure-view context-panel founder-panel founder-versions-panel" data-view="versions" hidden aria-hidden="true">
@@ -1413,6 +1442,8 @@
   <script src="{{ url_for('static', filename='evidence_inspector.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='founder_export.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='substrate_vault.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='ingest_jobs.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='aws_integration.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='argument_spine.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='editor_sync.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='ast_serializer.js') }}?v={{ js_version|default('assure-21') }}"></script>

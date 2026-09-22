@@ -5,6 +5,8 @@ handle direct-text ingestion, or own fallback behavior. Those stay in the
 callers/ingest helpers, which execute the decision rather than make it:
 
 - ``"jdf"``      → JDF CI (``services/jdf_converter.pdf_to_parse_bundle``)
+- ``"jdf-ocr"``  → JDF CI with OCR for a scan (``pdf_to_parse_bundle(ocr=...)``;
+                   the caller falls back to Textract if jdf-cli fails)
 - ``"textract"`` → AWS Textract (``lib/textract.TextractClient``)
 
 Caller rule for a text-like file (extension in the text set, or
@@ -16,9 +18,16 @@ as PDF. That is execution of the routing decision, not a second router.
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
-ParserName = Literal["jdf", "textract"]
+ParserName = Literal["jdf", "jdf-ocr", "textract"]
+
+#: What parses a scan. ``jdf-ocr`` runs jdf-cli with its bundled tesseract.js
+#: (local, no per-page fee); ``textract`` is Amazon Textract (per-page fee,
+#: AWS credentials). ``PARSER_SCAN_BACKEND`` overrides; ``JDF_OCR=none`` also
+#: forces Textract, because jdf-cli without OCR would return empty pages.
+_SCAN_BACKEND_DEFAULT = "jdf-ocr"
 
 #: Extensions whose content is already text — the caller wraps it as a JDF
 #: document directly, so no binary probing of any kind runs.
@@ -41,10 +50,11 @@ def select_parser(
 
     Returns:
         "jdf" — use JDF CI (``pdf_to_parse_bundle`` in jdf_converter.py).
+        "jdf-ocr" — a scan: JDF CI with OCR (default), see ``scan_backend``.
         "textract" — use AWS Textract (``lib/textract.TextractClient``).
 
     ``source_kind`` (optional override):
-        "scanned" → force Textract (the client knows the document is
+        "scanned" → force the scan backend (the client knows the document is
         scanned/image-only).
         "text" → return "jdf" *only to signal* "this is not binary: the
         caller wraps the text content directly as a JDF document — do NOT
@@ -56,7 +66,7 @@ def select_parser(
     """
     # 1. Client override takes precedence.
     if source_kind == "scanned":
-        return "textract"
+        return scan_backend()
     if source_kind == "text":
         # Caller wraps text as JDF — skip binary parsing entirely.
         return "jdf"
@@ -73,6 +83,16 @@ def select_parser(
 
     # 4. Default: try JDF CI.
     return "jdf"
+
+
+def scan_backend() -> ParserName:
+    """The backend a document with no text layer goes to."""
+    override = (os.environ.get("PARSER_SCAN_BACKEND") or "").strip().lower()
+    if override in ("textract", "jdf-ocr"):
+        return override  # type: ignore[return-value]
+    if (os.environ.get("JDF_OCR") or "").strip().lower() == "none":
+        return "textract"
+    return _SCAN_BACKEND_DEFAULT  # type: ignore[return-value]
 
 
 def _probe_pdf_for_parser(file_bytes: bytes) -> ParserName:
@@ -93,6 +113,6 @@ def _probe_pdf_for_parser(file_bytes: bytes) -> ParserName:
                 page = doc[page_num]
                 if page.get_text().strip():
                     return "jdf"
-            return "textract"  # no text found → likely scanned
+            return scan_backend()  # no text found → a scan
     except Exception:
         return "jdf"  # probe failed → default to JDF, let parse fail naturally

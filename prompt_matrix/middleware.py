@@ -88,8 +88,56 @@ def check_project_ownership(project_id: str):
     return None
 
 
+# Projects that exist without a creation request: seeded at boot by
+# ``routers/sandbox.ensure_sandbox_project`` (``sandbox``, ``founder``) or created
+# on first touch (``default``). A read for one of these before its row exists is
+# not a ghost.
+AUTO_CREATED_PROJECT_IDS = frozenset({"default", "sandbox", "founder"})
+
+
+def _auto_created_project_ids() -> frozenset[str]:
+    """``AUTO_CREATED_PROJECT_IDS`` plus the sandbox id as ``routers/sandbox.py`` defines it.
+
+    Imported lazily: ``routers.sandbox`` pulls in the draft pipeline, which
+    imports this module.
+    """
+    try:
+        from .routers.sandbox import SANDBOX_PROJECT_ID
+    except ImportError:
+        try:
+            from routers.sandbox import SANDBOX_PROJECT_ID
+        except ImportError:
+            return AUTO_CREATED_PROJECT_IDS
+    return AUTO_CREATED_PROJECT_IDS | {SANDBOX_PROJECT_ID}
+
+# Reads. A PUT/POST/PATCH may be the request that creates the project
+# (``save_jdf_revision`` → ``ensure_project``), so only these are gated.
+_READ_METHODS = frozenset({"GET", "HEAD", "DELETE"})
+
+
+def check_project_exists(project_id: str):
+    """404 for a read of a project with no ``projects`` row; else None.
+
+    ``GET /api/projects/<id>/jdf`` and ``/export`` used to answer 200 with an
+    empty document for any id at all — ``fetch_latest_jdf_or_empty`` builds one
+    — so a mistyped or deleted project looked like a real, blank one (2026-09-22
+    audit). Writes are left alone: the first PUT is how a project comes to exist.
+    """
+    if not project_id or project_id in _auto_created_project_ids():
+        return None
+    if request.method not in _READ_METHODS:
+        return None
+    try:
+        from .db.jdf_repository import project_exists
+    except ImportError:
+        from db.jdf_repository import project_exists
+    if project_exists(project_id):
+        return None
+    return jsonify({"ok": False, "error": "Project not found."}), 404
+
+
 def project_ownership_required(view: Callable[..., Any]) -> Callable[..., Any]:
-    """Decorator: 403 when the session user does not own URL project_id."""
+    """Decorator: 403 when the session user does not own URL project_id; 404 for a read of a project that does not exist."""
 
     @wraps(view)
     def wrapped(*args: Any, **kwargs: Any):
@@ -100,6 +148,9 @@ def project_ownership_required(view: Callable[..., Any]) -> Callable[..., Any]:
         denied = check_project_ownership(str(project_id or ""))
         if denied is not None:
             return denied
+        missing = check_project_exists(str(project_id or ""))
+        if missing is not None:
+            return missing
         return view(*args, **kwargs)
 
     return wrapped

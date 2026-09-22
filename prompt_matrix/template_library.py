@@ -47,10 +47,13 @@ def improve_epsilon() -> float:
 
 
 def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        from .db.pg_compat import checkout, is_postgres
+    except ImportError:
+        from db.pg_compat import checkout, is_postgres
+    if not is_postgres():
+        raise RuntimeError("DATABASE_URL must be a PostgreSQL DSN")
+    return checkout(str(DB_PATH))  # type: ignore[return-value]
 
 
 def ensure_tables() -> None:

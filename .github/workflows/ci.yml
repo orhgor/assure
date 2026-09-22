@@ -20,7 +20,26 @@ jobs:
   test:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     runs-on: [self-hosted, staging]
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: assure
+          POSTGRES_USER: assure
+          POSTGRES_PASSWORD: assure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assure -d assure"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
+      REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +80,7 @@ jobs:
           node-version: "22"
 
       - name: Validate sample JDF with @uurtech/jdf-cli
-        run: npx --yes @uurtech/jdf-cli validate docs/report.jdf
+        run: npx --yes @uurtech/jdf-cli@0.2.3 validate docs/report.jdf
 
       - name: Z3 accuracy benchmark
         run: pytest tests/test_z3_benchmark.py -v
@@ -70,6 +89,20 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     runs-on: [self-hosted, staging]
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: assure
+          POSTGRES_USER: assure
+          POSTGRES_PASSWORD: assure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assure -d assure"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
     steps:
       - uses: actions/checkout@v4
 

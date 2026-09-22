@@ -1,4 +1,4 @@
-"""Production health diagnostics (SQLite, disk, backup freshness)."""
+"""Production health diagnostics (database, disk, backup freshness, optional OMP)."""
 
 from __future__ import annotations
 
@@ -65,6 +65,11 @@ def health_check():
         with closing_connection(db_path, site="routers.health.sqlite_probe") as conn:
             conn.execute("SELECT 1")
         status["checks"]["sqlite"] = "ok"
+        try:
+            from ..db.pg_compat import is_postgres
+        except ImportError:
+            from db.pg_compat import is_postgres
+        status["checks"]["database"] = "postgresql" if is_postgres() else "sqlite"
     except Exception as exc:
         status["ok"] = False
         status["status"] = "unhealthy"
@@ -169,19 +174,65 @@ def health_check():
         from upload_limits import limits_snapshot
     status["limits"] = limits_snapshot()
     try:
-        from ..omp_client import omp_health
+        from ..omp_client import omp_configured, omp_health
     except ImportError:
-        from omp_client import omp_health
-    omp = omp_health()
-    status["checks"]["omp"] = omp.get("status") or "down"
-    if omp.get("version"):
-        status["checks"]["omp_version"] = omp["version"]
+        from omp_client import omp_configured, omp_health
+    # OMP is optional, so it never fails the probe (503) — but a configured OMP
+    # that is down is not "healthy" either. Reported as degraded: 200, so the
+    # load balancer keeps the replica, and ``status`` says what is wrong.
+    # Unconfigured deployments used to report ``omp: "down"`` for a server that
+    # was never meant to exist.
+    if omp_configured():
+        omp = omp_health()
+        omp_state = str(omp.get("status") or "down")
+        status["checks"]["omp"] = omp_state
+        if omp.get("version"):
+            status["checks"]["omp_version"] = omp["version"]
+        if omp_state not in ("ok", "healthy", "up"):
+            status["degraded"] = True
+            status["checks"]["omp_error"] = str(omp.get("error") or "unreachable").splitlines()[0][:200]
+            if status["ok"]:
+                status["status"] = "degraded"
+    else:
+        status["checks"]["omp"] = "not configured"
+    status.setdefault("degraded", False)
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip() or _deployed_commit()
     if build_sha:
         status["build_sha"] = build_sha
 
     code = 200 if status["ok"] else 503
     return jsonify(status), code
+
+
+@health_bp.route("/ready", methods=["GET"])
+def readiness():
+    """Readiness for the load balancer: this replica can serve a request.
+
+    Only the dependencies a request needs — the database and, when configured,
+    Redis. Nothing informational (OMP, git, backups, disk) belongs here: a
+    replica must not be pulled from rotation for a condition that does not
+    stop it serving.
+    """
+    checks: dict[str, str] = {}
+    ok = True
+    try:
+        with closing_connection(resolve_db_path(), site="routers.health.readiness") as conn:
+            conn.execute("SELECT 1")
+        checks["database"] = "ok"
+    except Exception as exc:
+        ok = False
+        checks["database"] = f"error: {exc.__class__.__name__}"
+    try:
+        from ..services.redis_client import ping, redis_configured
+    except ImportError:
+        from services.redis_client import ping, redis_configured
+    if redis_configured():
+        alive = ping()
+        checks["redis"] = "ok" if alive else "error: unreachable"
+        ok = ok and alive
+    else:
+        checks["redis"] = "not configured"
+    return jsonify({"ok": ok, "checks": checks}), (200 if ok else 503)
 
 
 def register_health_routes(app) -> None:

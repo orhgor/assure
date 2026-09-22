@@ -382,6 +382,12 @@ def save_provider_key(target: str, key: str) -> dict:
         os.environ["CLAUDE_API_KEY"] = key
     if target == "kimi":
         os.environ["KIMI_API_KEY"] = key
+    if (os.environ.get("ENVIRONMENT") or "").strip().lower() in ("production", "staging"):
+        # A server replica must not persist a provider key on its own disk: the
+        # next replica would not have it and the container filesystem is
+        # ephemeral. The key stays in this process's environment for the
+        # session; durable storage is the encrypted per-user row.
+        return provider_status()
     ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     if set_key is not None:
         set_key(str(ENV_PATH), env_name, key)

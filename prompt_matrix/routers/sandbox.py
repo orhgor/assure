@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 try:
     from ..cost_governance import CostGovernor, TaskType
+    from ..lib.http_errors import clean_error_message, error_status
     from ..models.jdf import (
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -22,6 +23,7 @@ try:
     from ..services.audit_summary import build_audit_summary
 except ImportError:
     from cost_governance import CostGovernor, TaskType
+    from lib.http_errors import clean_error_message, error_status
     from models.jdf import (
         apply_redhat_critiques_to_tree,
         apply_z3_violations_to_tree,
@@ -57,6 +59,11 @@ def ensure_sandbox_project() -> None:
     except ImportError:
         from db.jdf_repository import ensure_project
     ensure_project(SANDBOX_PROJECT_ID, "Sandbox")
+    # The founder workbench hardcodes workspace "founder" (static/founder_mode.js,
+    # founder_draft.js; routers/drafts_routes.py, redhat_routes.py default to it)
+    # and `drafts`/`runs` reference projects(id): without this row every founder
+    # autosave and Red-Hat trigger failed at the foreign key with an HTTP 500.
+    ensure_project("founder", "Founder Workspace")
 
 
 class SandboxVerifyPayload(BaseModel):
@@ -147,6 +154,9 @@ def register_sandbox_routes(app) -> None:
         try:
             result = run_sandbox_verify(text)
         except Exception as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 500
+            # A missing provider key is a deployment condition, not a server
+            # fault: 503 with one clean line (the message used to be the raw
+            # ``str(exc)`` — a litellm traceback fragment — behind a 500).
+            return jsonify({"ok": False, "error": clean_error_message(exc)}), error_status(exc)
 
         return jsonify(result)

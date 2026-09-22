@@ -6,56 +6,52 @@ The compiler is PEM (`prompt_matrix`). `assure --web` opens your browser. First 
 
 ## Quick start
 
-The workbench stays on this computer. GitHub `orhgor/assure` is the public site only.
-
-### Desktop (no terminal)
-
-```bash
-./scripts/install.sh
-./scripts/build-desktop.sh
-```
-
-Then double-click `dist/Assure.app` (macOS), `dist\Assure\Assure.exe` (Windows), or `dist/Assure/Assure` (Linux). The browser should open. If it does not, go to [http://127.0.0.1:8765](http://127.0.0.1:8765). There is no public download URL yet.
-
-### From source
+The database is PostgreSQL and the shared state is Redis; both come from one
+compose file. The app runs from the venv or as a container.
 
 ```bash
-./scripts/install.sh
-source prompt_matrix/.venv/bin/activate
-assure --web
+./scripts/install.sh                                    # or: uv sync --extra dev
+docker compose -f docker-compose.dev.yml up -d          # PostgreSQL :5432 + Redis :6379
+export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure
+export REDIS_URL=redis://localhost:6379/0
+.venv/bin/assure --web                                  # http://127.0.0.1:8765
 ```
 
-Windows: `scripts\install.ps1`. `pip install prompt-matrix` is not on PyPI yet. Do not clone `orhgor/assure` for the app.
-
-Sign-in is off on this machine by default. Sharing on the LAN (`--host 0.0.0.0`) requires `--http-pass` (or `PEM_HTTP_PASS`). Do not commit the password.
-
-Team edition (unlimited Sends on this machine):
+Full stack in containers (web + parse worker + PostgreSQL + Redis, the same
+topology as AWS) with no configuration at all:
 
 ```bash
-assure --web --edition team
+docker compose up -d --build          # http://127.0.0.1:8765/app
 ```
 
-### Ask
+Optional `.env` at the repo root: provider keys, and `ASSURE_S3_BUCKET` +
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for a real S3 bucket (or enter
+them on the Sources panel). Production: `docker-compose.prod.yml` requires
+`APP_IMAGE`, `POSTGRES_PASSWORD`, `PEM_SECRET_KEY`.
 
-Write a question in Compose, or click an example (Compare AWS vs GCP, Summarize a paper, Write a marketing email). Send and get my answer is the default. Copy the prompt keeps the compiled text on this computer.
+Documents are parsed on the worker: `POST /api/projects/<id>/import-pdf`
+answers 202 with a `task_id`, `GET /api/tasks/<task_id>` reports the result.
+Scanned PDFs are OCR'd by jdf-cli's bundled tesseract; Textract is only a
+fallback. Architecture, scaling rules and the AWS Terraform:
+[docs/scale_architecture.md](docs/scale_architecture.md), [infra/terraform](infra/terraform/README.md).
 
-First run opens Connect so you can paste a key. Copy stays on this computer. A Send goes only to the provider you chose.
+Desktop build: `./scripts/build-desktop.sh` (needs a reachable PostgreSQL via `DATABASE_URL`).
 
-Pro is $5 per month on the Pricing page in this tree.
+Migrating a legacy SQLite file: `DATABASE_URL=... python scripts/migrate_sqlite_to_postgres.py data/history.sqlite`.
 
 Install, CLI, and MCP details: [prompt_matrix/README.md](prompt_matrix/README.md). Product overview: [prompt_matrix/PEM.md](prompt_matrix/PEM.md). Public landing: [landing/index.html](landing/index.html).
 
 ## Testing
 
-**CI** runs `pytest` unit tests plus a **Playwright** suite under `tests/playwright/` (headless Chromium, local embedded Flask — no live model keys).
+**CI** runs `pytest` against a PostgreSQL service container plus a **Playwright** suite under `tests/playwright/` (headless Chromium, embedded Flask — no live model keys).
 
 ```bash
-uv sync --extra dev
-playwright install chromium
-pytest tests/playwright/ -v
+docker compose -f docker-compose.dev.yml up -d
+DATABASE_URL=postgresql://assure:assure@localhost:5432/assure .venv/bin/pytest tests/ -q \
+  --ignore=tests/e2e --ignore=tests/playwright --ignore=tests/quality_check
 ```
 
-Optional against staging: `ASSURE_BASE_URL=https://staging.getassureai.com pytest tests/playwright/ -v` (requires auth and live compile quota).
+Every test gets its own PostgreSQL schema; they are dropped when the session ends.
 
 ## Cloudflare
 

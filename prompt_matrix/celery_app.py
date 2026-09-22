@@ -14,18 +14,52 @@ def celery_broker_disabled() -> bool:
     return os.environ.get("CELERY_DISABLED", "").strip().lower() in ("1", "true", "yes")
 
 
-_broker = (
-    "memory://"
-    if celery_broker_disabled()
-    else (os.environ.get("CELERY_BROKER_URL") or "sqs://").strip()
-)
+def _redis_url() -> str:
+    return (os.environ.get("REDIS_URL") or "").strip()
+
+
+def _default_broker() -> str:
+    """Broker precedence: CELERY_BROKER_URL, then REDIS_URL, then SQS.
+
+    Redis is the default because it is also the result backend, the
+    rate-limit store and the debounce lock — one shared service locally and
+    on AWS (ElastiCache). ``sqs://`` stays available for deployments that
+    prefer it; results then go to PostgreSQL (see ``_default_backend``).
+    """
+    explicit = os.environ.get("CELERY_BROKER_URL")
+    if explicit is not None and explicit.strip():
+        return explicit.strip()
+    if _redis_url():
+        return _redis_url()
+    return "sqs://"
+
+
+_broker = "memory://" if celery_broker_disabled() else _default_broker()
+
+
+def broker_supports_control() -> bool:
+    """Remote control (revoke, inspect) needs broadcast: Redis / AMQP, not SQS."""
+    return _broker.startswith(("redis://", "rediss://", "amqp://", "pyamqp://", "memory://"))
+
+
 try:
-    from .history import _resolve_db_path
+    from .db.pg_compat import sqlalchemy_url as _pg_sqlalchemy_url
 except ImportError:
-    from history import _resolve_db_path
-_data_dir = _resolve_db_path().parent
-_default_backend = f"db+sqlite:///{_data_dir / 'celery-results.sqlite'}"
-_result_backend = (os.environ.get("CELERY_RESULT_BACKEND") or _default_backend).strip()
+    from db.pg_compat import sqlalchemy_url as _pg_sqlalchemy_url
+
+
+def _default_backend() -> str:
+    """Results: Redis when it is the broker, else the app's PostgreSQL."""
+    if _broker.startswith(("redis://", "rediss://")):
+        return _broker
+    pg_url = _pg_sqlalchemy_url()
+    if pg_url:
+        return f"db+{pg_url}"
+    # Eager / disabled mode only (no broker, no database): results in memory.
+    return "cache+memory://"
+
+
+_result_backend = (os.environ.get("CELERY_RESULT_BACKEND") or _default_backend()).strip()
 
 celery_app = Celery(
     "assure",
@@ -35,6 +69,7 @@ celery_app = Celery(
         "prompt_matrix.tasks.llm_tasks",
         "prompt_matrix.tasks.substrate_tasks",
         "prompt_matrix.tasks.compile_tasks",
+        "prompt_matrix.tasks.parse_tasks",
         "prompt_matrix.tasks.redhat",
     ],
 )
@@ -54,8 +89,16 @@ celery_app.conf.update(
         "polling_interval": float(os.environ.get("CELERY_SQS_POLLING_INTERVAL", "1")),
         "queue_name_prefix": os.environ.get("CELERY_SQS_QUEUE_PREFIX", "assure-"),
     },
+    # Late acks + one prefetch: a worker that dies mid-parse hands the message
+    # back to the queue instead of losing it. Tasks are written to tolerate a
+    # redelivery (idempotent object keys, INSERT ... ON CONFLICT).
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    result_expires=int(os.environ.get("CELERY_RESULT_EXPIRES", "86400")),
     task_routes={
-        "assure.process_substrate_upload": {"queue": "sqlite_writes"},
+        "assure.process_substrate_upload": {"queue": "parse"},
+        "assure.import_project_pdf": {"queue": "parse"},
+        "assure.safe_compile_and_verify": {"queue": "default"},
     },
 )
 
@@ -66,3 +109,24 @@ if _eager:
     celery_app.conf.task_always_eager = True
     celery_app.conf.task_eager_propagates = True
     celery_app.conf.task_store_eager_result = True
+
+
+# The worker resolves the same AWS identity as the web tier: .env, then the
+# credentials saved from the Sources panel, then the machine role. Done per
+# worker process so a setting saved after boot is picked up on the next
+# process spawn (prefork), and never before the database exists.
+try:
+    from celery.signals import worker_process_init
+
+    @worker_process_init.connect  # type: ignore[misc]
+    def _apply_aws_integration(**_kwargs):
+        try:
+            from prompt_matrix.services.aws_integration import apply_to_environment
+
+            apply_to_environment()
+        except Exception:  # pragma: no cover - observability only
+            import logging
+
+            logging.getLogger("assure").exception("aws integration: worker could not apply saved settings")
+except ImportError:  # pragma: no cover
+    pass

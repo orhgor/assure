@@ -326,8 +326,39 @@
     pane.innerHTML = html;
   }
 
+  function isMockPayload(payload) {
+    return !!(payload && (payload.stack === "mock" || payload.mock === true));
+  }
+
+  // The server's mock stack (no provider keys) is fixed sample text. Rendered
+  // unlabelled it read as a live Claude/DeepSeek comparison; the badge sits
+  // above both panes so the panes themselves stay comparable with a real run.
+  function renderMockBadge(payload) {
+    var canvas = stagingCanvas();
+    if (!canvas) return;
+    var existing = canvas.querySelector(".staging-mock-badge");
+    if (existing) existing.parentNode.removeChild(existing);
+    if (!isMockPayload(payload)) return;
+    var badge = document.createElement("div");
+    badge.className = "staging-mock-badge";
+    badge.setAttribute("role", "status");
+    badge.setAttribute("data-mock", "true");
+    var label = translate(
+      "founder.compare.mock_badge",
+      "MOCK — no model keys configured"
+    );
+    var notice = String((payload && payload.notice) || "");
+    badge.innerHTML =
+      '<span class="staging-mock-badge-label">' +
+      escapeHtml(label) +
+      "</span>" +
+      (notice ? '<span class="staging-mock-badge-notice">' + escapeHtml(notice) + "</span>" : "");
+    canvas.insertBefore(badge, canvas.firstChild);
+  }
+
   function renderStaging(payload) {
     ensureStagingRow();
+    renderMockBadge(payload);
     var models = (payload && payload.models) || {};
     var claude = models.claude || {};
     var deepseek = models.deepseek || {};
@@ -508,6 +539,8 @@
     return {
       status: data.status || "success",
       stack: data.stack,
+      mock: data.mock === true || data.stack === "mock",
+      notice: data.notice || "",
       models: {
         claude: {
           name:
@@ -561,7 +594,7 @@
         ) {
           return payload;
         }
-        if (!payload || payload.status !== "success") {
+        if (!payload || (payload.status !== "success" && payload.status !== "mock")) {
           throw new Error((payload && payload.error) || "Orchestrator returned an error");
         }
         clearStagingLoading();
