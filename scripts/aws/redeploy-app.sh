@@ -186,6 +186,10 @@ IMAGE_TAG="${DEPLOY_TAG:-${ASSURE_IMAGE_TAG:-${FULL_SHA}}}"
 export ASSURE_BUILD_SHA="${SHORT_SHA}"
 export ASSURE_IMAGE_TAG="${IMAGE_TAG}"
 export ASSURE_IMAGE="${IMAGE_REPO}:${IMAGE_TAG}"
+# docker-compose.yml interpolates ${APP_IMAGE:?} for the assure-app service;
+# compose runs on the EC2 box whose .env may not define it, so the deploy
+# script always provides it — same image the GHCR path just pulled.
+export APP_IMAGE="${ASSURE_IMAGE}"
 PREVIOUS_IMAGE="$(running_app_image)"
 if [[ -z "$PREVIOUS_IMAGE" && -f "$STATE_FILE" ]]; then
   # shellcheck disable=SC1090
