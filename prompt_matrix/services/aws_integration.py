@@ -121,12 +121,19 @@ def save(
 ) -> dict[str, Any]:
     """Persist the integration. An empty secret keeps the previously stored one
     (the form never echoes the secret back, so re-saving the bucket alone must
-    not wipe it)."""
+    not wipe it) — but only while the access key id it belongs to is still the
+    one being saved. Clearing the key id means "use the machine role", and a
+    secret kept beside an empty or different key id is a pair that can never
+    sign a request; before 2026-09-23 it was kept, so ``apply_to_environment``
+    kept exporting the old identity after the operator had removed it."""
     db = _db()
     existing = load_saved() or {}
-    secret = (secret_access_key or "").strip() or existing.get("secret_access_key") or ""
+    key_id = access_key_id.strip()
+    secret = (secret_access_key or "").strip()
+    if not secret and key_id and key_id == (existing.get("access_key_id") or ""):
+        secret = existing.get("secret_access_key") or ""
     value = {
-        "access_key_id": access_key_id.strip(),
+        "access_key_id": key_id,
         "region": region.strip(),
         "bucket": bucket.strip(),
         "prefix": (prefix or "").strip(),
@@ -153,10 +160,19 @@ def clear() -> None:
     db = _db()
     db.execute("DELETE FROM integration_settings WHERE name = ?", (INTEGRATION_NAME,))
     db.commit()
-    for key in _ENV_KEYS + ("ASSURE_S3_BUCKET", "ASSURE_S3_PREFIX"):
-        if os.environ.get(f"_ASSURE_AWS_FROM_DB_{key}"):
-            os.environ.pop(key, None)
-            os.environ.pop(f"_ASSURE_AWS_FROM_DB_{key}", None)
+    _unapply_from_db()
+
+
+def _unapply_from_db() -> None:
+    """Remove every variable ``_set_from_db`` exported, and its marker.
+
+    Driven by the ``_ASSURE_AWS_FROM_DB_*`` markers rather than a fixed key
+    list, so a value exported by an earlier version of this module is still
+    undone; ``.env`` values carry no marker and are left alone.
+    """
+    for marker in [k for k in os.environ if k.startswith("_ASSURE_AWS_FROM_DB_")]:
+        os.environ.pop(marker[len("_ASSURE_AWS_FROM_DB_"):], None)
+        os.environ.pop(marker, None)
 
 
 # --------------------------------------------------------------------------- #
@@ -172,10 +188,21 @@ def apply_to_environment() -> str:
     """Export database-saved credentials into the process environment.
 
     Only fills variables the environment does not already set — ``.env`` wins —
-    and marks what it set so ``clear()`` can undo exactly that. Returns the
-    credential source that is now effective: ``env`` / ``database`` / ``role``.
-    Called from ``web.create_app`` and from the Celery worker at boot.
+    and marks what it set so it can be undone exactly. Returns the credential
+    source that is now effective: ``env`` / ``database`` / ``role``. Called from
+    ``web.create_app``, from the Celery worker at boot, and after every save.
+
+    Every variable this function exported on an earlier call is removed first,
+    so the environment mirrors the database row as it is *now*. Before
+    2026-09-23 the function only ever added: after the operator emptied the
+    access key id on the Sources panel, ``save()`` wrote a key-less row, the
+    role branch was taken, and ``AWS_ACCESS_KEY_ID`` / ``AWS_SECRET_ACCESS_KEY``
+    exported from the previous row stayed in ``os.environ`` — boto3 kept signing
+    with credentials the UI said were gone. ``AWS_SESSION_TOKEN`` is never set
+    or touched here: saved credentials are long-lived keys, and a session token
+    in the environment belongs to the role chain, not to this integration.
     """
+    _unapply_from_db()
     if _env_has_keys():
         if not (os.environ.get("ASSURE_S3_BUCKET") or "").strip():
             saved = _safe_load_saved()

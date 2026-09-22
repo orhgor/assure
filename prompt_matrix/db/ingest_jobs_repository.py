@@ -120,10 +120,17 @@ def advance(job_id: str, stage: str, **fields: Any) -> None:
     init_db()
     db = get_db()
     row = db.execute(
-        "SELECT stage_history, created_at, started_at FROM ingest_jobs WHERE job_id = ?",
+        "SELECT stage_history, created_at, started_at, status FROM ingest_jobs WHERE job_id = ?",
         (job_id,),
     ).fetchone()
     if not row:
+        return
+    if row[3] in TERMINAL_STATUSES and stage != "queued":
+        # A finished job is final until a retry re-queues it. Without this a
+        # redelivered message (acks_late + visibility expiry) ran "fetching" →
+        # "skipped: staged object not found" over a `done` row whose revision
+        # exists, and /api/tasks reported the document as skipped (audit
+        # 2026-09-23).
         return
     try:
         history = json.loads(row[0] or "[]")
@@ -136,6 +143,11 @@ def advance(job_id: str, stage: str, **fields: Any) -> None:
     if stage != "queued" and not row[2]:
         sets.append("started_at = ?")
         params.append(now)
+    if stage == "queued":
+        # A retry starts the clock again: the failure's finished_at/duration
+        # would otherwise make prune_jobs delete the job while it runs.
+        sets.extend(["finished_at = NULL", "duration_ms = NULL", "revision_id = NULL"])
+        fields.setdefault("error", None)
     if stage in TERMINAL_STATUSES:
         sets.append("finished_at = ?")
         params.append(now)
@@ -182,6 +194,10 @@ def get_job_by_task(task_id: str) -> dict[str, Any] | None:
 
 
 def list_jobs(project_id: str, *, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
+    try:
+        mark_stale()
+    except Exception:  # never let healing break the listing
+        pass
     init_db()
     db = get_db()
     limit = max(1, min(int(limit), 500))
@@ -228,6 +244,34 @@ def job_stats(project_id: str) -> dict[str, int]:
         z3[str(status)] = int(count)
     stats["z3"] = z3  # type: ignore[assignment]
     return stats
+
+
+STALE_AFTER_MINUTES = 45  # > task_time_limit (15 min) + SQS visibility (30 min)
+
+
+def mark_stale(*, older_than_minutes: int = STALE_AFTER_MINUTES) -> int:
+    """Fail active jobs nobody has touched for ``older_than_minutes``.
+
+    A SIGKILLed task (task_time_limit), an OOM or a lost host never reaches
+    ``advance("failed")``; the row stayed in ``parsing`` forever and the
+    Processing panel polled it forever (audit 2026-09-23). Called from
+    ``list_jobs`` so the panel heals itself; cheap (indexed status scan).
+    """
+    init_db()
+    db = get_db()
+    cur = db.execute(
+        "UPDATE ingest_jobs SET status = 'failed', error = ?, finished_at = ?, updated_at = ? "
+        "WHERE status NOT IN ('done', 'failed', 'skipped') "
+        "AND updated_at < datetime('now', ?)",
+        (
+            f"worker lost: no progress for {int(older_than_minutes)} minutes",
+            _now(),
+            _now(),
+            f"-{int(older_than_minutes)} minutes",
+        ),
+    )
+    db.commit()
+    return int(cur.rowcount or 0)
 
 
 def prune_jobs(project_id: str | None = None, *, keep_days: int = 90) -> int:

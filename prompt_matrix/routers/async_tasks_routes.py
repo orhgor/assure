@@ -62,11 +62,27 @@ def register_async_task_routes(app) -> None:
             from db.ingest_jobs_repository import get_job_by_task
         job = get_job_by_task(task_id)
         if job:
+            # The job names its project; the same ownership rule as every
+            # /api/projects/<id>/… route applies. 404 rather than 403 so a task
+            # id does not confirm another tenant's upload exists (audit
+            # 2026-09-23).
+            try:
+                from ..middleware import check_project_ownership
+            except ImportError:
+                from middleware import check_project_ownership
+            if check_project_ownership(str(job.get("project_id") or "")) is not None:
+                return jsonify({"ok": False, "error": "Task not found."}), 404
             body["job"] = job
             if body["status"] in ("pending", "processing") and job["status"] in ("done", "failed", "skipped"):
                 body["status"] = "success" if job["status"] == "done" else job["status"]
             elif body["status"] == "pending" and job["status"] != "queued":
                 body["status"] = "processing"
+        else:
+            # No job row → no project to check against: return the status but
+            # not the payload (a parsed document tree) to an arbitrary caller.
+            result = body.get("result")
+            if isinstance(result, dict) and "document" in result:
+                body["result"] = {k: v for k, v in result.items() if k != "document"}
         payload = body.get("result") if isinstance(body.get("result"), dict) else {}
         if isinstance(payload, dict) and payload.get("status") == "skipped":
             body["status"] = "skipped"

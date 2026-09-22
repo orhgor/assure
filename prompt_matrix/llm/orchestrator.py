@@ -79,6 +79,7 @@ PRODUCTION_MODEL_PAIRS: list[tuple[str, str]] = [
 ]
 
 PROVIDER_TIMEOUTS: dict[str, int] = {
+    "ollama": 600,  # CPU inference in a container: a 3B model streams ~5–15 tok/s
     "openrouter": 180,
     "groq": 180,
     "llm7": 180,
@@ -165,6 +166,19 @@ def timeout_for(model_slug: str) -> int:
 
 
 def get_compare_pair(index: int = 0) -> tuple[str, str]:
+    """Compare's two models. Local backend: the two Ollama models
+    (``ASSURE_OLLAMA_MODEL`` / ``ASSURE_OLLAMA_MODEL_B``); otherwise the
+    free or production pair."""
+    try:
+        from ..cost_governance import llm_backend, local_model
+    except ImportError:
+        from cost_governance import llm_backend, local_model
+    if llm_backend() == "ollama":
+        return local_model("a"), local_model("b")
+    return _cloud_compare_pair(index)
+
+
+def _cloud_compare_pair(index: int = 0) -> tuple[str, str]:
     if use_free_models():
         pairs = free_pairs_different_families()
         if not pairs:

@@ -272,10 +272,16 @@ def test_gate_counts_only_entailed_claims() -> None:
         "unanchored": 0,
         "unverified": 1,
     }
-    # One entailed claim still unlocks the Z3 gate (unchanged rule); the other
-    # buckets are reported, not hidden.
-    assert summary["gate_status"] == "pass"
-    assert summary["ok"] is True
+    # The contradicted paragraph holds the gate: two entailed claims do not
+    # outvote one the source denies (until 2026-09-23 they did, and this
+    # document read `pass` / `ok: True`). The count is named, so the reader is
+    # not sent looking for a missing source when the source is there and
+    # disagrees.
+    assert summary["gate_status"] == "review"
+    assert summary["ok"] is False
+    assert summary["unverified_reason"] == (
+        "1 of 5 claims are contradicted by their source (2 entailed)."
+    )
 
 
 def test_gate_names_contradicted_and_unverified_when_nothing_is_supported() -> None:

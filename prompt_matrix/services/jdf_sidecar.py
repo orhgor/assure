@@ -22,8 +22,8 @@ stored field is renamed or dropped.
 What a reader needs beyond the tree, and could not get from the PDF:
 
 * ``source_manifest`` — one entry per source this document was compiled from, with
-  the identity an anchor points at (``source_id``) and what the compile actually
-  carried of it: ``included`` means **reached the model**, ``chars`` counts the
+  the identity an anchor points at (``source_id``), its ``filename`` and
+  ``file_size_bytes`` as uploaded, and what the compile actually carried of it: ``included`` means **reached the model**, ``chars`` counts the
   characters that did, ``text_sha256`` is over that carried text, and a source the
   prompt never got to carries ``dropped_reason`` instead. The whole file's hash is
   ``full_text_sha256`` and the reader's own include toggle is ``included_by_user``;
@@ -373,6 +373,12 @@ def build_source_manifest(
     ``dropped_reason`` says why a source was not carried: the per-file cap, the
     context cap the compile stopped at, empty text, or ``NOT_ATTACHED_REASON`` for
     a source uploaded after the compile this document came from.
+
+    ``file_size_bytes`` is the uploaded file's size as the vault row recorded it
+    (``substrate_vault.file_size_bytes``, written by every ingest path). The
+    shell's about page promises the dossier carries each source's "name, size and
+    hash"; until 2026-09-23 the manifest carried the name, the page count and two
+    hashes but no size. 0 when the row predates the column.
     """
     rows = rows if rows is not None else _vault_rows(project_id)
     plan = plan if plan is not None else source_carry_for(project_id, rows)
@@ -390,6 +396,7 @@ def build_source_manifest(
         entry = {
             "source_id": source_id,
             "filename": str(row.get("filename") or ""),
+            "file_size_bytes": int(row.get("file_size_bytes") or 0),
             "page_count": int(row.get("page_count") or 1),
             "included": carried,
             "included_by_user": bool(row.get("included")),

@@ -50,7 +50,9 @@ def test_health_returns_ok(health_client):
     payload = response.get_json()
     assert payload["ok"] is True
     assert payload["status"] == "healthy"
-    assert payload["checks"]["sqlite"] == "ok"
+    assert payload["checks"]["db"] == "ok"
+    # One-release alias: the probe is PostgreSQL, the old key still answers.
+    assert payload["checks"]["sqlite"] == payload["checks"]["db"]
     assert "disk_free_gb" in payload["checks"]
     assert payload["checks"]["disk"] == "ok"
     assert "backup" in payload["checks"]

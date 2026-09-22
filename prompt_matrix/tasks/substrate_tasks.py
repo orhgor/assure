@@ -50,7 +50,11 @@ def process_substrate_upload(
 
         file_bytes = store.get_bytes(object_key)
         _job("parsing", size_bytes=len(file_bytes))
-        entry = ingest_substrate_file(project_id, original_filename, file_bytes)
+        # ingest_substrate_file records "verifying" / "persisting" (with the Z3
+        # verdict) on the job itself; the terminal stage is written here.
+        entry = ingest_substrate_file(project_id, original_filename, file_bytes, job_id=job_id)
+        z3 = entry.get("verification") or {}
+        z3 = z3.get("z3") if isinstance(z3, dict) else None
         _job(
             "done",
             parser_name=entry.get("parser_name"),
@@ -60,8 +64,11 @@ def process_substrate_upload(
             ocr_confidence=entry.get("ocr_confidence"),
             substrate_file_id=entry.get("id"),
             omp_artifact_id=entry.get("omp_artifact_id"),
-            z3_status=((entry.get("verification") or {}).get("z3_status") if isinstance(entry.get("verification"), dict) else None),
-            redhat_status=((entry.get("verification") or {}).get("redhat_status") if isinstance(entry.get("verification"), dict) else None),
+            z3_status=entry.get("z3_status"),
+            z3_violation_count=(
+                len(z3.get("violations") or []) if isinstance(z3, dict) else None
+            ),
+            redhat_status=entry.get("redhat_status"),
         )
         result: dict[str, Any] = {"status": "success", "task_id": self.request.id, "job_id": job_id, "entry": entry}
     except Exception as exc:

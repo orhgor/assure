@@ -180,6 +180,58 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
     ),
 }
 
+def llm_backend() -> str:
+    """``ASSURE_LLM_BACKEND``: ``""``/``"cloud"`` (the policies above, OpenRouter/
+    DeepSeek) or ``"ollama"`` (every task on the local Ollama container)."""
+    return os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
+
+
+def local_model(role: str = "a") -> str:
+    """Ollama model for the local backend: ``ASSURE_OLLAMA_MODEL`` (and
+    ``ASSURE_OLLAMA_MODEL_B`` for the Compare pair's second column)."""
+    if role == "b":
+        raw = os.environ.get("ASSURE_OLLAMA_MODEL_B", "").strip() or os.environ.get(
+            "ASSURE_OLLAMA_MODEL", ""
+        ).strip() or "llama3.2:3b"
+    else:
+        raw = os.environ.get("ASSURE_OLLAMA_MODEL", "").strip() or "qwen2.5:3b"
+    return raw if raw.startswith("ollama/") else f"ollama/{raw}"
+
+
+def resolve_model(default: str, *, role: str = "a") -> str:
+    """The model a task actually calls: ``default`` on the cloud backend, the
+    local Ollama model when ``ASSURE_LLM_BACKEND=ollama``.
+
+    One switch instead of six hard-coded ids (compile, locks, entailment,
+    Red-Hat, surgical edit, Compare) so `docker compose up` runs every model
+    call against the `ollama` service with no provider key, and production
+    keeps the OpenRouter/DeepSeek policies untouched (user decision 2026-09-23:
+    small local containers in development, cloud models in production)."""
+    if llm_backend() == "ollama":
+        return local_model(role)
+    return default
+
+
+def _apply_llm_backend(policies: dict) -> dict:
+    if llm_backend() != "ollama":
+        return policies
+    model = local_model()
+    return {
+        task: ModelPolicy(
+            model_id=model,
+            max_input_tokens=pol.max_input_tokens,
+            # Small local models: cap answers so a 3B model does not spend
+            # minutes on a 8k-token reply on CPU.
+            max_output_tokens=min(pol.max_output_tokens, 4096),
+            caching=False,
+            litellm_model=model,
+        )
+        for task, pol in policies.items()
+    }
+
+
+TASK_POLICIES = _apply_llm_backend(TASK_POLICIES)
+
 DEFAULT_TOKEN_LIMIT = 250_000
 MAX_RETRIES = 1  # strict: 2 passes total (initial + 1 retry)
 

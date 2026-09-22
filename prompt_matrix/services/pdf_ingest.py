@@ -146,6 +146,22 @@ def ingest_pdf_for_project(
                     "JDF OCR parse failed for %s, falling back to Textract: %s", filename, ocr_exc
                 )
                 bundle = _textract_parse_bundle(file_bytes, filename)
+            else:
+                if not str(bundle.get("text") or "").strip():
+                    # OCR ran and read nothing: a failed free attempt, so the
+                    # paid path gets the document — and when Textract is not
+                    # there either, the answer is the OCR result, not a
+                    # Textract configuration error (mirrors routers/substrate).
+                    log.warning("JDF OCR read no text from %s; trying Textract", filename)
+                    try:
+                        bundle = _textract_parse_bundle(file_bytes, filename)
+                    except Exception as textract_exc:
+                        raise PdfIngestError(
+                            "Could not extract enough readable text from this file "
+                            "(0 characters after OCR). Upload a clearer scan or a file "
+                            "with more visible text.",
+                            http_status=400,
+                        ) from textract_exc
         else:
             bundle = pdf_to_parse_bundle(
                 file_bytes, strategy="section", filename=filename, source_kind="pdf"

@@ -272,20 +272,18 @@ def patch_jdf_node(
 
     node_data = dict(node_data)
     node_data["id"] = node_id
-    json_path = _find_block_json_path(base_tree, node_id)
-    if json_path:
-        patched_row = db.execute(
-            "SELECT json_set(?, ?, json(?))",
-            (json.dumps(base_tree), json_path, json.dumps(node_data)),
-        ).fetchone()
-        tree = json.loads(patched_row[0])
-    else:
-        tree, _ = upsert_block_node(
-            base_tree,
-            node_id,
-            node_data,
-            insert_after_id=insert_after_id,
-        )
+    # Always the Python upsert. The SQLite-era branch patched the tree with
+    # `SELECT json_set(?, ?, json(?))`, which PostgreSQL has no function for
+    # (pg_compat provides datetime/json_extract/randomblob/hex only), so every
+    # update of an existing block node raised ProgrammingError → 500 on
+    # PUT /api/projects/<id>/jdf (audit 2026-09-23). upsert_block_node already
+    # replaces an existing node in place.
+    tree, _ = upsert_block_node(
+        base_tree,
+        node_id,
+        node_data,
+        insert_after_id=insert_after_id,
+    )
 
     return save_jdf_revision(
         project_id,

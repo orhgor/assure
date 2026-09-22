@@ -627,10 +627,20 @@ def create_app(*, require_auth: bool = True) -> Flask:
         from service_auth import is_service_api_request, service_api_authorized
     @app.before_request
     def _set_language_guard_locale():
+        """Pin the language guard's locale to this request.
+
+        Cleared first: the locale lives in a ContextVar that ``resolve_request_locale``
+        consults before the request, and a ContextVar set during one request is
+        still set when the same thread serves the next (test client; gunicorn sync
+        workers). Without the reset a thread that once answered an ``en`` request
+        kept ``en`` for a later body carrying ``locale: de`` — measured 2026-09-23
+        by two ``/api/compile-system`` calls returning byte-identical prompts.
+        """
         try:
             from .services.language_guard import resolve_request_locale, set_request_locale
         except ImportError:
             from services.language_guard import resolve_request_locale, set_request_locale
+        set_request_locale(None)
         set_request_locale(resolve_request_locale())
 
     @app.before_request
@@ -1369,24 +1379,43 @@ def create_app(*, require_auth: bool = True) -> Flask:
             }
         )
 
-    @app.post("/api/compile-system")
+    @app.route("/api/compile-system", methods=["GET", "POST"])
     def compile_system_view():
         """The system message the compile path sends, for the ask it is compiling.
 
         Consumed by the prototype shell panel so it can show the model what the
-        model receives. The message is static except for the answer-shape block
-        (services/answer_shape), which follows the ask — so a body carrying the ask
-        returns the prompt the pipeline builds for it, and a body carrying nothing
-        returns the static message, unchanged."""
-        from .routers.draft import _COMPILE_SYSTEM, _compile_system
+        model receives. Inputs are the compile's own: ``intent``, ``icp_profile``
+        (alias ``icpProfile``, the same aliases ``POST /draft`` accepts) and the
+        request locale (``locale``/``lang`` in the body or query, else session,
+        cookie, Accept-Language — ``language_guard.resolve_request_locale``).
+        ``project_id`` is accepted for symmetry with the compile call and is
+        echoed; the ICP profile is per request, not per project (``DraftPayload.
+        icp_profile``), so nothing is looked up from it. The prompt is built by
+        ``routers/draft.compile_system_as_sent`` — the pipeline's own composition
+        including the language guard — so the pane equals the system turn for the
+        same inputs. A body carrying no ask returns the static message, unchanged."""
+        from .routers.draft import _COMPILE_SYSTEM, compile_system_as_sent
         from .services.answer_shape import choose_shape
+        from .services.language_guard import resolve_request_locale
 
         data = request.get_json(silent=True) or {}
+        if not data and request.args:
+            data = request.args.to_dict()
         intent = str(data.get("intent") or "").strip()
         if not intent:
             return jsonify({"prompt": _COMPILE_SYSTEM})
-        shape = choose_shape(intent)
-        return jsonify({"prompt": _compile_system(shape, intent), "answer_shape": shape})
+        icp_profile = data.get("icp_profile") or data.get("icpProfile") or None
+        icp_profile = str(icp_profile).strip() or None if icp_profile else None
+        locale = resolve_request_locale()
+        return jsonify(
+            {
+                "prompt": compile_system_as_sent(intent, icp_profile, locale),
+                "answer_shape": choose_shape(intent),
+                "icp_profile": icp_profile,
+                "locale": locale,
+                "project_id": data.get("project_id") or data.get("projectId"),
+            }
+        )
 
     @app.post("/api/render")
     @login_required

@@ -218,6 +218,7 @@ _LITELLM_SLUG_ALIASES: dict[str, str] = {
     "moonshot": "kimi",
     "openrouter": "openrouter",
     "groq": "groq",
+    "ollama": "ollama",  # local container (ASSURE_LLM_BACKEND=ollama); no key
 }
 
 # Bare model ids (no slash). Longer / more specific prefixes first.
@@ -279,6 +280,12 @@ def litellm_kwargs_for(target: str) -> dict:
         extra["api_key"] = api_key
     if target == "kimi":
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
+    if target == "ollama":
+        # The compose `ollama` service is not on 127.0.0.1 inside the app
+        # container; litellm also honours OLLAMA_API_BASE, this makes it explicit.
+        base = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434"
+        extra["api_base"] = base.rstrip("/")
+        extra["api_key"] = "ollama"
     if target == "openrouter":
         extra["api_base"] = os.environ.get("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1")
         referer = os.environ.get("OPENROUTER_HTTP_REFERER", "https://staging.getassureai.com")

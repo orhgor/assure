@@ -9,12 +9,19 @@ from threading import Lock
 from typing import Any, Iterable
 
 from pydantic import BaseModel, ValidationError
-from z3 import Real, Solver, unsat
+from z3 import unknown, Real, Solver, unsat
 
 try:
     from ..models.jdf import JDFDocumentTree
 except ImportError:
     from models.jdf import JDFDocumentTree
+
+
+class Z3Timeout(TimeoutError):
+    """The solver hit ``Z3_SOLVER_TIMEOUT_MS`` and answered ``unknown``.
+
+    A ``TimeoutError`` so callers that already catch that (services/verification
+    ``_run_z3``) report ``TIMEOUT``; never a PASS."""
 
 
 class EntityMetric(BaseModel):
@@ -148,7 +155,17 @@ class TruthLedgerEngine:
         self._solver.push()
         try:
             self._solver.add(sym == float(incoming_value))
-            if self._solver.check() == unsat:
+            result = self._solver.check()
+            if result == unknown:
+                # z3 does not raise on its own timeout: `check()` answers
+                # `unknown` and the old `!= unsat` path read that as PASS, so a
+                # ledger that hit Z3_SOLVER_TIMEOUT_MS "verified" every metric
+                # (audit 2026-09-23). Not cached: the next call may finish.
+                raise Z3Timeout(
+                    f"Z3 gave no answer for '{canonical_key}' within the solver "
+                    f"timeout ({self._solver.reason_unknown()})"
+                )
+            if result == unsat:
                 locked = self._locks.get(canonical_key)
                 if locked:
                     locked_val, ctype = locked

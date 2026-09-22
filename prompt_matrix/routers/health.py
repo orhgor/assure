@@ -62,9 +62,14 @@ def health_check():
         # connection is closed on the failure path too. It did not used to be, and
         # /health is polled — so a failing probe leaked one connection per poll,
         # each holding whatever read transaction its last statement left open.
-        with closing_connection(db_path, site="routers.health.sqlite_probe") as conn:
+        with closing_connection(db_path, site="routers.health.db_probe") as conn:
             conn.execute("SELECT 1")
-        status["checks"]["sqlite"] = "ok"
+        # The probe runs against PostgreSQL (db/pg_compat); it was reported as
+        # ``sqlite`` from the SQLite days. ``db`` is the key now; ``sqlite`` is
+        # kept as an alias for one release because scripts/aws/_2a_reconfirm.py
+        # and docs/post-launch-ops.md still read ``.checks.sqlite``.
+        status["checks"]["db"] = "ok"
+        status["checks"]["sqlite"] = status["checks"]["db"]
         try:
             from ..db.pg_compat import is_postgres
         except ImportError:
@@ -73,7 +78,8 @@ def health_check():
     except Exception as exc:
         status["ok"] = False
         status["status"] = "unhealthy"
-        status["checks"]["sqlite"] = f"error: {exc}"
+        status["checks"]["db"] = f"error: {exc}"
+        status["checks"]["sqlite"] = status["checks"]["db"]
 
     try:
         data_dir = _data_dir()

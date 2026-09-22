@@ -7,6 +7,8 @@ from io import BytesIO
 from unittest.mock import patch
 from urllib.error import HTTPError
 
+import pytest
+
 from prompt_matrix.omp_client import (
     omp_delete_memory,
     omp_list_memories,
@@ -15,6 +17,17 @@ from prompt_matrix.omp_client import (
     safe_omp_recall,
     safe_omp_remember,
 )
+
+
+@pytest.fixture(autouse=True)
+def _omp_is_configured(monkeypatch):
+    """These tests exercise the HTTP client, so the deployment has an OMP.
+
+    ``omp_client._request`` answers ``{"error": "OMP not configured", "skipped":
+    True}`` without a network call when ``OMP_SERVER`` is unset (the local and
+    staging containers) — the stubbed ``urlopen`` below is never reached then.
+    """
+    monkeypatch.setenv("OMP_SERVER", "http://omp.test")
 
 
 class _Resp:

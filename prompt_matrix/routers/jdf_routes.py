@@ -526,7 +526,10 @@ def register_jdf_routes(app) -> None:
         data = request.get_json(silent=True) or {}
         filename = str(data.get("filename") or "").strip()
         content_type = str(data.get("content_type") or "application/pdf").strip()
-        size = int(data.get("size_bytes") or 0)
+        try:
+            size = int(data.get("size_bytes") or 0)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "size_bytes must be an integer."}), 400
         if not filename:
             return jsonify({"ok": False, "error": "filename required"}), 400
         if not filename.lower().endswith(".pdf") or not content_type.startswith("application/pdf"):

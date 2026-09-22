@@ -157,3 +157,46 @@ def test_failed_parse_records_the_error(client, monkeypatch):
     assert "tree invalid" in (job["error"] or "")
     status = client.get(body["status_url"]).get_json()
     assert status["status"] == "failure"
+
+
+def test_vault_upload_job_records_the_verification_verdict(client, monkeypatch):
+    """A ``substrate_upload`` job ends with a Z3 verdict, not a blank.
+
+    ``ingest_substrate_file`` ran verification but never returned it, and the
+    worker read ``entry["verification"]`` for the job columns — so every vault
+    upload's job showed ``z3_status None`` (observed: CP00101012-1.pdf, jdf-cli,
+    16 pages). The function now records ``verifying``/``persisting`` with the
+    verdict itself and returns it for the terminal stage. The source is also
+    indexed for search from the worker path (same function as the sync route).
+    """
+    monkeypatch.setenv("SUBSTRATE_ASYNC_UPLOAD", "1")
+    monkeypatch.delenv("OMP_SERVER", raising=False)
+    text = (
+        "The wind and hail deductible is twenty five thousand dollars.\n\n"
+        "Coverage territory is Suffolk County."
+    )
+    res = client.post(
+        "/api/projects/default/substrate/upload",
+        data={"file": (io.BytesIO(text.encode("utf-8")), "terms.md")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 202, res.get_data(as_text=True)
+    body = res.get_json()
+
+    job = client.get(body["job_url"]).get_json()["job"]
+    assert job["kind"] == "substrate_upload"
+    assert job["status"] == "done", job
+    stages = [h["stage"] for h in job["stage_history"]]
+    assert {"fetching", "parsing", "verifying", "persisting", "done"} <= set(stages)
+    assert stages.index("verifying") < stages.index("persisting") < stages.index("done")
+    assert job["z3_status"] in ("PASS", "VIOLATION", "TIMEOUT", "ERROR")
+    assert job["z3_violation_count"] is not None
+    assert job["redhat_status"] in ("complete", "skipped")
+    assert job["substrate_file_id"]
+    assert job["page_count"] == 1
+
+    found = client.post(
+        "/api/projects/default/jdf/search", json={"query": "hail deductible"}
+    ).get_json()
+    assert found["count"] == 1
+    assert found["results"][0]["meta"]["substrate_file_id"] == job["substrate_file_id"]

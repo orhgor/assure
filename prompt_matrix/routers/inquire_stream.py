@@ -28,6 +28,7 @@ try:
         TokenLimitExceededError,
         answer_refusal_reason,
     )
+    from ..ledger.truth_engine import Z3Timeout as _Z3Timeout
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..lib.http_errors import clean_error_message
     from ..lib.logger import get_audit_logger
@@ -51,6 +52,7 @@ except ImportError:
         TokenLimitExceededError,
         answer_refusal_reason,
     )
+    from ledger.truth_engine import Z3Timeout as _Z3Timeout
     from ledger.truth_engine import TruthLedgerEngine
     from lib.http_errors import clean_error_message
     from lib.logger import get_audit_logger
@@ -615,8 +617,14 @@ def run_inquire_pipeline(
         )
     else:
         metrics = _parse_metrics(text)
-        ok, viol = truth.validate_entities(metrics) if metrics else (True, [])
-        if not ok:
+        z3_timed_out = False
+        try:
+            ok, viol = truth.validate_entities(metrics) if metrics else (True, [])
+        except _Z3Timeout as exc:
+            # `unknown` from the solver is not a verdict; it was reported as
+            # PASS before 2026-09-23.
+            ok, viol, z3_timed_out = False, [str(exc)], True
+        if not ok and not z3_timed_out:
             audit.log_audit(
                 rid,
                 project_id,
@@ -629,9 +637,9 @@ def run_inquire_pipeline(
         yield _sse(
             "truth_check",
             {
-                "status": "PASS" if ok else "VIOLATION",
-                "violations": viol,
-                "detail": "Z3 Conflict" if viol else "Z3 Verified",
+                "status": "TIMEOUT" if z3_timed_out else ("PASS" if ok else "VIOLATION"),
+                "violations": [] if z3_timed_out else viol,
+                "detail": "Z3 timed out — not verified" if z3_timed_out else ("Z3 Conflict" if viol else "Z3 Verified"),
             },
         )
 

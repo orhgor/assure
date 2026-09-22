@@ -5,21 +5,21 @@ from __future__ import annotations
 from typing import Any, Literal
 
 try:
+    from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
     from .confidence_spans import (
         attach_confidence_spans_to_document,
         build_confidence_spans,
         build_macro_appendix,
     )
     from .provenance_meta import attach_provenance_meta_to_tree
-    from ..models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 except ImportError:
+    from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
     from services.confidence_spans import (
         attach_confidence_spans_to_document,
         build_confidence_spans,
         build_macro_appendix,
     )
     from services.provenance_meta import attach_provenance_meta_to_tree
-    from models.jdf import _MIN_CLAIM_TOKENS, _tokenize
 
 GateStatus = Literal["pass", "blocked", "review"]
 
@@ -251,12 +251,23 @@ def _finding_counts(document: dict[str, Any] | None) -> dict[str, int]:
     return counts
 
 
-def compute_gate_status(z3_status: str | None, redhat_count: int) -> GateStatus:
-    """Map Z3 + Red-Hat counts to a single pre-flight gate state."""
+def compute_gate_status(
+    z3_status: str | None, redhat_count: int, unsupported_count: int = 0
+) -> GateStatus:
+    """Map Z3 + Red-Hat + contradicted-claim counts to one pre-flight gate state.
+
+    ``unsupported_count`` is ``provenance_stats.unsupported``: paragraphs whose
+    own source contradicts them (verdict ``no`` or a contradicted citation). A
+    document carrying one is never ``pass`` — the gate is the promise that the
+    export is safe to ship, and a contradicted claim is exactly what it exists
+    to hold back. Before 2026-09-23 this read only Z3 and the Red-Hat count, so
+    a document with 1 supported and 5 contradicted paragraphs, Z3 PASS and no
+    Red-Hat finding, went out as ``pass`` / ``ok: True``.
+    """
     status = (z3_status or "").upper()
     if status == "VIOLATION":
         return "blocked"
-    if redhat_count > 0:
+    if redhat_count > 0 or unsupported_count > 0:
         return "review"
     if status == "PASS":
         return "pass"
@@ -285,9 +296,13 @@ def provenance_gate_fields(
     counting only ``yes`` reported a renewal memo whose every paragraph was
     carried and none contradicted as ``supported 0``.
 
-    ``unverified`` is left unset when the recount found support: there is nothing
-    to report as unverified, and a stale refusal must not outlive the numbers
-    behind it.
+    ``unverified`` is left unset when the recount found support and nothing
+    contradicted: there is nothing to report as unverified, and a stale refusal
+    must not outlive the numbers behind it. Support does not outvote a
+    contradiction, though: any ``unsupported`` paragraph holds the gate at
+    ``review`` and is named in ``unverified_reason``, however many siblings are
+    carried. Before 2026-09-23 a single supported claim returned early and the
+    contradicted ones rode out under ``pass``.
 
     ``findings`` rides beside the stats rather than inside them: it counts the
     Red-Hat warnings the tree carries, by state, including the ones a revision
@@ -300,10 +315,11 @@ def provenance_gate_fields(
         if isinstance(document, dict)
         else {key: 0 for key in (*_PROVENANCE_REPORTED, "unchecked")}
     )
+    unsupported = counts["unsupported"]
     fields: dict[str, Any] = {
         "provenance_stats": _reported_stats(counts),
-        "gate_status": compute_gate_status(z3_status, redhat_count),
-        "ok": z3_status == "PASS",
+        "gate_status": compute_gate_status(z3_status, redhat_count, unsupported),
+        "ok": z3_status == "PASS" and unsupported == 0,
         # The claims' history, beside the claims' state: `provenance_stats` counts
         # the tree as it stands, so the revision that answered a finding reads
         # there only as a paragraph that stopped being unsupported. See
@@ -311,6 +327,16 @@ def provenance_gate_fields(
         "findings": _finding_counts(document),
     }
     if counts["supported"] > 0:
+        if unsupported == 0:
+            return fields
+        # Supported claims beside contradicted ones: the gate holds and says
+        # which paragraphs hold it, so the reader is not sent looking for a
+        # missing source when the source is there and disagrees.
+        fields["unverified"] = True
+        fields["unverified_reason"] = (
+            f"{unsupported} of {counts['eligible']} claims are contradicted by their "
+            f"source ({counts['supported']} entailed)."
+        )
         return fields
 
     # A document with no supported claim is unverified, not "pass" — however many
@@ -319,7 +345,6 @@ def provenance_gate_fields(
     # one never reaches this reason, and naming it here would be a bucket that
     # could not be filled.
     eligible = counts["eligible"]
-    unsupported = counts["unsupported"]
     unverified_claims = counts["unverified"]
     if document is None:
         reason = "No document to inspect."
@@ -429,10 +454,12 @@ def normalize_audit_payload(data: dict[str, Any]) -> dict[str, Any]:
     z3 = out.get("z3_results") or {}
     z3_status = out.get("z3_status") or z3.get("status")
     out["z3_status"] = z3_status
+    stats = out.get("provenance_stats")
+    unsupported = int((stats or {}).get("unsupported") or 0) if isinstance(stats, dict) else 0
     if "gate_status" not in out:
         out["gate_status"] = compute_gate_status(
-            str(z3_status) if z3_status else None, out["redhat_count"]
+            str(z3_status) if z3_status else None, out["redhat_count"], unsupported
         )
     if "ok" not in out:
-        out["ok"] = str(z3_status or "").upper() == "PASS"
+        out["ok"] = str(z3_status or "").upper() == "PASS" and unsupported == 0
     return out

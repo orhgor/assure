@@ -145,6 +145,7 @@ def _seed_project(client, project_id: str = "sidecar-src") -> None:
         page_count=1,
         extracted_text=SOURCE,
         entry_id=SRC_ID,
+        file_size_bytes=len(SOURCE.encode("utf-8")),
     )
     res = client.put(f"/api/projects/{project_id}/jdf", json={"document": TREE, "mutation_type": "compile"})
     assert res.status_code == 200, res.get_data(as_text=True)
@@ -185,6 +186,8 @@ def test_sidecar_carries_verification_manifest_chain_and_model(client):
     manifest = sidecar["source_manifest"]
     assert [row["source_id"] for row in manifest] == [SRC_ID]
     assert manifest[0]["filename"] == "wind-policy.md"
+    # "name, size and hash" (prototype/about.html): the size is the vault row's.
+    assert manifest[0]["file_size_bytes"] == len(SOURCE.encode("utf-8"))
     assert manifest[0]["text_sha256"]
 
     chain = sidecar["version_chain"]

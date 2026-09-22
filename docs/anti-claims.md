@@ -21,3 +21,14 @@
 | "Any project id has a document" | `GET /api/projects/<id>/jdf`, `/export`, `/history` answered 200 with an empty document for ids with no `projects` row (`fetch_latest_jdf_or_empty`). Since 2026-09-22 `middleware.project_ownership_required` returns 404 `{"ok": false, "error": "Project not found."}` on GET/HEAD/DELETE for unknown ids; `default`, `sandbox`, `founder` are exempt (auto-created) and PUT/POST still create | "Reads of an unknown project are 404; the first PUT creates it." |
 | "Polish only fixes grammar" | the regex pass turned `$500,000` into `$500, 000` and `2.4%` into `2. 4%`. Since 2026-09-22 punctuation between digits is left alone and `strict_preservation_check` compares numeric tokens per paragraph; a polish that changes a figure returns the original document with `preserved: false` (HTTP 422) | "Polish never returns text whose numbers differ from the input." |
 ```
+
+## Added 2026-09-23 (backend audit)
+
+| Claim the code must not make | Why | What to say instead |
+|---|---|---|
+| "Math Check PASS" when Z3 answered `unknown` (solver timeout) | `check()` returns `unknown` on `Z3_SOLVER_TIMEOUT_MS`; it used to be read as PASS. `ledger/truth_engine.Z3Timeout` now surfaces it | `z3_status: TIMEOUT` — "not verified", never a pass |
+| `gate_status: pass` while any claim is entailment-`unsupported` | `audit_summary.compute_gate_status` now returns `review` with the count in `unverified_reason` | "review — N of M claims contradicted by their source" |
+| Ingest job `skipped` after a redelivered message | `advance()` ignores stage writes on a terminal job; a redelivery answers from the row | the stored `done` result |
+| Job `skipped: staged object not found` on any S3 error | `S3ObjectStore.exists` is False only on 404; other errors propagate to the retry path | the real error, and a retry |
+| `/api/health` `checks.sqlite` | the probe is PostgreSQL; `checks.db` is the key (`sqlite` alias kept one release) | `checks.db` |
+| "Search covers your uploaded sources" only for dock-ingested PDFs | Sources-panel uploads are now indexed in `jdf_cli_chunks` (PostgreSQL) at ingest and removed on delete | true for both paths since 2026-09-23 |

@@ -140,6 +140,61 @@ def test_resave_without_secret_keeps_the_stored_secret(env):
     assert saved["secret_access_key"] == "keep-me" and saved["bucket"] == "b2"
 
 
+def test_emptying_the_key_id_unapplies_the_saved_credentials(env):
+    """Removing the key on the Sources panel must remove it from the process too.
+
+    Before 2026-09-23 ``save()`` kept the old secret beside the empty key id and
+    ``apply_to_environment`` only ever added variables, so boto3 went on signing
+    with ``AKIAEXAMPLE12345678`` after the UI reported the machine role.
+    """
+    from prompt_matrix.services import aws_integration
+
+    _fake_boto3(env)
+    aws_integration.save(access_key_id="AKIAEXAMPLE12345678", secret_access_key="old-secret", region="eu-central-1", bucket="b1")
+    assert os.environ["AWS_ACCESS_KEY_ID"] == "AKIAEXAMPLE12345678"
+    assert os.environ["AWS_SECRET_ACCESS_KEY"] == "old-secret"
+
+    result = aws_integration.save(access_key_id="", secret_access_key="", region="eu-central-1", bucket="b1")
+
+    saved = aws_integration.load_saved()
+    assert saved["access_key_id"] == "" and saved["secret_access_key"] == ""
+    assert "AWS_ACCESS_KEY_ID" not in os.environ
+    assert "AWS_SECRET_ACCESS_KEY" not in os.environ
+    assert "AWS_SESSION_TOKEN" not in os.environ
+    assert result["credential_source"] == "role"
+    assert aws_integration.credential_source() == "role"
+    # The bucket entered on the screen still applies (role branch).
+    assert os.environ["ASSURE_S3_BUCKET"] == "b1"
+    assert os.environ["AWS_DEFAULT_REGION"] == "eu-central-1"
+
+
+def test_a_new_key_id_without_a_secret_does_not_inherit_the_old_secret(env):
+    """A secret belongs to one key id; carrying it to another makes a pair that
+    can never sign."""
+    from prompt_matrix.services import aws_integration
+
+    _fake_boto3(env)
+    aws_integration.save(access_key_id="AKIAEXAMPLE12345678", secret_access_key="old-secret", region="eu-central-1", bucket="b1")
+    aws_integration.save(access_key_id="AKIAOTHERKEY00000000", secret_access_key="", region="eu-central-1", bucket="b1")
+    saved = aws_integration.load_saved()
+    assert saved["access_key_id"] == "AKIAOTHERKEY00000000" and saved["secret_access_key"] == ""
+    assert "AWS_ACCESS_KEY_ID" not in os.environ and "AWS_SECRET_ACCESS_KEY" not in os.environ
+    assert aws_integration.credential_source() == "role"
+
+
+def test_apply_to_environment_reflects_the_row_as_it_is_now(env):
+    """Re-applying after the row changed replaces what the previous apply set."""
+    from prompt_matrix.services import aws_integration
+
+    _fake_boto3(env)
+    aws_integration.save(access_key_id="AKIAEXAMPLE12345678", secret_access_key="s", region="eu-central-1", bucket="first")
+    aws_integration.save(access_key_id="AKIAEXAMPLE12345678", secret_access_key="", region="us-east-1", bucket="second")
+    assert aws_integration.apply_to_environment() == "database"
+    assert os.environ["ASSURE_S3_BUCKET"] == "second"
+    assert os.environ["AWS_DEFAULT_REGION"] == "us-east-1"
+    assert os.environ["AWS_SECRET_ACCESS_KEY"] == "s"  # same key id: the stored secret is kept
+
+
 def test_unreachable_bucket_is_reported_with_a_plain_reason(env):
     from botocore.exceptions import ClientError
 

@@ -83,6 +83,12 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=int(os.environ.get("CELERY_TASK_TIME_LIMIT", "900")),
     worker_prefetch_multiplier=1,
+    # Recycle prefork children: each new child runs ``worker_process_init`` and
+    # so re-reads the AWS credentials saved from the Sources panel. Without a
+    # limit a child lives as long as the worker and a setting saved after boot
+    # never reaches it (audit 2026-09-23). 200 tasks is hours of parse work at
+    # the measured ~1 s/text-layer document, so the fork cost is negligible.
+    worker_max_tasks_per_child=int(os.environ.get("CELERY_WORKER_MAX_TASKS_PER_CHILD", "200")),
     broker_transport_options={
         "region": os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
         "visibility_timeout": int(os.environ.get("CELERY_SQS_VISIBILITY_TIMEOUT", "3600")),
@@ -112,21 +118,44 @@ if _eager:
 
 
 # The worker resolves the same AWS identity as the web tier: .env, then the
-# credentials saved from the Sources panel, then the machine role. Done per
-# worker process so a setting saved after boot is picked up on the next
-# process spawn (prefork), and never before the database exists.
-try:
-    from celery.signals import worker_process_init
-
-    @worker_process_init.connect  # type: ignore[misc]
-    def _apply_aws_integration(**_kwargs):
+# credentials saved from the Sources panel, then the machine role.
+#
+# Three hooks, because the identity is read at three different moments:
+#
+# ``celeryd_init``       the worker's *parent* process, after the config is
+#                        built and before the consumer opens the broker
+#                        connection. This is the process the SQS transport's
+#                        boto3 client is created in, so it is the only place
+#                        that can give that client the saved keys. Before
+#                        2026-09-23 only ``worker_process_init`` was connected
+#                        and the parent never applied them.
+# ``beat_init``          same, for a scheduler process.
+# ``worker_process_init`` every prefork child, so a setting saved after boot is
+#                        picked up on the next spawn (``worker_max_tasks_per_child``
+#                        above makes that spawn happen).
+#
+# Nothing runs on plain import: the web process calls ``apply_to_environment``
+# itself from ``create_app`` after migrations, and a worker booted before the
+# database exists gets the ``except`` below, not a crash.
+def _apply_aws_integration(**_kwargs):
+    try:
         try:
-            from prompt_matrix.services.aws_integration import apply_to_environment
+            from .services.aws_integration import apply_to_environment
+        except ImportError:
+            from services.aws_integration import apply_to_environment
 
-            apply_to_environment()
-        except Exception:  # pragma: no cover - observability only
-            import logging
+        apply_to_environment()
+    except Exception:  # pragma: no cover - observability only
+        import logging
 
-            logging.getLogger("assure").exception("aws integration: worker could not apply saved settings")
+        logging.getLogger("assure").exception("aws integration: worker could not apply saved settings")
+
+
+try:
+    from celery.signals import beat_init, celeryd_init, worker_process_init
+
+    celeryd_init.connect(_apply_aws_integration, weak=False)
+    beat_init.connect(_apply_aws_integration, weak=False)
+    worker_process_init.connect(_apply_aws_integration, weak=False)
 except ImportError:  # pragma: no cover
     pass

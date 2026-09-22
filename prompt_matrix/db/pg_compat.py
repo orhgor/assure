@@ -699,6 +699,7 @@ class Cursor:
 _RE_DDL_ANY = re.compile(r"^\s*(CREATE|ALTER|DROP)\s+(TABLE|SCHEMA)\b", re.I)
 _catalog_lock = threading.Lock()
 #: (schema, table) -> primary-key columns; (schema, table) -> identity column or "".
+_unique_cache: dict[tuple[str, str], list[tuple[str, ...]]] = {}
 _pk_cache: dict[tuple[str, str], tuple[str, ...]] = {}
 _identity_cache: dict[tuple[str, str], str] = {}
 
@@ -706,6 +707,7 @@ _identity_cache: dict[tuple[str, str], str] = {}
 def _invalidate_catalog_cache() -> None:
     with _catalog_lock:
         _pk_cache.clear()
+        _unique_cache.clear()
         _identity_cache.clear()
 
 
@@ -874,11 +876,31 @@ class Connection:
 
     def _finish_upsert(self, tr: _Translated, has_params: bool) -> str:
         table = tr.upsert_table or ""
-        pk = self._primary_key(table)
-        if not pk:
-            # No PK to conflict on: a plain INSERT is the closest SQLite "REPLACE".
-            return tr.sql
         cols = tr.upsert_columns or ()
+        pk = self._primary_key(table)
+        # SQLite's REPLACE fires on ANY unique violation; PostgreSQL needs one
+        # conflict target. The PK is it only when the statement supplies every
+        # PK column. `document_locks` inserts a fresh `lock-<uuid>` id and relies
+        # on UNIQUE (project_id, version); `prompt_versions` has an identity id and
+        # UNIQUE (run_hash) — with the PK as target both raised IntegrityError on
+        # the second write (audit 2026-09-23). Then: the unique index whose
+        # columns the statement supplies.
+        target_key: tuple[str, ...] = ()
+        if cols:
+            # A supplied non-PK unique key first: the three REPLACE sites in
+            # this repo that carry one (document_locks, prompt_versions) mean
+            # "replace the row with these business keys", and their PK value is
+            # fresh on every call.
+            for candidate in self._unique_keys(table):
+                if candidate and all(c in cols for c in candidate):
+                    target_key = candidate
+                    break
+        if not target_key and pk and (not cols or all(c in cols for c in pk)):
+            target_key = pk
+        pk = target_key
+        if not pk:
+            # Nothing to conflict on: a plain INSERT is the closest SQLite "REPLACE".
+            return tr.sql
         updates = [f'"{c}" = EXCLUDED."{c}"' for c in cols if c not in pk]
         target = ", ".join(f'"{c}"' for c in pk)
         if updates:
@@ -907,6 +929,34 @@ class Connection:
         with _catalog_lock:
             _identity_cache[key] = col
         return col
+
+    def _unique_keys(self, table: str) -> list[tuple[str, ...]]:
+        """Unique constraints AND unique indexes of ``table`` (pg_index sees both;
+        information_schema only reports constraints), shortest first."""
+        key = (self._schema, table)
+        cached = _unique_cache.get(key)
+        if cached is not None:
+            return cached
+        with self._pg.cursor() as cur:
+            cur.execute(
+                """
+                SELECT i.indexrelid::regclass::text,
+                       array_agg(a.attname ORDER BY k.ord)
+                FROM pg_index i
+                JOIN pg_class c ON c.oid = i.indrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) ON TRUE
+                JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+                WHERE n.nspname = current_schema() AND c.relname = %s
+                  AND i.indisunique AND NOT i.indisprimary AND i.indpred IS NULL
+                GROUP BY i.indexrelid
+                """,
+                (table,),
+            )
+            keys = sorted((tuple(str(c) for c in row[1]) for row in cur.fetchall()), key=len)
+        with _catalog_lock:
+            _unique_cache[key] = keys
+        return keys
 
     def _primary_key(self, table: str) -> tuple[str, ...]:
         key = (self._schema, table)

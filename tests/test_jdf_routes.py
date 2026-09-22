@@ -375,9 +375,20 @@ def test_get_doc_chunks_without_known_hash_keeps_doc_id_filter(monkeypatch, tmp_
     assert [c["text"] for c in jm.get_doc_chunks("legacy.pdf", "t1")] == ["legacy"]
 
 
+def _configured_omp(monkeypatch):
+    """A deployment that was given an OMP: the OMP write accounting below applies.
+
+    Without ``OMP_SERVER`` the durable PostgreSQL index is the index and
+    remember_jdf_document reports it (``index: "postgres"``) instead of counting
+    OMP writes — see test_without_omp_the_durable_index_is_the_index.
+    """
+    monkeypatch.setenv("OMP_SERVER", "http://omp.test")
+
+
 def test_partial_omp_write_is_reported(monkeypatch, tmp_path):
     """0 < stored < attempted must be visible, not a silent success (FIX 2)."""
     jm = _temp_db(monkeypatch, tmp_path)
+    _configured_omp(monkeypatch)
     calls = []
 
     def flaky(key, payload):
@@ -396,6 +407,7 @@ def test_partial_omp_write_is_reported(monkeypatch, tmp_path):
 def test_total_omp_failure_still_raises(monkeypatch, tmp_path):
     """The 503-on-zero contract is unchanged by the partial reporting."""
     jm = _temp_db(monkeypatch, tmp_path)
+    _configured_omp(monkeypatch)
     monkeypatch.setattr(jm, "safe_omp_remember", lambda key, payload: None)
 
     chunks = [{"text": "one"}, {"text": "two"}]
@@ -405,12 +417,54 @@ def test_total_omp_failure_still_raises(monkeypatch, tmp_path):
 
 def test_full_omp_write_reports_not_partial(monkeypatch, tmp_path):
     jm = _temp_db(monkeypatch, tmp_path)
+    _configured_omp(monkeypatch)
     monkeypatch.setattr(jm, "safe_omp_remember", lambda key, payload: {"id": 1})
 
     chunks = [{"text": "one"}, {"text": ""}]
     result = jm.remember_jdf_document("ok.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
 
     assert (result["chunks_stored"], result["chunks_failed"], result["partial"]) == (1, 0, False)
+
+
+def test_without_omp_the_durable_index_is_the_index(monkeypatch, tmp_path):
+    """No OMP_SERVER (local and staging containers): ingest and search run on PostgreSQL.
+
+    Before 2026-09-23 this deployment wrote 0 chunks (safe_omp_remember returned
+    None), raised OmpUnavailable on every dock ingest and answered every search
+    with count 0.
+    """
+    jm = _temp_db(monkeypatch, tmp_path)
+    monkeypatch.delenv("OMP_SERVER", raising=False)
+    monkeypatch.setattr("prompt_matrix.omp_client.API_KEY_PATH", str(tmp_path / "no-key"))
+    omp_writes: list = []
+    monkeypatch.setattr(jm, "safe_omp_remember", lambda *a, **k: omp_writes.append(a) or None)
+    monkeypatch.setattr(jm, "omp_recall", lambda *a, **k: {"memories": []})
+
+    chunks = [{"text": "the policy liability limit is $5,000,000", "page": 3}, {"text": ""}]
+    result = jm.remember_jdf_document("policy.pdf", {"$jdf": "1.0"}, chunks, tenant_id="t1")
+    assert result["index"] == "postgres"
+    assert (result["chunks_stored"], result["chunks_failed"], result["partial"]) == (1, 0, False)
+
+    hits = jm.search_jdf_chunks("liability limit", "t1")
+    assert [h["text"] for h in hits] == ["the policy liability limit is $5,000,000"]
+    assert hits[0]["meta"]["page"] == 3 and hits[0]["doc_id"] == "policy.pdf"
+    assert jm.search_jdf_chunks("liability limit", "t2") == [], "tenant scoped"
+    assert jm.search_jdf_chunks("unmatched terms", "t1") == []
+
+    # A new generation replaces the old one in the index.
+    jm.remember_jdf_document(
+        "policy.pdf",
+        {"$jdf": "1.0", "pages": [{"text": "v2"}]},
+        [{"text": "the liability limit is now $7,000,000"}],
+        tenant_id="t1",
+    )
+    assert [h["text"] for h in jm.search_jdf_chunks("liability limit", "t1")] == [
+        "the liability limit is now $7,000,000"
+    ]
+
+    forgotten = jm.forget_jdf_document("policy.pdf", tenant_id="t1")
+    assert (forgotten["chunks_removed"], forgotten["documents_removed"]) == (1, 1)
+    assert jm.search_jdf_chunks("liability limit", "t1") == []
 
 
 def test_parse_chunk_content_accepts_cache_marker():
@@ -559,6 +613,7 @@ class _FakeOmpStore:
 
 
 def _fake_omp(monkeypatch, jm):
+    _configured_omp(monkeypatch)
     store = _FakeOmpStore()
     monkeypatch.setattr(jm, "safe_omp_remember", store.remember)
     monkeypatch.setattr(jm, "omp_list_memories", store.list_memories)

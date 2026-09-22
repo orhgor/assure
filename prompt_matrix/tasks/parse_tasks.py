@@ -46,6 +46,23 @@ def import_project_pdf_task(
             log.exception("ingest job %s: could not record stage %s", job_id, stage)
 
     store = get_object_store()
+    if job_id:
+        try:
+            from prompt_matrix.db.ingest_jobs_repository import get_job
+
+            existing = get_job(job_id)
+        except Exception:
+            existing = None
+        if existing and existing.get("status") == "done":
+            # Redelivery of a finished job (acks_late + visibility expiry): the
+            # revision exists; answer from the row instead of re-parsing or
+            # flipping it to skipped.
+            return {
+                "status": "success",
+                "task_id": self.request.id,
+                "job_id": job_id,
+                "result": {"revision_id": existing.get("revision_id"), "job_id": job_id, "redelivered": True},
+            }
     _job("fetching", task_id=self.request.id)
     if not store.exists(object_key):
         _job("skipped", error="staged object not found (already processed or expired)")
@@ -57,6 +74,15 @@ def import_project_pdf_task(
         }
     try:
         file_bytes = store.get_bytes(object_key)
+        # The presigned path never passed through the route's validator (the
+        # route only sees bytes on multipart), so size/magic/page limits were
+        # skipped for S3 uploads (audit 2026-09-23). Same checks, same errors.
+        from prompt_matrix.upload_limits import UploadRejectedError, validate_upload_bytes
+
+        try:
+            validate_upload_bytes(filename, file_bytes)
+        except UploadRejectedError as exc:
+            raise PdfIngestError(str(exc), http_status=getattr(exc, "http_status", 400)) from exc
         payload = ingest_pdf_for_project(project_id, filename, file_bytes, job_id=job_id)
         result = {"status": "success", "task_id": self.request.id, "job_id": job_id, "result": payload}
     except PdfIngestError as exc:
@@ -74,5 +100,8 @@ def import_project_pdf_task(
             raise self.retry(exc=exc, countdown=30)
         _job("failed", error=f"{exc.__class__.__name__}: {str(exc)[:1500]}")
         return {"status": "failure", "task_id": self.request.id, "job_id": job_id, "error": str(exc)}
-    store.delete(object_key)
+    if result.get("status") == "success":
+        # Failures keep the staged object so POST …/ingest-jobs/<id>/retry can
+        # re-run it; the bucket lifecycle (uploads/ expire after 1 day) cleans up.
+        store.delete(object_key)
     return result

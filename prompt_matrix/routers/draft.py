@@ -28,6 +28,7 @@ try:
     from ..db.substrate_repository import fetch_substrate_entries_by_ids
     from ..history import db_scope
     from ..ledger.truth_engine import TruthLedgerEngine
+    from ..ledger.truth_engine import Z3Timeout as _Z3Timeout
     from ..lib.logger import get_audit_logger
     from ..keys import PROVIDER_PIN
     from ..models.jdf import (
@@ -101,6 +102,7 @@ except ImportError:
     from db.substrate_repository import fetch_substrate_entries_by_ids
     from history import db_scope
     from ledger.truth_engine import TruthLedgerEngine
+    from ledger.truth_engine import Z3Timeout as _Z3Timeout
     from lib.logger import get_audit_logger
     from keys import PROVIDER_PIN
     from models.jdf import (
@@ -177,7 +179,12 @@ def _draft_route_model(target_ai: str | None = None) -> str:
     return (target_ai or "").strip() or default
 
 
-LOCK_MODEL = "deepseek/deepseek-chat"
+try:
+    from ..cost_governance import resolve_model as _resolve_model
+except ImportError:
+    from cost_governance import resolve_model as _resolve_model
+
+LOCK_MODEL = _resolve_model("deepseek/deepseek-chat")
 
 # R1 — injection hardening, kept verbatim: the last lines of the static prompt.
 # The source is data, text inside it that reads as an order is content to report
@@ -557,6 +564,31 @@ def _compile_system(shape: str, intent: str, icp_profile: str | None = None) -> 
     ).strip()
 
 
+def compile_system_as_sent(
+    intent: str, icp_profile: str | None = None, locale: str | None = None
+) -> str:
+    """The system turn the compile sends for this ask, byte for byte.
+
+    Built through the pipeline's own path: ``choose_shape`` → ``_compile_system``
+    (ask directive, shape block, ICP block) → ``_draft_messages`` →
+    ``guard_messages`` (the per-request language rule ``_stream_model`` appends).
+    ``GET/POST /api/compile-system`` renders this so the shell's left pane shows the
+    string the model receives; it used to call ``_compile_system(shape, intent)``
+    alone, without the ICP profile and before the language guard, so the pane could
+    differ from the system turn for the same inputs. ``locale`` defaults to the
+    request's resolved locale — the same resolver the stream uses.
+    """
+    try:
+        from ..services.language_guard import guard_messages, resolve_request_locale
+    except ImportError:
+        from services.language_guard import guard_messages, resolve_request_locale
+
+    shape = choose_shape(intent)
+    messages = _draft_messages(intent, None, _compile_system(shape, intent, icp_profile))
+    guarded = guard_messages(messages, locale=locale or resolve_request_locale())
+    return str(guarded[0]["content"])
+
+
 def _draft_messages(intent: str, context: str | None, system_prompt: str) -> list[dict[str, str]]:
     """The compile messages: the ask in both turns, the source inside <source> tags.
 
@@ -856,21 +888,28 @@ def verify_locks(
     else:
         ok = True
         violations = []
-        if metrics:
-            # Tier 1, unchanged: the same call and the same messages it has
-            # always produced. The counters below re-ask the same comparison per
-            # metric, because validate_entities stops at the first contradiction
-            # and so cannot say how many of the metrics were checked.
-            ok, violations = truth.validate_entities(metrics)
-            for key, value in metrics:
-                metric_ok, _ = truth.verify_metric(key, value)
-                if metric_ok:
-                    verified += 1
-                else:
-                    violated += 1
-            checked_by_value += len(metrics)
+        z3_timeout: str | None = None
+        try:
+            if metrics:
+                # Tier 1, unchanged: the same call and the same messages it has
+                # always produced. The counters below re-ask the same comparison per
+                # metric, because validate_entities stops at the first contradiction
+                # and so cannot say how many of the metrics were checked.
+                ok, violations = truth.validate_entities(metrics)
+                for key, value in metrics:
+                    metric_ok, _ = truth.verify_metric(key, value)
+                    if metric_ok:
+                        verified += 1
+                    else:
+                        violated += 1
+                checked_by_value += len(metrics)
+        except _Z3Timeout as exc:
+            # The solver answered `unknown` inside Z3_SOLVER_TIMEOUT_MS. That used
+            # to read as PASS (ledger/truth_engine returned True for anything but
+            # unsat); it is a check that did not happen, and is reported as one.
+            z3_timeout = str(exc)
 
-        if translate is not None:
+        if translate is not None and z3_timeout is None:
             facts = facts_from_locks(locks)
             candidates = _tier2_candidates(draft_text)
             for index, claim in enumerate(candidates):
@@ -912,7 +951,11 @@ def verify_locks(
                 claim_results.append(outcome.get("result") or {"claim": claim})
 
         total_checked = checked_by_value + checked_by_relational
-        if violated > 0:
+        if z3_timeout is not None:
+            status = "TIMEOUT"
+            violations = []
+            skip_reason = z3_timeout
+        elif violated > 0:
             status = "VIOLATION"
             skip_reason = None
         elif total_checked > 0:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -28,6 +29,7 @@ try:
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
     from ..services.compile_guard import flag_fields, flag_response
+    from ..services.jdf_memory import forget_jdf_document, remember_jdf_document
     from ..services.omp import (
         store_omp_artifact,
         build_omp_artifact_from_parse,
@@ -51,6 +53,7 @@ except ImportError:
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
     from services.compile_guard import flag_fields, flag_response
+    from services.jdf_memory import forget_jdf_document, remember_jdf_document
     from services.omp import (
         store_omp_artifact,
         build_omp_artifact_from_parse,
@@ -120,11 +123,18 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
     Docling/Textract — that fallback is execution, not a second router. The
     fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF
     fetched from an allowlisted host is read by the same extractor an upload is.
+
+    A JDF CI parse also returns ``jdf`` and ``chunks`` (jdf-cli's own chunking,
+    each chunk carrying its page): the search index and the verification hook
+    read those instead of re-splitting the text, so a vault upload is indexed
+    with the same chunks the dock ingest (``/jdf/ingest``) would produce. Other
+    extractors return neither and the caller chunks the text by paragraph.
     """
     from ..services.parser_router import _TEXT_LIKE_EXTENSIONS, select_parser
 
     use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
     extracted: dict | None = None
+    ocr_empty = False
     page_count = 1
     parser = select_parser(file_bytes, filename)
 
@@ -166,6 +176,8 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
         try:
             bundle = pdf_to_parse_bundle(file_bytes, filename=filename, source_kind="pdf")
             extracted = {
+                "jdf": bundle.get("jdf"),
+                "chunks": bundle.get("chunks") or [],
                 "text": bundle["text"],
                 "tables": bundle["tables"],
                 "images": bundle["images"],
@@ -194,6 +206,8 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
                 file_bytes, filename=filename, source_kind="scanned", ocr=ocr_engine()
             )
             extracted = {
+                "jdf": bundle.get("jdf"),
+                "chunks": bundle.get("chunks") or [],
                 "text": bundle["text"],
                 "tables": bundle["tables"],
                 "images": bundle["images"],
@@ -209,6 +223,15 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
                 "figure_count": bundle["figure_count"],
                 "asset_summary": bundle["asset_summary"],
             }
+            if not str(bundle.get("text") or "").strip():
+                # OCR ran and read nothing. That is a failed free attempt, not
+                # a result: fall through to Textract like a converter error
+                # does (the paid path, reached only when the free one fails).
+                # Before 2026-09-23 the empty bundle was kept and the upload
+                # answered 400 "0 characters" without ever trying Textract.
+                log.warning("JDF OCR read no text from %s; trying Textract", filename)
+                ocr_empty = True
+                extracted = None
         except JdfConversionError as exc:
             log.warning("JDF OCR parse failed for %s, falling back to Textract: %s", filename, exc)
     elif use_docling:
@@ -247,14 +270,36 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
 
     if extracted is None:
         client = TextractClient()
-        page_count = client._get_page_count(file_bytes, filename)
+        try:
+            page_count = client._get_page_count(file_bytes, filename)
+        except TextractError:
+            if ocr_empty:
+                # No Textract to fall back to: the honest answer is the OCR
+                # result, not a Textract configuration error.
+                raise SubstrateIngestError(
+                    "Could not extract enough readable text from this file "
+                    "(0 characters after OCR). Upload a clearer scan or a file with "
+                    "more visible text.",
+                    text_chars=0,
+                )
+            raise
         if page_count > TEXTRACT_MAX_PAGES:
             raise SubstrateIngestError(
                 f"This document has {page_count} pages. Substrate Vault accepts up to "
                 f"{TEXTRACT_MAX_PAGES} pages.",
                 page_count=page_count,
             )
-        extracted = client.extract_text(file_bytes, filename)
+        try:
+            extracted = client.extract_text(file_bytes, filename)
+        except TextractError:
+            if ocr_empty:
+                raise SubstrateIngestError(
+                    "Could not extract enough readable text from this file "
+                    "(0 characters after OCR). Upload a clearer scan or a file with "
+                    "more visible text.",
+                    text_chars=0,
+                )
+            raise
         page_count = int(extracted.get("page_count") or page_count)
         # The Textract path has no structured-asset channel yet: empty lists,
         # unknown confidence — never fabricated scores or asset counts.
@@ -294,8 +339,72 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
     }
 
 
-def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
-    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
+def _search_chunks_for(
+    extracted: dict, *, filename: str, text: str, substrate_file_id: str
+) -> tuple[dict, list[dict]]:
+    """The (jdf_dict, chunks) a vault upload is indexed under — the dock's shape.
+
+    A JDF CI parse already carries jdf-cli's chunks with their page numbers;
+    those are used as they are, tagged with the source filename and the vault
+    row id. Any other extraction (a .txt/.md upload, Textract, Docling) has
+    only text, which is split on blank lines — deterministic, so a re-upload of
+    the same bytes writes the same chunks — and carries no page number, because
+    none is known: a made-up ``page: 1`` on a 16-page document is a fabricated
+    location. The pseudo-JDF's meta holds the text's sha256 so ``_doc_hash``
+    tracks the content (its ``pages`` are empty), and a changed document is a
+    new generation, not a repeat of the old one.
+    """
+    tags = {"source_filename": filename, "substrate_file_id": str(substrate_file_id)}
+    chunks = extracted.get("chunks")
+    jdf = extracted.get("jdf")
+    if isinstance(chunks, list) and chunks and isinstance(jdf, dict):
+        return jdf, [{**c, **tags} for c in chunks if isinstance(c, dict)]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    pseudo_jdf = {
+        "$jdf": "1.0",
+        "meta": {"text_sha256": text_sha, "chunking": "paragraph"},
+        "pages": [{} for _ in range(int(extracted.get("page_count") or 1))],
+    }
+    return pseudo_jdf, [
+        {"id": f"c{idx}", "text": para, "types": ["text"], **tags}
+        for idx, para in enumerate(paragraphs)
+    ]
+
+
+def _job_advance(job_id: str | None, stage: str, **fields) -> None:
+    """Record a stage on the vault upload's ingest job, when there is one.
+
+    Same contract as ``services/pdf_ingest._job_advance``: observability, not
+    control flow — a failed row write is logged and the ingest continues.
+    """
+    if not job_id:
+        return
+    try:
+        try:
+            from ..db.ingest_jobs_repository import advance
+        except ImportError:
+            from db.ingest_jobs_repository import advance
+        advance(job_id, stage, **fields)
+    except Exception:
+        log.exception("ingest job %s: could not record stage %s", job_id, stage)
+
+
+def ingest_substrate_file(
+    project_id: str, filename: str, file_bytes: bytes, *, job_id: str | None = None
+) -> dict:
+    """Validate, extract, persist, verify and index a vault upload.
+
+    Shared by the sync route and ``tasks/substrate_tasks``. Raises on
+    validation/extraction errors. Returns the route payload plus, since
+    2026-09-23, ``verification`` / ``z3_status`` / ``redhat_status`` and
+    ``search_index``: the worker read ``entry["verification"]`` for the
+    ingest job's Z3 column and the function never returned it, so every
+    ``substrate_upload`` job ended with ``z3_status None`` (observed on job for
+    CP00101012-1.pdf, jdf-cli, 16 pages) although verification had run. With
+    ``job_id`` the ``verifying`` and ``persisting`` stages are recorded here,
+    mirroring ``services/pdf_ingest``.
+    """
     validate_upload_bytes(filename, file_bytes)
 
     extracted = extract_document_text(filename, file_bytes)
@@ -338,26 +447,64 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
     )
     remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
 
+    # The chunks this document is searched and verified by: jdf-cli's own when
+    # the parser produced them, paragraphs of the text otherwise.
+    index_jdf, index_chunks = _search_chunks_for(
+        extracted, filename=filename, text=extracted_text, substrate_file_id=str(entry["id"])
+    )
+
+    _job_advance(
+        job_id,
+        "verifying",
+        parser_name=extracted.get("parser_name"),
+        source_kind=extracted.get("source_kind"),
+        page_count=page_count,
+        parse_confidence=extracted.get("parse_confidence"),
+        ocr_confidence=extracted.get("ocr_confidence"),
+        substrate_file_id=str(entry["id"]),
+    )
     # Shared verification hook: Z3 + Red-Hat run here and only here
     # (services/verification). The vault ingest has no Assure tree of its
-    # own, so the hook builds one from the extracted text's paragraphs and
-    # attaches its result to the pseudo-bundle. Guarded: the ingest must
-    # not fail on verification.
+    # own, so the hook builds one from the chunks above and attaches its
+    # result to the pseudo-bundle. Guarded: the ingest must not fail on
+    # verification.
     try:
-        paragraphs = [p for p in re.split(r"\n\s*\n", extracted_text) if p.strip()]
         verification_bundle = {
             "filename": filename,
             "page_count": page_count,
             "text": extracted_text,
-            "chunks": [
-                {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
-                for idx, para in enumerate(paragraphs)
-            ],
+            "chunks": [dict(c) for c in index_chunks],
         }
         verification = run_verification_after_parse(verification_bundle)
     except Exception:
         log.exception("post-parse verification failed; storing parse only")
         verification = None
+    z3 = (verification or {}).get("z3") or {}
+    _job_advance(
+        job_id,
+        "persisting",
+        z3_status=(verification or {}).get("z3_status"),
+        z3_violation_count=len(z3.get("violations") or []) if isinstance(z3, dict) else None,
+        redhat_status=(verification or {}).get("redhat_status"),
+    )
+
+    # Index for search the way the dock ingest does (remember_jdf_document,
+    # kind "jdf_chunk"). Until 2026-09-23 a vault upload reached only
+    # remember_vault_file (tags, filtered out by _tenant_chunk_candidates), so
+    # POST /jdf/search returned nothing from a document uploaded in SOURCES.
+    # doc_id is the filename — the key the dock uses and the key the vault row is
+    # upserted on — so both paths index one document per filename per project.
+    # Best-effort: the vault row is the deliverable; a refused index is reported,
+    # not fatal.
+    search_index: dict = {"indexed": False, "doc_id": filename}
+    try:
+        search_index = {
+            "indexed": True,
+            **remember_jdf_document(filename, index_jdf, index_chunks, tenant_id=project_id),
+        }
+    except Exception as exc:
+        log.exception("Substrate ingest: search index write failed for %s", filename)
+        search_index["error"] = f"{exc.__class__.__name__}: {str(exc)[:300]}"
 
     # Stage the parsed artifact into OMP immediately after the row write.
     # Confidence rides through explicitly — the OMP layer attaches it with
@@ -444,6 +591,10 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
         "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
         "omp_artifact_id": omp_artifact_id,
+        "verification": verification,
+        "z3_status": (verification or {}).get("z3_status"),
+        "redhat_status": (verification or {}).get("redhat_status"),
+        "search_index": search_index,
         **flag_response(flag),
     }
 
@@ -567,6 +718,16 @@ def register_substrate_routes(app) -> None:
             validate_upload_bytes(filename, file_bytes)
         except UploadRejectedError as exc:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
+
+        # The project row first, on both paths: the audit row and the vault
+        # row reference projects(id), and the sync path used to write them for
+        # a project that did not exist yet ("AUDIT ROW DROPPED … audit_log_
+        # project_id_fkey" on every first upload in the test run, 2026-09-23).
+        try:
+            from ..db.jdf_repository import ensure_project as _ensure_project
+        except ImportError:
+            from db.jdf_repository import ensure_project as _ensure_project
+        _ensure_project(project_id)
 
         if _substrate_async_enabled():
             # Staged in the object store, not on this replica's disk: the
@@ -711,17 +872,31 @@ def register_substrate_routes(app) -> None:
     def substrate_delete(project_id: str, file_id: str):
         request_id = str(uuid.uuid4())
         audit = get_audit_logger()
+        # Read the filename first: it is the search index's doc_id, and the row
+        # is gone once the delete has run.
+        existing = fetch_substrate_entry(project_id, file_id)
         removed = delete_substrate_entry(project_id, file_id)
         if not removed:
             return jsonify({"ok": False, "error": "File not found."}), 404
+        # A deleted source must stop answering searches: forget its chunks
+        # (durable rows and, when configured, OMP) under the same doc_id the
+        # ingest wrote them. Guarded — the row is already gone, and a failed
+        # index cleanup is logged, not turned into a 500 for a delete that
+        # happened.
+        forgotten: dict | None = None
+        try:
+            if existing and existing.get("filename"):
+                forgotten = forget_jdf_document(str(existing["filename"]), tenant_id=project_id)
+        except Exception:
+            log.exception("Substrate delete: search index cleanup failed for %s", file_id)
         audit.log_audit(
             request_id,
             project_id,
             "SUBSTRATE_DELETE",
             success=True,
-            details={"file_id": file_id},
+            details={"file_id": file_id, "search_index": forgotten},
         )
-        return jsonify({"ok": True, "id": file_id})
+        return jsonify({"ok": True, "id": file_id, "search_index": forgotten})
 
     @app.patch("/api/projects/<project_id>/substrate/<file_id>")
     @project_ownership_required

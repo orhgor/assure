@@ -137,8 +137,16 @@ class S3ObjectStore(ObjectStore):
         try:
             self._c().head_object(Bucket=self.bucket, Key=self._k(key))
             return True
-        except Exception:
-            return False
+        except Exception as exc:
+            # Only "no such object" is False. Throttling, AccessDenied or DNS
+            # used to read as "gone", and the worker then marked the job
+            # skipped — a conclusion the error does not support (audit
+            # 2026-09-23). Anything else propagates to the caller's retry path.
+            code = str(getattr(exc, "response", {}).get("Error", {}).get("Code", "") or "")
+            status = getattr(exc, "response", {}).get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if code in ("404", "NoSuchKey", "NotFound") or status == 404:
+                return False
+            raise
 
     def delete(self, key: str) -> None:
         try:

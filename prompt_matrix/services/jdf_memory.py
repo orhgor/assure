@@ -1,4 +1,13 @@
-"""Store JDF documents + chunks. SQLite full doc, OMP chunk index."""
+"""Store JDF documents + chunks: PostgreSQL holds the document and the chunk
+index, OMP (when configured) holds a second, keyword-ranked copy of the chunks.
+
+The chunk index was OMP-only until 2026-09-23. The local and staging containers
+run without ``OMP_SERVER`` (``omp_client.omp_configured()`` is False there), so
+every ingest wrote 0 chunks and every search returned 0 hits with ``ok: true`` —
+a user who uploaded a 16-page PDF from the SOURCES panel and searched a phrase
+from it got nothing. ``jdf_cli_chunks`` is the durable index every ingest writes
+first; OMP is a ranking layer on top of it, never the only copy.
+"""
 import hashlib
 import json
 import logging
@@ -10,6 +19,7 @@ from .omp_memory import safe_omp_remember
 try:
     from ..omp_client import (
         DEFAULT_NAMESPACE,
+        omp_configured,
         omp_delete_memory,
         omp_list_memories,
         omp_recall,
@@ -18,6 +28,7 @@ try:
 except ImportError:
     from omp_client import (
         DEFAULT_NAMESPACE,
+        omp_configured,
         omp_delete_memory,
         omp_list_memories,
         omp_recall,
@@ -58,6 +69,26 @@ _JDF_CLI_DOCS_COLUMNS_SQL = """
 _JDF_CLI_DOCS_DDL = (
     f"CREATE TABLE IF NOT EXISTS {_JDF_CLI_DOCS_TABLE} ({_JDF_CLI_DOCS_COLUMNS_SQL})"
 )
+
+# The durable chunk index. One row per (tenant, doc, chunk_idx) of the current
+# generation: remember_jdf_document replaces the document's rows in the same
+# unit of work that upserts its jdf_cli_documents row, so the two tables never
+# disagree about which generation is current. ``text`` is what search matches
+# and returns; ``meta_json`` carries the chunk's scalar metadata (page, source
+# filename, substrate_file_id) the way the OMP payload's ``meta`` does.
+_JDF_CLI_CHUNKS_TABLE = "jdf_cli_chunks"
+_JDF_CLI_CHUNKS_DDL = f"""
+CREATE TABLE IF NOT EXISTS {_JDF_CLI_CHUNKS_TABLE} (
+    tenant_id TEXT NOT NULL,
+    doc_id TEXT NOT NULL,
+    doc_hash TEXT NOT NULL,
+    chunk_idx INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    meta_json TEXT NOT NULL DEFAULT '{{}}',
+    created_at TIMESTAMP DEFAULT (datetime('now')),
+    PRIMARY KEY (tenant_id, doc_id, chunk_idx)
+)
+"""
 
 
 def _table_pk_columns(db, table: str = _JDF_CLI_DOCS_TABLE) -> list[str] | None:
@@ -110,7 +141,98 @@ def _ensure_jdf_cli_documents_table() -> None:
         log.info("[jdf] %s PK %s -> %s", _JDF_CLI_DOCS_TABLE, pk, list(_JDF_CLI_DOCS_PK))
         _migrate_jdf_cli_docs_to_composite_pk(db)
     db.execute(_JDF_CLI_DOCS_DDL)
+    db.execute(_JDF_CLI_CHUNKS_DDL)
     db.commit()
+
+
+def _persist_jdf_chunks(doc_id: str, doc_hash: str, chunks: list[dict], tenant_id: str) -> int:
+    """Replace this document's rows in the durable chunk index. Returns rows written.
+
+    Called right after ``_persist_jdf_document`` so the index and the document row
+    move to the new generation together. Empty chunks are skipped, as they are for
+    OMP: a chunk with no text is nothing to search. ``meta`` keeps only scalar
+    values — the same filter the OMP payload applies — so a chunk's page number,
+    source filename and vault id travel with the text and nothing else does.
+    """
+    _ensure_jdf_cli_documents_table()
+    db = get_db()
+    db.execute(
+        f"DELETE FROM {_JDF_CLI_CHUNKS_TABLE} WHERE tenant_id = ? AND doc_id = ?",
+        (tenant_id, doc_id),
+    )
+    written = 0
+    for idx, chunk in enumerate(chunks):
+        text = (chunk.get("text") or chunk.get("content") or "").strip()
+        if not text:
+            continue
+        meta = {
+            k: v
+            for k, v in chunk.items()
+            if k not in ("text", "content") and isinstance(v, (str, int, float, bool))
+        }
+        db.execute(
+            f"""
+            INSERT INTO {_JDF_CLI_CHUNKS_TABLE} (tenant_id, doc_id, doc_hash, chunk_idx, text, meta_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(tenant_id, doc_id, chunk_idx) DO UPDATE SET
+                doc_hash = excluded.doc_hash,
+                text = excluded.text,
+                meta_json = excluded.meta_json,
+                created_at = datetime('now')
+            """,
+            (tenant_id, doc_id, doc_hash, idx, text[:8000], json.dumps(meta, ensure_ascii=False)),
+        )
+        written += 1
+    db.commit()
+    return written
+
+
+def _durable_chunk_candidates(query: str, tenant_id: str) -> list[dict]:
+    """This tenant's chunks from the durable index, in the OMP payload shape.
+
+    Only rows of the current generation are read (the join on doc_hash is what
+    ``_current_generation`` does for OMP rows), newest document first, chunks in
+    document order. The query's tokens prefilter in SQL as substrings so a large
+    tenant is not read whole; ``_matching_chunks`` then applies the whole-token
+    contract on the result, the same as for OMP rows.
+    """
+    tokens = _query_tokens(query)
+    if not tokens:
+        return []
+    where = " OR ".join("LOWER(c.text) LIKE ?" for _ in tokens)
+    params: list = [tenant_id, *[f"%{token}%" for token in tokens]]
+    try:
+        rows = get_db().execute(
+            f"""
+            SELECT c.doc_id, c.doc_hash, c.chunk_idx, c.text, c.meta_json
+            FROM {_JDF_CLI_CHUNKS_TABLE} c
+            JOIN {_JDF_CLI_DOCS_TABLE} d
+              ON d.tenant_id = c.tenant_id AND d.doc_id = c.doc_id AND d.doc_hash = c.doc_hash
+            WHERE c.tenant_id = ? AND ({where})
+            ORDER BY d.created_at DESC, c.chunk_idx ASC
+            """,
+            tuple(params),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    out: list[dict] = []
+    for row in rows:
+        try:
+            meta = json.loads(row[4] or "{}")
+        except (TypeError, ValueError):
+            meta = {}
+        out.append(
+            {
+                "kind": "jdf_chunk",
+                "tenant": tenant_id,
+                "doc_id": str(row[0]),
+                "doc_hash": str(row[1]),
+                "chunk_idx": int(row[2]),
+                "text": str(row[3] or ""),
+                "meta": meta if isinstance(meta, dict) else {},
+            }
+        )
+    return out
 
 
 def _persist_jdf_document(doc_id: str, doc_hash: str, jdf_dict: dict, tenant_id: str) -> None:
@@ -337,6 +459,11 @@ def _tenant_chunk_candidates(query: str, tenant_id: str) -> list[dict]:
     per ingested document key — see _RECALL_LIMIT for why the query recall alone
     is not enough. Rows are accepted on their own payload (kind/tenant), never
     on the query's ranking.
+
+    The durable index (``jdf_cli_chunks``) is appended after the OMP rows: OMP's
+    keyword ranking is kept where it exists, and a deployment with no OMP — the
+    local and staging containers — still answers from PostgreSQL. A chunk present
+    in both is one hit: ``_dedupe_chunks`` keys on (doc_id, chunk_idx, doc_hash).
     """
     probes = [query] + [
         _doc_key_selector(tenant_id, doc_id) for doc_id in _tenant_doc_ids(tenant_id)
@@ -350,6 +477,7 @@ def _tenant_chunk_candidates(query: str, tenant_id: str) -> list[dict]:
             if parsed.get("tenant") != tenant_id:
                 continue
             out.append(parsed)
+    out.extend(_durable_chunk_candidates(query, tenant_id))
     return out
 
 
@@ -394,9 +522,12 @@ def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=
     doc_hash = _doc_hash(jdf_dict)
     # FIX 2: persist the full JDF durably before touching OMP.
     _persist_jdf_document(doc_id, doc_hash, jdf_dict, tenant_id)
+    # The durable chunk index is written next, in the same PostgreSQL: search
+    # reads it whether or not OMP is configured (module docstring).
+    durable = _persist_jdf_chunks(doc_id, doc_hash, chunks, tenant_id)
     # Before the writes: the prune matches rows by payload identity, so running
     # it afterwards would delete the generation just written.
-    pruned = _prune_doc_generation(tenant_id, doc_id)
+    pruned = _prune_doc_generation(tenant_id, doc_id) if omp_configured() else 0
     stored = 0
     attempted = 0
     for idx, chunk in enumerate(chunks):
@@ -421,9 +552,22 @@ def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=
         if safe_omp_remember(key, payload):
             stored += 1
     log.info(
-        "[jdf] stored doc=%s tenant=%s chunks=%d stored=%d",
-        doc_id, tenant_id, len(chunks), stored,
+        "[jdf] stored doc=%s tenant=%s chunks=%d durable=%d omp=%d",
+        doc_id, tenant_id, len(chunks), durable, stored,
     )
+    if not omp_configured():
+        # No OMP in this deployment: the durable index is the index, and the
+        # counts report it. Nothing is unavailable — search reads PostgreSQL.
+        return {
+            "doc_id": doc_id,
+            "chunks_total": len(chunks),
+            "chunks_stored": durable,
+            "chunks_failed": 0,
+            "chunks_pruned": 0,
+            "partial": False,
+            "doc_hash": doc_hash,
+            "index": "postgres",
+        }
     if len(chunks) > 0 and stored == 0:  # FIX 4
         raise OmpUnavailable(f"0/{len(chunks)} chunks written to OMP")
     # FIX 2: a half-indexed document must not look healthy. Empty chunks are
@@ -443,6 +587,41 @@ def remember_jdf_document(doc_id, jdf_dict: dict, chunks: list[dict], tenant_id=
         "chunks_pruned": pruned,
         "partial": failed > 0,
         "doc_hash": doc_hash,
+        "index": "postgres+omp",
+    }
+
+
+def forget_jdf_document(doc_id: str, tenant_id=DEFAULT_TENANT) -> dict:
+    """Remove (tenant, doc) from the index: durable rows, document row, OMP rows.
+
+    The vault delete route calls this so a source the user removed stops
+    answering searches. There is no dock-side delete route; this is the one
+    removal path, and the OMP part reuses the prune pass because OMP rows are
+    addressed by id, not by the key the app wrote. Best-effort on the OMP side
+    (down or unconfigured means nothing to remove there); the PostgreSQL side is
+    the one that must succeed, and it raises if it cannot.
+    """
+    _ensure_jdf_cli_documents_table()
+    db = get_db()
+    chunks_removed = db.execute(
+        f"DELETE FROM {_JDF_CLI_CHUNKS_TABLE} WHERE tenant_id = ? AND doc_id = ?",
+        (tenant_id, doc_id),
+    ).rowcount
+    docs_removed = db.execute(
+        f"DELETE FROM {_JDF_CLI_DOCS_TABLE} WHERE tenant_id = ? AND doc_id = ?",
+        (tenant_id, doc_id),
+    ).rowcount
+    db.commit()
+    omp_removed = _prune_doc_generation(tenant_id, doc_id) if omp_configured() else 0
+    log.info(
+        "[jdf] forgot doc=%s tenant=%s chunks=%d docs=%d omp=%d",
+        doc_id, tenant_id, chunks_removed, docs_removed, omp_removed,
+    )
+    return {
+        "doc_id": doc_id,
+        "chunks_removed": int(chunks_removed or 0),
+        "documents_removed": int(docs_removed or 0),
+        "omp_removed": omp_removed,
     }
 
 

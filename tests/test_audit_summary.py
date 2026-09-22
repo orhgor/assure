@@ -39,6 +39,51 @@ def test_compute_gate_status_pass():
     assert compute_gate_status("PASS", 0) == "pass"
 
 
+def test_compute_gate_status_never_passes_with_a_contradicted_claim():
+    assert compute_gate_status("PASS", 0, unsupported_count=1) == "review"
+    assert compute_gate_status("VIOLATION", 0, unsupported_count=1) == "blocked"
+    assert compute_gate_status("SKIPPED", 0, unsupported_count=1) == "review"
+
+
+def test_gate_holds_when_supported_claims_sit_beside_contradicted_ones():
+    """1 supported + 5 contradicted, Z3 PASS, no Red-Hat finding.
+
+    Before 2026-09-23 `provenance_gate_fields` returned early on
+    `counts["supported"] > 0` and the gate read `pass` / `ok: True` — the five
+    paragraphs the source denies went out as verified.
+    """
+    from tests.test_verdict_counters import _document, _paragraph
+
+    quote = "Net income grew twelve percent in fiscal 2025."
+    doc = _document(
+        _paragraph("p-yes", quotes=[quote], verdict="yes"),
+        *[_paragraph(f"p-no-{i}", quotes=[quote], verdict="no") for i in range(5)],
+    )
+    summary = build_audit_summary(
+        z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
+    )
+    assert summary["provenance_stats"]["supported"] == 1
+    assert summary["provenance_stats"]["unsupported"] == 5
+    assert summary["gate_status"] == "review"
+    assert summary["ok"] is False
+    assert summary["unverified"] is True
+    assert summary["unverified_reason"] == (
+        "5 of 6 claims are contradicted by their source (1 entailed)."
+    )
+
+
+def test_normalize_audit_payload_reads_unsupported_from_the_stats():
+    out = normalize_audit_payload(
+        {
+            "z3_results": {"status": "PASS"},
+            "redhat_critiques": [],
+            "provenance_stats": {"eligible": 2, "supported": 1, "unsupported": 1},
+        }
+    )
+    assert out["gate_status"] == "review"
+    assert out["ok"] is False
+
+
 def test_build_audit_summary_shape():
     z3 = {"status": "PASS", "violations": [], "lock_results": [], "locks_verified": 1}
     redhat = [{"title": "Red-hat review", "content": "ok", "model": "deepseek/deepseek-reasoner"}]
