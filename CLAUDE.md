@@ -64,7 +64,8 @@ compile engine is PEM.
 | `infra/terraform/` | AWS stack: ECS Fargate (ARM64) web + Spot worker, RDS PostgreSQL, ElastiCache, SQS, S3, ALB |
 | `docs/` | Read first: `scale_architecture.md`, `decisions.md`, `anti-claims.md`, `deferred.md`, `deploy-flow.md`, `deferred-parse-runtime.md` |
 | `scripts/migrate_sqlite_to_postgres.py` | One-time import of a legacy SQLite file |
-| `worker/`, `landing/`, `prototype/`, `openuser/`, `scripts/aws/_probe_*` | Cloudflare edge worker (being retired), marketing site, shell prototype, UX runner, throwaway probes — don't extend |
+| `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's own `/app` is the legacy workbench. The `assure-shell` compose service runs it locally |
+| `worker/`, `landing/`, `openuser/`, `scripts/aws/_probe_*` | Cloudflare edge worker (being retired), marketing site, UX runner, throwaway probes — don't extend |
 
 ## Document pipeline
 

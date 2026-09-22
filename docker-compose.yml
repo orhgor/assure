@@ -1,7 +1,8 @@
 # Full local stack in one command — no .env required:
 #
 #   docker compose up -d --build
-#   open http://127.0.0.1:8765/app
+#   open http://127.0.0.1:8891          (workbench shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#   http://127.0.0.1:8765/api/...       (Flask API directly; /app there is the legacy workbench)
 #
 # PostgreSQL + Redis + web + parse worker, the same topology as AWS
 # (infra/terraform). Defaults are for a laptop: development mode, the image is
@@ -142,6 +143,34 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # The workbench shell — what staging.getassureai.com serves. Static shell from
+  # prototype/ with /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY
+  # gate (fails closed if unset). Open http://127.0.0.1:8891 and enter the key.
+  assure-shell:
+    image: ${APP_IMAGE:-assure-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "prototype/dev-server.py"]
+    environment:
+      UPSTREAM_BASE: http://assure-app:8765
+      HOST: 0.0.0.0
+      PORT: "8891"
+      SHELL_ACCESS_KEY: ${SHELL_ACCESS_KEY:-assure-local-shell-key}
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "127.0.0.1:${SHELL_PORT:-8891}:8891"
+    depends_on:
+      assure-app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8891/auth',timeout=3)\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
 
 volumes:
   pgdata:
