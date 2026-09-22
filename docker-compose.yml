@@ -1,12 +1,8 @@
 # Full local stack in one command — no .env required:
 #
 #   docker compose up -d --build
-#   open http://127.0.0.1:8765/app      (the workbench — the UI CI's Playwright suite tests)
-#   http://127.0.0.1:8765/api/...       (Flask API)
-#
-# Optional: the prototype shell (prototype/dev-server.py, :8891) is behind a
-# profile because it is not the UI we ship:
-#   docker compose --profile shell up -d   → http://127.0.0.1:8891 (key: SHELL_ACCESS_KEY)
+#   open http://127.0.0.1:8891          (workbench shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#   http://127.0.0.1:8765/api/...       (Flask API directly; /app there is the legacy workbench)
 #
 # PostgreSQL + Redis + web + parse worker, the same topology as AWS
 # (infra/terraform). Defaults are for a laptop: development mode, the image is
@@ -154,7 +150,6 @@ services:
   # prototype/ with /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY
   # gate (fails closed if unset). Open http://127.0.0.1:8891 and enter the key.
   assure-shell:
-    profiles: ["shell"]
     image: ${APP_IMAGE:-assure-app:local}
     build:
       context: .

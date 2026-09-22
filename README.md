@@ -21,7 +21,7 @@ Full stack in containers (web + parse worker + PostgreSQL + Redis, the same
 topology as AWS) with no configuration at all:
 
 ```bash
-docker compose up -d --build          # UI: http://127.0.0.1:8765/app · API: http://127.0.0.1:8765/api
+docker compose up -d --build          # UI: http://127.0.0.1:8891 (key: assure-local-shell-key) · API: http://127.0.0.1:8765
 ```
 
 Optional `.env` at the repo root: provider keys, and `ASSURE_S3_BUCKET` +
