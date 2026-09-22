@@ -9,6 +9,9 @@ from prompt_matrix.routers import jdf_memory_routes
 from prompt_matrix.services.jdf_memory import OmpUnavailable
 
 
+OMP_BUILD_KWARGS: list[dict] = []
+
+
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     # Isolated DB: a successful ingest now writes this project's substrate_vault
@@ -28,14 +31,43 @@ def client(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         jdf_memory_routes,
-        "pdf_to_jdf",
-        lambda b: {"$jdf": "1.0", "meta": {}, "pages": []},
+        "pdf_to_parse_bundle",
+        lambda b, **kw: {
+            "jdf": {"$jdf": "1.0", "meta": {}, "pages": []},
+            "chunks": [{"id": "c0", "text": "chunk0", "tokens": 4}],
+            "text": "chunk0",
+            "page_count": 1,
+            "parser_name": "jdf-cli",
+            "source_kind": "pdf",
+            "parse_confidence": None,
+            "ocr_confidence": None,
+            "tables": [{"id": "t1", "text": "A|B"}],
+            "images": [],
+            "figures": [{"id": "f1", "text": "Fig 1"}],
+            "table_count": 1,
+            "image_count": 0,
+            "figure_count": 1,
+            "asset_summary": {"tables": 1, "images": 0, "figures": 1},
+            "filename": "a.pdf",
+        },
     )
+    # Captured OMP build kwargs, asserted in the ingest tests below.
+    OMP_BUILD_KWARGS.clear()
+
+    def fake_build_omp_artifact(project_id, substrate_result, **kwargs):
+        from types import SimpleNamespace
+
+        OMP_BUILD_KWARGS.append({"project_id": project_id, **kwargs})
+        return SimpleNamespace(artifact_id="omp-parse-fixed", payload=substrate_result)
+
     monkeypatch.setattr(
-        jdf_memory_routes,
-        "jdf_to_chunks",
-        lambda d, strategy="section": [{"id": "c0", "text": "chunk0", "tokens": 4}],
+        jdf_memory_routes, "build_omp_artifact_from_parse", fake_build_omp_artifact
     )
+
+    def fake_store_omp_artifact(project_id, artifact):
+        return artifact.artifact_id
+
+    monkeypatch.setattr(jdf_memory_routes, "store_omp_artifact", fake_store_omp_artifact)
     monkeypatch.setattr(
         jdf_memory_routes,
         "remember_jdf_document",
@@ -665,3 +697,89 @@ def test_compile_persists_audited_confidence_spans(monkeypatch, tmp_path):
         if (child.get("meta") or {}).get("confidenceSpans")
     }
     assert persisted_node_spans == streamed_node_spans
+def test_ingest_preserves_parse_metadata_and_omp_linkage(client):
+    """Parse metadata and structured payload survive the ingest end to end.
+
+    JDF CI is the default PDF parser: the route stages a parse artifact into
+    OMP immediately after parse, persists parse metadata on the vault row, and
+    returns it — the row, not just the response, is the record.
+    """
+    OMP_BUILD_KWARGS.clear()
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=_pdf(), content_type="multipart/form-data"
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["parser_name"] == "jdf-cli"
+    assert body["source_kind"] == "pdf"
+    assert body["page_count"] == 1
+    assert body["omp_artifact_id"] == "omp-parse-fixed"
+    assert body["table_count"] == 1
+    assert body["figure_count"] == 1
+
+    # OMP artifact built with the full explicit parse payload
+    call = OMP_BUILD_KWARGS[-1]
+    assert call["parser_name"] == "jdf-cli"
+    assert call["source_kind"] == "pdf"
+    assert call["page_count"] == 1
+    assert call["table_count"] == 1
+    assert call["figure_count"] == 1
+    assert call["asset_summary"] == {"tables": 1, "images": 0, "figures": 1}
+
+    # The vault row records parse metadata + OMP linkage
+    from prompt_matrix.db.substrate_repository import list_substrate_for_project
+
+    rows = list_substrate_for_project("p1")
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["parser_name"] == "jdf-cli"
+    assert row["source_kind"] == "pdf"
+    assert row["table_count"] == 1
+    assert row["omp_artifact_id"] == "omp-parse-fixed"
+
+
+def test_ingest_confidence_passes_through(client, monkeypatch):
+    """parse/OCR confidence from the bundle reach the response and the row.
+
+    A reported 0.0 is real data — it must survive as 0.0, not be dropped by a
+    truthiness guard somewhere along the pipeline.
+    """
+    OMP_BUILD_KWARGS.clear()
+
+    def bundle_with_confidence(b, **kw):
+        return {
+            "jdf": {"$jdf": "1.0", "meta": {}, "pages": []},
+            "chunks": [{"id": "c0", "text": "chunk0", "tokens": 4}],
+            "text": "chunk0",
+            "page_count": 1,
+            "parser_name": "jdf-cli",
+            "source_kind": "pdf",
+            "parse_confidence": 0.73,
+            "ocr_confidence": 0.0,
+            "tables": [],
+            "images": [],
+            "figures": [],
+            "table_count": 0,
+            "image_count": 0,
+            "figure_count": 0,
+            "asset_summary": {"tables": 0, "images": 0, "figures": 0},
+            "filename": "a.pdf",
+        }
+
+    monkeypatch.setattr(jdf_memory_routes, "pdf_to_parse_bundle", bundle_with_confidence)
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=_pdf(), content_type="multipart/form-data"
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["parse_confidence"] == 0.73
+    assert body["ocr_confidence"] == 0.0
+    call = OMP_BUILD_KWARGS[-1]
+    assert call["parse_confidence"] == 0.73
+    assert call["ocr_confidence"] == 0.0
+
+    from prompt_matrix.db.substrate_repository import list_substrate_for_project
+
+    row = list_substrate_for_project("p1")[0]
+    assert row["parse_confidence"] == 0.73
+    assert row["ocr_confidence"] == 0.0

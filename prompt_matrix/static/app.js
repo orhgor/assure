@@ -226,26 +226,151 @@
     strip.hidden = false;
   }
 
+  function confidenceScoreClass(value) {
+    // Score buckets mirror the badge thresholds: >=80 good, >=60 warn,
+    // anything else danger; unknown is muted, never a fabricated 0.
+    if (value == null) return "quality-chip--muted";
+    var n = Number(value);
+    if (n >= 80) return "quality-chip--good";
+    if (n >= 60) return "quality-chip--warn";
+    return "quality-chip--danger";
+  }
+
+  function makeConfidenceChip(label, value) {
+    var chip = document.createElement("span");
+    chip.className = "quality-chip " + confidenceScoreClass(value);
+    chip.textContent =
+      label + " " + (value == null ? "—" : Math.round(Number(value)));
+    return chip;
+  }
+
+  function redhatSummary(data) {
+    // Red-Hat status chip: open findings are a danger chip and a warning
+    // note; a clean pass with any quality data is a pass chip. Unknown
+    // (no Red-Hat information at all) renders nothing — no fake "clear".
+    var open =
+      data && data.redhat_open_count != null
+        ? Number(data.redhat_open_count)
+        : data && data.redhat_open != null
+        ? Number(data.redhat_open)
+        : null;
+    if (open != null && open > 0) {
+      return { chip: "Red-Hat " + open + " open", cls: "quality-chip--danger", note: open + " open Red-Hat finding(s)" };
+    }
+    if (open != null && open === 0) {
+      return { chip: "Red-Hat clear", cls: "quality-chip--state-pass", note: null };
+    }
+    return null;
+  }
+
   function updateGroundDisplay(data) {
     var line = document.getElementById("confidence-line");
     if (!line) return;
     var groundText = formatGroundCount(data);
+
+    // Provenance ground count stays its own signal; the quality layers,
+    // gate, and Red-Hat status render as separate chips so parse quality
+    // never reads as a verification result.
+    var hasQuality =
+      data &&
+      (data.parse_quality != null ||
+        data.structured_quality != null ||
+        data.verification_quality != null ||
+        data.document_quality != null ||
+        data.confidence != null ||
+        data.gate_status != null ||
+        data.redhat_open_count != null ||
+        (data.missing_assets && data.missing_assets.length) ||
+        (data.lowConfidenceNodes && data.lowConfidenceNodes.length));
+
+    line.textContent = "";
+    var base = (data && data.confidence_text && String(data.confidence_text).trim()) || "";
+    if (groundText || base || hasQuality) {
+      var lead = document.createElement("span");
+      lead.className = "confidence-line__lead";
+      lead.textContent = "Confidence";
+      line.appendChild(lead);
+    }
     if (groundText) {
-      var base = (data && data.confidence_text && String(data.confidence_text).trim()) || "";
-      if (base && /0 claims were checked/i.test(base)) {
-        line.textContent = groundText;
-      } else if (base) {
-        line.textContent = base + " · " + groundText;
-      } else {
-        line.textContent = groundText;
-      }
-      line.hidden = false;
+      var ground = document.createElement("span");
+      ground.className = "quality-chip quality-chip--muted";
+      ground.textContent = groundText;
+      line.appendChild(ground);
+    } else if (base && !/0 claims were checked/i.test(base)) {
+      var baseChip = document.createElement("span");
+      baseChip.className = "quality-chip quality-chip--muted";
+      baseChip.textContent = base;
+      line.appendChild(baseChip);
+    }
+    if (!hasQuality) {
+      var renderedAny = line.children && line.children.length > 1;
+      line.hidden = !renderedAny;
       return;
     }
-    if (data && data.confidence_text) {
-      line.textContent = data.confidence_text;
-      line.hidden = false;
+
+    var rh = redhatSummary(data);
+    if (rh) {
+      var rhChip = document.createElement("span");
+      rhChip.className = "quality-chip " + rh.cls;
+      rhChip.textContent = rh.chip;
+      line.appendChild(rhChip);
     }
+    if (data.gate_status) {
+      var gateState = String(data.gate_status).toLowerCase();
+      var gate = document.createElement("span");
+      gate.className =
+        "quality-chip " +
+        (gateState === "pass" || gateState === "passing"
+          ? "quality-chip--state-pass"
+          : gateState === "blocked" || gateState === "fail"
+          ? "quality-chip--state-blocked"
+          : "quality-chip--state-review");
+      gate.textContent = "Gate " + String(data.gate_status);
+      line.appendChild(gate);
+    }
+
+    line.appendChild(makeConfidenceChip("Overall", data.document_quality != null ? data.document_quality : data.confidence));
+    line.appendChild(makeConfidenceChip("Parse", data.parse_quality));
+    line.appendChild(makeConfidenceChip("Structured", data.structured_quality));
+    line.appendChild(makeConfidenceChip("Verification", data.verification_quality));
+
+    var lowCount =
+      data.low_confidence_count != null
+        ? Number(data.low_confidence_count)
+        : data.lowConfidenceNodes
+        ? data.lowConfidenceNodes.length
+        : 0;
+    var lowPages =
+      data.low_confidence_page_count != null
+        ? Number(data.low_confidence_page_count)
+        : data.lowConfidencePages
+        ? data.lowConfidencePages.length
+        : 0;
+    var notes = [];
+    if (lowCount > 0) notes.push(lowCount + " low-confidence node(s)");
+    if (lowPages > 0) notes.push(lowPages + " low-confidence page(s)");
+    if (rh && rh.note) notes.push(rh.note);
+    var missingAssets = data.missing_assets || data.missingAssets || [];
+    var kinds = [];
+    for (var i = 0; i < missingAssets.length; i++) {
+      var kind = missingAssets[i] && (missingAssets[i].kind || missingAssets[i]);
+      if (kind) kinds.push(String(kind));
+    }
+    if (kinds.length) notes.push("no " + kinds.join(", ") + " in parse");
+    for (var n = 0; n < notes.length; n++) {
+      var warn = document.createElement("span");
+      warn.className = "quality-chip quality-chip--warn";
+      warn.textContent = notes[n];
+      line.appendChild(warn);
+    }
+
+    // Accessible one-line summary of what the chips show.
+    line.setAttribute("role", "status");
+    line.setAttribute(
+      "aria-label",
+      "Confidence. " + (line.textContent || "").trim()
+    );
+    line.hidden = false;
   }
 
   function bindSettingsModal() {

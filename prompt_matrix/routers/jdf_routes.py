@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from typing import Any
 
 from flask import jsonify, request
 from pydantic import BaseModel, ConfigDict
+
+log = logging.getLogger(__name__)
 
 try:
     from ..db.drafts_repository import upsert_draft
@@ -33,7 +36,9 @@ try:
         parse_document,
         splice_node,
     )
+    from ..services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.pdf_import import pdf_bytes_to_jdf
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -60,7 +65,9 @@ except ImportError:
         parse_document,
         splice_node,
     )
+    from services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.pdf_import import pdf_bytes_to_jdf
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -451,6 +458,44 @@ def register_jdf_routes(app) -> None:
         except UploadRejectedError as exc:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
         try:
+            # JDF CI is the default PDF parser: the bundle carries the JDF
+            # document, its chunks, structured content (tables/images/
+            # figures) and parse/OCR confidence — everything a route needs to
+            # both save the tree and stage the parse artifact into OMP.
+            bundle = pdf_to_parse_bundle(
+                file_bytes,
+                strategy="section",
+                filename=upload.filename.strip(),
+                source_kind="pdf",
+            )
+            parse_meta = {
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "page_count": bundle["page_count"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+            tree = jdf_to_document_tree(
+                bundle["jdf"],
+                bundle["chunks"],
+                document_id=f"doc-{project_id}",
+                title=upload.filename.strip(),
+                parse_meta=parse_meta,
+            )
+        except Exception as jdf_exc:
+            # JDF CI is the default, but the PyMuPDF importer is a best-effort
+            # fallback that still preserves structure (text + images per
+            # page) — a missing jdf-cli binary must not kill an import that
+            # can be parsed another way.
+            log.warning(
+                "JDF CI parse failed for %s, falling back to PyMuPDF: %s",
+                upload.filename,
+                jdf_exc,
+            )
             tree = sanitize_jdf_node(
                 pdf_bytes_to_jdf(
                     file_bytes,
@@ -458,6 +503,36 @@ def register_jdf_routes(app) -> None:
                     filename=upload.filename.strip(),
                 )
             )
+            images = [
+                {
+                    "id": child.get("id"),
+                    "src": child.get("src"),
+                    "caption": child.get("caption") or child.get("alt") or "",
+                    "page": (child.get("meta") or {}).get("page"),
+                }
+                for section in tree.get("body") or []
+                for child in section.get("children") or []
+                if child.get("type") == "image"
+            ]
+            bundle = {
+                "jdf": tree,
+                "chunks": [],
+                "text": "",
+                "page_count": len(tree.get("body") or []) or 1,
+                "parser_name": "pymupdf",
+                "source_kind": "pdf",
+                "parse_confidence": None,
+                "ocr_confidence": None,
+                "tables": [],
+                "images": images,
+                "figures": [],
+                "table_count": 0,
+                "image_count": len(images),
+                "figure_count": 0,
+                "asset_summary": {"tables": 0, "images": len(images), "figures": 0},
+            }
+        try:
+            tree = sanitize_jdf_node(tree)
             parse_document(tree)
             result = save_jdf_revision(
                 project_id,
@@ -475,6 +550,43 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             return jsonify({"ok": False, "error": str(exc)}), 400
+        # Stage the parsed payload into OMP immediately after the revision is
+        # saved. Best-effort: the revision above is the durable record, so a
+        # staging failure is logged clearly but must not fail the import.
+        omp_artifact_id = None
+        try:
+            substrate_result = {
+                "id": result.get("document_id") or f"doc-{project_id}",
+                "filename": upload.filename.strip(),
+                "page_count": bundle["page_count"],
+                "text": bundle["text"],
+                "tables": bundle["tables"],
+                "images": bundle["images"],
+                "figures": bundle["figures"],
+                "size_bytes": len(file_bytes),
+                "is_image": False,
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+            omp_artifact = build_omp_artifact_from_parse(
+                project_id,
+                substrate_result,
+                parse_confidence=bundle["parse_confidence"],
+                ocr_confidence=bundle["ocr_confidence"],
+                parser_name=bundle["parser_name"],
+                source_kind=bundle["source_kind"],
+                page_count=bundle["page_count"],
+                table_count=bundle["table_count"],
+                image_count=bundle["image_count"],
+                figure_count=bundle["figure_count"],
+                asset_summary=bundle["asset_summary"],
+            )
+            store_omp_artifact(project_id, omp_artifact)
+            omp_artifact_id = omp_artifact.artifact_id
+        except Exception:
+            log.exception("PDF import: OMP parse artifact staging failed")
         duration_ms = int((time.perf_counter() - start_time) * 1000)
         audit.log_audit(
             request_id,
@@ -482,9 +594,28 @@ def register_jdf_routes(app) -> None:
             "PDF_IMPORT",
             success=True,
             duration_ms=duration_ms,
-            details={"filename": upload.filename, "version": result.get("version")},
+            details={
+                "filename": upload.filename,
+                "version": result.get("version"),
+                "parser_name": bundle["parser_name"],
+                "page_count": bundle["page_count"],
+            },
         )
-        return jsonify(result)
+        return jsonify(
+            {
+                **result,
+                "ok": True,
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "page_count": bundle["page_count"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "omp_artifact_id": omp_artifact_id,
+            }
+        )
 
     @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
     @project_ownership_required

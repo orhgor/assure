@@ -2501,6 +2501,116 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   min-height: 100%;
 }
 
+/* Document-level parse/asset-quality badge (jdf_canvas.js
+   _renderQualityBadge). Separate from the provenance confidence bars on
+   purpose: parse quality is a parse signal, provenance bars are verification
+   signals, and the two must not be merged in the UI. */
+.jdf-parse-quality-badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 var(--space-md) var(--space-md);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #555);
+  background: var(--surface-muted, #f9fafb);
+  border: 1px solid var(--border-muted, #e5e7eb);
+  vertical-align: middle;
+  max-width: 100%;
+}
+
+.jdf-parse-quality-badge__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  color: var(--text-tertiary, #6b7280);
+}
+
+.jdf-parse-quality-badge__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.jdf-parse-quality-badge__notes {
+  color: #92400e;
+}
+
+.jdf-parse-quality-badge--warn {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.quality-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--surface-muted, #f3f4f6);
+  border: 1px solid var(--border-muted, #e5e7eb);
+  color: var(--text-secondary, #4b5563);
+}
+
+.quality-chip--good {
+  color: #065f46;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.quality-chip--warn {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.quality-chip--danger {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.quality-chip--muted {
+  color: #4b5563;
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.quality-chip--state-pass {
+  color: #065f46;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.quality-chip--state-review {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.quality-chip--state-blocked {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.confidence-line__lead {
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary, #6b7280);
+}
+
 .jdf-tiptap-doc h2.jdf-doc-title,
 .jdf-tiptap-doc h2 {
   font-size: 1.6rem;
@@ -5364,6 +5474,10 @@ input.auto-resize {
   line-height: 1.45;
 }
 .confidence-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: var(--space-2) 0;
   font-size: var(--font-size-sm);
   color: var(--dark-gray);

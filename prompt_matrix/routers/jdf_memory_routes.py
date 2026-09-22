@@ -20,9 +20,9 @@ try:
         upsert_substrate_entry,
     )
     from ..services.compile_guard import flag_fields, flag_response
-    from ..services.jdf_converter import JDF_BIN, JdfConversionError
-    from ..services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
+    from ..services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
+    from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.omp_memory import remember_vault_file
 except ImportError:
     from db.jdf_repository import ensure_project
@@ -32,19 +32,14 @@ except ImportError:
         upsert_substrate_entry,
     )
     from services.compile_guard import flag_fields, flag_response
-    from services.jdf_converter import JDF_BIN, JdfConversionError
-    from services.jdf_converter import chunks_to_text, jdf_to_chunks, pdf_to_jdf
+    from services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
+    from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.omp_memory import remember_vault_file
 
 log = logging.getLogger(__name__)
 
 _MAX_PDF_BYTES = 25 * 1024 * 1024
-
-
-def _jdf_page_count(jdf_dict: dict) -> int:
-    pages = jdf_dict.get("pages")
-    return len(pages) if isinstance(pages, list) and pages else 1
 
 
 def _store_grounding_source(
@@ -54,6 +49,15 @@ def _store_grounding_source(
     *,
     size_bytes: int,
     page_count: int,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    parser_name: str | None = None,
+    source_kind: str | None = None,
+    table_count: int | None = None,
+    image_count: int | None = None,
+    figure_count: int | None = None,
+    asset_summary: dict | None = None,
+    omp_artifact_id: str | None = None,
 ) -> None:
     """Leave the ingested PDF as a compile source for this project.
 
@@ -64,6 +68,10 @@ def _store_grounding_source(
     skipped with "no substrate or empty draft". The text is already extracted
     here (the chunks are the document), so no Textract/Docling pass is involved
     and the vault upload route keeps its .txt/.md restriction untouched.
+
+    Parse metadata (parser name, source kind, parse/OCR confidence, structured-
+    asset counts, OMP artifact id) is persisted on the row: the vault row is the
+    record of how this document was parsed, not just a bag of text.
 
     An ingest whose chunks carry no text still leaves the row: a PDF the
     converter returned no text for is a source the user uploaded, and a missing
@@ -95,6 +103,15 @@ def _store_grounding_source(
         page_count=page_count,
         extracted_text=text,
         file_size_bytes=size_bytes,
+        parser_name=parser_name,
+        source_kind=source_kind,
+        parse_confidence=parse_confidence,
+        ocr_confidence=ocr_confidence,
+        table_count=table_count,
+        image_count=image_count,
+        figure_count=figure_count,
+        asset_summary=asset_summary,
+        omp_artifact_id=omp_artifact_id,
         **flag,
     )
     remember_vault_file(
@@ -103,7 +120,7 @@ def _store_grounding_source(
         filename=filename,
         text=text,
     )
-    return flag
+    return flag, entry
 
 
 def register_jdf_memory_routes(app) -> None:
@@ -124,20 +141,115 @@ def register_jdf_memory_routes(app) -> None:
             pdf_bytes = f.read()
             if not pdf_bytes:
                 return jsonify({"error": "Empty file."}), 400
-            jdf_dict = pdf_to_jdf(pdf_bytes)
-            chunks = jdf_to_chunks(jdf_dict, strategy="section")
+            # JDF is the default PDF parser: one bundle call carries the JDF
+            # document, its chunks, and the parse/OCR confidence a route or
+            # OMP staging needs — not just the raw JDF tree.
+            bundle = pdf_to_parse_bundle(pdf_bytes, strategy="section")
+            jdf_dict = bundle["jdf"]
+            chunks = bundle["chunks"]
             # Before the chunk index: a compile grounds from the project's
             # substrate_file_ids, so the vault row is what makes this ingest
             # visible to the source panel and to the draft pipeline.
-            flag = _store_grounding_source(
+            flag, entry = _store_grounding_source(
                 project_id,
                 f.filename,
                 chunks,
                 size_bytes=len(pdf_bytes),
-                page_count=_jdf_page_count(jdf_dict),
+                page_count=bundle["page_count"],
+                parse_confidence=bundle["parse_confidence"],
+                ocr_confidence=bundle["ocr_confidence"],
+                parser_name=bundle["parser_name"],
+                source_kind=bundle["source_kind"],
+                table_count=bundle["table_count"],
+                image_count=bundle["image_count"],
+                figure_count=bundle["figure_count"],
+                asset_summary=bundle["asset_summary"],
             )
+            # Stage the parsed data into OMP alongside the vault row, the
+            # same artifact shape the Textract substrate route stages
+            # (services/omp.build_omp_artifact_from_parse), so a jdf-cli
+            # ingest is visible to OMP the same way a Textract one is.
+            # Confidence is passed explicitly with is-not-None semantics in
+            # the OMP layer: a parser-reported 0.0 survives, unknown stays
+            # None.
+            omp_artifact_id = None
+            try:
+                substrate_result = {
+                    "id": entry["id"],
+                    "filename": f.filename,
+                    "page_count": bundle["page_count"],
+                    "text": entry.get("extracted_text", ""),
+                    "tables": bundle["tables"],
+                    "images": bundle["images"],
+                    "figures": bundle["figures"],
+                    "forms": entry.get("forms") or [],
+                    "size_bytes": len(pdf_bytes),
+                    "is_image": False,
+                    "parser_name": bundle["parser_name"],
+                    "source_kind": bundle["source_kind"],
+                    "table_count": bundle["table_count"],
+                    "image_count": bundle["image_count"],
+                    "figure_count": bundle["figure_count"],
+                    "asset_summary": bundle["asset_summary"],
+                }
+                omp_artifact = build_omp_artifact_from_parse(
+                    project_id,
+                    substrate_result,
+                    parse_confidence=bundle["parse_confidence"],
+                    ocr_confidence=bundle["ocr_confidence"],
+                    parser_name=bundle["parser_name"],
+                    source_kind=bundle["source_kind"],
+                    page_count=bundle["page_count"],
+                    table_count=bundle["table_count"],
+                    image_count=bundle["image_count"],
+                    figure_count=bundle["figure_count"],
+                    asset_summary=bundle["asset_summary"],
+                )
+                store_omp_artifact(project_id, omp_artifact)
+                omp_artifact_id = omp_artifact.artifact_id
+                # Link the row to its staged artifact — the vault row is the
+                # durable record, so it names the OMP artifact it staged.
+                upsert_substrate_entry(
+                    project_id,
+                    filename=f.filename,
+                    page_count=bundle["page_count"],
+                    extracted_text=entry.get("extracted_text") or "",
+                    tables=entry.get("tables") or [],
+                    forms=entry.get("forms") or [],
+                    file_size_bytes=len(pdf_bytes),
+                    parser_name=bundle["parser_name"],
+                    source_kind=bundle["source_kind"],
+                    parse_confidence=bundle["parse_confidence"],
+                    ocr_confidence=bundle["ocr_confidence"],
+                    table_count=bundle["table_count"],
+                    image_count=bundle["image_count"],
+                    figure_count=bundle["figure_count"],
+                    asset_summary=bundle["asset_summary"],
+                    omp_artifact_id=omp_artifact_id,
+                    **flag,
+                )
+            except Exception:
+                # OMP staging is best-effort — the vault row above already
+                # grounds the compile, so a staging failure here must not
+                # fail the ingest, only be logged clearly.
+                log.exception("jdf ingest: OMP parse artifact staging failed")
             result = remember_jdf_document(doc_id, jdf_dict, chunks, tenant_id=project_id)
-            return jsonify({"ok": True, **result, **flag_response(flag)})
+            return jsonify(
+                {
+                    **result,
+                    "ok": True,
+                    "parser_name": bundle["parser_name"],
+                    "source_kind": bundle["source_kind"],
+                    "page_count": bundle["page_count"],
+                    "parse_confidence": bundle["parse_confidence"],
+                    "ocr_confidence": bundle["ocr_confidence"],
+                    "table_count": bundle["table_count"],
+                    "image_count": bundle["image_count"],
+                    "figure_count": bundle["figure_count"],
+                    "omp_artifact_id": omp_artifact_id,
+                    **flag_response(flag),
+                }
+            )
         except OmpUnavailable:  # FIX 4
             return jsonify({"error": "index temporarily unavailable, try again"}), 503
         except JdfConversionError:

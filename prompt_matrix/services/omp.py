@@ -435,8 +435,8 @@ def build_prompt_ready_spans(
     text: str,
     artifact_id: str | None = None,
     page_count: int | None = None,
-    parse_confidence: int | None = None,
-    ocr_confidence: int | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
 ) -> dict[str, Any]:
     """Split parsed text into prompt-ready spans, sections and a summary.
 
@@ -507,11 +507,22 @@ def normalize_parse_artifact(raw_parse: dict[str, Any]) -> dict[str, Any]:
     When the parser supplied no spans, they are derived here from the text, so
     every parse artifact carries the prompt-ready channel the compiler consumes
     — a parser that has not been taught to emit spans still produces them.
+
+    Parser metadata (``parser_name``/``source_kind``), structured-asset counts
+    (``table_count``/``image_count``/``figure_count``/``asset_summary``) and
+    confidence ride through verbatim: None stays None (the honest unknown), a
+    reported 0.0 stays 0.0 — no defaults are invented here.
     """
     source_id = raw_parse.get("id", "")
     source_name = raw_parse.get("filename", "")
     parse_conf = raw_parse.get("parse_confidence")
     ocr_conf = raw_parse.get("ocr_confidence")
+    parser_name = raw_parse.get("parser_name")
+    source_kind = raw_parse.get("source_kind")
+    table_count = raw_parse.get("table_count")
+    image_count = raw_parse.get("image_count")
+    figure_count = raw_parse.get("figure_count")
+    asset_summary = raw_parse.get("asset_summary")
     spans = raw_parse.get("spans")
     sections = raw_parse.get("sections")
     summary = raw_parse.get("prompt_ready_summary")
@@ -540,6 +551,12 @@ def normalize_parse_artifact(raw_parse: dict[str, Any]) -> dict[str, Any]:
         is_image=raw_parse.get("is_image", False),
         parse_confidence=parse_conf,
         ocr_confidence=ocr_conf,
+        parser_name=parser_name,
+        source_kind=source_kind,
+        table_count=table_count,
+        image_count=image_count,
+        figure_count=figure_count,
+        asset_summary=asset_summary,
         spans=spans,
         sections=sections,
         prompt_ready_summary=summary,
@@ -582,13 +599,56 @@ def _collect_nodes(tree: dict[str, Any]) -> list[dict[str, Any]]:
 def build_omp_artifact_from_parse(
     project_id: str,
     substrate_result: dict[str, Any],
-    parse_confidence: int | None = None,
-    ocr_confidence: int | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    parser_name: str | None = None,
+    source_kind: str | None = None,
+    page_count: int | None = None,
+    table_count: int | None = None,
+    image_count: int | None = None,
+    figure_count: int | None = None,
+    asset_summary: dict[str, Any] | None = None,
 ) -> OMPArtifact:
-    """Build an OMP parse artifact from substrate ingestion result."""
-    normalized = normalize_parse_artifact(substrate_result)
-    normalized["parse_confidence"] = parse_confidence
-    normalized["ocr_confidence"] = ocr_confidence
+    """Build an OMP parse artifact from substrate ingestion result.
+
+    Confidence is attached with ``is not None`` guards, never truthiness: a
+    parser-reported 0.0 is real data (a parse that genuinely failed to read),
+    and dropping it would fabricate an "unknown" where the parser said "zero".
+    Unknown stays None. Parser metadata and asset counts go into both the
+    payload and the provenance so an artifact is self-describing.
+    """
+    normalized = normalize_parse_artifact(
+        {
+            **substrate_result,
+            **(
+                {
+                    "parse_confidence": parse_confidence,
+                    "ocr_confidence": ocr_confidence,
+                    "parser_name": parser_name,
+                    "source_kind": source_kind,
+                    "table_count": table_count,
+                    "image_count": image_count,
+                    "figure_count": figure_count,
+                    "asset_summary": asset_summary,
+                    "page_count": (
+                        page_count
+                        if page_count is not None
+                        else substrate_result.get("page_count")
+                    ),
+                }
+            ),
+        }
+    )
+
+    provenance: dict[str, Any] = {
+        "source_name": substrate_result.get("filename"),
+        "parser_name": parser_name,
+        "source_kind": source_kind,
+        "page_count": (
+            page_count if page_count is not None else substrate_result.get("page_count")
+        ),
+        "file_size_bytes": substrate_result.get("size_bytes"),
+    }
 
     artifact = OMPArtifact(
         artifact_id=f"omp-parse-{uuid.uuid4().hex[:12]}",
@@ -596,10 +656,22 @@ def build_omp_artifact_from_parse(
         artifact_type="parse",
         source_id=substrate_result.get("id"),
         payload=normalized,
-        confidence={"parse": parse_confidence, "ocr": ocr_confidence}
-        if parse_confidence or ocr_confidence
-        else None,
-        provenance={"source_name": substrate_result.get("filename")},
+        confidence=(
+            {
+                "parse": parse_confidence,
+                "ocr": ocr_confidence,
+                "parser_name": parser_name,
+                "source_kind": source_kind,
+                "page_count": page_count,
+                "table_count": table_count,
+                "image_count": image_count,
+                "figure_count": figure_count,
+                "asset_summary": asset_summary,
+            }
+            if parse_confidence is not None or ocr_confidence is not None
+            else None
+        ),
+        provenance=provenance,
     )
     return artifact
 

@@ -215,9 +215,10 @@ class JDFDocumentTree(BaseModel):
     truth_ledger: dict[str, float | str | int] = Field(default_factory=dict)
     body: list[JDFSectionNode] = Field(default_factory=list)
 
-    # Confidence fields for verification results
-    confidence: int | None = None
-    confidenceBreakdown: dict[str, int] | None = None
+    # Confidence fields for verification results — float, not int: scores are
+    # ratios and an int forces every caller to round before it can store.
+    confidence: float | None = None
+    confidenceBreakdown: dict[str, float] | None = None
     lowConfidenceNodes: list[dict[str, Any]] | None = None
 
     # OMP lineage fields for audit trail

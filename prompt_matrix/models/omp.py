@@ -189,8 +189,14 @@ class ParseArtifactPayload:
     forms: list[dict[str, Any]]
     file_size_bytes: int
     is_image: bool
-    parse_confidence: int | None = None
-    ocr_confidence: int | None = None
+    parse_confidence: float | None = None
+    ocr_confidence: float | None = None
+    parser_name: str | None = None
+    source_kind: str | None = None
+    table_count: int | None = None
+    image_count: int | None = None
+    figure_count: int | None = None
+    asset_summary: dict[str, Any] | None = None
     spans: list[dict[str, Any]] | None = None
     sections: list[dict[str, Any]] | None = None
     prompt_ready_summary: dict[str, Any] | None = None
@@ -207,6 +213,12 @@ class ParseArtifactPayload:
             "is_image": self.is_image,
             "parse_confidence": self.parse_confidence,
             "ocr_confidence": self.ocr_confidence,
+            "parser_name": self.parser_name,
+            "source_kind": self.source_kind,
+            "table_count": self.table_count,
+            "image_count": self.image_count,
+            "figure_count": self.figure_count,
+            "asset_summary": self.asset_summary,
             "spans": self.spans,
             "sections": self.sections,
             "prompt_ready_summary": self.prompt_ready_summary,
