@@ -63,6 +63,15 @@ def _request(
     params: dict[str, Any] | None = None,
     timeout: float = 5,
 ) -> dict[str, Any]:
+    if not omp_configured():
+        # No OMP server was given (OMP_SERVER unset, no ~/.omp/api_key): the
+        # module default is a development convenience, and posting to it
+        # produced "OMP POST /v1/memories failed: Connection refused" at ERROR
+        # on every upload, compile and search in a container that never had an
+        # OMP (observed on the local stack 2026-09-22). Every caller already
+        # treats {"error": ...} as a miss, so answer that without the round
+        # trip and without the log line.
+        return {"error": "OMP not configured", "status": 0, "skipped": True}
     base = (os.getenv("OMP_SERVER") or OMP_SERVER).rstrip("/")
     url = base + path
     if params:

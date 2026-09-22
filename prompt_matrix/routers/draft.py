@@ -1371,6 +1371,31 @@ def _stream_model(
             from ..services.pricing import compute_usd
         except ImportError:
             from services.pricing import compute_usd
+        # Key preflight, before the first token. Without it a missing key
+        # surfaced as the raw "litellm.AuthenticationError: OpenrouterException -
+        # No cookie auth credentials found" after "Drafting with …" had been
+        # announced (local stack 2026-09-22, OPENROUTER_API_KEY empty). The
+        # message names the variable to set; 424 because the dependency, not
+        # the request, is what is missing. Lives here, not in the pipeline, so
+        # tests that stub _stream_model keep running without provider keys.
+        if _slug not in ("ollama", "cursor"):
+            try:
+                from ..keys import api_key_for as _api_key_for, missing_key_message
+            except ImportError:
+                from keys import api_key_for as _api_key_for, missing_key_message
+            if not _api_key_for(_slug):
+                yield _typed_sse(
+                    "error",
+                    {
+                        "ok": False,
+                        "error": missing_key_message(_slug) or f"No API key configured for {_slug}.",
+                        "http_status": 424,
+                        "reason": "provider_key_missing",
+                        "provider": _slug,
+                        "model": model,
+                    },
+                )
+                return
         _measure_t0 = time.time()
         stream = litellm.completion(
             model=model,
