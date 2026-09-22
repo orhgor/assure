@@ -817,6 +817,48 @@
       if (!el) return;
       el.appendChild(_buildSourceRow(name, id));
     }
+    // Poll GET /api/tasks/<id> until the worker reports a terminal state.
+    // Ingest is queued since 2026-09-22 (PARSE_ASYNC / SUBSTRATE_ASYNC_UPLOAD):
+    // the upload route answers 202 {task_id, job_id} and the vault row exists
+    // only once the parse worker has run. Resolves with the task body; the
+    // ingest_jobs row (body.job) beats the expiring Celery result when the two
+    // disagree, which is what the server already does for `status`.
+    function _awaitTask(taskId, onTick) {
+      var started = Date.now();
+      var limitMs = 15 * 60 * 1000; // scanned PDFs OCR at ~3 s/page
+      return new Promise(function (resolve, reject) {
+        function tick() {
+          fetch("/api/tasks/" + encodeURIComponent(taskId), { headers: { Accept: "application/json" } })
+            .then(function (r) { return r.json().catch(function () { return {}; }); })
+            .then(function (body) {
+              var st = String((body && body.status) || "pending").toLowerCase();
+              if (typeof onTick === "function") { try { onTick(body); } catch (_) {} }
+              if (st === "success") return resolve(body);
+              if (st === "failure" || st === "skipped") {
+                var job = body.job || {};
+                var res = body.result || {};
+                return reject(new Error(job.error || body.error || res.error || res.reason || ("ingest " + st)));
+              }
+              if (Date.now() - started > limitMs) return reject(new Error("Still processing after 15 minutes; check the Processing panel."));
+              setTimeout(tick, 1000);
+            })
+            .catch(function (err) {
+              if (Date.now() - started > limitMs) return reject(err);
+              setTimeout(tick, 2000);
+            });
+        }
+        tick();
+      });
+    }
+    function _pendingSourceRow(name) {
+      var el = document.getElementById("source-list");
+      if (!el) return null;
+      var row = document.createElement("div");
+      row.className = "source-item is-pending";
+      row.textContent = name + " \u2014 processing\u2026";
+      el.appendChild(row);
+      return row;
+    }
     function handleSourceFile(file) {
       if (!file) return;
       var name = file.name || "source.txt";
@@ -845,9 +887,26 @@
           });
         })
         .then(function (r) {
-          if (r.status === 202 && r.j.task_id) return r.j; // queued async
           if (!r.ok || r.j.ok === false) {
             throw new Error(r.j.error || ("HTTP " + r.status));
+          }
+          if (r.status === 202 && r.j.task_id) {
+            // Queued: the row lands when the worker finishes. Show the file as
+            // processing meanwhile and resolve to the vault entry it produced.
+            var pending = _pendingSourceRow(name);
+            return _awaitTask(r.j.task_id, function (body) {
+              var stage = body && body.job && body.job.stage;
+              if (pending && stage) pending.textContent = name + " \u2014 " + stage + "\u2026";
+            }).then(function (body) {
+              if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
+              var res = (body && body.result) || {};
+              var entry = res.entry || {};
+              var job = (body && body.job) || {};
+              return { id: entry.id || job.substrate_file_id, entry: entry };
+            }, function (err) {
+              if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
+              throw err;
+            });
           }
           return r.j;
         })

@@ -1963,6 +1963,7 @@ body.collapsed .pane-left {
 .source-remove:hover {
   color: var(--contradicted);
 }
+.source-item.is-pending { opacity: .65; font-style: italic; }
 .source-item.is-error {
   color: var(--contradicted);
 }

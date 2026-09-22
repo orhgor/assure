@@ -155,6 +155,10 @@ services:
       context: .
       dockerfile: Dockerfile
     command: ["python", "prototype/dev-server.py"]
+    # Serve the working tree's shell, not the image's copy: UI edits show on
+    # reload without a rebuild (dev-server sends Cache-Control: no-store).
+    volumes:
+      - ./prototype:/app/prototype:ro
     environment:
       UPSTREAM_BASE: http://assure-app:8765
       HOST: 0.0.0.0
