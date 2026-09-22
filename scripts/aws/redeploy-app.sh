@@ -119,22 +119,31 @@ write_deploy_state() {
   local previous="$1"
   local current="$2"
   # A stale /tmp state file owned by another user (e.g. a root SSM run) must
-  # not fail the whole deploy — state bookkeeping is best-effort. On a
-  # permission failure, fall back to a fresh mktemp file and re-point
-  # STATE_FILE (rollback reads it via ASSURE_DEPLOY_STATE), and warn if even
-  # that is impossible.
-  if ! { echo "PREVIOUS=${previous}"; echo "CURRENT=${current}"; } > "$STATE_FILE" 2>/dev/null; then
-    echo "WARN: cannot write ${STATE_FILE} (permission denied); using a temp state file" >&2
-    local fallback
-    fallback="$(mktemp "${STATE_FILE%.txt}.XXXXXX.txt" 2>/dev/null)" || fallback=""
-    if [[ -z "$fallback" ]]; then
-      echo "WARN: no writable state file — rollback bookkeeping will be unavailable" >&2
-      return 0
-    fi
-    STATE_FILE="$fallback"
-    { echo "PREVIOUS=${previous}"; echo "CURRENT=${current}"; } > "$STATE_FILE"
+  # not fail the whole deploy — state bookkeeping is best-effort. The write
+  # runs inside a subshell on purpose: a failed redirection on a compound
+  # command can exit the parent script under `set -e`, but a subshell's
+  # failure is catchable with `if !`. On failure, fall back to a fresh
+  # mktemp file and re-point STATE_FILE (rollback reads it via
+  # ASSURE_DEPLOY_STATE); if even that is impossible, warn and move on.
+  if (
+    { echo "PREVIOUS=${previous}"; echo "CURRENT=${current}"; }
+  ) > "$STATE_FILE" 2>/dev/null; then
+    echo "    deploy state → ${STATE_FILE}"
+    return 0
   fi
-  echo "    deploy state → ${STATE_FILE}"
+  echo "WARN: cannot write ${STATE_FILE} (permission denied); using a temp state file" >&2
+  local fallback
+  fallback="$(mktemp "${STATE_FILE%.txt}.XXXXXX.txt" 2>/dev/null)" || fallback=""
+  if [[ -z "$fallback" ]]; then
+    echo "WARN: no writable state file — rollback bookkeeping will be unavailable" >&2
+    return 0
+  fi
+  STATE_FILE="$fallback"
+  {
+    echo "PREVIOUS=${previous}"
+    echo "CURRENT=${current}"
+  } > "$STATE_FILE"
+  echo "    deploy state → ${STATE_FILE} (fallback)"
 }
 
 rollback_on_failure() {
