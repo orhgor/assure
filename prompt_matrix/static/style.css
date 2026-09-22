@@ -2504,7 +2504,9 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
 /* Document-level parse/asset-quality badge (jdf_canvas.js
    _renderQualityBadge). Separate from the provenance confidence bars on
    purpose: parse quality is a parse signal, provenance bars are verification
-   signals, and the two must not be merged in the UI. */
+   signals, and the two must not be merged in the UI. Colors come from the
+   approved design-token palette (tests/quality_check/test_design_tokens.py).
+*/
 .jdf-parse-quality-badge {
   display: inline-flex;
   flex-direction: column;
@@ -2513,7 +2515,7 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 0.72rem;
-  color: var(--text-secondary, #555);
+  color: var(--text-secondary, #475569);
   background: var(--surface-muted, #f9fafb);
   border: 1px solid var(--border-muted, #e5e7eb);
   vertical-align: middle;
@@ -2528,7 +2530,7 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   font-size: 0.62rem;
-  color: var(--text-tertiary, #6b7280);
+  color: var(--text-tertiary, #64748b);
 }
 
 .jdf-parse-quality-badge__chips {
@@ -2538,11 +2540,11 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
 }
 
 .jdf-parse-quality-badge__notes {
-  color: #92400e;
+  color: #f59e0b;
 }
 
 .jdf-parse-quality-badge--warn {
-  border-color: #fcd34d;
+  border-color: #fde68a;
   background: #fffbeb;
 }
 
@@ -2556,51 +2558,51 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
-  background: var(--surface-muted, #f3f4f6);
+  background: var(--surface-muted, #f1f5f9);
   border: 1px solid var(--border-muted, #e5e7eb);
-  color: var(--text-secondary, #4b5563);
+  color: var(--text-secondary, #475569);
 }
 
 .quality-chip--good {
-  color: #065f46;
-  background: #d1fae5;
-  border-color: #6ee7b7;
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .quality-chip--warn {
-  color: #92400e;
-  background: #fef3c7;
-  border-color: #fcd34d;
+  color: #f59e0b;
+  background: #fffbeb;
+  border-color: #fde68a;
 }
 
 .quality-chip--danger {
-  color: #991b1b;
-  background: #fee2e2;
-  border-color: #fca5a5;
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 .quality-chip--muted {
-  color: #4b5563;
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e5e7eb;
 }
 
 .quality-chip--state-pass {
-  color: #065f46;
-  background: #d1fae5;
-  border-color: #6ee7b7;
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .quality-chip--state-review {
-  color: #92400e;
-  background: #fef3c7;
-  border-color: #fcd34d;
+  color: #f59e0b;
+  background: #fffbeb;
+  border-color: #fde68a;
 }
 
 .quality-chip--state-blocked {
-  color: #991b1b;
-  background: #fee2e2;
-  border-color: #fca5a5;
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 .confidence-line__lead {
@@ -2608,7 +2610,7 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: var(--text-tertiary, #6b7280);
+  color: var(--text-tertiary, #64748b);
 }
 
 .jdf-tiptap-doc h2.jdf-doc-title,

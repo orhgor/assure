@@ -22,7 +22,7 @@ class TextractError(Exception):
 class TextractClient:
     """Extract text, tables, and forms from documents via Textract."""
 
-    TEXTRACT_MAX_PAGES = 50
+    TEXTRACT_MAX_PAGES = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
 
     def __init__(self, *, client: Any | None = None, region: str | None = None) -> None:
         self._client = client

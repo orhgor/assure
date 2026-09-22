@@ -20,8 +20,10 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, staging]
-    timeout-minutes: 20
+    needs: []
+    runs-on: ubuntu-latest
+    # arm64 cross-build via QEMU on an x86 GitHub runner is slow — give it room.
+    timeout-minutes: 45
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +57,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: [self-hosted, staging]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging
     steps:

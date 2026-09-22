@@ -59,7 +59,9 @@ except ImportError:
     from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
-TEXTRACT_MAX_PAGES = 50
+# Demo config: 200 pages for staging; production default stays at 50.
+# The client demo shows real documents (policies, filings) that exceed 50.
+TEXTRACT_MAX_PAGES = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
 
 log = logging.getLogger(__name__)
 
