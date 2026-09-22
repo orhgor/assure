@@ -240,7 +240,7 @@ def clerk_only_enabled() -> bool:
     environment copied at boot, so `0` restores the old behaviour with no restart:
     one line, no bounce.
     """
-    return _flag_value("ASSURE_CLERK_ONLY").strip().lower() not in {"0", "false", "no", "off"}
+    return _flag_value("ASSURE_CLERK_ONLY").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def clerk_only_applies() -> bool:
