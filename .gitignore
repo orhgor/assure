@@ -81,3 +81,6 @@ test-results/
 
 # local object store (ASSURE_S3_BUCKET unset)
 objects/
+
+# staging env dropped in under another name — secrets, never commit
+.eng.*
