@@ -720,6 +720,59 @@ def create_app(*, require_auth: bool = True) -> Flask:
     @login_required
     def connect():
         return _page("connect.html", "connect")
+    @app.get("/parsing")
+    def parsing_page():
+        """Client-facing dashboard: document parsing results, confidence scores, verification."""
+        try:
+            from .db.substrate_repository import list_substrate_for_project
+        except ImportError:
+            from db.substrate_repository import list_substrate_for_project
+
+        project_id = request.args.get("project_id") or "default"
+        rows = list_substrate_for_project(project_id)
+
+        documents = []
+        jdf_count = 0
+        textract_count = 0
+        total_parse_conf = 0.0
+        parse_conf_count = 0
+
+        for row in rows:
+            doc = {
+                "filename": row["filename"],
+                "parser_name": row["parser_name"],
+                "source_kind": row["source_kind"],
+                "page_count": row["page_count"],
+                "parse_confidence": row["parse_confidence"],
+                "ocr_confidence": row["ocr_confidence"],
+                "table_count": row["table_count"],
+                "image_count": row["image_count"],
+                "figure_count": row["figure_count"],
+                "asset_summary": row["asset_summary"],
+                "created_at": row["created_at"],
+            }
+            documents.append(doc)
+            if doc["parser_name"] == "jdf-cli":
+                jdf_count += 1
+            elif doc["parser_name"] == "textract":
+                textract_count += 1
+            if doc["parse_confidence"] is not None:
+                total_parse_conf += doc["parse_confidence"]
+                parse_conf_count += 1
+
+        avg_confidence = (total_parse_conf / parse_conf_count) if parse_conf_count else None
+
+        return _page(
+            "parsing.html",
+            "parsing",
+            documents=documents,
+            summary={
+                "total": len(documents),
+                "jdf_count": jdf_count,
+                "textract_count": textract_count,
+                "avg_confidence": avg_confidence,
+            },
+        )
 
     @app.get("/signin")
     def signin():
