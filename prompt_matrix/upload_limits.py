@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 MAX_FILE_SIZE_MB = 10
-MAX_PAGE_COUNT = 50
+MAX_PAGE_COUNT = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
 
 _FILE_HEADER = re.compile(r"^### File:\s*(.+?)\r?\n", re.MULTILINE)
 _DANGEROUS_EXT = frozenset({".exe", ".js", ".html", ".htm", ".mjs", ".bat", ".cmd", ".com", ".scr"})
