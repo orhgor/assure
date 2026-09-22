@@ -77,7 +77,8 @@ resource "aws_elasticache_replication_group" "redis" {
 
 # ---- Object storage ----------------------------------------------------------
 # uploads/  — staged documents, deleted by the worker, expired after 1 day anyway
-# omp/, jdf/ — artifact mirrors, cheaper storage class after 30 days
+# omp/, jdf/ — artifact mirrors, kept in S3 Standard (no Intelligent-Tiering /
+# IA transitions: customer decision 2026-09-22)
 resource "aws_s3_bucket" "objects" {
   bucket        = "${var.project}-${var.environment}-objects-${data.aws_caller_identity.current.account_id}"
   force_destroy = var.environment != "production"
@@ -115,17 +116,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "objects" {
     }
     abort_incomplete_multipart_upload {
       days_after_initiation = 1
-    }
-  }
-  rule {
-    id     = "tier-artifacts"
-    status = "Enabled"
-    filter {
-      prefix = "assure/omp/"
-    }
-    transition {
-      days          = 30
-      storage_class = "STANDARD_IA"
     }
   }
 }

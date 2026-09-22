@@ -117,7 +117,7 @@ refuses to run without a PostgreSQL `DATABASE_URL`.
 | Textract | Off by default: scans go to jdf-cli's bundled tesseract (`PARSER_SCAN_BACKEND=jdf-ocr`). Textract only as the fallback when OCR fails, or when explicitly configured. |
 | Worker compute | Scale to zero; On-Demand by default (Spot optional via Terraform); one vCPU per concurrency slot. |
 | Z3 | `Z3_SOLVER_TIMEOUT_MS` (30 s) per solver call, on the worker. |
-| S3 | `uploads/` expire after 1 day; `omp/` → Standard-IA after 30 days. |
+| S3 | `uploads/` expire after 1 day; artifacts stay in S3 Standard (no tiering). |
 | NAT | Single NAT gateway; S3/ECR/logs/Secrets/SQS through VPC endpoints. |
 
 ## 6. Cloudflare R2 → S3

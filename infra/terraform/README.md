@@ -9,7 +9,7 @@ One stack, cost-first, all Graviton (ARM64):
 | Database | RDS PostgreSQL 16 | db.t4g.micro, 20 GB gp3, 7-day backups | manual class change |
 | Shared state | ElastiCache Redis 7 | cache.t4g.micro | — |
 | Queue | SQS `parse`, `default` + DLQ | — | — |
-| Objects | S3 (uploads expire in 1 day, artifacts → IA after 30 d) | — | — |
+| Objects | S3 Standard (uploads expire in 1 day; no tiering) | — | — |
 | Edge | ALB (idle 180 s for SSE) | — | — |
 
 The same image runs both services; the worker only overrides the command.
