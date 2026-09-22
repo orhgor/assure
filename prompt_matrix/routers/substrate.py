@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import uuid
 from pathlib import Path
 
@@ -32,6 +33,7 @@ try:
         build_omp_artifact_from_parse,
     )
     from ..services.omp_memory import remember_vault_file
+    from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
@@ -54,6 +56,7 @@ except ImportError:
         build_omp_artifact_from_parse,
     )
     from services.omp_memory import remember_vault_file
+    from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 TEXTRACT_MAX_PAGES = 50
@@ -301,6 +304,27 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
     )
     remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
 
+    # Shared verification hook: Z3 + Red-Hat run here and only here
+    # (services/verification). The vault ingest has no Assure tree of its
+    # own, so the hook builds one from the extracted text's paragraphs and
+    # attaches its result to the pseudo-bundle. Guarded: the ingest must
+    # not fail on verification.
+    try:
+        paragraphs = [p for p in re.split(r"\n\s*\n", extracted_text) if p.strip()]
+        verification_bundle = {
+            "filename": filename,
+            "page_count": page_count,
+            "text": extracted_text,
+            "chunks": [
+                {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
+                for idx, para in enumerate(paragraphs)
+            ],
+        }
+        verification = run_verification_after_parse(verification_bundle)
+    except Exception:
+        log.exception("post-parse verification failed; storing parse only")
+        verification = None
+
     # Stage the parsed artifact into OMP immediately after the row write.
     # Confidence rides through explicitly — the OMP layer attaches it with
     # is-not-None guards, so a parser-reported 0.0 survives and unknown stays
@@ -339,6 +363,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
             image_count=extracted.get("image_count"),
             figure_count=extracted.get("figure_count"),
             asset_summary=extracted.get("asset_summary"),
+            verification=verification,
         )
         store_omp_artifact(project_id, omp_artifact)
         omp_artifact_id = omp_artifact.artifact_id

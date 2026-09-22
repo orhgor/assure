@@ -283,11 +283,17 @@ def jdf_to_document_tree(
     if parse_meta:
         meta.update(parse_meta)
 
-    def _paragraph(chunk: dict) -> dict:
+    def _paragraph(chunk: dict | str) -> dict:
+        # Empty pages pass a plain string; chunked pages pass the chunk dict.
+        text = (
+            chunk
+            if isinstance(chunk, str)
+            else str(chunk.get("text") or chunk.get("content") or "")
+        )
         return {
             "type": "paragraph",
             "id": new_node_id("p"),
-            "content": str(chunk.get("text") or chunk.get("content") or "").strip(),
+            "content": text.strip(),
             "entities_referenced": [],
             "provenance": [],
             "meta": {},

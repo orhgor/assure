@@ -27,6 +27,7 @@ try:
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.omp_memory import remember_vault_file
     from ..services.parser_router import select_parser
+    from ..services.verification import run_verification_after_parse
 except ImportError:
     from db.jdf_repository import ensure_project
     from db.substrate_repository import (
@@ -40,6 +41,7 @@ except ImportError:
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.parser_router import select_parser
+    from services.verification import run_verification_after_parse
 
 log = logging.getLogger(__name__)
 
@@ -199,6 +201,15 @@ def register_jdf_memory_routes(app) -> None:
                 bundle = pdf_to_parse_bundle(pdf_bytes, strategy="section")
             jdf_dict = bundle["jdf"]
             chunks = bundle["chunks"]
+            # Shared verification hook: Z3 + Red-Hat run here and only here
+            # (services/verification) — the hook builds the Assure tree from
+            # the chunks this bundle carries and attaches its result to the
+            # bundle. Guarded: the ingest must not fail on verification.
+            try:
+                verification = run_verification_after_parse(bundle)
+            except Exception:
+                log.exception("post-parse verification failed; storing parse only")
+                verification = None
             # Before the chunk index: a compile grounds from the project's
             # substrate_file_ids, so the vault row is what makes this ingest
             # visible to the source panel and to the draft pipeline.
@@ -256,6 +267,7 @@ def register_jdf_memory_routes(app) -> None:
                     image_count=bundle["image_count"],
                     figure_count=bundle["figure_count"],
                     asset_summary=bundle["asset_summary"],
+                    verification=verification,
                 )
                 store_omp_artifact(project_id, omp_artifact)
                 omp_artifact_id = omp_artifact.artifact_id

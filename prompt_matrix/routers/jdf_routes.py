@@ -42,6 +42,7 @@ try:
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.parser_router import select_parser
     from ..services.pdf_import import pdf_bytes_to_jdf
+    from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.drafts_repository import upsert_draft
@@ -72,6 +73,7 @@ except ImportError:
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.parser_router import select_parser
     from services.pdf_import import pdf_bytes_to_jdf
+    from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 
@@ -590,6 +592,17 @@ def register_jdf_routes(app) -> None:
         try:
             tree = sanitize_jdf_node(tree)
             parse_document(tree)
+            # Shared verification hook: Z3 + Red-Hat run here and only here
+            # (services/verification). The tree already carries the hook's
+            # result in meta["z3"], and the result rides to the OMP artifact.
+            # The hook never raises by contract, but a revision must not fail
+            # on verification — so the call is guarded regardless.
+            bundle["jdf"] = tree
+            try:
+                verification = run_verification_after_parse(bundle)
+            except Exception:
+                log.exception("post-parse verification failed; storing parse only")
+                verification = None
             result = save_jdf_revision(
                 project_id,
                 tree,
@@ -638,6 +651,7 @@ def register_jdf_routes(app) -> None:
                 image_count=bundle["image_count"],
                 figure_count=bundle["figure_count"],
                 asset_summary=bundle["asset_summary"],
+                verification=verification,
             )
             store_omp_artifact(project_id, omp_artifact)
             omp_artifact_id = omp_artifact.artifact_id

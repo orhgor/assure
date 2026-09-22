@@ -608,6 +608,7 @@ def build_omp_artifact_from_parse(
     image_count: int | None = None,
     figure_count: int | None = None,
     asset_summary: dict[str, Any] | None = None,
+    verification: dict[str, Any] | None = None,
 ) -> OMPArtifact:
     """Build an OMP parse artifact from substrate ingestion result.
 
@@ -616,6 +617,11 @@ def build_omp_artifact_from_parse(
     and dropping it would fabricate an "unknown" where the parser said "zero".
     Unknown stays None. Parser metadata and asset counts go into both the
     payload and the provenance so an artifact is self-describing.
+
+    ``verification`` is the post-parse verification result
+    (``services/verification.run_verification_after_parse``): its Z3 status
+    rides in the artifact's confidence and its provenance records the
+    verification pass itself.
     """
     normalized = normalize_parse_artifact(
         {
@@ -649,6 +655,28 @@ def build_omp_artifact_from_parse(
         ),
         "file_size_bytes": substrate_result.get("size_bytes"),
     }
+    if verification is not None:
+        provenance["verification"] = {
+            "z3_status": verification.get("z3_status"),
+            "redhat_status": verification.get("redhat_status"),
+        }
+
+    confidence_payload: dict[str, Any] | None = None
+    if parse_confidence is not None or ocr_confidence is not None:
+        confidence_payload = {
+            "parse": parse_confidence,
+            "ocr": ocr_confidence,
+            "parser_name": parser_name,
+            "source_kind": source_kind,
+            "page_count": page_count,
+            "table_count": table_count,
+            "image_count": image_count,
+            "figure_count": figure_count,
+            "asset_summary": asset_summary,
+        }
+    if verification is not None and verification.get("z3_status") is not None:
+        confidence_payload = confidence_payload or {}
+        confidence_payload["z3_status"] = verification.get("z3_status")
 
     artifact = OMPArtifact(
         artifact_id=f"omp-parse-{uuid.uuid4().hex[:12]}",
@@ -656,21 +684,7 @@ def build_omp_artifact_from_parse(
         artifact_type="parse",
         source_id=substrate_result.get("id"),
         payload=normalized,
-        confidence=(
-            {
-                "parse": parse_confidence,
-                "ocr": ocr_confidence,
-                "parser_name": parser_name,
-                "source_kind": source_kind,
-                "page_count": page_count,
-                "table_count": table_count,
-                "image_count": image_count,
-                "figure_count": figure_count,
-                "asset_summary": asset_summary,
-            }
-            if parse_confidence is not None or ocr_confidence is not None
-            else None
-        ),
+        confidence=confidence_payload,
         provenance=provenance,
     )
     return artifact
