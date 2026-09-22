@@ -24,6 +24,17 @@ topology as AWS) with no configuration at all:
 docker compose up -d --build          # UI: http://127.0.0.1:8891 (key: assure-local-shell-key) · API: http://127.0.0.1:8765
 ```
 
+### Models locally: small Ollama containers, no provider key
+
+`docker compose up` starts an `ollama` service and pulls two small models once
+(`qwen2.5:3b`, `llama3.2:3b`, ~4 GB). With `ASSURE_LLM_BACKEND=ollama` (the
+compose default) every model call — compile, lock inference, entailment,
+Red-Hat, surgical edit, Compare — goes to that container. CPU inference: a
+compile takes minutes, not seconds. Production/staging leave
+`ASSURE_LLM_BACKEND` empty and use the OpenRouter/DeepSeek policies in
+`prompt_matrix/cost_governance.py` (keys in `.env`).
+
+
 Optional `.env` at the repo root: provider keys, and `ASSURE_S3_BUCKET` +
 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for a real S3 bucket (or enter
 them on the Sources panel). Production: `docker-compose.prod.yml` requires
