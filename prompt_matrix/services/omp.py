@@ -4,6 +4,8 @@ Provides structured artifact persistence and lineage tracking."""
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
 import uuid
 from datetime import datetime
@@ -29,6 +31,8 @@ from ..models.omp import (
 )
 
 OMP_DIR_NAME = "omp_artifacts"
+
+log = logging.getLogger(__name__)
 
 
 def _get_omp_dir() -> Path:
@@ -156,8 +160,66 @@ def _artifact_row_to_dict(row: Any) -> dict[str, Any]:
     }
 
 
-def store_omp_artifact(project_id: str, artifact: OMPArtifact) -> str:
-    """Store an OMP artifact, returning the artifact_id."""
+def store_omp_artifact(
+    project_id: str,
+    artifact: OMPArtifact,
+    *,
+    storage_backend: str | None = None,
+    s3_bucket: str | None = None,
+    s3_prefix: str | None = None,
+) -> str:
+    """Store an OMP artifact, returning the artifact_id.
+
+    Args:
+        storage_backend: "local" (the default, EC2 instance disk or attached
+            EBS) or "s3". When not passed, resolved from
+            ``ASSURE_S3_BACKEND`` (default "local") so switching to the
+            client's S3 is a config change, not a code change.
+        s3_bucket: S3 bucket name (required when the backend is "s3").
+        s3_prefix: S3 key prefix, e.g. "assure/artifacts/".
+
+    Returns:
+        artifact_id (local), or the S3 URI (s3://bucket/key) once real S3
+        persistence exists.
+
+    NOTE: storage_backend="s3" is NOT real S3 persistence yet. It is a
+    placeholder for the client deployment phase: it logs the bucket/key it
+    would write and falls back to local storage. Acceptance for the show is
+    "the interface exists", never "S3 writes work".
+    """
+    backend = storage_backend or os.environ.get("ASSURE_S3_BACKEND") or "local"
+    if backend == "s3":
+        bucket = s3_bucket or os.environ.get("ASSURE_S3_BUCKET")
+        if not bucket:
+            if storage_backend == "s3":
+                # An explicit caller decision without a bucket is a caller
+                # error; an env-default decision without one is a misconfig,
+                # which must not fail an ingest — fall back to local.
+                raise ValueError("s3_bucket required when storage_backend='s3'")
+            log.warning(
+                "ASSURE_S3_BACKEND=s3 but ASSURE_S3_BUCKET is not set; "
+                "falling back to local storage"
+            )
+            backend = "local"
+        else:
+            # TODO: implement the real S3 write in the client deployment
+            # phase (standard boto3 credential chain). For now: log the key
+            # the artifact would land at and fall back to local — a
+            # show-only placeholder, explicitly NOT S3 persistence.
+            prefix = s3_prefix or os.environ.get("ASSURE_S3_PREFIX") or "assure/artifacts/"
+            s3_key = f"{prefix}{project_id}/{artifact.artifact_id}.json"
+            log.info(
+                "S3 storage requested (bucket=%s, key=s3://%s/%s) but not yet "
+                "implemented; using local fallback until client deployment phase",
+                bucket,
+                bucket,
+                s3_key,
+            )
+    return _store_local(artifact)
+
+
+def _store_local(artifact: OMPArtifact) -> str:
+    """Local (EC2 instance disk / EBS) OMP persistence — the show default."""
     _init_omp_tables()
     init_db()
     db = get_db()
