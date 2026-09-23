@@ -14,7 +14,7 @@ htmlcov/
 .env.local
 .env.*.local
 .env.production
-.env.staging
+
 .env.staging.bak-*
 .env*
 *.env.bak
@@ -84,3 +84,4 @@ objects/
 
 # staging env dropped in under another name — secrets, never commit
 .eng.*
+!.env.staging
