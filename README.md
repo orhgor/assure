@@ -139,9 +139,9 @@ UPSTREAM_BASE                   - Backend URL (http://localhost:8765)
 PORT, HOST                      - Shell gate port/host
 ```
 
-**Not for staging:**
-- `.env.local` - local/dev only
-- `.env.production` - production only
+**Other env files (committed):**
+- `.env.local` - Local/dev env vars
+- `.env.production` - Production env vars
 
 ---
 
@@ -172,10 +172,10 @@ PORT, HOST                      - Shell gate port/host
 **Config (keep):**
 - `.env.staging` - Staging env vars
 
-**Remove:**
-- `prompt_matrix/templates/index.html` - Workbench template (if workbench removed)
-- `.env.local` - Local/dev only
-- `.env.production` - Production only
+**Config (keep):**
+- `.env.staging` - Staging env vars
+- `.env.local` - Local/dev env vars
+- `.env.production` - Production env vars
 
 ---
 
