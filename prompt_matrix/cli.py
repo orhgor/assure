@@ -54,7 +54,7 @@ def build_parser(config: MatrixConfig | None = None) -> argparse.ArgumentParser:
     targets = (
         sorted(config.targets)
         if config
-        else ["claude", "gemini", "deepseek", "kimi", "ollama", "cursor"]
+        else ["claude", "gemini", "kimi", "ollama", "cursor"]
     )
     intents = (
         sorted(config.intents)

@@ -236,7 +236,6 @@ PENDING = "Confidence check pending. Review claims against your files."
 
 _MODEL_LABEL = {
     "gemini": "Gemini",
-    "deepseek": "DeepSeek",
     "claude": "Claude",
     "kimi": "Kimi",
     "ollama": "a runner closed to the internet",

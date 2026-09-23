@@ -1,4 +1,4 @@
-"""Multi-model orchestrator API — Difference Engine (Claude + DeepSeek staging slots)."""
+"""Multi-model orchestrator API — Difference Engine (Claude + secondary staging slots)."""
 
 from __future__ import annotations
 
@@ -44,8 +44,8 @@ def _mock_orchestrate_payload(intent: str) -> dict:
                     "$5,000,000 with standard exclusions."
                 ),
             },
-            "deepseek": {
-                "name": "DeepSeek V3",
+            "secondary": {
+                "name": "Qwen3 Next 80B A3B Instruct",
                 "text": (
                     "Based on the policy analysis, the aggregate liability limit is "
                     "$4,500,000 with standard exclusions and weather sub-limits."
@@ -63,7 +63,6 @@ def _provider_keys_configured() -> bool:
 
     model_a, model_b = get_compare_pair()
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
@@ -73,8 +72,6 @@ def _provider_keys_configured() -> bool:
         provider = model.split("/")[0].lower()
         if provider == "gemini":
             return bool(gemini_key)
-        if provider == "deepseek":
-            return bool(deepseek_key)
         if provider == "anthropic":
             return bool(anthropic_key)
         if provider == "openai":
@@ -87,7 +84,7 @@ def _provider_keys_configured() -> bool:
 
     if use_free_models():
         return _has_key(model_a) and _has_key(model_b)
-    return bool(anthropic_key and deepseek_key)
+    return bool(anthropic_key and openrouter_key)
 
 
 def _live_orchestrate_payload(intent: str) -> dict:
@@ -99,8 +96,8 @@ def _live_orchestrate_payload(intent: str) -> dict:
     result = run_compare_pair(intent)
     models = result.get("models") or {}
     claude = models.get("claude") or {}
-    deepseek = models.get("deepseek") or {}
-    if not claude.get("text") and not deepseek.get("text"):
+    secondary = models.get("secondary") or {}
+    if not claude.get("text") and not secondary.get("text"):
         raise RuntimeError("both models failed")
     return {
         "status": "success",

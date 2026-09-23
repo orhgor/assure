@@ -96,26 +96,6 @@ def test_required_key_present(key: str):
     os.environ.get("QUALITY_CHECK_LIVE_CALLS") != "1",
     reason="Set QUALITY_CHECK_LIVE_CALLS=1 to hit live APIs",
 )
-def test_deepseek_api_reachable():
-    api_key = _key_value("DEEPSEEK_API_KEY")
-    assert api_key
-    response = requests.post(
-        "https://api.deepseek.com/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": "deepseek-chat",
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 1,
-        },
-        timeout=30,
-    )
-    assert response.status_code in (200, 402, 429), response.text[:200]
-
-
-@pytest.mark.skipif(
-    os.environ.get("QUALITY_CHECK_LIVE_CALLS") != "1",
-    reason="Set QUALITY_CHECK_LIVE_CALLS=1 to hit live APIs",
-)
 def test_anthropic_api_reachable():
     api_key = _key_value("ANTHROPIC_API_KEY")
     assert api_key

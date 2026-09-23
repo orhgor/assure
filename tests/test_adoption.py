@@ -90,7 +90,7 @@ def test_parse_model_json_unreadable_answer_is_not_a_ledger():
 
 
 def test_resolve_lock_inference_model():
-    assert resolve_lock_inference_model(False) == "deepseek/deepseek-chat"
+    assert resolve_lock_inference_model(False) == "openrouter/qwen/qwen3-next-80b-a3b-instruct"
     assert resolve_lock_inference_model(True) == "gemini/gemini-3.6-flash"
 
 

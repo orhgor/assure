@@ -107,7 +107,7 @@ def test_redhat_injects_previous_into_prompt(monkeypatch):
                 text = "New critique"
                 input_tokens = 1
                 output_tokens = 1
-                model_id = "deepseek/deepseek-reasoner"
+                model_id = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
 
             return R()
 

@@ -15,11 +15,11 @@ class ConfidenceTextTests(unittest.TestCase):
     def test_ensemble_sentence(self):
         text = confidence_text(
             quality={"consensus_score": 0.8, "flagged_count": 2, "draft_count": 2},
-            models=["gemini", "deepseek"],
+            models=["gemini", "claude"],
         )
         self.assertEqual(
             text,
-            "Gemini and DeepSeek agree on 80%. 2 claims were flagged as unsupported.",
+            "Gemini and Claude agree on 80%. 2 claims were flagged as unsupported.",
         )
 
     def test_single_model_sentence(self):
@@ -43,10 +43,10 @@ class ConfidenceTextTests(unittest.TestCase):
                 self.target_ai = target_ai
 
         names = models_from_steps(
-            [Step("draft:gemini", "gemini"), Step("draft:deepseek", "deepseek")],
+            [Step("draft:gemini", "gemini"), Step("draft:kimi", "kimi")],
             "gemini",
         )
-        self.assertEqual(names, ["gemini", "deepseek"])
+        self.assertEqual(names, ["gemini", "kimi"])
 
 
 class AuditSpanTests(unittest.TestCase):

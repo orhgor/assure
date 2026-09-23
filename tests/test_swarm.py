@@ -177,7 +177,7 @@ class ResolveTests(unittest.TestCase):
     def test_fallback_when_down(self):
         bindings = resolve_role_targets(
             {"architect": "claude"},
-            live=["gemini", "deepseek"],
+            live=["gemini", "kimi"],
         )
         target, _model, note = bindings["architect"]
         self.assertEqual(target, "gemini")
@@ -203,7 +203,7 @@ class RunSwarmTests(unittest.TestCase):
     def test_keep_path_and_task_alias(self):
         script = ScriptedWorkflow(
             architect=[_pipe("goals and a spec", "gemini", "design")],
-            developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "deepseek", "debug")],
+            developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "kimi", "debug")],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 0.9\n", "claude", "analysis")],
             tester=[
                 _pipe(
@@ -218,7 +218,7 @@ class RunSwarmTests(unittest.TestCase):
             src = Path(tmp) / "app.py"
             src.write_text("print(0)\n", encoding="utf-8")
             with patch(
-                "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+                "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
             ):
                 with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                     with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
@@ -239,7 +239,7 @@ class RunSwarmTests(unittest.TestCase):
         self.assertEqual(len(result.steps), 5)
 
     def test_redhat_loop_caps_at_three(self):
-        code = _pipe("### a.py\n```\nx=1\n```\n", "deepseek", "debug")
+        code = _pipe("### a.py\n```\nx=1\n```\n", "kimi", "debug")
         revise = _pipe("Verdict: Revise\nConfidence: 0.4\n1. fix it\n", "claude", "analysis")
         keep = _pipe("Verdict: Keep\nConfidence: 0.8\n", "claude", "analysis")
         script = ScriptedWorkflow(
@@ -250,7 +250,7 @@ class RunSwarmTests(unittest.TestCase):
             documenter=[_pipe("docs", "claude", "research")],
         )
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
@@ -274,7 +274,7 @@ class RunSwarmTests(unittest.TestCase):
             documenter=[_pipe("### docs/a.md\n```\n# A\n```\n")],
         )
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
@@ -288,7 +288,7 @@ class RunSwarmTests(unittest.TestCase):
     def test_tests_and_docs_land_in_files(self):
         script = ScriptedWorkflow(
             architect=[_pipe("spec", "gemini", "design")],
-            developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "deepseek", "debug")],
+            developer=[_pipe("### app.py\n```\nprint(1)\n```\n", "kimi", "debug")],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 1\n", "claude", "analysis")],
             tester=[
                 _pipe(
@@ -300,7 +300,7 @@ class RunSwarmTests(unittest.TestCase):
             documenter=[_pipe("### docs/feature.md\n```\n# Feature\n```\n", "claude", "research")],
         )
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
@@ -327,7 +327,7 @@ class RunSwarmTests(unittest.TestCase):
         )
         fail = TestResults(passed=False, stdout="FAILED", stderr="boom")
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
                 with patch(
@@ -368,7 +368,7 @@ class RunSwarmTests(unittest.TestCase):
             return TestResults(skipped=True, skip_reason="mocked")
 
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=pytest_mark):
@@ -393,7 +393,7 @@ class RunSwarmTests(unittest.TestCase):
         self.assertEqual(len(mocked.call_args_list), 3)
 
     def test_broken_python_forces_revise_without_reviewer_send(self):
-        broken = _pipe("### web.py\n```\ndef waitlist(\n```\n", "deepseek", "debug")
+        broken = _pipe("### web.py\n```\ndef waitlist(\n```\n", "kimi", "debug")
         script = ScriptedWorkflow(
             architect=[_pipe("## Files to write\n- web.py\n", "gemini", "design")],
             developer=[broken, broken, broken, broken],
@@ -402,7 +402,7 @@ class RunSwarmTests(unittest.TestCase):
             documenter=[_pipe("docs", "claude", "research")],
         )
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script):
                 with patch("prompt_matrix.swarm.run_pytest", side_effect=_skip_pytest):
@@ -458,10 +458,10 @@ class RunSwarmTests(unittest.TestCase):
 class DeveloperLimitsTests(unittest.TestCase):
     def test_developer_max_tokens_at_least_16384(self):
         self.assertGreaterEqual(ROLE_MAX_TOKENS["developer"], 16384)
-        self.assertEqual(cap_output_tokens("debug", "deepseek-chat"), 512)
+        self.assertEqual(cap_output_tokens("debug", "qwen3-next"), 512)
         with role_output_limits(max_tokens=16384, timeout=180):
-            self.assertGreaterEqual(cap_output_tokens("debug", "deepseek-chat"), 16384)
-            tokens, seconds = completion_limits(intent="debug", model="deepseek-chat")
+            self.assertGreaterEqual(cap_output_tokens("debug", "qwen3-next"), 16384)
+            tokens, seconds = completion_limits(intent="debug", model="qwen3-next")
             self.assertGreaterEqual(tokens, 16384)
             self.assertGreaterEqual(seconds, 180)
 
@@ -496,15 +496,15 @@ class PerFileAndTruncationTests(unittest.TestCase):
         script = ScriptedWorkflow(
             architect=[_pipe(spec, "gemini", "design")],
             developer=[
-                _pipe("### a.py\n```\na=1\n```\n", "deepseek", "debug"),
-                _pipe("### b.py\n```\nb=2\n```\n", "deepseek", "debug"),
+                _pipe("### a.py\n```\na=1\n```\n", "kimi", "debug"),
+                _pipe("### b.py\n```\nb=2\n```\n", "kimi", "debug"),
             ],
             reviewer=[_pipe("Verdict: Keep\nConfidence: 0.9\n", "claude", "analysis")],
             tester=[],
             documenter=[],
         )
         with patch(
-            "prompt_matrix.swarm.live_targets", return_value=["gemini", "deepseek", "claude"]
+            "prompt_matrix.swarm.live_targets", return_value=["gemini", "kimi", "claude"]
         ):
             with patch("prompt_matrix.swarm.run_workflow", side_effect=script) as mocked:
                 result = run_swarm("two files", skip_tests=True, skip_docs=True)
@@ -683,12 +683,12 @@ class CliTests(unittest.TestCase):
                         "--task",
                         "x",
                         "--model",
-                        "developer=deepseek-chat",
+                        "developer=qwen3-next",
                         "--copy-only",
                     ]
                 )
         kwargs = mocked.call_args.kwargs
-        self.assertEqual(kwargs["target_models"], {"developer": "deepseek-chat"})
+        self.assertEqual(kwargs["target_models"], {"developer": "qwen3-next"})
         self.assertFalse(kwargs["direct"])
 
     def test_skip_flags(self):

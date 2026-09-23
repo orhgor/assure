@@ -12,12 +12,12 @@ This tool is how you can later build remaining product work (feedback copy, spin
 
 ## Agents
 
-Default models are pricing-table ids. `run_workflow` talks PEM targets (`gemini`, `deepseek`, `claude`, `kimi`, `ollama`). If Claude is down, the swarm falls back to the next live target. Gemini 1.5 ids are retired; the swarm Sends `gemini-3.5-flash` (architect) and `gemini-3.5-flash-lite` (tester).
+Default models are pricing-table ids. `run_workflow` talks PEM targets (`gemini`, `claude`, `kimi`, `ollama`). If Claude is down, the swarm falls back to the next live target. Gemini 1.5 ids are retired; the swarm Sends `gemini-3.5-flash` (architect) and `gemini-3.5-flash-lite` (tester).
 
 | Role | Default model | Intent | Send id |
 |---|---|---|---|
 | Architect | gemini-1.5-pro | design | gemini/gemini-3.5-flash |
-| Developer | deepseek-chat | debug | deepseek/deepseek-chat (output cap 16384) |
+| Developer | qwen3-next | debug | openrouter/qwen/qwen3-next-80b-a3b-instruct (output cap 16384) |
 | Reviewer | claude-3-5-sonnet-20240620 | analysis | anthropic/claude-sonnet-4-5 |
 | Tester | gemini-1.5-flash | debug | gemini/gemini-3.5-flash-lite |
 | Documenter | claude-3-haiku-20240307 | research | anthropic/claude-3-haiku-20240307 |

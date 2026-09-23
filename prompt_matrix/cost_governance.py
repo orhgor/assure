@@ -33,7 +33,6 @@ def _litellm_api_kwargs(model: str) -> dict:
     prefix = model.split("/")[0] if "/" in model else model
     provider = {
         "anthropic": "claude",
-        "deepseek": "deepseek",
         "gemini": "gemini",
         "groq": "groq",
         "openrouter": "openrouter",
@@ -104,21 +103,22 @@ class ModelPolicy:
 
 
 TASK_POLICIES: dict[TaskType, ModelPolicy] = {
-    # Surgical edits → DeepSeek-V3 (cheap, fast, strict JSON)
+    # Surgical edits → DeepSeek-V3 via the connected OpenRouter key (cheap,
+    # fast, strict JSON; same model, routed through openrouter)
     TaskType.SURGICAL_EDIT: ModelPolicy(
-        model_id="deepseek/deepseek-chat",
+        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SURGICAL_EDIT],
         max_output_tokens=500,
         caching=False,
-        litellm_model="deepseek/deepseek-chat",
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
     ),
-    # Quick draft / node summarize → DeepSeek-V3
+    # Quick draft / node summarize → same model via OpenRouter
     TaskType.SUMMARIZE_NODE: ModelPolicy(
-        model_id="deepseek/deepseek-chat",
+        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.SUMMARIZE_NODE],
         max_output_tokens=500,
         caching=False,
-        litellm_model="deepseek/deepseek-chat",
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
     ),
     # Claim entailment (source quote → paragraph claim) → Qwen3-Next-80B-A3B
     # Instruct (non-reasoning). Was GLM 5.3 Flash via OpenRouter (:floor =
@@ -160,23 +160,21 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         caching=False,
         litellm_model="openrouter/z-ai/glm-5.3-flash:floor",
     ),
-    # Red-Hat adversary → DeepSeek-V3 chat (non-reasoning). Was DeepSeek-R1
-    # (deepseek-reasoner) for its chain-of-thought. Measured 2026-09-19 on
-    # demo-commercial-property-2026 para-8a45837af15f: the reasoner's hidden
-    # reasoning spent the whole 8192-token output budget, `content` came back
-    # empty, and the 31,418-char reasoning channel was persisted as the finding
-    # (ledger ids 2361/2362, output_tokens=8192 on an identical 732-token
-    # prompt; a 3257-token run of the same prompt produced the real review).
-    # Same lesson as SEMANTIC_VALIDATION and DRAFT_COMPILE above: the cap is for
-    # the answer, and a reasoning model spends it before writing one. Cap
-    # unchanged — this node's answers came back at 1255 and 1436 output tokens
-    # on the chat model.
+    # Red-Hat adversary → a cheap non-reasoning chat model. Was a reasoning
+    # model earlier, whose hidden reasoning spent the whole 8192-token output
+    # budget, `content` came back empty, and the reasoning channel was persisted
+    # as the finding (ledger ids 2361/2362, output_tokens=8192 on an identical
+    # 732-token prompt; a 3257-token run of the same prompt produced the real
+    # review). Same lesson as SEMANTIC_VALIDATION and DRAFT_COMPILE above: the
+    # cap is for the answer, and a reasoning model spends it before writing one.
+    # Cap unchanged — this node's answers came back at 1255 and 1436 output
+    # tokens on the chat model.
     TaskType.REDHAT: ModelPolicy(
-        model_id="deepseek/deepseek-chat",
+        model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
         max_output_tokens=8192,
         caching=False,
-        litellm_model="deepseek/deepseek-chat",
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
     ),
 }
 

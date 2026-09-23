@@ -121,14 +121,14 @@
   }
 
   function compareLoadingLabel(models) {
-    if (models && models.claude && models.deepseek) {
+    if (models && models.claude && models.secondary) {
       return translatef("founder.compare.running_pair", "Running {model_a} + {model_b}…", {
         model_a: modelDisplayName(
           models.claude,
           translate("founder.compare.model_a_default", "Model A")
         ),
         model_b: modelDisplayName(
-          models.deepseek,
+          models.secondary,
           translate("founder.compare.model_b_default", "Model B")
         ),
       });
@@ -158,7 +158,7 @@
     row.className = "staging-canvas-row";
     row.innerHTML =
       '<div class="model-pane p-4" data-model="claude"></div>' +
-      '<div class="model-pane p-4" data-model="deepseek"></div>';
+      '<div class="model-pane p-4" data-model="secondary"></div>';
     canvas.innerHTML = "";
     canvas.appendChild(row);
     return row;
@@ -361,21 +361,21 @@
     renderMockBadge(payload);
     var models = (payload && payload.models) || {};
     var claude = models.claude || {};
-    var deepseek = models.deepseek || {};
+    var secondary = models.secondary || {};
     var claudeFailed = modelHasFailed(claude);
-    var deepseekFailed = modelHasFailed(deepseek);
+    var secondaryFailed = modelHasFailed(secondary);
 
     if (claudeFailed) renderPaneError("claude", claude);
-    if (deepseekFailed) renderPaneError("deepseek", deepseek);
+    if (secondaryFailed) renderPaneError("secondary", secondary);
 
-    if (!claudeFailed && !deepseekFailed) {
-      var regions = diffRegions(claude.text, deepseek.text);
+    if (!claudeFailed && !secondaryFailed) {
+      var regions = diffRegions(claude.text, secondary.text);
       renderPane("claude", claude, regions);
-      renderPane("deepseek", deepseek, regions);
+      renderPane("secondary", secondary, regions);
     } else if (!claudeFailed) {
       renderPaneSuccessOnly("claude", claude);
-    } else if (!deepseekFailed) {
-      renderPaneSuccessOnly("deepseek", deepseek);
+    } else if (!secondaryFailed) {
+      renderPaneSuccessOnly("secondary", secondary);
     }
 
     var canvas = stagingCanvas();
@@ -530,7 +530,7 @@
 
   function normalizeComparePayload(data) {
     if (!data) return data;
-    if (data.models && data.models.claude && data.models.deepseek) {
+    if (data.models && data.models.claude && data.models.secondary) {
       return data;
     }
     var models = data.models || {};
@@ -550,13 +550,13 @@
           text: (models.claude && models.claude.text) || modelA.text || "",
           error: (models.claude && models.claude.error) || modelA.error || null,
         },
-        deepseek: {
+        secondary: {
           name:
-            (models.deepseek && models.deepseek.name) ||
+            (models.secondary && models.secondary.name) ||
             modelB.name ||
             translate("founder.compare.model_b_default", "Model B"),
-          text: (models.deepseek && models.deepseek.text) || modelB.text || "",
-          error: (models.deepseek && models.deepseek.error) || modelB.error || null,
+          text: (models.secondary && models.secondary.text) || modelB.text || "",
+          error: (models.secondary && models.secondary.error) || modelB.error || null,
         },
       },
     };
@@ -620,7 +620,7 @@
           text: "",
         };
         renderPaneError("claude", failed);
-        renderPaneError("deepseek", failed);
+        renderPaneError("secondary", failed);
         throw err;
       })
       .finally(function () {

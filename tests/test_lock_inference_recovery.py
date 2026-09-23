@@ -6,7 +6,7 @@ budget, and the draft's figures then go unchecked. Two things fix that, and both
 fail silently:
 
 * a call that passes no ``max_tokens`` of its own — the runner asks for the
-  intent's budget (2048 for deepseek-chat), where a hardcoded 1024 cut a renewal
+  intent's budget (2048 for qwen3-next), where a hardcoded 1024 cut a renewal
   memo's extraction off mid-object;
 * ``_recover_complete_candidates``, which reads the complete candidate objects out
   of an answer whose braces never balance. ``_extract_json_block`` needs the braces
@@ -149,7 +149,7 @@ def test_a_no_figure_answer_reports_no_locks(monkeypatch) -> None:
     monkeypatch.setattr(lock_inference, "key_present", lambda _name: True)
     result = infer_lock_candidates(MEMO_TEXT)
     assert result.candidates == []
-    assert result.model == "deepseek/deepseek-chat"
+    assert result.model == "openrouter/qwen/qwen3-next-80b-a3b-instruct"
 
 
 @pytest.mark.skipif(

@@ -93,8 +93,6 @@
       "<role>\n{{ role }}\n</role>\n\n<instructions>\n{{ task }}\n\nProduce the answer in this format:\n{{ format }}\n</instructions>\n\n<thinking>\nWork through the task step by step. Flag uncertainty instead of guessing.\n</thinking>\n",
     gemini:
       "Role: {{ role }}\n\nTask:\n{{ task }}\n\nOutput constraints:\n- Follow format: {{ format }}\n- Do not wrap the whole answer in JSON unless that format asks for a JSON object.\n- Every claim must come from the task or the context. If unverified, write exactly: Data not available.\n",
-    deepseek:
-      "## System Prompt\nYou are {{ role }}. Answer directly. Prefer precise technical language.\n\n## User Request\n{{ task }}\n\n## Output Format\n{{ format }}\n\n## Self-Correction\nBefore finishing, re-check:\n1. Answered the question that was asked?\n2. Invented facts, APIs, or numbers?\n3. Output shape matches the format?\nIf any check fails, rewrite.\n",
   };
 
   var HISTORY_KEY = "assure_compiler_history";

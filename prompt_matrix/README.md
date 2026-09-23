@@ -68,7 +68,7 @@ Development swarm (architect → developer → review → test → docs):
 ```bash
 python -m prompt_matrix.swarm --task "Add a Was this helpful? section with thumbs up/down"
 python -m prompt_matrix.swarm --task "Add feedback buttons" --context web.py --context static/index.html
-python -m prompt_matrix.swarm --task "Add feedback buttons" --model developer=deepseek-chat --local
+python -m prompt_matrix.swarm --task "Add feedback buttons" --model developer=gemini/gemini-3.6-flash --local
 ```
 
 Logs go to `logs/swarm.log`. `--copy-only` compiles prompts without calling APIs.
