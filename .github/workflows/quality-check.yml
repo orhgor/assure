@@ -15,6 +15,20 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: assure
+          POSTGRES_PASSWORD: assure
+          POSTGRES_DB: assure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assure"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +73,7 @@ jobs:
       - name: Backend smoke tests
         env:
           ASSURE_REQUIRE_LOGIN: "false"
+          DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
         run: pytest tests/quality_check/test_backend_endpoints.py -v
 
       - name: Design token lint
