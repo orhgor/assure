@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Parsing & Verification · Assure</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-98') }}">
+  <style>
+.parsing-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.parsing-header {
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+}
+
+.parsing-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.parsing-subtitle {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.parsing-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 16px 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.document-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.document-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: box-shadow var(--t-fast);
+}
+
+.document-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.document-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.document-card__title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.document-card__filename {
+  font-weight: 500;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.document-card__meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.parser-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.parser-badge--jdf {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-text);
+}
+
+.parser-badge--textract {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.document-card__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.doc-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doc-stat {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.doc-stat strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.doc-stats--assets {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 64px 24px;
+}
+
+.empty-state__icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.empty-state h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0 0 24px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--t-fast);
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-primary:hover {
+  background: #1a1a1a;
+}
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header-left">
+      <span class="app-brand">
+        <span class="app-brand-name">Assure</span>
+      </span>
+    </div>
+    <div class="app-header-center"></div>
+    <div class="app-header-right actions">
+      <a href="/app" class="btn-secondary">Back to Workbench</a>
+    </div>
+  </header>
+
+  <div class="parsing-page">
+    <div class="parsing-header">
+      <h1>Document Parsing &amp; Verification</h1>
+      <p class="parsing-subtitle">Parser routing, confidence scoring, and verification results for uploaded documents.</p>
+    </div>
+
+    <div class="parsing-summary">
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.total }}</span>
+        <span class="stat-label">Documents parsed</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.jdf_count }}</span>
+        <span class="stat-label">JDF CLI</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.textract_count }}</span>
+        <span class="stat-label">Textract</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.avg_confidence|round(1) if summary.avg_confidence else '—' }}</span>
+        <span class="stat-label">Avg parse confidence</span>
+      </div>
+    </div>
+
+    {% if documents %}
+    <div class="document-list">
+      {% for doc in documents %}
+      <div class="document-card">
+        <div class="document-card__header">
+          <div class="document-card__title">
+            <span class="document-card__filename">{{ doc.filename }}</span>
+            <span class="document-card__meta">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '—' }}</span>
+          </div>
+          <span class="parser-badge {{ 'parser-badge--textract' if doc.parser_name == 'textract' else 'parser-badge--jdf' }}">
+            {{ 'Textract' if doc.parser_name == 'textract' else 'JDF CLI' }}
+          </span>
+        </div>
+
+        <div class="document-card__body">
+          <div class="doc-stats">
+            <span class="doc-stat"><strong>Pages:</strong> {{ doc.page_count }}</span>
+            <span class="doc-stat"><strong>Parse confidence:</strong> {{ doc.parse_confidence|round(1) if doc.parse_confidence is not none else 'N/A' }}</span>
+            <span class="doc-stat"><strong>OCR confidence:</strong> {{ doc.ocr_confidence|round(1) if doc.ocr_confidence is not none else 'N/A' }}</span>
+          </div>
+          <div class="doc-stats doc-stats--assets">
+            <span class="doc-stat"><strong>Tables:</strong> {{ doc.table_count }}</span>
+            <span class="doc-stat"><strong>Images:</strong> {{ doc.image_count }}</span>
+            <span class="doc-stat"><strong>Figures:</strong> {{ doc.figure_count }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state__icon">📄</div>
+      <h2>No documents parsed yet</h2>
+      <p>Upload a document to see parsing results, confidence scores, and verification status.</p>
+      <a href="/app" class="btn btn-primary">Go to Workbench</a>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>
