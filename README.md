@@ -21,28 +21,41 @@ Cloudflare Tunnel (staging.getassureai.com)
       → Edge worker (assure-worker-staging.orhangorenn.workers.dev)
 ```
 
-**Ports:**
-- `8891` - Shell gate (entry point, auth, static serve, proxy)
-- `8765` - Gunicorn (backend, working)
-- `8890` - Flask dev (legacy, returns 500 - not used)
+**Ports (clean working):**
+- `8891` - Shell gate (entry point, staging infra) - **keep**
+- `8765` - Gunicorn (backend, working) - **keep**
 
-**Services (EC2 `i-03e39eccc57572191`):**
-- `assure-prototype-static.service` - Shell gate on 8891
-- `assure.service` - Gunicorn on 8765
+**Legacy (not clean working):**
+- `8890` - Flask dev (returns 500) - **legacy/remove**
+- `8892`, `8893`, `8894` - Unknown listeners - **confirm**
 
 ---
 
-## Routes (working)
+## Services (clean working)
 
+- `assure-prototype-static.service` - Shell gate on 8891 - **keep (staging infra)**
+- `assure.service` - Gunicorn on 8765 - **keep**
+
+**Legacy:**
+- `assure-prototype.service` - Flask dev on 8890 - **legacy/remove**
+
+---
+
+## Routes (working public surface)
+
+### Keep (proxied, working)
 - `/` - Home
 - `/signin` - Sign in (Clerk or self-hosted message)
 - `/signup` - Sign up (Clerk or self-hosted message)
 - `/parsing` - Parsing results dashboard
-- `/connect` - Connect to provider
 - `/api/*` - API endpoints (projects, ingest, auth, drafts, etc.)
 - `/static/*` - Static files
+- `/favicon.ico`, `/favicon.svg` - Favicon
 
-**Removed (workbench, not essential for staging):**
+### Confirm (exists in code, need shell gate update)
+- `/connect` - Connect to provider (not proxied yet → 404)
+
+### Remove (workbench/legacy, not essential for staging)
 - `/workbench`, `/app`, `/compose`, `/history`, `/learn`, `/library`, `/architecture`
 
 ---
@@ -73,9 +86,13 @@ UPSTREAM_BASE                   - Backend URL (http://localhost:8765)
 PORT, HOST                      - Shell gate port/host
 ```
 
+**Not for staging:**
+- `.env.local` - local/dev only
+- `.env.production` - production only
+
 ---
 
-## Files
+## Files (keep)
 
 **Core:**
 - `prompt_matrix/web.py` - Flask app, routes
@@ -86,20 +103,26 @@ PORT, HOST                      - Shell gate port/host
 - `prompt_matrix/routers/jdf_memory_routes.py` - `/api/projects/<id>/jdf/ingest`, search
 - `prompt_matrix/lib/logger.py` - Logging
 
-**Templates:**
+**Templates (keep):**
 - `prompt_matrix/templates/auth.html` - Auth pages (signin/signup)
 - `prompt_matrix/templates/parsing.html` - Parsing results
 - `prompt_matrix/templates/connect.html` - Connect to provider
 
-**Prototype (shell gate):**
+**Prototype (staging infra - keep, not product surface):**
 - `prototype/dev-server.py` - Entry gate server
 - `prototype/index.html` - Shell UI
-- `prototype/shell.js`, `prototype/shell.css` - Shell frontend
+- `prototype/shell.js` - Shell JS
+- `prototype/shell.css` - Shell styles
+- `prototype/about.html` - About content
+- `prototype/favicon.svg` - Favicon
 
-**Config:**
+**Config (keep):**
 - `.env.staging` - Staging env vars
-- `.env.production` - Production env vars
-- `.env.local` - Local dev overrides
+
+**Remove:**
+- `prompt_matrix/templates/index.html` - Workbench template (if workbench removed)
+- `.env.local` - Local/dev only
+- `.env.production` - Production only
 
 ---
 
@@ -122,3 +145,6 @@ gunicorn --worker-class gevent --workers 4 --bind 0.0.0.0:8765 prompt_matrix.web
 - Shell gate requires `SHELL_ACCESS_KEY` for API access
 - `.env.staging` is committed (was in `.gitignore`, now exceptioned)
 - Workbench routes removed - only core Assure routes remain
+- `prototype/` is staging infrastructure (entry gate + shell UI), not product surface
+- `/connect` is in code but not proxied yet → 404 (confirm)
+- Flask on 8890 is legacy (returns 500) - use gunicorn on 8765
