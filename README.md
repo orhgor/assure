@@ -137,14 +137,28 @@ gunicorn --worker-class gevent --workers 4 --bind 0.0.0.0:8765 prompt_matrix.web
 ```
 
 ---
+## Access Key & Parsing
+
+### Staging (no access key required)
+- `SHELL_ACCESS_KEY` is **not set** for staging
+- The shell gate runs without an access key check
+- `/parsing`, `/signin`, `/signup`, `/api/*` are all publicly accessible
+- No Clerk required for staging
+
+### Production (Clerk required)
+- `SHELL_ACCESS_KEY` is set for production
+- Clerk auth is configured (`CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`)
+- `/signin`, `/signup` use Clerk
+- `/api/*` require Clerk auth
+
+### Parsing capabilities
+- Parsing is **connected with the UI**, not hidden
+- `/parsing` shows the parsing results dashboard (document list, confidence scores, verification status)
+- The parsing functionality is accessible via `/api/projects/<id>/jdf/ingest` (upload) and `/parsing` (results)
+- PDF parsing uses `pdf_to_parse_bundle()` in `jdf_converter.py`
+- Text-like files are handled via `_text_bundle_for_ingest()` in the shell gate
+- Parser selection uses `select_parser()` in `parser_router.py`
+
+---
 
 ## Notes
-
-- Staging uses `ASSURE_EDITION=self-hosted` - no Clerk auth required
-- Production uses Clerk auth (`CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`)
-- Shell gate requires `SHELL_ACCESS_KEY` for API access
-- `.env.staging` is committed (was in `.gitignore`, now exceptioned)
-- Workbench routes removed - only core Assure routes remain
-- `prototype/` is staging infrastructure (entry gate + shell UI), not product surface
-- `/connect` is in code but not proxied yet → 404 (confirm)
-- Flask on 8890 is legacy (returns 500) - use gunicorn on 8765

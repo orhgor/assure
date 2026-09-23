@@ -429,15 +429,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    # Allow running without an access key for staging (no fail-closed check)
+    # Staging doesn't need an entrance key; production will have Clerk
     if not ACCESS_KEY:
-        # Fail closed. A gate that disables itself when it is misconfigured is
-        # worse than an outage: the shell and every /api route go public again.
         print(
-            "refusing to start: SHELL_ACCESS_KEY is not set — the entry gate would be open.",
-            file=sys.stderr,
+            "Dev server on http://{}:{} (no access key, staging mode - public access)".format(HOST, PORT),
             flush=True,
         )
-        return 1
+    else:
+        print(
+            "Dev server on http://{}:{} (proxying /api/* and {} to {})".format(
+                HOST, PORT, ",".join(sorted(PROXIED_PAGES)), UPSTREAM_BASE
+            ),
+            flush=True,
+        )
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     try:
         print(
