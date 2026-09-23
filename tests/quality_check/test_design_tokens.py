@@ -42,6 +42,7 @@ ALLOWED_HEX = {
     "#0f111a",
     "#ecfdf5",
     "#a7f3d0",
+    "#d1fae5",
     "#dbeafe",
     "#1d4ed8",
     "#2563eb",
