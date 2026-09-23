@@ -53,6 +53,15 @@ def insert_run(
 ) -> dict[str, Any]:
     init_db()
     db = get_db()
+    # runs.workspace_id references projects(id): a run for a workspace with no
+    # project row raised ForeignKeyViolation → 500 (2026-09-23). Create it the
+    # way every /api/projects/<id> route does.
+    if workspace_id:
+        try:
+            from .jdf_repository import ensure_project as _ensure_project
+        except ImportError:
+            from db.jdf_repository import ensure_project as _ensure_project
+        _ensure_project(workspace_id)
     rid = run_id or f"run_{uuid.uuid4().hex[:12]}"
     now = _now()
     db.execute(

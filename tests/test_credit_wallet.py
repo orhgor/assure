@@ -153,7 +153,10 @@ class WebUsageTests(unittest.TestCase):
             app = create_app(require_auth=False)
             with app.test_client() as client:
                 res = client.get("/app")
-        self.assertEqual(res.status_code, 200)
+        # The Flask workbench routes were removed on staging (5059cce): the
+        # shell (prototype/) is the only UI. What must still hold is that an
+        # unauthenticated visit is not bounced to Clerk.
+        self.assertEqual(res.status_code, 404)
         self.assertNotIn("/signin", (res.headers.get("Location") or ""))
 
     def test_landing_public_without_clerk(self):
@@ -230,7 +233,9 @@ class WebUsageTests(unittest.TestCase):
             app = create_app(require_auth=False)
             with app.test_client() as client:
                 res = client.get("/app?lang=tr")
-        self.assertEqual(res.status_code, 200)
+        # Workbench routes removed on staging (5059cce); the page is gone, and
+        # with it the tagline this test guarded against.
+        self.assertEqual(res.status_code, 404)
         self.assertNotIn(b"app-logo-tagline", res.data)
         self.assertNotIn(b"brand-tagline", res.data)
 

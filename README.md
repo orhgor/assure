@@ -35,7 +35,7 @@ One image runs web and worker; `docker compose up` gives the whole topology on a
 
 ---
 
-## Run
+## Quick start
 
 ```bash
 # full stack, zero config (PostgreSQL, Redis, web, worker, shell, ollama + model pull)
@@ -49,7 +49,7 @@ docker compose -f docker-compose.yml -f docker-compose.staging.yml \
 # POSTGRES_PASSWORD, PEM_SECRET_KEY, APP_IMAGE=assure-app:local and the local model switch.
 
 # venv (what CI does)
-uv sync --extra dev
+./scripts/install.sh                      # or: uv sync --extra dev
 docker compose -f docker-compose.dev.yml up -d
 export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure REDIS_URL=redis://localhost:6379/0
 .venv/bin/python -m prompt_matrix.web --web --no-browser --port 8890
@@ -114,9 +114,9 @@ Full list with meanings: `.env.example`.
 
 **Prototype (the UI):** `prototype/dev-server.py` (gate + proxy), `index.html`, `shell.js`, `shell.css`, `about.html`, `favicon.svg`.
 
-**Infra:** `Dockerfile`, `docker-compose*.yml`, `infra/terraform/`, `.github/workflows/`.
+**Infra:** `Dockerfile`, `docker-compose*.yml`, `infra/terraform/`, `.github/workflows/`. Desktop build: `./scripts/build-desktop.sh` (needs a reachable PostgreSQL). Marketing site sync: `./scripts/sync-webpage.sh`.
 
-**Legacy, don't extend:** `worker/` (Cloudflare edge worker, being retired), `landing/`, `openuser/`, `prompt_matrix/templates/index.html` (workbench template; its routes are gone).
+**Legacy, don't extend:** `worker/` (Cloudflare edge worker, being retired), `landing/`, `prompt_matrix/templates/index.html` (workbench template; its routes are gone).
 
 ---
 

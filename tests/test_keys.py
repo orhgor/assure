@@ -96,7 +96,9 @@ class ProviderSlugForLitellmTests(unittest.TestCase):
 
     def test_bare_and_unknown(self):
         self.assertIsNone(provider_slug_for_litellm("gpt-4o"))
-        self.assertIsNone(provider_slug_for_litellm("ollama/llama3"))
+        # ollama is a known provider since 2026-09-23 (ASSURE_LLM_BACKEND=ollama
+        # routes every task to the local container); it needs no key.
+        self.assertEqual(provider_slug_for_litellm("ollama/llama3"), "ollama")
         self.assertIsNone(provider_slug_for_litellm("totally-unknown-model"))
         self.assertIsNone(provider_slug_for_litellm(""))
         self.assertIsNone(provider_slug_for_litellm(None))

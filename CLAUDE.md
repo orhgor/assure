@@ -64,8 +64,8 @@ compile engine is PEM.
 | `infra/terraform/` | AWS stack: ECS Fargate (ARM64) web + On-Demand worker (Spot is opt-in via `worker_use_spot`, off by user decision), RDS PostgreSQL, ElastiCache, SQS, S3, ALB |
 | `docs/` | Read first: `scale_architecture.md`, `decisions.md`, `anti-claims.md`, `deferred.md`, `deploy-flow.md`, `deferred-parse-runtime.md` |
 | `scripts/migrate_sqlite_to_postgres.py` | One-time import of a legacy SQLite file |
-| `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's own `/app` is the legacy workbench. The `assure-shell` compose service runs it locally |
-| `worker/`, `landing/`, `openuser/` | Cloudflare edge worker (being retired), marketing site, UX runner — don't extend. The `scripts/aws/_probe_*` throwaway probes were deleted 2026-09-22; write new probes under /tmp |
+| `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's `/app` workbench routes were removed upstream (5059cce). The `assure-shell` compose service runs it locally |
+| `worker/`, `landing/` | Cloudflare edge worker (being retired), marketing site — don't extend. `openuser/` (UX runner) was deleted 2026-09-23. The `scripts/aws/_probe_*` throwaway probes were deleted 2026-09-22; write new probes under /tmp |
 
 ## Document pipeline
 

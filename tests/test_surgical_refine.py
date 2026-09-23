@@ -105,10 +105,16 @@ def test_neighbor_context_n_minus_one_plus_one() -> None:
     reason="Z3 intermittently segfaults on GitHub Actions Python 3.11",
 )
 def test_apply_refined_text_reruns_z3_on_node() -> None:
-    result = apply_refined_text(DOC, "p1", "Revenue reached 12 million.")
+    # Tier-1 Math Check reads labelled metrics ("key: value"); prose with no
+    # labelled figure is reported SKIPPED, never PASS (anti-claims). The refined
+    # text therefore states the metric the way the ledger locks it.
+    result = apply_refined_text(DOC, "p1", "Revenue: 12000000. Not on the moon.")
     assert result["node"]["id"] == "p1"
-    assert "moon" not in result["node"]["content"]
+    assert "Revenue: 12000000" in result["node"]["content"]
     assert result["z3_results"]["status"] == "PASS"
+    prose = apply_refined_text(DOC, "p1", "Revenue reached twelve million.")
+    assert prose["z3_results"]["status"] == "SKIPPED"
+    assert prose["z3_results"].get("skip_reason")
     node_spans = result["nodeSpans"]
     assert node_spans
     assert all(s["nodeId"] == "p1" for s in node_spans)

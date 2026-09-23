@@ -337,15 +337,8 @@ class ComposePageTests(unittest.TestCase):
         client = app.test_client()
         token = base64.b64encode(b"admin:changeme").decode("ascii")
         res = client.get("/app", headers={"Authorization": f"Basic {token}"})
-        self.assertEqual(res.status_code, 200)
-        body = res.get_data(as_text=True)
-        self.assertIn("jdf-workbench", body)
-        self.assertIn("panel-draft", body)
-        self.assertIn("generate-compile-btn", body)
-        self.assertIn("Prompt Library", body)
-        self.assertIn("Refine this answer", body)
-        self.assertNotIn('id="tour"', body)
-        self.assertNotIn("assure.tour.v1", body)
+        # Workbench routes removed on staging (5059cce): the shell is the UI.
+        self.assertEqual(res.status_code, 404)
 
     def test_intent_and_preview_api(self):
         from prompt_matrix.web import create_app

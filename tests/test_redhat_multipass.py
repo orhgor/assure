@@ -124,6 +124,11 @@ def founder_run(tmp_path, monkeypatch):
     _reset_db_path(monkeypatch, tmp_path / "redhat_multipass.sqlite")
     init_db()
     db = get_db()
+    # runs.workspace_id references projects(id) (PostgreSQL DDL): the project
+    # row must exist before a run is written for it.
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("founder", "Founder Workspace")
     db.execute(
         """
         INSERT INTO runs (id, workspace_id, directive, content, model, sources_used,

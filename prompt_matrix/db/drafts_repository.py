@@ -35,6 +35,13 @@ def _row_to_draft(row: Any) -> dict[str, Any]:
 def upsert_draft(*, workspace_id: str, content: dict[str, Any]) -> dict[str, Any]:
     init_db()
     db = get_db()
+    # drafts.workspace_id references projects(id): the first save for a new
+    # workspace raised ForeignKeyViolation → 500 (2026-09-23).
+    try:
+        from .jdf_repository import ensure_project as _ensure_project
+    except ImportError:
+        from db.jdf_repository import ensure_project as _ensure_project
+    _ensure_project(workspace_id)
     now = _now()
     existing = db.execute(
         "SELECT id FROM drafts WHERE workspace_id = ?",
