@@ -1,79 +1,124 @@
-# Assure
+# Assure - Document Verification Platform
 
-Ask one question. Get one verified answer. The question is rewritten for the model you pick, then checked.
+**What it does:** You give it a source and a question. It writes a document, then verifies every claim against the source. Each claim carries a verification state (anchored, supported, partial, unanchored). A separate adversarial review (Red-Hat) checks if claims are defensible.
 
-The compiler is PEM (`prompt_matrix`). `assure --web` opens your browser. First run: paste a provider key, then write a question. There is no password prompt on this computer unless you set one.
+**Three checks:**
+- Anchoring: is there a source for this claim?
+- Entailment: does the source support this claim?
+- Numeral audit: do the numbers reconcile?
 
-## Quick start
+**Staging:** `https://staging.getassureai.com`
 
-The workbench stays on this computer. GitHub `orhgor/assure` is the public site only.
+---
 
-### Desktop (no terminal)
+## Architecture
 
-```bash
-./scripts/install.sh
-./scripts/build-desktop.sh
+```
+Cloudflare Tunnel (staging.getassureai.com)
+  → Shell gate (prototype/dev-server.py:8891)
+    → Gunicorn (prompt_matrix.web:app:8765)
+      → SQLite (prompt_matrix/history.sqlite)
+      → Edge worker (assure-worker-staging.orhangorenn.workers.dev)
 ```
 
-Then double-click `dist/Assure.app` (macOS), `dist\Assure\Assure.exe` (Windows), or `dist/Assure/Assure` (Linux). The browser should open. If it does not, go to [http://127.0.0.1:8765](http://127.0.0.1:8765). There is no public download URL yet.
+**Ports:**
+- `8891` - Shell gate (entry point, auth, static serve, proxy)
+- `8765` - Gunicorn (backend, working)
+- `8890` - Flask dev (legacy, returns 500 - not used)
 
-### From source
+**Services (EC2 `i-03e39eccc57572191`):**
+- `assure-prototype-static.service` - Shell gate on 8891
+- `assure.service` - Gunicorn on 8765
 
-```bash
-./scripts/install.sh
-source prompt_matrix/.venv/bin/activate
-assure --web
+---
+
+## Routes (working)
+
+- `/` - Home
+- `/signin` - Sign in (Clerk or self-hosted message)
+- `/signup` - Sign up (Clerk or self-hosted message)
+- `/parsing` - Parsing results dashboard
+- `/connect` - Connect to provider
+- `/api/*` - API endpoints (projects, ingest, auth, drafts, etc.)
+- `/static/*` - Static files
+
+**Removed (workbench, not essential for staging):**
+- `/workbench`, `/app`, `/compose`, `/history`, `/learn`, `/library`, `/architecture`
+
+---
+
+## Environment
+
+**Staging (`.env.staging`):**
+```
+ASSURE_EDITION=self-hosted
+ENVIRONMENT=staging
+APP_HOST=staging.getassureai.com
+SHELL_ACCESS_KEY=assure-staging-demo-key-2026
+ASSURE_REQUIRE_LOGIN=false
+ASSURE_MAX_PAGES=200
+SUBSTRATE_INGEST_SECRET=...
+CLOUDFLARE_TUNNEL_TOKEN=...
+CLOUDFLARE_TUNNEL_ID=fe93535b-a2cb-461d-a8ef-143f07c35876
+ASSURE_EDGE_WORKER_URL=https://assure-worker-staging.orhangorenn.workers.dev
 ```
 
-Windows: `scripts\install.ps1`. `pip install prompt-matrix` is not on PyPI yet. Do not clone `orhgor/assure` for the app.
-
-Sign-in is off on this machine by default. Sharing on the LAN (`--host 0.0.0.0`) requires `--http-pass` (or `PEM_HTTP_PASS`). Do not commit the password.
-
-Team edition (unlimited Sends on this machine):
-
-```bash
-assure --web --edition team
+**Key env vars (code):**
+```
+ASSURE_EDITION, PEM_EDITION     - "self-hosted" = no Clerk auth
+CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY - Clerk (not configured on staging)
+DATABASE_PATH                   - SQLite path
+SHELL_ACCESS_KEY                - Shell gate auth key
+UPSTREAM_BASE                   - Backend URL (http://localhost:8765)
+PORT, HOST                      - Shell gate port/host
 ```
 
-### Ask
+---
 
-Write a question in Compose, or click an example (Compare AWS vs GCP, Summarize a paper, Write a marketing email). Send and get my answer is the default. Copy the prompt keeps the compiled text on this computer.
+## Files
 
-First run opens Connect so you can paste a key. Copy stays on this computer. A Send goes only to the provider you chose.
+**Core:**
+- `prompt_matrix/web.py` - Flask app, routes
+- `prompt_matrix/cloud_auth.py` - Clerk auth, `is_self_hosted()`, `clerk_configured()`
+- `prompt_matrix/services/jdf_converter.py` - PDF parsing (`pdf_to_parse_bundle()`)
+- `prompt_matrix/services/parser_router.py` - Parser selection (`select_parser()`)
+- `prompt_matrix/db/substrate_repository.py` - Database (`list_substrate_for_project()`)
+- `prompt_matrix/routers/jdf_memory_routes.py` - `/api/projects/<id>/jdf/ingest`, search
+- `prompt_matrix/lib/logger.py` - Logging
 
-Pro is $5 per month on the Pricing page in this tree.
+**Templates:**
+- `prompt_matrix/templates/auth.html` - Auth pages (signin/signup)
+- `prompt_matrix/templates/parsing.html` - Parsing results
+- `prompt_matrix/templates/connect.html` - Connect to provider
 
-Install, CLI, and MCP details: [prompt_matrix/README.md](prompt_matrix/README.md). Product overview: [prompt_matrix/PEM.md](prompt_matrix/PEM.md). Public landing: [landing/index.html](landing/index.html).
+**Prototype (shell gate):**
+- `prototype/dev-server.py` - Entry gate server
+- `prototype/index.html` - Shell UI
+- `prototype/shell.js`, `prototype/shell.css` - Shell frontend
 
-## Testing
+**Config:**
+- `.env.staging` - Staging env vars
+- `.env.production` - Production env vars
+- `.env.local` - Local dev overrides
 
-**CI** runs `pytest` unit tests plus a **Playwright** suite under `tests/playwright/` (headless Chromium, local embedded Flask — no live model keys).
+---
 
-```bash
-uv sync --extra dev
-playwright install chromium
-pytest tests/playwright/ -v
-```
-
-Optional against staging: `ASSURE_BASE_URL=https://staging.getassureai.com pytest tests/playwright/ -v` (requires auth and live compile quota).
-
-## Cloudflare
-
-Two branches, two surfaces:
-
-| Branch | Deploy target | URL |
-|--------|---------------|-----|
-| `p4-account-wallet` | EC2 Docker — image built in **GitHub Actions**, pulled on EC2 ([deploy flow](docs/deploy-flow.md)) | [getassureai.com](https://getassureai.com) |
-| `webpage` | Cloudflare Worker `assure` — 301 → app host | [getassureai.com](https://getassureai.com) → app |
-
-GitHub [`orhgor/assure`](https://github.com/orhgor/assure) default branch is **`webpage`** (marketing site at repo root). The JDF Workstation and PEM engine live on **`p4-account-wallet`** and deploy to EC2 — not through Cloudflare Workers Builds.
-
-Cloudflare Workers Builds for Worker **`assure`** must connect to **`webpage` only**. A red **Workers Builds: assure** check on an app PR is irrelevant (wrong branch / missing root `wrangler.jsonc`). Fix: [docs/cloudflare-fix.md](docs/cloudflare-fix.md) or `bash scripts/cloudflare/set_workers_branch.sh`.
-
-Marketing deploy: copy `landing/` to a webpage checkout, then push `webpage`:
+## CLI
 
 ```bash
-./scripts/sync-webpage.sh /path/to/webpage-checkout
+# Run locally
+cd prompt_matrix && python -m prompt_matrix.web --port 8890 --host 127.0.0.1
+
+# Or with gunicorn
+gunicorn --worker-class gevent --workers 4 --bind 0.0.0.0:8765 prompt_matrix.web:app
 ```
 
-Worker deploy command: `npx wrangler deploy`. `wrangler.jsonc` must list `assets.directory` (not a Pages `pages_build_output_dir`).
+---
+
+## Notes
+
+- Staging uses `ASSURE_EDITION=self-hosted` - no Clerk auth required
+- Production uses Clerk auth (`CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`)
+- Shell gate requires `SHELL_ACCESS_KEY` for API access
+- `.env.staging` is committed (was in `.gitignore`, now exceptioned)
+- Workbench routes removed - only core Assure routes remain
