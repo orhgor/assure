@@ -666,60 +666,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def favicon():
         return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
 
-    # Prototype shell disabled — use /app for the real workbench
-    @app.route("/workbench/")
-    @app.route("/workbench/<path:filename>")
-    def workbench_disabled(*_args, **_kwargs):
-        from flask import abort
-        abort(404)
-
-    @app.get("/architecture")
-    def architecture_page():
-        return _landing_page("architecture.html")
-
-    def _workspace_page():
-        try:
-            from .db.jdf_repository import DEFAULT_PROJECT_ID
-        except ImportError:
-            from db.jdf_repository import DEFAULT_PROJECT_ID
-        project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
-        return _page(
-            "index.html",
-            "compose",
-            initial_pane="compose",
-            include_pk=True,
-            initial_jdf=None,
-            project_id=project_id,
-        )
-
-    @app.get("/app")
-    @login_required
-    def workspace():
-        return _workspace_page()
-
-    @app.get("/compose")
-    def compose_redirect():
-        qs = request.query_string.decode() if request.query_string else ""
-        return redirect("/app" + (("?" + qs) if qs else ""))
-
-    @app.get("/history")
-    @login_required
-    def history_page():
-        return _page("index.html", "history", initial_pane="history")
-
-    @app.get("/learn")
-    def learn_page():
-        return _page("index.html", "learn", initial_pane="learn")
-
-    @app.get("/library")
-    @login_required
-    def library_page():
-        return _page("index.html", "library", initial_pane="library")
-
     @app.get("/connect")
     @login_required
     def connect():
         return _page("connect.html", "connect")
+
     @app.get("/parsing")
     def parsing_page():
         """Client-facing dashboard: document parsing results, confidence scores, verification."""
