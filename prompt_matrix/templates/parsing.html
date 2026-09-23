@@ -3,71 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Document Parsing & Verification · Assure</title>
+  <title>Parsure · Assure</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-98') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='shell.css') }}?v={{ css_version|default('assure-98') }}">
   <style>
 /* =========================================================
-   Parsing Page — Assure Design System
-   One accent (ink), four semantic colours, everything else monochrome.
+   Parsure — component styles (shell.css provides design tokens)
    ========================================================= */
-
-:root {
-  --ink: #0A0A0A;
-  --paper: #FAFAF7;
-  --surface: #FFFFFF;
-  --rule: #E8E8E4;
-  --muted: #6B6B66;
-  --verified: #0F6E3F;
-  --partial: #B8730E;
-  --unverified: #9A9A94;
-  --contradicted: #A32D2D;
-
-  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
-
-  --fs-h1: 24px;
-  --fs-h2: 20px;
-  --fs-h3: 18px;
-  --fs-body: 18px;
-  --fs-lg: 14px;
-  --fs-md: 13px;
-  --fs-sm: 12px;
-  --fs-xs: 11px;
-
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-
-  --radius-card: 4px;
-  --radius-sm: 3px;
-  --radius-pill: 50%;
-
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.parsing-page {
-  min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--fs-body);
-  line-height: 1.4;
-  -webkit-font-smoothing: antialiased;
-}
 
 /* Header — 56px, mirrors the workbench layout */
 .app-header {
-  height: 56px;
+  height: var(--header-h);
   background: var(--surface);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: var(--hairline);
   display: grid;
   grid-template-columns: 280px 1fr 320px;
   align-items: center;
@@ -79,24 +32,19 @@
 .app-header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .app-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .app-brand-icon {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-}
-
-.app-brand-icon svg {
-  width: 100%;
-  height: 100%;
 }
 
 .app-brand-name {
@@ -106,18 +54,6 @@
   color: var(--ink);
 }
 
-.app-header-center {
-  justify-self: center;
-}
-
-.app-header-right {
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-/* Brand mark — the A logo */
 .brand-mark {
   width: 24px;
   height: 24px;
@@ -138,6 +74,17 @@
   stroke-linejoin: round;
 }
 
+.app-header-center {
+  justify-self: center;
+}
+
+.app-header-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 /* Secondary button — hairline underline on hover */
 .btn-secondary {
   display: inline-flex;
@@ -155,7 +102,7 @@
   color: var(--ink);
   text-decoration: none;
   cursor: pointer;
-  transition: border-color 120ms ease;
+  transition: border-color var(--t-fast);
 }
 .btn-secondary:hover {
   border-bottom-color: var(--ink);
@@ -165,11 +112,11 @@
 .parsing-dashboard {
   max-width: 960px;
   margin: 0 auto;
-  padding: 40px 24px 80px;
+  padding: var(--space-8) var(--space-4) 80px;
 }
 
 .parsing-header {
-  margin-bottom: 32px;
+  margin-bottom: var(--space-5);
 }
 
 .parsing-header h1 {
@@ -184,27 +131,33 @@
   font-size: var(--fs-lg);
   color: var(--muted);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--lh-body);
 }
 
 /* Summary bar */
 .parsing-summary {
   display: flex;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: var(--hairline);
   border-radius: var(--radius-card);
-  margin-bottom: 32px;
+  margin-bottom: var(--space-5);
 }
 
 .summary-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   min-width: 100px;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
+}
+
+.summary-stat:not(:last-child) {
+  border-right: var(--hairline);
+  padding-right: var(--space-4);
+  margin-right: var(--space-4);
 }
 
 .stat-number {
@@ -224,28 +177,20 @@
   font-weight: 500;
 }
 
-/* Divider between stats */
-.summary-stat:not(:last-child) {
-  border-right: 1px solid var(--rule);
-  padding-right: 16px;
-  margin-right: 16px;
-}
-
 /* Documents list */
 .document-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .document-card {
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: var(--hairline);
   border-radius: var(--radius-card);
-  padding: 16px 20px;
-  transition: box-shadow 120ms ease;
+  padding: var(--space-4) var(--space-5);
+  transition: box-shadow var(--t-fast);
 }
-
 .document-card:hover {
   box-shadow: var(--shadow-1);
 }
@@ -254,13 +199,13 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3);
 }
 
 .document-card__title {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .document-card__filename {
@@ -277,7 +222,7 @@
 .parser-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -300,13 +245,13 @@
 .document-card__body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px 24px;
+  gap: var(--space-3) var(--space-4);
 }
 
 .doc-stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .doc-stat-label {
@@ -329,14 +274,14 @@
 
 .doc-stats--assets {
   grid-column: 1 / -1;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--rule);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: var(--hairline);
 }
 
 .doc-stats--assets .doc-stat {
   flex-direction: row;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .doc-stats--assets .doc-stat-label {
@@ -346,13 +291,13 @@
 /* Empty state */
 .empty-state {
   text-align: center;
-  padding: 64px 24px;
+  padding: var(--space-8) var(--space-4);
 }
 
 .empty-state-icon {
   width: 48px;
   height: 48px;
-  margin: 0 auto 20px;
+  margin: 0 auto var(--space-5);
   color: var(--muted);
 }
 
@@ -366,18 +311,18 @@
 .empty-state p {
   font-size: var(--fs-lg);
   color: var(--muted);
-  margin: 0 0 24px;
+  margin: 0 0 var(--space-5);
   max-width: 360px;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.5;
+  line-height: var(--lh-body);
 }
 
 .empty-state .btn {
   display: inline-flex;
   align-items: center;
   height: 36px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   background: var(--ink);
   color: var(--paper);
   border: none;
@@ -388,7 +333,7 @@
   letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
-  transition: opacity 120ms ease;
+  transition: opacity var(--t-fast);
 }
 .empty-state .btn:hover {
   opacity: 0.9;
@@ -396,8 +341,8 @@
 
 /* Footer */
 .site-footer {
-  border-top: 1px solid var(--rule);
-  padding: 24px;
+  border-top: var(--hairline);
+  padding: var(--space-4);
   background: var(--surface);
 }
 
@@ -423,7 +368,7 @@
 .footer-copy {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .footer-copy svg {
@@ -443,19 +388,6 @@
 }
 
 /* Icons */
-.footer-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-}
-
-.footer-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 .icon-lock {
   fill: var(--muted);
 }
