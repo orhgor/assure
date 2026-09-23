@@ -50,7 +50,7 @@ COOKIE_MAX_AGE = 2592000  # 30 days
 # this static root, so they are proxied upstream like /api/*. Everything else
 # outside /api/* is still served from disk. These pages stay behind the entry
 # gate: the gate key is the outer door, Clerk is the per-user identity inside it.
-PROXIED_PAGES = frozenset({"/signin", "/signup", "/signout"})
+PROXIED_PAGES = frozenset({"/signin", "/signup", "/signout", "/parsing"})
 
 # Must match cloud_auth.EDGE_HEADER: it marks traffic that came through this gate.
 EDGE_HEADER = "X-Assure-Edge"
