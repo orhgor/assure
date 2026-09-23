@@ -10,17 +10,51 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-98') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='shell.css') }}?v={{ css_version|default('assure-98') }}">
   <style>
-/* =========================================================
-   Parsure — component styles (shell.css provides design tokens)
-   ========================================================= */
+:root {
+  --ink: #0A0A0A;
+  --paper: #FAFAF7;
+  --surface: #FFFFFF;
+  --rule: #E8E8E4;
+  --muted: #6B6B66;
+  --verified: #0F6E3F;
+  --partial: #B8730E;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --fs-h1: 24px;
+  --fs-h2: 20px;
+  --fs-lg: 14px;
+  --fs-md: 13px;
+  --fs-sm: 12px;
+  --fs-xs: 11px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-card: 4px;
+  --radius-pill: 50%;
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
 
-/* Header — 56px, mirrors the workbench layout */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
 .app-header {
-  height: var(--header-h);
+  height: 56px;
   background: var(--surface);
-  border-bottom: var(--hairline);
+  border-bottom: 1px solid var(--rule);
   display: grid;
   grid-template-columns: 280px 1fr 320px;
   align-items: center;
@@ -32,32 +66,24 @@
 .app-header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .app-brand {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .app-brand-icon {
   width: 24px;
   height: 24px;
-  flex-shrink: 0;
 }
 
 .app-brand-name {
   font-size: var(--fs-md);
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--ink);
-}
-
-.brand-mark {
-  width: 24px;
-  height: 24px;
-  display: block;
 }
 
 .brand-mark rect {
@@ -74,18 +100,6 @@
   stroke-linejoin: round;
 }
 
-.app-header-center {
-  justify-self: center;
-}
-
-.app-header-right {
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-/* Secondary button — hairline underline on hover */
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -94,29 +108,26 @@
   background: transparent;
   border: none;
   border-bottom: 1px solid transparent;
-  border-radius: 0;
   font-family: var(--sans);
   font-size: var(--fs-md);
   font-weight: 450;
-  letter-spacing: 0.01em;
   color: var(--ink);
   text-decoration: none;
   cursor: pointer;
-  transition: border-color var(--t-fast);
+  transition: border-color 120ms ease;
 }
 .btn-secondary:hover {
   border-bottom-color: var(--ink);
 }
 
-/* Parsing dashboard */
 .parsing-dashboard {
   max-width: 960px;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-4) 80px;
+  padding: 40px 24px 80px;
 }
 
 .parsing-header {
-  margin-bottom: var(--space-5);
+  margin-bottom: 32px;
 }
 
 .parsing-header h1 {
@@ -131,33 +142,31 @@
   font-size: var(--fs-lg);
   color: var(--muted);
   margin: 0;
-  line-height: var(--lh-body);
 }
 
-/* Summary bar */
 .parsing-summary {
   display: flex;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  gap: 16px;
+  padding: 16px 20px;
   background: var(--surface);
-  border: var(--hairline);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-card);
-  margin-bottom: var(--space-5);
+  margin-bottom: 32px;
 }
 
 .summary-stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
   min-width: 100px;
-  padding: var(--space-1) 0;
+  padding: 4px 0;
 }
 
 .summary-stat:not(:last-child) {
-  border-right: var(--hairline);
-  padding-right: var(--space-4);
-  margin-right: var(--space-4);
+  border-right: 1px solid var(--rule);
+  padding-right: 16px;
+  margin-right: 16px;
 }
 
 .stat-number {
@@ -166,7 +175,6 @@
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  letter-spacing: -0.02em;
 }
 
 .stat-label {
@@ -177,19 +185,18 @@
   font-weight: 500;
 }
 
-/* Documents list */
 .document-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 12px;
 }
 
 .document-card {
   background: var(--surface);
-  border: var(--hairline);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-card);
-  padding: var(--space-4) var(--space-5);
-  transition: box-shadow var(--t-fast);
+  padding: 16px 20px;
+  transition: box-shadow 120ms ease;
 }
 .document-card:hover {
   box-shadow: var(--shadow-1);
@@ -199,19 +206,18 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-3);
+  margin-bottom: 14px;
 }
 
 .document-card__title {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .document-card__filename {
   font-size: var(--fs-lg);
   font-weight: 500;
-  color: var(--ink);
 }
 
 .document-card__meta {
@@ -222,8 +228,8 @@
 .parser-badge {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+  border-radius: 50%;
   font-size: var(--fs-xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -245,13 +251,13 @@
 .document-card__body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-3) var(--space-4);
+  gap: 12px 24px;
 }
 
 .doc-stat {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .doc-stat-label {
@@ -268,61 +274,54 @@
   font-variant-numeric: tabular-nums;
 }
 
-.doc-stat-value.mono {
-  font-family: var(--mono);
-}
-
 .doc-stats--assets {
   grid-column: 1 / -1;
-  margin-top: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: var(--hairline);
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
 }
 
 .doc-stats--assets .doc-stat {
   flex-direction: row;
-  gap: var(--space-4);
+  gap: 16px;
 }
 
 .doc-stats--assets .doc-stat-label {
   min-width: 60px;
 }
 
-/* Empty state */
 .empty-state {
   text-align: center;
-  padding: var(--space-8) var(--space-4);
+  padding: 64px 24px;
 }
 
 .empty-state-icon {
   width: 48px;
   height: 48px;
-  margin: 0 auto var(--space-5);
+  margin: 0 auto 20px;
   color: var(--muted);
 }
 
 .empty-state h2 {
   font-size: var(--fs-h2);
   font-weight: 600;
-  color: var(--ink);
   margin: 0 0 8px;
 }
 
 .empty-state p {
   font-size: var(--fs-lg);
   color: var(--muted);
-  margin: 0 0 var(--space-5);
+  margin: 0 0 24px;
   max-width: 360px;
   margin-left: auto;
   margin-right: auto;
-  line-height: var(--lh-body);
 }
 
 .empty-state .btn {
   display: inline-flex;
   align-items: center;
   height: 36px;
-  padding: 0 var(--space-4);
+  padding: 0 16px;
   background: var(--ink);
   color: var(--paper);
   border: none;
@@ -330,19 +329,16 @@
   font-family: var(--sans);
   font-size: var(--fs-md);
   font-weight: 500;
-  letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
-  transition: opacity var(--t-fast);
 }
 .empty-state .btn:hover {
   opacity: 0.9;
 }
 
-/* Footer */
 .site-footer {
-  border-top: var(--hairline);
-  padding: var(--space-4);
+  border-top: 1px solid var(--rule);
+  padding: 24px;
   background: var(--surface);
 }
 
@@ -361,43 +357,17 @@
   text-decoration: none;
   margin-left: 16px;
 }
-.footer-inner a:hover {
-  text-decoration: underline;
-}
 
 .footer-copy {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
 
 .footer-copy svg {
   width: 14px;
   height: 14px;
   fill: var(--muted);
-}
-
-.footer-meta {
-  font-size: var(--fs-xs);
-  color: var(--muted);
-}
-
-.footer-meta strong {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-/* Icons */
-.icon-lock {
-  fill: var(--muted);
-}
-
-.icon-arrow {
-  stroke: var(--muted);
-  stroke-width: 2;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
   </style>
 </head>
@@ -420,98 +390,96 @@
     </div>
   </header>
 
-  <main class="parsing-page">
-    <div class="parsing-dashboard">
-      <div class="parsing-header">
-        <h1>Parsure</h1>
-        <p class="parsing-subtitle">Parser routing, confidence scoring, and verification results for uploaded documents.</p>
-      </div>
-
-      <div class="parsing-summary">
-        <div class="summary-stat">
-          <span class="stat-number">{{ summary.total }}</span>
-          <span class="stat-label">Documents parsed</span>
-        </div>
-        <div class="summary-stat">
-          <span class="stat-number">{{ summary.jdf_count }}</span>
-          <span class="stat-label">JDF CLI</span>
-        </div>
-        <div class="summary-stat">
-          <span class="stat-number">{{ summary.textract_count }}</span>
-          <span class="stat-label">Textract</span>
-        </div>
-        <div class="summary-stat">
-          <span class="stat-number">{{ summary.avg_confidence|round(1) if summary.avg_confidence else '—' }}</span>
-          <span class="stat-label">Avg parse confidence</span>
-        </div>
-      </div>
-
-      {% if documents %}
-      <div class="document-list">
-        {% for doc in documents %}
-        <div class="document-card">
-          <div class="document-card__header">
-            <div class="document-card__title">
-              <span class="document-card__filename">{{ doc.filename }}</span>
-              <span class="document-card__meta">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '—' }}</span>
-            </div>
-            <span class="parser-badge {{ 'parser-badge--textract' if doc.parser_name == 'textract' else 'parser-badge--jdf' }}">
-              {{ 'Textract' if doc.parser_name == 'textract' else 'JDF CLI' }}
-            </span>
-          </div>
-
-          <div class="document-card__body">
-            <div class="doc-stat">
-              <span class="doc-stat-label">Pages</span>
-              <span class="doc-stat-value mono">{{ doc.page_count }}</span>
-            </div>
-            <div class="doc-stat">
-              <span class="doc-stat-label">Parse confidence</span>
-              <span class="doc-stat-value">{{ doc.parse_confidence|round(1) if doc.parse_confidence is not none else 'N/A' }}%</span>
-            </div>
-            <div class="doc-stat">
-              <span class="doc-stat-label">OCR confidence</span>
-              <span class="doc-stat-value">{{ doc.ocr_confidence|round(1) if doc.ocr_confidence is not none else 'N/A' }}%</span>
-            </div>
-            <div class="doc-stats--assets">
-              <div class="doc-stat">
-                <span class="doc-stat-label">Tables</span>
-                <span class="doc-stat-value mono">{{ doc.table_count }}</span>
-              </div>
-              <div class="doc-stat">
-                <span class="doc-stat-label">Images</span>
-                <span class="doc-stat-value mono">{{ doc.image_count }}</span>
-              </div>
-              <div class="doc-stat">
-                <span class="doc-stat-label">Figures</span>
-                <span class="doc-stat-value mono">{{ doc.figure_count }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="empty-state">
-        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10 9 9 9 8 9"/>
-        </svg>
-        <h2>No documents parsed yet</h2>
-        <p>Upload a document to see parsing results, confidence scores, and verification status.</p>
-        <a href="/app" class="btn">Go to Assure</a>
-      </div>
-      {% endif %}
+  <main class="parsing-dashboard">
+    <div class="parsing-header">
+      <h1>Parsure</h1>
+      <p class="parsing-subtitle">Parser routing, confidence scoring, and verification results for uploaded documents.</p>
     </div>
+
+    <div class="parsing-summary">
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.total }}</span>
+        <span class="stat-label">Documents parsed</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.jdf_count }}</span>
+        <span class="stat-label">JDF CLI</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.textract_count }}</span>
+        <span class="stat-label">Textract</span>
+      </div>
+      <div class="summary-stat">
+        <span class="stat-number">{{ summary.avg_confidence|round(1) if summary.avg_confidence else '—' }}</span>
+        <span class="stat-label">Avg parse confidence</span>
+      </div>
+    </div>
+
+    {% if documents %}
+    <div class="document-list">
+      {% for doc in documents %}
+      <div class="document-card">
+        <div class="document-card__header">
+          <div class="document-card__title">
+            <span class="document-card__filename">{{ doc.filename }}</span>
+            <span class="document-card__meta">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '—' }}</span>
+          </div>
+          <span class="parser-badge {{ 'parser-badge--textract' if doc.parser_name == 'textract' else 'parser-badge--jdf' }}">
+            {{ 'Textract' if doc.parser_name == 'textract' else 'JDF CLI' }}
+          </span>
+        </div>
+
+        <div class="document-card__body">
+          <div class="doc-stat">
+            <span class="doc-stat-label">Pages</span>
+            <span class="doc-stat-value mono">{{ doc.page_count }}</span>
+          </div>
+          <div class="doc-stat">
+            <span class="doc-stat-label">Parse confidence</span>
+            <span class="doc-stat-value">{{ doc.parse_confidence|round(1) if doc.parse_confidence is not none else 'N/A' }}%</span>
+          </div>
+          <div class="doc-stat">
+            <span class="doc-stat-label">OCR confidence</span>
+            <span class="doc-stat-value">{{ doc.ocr_confidence|round(1) if doc.ocr_confidence is not none else 'N/A' }}%</span>
+          </div>
+          <div class="doc-stats--assets">
+            <div class="doc-stat">
+              <span class="doc-stat-label">Tables</span>
+              <span class="doc-stat-value mono">{{ doc.table_count }}</span>
+            </div>
+            <div class="doc-stat">
+              <span class="doc-stat-label">Images</span>
+              <span class="doc-stat-value mono">{{ doc.image_count }}</span>
+            </div>
+            <div class="doc-stat">
+              <span class="doc-stat-label">Figures</span>
+              <span class="doc-stat-value mono">{{ doc.figure_count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <h2>No documents parsed yet</h2>
+      <p>Upload a document to see parsing results, confidence scores, and verification status.</p>
+      <a href="/app" class="btn">Go to Assure</a>
+    </div>
+    {% endif %}
   </main>
 
   <footer class="site-footer">
     <div class="footer-inner">
       <div class="footer-copy">
-        <svg class="icon-lock" viewBox="0 0 24 24">
+        <svg viewBox="0 0 24 24">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
