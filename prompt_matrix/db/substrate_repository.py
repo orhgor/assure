@@ -48,6 +48,36 @@ def save_substrate_text(
     }
 
 
+def _parse_meta_return(
+    parser_name: str | None,
+    source_kind: str | None,
+    parse_confidence: float | None,
+    ocr_confidence: float | None,
+    table_count: int | None,
+    image_count: int | None,
+    figure_count: int | None,
+    asset_summary: dict[str, Any] | None,
+    omp_artifact_id: str | None,
+) -> dict[str, Any]:
+    """The parse-metadata block every vault write returns, shape-stable.
+
+    Confidence fields pass through as-is: ``None`` means the parser reported
+    nothing and must stay ``None`` — 0 would read as "parsed with zero
+    confidence", which no parser ever said.
+    """
+    return {
+        "parser_name": parser_name,
+        "source_kind": source_kind,
+        "parse_confidence": parse_confidence,
+        "ocr_confidence": ocr_confidence,
+        "table_count": table_count,
+        "image_count": image_count,
+        "figure_count": figure_count,
+        "asset_summary": asset_summary or {},
+        "omp_artifact_id": omp_artifact_id,
+    }
+
+
 def save_substrate_entry(
     project_id: str,
     *,
@@ -60,6 +90,15 @@ def save_substrate_entry(
     file_size_bytes: int = 0,
     instruction_like: bool = False,
     instruction_hits: list[str] | None = None,
+    parser_name: str | None = None,
+    source_kind: str | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    table_count: int | None = None,
+    image_count: int | None = None,
+    figure_count: int | None = None,
+    asset_summary: dict[str, Any] | None = None,
+    omp_artifact_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist a Textract extraction in substrate_vault.
 
@@ -77,8 +116,11 @@ def save_substrate_entry(
             INSERT INTO substrate_vault (
                 id, project_id, filename, page_count,
                 extracted_text, tables_json, forms_json, file_size_bytes,
-                instruction_like, instruction_hits
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                instruction_like, instruction_hits,
+                parser_name, source_kind, parse_confidence, ocr_confidence,
+                table_count, image_count, figure_count, asset_summary,
+                omp_artifact_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 vault_id,
@@ -91,6 +133,15 @@ def save_substrate_entry(
                 int(file_size_bytes or 0),
                 1 if instruction_like else 0,
                 json.dumps(list(instruction_hits or [])),
+                parser_name,
+                source_kind,
+                parse_confidence,
+                ocr_confidence,
+                table_count,
+                image_count,
+                figure_count,
+                json.dumps(asset_summary or {}),
+                omp_artifact_id,
             ),
         )
         db.commit()
@@ -106,6 +157,17 @@ def save_substrate_entry(
             "file_size_bytes": int(file_size_bytes or 0),
             "instruction_like": bool(instruction_like),
             "instruction_hits": list(instruction_hits or []),
+            **_parse_meta_return(
+                parser_name,
+                source_kind,
+                parse_confidence,
+                ocr_confidence,
+                table_count,
+                image_count,
+                figure_count,
+                asset_summary,
+                omp_artifact_id,
+            ),
         }
 
 
@@ -120,6 +182,15 @@ def upsert_substrate_entry(
     file_size_bytes: int = 0,
     instruction_like: bool = False,
     instruction_hits: list[str] | None = None,
+    parser_name: str | None = None,
+    source_kind: str | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    table_count: int | None = None,
+    image_count: int | None = None,
+    figure_count: int | None = None,
+    asset_summary: dict[str, Any] | None = None,
+    omp_artifact_id: str | None = None,
 ) -> dict[str, Any]:
     """Persist an extraction as this project's row for `filename`, replacing its text.
 
@@ -127,7 +198,9 @@ def upsert_substrate_entry(
     filename keeps one entry — and one id, which the shell posts back as
     substrate_file_ids — instead of stacking a new row per upload. A row created
     by a vault upload of the same name is the same document in this project, so
-    it is reused rather than duplicated.
+    it is reused rather than duplicated. Parse metadata (parser name, source
+    kind, confidence, structured-asset counts, OMP artifact linkage) is written
+    alongside the text so the row records how this document was parsed.
     """
     init_db()
     db = get_db()
@@ -151,13 +224,25 @@ def upsert_substrate_entry(
             file_size_bytes=file_size_bytes,
             instruction_like=instruction_like,
             instruction_hits=instruction_hits,
+            parser_name=parser_name,
+            source_kind=source_kind,
+            parse_confidence=parse_confidence,
+            ocr_confidence=ocr_confidence,
+            table_count=table_count,
+            image_count=image_count,
+            figure_count=figure_count,
+            asset_summary=asset_summary,
+            omp_artifact_id=omp_artifact_id,
         )
     vault_id = str(row[0])
     db.execute(
         """
         UPDATE substrate_vault
         SET page_count = ?, extracted_text = ?, tables_json = ?, forms_json = ?,
-            file_size_bytes = ?, instruction_like = ?, instruction_hits = ?
+            file_size_bytes = ?, instruction_like = ?, instruction_hits = ?,
+            parser_name = ?, source_kind = ?, parse_confidence = ?,
+            ocr_confidence = ?, table_count = ?, image_count = ?,
+            figure_count = ?, asset_summary = ?, omp_artifact_id = ?
         WHERE project_id = ? AND id = ?
         """,
         (
@@ -168,6 +253,15 @@ def upsert_substrate_entry(
             int(file_size_bytes or 0),
             1 if instruction_like else 0,
             json.dumps(list(instruction_hits or [])),
+            parser_name,
+            source_kind,
+            parse_confidence,
+            ocr_confidence,
+            table_count,
+            image_count,
+            figure_count,
+            json.dumps(asset_summary or {}),
+            omp_artifact_id,
             project_id,
             vault_id,
         ),
@@ -185,6 +279,17 @@ def upsert_substrate_entry(
         "file_size_bytes": int(file_size_bytes or 0),
         "instruction_like": bool(instruction_like),
         "instruction_hits": list(instruction_hits or []),
+        **_parse_meta_return(
+            parser_name,
+            source_kind,
+            parse_confidence,
+            ocr_confidence,
+            table_count,
+            image_count,
+            figure_count,
+            asset_summary,
+            omp_artifact_id,
+        ),
     }
 
 
@@ -222,7 +327,9 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
     rows = db.execute(
         """
         SELECT id, filename, page_count, file_size_bytes, included, created_at,
-               extracted_text
+               extracted_text, parser_name, source_kind, parse_confidence,
+               ocr_confidence, table_count, image_count, figure_count,
+               asset_summary, omp_artifact_id
         FROM substrate_vault
         WHERE project_id = ?
         ORDER BY created_at DESC
@@ -243,6 +350,17 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
             "instruction_like": bool(flag["instruction_like"]),
             "instruction_hits": list(flag["instruction_hits"]),
             "fetched_url": fetched_url_of(row[1]),
+            "parser_name": row[7],
+            "source_kind": row[8],
+            # Confidence columns are REAL-or-NULL; NULL is the honest unknown
+            # and must reach the reader as None, not be coerced to 0.
+            "parse_confidence": row[9],
+            "ocr_confidence": row[10],
+            "table_count": row[11],
+            "image_count": row[12],
+            "figure_count": row[13],
+            "asset_summary": (json.loads(row[14]) if row[14] else {}) or {},
+            "omp_artifact_id": row[15],
         }
         if with_text:
             entry["extracted_text"] = text

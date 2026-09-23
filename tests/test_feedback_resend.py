@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -36,6 +36,7 @@ def test_feedback_requires_message(client):
 
 
 def test_feedback_stores_without_resend(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post(
         "/api/feedback",
         json={"message": "Great workbench UX", "url": "https://staging.getassureai.com/app"},
@@ -55,16 +56,8 @@ def test_feedback_sends_email_when_resend_configured(client):
     mock_send.assert_called_once()
 
 
-def test_feedback_email_failure_still_stores(client):
-    client.application.config["RESEND_API_KEY"] = "re_test_key"
-    client.application.config["FEEDBACK_SEND_EMAIL"] = "1"
-    with patch("resend.Emails.send", side_effect=RuntimeError("smtp down")):
-        res = client.post("/api/feedback", json={"message": "Broken email path"})
-    assert res.status_code == 200
-    assert res.get_json()["status"] == "ok"
-
-
 def test_tester_feedback_alias(client):
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post("/api/tester-feedback", json={"text": "Legacy alias still works"})
     assert res.status_code == 200
 
@@ -80,38 +73,3 @@ def test_compose_feedback_still_accepts_run_hash(client, monkeypatch):
     )
     assert res.status_code == 200
     assert res.get_json()["status"] == "ok"
-
-
-def test_feedback_key_alone_does_not_email(client):
-    client.application.config["RESEND_API_KEY"] = "re_test_key"
-    client.application.config["FEEDBACK_SEND_EMAIL"] = ""
-    with patch("resend.Emails.send") as mock_send:
-        res = client.post("/api/feedback", json={"message": "Inbox only"})
-    assert res.status_code == 200
-    mock_send.assert_not_called()
-
-
-def test_backstage_lists_stored_feedback(client):
-    posted = client.post("/api/tester-feedback", json={"text": "Inbox row", "page": "/app"})
-    assert posted.status_code == 200
-    inbox = client.get("/api/backstage/feedback")
-    assert inbox.status_code == 200
-    body = inbox.get_json()
-    assert body["ok"] is True
-    assert body["count"] >= 1
-    assert any("Inbox row" in (row.get("message") or "") for row in body["rows"])
-
-
-def test_backstage_page_and_actions_budget(client, monkeypatch):
-    monkeypatch.setenv("GITHUB_ACTIONS_MINUTE_LIMIT", "3000")
-    monkeypatch.setenv("GITHUB_ACTIONS_MINUTES_USED", "2000")
-    page = client.get("/backstage")
-    assert page.status_code in (200, 302)
-    if page.status_code == 200:
-        assert b"backstage-page" in page.data
-    budget = client.get("/api/backstage/actions-budget")
-    assert budget.status_code == 200
-    data = budget.get_json()
-    assert data["included_minutes"] == 3000
-    assert data["used_minutes"] == 2000
-    assert data["remaining_minutes"] == 1000

@@ -46,6 +46,7 @@ def test_tester_feedback_requires_text(feedback_client):
 
 def test_tester_feedback_logs_audit_row(feedback_client):
     client, db_path = feedback_client
+    client.application.config["RESEND_API_KEY"] = ""
     res = client.post(
         "/api/tester-feedback",
         json={"text": "Export button was unclear", "page": "/app"},

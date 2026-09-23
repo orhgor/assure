@@ -1,5 +1,5 @@
 /**
- * Founder workbench — Evidence Inspector (right drawer).
+ * Founder workbench -- Evidence Inspector (right drawer).
  */
 (function (global) {
   "use strict";
@@ -37,14 +37,33 @@
     return $("drawer-evidence");
   }
 
-  function z3StatusLabel(proof) {
-    var text = String(proof || "").toLowerCase();
-    if (text.indexOf("violation") >= 0 || text.indexOf("unsat") >= 0) {
-      return translate("evidence.inspector.unsat", "UNSAT");
-    }
-    return translate("evidence.inspector.satisfiable", "SATISFIABLE");
+  function verdictLabel(verdict) {
+    if (!verdict || !verdict.type) return "";
+    var type = verdict.type;
+    var labels = {
+      supported: "Supported",
+      partial: "Partial",
+      not_supported: "Not Supported",
+      contradicted: "Contradicted",
+      unanchored: "Unanchored",
+      unverified: "Unverified"
+    };
+    // The catalogue carries these under evidence.inspector.verdict.<type>; the
+    // literal is the fallback for a type the catalogue has not been given yet.
+    return translate("evidence.inspector.verdict." + type, labels[type] || type);
   }
 
+  function verdictBadgeClass(verdict) {
+    if (!verdict || !verdict.type) return "";
+    return "evidence-inspector-verdict__badge is-" + verdict.type;
+  }
+
+  function z3StatusLabel(proof) {
+    if (!proof) return translate("evidence.inspector.no_proof", "No proof");
+    if (proof.indexOf("UNSAT") >= 0) return translate("evidence.inspector.unsat", "UNSAT");
+    if (proof.indexOf("SAT") >= 0) return translate("evidence.inspector.sat", "SAT");
+    return proof.trim().split("\n")[0] || translate("evidence.inspector.unknown", "Unknown");
+  }
   function renderLoading() {
     var el = panel();
     if (!el) return;
@@ -61,11 +80,37 @@
   function renderEvidence(data) {
     var el = panel();
     if (!el) return;
-    var page = data.page_number != null ? String(data.page_number) : "—";
+    var page = data.page_number != null ? String(data.page_number) : "--";
     var satLabel = z3StatusLabel(data.z3_proof);
     var satClass = satLabel.indexOf("UNSAT") >= 0 ? "is-unsat" : "is-sat";
-    var badgeClass =
+    var badgeClass2 =
       satClass === "is-unsat" ? "evidence-inspector-proof__badge is-unsat" : "evidence-inspector-proof__badge";
+    // The verdict arrives as {type, reason} from /api/locks/<hash>/evidence.
+    // These three were previously computed from `data.verdict` read as a string,
+    // which both shadowed `verdictLabel` (the function below) and called it as
+    // one — a TypeError on every render, so the section never appeared.
+    var verdictLabelText = verdictLabel(data.verdict);
+    var verdictBadge = verdictBadgeClass(data.verdict);
+    var verdictReason = (data.verdict && data.verdict.reason) ? esc(data.verdict.reason) : "";
+    var verdictSection = "";
+    if (verdictLabelText) {
+      verdictSection =
+        '<section class="evidence-inspector-section">' +
+        '<h3 class="evidence-inspector-section__title">' +
+        esc(translate("evidence.inspector.verdict", "Evidence Verdict")) +
+        "</h3>" +
+        '<div class="evidence-inspector-verdict">' +
+        '<div class="evidence-inspector-verdict__header">' +
+        '<span class="evidence-inspector-verdict__label">' +
+        esc(translate("evidence.inspector.verdict_label", "Verdict")) +
+        "</span>" +
+        '<span class="' + verdictBadge + '">' +
+        esc(verdictLabelText) +
+        "</span>" +
+        "</div>" +
+        (verdictReason ? '<p class="evidence-inspector-verdict__reason">' + verdictReason + "</p>" : "") +
+        "</div></section>";
+    }
     el.innerHTML =
       '<section class="evidence-inspector-section">' +
       '<h3 class="evidence-inspector-section__title">' +
@@ -74,12 +119,18 @@
       '<div class="evidence-inspector-origin">' +
       '<div class="evidence-inspector-origin__meta">' +
       '<span class="evidence-inspector-origin__name">' +
-      esc(data.source_name || data.source_id || "—") +
+      esc(data.source_name || data.source_id || "--") +
       "</span>" +
       '<span class="evidence-inspector-origin__page">' +
       esc(translate("founder.drawer.page", "Page")) +
       " " +
       esc(page) +
+      (verdictBadge ? ' <span class="' + verdictBadge + '">' + esc(verdictLabelText) + "</span>" : "") +
+      "</span>" +
+      '<span class="evidence-inspector-verdict__badge is-' +
+      verdict +
+      '">' +
+      esc(verdictLabel) +
       "</span>" +
       "</div>" +
       '<p class="evidence-inspector-origin__excerpt">' +
@@ -89,19 +140,36 @@
       esc(data.lock_hash || "") +
       "</code></p>" +
       "</div></section>" +
+      verdictSection +
       '<section class="evidence-inspector-section">' +
       '<h3 class="evidence-inspector-section__title">' +
       esc(translate("evidence.inspector.z3_proof", "Z3 SMT Solver Proof")) +
       "</h3>" +
       '<div class="evidence-inspector-proof">' +
       '<span class="' +
-      badgeClass +
+      badgeClass2 +
       '">' +
       esc(satLabel) +
       "</span>" +
       '<pre class="evidence-inspector-proof__log drawer-evidence-z3">' +
       esc(data.z3_proof || "") +
-      "</pre></div></section>";
+      "</pre>" +
+      "</div>" +
+      "</section>" +
+      '<section class="evidence-inspector-section">' +
+      '<h3 class="evidence-inspector-section__title">' +
+      esc(translate("evidence.inspector.verdict", "Evidence Verdict")) +
+      "</h3>" +
+      '<div class="evidence-inspector-verdict">' +
+      '<span class="evidence-inspector-verdict__badge is-' +
+      verdict +
+      '">' +
+      esc(verdictLabel) +
+      "</span>" +
+      (data.verdict_reason
+        ? '<p class="evidence-inspector-verdict__reason">' + esc(data.verdict_reason) + "</p>"
+        : "") +
+      "</div></section>";
   }
 
   function renderError(message) {

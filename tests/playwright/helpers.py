@@ -8,6 +8,7 @@ import time
 from typing import Any
 
 ONBOARDING_KEY = "assure_onboarding_complete"
+DISCLAIMER_KEY = "assure_disclaimer_ack"
 SESSION_COMPILE_KEY = "assure_session_compiles"
 DESKTOP_VIEWPORT = {"width": 1440, "height": 900}
 
@@ -49,17 +50,14 @@ def app_url(base_url: str) -> str:
     return f"{root}/app"
 
 
-def prime_page(
-    page, *, compiles: int = 0, wow_effects: bool = True, founder_workbench: bool = False
-) -> None:
+def prime_page(page, *, compiles: int = 0, wow_effects: bool = True) -> None:
     page.set_viewport_size(DESKTOP_VIEWPORT)
     wow = "true" if wow_effects else "false"
-    founder = "1" if founder_workbench else "0"
     page.add_init_script(
         f"""
         try {{
           localStorage.setItem({ONBOARDING_KEY!r}, '1');
-          localStorage.setItem('assure_founder_workbench', '{founder}');
+          localStorage.setItem({DISCLAIMER_KEY!r}, '1');
           sessionStorage.setItem({SESSION_COMPILE_KEY!r}, '{int(compiles)}');
           window.__ASSURE_WOW_EFFECTS__ = {wow};
         }} catch (e) {{}}
@@ -67,54 +65,71 @@ def prime_page(
     )
 
 
+def goto_workbench(page, base_url: str):
+    page.goto(app_url(base_url), wait_until="domcontentloaded")
+    page.wait_for_selector(WORKBENCH, state="visible")
+    page.wait_for_function(
+        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'"
+    )
+    page.wait_for_function("() => !document.body.classList.contains('onboarding-active')")
+    page.evaluate(
+        "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
+    )
+    page.wait_for_selector(COMPILE_BTN, state="visible")
+    return page
+
+
 def goto_founder_workbench(page, base_url: str):
-    prime_page(page, founder_workbench=True)
+    """Open the founder-mode workbench shell.
+
+    The founder shell is a localStorage-flagged default (`assure_founder_workbench`)
+    — set it before load, then wait for the shell classes the founder tests
+    assert on. Used by tests that exercise the founder shell rather than the
+    legacy workbench.
+    """
+    page.add_init_script(
+        """
+        try {
+          localStorage.setItem('assure_onboarding_complete', '1');
+          localStorage.setItem('assure_founder_workbench', '1');
+        } catch (e) {}
+        """
+    )
     page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_selector("#workbench-root", state="visible", timeout=30_000)
-    page.wait_for_selector("#runs-stack", state="visible", timeout=30_000)
     page.wait_for_function(
-        "() => document.body.classList.contains('founder-workbench')",
+        "() => document.body.classList.contains('founder-workbench') && "
+        "document.body.classList.contains('founder-mode-active')",
         timeout=10_000,
     )
-    page.wait_for_function(
-        "() => window.AssureCommandBar && window.AssureRunsStack",
-        timeout=30_000,
-    )
     return page
 
 
-def goto_workbench(page, base_url: str):
-    page.goto(app_url(base_url), wait_until="domcontentloaded", timeout=60_000)
-    page.wait_for_selector(WORKBENCH, state="visible", timeout=30_000)
-    page.wait_for_function(
-        "() => window.__assureJdf && typeof window.__assureJdf.render === 'function'",
-        timeout=30_000,
-    )
-    page.wait_for_function(
-        "() => !document.body.classList.contains('onboarding-active')",
-        timeout=30_000,
-    )
-    enter_compiler(page)
-    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
-    return page
+def enter_compiler(page, project_id: str | None = None):
+    """Enter the compiler (generate) view from the /app shell.
 
-
-def enter_compiler(page, project_id=None):
-    pid = project_id or "default"
+    Callers either navigate to `/app` (optionally `?project=<id>`) first or
+    rely on this helper to wait for the nav, then switch the view and wait
+    until the compile control is interactable.
+    """
+    page.wait_for_function("() => window.AssureNav && window.AssureProjects")
     page.evaluate(
-        """(pid) => {
-          if (window.AssureProjects && typeof window.AssureProjects.openCompiler === 'function') {
-            window.AssureProjects.openCompiler(pid);
-            return;
-          }
-          if (window.AssureNav) {
-            window.AssureNav.switchView('generate', {replaceHash: false, persist: false});
-          }
-        }""",
-        pid,
+        "() => window.AssureNav && window.AssureNav.switchView('generate', {replaceHash: false, persist: false})"
     )
-    page.wait_for_selector("#document-chrome", state="visible", timeout=30_000)
-    page.wait_for_selector(COMPILE_BTN, state="visible", timeout=30_000)
+    if project_id:
+        page.evaluate(
+            """(pid) => {
+              window.__ASSURE_PROJECT_ID__ = pid;
+            }""",
+            project_id,
+        )
+    page.wait_for_selector(COMPILE_BTN, state="visible")
+    return page
+
+
+def click_full_audit(page):
+    """Trigger the Full Audit action from the compiler toolbar."""
+    page.locator(FULL_AUDIT_BTN).click()
 
 
 def empty_annotations() -> dict[str, list]:
@@ -163,34 +178,13 @@ def sse(event: str, payload: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
 
 
-def _anchor_entailment(doc: dict[str, Any]) -> dict[str, Any]:
-    """Mock compile: anchor the paragraph to its own wording and record the
-    entailment verdict a real check would return for that (yes). Playwright never
-    calls the model, and the gate now reads the verdict rather than the anchor.
-    """
-    from prompt_matrix.services.entailment import attach_entailment_to_tree
-
-    def _yes(claim: str, source: str) -> dict[str, Any]:
-        return {
-            "verdict": "yes",
-            "reasoning": "The anchored quote is the claim verbatim.",
-            "model": "playwright/fixture",
-            "checked_at": "2026-09-18T00:00:00+00:00",
-        }
-
-    for node in doc["body"][0]["children"]:
-        for row in node.get("provenance") or []:
-            row["extracted_quote"] = node["content"]
-    return attach_entailment_to_tree(doc, checker=_yes)
-
-
 def draft_stream_success(
     *,
     content: str = "Revenue reached $12M in Q3.",
     cache_hit: bool = False,
     confidence_spans: list | None = None,
 ) -> str:
-    doc = _anchor_entailment(sample_document(content=content))
+    doc = sample_document(content=content)
     if confidence_spans:
         doc["meta"]["confidenceSpans"] = confidence_spans
     section_nodes = doc["body"]
@@ -304,29 +298,7 @@ def mock_sse_stream(page, *, cache_hit: bool = True) -> None:
     page.route("**/api/projects/*/draft/stream", _handler)
 
 
-def ensure_write_phase(page) -> None:
-    page.evaluate(
-        """() => {
-          if (window.AssureStepper) window.AssureStepper.setPhase('write', 'active');
-        }"""
-    )
-
-
-def ensure_verify_phase(page) -> None:
-    page.evaluate(
-        """() => {
-          if (window.AssureStepper) window.AssureStepper.setPhase('verify', 'active');
-        }"""
-    )
-
-
-def click_full_audit(page) -> None:
-    ensure_verify_phase(page)
-    click_workbench(page, FULL_AUDIT_BTN)
-
-
 def fill_and_compile(page, prompt: str) -> None:
-    ensure_write_phase(page)
     page.locator(COMPILE_INPUT).fill(prompt)
     click_workbench(page, COMPILE_BTN)
 
@@ -335,13 +307,11 @@ def wait_compile_ready(page, timeout_ms: int = 60_000) -> None:
     page.wait_for_function(
         f"""() => {{
           const dock = document.querySelector('{DOCK_BTN}');
+          const btn = document.querySelector('{COMPILE_BTN}');
           const compiling = document.getElementById('generate-compiling');
+          if (btn && btn.disabled) return false;
           if (compiling && !compiling.hidden) return false;
-          if (dock && !dock.disabled) {{
-            if (window.AssureStepper) window.AssureStepper.setPhase('ship', 'active');
-            return true;
-          }}
-          return false;
+          return dock && !dock.disabled;
         }}""",
         timeout=timeout_ms,
     )
@@ -368,7 +338,7 @@ def click_workbench(page, selector: str) -> None:
     loc = page.locator(selector)
     page.evaluate(
         """() => {
-          const panel = document.getElementById('panel-draft') || document.getElementById('view-generate');
+          const panel = document.getElementById('view-generate');
           if (panel) panel.scrollIntoView({ block: 'nearest' });
         }"""
     )

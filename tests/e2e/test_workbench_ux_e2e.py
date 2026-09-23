@@ -32,6 +32,7 @@ SHORTCUT_HINT_BTN = "#shortcut-hint-btn"
 LOCALE_SELECT = "#locale-select"
 PROMPT_HISTORY_HOST = "#generate-prompt-history"
 ONBOARDING_KEY = "assure_onboarding_complete"
+DISCLAIMER_KEY = "assure_disclaimer_ack"
 PANE_STORAGE_KEY = "assure_wb_left_pct"
 
 
@@ -44,7 +45,9 @@ def _app_url(base_url: str) -> str:
 def _goto_workbench(page, base_url: str):
     """Matches _goto_workbench in test_user_simulation.py: skip onboarding,
     wait for the JDF manager, land on the Compile view."""
-    page.add_init_script(f"try {{ localStorage.setItem({ONBOARDING_KEY!r}, '1'); }} catch (e) {{}}")
+    page.add_init_script(
+        f"try {{ localStorage.setItem({ONBOARDING_KEY!r}, '1'); localStorage.setItem({DISCLAIMER_KEY!r}, '1'); }} catch (e) {{}}"
+    )
     page.goto(_app_url(base_url), wait_until="domcontentloaded")
     page.wait_for_selector(WORKBENCH, state="visible")
     page.wait_for_function(

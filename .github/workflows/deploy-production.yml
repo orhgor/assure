@@ -43,7 +43,9 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           build-args: |
-            ASSURE_BUILD_SHA=${{ github.sha }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ github.run_id }}
 
   deploy:
     needs: build

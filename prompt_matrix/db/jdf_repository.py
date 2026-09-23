@@ -114,6 +114,9 @@ def empty_document(project_id: str) -> dict[str, Any]:
         meta={"project_id": project_id},
         truth_ledger={},
         body=[],
+        confidence=None,
+        confidenceBreakdown=None,
+        lowConfidenceNodes=None,
     ).model_dump(mode="json")
 
 
@@ -446,3 +449,62 @@ def save_jdf_revision(
         "document": tree,
         "disk_path": str(disk_path),
     }
+
+
+def save_omp_linkage(project_id: str, jdf_revision_id: str, omp_artifact_ids: list[str]) -> None:
+    """Persist OMP artifact IDs linked to a JDF revision for audit trail."""
+    init_db()
+    db = get_db()
+
+    for artifact_id in omp_artifact_ids:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO jdf_omp_linkages (jdf_revision_id, omp_artifact_id, project_id, created_at)
+            VALUES (?, ?, ?, datetime('now'))
+            """,
+            (jdf_revision_id, artifact_id, project_id),
+        )
+    db.commit()
+
+
+def get_omp_linkages_for_revision(jdf_revision_id: str) -> list[str]:
+    """Get OMP artifact IDs linked to a JDF revision."""
+    init_db()
+    db = get_db()
+
+    rows = db.execute(
+        "SELECT omp_artifact_id FROM jdf_omp_linkages WHERE jdf_revision_id = ?",
+        (jdf_revision_id,),
+    ).fetchall()
+    return [row[0] for row in rows]
+
+
+def init_omp_linkage_table() -> None:
+    """Initialize the JDF-OMP linkage table."""
+    init_db()
+    db = get_db()
+
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS jdf_omp_linkages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            jdf_revision_id TEXT NOT NULL,
+            omp_artifact_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_jdf_omp_linkages_revision
+        ON jdf_omp_linkages(jdf_revision_id)
+        """
+    )
+    db.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_jdf_omp_linkages_artifact
+        ON jdf_omp_linkages(omp_artifact_id)
+        """
+    )
+    db.commit()

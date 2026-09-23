@@ -9,6 +9,11 @@ from typing import Any, Callable
 
 from flask import jsonify, request, session
 
+try:
+    from .service_auth import is_service_api_request
+except ImportError:
+    from service_auth import is_service_api_request
+
 _PROJECT_PATH = re.compile(r"^/api/projects/([^/]+)")
 _CSRF_EXEMPT_PREFIXES = (
     "/health",
@@ -30,10 +35,14 @@ def ownership_enforced() -> bool:
         return True
     if raw in {"0", "false", "no", "off"}:
         return False
+    if is_service_api_request():
+        return False
     try:
-        from .cloud_auth import auth_required, current_user_id
+        from .cloud_auth import auth_required, current_user_id, is_self_hosted, require_clerk_login
     except ImportError:
-        from cloud_auth import auth_required, current_user_id
+        from cloud_auth import auth_required, current_user_id, is_self_hosted, require_clerk_login
+    if is_self_hosted() and not require_clerk_login():
+        return False
     return bool(auth_required() and current_user_id())
 
 
@@ -53,6 +62,8 @@ def csrf_enabled() -> bool:
 def check_project_ownership(project_id: str):
     """Return a Flask response when access is denied, else None."""
     if not project_id or not ownership_enforced():
+        return None
+    if is_service_api_request():
         return None
     try:
         from .cloud_auth import ROLE_ADMIN, current_role, current_user_id
@@ -110,4 +121,4 @@ def register_security_guards(app) -> None:
 
 def csrf_exempt_path(path: str) -> bool:
     p = path or ""
-    return any(p == prefix or p.startswith(prefix) for prefix in _CSRF_EXEMPT_PREFIXES)
+    return is_service_api_request(p) or any(p == prefix or p.startswith(prefix) for prefix in _CSRF_EXEMPT_PREFIXES)

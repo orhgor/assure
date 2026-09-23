@@ -2118,28 +2118,38 @@ body {
     max-width: 32rem;
 }
 
-.enterprise-landing .hero-section h1 {
+.enterprise-landing .hero-section h1,
+.enterprise-landing .hero-title {
     color: #0a0a0a;
-    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-size: clamp(2.4rem, 6vw, 3.5rem);
     font-weight: 700;
     letter-spacing: -0.04em;
-    max-width: 18ch;
-    margin: 0 auto var(--space-3);
-    line-height: 1.15;
+    max-width: none;
+    margin: 0 auto;
+    line-height: 1.1;
+    text-wrap: balance;
+    text-align: center;
+}
+
+@media (min-width: 801px) {
+    .enterprise-landing .hero-title .text-line {
+        white-space: nowrap;
+    }
 }
 
 .enterprise-landing .hero-sub {
     color: #475569;
-    font-size: 1.25rem;
-    max-width: 36rem;
-    margin: 0 auto var(--space-6);
-    line-height: 1.5;
+    font-size: 1.2rem;
+    max-width: 640px;
+    margin: 24px auto 48px;
+    line-height: 1.6;
+    text-align: center;
 }
 
 .enterprise-landing .hero-cta-group {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: 16px;
     justify-content: center;
     align-items: stretch;
     max-width: 42rem;
@@ -2148,9 +2158,11 @@ body {
 
 .enterprise-landing .hero-cta-group .btn-primary,
 .enterprise-landing .hero-cta-group .btn-secondary {
-    flex: 1 1 12rem;
-    min-width: min(100%, 12rem);
-    max-width: 20rem;
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    min-width: 240px;
+    width: 280px;
+    max-width: 280px;
     min-height: 44px;
     text-align: center;
     transition:
@@ -2210,10 +2222,11 @@ body {
 .enterprise-landing .section-title::after {
     content: "";
     display: block;
-    width: 32px;
-    height: 3px;
-    margin: var(--space-3) auto 0;
-    background: #0a0a0a;
+    width: 80px;
+    height: 2px;
+    margin: 24px auto 32px;
+    background: #e2e8f0;
+    border: 0;
 }
 
 .role-demo,
@@ -2384,42 +2397,39 @@ body {
 }
 
 .why-copy {
-    max-width: 42rem;
-    margin: 0 auto;
-    text-align: center;
+    max-width: 680px;
+    margin: 40px auto 0;
+    text-align: left;
     color: #475569;
+    line-height: 1.7;
+    font-size: 1.1rem;
 }
 
 .trust-arch-grid-four {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-@media (min-width: 1100px) {
-    .trust-arch-grid-four {
-        grid-template-columns: repeat(4, 1fr);
-    }
+    grid-template-columns: repeat(2, 1fr);
 }
 
 .trust-arch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    align-items: start;
 }
 
-.trust-arch-grid article {
-    padding: var(--space-3);
+.trust-arch-grid article,
+.trust-card {
+    padding: 32px;
     border: 1px solid #e2e8f0;
-    border-top: 3px solid #0a0a0a;
     border-radius: 8px;
     background: #fff;
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s ease;
 }
 
-.trust-arch-grid article:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+.trust-arch-grid article:hover,
+.trust-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
 }
 
 .trust-arch-grid h3 {
@@ -2436,6 +2446,7 @@ body {
 .trust-arch-grid p {
     color: #475569;
     line-height: 1.55;
+    flex: 1;
 }
 
 .trust-lead {
@@ -2455,8 +2466,11 @@ body {
 .plan {
     background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 2rem 1.5rem;
+    border-radius: 12px;
+    padding: 40px 32px;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
     text-align: center;
 }
 
@@ -2469,15 +2483,17 @@ body {
 }
 
 .plan .price {
-    font-size: 2.2rem;
-    font-weight: 600;
+    font-size: 48px;
+    font-weight: 700;
     margin: 0.5rem 0;
+    line-height: 1.1;
 }
 
 .plan ul {
     list-style: none;
     margin: 1rem 0;
     color: #475569;
+    flex: 1;
 }
 
 .plan .btn-primary-small {
@@ -2485,8 +2501,8 @@ body {
 }
 
 .plan-featured {
-    background: #0a0a0a;
-    border-color: #0a0a0a;
+    background: #0f172a;
+    border-color: #0f172a;
     color: #fff;
 }
 
@@ -2648,10 +2664,60 @@ body.waitlist-open {
 }
 
 .enterprise-landing .site-footer {
-    background: #f8fafc;
+    background-color: #f8fafc;
     color: #475569;
+    border-top: 1px solid #e5e7eb;
+    padding: 64px 0;
+    margin-top: 64px;
+    text-align: center;
+}
+
+.enterprise-landing .landing-disclaimer {
+    padding: 3rem 0 2rem;
+    background: #fff;
     border-top: 1px solid #e2e8f0;
-    padding: var(--space-8) 0;
+    color: #475569;
+}
+
+.enterprise-landing .landing-disclaimer .section-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.enterprise-landing .landing-disclaimer p {
+    max-width: 40rem;
+    margin: 0 auto 0.75rem;
+    line-height: 1.55;
+}
+
+.enterprise-landing .landing-disclaimer a {
+    color: #0a0a0a;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.enterprise-landing .landing-disclaimer {
+    padding: 3rem 0 2rem;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    color: #475569;
+}
+
+.enterprise-landing .landing-disclaimer .section-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.enterprise-landing .landing-disclaimer p {
+    max-width: 40rem;
+    margin: 0 auto 0.75rem;
+    line-height: 1.55;
+}
+
+.enterprise-landing .landing-disclaimer a {
+    color: #0a0a0a;
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .enterprise-landing .footer-links {
@@ -2724,12 +2790,26 @@ body.waitlist-open {
 @media (max-width: 800px) {
     .why-split,
     .trust-arch-grid,
+    .trust-arch-grid-four,
     .pricing-grid {
         grid-template-columns: 1fr;
     }
 
-    .enterprise-landing .hero-section h1 {
+    .enterprise-landing .hero-section h1,
+    .enterprise-landing .hero-title {
         max-width: none;
+        font-size: 2.25rem;
+    }
+
+    .enterprise-landing .hero-cta-group .btn-primary,
+    .enterprise-landing .hero-cta-group .btn-secondary {
+        min-width: 0;
+        max-width: none;
+        flex: 1 1 100%;
+    }
+
+    .plan {
+        min-height: 0;
     }
 }
 

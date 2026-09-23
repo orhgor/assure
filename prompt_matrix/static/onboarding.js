@@ -2,11 +2,12 @@
   "use strict";
 
   var ONBOARDING_KEY = "assure_onboarding_complete";
+  var DISCLAIMER_KEY = "assure_disclaimer_ack";
   var STEPS = [
     {
-      selector: "#generate-intent",
-      i18n: "coachmark.tour.step1",
-      fallback: "Start here – type your intent",
+      selector: "#view-generate",
+      i18n: "onboarding.step1",
+      fallback: "Start here: describe what your document should cover.",
       prepare: function () {
         if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
           global.AssureNav.switchView("generate", { replaceHash: false, persist: true });
@@ -15,13 +16,30 @@
     },
     {
       selector: "#generate-compile-btn",
-      i18n: "coachmark.tour.step2",
-      fallback: "Click Assemble to compile",
+      i18n: "onboarding.step2",
+      fallback: "Compile streams a draft and builds JDF nodes with inferred locks.",
     },
     {
-      selector: "#jdf-render-target",
-      i18n: "coachmark.tour.step3",
-      fallback: "See verification results on the canvas",
+      selector: "#compiler-status",
+      i18n: "onboarding.step3",
+      fallback: "Watch verification status here — Ready, Working, Verified, or Issues Found.",
+    },
+    {
+      selector: "#toggle-redhat",
+      i18n: "onboarding.step4",
+      fallback:
+        "Stress Test is an automated devil's advocate. Enable it to catch logical gaps before your client does.",
+      prepare: function () {
+        if (global.AssureNav && typeof global.AssureNav.switchView === "function") {
+          global.AssureNav.switchView("surgical", { replaceHash: false, persist: true });
+        }
+      },
+    },
+    {
+      selector: '[data-tool="surgical"]',
+      i18n: "onboarding.step5",
+      fallback:
+        "Refine edits one node with context-locking. Your change affects only this node — the surrounding text stays locked.",
     },
   ];
 
@@ -83,22 +101,62 @@
     });
   }
 
-  function forceTour() {
-    try {
-      return new URLSearchParams(window.location.search).get("onboarding") === "true";
-    } catch (_) {
-      return false;
-    }
-  }
-
   function isComplete() {
-    if (forceTour()) return false;
     try {
       return localStorage.getItem(ONBOARDING_KEY) === "1";
     } catch (_) {
       return false;
     }
   }
+
+  var disclaimerWaiters = [];
+
+  function isDisclaimerAcked() {
+    try {
+      return localStorage.getItem(DISCLAIMER_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hideDisclaimerGate() {
+    var gate = document.getElementById("disclaimer-gate");
+    if (gate) gate.hidden = true;
+    document.body.classList.remove("disclaimer-gate-open");
+  }
+
+  function showDisclaimerGate() {
+    var gate = document.getElementById("disclaimer-gate");
+    if (!gate) return;
+    gate.hidden = false;
+    document.body.classList.add("disclaimer-gate-open");
+    var ackBtn = document.getElementById("disclaimer-ack");
+    if (ackBtn) ackBtn.focus();
+  }
+
+  function ackDisclaimer() {
+    try {
+      localStorage.setItem(DISCLAIMER_KEY, "1");
+    } catch (_) {}
+    hideDisclaimerGate();
+    var waiters = disclaimerWaiters.slice();
+    disclaimerWaiters = [];
+    waiters.forEach(function (fn) {
+      fn(true);
+    });
+  }
+
+  function ensureAck() {
+    if (isDisclaimerAcked()) {
+      hideDisclaimerGate();
+      return Promise.resolve(true);
+    }
+    showDisclaimerGate();
+    return new Promise(function (resolve) {
+      disclaimerWaiters.push(resolve);
+    });
+  }
+
 
   function completeOnboarding() {
     try {
@@ -175,7 +233,7 @@
 
   function buildCallout(stepIndex, total) {
     var callout = document.createElement("div");
-    callout.className = "onboarding-callout coachmark-tour";
+    callout.className = "onboarding-callout";
     callout.setAttribute("role", "status");
     callout.setAttribute("aria-live", "polite");
 
@@ -270,18 +328,28 @@
 
   function maybeStart() {
     if (isComplete()) return;
-    waitForElement("#assure-app", 10000)
-      .then(function () {
-        return waitForElement("#panel-draft", 10000);
-      })
-      .then(function () {
-        if (!isComplete()) showStep(0);
-      })
-      .catch(function () {});
+    ensureAck().then(function () {
+      if (isComplete()) return;
+      waitForElement("#assure-app", 10000)
+        .then(function () {
+          return waitForElement("#view-generate", 10000);
+        })
+        .then(function () {
+          if (!isComplete()) showStep(0);
+        })
+        .catch(function () {});
+    });
   }
 
   function init() {
-    if (isComplete()) return;
+    var ackBtn = document.getElementById("disclaimer-ack");
+    if (ackBtn) {
+      ackBtn.addEventListener("click", ackDisclaimer);
+    }
+    if (!isDisclaimerAcked()) {
+      showDisclaimerGate();
+    }
+    if (isComplete() && isDisclaimerAcked()) return;
     maybeStart();
     document.addEventListener("assure:view", function () {
       if (isComplete() || !state.callout || !state.activeEl) return;
@@ -312,6 +380,12 @@
     init: init,
     completeOnboarding: completeOnboarding,
     waitForElement: waitForElement,
+  };
+  global.AssureDisclaimer = {
+    isAcked: isDisclaimerAcked,
+    ensureAck: ensureAck,
+    ack: ackDisclaimer,
+    KEY: DISCLAIMER_KEY,
   };
 
   if (document.readyState === "loading") {

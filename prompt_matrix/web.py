@@ -24,6 +24,23 @@ from flask import (
     session,
 )
 
+
+def _read_text(path: str, default: str = "unknown") -> str:
+    try:
+        p = Path(path)
+        if p.exists():
+            value = p.read_text(encoding="utf-8").strip()
+            return value or default
+    except Exception:
+        pass
+    return default
+
+
+try:
+    from .service_auth import is_service_api_request, service_api_authorized
+except ImportError:
+    from service_auth import is_service_api_request, service_api_authorized
+
 try:
     from .engine import (
         MatrixError,
@@ -518,6 +535,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
@@ -534,12 +552,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
             is_self_hosted,
             login_required,
             protect_request,
+            require_clerk_login,
             remember_user,
             safe_next,
             template_state,
             verify_session_token,
         )
-
+    try:
+        from .service_auth import is_service_api_request, service_api_authorized
+    except ImportError:
+        from service_auth import is_service_api_request, service_api_authorized
     @app.before_request
     def _set_language_guard_locale():
         try:
@@ -560,11 +582,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 code=301,
             )
         return None
-
     @app.before_request
     def _cloud_login():
-        return protect_request()
+        # Bypass service API (ingest-and-verify) - uses service token auth
+        if is_service_api_request(request.path):
+            if service_api_authorized(request):
+                return None
+            return jsonify({"error": "Missing or invalid service token."}), 401
 
+        if not is_self_hosted() and require_clerk_login():
+            return protect_request()
+        return None
     def _apply_browser_api_keys() -> None:
         """Apply in-memory BYOK keys from request headers. Never logged or persisted."""
         gemini = (request.headers.get("X-Gemini-Key") or "").strip()
@@ -638,61 +666,64 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def favicon():
         return send_from_directory(str(STATIC_DIR), "favicon.svg", mimetype="image/svg+xml")
 
-    @app.route("/workbench/")
-    def workbench_index():
-        return send_from_directory(str(PROTOTYPE_DIR), "index.html")
-
-    @app.route("/workbench/<path:filename>")
-    def workbench_static(filename):
-        return send_from_directory(str(PROTOTYPE_DIR), filename)
-
-    @app.get("/architecture")
-    def architecture_page():
-        return _landing_page("architecture.html")
-
-    def _workspace_page():
-        try:
-            from .db.jdf_repository import DEFAULT_PROJECT_ID
-        except ImportError:
-            from db.jdf_repository import DEFAULT_PROJECT_ID
-        project_id = (request.args.get("project") or "").strip() or DEFAULT_PROJECT_ID
-        return _page(
-            "index.html",
-            "compose",
-            initial_pane="compose",
-            include_pk=True,
-            initial_jdf=None,
-            project_id=project_id,
-        )
-
-    @app.get("/app")
-    @login_required
-    def workspace():
-        return _workspace_page()
-
-    @app.get("/compose")
-    def compose_redirect():
-        qs = request.query_string.decode() if request.query_string else ""
-        return redirect("/app" + (("?" + qs) if qs else ""))
-
-    @app.get("/history")
-    @login_required
-    def history_page():
-        return _page("index.html", "history", initial_pane="history")
-
-    @app.get("/learn")
-    def learn_page():
-        return _page("index.html", "learn", initial_pane="learn")
-
-    @app.get("/library")
-    @login_required
-    def library_page():
-        return _page("index.html", "library", initial_pane="library")
-
     @app.get("/connect")
     @login_required
     def connect():
         return _page("connect.html", "connect")
+
+    @app.get("/parsing")
+    def parsing_page():
+        """Client-facing dashboard: document parsing results, confidence scores, verification."""
+        try:
+            from .db.substrate_repository import list_substrate_for_project
+        except ImportError:
+            from db.substrate_repository import list_substrate_for_project
+
+        project_id = request.args.get("project_id") or "default"
+        rows = list_substrate_for_project(project_id)
+
+        documents = []
+        jdf_count = 0
+        textract_count = 0
+        total_parse_conf = 0.0
+        parse_conf_count = 0
+
+        for row in rows:
+            doc = {
+                "filename": row["filename"],
+                "parser_name": row["parser_name"],
+                "source_kind": row["source_kind"],
+                "page_count": row["page_count"],
+                "parse_confidence": row["parse_confidence"],
+                "ocr_confidence": row["ocr_confidence"],
+                "table_count": row["table_count"],
+                "image_count": row["image_count"],
+                "figure_count": row["figure_count"],
+                "asset_summary": row["asset_summary"],
+                "created_at": row["created_at"],
+            }
+            documents.append(doc)
+            if doc["parser_name"] == "jdf-cli":
+                jdf_count += 1
+            elif doc["parser_name"] == "textract":
+                textract_count += 1
+            if doc["parse_confidence"] is not None:
+                total_parse_conf += doc["parse_confidence"]
+                parse_conf_count += 1
+
+        avg_confidence = (total_parse_conf / parse_conf_count) if parse_conf_count else None
+
+        return _page(
+            "parsing.html",
+            "parsing",
+            documents=documents,
+            summary={
+                "total": len(documents),
+                "jdf_count": jdf_count,
+                "textract_count": textract_count,
+                "avg_confidence": avg_confidence,
+            },
+        )
 
     @app.get("/signin")
     def signin():
@@ -702,6 +733,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signin",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signup")
@@ -712,6 +744,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             include_pk=True,
             auth_mode="signup",
             next_url=safe_next(request.args.get("next")),
+            page_class="auth-page",
         )
 
     @app.get("/signout")
@@ -1031,6 +1064,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
             payload.update(library_status())
         except Exception:
             pass
+        # Add build identity for immutable deploy verification
+        payload["build_sha"] = os.getenv("ASSURE_BUILD_SHA") or os.getenv("BUILD_SHA") or _read_text("/app/ASSURE_BUILD_SHA") or _read_text("/app/BUILD_SHA")
+        payload["build_branch"] = os.getenv("ASSURE_BUILD_BRANCH") or os.getenv("BUILD_BRANCH") or _read_text("/app/ASSURE_BUILD_BRANCH") or _read_text("/app/BUILD_BRANCH")
+        payload["build_time"] = os.getenv("ASSURE_BUILD_TIME") or os.getenv("BUILD_TIME") or _read_text("/app/ASSURE_BUILD_TIME") or _read_text("/app/BUILD_TIME")
+        payload["image_ref"] = os.getenv("APP_IMAGE", "unknown")
         # Audit rows this process failed to write. The insert is best-effort, so
         # without this the loss is only in the service log; here it is a number a
         # probe or a human can read.

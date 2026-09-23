@@ -48,7 +48,9 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.IMAGE_NAME }}:p4-account-wallet
           build-args: |
-            ASSURE_BUILD_SHA=${{ github.sha }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ github.run_id }}
 
   deploy:
     needs: build

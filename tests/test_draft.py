@@ -117,8 +117,11 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     source = "The policy liability limit is set at $5,000,000 for combined single limit."
     # The metric line is its own paragraph: the anchor matcher compares a whole
     # paragraph to a source sentence, so a second sentence in the same paragraph
-    # dilutes the quote below the match threshold.
-    draft = source + "\n\nRevenue=100."
+    # dilutes the quote below the match threshold. The lock names the same
+    # metric at the same value the quoted source states — an incoherent fixture
+    # (a Revenue=100 lock against a $5,000,000 limit quote) is a real Z3
+    # contradiction, and the gate reports it as one.
+    draft = source + "\n\nPolicy liability limit=5000000."
 
     def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
         yield 'event: token\ndata: {"type": "token", "delta": "Revenue"}\n\n'
@@ -126,7 +129,12 @@ def test_run_draft_pipeline_progressive(monkeypatch):
 
     def fake_locks(_text):
         return [
-            {"canonical_key": "Revenue", "value": 100, "metric": "Revenue", "confidence": 0.9}
+            {
+                "canonical_key": "policy liability limit",
+                "value": 5000000,
+                "metric": "policy liability limit",
+                "confidence": 0.9,
+            }
         ], "deepseek/deepseek-chat"
 
     def stub_check(_claim, _source, *, project_id=""):

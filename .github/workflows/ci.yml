@@ -19,7 +19,7 @@ concurrency:
 jobs:
   test:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
-    runs-on: [self-hosted, staging]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +68,7 @@ jobs:
 
   playwright-tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
-    runs-on: [self-hosted, staging]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -85,4 +85,6 @@ jobs:
           playwright install chromium --with-deps
 
       - name: Run Playwright pytest suite
+        env:
+          ASSURE_REQUIRE_LOGIN: "false"
         run: pytest tests/playwright/ -v --tb=short

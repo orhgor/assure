@@ -31,14 +31,16 @@ class RenderStaticTests(unittest.TestCase):
         index = dist / "index.html"
         self.assertTrue(index.is_file())
         html = index.read_text(encoding="utf-8")
-        self.assertIn("Draft at the speed of AI. Verify with mathematical certainty.", html)
+        # Current brand hero (i18n.py brand.hero_title) — the copy was
+        # rebranded from "Draft at the speed of AI…" deliberately.
+        self.assertIn("Zero hallucination. Absolute verification.", html)
         self.assertIn("https://app.getassureai.com/app", html)
         self.assertIn("__ASSURE_APP_ORIGIN", html)
         self.assertIn("/static/landing.css", html)
         tr_index = dist / "tr" / "index.html"
         self.assertTrue(tr_index.is_file())
         tr_html = tr_index.read_text(encoding="utf-8")
-        self.assertIn("AI hızında taslak yazın", tr_html)
+        self.assertIn("Sıfır halüsinasyon. Mutlak doğrulama.", tr_html)
 
 
 if __name__ == "__main__":

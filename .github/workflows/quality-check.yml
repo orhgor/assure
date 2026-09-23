@@ -13,7 +13,7 @@ concurrency:
 jobs:
   quality:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
-    runs-on: [self-hosted, staging]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +57,8 @@ jobs:
           $PY tests/quality_check/test_api_keys.py -v
 
       - name: Backend smoke tests
+        env:
+          ASSURE_REQUIRE_LOGIN: "false"
         run: pytest tests/quality_check/test_backend_endpoints.py -v
 
       - name: Design token lint

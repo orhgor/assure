@@ -1,8 +1,10 @@
 name: Deploy to Staging
 
+# Auto-deploy on push to staging; manual dispatch still available
 on:
   push:
     branches: [staging]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-staging-${{ github.ref }}
@@ -18,8 +20,10 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, staging]
-    timeout-minutes: 20
+    needs: []
+    runs-on: ubuntu-latest
+    # arm64 cross-build via QEMU on an x86 GitHub runner is slow — give it room.
+    timeout-minutes: 45
     environment: staging
     steps:
       - uses: actions/checkout@v4
@@ -47,11 +51,13 @@ jobs:
             ${{ env.IMAGE_NAME }}:staging
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           build-args: |
-            ASSURE_BUILD_SHA=${{ github.sha }}
+            BUILD_SHA=${{ github.sha }}
+            BUILD_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ github.run_id }}
 
   deploy:
     needs: build
-    runs-on: [self-hosted, staging]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging
     steps:

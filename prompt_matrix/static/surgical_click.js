@@ -470,10 +470,25 @@
           var suggested = pack.data.suggested || pack.data.node || {};
           var proposedText = String(suggested.content || suggested.title || "");
           pack.data.node = suggested;
+          var _proposal = (pack.data && pack.data.proposal) || null;
+          if (_proposal && global.AssureSurgicalDiff) {
+            var _banner = global.AssureSurgicalDiff.verificationBanner(
+              _proposal.verification_status,
+              _proposal.verification_reason,
+              t
+            );
+            if (global.AssureToast && global.AssureSurgicalDiff.requiresForce(_proposal.verification_status)) {
+              // Flag-and-decide: the edit is offered, with the warning attached.
+              global.AssureToast.show(_banner.label, "error");
+            }
+          }
           self.openDiff(nodeId, originalText, proposedText, pack.data);
         })
         .catch(function (err) {
           self.setBusy(false);
+          if (global.AssureSurgicalDiff) {
+            global.AssureSurgicalDiff.setNodeLocked(nodeId, false);
+          }
           if (global.AssureToast) {
             global.AssureToast.show(String((err && err.message) || err), "error");
           }
@@ -495,6 +510,12 @@
         ? String(nodeBefore.content || nodeBefore.title || "")
         : "";
       this.setBusy(true);
+      // Held still for the duration: the call takes seconds, and a keystroke
+      // landing in that window is overwritten by the reply. Released in every
+      // exit path below.
+      if (global.AssureSurgicalDiff) {
+        global.AssureSurgicalDiff.setNodeLocked(nodeId, true);
+      }
       var body = {
         node_id: nodeId,
         user_instruction: opts.user_instruction || "",
@@ -521,6 +542,9 @@
         })
         .then(function (pack) {
           self.setBusy(false);
+          if (global.AssureSurgicalDiff) {
+            global.AssureSurgicalDiff.setNodeLocked(nodeId, false);
+          }
           if (!pack.ok || !pack.data || pack.data.ok === false) {
             if (pack.data && pack.data.latest_version != null) {
               showConflictModal(self, opts);

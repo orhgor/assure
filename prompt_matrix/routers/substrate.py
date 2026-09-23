@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 import uuid
 from pathlib import Path
 
@@ -26,7 +28,12 @@ try:
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
     from ..services.compile_guard import flag_fields, flag_response
+    from ..services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from ..services.omp_memory import remember_vault_file
+    from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.jdf_repository import ensure_project, fetch_latest_jdf_or_empty
@@ -44,10 +51,24 @@ except ImportError:
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
     from services.compile_guard import flag_fields, flag_response
+    from services.omp import (
+        store_omp_artifact,
+        build_omp_artifact_from_parse,
+    )
     from services.omp_memory import remember_vault_file
+    from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
-TEXTRACT_MAX_PAGES = 50
+# Demo config: 200 pages for staging; production default stays at 50.
+# The client demo shows real documents (policies, filings) that exceed 50.
+TEXTRACT_MAX_PAGES = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
+
+log = logging.getLogger(__name__)
+
+#: A document whose extraction carries no more than this many characters is a scan
+#: with no text layer, not a source. The vault upload and the fetched-PDF path
+#: (``services/web_retrieval``) refuse at the same floor.
+MIN_EXTRACTED_TEXT_CHARS = 10
 
 
 class SubstrateIngestError(ValueError):
@@ -85,23 +106,79 @@ def _substrate_async_enabled() -> bool:
     return os.environ.get("SUBSTRATE_ASYNC_UPLOAD", "").lower() in ("1", "true", "yes")
 
 
-def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
-    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
-    validate_upload_bytes(filename, file_bytes)
+def extract_document_text(filename: str, file_bytes: bytes) -> dict:
+    """Text, tables, forms and page count of a document, by the upload path's own rules.
+
+    Parser *selection* lives in ``services/parser_router.select_parser`` — this
+    function executes the decision it returns: a text-like file wraps its
+    content directly (no binary parsing, no probing), a clean PDF goes through
+    the JDF CI bundle, and a scan (or a JDF failure) falls back best-effort to
+    Docling/Textract — that fallback is execution, not a second router. The
+    fetched-PDF path (``services/web_retrieval``) calls this too, so a PDF
+    fetched from an allowlisted host is read by the same extractor an upload is.
+    """
+    from ..services.parser_router import _TEXT_LIKE_EXTENSIONS, select_parser
 
     use_docling = os.environ.get("USE_DOCLING", "0").lower() in ("1", "true", "yes")
     extracted: dict | None = None
     page_count = 1
+    parser = select_parser(file_bytes, filename)
 
-    if _is_text_upload(filename):
-        # Plain text is already its own extracted form. Textract and Docling
+    def _suffix(filename: str) -> str:
+        return Path(filename).suffix.lower().lstrip(".")
+
+    if parser == "jdf" and (
+        _is_text_upload(filename) or _suffix(filename) in _TEXT_LIKE_EXTENSIONS
+    ):
+        # Text-like file, routed here without any binary probe: the content is
+        # already its own extracted form — wrap it directly (the "caller wraps
+        # text as JDF" branch of the router contract). Textract and Docling
         # only read documents, so skip both rather than fail inside AWS.
         extracted = {
             "text": file_bytes.decode("utf-8", errors="replace"),
             "tables": [],
             "forms": [],
             "page_count": 1,
+            "images": [],
+            "figures": [],
+            "parser_name": None,
+            "source_kind": "text",
+            "parse_confidence": None,
+            "ocr_confidence": None,
+            "table_count": 0,
+            "image_count": 0,
+            "figure_count": 0,
+            "asset_summary": {"tables": 0, "images": 0, "figures": 0},
         }
+    elif parser == "jdf":
+        # JDF CI first — the default PDF parser path. The bundle carries the
+        # text, the structured content (tables/images/figures as distinct
+        # lists) and the parse/OCR confidence the vault row and the OMP
+        # artifact both record. A converter failure falls back best-effort:
+        # log it clearly, then let Docling/Textract take the document if it
+        # can — never a text-only collapse while structured parsing works.
+        from ..services.jdf_converter import JdfConversionError, pdf_to_parse_bundle
+
+        try:
+            bundle = pdf_to_parse_bundle(file_bytes, filename=filename, source_kind="pdf")
+            extracted = {
+                "text": bundle["text"],
+                "tables": bundle["tables"],
+                "images": bundle["images"],
+                "figures": bundle["figures"],
+                "forms": [],
+                "page_count": bundle["page_count"],
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+        except JdfConversionError as exc:
+            log.warning("JDF CI parse failed for %s, falling back: %s", filename, exc)
     elif use_docling:
         try:
             from ..verification.docling_extractor import extract_substrate_bytes
@@ -115,11 +192,23 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
                 if isinstance(t, dict)
             ]
             page_count = max(pages + [1])
+            images = parsed.get("images") or []
+            figures = parsed.get("figures") or []
             extracted = {
                 "text": str(parsed.get("full_text") or "").strip(),
                 "tables": tables,
                 "forms": [],
                 "page_count": page_count,
+                "images": images,
+                "figures": figures,
+                "parser_name": "docling",
+                "source_kind": "pdf",
+                "parse_confidence": parsed.get("parse_confidence"),
+                "ocr_confidence": parsed.get("ocr_confidence"),
+                "table_count": len(tables),
+                "image_count": len(images),
+                "figure_count": len(figures),
+                "asset_summary": parsed.get("asset_summary"),
             }
         except Exception:
             extracted = None
@@ -135,7 +224,50 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
             )
         extracted = client.extract_text(file_bytes, filename)
         page_count = int(extracted.get("page_count") or page_count)
+        # The Textract path has no structured-asset channel yet: empty lists,
+        # unknown confidence — never fabricated scores or asset counts.
+        extracted.setdefault("images", [])
+        extracted.setdefault("figures", [])
+        extracted.setdefault("parser_name", "textract")
+        extracted.setdefault("source_kind", "pdf")
+        extracted.setdefault("parse_confidence", None)
+        extracted.setdefault("ocr_confidence", None)
 
+    tables = extracted.get("tables") or []
+    images = extracted.get("images") or []
+    figures = extracted.get("figures") or []
+    return {
+        **extracted,
+        "page_count": int(extracted.get("page_count") or page_count),
+        "tables": tables,
+        "images": images,
+        "figures": figures,
+        "table_count": (
+            extracted.get("table_count")
+            if extracted.get("table_count") is not None
+            else len(tables)
+        ),
+        "image_count": (
+            extracted.get("image_count")
+            if extracted.get("image_count") is not None
+            else len(images)
+        ),
+        "figure_count": (
+            extracted.get("figure_count")
+            if extracted.get("figure_count") is not None
+            else len(figures)
+        ),
+        "asset_summary": extracted.get("asset_summary")
+        or {"tables": len(tables), "images": len(images), "figures": len(figures)},
+    }
+
+
+def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> dict:
+    """Validate, extract, and persist a vault upload. Raises on validation/extraction errors."""
+    validate_upload_bytes(filename, file_bytes)
+
+    extracted = extract_document_text(filename, file_bytes)
+    page_count = int(extracted.get("page_count") or 1)
     if page_count > TEXTRACT_MAX_PAGES:
         raise SubstrateIngestError(
             f"This document has {page_count} pages. Substrate Vault accepts up to "
@@ -144,7 +276,7 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         )
 
     extracted_text = str(extracted.get("text") or "").strip()
-    if len(extracted_text) <= 10:
+    if len(extracted_text) <= MIN_EXTRACTED_TEXT_CHARS:
         raise SubstrateIngestError(
             "Could not extract enough readable text from this file "
             f"({len(extracted_text)} characters). Upload a clearer scan or "
@@ -157,14 +289,109 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
     entry = upsert_substrate_entry(
         project_id,
         filename=filename,
-        page_count=extracted.get("page_count") or page_count,
+        page_count=page_count,
         extracted_text=extracted_text,
         tables=extracted.get("tables") or [],
         forms=extracted.get("forms") or [],
         file_size_bytes=len(file_bytes),
+        parser_name=extracted.get("parser_name"),
+        source_kind=extracted.get("source_kind"),
+        parse_confidence=extracted.get("parse_confidence"),
+        ocr_confidence=extracted.get("ocr_confidence"),
+        table_count=extracted.get("table_count"),
+        image_count=extracted.get("image_count"),
+        figure_count=extracted.get("figure_count"),
+        asset_summary=extracted.get("asset_summary"),
         **flag,
     )
     remember_vault_file(project_id, str(entry["id"]), filename=filename, text=extracted_text)
+
+    # Shared verification hook: Z3 + Red-Hat run here and only here
+    # (services/verification). The vault ingest has no Assure tree of its
+    # own, so the hook builds one from the extracted text's paragraphs and
+    # attaches its result to the pseudo-bundle. Guarded: the ingest must
+    # not fail on verification.
+    try:
+        paragraphs = [p for p in re.split(r"\n\s*\n", extracted_text) if p.strip()]
+        verification_bundle = {
+            "filename": filename,
+            "page_count": page_count,
+            "text": extracted_text,
+            "chunks": [
+                {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
+                for idx, para in enumerate(paragraphs)
+            ],
+        }
+        verification = run_verification_after_parse(verification_bundle)
+    except Exception:
+        log.exception("post-parse verification failed; storing parse only")
+        verification = None
+
+    # Stage the parsed artifact into OMP immediately after the row write.
+    # Confidence rides through explicitly — the OMP layer attaches it with
+    # is-not-None guards, so a parser-reported 0.0 survives and unknown stays
+    # None. Staging is best-effort, but a failure is never swallowed silently:
+    # it is logged with the exception so an ingest whose artifact never
+    # staged is diagnosable after the fact.
+    omp_artifact_id = None
+    try:
+        substrate_result = {
+            "id": entry["id"],
+            "filename": filename,
+            "page_count": page_count,
+            "text": entry["extracted_text"],
+            "tables": entry["tables"],
+            "images": extracted.get("images") or [],
+            "figures": extracted.get("figures") or [],
+            "forms": entry.get("forms") or [],
+            "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
+            "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+            "parser_name": extracted.get("parser_name"),
+            "source_kind": extracted.get("source_kind"),
+            "table_count": extracted.get("table_count"),
+            "image_count": extracted.get("image_count"),
+            "figure_count": extracted.get("figure_count"),
+            "asset_summary": extracted.get("asset_summary"),
+        }
+        omp_artifact = build_omp_artifact_from_parse(
+            project_id,
+            substrate_result,
+            parse_confidence=extracted.get("parse_confidence"),
+            ocr_confidence=extracted.get("ocr_confidence"),
+            parser_name=extracted.get("parser_name"),
+            source_kind=extracted.get("source_kind"),
+            page_count=page_count,
+            table_count=extracted.get("table_count"),
+            image_count=extracted.get("image_count"),
+            figure_count=extracted.get("figure_count"),
+            asset_summary=extracted.get("asset_summary"),
+            verification=verification,
+        )
+        store_omp_artifact(project_id, omp_artifact)
+        omp_artifact_id = omp_artifact.artifact_id
+        # Link the row to its staged artifact.
+        upsert_substrate_entry(
+            project_id,
+            filename=filename,
+            page_count=page_count,
+            extracted_text=extracted_text,
+            tables=extracted.get("tables") or [],
+            forms=extracted.get("forms") or [],
+            file_size_bytes=len(file_bytes),
+            parser_name=extracted.get("parser_name"),
+            source_kind=extracted.get("source_kind"),
+            parse_confidence=extracted.get("parse_confidence"),
+            ocr_confidence=extracted.get("ocr_confidence"),
+            table_count=extracted.get("table_count"),
+            image_count=extracted.get("image_count"),
+            figure_count=extracted.get("figure_count"),
+            asset_summary=extracted.get("asset_summary"),
+            omp_artifact_id=omp_artifact_id,
+            **flag,
+        )
+    except Exception as exc:
+        log.exception("Substrate ingest: OMP parse artifact staging failed: %s", exc)
+
     return {
         "ok": True,
         "id": entry["id"],
@@ -172,9 +399,19 @@ def ingest_substrate_file(project_id: str, filename: str, file_bytes: bytes) -> 
         "page_count": page_count,
         "text": entry["extracted_text"],
         "tables": entry["tables"],
-        "forms": entry["forms"],
+        "images": extracted.get("images") or [],
+        "figures": extracted.get("figures") or [],
+        "parser_name": extracted.get("parser_name"),
+        "source_kind": extracted.get("source_kind"),
+        "parse_confidence": extracted.get("parse_confidence"),
+        "ocr_confidence": extracted.get("ocr_confidence"),
+        "table_count": extracted.get("table_count"),
+        "image_count": extracted.get("image_count"),
+        "figure_count": extracted.get("figure_count"),
+        "asset_summary": extracted.get("asset_summary"),
         "size_bytes": entry.get("file_size_bytes", len(file_bytes)),
         "is_image": Path(filename).suffix.lower() in IMAGE_EXTENSIONS,
+        "omp_artifact_id": omp_artifact_id,
         **flag_response(flag),
     }
 

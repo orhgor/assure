@@ -11,10 +11,10 @@ htmlcov/
 
 # Local env
 .env
-.env.local
+!.env.local
 .env.*.local
-.env.production
-.env.staging
+!.env.production
+
 .env.staging.bak-*
 .env*
 *.env.bak
@@ -78,3 +78,5 @@ scripts/apply_jobs_copy.py
 CLINE_RULES.md
 test-results/
 test-results/
+
+!.env.staging

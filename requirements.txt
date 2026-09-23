@@ -27,6 +27,14 @@ gevent>=24.2.0
 celery[sqs]>=5.4.0
 sqlalchemy>=2.0.0
 resend>=2.0.0
-# Optional Sprint 2 stack (install on workers that ingest PDFs / run minimizer):
-# docling>=2.0.0
-# groundrails (Python ~=3.12): see requirements-groundrails.txt
+playwright>=1.49.0
+# PDF parse paths. Each is required by a distinct endpoint:
+#   pymupdf  -> services/pdf_import.pdf_bytes_to_jdf   (POST /api/projects/<id>/import-pdf)
+#   jdf CLI  -> services/jdf_converter                 (POST /api/projects/<id>/jdf/ingest)
+# Textract is the substrate fallback and needs AWS credentials, not a package.
+# Docling is NOT here. It is ML inference and pulls a CUDA toolkit unusable on
+# this ARM64 target, and parsing is synchronous on staging today, so there is no
+# worker to host it. Deferred — see docs/deferred-parse-runtime.md, which also
+# records the worker split (requirements-worker.txt) that replaces this note.
+pymupdf>=1.24.0
+Pillow>=10.0

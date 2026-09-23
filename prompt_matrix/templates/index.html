@@ -849,7 +849,12 @@
               <h3 data-i18n="compliance.decision_log.title">{{ gettext('Decision Log') }}</h3>
               <div id="decision-log-timeline" class="decision-log-timeline"></div>
             </aside>
-        </div>
+          </div>
+        </footer>
+        <p class="disclaimer-strip" role="note">
+          <span data-i18n="disclaimer.banner">{{ gettext('Verify before you ship. Human review is required. You own the final check.') }}</span>
+          <a href="/terms{{ q }}" data-i18n="disclaimer.terms">{{ gettext('Read Terms') }}</a>
+        </p>
       </section>
 
       <div id="workspace-confirm-dialog" class="workspace-confirm-dialog" hidden role="dialog" aria-modal="true" aria-labelledby="workspace-confirm-title">
@@ -1300,6 +1305,17 @@
       <button class="btn btn-primary primary" type="button" id="settings-save" data-i18n="settings.save">{{ gettext('Save Keys') }}</button>
     </div>
   </dialog>
+  <div id="disclaimer-gate" class="disclaimer-gate" hidden role="dialog" aria-modal="true" aria-labelledby="disclaimer-title">
+    <div class="disclaimer-gate-backdrop"></div>
+    <div class="disclaimer-gate-panel card">
+      <h2 id="disclaimer-title" data-i18n="disclaimer.title">{{ gettext('Before you compile') }}</h2>
+      <p data-i18n="disclaimer.body">{{ gettext('Assure provides document verification, not legal or professional advice. Human review is mandatory before you rely on any document. You verify before you ship.') }}</p>
+      <div class="disclaimer-gate-actions">
+        <a href="/terms{{ q }}" target="_blank" rel="noopener" data-i18n="disclaimer.terms">{{ gettext('Read Terms') }}</a>
+        <button type="button" class="btn btn-primary" id="disclaimer-ack" data-i18n="disclaimer.ack">{{ gettext('I understand') }}</button>
+      </div>
+    </div>
+  </div>
   <div id="tab-lockout-modal" class="tab-lockout-modal" hidden role="dialog" aria-modal="true" aria-labelledby="tab-lockout-title">
     <div class="tab-lockout-backdrop"></div>
     <div class="tab-lockout-panel card">
@@ -1367,6 +1383,7 @@
   <script src="{{ url_for('static', filename='workbench_clarity.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_stepper.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_micro_clarity.js') }}?v={{ js_version|default('assure-21') }}"></script>
+  <script src="{{ url_for('static', filename='surgical_diff.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='surgical_click.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='app_nav.js') }}?v={{ js_version|default('assure-21') }}"></script>
   <script src="{{ url_for('static', filename='workbench_context.js') }}?v={{ js_version|default('assure-21') }}"></script>

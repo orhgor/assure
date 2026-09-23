@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% set is_signup = auth_mode == 'signup' %}
 {% block title %}{% if is_signup %}{{ gettext('Sign up') }}{% else %}{{ gettext('Sign in') }}{% endif %} · {{ gettext('Assure') }}{% endblock %}
+{% block extra_head %}
+  {# The page is a shell document: shell.css is where the shell's tokens and
+     base type live, and the shell's own server (prototype/dev-server.py) is
+     what serves it — from its static root, at this path. #}
+  <link rel="stylesheet" href="/shell.css">
+{% endblock %}
 {% block body %}
   <div class="page">
     <div class="page-hero">
@@ -46,6 +52,30 @@
       var cfg = window.ASSURE_CLERK || {};
       var mount = document.getElementById("clerk-mount");
       var status = document.getElementById("auth-status");
+      // Assure design system, applied through Clerk's supported appearance
+      // API: trust-blue primary, green success, Inter, app text colors, the
+      // shell's 4px card radius. Clerk's own oversized default logo box is
+      // hidden — the page header already carries the Assure brand mark at
+      // app scale, so the widget no longer renders a huge generic logo.
+      var APPEARANCE = {
+        variables: {
+          fontFamily:
+            "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          colorPrimary: "#1A4B8C",
+          colorSuccess: "#2E7D32",
+          colorDanger: "#dc2626",
+          colorBackground: "#ffffff",
+          colorText: "#111827",
+          colorTextSecondary: "#6b7280",
+          colorInputBackground: "#ffffff",
+          colorAlphaShading: "rgba(17, 24, 39, 0.08)",
+          borderRadius: "4px"
+        },
+        elements: {
+          logoBox: { display: "none" },
+          footer: { display: "none" }
+        }
+      };
       function setErr(msg) { if (status) status.textContent = msg || ""; }
       function goNext() {
         var n = cfg.next || "/";
@@ -72,7 +102,7 @@
       var clerk = window.Clerk;
       clerk.load().then(function () {
         if (clerk.session) { syncThenGo(clerk); return; }
-        var opts = { afterSignInUrl: window.location.href, afterSignUpUrl: window.location.href };
+        var opts = { afterSignInUrl: window.location.href, afterSignUpUrl: window.location.href, appearance: APPEARANCE };
         if (cfg.mode === "signup") clerk.mountSignUp(mount, opts);
         else clerk.mountSignIn(mount, opts);
         clerk.addListener(function (e) {

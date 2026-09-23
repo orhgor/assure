@@ -1,29 +1,59 @@
 # Assure — Webpage & marketing (master reference)
 
 **Last updated:** 2026-09-10
-**Live marketing:** https://getassureai.com (R2 + Cloudflare Worker)
+**Live marketing:** https://getassureai.com (R2 + Cloudflare Worker `assure-marketing-proxy`)
 **Live workbench:** https://app.getassureai.com/app (EC2 via Tunnel)
-**Production `/health`:** `f4e2d20`, UI workbench `assure-127`
+**Production `/health` (app, not R2):** `f4e2d20`, UI workbench `assure-127`
 **Staging `/health`:** UI `assure-140`, `stack: free` (Gemini 3.6 Flash + DeepSeek)
+**Live marketing cache:** `landing.css?v=60` / `landing-pilot.js?v=45` (verified curl 2026-09-09)
 
 This document inventories **every public webpage surface** — live routes, templates, static export, copy sources, APIs, analytics, and deploy paths. It is the webpage counterpart to [assure-ai-all-functions.md](./assure-ai-all-functions.md) (workbench).
 
 ---
 
+## Final status — 2026-09-09
+
+**Verdict:** Marketing homepage and locale homes are **live on production R2**. Workbench is unchanged by this pass.
+
+| Item | Status |
+|------|--------|
+| Apex marketing | **Live** — `GET /` returns HTML with `landing.css?v=60`, two-line hero, new subtitle, 2×2 trust cards |
+| Locales | **Live** — `/es/` `/zh/` `/fr/` `/de/` `/ja/` `/tr/` (200) |
+| Inner pages | **Live** — `/privacy` `/architecture` `/pricing` `/terms` `/about` (200); 52 R2 objects uploaded |
+| Worker | **Deployed** — `assure-marketing-proxy` on `getassureai.com` routes |
+| Source git | `c834afb` on `feat/marketing-ui-polish` — [PR #33](https://github.com/orhgor/assure/pull/33) into `main` |
+| Workbench | **Not this ship** — EC2 `/health` `f4e2d20` / `assure-127` |
+| Staging EC2 | **502** (`https://staging.getassureai.com/`) |
+
+**UI polish that shipped (Stack A → R2):**
+
+- Trust cards: `grid-template-columns: repeat(2, 1fr)` (2×2; 1-col under 800px), `.trust-card` 32px padding, 8px radius, hover shadow
+- Hero H1: `.hero-title` two `.text-line` rows, `line-height: 1.1`, desktop `white-space: nowrap` on each line
+- Hero sub: `max-width: 640px`, `line-height: 1.6`; English *Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents.* (all 7 locales)
+- Why Now body: left-aligned, `max-width: 680px`
+- Hero CTAs: matched `280px` width
+- Pricing: both cards `48px` price type, `40px 32px` padding, `min-height: 420px`
+- Footer: `#f8fafc`, `border-top`, `padding: 64px 0`, `margin-top: 64px`
+
+**CDN:** Worker `cache-control: public, max-age=300` — hard-refresh if an old subtitle is still visible.
+
+---
+
 ## Table of contents
 
-1. [Production architecture — read this first](#1-production-architecture--read-this-first)
-2. [Marketing pages (source + live)](#2-marketing-pages-source--live)
-3. [Landing copy & i18n keys](#3-landing-copy--i18n-keys)
-4. [Enterprise privacy policy](#4-enterprise-privacy-policy)
-5. [Static site draft (`landing/`)](#5-static-site-draft-landing)
-6. [Interactive features & APIs](#6-interactive-features--apis)
-7. [Assets, fonts & cache busting](#7-assets-fonts--cache-busting)
-8. [Analytics & error tracking](#8-analytics--error-tracking)
-9. [Deploy, DNS & routing](#9-deploy-dns--routing)
-10. [Copy rules & companion docs](#10-copy-rules--companion-docs)
-11. [Change checklist](#11-change-checklist)
-12. [Related documents](#12-related-documents)
+1. [Final status — 2026-09-09](#final-status--2026-09-09)
+2. [Production architecture — read this first](#1-production-architecture--read-this-first)
+3. [Marketing pages (source + live)](#2-marketing-pages-source--live)
+4. [Landing copy & i18n keys](#3-landing-copy--i18n-keys)
+5. [Enterprise privacy policy](#4-enterprise-privacy-policy)
+6. [Static site draft (`landing/`)](#5-static-site-draft-landing)
+7. [Interactive features & APIs](#6-interactive-features--apis)
+8. [Assets, fonts & cache busting](#7-assets-fonts--cache-busting)
+9. [Analytics & error tracking](#8-analytics--error-tracking)
+10. [Deploy, DNS & routing](#9-deploy-dns--routing)
+11. [Copy rules & companion docs](#10-copy-rules--companion-docs)
+12. [Change checklist](#11-change-checklist)
+13. [Related documents](#12-related-documents)
 
 ---
 
@@ -104,15 +134,15 @@ Flask still registers the same routes for local/staging render; production apex 
 **Anchors on `/`:** `#proof`, `#why-now`, `#trust`, `#pricing`
 **Header nav:** Proof · Why now · Trust · Privacy · Language · Launch App (`includes/landing_header.html`)
 
-### 2.3 Home page sections (`landing.html`) — 2026-09-09
+### 2.3 Home page sections (`landing.html`) — 2026-09-09 evening
 
 | Section ID | Content |
 |------------|---------|
-| Hero | H1 *Draft at the speed of AI. Verify with mathematical certainty.* · sub *Plausible AI is a liability. Assure reduces the risk.* · CTAs (Request Enterprise Pilot · Run a 60-Second Red-Hat Audit). **No kicker or badge in hero** (decluttered Sep 9). |
+| Hero | H1 two lines (*Draft at the speed of AI.* / *Verify with mathematical certainty.*) · sub *Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents.* · CTAs (Request Enterprise Pilot · Run a 60-Second Red-Hat Audit), matched 280px. **No kicker or badge in hero.** |
 | `#proof` | Role tabs: Coverage Counsel & Litigators · Public Adjusters & Risk Managers · Compliance Officers |
-| `#why-now` | *Plausibility is a liability. Certainty is a competitive advantage.* + body (includes export-verification line) |
-| `#trust` | Trust badge *Enterprise ready · Bring your own keys · 7 languages* + four cards (Orchestration Engine, Mathematical Logic Engine, Adversarial Audit, Audit-Ready Export) |
-| `#pricing` | Free ($0) vs Enterprise Pilot |
+| `#why-now` | *Plausibility is a liability. Certainty is a competitive advantage.* + left-aligned body (max 680px) |
+| `#trust` | Trust badge *Enterprise ready · Bring your own keys · 7 languages* + **2×2** cards (Orchestration Engine, Mathematical Logic Engine, Adversarial Audit, Audit-Ready Export) |
+| `#pricing` | Free ($0) vs Enterprise Pilot — equal 48px price type, shared padding / min-height |
 | Modal `#download-modal` | Pilot form → `POST https://app.getassureai.com/api/waitlist` |
 
 ### 2.4 Brand defaults (English source)
@@ -174,7 +204,7 @@ Architecture page uses `brand.architecture_title` and `arch.*` keys.
 
 - Do **not** claim *court-defensible*, *zero retention*, or *data never leaves your machine* on marketing.
 - Hero certainty framing: *mathematical certainty*, *deterministically grounded*.
-- Risk framing: *reduces the risk* — not absolute guarantees.
+- Risk framing: verify-before-export (clause / citation / figure) — not absolute guarantees. Do not restore *reduces the risk* as the hero sub.
 - Closed-mode tooltip (`privacy.chip.tip.closed`): server-processing disclosure when workbench is redeployed.
 
 ---
@@ -294,8 +324,8 @@ Not served on production apex for most paths (verified 2026-09-08: `/guide` → 
 
 | Asset | Path | Version (`ui_cache.py`) |
 |-------|------|-------------------------|
-| Landing CSS | `prompt_matrix/static/landing.css` | `LANDING_CSS = "58"` |
-| Pilot modal JS | `prompt_matrix/static/landing-pilot.js` | `LANDING_JS = "44"` |
+| Landing CSS | `prompt_matrix/static/landing.css` | `LANDING_CSS = "60"` |
+| Pilot modal JS | `prompt_matrix/static/landing-pilot.js` | `LANDING_JS = "45"` |
 | i18n switcher | `prompt_matrix/static/landing-i18n.js` | same bump as `LANDING_JS` |
 | Demo (if embedded) | `prompt_matrix/static/landing-demo.js` | bump with landing JS |
 
@@ -307,7 +337,7 @@ Not served on production apex for most paths (verified 2026-09-08: `/guide` → 
 
 | Asset | Version |
 |-------|---------|
-| `style.css` / `script.js` | `assure-124` |
+| `style.css` / `script.js` | `assure-127` (from production `/health`, not R2) |
 
 ### 7.3 Static draft (Stack B)
 
@@ -327,7 +357,7 @@ Not served on production apex for most paths (verified 2026-09-08: `/guide` → 
 | **Google Analytics 4** | Static `landing/*.html` only | `G-54F5NE9Y0P`; consent default **denied** until updated |
 | **Sentry (browser)** | Live marketing when `SENTRY_BROWSER_DSN` set | Injected via `includes/sentry.html` |
 
-Workbench uses separate UI cache (`assure-124`) — not covered here.
+Workbench uses separate UI cache (`assure-127` on production `/health`) — not covered here.
 
 ---
 
@@ -398,6 +428,7 @@ See `landing/objections.md` for approved answers (ChatGPT comparison, wrapper, P
 | `docs/audits/2026-09-09-landing-final-jobs-copy.md` | Final Jobs-style copy pass |
 | `docs/audits/2026-09-09-landing-orphan-audit.md` | Orphan word fixes (390 viewport partial) |
 | `docs/audits/2026-09-09-marketing-i18n-mixed-wording.md` | Locale trust title + plans.lead EN fallbacks fixed |
+| This file — Final status 2026-09-09 evening | UI polish live: 2×2 trust grid, hero type, CTA/pricing/footer; R2 + Worker |
 | `docs/runbooks/staging-launch-execution.md` | Phase 1–3 when staging EC2 is back |
 
 Full viewport audit (390 · 768 · 1080 · 1440) per [WEBPAGE_AUDIT_STANDARD.md](./WEBPAGE_AUDIT_STANDARD.md) — **deferred**.
@@ -439,8 +470,9 @@ Before claiming webpage work done:
 | Item | Stack A (live, R2) | Stack B (static `landing/`) |
 |------|--------------------|----------------------------|
 | Hero headline | Draft at the speed of AI. Verify with mathematical certainty. | Never Send an Unverified AI Draft… |
-| Hero sub | Plausible AI is a liability. Assure reduces the risk. | BYOK / zero retention badges in hero |
+| Hero sub | Plausible AI is a liability. Before you export, Assure verifies every clause, every citation, and every financial figure against your source documents. | BYOK / zero retention badges in hero |
 | Trust badge | Enterprise ready · BYOK · 7 languages (in `#trust`) | In hero |
+| Trust cards | 2×2 grid (`.trust-arch-grid-four`) | Persona / simulator layout |
 | Primary CTA | Request Enterprise Pilot | Launch Free Workbench |
 | `/privacy` | Enterprise 12-section policy (`landing_privacy.html`) | Legacy static `privacy.html` |
 | `/guide` | **404** | `guide.html` exists |

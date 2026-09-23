@@ -1,8 +1,8 @@
 services:
   assure-celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # The worker carries the ML parse stack (Docling); the app image does not.
+    # See Dockerfile.worker for why they are separate images.
+    image: ${WORKER_IMAGE:?missing WORKER_IMAGE}
     command: >
       sh -c "exec celery -A prompt_matrix.celery_app:celery_app worker
       --loglevel=info

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+import re
 import time
 import uuid
 from typing import Any
 
 from flask import jsonify, request
 from pydantic import BaseModel, ConfigDict
+
+log = logging.getLogger(__name__)
 
 try:
     from ..db.drafts_repository import upsert_draft
@@ -33,8 +37,12 @@ try:
         parse_document,
         splice_node,
     )
+    from ..services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from ..services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
+    from ..services.parser_router import select_parser
     from ..services.pdf_import import pdf_bytes_to_jdf
+    from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
     from db.drafts_repository import upsert_draft
@@ -60,8 +68,12 @@ except ImportError:
         parse_document,
         splice_node,
     )
+    from services.jdf_converter import jdf_to_document_tree, pdf_to_parse_bundle
     from services.jdf_sidecar import audit_jdf_payload, sidecar_document
+    from services.omp import build_omp_artifact_from_parse, store_omp_artifact
+    from services.parser_router import select_parser
     from services.pdf_import import pdf_bytes_to_jdf
+    from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
 
@@ -176,6 +188,51 @@ def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
                     if page not in (None, ""):
                         row["page_number"] = str(page)
     return document
+def _textract_parse_bundle(file_bytes: bytes, filename: str) -> dict[str, Any]:
+    """Parse-bundle shape for the router's "textract" decision.
+
+    The router decided this document is a scan (no text layer), so Textract
+    reads it. The result is shaped exactly like a ``pdf_to_parse_bundle`` so
+    the route's downstream tree-building and OMP staging need no second code
+    path: chunks carry one paragraph each so ``jdf_to_document_tree`` renders
+    the text as real body paragraphs. Parse/OCR confidence is None — Textract
+    reports no confidence figure we trust, and None is the honest unknown.
+    """
+    try:
+        from ..lib.textract import TextractClient
+    except ImportError:  # pragma: no cover - flat-import fallback
+        from lib.textract import TextractClient
+
+    extracted = TextractClient().extract_text(file_bytes, filename)
+    text = str(extracted.get("text") or "").strip()
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    chunks = [
+        {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
+        for idx, para in enumerate(paragraphs)
+    ]
+    page_count = int(extracted.get("page_count") or 1)
+    return {
+        "jdf": {"$jdf": "1.0", "meta": {}, "pages": [{} for _ in range(page_count)]},
+        "chunks": chunks,
+        "text": text,
+        "page_count": page_count,
+        "parser_name": "textract",
+        "source_kind": "pdf",
+        "parse_confidence": None,
+        "ocr_confidence": None,
+        "tables": extracted.get("tables") or [],
+        "images": [],
+        "figures": [],
+        "table_count": len(extracted.get("tables") or []),
+        "image_count": 0,
+        "figure_count": 0,
+        "asset_summary": {
+            "tables": len(extracted.get("tables") or []),
+            "images": 0,
+            "figures": 0,
+        },
+        "filename": filename,
+    }
 
 
 def register_jdf_routes(app) -> None:
@@ -222,6 +279,7 @@ def register_jdf_routes(app) -> None:
     @project_ownership_required
     def get_project_jdf(project_id: str):
         version_raw = request.args.get("version")
+        include_omp = request.args.get("include_omp", "false").lower() in ("1", "true", "yes")
         if version_raw is not None:
             try:
                 version = int(version_raw)
@@ -230,6 +288,9 @@ def register_jdf_routes(app) -> None:
             doc = fetch_jdf_at_version(project_id, version)
             if doc is None:
                 return jsonify({"error": f"version {version} not found"}), 404
+            if include_omp:
+                omp_artifact_ids = get_omp_linkages_for_revision(f"rev-{project_id}-{version}")
+                doc["ompArtifactIds"] = omp_artifact_ids
             return jsonify(
                 {"ok": True, "document": _serve_citation_rows(doc), "version": version}
             )
@@ -237,7 +298,21 @@ def register_jdf_routes(app) -> None:
         doc = fetch_latest_jdf_or_empty(project_id)
         if not doc.get("body"):
             doc.setdefault("meta", {})["title"] = doc.get("meta", {}).get("title") or project_id
+        if include_omp:
+            doc["ompArtifactIds"] = doc.get("ompArtifactIds") or doc.get("meta", {}).get("ompArtifactIds") or []
         return jsonify({"ok": True, "document": _serve_citation_rows(doc)})
+
+    @app.get("/api/projects/<project_id>/omp")
+    @project_ownership_required
+    def get_project_omp(project_id: str):
+        from ..services.omp import list_omp_artifacts
+        artifact_type = request.args.get("type")
+        omp_artifacts = list_omp_artifacts(project_id, artifact_type=artifact_type)
+        return jsonify({
+            "ok": True,
+            "artifacts": [a.to_dict() for a in omp_artifacts],
+            "count": len(omp_artifacts),
+        })
 
     @app.put("/api/projects/<project_id>/jdf")
     @project_ownership_required
@@ -287,6 +362,18 @@ def register_jdf_routes(app) -> None:
                     change_summary=payload.change_summary,
                     expected_version=expected,
                 )
+
+                # Save OMP linkages if present in JDF meta
+                meta = tree.get("meta", {})
+                omp_artifact_ids = meta.get("ompArtifactIds") or []
+                source_artifact_ids = meta.get("sourceArtifactIds") or []
+                all_omp_ids = list(set(omp_artifact_ids + source_artifact_ids))
+                if all_omp_ids:
+                    try:
+                        save_omp_linkage(project_id, result.get("revision_id", ""), all_omp_ids)
+                    except Exception:
+                        pass
+
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,
@@ -421,6 +508,52 @@ def register_jdf_routes(app) -> None:
         except UploadRejectedError as exc:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
         try:
+            # Parser *selection* is the router's call (services/parser_router):
+            # JDF CI for a text-layer PDF, Textract for a scan. This route then
+            # executes the decision — the JdfConversionError fallback below is
+            # execution, not a second router.
+            _parser = select_parser(file_bytes, filename=upload.filename.strip())
+            if _parser == "textract":
+                bundle = _textract_parse_bundle(file_bytes, upload.filename.strip())
+            else:
+                # JDF CI is the default PDF parser: the bundle carries the JDF
+                # document, its chunks, structured content (tables/images/
+                # figures) and parse/OCR confidence — everything a route needs
+                # to both save the tree and stage the parse artifact into OMP.
+                bundle = pdf_to_parse_bundle(
+                    file_bytes,
+                    strategy="section",
+                    filename=upload.filename.strip(),
+                    source_kind="pdf",
+                )
+            parse_meta = {
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "page_count": bundle["page_count"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+            tree = jdf_to_document_tree(
+                bundle["jdf"],
+                bundle["chunks"],
+                document_id=f"doc-{project_id}",
+                title=upload.filename.strip(),
+                parse_meta=parse_meta,
+            )
+        except Exception as jdf_exc:
+            # JDF CI is the default, but the PyMuPDF importer is a best-effort
+            # fallback that still preserves structure (text + images per
+            # page) — a missing jdf-cli binary must not kill an import that
+            # can be parsed another way.
+            log.warning(
+                "JDF CI parse failed for %s, falling back to PyMuPDF: %s",
+                upload.filename,
+                jdf_exc,
+            )
             tree = sanitize_jdf_node(
                 pdf_bytes_to_jdf(
                     file_bytes,
@@ -428,7 +561,48 @@ def register_jdf_routes(app) -> None:
                     filename=upload.filename.strip(),
                 )
             )
+            images = [
+                {
+                    "id": child.get("id"),
+                    "src": child.get("src"),
+                    "caption": child.get("caption") or child.get("alt") or "",
+                    "page": (child.get("meta") or {}).get("page"),
+                }
+                for section in tree.get("body") or []
+                for child in section.get("children") or []
+                if child.get("type") == "image"
+            ]
+            bundle = {
+                "jdf": tree,
+                "chunks": [],
+                "text": "",
+                "page_count": len(tree.get("body") or []) or 1,
+                "parser_name": "pymupdf",
+                "source_kind": "pdf",
+                "parse_confidence": None,
+                "ocr_confidence": None,
+                "tables": [],
+                "images": images,
+                "figures": [],
+                "table_count": 0,
+                "image_count": len(images),
+                "figure_count": 0,
+                "asset_summary": {"tables": 0, "images": len(images), "figures": 0},
+            }
+        try:
+            tree = sanitize_jdf_node(tree)
             parse_document(tree)
+            # Shared verification hook: Z3 + Red-Hat run here and only here
+            # (services/verification). The tree already carries the hook's
+            # result in meta["z3"], and the result rides to the OMP artifact.
+            # The hook never raises by contract, but a revision must not fail
+            # on verification — so the call is guarded regardless.
+            bundle["jdf"] = tree
+            try:
+                verification = run_verification_after_parse(bundle)
+            except Exception:
+                log.exception("post-parse verification failed; storing parse only")
+                verification = None
             result = save_jdf_revision(
                 project_id,
                 tree,
@@ -445,6 +619,44 @@ def register_jdf_routes(app) -> None:
                 duration_ms=duration_ms,
             )
             return jsonify({"ok": False, "error": str(exc)}), 400
+        # Stage the parsed payload into OMP immediately after the revision is
+        # saved. Best-effort: the revision above is the durable record, so a
+        # staging failure is logged clearly but must not fail the import.
+        omp_artifact_id = None
+        try:
+            substrate_result = {
+                "id": result.get("document_id") or f"doc-{project_id}",
+                "filename": upload.filename.strip(),
+                "page_count": bundle["page_count"],
+                "text": bundle["text"],
+                "tables": bundle["tables"],
+                "images": bundle["images"],
+                "figures": bundle["figures"],
+                "size_bytes": len(file_bytes),
+                "is_image": False,
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+            omp_artifact = build_omp_artifact_from_parse(
+                project_id,
+                substrate_result,
+                parse_confidence=bundle["parse_confidence"],
+                ocr_confidence=bundle["ocr_confidence"],
+                parser_name=bundle["parser_name"],
+                source_kind=bundle["source_kind"],
+                page_count=bundle["page_count"],
+                table_count=bundle["table_count"],
+                image_count=bundle["image_count"],
+                figure_count=bundle["figure_count"],
+                asset_summary=bundle["asset_summary"],
+                verification=verification,
+            )
+            store_omp_artifact(project_id, omp_artifact)
+            omp_artifact_id = omp_artifact.artifact_id
+        except Exception:
+            log.exception("PDF import: OMP parse artifact staging failed")
         duration_ms = int((time.perf_counter() - start_time) * 1000)
         audit.log_audit(
             request_id,
@@ -452,9 +664,28 @@ def register_jdf_routes(app) -> None:
             "PDF_IMPORT",
             success=True,
             duration_ms=duration_ms,
-            details={"filename": upload.filename, "version": result.get("version")},
+            details={
+                "filename": upload.filename,
+                "version": result.get("version"),
+                "parser_name": bundle["parser_name"],
+                "page_count": bundle["page_count"],
+            },
         )
-        return jsonify(result)
+        return jsonify(
+            {
+                **result,
+                "ok": True,
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "page_count": bundle["page_count"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "omp_artifact_id": omp_artifact_id,
+            }
+        )
 
     @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
     @project_ownership_required

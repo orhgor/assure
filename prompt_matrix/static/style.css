@@ -649,6 +649,80 @@ header.site-header {
 .auth-card {
   max-width: none;
 }
+
+.signin-body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+}
+
+.signin-header {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.signin-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.signin-brand-mark {
+  flex-shrink: 0;
+}
+
+.signin-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-8) var(--space-6);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.signin-card h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.signin-card .lede {
+  margin: 0 0 var(--space-6);
+  color: var(--muted);
+  font-size: var(--font-size-base);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.signin-card .auth-card {
+  max-width: none;
+}
+
+.signin-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.signin-copyright {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--muted);
+}
+
 #clerk-mount {
   min-height: 120px;
 }
@@ -2427,6 +2501,118 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
   min-height: 100%;
 }
 
+/* Document-level parse/asset-quality badge (jdf_canvas.js
+   _renderQualityBadge). Separate from the provenance confidence bars on
+   purpose: parse quality is a parse signal, provenance bars are verification
+   signals, and the two must not be merged in the UI. Colors come from the
+   approved design-token palette (tests/quality_check/test_design_tokens.py).
+*/
+.jdf-parse-quality-badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 var(--space-md) var(--space-md);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  color: var(--text-secondary, #475569);
+  background: var(--surface-muted, #f9fafb);
+  border: 1px solid var(--border-muted, #e5e7eb);
+  vertical-align: middle;
+  max-width: 100%;
+}
+
+.jdf-parse-quality-badge__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  color: var(--text-tertiary, #64748b);
+}
+
+.jdf-parse-quality-badge__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.jdf-parse-quality-badge__notes {
+  color: #f59e0b;
+}
+
+.jdf-parse-quality-badge--warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.quality-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--surface-muted, #f1f5f9);
+  border: 1px solid var(--border-muted, #e5e7eb);
+  color: var(--text-secondary, #475569);
+}
+
+.quality-chip--good {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.quality-chip--warn {
+  color: #f59e0b;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.quality-chip--danger {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.quality-chip--muted {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e5e7eb;
+}
+
+.quality-chip--state-pass {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.quality-chip--state-review {
+  color: #f59e0b;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.quality-chip--state-blocked {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.confidence-line__lead {
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary, #64748b);
+}
+
 .jdf-tiptap-doc h2.jdf-doc-title,
 .jdf-tiptap-doc h2 {
   font-size: 1.6rem;
@@ -2653,6 +2839,78 @@ body.founder-workbench:not(.legacy-workbench) #panel-draft[hidden] {
 
 .onboarding-callout .btn-primary {
   min-height: 36px;
+}
+
+.disclaimer-strip {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted, #64748b);
+  background: var(--color-surface);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+}
+
+.disclaimer-strip a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.disclaimer-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.disclaimer-gate[hidden] {
+  display: none;
+}
+
+.disclaimer-gate-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.disclaimer-gate-panel {
+  position: relative;
+  z-index: 1;
+  max-width: 28rem;
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+}
+
+.disclaimer-gate-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.disclaimer-gate-panel p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.disclaimer-gate-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+body.disclaimer-gate-open {
+  overflow: hidden;
 }
 
 body.onboarding-active .sidebar-backdrop {
@@ -5218,6 +5476,10 @@ input.auto-resize {
   line-height: 1.45;
 }
 .confidence-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   margin: var(--space-2) 0;
   font-size: var(--font-size-sm);
   color: var(--dark-gray);
@@ -9431,6 +9693,175 @@ body:not(.founder-workbench) .founder-only-export {
   background: #dc2626;
 }
 
+/* Evidence Verdict Badges */
+.evidence-inspector-verdict__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #64748b;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-supported {
+  background: #059669;
+}
+
+.evidence-inspector-verdict__badge.is-partial {
+  background: #d97706;
+}
+
+.evidence-inspector-verdict__badge.is-not_supported {
+  background: #64748b;
+}
+
+.evidence-inspector-verdict__badge.is-contradicted {
+  background: #dc2626;
+}
+
+.evidence-inspector-verdict__badge.is-unanchored {
+  background: #6b7280;
+}
+
+.evidence-inspector-verdict__badge.is-unverified {
+  background: #64748b;
+}
+
+.evidence-inspector-verdict__reason {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
+/* Evidence Inspector Verdict Section */
+.evidence-inspector-verdict {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.evidence-inspector-verdict__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.evidence-inspector-verdict__badge.is-supported {
+  background: #059669;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-partial {
+  background: #d97706;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-not_supported {
+  background: #64748b;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-contradicted {
+  background: #dc2626;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-unanchored {
+  background: #6b7280;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-unverified {
+  background: #64748b;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__reason {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
+/* Origin Meta Verdict Badge */
+.evidence-inspector-origin__meta .evidence-inspector-verdict__badge {
+  margin-left: 8px;
+}
+
+/* Origin Excerpt */
+.evidence-inspector-origin__excerpt {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--card-bg, #f8fafc);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #111827);
+}
+
+/* Verdict Section */
+.evidence-inspector-verdict {
+  margin-top: 16px;
+}
+
+.evidence-inspector-verdict__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.evidence-inspector-verdict__badge.is-supported {
+  background: #059669;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-partial {
+  background: #d97706;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-not_supported {
+  background: #64748b;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-contradicted {
+  background: #dc2626;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-unanchored {
+  background: #6b7280;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__badge.is-unverified {
+  background: #64748b;
+  color: #fff;
+}
+
+.evidence-inspector-verdict__reason {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
 .evidence-inspector-proof__log {
   margin: 0;
   padding: 14px 16px;
@@ -10963,4 +11394,189 @@ body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
   border-radius: 4px;
   letter-spacing: 0.05em;
   pointer-events: none;
+}
+/* Evidence Inspector Verdict Badges */
+.evidence-inspector-verdict {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.evidence-inspector-verdict__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.evidence-inspector-verdict__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.evidence-inspector-verdict__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--border-radius-full);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.evidence-inspector-verdict__badge.is-supported {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.evidence-inspector-verdict__badge.is-partial {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.evidence-inspector-verdict__badge.is-not_supported {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.evidence-inspector-verdict__badge.is-contradicted {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.evidence-inspector-verdict__badge.is-unanchored {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.evidence-inspector-verdict__badge.is-unverified {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.evidence-inspector-verdict__reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-top: var(--space-2);
+}
+
+/* Verdict badge in origin meta (top right of source card) */
+.evidence-inspector-origin__meta .evidence-inspector-verdict__badge {
+  margin-left: var(--space-2);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+}
+
+/* ── Surgical revision proposal ──────────────────────────────────────────────
+   The refine proposal renders a computed diff rather than swapping text, and
+   three properties below are load-bearing rather than cosmetic.
+
+   `white-space: pre-wrap` — <ins> and <del> are inline elements, and HTML
+   collapses whitespace between inline siblings. A one-word substitution then
+   renders as "patientshows" with no visible gap where the space was.
+
+   `padding: 0.1em 0` on the changed spans — vertical padding on an inline
+   element forces its line box taller, so toggling the diff view shifts every
+   line below it.
+
+   `:empty::after { content: "\00a0" }` — a diff that is only a deleted space
+   produces an empty element, which paints nothing at all and makes a structural
+   edit invisible.
+
+   Colour is not the only channel: deletions carry a 2px strikethrough and
+   insertions a heavier weight, so the two states stay distinguishable under
+   red-green colour blindness.
+
+   The palette reuses the existing diff tokens (.diff-del / .diff-ins, defined
+   above) so the reviewer sees one diff idiom in this product, not two.
+   ------------------------------------------------------------------------- */
+.surgical-diff-viewer {
+  font-family: inherit;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  margin-top: var(--space-sm);
+}
+
+.surgical-diff-del,
+.surgical-diff-ins {
+  padding: 0.1em 0;
+  margin: 0 0.05em;
+  border-radius: var(--radius-sm);
+}
+
+.surgical-diff-del {
+  text-decoration-thickness: 2px;
+  opacity: 0.85;
+}
+
+.surgical-diff-ins {
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.surgical-diff-del:empty::after,
+.surgical-diff-ins:empty::after {
+  content: "\00a0";
+}
+
+.surgical-diff-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+.surgical-verify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+.surgical-verify.is-pass {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.surgical-verify.is-fail {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.surgical-verify.is-error {
+  background: var(--color-surface-muted, var(--color-surface));
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.surgical-verify__icon {
+  font-weight: 700;
+}
+.surgical-verify__detail {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  font-weight: 400;
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+}
+
+/* The target node is held still while its proposal is in flight: the call takes
+   seconds, and a keystroke landing in that window is overwritten by the reply. */
+[data-node-id].is-surgical-pending {
+  pointer-events: none;
+  opacity: 0.6;
 }

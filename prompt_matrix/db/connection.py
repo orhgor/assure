@@ -48,7 +48,32 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 25
+_SCHEMA_VERSION = 26
+
+
+def _migrate_v26(db: sqlite3.Connection) -> None:
+    """Substrate Vault: parse metadata + OMP artifact linkage per row.
+
+    JDF CI is the default PDF parser and every parse carries structured
+    content and confidence. Persisting parser_name/source_kind/counts/asset
+    summary and the staged OMP artifact id on the row means a re-read of the
+    vault shows how a document was parsed and where its OMP artifact lives,
+    instead of losing all of that the moment ingest returns. parse/OCR
+    confidence are REALs or NULL — NULL is the honest unknown, never 0.
+    """
+    for column, ddl in (
+        ("parser_name", "TEXT"),
+        ("source_kind", "TEXT"),
+        ("parse_confidence", "REAL"),
+        ("ocr_confidence", "REAL"),
+        ("table_count", "INTEGER"),
+        ("image_count", "INTEGER"),
+        ("figure_count", "INTEGER"),
+        ("asset_summary", "TEXT NOT NULL DEFAULT '{}'"),
+        ("omp_artifact_id", "TEXT"),
+    ):
+        if not _column_exists(db, "substrate_vault", column):
+            db.execute(f"ALTER TABLE substrate_vault ADD COLUMN {column} {ddl}")
 
 
 def _migrate_v25(db: sqlite3.Connection) -> None:
@@ -1009,6 +1034,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v24(db)
     if current < 25:
         _migrate_v25(db)
+    if current < 26:
+        _migrate_v26(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

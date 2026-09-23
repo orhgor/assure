@@ -135,9 +135,42 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
                 "locks": [],
                 "node_count": 1,
                 "lock_count": 0,
-                "draft_text": "cached draft",
+                # The replay runs the same grounding gate a cold compile runs,
+                # so the cached draft must be a draft the source actually
+                # carries: it opens on a token from the source sentence and
+                # its one claim-eligible paragraph anchors to a quote from it.
+                "draft_text": "Limit 5,000,000 is carried by the policy for the term.",
             },
-            "verified": {"z3_status": "PASS", "redhat_count": 0, "gate_status": "pass"},
+            "verified": {
+                "z3_status": "PASS",
+                "redhat_count": 0,
+                "gate_status": "pass",
+                # The replay recount (_recount_cached_verified) reads the
+                # document from the verified payload and recounts the
+                # provenance layer from it — a fixture without an anchored
+                # paragraph would be refused as zero_anchored_claims.
+                "document": {
+                    "document_id": "doc-x",
+                    "meta": {},
+                    "body": [
+                        {
+                            "type": "section",
+                            "id": "s1",
+                            "title": "A",
+                            "children": [
+                                {
+                                    "type": "paragraph",
+                                    "id": "p1",
+                                    "content": "The Limit 5,000,000 is carried by the policy for the term.",
+                                    "provenance": [
+                                        {"extracted_quote": "Limit 5,000,000."}
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                },
+            },
         },
     )
 
@@ -183,7 +216,9 @@ def test_draft_pipeline_cache_hit_skips_claude(monkeypatch):
     )
     joined = "".join(frames)
     assert "omp_cached" in joined
-    assert "cached draft" in joined
+    # The replayed frame carries the cached draft text — the grounded fixture
+    # draft, not the literal string "cached draft" the fixture used to carry.
+    assert "Limit 5,000,000 is carried by the policy" in joined
     assert '"type": "compiled"' in joined or "compiled" in joined
 
 

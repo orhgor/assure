@@ -274,6 +274,17 @@
     } catch (_) {}
     this.confidenceSpans =
       (this.tree && this.tree.meta && this.tree.meta.confidenceSpans) || [];
+    // Document-level parse/asset quality lives in tree meta (written by
+    // services/confidence.add_confidence_to_jdf / parse metadata at import).
+    // Kept separate from confidenceSpans: provenance confidence bars show
+    // verification spans only — parse quality is a different signal and gets
+    // its own badge near the document title, never a merged bar.
+    this.parseQuality = (this.tree && this.tree.meta && this.tree.meta.parseQuality) || null;
+    this.structuredQuality =
+      (this.tree && this.tree.meta && this.tree.meta.structuredQuality) || null;
+    this.verificationQuality =
+      (this.tree && this.tree.meta && this.tree.meta.verificationQuality) || null;
+    this.missingAssets = (this.tree && this.tree.meta && this.tree.meta.missingAssets) || [];
     this._revisionHistory = [];
     this._versionPreview = null;
     this._liveTreeSnapshot = null;
@@ -285,6 +296,161 @@
     this.verifyTimeout = null;
     this._savePillState = { state: "idle", key: "jdf.save.unsaved", vars: null };
   }
+
+  JDFCanvasManager.prototype._collectQualitySummary = function () {
+    // Document-level quality summary, read from tree meta (written by
+    // services/confidence.add_confidence_to_jdf and the parse metadata the
+    // JDF CI import writes). Kept separate from confidenceSpans: provenance
+    // confidence bars show verification spans only — parse quality is a
+    // different signal and gets its own badge, never a merged bar.
+    var meta = this.tree && this.tree.meta ? this.tree.meta : {};
+    var num = function (v) { return v == null ? null : Number(v); };
+    var summary = {
+      documentQuality: num(meta.confidence != null ? meta.confidence : meta.document_quality),
+      parseQuality: num(meta.parseQuality),
+      structuredQuality: num(meta.structuredQuality),
+      verificationQuality: num(meta.verificationQuality),
+      gateStatus: meta.gate_status || meta.gateStatus || null,
+      lowConfidenceNodes: meta.lowConfidenceNodes || [],
+      lowConfidencePages: meta.lowConfidencePages || [],
+      missingAssets: meta.missingAssets || [],
+    };
+    var openRedhat = 0;
+    var sections = this.tree && this.tree.body ? this.tree.body : [];
+    for (var s = 0; s < sections.length; s++) {
+      var children = (sections[s] && sections[s].children) || [];
+      for (var c = 0; c < children.length; c++) {
+        var findings = ((children[c].annotations || {}).redhat) || [];
+        for (var r = 0; r < findings.length; r++) {
+          if (findings[r] && String(findings[r].status || "open") === "open") openRedhat++;
+        }
+      }
+    }
+    summary.redhatOpen = openRedhat;
+    summary.hasAny =
+      summary.documentQuality != null ||
+      summary.parseQuality != null ||
+      summary.structuredQuality != null ||
+      summary.verificationQuality != null ||
+      summary.gateStatus != null ||
+      openRedhat > 0 ||
+      (summary.lowConfidenceNodes && summary.lowConfidenceNodes.length) ||
+      (summary.missingAssets && summary.missingAssets.length);
+    return summary;
+  };
+
+  JDFCanvasManager.prototype._renderQualityBadge = function () {
+    // Renders the collected summary as a header + chip row + notes. Returns
+    // null when nothing was measured: no fabricated "0" badge for a document
+    // whose parse/verification reported nothing.
+    var summary = this._collectQualitySummary();
+    if (!summary || !summary.hasAny) return null;
+
+    var scoreClass = function (v) {
+      if (v == null) return "quality-chip--muted";
+      if (v >= 80) return "quality-chip--good";
+      if (v >= 60) return "quality-chip--warn";
+      return "quality-chip--danger";
+    };
+    var chipText = function (label, v) {
+      return label + " " + (v == null ? "—" : Math.round(Number(v)));
+    };
+
+    var badge = document.createElement("div");
+    badge.className = "jdf-parse-quality-badge";
+
+    var header = document.createElement("span");
+    header.className = "jdf-parse-quality-badge__header";
+    header.textContent = "Document quality";
+    badge.appendChild(header);
+
+    var chips = document.createElement("div");
+    chips.className = "jdf-parse-quality-badge__chips";
+
+    var notes = [];
+
+    if (summary.gateStatus) {
+      var gateState = String(summary.gateStatus).toLowerCase();
+      var gate = document.createElement("span");
+      gate.className =
+        "quality-chip " +
+        (gateState === "pass" || gateState === "passing"
+          ? "quality-chip--state-pass"
+          : gateState === "blocked" || gateState === "fail"
+          ? "quality-chip--state-blocked"
+          : "quality-chip--state-review");
+      gate.textContent = "Gate " + String(summary.gateStatus);
+      chips.appendChild(gate);
+    }
+    if (summary.redhatOpen > 0) {
+      var rh = document.createElement("span");
+      rh.className = "quality-chip quality-chip--danger";
+      rh.textContent = "Red-Hat " + summary.redhatOpen + " open";
+      chips.appendChild(rh);
+      notes.push(summary.redhatOpen + " open Red-Hat finding(s)");
+    } else if (summary.parseQuality != null || summary.verificationQuality != null) {
+      var rhOk = document.createElement("span");
+      rhOk.className = "quality-chip quality-chip--state-pass";
+      rhOk.textContent = "Red-Hat clear";
+      chips.appendChild(rhOk);
+    }
+
+    var overall = document.createElement("span");
+    overall.className = "quality-chip " + scoreClass(summary.documentQuality);
+    overall.textContent = chipText("Overall", summary.documentQuality);
+    chips.appendChild(overall);
+
+    var parse = document.createElement("span");
+    parse.className = "quality-chip " + scoreClass(summary.parseQuality);
+    parse.textContent = chipText("Parse", summary.parseQuality);
+    chips.appendChild(parse);
+
+    var structured = document.createElement("span");
+    structured.className = "quality-chip " + scoreClass(summary.structuredQuality);
+    structured.textContent = chipText("Structured", summary.structuredQuality);
+    chips.appendChild(structured);
+
+    var verification = document.createElement("span");
+    verification.className = "quality-chip " + scoreClass(summary.verificationQuality);
+    verification.textContent = chipText("Verification", summary.verificationQuality);
+    chips.appendChild(verification);
+
+    if (summary.lowConfidenceNodes && summary.lowConfidenceNodes.length) {
+      notes.push(summary.lowConfidenceNodes.length + " low-confidence node(s)");
+    }
+    if (summary.lowConfidencePages && summary.lowConfidencePages.length) {
+      notes.push(summary.lowConfidencePages.length + " low-confidence page(s)");
+    }
+    var kinds = [];
+    for (var i = 0; i < (summary.missingAssets || []).length; i++) {
+      var kind =
+        summary.missingAssets[i] &&
+        (summary.missingAssets[i].kind || summary.missingAssets[i]);
+      if (kind) kinds.push(String(kind));
+    }
+    if (kinds.length) notes.push("no " + kinds.join(", ") + " in parse");
+
+    badge.appendChild(chips);
+
+    if (notes.length) {
+      badge.classList.add("jdf-parse-quality-badge--warn");
+      var notesEl = document.createElement("span");
+      notesEl.className = "jdf-parse-quality-badge__notes";
+      notesEl.textContent = notes.join(" · ");
+      badge.appendChild(notesEl);
+    }
+
+    // Accessible summary: one label carrying the same information the badge
+    // shows visually, so the badge does not have to be read to be understood.
+    var label =
+      "Document quality. " +
+      chips.textContent.trim() +
+      (notes.length ? ". " + notes.join(". ") : "");
+    badge.setAttribute("role", "status");
+    badge.setAttribute("aria-label", label);
+    badge.setAttribute("title", label);
+    return badge;
+  };
 
   JDFCanvasManager.prototype._setDirty = function (dirty) {
     this.isDirty = !!dirty;
@@ -424,6 +590,76 @@
     return wrap;
   };
 
+  // State card constants and rendering
+  JDFCanvasManager.prototype._stateCardTexts = {
+    halt: {
+      line: "This compile stopped before the document was verified. Nothing was saved.",
+      mode: "failed"
+    },
+    refusal: {
+      line: "This document could not be grounded in the source. Nothing was saved.",
+      mode: "refused"
+    },
+    prereq: {
+      line: "Add a source to compile. Assure grounds every claim against the source you provide.",
+      mode: "empty"
+    }
+  };
+
+  JDFCanvasManager.prototype.renderStateCard = function (type, message) {
+    if (!this.rootEl) return;
+    var texts = this._stateCardTexts[type] || this._stateCardTexts.halt;
+    var lineText = texts.line;
+    var mode = texts.mode;
+    var cls = "doc-" + type;
+
+    // Clear existing state cards and draft
+    this._clearStateCards();
+
+    var card = document.createElement("div");
+    card.className = cls;
+    card.setAttribute("role", "status");
+    if (message) card.title = String(message);
+
+    var line = document.createElement("p");
+    line.className = "doc-state-line";
+    line.textContent = lineText;
+    card.appendChild(line);
+
+    if (message) {
+      var msgEl = document.createElement("p");
+      msgEl.className = "doc-state-message";
+      msgEl.textContent = message;
+      card.appendChild(msgEl);
+    }
+
+    this.rootEl.appendChild(card);
+    this.rootEl.setAttribute("data-mode", mode);
+  };
+
+  JDFCanvasManager.prototype._clearStateCards = function () {
+    if (!this.rootEl) return;
+    var existing = this.rootEl.querySelectorAll(".doc-halt, .doc-refusal, .doc-prereq");
+    for (var i = 0; i < existing.length; i++) existing[i].remove();
+  };
+
+  JDFCanvasManager.prototype.clearDocument = function () {
+    if (!this.rootEl) return;
+    this._clearStateCards();
+    this.rootEl.innerHTML = "";
+    this.rootEl.removeAttribute("data-mode");
+  };
+
+  JDFCanvasManager.prototype.getCanvasMode = function () {
+    if (!this.rootEl) return "empty";
+    return this.rootEl.getAttribute("data-mode") || "empty";
+  };
+
+  JDFCanvasManager.prototype.setCanvasMode = function (mode) {
+    if (!this.rootEl) return;
+    this.rootEl.setAttribute("data-mode", mode);
+  }
+
   JDFCanvasManager.prototype.renderSkeleton = function (count) {
     if (!this.rootEl) return;
     this.rootEl.innerHTML = "";
@@ -446,7 +682,7 @@
     }
   };
 
-    JDFCanvasManager.prototype.loadProject = function () {
+  JDFCanvasManager.prototype.loadProject = function () {
     var self = this;
     if (this.isFirstLoad) {
       this.renderSkeleton(4);
@@ -2363,6 +2599,13 @@
       });
     }
     this.rootEl.appendChild(title);
+    // Document-level parse/asset-quality badge: sits beside the title, is
+    // its own element (never inside the provenance confidence bars), and
+    // surfaces the three quality layers plus missing structured assets.
+    var qualityBadge = this._renderQualityBadge();
+    if (qualityBadge) {
+      this.rootEl.appendChild(qualityBadge);
+    }
 
     if (!(this.tree.body || []).length) {
       this.rootEl.appendChild(this.renderEmptyCanvas());

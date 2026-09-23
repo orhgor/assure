@@ -1,0 +1,29 @@
+## Coverage Limits
+
+The document does not specify numerical coverage limits for property loss or damage. Coverage is defined as direct physical loss unless excluded or limited by the policy terms. The Declarations section, which would typically state limits, is not provided in the source material.
+
+## Deductibles
+
+The document does not mention any deductible amounts. Deductibles are not addressed in the provided text of CP 10 30 09 17.
+
+## Exclusions
+
+The policy excludes loss or damage caused directly or indirectly by the following, regardless of any other contributing cause:
+
+- Ordinance or law enforcement, including regulations on construction, use, or repair of property, or requirements to tear down property or remove debris, even if the property is undamaged or when additional costs are incurred to comply with such laws.
+- Earth movement, including:
+  - Earthquake, including tremors and aftershocks, and any related earth sinking, rising, or shifting;
+  - Landslide, including any earth sinking, rising, or shifting related to such event;
+  - Mine subsidence, whether or not mining activity has ceased;
+  - Earth sinking (other than sinkhole collapse), rising, or shifting including soil conditions such as contraction, expansion, freezing, thawing, erosion, improperly compacted soil, and the action of water under the ground surface.
+- Governmental action involving seizure or destruction of property by order of governmental authority.
+- Nuclear reaction, radiation, or radioactive contamination.
+- Water-related perils, including flood and surface water.
+- Warlike action by a military force, including action in hindering or defending against an actual or expected attack by any government, sovereign, or other authority using military personnel or other agents.
+- Insurrection, rebellion, revolution, usurped power, or action taken by governmental authority in hindering or defending against any of these.
+
+However, coverage is provided for:
+- Fire or explosion resulting from earth movement as described in exclusions b.(1) through (4).
+- Volcanic eruption, explosion, or effusion, and any resulting fire, building glass breakage, or Volcanic Action.
+- Volcanic Action is defined as direct loss or damage from airborne volcanic blast, airborne shock waves, ash, dust, or particulate matter, or lava flow, provided that all volcanic eruptions within a 168-hour period are considered a single occurrence.
+- Loss or damage caused by acts of destruction ordered by governmental authority during a fire, if the fire itself would otherwise be covered.

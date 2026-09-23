@@ -2,7 +2,9 @@
 
 The compile prompt fixed one shape for every ask: "Draft clear, structured prose
 for a business document. Use markdown headings (## Section) for major sections"
-(``routers/draft._DRAFT_SYSTEM``). So a one-line extraction question — "What is the
+(the wording this module replaced, ``_DRAFT_SYSTEM`` in git history; the compile
+instructions are ``routers/draft._COMPILE_INSTRUCTIONS`` now, with this module's
+shape block appended below them). So a one-line extraction question — "What is the
 deductible for Suffolk?" — came back as a memo: headings, a preamble, sections
 built to fill a page, and the answer buried in the first paragraph. The reader
 asked for a figure and was handed a document.
