@@ -103,12 +103,18 @@ def test_ingest_no_file(client):
 
 
 def test_ingest_wrong_ext(client):
+    """The old 'only PDF in MVP' restriction is gone: a text-like file is
+    accepted and wrapped as a JDF document (the router's text wrap path)."""
     res = client.post(
         "/api/projects/p1/jdf/ingest",
         data={"file": (io.BytesIO(b"x"), "a.txt")},
         content_type="multipart/form-data",
     )
-    assert res.status_code == 400
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True
+    assert body["parser_name"] == "text"
+    assert body["source_kind"] == "text"
 
 
 def test_ingest_oversized(client):
@@ -783,3 +789,89 @@ def test_ingest_confidence_passes_through(client, monkeypatch):
     row = list_substrate_for_project("p1")[0]
     assert row["parse_confidence"] == 0.73
     assert row["ocr_confidence"] == 0.0
+
+
+def test_text_file_accepted_and_parsed(client):
+    """Text-like files should be accepted and wrapped as JDF.
+
+    The router routes a text-like file to the JDF path as a wrap signal: the
+    content is already the document, so no binary parse runs and the bundle
+    carries parser_name "text" / source_kind "text" through to the response.
+    """
+    OMP_BUILD_KWARGS.clear()
+    data = {"file": (io.BytesIO(b"# Test Document\n\nThis is a test document."), "test.md")}
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=data, content_type="multipart/form-data"
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["ok"] is True
+    assert body["parser_name"] == "text"
+    assert body["source_kind"] == "text"
+    assert body["parse_confidence"] == 1.0
+    # The vault row records the text parse the same way a PDF parse is recorded.
+    from prompt_matrix.db.substrate_repository import list_substrate_for_project
+
+    row = list_substrate_for_project("p1")[0]
+    assert row["parser_name"] == "text"
+    assert row["source_kind"] == "text"
+
+
+def test_json_file_accepted_and_parsed(client):
+    """JSON files are text-like: accepted and wrapped as JDF."""
+    OMP_BUILD_KWARGS.clear()
+    data = {"file": (io.BytesIO(b'{"key": "value"}'), "data.json")}
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=data, content_type="multipart/form-data"
+    )
+    assert res.status_code == 200
+    assert res.get_json()["ok"] is True
+
+
+def test_pdf_ingest_no_longer_returns_500(client, monkeypatch):
+    """PDF ingest should never return the generic 500.
+
+    An unexpected exception inside the parse block is the client's bad input,
+    not a server crash: the route answers 422 with a safe message and logs the
+    real cause server-side — no library names, no traceback, no raw exception
+    text in the response.
+    """
+    data = {"file": (io.BytesIO(b"%PDF-1.4 fake"), "test.pdf")}
+
+    def boom(b, **kw):
+        raise KeyError("unexpected error")
+
+    monkeypatch.setattr(jdf_memory_routes, "pdf_to_parse_bundle", boom)
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=data, content_type="multipart/form-data"
+    )
+    assert res.status_code == 422
+    error = res.get_json().get("error", "")
+    assert "unexpected error" not in error.lower()
+    assert "something went wrong" not in error.lower()
+    assert "traceback" not in error.lower()
+    assert "keyerror" not in error.lower()
+
+
+def test_non_supported_binary_rejected(client, monkeypatch):
+    """Binary files that aren't PDF should be rejected without a 500.
+
+    The router defaults unknown binaries to the JDF path, the content probe
+    says not text-like, and the real converter then refuses the bytes with
+    JdfConversionError — modeled here explicitly, so the test doesn't depend
+    on the jdf binary being installed.
+    """
+    from prompt_matrix.services.jdf_converter import JdfConversionError
+
+    def reject(b, **kw):
+        raise JdfConversionError("jdf convert failed: not a pdf")
+
+    monkeypatch.setattr(jdf_memory_routes, "pdf_to_parse_bundle", reject)
+    data = {"file": (io.BytesIO(b"\x00\x01\x02\x03\x04\x05"), "data.bin")}
+    res = client.post(
+        "/api/projects/p1/jdf/ingest", data=data, content_type="multipart/form-data"
+    )
+    assert res.status_code in (400, 422)
+    error = res.get_json().get("error", "")
+    assert "something went wrong" not in error.lower()
+    assert "jdf convert failed" not in error.lower()
