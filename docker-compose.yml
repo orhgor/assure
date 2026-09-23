@@ -45,8 +45,8 @@ x-app-env: &app-env
   # key, small models); production/staging override ASSURE_LLM_BACKEND to ""
   # and use the OpenRouter/DeepSeek policies in cost_governance.py.
   ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
-  ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:3b}
-  ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.2:3b}
+  ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}
+  ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}
   OLLAMA_API_BASE: http://ollama:11434
   OLLAMA_HOST: http://ollama:11434
   ASSURE_LOG_STDOUT: "1"
@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
 
   # Local models: one Ollama daemon, models pulled once into the `ollama`
-  # volume by the one-shot `ollama-pull` service. CPU inference; a 3B model
+  # volume by the one-shot `ollama-pull` service. CPU inference; a 1–2B model
   # streams ~5–15 tok/s in Docker Desktop, so a compile takes minutes, not
   # seconds. Change ASSURE_OLLAMA_MODEL(_B) in .env for other sizes.
   ollama:
@@ -109,8 +109,8 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        ollama pull "${ASSURE_OLLAMA_MODEL:-qwen2.5:3b}" &&
-        ollama pull "${ASSURE_OLLAMA_MODEL_B:-llama3.2:3b}" &&
+        ollama pull "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" &&
+        ollama pull "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}" &&
         echo "models ready"
     environment:
       OLLAMA_HOST: http://ollama:11434

@@ -1369,7 +1369,7 @@
   <script>
     window.__INITIAL_JDF__ = {{ initial_jdf|tojson if initial_jdf is defined else 'null' }};
     window.__ASSURE_PROJECT_ID__ = {{ project_id|tojson if project_id is defined else '"default"' }};
-    window.__ASSURE_EDGE_WORKER_URL__ = {{ edge_worker_url|tojson if edge_worker_url is defined else '""' }};
+    window.__ASSURE_EDGE_WORKER_URL__ = "";
   </script>
   <script>
     (function () {

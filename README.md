@@ -55,7 +55,7 @@ export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure REDIS_URL=r
 .venv/bin/python -m prompt_matrix.web --web --no-browser --port 8890
 ```
 
-Models locally: `docker compose up` starts an `ollama` service and `ollama-pull` fetches `qwen2.5:3b` and `llama3.2:3b` once (~4 GB). With `ASSURE_LLM_BACKEND=ollama` (compose default) every model call — compile, lock inference, entailment, Red-Hat, surgical edit, Compare — goes to that container; no provider key. CPU inference: a compile takes minutes. Production/staging leave `ASSURE_LLM_BACKEND` empty and use the cloud policies in `prompt_matrix/cost_governance.py`.
+Models locally: `docker compose up` starts an `ollama` service and `ollama-pull` fetches `qwen2.5:1.5b` and `llama3.2:1b` once (~2.3 GB). With `ASSURE_LLM_BACKEND=ollama` (compose default) every model call — compile, lock inference, entailment, Red-Hat, surgical edit, Compare — goes to that container; no provider key. CPU inference: a compile takes minutes. Production/staging leave `ASSURE_LLM_BACKEND` empty and use the cloud policies in `prompt_matrix/cost_governance.py`.
 
 Documents: uploads answer **202** with a `task_id`; `GET /api/tasks/<task_id>` and `/api/projects/<id>/ingest-jobs` report parser, OCR confidence, Z3 verdict and Red-Hat status. Scans are OCR'd by jdf-cli's bundled tesseract; Textract only when OCR fails or reads nothing.
 
@@ -116,7 +116,7 @@ Full list with meanings: `.env.example`.
 
 **Infra:** `Dockerfile`, `docker-compose*.yml`, `infra/terraform/`, `.github/workflows/`. Desktop build: `./scripts/build-desktop.sh` (needs a reachable PostgreSQL). Marketing site sync: `./scripts/sync-webpage.sh`.
 
-**Legacy, don't extend:** `worker/` (Cloudflare edge worker, being retired), `landing/`, `prompt_matrix/templates/index.html` (workbench template; its routes are gone).
+**Legacy, don't extend:** `landing/`, `prompt_matrix/templates/index.html` (workbench template; its routes are gone).
 
 ---
 

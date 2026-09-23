@@ -120,10 +120,12 @@ refuses to run without a PostgreSQL `DATABASE_URL`.
 | S3 | `uploads/` expire after 1 day; artifacts stay in S3 Standard (no tiering). |
 | NAT | Single NAT gateway; S3/ECR/logs/Secrets/SQS through VPC endpoints. |
 
-## 6. Cloudflare R2 → S3
+## 6. Cloudflare R2 → S3 (done 2026-09-23)
 
 The edge worker (`worker/index.js`: R2 staging, unpdf, Textract fallback,
-POST to `/api/substrate`) is replaced by the presigned S3 flow above. Migration:
+POST to `/api/substrate`) was replaced by the presigned S3 flow above and
+deleted on 2026-09-23 (`worker/`, its deploy workflow, the `/api/substrate`
+edge route and `SUBSTRATE_INGEST_SECRET`). What remains outside the repo:
 
 1. Deploy this stack; `ASSURE_S3_BUCKET` set, `PARSE_ASYNC=1`.
 2. Switch the upload UI to `uploads/presign` → PUT → `import-pdf {object_key}`

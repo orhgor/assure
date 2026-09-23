@@ -599,106 +599,11 @@ def ingest_substrate_file(
     }
 
 
-class SubstrateIngestPayload(BaseModel):
-    projectId: str = Field(min_length=1)
-    text: str = Field(min_length=1)
-    pageCount: int = Field(default=1, ge=1, le=50)
-    filename: str | None = None
-    source: str = "edge"
-
-
-def _substrate_ingest_secret() -> str:
-    return (os.environ.get("SUBSTRATE_INGEST_SECRET") or "").strip()
-
-
-def _authorize_worker_ingest() -> bool:
-    secret = _substrate_ingest_secret()
-    if not secret:
-        return True
-    header = (request.headers.get("X-Assure-Worker-Secret") or "").strip()
-    auth = (request.headers.get("Authorization") or "").strip()
-    if header == secret:
-        return True
-    if auth == f"Bearer {secret}":
-        return True
-    return False
-
-
 def register_substrate_routes(app) -> None:
     try:
-        from ..rate_limits import limiter, worker_ingest_request
+        from ..rate_limits import limiter
     except ImportError:
-        from rate_limits import limiter, worker_ingest_request
-
-    @app.post("/api/substrate")
-    @limiter.limit("60 per minute", exempt_when=worker_ingest_request)
-    def substrate_ingest():
-        request_id = str(uuid.uuid4())
-        audit = get_audit_logger()
-        if not _authorize_worker_ingest():
-            return jsonify({"ok": False, "error": "Unauthorized."}), 401
-
-        data = request.get_json(silent=True) or {}
-        try:
-            payload = SubstrateIngestPayload.model_validate(data)
-        except Exception as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
-
-        text = payload.text.strip()
-        if len(text) <= 10:
-            return (
-                jsonify({"ok": False, "error": "Extracted text is too short to ingest."}),
-                400,
-            )
-
-        project_id = payload.projectId.strip()
-        filename = (payload.filename or "edge-upload.pdf").strip() or "edge-upload.pdf"
-        flag = flag_fields(text)
-        try:
-            ensure_project(project_id)
-            edge_row = save_substrate_text(
-                project_id,
-                text,
-                page_count=payload.pageCount,
-                source=payload.source or "edge",
-            )
-            save_substrate_entry(
-                project_id,
-                filename=filename,
-                page_count=payload.pageCount,
-                extracted_text=text,
-                tables=[],
-                forms=[],
-                entry_id=edge_row["id"],
-                **flag,
-            )
-        except Exception as exc:
-            audit.log_audit(
-                request_id,
-                project_id,
-                "SUBSTRATE_INGEST",
-                success=False,
-                error_message=str(exc),
-            )
-            return jsonify({"ok": False, "error": "Database write failed."}), 500
-
-        remember_vault_file(project_id, str(edge_row["id"]), filename=filename, text=text)
-
-        audit.log_audit(
-            request_id,
-            project_id,
-            "SUBSTRATE_INGEST",
-            success=True,
-            details={
-                "page_count": payload.pageCount,
-                "text_chars": len(text),
-                "source": payload.source or "edge",
-                "instruction_like": flag["instruction_like"],
-            },
-        )
-        return jsonify(
-            {"ok": True, "id": edge_row["id"], "text_chars": len(text), **flag_response(flag)}
-        )
+        from rate_limits import limiter
 
     @app.post("/api/projects/<project_id>/substrate/upload")
     @project_ownership_required

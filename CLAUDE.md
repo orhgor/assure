@@ -65,7 +65,7 @@ compile engine is PEM.
 | `docs/` | Read first: `scale_architecture.md`, `decisions.md`, `anti-claims.md`, `deferred.md`, `deploy-flow.md`, `deferred-parse-runtime.md` |
 | `scripts/migrate_sqlite_to_postgres.py` | One-time import of a legacy SQLite file |
 | `prototype/` | **The workbench UI staging serves** (`dev-server.py` :8891 gate + `index.html`/`shell.js`, proxies `/api/*` to Flask). Flask's `/app` workbench routes were removed upstream (5059cce). The `assure-shell` compose service runs it locally |
-| `worker/`, `landing/` | Cloudflare edge worker (being retired), marketing site — don't extend. `openuser/` (UX runner) was deleted 2026-09-23. The `scripts/aws/_probe_*` throwaway probes were deleted 2026-09-22; write new probes under /tmp |
+| `landing/` | Marketing site — don't extend. The Cloudflare edge worker (`worker/`, R2 staging) was deleted 2026-09-23; uploads go through the object store. `openuser/` (UX runner) was deleted 2026-09-23. The `scripts/aws/_probe_*` throwaway probes were deleted 2026-09-22; write new probes under /tmp |
 
 ## Document pipeline
 

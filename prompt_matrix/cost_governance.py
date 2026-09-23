@@ -192,9 +192,9 @@ def local_model(role: str = "a") -> str:
     if role == "b":
         raw = os.environ.get("ASSURE_OLLAMA_MODEL_B", "").strip() or os.environ.get(
             "ASSURE_OLLAMA_MODEL", ""
-        ).strip() or "llama3.2:3b"
+        ).strip() or "llama3.2:1b"
     else:
-        raw = os.environ.get("ASSURE_OLLAMA_MODEL", "").strip() or "qwen2.5:3b"
+        raw = os.environ.get("ASSURE_OLLAMA_MODEL", "").strip() or "qwen2.5:1.5b"
     return raw if raw.startswith("ollama/") else f"ollama/{raw}"
 
 
@@ -220,7 +220,7 @@ def _apply_llm_backend(policies: dict) -> dict:
         task: ModelPolicy(
             model_id=model,
             max_input_tokens=pol.max_input_tokens,
-            # Small local models: cap answers so a 3B model does not spend
+            # Small local models: cap answers so a 1–2B model does not spend
             # minutes on a 8k-token reply on CPU.
             max_output_tokens=min(pol.max_output_tokens, 4096),
             caching=False,

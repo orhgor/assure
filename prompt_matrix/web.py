@@ -584,7 +584,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "sentry_enabled": _sentry_enabled(),
             "sentry_browser_dsn": _sentry_browser_dsn(),
             "help_url": _help_url(),
-            "edge_worker_url": (os.environ.get("ASSURE_EDGE_WORKER_URL") or "").strip(),
         }
 
     try:

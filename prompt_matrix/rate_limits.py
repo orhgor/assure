@@ -115,13 +115,3 @@ def increment_daily_compile_limit(project_id: str) -> int:
     ).fetchone()
     db.commit()
     return int(row[0]) if row else 1
-
-
-def worker_ingest_request() -> bool:
-    """True when trusted edge worker presents the ingest secret."""
-    secret = (os.environ.get("SUBSTRATE_INGEST_SECRET") or "").strip()
-    if not secret:
-        return False
-    header = (request.headers.get("X-Assure-Worker-Secret") or "").strip()
-    auth = (request.headers.get("Authorization") or "").strip()
-    return header == secret or auth == f"Bearer {secret}"

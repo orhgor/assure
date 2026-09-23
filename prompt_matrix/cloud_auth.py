@@ -44,7 +44,6 @@ PUBLIC_API = frozenset(
         # Edge-worker ingest: the Cloudflare Worker posts extracted PDF text here
         # with X-Assure-Worker-Secret. There is no browser and no session on that
         # path, so it carries its own factor and must not require a Clerk session.
-        "/api/substrate",
     }
 )
 PUBLIC_HTML = frozenset(
