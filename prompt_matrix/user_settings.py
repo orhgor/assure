@@ -11,7 +11,6 @@ PROVIDER_JSON_TO_ENV = {
     "anthropic": "ANTHROPIC_API_KEY",
     "claude": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
-    "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
 }
 

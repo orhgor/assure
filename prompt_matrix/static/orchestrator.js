@@ -121,14 +121,14 @@
   }
 
   function compareLoadingLabel(models) {
-    if (models && models.claude && models.deepseek) {
+    if (models && models.claude && models.secondary) {
       return translatef("founder.compare.running_pair", "Running {model_a} + {model_b}…", {
         model_a: modelDisplayName(
           models.claude,
           translate("founder.compare.model_a_default", "Model A")
         ),
         model_b: modelDisplayName(
-          models.deepseek,
+          models.secondary,
           translate("founder.compare.model_b_default", "Model B")
         ),
       });
@@ -158,7 +158,7 @@
     row.className = "staging-canvas-row";
     row.innerHTML =
       '<div class="model-pane p-4" data-model="claude"></div>' +
-      '<div class="model-pane p-4" data-model="deepseek"></div>';
+      '<div class="model-pane p-4" data-model="secondary"></div>';
     canvas.innerHTML = "";
     canvas.appendChild(row);
     return row;
@@ -326,25 +326,56 @@
     pane.innerHTML = html;
   }
 
+  function isMockPayload(payload) {
+    return !!(payload && (payload.stack === "mock" || payload.mock === true));
+  }
+
+  // The server's mock stack (no provider keys) is fixed sample text. Rendered
+  // unlabelled it read as a live Claude/DeepSeek comparison; the badge sits
+  // above both panes so the panes themselves stay comparable with a real run.
+  function renderMockBadge(payload) {
+    var canvas = stagingCanvas();
+    if (!canvas) return;
+    var existing = canvas.querySelector(".staging-mock-badge");
+    if (existing) existing.parentNode.removeChild(existing);
+    if (!isMockPayload(payload)) return;
+    var badge = document.createElement("div");
+    badge.className = "staging-mock-badge";
+    badge.setAttribute("role", "status");
+    badge.setAttribute("data-mock", "true");
+    var label = translate(
+      "founder.compare.mock_badge",
+      "MOCK — no model keys configured"
+    );
+    var notice = String((payload && payload.notice) || "");
+    badge.innerHTML =
+      '<span class="staging-mock-badge-label">' +
+      escapeHtml(label) +
+      "</span>" +
+      (notice ? '<span class="staging-mock-badge-notice">' + escapeHtml(notice) + "</span>" : "");
+    canvas.insertBefore(badge, canvas.firstChild);
+  }
+
   function renderStaging(payload) {
     ensureStagingRow();
+    renderMockBadge(payload);
     var models = (payload && payload.models) || {};
     var claude = models.claude || {};
-    var deepseek = models.deepseek || {};
+    var secondary = models.secondary || {};
     var claudeFailed = modelHasFailed(claude);
-    var deepseekFailed = modelHasFailed(deepseek);
+    var secondaryFailed = modelHasFailed(secondary);
 
     if (claudeFailed) renderPaneError("claude", claude);
-    if (deepseekFailed) renderPaneError("deepseek", deepseek);
+    if (secondaryFailed) renderPaneError("secondary", secondary);
 
-    if (!claudeFailed && !deepseekFailed) {
-      var regions = diffRegions(claude.text, deepseek.text);
+    if (!claudeFailed && !secondaryFailed) {
+      var regions = diffRegions(claude.text, secondary.text);
       renderPane("claude", claude, regions);
-      renderPane("deepseek", deepseek, regions);
+      renderPane("secondary", secondary, regions);
     } else if (!claudeFailed) {
       renderPaneSuccessOnly("claude", claude);
-    } else if (!deepseekFailed) {
-      renderPaneSuccessOnly("deepseek", deepseek);
+    } else if (!secondaryFailed) {
+      renderPaneSuccessOnly("secondary", secondary);
     }
 
     var canvas = stagingCanvas();
@@ -499,7 +530,7 @@
 
   function normalizeComparePayload(data) {
     if (!data) return data;
-    if (data.models && data.models.claude && data.models.deepseek) {
+    if (data.models && data.models.claude && data.models.secondary) {
       return data;
     }
     var models = data.models || {};
@@ -508,6 +539,8 @@
     return {
       status: data.status || "success",
       stack: data.stack,
+      mock: data.mock === true || data.stack === "mock",
+      notice: data.notice || "",
       models: {
         claude: {
           name:
@@ -517,13 +550,13 @@
           text: (models.claude && models.claude.text) || modelA.text || "",
           error: (models.claude && models.claude.error) || modelA.error || null,
         },
-        deepseek: {
+        secondary: {
           name:
-            (models.deepseek && models.deepseek.name) ||
+            (models.secondary && models.secondary.name) ||
             modelB.name ||
             translate("founder.compare.model_b_default", "Model B"),
-          text: (models.deepseek && models.deepseek.text) || modelB.text || "",
-          error: (models.deepseek && models.deepseek.error) || modelB.error || null,
+          text: (models.secondary && models.secondary.text) || modelB.text || "",
+          error: (models.secondary && models.secondary.error) || modelB.error || null,
         },
       },
     };
@@ -561,7 +594,7 @@
         ) {
           return payload;
         }
-        if (!payload || payload.status !== "success") {
+        if (!payload || (payload.status !== "success" && payload.status !== "mock")) {
           throw new Error((payload && payload.error) || "Orchestrator returned an error");
         }
         clearStagingLoading();
@@ -587,7 +620,7 @@
           text: "",
         };
         renderPaneError("claude", failed);
-        renderPaneError("deepseek", failed);
+        renderPaneError("secondary", failed);
         throw err;
       })
       .finally(function () {

@@ -1,4 +1,4 @@
-"""Orchestrator multi-model API — Sprint 1 mock."""
+"""Orchestrator multi-model API — the mock stack is labelled, never "success"."""
 
 from __future__ import annotations
 
@@ -29,16 +29,20 @@ def test_orchestrate_requires_intent(founder_client) -> None:
     assert res.get_json()["error"] == "intent is required"
 
 
-def test_orchestrate_returns_claude_and_deepseek(founder_client) -> None:
+def test_orchestrate_returns_claude_and_secondary(founder_client) -> None:
     res = founder_client.post(
         "/api/projects/founder/orchestrate",
         json={"intent": "Compare liability limits for Boston renewal."},
     )
     assert res.status_code == 200
     body = res.get_json()
-    assert body["status"] == "success"
+    # No provider keys: the payload is the fixed mock stack and must say so.
+    assert body["status"] == "mock"
+    assert body["mock"] is True
+    assert body["stack"] == "mock"
+    assert "illustrative" in body["notice"].lower()
     assert body["intent"] == "Compare liability limits for Boston renewal."
     assert body["models"]["claude"]["name"] == "Claude 3.5 Sonnet"
     assert "$5,000,000" in body["models"]["claude"]["text"]
-    assert body["models"]["deepseek"]["name"] == "DeepSeek V3"
-    assert "$4,500,000" in body["models"]["deepseek"]["text"]
+    assert body["models"]["secondary"]["name"] == "Qwen3 Next 80B A3B Instruct"
+    assert "$4,500,000" in body["models"]["secondary"]["text"]

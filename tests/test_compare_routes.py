@@ -33,14 +33,14 @@ def test_compare_returns_two_models(client, monkeypatch) -> None:
                 "jdf": {"text": "Alpha output", "divergences": []},
             },
             "model_b": {
-                "model": "deepseek/deepseek-chat",
+                "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
                 "name": "DeepSeek V3",
                 "text": "Beta output",
                 "jdf": {"text": "Beta output", "divergences": []},
             },
             "models": {
                 "claude": {"name": "Gemini 2.5 Flash", "text": "Alpha output"},
-                "deepseek": {"name": "DeepSeek V3", "text": "Beta output"},
+                "kimi": {"name": "DeepSeek V3", "text": "Beta output"},
             },
         }
 

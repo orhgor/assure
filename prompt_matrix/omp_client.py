@@ -250,6 +250,19 @@ def omp_delete_memory(memory_id: str) -> bool:
     return False
 
 
+def omp_configured() -> bool:
+    """True when this deployment was given an OMP server to talk to.
+
+    Either ``OMP_SERVER`` is set or the key file at ``~/.omp/api_key`` exists.
+    The module default (``http://localhost:3456``) is a development convenience,
+    not configuration: a container with neither has no OMP, and reporting that
+    server as ``down`` in ``/health`` was noise.
+    """
+    if (os.getenv("OMP_SERVER") or "").strip():
+        return True
+    return os.path.isfile(API_KEY_PATH)
+
+
 def omp_health() -> dict[str, Any]:
     """Unauthenticated ping of the local OMP server."""
     base = (os.getenv("OMP_SERVER") or OMP_SERVER).rstrip("/")

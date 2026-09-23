@@ -138,9 +138,19 @@
         { method: "POST", credentials: "same-origin", body: fd }
       )
         .then(function (r) {
-          return r.json();
+          return r.json().then(function (data) { return { status: r.status, data: data }; });
         })
-        .then(function (data) {
+        .then(function (res) {
+          var data = res.data || {};
+          if (res.status === 202 && data.task_id && global.AssureIngestJobs) {
+            // Queued to the parse worker: the vault row exists only once the
+            // task finishes, so wait for it before compiling against it.
+            global.AssureIngestJobs.track();
+            return global.AssureIngestJobs.awaitTask(data.task_id).then(function (result) {
+              var entry = (result && result.entry) || result || {};
+              return entry.id || entry.file_id || null;
+            }).catch(function () { return null; });
+          }
           return data.id || data.file_id || null;
         });
     });

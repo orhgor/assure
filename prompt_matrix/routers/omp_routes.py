@@ -5,8 +5,10 @@ from __future__ import annotations
 from flask import jsonify, request
 
 try:
+    from ..lib.http_errors import first_line
     from ..omp_client import omp_list_memories, omp_recall, omp_remember
 except ImportError:
+    from lib.http_errors import first_line
     from omp_client import omp_list_memories, omp_recall, omp_remember
 
 
@@ -35,7 +37,12 @@ def register_omp_routes(app) -> None:
             key = str(body.get("key") or body.get("q") or "").strip()
         if not key:
             return jsonify({"error": "key is required"}), 400
-        return jsonify(omp_recall(key))
+        result = omp_recall(key)
+        if result.get("error") and not (result.get("memories") or result.get("results")):
+            # The client swallows connection errors into ``{"error": ...}``; a
+            # 200 here made an unreachable OMP look like an empty recall.
+            return jsonify({"ok": False, "error": first_line(result["error"])}), 502
+        return jsonify(result)
 
     @app.get("/api/omp/memories")
     def omp_list_route():

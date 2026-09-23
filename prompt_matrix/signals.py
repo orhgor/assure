@@ -21,18 +21,46 @@ _DEBOUNCE_S = 2.0
 
 
 def _revoke_task(task_id: str | None) -> None:
+    """Best-effort cancel of the previous audit task.
+
+    Remote control needs a broker with broadcast (Redis, AMQP). SQS has none:
+    the call would be a no-op at best, so it is skipped there and the
+    generation check inside the task (``is_stale``) retires the old run.
+    """
     if not task_id:
         return
     try:
-        from prompt_matrix.celery_app import celery_app, celery_broker_disabled
+        from prompt_matrix.celery_app import broker_supports_control, celery_app, celery_broker_disabled
     except ImportError:
-        from celery_app import celery_app, celery_broker_disabled
-    if celery_broker_disabled():
+        from celery_app import broker_supports_control, celery_app, celery_broker_disabled
+    if celery_broker_disabled() or not broker_supports_control():
         return
     try:
         celery_app.control.revoke(task_id, terminate=True)
     except Exception:
         pass
+
+
+def _redis_debounce(project_id: str, fire) -> bool:
+    """Debounce across replicas: the first edit in a window arms one timer.
+
+    A per-process ``threading.Timer`` debounces only the edits this replica
+    saw; with N replicas each would fire its own audit. With Redis, one
+    ``SET NX EX`` key per project gates the window, so exactly one replica
+    arms the timer and the others return without scheduling. Returns False
+    when Redis is not configured so the caller keeps the local behaviour.
+    """
+    try:
+        from prompt_matrix.services.redis_client import acquire_lock, redis_configured
+    except ImportError:
+        from services.redis_client import acquire_lock, redis_configured
+    if not redis_configured():
+        return False
+    if acquire_lock(f"redhat-debounce:{project_id}", int(_DEBOUNCE_S) + 1):
+        timer = threading.Timer(_DEBOUNCE_S, fire)
+        timer.daemon = True
+        timer.start()
+    return True
 
 
 def schedule_redhat_multipass(
@@ -45,6 +73,13 @@ def schedule_redhat_multipass(
 ) -> str | None:
     """Enqueue multi-pass audit; optionally debounce overlapping draft edits."""
     if debounce:
+        def _fire_shared() -> None:
+            schedule_redhat_multipass(
+                project_id, current_jdf, previous_jdf, run_id=run_id, debounce=False
+            )
+
+        if _redis_debounce(project_id, _fire_shared):
+            return None
         with _debounce_lock:
             existing = _debounce_timers.pop(project_id, None)
             if existing:

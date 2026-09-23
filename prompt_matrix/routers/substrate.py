@@ -98,7 +98,11 @@ def _temp_upload_dir() -> Path:
     override = (os.environ.get("TEMP_UPLOAD_DIR") or "").strip()
     if override:
         return Path(override)
-    db_path = (os.environ.get("DATABASE_PATH") or "/app/data/history.sqlite").strip()
+    try:
+        from ..history import _resolve_db_path
+    except ImportError:
+        from history import _resolve_db_path
+    db_path = str(_resolve_db_path())
     return Path(db_path).parent / "tmp_uploads"
 
 
@@ -179,6 +183,34 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
             }
         except JdfConversionError as exc:
             log.warning("JDF CI parse failed for %s, falling back: %s", filename, exc)
+    elif parser == "jdf-ocr":
+        # A scan: JDF CI runs its bundled OCR (tesseract.js, no per-page fee).
+        # A converter failure leaves ``extracted`` None so Textract takes the
+        # document below — the paid path, reached only when the free one fails.
+        from ..services.jdf_converter import JdfConversionError, ocr_engine, pdf_to_parse_bundle
+
+        try:
+            bundle = pdf_to_parse_bundle(
+                file_bytes, filename=filename, source_kind="scanned", ocr=ocr_engine()
+            )
+            extracted = {
+                "text": bundle["text"],
+                "tables": bundle["tables"],
+                "images": bundle["images"],
+                "figures": bundle["figures"],
+                "forms": [],
+                "page_count": bundle["page_count"],
+                "parser_name": bundle["parser_name"],
+                "source_kind": bundle["source_kind"],
+                "parse_confidence": bundle["parse_confidence"],
+                "ocr_confidence": bundle["ocr_confidence"],
+                "table_count": bundle["table_count"],
+                "image_count": bundle["image_count"],
+                "figure_count": bundle["figure_count"],
+                "asset_summary": bundle["asset_summary"],
+            }
+        except JdfConversionError as exc:
+            log.warning("JDF OCR parse failed for %s, falling back to Textract: %s", filename, exc)
     elif use_docling:
         try:
             from ..verification.docling_extractor import extract_substrate_bytes
@@ -537,19 +569,37 @@ def register_substrate_routes(app) -> None:
             return jsonify({"ok": False, "error": str(exc)}), exc.http_status
 
         if _substrate_async_enabled():
-            temp_dir = _temp_upload_dir()
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            safe_name = secure_filename(filename) or "upload.bin"
-            temp_path = temp_dir / f"{uuid.uuid4().hex}_{safe_name}"
-            temp_path.write_bytes(file_bytes)
+            # Staged in the object store, not on this replica's disk: the
+            # worker that parses it may be on another host.
+            try:
+                from ..services.object_store import get_object_store, upload_key
+            except ImportError:
+                from services.object_store import get_object_store, upload_key
+            object_key = upload_key(project_id, filename)
+            get_object_store().put_bytes(object_key, file_bytes)
+            try:
+                from ..db.ingest_jobs_repository import create_job, set_task
+                from ..db.jdf_repository import ensure_project as _ensure_project
+            except ImportError:
+                from db.ingest_jobs_repository import create_job, set_task
+                from db.jdf_repository import ensure_project as _ensure_project
+            _ensure_project(project_id)
+            job_id = create_job(
+                project_id,
+                kind="substrate_upload",
+                filename=filename,
+                object_key=object_key,
+                size_bytes=len(file_bytes),
+            )
             try:
                 from ..tasks.substrate_tasks import process_substrate_upload
             except ImportError:
                 from tasks.substrate_tasks import process_substrate_upload
             task = process_substrate_upload.apply_async(
-                args=[project_id, str(temp_path), filename],
-                queue="sqlite_writes",
+                args=[project_id, object_key, filename, job_id],
+                queue="parse",
             )
+            set_task(job_id, task.id)
             audit.log_audit(
                 request_id,
                 project_id,
@@ -557,7 +607,19 @@ def register_substrate_routes(app) -> None:
                 success=True,
                 details={"filename": filename, "async": True, "task_id": task.id},
             )
-            return jsonify({"ok": True, "task_id": task.id, "status": "queued"}), 202
+            return (
+                jsonify(
+                    {
+                        "ok": True,
+                        "task_id": task.id,
+                        "job_id": job_id,
+                        "status": "queued",
+                        "status_url": f"/api/tasks/{task.id}",
+                        "job_url": f"/api/projects/{project_id}/ingest-jobs/{job_id}",
+                    }
+                ),
+                202,
+            )
 
         try:
             payload = ingest_substrate_file(project_id, filename, file_bytes)

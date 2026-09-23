@@ -42,20 +42,23 @@ def bump_generation(project_id: str) -> tuple[int, str | None]:
     """Increment generation and return (new_generation, previous_task_id)."""
     init_db()
     db = get_db()
-    row = fetch_lock(project_id)
-    prev_task = (row or {}).get("active_task_id") or ""
-    generation = int((row or {}).get("generation") or 0) + 1
-    db.execute(
+    # One statement, not read-then-write: two replicas bumping the same
+    # project at once must get distinct generations, and the previous task id
+    # comes back from the same row version the increment saw.
+    row = db.execute(
         """
         INSERT INTO redhat_audit_locks (project_id, active_task_id, generation, updated_at)
-        VALUES (?, '', ?, ?)
+        VALUES (?, '', 1, ?)
         ON CONFLICT(project_id) DO UPDATE SET
-            generation = excluded.generation,
+            generation = redhat_audit_locks.generation + 1,
             updated_at = excluded.updated_at
+        RETURNING generation, active_task_id
         """,
-        (project_id, generation, _now()),
-    )
+        (project_id, _now()),
+    ).fetchone()
     db.commit()
+    generation = int(row[0] if row else 1)
+    prev_task = str(row[1] or "") if row else ""
     return generation, prev_task or None
 
 

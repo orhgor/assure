@@ -84,12 +84,15 @@ def _run_concurrent_writes(count: int, pooled_db) -> None:
     assert count_rows == count
 
 
-def test_wal_mode_enabled(pooled_db):
+def test_connections_are_utc_and_server_side_durable(pooled_db):
+    """PostgreSQL replaces WAL/busy_timeout: durability and locking are the
+    server's; what the app pins per connection is the UTC timezone so
+    CURRENT_TIMESTAMP renders the same instant everywhere."""
     conn = open_connection()
     try:
-        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+        tz = conn.execute("SHOW timezone").fetchone()[0]
+        version = conn.execute("SHOW server_version_num").fetchone()[0]
     finally:
         conn.close()
-    assert str(mode).lower() == "wal"
-    assert int(timeout) >= 5000
+    assert str(tz).upper() == "UTC"
+    assert int(version) >= 140000

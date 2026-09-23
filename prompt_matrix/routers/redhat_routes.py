@@ -70,8 +70,32 @@ def register_redhat_routes(app) -> None:
             run_id=run_id,
             debounce=False,
         )
-        if task_id:
-            upsert_telemetry(workspace_id, task_id=task_id)
+        if not task_id:
+            # ``schedule_redhat_multipass`` returns None when the Celery broker
+            # is disabled or ``.delay`` failed. Nothing will ever advance the
+            # telemetry, so ``pending`` here was a spinner that never stopped
+            # (staging, 2026-09-22: no CELERY_BROKER_URL, status polled at
+            # ``pending`` indefinitely). Recorded as an error and answered 503.
+            message = "no task broker configured"
+            telemetry = upsert_telemetry(
+                workspace_id,
+                status="error",
+                pass1_complete=False,
+                pass2_running=False,
+                error=message,
+            )
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": message,
+                        "status": _status_payload(telemetry),
+                        "findings": [],
+                    }
+                ),
+                503,
+            )
+        upsert_telemetry(workspace_id, task_id=task_id)
 
         telemetry = fetch_telemetry(workspace_id) or reset_telemetry(workspace_id)
         return (

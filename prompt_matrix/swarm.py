@@ -79,7 +79,7 @@ ROLES = ("architect", "developer", "reviewer", "tester", "documenter")
 
 DEFAULT_ROLE_MODELS = {
     "architect": "gemini/gemini-3.6-flash",
-    "developer": "deepseek/deepseek-chat",
+    "developer": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
     "reviewer": "anthropic/claude-sonnet-4-5",
     "tester": "gemini/gemini-3.6-flash",
     "documenter": "anthropic/claude-sonnet-4-5",
@@ -93,7 +93,7 @@ ROLE_INTENTS = {
     "documenter": "research",
 }
 
-PEM_TARGETS = ("claude", "gemini", "deepseek", "kimi", "ollama", "cursor")
+PEM_TARGETS = ("claude", "gemini", "kimi", "ollama", "cursor")
 MAX_REDHAT_ROUNDS = 3
 MAX_FIX_ROUNDS = 3
 MIN_CONFIDENCE = 0.8
@@ -1695,7 +1695,7 @@ def _parse_role_models(items: list[str] | None) -> dict[str, str]:
             continue
         if "=" not in raw:
             raise MatrixError(
-                f"Expected ROLE=MODEL, got {raw!r}. Example: --model developer=deepseek-chat"
+                f"Expected ROLE=MODEL, got {raw!r}. Example: --model developer=gemini/gemini-3.6-flash"
             )
         role, model = raw.split("=", 1)
         role = role.strip().lower()

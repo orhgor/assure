@@ -13,11 +13,11 @@
     "@tiptap/core": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
-    "@uurtech/jdf": "^0.1.25"
+    "@uurtech/jdf": "^0.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@uurtech/jdf-cli": "^0.1.25",
+    "@uurtech/jdf-cli": "^0.2.3",
     "commander": "^13.1.0",
     "esbuild": "^0.25.9",
     "glob": "^11.0.3",

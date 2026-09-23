@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 try:
     from ..db.connection import init_db
@@ -36,13 +36,17 @@ log = logging.getLogger(__name__)
 
 
 def _get_omp_dir() -> Path:
-    """Get the OMP artifacts directory, creating if needed."""
-    db = get_db()
-    db_path = db.execute("PRAGMA database_list").fetchone()
-    if db_path:
-        base_dir = Path(db_path[2]).parent
-    else:
-        base_dir = Path.cwd()
+    """The OMP artifacts directory (the data directory's ``omp_artifacts/``).
+
+    Derived from the resolved database path rather than ``PRAGMA
+    database_list`` so it answers the same on PostgreSQL, where there is no
+    file behind the connection — ``ASSURE_DATA_DIR`` names the directory there.
+    """
+    try:
+        from ..history import _resolve_db_path
+    except ImportError:
+        from history import _resolve_db_path
+    base_dir = _resolve_db_path().parent
     omp_dir = base_dir / OMP_DIR_NAME
     omp_dir.mkdir(parents=True, exist_ok=True)
     return omp_dir
@@ -170,56 +174,62 @@ def store_omp_artifact(
 ) -> str:
     """Store an OMP artifact, returning the artifact_id.
 
+    The database row (``omp_artifacts``) is the queryable record and is always
+    written. The full JSON is mirrored to object storage so a worker on another
+    host, a client bucket, or a later export can read the artifact without the
+    database: S3 when ``ASSURE_S3_BUCKET`` is set (or ``storage_backend="s3"``
+    with ``s3_bucket``), else the local ``objects/`` directory under the data
+    dir — the same key layout either way (``services/object_store``).
+
     Args:
-        storage_backend: "local" (the default, EC2 instance disk or attached
-            EBS) or "s3". When not passed, resolved from
-            ``ASSURE_S3_BACKEND`` (default "local") so switching to the
-            client's S3 is a config change, not a code change.
-        s3_bucket: S3 bucket name (required when the backend is "s3").
-        s3_prefix: S3 key prefix, e.g. "assure/artifacts/".
-
-    Returns:
-        artifact_id (local), or the S3 URI (s3://bucket/key) once real S3
-        persistence exists.
-
-    NOTE: storage_backend="s3" is NOT real S3 persistence yet. It is a
-    placeholder for the client deployment phase: it logs the bucket/key it
-    would write and falls back to local storage. Acceptance for the show is
-    "the interface exists", never "S3 writes work".
+        storage_backend: "local" or "s3". Defaults from ``ASSURE_S3_BACKEND``,
+            and to "s3" automatically when ``ASSURE_S3_BUCKET`` is set.
+        s3_bucket / s3_prefix: override the bucket/prefix for this write; an
+            explicit ``storage_backend="s3"`` without a bucket anywhere is a
+            caller error. An env-level misconfiguration falls back to local
+            with a warning — an ingest must not fail on artifact mirroring.
     """
-    backend = storage_backend or os.environ.get("ASSURE_S3_BACKEND") or "local"
+    backend = storage_backend or os.environ.get("ASSURE_S3_BACKEND") or (
+        "s3" if (os.environ.get("ASSURE_S3_BUCKET") or "").strip() else "local"
+    )
+    bucket = s3_bucket or os.environ.get("ASSURE_S3_BUCKET")
+    if backend == "s3" and not bucket:
+        if storage_backend == "s3":
+            raise ValueError("s3_bucket required when storage_backend='s3'")
+        log.warning(
+            "ASSURE_S3_BACKEND=s3 but ASSURE_S3_BUCKET is not set; falling back to local storage"
+        )
+        backend = "local"
+
+    artifact_id = _store_row(artifact)
+
+    try:
+        from .object_store import LocalObjectStore, S3ObjectStore, get_object_store, omp_key
+    except ImportError:
+        from services.object_store import LocalObjectStore, S3ObjectStore, get_object_store, omp_key
+
     if backend == "s3":
-        bucket = s3_bucket or os.environ.get("ASSURE_S3_BUCKET")
-        if not bucket:
-            if storage_backend == "s3":
-                # An explicit caller decision without a bucket is a caller
-                # error; an env-default decision without one is a misconfig,
-                # which must not fail an ingest — fall back to local.
-                raise ValueError("s3_bucket required when storage_backend='s3'")
-            log.warning(
-                "ASSURE_S3_BACKEND=s3 but ASSURE_S3_BUCKET is not set; "
-                "falling back to local storage"
-            )
-            backend = "local"
-        else:
-            # TODO: implement the real S3 write in the client deployment
-            # phase (standard boto3 credential chain). For now: log the key
-            # the artifact would land at and fall back to local — a
-            # show-only placeholder, explicitly NOT S3 persistence.
-            prefix = s3_prefix or os.environ.get("ASSURE_S3_PREFIX") or "assure/artifacts/"
-            s3_key = f"{prefix}{project_id}/{artifact.artifact_id}.json"
-            log.info(
-                "S3 storage requested (bucket=%s, key=s3://%s/%s) but not yet "
-                "implemented; using local fallback until client deployment phase",
-                bucket,
-                bucket,
-                s3_key,
-            )
-    return _store_local(artifact)
+        store = S3ObjectStore(bucket, s3_prefix or os.environ.get("ASSURE_S3_PREFIX") or "")
+    else:
+        store = get_object_store()
+        if not isinstance(store, LocalObjectStore):
+            # Env selected S3 but the caller asked for local: honour the caller.
+            store = LocalObjectStore(_get_omp_dir().parent / "objects")
+    try:
+        uri = store.put_bytes(
+            omp_key(project_id, artifact_id),
+            json.dumps(artifact.to_dict(), indent=2).encode("utf-8"),
+            content_type="application/json",
+        )
+        log.info("OMP artifact %s mirrored to %s", artifact_id, uri)
+    except Exception:
+        # Mirroring is best-effort by contract: the row above is the record.
+        log.exception("OMP artifact %s: object-store mirror failed", artifact_id)
+    return artifact_id
 
 
-def _store_local(artifact: OMPArtifact) -> str:
-    """Local (EC2 instance disk / EBS) OMP persistence — the show default."""
+def _store_row(artifact: OMPArtifact) -> str:
+    """The ``omp_artifacts`` row — the authoritative, queryable record."""
     _init_omp_tables()
     init_db()
     db = get_db()
@@ -254,24 +264,12 @@ def _store_local(artifact: OMPArtifact) -> str:
         ),
     )
     db.commit()
-
-    # Also persist to filesystem for backup/portability
-    _persist_artifact_to_disk(artifact)
-
     return artifact.artifact_id
 
 
-def _persist_artifact_to_disk(artifact: OMPArtifact) -> None:
-    """Persist artifact to filesystem as JSON."""
-    try:
-        omp_dir = _get_omp_dir()
-        project_dir = omp_dir / artifact.project_id
-        project_dir.mkdir(parents=True, exist_ok=True)
-        file_path = project_dir / f"{artifact.artifact_id}.json"
-        file_path.write_text(json.dumps(artifact.to_dict(), indent=2))
-    except Exception:
-        # Disk persistence is best-effort
-        pass
+def _store_local(artifact: OMPArtifact) -> str:
+    """Backwards-compatible name: row + local mirror."""
+    return store_omp_artifact(artifact.project_id, artifact, storage_backend="local")
 
 
 def load_omp_artifact(artifact_id: str) -> OMPArtifact | None:
@@ -295,15 +293,21 @@ def load_omp_artifact(artifact_id: str) -> OMPArtifact | None:
 
 
 def _load_artifact_from_disk(artifact_id: str) -> OMPArtifact | None:
-    """Load artifact from filesystem fallback."""
+    """Object-store fallback: the mirrored JSON, when the row is gone.
+
+    The key carries the project id, which a bare artifact id does not, so the
+    ``omp_artifacts`` row is tried first by the caller; here every project's
+    prefix is not enumerable cheaply on S3, so only the legacy local layout
+    (``omp_artifacts/<project>/<id>.json``) is scanned.
+    """
     try:
         omp_dir = _get_omp_dir()
-        for project_dir in omp_dir.iterdir():
-            if project_dir.is_dir():
-                file_path = project_dir / f"{artifact_id}.json"
-                if file_path.exists():
-                    data = json.loads(file_path.read_text())
-                    return OMPArtifact.from_dict(data)
+        if omp_dir.exists():
+            for project_dir in omp_dir.iterdir():
+                if project_dir.is_dir():
+                    file_path = project_dir / f"{artifact_id}.json"
+                    if file_path.exists():
+                        return OMPArtifact.from_dict(json.loads(file_path.read_text()))
     except Exception:
         pass
     return None

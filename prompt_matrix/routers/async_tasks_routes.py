@@ -41,6 +41,40 @@ def _task_status(result: AsyncResult) -> dict:
 
 
 def register_async_task_routes(app) -> None:
+    @app.get("/api/tasks/<task_id>")
+    def task_status(task_id: str):
+        """Poll a queued task (parse, compile, render) by the id a 202 returned.
+
+        Reads the Celery result backend (Redis or PostgreSQL), so any web
+        replica can answer for a task any worker ran. ``status`` is one of
+        pending / processing / success / failure / skipped; ``result`` carries
+        the task's own payload once it is ready.
+        """
+        if not task_id or len(task_id) > 128:
+            return jsonify({"error": "task_id required"}), 400
+        body = _task_status(AsyncResult(task_id, app=celery_app))
+        # The durable record beats the (expiring) Celery result: a job row
+        # that says done/failed is authoritative even when the backend has
+        # forgotten the task.
+        try:
+            from ..db.ingest_jobs_repository import get_job_by_task
+        except ImportError:
+            from db.ingest_jobs_repository import get_job_by_task
+        job = get_job_by_task(task_id)
+        if job:
+            body["job"] = job
+            if body["status"] in ("pending", "processing") and job["status"] in ("done", "failed", "skipped"):
+                body["status"] = "success" if job["status"] == "done" else job["status"]
+            elif body["status"] == "pending" and job["status"] != "queued":
+                body["status"] = "processing"
+        payload = body.get("result") if isinstance(body.get("result"), dict) else {}
+        if isinstance(payload, dict) and payload.get("status") == "skipped":
+            body["status"] = "skipped"
+        code = 200
+        if body["status"] == "failure":
+            code = int(payload.get("http_status") or 200) if isinstance(payload, dict) else 200
+        return jsonify(body), code
+
     @app.post("/api/tasks/compile")
     def enqueue_compile():
         data = request.get_json(silent=True) or {}

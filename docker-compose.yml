@@ -1,38 +1,178 @@
+# Full local stack in one command — no .env required:
+#
+#   docker compose up -d --build
+#   open http://127.0.0.1:8891          (workbench shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#   http://127.0.0.1:8765/api/...       (Flask API directly; /app there is the legacy workbench)
+#
+# PostgreSQL + Redis + web + parse worker, the same topology as AWS
+# (infra/terraform). Defaults are for a laptop: development mode, the image is
+# built from this checkout, a fixed local database password, login disabled.
+# Production/staging use the override files, which turn the fail-fast checks
+# back on and require real secrets:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# AWS/S3 is real when configured: set ASSURE_S3_BUCKET + AWS_ACCESS_KEY_ID /
+# AWS_SECRET_ACCESS_KEY in .env (or enter them on the Sources panel). Without a
+# bucket, uploads stay under ./data/objects and the UI shows a warning.
+x-app-env: &app-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:-assure}@postgres:5432/${POSTGRES_DB:-assure}
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-}
+  ASSURE_DATA_DIR: /app/data
+  TEMP_UPLOAD_DIR: /app/data/tmp_uploads
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  ASSURE_ENV: ${ASSURE_ENV:-development}
+  PEM_SECRET_KEY: ${PEM_SECRET_KEY:-assure-local-dev-change-me}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+  ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-false}
+  # Clerk is not configured locally; without this the shell sends every page to /signin.
+  ASSURE_CLERK_ONLY: ${ASSURE_CLERK_ONLY:-0}
+  WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-0}
+  PARSE_ASYNC: ${PARSE_ASYNC:-1}
+  SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-1}
+  PARSER_SCAN_BACKEND: ${PARSER_SCAN_BACKEND:-jdf-ocr}
+  JDF_OCR: ${JDF_OCR:-tesseract}
+  # Real S3 (leave empty for local disk). Credentials: .env keys, the Sources
+  # panel form, or the machine IAM role — in that order.
+  ASSURE_S3_BUCKET: ${ASSURE_S3_BUCKET:-}
+  ASSURE_S3_PREFIX: ${ASSURE_S3_PREFIX:-assure/}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  ASSURE_LOG_STDOUT: "1"
+  PYTHONUNBUFFERED: "1"
+  BUILD_SHA: ${BUILD_SHA:-local}
+  ASSURE_BUILD_SHA: ${ASSURE_BUILD_SHA:-${BUILD_SHA:-local}}
+  APP_IMAGE: ${APP_IMAGE:-assure-app:local}
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-assure}
+      POSTGRES_USER: ${POSTGRES_USER:-assure}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assure}
+    command: >
+      postgres -c shared_buffers=128MB -c max_connections=100
+      -c log_min_duration_statement=500
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-assure} -d ${POSTGRES_DB:-assure}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
   assure-app:
-    image: ${APP_IMAGE:?missing APP_IMAGE}
+    image: ${APP_IMAGE:-assure-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file:
-      # Production carries .env; staging carries .env.staging (optional
-      # overlay). Making the base file optional lets one compose definition
-      # serve both: a missing .env is not an error when the overlay's
-      # env_file supplies the runtime environment.
       - path: .env
         required: false
     ports:
-      - "127.0.0.1:8765:8765"
+      - "127.0.0.1:${PORT:-8765}:8765"
     environment:
-      DATABASE_PATH: /app/data/history.sqlite
-      ENVIRONMENT: production
+      <<: *app-env
       PORT: "8765"
-      PYTHONUNBUFFERED: "1"
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      BUILD_SHA: ${BUILD_SHA:-unknown}
-      BUILD_BRANCH: ${BUILD_BRANCH:-unknown}
-      BUILD_TIME: ${BUILD_TIME:-unknown}
-      ASSURE_BUILD_SHA: ${ASSURE_BUILD_SHA:-${BUILD_SHA:-unknown}}
-      ASSURE_BUILD_BRANCH: ${ASSURE_BUILD_BRANCH:-${BUILD_BRANCH:-unknown}}
-      ASSURE_BUILD_TIME: ${ASSURE_BUILD_TIME:-${BUILD_TIME:-unknown}}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-8}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       ASSURE_SERVICE_API_TOKEN: ${ASSURE_SERVICE_API_TOKEN:-}
-      APP_IMAGE: ${APP_IMAGE:-unknown}
     volumes:
       - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
-  # Optional: expose assure-app via Cloudflare Tunnel (set TUNNEL_TOKEN in .env).
-  # cloudflared:
-  #   image: cloudflare/cloudflared:latest
-  #   command: tunnel run --token ${TUNNEL_TOKEN}
-  #   environment:
-  #     TUNNEL_TOKEN: ${TUNNEL_TOKEN}
-  #   depends_on:
-  #     - assure-app
-  #   restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  assure-worker:
+    image: ${APP_IMAGE:-assure-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "exec celery -A prompt_matrix.celery_app:celery_app worker
+      --loglevel=info
+      --concurrency=${WORKER_CONCURRENCY:-1}
+      --prefetch-multiplier=1
+      -Q parse,default"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+    # The image's default HEALTHCHECK probes the web port, which a Celery
+    # process does not serve; ask the worker itself instead.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A prompt_matrix.celery_app:celery_app inspect ping --timeout 10 -d celery@$$(hostname) >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # The workbench shell — what staging.getassureai.com serves. Static shell from
+  # prototype/ with /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY
+  # gate (fails closed if unset). Open http://127.0.0.1:8891 and enter the key.
+  assure-shell:
+    image: ${APP_IMAGE:-assure-app:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "prototype/dev-server.py"]
+    environment:
+      UPSTREAM_BASE: http://assure-app:8765
+      HOST: 0.0.0.0
+      PORT: "8891"
+      SHELL_ACCESS_KEY: ${SHELL_ACCESS_KEY:-assure-local-shell-key}
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "127.0.0.1:${SHELL_PORT:-8891}:8891"
+    depends_on:
+      assure-app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8891/auth',timeout=3)\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  pgdata:

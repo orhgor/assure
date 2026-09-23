@@ -42,6 +42,20 @@ def project_owner_id(project_id: str) -> str | None:
     return str(raw) if raw else None
 
 
+def project_exists(project_id: str) -> bool:
+    """True when a ``projects`` row exists for ``project_id``.
+
+    Distinct from ``project_owner_id``, which returns None both for a missing
+    row and for a row with no owner — the pre-auth ``legacy`` projects — so it
+    cannot tell a ghost project from an unowned one.
+    """
+    if not project_id:
+        return False
+    init_db()
+    row = get_db().execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone()
+    return row is not None
+
+
 def new_revision_id() -> str:
     """A document revision id.
 

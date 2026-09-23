@@ -40,7 +40,6 @@ def _litellm_model_name(model: str) -> str:
     mapping = {
         "gemini": "gemini/gemini-1.5-pro",
         "claude": "anthropic/claude-sonnet-4-5",
-        "deepseek": "deepseek/deepseek-chat",
     }
     return mapping.get(model, model)
 

@@ -10,7 +10,7 @@ This workspace runs Prompt Engineering Matrix as a Cursor MCP server (`pem`). An
 ## Tools
 
 - `pem_compile` — dialect prompt only. No model call.
-- `pem_combine` — two or more models draft, then merge. Default primary `gemini`, extra `deepseek`.
+- `pem_combine` — two or more models draft, then merge. Default primary `gemini`, extra `kimi`.
 - `pem_critique_rewrite` — attempt → persona critique → final. Personas: `redhat`, `security`, `tokens`, `schema`, `code`.
 - `pem_dialect_lint` — static dialect check. No model call.
 - `pem_export` — saved class to `cursorrules` / `mdc` / `fabric` / `dspy`.

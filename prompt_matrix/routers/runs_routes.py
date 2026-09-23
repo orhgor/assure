@@ -10,6 +10,7 @@ from flask import Response, jsonify, request, stream_with_context
 from pydantic import BaseModel, ConfigDict, Field
 
 try:
+    from ..lib.http_errors import clean_error_message, error_status
     from ..db.runs_repository import delete_run, fetch_run, list_runs
     from ..db.redhat_findings_repository import fetch_finding, update_finding_status
     from ..services.auto_compiler import done_sse, run_auto_compiler_pipeline
@@ -21,6 +22,7 @@ try:
     from ..services.run_creation import create_run_from_directive
     from ..services.compiler import PromptCompiler
 except ImportError:
+    from lib.http_errors import clean_error_message, error_status
     from db.runs_repository import delete_run, fetch_run, list_runs
     from db.redhat_findings_repository import fetch_finding, update_finding_status
     from services.auto_compiler import done_sse, run_auto_compiler_pipeline
@@ -121,7 +123,10 @@ def register_runs_routes(app) -> None:
         except TimeoutError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 504
         except Exception as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 500
+            # ``create_run_from_directive`` re-raises the Auto-Compiler's error
+            # frame as RuntimeError; a missing provider key ("DeepSeek is not
+            # connected...") is a 503, and the body is one clean line.
+            return jsonify({"ok": False, "error": clean_error_message(exc)}), error_status(exc)
         return jsonify({"ok": True, "run": run}), 201
 
     @app.post("/api/runs/execute")

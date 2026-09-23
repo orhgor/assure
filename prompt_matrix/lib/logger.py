@@ -170,11 +170,16 @@ def get_assure_logger() -> logging.Logger:
     if log.handlers:
         return log
     log.setLevel(logging.INFO)
-    handler = RotatingFileHandler(
-        _log_dir() / "assure.log",
-        maxBytes=10_000_000,
-        backupCount=5,
-    )
+    if os.environ.get("ASSURE_LOG_STDOUT", "").strip().lower() in ("1", "true", "yes"):
+        # Containers: one stream per replica, collected by the platform
+        # (CloudWatch / docker logs). No file to rotate, no volume to share.
+        handler: logging.Handler = logging.StreamHandler()
+    else:
+        handler = RotatingFileHandler(
+            _log_dir() / "assure.log",
+            maxBytes=10_000_000,
+            backupCount=5,
+        )
     handler.setFormatter(
         logging.Formatter("[%(asctime)s] %(levelname)s [%(request_id)s] %(message)s")
     )
@@ -188,6 +193,17 @@ def resolve_db_path() -> str:
     if override:
         return override
     return str(DB_PATH)
+
+
+def _connect_audit_db(db_path: str) -> sqlite3.Connection:
+    """The audit trail's own pooled connection; ``close()`` gives it back."""
+    try:
+        from ..db.pg_compat import checkout, is_postgres
+    except ImportError:
+        from db.pg_compat import checkout, is_postgres
+    if not is_postgres():
+        raise RuntimeError("DATABASE_URL must be a PostgreSQL DSN")
+    return checkout(db_path)  # type: ignore[return-value]
 
 
 class AuditLogger:
@@ -212,7 +228,7 @@ class AuditLogger:
     ) -> None:
         conn: sqlite3.Connection | None = None
         try:
-            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            conn = _connect_audit_db(self.db_path)
             # The audit trail's connection is the fifth path to this database and
             # the only one that did not apply the shared pragmas, so its
             # `foreign_keys` defaulted to SQLite's OFF like every other

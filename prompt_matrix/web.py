@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import socket
 import sys
@@ -107,6 +108,36 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_BASIC_USER = "admin"
 DEFAULT_BASIC_PASS = "changeme"
+
+
+def _server_environment() -> bool:
+    """True on a deployed server (production / staging), where multi-replica
+    invariants are enforced at startup instead of discovered in production."""
+    return (os.environ.get("ENVIRONMENT") or "").strip().lower() in ("production", "staging")
+
+
+def _check_shared_state_configuration() -> None:
+    """Fail fast when a deployed server would keep state in one process.
+
+    PostgreSQL is checked by the first query (history._new_connection). Redis
+    carries rate-limit counters, the Red-Hat debounce and Celery results; without
+    it every replica keeps its own copy and the limits stop meaning anything.
+    ``ASSURE_ALLOW_LOCAL_STATE=1`` is the explicit single-process opt-out.
+    """
+    if not _server_environment():
+        return
+    if os.environ.get("ASSURE_ALLOW_LOCAL_STATE", "").strip().lower() in ("1", "true", "yes"):
+        return
+    try:
+        from .services.redis_client import redis_configured
+    except ImportError:
+        from services.redis_client import redis_configured
+    if not redis_configured():
+        raise RuntimeError(
+            "REDIS_URL must be set when ENVIRONMENT is production/staging (rate limits, "
+            "debounce locks, task results are shared through it). Set ASSURE_ALLOW_LOCAL_STATE=1 "
+            "only for a deliberate single-process deployment."
+        )
 
 
 def _init_sentry() -> None:
@@ -288,6 +319,7 @@ def first_open_url(local: str) -> str:
 
 
 def create_app(*, require_auth: bool = True) -> Flask:
+    _check_shared_state_configuration()
     _init_sentry()
     try:
         from .pem_runner import ensure_preflight
@@ -300,6 +332,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from db.connection import init_db
     init_db()
+    # AWS identity: .env wins, then credentials saved from the Sources panel
+    # (integration_settings), then the machine role. Applied before any boto3
+    # client exists so the object store and Textract share one identity.
+    try:
+        from .services.aws_integration import apply_to_environment as _apply_aws
+    except ImportError:
+        from services.aws_integration import apply_to_environment as _apply_aws
+    try:
+        _apply_aws()
+    except Exception:
+        logging.getLogger("assure").exception("aws integration: could not apply saved settings")
     try:
         from .routers.sandbox import ensure_sandbox_project
     except ImportError:
@@ -389,9 +432,29 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 resp.headers.setdefault("Cache-Control", "public, max-age=300")
         return resp
 
-    app.secret_key = (
-        os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY") or "assure-local-dev"
-    )
+    # Behind a load balancer (ALB, Cloudflare) the client address and scheme
+    # arrive in X-Forwarded-*; without this every rate-limit bucket and every
+    # audit row would carry the balancer's IP. One proxy hop is trusted.
+    try:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        hops = int(os.environ.get("PROXY_FIX_HOPS", "1"))
+        if hops > 0:
+            app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops, x_port=hops)
+    except ImportError:
+        pass
+
+    secret = os.environ.get("PEM_SECRET_KEY") or os.environ.get("FLASK_SECRET_KEY")
+    if not secret:
+        if _server_environment():
+            # Every replica must sign sessions with the same secret; a default
+            # would also be a public one. Refuse to start rather than run with it.
+            raise RuntimeError(
+                "PEM_SECRET_KEY (or FLASK_SECRET_KEY) must be set when ENVIRONMENT is "
+                f"{os.environ.get('ENVIRONMENT')!r}."
+            )
+        secret = "assure-local-dev"
+    app.secret_key = secret
     try:
         from .middleware import csrf_enabled, csrf_exempt_path, register_security_guards
     except ImportError:
@@ -1735,6 +1798,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.substrate import register_substrate_routes
     register_substrate_routes(app)
+    try:
+        from .routers.ingest_jobs_routes import register_ingest_jobs_routes
+    except ImportError:
+        from routers.ingest_jobs_routes import register_ingest_jobs_routes
+    register_ingest_jobs_routes(app)
+    try:
+        from .routers.integrations_routes import register_integrations_routes
+    except ImportError:
+        from routers.integrations_routes import register_integrations_routes
+    register_integrations_routes(app)
 
     try:
         from .routers.sandbox import register_sandbox_routes

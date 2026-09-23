@@ -8,7 +8,6 @@
 
   var MODEL_LABELS = {
     gemini: "Gemini",
-    deepseek: "DeepSeek",
     claude: "Claude",
     kimi: "Kimi",
     ollama: "Ollama",

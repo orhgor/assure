@@ -130,7 +130,7 @@
       '<div class="compare-loading">' +
       escapeHtml(translate("founder.compare.model_a_waiting", "Model A: waiting…")) +
       "</div></div>" +
-      '<div class="model-pane p-4" data-model="deepseek">' +
+      '<div class="model-pane p-4" data-model="secondary">' +
       '<div class="compare-loading">' +
       escapeHtml(translate("founder.compare.model_b_waiting", "Model B: waiting…")) +
       "</div></div></div></div>";
@@ -170,7 +170,7 @@
 
   function normalizePayload(data) {
     if (!data) return data;
-    if (data.models && data.models.claude && data.models.deepseek) return data;
+    if (data.models && data.models.claude && data.models.secondary) return data;
     var models = data.models || {};
     var modelA = data.model_a || {};
     var modelB = data.model_b || {};
@@ -187,14 +187,14 @@
           text: (models.claude && models.claude.text) || modelA.text || "",
           error: (models.claude && models.claude.error) || modelA.error || null,
         },
-        deepseek: {
+        secondary: {
           name:
-            (models.deepseek && models.deepseek.name) ||
+            (models.secondary && models.secondary.name) ||
             modelB.name ||
             modelB.model ||
             translate("founder.compare.model_b_default", "Model B"),
-          text: (models.deepseek && models.deepseek.text) || modelB.text || "",
-          error: (models.deepseek && models.deepseek.error) || modelB.error || null,
+          text: (models.secondary && models.secondary.text) || modelB.text || "",
+          error: (models.secondary && models.secondary.error) || modelB.error || null,
         },
       },
     };
@@ -263,8 +263,8 @@
           );
         }
         var claude = (payload.models && payload.models.claude) || {};
-        var deepseek = (payload.models && payload.models.deepseek) || {};
-        if (modelHasFailed(claude) && modelHasFailed(deepseek)) {
+        var secondary = (payload.models && payload.models.secondary) || {};
+        if (modelHasFailed(claude) && modelHasFailed(secondary)) {
           renderFatalError(
             translate(
               "founder.compare.both_failed",

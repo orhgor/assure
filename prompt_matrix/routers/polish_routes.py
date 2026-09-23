@@ -41,9 +41,14 @@ def register_polish_routes(app) -> None:
                 jsonify(
                     {
                         "status": "error",
-                        "error": "strict_preservation failed: lock_hash pills were altered",
+                        "error": (
+                            result.get("preservation_note")
+                            or "strict_preservation failed: lock pills or numeric tokens were altered"
+                        ),
                         "strict_preservation": False,
+                        "preserved": False,
                         "lock_hashes": result.get("lock_hashes") or [],
+                        # The original document, not the corrupted rewrite.
                         "document": result.get("document"),
                     }
                 ),
@@ -57,6 +62,7 @@ def register_polish_routes(app) -> None:
                 "plain_before": result["plain_before"],
                 "plain_after": result["plain_after"],
                 "strict_preservation": True,
+                "preserved": True,
                 "lock_hashes": result["lock_hashes"],
                 "lock_count": result["lock_count"],
             }

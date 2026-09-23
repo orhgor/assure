@@ -275,3 +275,92 @@ def test_jdf_to_document_tree_preserves_assets(monkeypatch):
     images = [c for c in children if c["type"] == "image"]
     assert any((c.get("meta") or {}).get("asset_kind") == "figure" for c in images) or True
     assert tree["meta"]["parse_confidence"] == 0.9
+
+def test_pdf_to_jdf_passes_ocr_flag_and_longer_timeout(monkeypatch):
+    """A scan asks jdf-cli for OCR; a text-layer parse does not."""
+    seen = {}
+
+    def fake_run(cmd, timeout=None, **kw):
+        seen["cmd"] = list(cmd)
+        seen["timeout"] = timeout
+        jdf_path = cmd[2][:-4] + ".jdf"
+        with open(jdf_path, "w") as fh:
+            json.dump({"$jdf": "1.0", "meta": {}, "pages": []}, fh)
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr("prompt_matrix.services.jdf_converter._run", fake_run)
+    pdf_to_jdf(b"%PDF-1.4 fake", ocr="tesseract")
+    assert seen["cmd"][-2:] == ["--ocr", "tesseract"]
+    from prompt_matrix.services.jdf_converter import JDF_OCR_TIMEOUT, JDF_TIMEOUT
+
+    assert seen["timeout"] == JDF_OCR_TIMEOUT
+    pdf_to_jdf(b"%PDF-1.4 fake")
+    assert "--ocr" not in seen["cmd"]
+    assert seen["timeout"] in (None, JDF_TIMEOUT)
+
+
+def test_bundle_reports_ocr_confidence_from_tesseract_blocks(monkeypatch):
+    """OCR confidence is the mean of the per-line confidences jdf-cli emitted."""
+    jdf_obj = {
+        "$jdf": "1.0",
+        "meta": {"title": "scan"},
+        "pages": [
+            {
+                "id": "p1",
+                "elements": [
+                    {
+                        "type": "image",
+                        "id": "scan-1",
+                        "ocr": {
+                            "source": "tesseract.js:eng",
+                            "blocks": [
+                                {"text": "COMMERCIAL PROPERTY", "confidence": 0.96},
+                                {"text": "CP 10 30", "confidence": 0.56},
+                            ],
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    chunks = [{"id": "scan-1", "text": "COMMERCIAL PROPERTY\nCP 10 30", "page": 1, "types": ["image"]}]
+    monkeypatch.setattr(
+        "prompt_matrix.services.jdf_converter.pdf_to_jdf", lambda b, ocr=None: jdf_obj
+    )
+    monkeypatch.setattr(
+        "prompt_matrix.services.jdf_converter.jdf_to_chunks", lambda j, strategy="section": chunks
+    )
+    bundle = pdf_to_parse_bundle(b"%PDF", source_kind="scanned", ocr="tesseract")
+    assert bundle["parser_name"] == "jdf-cli+tesseract"
+    assert bundle["source_kind"] == "scanned"
+    assert bundle["ocr_confidence"] == 0.76
+    assert bundle["ocr_line_count"] == 2
+    assert bundle["ocr_engine"] == "tesseract"
+    assert "COMMERCIAL PROPERTY" in bundle["text"]
+
+
+def test_bundle_without_ocr_blocks_keeps_confidence_unknown(monkeypatch):
+    """A text-layer parse carries no OCR blocks: None, never a fabricated 0."""
+    jdf_obj = {"$jdf": "1.0", "meta": {}, "pages": [{"id": "p1", "elements": [{"type": "text", "text": "x"}]}]}
+    monkeypatch.setattr("prompt_matrix.services.jdf_converter.pdf_to_jdf", lambda b, ocr=None: jdf_obj)
+    monkeypatch.setattr(
+        "prompt_matrix.services.jdf_converter.jdf_to_chunks",
+        lambda j, strategy="section": [{"id": "c", "text": "x", "page": 1, "types": ["text"]}],
+    )
+    bundle = pdf_to_parse_bundle(b"%PDF")
+    assert bundle["parser_name"] == "jdf-cli"
+    assert bundle["ocr_confidence"] is None
+    assert bundle["ocr_engine"] is None
+
+
+def test_document_tree_keeps_ocr_text_as_paragraphs():
+    """A scanned page's OCR words become a paragraph next to the image node."""
+    from prompt_matrix.services.jdf_converter import jdf_to_document_tree
+
+    jdf = {"$jdf": "1.0", "meta": {}, "pages": [{"id": "p1", "elements": []}]}
+    chunks = [{"id": "scan-1", "text": "COMMERCIAL PROPERTY CP 10 30", "page": 1, "types": ["image"]}]
+    tree = jdf_to_document_tree(jdf, chunks, document_id="doc-x", title="scan.pdf")
+    children = tree["body"][0]["children"]
+    assert [c["type"] for c in children] == ["image", "paragraph"]
+    assert children[1]["content"] == "COMMERCIAL PROPERTY CP 10 30"
+    assert children[1]["meta"] == {"ocr": True, "page": 1}

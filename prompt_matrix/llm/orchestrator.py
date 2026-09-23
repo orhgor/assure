@@ -22,7 +22,6 @@ log = logging.getLogger(__name__)
 assert set(ORCHESTRATOR_ENV_MAP) == {
     "claude",
     "gemini",
-    "deepseek",
     "groq",
     "openrouter",
 }
@@ -31,7 +30,6 @@ assert set(ORCHESTRATOR_ENV_MAP) == {
 FAMILY_PREFIXES: dict[str, str] = {
     "meta-llama": "meta",
     "mistralai": "mistral",
-    "deepseek": "deepseek",
     "microsoft": "microsoft",
     "nemotron": "nvidia",
     "nvidia": "nvidia",
@@ -74,7 +72,7 @@ FREE_MODEL_PAIRS: list[tuple[str, str]] = [
 ]
 
 PRODUCTION_MODEL_PAIRS: list[tuple[str, str]] = [
-    ("anthropic/claude-sonnet-4-5", "deepseek/deepseek-chat"),
+    ("anthropic/claude-sonnet-4-5", "openrouter/qwen/qwen3-next-80b-a3b-instruct"),
     ("openai/gpt-4o", "anthropic/claude-sonnet-4-5"),
 ]
 
@@ -87,15 +85,14 @@ PROVIDER_TIMEOUTS: dict[str, int] = {
     "gemini": 60,
     "openai": 60,
     "anthropic": 60,
-    "deepseek": 120,
 }
 
 _paid_router_models = [
     {
         "model_name": "text-reasoning",
         "litellm_params": {
-            "model": "deepseek/deepseek-chat",
-            "api_key": os.getenv("DEEPSEEK_API_KEY"),
+            "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
+            "api_key": os.getenv("OPENROUTER_API_KEY"),
             "max_tokens": 4096,
         },
     },
@@ -187,8 +184,6 @@ def display_name_for_model(model: str) -> str:
         "gemini-3.6-flash": "Gemini 3.6 Flash",
         "gemini-2.5-flash": "Gemini 2.5 Flash",
         "gemini-2.0-flash": "Gemini 2.0 Flash",
-        "deepseek-chat": "DeepSeek V3",
-        "deepseek-reasoner": "DeepSeek Reasoner",
         "llama-3.3-70b-versatile": "Llama 3.3 70B (Groq)",
         "nemotron-3.5-lightning:free": "Nemotron 3.5 Lightning (OpenRouter)",
         "nex-n2.5-mini:free": "Nex N2.5 Mini (OpenRouter)",
@@ -203,7 +198,7 @@ def display_name_for_model(model: str) -> str:
 
 
 def orchestrator_model_pairs() -> dict[str, dict[str, str]]:
-    """UI slot keys (claude/deepseek) → model metadata for /health."""
+    """UI slot keys (claude/secondary) → model metadata for /health."""
     model_a, model_b = get_compare_pair()
     return {
         "claude": {
@@ -212,7 +207,7 @@ def orchestrator_model_pairs() -> dict[str, dict[str, str]]:
             "provider": model_a.split("/")[0],
             "family": family_of(model_a),
         },
-        "deepseek": {
+        "secondary": {
             "name": display_name_for_model(model_b),
             "litellm_model": model_b,
             "provider": model_b.split("/")[0],

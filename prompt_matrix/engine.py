@@ -67,7 +67,6 @@ TARGET_ALIASES = {
     "opus": "claude",
     "google": "gemini",
     "bard": "gemini",
-    "ds": "deepseek",
     "moonshot": "kimi",
     "kimi.ai": "kimi",
     "moonshot-ai": "kimi",
@@ -87,7 +86,6 @@ TARGET_ALIASES = {
 DEFAULT_MODELS = {
     "claude": "anthropic/claude-sonnet-4-5",
     "gemini": "gemini/gemini-3.6-flash",
-    "deepseek": "deepseek/deepseek-chat",
     "kimi": "moonshot/kimi-k2.5",
     "ollama": "ollama/llama3.2",
     "cursor": None,
@@ -96,7 +94,6 @@ DEFAULT_MODELS = {
 API_KEY_HINTS = {
     "claude": "ANTHROPIC_API_KEY or CLAUDE_API_KEY",
     "gemini": "GEMINI_API_KEY or GOOGLE_API_KEY",
-    "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY or KIMI_API_KEY",
 }
 

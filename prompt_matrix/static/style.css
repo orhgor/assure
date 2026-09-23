@@ -11580,3 +11580,52 @@ body[data-workbench-phase="ship"] #document-chrome .document-chrome-actions {
   pointer-events: none;
   opacity: 0.6;
 }
+
+/* ---- Ingest jobs: the document processing panel (ingest_jobs.js) ---------- */
+.ingest-jobs-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border, #e5e7eb); }
+.ingest-jobs-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ingest-jobs-title { margin: 0; font-size: 13px; font-weight: 600; }
+.ingest-jobs-summary { flex: 1; font-size: 12px; }
+.ingest-jobs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ingest-job { padding: 8px 10px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; background: var(--surface, #fff); }
+.ingest-job.is-failed { border-color: var(--danger, #dc2626); }
+.ingest-job-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.ingest-job-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ingest-job-stage { font-size: 12px; color: var(--text-muted, #6b7280); white-space: nowrap; }
+.ingest-job.is-active .ingest-job-stage { color: var(--accent, #3b82f6); }
+.ingest-progress { list-style: none; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin: 6px 0; padding: 0; }
+.ingest-progress li { height: 4px; border-radius: 2px; background: var(--border, #e5e7eb); }
+.ingest-progress li.is-done { background: var(--accent, #3b82f6); }
+.ingest-progress li.is-current { background: var(--accent, #3b82f6); opacity: 0.55; animation: ingest-pulse 1.2s ease-in-out infinite; }
+@keyframes ingest-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+.ingest-job-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted, #6b7280); }
+.ingest-badge { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
+.ingest-badge-ok { color: #166534; background: #dcfce7; border-color: #bbf7d0; }
+.ingest-badge-bad { color: #991b1b; background: #fee2e2; border-color: #fecaca; }
+.ingest-badge-warn { color: #92400e; background: #fef3c7; border-color: #fde68a; }
+.ingest-badge-muted { color: var(--text-muted, #6b7280); background: var(--surface-muted, #f3f4f6); border-color: var(--border, #e5e7eb); }
+.ingest-job-error { margin: 6px 0 0; font-size: 12px; color: var(--danger, #dc2626); word-break: break-word; }
+.ingest-job-actions { display: flex; gap: 6px; margin-top: 6px; }
+.ingest-report { margin: 8px 0 0; font-size: 12px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.ingest-report dt { color: var(--text-muted, #6b7280); }
+.ingest-report dd { margin: 0; }
+.ingest-violations { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: #991b1b; }
+
+
+/* ---- AWS / S3 integration banner + form (aws_integration.js) --------------- */
+.aws-banner { display: flex; align-items: center; gap: 10px; margin: 10px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); font-size: 13px; }
+.aws-banner-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.aws-banner-text .hint { font-size: 12px; word-break: break-word; }
+.aws-banner-warn { background: #fffbeb; border-color: #fde68a; }
+.aws-banner-bad { background: #fef2f2; border-color: #fecaca; }
+.aws-banner-ok { background: var(--surface-muted, #f9fafb); }
+.aws-modal { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; }
+.aws-modal-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45); }
+.aws-modal-card { position: relative; width: min(520px, 92vw); max-height: 90vh; overflow: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.aws-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.aws-modal-head h3 { margin: 0; font-size: 15px; }
+.aws-modal-card label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
+.aws-modal-card label .form-control { font-weight: 400; }
+.aws-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.aws-result-ok { color: #166534; }
+.aws-result-bad { color: #991b1b; }

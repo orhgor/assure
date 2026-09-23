@@ -150,7 +150,7 @@ def test_revision_count_via_subprocess(active_project, read_revision_count, tmp_
                         "intent": unique_intent,
                         "compileType": "full",
                         "substrate_file_ids": ["edge-2a6e72ea5e8540f6"],
-                        "target_ai": "deepseek/deepseek-chat",
+                        "target_ai": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
                     }
                 ),
             ],

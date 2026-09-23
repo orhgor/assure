@@ -44,8 +44,13 @@ def workflow_deadline(seconds: int | None = None) -> Iterator[WorkflowCap]:
     used_alarm = False
     timer: threading.Timer | None = None
     try:
+        # SIGALRM is process-wide: under gunicorn/gevent every greenlet reports
+        # as the main thread and concurrent requests would clobber one alarm.
+        # Only a bare CLI run (no server) may use it; servers use the timer.
+        allow_alarm = os.environ.get("ASSURE_WORKFLOW_SIGALRM", "").strip().lower() in ("1", "true", "yes")
         if (
             limit > 0
+            and allow_alarm
             and hasattr(signal, "SIGALRM")
             and threading.current_thread() is threading.main_thread()
         ):

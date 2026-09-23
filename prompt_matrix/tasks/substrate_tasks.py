@@ -2,40 +2,70 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from prompt_matrix.celery_app import celery_app
 
+log = logging.getLogger(__name__)
 
-@celery_app.task(name="assure.process_substrate_upload", bind=True, queue="sqlite_writes")
+
+@celery_app.task(name="assure.process_substrate_upload", bind=True, queue="parse", acks_late=True)
 def process_substrate_upload(
     self,
     project_id: str,
-    file_path: str,
+    object_key: str,
     original_filename: str,
+    job_id: str | None = None,
 ) -> dict[str, Any]:
-    """Extract text from a temp upload and persist to the vault."""
-    from pathlib import Path
+    """Extract text from a staged upload (object store key) and persist to the vault.
 
-    path = Path(file_path)
+    The object is deleted once the vault row exists; a redelivery that finds
+    it gone reports ``skipped`` instead of ingesting the document twice. The
+    ``ingest_jobs`` row (``job_id``) records each stage and the vault row id.
+    """
+    from prompt_matrix.db.ingest_jobs_repository import advance
+    from prompt_matrix.services.object_store import get_object_store
+
+    def _job(stage: str, **fields: Any) -> None:
+        if not job_id:
+            return
+        try:
+            advance(job_id, stage, **fields)
+        except Exception:
+            log.exception("ingest job %s: could not record stage %s", job_id, stage)
+
+    store = get_object_store()
+    _job("fetching", task_id=self.request.id)
+    if not store.exists(object_key):
+        _job("skipped", error="staged object not found (already processed or expired)")
+        return {
+            "status": "skipped",
+            "task_id": self.request.id,
+            "job_id": job_id,
+            "reason": "staged object not found (already processed or expired)",
+        }
     try:
         from prompt_matrix.routers.substrate import ingest_substrate_file
 
-        file_bytes = path.read_bytes()
+        file_bytes = store.get_bytes(object_key)
+        _job("parsing", size_bytes=len(file_bytes))
         entry = ingest_substrate_file(project_id, original_filename, file_bytes)
-        return {
-            "status": "success",
-            "task_id": self.request.id,
-            "entry": entry,
-        }
+        _job(
+            "done",
+            parser_name=entry.get("parser_name"),
+            source_kind=entry.get("source_kind"),
+            page_count=entry.get("page_count"),
+            parse_confidence=entry.get("parse_confidence"),
+            ocr_confidence=entry.get("ocr_confidence"),
+            substrate_file_id=entry.get("id"),
+            omp_artifact_id=entry.get("omp_artifact_id"),
+            z3_status=((entry.get("verification") or {}).get("z3_status") if isinstance(entry.get("verification"), dict) else None),
+            redhat_status=((entry.get("verification") or {}).get("redhat_status") if isinstance(entry.get("verification"), dict) else None),
+        )
+        result: dict[str, Any] = {"status": "success", "task_id": self.request.id, "job_id": job_id, "entry": entry}
     except Exception as exc:
-        return {
-            "status": "failure",
-            "task_id": self.request.id,
-            "error": str(exc),
-        }
-    finally:
-        try:
-            path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        _job("failed", error=f"{exc.__class__.__name__}: {str(exc)[:1500]}")
+        result = {"status": "failure", "task_id": self.request.id, "job_id": job_id, "error": str(exc)}
+    store.delete(object_key)
+    return result

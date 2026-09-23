@@ -122,3 +122,23 @@ moment the demo is over.
 Not verified, and deliberately so: the loop is reproduced locally against the pre-fix shell with a stub app and a
 stand-in sign-in page; the box's real Clerk handshake (two-step, email-code second factor) is the acceptance step
 for the deploy, not something a local run can claim.
+
+## 2026-09-22 — PostgreSQL only, parse on workers, S3 for bytes
+
+- **SQLite removed.** `DATABASE_URL` (PostgreSQL) is mandatory for every
+  process; `db/pg_compat.py` runs the existing SQLite-dialect SQL unchanged.
+  Reason: a single-writer file on one disk is the one thing that cannot be
+  replicated. Legacy data: `scripts/migrate_sqlite_to_postgres.py`.
+- **Uploads are queued, never parsed in a request.** `PARSE_ASYNC=1` →
+  object store + Celery `parse` queue + `GET /api/tasks/<id>`. Reason: OCR is
+  ~3 s/page; the request path must stay under load-balancer timeouts.
+- **Scans go to jdf-cli's tesseract first, Textract second.** Reason: same
+  pipeline, per-line confidence, no per-page fee. `PARSER_SCAN_BACKEND`
+  overrides.
+- **Redis for shared counters/locks/results, SQS (AWS) or Redis (local) as
+  broker.** Reason: rate limits and debounce must be one bucket across
+  replicas; SQS gives zero idle cost and an autoscaling metric.
+- **Cloudflare R2 edge worker retired in favour of presigned S3 uploads.**
+  See docs/scale_architecture.md §6.
+- **Async verification (>50 pages) stays deferred** with a written contract
+  in docs/deferred.md ("Async verification").

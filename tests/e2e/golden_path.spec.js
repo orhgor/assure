@@ -3,7 +3,7 @@
  *
  * Intended v1.0 DOM contract (Difference Engine + Orchestrator):
  *   .orchestrator-input, .orchestrator-submit, .staging-canvas,
- *   .model-pane[data-model="claude|deepseek"], .diff-highlight,
+ *   .model-pane[data-model="claude|secondary"], .diff-highlight,
  *   .push-to-main-btn, .redhat-audit-btn, .redhat-pass-2-complete,
  *   .main-polish-btn, .full-context-scan-btn, .benchmark-compare-btn,
  *   .local-fix-btn, .export-complete
@@ -23,7 +23,7 @@ const SEL = {
   orchestratorSubmit: ".orchestrator-submit",
   stagingCanvas: ".staging-canvas",
   claudePane: '.staging-canvas .model-pane[data-model="claude"]',
-  deepseekPane: '.staging-canvas .model-pane[data-model="deepseek"]',
+  secondaryPane: '.staging-canvas .model-pane[data-model="secondary"]',
   diffHighlight: ".diff-highlight",
   pushToMainBtn: ".push-to-main-btn",
   redhatAuditBtn: ".redhat-audit-btn",
@@ -137,14 +137,14 @@ test("Golden Path — v1.0 E2E (Steps 1–4)", async ({ page }) => {
     await expect(staging).toBeVisible({ timeout: 30_000 });
 
     await expect(page.locator(SEL.claudePane)).toBeVisible({ timeout: 120_000 });
-    await expect(page.locator(SEL.deepseekPane)).toBeVisible({ timeout: 120_000 });
+    await expect(page.locator(SEL.secondaryPane)).toBeVisible({ timeout: 120_000 });
 
     // Staging live compare runs two model calls (60-180s). Wait for both
     // panes to contain real text, not the "waiting" placeholder.
     await page.waitForFunction(
       () => {
         const c = document.querySelector('.staging-canvas .model-pane[data-model="claude"]');
-        const d = document.querySelector('.staging-canvas .model-pane[data-model="deepseek"]');
+        const d = document.querySelector('.staging-canvas .model-pane[data-model="secondary"]');
         if (!c || !d) return false;
         const cText = (c.textContent || "").trim();
         const dText = (d.textContent || "").trim();
@@ -213,7 +213,7 @@ test("Never merge error strings into Main document", async ({ page }) => {
             text: "Boston commercial property liability limit is $5,000,000 per occurrence.",
             error: null,
           },
-          deepseek: {
+          secondary: {
             name: "DeepSeek V3",
             text: "",
             error:
@@ -240,10 +240,10 @@ test("Never merge error strings into Main document", async ({ page }) => {
     await window.AssureOrchestrator.run(intent);
   }, INTENT);
 
-  await expect(page.locator('.model-pane[data-model="deepseek"] .compare-error-card')).toBeVisible({
+  await expect(page.locator('.model-pane[data-model="secondary"] .compare-error-card')).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.locator('.model-pane[data-model="deepseek"] .push-to-main-btn')).toHaveCount(0);
+  await expect(page.locator('.model-pane[data-model="secondary"] .push-to-main-btn')).toHaveCount(0);
 
   const successBtn = page.locator('.model-pane[data-model="claude"] .push-to-main-btn').first();
   await expect(successBtn).toBeVisible({ timeout: 15_000 });

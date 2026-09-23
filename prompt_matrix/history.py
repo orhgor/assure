@@ -1,4 +1,4 @@
-"""Opt-in local SQLite log.
+"""Database access core (PostgreSQL via db/pg_compat) and the opt-in usage log.
 
 Hashes and token counts: PEM_ENABLE_HISTORY=1 or --history.
 Full compiled prompt and final reply: PEM_STORE_PROMPTS=1 (separate table).
@@ -27,10 +27,36 @@ except ImportError:
 
 
 def _resolve_db_path() -> Path:
+    """The data-directory key. There is no SQLite file behind it.
+
+    The database is PostgreSQL (``DATABASE_URL``, see ``db/pg_compat``). This
+    path survives for two reasons: its *parent* is the instance-local data
+    directory (upload staging, OMP artifact mirror, logs) — set with
+    ``ASSURE_DATA_DIR`` — and the test-suite still points each test at a
+    distinct ``DATABASE_PATH`` for isolation, which the PostgreSQL backend maps
+    to a schema of its own. Nothing is ever created at the path itself.
+    """
     override = (os.environ.get("DATABASE_PATH") or "").strip()
     if override:
         return Path(override)
+    data_dir = (os.environ.get("ASSURE_DATA_DIR") or "").strip()
+    if data_dir:
+        return Path(data_dir) / "history.sqlite"
     return user_data_dir() / "history.sqlite"
+
+
+def _using_postgres() -> bool:
+    """Always true for a configured server; raises a clear error when it is not."""
+    try:
+        from .db.pg_compat import is_postgres
+    except ImportError:
+        from db.pg_compat import is_postgres
+    return is_postgres()
+
+
+def _db_present() -> bool:
+    """Whether there is a database to read at all: the server is the database."""
+    return True
 
 
 DB_PATH = _resolve_db_path()
@@ -43,32 +69,13 @@ _scope_state = threading.local()
 
 
 def _apply_pragmas(conn: sqlite3.Connection) -> None:
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=5000;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
-    # SQLite ships with foreign_keys OFF and it is per-connection, so every
-    # `ON DELETE CASCADE` in the schema was inert: `DELETE FROM projects WHERE id
-    # = ?` (routers/project_routes.py) removed the project row and left its
-    # children behind. Seven tables declare a cascade to projects — drafts,
-    # jdf_revisions, substrate_vault, substrates, project_comments,
-    # workspace_settings, daily_compile_limits — and no table declares NO ACTION
-    # against it, so turning enforcement on can only complete a delete that was
-    # already meant to cascade; it cannot make one fail. runs.workspace_id is
-    # ON DELETE SET NULL and stays as declared.
-    #
-    # Set here because this is the one place every connection passes through:
-    # _new_connection below, the SQLAlchemy `connect` event in db/pool.py, and
-    # the two re-applications in db/connection.py. It must run outside a
-    # transaction, which holds at all four call sites.
-    #
-    # Seven tables a project delete orphans — audit_log, jdf_documents,
-    # node_revisions, pipeline_cache, project_budgets, token_ledger_entries,
-    # user_activity_log — carry a project_id with no FOREIGN KEY clause in a
-    # database that predates db/connection.py declaring one, so no pragma can
-    # reach a row there: those databases still need
-    # scripts/aws/migrate_fk_constraints.py. A database created from the current
-    # DDL carries the clause, and this pragma is what makes it bite.
-    conn.execute("PRAGMA foreign_keys=ON;")
+    """Kept for callers that still import it; PostgreSQL has no pragmas to apply.
+
+    Durability, busy handling and foreign-key enforcement are server-side
+    properties of PostgreSQL. The compat connection answers ``PRAGMA`` with an
+    empty result, so even a stray call is harmless.
+    """
+    return None
 
 
 def _caller_site() -> str:
@@ -90,42 +97,28 @@ def _caller_site() -> str:
 
 
 def _new_connection() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    use_pool = os.environ.get("SQLITE_USE_POOL", "1").lower() not in ("0", "false", "no")
-    if use_pool:
-        try:
-            from .db.pool import checkout_dbapi_connection
+    """A pooled PostgreSQL connection wrapped in the sqlite3-shaped handle.
 
-            conn = checkout_dbapi_connection()
-            # Re-tagged with the caller rather than the pool: the pool is the
-            # choke point, the caller is the holder, and when the pool runs out the
-            # holder is the thing to name.
-            note_connection_open(conn, site=_caller_site())
-            return conn
-        except ImportError:
-            pass
-        except Exception as exc:
-            # Fall back to a direct connection so the request still works, but make
-            # the saturated/misconfigured pool visible instead of stalling silently.
-            logging.getLogger("assure").warning(
-                "SQLite pool checkout failed (%s: %s); using a direct connection",
-                exc.__class__.__name__,
-                exc,
-            )
-    # check_same_thread=False to match db/pool.py's connect_args: the SSE keepalive
-    # pump runs blocking work on a worker thread, which reaches this fallback path
-    # when the pool is saturated (or SQLITE_USE_POOL=0).
-    conn = sqlite3.connect(str(DB_PATH), timeout=30.0, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    note_connection_open(conn, site=_caller_site())
+    ``DATABASE_URL`` is mandatory. There is no file-based fallback: a database
+    on one instance's disk is the single-writer, single-host state that stops
+    the app from running as more than one replica, so its absence is a
+    configuration error reported at the first query, not a silent downgrade.
+    The pool is the choke point and the caller is the holder, so the handle is
+    tagged with the caller for the open-connection gauge.
+    """
     try:
-        _apply_pragmas(conn)
-    except BaseException:
-        # A pragma that fails leaves a connection no caller ever received, so no
-        # caller can release it. Released here before the error travels.
-        _release_direct_connection(conn)
-        raise
-    return conn
+        from .db.pg_compat import checkout, is_postgres
+    except ImportError:
+        from db.pg_compat import checkout, is_postgres
+    if not is_postgres():
+        raise RuntimeError(
+            "DATABASE_URL is not set to a PostgreSQL DSN. The database is PostgreSQL only: "
+            "set DATABASE_URL=postgresql://user:pass@host:5432/db "
+            "(docker compose -f docker-compose.dev.yml up -d provides one locally)."
+        )
+    conn = checkout(str(DB_PATH))
+    note_connection_open(conn, site=_caller_site())
+    return conn  # type: ignore[return-value]
 
 
 def _rollback_quietly(conn: sqlite3.Connection | None) -> None:
@@ -145,31 +138,20 @@ def _rollback_quietly(conn: sqlite3.Connection | None) -> None:
 
 
 def _release_connection(conn: sqlite3.Connection | None) -> None:
-    """Return a pooled checkout to SQLAlchemy; plain close for direct sqlite3.
+    """Hand the connection back to its pool.
 
-    One half of `db_open_connections`: a connection leaves the gauge only once it
-    is really back — handed to the pool, or closed. A release that fails keeps it
-    counted and names it in the service log, because a connection that is neither
-    in the pool nor closed is one nothing will ever take back, and this count is
-    the only place that is visible.
+    One half of ``db_open_connections``: a connection leaves the gauge only once
+    it is really back. ``close()`` on the compat handle returns the raw
+    connection to the psycopg pool; a release that fails keeps it counted and
+    names it in the service log.
     """
     if conn is None:
         return
     try:
-        from .db.pool import connection_is_pooled, release_dbapi_connection
-
-        if connection_is_pooled(conn):
-            # db/pool.py owns the release *and* the gauge for a pooled connection:
-            # it is the one that knows whether the fairy went back.
-            release_dbapi_connection(conn)
-            return
-    except Exception:
-        pass
-    try:
         conn.close()
     except Exception as exc:
         logging.getLogger("assure").error(
-            "SQLite connection not released — close failed (%s: %s); "
+            "PostgreSQL connection not released — close failed (%s: %s); "
             "db_open_connections still counts it as open",
             exc.__class__.__name__,
             exc,
@@ -512,7 +494,7 @@ def record_run(
 def prune_old_executions(days: int) -> None:
     if days <= 0:
         return
-    if not DB_PATH.exists():
+    if not _db_present():
         return
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     conn = _new_connection()
@@ -734,7 +716,7 @@ def _row_public(row: sqlite3.Row, *, full: bool) -> dict:
 def list_works(
     *, days: int | None, full: bool, q: str = "", limit: int = 50, offset: int = 0
 ) -> dict:
-    if not DB_PATH.exists():
+    if not _db_present():
         return {"groups": [], "total": 0}
     q = (q or "").strip()
     cutoff = _cutoff_iso(days)
@@ -809,7 +791,7 @@ def list_works(
 
 
 def get_work(item_id: int, *, full: bool, days: int | None = None) -> dict | None:
-    if not DB_PATH.exists():
+    if not _db_present():
         return None
     conn = _connect()
     try:
@@ -908,7 +890,7 @@ def diff_runs(left_hash: str, right_hash: str) -> str:
 
 
 def delete_work(item_id: int) -> bool:
-    if not DB_PATH.exists():
+    if not _db_present():
         return False
     conn = _connect()
     try:
@@ -934,7 +916,7 @@ def delete_work(item_id: int) -> bool:
 
 
 def clear_works() -> int:
-    if not DB_PATH.exists():
+    if not _db_present():
         return 0
     conn = _connect()
     try:
@@ -1075,7 +1057,7 @@ def usage_summary(*, days: int = 30) -> dict:
         "models": [],
         "latency": None,
     }
-    if not DB_PATH.exists():
+    if not _db_present():
         return empty
     cutoff = (datetime.now(timezone.utc) - timedelta(days=n_days)).isoformat(timespec="seconds")
     conn = _connect()

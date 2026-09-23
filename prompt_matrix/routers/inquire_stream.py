@@ -29,6 +29,7 @@ try:
         answer_refusal_reason,
     )
     from ..ledger.truth_engine import TruthLedgerEngine
+    from ..lib.http_errors import clean_error_message
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
@@ -51,6 +52,7 @@ except ImportError:
         answer_refusal_reason,
     )
     from ledger.truth_engine import TruthLedgerEngine
+    from lib.http_errors import clean_error_message
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
@@ -549,6 +551,47 @@ def run_inquire_pipeline(
     )
 
     text = result.text or ""
+
+    # The governor's executor swallows provider exceptions and returns the
+    # message as the text (`cost_governance._default_executor`: ``"ERROR: {exc}"``
+    # with ``ok=True``). Treated as prose, that string was Z3-verified (no
+    # metrics, so PASS), persisted as a surgical rewrite and shown as the node
+    # — a paragraph reading "ERROR: AuthenticationError ..." with a green check.
+    # Same guard the Red-Hat critique below and `draft.py` / `refine_node.py`
+    # apply to their own model text: nothing downstream sees an error string.
+    if text.strip().startswith("ERROR:"):
+        clean = clean_error_message(text.strip()[len("ERROR:"):].strip()) or "model call failed"
+        audit.log_audit(
+            rid,
+            project_id,
+            "INQUIRE_STREAM",
+            target_node_id=target_node_id,
+            success=False,
+            duration_ms=_duration_ms(),
+            error_message=clean,
+            details={"model": result.model_id, "task_type": task_type.value},
+        )
+        _record_llm_usage(
+            gov,
+            project_id,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            model_id=result.model_id,
+            task_type=task_type,
+        )
+        yield _sse("error", {"ok": False, "error": clean, "request_id": rid})
+        yield _sse(
+            "complete",
+            {
+                "ok": False,
+                "persisted": False,
+                "error": clean,
+                "model_id": result.model_id,
+                "request_id": rid,
+            },
+        )
+        return
+
     chunk_size = 48
     for i in range(0, max(len(text), 1), chunk_size):
         yield _sse("token", {"delta": text[i : i + chunk_size]})
