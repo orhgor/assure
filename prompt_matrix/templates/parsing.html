@@ -410,7 +410,7 @@ body {
         <span class="stat-label">Textract</span>
       </div>
       <div class="summary-stat">
-        <span class="stat-number">{{ summary.avg_confidence|round(1) if summary.avg_confidence else '—' }}</span>
+        {% if summary.avg_confidence %}<span class="stat-number">{{ summary.avg_confidence|round(1) }}</span>{% else %}<span class="stat-number">—</span>{% endif %}
         <span class="stat-label">Avg parse confidence</span>
       </div>
     </div>
@@ -422,7 +422,7 @@ body {
         <div class="document-card__header">
           <div class="document-card__title">
             <span class="document-card__filename">{{ doc.filename }}</span>
-            <span class="document-card__meta">{{ doc.created_at.strftime('%Y-%m-%d %H:%M') if doc.created_at else '—' }}</span>
+            <span class="document-card__meta">{% if doc.created_at %}{{ doc.created_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</span>
           </div>
           <span class="parser-badge {{ 'parser-badge--textract' if doc.parser_name == 'textract' else 'parser-badge--jdf' }}">
             {{ 'Textract' if doc.parser_name == 'textract' else 'JDF CLI' }}
@@ -436,11 +436,11 @@ body {
           </div>
           <div class="doc-stat">
             <span class="doc-stat-label">Parse confidence</span>
-            <span class="doc-stat-value">{{ doc.parse_confidence|round(1) if doc.parse_confidence is not none else 'N/A' }}%</span>
+            {% if doc.parse_confidence %}<span class="doc-stat-value">{{ doc.parse_confidence|round(1) }}%</span>{% else %}<span class="doc-stat-value">N/A</span>{% endif %}
           </div>
           <div class="doc-stat">
             <span class="doc-stat-label">OCR confidence</span>
-            <span class="doc-stat-value">{{ doc.ocr_confidence|round(1) if doc.ocr_confidence is not none else 'N/A' }}%</span>
+            {% if doc.ocr_confidence %}<span class="doc-stat-value">{{ doc.ocr_confidence|round(1) }}%</span>{% else %}<span class="doc-stat-value">N/A</span>{% endif %}
           </div>
           <div class="doc-stats--assets">
             <div class="doc-stat">
