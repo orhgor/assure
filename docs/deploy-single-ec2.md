@@ -1,8 +1,8 @@
 # Single EC2 (Graviton) deploy with `docker compose up`
 
 One arm64 instance runs the whole stack from `docker-compose.yml`: PostgreSQL,
-Redis, web, parse worker, shell gate. Models come from Amazon Bedrock through
-the instance IAM role, files go to S3 — no provider key, no AWS key in any file.
+Redis, web, parse worker, shell gate. Models come from Amazon Bedrock and files go to S3, both with the one IAM user
+key pair in `.env` — no provider key; no instance role is needed.
 
 ## 1. Instance
 
@@ -12,7 +12,7 @@ the instance IAM role, files go to S3 — no provider key, no AWS key in any fil
 | AMI | Ubuntu 24.04 LTS **arm64** | the app image is built linux/arm64 |
 | Disk | gp3 100 GB | PostgreSQL + Docker images + `./data` scratch (uploads are transient; documents live in S3) |
 | Security group | inbound 22 from your IP, 443/80 from the world **only if** a reverse proxy runs on the box; otherwise nothing public and a Cloudflare tunnel to :8891 | 8891/8765 are never exposed directly |
-| IAM | instance profile with the runtime policy (§3) | S3 + Textract + Bedrock without keys |
+| IAM | an IAM **user** with the runtime policy (§3); its access key + secret go into `.env` (no instance role) | S3 + Textract + Bedrock with one key pair |
 
 ## 2. Host setup
 
