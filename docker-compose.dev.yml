@@ -1,3 +1,7 @@
+# PostgreSQL + Redis for the venv and pytest. Own project name: without it
+# `docker compose -f docker-compose.dev.yml up` shares the project 'assure' with
+# the full stack and replaces its postgres/redis (happened 2026-09-24).
+name: assure-dev
 # Local development infrastructure only (no app container): PostgreSQL and
 # Redis on their default ports, matching what tests/conftest.py and .env.example
 # assume. The app itself runs from the venv:

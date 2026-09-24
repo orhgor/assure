@@ -203,6 +203,10 @@ def test_search_ok(client):
 
 
 def test_health_ok_when_jdf_binary_resolves(client, monkeypatch):
+    # Project-scoped routes answer 404 for a project with no row (ghost rule).
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p1", "P1")
     """200 + ok:true when JDF_BIN points at a binary that exists on disk."""
     monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", sys.executable)
     res = client.get("/api/projects/p1/jdf/health")
@@ -214,6 +218,10 @@ def test_health_ok_when_jdf_binary_resolves(client, monkeypatch):
 
 
 def test_health_503_when_jdf_binary_unresolvable(client, monkeypatch):
+    # Project-scoped routes answer 404 for a project with no row (ghost rule).
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p1", "P1")
     """503 + ok:false when neither JDF_BIN nor PATH yields a jdf binary."""
     monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", "/nonexistent/bin/jdf")
     monkeypatch.setattr(jdf_memory_routes.shutil, "which", lambda name: None)
@@ -226,6 +234,10 @@ def test_health_503_when_jdf_binary_unresolvable(client, monkeypatch):
 
 
 def test_health_ok_when_path_fallback_resolves_jdf_binary(client, monkeypatch):
+    # Project-scoped routes answer 404 for a project with no row (ghost rule).
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p1", "P1")
     """A configured JDF_BIN that is stale (gone) still resolves via PATH."""
     monkeypatch.setattr(jdf_memory_routes, "JDF_BIN", "/nonexistent/bin/jdf")
     monkeypatch.setattr(jdf_memory_routes.shutil, "which", lambda name: "/usr/bin/jdf")
