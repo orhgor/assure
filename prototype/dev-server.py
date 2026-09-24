@@ -254,10 +254,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_response(302)
         self.send_header("Location", "/")
+        # `Secure` only when the visitor actually came over HTTPS (directly or via
+        # a proxy/tunnel that says so). Over plain HTTP — a fresh EC2 on port 80
+        # before TLS is in front — a Secure cookie is dropped by the browser, so
+        # every correct key looped straight back to /auth (2026-09-24).
+        forwarded = (self.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+        https = forwarded == "https" or os.environ.get("SHELL_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
         self.send_header(
             "Set-Cookie",
-            "%s=%s; Path=/; Max-Age=%d; HttpOnly; Secure; SameSite=Lax"
-            % (COOKIE_NAME, urllib.parse.quote(presented, safe=""), COOKIE_MAX_AGE),
+            "%s=%s; Path=/; Max-Age=%d; HttpOnly;%s SameSite=Lax"
+            % (COOKIE_NAME, urllib.parse.quote(presented, safe=""), COOKIE_MAX_AGE, " Secure;" if https else ""),
         )
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
