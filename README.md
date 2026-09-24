@@ -47,6 +47,11 @@ export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure REDIS_URL=r
 .venv/bin/python -m prompt_matrix.web --web --no-browser --port 8890
 ```
 
+> **Docker Desktop (Mac/Windows):** with the local models profile the stack needs ~6 GB inside the Docker VM
+> (Ollama ~1.5 GB per loaded model, PostgreSQL, Redis, web, worker). Docker Desktop → Settings → Resources →
+> Memory **≥ 10 GB**, or the VM runs out of memory and the daemon restarts, killing every container.
+> On a Linux host (EC2) there is no VM and no such limit; container limits are set in `docker-compose.yml`.
+
 Models locally: the `ollama` service plus a one-shot `ollama-pull` (`qwen2.5:1.5b`, `llama3.2:1b`, ~2.3 GB). With `ASSURE_LLM_BACKEND=ollama` (compose default) every model call — compile, lock inference, entailment, Red-Hat, surgical edit, Compare — goes to that container; no provider key. CPU inference: a compile takes minutes. Production/staging leave `ASSURE_LLM_BACKEND` empty and use the cloud policies in `prompt_matrix/cost_governance.py`.
 
 Documents: uploads answer **202** with a `task_id`; `GET /api/tasks/<task_id>` and `/api/projects/<id>/ingest-jobs` report parser, OCR confidence, Z3 verdict and Red-Hat status. Scans are OCR'd by jdf-cli's bundled tesseract; Textract only when OCR fails or reads nothing.

@@ -109,7 +109,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${OLLAMA_MEMORY_LIMIT:-6g}
+          # 1–2B models need ~1.5 GB loaded; 6g let Ollama grow until the Docker
+          # Desktop VM (7.7 GiB by default on a Mac) ran out of memory and the
+          # daemon restarted, taking every container with it (4× on 2026-09-24).
+          memory: ${OLLAMA_MEMORY_LIMIT:-3g}
 
   ollama-pull:
     profiles: ["local-llm"]
@@ -165,6 +168,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${ASSURE_APP_MEMORY_LIMIT:-1536m}
+
 
   assure-worker:
     image: ${APP_IMAGE:-assure-app:local}
@@ -200,6 +208,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: ${ASSURE_WORKER_MEMORY_LIMIT:-2048m}
+
 
   # The workbench shell — what staging.getassureai.com serves. Static shell from
   # prototype/ with /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY
@@ -229,6 +242,11 @@ services:
       retries: 3
       start_period: 20s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${ASSURE_SHELL_MEMORY_LIMIT:-256m}
+
 
 volumes:
   ollama:
