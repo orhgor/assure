@@ -114,7 +114,7 @@ class ProviderSlugForLitellmTests(unittest.TestCase):
             "anthropic/claude-3-5-sonnet",
             "gemini/gemini-1.5-flash",
             "google/gemini-1.5-pro",
-            "deepseek/deepseek-chat",
+            "openrouter/qwen/qwen3-next-80b-a3b-instruct",
             "groq/llama-3.3-70b-versatile",
             "claude-3-5-sonnet",
             "gemini-1.5-flash",

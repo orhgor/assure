@@ -11,7 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class TargetAI(str, Enum):
     claude = "claude"
     gemini = "gemini"
-    deepseek = "deepseek"
     kimi = "kimi"
     ollama = "ollama"
     cursor = "cursor"

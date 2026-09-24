@@ -126,7 +126,7 @@ def _finalize_pair(
         "families": (family_of(model_a), family_of(model_b)),
         "models": {
             "claude": _model_slot(result_a, model_a),
-            "deepseek": _model_slot(result_b, model_b),
+            "secondary": _model_slot(result_b, model_b),
         },
     }
 

@@ -184,7 +184,9 @@ try:
 except ImportError:
     from cost_governance import resolve_model as _resolve_model
 
-LOCK_MODEL = _resolve_model("deepseek/deepseek-chat")
+# Upstream moved lock inference to the OpenRouter Qwen policy model (staging
+# 0239cc6); locally the ollama backend still takes it.
+LOCK_MODEL = _resolve_model("openrouter/qwen/qwen3-next-80b-a3b-instruct")
 
 # R1 — injection hardening, kept verbatim: the last lines of the static prompt.
 # The source is data, text inside it that reads as an order is content to report
@@ -1486,10 +1488,9 @@ def _stream_model(
         # What the provider reported it served. `model` above is what this process
         # ASKED for — a request, not a report — and ROUTED TO showed it because
         # nothing else was captured. The responding id rides on the chunk, and
-        # litellm names the provider out of band in `_hidden_params` (measured
-        # 2026-09-19: requested "deepseek/deepseek-chat", chunk.model
-        # "deepseek-chat", custom_llm_provider "deepseek",
-        # api_base "https://api.deepseek.com/beta/chat/completions").
+        # litellm names the provider out of band in `_hidden_params` (a chunk's
+        # `model` is the served id, `custom_llm_provider` the transport — both
+        # can differ from what this process asked for).
         _hidden = getattr(chunk, "_hidden_params", None)
         _hidden = _hidden if isinstance(_hidden, dict) else {}
         _serving_model = str(getattr(chunk, "model", "") or "").strip() or model

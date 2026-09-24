@@ -42,6 +42,15 @@ FORWARD_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"}
 # so a request for them goes upstream instead of 404ing.
 # ---------------------------------------------------------------------------
 ACCESS_KEY = (os.environ.get("SHELL_ACCESS_KEY") or "").strip()
+if not ACCESS_KEY:
+    # Fail loud, not fail-closed-invisibly: a blank key here once left the
+    # gate running with an empty secret — nothing could authenticate (every
+    # request 302/401'd) and staging was locked out with no error anywhere.
+    sys.stderr.write(
+        "SHELL_ACCESS_KEY is blank or missing; refusing to start the shell gate.\n"
+        "Set it in the unit's EnvironmentFile (e.g. /etc/assure/shell-access.env).\n"
+    )
+    sys.exit(1)
 COOKIE_NAME = "assure_shell_key"
 AUTH_PATH = "/auth"
 COOKIE_MAX_AGE = 2592000  # 30 days

@@ -89,13 +89,12 @@ def _litellm_model_name(model: str) -> str:
             from cost_router import rewrite_send_id
             from llm.orchestrator import get_compare_pair
         pair_a, pair_b = get_compare_pair()
-        if slug in ("deepseek", "deepseek-chat"):
+        if slug in ("secondary", "fast-chat"):
             return rewrite_send_id(pair_b) or pair_b
         return rewrite_send_id(pair_a) or pair_a
     mapping = {
         "gemini": "gemini/gemini-1.5-pro",
         "claude": "anthropic/claude-sonnet-4-5",
-        "deepseek": "deepseek/deepseek-chat",
     }
     return mapping.get(slug, model)
 
@@ -214,7 +213,6 @@ def run_auto_compiler_pipeline(
         provider_key = provider_slug_for_litellm(pair_a)
     elif provider_key not in (
         "gemini",
-        "deepseek",
         "claude",
         "kimi",
         "ollama",

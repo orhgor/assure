@@ -5227,7 +5227,7 @@
       compareBodyEl.appendChild(div);
     }
     function compareColumnShell(key, modelId) {
-      // key: "claude" | "deepseek" — used for the column title.
+      // key: "claude" | "secondary" — used for the column title.
       var title = (key === "claude") ? "CLAUDE" : "DEEPSEEK";
       var col = document.createElement("div");
       col.className = "compare-col";
@@ -5447,13 +5447,13 @@
       // pair, these two ids are the defaults the production stack is configured
       // with (llm/orchestrator.py PRODUCTION_MODEL_PAIRS).
       var colA = compareColumnShell("claude", "anthropic/claude-sonnet-4-5");
-      var colB = compareColumnShell("deepseek", "deepseek/deepseek-chat");
+      var colB = compareColumnShell("secondary", "openrouter/qwen/qwen3-next-80b-a3b-instruct");
       grid.appendChild(colA);
       grid.appendChild(colB);
 
       compareDataLoaded = true;         // do not refire on tab re-click
       setShell("streams.compareA", compareStreamSide(colA, "anthropic/claude-sonnet-4-5"));
-      setShell("streams.compareB", compareStreamSide(colB, "deepseek/deepseek-chat"));
+      setShell("streams.compareB", compareStreamSide(colB, "openrouter/qwen/qwen3-next-80b-a3b-instruct"));
     }
 
     // ---------------------------------------------------------------

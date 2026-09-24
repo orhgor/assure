@@ -98,7 +98,7 @@ for i in $(seq 1 30); do
   sleep 2
 done
 echo "---STATUS---"
-curl -sf http://127.0.0.1:8765/api/status | python3 -c "import json,sys; p=json.load(sys.stdin)['providers']; print({{k:v['connected'] for k,v in p.items() if k in ('gemini','claude','deepseek','kimi')}})"
+curl -sf http://127.0.0.1:8765/api/status | python3 -c "import json,sys; p=json.load(sys.stdin)['providers']; print({{k:v['connected'] for k,v in p.items() if k in ('gemini','claude','kimi')}})"
 '''
 out_path.write_text(script, encoding="utf-8")
 print(f"Prepared {len(values)} key(s) for {remote_env}:", ", ".join(sorted(values)))
@@ -159,6 +159,6 @@ PY
 curl -sf "${PUBLIC_STATUS_URL}" | python3 -c "
 import json, sys
 p = json.load(sys.stdin)['providers']
-for name in ('gemini', 'claude', 'deepseek', 'kimi'):
+for name in ('gemini', 'claude', 'kimi'):
     print(f\"public {name}: connected={p[name]['connected']}\")
 "

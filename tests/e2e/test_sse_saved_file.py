@@ -36,7 +36,7 @@ def test_verified_event_from_saved_file(active_project, tmp_path):
                         "intent": "summarize the key CPT codes " + uuid.uuid4().hex[:8],
                         "compileType": "full",
                         "substrate_file_ids": ["edge-2a6e72ea5e8540f6"],
-                        "target_ai": "deepseek/deepseek-chat",
+                        "target_ai": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
                     }
                 ),
             ],

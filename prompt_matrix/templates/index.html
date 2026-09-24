@@ -254,7 +254,6 @@
                     <select id="generate-model-select" class="form-control select-control" aria-label="{{ gettext('Model') }}" data-i18n-aria="generate.model_label">
                       <option value="gemini">Gemini</option>
                       <option value="claude">Claude</option>
-                      <option value="deepseek">DeepSeek</option>
                     </select>
                   </label>
                   <label class="check compile-lock-toggle">
@@ -596,7 +595,6 @@
                       <label class="section" for="critic" data-i18n="critic">{{ gettext('Who critiques?') }}</label>
                       <select id="critic" class="form-control select-control">
                         <option value="gemini">Gemini</option>
-                        <option value="deepseek">DeepSeek</option>
                         <option value="kimi">Kimi</option>
                         <option value="claude">Claude</option>
                         <option value="ollama" data-i18n="mode.closed.title">{{ gettext('Closed to the internet') }}</option>
@@ -2068,7 +2066,7 @@
       state.apiTargets = data.targets.filter((item) => item.id !== "cursor");
       if (!state.thenList.length) {
         const maxExtra = Math.max(0, (state.edition.max_ensemble || 2) - 1);
-        const preferred = ["deepseek", "claude", "kimi"].filter((id) => id !== state.target && ids.includes(id));
+        const preferred = ["claude", "kimi"].filter((id) => id !== state.target && ids.includes(id));
         const rest = state.apiTargets.map((item) => item.id).filter((id) => id !== state.target && !preferred.includes(id));
         state.thenList = preferred.concat(rest).slice(0, maxExtra);
       }
@@ -2159,7 +2157,7 @@
 
     function maybeDefaultClosed() {
       if (state.userPickedNet) return;
-      const cloud = ["gemini", "deepseek", "claude", "kimi"].some((id) => state.providers[id] && state.providers[id].connected);
+      const cloud = ["gemini", "claude", "kimi"].some((id) => state.providers[id] && state.providers[id].connected);
       const ollama = state.providers.ollama && state.providers.ollama.connected;
       if (ollama && !cloud && $("local") && !$("local").checked) {
         $("local").checked = true;
@@ -2424,7 +2422,7 @@
       const closed = Boolean(localEl && localEl.checked) || state.target === "ollama" || state.target === "cursor";
       const id = state.target || "";
       const fromCatalog = (state.apiTargets || state.catalogTargets || []).find((item) => item.id === id);
-      const labels = { gemini: "Gemini", deepseek: "DeepSeek", claude: "Claude", kimi: "Kimi" };
+      const labels = { gemini: "Gemini", claude: "Claude", kimi: "Kimi" };
       const name = labels[id] || (fromCatalog && fromCatalog.label) || id;
       if (closed || !id) {
         chip.textContent = "🔒 " + t("privacy.chip.closed", "Closed to the internet");

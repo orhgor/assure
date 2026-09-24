@@ -8,7 +8,6 @@ from __future__ import annotations
 
 PRICES: dict[str, dict[str, float | None]] = {
     "anthropic/claude-sonnet-4.5": {"in": 3.00, "out": 15.00, "cache_read": 0.30},
-    "deepseek/deepseek-v4-flash-0731": {"in": 0.05, "out": 0.10, "cache_read": 0.0028},
     "google/gemini-2.0-flash": {"in": 0.10, "out": 0.40, "cache_read": None},
     # OpenRouter :floor (cheapest available provider, measured 2026-09-17:
     # DeepInfra $0.075/$0.25 per 1M). model_id spelling the policies report.

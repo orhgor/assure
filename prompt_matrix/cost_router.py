@@ -22,7 +22,7 @@ MODEL_PRICING = {
     "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
     "gemini-1.5-pro": {"input": 2.50, "output": 7.50},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "deepseek-chat": {"input": 0.14, "output": 0.28},
+    "qwen3-next": {"input": 0.30, "output": 1.50},  # approximate (OpenRouter)
     "kimi-moonshot-v1": {"input": 0.50, "output": 1.50},  # approximate
 }
 
@@ -30,8 +30,8 @@ MODEL_PRICING = {
 ROUTING_RULES = [
     # If input is tiny (< 2k) and intent is simple -> cheapest flash model
     {"max_tokens": 2048, "intents": ["debug", "comparison"], "prefer": "gemini-1.5-flash"},
-    # If input is medium (< 20k) and intent is analytical -> DeepSeek (cheap + good reasoning)
-    {"max_tokens": 20000, "intents": ["analysis", "design"], "prefer": "deepseek-chat"},
+    # If input is medium (< 20k) and intent is analytical -> fast chat (cheap + good reasoning)
+    {"max_tokens": 20000, "intents": ["analysis", "design"], "prefer": "qwen3-next"},
     # Long documents (> 20k) but not heavy reasoning -> Haiku (cheap for long context)
     {"max_tokens": 100000, "intents": ["research"], "prefer": "claude-3-haiku-20240307"},
     # Heavy lifting (research + long docs) -> best-in-class reasoning (Pro/Sonnet)
@@ -46,7 +46,7 @@ MODEL_ALIASES = {
     "gemini": "gemini-1.5-flash",
     "flash": "gemini-1.5-flash",
     "pro": "gemini-1.5-pro",
-    "deepseek": "deepseek-chat",
+    "qwen3-next": "qwen3-next",
     "kimi": "kimi-moonshot-v1",
     "moonshot": "kimi-moonshot-v1",
     "anthropic/claude-sonnet-4-5": "claude-3-5-sonnet-20240620",
@@ -60,26 +60,26 @@ MODEL_ALIASES = {
     "gemini/gemini-1.5-pro": "gemini-1.5-pro",
     "gemini/gemini-2.5-flash": "gemini-1.5-flash",
     "gemini/gemini-2.5-pro": "gemini-1.5-pro",
-    "deepseek/deepseek-chat": "deepseek-chat",
+    "openrouter/qwen/qwen3-next-80b-a3b-instruct": "qwen3-next",
     "moonshot/kimi-k2.5": "kimi-moonshot-v1",
-    "groq/llama-3.3-70b-versatile": "deepseek-chat",
-    "openrouter/meta-llama/llama-3.3-70b-instruct:free": "deepseek-chat",
-    "groq/llama-4-scout-17b-16e-instruct": "deepseek-chat",
-    "openrouter/mistralai/mistral-small-3.1-24b-instruct:free": "deepseek-chat",
-    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "deepseek-chat",
-    "openrouter/nvidia/nemotron-3-super-120b-a12b:free": "deepseek-chat",
-    "openrouter/nvidia/nemotron-3.5-lightning:free": "deepseek-chat",
-    "openrouter/nex-agi/nex-n2.5-mini:free": "deepseek-chat",
-    "openrouter/liquid/lfm-2.5-2.6b:free": "deepseek-chat",
-    "openrouter/poolside/laguna-xs-2.1:free": "deepseek-chat",
-    "openrouter/google/gemma-4-26b-a4b-it:free": "deepseek-chat",
-    "openrouter/google/gemma-4-31b-it:free": "deepseek-chat",
+    "groq/llama-3.3-70b-versatile": "qwen3-next",
+    "openrouter/meta-llama/llama-3.3-70b-instruct:free": "qwen3-next",
+    "groq/llama-4-scout-17b-16e-instruct": "qwen3-next",
+    "openrouter/mistralai/mistral-small-3.1-24b-instruct:free": "qwen3-next",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "qwen3-next",
+    "openrouter/nvidia/nemotron-3-super-120b-a12b:free": "qwen3-next",
+    "openrouter/nvidia/nemotron-3.5-lightning:free": "qwen3-next",
+    "openrouter/nex-agi/nex-n2.5-mini:free": "qwen3-next",
+    "openrouter/liquid/lfm-2.5-2.6b:free": "qwen3-next",
+    "openrouter/poolside/laguna-xs-2.1:free": "qwen3-next",
+    "openrouter/google/gemma-4-26b-a4b-it:free": "qwen3-next",
+    "openrouter/google/gemma-4-31b-it:free": "qwen3-next",
 }
 
 TARGET_FOR = {
     "gemini-1.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",
-    "deepseek-chat": "deepseek",
+    "qwen3-next": "openrouter",
     "claude-3-haiku-20240307": "claude",
     "claude-3-5-sonnet-20240620": "claude",
     "kimi-moonshot-v1": "kimi",
@@ -88,7 +88,7 @@ TARGET_FOR = {
 LITELLM_FOR = {
     "gemini-1.5-flash": "gemini/gemini-3.6-flash",
     "gemini-1.5-pro": "gemini/gemini-3.6-flash",
-    "deepseek-chat": "deepseek/deepseek-chat",
+    "qwen3-next": "openrouter/qwen/qwen3-next-80b-a3b-instruct",
     "claude-3-haiku-20240307": "anthropic/claude-haiku-4-5",
     "claude-3-5-sonnet-20240620": "anthropic/claude-sonnet-4-5",
     "kimi-moonshot-v1": "moonshot/kimi-k2.5",

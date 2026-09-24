@@ -86,7 +86,7 @@ def test_normalize_audit_payload_reads_unsupported_from_the_stats():
 
 def test_build_audit_summary_shape():
     z3 = {"status": "PASS", "violations": [], "lock_results": [], "locks_verified": 1}
-    redhat = [{"title": "Red-hat review", "content": "ok", "model": "deepseek/deepseek-reasoner"}]
+    redhat = [{"title": "Red-hat review", "content": "ok", "model": "openrouter/qwen/qwen3-next-80b-a3b-instruct"}]
     summary = build_audit_summary(
         z3_results=z3,
         redhat_critiques=redhat,

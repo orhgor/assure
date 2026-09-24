@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import uuid
 from typing import Any
@@ -27,7 +28,11 @@ except ImportError:
     from lib.ast_diff import get_ast_deltas, hash_block
     from services.founder_redhat import _parse_findings
 
-PASS1_MODEL = "deepseek/deepseek-chat"
+#: Pass 1 (bulk critique) model. Overridable per deployment via
+#: ``ASSURE_REDHAT_MODEL`` so a box can route Pass 1 through an
+#: already-connected provider without a code change. Default is the cheap,
+#: fast, non-reasoning chat model served through the connected OpenRouter key.
+PASS1_MODEL = os.environ.get("ASSURE_REDHAT_MODEL") or "openrouter/qwen/qwen3-next-80b-a3b-instruct"
 PASS2_MODEL = "anthropic/claude-sonnet-4-5"
 HIGH_LIABILITY_KEYWORDS = ("liability", "indemnify", "termination", "$")
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}

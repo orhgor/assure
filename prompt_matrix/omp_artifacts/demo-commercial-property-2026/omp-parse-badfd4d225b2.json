@@ -1,0 +1,116 @@
+{
+  "artifact_id": "omp-parse-badfd4d225b2",
+  "project_id": "demo-commercial-property-2026",
+  "artifact_type": "parse",
+  "source_id": "sub-e5bb8494921a4ac6",
+  "parent_artifact_id": null,
+  "payload": {
+    "source_id": "sub-e5bb8494921a4ac6",
+    "source_name": "Assure Chat \u2014 Master.pdf",
+    "page_count": 4,
+    "text": "--- Page 1 ---\nAssure Chat \u2014 Master\nProduct & Technical\nSpecification\n1. Executive Summary & Strategic\nContext\nProduct Overview: Assure Chat is a lightweight, PLG chat interface built on a\ndeterministic document engine (JDF AST) designed for Legal, HR, and Compliance\nprofessionals. It delivers \"zero-collateral,\" atomic edits-updating only targeted\nparagraphs without altering, hallucinating, or deleting untouched sections.\nEngineering Purpose: Serves as a streamlined front door to existing JDF infrastructure,\nfortifying backend APIs, decoupling AST logic from UI layers, and onboarding users to\nnode-based document workflows.\n2. Marketing & Landing Page\nArchitecture\nHero Section\nEyebrow: FOR LEGAL, HR, & COMPLIANCE PROFESSIONALS\nHeadline: Stop Paying the AI \"Proofreading Tax.\"\nSubheadline: When you ask standard AI to change one clause, it rewrites the entire\ncontract-forcing you to re-read everything. Assure Chat is the only AI that makes atomic\nedits. Change one paragraph. Keep the rest mathematically locked.\nCTAs: Primary: \"Start Editing for Free\" I Secondary: \"See How It Works\"\nThe Problem: Regeneration Roulette\nStandard AI creates collateral damage across long documents. Tweaking a single clause forces\nfull document regeneration, risking undetected hallucinations and wasting billable hours on\nredundant proofreading.\n\n--- Page 2 ---\nThe Solution: Zero-Collateral Editing\nAtomic Updates: Only requested paragraphs are updated while the surrounding text\nremains static.\nMathematical Locking: Previously approved clauses cannot be altered or dropped.\nInstant Export: Frictionless, high-confidence export to PDF or DOCX without\nfull-document re-verification.\n3-Step User Workflow\n1. Draft: Generate standard policies, contracts, or memos.\n2. Target: Specify precise modifications (e.g., \"Make confidentiality term 3 years\").\n3. Export: Review targeted updates instantly and export clean files.\nPricing Structure\nFree Tier ($0/mo): 3 Zero-Collateral Edits per month.\nPro Tier ($49/mo): Unlimited atomic edits and 1-click clean exports.\n3. User Interface & Guided Workspace\nArchitecture\nThe UI operates as a state-driven guided workspace:\nPhase 1: Setup State\nGrounding via drag-and-drop zone (.txt or .md source upload).\nInput prompt bar locked until source is attached.\nGuided workflow replacing generic \"New Draft\" buttons.\nPhase 2: Execution State\nReal-time feedback overlay showing step-by-step progress (Ingest Source\nCompile\nPrompt\nZ3 Logic Checks\nDraft Document).\nTransitions smoothly to rendered view upon SSE stream completion.\nPhase 3: Audit Workspace (Tri-Pane Layout)\nLeft Pane (Context & History): Sources Tab (uploaded files preview) and Compiler Tab\n(read-only audit trail of executed prompt).\nCenter Canvas (Rendered Document): Renders JDF nodes with provenance coloring\n\n--- Page 3 ---\nand docked refine bar for targeted edits.\nRight Pane (Audit Hub):\nEvidence Tab: Displays source filename, page, and verbatim quote for selected spans.\nRed-Hat Tab: Highlights compliance risks and scrolls canvas to offending clauses.\nZ3 Tab: Shows bounded logic proofs validating structural integrity.\nPhase 4: Resolution & Split-Screen Comparison\nFull-screen split view (50/50) with semantic diffing highlighting conceptual differences.\nLine-item merging controls ([+ Use this block] / [Use this block -]) to create hybrid drafts.\n4. Technical Specification & Engine\nArchitecture\nLLM Architecture: JSON-Enforcing Data Router\nThe LLM acts strictly as a headless backend data-routing API translating natural language\nrequests into JSON payloads.\nSystem Prompt Rules & Schema\nRole: Headless, backend data-routing API. No conversational filler or explanations.\nFormat: Strict, raw JSON object (no markdown wrapping like ```json).\nSchema:\nJSON\n{\n\"target_node_id\": \"string (exact ID of paragraph to change)\",\n\"action_type\": \"string ('replace', 'delete', 'append')\",\n\"new_text\": \"string (finalized node text)\"\n}\nError Handling: Returns {\"status\": \"error\"} on unparseable input.\nFrontend Disguise & Micro-Interactions\nJDF Abstract Syntax Tree (AST) nodes rendered seamlessly like plain text (<div\ndata-node-id=\"clause_4\">).\nTargeted shimmer/loading state on requested node only during edits.\nBrief visual highlight (green fade) on update completion.\nContextual hovers (\"Locked - Unchanged\" VS. \"Updated\").\n\n--- Page 4 ---\nNative Redline Tracked-Changes Export\n1-Click DOCX Export: Native Microsoft Word tracked changes (strikethroughs for\ndeletions, underlines for additions).\nEmbedded Rationale: Converts prompt instructions into native Word comments attached\nto redlined clauses.\nScope Cuts (MVP Exclusions)\nExclude spatial dual-pane layouts from default chat.\nOmit visible Z3 logic terminals and confidence badges in MVP.\nNo proactive adversarial (\"Grill Me\") interrogation flow.",
+    "tables": [],
+    "forms": [],
+    "file_size_bytes": 116835,
+    "is_image": false,
+    "parse_confidence": null,
+    "ocr_confidence": null,
+    "spans": [
+      {
+        "span_id": "span_0",
+        "text": "--- Page 1 --- Assure Chat \u2014 Master Product & Technical Specification 1. Executive Summary & Strategic Context Product Overview: Assure Chat is a lightweight, PLG chat interface built on a deterministic document engine (JDF AST) designed for Legal, HR, and Compliance professionals. It delivers \"zero-collateral,\" atomic edits-updating only targeted paragraphs without altering, hallucinating, or deleting untouched sections. Engineering Purpose: Serves as a streamlined front door to existing JDF infrastructure, fortifying backend APIs, decoupling AST logic from UI layers, and onboarding users to node-based document workflows. 2. Marketing & Landing Page Architecture Hero Section Eyebrow: FOR LEGAL, HR, & COMPLIANCE PROFESSIONALS Headline: Stop Paying the AI \"Proofreading Tax.\" Subheadline: When you ask standard AI to change one clause, it rewrites the entire contract-forcing you to re-read everything. Assure Chat is the only AI that makes atomic edits. Change one paragraph. Keep the rest mathematically locked. CTAs: Primary: \"Start Editing for Free\" I Secondary: \"See How It Works\" The Problem: Regeneration Roulette Standard AI creates collateral damage across long documents. Tweaking a single clause forces full document regeneration, risking undetected hallucinations and wasting billable hours on redundant proofreading.",
+        "source_id": "sub-e5bb8494921a4ac6",
+        "source_name": "Assure Chat \u2014 Master.pdf",
+        "artifact_id": null,
+        "node_id": null,
+        "page": null,
+        "section": null,
+        "row": null,
+        "trust": "trusted",
+        "parse_confidence": null,
+        "ocr_confidence": null,
+        "layout_confidence": null,
+        "provenance": {
+          "source_name": "Assure Chat \u2014 Master.pdf",
+          "page_count": 4
+        },
+        "metadata": {}
+      },
+      {
+        "span_id": "span_1",
+        "text": "--- Page 2 --- The Solution: Zero-Collateral Editing Atomic Updates: Only requested paragraphs are updated while the surrounding text remains static. Mathematical Locking: Previously approved clauses cannot be altered or dropped. Instant Export: Frictionless, high-confidence export to PDF or DOCX without full-document re-verification. 3-Step User Workflow 1. Draft: Generate standard policies, contracts, or memos. 2. Target: Specify precise modifications (e.g., \"Make confidentiality term 3 years\"). 3. Export: Review targeted updates instantly and export clean files. Pricing Structure Free Tier ($0/mo): 3 Zero-Collateral Edits per month. Pro Tier ($49/mo): Unlimited atomic edits and 1-click clean exports. 3. User Interface & Guided Workspace Architecture The UI operates as a state-driven guided workspace: Phase 1: Setup State Grounding via drag-and-drop zone (.txt or .md source upload). Input prompt bar locked until source is attached. Guided workflow replacing generic \"New Draft\" buttons. Phase 2: Execution State Real-time feedback overlay showing step-by-step progress (Ingest Source Compile Prompt Z3 Logic Checks Draft Document). Transitions smoothly to rendered view upon SSE stream completion. Phase 3: Audit Workspace (Tri-Pane Layout) Left Pane (Context & History): Sources Tab (uploaded files preview) and Compiler Tab (read-only audit trail of executed prompt). Center Canvas (Rendered Document): Renders JDF nodes with provenance coloring",
+        "source_id": "sub-e5bb8494921a4ac6",
+        "source_name": "Assure Chat \u2014 Master.pdf",
+        "artifact_id": null,
+        "node_id": null,
+        "page": null,
+        "section": null,
+        "row": null,
+        "trust": "trusted",
+        "parse_confidence": null,
+        "ocr_confidence": null,
+        "layout_confidence": null,
+        "provenance": {
+          "source_name": "Assure Chat \u2014 Master.pdf",
+          "page_count": 4
+        },
+        "metadata": {}
+      },
+      {
+        "span_id": "span_2",
+        "text": "--- Page 3 --- and docked refine bar for targeted edits. Right Pane (Audit Hub): Evidence Tab: Displays source filename, page, and verbatim quote for selected spans. Red-Hat Tab: Highlights compliance risks and scrolls canvas to offending clauses. Z3 Tab: Shows bounded logic proofs validating structural integrity. Phase 4: Resolution & Split-Screen Comparison Full-screen split view (50/50) with semantic diffing highlighting conceptual differences. Line-item merging controls ([+ Use this block] / [Use this block -]) to create hybrid drafts. 4. Technical Specification & Engine Architecture LLM Architecture: JSON-Enforcing Data Router The LLM acts strictly as a headless backend data-routing API translating natural language requests into JSON payloads. System Prompt Rules & Schema Role: Headless, backend data-routing API. No conversational filler or explanations. Format: Strict, raw JSON object (no markdown wrapping like ```json). Schema: JSON { \"target_node_id\": \"string (exact ID of paragraph to change)\", \"action_type\": \"string ('replace', 'delete', 'append')\", \"new_text\": \"string (finalized node text)\" } Error Handling: Returns {\"status\": \"error\"} on unparseable input. Frontend Disguise & Micro-Interactions JDF Abstract Syntax Tree (AST) nodes rendered seamlessly like plain text (<div data-node-id=\"clause_4\">). Targeted shimmer/loading state on requested node only during edits. Brief visual highlight (green fade) on update completion. Contextual hovers (\"Locked - Unchanged\" VS. \"Updated\").",
+        "source_id": "sub-e5bb8494921a4ac6",
+        "source_name": "Assure Chat \u2014 Master.pdf",
+        "artifact_id": null,
+        "node_id": null,
+        "page": null,
+        "section": null,
+        "row": null,
+        "trust": "trusted",
+        "parse_confidence": null,
+        "ocr_confidence": null,
+        "layout_confidence": null,
+        "provenance": {
+          "source_name": "Assure Chat \u2014 Master.pdf",
+          "page_count": 4
+        },
+        "metadata": {}
+      },
+      {
+        "span_id": "span_3",
+        "text": "--- Page 4 --- Native Redline Tracked-Changes Export 1-Click DOCX Export: Native Microsoft Word tracked changes (strikethroughs for deletions, underlines for additions). Embedded Rationale: Converts prompt instructions into native Word comments attached to redlined clauses. Scope Cuts (MVP Exclusions) Exclude spatial dual-pane layouts from default chat. Omit visible Z3 logic terminals and confidence badges in MVP. No proactive adversarial (\"Grill Me\") interrogation flow.",
+        "source_id": "sub-e5bb8494921a4ac6",
+        "source_name": "Assure Chat \u2014 Master.pdf",
+        "artifact_id": null,
+        "node_id": null,
+        "page": null,
+        "section": null,
+        "row": null,
+        "trust": "trusted",
+        "parse_confidence": null,
+        "ocr_confidence": null,
+        "layout_confidence": null,
+        "provenance": {
+          "source_name": "Assure Chat \u2014 Master.pdf",
+          "page_count": 4
+        },
+        "metadata": {}
+      }
+    ],
+    "sections": [],
+    "prompt_ready_summary": {
+      "span_count": 4,
+      "high_confidence_count": 0,
+      "medium_confidence_count": 0,
+      "low_confidence_count": 0,
+      "total_chars": 4788
+    }
+  },
+  "confidence": null,
+  "provenance": {
+    "source_name": "Assure Chat \u2014 Master.pdf"
+  },
+  "created_at": "2026-09-21T12:05:43.658908",
+  "updated_at": "2026-09-21T12:05:43.687948",
+  "metadata": {}
+}
