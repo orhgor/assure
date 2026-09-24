@@ -25,10 +25,6 @@ services:
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
     volumes: !override
       - ./data-staging:/app/data
-    deploy:
-      resources:
-        limits:
-          memory: 1536M
   assure-worker:
     image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
     build: !reset null

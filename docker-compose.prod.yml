@@ -26,10 +26,6 @@ services:
       # Queue: Redis on this host by default; sqs:// on AWS (results then in PostgreSQL).
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
-    deploy:
-      resources:
-        limits:
-          memory: 1536M
   assure-worker:
     image: ${APP_IMAGE:?set APP_IMAGE (ghcr.io/orhgor/assure-app:<sha>)}
     build: !reset null
@@ -44,7 +40,3 @@ services:
       PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
-    deploy:
-      resources:
-        limits:
-          memory: 2048M
