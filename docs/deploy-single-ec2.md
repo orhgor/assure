@@ -22,9 +22,20 @@ sudo usermod -aG docker ubuntu && newgrp docker
 git clone https://github.com/orhgor/assure.git && cd assure
 ```
 
-## 3. IAM role (the only AWS work)
+## 3. IAM (the only AWS work)
 
-Create a role for EC2 (trust policy `ec2.amazonaws.com`), attach it to the
+Two ways; both attach the same policy (`scripts/aws/iam-policy-assure-runtime.json`).
+
+**A. IAM user with an access key** (what goes into `.env` as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`; used for S3, Textract and Bedrock alike):
+
+```bash
+aws iam create-user --user-name assure-app
+PRINCIPAL=user ASSURE_S3_BUCKET=<bucket> bash scripts/aws/attach-runtime-role.sh assure-app
+aws iam create-access-key --user-name assure-app      # copy AccessKeyId + SecretAccessKey into .env
+```
+Rotate by creating a second key, updating `.env`, `docker compose up -d`, then deleting the old key.
+
+**B. Instance role** (no keys anywhere): create a role for EC2 (trust policy `ec2.amazonaws.com`), attach it to the
 instance as an instance profile, then attach the runtime policy:
 
 ```bash
@@ -39,7 +50,7 @@ ASSURE_S3_BUCKET=<bucket> CELERY_SQS_QUEUE_PREFIX=assure- \
   bash scripts/aws/attach-runtime-role.sh assure-ec2-runtime
 ```
 
-`scripts/aws/iam-policy-assure-runtime.json` is what gets attached (inline policy `assure-runtime`):
+`scripts/aws/iam-policy-assure-runtime.json` is what gets attached in both cases (inline policy `assure-runtime`):
 
 | Sid | Actions | Resource | Used for |
 |---|---|---|---|

@@ -33,7 +33,9 @@ case "$TARGET" in
 ASSURE_S3_BUCKET=
 AWS_DEFAULT_REGION=eu-central-1
 ASSURE_S3_PREFIX=assure/
-# Leave empty with an instance IAM role (recommended). Never AWS_SESSION_TOKEN.
+# IAM user access key with scripts/aws/iam-policy-assure-runtime.json attached
+# (S3 bucket, Textract, Bedrock). Both S3 and Bedrock use this same pair.
+# Leave both empty only if the instance has an IAM role instead. Never AWS_SESSION_TOKEN.
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 
@@ -63,7 +65,7 @@ GUNICORN_WORKERS=2
 GUNICORN_THREADS=8
 WORKER_CONCURRENCY=2
 
-# ---- models: Amazon Bedrock through the IAM role (no provider key) ------------
+# ---- models: Amazon Bedrock with the AWS credentials above (no provider key) --
 ASSURE_LLM_BACKEND=bedrock
 ASSURE_BEDROCK_MODEL=bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
 ASSURE_BEDROCK_MODEL_B=bedrock/eu.anthropic.claude-3-5-haiku-20241022-v1:0

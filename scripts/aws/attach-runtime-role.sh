@@ -8,10 +8,15 @@
 #   CELERY_SQS_QUEUE_PREFIX=assure-prod- \
 #   bash scripts/aws/attach-runtime-role.sh assure-prod-ssm-role
 #
+# Same policy on an IAM *user* (access key + secret in .env instead of a role):
+#   PRINCIPAL=user ASSURE_S3_BUCKET=... bash scripts/aws/attach-runtime-role.sh assure-app-user
+#   aws iam create-access-key --user-name assure-app-user   # → AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+#
 # ECS deployments do not need this: infra/terraform creates the task role.
 set -euo pipefail
 
-ROLE_NAME="${1:?role name (e.g. assure-prod-ssm-role)}"
+ROLE_NAME="${1:?role or user name (e.g. assure-prod-ssm-role)}"
+PRINCIPAL="${PRINCIPAL:-role}"   # role | user
 : "${ASSURE_S3_BUCKET:?set ASSURE_S3_BUCKET}"
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-eu-central-1}}"
 CELERY_SQS_QUEUE_PREFIX="${CELERY_SQS_QUEUE_PREFIX:-assure-}"
@@ -24,8 +29,16 @@ DOC="$(sed -e "s#\${ASSURE_S3_BUCKET}#${ASSURE_S3_BUCKET}#g" \
           -e "s#\${AWS_ACCOUNT_ID}#${AWS_ACCOUNT_ID}#g" \
           -e "s#\${CELERY_SQS_QUEUE_PREFIX}#${CELERY_SQS_QUEUE_PREFIX}#g" "$TEMPLATE")"
 
-aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name "$POLICY_NAME" --policy-document "$DOC"
-echo "Attached inline policy ${POLICY_NAME} to ${ROLE_NAME}:"
+if [[ "$PRINCIPAL" == "user" ]]; then
+  aws iam put-user-policy --user-name "$ROLE_NAME" --policy-name "$POLICY_NAME" --policy-document "$DOC"
+else
+  aws iam put-role-policy --role-name "$ROLE_NAME" --policy-name "$POLICY_NAME" --policy-document "$DOC"
+fi
+echo "Attached inline policy ${POLICY_NAME} to ${PRINCIPAL} ${ROLE_NAME}:"
 echo "  bucket  s3://${ASSURE_S3_BUCKET}"
 echo "  queues  arn:aws:sqs:${AWS_REGION}:${AWS_ACCOUNT_ID}:${CELERY_SQS_QUEUE_PREFIX}*"
-echo "Remove any AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY from .env.production; boto3 uses the instance role."
+if [[ "$PRINCIPAL" == "user" ]]; then
+  echo "Create the key pair with: aws iam create-access-key --user-name ${ROLE_NAME}  → AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env"
+else
+  echo "Remove any AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY from .env; boto3 uses the instance role."
+fi
