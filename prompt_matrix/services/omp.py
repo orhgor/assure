@@ -218,7 +218,7 @@ def store_omp_artifact(
     try:
         uri = store.put_bytes(
             omp_key(project_id, artifact_id),
-            json.dumps(artifact.to_dict(), indent=2).encode("utf-8"),
+            json.dumps(artifact.to_dict(), separators=(",", ":")).encode("utf-8"),  # compact: 30–40 % smaller object
             content_type="application/json",
         )
         log.info("OMP artifact %s mirrored to %s", artifact_id, uri)

@@ -28,6 +28,9 @@ re-stated paragraph costs no second judgement. A failed call is never cached.
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor
+
 import logging
 import re
 from datetime import UTC, datetime
@@ -329,6 +332,39 @@ def attach_entailment_to_tree(
         return document
     check = checker or check_entailment
     seen = cache if cache is not None else {}
+
+    # Prefetch the misses in parallel. The verdicts are independent (one model
+    # call per (claim, source) pair) but were made strictly one after another:
+    # a 15-paragraph draft with two citations each meant 30 sequential calls of
+    # 1–3 s in the compile stream (audit 2026-09-24). The loop below is
+    # unchanged; it now finds every record in ``seen``.
+    pending: list[tuple[str, str]] = []
+    for section in document.get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        for node in [section, *(section.get("children") or [])]:
+            if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
+                continue
+            claim = str(node.get("content") or "").strip()
+            for source in _claim_sources(node) if claim else []:
+                key = (claim, source)
+                if key not in seen and key not in pending:
+                    pending.append(key)
+    if len(pending) > 1:
+        workers = max(1, min(len(pending), int(os.environ.get("ASSURE_ENTAILMENT_WORKERS", "6") or 6)))
+
+        def _one(key: tuple[str, str]) -> tuple[tuple[str, str], dict[str, Any]]:
+            try:
+                rec = check(key[0], key[1])
+            except Exception as exc:
+                rec = unverified(f"{type(exc).__name__}: {exc}")
+            if not isinstance(rec, dict) or rec.get("verdict") not in VERDICTS:
+                rec = unverified(f"checker returned no usable verdict: {rec!r}")
+            return key, rec
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for key, rec in pool.map(_one, pending):
+                seen[key] = rec
 
     for section in document.get("body") or []:
         if not isinstance(section, dict):

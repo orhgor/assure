@@ -7,6 +7,7 @@ import hmac
 import json
 import gzip
 import threading
+import time
 import os
 import sys
 import urllib.error
@@ -84,6 +85,10 @@ def _upstream_get(path: str, cookie: str = ""):
         return json.loads(resp.read().decode("utf-8") or "{}")
 
 
+CLERK_ONLY_CACHE_S = float(os.environ.get("CLERK_ONLY_CACHE_S", "5"))
+_clerk_only_cache: tuple = ()
+
+
 def clerk_only_mode() -> bool:
     """Whether the app is in clerk-only mode.
 
@@ -99,14 +104,23 @@ def clerk_only_mode() -> bool:
     failing closed asks for a session the presenter can supply, since the outer key
     gate is satisfied either way.
     """
+    # Cached for CLERK_ONLY_CACHE_S (default 5 s): every document request made
+    # an upstream round trip for this flag (audit 2026-09-24). A flip on the box
+    # still shows within seconds, no restart.
+    global _clerk_only_cache
+    now = time.monotonic()
+    if _clerk_only_cache and now - _clerk_only_cache[0] < CLERK_ONLY_CACHE_S:
+        return _clerk_only_cache[1]
     try:
         config = _upstream_get("/api/auth/config")
     except Exception:
-        return True
+        return True  # unreachable: fail closed, and do not cache the failure
     if not isinstance(config, dict) or "clerk_only" not in config:
         # Unreadable is not off: same conservative branch as unreachable.
         return True
-    return bool(config["clerk_only"])
+    value = bool(config["clerk_only"])
+    _clerk_only_cache = (now, value)
+    return value
 
 
 def session_user_id(cookie: str) -> str:

@@ -832,6 +832,10 @@
     function _awaitTask(taskId, onTick) {
       var started = Date.now();
       var limitMs = 15 * 60 * 1000; // scanned PDFs OCR at ~3 s/page
+      var ticks = 0;
+      // 1 s for the first ten polls (text PDFs finish in ~1 s), then 2 s, then
+      // 5 s: a scan OCRs for minutes and each poll is a DB read on the server.
+      function delay() { ticks += 1; return ticks <= 10 ? 1000 : ticks <= 40 ? 2000 : 5000; }
       return new Promise(function (resolve, reject) {
         function tick() {
           fetch("/api/tasks/" + encodeURIComponent(taskId), { headers: { Accept: "application/json" } })
@@ -846,11 +850,11 @@
                 return reject(new Error(job.error || body.error || res.error || res.reason || ("ingest " + st)));
               }
               if (Date.now() - started > limitMs) return reject(new Error("Still processing after 15 minutes; check the Processing panel."));
-              setTimeout(tick, 1000);
+              setTimeout(tick, delay());
             })
             .catch(function (err) {
               if (Date.now() - started > limitMs) return reject(err);
-              setTimeout(tick, 2000);
+              setTimeout(tick, Math.max(2000, delay()));
             });
         }
         tick();
@@ -4711,7 +4715,8 @@
       _closeProjectPanel();
     });
     _refreshProjectName();
-    _refreshSignoff();
+    // (sign-offs are fetched by the project-restore path below; the
+    //  unconditional call here was a duplicate request on every boot)
 
     // S1: restore persisted pane collapse state (default false → both panes
     // visible on first-ever load), then render. _applyRightView() draws the

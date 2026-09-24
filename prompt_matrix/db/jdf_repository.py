@@ -370,6 +370,7 @@ def save_jdf_revision(
                 db.rollback()
                 raise RevisionConflict(current_version, fetch_latest_jdf_or_empty(project_id))
             next_version = current_version + 1
+            tree_json = json.dumps(tree)  # serialised once for both rows (was twice per save)
             db.execute(
                 """
                 INSERT INTO jdf_revisions (
@@ -381,7 +382,7 @@ def save_jdf_revision(
                     revision_id,
                     project_id,
                     next_version,
-                    json.dumps(tree),
+                    tree_json,
                     truth,
                     mutation_type,
                     target_node_id,
@@ -405,7 +406,7 @@ def save_jdf_revision(
                     tree_json = excluded.tree_json,
                     updated_at = datetime('now')
                 """,
-                (project_id, tree.get("document_id") or f"doc-{project_id}", json.dumps(tree)),
+                (project_id, tree.get("document_id") or f"doc-{project_id}", tree_json),
             )
             db.commit()
         except Exception:
