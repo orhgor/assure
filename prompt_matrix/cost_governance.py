@@ -186,18 +186,30 @@ def llm_backend() -> str:
     return os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
 
 
-BEDROCK_MODEL_A = "bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0"
-BEDROCK_MODEL_B = "bedrock/eu.anthropic.claude-3-5-haiku-20241022-v1:0"
+BEDROCK_MODEL_A = "anthropic.claude-sonnet-4-20250514-v1:0"
+BEDROCK_MODEL_B = "anthropic.claude-3-5-haiku-20241022-v1:0"
+
+
+def _bedrock_geo_prefix() -> str:
+    """Cross-region inference profile prefix for the configured region:
+    ``us.`` / ``eu.`` / ``apac.`` — the ids Bedrock serves the Anthropic models
+    under (a bare model id is not invocable on-demand in most regions)."""
+    region = (os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "us-east-1").lower()
+    if region.startswith("eu-"):
+        return "eu."
+    if region.startswith("ap-"):
+        return "apac."
+    return "us."
 
 
 def bedrock_model(role: str = "a") -> str:
     """Bedrock model id for the IAM-only backend: ``ASSURE_BEDROCK_MODEL`` (and
-    ``ASSURE_BEDROCK_MODEL_B`` for Compare's second column). Defaults are the
-    EU cross-region inference profiles; the ``bedrock/`` prefix is added."""
-    if role == "b":
-        raw = os.environ.get("ASSURE_BEDROCK_MODEL_B", "").strip() or BEDROCK_MODEL_B
-    else:
-        raw = os.environ.get("ASSURE_BEDROCK_MODEL", "").strip() or BEDROCK_MODEL_A
+    ``ASSURE_BEDROCK_MODEL_B`` for Compare's second column). Default: the
+    cross-region profile of Claude Sonnet 4 / Claude 3.5 Haiku for the region
+    in ``AWS_DEFAULT_REGION``; the ``bedrock/`` prefix is added."""
+    raw = os.environ.get("ASSURE_BEDROCK_MODEL_B" if role == "b" else "ASSURE_BEDROCK_MODEL", "").strip()
+    if not raw:
+        raw = _bedrock_geo_prefix() + (BEDROCK_MODEL_B if role == "b" else BEDROCK_MODEL_A)
     return raw if raw.startswith("bedrock/") else f"bedrock/{raw}"
 
 

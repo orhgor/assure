@@ -70,9 +70,11 @@ WORKER_CONCURRENCY=2
 
 # ---- models: Amazon Bedrock with the AWS credentials above (no provider key) --
 ASSURE_LLM_BACKEND=bedrock
-ASSURE_BEDROCK_MODEL=bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
-ASSURE_BEDROCK_MODEL_B=bedrock/eu.anthropic.claude-3-5-haiku-20241022-v1:0
-# Enable these two models in the Bedrock console for the region first.
+# Defaults follow AWS_DEFAULT_REGION: us./eu./apac. cross-region profiles of
+# Claude Sonnet 4 (drafting, checks) and Claude 3.5 Haiku (Compare's 2nd column).
+# Enable both in the Bedrock console for that region first. Override if needed:
+# ASSURE_BEDROCK_MODEL=us.anthropic.claude-sonnet-4-20250514-v1:0
+# ASSURE_BEDROCK_MODEL_B=us.anthropic.claude-3-5-haiku-20241022-v1:0
 # Alternative: ASSURE_LLM_BACKEND= (empty) + OPENROUTER_API_KEY=... for the cloud policies.
 ENV
     ;;
