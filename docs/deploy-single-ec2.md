@@ -85,10 +85,10 @@ docker compose ps
 curl -s http://127.0.0.1:8765/ready
 ```
 
-The shell listens on `0.0.0.0:8891` (`SHELL_BIND` in `.env`) behind the
-`SHELL_ACCESS_KEY` the script generated (`grep SHELL_ACCESS_KEY .env`). Put TLS
-in front: Cloudflare tunnel to `http://localhost:8891`, or nginx/caddy on 443.
-The API port 8765 stays on 127.0.0.1.
+The shell listens on `0.0.0.0:80` (`SHELL_BIND` / `SHELL_PORT` in `.env`) behind
+the `SHELL_ACCESS_KEY` the script generated (`grep SHELL_ACCESS_KEY .env`);
+security group: inbound 80 (and 22 from your IP). For TLS put a Cloudflare
+tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 
 ## 6. Checks
 
