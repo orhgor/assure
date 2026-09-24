@@ -389,7 +389,7 @@ def _guess_target(
     if "thinking" in xml_fields or "instructions" in xml_fields:
         return "xml", "claude"
     if any(h.lower() in {"system prompt", "user request", "self-correction"} for h in headings):
-        return "markdown", "deepseek"
+        return "markdown", "gemini"
     if "you are kimi" in lowered or "moonshot" in lowered:
         return "markdown", "kimi"
     if "data not available" in lowered or "do not hallucinate" in lowered:

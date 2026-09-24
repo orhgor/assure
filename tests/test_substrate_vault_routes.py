@@ -133,10 +133,12 @@ def test_upload_persists_and_labels_instruction_like_source(vault_client):
     assert "instruction_flag_label" not in clean.get_json()
 
 
-def test_list_is_empty_for_unknown_project(vault_client):
+def test_list_for_unknown_project_is_404(vault_client):
+    """A project with no ``projects`` row is not a project: reads answer 404,
+    never an empty list that looks like a real, empty workspace."""
     res = vault_client.get("/api/projects/no-such-project/substrate")
-    assert res.status_code == 200
-    assert res.get_json() == {"ok": True, "files": []}
+    assert res.status_code == 404
+    assert res.get_json() == {"ok": False, "error": "Project not found."}
 
 
 def test_list_returns_uploaded_file(vault_client):

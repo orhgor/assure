@@ -94,6 +94,13 @@ else
   fi
 fi
 
+# Runtime permissions (S3 objects, SQS, Textract) on the same role: the app
+# never holds AWS keys, boto3 picks up the instance role.
+if [ -n "${ASSURE_S3_BUCKET:-}" ]; then
+  AWS_REGION="$AWS_REGION" CELERY_SQS_QUEUE_PREFIX="${CELERY_SQS_QUEUE_PREFIX:-assure-}" \
+    bash "$(dirname "$0")/attach-runtime-role.sh" "$ROLE_NAME"
+fi
+
 PROFILE_ARN="$(aws iam get-instance-profile \
   --instance-profile-name "$PROFILE_NAME" \
   --query 'InstanceProfile.Arn' \

@@ -3370,21 +3370,42 @@
         if (!file) return;
         var fd = new FormData();
         fd.append("file", file);
+        if (global.AssureToast) {
+          global.AssureToast.show(jdfT("jdf.import.pdf_queued", "Upload received — parsing on the worker…"), "info");
+        }
         fetch("/api/projects/" + encodeURIComponent(self.projectId) + "/import-pdf", {
           method: "POST",
           body: fd,
         })
-          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, j: j }; }); })
           .then(function (res) {
-            if (!res.ok) throw new Error((res.j && res.j.detail) || "Import failed");
-            if (res.j.document) {
+            if (!res.ok) throw new Error((res.j && (res.j.error || res.j.detail)) || "Import failed");
+            if (res.status === 202 && res.j.task_id) {
+              // Parsed on the worker: watch the job in the processing panel and
+              // reload the document when the revision lands.
+              if (global.AssureIngestJobs) global.AssureIngestJobs.track();
+              if (!global.AssureIngestJobs) throw new Error("Processing tracker unavailable");
+              return global.AssureIngestJobs.awaitTask(res.j.task_id).then(function (result) {
+                var payload = (result && result.result) || result || {};
+                return { ok: true, status: 200, j: payload, queued: true };
+              });
+            }
+            return res;
+          })
+          .then(function (res) {
+            if (res.j && res.j.document) {
               self.tree = res.j.document;
               self.render();
-              self.saveDocument("PDF_IMPORT");
+              if (!res.queued) self.saveDocument("PDF_IMPORT");
+              else self.loadProject();
             }
             if (global.AssureToast) {
-              global.AssureToast.show(jdfT("jdf.import.pdf_ok", "PDF imported"), "success");
+              var z3 = res.j && res.j.z3_status;
+              var msg = jdfT("jdf.import.pdf_ok", "PDF imported");
+              if (z3) msg += " · Z3 " + z3;
+              global.AssureToast.show(msg, z3 === "VIOLATION" ? "warning" : "success");
             }
+            if (global.AssureIngestJobs) global.AssureIngestJobs.track();
           })
           .catch(function (err) {
             if (global.AssureToast) global.AssureToast.show(String(err.message || err), "error");

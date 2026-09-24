@@ -40,11 +40,6 @@ def lint_prompt(target: str, prompt: str) -> LintReport:
             report.errors.append("Cursor dialect needs /ask (usually /ask @workspace).")
         if "@workspace" not in text and "@file" not in text:
             report.warnings.append("No @workspace or @file reference.")
-    elif target == "deepseek":
-        _need(report, text, "## System Prompt", "DeepSeek system section")
-        _need(report, text, "## User Request", "DeepSeek user section")
-        if "## Self-Correction" not in text:
-            report.warnings.append("DeepSeek self-correction block is missing.")
     elif target == "gemini":
         if "Data not available" not in text:
             report.warnings.append("Gemini grounding line (Data not available) is missing.")

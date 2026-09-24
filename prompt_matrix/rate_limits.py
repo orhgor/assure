@@ -23,9 +23,25 @@ class DailyCompileLimitError(Exception):
     """Project exceeded daily compile quota."""
 
 
+def _limiter_storage_uri() -> str:
+    """Where the counters live: Redis when configured, else this process.
+
+    ``RATE_LIMIT_STORAGE_URI`` overrides; otherwise ``REDIS_URL`` is used, so
+    every web replica counts against the same bucket. ``memory://`` is only
+    right for a single process and is what a missing Redis degrades to.
+    """
+    explicit = (os.environ.get("RATE_LIMIT_STORAGE_URI") or "").strip()
+    if explicit:
+        return explicit
+    redis_url = (os.environ.get("REDIS_URL") or "").strip()
+    if redis_url:
+        return redis_url
+    return "memory://"
+
+
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri=os.environ.get("RATE_LIMIT_STORAGE_URI", "memory://"),
+    storage_uri=_limiter_storage_uri(),
     default_limits=[],
     headers_enabled=True,
 )
@@ -83,19 +99,21 @@ def increment_daily_compile_limit(project_id: str) -> int:
     init_db()
     db = get_db()
     today = _today_utc()
-    db.execute(
+    # One statement: the increment and the read-back are the same row version,
+    # so two replicas incrementing at once cannot both see the same count. The
+    # column is qualified because PostgreSQL treats a bare ``count`` in the
+    # DO UPDATE clause as ambiguous (row vs. excluded).
+    row = db.execute(
         """
         INSERT INTO daily_compile_limits (project_id, date, count)
         VALUES (?, ?, 1)
-        ON CONFLICT(project_id, date) DO UPDATE SET count = count + 1
+        ON CONFLICT(project_id, date) DO UPDATE
+            SET count = daily_compile_limits.count + 1
+        RETURNING count
         """,
         (project_id, today),
-    )
-    db.commit()
-    row = db.execute(
-        "SELECT count FROM daily_compile_limits WHERE project_id = ? AND date = ?",
-        (project_id, today),
     ).fetchone()
+    db.commit()
     return int(row[0]) if row else 1
 
 

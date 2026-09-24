@@ -112,3 +112,16 @@
 374:    @app.get("/api/projects/<project_id>/substrate/<file_id>")
 393:    @app.delete("/api/projects/<project_id>/substrate/<file_id>")
 410:    @app.patch("/api/projects/<project_id>/substrate/<file_id>")
+
+# Added 2026-09-22 — queued parsing and ingest job tracking
+POST /api/projects/<project_id>/uploads/presign          presigned S3 PUT target (mode s3|multipart)
+POST /api/projects/<project_id>/import-pdf               202 {task_id, job_id, status_url, job_url} when PARSE_ASYNC; accepts {object_key, filename}
+GET  /api/tasks/<task_id>                                Celery status joined with the ingest job
+GET  /api/projects/<project_id>/ingest-jobs              list + stats (?status=active|done|failed, ?limit=)
+GET  /api/projects/<project_id>/ingest-jobs/<job_id>     one job with stage history
+GET  /api/projects/<project_id>/ingest-jobs/<job_id>/report   job + revision Z3 violations + Red-Hat count + OMP artifact
+POST /api/projects/<project_id>/ingest-jobs/<job_id>/retry    re-queue a failed job (409 if the staged object expired)
+GET  /ready                                              readiness (database + redis)
+GET  /api/integrations/aws                               S3/IAM status: bucket, credential source (env|database|role), real HeadBucket probe, identity
+PUT  /api/integrations/aws                               save bucket/region/prefix + IAM keys (secret encrypted), probe with those values (200 reachable / 202 saved-unreachable)
+DELETE /api/integrations/aws                             forget saved credentials (falls back to .env / role)

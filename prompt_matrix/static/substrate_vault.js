@@ -3,10 +3,10 @@
  * files grounding this project's compiles. Talks to
  * /api/projects/<id>/substrate[/upload|/<file_id>].
  *
- * Status is not a polled async state — Textract runs synchronously inside
- * the upload request, so a row only ever exists once extraction already
- * succeeded. "Processing" is purely the optimistic row shown while that
- * POST is in flight.
+ * An upload answers 202 with a task id when parsing is queued to the worker
+ * (PARSE_ASYNC); the optimistic row is replaced once GET /api/tasks/<id>
+ * reports the vault entry. The processing panel (ingest_jobs.js) shows the
+ * stages meanwhile.
  */
 (function (global) {
   "use strict";
@@ -367,6 +367,7 @@
           return {};
         });
         if (res.status === 202 && data.task_id) {
+          if (global.AssureIngestJobs) global.AssureIngestJobs.track();
           await self.pollUploadStatus(data.task_id, optimisticRow, file);
           return;
         }

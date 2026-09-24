@@ -71,7 +71,7 @@ In **Settings → Secrets and variables → Actions**, add:
 
 | Secret | Purpose |
 |--------|---------|
-| `AWS_ACCESS_KEY_ID` | IAM user with SSM send-command (see `scripts/aws/iam-policy-assure-deploy.json`) |
+| `AWS_ACCESS_KEY_ID` | **Deploy-time only** (GitHub Actions → SSM send-command, `scripts/aws/iam-policy-assure-deploy.json`). The running app holds no keys: S3/SQS/Textract use the instance role — `scripts/aws/attach-runtime-role.sh` |
 | `AWS_SECRET_ACCESS_KEY` | Pair for above |
 | `ASSURE_INSTANCE_ID` | Optional; defaults to `i-09d0ad0b561113abe` |
 | `GHCR_DEPLOY_TOKEN` | Optional; PAT with `read:packages` for fast EC2 pull (see `setup-ghcr-ec2.sh`) |

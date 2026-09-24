@@ -136,7 +136,7 @@
         var order = (data.route && data.route.send_order) || [];
         var local = data.route && data.route.local;
         var first = order[0] || "";
-        var names = { gemini: "Gemini", deepseek: "DeepSeek", claude: "Claude", kimi: "Kimi" };
+        var names = { gemini: "Gemini", claude: "Claude", kimi: "Kimi" };
         if (local || first === "ollama" || !first) {
           chip.textContent = "🔒 Closed to the internet";
           chip.title = "Copy stays here. The question stays on this computer.";

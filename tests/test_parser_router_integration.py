@@ -99,10 +99,10 @@ def test_jdf_routes_entrypoint_calls_router(ingest_env, monkeypatch):
         return "jdf"
 
     monkeypatch.setattr(
-        "prompt_matrix.routers.jdf_routes.select_parser", fake_select
+        "prompt_matrix.services.parser_router.select_parser", fake_select
     )
     monkeypatch.setattr(
-        "prompt_matrix.routers.jdf_routes.pdf_to_parse_bundle",
+        "prompt_matrix.services.jdf_converter.pdf_to_parse_bundle",
         lambda *a, **k: {
             "jdf": {"$jdf": "1.0", "meta": {}, "pages": []},
             "chunks": [{"id": "c0", "text": "chunk0", "tokens": 4}],

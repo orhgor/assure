@@ -21,7 +21,6 @@ def orchestrator_module(monkeypatch):
 def test_family_detection(orchestrator_module) -> None:
     assert orchestrator_module.family_of("meta-llama/Llama-3.3-70B-Instruct") == "meta"
     assert orchestrator_module.family_of("qwen/Qwen2.5-72B-Instruct") == "qwen"
-    assert orchestrator_module.family_of("deepseek/deepseek-r1") == "deepseek"
     assert orchestrator_module.family_of("mistralai/Mistral-Small") == "mistral"
     assert orchestrator_module.family_of("openrouter/google/gemma-4-26b-a4b-it:free") == "google"
     assert (

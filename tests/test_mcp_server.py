@@ -88,7 +88,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
             patch_path="/tmp/swarm.patch",
             test_results=TestResults(passed=True, stdout="ok"),
             documentation="# Feature\n",
-            targets={"developer": "deepseek"},
+            targets={"developer": "gemini"},
         )
         with patch("prompt_matrix.swarm.run_swarm", return_value=fake) as mocked:
             text = _call_tool(
@@ -96,7 +96,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
                 {
                     "task": "Add a button",
                     "context_files": ["web.py", "templates/index.html"],
-                    "target_models": {"developer": "deepseek-chat"},
+                    "target_models": {"developer": "qwen3-next"},
                     "max_redhat_iterations": 1,
                     "min_confidence": 0.5,
                     "skip_tests": False,
@@ -110,7 +110,7 @@ class SwarmDevelopToolTests(unittest.TestCase):
         kwargs = mocked.call_args.kwargs
         self.assertEqual(kwargs["task"], "Add a button")
         self.assertEqual(kwargs["context_files"], ["web.py", "templates/index.html"])
-        self.assertEqual(kwargs["target_models"], {"developer": "deepseek-chat"})
+        self.assertEqual(kwargs["target_models"], {"developer": "qwen3-next"})
         self.assertEqual(kwargs["max_redhat_iterations"], 1)
         self.assertEqual(kwargs["min_confidence"], 0.5)
         self.assertFalse(kwargs["skip_tests"])

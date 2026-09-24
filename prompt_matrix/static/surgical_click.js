@@ -426,7 +426,13 @@
     },
 
     postGround: function (mode) {
-      var self = this;
+      // ``POST .../nodes/<id>/ground`` no longer exists (the route was removed
+      // with the old grounding service), so every Ground click answered 404
+      // with a "Grounding failed." toast. The surviving grounding path is the
+      // refine route with ``ground_from_vault``: the node is rewritten against
+      // the Substrate Vault excerpts and comes back as a Proposal for review.
+      // The submenu's Search/LLM modes had no backing route of their own; all
+      // three take this path and the mode is kept only for the audit trail.
       var nodeId = this.nodeId;
       var canvas = global.__assureJdf;
       if (!nodeId || !canvas || !canvas.tree) {
@@ -435,64 +441,19 @@
         }
         return;
       }
-      var nodeBefore = canvas.getNodeById(nodeId);
-      var originalText = nodeBefore ? String(nodeBefore.content || nodeBefore.title || "") : "";
-      this.setBusy(true);
-      fetch(
-        "/api/projects/" +
-          encodeURIComponent(projectId()) +
-          "/nodes/" +
-          encodeURIComponent(nodeId) +
-          "/ground",
-        {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: mode || "auto", document: canvas.tree }),
-        }
-      )
-        .then(function (res) {
-          return res.json().then(function (data) {
-            return { ok: res.ok, data: data };
-          });
-        })
-        .then(function (pack) {
-          self.setBusy(false);
-          if (!pack.ok || !pack.data || pack.data.ok === false) {
-            if (global.AssureToast) {
-              global.AssureToast.show(
-                String((pack.data && pack.data.error) || t("surgical.click.ground_failed", "Grounding failed.")),
-                "error"
-              );
-            }
-            return;
-          }
-          var suggested = pack.data.suggested || pack.data.node || {};
-          var proposedText = String(suggested.content || suggested.title || "");
-          pack.data.node = suggested;
-          var _proposal = (pack.data && pack.data.proposal) || null;
-          if (_proposal && global.AssureSurgicalDiff) {
-            var _banner = global.AssureSurgicalDiff.verificationBanner(
-              _proposal.verification_status,
-              _proposal.verification_reason,
-              t
-            );
-            if (global.AssureToast && global.AssureSurgicalDiff.requiresForce(_proposal.verification_status)) {
-              // Flag-and-decide: the edit is offered, with the warning attached.
-              global.AssureToast.show(_banner.label, "error");
-            }
-          }
-          self.openDiff(nodeId, originalText, proposedText, pack.data);
-        })
-        .catch(function (err) {
-          self.setBusy(false);
-          if (global.AssureSurgicalDiff) {
-            global.AssureSurgicalDiff.setNodeLocked(nodeId, false);
-          }
-          if (global.AssureToast) {
-            global.AssureToast.show(String((err && err.message) || err), "error");
-          }
-        });
+      var ids =
+        global.AssureSubstrateVault && typeof global.AssureSubstrateVault.selectedIncludedIds === "function"
+          ? global.AssureSubstrateVault.selectedIncludedIds()
+          : [];
+      this.postRefine({
+        user_instruction: t(
+          "surgical.click.vault_instruction",
+          "Rewrite this node so every claim is grounded in the Substrate Vault excerpts."
+        ),
+        ground_from_vault: true,
+        substrate_file_ids: ids,
+        ground_mode: mode || "auto",
+      });
     },
 
     postRefine: function (opts) {

@@ -20,7 +20,6 @@ except ImportError:
 _OPPOSITE_MODEL = {
     "gemini": "anthropic/claude-sonnet-4-5",
     "claude": "gemini/gemini-2.0-flash",
-    "deepseek": "gemini/gemini-2.0-flash",
 }
 
 

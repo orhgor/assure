@@ -28,7 +28,7 @@ except ImportError:
     )
 
 # "ollama" here is the PEM local target id: Ollama, or vLLM/SGLang/Llamafile/LM Studio if up.
-SEND_ORDER = ("ollama", "gemini", "deepseek", "claude", "kimi")
+SEND_ORDER = ("ollama", "gemini", "claude", "kimi")
 
 
 def can_send(name: str) -> bool:

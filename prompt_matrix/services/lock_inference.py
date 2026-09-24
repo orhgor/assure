@@ -19,7 +19,7 @@ except ImportError:
     from upload_limits import pdf_has_visual_content
 
 MIN_CONFIDENCE = 0.7
-TEXT_MODEL = "deepseek/deepseek-chat"
+TEXT_MODEL = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
 VISION_MODEL = "gemini/gemini-3.6-flash"
 
 _log = logging.getLogger(__name__)
@@ -279,9 +279,9 @@ def _ensure_provider_key(model: str) -> None:
     if model.startswith("gemini/"):
         if not key_present("gemini"):
             raise RuntimeError("Gemini API key not configured for visual lock inference.")
-    elif model.startswith("deepseek/"):
-        if not key_present("deepseek"):
-            raise RuntimeError("DeepSeek API key not configured for lock inference.")
+    elif model.startswith("openrouter/"):
+        if not key_present("openrouter"):
+            raise RuntimeError("OpenRouter API key not configured for lock inference.")
     else:
         raise RuntimeError(f"Unsupported lock inference model: {model}")
 
@@ -295,7 +295,7 @@ def _call_text_model(model: str, prompt: str) -> str:
         ],
         # No explicit ``max_tokens``: the runner asks for the intent's budget
         # (``min(PEM_MAX_TOKENS, cap_output_tokens("analysis", model))``, 2048 for
-        # deepseek-chat). The 1024 that used to sit here was under the cap and cut
+        # the intent budget). The 1024 that used to sit here was under the cap and cut
         # a figures-dense memo's extraction off mid-object — the 30 candidates of
         # the renewal memo need ~1.5k tokens. A truncated answer is not a partial
         # ledger: it is no ledger, and the draft's figures went unchecked.

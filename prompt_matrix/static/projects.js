@@ -354,6 +354,10 @@
             method: "POST",
             credentials: "same-origin",
             body: fd,
+          }).then(function (r) {
+            // Queued uploads finish on the worker; the processing panel shows them.
+            if (r.status === 202 && global.AssureIngestJobs) global.AssureIngestJobs.track();
+            return r;
           });
         });
         return Promise.all(uploads).then(function () {

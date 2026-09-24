@@ -6,6 +6,13 @@ Docling does not. The worker split (Option 2) is designed but not deployed, and
 
 Written 2026-09-20, after the staging convergence (`448b56c`, `719ade4`).
 
+> **Update 2026-09-22.** Option 2 is now deployed in a different shape: the
+> *app image itself* is the worker (node + jdf-cli 0.2.3 with tesseract OCR,
+> Z3, Textract client), run with a Celery command (`assure-worker` in
+> `docker-compose.yml`, ECS `worker` service). `Dockerfile.worker` only adds Docling and is optional.
+> Parsing is queued (`PARSE_ASYNC=1`). The rest of this document is the history
+> of how that decision was reached.
+
 ## The problem this document answers
 
 Three upload endpoints existed and all three failed in the deployed container,
@@ -68,7 +75,7 @@ only what `requirements-worker.txt` declares (Docling, pypdfium2), where
     docling==2.129.0
     pypdfium2==5.13.0
 
-and `docker-compose.celery.yml` takes `WORKER_IMAGE` instead of building from
+and `docker-compose.yml (assure-worker service)` takes `WORKER_IMAGE` instead of building from
 the app Dockerfile.
 
 **Not deployed, because it has no deployment target today.** Measured on
@@ -81,7 +88,7 @@ staging:
 | Celery worker process | not running |
 | Celery systemd unit | none |
 | Containers on the box | `assure-assure-app-1` only |
-| `docker-compose.celery.yml` | referenced by no staging workflow |
+| `docker-compose.yml (assure-worker service)` | referenced by no staging workflow |
 
 `worker-staging.yml` deploys a Cloudflare Worker from `worker/` and is unrelated
 to Celery. So building the worker image today would produce an artifact nothing

@@ -48,6 +48,13 @@ def run_verification_after_parse(bundle: dict[str, Any]) -> dict[str, Any]:
     reported in the result, not thrown at the parse path.
     """
     page_count = int(bundle.get("page_count") or 1)
+    # TODO(async-verification): the >50-page branch is meant to hand the tree
+    # to a separate verification task and write the Z3 / Red-Hat result back
+    # onto the stored revision afterwards. The pieces now exist — PostgreSQL
+    # holds the revision, the object store holds the tree, Celery runs the
+    # parse on a worker — but the write-back contract (which revision row and
+    # OMP artifact a late result updates, and how the UI learns of it) is not
+    # designed yet. Tracked in docs/deferred.md ("Async verification").
     if page_count > SYNC_VERIFICATION_PAGE_LIMIT:
         # The async path is deferred (no storage contract yet): verify inline
         # so a large document is not left unverified, and log the deferral so

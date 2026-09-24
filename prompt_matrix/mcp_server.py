@@ -39,7 +39,7 @@ TOOLS = [
                 "task": {"type": "string", "description": "The user's vague task."},
                 "target_ai": {
                     "type": "string",
-                    "description": "claude, gemini, deepseek, kimi, ollama, or cursor.",
+                    "description": "claude, gemini, kimi, ollama, or cursor.",
                     "default": "claude",
                 },
                 "intent": {
@@ -69,13 +69,13 @@ TOOLS = [
                 "task": {"type": "string", "description": "The user's vague task."},
                 "target_ai": {
                     "type": "string",
-                    "description": "Primary model and combiner. gemini, deepseek, claude, kimi, or ollama.",
+                    "description": "Primary model and combiner. gemini, claude, kimi, or ollama.",
                     "default": "gemini",
                 },
                 "extra_targets": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": 'Other models to draft. Default: ["deepseek"].',
+                    "description": 'Other models to draft. Default: ["gemini"].',
                 },
                 "intent": {
                     "type": "string",
@@ -207,7 +207,7 @@ TOOLS = [
                     "type": "object",
                     "additionalProperties": {"type": "string"},
                     "description": (
-                        'Role to model override, e.g. {"developer": "deepseek-chat"}. '
+                        'Role to model override, e.g. {"developer": "gemini/gemini-3.6-flash"}. '
                         "Roles: architect, developer, reviewer, tester, documenter. "
                         "Also accepts a list of ROLE=MODEL strings."
                     ),
@@ -492,12 +492,12 @@ def _compile(args: dict[str, Any]) -> str:
 def _extra_targets(args: dict[str, Any]) -> list[str]:
     raw = args.get("extra_targets")
     if raw is None:
-        return ["deepseek"]
+        return ["gemini"]
     if isinstance(raw, str):
         return [part.strip() for part in raw.split(",") if part.strip()]
     if isinstance(raw, list):
         return [str(item).strip() for item in raw if str(item).strip()]
-    return ["deepseek"]
+    return ["gemini"]
 
 
 def _format_workflow(result: Any) -> str:

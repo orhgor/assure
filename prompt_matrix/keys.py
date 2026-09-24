@@ -27,7 +27,6 @@ ENV_PATH = PACKAGE_DIR / ".env"
 PROVIDER_ENV = {
     "claude": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
-    "deepseek": "DEEPSEEK_API_KEY",
     "kimi": "MOONSHOT_API_KEY",
     "groq": "GROQ_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
@@ -36,7 +35,6 @@ PROVIDER_ENV = {
 PROVIDER_LABEL = {
     "claude": "Anthropic",
     "gemini": "Google Gemini",
-    "deepseek": "DeepSeek",
     "kimi": "Kimi",
     "groq": "Groq",
     "openrouter": "OpenRouter",
@@ -48,7 +46,6 @@ def provider_slug_for_litellm(model: str) -> str:
     prefix = str(model or "").split("/")[0].lower()
     return {
         "anthropic": "claude",
-        "deepseek": "deepseek",
         "gemini": "gemini",
         "groq": "groq",
         "openrouter": "openrouter",
@@ -214,7 +211,6 @@ _LITELLM_SLUG_ALIASES: dict[str, str] = {
     "anthropic": "claude",
     "gemini": "gemini",
     "google": "gemini",
-    "deepseek": "deepseek",
     "moonshot": "kimi",
     "openrouter": "openrouter",
     "groq": "groq",
@@ -225,7 +221,6 @@ _LITELLM_SLUG_ALIASES: dict[str, str] = {
 _BARE_MODEL_PREFIXES: tuple[tuple[str, str | None], ...] = (
     ("claude", "claude"),
     ("gemini", "gemini"),
-    ("deepseek", "deepseek"),
     ("moonshot", "kimi"),
     ("kimi", "kimi"),
     ("gpt-", None),
@@ -236,7 +231,6 @@ _BARE_MODEL_PREFIXES: tuple[tuple[str, str | None], ...] = (
 ORCHESTRATOR_ENV_MAP: dict[str, str] = {
     "claude": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
-    "deepseek": "DEEPSEEK_API_KEY",
     "groq": "GROQ_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
 }
@@ -382,6 +376,12 @@ def save_provider_key(target: str, key: str) -> dict:
         os.environ["CLAUDE_API_KEY"] = key
     if target == "kimi":
         os.environ["KIMI_API_KEY"] = key
+    if (os.environ.get("ENVIRONMENT") or "").strip().lower() in ("production", "staging"):
+        # A server replica must not persist a provider key on its own disk: the
+        # next replica would not have it and the container filesystem is
+        # ephemeral. The key stays in this process's environment for the
+        # session; durable storage is the encrypted per-user row.
+        return provider_status()
     ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     if set_key is not None:
         set_key(str(ENV_PATH), env_name, key)

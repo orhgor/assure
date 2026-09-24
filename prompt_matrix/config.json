@@ -12,12 +12,6 @@
       "model": "gemini/gemini-3.6-flash",
       "structure": "Role: {{ role }}\n\nTask:\n{{ task }}\n{% if context %}\n\nSupporting context:\n{{ context }}\n{% endif %}\n\nOutput constraints:\n- Follow format: {{ format }}\n- Do not wrap the whole answer in JSON unless that format asks for a JSON object.\n- Every claim must come from the task or the context. If unverified, write exactly: Data not available.\n"
     },
-    "deepseek": {
-      "label": "DeepSeek",
-      "wrapper": "markdown",
-      "model": "deepseek/deepseek-chat",
-      "structure": "## System Prompt\nYou are {{ role }}. Answer directly. Prefer precise technical language.\n\n## User Request\n{{ task }}\n{% if context %}\n\n## Context\n{{ context }}\n{% endif %}\n\n## Output Format\n{{ format }}\n\n## Self-Correction\nBefore finishing, re-check:\n1. Answered the question that was asked?\n2. Invented facts, APIs, or numbers?\n3. Output shape matches the format?\nIf any check fails, rewrite.\n"
-    },
     "kimi": {
       "label": "Kimi (Moonshot)",
       "wrapper": "markdown",

@@ -228,3 +228,28 @@ When making changes to the parsing page or UI:
 
 Do NOT use `founder_workbench.css` for new work — it is the legacy system.
 
+## Notes
+
+---
+
+## Local development (legacy quick start)
+
+```bash
+./scripts/install.sh                                    # or: uv sync --extra dev
+docker compose -f docker-compose.dev.yml up -d          # PostgreSQL :5432 + Redis :6379
+export DATABASE_URL=postgresql://assure:assure@localhost:5432/assure
+export REDIS_URL=redis://localhost:6379/0
+.venv/bin/assure --web                                  # http://127.0.0.1:8765
+```
+
+Full stack in containers (web + parse worker + PostgreSQL + Redis, the same
+topology as AWS) with no configuration at all:
+
+```bash
+docker compose up -d --build          # UI: http://127.0.0.1:8891 (key: assure-local-shell-key) · API: http://127.0.0.1:8765
+```
+
+Optional `.env` at the repo root: provider keys, and `ASSURE_S3_BUCKET` +
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` for a real S3 bucket (or enter
+them on the Sources panel). Production: `docker-compose.prod.yml` requires
+`APP_IMAGE`, `POSTGRES_PASSWORD`, `PEM_SECRET_KEY`.

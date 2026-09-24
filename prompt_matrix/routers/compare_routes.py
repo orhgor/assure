@@ -73,7 +73,7 @@ def register_compare_routes(app) -> None:
                 "models": result.get("models") or {},
                 "families": {
                     "claude": family_of(used_a),
-                    "deepseek": family_of(used_b),
+                    "secondary": family_of(used_b),
                 },
             }
         ), 200

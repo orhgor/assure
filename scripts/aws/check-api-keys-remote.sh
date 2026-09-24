@@ -35,12 +35,6 @@ if [ -n "$k" ]; then
   probe gemini "https://generativelanguage.googleapis.com/v1/models?key=$k"
 else echo "gemini: SKIP missing"; fi
 
-if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
-  probe deepseek -X POST https://api.deepseek.com/chat/completions \
-    -H "Authorization: Bearer $DEEPSEEK_API_KEY" -H "content-type: application/json" \
-    -d "{\"model\":\"deepseek-chat\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}"
-else echo "deepseek: SKIP missing"; fi
-
 k="${MOONSHOT_API_KEY:-${KIMI_API_KEY:-}}"
 if [ -n "$k" ]; then
   probe kimi -X POST https://api.moonshot.ai/v1/chat/completions \

@@ -236,13 +236,15 @@ class TestVerificationIntegration:
                 "redhat_status": "complete",
             }
 
-        monkeypatch.setattr(jdf_routes, "run_verification_after_parse", fake_hook)
+        from prompt_matrix.services import verification as verification_mod
+
+        monkeypatch.setattr(verification_mod, "run_verification_after_parse", fake_hook)
         monkeypatch.setattr(
             "prompt_matrix.routers.jdf_routes.validate_upload_bytes",
             lambda *a, **k: None,
         )
         monkeypatch.setattr(
-            "prompt_matrix.routers.jdf_routes.pdf_to_parse_bundle",
+            "prompt_matrix.services.jdf_converter.pdf_to_parse_bundle",
             lambda *a, **k: {
                 "jdf": {"$jdf": "1.0", "meta": {}, "pages": []},
                 "chunks": [{"id": "c0", "text": "chunk0", "tokens": 4}],
