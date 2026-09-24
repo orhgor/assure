@@ -84,7 +84,10 @@ def import_project_pdf_task(
         except UploadRejectedError as exc:
             raise PdfIngestError(str(exc), http_status=getattr(exc, "http_status", 400)) from exc
         payload = ingest_pdf_for_project(project_id, filename, file_bytes, job_id=job_id)
-        result = {"status": "success", "task_id": self.request.id, "job_id": job_id, "result": payload}
+        # Same rule as substrate_tasks: the revision row holds the tree; the
+        # task result (and the worker's success log line) carries ids only.
+        slim = {k: v for k, v in payload.items() if k not in ("document", "tree", "jdf", "chunks", "text")}
+        result = {"status": "success", "task_id": self.request.id, "job_id": job_id, "result": slim}
     except PdfIngestError as exc:
         result = {
             "status": "failure",

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -193,11 +194,22 @@ def get_job_by_task(task_id: str) -> dict[str, Any] | None:
     return _row_to_dict(row) if row else None
 
 
+_STALE_SWEEP_EVERY_S = 60.0
+_last_stale_sweep = 0.0
+
+
 def list_jobs(project_id: str, *, limit: int = 50, status: str | None = None) -> list[dict[str, Any]]:
-    try:
-        mark_stale()
-    except Exception:  # never let healing break the listing
-        pass
+    # Healing sweep at most once a minute per process: it is an UPDATE + COMMIT
+    # and the shell polls this list every second while an upload runs (audit
+    # 2026-09-24 — one write transaction per poll per client).
+    global _last_stale_sweep
+    now = time.monotonic()
+    if now - _last_stale_sweep >= _STALE_SWEEP_EVERY_S:
+        _last_stale_sweep = now
+        try:
+            mark_stale()
+        except Exception:  # never let healing break the listing
+            pass
     init_db()
     db = get_db()
     limit = max(1, min(int(limit), 500))

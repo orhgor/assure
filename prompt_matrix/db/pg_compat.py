@@ -54,6 +54,7 @@ import os
 import re
 import sqlite3
 import threading
+import time
 from typing import Any, Iterable, Iterator, Sequence
 
 _log = logging.getLogger("assure")
@@ -608,8 +609,24 @@ def ensure_compat_functions(pgconn: Any, *, key: str) -> None:
     with _functions_lock:
         if key in _functions_ready:
             return
+        # `CREATE OR REPLACE FUNCTION` from two processes at once (gunicorn's
+        # workers boot in parallel, the Celery worker alongside) raised
+        # "tuple concurrently updated" and killed a web worker on the EC2 first
+        # boot (2026-09-24). Serialise on a session advisory lock; the bootstrap
+        # connection is autocommit, so lock/unlock are plain statements.
         with pgconn.cursor() as cur:
-            cur.execute(COMPAT_FUNCTIONS_SQL)
+            cur.execute("SELECT pg_advisory_lock(727002)")
+            try:
+                for attempt in (1, 2):
+                    try:
+                        cur.execute(COMPAT_FUNCTIONS_SQL)
+                        break
+                    except Exception as exc:  # the race, if the lock was not enough
+                        if attempt == 2 or "concurrently updated" not in str(exc):
+                            raise
+                        time.sleep(0.2)
+            finally:
+                cur.execute("SELECT pg_advisory_unlock(727002)")
         pgconn.commit()
         _functions_ready.add(key)
 

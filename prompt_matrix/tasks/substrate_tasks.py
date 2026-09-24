@@ -70,7 +70,13 @@ def process_substrate_upload(
             ),
             redhat_status=entry.get("redhat_status"),
         )
-        result: dict[str, Any] = {"status": "success", "task_id": self.request.id, "job_id": job_id, "entry": entry}
+        # The result is what /api/tasks returns AND what Celery prints in its
+        # "succeeded in …: <return value>" log line. The extracted text (whole
+        # document) belongs in neither: the vault row holds it, the shell only
+        # reads entry.id/filename/page_count. Dropping it also keeps customer
+        # documents out of the worker log (seen on the EC2 first run, 2026-09-24).
+        slim = {k: v for k, v in entry.items() if k not in ("text", "jdf", "chunks", "pages", "tables", "forms")}
+        result: dict[str, Any] = {"status": "success", "task_id": self.request.id, "job_id": job_id, "entry": slim}
     except Exception as exc:
         _job("failed", error=f"{exc.__class__.__name__}: {str(exc)[:1500]}")
         result = {"status": "failure", "task_id": self.request.id, "job_id": job_id, "error": str(exc)}

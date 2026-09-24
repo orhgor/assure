@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import os
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -48,7 +50,17 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 29
+_SCHEMA_VERSION = 30
+
+
+def _migrate_v30(db: sqlite3.Connection) -> None:
+    """Partial index for the stale-job sweep (``ingest_jobs_repository.mark_stale``):
+    ``WHERE status NOT IN (done, failed, skipped) AND updated_at < …`` had no
+    usable index and scanned the table on every sweep (audit 2026-09-24)."""
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ingest_jobs_active_updated ON ingest_jobs (updated_at) "
+        "WHERE status NOT IN ('done', 'failed', 'skipped')"
+    )
 
 
 def _migrate_v29(db: sqlite3.Connection) -> None:
@@ -927,8 +939,35 @@ def _migrate_v3(db: sqlite3.Connection) -> None:
             )
 
 
+_MIGRATED: set[tuple[str, str]] = set()
+_MIGRATED_LOCK = threading.Lock()
+
+
+def _migration_key() -> tuple[str, str]:
+    try:
+        from .pg_compat import current_schema, database_url
+    except ImportError:
+        from pg_compat import current_schema, database_url
+    return (database_url() or "", current_schema())
+
+
+def reset_init_db_cache() -> None:
+    """Forget which (database, schema) pairs this process has migrated."""
+    with _MIGRATED_LOCK:
+        _MIGRATED.clear()
+
+
 def init_db(conn: sqlite3.Connection | None = None) -> None:
     """Create or migrate tables on startup. Safe to call repeatedly.
+
+    Fast path: once a (database, schema) pair has been migrated by this process
+    the call returns without touching the database. Nearly every repository
+    function starts with ``init_db()``, and before this each call replayed the
+    whole migration script — measured 37 ms and 61 round trips per call, ~110 ms
+    for one ingest-jobs poll, and every ``CREATE TABLE IF NOT EXISTS`` also
+    flushed pg_compat's catalog caches (audit 2026-09-24). Tests that switch
+    ``DATABASE_PATH`` get a new schema and therefore a new key;
+    ``ASSURE_FORCE_MIGRATE=1`` disables the cache.
 
     A migration that fails half way used to leave its DDL uncommitted on whatever
     connection it was given — the request-scoped one, for the callers that reach it
@@ -942,20 +981,52 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
     every repository function, so an unscoped `get_db()` here was the single
     largest source of the unreturned checkouts db_scope measures.
     """
+    key = _migration_key()
+    force = os.environ.get("ASSURE_FORCE_MIGRATE", "").strip().lower() in ("1", "true", "yes")
+    if not force and key in _MIGRATED:
+        return
     if conn is not None:
         _migrations_guarded(conn)
-        return
-    with db_scope() as db:
-        _migrations_guarded(db)
+    else:
+        with db_scope() as db:
+            _migrations_guarded(db)
+    with _MIGRATED_LOCK:
+        _MIGRATED.add(key)
+
+
+_MIGRATION_LOCK_KEY = 727001  # arbitrary, constant: one lock for this app's schema
 
 
 def _migrations_guarded(db: sqlite3.Connection) -> None:
-    """Run the migrations, rolling back whatever a failure left pending."""
+    """Run the migrations, rolling back whatever a failure left pending.
+
+    Serialised with a PostgreSQL advisory lock: gunicorn starts several workers
+    at once and the Celery worker boots alongside, and each calls init_db() on
+    import. Two of them running `CREATE TABLE … IF NOT EXISTS` / `CREATE OR
+    REPLACE FUNCTION` against an empty database raced, and one gunicorn worker
+    died at start-up with an exception in create_app (EC2 first boot,
+    2026-09-24; the arbiter respawned it, so the symptom was only a traceback
+    in the log). The lock is session-level on this connection and released in
+    `finally`; a second process simply waits and then finds nothing to do.
+    """
+    locked = False
     try:
+        try:
+            db.execute("SELECT pg_advisory_lock(?)", (_MIGRATION_LOCK_KEY,))
+            locked = True
+        except Exception:
+            locked = False  # not PostgreSQL (tests with a shim) — run unguarded
         _migrate_db(db)
     except BaseException:
         _rollback_quietly(db)
         raise
+    finally:
+        if locked:
+            try:
+                db.execute("SELECT pg_advisory_unlock(?)", (_MIGRATION_LOCK_KEY,))
+                db.commit()
+            except Exception:
+                pass
 
 
 def _migrate_db(db: sqlite3.Connection) -> None:
@@ -1141,6 +1212,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v28(db)
     if current < 29:
         _migrate_v29(db)
+    if current < 30:
+        _migrate_v30(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

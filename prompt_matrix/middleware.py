@@ -7,7 +7,7 @@ import re
 from functools import wraps
 from typing import Any, Callable
 
-from flask import jsonify, request, session
+from flask import g, jsonify, request, session
 
 try:
     from .service_auth import is_service_api_request
@@ -144,9 +144,12 @@ def project_ownership_required(view: Callable[..., Any]) -> Callable[..., Any]:
         if not project_id:
             match = _PROJECT_PATH.match(request.path or "")
             project_id = match.group(1) if match else ""
-        denied = check_project_ownership(str(project_id or ""))
-        if denied is not None:
-            return denied
+        # The before_request guard already ran the ownership check for this
+        # project on this request; do not pay for it twice (audit 2026-09-24).
+        if getattr(g, "_assure_ownership_checked", None) != str(project_id or ""):
+            denied = check_project_ownership(str(project_id or ""))
+            if denied is not None:
+                return denied
         missing = check_project_exists(str(project_id or ""))
         if missing is not None:
             return missing
@@ -166,7 +169,10 @@ def register_security_guards(app) -> None:
             return None
         if path.rstrip("/") == "/api/projects":
             return None
-        return check_project_ownership(match.group(1))
+        denied = check_project_ownership(match.group(1))
+        if denied is None:
+            g._assure_ownership_checked = match.group(1)
+        return denied
 
 
 def csrf_exempt_path(path: str) -> bool:

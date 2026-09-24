@@ -91,7 +91,9 @@ celery_app.conf.update(
     worker_max_tasks_per_child=int(os.environ.get("CELERY_WORKER_MAX_TASKS_PER_CHILD", "200")),
     broker_transport_options={
         "region": os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
-        "visibility_timeout": int(os.environ.get("CELERY_SQS_VISIBILITY_TIMEOUT", "3600")),
+        # ≥ task_time_limit (900 s) + margin: a crashed worker's document used to
+        # wait up to 1 h for redelivery (audit 2026-09-24).
+        "visibility_timeout": int(os.environ.get("CELERY_SQS_VISIBILITY_TIMEOUT", "1000")),
         "polling_interval": float(os.environ.get("CELERY_SQS_POLLING_INTERVAL", "1")),
         "queue_name_prefix": os.environ.get("CELERY_SQS_QUEUE_PREFIX", "assure-"),
     },
