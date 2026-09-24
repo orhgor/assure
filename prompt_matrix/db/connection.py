@@ -48,7 +48,30 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 28
+_SCHEMA_VERSION = 29
+
+
+def _migrate_v29(db: sqlite3.Connection) -> None:
+    """Usage counters: metered external calls per period, for hard caps.
+
+    First user: the Textract spend cap (``services/textract_budget``). One row
+    per (name, period) — e.g. ``("textract", "2026-09")`` — with the unit count
+    and the list-price cost, incremented atomically with ``ON CONFLICT`` so two
+    workers cannot both squeeze under the cap. Shared by every replica because
+    it lives in PostgreSQL, not in a process.
+    """
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS usage_counters (
+            name TEXT NOT NULL,
+            period TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            cost_usd REAL NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (name, period)
+        )
+        """
+    )
 
 
 def _migrate_v28(db: sqlite3.Connection) -> None:
@@ -1116,6 +1139,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v27(db)
     if current < 28:
         _migrate_v28(db)
+    if current < 29:
+        _migrate_v29(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

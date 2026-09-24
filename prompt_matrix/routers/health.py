@@ -201,6 +201,14 @@ def health_check():
                 status["status"] = "degraded"
     else:
         status["checks"]["omp"] = "not configured"
+    try:
+        from ..services.textract_budget import usage as _textract_usage
+    except ImportError:
+        from services.textract_budget import usage as _textract_usage
+    try:
+        status["checks"]["textract_budget"] = _textract_usage()
+    except Exception as exc:  # the cap is enforced at call time; here it is only reported
+        status["checks"]["textract_budget"] = {"error": exc.__class__.__name__}
     status.setdefault("degraded", False)
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip() or _deployed_commit()
     if build_sha:

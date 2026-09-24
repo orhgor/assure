@@ -24,6 +24,25 @@ class TextractClient:
 
     TEXTRACT_MAX_PAGES = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
 
+    @staticmethod
+    def mode() -> str:
+        """``detect`` (DetectDocumentText, 0.0015 USD/page, default) or
+        ``analyze`` (AnalyzeDocument TABLES+FORMS, 0.065 USD/page) —
+        ``ASSURE_TEXTRACT_MODE``. Single-page documents used to go through
+        AnalyzeDocument unconditionally, 43× the price of the text this
+        fallback exists for."""
+        raw = os.environ.get("ASSURE_TEXTRACT_MODE", "").strip().lower()
+        return "analyze" if raw == "analyze" else "detect"
+
+    @staticmethod
+    def _charge(pages: int, api: str) -> None:
+        """Hard monthly spend cap (services/textract_budget); raises before boto3."""
+        try:
+            from ..services.textract_budget import reserve
+        except ImportError:
+            from services.textract_budget import reserve
+        reserve(pages, api)
+
     def __init__(self, *, client: Any | None = None, region: str | None = None) -> None:
         self._client = client
         self._region = region or os.environ.get("AWS_REGION", "us-east-1")
@@ -121,16 +140,24 @@ class TextractClient:
             return self._extract_multipage_pdf(file_bytes, filename, page_count)
 
         response: dict[str, Any]
-        try:
-            response = self._analyze_document_with_retry(file_bytes)
-        except Exception as exc:
-            logger.warning("Textract analyze_document failed: %s", exc)
+        mode = self.mode()
+        self._charge(1, mode)
+        if mode == "analyze":
             try:
-                response = self._boto_client().detect_document_text(
-                    Document={"Bytes": file_bytes},
-                )
-            except Exception as exc2:
-                raise TextractError(f"Textract failed: {exc2}") from exc2
+                response = self._analyze_document_with_retry(file_bytes)
+            except Exception as exc:
+                logger.warning("Textract analyze_document failed: %s", exc)
+                try:
+                    response = self._boto_client().detect_document_text(
+                        Document={"Bytes": file_bytes},
+                    )
+                except Exception as exc2:
+                    raise TextractError(f"Textract failed: {exc2}") from exc2
+        else:
+            try:
+                response = self._boto_client().detect_document_text(Document={"Bytes": file_bytes})
+            except Exception as exc:
+                raise TextractError(f"Textract failed: {exc}") from exc
 
         blocks = response.get("Blocks") or []
         text = self._extract_plain_text(blocks)
@@ -158,6 +185,7 @@ class TextractClient:
         self, file_bytes: bytes, filename: str, page_count: int
     ) -> dict[str, Any]:
         page_blobs = self._split_pdf_pages(file_bytes)
+        self._charge(len(page_blobs[: self.TEXTRACT_MAX_PAGES]), "detect")
         pages_meta: list[dict[str, Any]] = []
         combined: list[str] = []
         for idx, blob in enumerate(page_blobs[: self.TEXTRACT_MAX_PAGES], start=1):
