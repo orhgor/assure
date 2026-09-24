@@ -1423,7 +1423,7 @@ def _stream_model(
         # message names the variable to set; 424 because the dependency, not
         # the request, is what is missing. Lives here, not in the pipeline, so
         # tests that stub _stream_model keep running without provider keys.
-        if _slug not in ("ollama", "cursor"):
+        if _slug not in ("ollama", "cursor", "bedrock"):
             try:
                 from ..keys import api_key_for as _api_key_for, missing_key_message
             except ImportError:

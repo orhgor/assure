@@ -180,8 +180,25 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
 
 def llm_backend() -> str:
     """``ASSURE_LLM_BACKEND``: ``""``/``"cloud"`` (the policies above, OpenRouter/
-    DeepSeek) or ``"ollama"`` (every task on the local Ollama container)."""
+    DeepSeek), ``"ollama"`` (every task on the local Ollama container) or
+    ``"bedrock"`` (every task on Amazon Bedrock through the instance/task IAM
+    role — no provider key at all; the EC2 default of scripts/gen-env.sh)."""
     return os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
+
+
+BEDROCK_MODEL_A = "bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0"
+BEDROCK_MODEL_B = "bedrock/eu.anthropic.claude-3-5-haiku-20241022-v1:0"
+
+
+def bedrock_model(role: str = "a") -> str:
+    """Bedrock model id for the IAM-only backend: ``ASSURE_BEDROCK_MODEL`` (and
+    ``ASSURE_BEDROCK_MODEL_B`` for Compare's second column). Defaults are the
+    EU cross-region inference profiles; the ``bedrock/`` prefix is added."""
+    if role == "b":
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL_B", "").strip() or BEDROCK_MODEL_B
+    else:
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL", "").strip() or BEDROCK_MODEL_A
+    return raw if raw.startswith("bedrock/") else f"bedrock/{raw}"
 
 
 def local_model(role: str = "a") -> str:
@@ -205,23 +222,27 @@ def resolve_model(default: str, *, role: str = "a") -> str:
     call against the `ollama` service with no provider key, and production
     keeps the OpenRouter/DeepSeek policies untouched (user decision 2026-09-23:
     small local containers in development, cloud models in production)."""
-    if llm_backend() == "ollama":
+    backend = llm_backend()
+    if backend == "ollama":
         return local_model(role)
+    if backend == "bedrock":
+        return bedrock_model(role)
     return default
 
 
 def _apply_llm_backend(policies: dict) -> dict:
-    if llm_backend() != "ollama":
+    backend = llm_backend()
+    if backend not in ("ollama", "bedrock"):
         return policies
-    model = local_model()
+    model = local_model() if backend == "ollama" else bedrock_model()
     return {
         task: ModelPolicy(
             model_id=model,
             max_input_tokens=pol.max_input_tokens,
             # Small local models: cap answers so a 1–2B model does not spend
-            # minutes on a 8k-token reply on CPU.
-            max_output_tokens=min(pol.max_output_tokens, 4096),
-            caching=False,
+            # minutes on a 8k-token reply on CPU. Bedrock keeps the policy cap.
+            max_output_tokens=min(pol.max_output_tokens, 4096) if backend == "ollama" else pol.max_output_tokens,
+            caching=pol.caching if backend == "bedrock" else False,
             litellm_model=model,
         )
         for task, pol in policies.items()

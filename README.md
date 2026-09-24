@@ -29,8 +29,10 @@ One image runs web and worker; `docker compose up` gives the whole topology on a
 ## Run
 
 ```bash
-# full stack, zero config (PostgreSQL, Redis, web, worker, shell, ollama + model pull)
-docker compose up -d --build
+# laptop: local Ollama models (profile local-llm), shell on 127.0.0.1
+./scripts/gen-env.sh local && docker compose up -d --build
+# server (EC2 Graviton): Bedrock through the IAM role, shell on 0.0.0.0 — see docs/deploy-single-ec2.md
+./scripts/gen-env.sh ec2  && docker compose up -d --build
 open http://127.0.0.1:8891            # shell; enter SHELL_ACCESS_KEY (.env) when one is set
 
 # staging environment on a laptop (.env.staging = the box's values, untracked;

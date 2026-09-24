@@ -1,7 +1,11 @@
 # Full local stack in one command — no .env required:
 #
 #   docker compose up -d --build
-#   open http://127.0.0.1:8891          (workbench shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#   open http://127.0.0.1:8891          (shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#
+# EC2 / server: ./scripts/gen-env.sh ec2 writes a .env (generated secrets, Bedrock
+# models through the instance IAM role, shell bound to 0.0.0.0); fill in the S3
+# bucket + region, then the same `docker compose up -d`.
 #   http://127.0.0.1:8765/api/...       (Flask API directly; /app there is the legacy workbench)
 #
 # PostgreSQL + Redis + web + parse worker, the same topology as AWS
@@ -84,11 +88,14 @@ services:
     command: redis-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
 
-  # Local models: one Ollama daemon, models pulled once into the `ollama`
-  # volume by the one-shot `ollama-pull` service. CPU inference; a 1–2B model
+  # Local models (profile `local-llm`, on with COMPOSE_PROFILES=local-llm in the
+  # .env that scripts/gen-env.sh local writes; a server never pulls the 7 GB
+  # image): one Ollama daemon, models pulled once into the `ollama` volume by the
+  # one-shot `ollama-pull` service. CPU inference; a 1–2B model
   # streams ~5–15 tok/s in Docker Desktop, so a compile takes minutes, not
   # seconds. Change ASSURE_OLLAMA_MODEL(_B) in .env for other sizes.
   ollama:
+    profiles: ["local-llm"]
     image: ollama/ollama:latest
     volumes:
       - ollama:/root/.ollama
@@ -105,15 +112,20 @@ services:
           memory: ${OLLAMA_MEMORY_LIMIT:-6g}
 
   ollama-pull:
+    profiles: ["local-llm"]
     image: ollama/ollama:latest
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
+        if [ "$${ASSURE_LLM_BACKEND}" != "ollama" ]; then
+          echo "ASSURE_LLM_BACKEND=$${ASSURE_LLM_BACKEND:-cloud}: no local models to pull"; exit 0;
+        fi;
         ollama pull "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" &&
         ollama pull "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}" &&
         echo "models ready"
     environment:
       OLLAMA_HOST: http://ollama:11434
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
     depends_on:
       ollama:
         condition: service_healthy
@@ -128,7 +140,7 @@ services:
       - path: .env
         required: false
     ports:
-      - "127.0.0.1:${PORT:-8765}:8765"
+      - "${APP_BIND:-127.0.0.1}:${PORT:-8765}:8765"
     environment:
       <<: *app-env
       PORT: "8765"
@@ -209,7 +221,7 @@ services:
       SHELL_ACCESS_KEY: ${SHELL_ACCESS_KEY:-assure-local-shell-key}
       PYTHONUNBUFFERED: "1"
     ports:
-      - "127.0.0.1:${SHELL_PORT:-8891}:8891"
+      - "${SHELL_BIND:-127.0.0.1}:${SHELL_PORT:-8891}:8891"
     depends_on:
       assure-app:
         condition: service_healthy

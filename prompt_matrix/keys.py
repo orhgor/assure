@@ -215,6 +215,7 @@ _LITELLM_SLUG_ALIASES: dict[str, str] = {
     "openrouter": "openrouter",
     "groq": "groq",
     "ollama": "ollama",  # local container (ASSURE_LLM_BACKEND=ollama); no key
+    "bedrock": "bedrock",  # Amazon Bedrock via the IAM role (ASSURE_LLM_BACKEND=bedrock); no key
 }
 
 # Bare model ids (no slash). Longer / more specific prefixes first.
@@ -274,6 +275,12 @@ def litellm_kwargs_for(target: str) -> dict:
         extra["api_key"] = api_key
     if target == "kimi":
         extra["api_base"] = os.environ.get("MOONSHOT_API_BASE", "https://api.moonshot.ai/v1")
+    if target == "bedrock":
+        # boto3 credential chain (instance/task role, or the .env keys); litellm
+        # only needs the region.
+        extra["aws_region_name"] = (
+            os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION") or "eu-central-1"
+        )
     if target == "ollama":
         # The compose `ollama` service is not on 127.0.0.1 inside the app
         # container; litellm also honours OLLAMA_API_BASE, this makes it explicit.
