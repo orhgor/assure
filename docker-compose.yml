@@ -165,9 +165,6 @@ services:
 
   assure-worker:
     image: ${APP_IMAGE:-assure-app:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: >
       sh -c "exec celery -A prompt_matrix.celery_app:celery_app worker
       --loglevel=info
@@ -206,9 +203,6 @@ services:
   # gate (fails closed if unset). Open http://127.0.0.1:8891 and enter the key.
   assure-shell:
     image: ${APP_IMAGE:-assure-app:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: ["python", "prototype/dev-server.py"]
     # Serve the working tree's shell, not the image's copy: UI edits show on
     # reload without a rebuild (dev-server sends Cache-Control: no-store).
