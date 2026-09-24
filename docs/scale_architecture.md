@@ -66,7 +66,7 @@ and the error text on failure. The row outlives the Celery result.
 | `GET /api/projects/<id>/ingest-jobs/<job>/report` | job + the stored revision's `meta.z3` (violations), Red-Hat finding count, OMP artifact |
 | `POST /api/projects/<id>/ingest-jobs/<job>/retry` | re-queue a failed job while its staged object exists (409 otherwise) |
 | `GET /api/tasks/<task_id>` | Celery status joined with the job; the job wins once terminal |
-| Workbench → Sources → **Processing** panel (`static/ingest_jobs.js`) | live stage bar, parser/OCR/Z3 badges, error + Retry, Report drawer; polls while anything is active |
+| Workbench → Sources → **Processing** panel (was `static/ingest_jobs.js`; removed with the Flask workbench, the prototype shell polls the same route) | live stage bar, parser/OCR/Z3 badges, error + Retry, Report drawer; polls while anything is active |
 
 `TIMEOUT` / `ERROR` from Z3 are shown as *unverified*, never as a pass.
 

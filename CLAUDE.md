@@ -26,7 +26,7 @@ compile engine is PEM.
   `PEM_SECRET_KEY`.
 - **Every upload is an ingest job.** `db/ingest_jobs_repository.py` (schema v27) records
   stage, parser, OCR confidence, Z3 verdict, revision, artifact, error; routes under
-  `/api/projects/<id>/ingest-jobs`, panel in `static/ingest_jobs.js`. New pipeline
+  `/api/projects/<id>/ingest-jobs`, surfaced by the prototype shell. New pipeline
   steps must call `advance()` (via `_job_advance` in `services/pdf_ingest.py`).
 - **One AWS identity, resolved by `services/aws_integration.py`:** `.env` keys →
   credentials saved from the Sources panel (encrypted in `integration_settings`) →

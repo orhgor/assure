@@ -91,14 +91,3 @@ def test_conflict_api_returns_list(tmp_path, monkeypatch) -> None:
     assert body["implementation"] == "keyword-level"
     assert body["count"] >= 1
     assert body["conflicts"]
-
-
-def test_conflict_badge_renders() -> None:
-    root = Path(__file__).resolve().parents[1]
-    js = (root / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
-    html = (root / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-    css = (root / "prompt_matrix" / "static" / "style.css").read_text(encoding="utf-8")
-    assert "source-conflict-badge" in js
-    assert "source-conflict-modal" in html
-    assert "source-conflict-badge" in css
-    assert "_renderSourceConflictBadge" in js

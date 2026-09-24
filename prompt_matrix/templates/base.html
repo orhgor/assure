@@ -16,8 +16,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ css_version|default('assure-30') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='compare_pane.css') }}?v={{ css_version|default('assure-30') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='founder_workbench.css') }}?v={{ css_version|default('assure-30') }}">
   {% block extra_head %}{% endblock %}
   {% include 'includes/plausible.html' %}
   {% include 'includes/sentry.html' %}

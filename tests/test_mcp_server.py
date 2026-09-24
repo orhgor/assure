@@ -240,7 +240,7 @@ class RepoRootTests(unittest.TestCase):
         from pathlib import Path
 
         self.assertTrue((REPO_ROOT / "prompt_matrix" / "history.py").is_file())
-        self.assertTrue((REPO_ROOT / "prompt_matrix" / "templates" / "index.html").is_file())
+        self.assertTrue((REPO_ROOT / "prompt_matrix" / "templates" / "base.html").is_file())
         self.assertEqual(Path.cwd().resolve(), REPO_ROOT)
 
 

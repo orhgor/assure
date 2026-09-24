@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,7 +15,6 @@ from prompt_matrix.services.refine_node import (
     run_refine_node,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
 
 KEYS = (
     "surgical.click.title",
@@ -74,23 +72,6 @@ def test_surgical_i18n_keys() -> None:
             assert str(cat[key]).strip()
     assert CATALOGS["en"]["surgical.click.refine_ai"] == "✏️ Polish"
     assert CATALOGS["tr"]["surgical.click.refine_ai"] == "YZ ile iyileştir"
-
-
-def test_surgical_markup_and_js() -> None:
-    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-    assert 'id="jdf-surgical-popover"' in html
-    assert 'id="surgical-refine-ai-btn"' in html
-    # v1.3 replaced the vault button with the Ground sandwich menu
-    assert 'id="surgical-ground-wrap"' in html
-    assert 'id="surgical-ground-btn"' in html
-    assert "surgical_click.js" in html
-    js = (ROOT / "prompt_matrix" / "static" / "surgical_click.js").read_text(encoding="utf-8")
-    assert "/refine-node" in js
-    assert "skipViewSwitch: true" in js
-    canvas = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
-    assert "applyRefinedNode" in canvas
-    tiptap = (ROOT / "prompt_matrix" / "static" / "jdf_tiptap.js").read_text(encoding="utf-8")
-    assert "AssureSurgicalClick" in tiptap
 
 
 def test_neighbor_context_n_minus_one_plus_one() -> None:

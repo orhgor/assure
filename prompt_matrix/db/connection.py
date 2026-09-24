@@ -951,12 +951,24 @@ _MIGRATED: set[tuple[str, str]] = set()
 _MIGRATED_LOCK = threading.Lock()
 
 
-def _migration_key() -> tuple[str, str]:
+def _migration_key(conn: sqlite3.Connection | None = None) -> tuple[str, str]:
+    """(database, schema) the migration will run in — the connection's own
+    schema when one is given, else the schema `_new_connection` would open
+    (`history.DB_PATH`). Reading the env alone was wrong: tests point
+    `history.DB_PATH` at a fresh path without touching the env, and the cache
+    then answered "migrated" for a schema that had no tables (2026-09-24)."""
     try:
         from .pg_compat import current_schema, database_url
     except ImportError:
         from pg_compat import current_schema, database_url
-    return (database_url() or "", current_schema())
+    schema = getattr(conn, "_schema", None) if conn is not None else None
+    if not schema:
+        try:
+            from ..history import DB_PATH as _db_path
+        except ImportError:
+            from history import DB_PATH as _db_path
+        schema = current_schema(str(_db_path))
+    return (database_url() or "", str(schema))
 
 
 def reset_init_db_cache() -> None:
@@ -989,7 +1001,7 @@ def init_db(conn: sqlite3.Connection | None = None) -> None:
     every repository function, so an unscoped `get_db()` here was the single
     largest source of the unreturned checkouts db_scope measures.
     """
-    key = _migration_key()
+    key = _migration_key(conn)
     force = os.environ.get("ASSURE_FORCE_MIGRATE", "").strip().lower() in ("1", "true", "yes")
     if not force and key in _MIGRATED:
         return

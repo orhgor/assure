@@ -42,7 +42,12 @@ def test_get_page_count_pdf():
     assert client._get_page_count(_multi_page_pdf(3), "three.pdf") == 3
 
 
-def test_extract_text_success_with_mock_textract():
+def test_extract_text_success_with_mock_textract(monkeypatch):
+    # This test exercises the TABLES/FORMS shape, which is the AnalyzeDocument
+    # API; since 2026-09-24 the default single-page call is DetectDocumentText
+    # (43× cheaper), so opt into analyze mode here.
+    monkeypatch.setenv("ASSURE_TEXTRACT_MODE", "analyze")
+    monkeypatch.setenv("ASSURE_TEXTRACT_MONTHLY_USD_CAP", "100")
     mock_client = MagicMock()
     mock_client.analyze_document.return_value = {
         "Blocks": [

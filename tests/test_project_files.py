@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from prompt_matrix.db.project_files import (
     MANIFEST_VERSION,
@@ -13,22 +12,11 @@ from prompt_matrix.db.project_files import (
 )
 from prompt_matrix.i18n import CATALOGS, LOCALES
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-def test_project_files_i18n_and_scripts() -> None:
+def test_project_files_i18n() -> None:
     for locale in LOCALES:
         cat = CATALOGS[locale]
         assert cat["projects.files.restored"].strip()
-    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-    assert "project_files.js" in html
-    js = (ROOT / "prompt_matrix" / "static" / "project_files.js").read_text(encoding="utf-8")
-    assert "AssureProjectFileManager" in js
-    assert "assure_active_project" in js
-    assert "lastCompiledOutput" in js
-    canvas = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
-    assert "files.hydrate" in canvas
-    assert "this.loadProject();" in canvas
 
 
 def test_project_files_roundtrip(tmp_path, monkeypatch) -> None:

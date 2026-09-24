@@ -100,23 +100,6 @@ class CatalogTests(unittest.TestCase):
         self.assertNotIn("OpenAI", CATALOGS["en"]["terms.providers"])
 
 
-class ComposeMarkupTests(unittest.TestCase):
-    def test_workbench_shell_in_index(self):
-        html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-        self.assertIn('id="workbench-root"', html)
-        self.assertIn('id="panel-draft"', html)
-        self.assertIn('id="generate-compile-btn"', html)
-        self.assertIn('data-tool="projects"', html)
-        self.assertIn("data-tooltip=", html)
-        self.assertIn('id="task"', html)
-        self.assertIn('id="live-preview"', html)
-        self.assertIn('id="intent-chips"', html)
-        self.assertIn('id="refine-answer"', html)
-        self.assertNotIn('id="tour"', html)
-        self.assertNotIn("assure.tour.v1", html)
-        self.assertNotIn('id="feedback-yes"', html)
-
-
 class LandingTests(unittest.TestCase):
     def test_quick_start_and_use_cases(self):
         html = (ROOT / "landing" / "index.html").read_text(encoding="utf-8")

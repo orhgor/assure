@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 
 from prompt_matrix.i18n import CATALOGS, LOCALES
 
-ROOT = Path(__file__).resolve().parents[1]
 
 KEYS = (
     "generate.model_label",
@@ -53,53 +51,6 @@ def test_tiptap_i18n_keys() -> None:
             assert str(cat[key]).strip(), f"empty {locale} {key}"
 
 
-def test_tiptap_markup_and_scripts() -> None:
-    html = (ROOT / "prompt_matrix" / "templates" / "index.html").read_text(encoding="utf-8")
-    assert "tiptap.bundle.js" in html
-    assert "jdf_tiptap.js" in html
-    assert "prompt_history.js" in html
-    assert 'id="generate-model-select"' in html
-    assert 'id="generate-lock-toggle"' in html
-    assert 'id="generate-prompt-history"' in html
-    assert 'id="generate-duplicate-node"' in html
-    assert 'id="jdf-diff-panel"' in html
-    assert 'id="btn-export-md"' in html
-    assert 'id="btn-export-html"' in html
-    assert 'data-i18n="generate.recent_prompts"' in html
-    assert 'data-i18n="jdf.diff.accept"' in html
-
-
-def test_tiptap_mapper_exports() -> None:
-    js = (ROOT / "prompt_matrix" / "static" / "jdf_tiptap.js").read_text(encoding="utf-8")
-    assert "getSelectedTextRange" in js
-    assert "jdfToTiptap" in js
-    assert "tiptapToJdf" in js
-    assert "AssureTiptapEditor" in js
-    canvas = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
-    assert "AssureTiptapEditor" in canvas
-    assert "duplicateNode" in canvas
-    assert "showRevisionDiff" in canvas
-    assert "sanitizeJDFDocument" in canvas
-    assert "sanitizeJDFNode" in canvas
-    para_keys = 'paragraph: ["type", "id", "content", "entities_referenced", "provenance", "meta", "annotations"]'
-    assert para_keys in canvas
-    assert "document: sanitizeJDFDocument(this.tree)" in canvas
-    assert "jdf-tiptap-host" in canvas
-    gen_js = (ROOT / "prompt_matrix" / "static" / "generate.js").read_text(encoding="utf-8")
-    assert "sanitizeJDFDocument" in gen_js
-    gen = (ROOT / "prompt_matrix" / "static" / "generate.js").read_text(encoding="utf-8")
-    assert "prompt_cycle" in gen
-    assert "AssurePromptHistory" in gen
-    assert "getCompilePayload" in gen
-    assert "compileType: payload.compileType" in gen
-    canvas_src = (ROOT / "prompt_matrix" / "static" / "jdf_canvas.js").read_text(encoding="utf-8")
-    assert "renderCompiledAstAccordion" in canvas_src
-    assert 'createElement("details")' in canvas_src
-    assert 'createElement("h2")' in canvas_src
-    assert 'createElement("ul")' in canvas_src
-    assert 'createElement("p")' in canvas_src
-
-
 def test_jdf_paragraph_ignores_title_field() -> None:
     from prompt_matrix.models.jdf import JDFParagraphNode
 
@@ -108,9 +59,3 @@ def test_jdf_paragraph_ignores_title_field() -> None:
     )
     assert node.content == "x"
     assert "title" not in node.model_dump()
-
-
-def test_tiptap_does_not_copy_title_onto_paragraphs() -> None:
-    js = (ROOT / "prompt_matrix" / "static" / "jdf_tiptap.js").read_text(encoding="utf-8")
-    assert 'var isCallout = node.type === "jdfCallout";' in js
-    assert 'type: node.type === "jdfCallout" ? "callout" : "paragraph"' not in js

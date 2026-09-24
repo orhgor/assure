@@ -27,7 +27,6 @@ rsync -a \
   --include 'style.css' \
   --include 'script.js' \
   --include 'sentry.bundle.js' \
-  --include 'assure_csrf.js' \
   --exclude '*' \
   "$ROOT/prompt_matrix/static/" "$DIST_DIR/static/"
 

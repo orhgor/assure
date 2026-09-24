@@ -11,14 +11,11 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from tests.test_founder_restore import _reset_db_path
-
-STATIC = Path(__file__).resolve().parents[1] / "prompt_matrix" / "static"
 
 
 @pytest.fixture()
@@ -160,14 +157,6 @@ class TestOrchestrateMockIsLabelled:
         assert body["warning"].startswith("RuntimeError: both models failed")
         assert "/srv/" not in body["warning"]
 
-    def test_js_renders_mock_badge(self):
-        js = (STATIC / "orchestrator.js").read_text(encoding="utf-8")
-        assert 'payload.stack === "mock" || payload.mock === true' in js
-        assert "staging-mock-badge" in js
-        assert "MOCK — no model keys configured" in js
-        # A mock payload must not be thrown away as an error.
-        assert 'payload.status !== "mock"' in js
-
 
 # --------------------------------------------------------------------------- 3
 class TestPolishKeepsNumbers:
@@ -304,14 +293,6 @@ class TestScanKeepsMagnitude:
 
 # --------------------------------------------------------------------------- 5
 class TestGroundButtonWired:
-    def test_ground_posts_to_refine_route(self):
-        js = (STATIC / "surgical_click.js").read_text(encoding="utf-8")
-        assert '"/ground"' not in js
-        start = js.index("postGround: function (mode)")
-        end = js.index("postRefine: function (opts)")
-        body = js[start:end]
-        assert "this.postRefine(" in body
-        assert "ground_from_vault: true" in body
 
     def test_refine_route_accepts_ground_from_vault(self, app_client, monkeypatch):
         seen: dict = {}
