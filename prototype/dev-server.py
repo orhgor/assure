@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import gzip
+import threading
 import os
 import sys
 import urllib.error
@@ -184,6 +186,34 @@ def _key_matches(presented):
     )
 
 
+_STATIC_CACHE: dict = {}
+_STATIC_CACHE_LOCK = threading.Lock()
+_GZIP_TYPES = (".html", ".css", ".js", ".json", ".svg")
+
+
+def _static_payload(fs_path):
+    """(body, etag, gzipped-or-None) for a static file, cached per (mtime, size).
+
+    The cache key is the file's mtime and size, so an edited file is served
+    fresh on the next request with a new ETag; nothing is cached across restarts.
+    """
+    st = os.stat(fs_path)
+    key = (fs_path, st.st_mtime_ns, st.st_size)
+    with _STATIC_CACHE_LOCK:
+        hit = _STATIC_CACHE.get(fs_path)
+        if hit and hit[0] == key:
+            return hit[1], hit[2], hit[3]
+    with open(fs_path, "rb") as fh:
+        body = fh.read()
+    etag = '"%s"' % hashlib.sha1(body).hexdigest()[:20]
+    gz = None
+    if os.path.splitext(fs_path)[1].lower() in _GZIP_TYPES and len(body) > 1024:
+        gz = gzip.compress(body, compresslevel=6)
+    with _STATIC_CACHE_LOCK:
+        _STATIC_CACHE[fs_path] = (key, body, etag, gz)
+    return body, etag, gz
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "AssureShellProxy/1.0"
 
@@ -290,8 +320,6 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(fs_path):
             self.send_error(404, "Not Found")
             return
-        with open(fs_path, "rb") as fh:
-            body = fh.read()
         ext = os.path.splitext(fs_path)[1].lower()
         ctype = {
             ".html": "text/html; charset=utf-8",
@@ -302,12 +330,33 @@ class Handler(BaseHTTPRequestHandler):
             ".png": "image/png",
             ".ico": "image/x-icon",
         }.get(ext, "application/octet-stream")
+        body, etag, gz = _static_payload(fs_path)
+        # Every asset used to be `Cache-Control: no-store`: shell.js (315 KB) and
+        # shell.css (93 KB) were re-downloaded, uncompressed, on every page load.
+        # Now: strong ETag → 304 on revalidation, gzip when accepted, and a short
+        # max-age so a deploy shows up within a minute (dev-server serves the
+        # working tree, so the ETag changes the moment a file does).
+        if self.headers.get("If-None-Match", "").strip() == etag:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "public, max-age=60, must-revalidate")
+            self.end_headers()
+            return
+        accept_gzip = "gzip" in (self.headers.get("Accept-Encoding") or "").lower()
+        payload = gz if (gz is not None and accept_gzip) else body
         self.send_response(200)
         self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("ETag", etag)
+        self.send_header("Vary", "Accept-Encoding")
+        if payload is gz:
+            self.send_header("Content-Encoding", "gzip")
+        self.send_header(
+            "Cache-Control",
+            "no-cache" if ext == ".html" else "public, max-age=60, must-revalidate",
+        )
         self.end_headers()
-        self.wfile.write(body)
+        self.wfile.write(payload)
 
     def _proxy(self, method):
         if method not in FORWARD_METHODS:
