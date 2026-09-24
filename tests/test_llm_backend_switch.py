@@ -53,3 +53,13 @@ def test_bedrock_backend_needs_no_key(reload_policies, monkeypatch):
 
     a, b = get_compare_pair()
     assert a.startswith("bedrock/") and b.startswith("bedrock/") and a != b
+
+
+def test_litellm_kwargs_turns_on_drop_params(monkeypatch):
+    import litellm
+
+    monkeypatch.setattr(litellm, "drop_params", False)
+    from prompt_matrix.keys import litellm_kwargs_for
+
+    litellm_kwargs_for("bedrock")
+    assert litellm.drop_params is True

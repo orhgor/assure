@@ -268,7 +268,21 @@ def provider_slug_for_litellm(model: str | None) -> str | None:
 
 
 def litellm_kwargs_for(target: str) -> dict:
-    """API key plus Claude workspace header. Never log the values."""
+    """API key plus Claude workspace header. Never log the values.
+
+    Also flips ``litellm.drop_params`` on (idempotent): every call site passes
+    the same OpenAI-shaped knobs (``seed``, ``top_p``, ``stream_options``) and
+    Bedrock rejects ``seed`` outright — the first compile on the EC2 deployment
+    died with ``UnsupportedParamsError: bedrock does not support parameters:
+    ['seed']`` (2026-09-24). Dropping what a provider cannot take is the
+    documented litellm answer; the call keeps everything the provider accepts.
+    """
+    try:
+        import litellm
+
+        litellm.drop_params = True
+    except Exception:  # litellm absent in a slim CLI install: nothing to configure
+        pass
     extra: dict = {}
     api_key = api_key_for(target)
     if api_key:
