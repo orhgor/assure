@@ -50,7 +50,15 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 30
+_SCHEMA_VERSION = 31
+
+
+def _migrate_v31(db: sqlite3.Connection) -> None:
+    """``substrate_vault.scan_version``: which instruction scan produced the
+    stored ``instruction_like``/``instruction_hits`` (``compile_guard.scan_version``).
+    Empty = unknown → rescanned and stamped on the next list."""
+    if not _column_exists(db, "substrate_vault", "scan_version"):
+        db.execute("ALTER TABLE substrate_vault ADD COLUMN scan_version TEXT NOT NULL DEFAULT ''")
 
 
 def _migrate_v30(db: sqlite3.Connection) -> None:
@@ -1214,6 +1222,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v29(db)
     if current < 30:
         _migrate_v30(db)
+    if current < 31:
+        _migrate_v31(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

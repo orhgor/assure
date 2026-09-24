@@ -401,6 +401,19 @@ def wrap_untrusted_source(text: str) -> str:
     return f"{UNTRUSTED_OPEN}\n{body}\n{UNTRUSTED_CLOSE}"
 
 
+def scan_version() -> str:
+    """Identity of the current instruction scan: a hash of ``FLAG_PHRASES`` and
+    ``_FLAG_PATTERNS``. Stored on the vault row next to the verdict so a read
+    can tell whether the stored verdict came from *this* scan (then it is
+    served as is) or from an older phrase set (then the text is rescanned and
+    the row updated). Before 2026-09-24 the Sources list re-read and rescanned
+    every document's full text on every call for exactly this doubt."""
+    import hashlib
+
+    blob = "\x1f".join(FLAG_PHRASES) + "\x1e" + "\x1f".join(f"{a}\x1d{b}" for a, b in _FLAG_PATTERNS)
+    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:12]
+
+
 def flag_fields(text: str) -> dict[str, Any]:
     """The ingest scan's verdict as the vault row's own fields — what gets stored."""
     hits = scan_source_instruction_like(text)

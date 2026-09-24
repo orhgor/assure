@@ -18,6 +18,14 @@ except ImportError:
     from services.vault_tfidf_cache import invalidate_workspace_cache
 
 
+def _scan_version() -> str:
+    try:
+        from ..services.compile_guard import scan_version
+    except ImportError:
+        from services.compile_guard import scan_version
+    return scan_version()
+
+
 def save_substrate_text(
     project_id: str,
     raw_text: str,
@@ -116,11 +124,11 @@ def save_substrate_entry(
             INSERT INTO substrate_vault (
                 id, project_id, filename, page_count,
                 extracted_text, tables_json, forms_json, file_size_bytes,
-                instruction_like, instruction_hits,
+                instruction_like, instruction_hits, scan_version,
                 parser_name, source_kind, parse_confidence, ocr_confidence,
                 table_count, image_count, figure_count, asset_summary,
                 omp_artifact_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 vault_id,
@@ -133,6 +141,7 @@ def save_substrate_entry(
                 int(file_size_bytes or 0),
                 1 if instruction_like else 0,
                 json.dumps(list(instruction_hits or [])),
+                _scan_version(),
                 parser_name,
                 source_kind,
                 parse_confidence,
@@ -324,22 +333,42 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
 
     init_db()
     db = get_db()
+    current = _scan_version()
+    # The full text is read only for rows whose stored verdict came from another
+    # scan version (or when the caller wants the text): a 20-source project no
+    # longer ships 20 documents from the database and rescans them on every
+    # Sources refresh (audit 2026-09-24). Rescanned rows are stamped in place.
     rows = db.execute(
         """
         SELECT id, filename, page_count, file_size_bytes, included, created_at,
-               extracted_text, parser_name, source_kind, parse_confidence,
+               CASE WHEN scan_version = ? AND ? = 0 THEN '' ELSE extracted_text END,
+               parser_name, source_kind, parse_confidence,
                ocr_confidence, table_count, image_count, figure_count,
-               asset_summary, omp_artifact_id
+               asset_summary, omp_artifact_id,
+               instruction_like, instruction_hits, scan_version
         FROM substrate_vault
         WHERE project_id = ?
         ORDER BY created_at DESC
         """,
-        (project_id,),
+        (current, 1 if with_text else 0, project_id),
     ).fetchall()
     entries: list[dict[str, Any]] = []
+    restamped = False
     for row in rows:
         text = row[6] or ""
-        flag = flag_fields(text)
+        if row[18] == current:
+            try:
+                stored_hits = json.loads(row[17] or "[]")
+            except (TypeError, ValueError):
+                stored_hits = []
+            flag = {"instruction_like": bool(row[16]), "instruction_hits": list(stored_hits)}
+        else:
+            flag = flag_fields(text)
+            db.execute(
+                "UPDATE substrate_vault SET instruction_like = ?, instruction_hits = ?, scan_version = ? WHERE id = ?",
+                (1 if flag["instruction_like"] else 0, json.dumps(list(flag["instruction_hits"])), current, row[0]),
+            )
+            restamped = True
         entry = {
             "id": row[0],
             "filename": row[1],
@@ -365,6 +394,8 @@ def list_substrate_for_project(project_id: str, *, with_text: bool = False) -> l
         if with_text:
             entry["extracted_text"] = text
         entries.append(entry)
+    if restamped:
+        db.commit()
     return entries
 
 
