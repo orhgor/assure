@@ -16,12 +16,23 @@ the Textract fallback, with one IAM user key pair in `.env` or an instance role.
 | Security group | inbound 80 from where your users are (the shell gate asks for `SHELL_ACCESS_KEY`), 22 from your IP; for TLS put Cloudflare / caddy on 443 in front | 8765 (API) stays on 127.0.0.1 |
 | IAM | optional — an IAM **user** with the runtime policy (§3) or an instance role; needed only for S3 / Textract | without it files stay under `./data/objects` on the instance |
 
+## 1b. Which machine
+
+| Need | Instance | AMI | What you get |
+|---|---|---|---|
+| **Demo / real use (recommended)** | `g6.xlarge` (NVIDIA L4 24 GB, 4 vCPU, 16 GB) or `g5.xlarge` (A10G 24 GB) — x86_64 | **Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)** — driver, Docker and nvidia-container-toolkit preinstalled | `qwen2.5:7b` at ~60–80 tok/s: a draft in seconds, and the 7B model passes the anchoring gate where the 1.5B writes source-free text. gen-env detects the GPU and adds `docker-compose.gpu.yml` to `COMPOSE_FILE`, so `docker compose up -d` stays the whole deploy |
+| Cheapest, CPU only | `c7g.2xlarge` (8 vCPU Graviton, 16 GB) | Ubuntu 24.04 arm64 | `qwen2.5:1.5b` ≈ 15–20 tok/s: a draft takes 1–3 minutes and the chip shows "Pending" the whole time (measured 2026-09-25: 125 s for one refused draft on 4 vCPU). `qwen2.5:7b` on CPU ≈ 4–6 tok/s — too slow to use |
+
+Both run the same repo and the same `.env` flow; only the AMI (x86 vs arm64) and the GPU answer in `gen-env.sh` differ. The app image builds for either architecture.
+
 ## 2. Host setup
 
 ```bash
+# Ubuntu (CPU instance) — the Deep Learning GPU AMI already has Docker + the NVIDIA toolkit
 sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git
 sudo usermod -aG docker ubuntu && newgrp docker
-git clone https://github.com/orhgor/assure.git && cd assure
+git clone -b staging-v1 https://github.com/orhgor/assure.git && cd assure
+# GPU instance only, once: docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi   # must print the card
 ```
 
 ## 3. IAM (optional — S3 and the Textract fallback only)

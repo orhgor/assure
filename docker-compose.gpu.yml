@@ -1,0 +1,37 @@
+# GPU overlay for a machine with an NVIDIA card (EC2 g5/g6, a workstation):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# Prerequisite on the host: NVIDIA driver + nvidia-container-toolkit
+# (`nvidia-smi` works, `docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi` works).
+# Ollama then loads the models on the GPU; qwen2.5:7b answers at ~60–80 tok/s on
+# an A10G/L4 (24 GB) instead of ~3–5 tok/s on 4 Graviton vCPUs, so a compile
+# takes seconds, not minutes, and the 7B model passes the anchoring gate far
+# more often than the 1.5B default (measured 2026-09-25: the 1.5B model wrote a
+# source-free "What is AI?" paragraph and the gate refused it).
+# Model tags still come from .env (ASSURE_OLLAMA_MODEL / _B); the defaults here
+# are only used when .env does not set them.
+services:
+  ollama:
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-16384}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-2h}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  ollama-pull:
+    environment:
+      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
+      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}
+  assure-app:
+    environment:
+      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
+      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}
+  assure-worker:
+    environment:
+      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
+      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}

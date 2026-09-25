@@ -571,10 +571,53 @@ def ingest_substrate_file(
     except Exception as exc:
         log.exception("Substrate ingest: OMP parse artifact staging failed: %s", exc)
 
+    # Parsure intake report for the Sources-panel path too. Until 2026-09-25
+    # only the import-pdf route (services/pdf_ingest) wrote one, so a document
+    # uploaded from the shell's Sources pane — the main path — had no fields,
+    # no quality score and an empty Fields tab. Same guarded hook; the router's
+    # intake dict (material, modality, visual probe, Laya) is computed here
+    # because this path called select_parser directly.
+    parsure_report_id = None
+    try:
+        try:
+            from ..services.parser_router import route_intake
+            from ..services.v1_orchestrator import run_after_parse
+        except ImportError:
+            from services.parser_router import route_intake
+            from services.v1_orchestrator import run_after_parse
+        try:
+            intake = route_intake(file_bytes, filename)
+        except Exception:
+            log.exception("parsure: route_intake failed for %s; report without visual probe", filename)
+            intake = None
+        parsure_bundle = {
+            **{k: v for k, v in extracted.items() if k not in ("jdf", "chunks")},
+            "jdf": index_jdf,
+            "chunks": [dict(c) for c in index_chunks],
+            "text": extracted_text,
+            "page_count": page_count,
+            "parser_name": extracted.get("parser_name"),
+            "source_kind": extracted.get("source_kind"),
+        }
+        parsure = run_after_parse(
+            project_id,
+            bundle=parsure_bundle,
+            verification=verification,
+            filename=filename,
+            file_bytes=file_bytes,
+            result={"document_id": str(entry["id"]), "revision_id": None, "version": None},
+            job_id=job_id,
+            intake=intake,
+        )
+        parsure_report_id = (parsure or {}).get("report_id") if isinstance(parsure, dict) else None
+    except Exception:
+        log.exception("parsure report failed for %s; the vault row is unaffected", filename)
+
     return {
         "ok": True,
         "id": entry["id"],
         "filename": filename,
+        "parsure_report_id": parsure_report_id,
         "page_count": page_count,
         "text": entry["extracted_text"],
         "tables": entry["tables"],

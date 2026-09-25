@@ -45,14 +45,17 @@ else
 fi
 
 bold "== errors in the last $SINCE (all services)"
-PATTERN='ERROR|CRITICAL|Traceback|Exception|exception|failed|Failed|FAILED|denied|refused|unhealthy|Cannot|cannot|No such|not found|timed out|PoolTimeout|OperationalError'
+# Word-bounded and without task-result dumps: a *succeeded* Celery line that
+# prints `'chunks_failed': 0` is not an error (false positive seen 2026-09-25).
+PATTERN='\b(ERROR|CRITICAL|Traceback|Exception|exception|failed|Failed|FAILED|denied|refused|unhealthy|Cannot|cannot|timed out|PoolTimeout|OperationalError)\b|No such|not found'
+EXCLUDE='inspect ping|succeeded in|_failed.: 0|failed.: 0'
 if [[ "$ALL" == "1" ]]; then
   exec docker compose logs $FOLLOW --since "$SINCE" --timestamps
 fi
 if [[ -n "$FOLLOW" ]]; then
-  exec docker compose logs -f --since "$SINCE" --timestamps 2>&1 | grep -E --line-buffered "$PATTERN" | grep -v --line-buffered "inspect ping"
+  exec docker compose logs -f --since "$SINCE" --timestamps 2>&1 | grep -E --line-buffered "$PATTERN" | grep -Ev --line-buffered "$EXCLUDE"
 fi
-out=$(docker compose logs --since "$SINCE" --timestamps 2>&1 | grep -v "inspect ping")
+out=$(docker compose logs --since "$SINCE" --timestamps 2>&1 | grep -Ev "$EXCLUDE")
 matches=$(printf '%s\n' "$out" | grep -E -A12 "Traceback" ; printf '%s\n' "$out" | grep -E "$PATTERN" | grep -v "Traceback")
 if [[ -z "${matches// }" ]]; then
   echo "  none"
