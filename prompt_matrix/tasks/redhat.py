@@ -12,7 +12,7 @@ from typing import Any
 from prompt_matrix.celery_app import celery_app
 
 try:
-    from prompt_matrix.cost_governance import CostGovernor, ModelPolicy, TaskType
+    from prompt_matrix.cost_governance import CostGovernor, ModelPolicy, TaskType, resolve_model
     from prompt_matrix.db.redhat_audit_lock_repository import is_stale, set_active_task
     from prompt_matrix.db.redhat_cache_repository import fetch_cache, save_cache
     from prompt_matrix.db.redhat_findings_repository import insert_findings
@@ -20,7 +20,7 @@ try:
     from prompt_matrix.lib.ast_diff import get_ast_deltas, hash_block
     from prompt_matrix.services.founder_redhat import _parse_findings
 except ImportError:
-    from cost_governance import CostGovernor, ModelPolicy, TaskType
+    from cost_governance import CostGovernor, ModelPolicy, TaskType, resolve_model
     from db.redhat_audit_lock_repository import is_stale, set_active_task
     from db.redhat_cache_repository import fetch_cache, save_cache
     from db.redhat_findings_repository import insert_findings
@@ -28,12 +28,20 @@ except ImportError:
     from lib.ast_diff import get_ast_deltas, hash_block
     from services.founder_redhat import _parse_findings
 
-#: Pass 1 (bulk critique) model. Overridable per deployment via
-#: ``ASSURE_REDHAT_MODEL`` so a box can route Pass 1 through an
-#: already-connected provider without a code change. Default is the cheap,
-#: fast, non-reasoning chat model served through the connected OpenRouter key.
-PASS1_MODEL = os.environ.get("ASSURE_REDHAT_MODEL") or "openrouter/qwen/qwen3-next-80b-a3b-instruct"
-PASS2_MODEL = "anthropic/claude-sonnet-4-5"
+#: Pass 1 (bulk critique) and Pass 2 (adversarial stress-test) models. Both
+#: follow the backend switch through ``resolve_model(role="redhat")`` — Ollama
+#: ASSURE_OLLAMA_MODEL_REDHAT, Bedrock Opus 5, OpenRouter
+#: ASSURE_OPENROUTER_MODEL_REDHAT — because until 2026-09-25 these two ids were
+#: hard-coded (an OpenRouter Qwen and ``anthropic/claude-sonnet-4-5``) and a
+#: box with no such key had the multipass audit fail while every other stage
+#: ran locally. ``ASSURE_REDHAT_MODEL`` / ``ASSURE_REDHAT_PASS2_MODEL`` remain
+#: verbatim per-deployment overrides; the legacy ids are the ``cloud`` defaults.
+PASS1_MODEL = os.environ.get("ASSURE_REDHAT_MODEL") or resolve_model(
+    "openrouter/qwen/qwen3-next-80b-a3b-instruct", role="redhat"
+)
+PASS2_MODEL = os.environ.get("ASSURE_REDHAT_PASS2_MODEL") or resolve_model(
+    "anthropic/claude-sonnet-4-5", role="redhat"
+)
 HIGH_LIABILITY_KEYWORDS = ("liability", "indemnify", "termination", "$")
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
 
