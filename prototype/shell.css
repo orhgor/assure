@@ -153,9 +153,10 @@ button {
 *::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* =============================================================
-   Top header — 56px. A grid that mirrors the pane widths, so the version
-   control lands dead-centre over the document column at every viewport.
-   The middle cell IS the middle column: no absolute positioning.
+   Top header — 56px, three zones on one line (brief §3A). Left: the
+   wordmark and the document name. Centre: one status chip. Right: one
+   filled action and one "More" menu. The grid mirrors the pane widths so
+   the chip sits over the document column at every viewport.
    ============================================================= */
 
 .app-header {
@@ -165,9 +166,9 @@ button {
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
   display: grid;
-  grid-template-columns: 280px 1fr 320px;   /* mirrors the panes */
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr) minmax(200px, 320px);
   align-items: center;
-  padding: 0 24px;
+  padding: 0 var(--space-6);
   font-family: var(--sans);
   font-size: var(--fs-md);
   font-weight: 450;
@@ -178,7 +179,7 @@ button {
   grid-column: 1;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   justify-self: start;
   min-width: 0;
 }
@@ -188,13 +189,15 @@ button {
   display: inline-flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
 }
 .app-header-right {
   grid-column: 3;
   justify-self: end;
   display: inline-flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-3);
+  position: relative;
 }
 
 /* The brand is a wordmark: no filled mark, no fill at all (D8). */
@@ -205,72 +208,253 @@ button {
 }
 .app-brand-name {
   font-family: var(--sans);
-  font-size: var(--fs-md);
+  font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
 
-/* Secondary chrome is text, not a box (D2): a hairline underline on hover,
-   nothing at rest. Only the draft action keeps a fill. */
-.btn-secondary {
+/* =============================================================
+   Buttons — one hierarchy (brief §3E). .btn-primary is the only filled
+   control in the chrome: ink, not blue. .btn-secondary is a hairline
+   outline. .btn-tertiary is text. Everything else that acts is one of
+   these three or a .menu-item.
+   ============================================================= */
+.btn-primary,
+.btn-secondary,
+.btn-tertiary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
+  gap: var(--space-1);
+  height: 32px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-card);
   font-family: var(--sans);
   font-size: var(--fs-md);
-  font-weight: 450;
-  letter-spacing: 0.01em;
-  color: var(--ink);
-  transition: all 120ms var(--ease);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--t-fast), border-color var(--t-fast),
+              color var(--t-fast), opacity var(--t-fast);
   font-feature-settings: "tnum" 1, "cv11" 1;
   font-variant-numeric: tabular-nums;
 }
-.btn-secondary:hover:not([disabled]) {
-  background: transparent;
-  border-bottom-color: var(--ink);
+.btn-primary {
+  background: var(--ink);
+  color: var(--surface);
+  border: 1px solid var(--ink);
 }
-/* Export is disabled while there is no document to export, and a control
-   that cannot act has to look it. */
-.btn-secondary[disabled] {
+.btn-primary:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--ink) 86%, var(--surface));
+  border-color: color-mix(in srgb, var(--ink) 86%, var(--surface));
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+}
+.btn-secondary:hover:not([disabled]) {
+  border-color: var(--ink);
+  background: var(--soft-wash);
+}
+.btn-tertiary {
+  height: 28px;
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+}
+.btn-tertiary:hover:not([disabled]) {
+  background: var(--hover-wash);
+}
+.btn-primary[disabled],
+.btn-secondary[disabled],
+.btn-tertiary[disabled] {
   opacity: 0.35;
   cursor: not-allowed;
 }
-
-/* The About mark: a hairline circle, 16px, no fill — as flat as the rest of
-   the header chrome. --ink at rest, --muted on hover (the hairline is
-   currentColor, so the whole mark recedes together). The 16px box is the
-   measured size asked for, not a padding box. */
-.about-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  background: none;
-  border: 1px solid currentColor;
-  border-radius: var(--radius-pill);   /* 50% — a circle, i.e. no corner */
-  font-family: var(--sans);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--ink);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color var(--t-fast);
-}
-.about-btn:hover { color: var(--muted); }
-.about-btn:focus-visible {
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-tertiary:focus-visible,
+.menu-item:focus-visible,
+.rail-btn:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
+/* Actions the inspector composes (Red-Hat run, gap search/fetch, compare
+   accept/pin, rephrase apply) wear the same shapes. The legacy class names
+   are the JS contract; the rules are the hierarchy above. */
+.evidence-action,
+.compare-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background-color var(--t-fast), opacity var(--t-fast);
+}
+.evidence-action:hover:not([disabled]),
+.compare-btn:hover:not([disabled]) {
+  border-color: var(--ink);
+  background: var(--soft-wash);
+}
+.evidence-action:disabled,
+.compare-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.evidence-action.primary {
+  background: var(--ink);
+  color: var(--surface);
+  border-color: var(--ink);
+}
+.evidence-action.primary:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--ink) 86%, var(--surface));
+}
+
+/* The status chip: the header's one status (brief §3A). Tone only when it
+   means something — data-tone="none" is muted on paper, no fill. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: 14px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.status-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--unverified);
+  flex-shrink: 0;
+}
+[data-tone="verified"]     { color: var(--verified); }
+[data-tone="partial"]      { color: var(--partial); }
+[data-tone="contradicted"] { color: var(--contradicted); }
+.status-chip[data-tone="verified"]     { border-color: color-mix(in srgb, var(--verified) 40%, var(--rule)); }
+.status-chip[data-tone="partial"]      { border-color: color-mix(in srgb, var(--partial) 40%, var(--rule)); }
+.status-chip[data-tone="contradicted"] { border-color: color-mix(in srgb, var(--contradicted) 40%, var(--rule)); }
+.status-chip[data-tone="verified"]::before     { background: var(--verified); }
+.status-chip[data-tone="partial"]::before      { background: var(--partial); }
+.status-chip[data-tone="contradicted"]::before { background: var(--contradicted); }
+
+/* =============================================================
+   Menus — one style for every popover list (the More menu, its export
+   submenu, the workspace switcher). Hairline, one shadow, 32px rows.
+   ============================================================= */
+.menu-wrap { position: relative; }
+.menu-trigger[aria-expanded="true"] { background: var(--hover-wash); }
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  max-width: 360px;
+  padding: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  z-index: 60;
+  text-align: left;
+}
+.menu[hidden] { display: none; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-card);
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  font-weight: 450;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-item:hover:not([disabled]) { background: var(--hover-wash); }
+.menu-item[disabled] { opacity: 0.35; cursor: not-allowed; }
+.menu-item.menu-sub-trigger::after {
+  content: "\203A";
+  color: var(--muted);
+  transition: transform var(--t-fast);
+}
+.menu-item.menu-sub-trigger[aria-expanded="true"]::after { transform: rotate(90deg); }
+.menu-sub {
+  position: static;
+  min-width: 0;
+  margin: 0 0 var(--space-1) var(--space-4);
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--rule);
+  border-radius: 0;
+  box-shadow: none;
+}
+.menu-rule {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--rule);
+}
+.menu-meta {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.signoff-indicator.is-signed { color: var(--verified); }
+/* The version stepper inside the menu: one row, the label between arrows. */
+.menu-version {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  position: relative;
+}
+.menu-version[hidden] { display: none; }
+.menu-version-label {
+  flex: 1 1 auto;
+  font-size: var(--fs-md);
+  color: var(--ink);
+}
+.menu-version .version-dropdown {
+  top: calc(100% + 2px);
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 /* =============================================================
    Shell Grid Layout
    ============================================================= */
@@ -342,19 +526,6 @@ body.collapsed.right-hidden .app-shell {
   border-left: 1px solid var(--rule);
 }
 
-.rail-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--rule);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink);
-  margin-bottom: var(--space-6);
-  flex-shrink: 0;
-}
-
 .rail-nav,
 .rail-footer {
   display: flex;
@@ -368,7 +539,10 @@ body.collapsed.right-hidden .app-shell {
   margin-top: auto;
 }
 
+/* One icon each, one stroke, quiet at rest. The active item is the one
+   strong mark on the rail: ink, a soft wash, and a 2px rule on the edge. */
 .rail-btn {
+  position: relative;
   width: 36px;
   height: 36px;
   display: inline-flex;
@@ -376,7 +550,8 @@ body.collapsed.right-hidden .app-shell {
   justify-content: center;
   color: var(--muted);
   border-radius: var(--radius-card);
-  transition: all 120ms var(--ease);
+  text-decoration: none;
+  transition: color var(--t-fast), background-color var(--t-fast);
 }
 .rail-btn > svg {
   width: 20px;
@@ -386,6 +561,39 @@ body.collapsed.right-hidden .app-shell {
   color: var(--ink);
   background: var(--hover-wash);
 }
+.rail .rail-btn.is-active {
+  color: var(--ink);
+  background: var(--soft-wash);
+}
+.rail-left .rail-btn.is-active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+/* The count badge — only while intake jobs are queued or running. */
+.rail-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rail-badge[hidden] { display: none; }
+
 /* =============================================================
    Panes — 280px of sources, 320px of verification, and the document
    between them. Panes are surface; the document is paper.
@@ -458,6 +666,17 @@ body.collapsed .pane-left {
   min-height: 0;
 }
 .pane-body[hidden] { display: none; }
+.pane-title {
+  margin: 0;
+  font: 500 var(--fs-md)/1.4 var(--sans);
+  color: var(--ink);
+  letter-spacing: 0;
+}
+.pane-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 
 /* ---- Pane sections (Phase D3/E). A label and its value, separated by
    whitespace: no border, no background, no radius. A section with no value
@@ -657,26 +876,7 @@ body.collapsed .pane-left {
   justify-self: end;
 }
 
-#dock-ingest {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  border-radius: 0;
-  font-family: var(--sans);
-  font-size: var(--fs-md);
-  font-weight: 450;
-  color: var(--ink);
-  flex: 0 0 auto;
-  transition: all 120ms var(--ease);
-}
-#dock-ingest:hover {
-  border-bottom-color: var(--ink);
-}
+#dock-ingest { flex: 0 0 auto; height: 24px; padding: 0 var(--space-1); }
 
 /* A7 — the Sources section's head carries its own action: the label on the
    left, the control that feeds it on the right. */
@@ -1091,31 +1291,6 @@ body.collapsed .pane-left {
   display: flex;
   gap: 6px;
 }
-.compare-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  font-family: var(--sans);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  transition: background-color var(--t-fast), border-color var(--t-fast), opacity var(--t-fast);
-  font-feature-settings: "tnum" 1, "cv11" 1;
-  font-variant-numeric: tabular-nums;
-}
-.compare-btn:hover:not([disabled]) {
-  background: var(--hover-wash);
-  border-color: var(--ink);
-}
-.compare-btn[disabled] {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
 /* Compare empty / loading / error states (single center message, not grid) */
 .compare-message {
   width: 100%;
@@ -1423,13 +1598,6 @@ body.collapsed .pane-left {
 .state-legend-item.anchor-anchored     { border-left: 3px dotted var(--unverified); }
 .state-legend-item.anchor-unanchored   { border-left: 3px dotted var(--unverified); }
 
-/* Evidence drawer body */
-.evidence-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  height: 100%;
-}
 .evidence-header {
   padding: var(--space-2) var(--space-3);
   background: var(--surface);
@@ -1686,45 +1854,6 @@ body.collapsed .pane-left {
 /* .evidence-status.open / .resolved / .dismissed went with the Red-Hat
    drawer route: only z3 (violation | pass) writes this badge now. */
 
-/* Evidence footer actions */
-.evidence-footer {
-  border-top: 1px solid var(--rule);
-  padding: var(--space-3);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.evidence-action {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 30px;
-  font-size: var(--fs-sm);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--rule);
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  transition: all 120ms ease-out;
-  font-family: var(--sans);
-  font-weight: 500;
-}
-.evidence-action:hover {
-  border-color: var(--ink);
-  color: var(--ink);
-}
-.evidence-action:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.evidence-action.primary {
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-}
-.evidence-action.primary:hover {
-  background: var(--ink);
-  border-color: var(--ink);
-}
 
 
 /* Revision preview + suggestion textarea went with performRevision and the
@@ -1732,8 +1861,6 @@ body.collapsed .pane-left {
 
 /* Red-Hat pane: one run action pinned above the findings list. */
 #right-redhat .evidence-content > .evidence-action {
-  /* .evidence-action is authored for a horizontal footer (flex: 1 1 0);
-     in this column stack that grows the button to fill the pane. */
   flex: 0 0 auto;
   width: 100%;
 }
@@ -1827,13 +1954,10 @@ body.collapsed .pane-left {
    not reach the rest of the finding at all. */
 #pane-right {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-}
-#pane-right > #counters-section {
-  grid-row: 2;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 #pane-right > .pane-mode {
-  grid-row: 3;
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   height: auto;
@@ -1878,6 +2002,7 @@ body.collapsed .pane-left {
 /* B3: the same three colours, named once, in the right pane's header. It reads
    the .conf-legend row/dot rules; only the document-side spacing is dropped. */
 .pane-legend {
+  margin-top: var(--space-3);
   flex: 1 0 100%;
   padding: 0;
   margin: 0;
@@ -2003,52 +2128,46 @@ body.collapsed .pane-left {
   align-items: center;
   margin-left: 10px;
 }
+/* The document name (brief §3A left zone). It is the workspace switcher
+   underneath, but it reads as a name: muted, no box, a small chevron that
+   only says "this can change". */
+.doc-name { min-width: 0; }
 .project-switcher-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  max-width: 100%;
+  height: 28px;
   background: transparent;
-  border: 1px solid var(--rule);
-  color: var(--ink);
+  border: 1px solid transparent;
+  color: var(--muted);
   border-radius: var(--radius-card);
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
   font-family: var(--sans);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
+  font-weight: 450;
   cursor: pointer;
+  transition: color var(--t-fast), background-color var(--t-fast);
 }
 .project-switcher-btn:hover {
-  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--hover-wash);
 }
 .project-switcher-btn svg {
   color: var(--muted);
+  flex-shrink: 0;
+}
+#project-current-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .project-switcher-panel {
-  position: absolute;
-  top: calc(100% + 6px);
   left: 0;
+  right: auto;
   min-width: 300px;
   max-width: 360px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-2);
   z-index: 40;
-  padding: 6px;
-}
-.project-new-btn {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--fs-sm);
-  padding: 6px var(--space-2);
-  cursor: pointer;
-}
-.project-new-btn:hover {
-  background: var(--hover-wash);
 }
 .project-list {
   max-height: 320px;
@@ -2253,23 +2372,10 @@ body.collapsed .pane-left {
   box-shadow: inset 2px 0 0 var(--contradicted);
 }
 
-.inspector-node-history {
-  margin: var(--space-3) 0;
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-card);
-  padding: 0;
-}
-.inspector-node-history > summary {
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  font-size: var(--fs-sm);
-  color: var(--muted);
-}
 .inspector-node-history > ul {
   list-style: none;
-  padding: var(--space-2) var(--space-3);
+  padding: 0;
   margin: 0;
-  border-top: 1px solid var(--rule);
   max-height: 240px;
   overflow-y: auto;
 }
@@ -2281,22 +2387,9 @@ body.collapsed .pane-left {
 .inspector-node-history li:last-child {
   border-bottom: none;
 }
-#compare-toggle {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 2px 0;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: var(--fs-md);
-  transition: color 120ms var(--ease);
-}
-#compare-toggle:hover {
-  color: var(--ink);
-}
-#compare-toggle.is-active {
-  color: var(--ink);
-}
+#compare-toggle { color: var(--muted); font-size: var(--fs-sm); }
+#compare-toggle:hover, #compare-toggle.is-active { color: var(--ink); }
+#compare-toggle.is-disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* =============================================================
    Modal layer — top-level overlay for shortcuts / reasoning graph /
@@ -2462,6 +2555,16 @@ body.about-page { background: var(--paper); }
    The document column never goes below 320px: at 375px it is 375 - 24 = 351px.
    ============================================================= */
 @media (max-width: 900px) {
+  .app-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+  }
+  .app-header-left { gap: var(--space-1); }
+  .project-switcher-btn { max-width: 140px; }
+  .status-chip { max-width: 100%; }
+  .assure-strip { padding: var(--space-2) var(--space-3); gap: var(--space-3); }
+  .strip-label { display: none; }
   .app-shell,
   body.collapsed .app-shell,
   body.right-hidden .app-shell,
@@ -2519,8 +2622,8 @@ body.about-page { background: var(--paper); }
   }
   .rail-left  { left: 0; }
   .rail-right { right: 0; }
-  .rail-logo { display: none; }
   .rail-nav { flex-direction: row; }
+  .rail-footer { margin-top: 0; }
   .pane-left,
   .pane-right { width: min(320px, calc(100vw - 24px)); }
   .pane-left  { left: 0; }
@@ -2827,17 +2930,6 @@ body.auth-page {
   .auth-page .tester-support-cluster { display: none; }
 }
 
-/* Sign-off status indicator in the top bar. */.signoff-indicator {
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.signoff-indicator.is-signed {
-  color: var(--verified);
-}
 
 
 
@@ -3320,4 +3412,276 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .counter-origin {
   margin-top: var(--space-1);
   font-size: var(--fs-sm);
+}
+
+/* =============================================================
+   Empty states (brief §3G): one sentence, one action. Calm, not a
+   missing-state warning.
+   ============================================================= */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+.empty-state[hidden] { display: none; }
+.empty-state-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.empty-state-text[hidden] { display: none; }
+
+/* =============================================================
+   The summary strip — Status · Conflicts · Review · Next. One calm line
+   at the top of the document pane; whitespace and type do the work.
+   ============================================================= */
+.assure-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-3) var(--space-10);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.assure-strip[hidden] { display: none; }
+.strip-cell {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.strip-label {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.strip-value {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.strip-next { margin-left: auto; }
+.strip-next .strip-value {
+  height: 28px;
+  padding: 0 var(--space-2);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.strip-next .strip-value:hover:not([disabled]) { text-decoration-color: var(--ink); }
+
+/* =============================================================
+   The inspector — collapsible sections whose titles say what the data
+   means (brief §3D). Quiet: hairline separators, no boxes.
+   ============================================================= */
+.inspector-body { padding: 0 var(--space-4) var(--space-4); gap: 0; }
+.inspector-idle { padding: var(--space-4) 0; }
+.inspector-idle[hidden] { display: none; }
+#inspector-sections[hidden] { display: none; }
+.insp-section {
+  border-bottom: 1px solid var(--rule);
+}
+.insp-section > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  cursor: pointer;
+  font: 500 var(--fs-md)/1.4 var(--sans);
+  color: var(--ink);
+  user-select: none;
+}
+.insp-section > summary::-webkit-details-marker { display: none; }
+.insp-section > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform var(--t-fast);
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+.insp-section[open] > summary::before { transform: rotate(45deg); }
+.insp-section > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-xs); }
+.insp-body { padding: 0 0 var(--space-4); }
+.insp-body .evidence-content { padding: 0; }
+.insp-subhead {
+  margin: var(--space-2) 0 var(--space-1);
+  font: 500 var(--fs-xs)/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.insp-sub { margin-bottom: var(--space-3); }
+/* The claim counts fold: closed by default, the strip carries the numbers a
+   reader acts on. The section body keeps the counters' own rules. */
+.insp-counts > summary { color: var(--muted); }
+.insp-counts #counters-section { padding-top: var(--space-2); }
+
+/* The review list: what needs attention, in the order it needs it. Each
+   row selects and locates the paragraph. */
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.review-list[hidden] { display: none; }
+.review-item { border-bottom: 1px solid var(--rule); }
+.review-item:last-child { border-bottom: none; }
+.review-item-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3) 0;
+  text-align: left;
+  border-radius: var(--radius-xs);
+  transition: background-color var(--t-fast);
+}
+.review-item-btn:hover { background: var(--soft-wash); }
+.review-item-text {
+  font-family: var(--serif);
+  font-size: var(--fs-lg);
+  line-height: 1.45;
+  color: var(--ink);
+}
+.review-item-why {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* Quality warnings (brief §3F): amber chips with calm copy. Never a banner. */
+.quality-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.quality-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--partial) 45%, var(--rule));
+  background: color-mix(in srgb, var(--partial) 6%, var(--surface));
+  color: var(--partial);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* The Versions pane list (left "history" tab). */
+.history-list { list-style: none; margin: 0; padding: 0; }
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  padding: var(--space-1) 0;
+}
+.history-row:last-child { border-bottom: none; }
+.history-row.is-current .history-row-btn { font-weight: 600; }
+.history-row-btn { height: 28px; padding: 0 var(--space-1); white-space: normal; text-align: left; }
+.history-row-meta { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+
+/* =============================================================
+   Dialogs the shell draws itself (sign-off, settings): the modal frame,
+   one lead sentence, labelled fields, two actions.
+   ============================================================= */
+.shell-dialog {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+}
+.shell-dialog .modal-header h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+.modal-close { height: 28px; width: 28px; padding: 0; color: var(--muted); }
+.dialog-lead {
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.dialog-field input,
+.dialog-field textarea,
+.dialog-field select {
+  font: 450 var(--fs-md)/1.4 var(--sans);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-3);
+  outline: none;
+}
+.dialog-field input:focus,
+.dialog-field textarea:focus,
+.dialog-field select:focus { border-color: var(--ink); }
+.dialog-error {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--contradicted);
+}
+.dialog-error[hidden] { display: none; }
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.settings-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--rule);
+}
+
+/* The document pane's empty state: one filled action and a quiet link,
+   under the card's sentence (shell.js:_syncDocState). */
+.doc-state-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* Below 640px the header keeps its three zones: the document name yields
+   first, the chip truncates, the action and the menu stay whole. The rail's
+   four items sit in one corner row. */
+@media (max-width: 640px) {
+  .app-header { padding: 0 var(--space-2); gap: var(--space-1); }
+  .app-header-left .project-switcher-btn { max-width: 96px; }
+  .status-chip { padding: 0 var(--space-2); font-size: var(--fs-sm); }
+  .rail-left { flex-direction: row; align-items: center; gap: var(--space-1); }
+}
+/* The rails pin to the top corners below 640px (above); the document
+   column starts under that row so the strip is never covered by them. */
+@media (max-width: 640px) {
+  .center { padding-top: 48px; }
 }

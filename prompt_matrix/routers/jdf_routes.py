@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import re
 import time
 import uuid
@@ -210,6 +211,30 @@ def _serve_citation_rows(document: dict[str, Any]) -> dict[str, Any]:
                     if page not in (None, ""):
                         row["page_number"] = str(page)
     return document
+#: What ``uploads/presign`` and ``import-pdf`` accept: PDFs, the raster
+#: formats the router sends to OCR (``parser_router._IMAGE_EXTENSIONS``) and
+#: the text types ``upload_limits.validate_upload_bytes`` admits. One set here
+#: so the presign answer and the multipart validation agree.
+_UPLOAD_EXTENSIONS = frozenset(
+    {"pdf", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "txt", "md"}
+)
+_UPLOAD_CONTENT_TYPE_PREFIXES = ("application/pdf", "image/", "text/", "application/octet-stream")
+
+
+def upload_extension_allowed(filename: str) -> bool:
+    name = (filename or "").lower()
+    return "." in name and name.rsplit(".", 1)[-1] in _UPLOAD_EXTENSIONS
+
+
+def upload_content_type_allowed(content_type: str) -> bool:
+    return (content_type or "").lower().startswith(_UPLOAD_CONTENT_TYPE_PREFIXES)
+
+
+def guess_upload_content_type(filename: str) -> str:
+    """The object's stored content type follows the file, not a PDF constant."""
+    return mimetypes.guess_type(filename or "")[0] or "application/octet-stream"
+
+
 def _textract_parse_bundle(file_bytes: bytes, filename: str) -> dict[str, Any]:
     """Parse-bundle shape for the router's "textract" decision.
 
@@ -525,15 +550,23 @@ def register_jdf_routes(app) -> None:
         """
         data = request.get_json(silent=True) or {}
         filename = str(data.get("filename") or "").strip()
-        content_type = str(data.get("content_type") or "application/pdf").strip()
+        content_type = str(data.get("content_type") or guess_upload_content_type(filename)).strip()
         try:
             size = int(data.get("size_bytes") or 0)
         except (TypeError, ValueError):
             return jsonify({"ok": False, "error": "size_bytes must be an integer."}), 400
         if not filename:
             return jsonify({"ok": False, "error": "filename required"}), 400
-        if not filename.lower().endswith(".pdf") or not content_type.startswith("application/pdf"):
-            return jsonify({"ok": False, "error": "Only PDF uploads can be presigned."}), 400
+        if not upload_extension_allowed(filename) or not upload_content_type_allowed(content_type):
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "Only PDF, image (png/jpg/jpeg/tif/tiff/bmp) and text (txt/md) uploads can be presigned.",
+                    }
+                ),
+                400,
+            )
         if size and size > max_upload_bytes():
             return jsonify({"ok": False, "error": "File exceeds the upload limit."}), 413
         store = get_object_store()
@@ -557,7 +590,10 @@ def register_jdf_routes(app) -> None:
     @app.post("/api/projects/<project_id>/import-pdf")
     @project_ownership_required
     def import_project_pdf(project_id: str):
-        """Import a PDF as the project's next revision.
+        """Import a document (PDF, image or text file) as the project's next revision.
+
+        The route name predates the multimodal intake (2026-09-25); images are
+        routed by ``services/parser_router.route_intake`` to the scan backend.
 
         Two input shapes: a multipart ``file`` (the bytes travel through this
         replica once, only to be staged), or a JSON ``{object_key, filename}``
@@ -604,7 +640,7 @@ def register_jdf_routes(app) -> None:
         if parse_async_enabled():
             if object_key is None:
                 object_key = upload_key(project_id, filename)
-                store.put_bytes(object_key, file_bytes or b"", content_type="application/pdf")
+                store.put_bytes(object_key, file_bytes or b"", content_type=guess_upload_content_type(filename))
             # The job row exists before the message does, so a poll that beats
             # the worker still finds "queued" rather than nothing.
             job_id = create_job(

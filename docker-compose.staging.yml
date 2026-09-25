@@ -3,6 +3,14 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
 services:
+  # Cloud model policies here (ASSURE_LLM_BACKEND empty): the local Ollama pair
+  # from the base file moves behind the `local-llm` profile and the web/worker
+  # no longer wait for a model pull. COMPOSE_PROFILES=local-llm in the env file
+  # brings the models back (the laptop run of staging does that).
+  ollama:
+    profiles: ["local-llm"]
+  ollama-pull:
+    profiles: ["local-llm"]
   postgres:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
@@ -11,6 +19,11 @@ services:
   assure-app:
     image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
     build: !reset null
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
       - path: .env.staging
         required: false
@@ -28,6 +41,11 @@ services:
   assure-worker:
     image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
     build: !reset null
+    depends_on: !override
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
       - path: .env.staging
         required: false

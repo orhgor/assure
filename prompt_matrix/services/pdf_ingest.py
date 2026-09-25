@@ -96,8 +96,9 @@ def ingest_pdf_for_project(
             pdf_to_parse_bundle,
         )
         from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
-        from ..services.parser_router import select_parser
+        from ..services.parser_router import is_image_filename, route_intake
         from ..services.pdf_import import pdf_bytes_to_jdf
+        from ..services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
         from ..services.verification import run_verification_after_parse
     except ImportError:
         from db.jdf_repository import save_jdf_revision
@@ -112,9 +113,21 @@ def ingest_pdf_for_project(
             pdf_to_parse_bundle,
         )
         from services.omp import build_omp_artifact_from_parse, store_omp_artifact
-        from services.parser_router import select_parser
+        from services.parser_router import is_image_filename, route_intake
         from services.pdf_import import pdf_bytes_to_jdf
+        from services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
         from services.verification import run_verification_after_parse
+
+    # Parsure's post-parse report hook (another module, may be absent in a
+    # build that ships the parse pipeline alone). Guarded: the parse result
+    # never depends on it.
+    try:
+        try:
+            from ..services.v1_orchestrator import run_after_parse
+        except ImportError:
+            from services.v1_orchestrator import run_after_parse
+    except ImportError:
+        run_after_parse = None
 
     import uuid
 
@@ -123,19 +136,42 @@ def ingest_pdf_for_project(
     audit = get_audit_logger()
     filename = (filename or "upload.pdf").strip()
 
+    # Parser *selection* is the router's call (services/parser_router
+    # ``route_intake``: select_parser + material detection + visual probe +
+    # Laya triage): JDF CI for a text-layer PDF, JDF CI + OCR for a scan or an
+    # image, Textract only when configured or when the OCR parse fails. This
+    # function executes the decision — the fallbacks below are execution, not
+    # a second router.
+    intake = route_intake(file_bytes, filename)
+    _parser = intake["parser"]
+    is_image = is_image_filename(filename)
+    _job_advance(job_id, "parsing", parser_name=_parser, size_bytes=len(file_bytes))
+
+    # jdf-cli reads PDF only: an image is wrapped losslessly in a one-page PDF
+    # for the OCR path (and for the PyMuPDF fallback). Textract reads
+    # PNG/JPEG/TIFF natively; BMP is re-encoded to PNG for it.
+    parse_bytes = file_bytes
+    textract_bytes, textract_name = file_bytes, filename
+    if is_image:
+        try:
+            parse_bytes = image_to_pdf_bytes(file_bytes, filename)
+            if filename.lower().rsplit(".", 1)[-1] == "bmp":
+                textract_bytes = image_to_png_bytes(file_bytes, filename)
+                textract_name = filename + ".png"
+        except Exception as exc:
+            _job_advance(job_id, "failed", error=f"image could not be decoded: {exc}"[:2000])
+            raise PdfIngestError(
+                "The image could not be decoded. Upload a PNG, JPEG, TIFF or BMP file.",
+                http_status=400,
+            ) from exc
+
     try:
-        # Parser *selection* is the router's call (services/parser_router):
-        # JDF CI for a text-layer PDF, JDF CI + OCR for a scan, Textract only
-        # when configured or when the OCR parse fails. This function executes
-        # the decision — the fallbacks below are execution, not a second router.
-        _parser = select_parser(file_bytes, filename=filename)
-        _job_advance(job_id, "parsing", parser_name=_parser, size_bytes=len(file_bytes))
         if _parser == "textract":
-            bundle = _textract_parse_bundle(file_bytes, filename)
+            bundle = _textract_parse_bundle(textract_bytes, textract_name)
         elif _parser == "jdf-ocr":
             try:
                 bundle = pdf_to_parse_bundle(
-                    file_bytes,
+                    parse_bytes,
                     strategy="section",
                     filename=filename,
                     source_kind="scanned",
@@ -145,7 +181,7 @@ def ingest_pdf_for_project(
                 log.warning(
                     "JDF OCR parse failed for %s, falling back to Textract: %s", filename, ocr_exc
                 )
-                bundle = _textract_parse_bundle(file_bytes, filename)
+                bundle = _textract_parse_bundle(textract_bytes, textract_name)
             else:
                 if not str(bundle.get("text") or "").strip():
                     # OCR ran and read nothing: a failed free attempt, so the
@@ -154,7 +190,7 @@ def ingest_pdf_for_project(
                     # Textract configuration error (mirrors routers/substrate).
                     log.warning("JDF OCR read no text from %s; trying Textract", filename)
                     try:
-                        bundle = _textract_parse_bundle(file_bytes, filename)
+                        bundle = _textract_parse_bundle(textract_bytes, textract_name)
                     except Exception as textract_exc:
                         raise PdfIngestError(
                             "Could not extract enough readable text from this file "
@@ -164,7 +200,7 @@ def ingest_pdf_for_project(
                         ) from textract_exc
         else:
             bundle = pdf_to_parse_bundle(
-                file_bytes, strategy="section", filename=filename, source_kind="pdf"
+                parse_bytes, strategy="section", filename=filename, source_kind="pdf"
             )
         parse_meta = {
             "parser_name": bundle["parser_name"],
@@ -190,7 +226,7 @@ def ingest_pdf_for_project(
         # a missing jdf-cli binary must not kill an import that can be parsed
         # another way.
         log.warning("JDF CI parse failed for %s, falling back to PyMuPDF: %s", filename, jdf_exc)
-        tree = sanitize_jdf_node(pdf_bytes_to_jdf(file_bytes, project_id=project_id, filename=filename))
+        tree = sanitize_jdf_node(pdf_bytes_to_jdf(parse_bytes, project_id=project_id, filename=filename))
         images = [
             {
                 "id": child.get("id"),
@@ -261,6 +297,26 @@ def ingest_pdf_for_project(
         _job_advance(job_id, "failed", error=str(exc)[:2000], duration_ms=duration_ms)
         raise PdfIngestError(str(exc), http_status=400) from exc
 
+    # Parsure's report (quality-weighted confidence, field states) is built
+    # from the saved revision. Best-effort by contract: the revision is the
+    # deliverable and is already durable at this point.
+    parsure = None
+    if run_after_parse is not None:
+        try:
+            parsure = run_after_parse(
+                project_id,
+                bundle=bundle,
+                verification=verification,
+                filename=filename,
+                file_bytes=file_bytes,
+                result=result,
+                job_id=job_id,
+                intake=intake,
+            )
+        except Exception:
+            log.exception("parsure report failed; parse result is unaffected")
+            parsure = None
+
     # Stage the parsed payload into OMP right after the revision is saved.
     # Best-effort: the revision is the durable record.
     omp_artifact_id = None
@@ -274,7 +330,7 @@ def ingest_pdf_for_project(
             "images": bundle["images"],
             "figures": bundle["figures"],
             "size_bytes": len(file_bytes),
-            "is_image": False,
+            "is_image": is_image,
             "table_count": bundle["table_count"],
             "image_count": bundle["image_count"],
             "figure_count": bundle["figure_count"],
@@ -338,4 +394,8 @@ def ingest_pdf_for_project(
         "job_id": job_id,
         "z3_status": (verification or {}).get("z3_status"),
         "redhat_status": (verification or {}).get("redhat_status"),
+        "material_type": intake.get("material_type"),
+        "modality": intake.get("modality"),
+        "laya": intake.get("laya"),
+        "parsure_report_id": (parsure or {}).get("report_id") if isinstance(parsure, dict) else None,
     }

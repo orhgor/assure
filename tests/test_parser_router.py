@@ -128,3 +128,50 @@ class TestParserRouting:
         data = doc.tobytes()
         doc.close()
         assert _probe_pdf_for_parser(data) == "textract"
+
+class TestMultimodalRouting:
+    """Images have no text layer: the router sends them to the scan backend
+    without a probe, and ``route_intake`` is the one place Laya is consulted."""
+
+    @pytest.mark.parametrize("ext", ["png", "jpg", "jpeg", "tif", "tiff", "bmp", "PNG", "Jpg"])
+    def test_image_extensions_select_scan_backend(self, ext, monkeypatch):
+        monkeypatch.delenv("PARSER_SCAN_BACKEND", raising=False)
+        monkeypatch.delenv("JDF_OCR", raising=False)
+        assert select_parser(b"\x89PNG anything", filename=f"photo.{ext}") == "jdf-ocr"
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
+        assert select_parser(b"\x89PNG anything", filename=f"photo.{ext}") == "textract"
+
+    def test_image_is_not_probed_as_pdf(self, monkeypatch):
+        import fitz
+
+        def boom(*a, **k):
+            raise AssertionError("an image must not be opened by the PDF probe")
+
+        monkeypatch.setattr(fitz, "open", boom)
+        monkeypatch.setenv("PARSER_SCAN_BACKEND", "textract")
+        assert select_parser(b"%PDF-1.4 named like an image", filename="x.png") == "textract"
+
+    def test_is_image_filename(self):
+        from prompt_matrix.services.parser_router import is_image_filename
+
+        assert is_image_filename("a.PNG") and is_image_filename("dir/b.tiff")
+        assert not is_image_filename("a.pdf") and not is_image_filename("noext") and not is_image_filename(None)
+
+    def test_route_intake_shape(self, monkeypatch):
+        from prompt_matrix.services.parser_router import route_intake
+
+        monkeypatch.delenv("PARSER_SCAN_BACKEND", raising=False)
+        out = route_intake(_pdf_with_text(), "doc.pdf")
+        assert set(out) >= {"parser", "material_type", "modality", "source_kind", "visual_pages", "laya"}
+        assert out["parser"] == select_parser(_pdf_with_text(), "doc.pdf") == "jdf"
+        assert out["material_type"] == "pdf" and out["modality"] == "digital_pdf"
+        assert len(out["visual_pages"]) == 1
+        assert out["laya"]["model"] == "rules-v1" and out["laya"]["policy_version"] == "v1"
+
+    def test_route_intake_unrenderable_bytes_have_no_fake_pages(self):
+        from prompt_matrix.services.parser_router import route_intake
+
+        out = route_intake(b"%PDF-1.4 fake", "doc.pdf")
+        assert out["parser"] == "jdf"
+        assert out["visual_pages"] == []
+        assert out["laya"]["human_review"] is True

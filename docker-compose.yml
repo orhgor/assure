@@ -1,18 +1,19 @@
-# Full local stack in one command — no .env required:
+# Full stack in one command — no .env required:
 #
 #   docker compose up -d --build
 #   open http://127.0.0.1:8891          (shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
 #
-# EC2 / server: ./scripts/gen-env.sh ec2 writes a .env (generated secrets, Bedrock
-# models through the instance IAM role, shell bound to 0.0.0.0); fill in the S3
-# bucket + region, then the same `docker compose up -d`.
-#   http://127.0.0.1:8765/api/...       (Flask API directly; /app there is the legacy workbench)
+# EC2 / server: ./scripts/gen-env.sh ec2 writes a .env (generated secrets, shell
+# bound to 0.0.0.0:80, production flags); fill in the S3 bucket + region, then
+# the same `docker compose up -d --build`. Models are local on every target:
+# the `ollama` service + `ollama-pull` (downloads the two models on first start).
+#   http://127.0.0.1:8765/api/...       (Flask API directly)
 #
-# PostgreSQL + Redis + web + parse worker, the same topology as AWS
-# (infra/terraform). Defaults are for a laptop: development mode, the image is
-# built from this checkout, a fixed local database password, login disabled.
-# Production/staging use the override files, which turn the fail-fast checks
-# back on and require real secrets:
+# PostgreSQL + Redis + Ollama + web + parse worker + shell gate, the same
+# topology as AWS (infra/terraform) minus the managed services. Defaults are for
+# a laptop: development mode, the image is built from this checkout, a fixed
+# local database password, login disabled. Staging/production overlays turn the
+# fail-fast checks back on, require real secrets and use cloud model policies:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
@@ -88,27 +89,41 @@ services:
     command: redis-server --save "" --appendonly no --maxmemory 128mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
 
-  # Local models (profile `local-llm`, on with COMPOSE_PROFILES=local-llm in the
-  # .env that scripts/gen-env.sh local writes; a server never pulls the 7 GB
-  # image): one Ollama daemon, models pulled once into the `ollama` volume by the
-  # one-shot `ollama-pull` service. CPU inference; a 1–2B model
-  # streams ~5–15 tok/s in Docker Desktop, so a compile takes minutes, not
-  # seconds. Change ASSURE_OLLAMA_MODEL(_B) in .env for other sizes.
+  # Local models — part of every `docker compose up` (laptop and EC2 alike; user
+  # decision 2026-09-25: no OpenRouter/cloud keys, the models live on the box).
+  # One Ollama daemon; the one-shot `ollama-pull` fetches the two models into the
+  # `ollama` volume the first time and only checks them afterwards (`ollama show`
+  # succeeds → no network needed on a restart). assure-app / assure-worker wait
+  # for it, so the first compile never meets a missing model. CPU inference: a
+  # 1–2B model streams ~5–15 tok/s on 4 vCPU, a compile takes minutes; set
+  # ASSURE_OLLAMA_MODEL(_B) in .env for other sizes (qwen2.5:7b ≈ 4.7 GB RAM).
+  # The staging/prod overlays put these two behind the `local-llm` profile
+  # because they use the cloud policies instead.
   ollama:
-    profiles: ["local-llm"]
     image: ollama/ollama:latest
     volumes:
       - ollama:/root/.ollama
     ports:
       - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    environment:
+      # Ollama's default context is 2048–4096 tokens; a compile prompt carries
+      # the source excerpts and would be silently truncated. 8192 fits a 1–2B
+      # model in < 2 GB RAM; raise with a bigger machine.
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   ollama-pull:
-    profiles: ["local-llm"]
     image: ollama/ollama:latest
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -116,9 +131,11 @@ services:
         if [ "$${ASSURE_LLM_BACKEND}" != "ollama" ]; then
           echo "ASSURE_LLM_BACKEND=$${ASSURE_LLM_BACKEND:-cloud}: no local models to pull"; exit 0;
         fi;
-        ollama pull "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" &&
-        ollama pull "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}" &&
-        echo "models ready"
+        for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}"; do
+          if ollama show "$$m" >/dev/null 2>&1; then echo "$$m already present"; continue; fi;
+          echo "pulling $$m"; ollama pull "$$m" || exit 1;
+        done;
+        ollama list && echo "models ready"
     environment:
       OLLAMA_HOST: http://ollama:11434
       ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
@@ -155,6 +172,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      ollama-pull:
+        condition: service_completed_successfully
     restart: unless-stopped
     logging:
       driver: json-file
@@ -191,6 +210,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      ollama-pull:
+        condition: service_completed_successfully
     restart: unless-stopped
     logging:
       driver: json-file

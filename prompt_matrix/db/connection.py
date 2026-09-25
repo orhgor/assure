@@ -50,7 +50,102 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 31
+_SCHEMA_VERSION = 32
+
+
+def _migrate_v32(db: sqlite3.Connection) -> None:
+    """Parsure V1 review backend (spec ``assure_parsure_v1_icp_spec.md`` §3, §9
+    items 19–27): one intake report per parsed document, the corrections and
+    disputes reviewers make against its fields, and the audit events. The
+    report itself is one JSON document (``report_json``) because its shape is
+    the versioned multimodal contract and changes with ``schema_version``; the
+    scalar columns beside it exist only so listing and ``analytics`` are a
+    SELECT, not a JSON parse of every row. Spec §9 item 22 says "SQLite" for
+    the audit log; this repository is PostgreSQL-only (CLAUDE.md), so the log
+    lives here in ``parsure_audit_events``.
+    """
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parsure_reports (
+            report_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            document_id TEXT,
+            revision_id TEXT,
+            job_id TEXT,
+            filename TEXT NOT NULL DEFAULT '',
+            document_type TEXT,
+            document_quality_score REAL,
+            fields_total INTEGER NOT NULL DEFAULT 0,
+            fields_review INTEGER NOT NULL DEFAULT 0,
+            fields_rejected INTEGER NOT NULL DEFAULT 0,
+            replay_eligible INTEGER NOT NULL DEFAULT 0,
+            report_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parsure_reports_project_created ON parsure_reports (project_id, created_at)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parsure_corrections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            field_name TEXT NOT NULL,
+            original_value TEXT,
+            corrected_value TEXT,
+            actor TEXT,
+            reason TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (report_id) REFERENCES parsure_reports(report_id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parsure_corrections_report ON parsure_corrections (report_id, field_name)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parsure_disputes (
+            dispute_id TEXT PRIMARY KEY,
+            report_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            field_name TEXT NOT NULL,
+            reason TEXT,
+            status TEXT NOT NULL DEFAULT 'open',
+            opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            due_at DATETIME,
+            resolved_at DATETIME,
+            resolution TEXT,
+            actor TEXT,
+            FOREIGN KEY (report_id) REFERENCES parsure_reports(report_id) ON DELETE CASCADE
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parsure_disputes_project_status ON parsure_disputes (project_id, status)"
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS parsure_audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id TEXT NOT NULL,
+            report_id TEXT,
+            event_type TEXT NOT NULL,
+            field_name TEXT,
+            actor TEXT,
+            payload_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parsure_audit_project_created ON parsure_audit_events (project_id, created_at)"
+    )
 
 
 def _migrate_v31(db: sqlite3.Connection) -> None:
@@ -1236,6 +1331,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v30(db)
     if current < 31:
         _migrate_v31(db)
+    if current < 32:
+        _migrate_v32(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

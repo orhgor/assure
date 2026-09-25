@@ -1,0 +1,21 @@
+MORTGAGE
+(Security Instrument)
+
+Loan Number: 0031-778-2025
+Borrower: Samuel T. Okafor and Grace A. Okafor
+Lender: Old Colony Savings Bank, a Massachusetts chartered savings bank
+Property Address: 7 Cole's Hill Terrace, Plymouth, MA 02360
+
+Borrower owes Lender the principal sum evidenced by Borrower's Promissory Note.
+Principal Amount: $468,000.00
+Interest Rate: 6.125%
+Monthly Payment: $2,843.11 principal and interest
+Maturity Date: 07/01/2055
+Escrow for taxes and insurance is required.
+
+Dated: 06/12/2025
+
+This Security Instrument secures to Lender the repayment of the Loan and the performance of Borrower's covenants.
+
+Borrower's Signature: /s/ Samuel T. Okafor
+Borrower's Signature: /s/ Grace A. Okafor

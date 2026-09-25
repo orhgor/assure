@@ -222,3 +222,46 @@ def test_router_is_the_single_routing_decision():
         elif '== "jdf"' in text and ("parse" in text.lower() or "Textract" in text):
             offenders.append(str(path))
     assert not offenders, f"inline parser routing found in {offenders}"
+
+def test_pdf_ingest_routes_through_route_intake(ingest_env, monkeypatch):
+    """The parse pipeline asks ``route_intake`` (which wraps select_parser);
+    the parser it returns is the one executed."""
+    import prompt_matrix.services.parser_router as router
+    import prompt_matrix.services.jdf_converter as conv
+    from prompt_matrix.services.pdf_ingest import ingest_pdf_for_project
+
+    calls = []
+    real = router.route_intake
+
+    def spy(file_bytes, filename=None, *, source_kind=None):
+        calls.append(filename)
+        out = real(file_bytes, filename, source_kind=source_kind)
+        assert out["parser"] == "jdf"
+        return out
+
+    monkeypatch.setattr(router, "route_intake", spy)
+    monkeypatch.setattr(
+        conv,
+        "pdf_to_parse_bundle",
+        lambda *a, **k: {
+            "jdf": {"$jdf": "1.0", "meta": {}, "pages": []},
+            "chunks": [{"id": "c0", "text": "chunk0", "tokens": 4}],
+            "text": "chunk0",
+            "page_count": 1,
+            "parser_name": "jdf-cli",
+            "source_kind": "pdf",
+            "parse_confidence": None,
+            "ocr_confidence": None,
+            "tables": [],
+            "images": [],
+            "figures": [],
+            "table_count": 0,
+            "image_count": 0,
+            "figure_count": 0,
+            "asset_summary": {"tables": 0, "images": 0, "figures": 0},
+        },
+    )
+    payload = ingest_pdf_for_project("rt3", "a.pdf", b"%PDF-1.4 fake")
+    assert calls == ["a.pdf"]
+    assert payload["parser_name"] == "jdf-cli"
+    assert payload["laya"]["model"] == "rules-v1"

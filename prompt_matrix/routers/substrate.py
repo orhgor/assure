@@ -642,7 +642,15 @@ def register_substrate_routes(app) -> None:
             except ImportError:
                 from services.object_store import get_object_store, upload_key
             object_key = upload_key(project_id, filename)
-            get_object_store().put_bytes(object_key, file_bytes)
+            # Content type follows the file: uploads are PDFs, images or text
+            # since the multimodal intake (2026-09-25), no longer PDF only.
+            import mimetypes
+
+            get_object_store().put_bytes(
+                object_key,
+                file_bytes,
+                content_type=mimetypes.guess_type(filename)[0] or "application/octet-stream",
+            )
             try:
                 from ..db.ingest_jobs_repository import create_job, set_task
                 from ..db.jdf_repository import ensure_project as _ensure_project

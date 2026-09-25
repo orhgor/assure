@@ -33,3 +33,18 @@
 | `/api/health` `checks.sqlite` | the probe is PostgreSQL; `checks.db` is the key (`sqlite` alias kept one release) | `checks.db` |
 | "Search covers your uploaded sources" only for dock-ingested PDFs | Sources-panel uploads are now indexed in `jdf_cli_chunks` (PostgreSQL) at ingest and removed on delete | true for both paths since 2026-09-23 |
 | "Textract is only a fallback, so it cannot run away" | It could: nothing metered it. `services/textract_budget` now charges each call against a monthly counter in PostgreSQL and refuses past `ASSURE_TEXTRACT_MONTHLY_USD_CAP` (default 100 USD, list price); single pages use DetectDocumentText, not AnalyzeDocument, unless `ASSURE_TEXTRACT_MODE=analyze` | "Textract spend is capped at N USD/month by the app; `/api/health` `checks.textract_budget` shows the month's pages, spend and cap" |
+
+## Added 2026-09-25 (Parsure V1 Phase A, local models on EC2)
+
+| Claim the code must not make | Why | What to say instead |
+|---|---|---|
+| "Laya is a trained triage model" | `services/laya.py` is a rule table over the quality probe's flags (`model: "rules-v1"`); nothing is fitted or learned | "Laya V1 is rule-based calibrated triage behind the router; thresholds live in quality_probe constants" |
+| "Page quality detects skew, glare, noise, handwriting, tables or mixed bundles" | `quality_probe.probe_visual_quality` measures blur (Laplacian), contrast range and effective DPI only; `handwritten_image`, `table`, `mixed_bundle` appear only when the client passes a `source_kind` hint | "V1 flags `low_res`, `blurry`, `low_contrast`; the other flags are not emitted" |
+| "A field's confidence is measured" when it reads `parser_default[...]` | `quality_weighted_confidence` falls back to the spec defaults (0.85 jdf-cli / 0.80 OCR-Textract / 0.50 unknown) when the parser emitted no confidence; the basis string names the default | quote the `confidence_basis` string; it says `parser_default` or `parser_confidence` |
+| "Classification confidence 0.9 means 90 % likely" | `field_extractor.classify_document` is keyword counting capped at 0.9; `uncertain` below 3 hits or on a tie | "keyword-heuristic classification; override it on the report" |
+| "Replay re-parsed the document" | `replay.replayed` is always `false` in V1; `replay.eligible` + `reasons` record intent (spec §7) | "replay-eligible; re-parse is deferred until durable storage" |
+| "The Parsure audit log is SQLite" (spec wording) | the repo is PostgreSQL only; `parsure_audit_events` is a PostgreSQL table (schema v32) | "audit events in PostgreSQL" |
+| "WebP uploads are supported" | the bundled MuPDF 1.28 has no WebP decoder (measured 2026-09-25); WebP is rejected at upload | "PDF, PNG, JPEG, TIFF, BMP and text files" |
+| "A phone photo's DPI was measured" | for an image without DPI metadata the probe assumes an 11-inch long side and says so in `basis`; a 1224 px photo is therefore `low_res` | "effective DPI estimated from pixel size under the stated assumption" |
+| "The compose stack uses cloud models on EC2" | `ASSURE_LLM_BACKEND=ollama` everywhere the base compose file runs; the overlays are the only place the cloud policies apply | "local Ollama on the box; cloud policies only under the staging/prod overlays" |
+| "Celery tasks leak a connection per repository call" | true until 2026-09-25 (one ingest exhausted pool 5+15 and died `PoolTimeout` at `persisting`); `celery_app.ScopedTask` now runs every task body in one `db_scope()` | "one pooled connection per task" |

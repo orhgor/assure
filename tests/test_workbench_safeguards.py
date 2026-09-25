@@ -61,5 +61,5 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-99"
-    assert APP_JS == "assure-99"
+    assert APP_CSS == "assure-100"
+    assert APP_JS == "assure-100"

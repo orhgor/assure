@@ -58,7 +58,8 @@ test("prototype surgical revision — live model integration", async ({ page }) 
   );
 
   // Verification surface visible.
-  await page.locator('#pane-right .mode-tab[data-right-tab="redhat"]').click();
+  // The inspector is sections now: "Verification details" holds the Red-Hat run.
+  await page.evaluate(() => { document.getElementById("insp-verification").open = true; });
   await expect(page.locator("#right-redhat")).toBeVisible({ timeout: 20_000 });
 
   // Node history rows > 0 (a real revision, not the empty-hint).

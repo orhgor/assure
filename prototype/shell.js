@@ -199,6 +199,16 @@
   var _syncDocStateFn = null;
   var _syncDockSubmitFn = null;
   var inspectorCompareActive = false;
+  // The inspector's sectioned bodies (index.html #right-why / #right-confidence)
+  // and the hooks the DOMContentLoaded scope hands up to the state sync.
+  var whyBodyEl = null;
+  var confidenceBodyEl = null;
+  var _syncTrustStateFn = null;
+  var _syncRailFn = null;
+  var _syncSourceEmptyFn = null;
+  // Dialogs the DOMContentLoaded scope owns (sign-off, settings): registered by
+  // name so `ui.modal` can open them without the renderer living up here.
+  var _shellModalRenderers = {};
 
   // ---------------------------------------------------------------
   // Locale. Every string this shell shows is addressed by catalog key
@@ -246,18 +256,24 @@
         _t(el.getAttribute("data-i18n-aria"), el.getAttribute("aria-label") || ""));
     });
   }
-  function _loadI18n() {
-    return window.fetch("/api/i18n", { cache: "no-store" })
+  // `lang` is the settings drawer's choice; the server pins it to the session
+  // and the `assure_lang` cookie (web.py:i18n_view), so a reload keeps it.
+  function _loadI18n(lang) {
+    var url = "/api/i18n" + (lang ? "?lang=" + encodeURIComponent(lang) : "");
+    return window.fetch(url, { cache: "no-store" })
       .then(function (resp) { return resp.ok ? resp.json() : null; })
       .then(function (payload) {
         if (!payload || typeof payload !== "object") return;
         SHELL_I18N.locale = String(payload.locale || "en");
         SHELL_I18N.strings = payload.strings || {};
+        SHELL_I18N.locales = Array.isArray(payload.locales) ? payload.locales : [];
         document.documentElement.lang = SHELL_I18N.locale;
         _applyI18n();
-        // The counter line is composed from keys when it renders, so it is
-        // painted again once the catalog is in hand.
+        // The counter line, the status chip and the strip are composed from
+        // keys when they render, so they are painted again once the catalog
+        // is in hand.
         if (_syncCountersFn) _syncCountersFn();
+        if (_syncTrustStateFn) _syncTrustStateFn();
       })
       .catch(function () {});
   }
@@ -287,6 +303,7 @@
       // manifest (its "anchored N of M" is read off the document).
       _syncExportEnabled();
       if (_renderManifestFn) _renderManifestFn();
+      if (_syncTrustStateFn) _syncTrustStateFn();
     } else if (path === "document.mode") {
       // The mode is the other half of "there is a document" (_canExport), and
       // the manifest's counters follow the document too.
@@ -295,16 +312,21 @@
       // The column's state cards follow the mode: a document clears the
       // empty-project card, and a verdict is never overwritten by it.
       if (_syncDocStateFn) _syncDocStateFn();
+      // The header chip, the primary action and the strip read the mode too.
+      if (_syncTrustStateFn) _syncTrustStateFn();
     } else if (path === "document.signoff.status") {
       var el = document.getElementById("signoff-indicator");
-      if (!el) return;
-      if (value === "signed") {
-        el.textContent = "\u25cf Signed";
-        el.classList.add("is-signed");
-      } else {
-        el.textContent = "\u25cf Draft";
-        el.classList.remove("is-signed");
+      if (el) {
+        if (value === "signed") {
+          el.textContent = "\u25cf " + _t("shell.signoff.signed", "Signed");
+          el.classList.add("is-signed");
+        } else {
+          el.textContent = "\u25cf " + _t("shell.signoff.draft", "Draft");
+          el.classList.remove("is-signed");
+        }
       }
+      // A signed document's next action is Export, not Finalize.
+      if (_syncTrustStateFn) _syncTrustStateFn();
     } else if (path === "compiler.ask") {
       if (compilerAskEl) compilerAskEl.textContent = value;
       _syncCompilerSections();
@@ -325,6 +347,8 @@
       // the dock's Submit follows the same list.
       if (_syncDocStateFn) _syncDocStateFn();
       if (_syncDockSubmitFn) _syncDockSubmitFn();
+      if (_syncSourceEmptyFn) _syncSourceEmptyFn();
+      if (_syncTrustStateFn) _syncTrustStateFn();
     } else if (path === "project.id") {
       try { window.localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
     } else if (path === "project.title") {
@@ -344,16 +368,15 @@
         }
       });
       setShell("ui.layout.leftCollapsed", false);
+      if (_syncRailFn) _syncRailFn();
     } else if (path === "ui.rightTab") {
-      document.querySelectorAll("[data-right-tab]").forEach(function (t) {
-        if (t.getAttribute("data-right-tab") === value) {
-          t.classList.add("is-active");
-          t.setAttribute("aria-selected", "true");
-        } else {
-          t.classList.remove("is-active");
-          t.setAttribute("aria-selected", "false");
-        }
-      });
+      // The inspector is sections, not tabs (brief §3D): naming a tab opens the
+      // section that holds it. The data-right-tab hooks sit on the section
+      // heads (index.html), so the old callers land where they always did.
+      var head = document.querySelector('[data-right-tab="' + value + '"]') ||
+                 document.querySelector('[data-right-tab-body="' + value + '"]');
+      var section = head ? head.closest("details") : null;
+      if (section) section.open = true;
       setShell("ui.layout.rightCollapsed", false);
       // §6: the pane is a function of (tab, selected node, evidence payload).
       // Re-writing the tab it already has replaces no input, so it repaints
@@ -404,6 +427,7 @@
     } else if (path === "ui.layout.leftCollapsed") {
       if (value) docBodyEl.classList.add("collapsed");
       else       docBodyEl.classList.remove("collapsed");
+      if (_syncRailFn) _syncRailFn();
       // Persistence is the user's choice, not the renderer's: writing here would
       // stamp a preference on the first paint of every window, and the narrow
       // first paint below could then never be chosen again.
@@ -418,11 +442,17 @@
         _closeAboutModal(layer);   // hands focus back to the mark that opened it
         layer.hidden = true;
         layer.innerHTML = "";
+        if (_syncRailFn) _syncRailFn();
         return;
       }
       layer.hidden = false;
+      if (_syncRailFn) _syncRailFn();
       if (value === "about") {
         _openAboutModal(layer);
+      } else if (_shellModalRenderers[value]) {
+        // Sign-off and settings: dialogs the DOMContentLoaded scope draws.
+        _closeAboutModal(layer, false);
+        _shellModalRenderers[value](layer);
       } else if (value === "shortcuts") {
         // Another dialog is taking the layer over: release the About trap, but
         // do not pull focus to a mark that is no longer why the layer is up.
@@ -627,8 +657,12 @@
            Boolean(_exportProjectId());
   }
   function _syncExportEnabled() {
-    if (!exportBtnEl) return;
-    exportBtnEl.disabled = !_canExport();
+    var can = _canExport();
+    if (exportBtnEl) exportBtnEl.disabled = !can;
+    // The variants and the audit report export the same document: one state.
+    document.querySelectorAll("[data-export-format], #export-variants-btn").forEach(function (el) {
+      el.disabled = !can;
+    });
   }
 
   // A4 — the compile state the AI view reads, derived rather than
@@ -644,8 +678,8 @@
   // last_compiled_json.gate.measure), and _hydrateDocument below writes it
   // into __lastRunModel. COMPILE_MODEL_UNKNOWN is what the row reads only for
   // a compile that predates the gate block or a manifest that failed to load.
-  var NO_COMPILE = "No compile for this document";
-  var COMPILE_MODEL_UNKNOWN = "Compiled \u00b7 model not carried by the document";
+  var NO_COMPILE = "No draft run for this document";
+  var COMPILE_MODEL_UNKNOWN = "Drafted \u00b7 model not carried by the document";
 
   // The compile this document descends from: a revision that ran the
   // pipeline, at or before the version on screen. A rewrite or a restore
@@ -847,9 +881,9 @@
               if (st === "failure" || st === "skipped") {
                 var job = body.job || {};
                 var res = body.result || {};
-                return reject(new Error(job.error || body.error || res.error || res.reason || ("ingest " + st)));
+                return reject(new Error(job.error || body.error || res.error || res.reason || ("upload " + st)));
               }
-              if (Date.now() - started > limitMs) return reject(new Error("Still processing after 15 minutes; check the Processing panel."));
+              if (Date.now() - started > limitMs) return reject(new Error("Still reading after 15 minutes; check the Sources panel."));
               setTimeout(tick, delay());
             })
             .catch(function (err) {
@@ -865,9 +899,23 @@
       if (!el) return null;
       var row = document.createElement("div");
       row.className = "source-item is-pending";
-      row.textContent = name + " \u2014 processing\u2026";
+      row.textContent = name + " \u2014 " + _t("shell.stage.reading", "reading") + "\u2026";
       el.appendChild(row);
       return row;
+    }
+    // The ingest job's stage, in the reader's words. The job record keeps the
+    // system's (db/ingest_jobs_repository.STAGES); the row shows what is
+    // happening to the file, not which worker holds it.
+    var _STAGE_WORDS = {
+      queued: ["shell.stage.queued", "queued"],
+      fetching: ["shell.stage.fetching", "fetching"],
+      parsing: ["shell.stage.reading", "reading"],
+      verifying: ["shell.stage.verifying", "verifying"],
+      persisting: ["shell.stage.saving", "saving"],
+    };
+    function _stageWord(stage) {
+      var pair = _STAGE_WORDS[String(stage || "").toLowerCase()];
+      return pair ? _t(pair[0], pair[1]) : String(stage || "");
     }
     function handleSourceFile(file) {
       if (!file) return;
@@ -904,9 +952,11 @@
             // Queued: the row lands when the worker finishes. Show the file as
             // processing meanwhile and resolve to the vault entry it produced.
             var pending = _pendingSourceRow(name);
+            // A queued file is an intake job: the rail badge counts it.
+            if (typeof _pollIngestJobs === "function") _pollIngestJobs();
             return _awaitTask(r.j.task_id, function (body) {
               var stage = body && body.job && body.job.stage;
-              if (pending && stage) pending.textContent = name + " \u2014 " + stage + "\u2026";
+              if (pending && stage) pending.textContent = name + " \u2014 " + _stageWord(stage) + "\u2026";
             }).then(function (body) {
               if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
               var res = (body && body.result) || {};
@@ -1052,7 +1102,8 @@
         if (!f) return;
         var panel = document.getElementById("dock-search-results");
         if (panel) { panel.hidden = false; panel.innerHTML = ""; }
-        jdfProgress("Converting \u2192 Chunking \u2192 Indexing\u2026");
+        jdfProgress(_t("shell.upload.reading", "Reading \u2192 Indexing\u2026"));
+        if (typeof _pollIngestJobs === "function") _pollIngestJobs();
         var fd = new FormData();
         fd.append("file", f);
         var ingestPid = "";
@@ -1085,7 +1136,7 @@
               // about — re-derive it instead of leaving a stale snapshot.
               _syncGroundingNotices(null);
             } else {
-              jdfMessage(String((r.j && r.j.error) || ("Ingest failed (HTTP " + r.status + ")")), true);
+              jdfMessage(String((r.j && r.j.error) || ("Upload failed (HTTP " + r.status + ")")), true);
             }
             jdfIngestFile.value = "";
           })
@@ -1236,7 +1287,11 @@
     document.addEventListener("keydown", function (e) {
       if (e.key !== "Escape") return;
       var t = e.target;
-      if (t && (t.isContentEditable
+      // A field inside an open dialog is the one place Esc still means
+      // "close the dialog": the sign-off and settings dialogs put focus in
+      // their first field, and Esc from there has to let the reader out.
+      var inDialog = Boolean(t && t.closest && t.closest("#modal-layer"));
+      if (!inDialog && t && (t.isContentEditable
                 || t.tagName === "INPUT"
                 || t.tagName === "TEXTAREA")) return;
       if (SHELL.ui.modal) {
@@ -1512,7 +1567,7 @@
       var marker = document.createElement("p");
       marker.className = "doc-stream-marker";
       marker.setAttribute("data-i18n", "doc.state.compiling");
-      marker.textContent = _t("doc.state.compiling", "Compiling\u2026");
+      marker.textContent = _t("doc.state.compiling", "Drafting\u2026");
       draftEl.appendChild(marker);
       docSurface.appendChild(draftEl);
       return draftEl;
@@ -1567,10 +1622,10 @@
     var REFUSAL_DETAIL = "This document could not be grounded in the source. " +
                          "The project's stored document is unchanged.";
     var HALT_LEAD = "Nothing was saved.";
-    var HALT_DETAIL = "This compile stopped before the document was verified. " +
+    var HALT_DETAIL = "This run stopped before the document was verified. " +
                       "The project's stored document is unchanged.";
-    var PREREQ_LEAD = "Add a source to compile.";
-    var PREREQ_DETAIL = "Assure grounds every claim against the source you provide.";
+    var PREREQ_LEAD = "No documents yet. Upload evidence to begin.";
+    var PREREQ_DETAIL = "Assure grounds every claim against the evidence you provide.";
     // The source list is fetched on load and after a project switch; until that
     // answer lands, an empty SHELL.sources means "not known yet", not "none".
     var _sourcesLoaded = false;
@@ -1639,6 +1694,31 @@
       if (docSurface && docSurface.querySelector(".doc-prereq")) return;
       _renderStateCard("doc-prereq", "doc.prereq.lead", PREREQ_LEAD,
                        "doc.prereq.detail", PREREQ_DETAIL, "", "empty");
+      // The empty state's one action (brief §3G): Upload, filled ink, and a
+      // quiet second path into the Sources pane.
+      var card = docSurface ? docSurface.querySelector(".doc-prereq") : null;
+      if (card) {
+        var actions = document.createElement("div");
+        actions.className = "doc-state-actions";
+        var upload = document.createElement("button");
+        upload.type = "button";
+        upload.className = "btn-primary doc-prereq-upload";
+        upload.textContent = _t("shell.action.upload", "Upload");
+        upload.addEventListener("click", function () {
+          openLeft();
+          leftGroupSetTab("sources");
+          var input = document.getElementById("source-file-input");
+          if (input) input.click();
+        });
+        var open = document.createElement("button");
+        open.type = "button";
+        open.className = "btn-tertiary doc-prereq-sources";
+        open.textContent = _t("shell.rail.sources", "Sources");
+        open.addEventListener("click", function () { openLeft(); leftGroupSetTab("sources"); });
+        actions.appendChild(upload);
+        actions.appendChild(open);
+        card.appendChild(actions);
+      }
     }
     _syncDocStateFn = _syncDocState;
     // The ingest scan's verdict on a source, as the SOURCES label. The label
@@ -1693,12 +1773,12 @@
         .catch(function () {});
     }
     function _loadNodeHistory(nodeId) {
-      var details = document.getElementById("right-node-history");
+      var details = document.getElementById("insp-history");
       var list = document.getElementById("right-node-history-list");
-      if (!details || !list) return;
+      if (!list) return;
       if (!nodeId) {
         list.innerHTML = "";
-        details.open = false;
+        if (details) details.open = false;
         return;
       }
       var pid = _sourceProjectId && _sourceProjectId() || (function () {
@@ -1726,9 +1806,40 @@
           if (l) l.innerHTML = "<li class='empty-hint'>No prior revisions.</li>";
         });
     }
+    // The Versions pane (left, "history" tab): the same revision list the
+    // menu's version stepper walks, as a readable list. Decision log / History
+    // in the More menu opens it.
+    function _renderHistoryPane(list, current) {
+      var ul = document.getElementById("left-history-list");
+      var empty = document.getElementById("left-history-empty");
+      if (!ul) return;
+      while (ul.firstChild) ul.removeChild(ul.firstChild);
+      var rows = list || [];
+      if (empty) empty.hidden = rows.length > 0;
+      rows.forEach(function (rr) {
+        var li = document.createElement("li");
+        li.className = "history-row" + (rr.version === current ? " is-current" : "");
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn-tertiary history-row-btn";
+        var label = rr.change_summary || String(rr.mutation_type || "");
+        btn.textContent = "v" + rr.version + (label ? " \u00b7 " + label : "");
+        btn.setAttribute("data-version", String(rr.version));
+        btn.addEventListener("click", function () {
+          _jumpToVersion(parseInt(this.getAttribute("data-version"), 10));
+        });
+        var when = document.createElement("span");
+        when.className = "history-row-meta";
+        when.textContent = _projectRelativeTime(rr.created_at || rr.timestamp);
+        li.appendChild(btn);
+        li.appendChild(when);
+        ul.appendChild(li);
+      });
+    }
     function _renderVersionChip() {
       var versions = SHELL.document.versions || { list: [], current: null };
       var list = versions.list || [];
+      _renderHistoryPane(list, versions.current);
       if (!versionChipEl || list.length < 2) {
         if (versionChipEl) versionChipEl.hidden = true;
         if (versionDropdownEl) versionDropdownEl.hidden = true;
@@ -2406,7 +2517,7 @@
         // inflects the count the same way.
         var from = _tf(
           n === 1 ? "counter.line.sources_one" : "counter.line.sources_many",
-          n === 1 ? "Compiled from 1 source" : "Compiled from {sources} sources",
+          n === 1 ? "Drafted from 1 source" : "Drafted from {sources} sources",
           { sources: n }
         );
         var text = _tf(
@@ -4148,8 +4259,9 @@
           // than the frame's own aggregation distinguishes.
           if (intentSummaryTextEl) {
             intentSummaryTextEl.textContent = verifiedContradictions > 0
-              ? "Compiled \u2014 " + verifiedContradictions + " claims not supported"
-              : "\u2713 Intent compiled \u00b7 checks run in the pipeline";
+              ? _tf("shell.run.done_unsupported", "Drafted \u2014 {n} claims not supported",
+                    { n: verifiedContradictions })
+              : _t("shell.run.done", "\u2713 Drafted and verified against your sources");
           }
         }
         _endProgress();
@@ -4255,11 +4367,13 @@
       projectSwitcherPanel.hidden = false;
       if (projectSwitcherBtn) projectSwitcherBtn.setAttribute("aria-expanded", "true");
       _loadProjectsList();
+      if (_syncRailFn) _syncRailFn();
     }
     function _closeProjectPanel() {
       if (!projectSwitcherPanel) return;
       projectSwitcherPanel.hidden = true;
       if (projectSwitcherBtn) projectSwitcherBtn.setAttribute("aria-expanded", "false");
+      if (_syncRailFn) _syncRailFn();
     }
     function _loadProjectsList() {
       if (!projectListEl) return;
@@ -4434,6 +4548,7 @@
           // which is what the column's empty-project card waits for.
           _sourcesLoaded = true;
           _syncDocState();
+          if (_syncSourceEmptyFn) _syncSourceEmptyFn();
         })
       .catch(function () {
         // A failed read is not a source list. The card stays away rather than
@@ -4683,6 +4798,9 @@
         });
       // E) reload source list for the target (parallel)
       _loadProjectSourceList(id);
+      // F) the intake report and the job queue are per project too.
+      if (typeof _loadParsureLatest === "function") _loadParsureLatest(id);
+      if (typeof _pollIngestJobs === "function") _pollIngestJobs(id);
     }
     function _createNewProject() {
       var name = window.prompt("New project name", "workspace");
@@ -4750,6 +4868,14 @@
       // drafting state. Draw them back instead of leaving the first-run empty
       // hero in place.
       _restoreProjectDocument(initId);
+      _loadParsureLatest(initId);
+      _pollIngestJobs(initId);
+    } else {
+      // No project yet, so no source list to wait for: the empty state is a
+      // fact, not a pending answer, and the column says so from first paint.
+      _sourcesLoaded = true;
+      _syncDocState();
+      if (_syncSourceEmptyFn) _syncSourceEmptyFn();
     }
 
     // Export (top bar) → the export pair for the active project: the audit PDF
@@ -4825,7 +4951,7 @@
           // The stream closed without saying how the run ended: no verdict, no
           // verified document. Clear the column instead of leaving a draft that
           // nothing claimed.
-          haltDraftStream("The compile stream ended before the run finished.");
+          haltDraftStream("The draft stream ended before the run finished.");
         },
         function (err) {
           haltDraftStream(String(err && err.message ? err.message : err));
@@ -4922,6 +5048,8 @@
     function _setRunInProgress(v) {
       runInProgress = Boolean(v);
       _syncDockSubmit();
+      // A run in flight is the header's "Pending".
+      if (_syncTrustStateFn) _syncTrustStateFn();
     }
 
     function submitIntent() {
@@ -4952,6 +5080,9 @@
 
     var PREVIEW_TARGET = "claude";                       // for /api/preview only (bare slug)
 
+    // The in-flight mark the prompt section and the intent bar share; the
+    // stale check compares against the same constant.
+    var DRAFTING_MARK = "Drafting\u2026";
     function populateCompilerAsk(v)  { setShell("compiler.ask", v || ""); }
     function setCompilerPrompt(v)    { setShell("compiler.prompt", v || ""); }
     function populateCompilerRoute(v){ setShell("compiler.route", v || ""); }
@@ -4959,7 +5090,7 @@
     // races the draft stream. If the pipeline finishes first, clear it so the
     // panel cannot sit on "Compiling…" forever.
     function _clearCompilerPromptIfStale() {
-      if (SHELL.compiler.prompt === "Compiling\u2026") setCompilerPrompt("");
+      if (SHELL.compiler.prompt === DRAFTING_MARK) setCompilerPrompt("");
     }
     // ROUTED TO — the model this compile was routed to, taken from the draft
     // stream itself. /api/compile-system answers the system message and the answer
@@ -4988,7 +5119,7 @@
       // The compiler panel lives in the new COMPILER tab (right pane).
       setMode("compiler");
       populateCompilerAsk(raw);
-      setCompilerPrompt("Compiling\u2026");
+      setCompilerPrompt(DRAFTING_MARK);
       populateCompilerRoute("");
       // Preview + draft stream run in parallel; do not wait for preview.
       // The ask goes with it: the compile system message is static except for the
@@ -5009,13 +5140,13 @@
           // as in-flight here and stays that way. The checkmark is written only
           // by the `complete` frame that carries the pass (handleEvent).
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = "Compiling\u2026";
+            intentSummaryTextEl.textContent = DRAFTING_MARK;
           }
         })
         .catch(function (err) {
-          setCompilerPrompt("(compiler unavailable)");
+          setCompilerPrompt("(prompt preview unavailable)");
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = "Intent compiler unavailable \u00b7 checks run in the pipeline";
+            intentSummaryTextEl.textContent = "Prompt preview unavailable \u00b7 checks still run";
           }
           try { console.error("[shell] preview error:", err && err.message ? err.message : err); } catch (_) {}
         });
@@ -5057,7 +5188,7 @@
       if (lastCompile && typeof lastCompile.prompt === "string" && lastCompile.prompt.length > 0) {
         setCompilerPrompt(lastCompile.prompt);
       } else {
-        setCompilerPrompt("(compiler unavailable)");
+        setCompilerPrompt("(prompt preview unavailable)");
       }
       _renderCompilerRoute();
     }
@@ -5082,7 +5213,7 @@
       // verdict has not arrived. The bar reads the same through the whole
       // in-flight window and is flipped to the checkmark by the passing
       // `complete` frame, or replaced by the refusal card.
-      textEl.textContent = "Compiling\u2026";
+      textEl.textContent = DRAFTING_MARK;
       intentSummaryTextEl = textEl;
       var viewBtn = document.createElement("button");
       viewBtn.type = "button";
@@ -5108,6 +5239,8 @@
     leftReferencesEl = document.getElementById("left-references");
     leftTemplatesEl = document.getElementById("left-templates");
     evidenceModeEl = document.getElementById("right-evidence");
+    whyBodyEl = document.getElementById("right-why");
+    confidenceBodyEl = document.getElementById("right-confidence");
     compareModeEl  = document.getElementById("right-compare");
     z3ModeEl         = document.getElementById("right-z3");
     redhatModeEl     = document.getElementById("right-redhat");
@@ -5210,7 +5343,11 @@
         if (opened === "compiler") _refreshCompilerState();
       });
     });
+    // The right pane's section heads carry data-right-tab for the callers that
+    // name a tab; a click on the head itself is the <details> toggle and is
+    // left to the browser (intercepting it would re-open what the click shut).
     document.querySelectorAll("[data-right-tab]").forEach(function (t) {
+      if (t.tagName === "SUMMARY") return;
       t.addEventListener("click", function () {
         if (t.classList.contains("is-disabled")) return;
         rightGroupSetTab(t.getAttribute("data-right-tab"));
@@ -5678,14 +5815,23 @@
     // bodies while `.pane-body` sets `display: flex`, so clearing only the
     // inline display (as this used to) leaves the pane invisible even when
     // the tab strip has flipped is-active. Set both, together.
+    // The inspector's bodies are sections that are all on screen at once (the
+    // reader opens and closes them); "the active pane" only decides which
+    // section is opened, and that is `ui.rightTab`'s sync. What this does is
+    // swap the idle surface (review list / empty line) for the sections.
     function _setInspectorPane(active) {
-      var panes = { evidence: evidenceModeEl, z3: z3ModeEl, redhat: redhatModeEl };
-      Object.keys(panes).forEach(function (k) {
-        if (!panes[k]) return;
-        var on = (k === active);
-        panes[k].hidden = !on;
-        panes[k].style.display = on ? "block" : "none";
-      });
+      var idle = document.getElementById("inspector-idle");
+      var sections = document.getElementById("inspector-sections");
+      var hasNode = Boolean(SHELL.ui.selection && SHELL.ui.selection.nodeId &&
+        SHELL.document.current && findJdfNodeById(SHELL.ui.selection.nodeId, SHELL.document.current));
+      if (idle) idle.hidden = hasNode;
+      if (sections) sections.hidden = !hasNode;
+      if (hasNode && active) {
+        var head = document.querySelector('[data-right-tab="' + active + '"]') ||
+                   document.querySelector('[data-right-tab-body="' + active + '"]');
+        var section = head ? head.closest("details") : null;
+        if (section) section.open = true;
+      }
     }
     // No node selected: the active tab still owns the pane, so keep it
     // revealed with a styled hint rather than a blank (or stale) body. The
@@ -5693,18 +5839,80 @@
     // §6: the evidence body's idle state is a node-less call of the pane's one
     // writer, so #right-evidence has exactly one writer whether or not a node
     // is selected. Z3 and Red-Hat are separate bodies with their own hint.
+    // Nothing selected: the pane lists the paragraphs that need attention —
+    // contradicted first, then partial, then unanchored — each a row that
+    // selects and locates the paragraph. With none, the calm empty line.
+    function _reviewItems(doc) {
+      var out = { unsupported: [], partial: [], unanchored: [] };
+      var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
+      for (var i = 0; i < sections.length; i++) {
+        var sec = sections[i];
+        if (!sec || typeof sec !== "object") continue;
+        var group = [sec];
+        if (Array.isArray(sec.children)) group = group.concat(sec.children);
+        for (var g = 0; g < group.length; g++) {
+          var node = group[g];
+          if (!node || !node.id) continue;
+          var state = _anchorStateOf(node);
+          if (state && out[state]) out[state].push(node);
+        }
+      }
+      return out;
+    }
+    function _reviewReason(state) {
+      if (state === "unsupported") return _t("shell.review.reason.unsupported", "The source does not carry this claim.");
+      if (state === "partial") return _t("shell.review.reason.partial", "The source carries this claim only in part.");
+      return _t("shell.review.reason.unanchored", "No source could be traced to this claim.");
+    }
     function _renderInspectorIdlePane() {
-      var tab = SHELL.ui.rightTab || "evidence";
-      if (tab === "evidence") { renderEvidencePanel(null); return; }
-      // The Red-Hat pane's whole content is its one action, so it is rendered
-      // with no node rather than replaced by a hint: the button is disabled and
-      // says why. A pane whose only control disappears is a pane a reader
-      // cannot tell from a broken one.
-      if (tab === "redhat") { renderRedhatPanel(null); return; }
-      var body = z3ModeEl;
-      if (!body) return;
-      while (body.firstChild) body.removeChild(body.firstChild);
-      body.appendChild(_idleHint(tab));
+      var idle = document.getElementById("inspector-idle");
+      var sections = document.getElementById("inspector-sections");
+      var empty = document.getElementById("inspector-empty");
+      var list = document.getElementById("inspector-review-list");
+      if (idle) idle.hidden = false;
+      if (sections) sections.hidden = true;
+      if (!list) return;
+      while (list.firstChild) list.removeChild(list.firstChild);
+      var doc = SHELL.document.current;
+      var items = _reviewItems(doc);
+      var ordered = items.unsupported.map(function (n) { return [n, "unsupported"]; })
+        .concat(items.partial.map(function (n) { return [n, "partial"]; }))
+        .concat(items.unanchored.map(function (n) { return [n, "unanchored"]; }));
+      if (!ordered.length) {
+        list.hidden = true;
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+      list.hidden = false;
+      ordered.forEach(function (pair) {
+        var node = pair[0], state = pair[1];
+        var li = document.createElement("li");
+        li.className = "review-item anchor-" + state;
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "review-item-btn";
+        var chip = document.createElement("span");
+        chip.className = "anchor-chip anchor-chip-" + state;
+        chip.textContent = _anchorStateWords(state);
+        var text = document.createElement("span");
+        text.className = "review-item-text";
+        var content = String(node.content || "");
+        text.textContent = content.length > 110 ? content.slice(0, 110) + "\u2026" : content;
+        var why = document.createElement("span");
+        why.className = "review-item-why";
+        why.textContent = _reviewReason(state);
+        btn.appendChild(chip);
+        btn.appendChild(text);
+        btn.appendChild(why);
+        btn.addEventListener("click", function () {
+          setShell("ui.selection.evidence", null);
+          setShell("ui.selection.nodeId", node.id);
+          _locateNode(node.id);
+        });
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
     }
     function _idleHint(tab) {
       var hint = document.createElement("p");
@@ -5717,6 +5925,10 @@
     function renderEvidencePanel(node, opts) {
       if (!evidenceBodyEl) return;
       while (evidenceBodyEl.firstChild) evidenceBodyEl.removeChild(evidenceBodyEl.firstChild);
+      // "Why this state" is the verdict in words; it is cleared with the
+      // evidence and written by the same pass, so the two cannot disagree.
+      var whyEl = whyBodyEl || evidenceBodyEl;
+      if (whyBodyEl) while (whyBodyEl.firstChild) whyBodyEl.removeChild(whyBodyEl.firstChild);
       // §6: the ONE writer of #right-evidence, in the precedence the pane's
       // three states have: an explicitly opened drawer (the user named that
       // item) beats the paragraph panel; with nothing selected the pane is
@@ -5777,7 +5989,7 @@
       headText.appendChild(stateLabel);
       header.appendChild(badge);
       header.appendChild(headText);
-      evidenceBodyEl.appendChild(header);
+      whyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
       // The check's one-sentence reason, directly under the label. Absent when
@@ -5787,7 +5999,7 @@
         var reasonEl = document.createElement("p");
         reasonEl.className = "evidence-value evidence-reason";
         reasonEl.textContent = reasoning;
-        content.appendChild(reasonEl);
+        whyEl.appendChild(reasonEl);
       }
       // The paragraph's own citations, counted from the rows about to be drawn —
       // not from a stat, so the tally and the list under it cannot disagree.
@@ -6217,6 +6429,7 @@
       renderEvidencePanel(node, opts);
       renderZ3Panel(node);
       renderRedhatPanel(node);
+      renderConfidencePanel(node);
       _setInspectorPane(SHELL.ui.rightTab || "evidence");
     }
     function _toggleCompareView() {
@@ -6393,7 +6606,7 @@
       headText.appendChild(stateLabel);
       header.appendChild(badge);
       header.appendChild(headText);
-      evidenceBodyEl.appendChild(header);
+      (whyBodyEl || evidenceBodyEl).appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content gap-content";
       evidenceBodyEl.appendChild(content);
@@ -6754,7 +6967,674 @@
     // `no_source_attached`). The dock does not offer a run that cannot be
     // grounded, and the hint is the button's own label — disabled is the state,
     // the label says what it waits for.
-    var NO_SOURCE_HINT = "Add a source to enable the compile";
+    var NO_SOURCE_HINT = "Add a source to enable drafting";
+    // =================================================================
+    // Header state (brief §3A / §3H), the summary strip, the navigation
+    // rail and the overflow menu. One derivation — _trustModel — feeds the
+    // status chip, the primary action, the strip and the review list, so no
+    // two surfaces can disagree about the document's state.
+    // =================================================================
+
+    // The latest Parsure intake report for the active project, when the route
+    // answers. `GET /api/projects/<id>/parsure/latest` is being built beside
+    // this shell (2026-09-25); an older API answers 404, and a 404 means "no
+    // intake widget", not an error — nothing is retried and nothing is logged.
+    var __parsure = null;
+    var __parsureProject = "";
+    var __parsureUnavailable = false;
+    // Queued / running intake jobs for the active project (the Sources badge
+    // and the "Pending" state). Polled only while any job is active.
+    var __activeJobs = 0;
+    var __jobsTimer = null;
+    var __jobsProject = "";
+    var __jobsUnavailable = false;
+
+    function _parsureCounts() {
+      var rep = __parsure;
+      if (!rep || typeof rep !== "object") return { review: 0, conflicts: 0, fields: [], loaded: false };
+      var rs = rep.review_summary || {};
+      var fr = rs.fields_review;
+      var review = Array.isArray(fr) ? fr.length : (typeof fr === "number" ? fr : 0);
+      var conflicts = Array.isArray(rep.conflicts) ? rep.conflicts.length : 0;
+      var fields = Array.isArray(rep.fields) ? rep.fields : [];
+      return { review: review, conflicts: conflicts, fields: fields, loaded: true };
+    }
+    function _loadParsureLatest(pid) {
+      pid = pid || _activeProjectId();
+      if (!pid || __parsureUnavailable) return;
+      __parsureProject = pid;
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/parsure/latest",
+            { headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 404) { __parsureUnavailable = true; return null; }
+          if (!r.ok) return null;
+          return r.json().catch(function () { return null; });
+        })
+        .then(function (j) {
+          if (__parsureProject !== pid) return;   // switched away meanwhile
+          __parsure = j ? (j.report || j) : null;
+          _syncTrustState();
+          var sel = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+          var node = (sel && SHELL.document.current) ? findJdfNodeById(sel, SHELL.document.current) : null;
+          if (node) renderConfidencePanel(node);
+        })
+        .catch(function () { /* the widget stays hidden */ });
+    }
+
+    function _setSourcesBadge(n) {
+      var badge = document.getElementById("rail-sources-badge");
+      if (!badge) return;
+      if (n > 0) {
+        badge.textContent = String(n);
+        badge.hidden = false;
+        badge.setAttribute("aria-label", _tf("shell.rail.sources_badge", "{n} in progress", { n: n }));
+      } else {
+        badge.hidden = true;
+        badge.textContent = "";
+      }
+    }
+    function _pollIngestJobs(pid) {
+      pid = pid || _activeProjectId();
+      if (!pid || __jobsUnavailable) return;
+      if (__jobsTimer) { clearTimeout(__jobsTimer); __jobsTimer = null; }
+      __jobsProject = pid;
+      fetch("/api/projects/" + encodeURIComponent(pid) + "/ingest-jobs?status=active&limit=50",
+            { headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (r.status === 404) { __jobsUnavailable = true; return null; }
+          return r.ok ? r.json().catch(function () { return null; }) : null;
+        })
+        .then(function (j) {
+          if (__jobsProject !== pid) return;
+          var jobs = (j && Array.isArray(j.jobs)) ? j.jobs : [];
+          var active = jobs.filter(function (job) { return job && job.active !== false; }).length;
+          var wasActive = __activeJobs > 0;
+          __activeJobs = active;
+          _setSourcesBadge(active);
+          _syncTrustState();
+          if (active > 0) {
+            __jobsTimer = setTimeout(function () { _pollIngestJobs(pid); }, 4000);
+          } else if (wasActive) {
+            // The queue drained: the source list has rows the shell has not seen.
+            _loadProjectSourceList(pid);
+          }
+        })
+        .catch(function () { __activeJobs = 0; _setSourcesBadge(0); });
+    }
+
+    // What the document is, in five facts, from the same counts the tiles show
+    // (_counterBuckets over the persisted stats or the rendered tree) plus the
+    // intake report's review summary when there is one.
+    function _trustModel() {
+      var doc = SHELL.document.current;
+      var mode = SHELL.document.mode;
+      var hasDoc = Boolean(doc && Array.isArray(doc.body) && doc.body.length) &&
+                   (mode === "ready" || mode === "streaming");
+      var stats = (hasDoc && doc.meta && doc.meta.provenance_stats) || null;
+      var derived = hasDoc ? _derivedCounts(doc) : null;
+      var b = hasDoc ? _counterBuckets(stats, derived) : _counterBuckets(null, null);
+      var pc = _parsureCounts();
+      var conflicts = (hasDoc ? b.unsupported : 0) + pc.conflicts;
+      var review = (hasDoc ? b.partial + b.unanchored : 0) + pc.review;
+      var pending = mode === "streaming" || Boolean(runInProgress) || __activeJobs > 0;
+      var signed = SHELL.document.signoff && SHELL.document.signoff.status === "signed";
+      var verified = hasDoc && b.eligible > 0 && b.supported > 0 && conflicts === 0 && review === 0;
+      return {
+        hasDoc: hasDoc, buckets: b, conflicts: conflicts, review: review,
+        pending: pending, signed: Boolean(signed), verified: verified,
+      };
+    }
+
+    function _setTone(el, tone) {
+      if (el) el.setAttribute("data-tone", tone || "none");
+    }
+    function _plural(n, oneKey, oneText, manyKey, manyText) {
+      return n === 1 ? _t(oneKey, oneText) : _tf(manyKey, manyText, { n: n });
+    }
+
+    // The header chip, the primary action, the strip and the idle inspector,
+    // repainted from one model. Called on every write that can change it.
+    function _syncTrustState() {
+      var m = _trustModel();
+      var chip = document.getElementById("shell-status-chip");
+      var primary = document.getElementById("shell-primary");
+      var strip = document.getElementById("assure-strip");
+
+      // --- the chip: one line, one tone -----------------------------------
+      var chipText, chipTone = "none";
+      if (!m.hasDoc) {
+        chipText = m.pending ? _t("shell.status.pending", "Pending")
+                             : _t("shell.status.no_document", "No document yet");
+      } else if (m.pending) {
+        chipText = _t("shell.status.pending", "Pending");
+      } else if (m.conflicts > 0) {
+        chipText = _plural(m.conflicts, "shell.status.conflict_one", "1 conflict",
+                           "shell.status.conflict_many", "{n} conflicts");
+        chipTone = "contradicted";
+      } else if (m.review > 0) {
+        chipText = _plural(m.review, "shell.status.review_one", "1 needs review",
+                           "shell.status.review_many", "{n} need review");
+        chipTone = "partial";
+      } else if (m.verified) {
+        chipText = m.signed ? _t("shell.status.signed", "Signed") : _t("shell.status.verified", "Verified");
+        chipTone = "verified";
+      } else {
+        chipText = _t("shell.status.not_verified", "Not verified");
+      }
+      if (chip) { chip.textContent = chipText; _setTone(chip, chipTone); }
+
+      // --- the primary action ---------------------------------------------
+      var action = "none", label;
+      if (!m.hasDoc) {
+        label = _t("shell.primary.no_document", "No document");
+      } else if (m.pending) {
+        label = _t("shell.status.pending", "Pending");
+      } else if (m.conflicts > 0 || m.review > 0) {
+        action = "review"; label = _t("shell.primary.review", "Review");
+      } else if (m.signed) {
+        action = "export"; label = _t("shell.primary.export", "Export");
+      } else {
+        action = "finalize"; label = _t("shell.primary.finalize", "Finalize");
+      }
+      if (primary) {
+        primary.textContent = label;
+        primary.setAttribute("data-action", action);
+        primary.disabled = action === "none" || (action === "export" && !_canExport());
+      }
+
+      // --- the strip: Status · Conflicts · Review · Next -------------------
+      if (strip) {
+        strip.hidden = !m.hasDoc;
+        if (m.hasDoc) {
+          var statusWord, statusTone = "none";
+          if (m.pending)            { statusWord = _t("shell.status.pending", "Pending"); }
+          else if (m.conflicts > 0) { statusWord = _t("shell.strip.status.conflicts", "Conflicts"); statusTone = "contradicted"; }
+          else if (m.review > 0)    { statusWord = _t("shell.strip.status.review", "Review needed"); statusTone = "partial"; }
+          else if (m.verified)      { statusWord = m.signed ? _t("shell.status.signed", "Signed") : _t("shell.status.verified", "Verified"); statusTone = "verified"; }
+          else                      { statusWord = _t("shell.status.not_verified", "Not verified"); }
+          var sv = document.getElementById("strip-status-value");
+          if (sv) { sv.textContent = statusWord; _setTone(sv, statusTone); }
+          var cv = document.getElementById("strip-conflicts-value");
+          if (cv) {
+            cv.textContent = m.conflicts > 0 ? String(m.conflicts) : _t("shell.strip.none", "None");
+            _setTone(cv, m.conflicts > 0 ? "contradicted" : "none");
+          }
+          var rv = document.getElementById("strip-review-value");
+          if (rv) {
+            rv.textContent = m.review > 0
+              ? _plural(m.review, "shell.strip.review_one", "1 item", "shell.strip.review_many", "{n} items")
+              : _t("shell.strip.none", "None");
+            _setTone(rv, m.review > 0 ? "partial" : "none");
+          }
+          var nx = document.getElementById("strip-next-action");
+          if (nx) {
+            nx.textContent = label;
+            nx.disabled = Boolean(primary && primary.disabled);
+            nx.setAttribute("data-action", action);
+          }
+        }
+      }
+
+      // --- the idle inspector lists what needs review ---------------------
+      var sel = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+      if (!sel && !inspectorCompareActive) _renderInspectorIdlePane();
+    }
+    _syncTrustStateFn = _syncTrustState;
+
+    // The first paragraph that needs attention, in the document's own order:
+    // contradicted before partial before unanchored.
+    function _firstReviewNodeId() {
+      var host = draftEl || document.querySelector(".doc-draft");
+      if (!host) return null;
+      var states = ["unsupported", "partial", "unanchored"];
+      for (var i = 0; i < states.length; i++) {
+        var el = host.querySelector('.jdf-p[data-anchor-state="' + states[i] + '"]');
+        var wrap = el ? el.closest("[data-node-id]") : null;
+        if (wrap) return wrap.getAttribute("data-node-id");
+      }
+      return null;
+    }
+    function _reviewFirst() {
+      var id = _firstReviewNodeId();
+      if (!id) { openRight(); return; }
+      setShell("ui.selection.evidence", null);
+      setShell("ui.selection.nodeId", id);
+      openRight();
+      _locateNode(id);
+    }
+    function _download(format) {
+      if (!_canExport()) { _syncExportEnabled(); return; }
+      window.location.href = "/api/projects/" + encodeURIComponent(_exportProjectId()) +
+        "/export?format=" + encodeURIComponent(format || "bundle");
+    }
+    function _runPrimaryAction() {
+      var primary = document.getElementById("shell-primary");
+      var action = primary ? primary.getAttribute("data-action") : "none";
+      if (action === "review") _reviewFirst();
+      else if (action === "finalize") setShell("ui.modal", "signoff");
+      else if (action === "export") _download("bundle");
+    }
+    var primaryBtn = document.getElementById("shell-primary");
+    if (primaryBtn) primaryBtn.addEventListener("click", _runPrimaryAction);
+    var stripNext = document.getElementById("strip-next-action");
+    if (stripNext) stripNext.addEventListener("click", _runPrimaryAction);
+
+    // ---- the overflow menu ------------------------------------------------
+    var moreBtn = document.getElementById("shell-more");
+    var moreMenu = document.getElementById("shell-more-menu");
+    var variantsBtn = document.getElementById("export-variants-btn");
+    var variantsMenu = document.getElementById("export-variants");
+    function _closeMore() {
+      if (!moreMenu) return;
+      moreMenu.hidden = true;
+      if (moreBtn) moreBtn.setAttribute("aria-expanded", "false");
+      if (variantsMenu) variantsMenu.hidden = true;
+      if (variantsBtn) variantsBtn.setAttribute("aria-expanded", "false");
+      if (versionDropdownEl) versionDropdownEl.hidden = true;
+    }
+    function _openMore() {
+      if (!moreMenu) return;
+      moreMenu.hidden = false;
+      if (moreBtn) moreBtn.setAttribute("aria-expanded", "true");
+      _syncExportEnabled();
+      var first = moreMenu.querySelector(".menu-item:not([disabled])");
+      if (first) first.focus();
+    }
+    if (moreBtn) {
+      moreBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (moreMenu && moreMenu.hidden) _openMore(); else _closeMore();
+      });
+    }
+    if (variantsBtn && variantsMenu) {
+      variantsBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        variantsMenu.hidden = !variantsMenu.hidden;
+        variantsBtn.setAttribute("aria-expanded", variantsMenu.hidden ? "false" : "true");
+      });
+    }
+    document.querySelectorAll("[data-export-format]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        _closeMore();
+        _download(el.getAttribute("data-export-format"));
+      });
+    });
+    var menuSignoff = document.getElementById("menu-signoff");
+    if (menuSignoff) menuSignoff.addEventListener("click", function () {
+      _closeMore();
+      setShell("ui.modal", "signoff");
+    });
+    var menuHistory = document.getElementById("menu-history");
+    if (menuHistory) menuHistory.addEventListener("click", function () {
+      _closeMore();
+      openLeft();
+      leftGroupSetTab("history");
+    });
+    var menuSettings = document.getElementById("menu-settings");
+    if (menuSettings) menuSettings.addEventListener("click", function () {
+      _closeMore();
+      setShell("ui.modal", "settings");
+    });
+    // The About item lives in the menu now; its own handler (above) opens the
+    // dialog, this only shuts the menu first.
+    var aboutItem = document.getElementById("about-btn");
+    if (aboutItem) aboutItem.addEventListener("click", _closeMore);
+    document.addEventListener("click", function (e) {
+      if (moreMenu && !moreMenu.hidden) {
+        var wrap = document.getElementById("shell-more-wrap");
+        if (!wrap || !wrap.contains(e.target)) _closeMore();
+      }
+      if (projectSwitcherPanel && !projectSwitcherPanel.hidden) {
+        var sw = projectSwitcherPanel.closest(".project-switcher");
+        var rail = document.getElementById("rail-workspaces");
+        if (!(sw && sw.contains(e.target)) && !(rail && rail.contains(e.target))) _closeProjectPanel();
+      }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (moreMenu && !moreMenu.hidden) { _closeMore(); if (moreBtn) moreBtn.focus(); }
+      if (projectSwitcherPanel && !projectSwitcherPanel.hidden) _closeProjectPanel();
+    });
+
+    // ---- the rail: Workspaces · Sources · Analytics · Settings ------------
+    function _syncRail() {
+      var ws = document.getElementById("rail-workspaces");
+      var src = document.getElementById("rail-sources");
+      var st = document.getElementById("rail-settings");
+      var wsOpen = Boolean(projectSwitcherPanel && !projectSwitcherPanel.hidden);
+      var srcOpen = !SHELL.ui.layout.leftCollapsed && SHELL.ui.leftTab === "sources";
+      var stOpen = SHELL.ui.modal === "settings";
+      [[ws, wsOpen], [src, srcOpen], [st, stOpen]].forEach(function (pair) {
+        if (!pair[0]) return;
+        pair[0].classList.toggle("is-active", pair[1]);
+        pair[0].setAttribute("aria-pressed", pair[1] ? "true" : "false");
+      });
+    }
+    _syncRailFn = _syncRail;
+    var railWorkspaces = document.getElementById("rail-workspaces");
+    if (railWorkspaces) railWorkspaces.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (projectSwitcherPanel && !projectSwitcherPanel.hidden) _closeProjectPanel();
+      else _openProjectPanel();
+    });
+    var railSources = document.getElementById("rail-sources");
+    if (railSources) railSources.addEventListener("click", function () {
+      var already = !SHELL.ui.layout.leftCollapsed && SHELL.ui.leftTab === "sources";
+      if (already) { setShell("ui.layout.leftCollapsed", true); _persistPaneState(); return; }
+      openLeft();
+      leftGroupSetTab("sources");
+    });
+    var railSettings = document.getElementById("rail-settings");
+    if (railSettings) railSettings.addEventListener("click", function () {
+      setShell("ui.modal", SHELL.ui.modal === "settings" ? null : "settings");
+    });
+    // The markup starts on the draft-details tab while the state's default is
+    // "sources"; the rail reads the state, so the state is seeded from the
+    // markup here (a plain write: the pane's collapsed state must not change).
+    var activeLeftTab = document.querySelector("[data-left-tab].is-active");
+    if (activeLeftTab) SHELL.ui.leftTab = activeLeftTab.getAttribute("data-left-tab");
+    _syncRail();
+
+    // ---- the Sources pane's empty state -----------------------------------
+    function _syncSourceEmpty() {
+      var empty = document.getElementById("source-empty");
+      var upload = document.getElementById("source-upload-btn");
+      var list = document.getElementById("source-list");
+      var rows = list ? list.querySelectorAll(".source-item").length : 0;
+      var isEmpty = _sourcesLoaded && rows === 0 && !(SHELL.sources || []).length;
+      if (empty) empty.hidden = !isEmpty;
+      if (upload) upload.hidden = isEmpty;
+    }
+    _syncSourceEmptyFn = _syncSourceEmpty;
+    var sourceEmptyUpload = document.getElementById("source-empty-upload");
+    if (sourceEmptyUpload) sourceEmptyUpload.addEventListener("click", function () {
+      var input = document.getElementById("source-file-input");
+      if (input) input.click();
+    });
+
+    // ---- the sign-off dialog ------------------------------------------------
+    // Finalize is the formal act (brief §2 step 5): a name, an optional note,
+    // one filled action. POST /api/projects/<id>/sign-off {status:"approved"};
+    // the indicator re-reads the server's list afterwards, never assumes.
+    function _modalShell(layer, labelKey, labelText) {
+      layer.innerHTML = "";
+      var modal = document.createElement("div");
+      modal.className = "modal shell-dialog";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-label", _t(labelKey, labelText));
+      var head = document.createElement("div");
+      head.className = "modal-header";
+      var h2 = document.createElement("h2");
+      h2.textContent = _t(labelKey, labelText);
+      var close = document.createElement("button");
+      close.type = "button";
+      close.className = "btn-tertiary modal-close";
+      close.setAttribute("aria-label", _t("shell.dialog.close", "Close"));
+      close.textContent = "✕";
+      close.addEventListener("click", function () { setShell("ui.modal", null); });
+      head.appendChild(h2);
+      head.appendChild(close);
+      modal.appendChild(head);
+      layer.appendChild(modal);
+      layer.onclick = function (e) { if (e.target === layer) setShell("ui.modal", null); };
+      return modal;
+    }
+    _shellModalRenderers.signoff = function (layer) {
+      var modal = _modalShell(layer, "shell.signoff.title", "Finalize and sign off");
+      var signed = SHELL.document.signoff && SHELL.document.signoff.status === "signed";
+      var lead = document.createElement("p");
+      lead.className = "dialog-lead";
+      lead.textContent = signed
+        ? _t("shell.signoff.already", "This document is signed. A new sign-off adds to the record.")
+        : _t("shell.signoff.lead", "Signing off records that you reviewed this document and accept it as it stands.");
+      modal.appendChild(lead);
+      var m = _trustModel();
+      if (m.conflicts > 0 || m.review > 0) {
+        var warn = document.createElement("p");
+        warn.className = "quality-chip";
+        warn.textContent = _t("shell.signoff.pending_review", "Some claims still need review.");
+        modal.appendChild(warn);
+      }
+      var nameLabel = document.createElement("label");
+      nameLabel.className = "dialog-field";
+      nameLabel.textContent = _t("shell.signoff.name", "Your name");
+      var nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.id = "signoff-name";
+      nameInput.autocomplete = "name";
+      nameLabel.appendChild(nameInput);
+      var noteLabel = document.createElement("label");
+      noteLabel.className = "dialog-field";
+      noteLabel.textContent = _t("shell.signoff.comment", "Note (optional)");
+      var note = document.createElement("textarea");
+      note.id = "signoff-comment";
+      note.rows = 3;
+      noteLabel.appendChild(note);
+      var error = document.createElement("p");
+      error.className = "dialog-error";
+      error.hidden = true;
+      var actions = document.createElement("div");
+      actions.className = "dialog-actions";
+      var cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn-secondary";
+      cancel.textContent = _t("shell.dialog.cancel", "Cancel");
+      cancel.addEventListener("click", function () { setShell("ui.modal", null); });
+      var confirm = document.createElement("button");
+      confirm.type = "button";
+      confirm.className = "btn-primary";
+      confirm.id = "signoff-confirm";
+      confirm.textContent = _t("shell.signoff.action", "Sign off");
+      confirm.addEventListener("click", function () {
+        var pid = _activeProjectId();
+        if (!pid) return;
+        confirm.disabled = true;
+        error.hidden = true;
+        jsonPost("/api/projects/" + encodeURIComponent(pid) + "/sign-off", {
+          status: "approved",
+          reviewer_name: String(nameInput.value || "").trim() || null,
+          comment: String(note.value || "").trim() || null,
+        })
+          .then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+              if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status));
+            });
+          })
+          .then(function () {
+            _refreshSignoff(pid);
+            setShell("ui.modal", null);
+          })
+          .catch(function (err) {
+            confirm.disabled = false;
+            error.textContent = _t("shell.signoff.failed", "The sign-off was not recorded: ") +
+              String(err && err.message ? err.message : err);
+            error.hidden = false;
+          });
+      });
+      actions.appendChild(cancel);
+      actions.appendChild(confirm);
+      modal.appendChild(nameLabel);
+      modal.appendChild(noteLabel);
+      modal.appendChild(error);
+      modal.appendChild(actions);
+      nameInput.focus();
+    };
+
+    // ---- settings: language and the controls that left the header --------
+    _shellModalRenderers.settings = function (layer) {
+      var modal = _modalShell(layer, "shell.settings.title", "Settings");
+      var langLabel = document.createElement("label");
+      langLabel.className = "dialog-field";
+      langLabel.textContent = _t("shell.settings.language", "Language");
+      var select = document.createElement("select");
+      select.id = "settings-locale";
+      var locales = SHELL_I18N.locales && SHELL_I18N.locales.length
+        ? SHELL_I18N.locales
+        : [{ id: "en", label: "English" }];
+      locales.forEach(function (loc) {
+        var opt = document.createElement("option");
+        opt.value = loc.id;
+        opt.textContent = loc.label || loc.id;
+        if (loc.id === SHELL_I18N.locale) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", function () {
+        _loadI18n(select.value).then(function () {
+          // Re-draw the dialog in the new language.
+          if (SHELL.ui.modal === "settings") _shellModalRenderers.settings(layer);
+        });
+      });
+      langLabel.appendChild(select);
+      modal.appendChild(langLabel);
+      var list = document.createElement("div");
+      list.className = "settings-links";
+      var shortcuts = document.createElement("button");
+      shortcuts.type = "button";
+      shortcuts.className = "btn-tertiary";
+      shortcuts.textContent = _t("shell.settings.shortcuts", "Keyboard shortcuts");
+      shortcuts.addEventListener("click", function () { setShell("ui.modal", "shortcuts"); });
+      var about = document.createElement("button");
+      about.type = "button";
+      about.className = "btn-tertiary";
+      about.textContent = _t("shell.menu.about", "About Assure");
+      about.addEventListener("click", function () { setShell("ui.modal", "about"); });
+      var analytics = document.createElement("a");
+      analytics.className = "btn-tertiary";
+      analytics.href = "/parsing";
+      analytics.textContent = _t("shell.settings.analytics", "Intake analytics");
+      list.appendChild(shortcuts);
+      list.appendChild(about);
+      list.appendChild(analytics);
+      modal.appendChild(list);
+      select.focus();
+    };
+
+    // ---- the confidence breakdown -----------------------------------------
+    // The intake report's field for this paragraph when there is one
+    // (extraction_confidence with its confidence_basis, the number and
+    // signature quality, the review flag); otherwise what the document itself
+    // carries: the citation rows' confidence and the numeric spans. Quality
+    // warnings are amber chips in calm words (brief §3F), never a red banner.
+    function _parsureFieldFor(node) {
+      var fields = _parsureCounts().fields;
+      if (!node || !node.id || !fields.length) return null;
+      for (var i = 0; i < fields.length; i++) {
+        var f = fields[i];
+        if (!f || typeof f !== "object") continue;
+        var map = f.field_node_mapping || {};
+        var ids = [f.node_id, f.field_source_node_id, f.source_node_id, map.node_id, map.primary_node_id];
+        if (Array.isArray(map.node_ids)) ids = ids.concat(map.node_ids);
+        if (ids.some(function (x) { return x && String(x) === String(node.id); })) return f;
+      }
+      return null;
+    }
+    function _qualityChip(text) {
+      var el = document.createElement("span");
+      el.className = "quality-chip";
+      el.textContent = text;
+      return el;
+    }
+    function _qualityWarnings(f) {
+      var out = [];
+      var sig = String(f.signature_quality || "").toLowerCase();
+      if (sig === "faint") out.push(_t("shell.quality.signature_faint", "Signature is faint."));
+      else if (sig === "incomplete") out.push(_t("shell.quality.signature_incomplete", "Signature is incomplete."));
+      else if (sig === "stamped") out.push(_t("shell.quality.signature_stamped", "Signature is a stamp, not handwritten."));
+      else if (sig === "missing") out.push(_t("shell.quality.signature_missing", "An expected signature is missing."));
+      var num = String(f.number_quality || "").toLowerCase();
+      if (num === "handwritten") out.push(_t("shell.quality.numbers_handwritten", "Numbers are handwritten."));
+      else if (num === "faded") out.push(_t("shell.quality.numbers_faded", "Numbers are faded."));
+      else if (num === "typewritten_low_quality") out.push(_t("shell.quality.page_low", "Page quality is low."));
+      var pq = f.page_quality_score;
+      if (typeof pq === "number" && pq < 0.5 && num !== "typewritten_low_quality") {
+        out.push(_t("shell.quality.page_low", "Page quality is low."));
+      }
+      if (f.review_required === true) out.push(_t("shell.quality.review", "This field needs review."));
+      var flags = Array.isArray(f.quality_flags) ? f.quality_flags : [];
+      flags.forEach(function (flag) {
+        var s = String(flag || "").replace(/_/g, " ").trim();
+        if (s && out.indexOf(s) === -1) out.push(s.charAt(0).toUpperCase() + s.slice(1) + ".");
+      });
+      return out;
+    }
+    function _confField(host, label, value) {
+      var s = String(value == null ? "" : value);
+      if (!s) return;
+      var f = document.createElement("div");
+      f.className = "evidence-field";
+      var l = document.createElement("div"); l.className = "evidence-label"; l.textContent = label;
+      var v = document.createElement("div"); v.className = "evidence-value"; v.textContent = s;
+      f.appendChild(l); f.appendChild(v); host.appendChild(f);
+    }
+    function _pct(x) {
+      var n = Number(x);
+      if (isNaN(n)) return "";
+      if (n <= 1) n = n * 100;
+      return Math.round(n) + "%";
+    }
+    function renderConfidencePanel(node) {
+      var el = confidenceBodyEl;
+      if (!el) return;
+      while (el.firstChild) el.removeChild(el.firstChild);
+      var wrap = document.createElement("div");
+      wrap.className = "evidence-content";
+      var f = _parsureFieldFor(node);
+      if (f) {
+        var warnings = _qualityWarnings(f);
+        if (warnings.length) {
+          var chips = document.createElement("div");
+          chips.className = "quality-chips";
+          warnings.forEach(function (w) { chips.appendChild(_qualityChip(w)); });
+          wrap.appendChild(chips);
+        }
+        if (typeof f.extraction_confidence === "number") {
+          _confField(wrap, _t("shell.confidence.extraction", "Extraction confidence"), _pct(f.extraction_confidence));
+        }
+        if (f.confidence_basis) _confField(wrap, _t("shell.confidence.basis", "How it was computed"), f.confidence_basis);
+        if (typeof f.page_quality_score === "number") {
+          _confField(wrap, _t("shell.confidence.page_quality", "Page quality"), _pct(f.page_quality_score));
+        }
+        if (typeof f.verification_confidence === "number") {
+          _confField(wrap, _t("shell.confidence.verification", "Verification confidence"), _pct(f.verification_confidence));
+        }
+        if (f.modality || f.source_kind) {
+          _confField(wrap, _t("shell.confidence.modality", "Evidence type"),
+            [f.source_kind, f.modality].filter(Boolean).join(" · "));
+        }
+      } else {
+        // No intake field for this paragraph: the document's own numbers, and
+        // only those. Nothing is invented for a paragraph the report never saw.
+        var prov = node && node.provenance;
+        if (!Array.isArray(prov)) prov = prov ? [prov] : [];
+        var confs = prov.map(function (r) { return r && r.confidence; })
+          .filter(function (c) { return c != null && c !== ""; });
+        if (confs.length) {
+          _confField(wrap, _t("shell.confidence.citation", "Citation confidence"),
+            confs.map(function (c) { return typeof c === "number" ? _pct(c) : String(c); }).join(" · "));
+        }
+        var spans = (node && node.meta && Array.isArray(node.meta.confidenceSpans)) ? node.meta.confidenceSpans : [];
+        if (spans.length) {
+          _confField(wrap, _t("shell.confidence.figures", "Figures checked"),
+            _tf("shell.confidence.figures_n", "{n} numeric spans", { n: spans.length }));
+        }
+        var state = _anchorStateOf(node);
+        if (state) _confField(wrap, _t("shell.confidence.source_check", "Source check"), _anchorStateName(state));
+        if (!wrap.firstChild) {
+          var none = document.createElement("p");
+          none.className = "empty-hint";
+          none.textContent = __parsureUnavailable || !_parsureCounts().loaded
+            ? _t("shell.confidence.none", "No confidence data for this paragraph.")
+            : _t("shell.confidence.no_field", "The intake report has no field for this paragraph.");
+          wrap.appendChild(none);
+        }
+      }
+      el.appendChild(wrap);
+    }
+
+    _syncTrustState();
+    _syncSourceEmpty();
+
     function _syncDockSubmit() {
       if (!submit || !text) return;
       // §5 row 3: a draft in flight is the dock's loading state. The class
@@ -6765,8 +7645,8 @@
       var hasSource = Boolean((SHELL.sources || []).length);
       submit.disabled = !String(text.value || "").trim() || !hasSource;
       if (hasSource) {
-        submit.removeAttribute("title");
-        submit.setAttribute("aria-label", "Submit");
+        submit.title = _t("shell.dock.submit_title", "Draft and verify against your sources");
+        submit.setAttribute("aria-label", _t("shell.dock.submit", "Draft"));
       } else {
         submit.title = NO_SOURCE_HINT;
         submit.setAttribute("aria-label", NO_SOURCE_HINT);

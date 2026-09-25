@@ -12,7 +12,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".tiff", ".tif"})
+# BMP is an accepted upload (parser_router._IMAGE_EXTENSIONS) but Textract
+# reads only PNG/JPEG/TIFF/PDF: services/pdf_ingest re-encodes it to PNG
+# before calling extract_text. Listed here so is_image()/_get_page_count()
+# treat it as a one-page image rather than trying to count PDF pages. WebP is
+# not accepted anywhere: the bundled MuPDF (1.28) has no WebP decoder
+# (measured 2026-09-25), so accepting it would only produce a 400 at ingest.
+IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".tiff", ".tif", ".bmp"})
 
 
 class TextractError(Exception):

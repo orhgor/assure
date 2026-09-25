@@ -745,7 +745,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
     @app.get("/parsing")
     def parsing_page():
-        """Client-facing dashboard: document parsing results, confidence scores, verification."""
+        """Parsure intake page: what came in, its quality, what needs attention.
+
+        Evidence-first, per the UI brief of 2026-09-25 (assure_ui_revisions.md §4):
+        quality, modality, review state and replay readiness are the visible
+        signals; the parser is a small secondary badge. Reports come from
+        ``db/parsure_repository.list_reports`` and are joined to the Sources vault
+        rows by ``document_id`` first and ``filename`` second; when the module or
+        its table is absent (older databases, concurrent rollout) the page still
+        renders from the vault rows alone and every quality reads "—" with the
+        reason, never a default number (docs/anti-claims.md).
+        """
         try:
             from .db.substrate_repository import list_substrate_for_project
         except ImportError:
@@ -754,47 +764,318 @@ def create_app(*, require_auth: bool = True) -> Flask:
         project_id = request.args.get("project_id") or "default"
         rows = list_substrate_for_project(project_id)
 
-        documents = []
-        jdf_count = 0
-        textract_count = 0
-        total_parse_conf = 0.0
-        parse_conf_count = 0
+        reports: list[dict] = []
+        reports_available = False
+        try:
+            try:
+                from .db.parsure_repository import list_reports as _list_reports
+            except ImportError:
+                from db.parsure_repository import list_reports as _list_reports
+            reports = list(_list_reports(project_id, limit=200) or [])
+            reports_available = True
+        except Exception:  # noqa: BLE001 — module/table absent must not break intake
+            reports = []
 
-        for row in rows:
-            doc = {
-                "filename": row["filename"],
-                "parser_name": row["parser_name"],
-                "source_kind": row["source_kind"],
-                "page_count": row["page_count"],
-                "parse_confidence": row["parse_confidence"],
-                "ocr_confidence": row["ocr_confidence"],
-                "table_count": row["table_count"],
-                "image_count": row["image_count"],
-                "figure_count": row["figure_count"],
-                "asset_summary": row["asset_summary"],
-                "created_at": row["created_at"],
+        _modality_words = {
+            "digital_pdf": "Digital PDF",
+            "scanned_pdf": "Scan",
+            "phone_photo": "Phone photo",
+            "screenshot": "Screenshot",
+            "handwritten": "Handwritten",
+            "table_image": "Table image",
+            "mixed": "Mixed bundle",
+            "text": "Text",
+        }
+        _material_words = {
+            "pdf": "PDF",
+            "image": "Image",
+            "photo": "Photo",
+            "screenshot": "Screenshot",
+            "handwritten_image": "Handwritten note",
+            "table": "Table image",
+            "mixed_bundle": "Mixed bundle",
+            "text_file": "Text file",
+        }
+        _parser_words = {"jdf-cli": "JDF", "textract": "Textract", "pymupdf": "PyMuPDF", "text": "Text"}
+        _flag_words = {
+            "low_res": "Low resolution",
+            "low_resolution": "Low resolution",
+            "blurry": "Blurry",
+            "low_contrast": "Low contrast",
+            "skewed": "Skewed",
+            "glare": "Glare",
+            "noisy": "Noisy",
+            "faint_signature": "Faint signature",
+            "handwritten": "Handwritten",
+            "no_text_layer": "No text layer",
+        }
+        _low_quality_flags = {"low_res", "low_resolution", "blurry", "low_contrast", "skewed", "glare", "noisy"}
+        _state_words = {
+            "accepted": "Accepted",
+            "partial": "Partial",
+            "unverified": "Unverified",
+            "disputed": "Disputed",
+            "rejected": "Rejected",
+        }
+        _image_ext = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".heic", ".gif", ".bmp")
+
+        def _words(value, table=None):
+            if value in (None, ""):
+                return None
+            key = str(value).strip().lower()
+            if table and key in table:
+                return table[key]
+            return key.replace("_", " ").replace("-", " ").strip().capitalize()
+
+        def _num(value):
+            try:
+                if value is None or isinstance(value, bool):
+                    return None
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        def _score_label(value):
+            n = _num(value)
+            return f"{n:.2f}" if n is not None else "—"
+
+        def _date_label(value):
+            if value in (None, ""):
+                return "—"
+            dt = value
+            if isinstance(value, str):
+                try:
+                    from datetime import datetime as _dt
+
+                    dt = _dt.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError:
+                    return value[:10]
+            try:
+                return f"{dt:%b} {dt.day}, {dt.year}"
+            except (AttributeError, ValueError):
+                return str(value)[:10]
+
+        def _plural(n, word):
+            return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+        def _fallback_modality(row):
+            name = (row.get("filename") or "").lower()
+            kind = (row.get("source_kind") or "").lower()
+            if name.endswith((".txt", ".md")):
+                return "Text"
+            if name.endswith(_image_ext):
+                return "Image"
+            if "scan" in kind or "ocr" in kind or row.get("parser_name") == "textract":
+                return "Scan"
+            if name.endswith(".pdf"):
+                return "Digital PDF"
+            return None
+
+        def _doc_type_label(classification):
+            if not isinstance(classification, dict):
+                return "Type uncertain"
+            value = classification.get("override") or classification.get("document_type")
+            if value in (None, "", "unknown", "uncertain", "other"):
+                return "Type uncertain"
+            return _words(value) or "Type uncertain"
+
+        def _card_from(row, report):
+            filename = (row or {}).get("filename") or (report or {}).get("filename") or "Untitled"
+            card = {
+                "id": (row or {}).get("id") or (report or {}).get("document_id") or "",
+                "report_id": (report or {}).get("report_id") or "",
+                "filename": filename,
+                "page_count": (report or {}).get("page_count") or (row or {}).get("page_count") or 0,
+                "date_label": _date_label((report or {}).get("created_at") or (row or {}).get("created_at")),
+                "parser_label": _words((report or {}).get("parser_name") or (row or {}).get("parser_name"), _parser_words),
+                "quality": None,
+                "quality_label": "—",
+                "quality_note": None,
+                "doc_type_label": "Type uncertain",
+                "source_label": None,
+                "modality_label": None,
+                "fields_review": 0,
+                "fields_rejected": 0,
+                "fields_total": 0,
+                "conflicts": 0,
+                "chips": [],
+                "status": "unassessed",
+                "status_label": "Not assessed",
+                "primary_label": "Open",
+                "primary_href": f"/?project_id={project_id}",
+                "details": None,
             }
-            documents.append(doc)
-            if doc["parser_name"] == "jdf-cli":
-                jdf_count += 1
-            elif doc["parser_name"] == "textract":
-                textract_count += 1
-            if doc["parse_confidence"] is not None:
-                total_parse_conf += doc["parse_confidence"]
-                parse_conf_count += 1
+            if not report:
+                card["modality_label"] = _fallback_modality(row or {})
+                card["quality_note"] = "Quality not assessed (uploaded before intake scoring)"
+                return card
 
-        avg_confidence = (total_parse_conf / parse_conf_count) if parse_conf_count else None
+            summary = report.get("review_summary") or {}
+            fields = list(report.get("fields") or [])
+            conflicts = list(report.get("conflicts") or [])
+            quality_report = report.get("quality_report") or {}
+            replay = report.get("replay") or {}
+            pages = list(report.get("pages") or [])
+            doc_flags = [str(f) for f in (report.get("quality_flags") or [])]
+
+            fields_review = summary.get("fields_review")
+            if fields_review is None:
+                fields_review = sum(1 for f in fields if f.get("review_required"))
+            fields_rejected = summary.get("fields_rejected")
+            if fields_rejected is None:
+                fields_rejected = sum(1 for f in fields if f.get("field_state") == "rejected")
+            fields_total = summary.get("fields_total")
+            if fields_total is None:
+                fields_total = len(fields)
+
+            card["fields_review"] = int(fields_review or 0)
+            card["fields_rejected"] = int(fields_rejected or 0)
+            card["fields_total"] = int(fields_total or 0)
+            card["conflicts"] = len(conflicts)
+            card["quality"] = _num(report.get("document_quality_score"))
+            card["quality_label"] = _score_label(report.get("document_quality_score"))
+            if card["quality"] is None:
+                card["quality_note"] = "Quality not scored for this document"
+            card["doc_type_label"] = _doc_type_label(report.get("classification"))
+            card["source_label"] = _words(report.get("material_type"), _material_words)
+            card["modality_label"] = _words(report.get("modality"), _modality_words)
+            if card["source_label"] and card["source_label"] == card["modality_label"]:
+                card["source_label"] = None
+
+            # Chips: calm amber warnings, one short sentence each (brief §3F).
+            chips: list[str] = []
+            page_flags = {str(f) for p in pages for f in (p.get("flags") or [])}
+            low_pages = [p for p in pages if _num(p.get("quality_score")) is not None and _num(p.get("quality_score")) < 0.5]
+            if (card["quality"] is not None and card["quality"] < 0.5) or low_pages or (
+                _low_quality_flags & (page_flags | set(doc_flags))
+            ):
+                chips.append("Page quality is low.")
+            signature = (quality_report.get("signature") or {}) if isinstance(quality_report, dict) else {}
+            sig_quality = str(signature.get("quality") or "").lower()
+            if not sig_quality:
+                sig_qualities = {str(f.get("signature_quality") or "").lower() for f in fields}
+                sig_quality = "faint" if "faint" in sig_qualities else ("incomplete" if "incomplete" in sig_qualities else "")
+            if sig_quality == "faint":
+                chips.append("Signature is faint.")
+            elif sig_quality == "incomplete":
+                chips.append("Signature is incomplete.")
+            numbers = (quality_report.get("numbers") or {}) if isinstance(quality_report, dict) else {}
+            flagged_numbers = numbers.get("flagged")
+            flagged_count = len(flagged_numbers) if isinstance(flagged_numbers, (list, tuple)) else int(flagged_numbers or 0)
+            if flagged_count:
+                chips.append("Some numbers are unclear.")
+            if card["doc_type_label"] == "Type uncertain":
+                chips.append("Document type is uncertain.")
+            if replay.get("eligible"):
+                chips.append("Replay available after policy update.")
+            card["chips"] = chips
+
+            # Status ranking (brief §3H): conflict > needs review > ready.
+            if card["fields_rejected"] > 0 or card["conflicts"] > 0:
+                card["status"] = "conflict"
+                card["status_label"] = (
+                    "Conflict detected" if card["conflicts"] else _plural(card["fields_rejected"], "field") + " rejected"
+                )
+                card["primary_label"] = "Review"
+            elif card["fields_review"] > 0:
+                card["status"] = "review"
+                card["status_label"] = (
+                    f"{card['fields_review']} field needs review"
+                    if card["fields_review"] == 1
+                    else f"{card['fields_review']} fields need review"
+                )
+                card["primary_label"] = "Review"
+            else:
+                card["status"] = "ready"
+                card["status_label"] = "Ready for Assure"
+                card["primary_label"] = "Send to Assure"
+            card["primary_href"] = f"/?project_id={project_id}&report_id={card['report_id']}"
+
+            attention = [
+                {
+                    "label": f.get("label") or _words(f.get("name")) or "Field",
+                    "state": _words(f.get("field_state"), _state_words) or "—",
+                    "confidence": _score_label(f.get("extraction_confidence")),
+                    "reason": f.get("reason") or "No reason recorded",
+                    "basis": f.get("confidence_basis") or "—",
+                }
+                for f in fields
+                if f.get("review_required") or f.get("field_state") in ("rejected", "disputed", "unverified", "partial")
+            ]
+            page_rows = [
+                {
+                    "page": p.get("page"),
+                    "score": _score_label(p.get("quality_score")),
+                    "flags": ", ".join(_words(f, _flag_words) for f in (p.get("flags") or [])) or "No issues",
+                    "basis": p.get("basis") or "",
+                }
+                for p in pages
+            ]
+            sig_basis = signature.get("basis") if isinstance(signature, dict) else None
+            replay_reasons = [str(r) for r in (replay.get("reasons") or [])]
+            card["details"] = {
+                "pages": page_rows,
+                "fields": attention,
+                "signature": (_words(sig_quality) if sig_quality else None),
+                "signature_basis": sig_basis,
+                "numbers_flagged": flagged_count,
+                "quality_summary": quality_report.get("summary") if isinstance(quality_report, dict) else None,
+                "replay_eligible": bool(replay.get("eligible")),
+                "replay_reasons": replay_reasons,
+                "replay_history": list(replay.get("history") or []),
+                "conflicts": conflicts,
+                "technical": {
+                    "Parser": (report.get("parser_name") or "—"),
+                    "Parser version": (report.get("parser_version") or "—"),
+                    "Source kind": (report.get("source_kind") or (row or {}).get("source_kind") or "—"),
+                    "Modality": (report.get("modality") or "—"),
+                    "Material": (report.get("material_type") or "—"),
+                    "Document flags": ", ".join(doc_flags) or "—",
+                    "Report": card["report_id"] or "—",
+                },
+            }
+            return card
+
+        by_document: dict[str, dict] = {}
+        by_filename: dict[str, dict] = {}
+        for rep in reports:  # newest first: the first report seen for a key wins
+            doc_id = rep.get("document_id")
+            if doc_id and doc_id not in by_document:
+                by_document[str(doc_id)] = rep
+            name = rep.get("filename")
+            if name and name not in by_filename:
+                by_filename[str(name)] = rep
+
+        cards: list[dict] = []
+        matched: set = set()
+        for row in rows:
+            rep = by_document.get(str(row.get("id") or "")) or by_filename.get(str(row.get("filename") or ""))
+            if rep is not None:
+                matched.add(id(rep))
+            cards.append(_card_from(row, rep))
+        for rep in reports:
+            if id(rep) not in matched:
+                cards.append(_card_from(None, rep))
+
+        qualities = [c["quality"] for c in cards if c["quality"] is not None]
+        need_attention = sum(1 for c in cards if c["status"] in ("review", "conflict"))
+        ready = sum(1 for c in cards if c["status"] == "ready")
+        summary = {
+            "total": len(cards),
+            "pages": sum(int(c["page_count"] or 0) for c in cards),
+            "avg_quality": (sum(qualities) / len(qualities)) if qualities else None,
+            "avg_quality_label": f"{sum(qualities) / len(qualities):.2f}" if qualities else "—",
+            "need_attention": need_attention,
+            "ready": ready,
+            "reports_available": reports_available,
+        }
 
         return _page(
             "parsing.html",
             "parsing",
-            documents=documents,
-            summary={
-                "total": len(documents),
-                "jdf_count": jdf_count,
-                "textract_count": textract_count,
-                "avg_confidence": avg_confidence,
-            },
+            project_id=project_id,
+            documents=cards,
+            summary=summary,
         )
 
     @app.get("/signin")
@@ -1831,6 +2112,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.ingest_jobs_routes import register_ingest_jobs_routes
     register_ingest_jobs_routes(app)
+    try:
+        from .routers.parsure_routes import register_parsure_routes
+    except ImportError:
+        from routers.parsure_routes import register_parsure_routes
+    register_parsure_routes(app)
     try:
         from .routers.integrations_routes import register_integrations_routes
     except ImportError:

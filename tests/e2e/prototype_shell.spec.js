@@ -32,6 +32,10 @@ test("prototype shell loads clean (no console errors, no failed requests, no sse
     if (text.includes("[sse-failure]")) {
       sseFailures.push(text);
     } else if (msg.type === "error") {
+      // GET /api/projects/<id>/parsure/latest is optional: an API without the
+      // intake report answers 404 once and the shell hides the widget. The
+      // browser logs that 404 as a resource error; it is not a shell defect.
+      if (/parsure\/latest/.test(text) || (/404/.test(text) && /Failed to load resource/.test(text))) return;
       consoleErrors.push(text);
     }
   });
@@ -50,7 +54,10 @@ test("prototype shell loads clean (no console errors, no failed requests, no sse
   // Elements that shell.js actually binds on DOMContentLoaded.
   await expect(page.locator("header.app-header")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator("#dock-text")).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator("#theme-toggle")).toBeVisible({ timeout: 30_000 });
+  // The three header zones (brief §3A): one status chip, one primary, one menu.
+  await expect(page.locator("#shell-status-chip")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#shell-primary")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("#shell-more")).toBeVisible({ timeout: 30_000 });
 
   // Give async work (e.g. ensureProjectId -> /api/projects) a moment to settle.
   await page.waitForTimeout(2500);

@@ -120,7 +120,8 @@ test("prototype surgical revision — deterministic frontend flow (mocked SSE)",
   await expect(para).toContainText("REVISED BY TEST", { timeout: 30_000 });
 
   // 9b: verification surface — reveal the Red-Hat pane (:2990) via the tab.
-  await page.locator('#pane-right .mode-tab[data-right-tab="redhat"]').click();
+  // The inspector is sections now: "Verification details" holds the Red-Hat run.
+  await page.evaluate(() => { document.getElementById("insp-verification").open = true; });
   await expect(page.locator("#right-redhat")).toBeVisible({ timeout: 20_000 });
 
   // 9c: node history rows > 0 via the mocked { revisions } endpoint (:822).

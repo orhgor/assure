@@ -4,7 +4,32 @@ from __future__ import annotations
 
 import os
 
-from celery import Celery
+from celery import Celery, Task
+
+
+class ScopedTask(Task):
+    """Every task body runs inside one ``history.db_scope()``.
+
+    A worker has no Flask request, so outside a scope every ``get_db()`` in the
+    repositories checks a NEW pooled connection out and nothing returns it (the
+    defect ``history.db_scope`` documents). Measured 2026-09-25 on the compose
+    worker after the Parsure hook joined the ingest pipeline: one
+    ``import_project_pdf`` task made ~25 ``get_db()`` calls (stage writes,
+    revision, OMP, report, five audit events), exceeded pool_size 5 + overflow
+    15 and died with ``PoolTimeout: couldn't get a connection after 5.00 sec``
+    at the ``persisting`` stage. With the scope the task holds one connection,
+    nested calls join it, and it is released when the task returns or raises.
+    Threads a task spawns (entailment prefetch) have their own thread-local and
+    are unaffected.
+    """
+
+    def __call__(self, *args, **kwargs):
+        try:
+            from prompt_matrix.history import db_scope
+        except ImportError:  # flat layout (prompt_matrix/ on sys.path)
+            from history import db_scope
+        with db_scope():
+            return super().__call__(*args, **kwargs)
 
 
 def celery_broker_disabled() -> bool:
@@ -65,6 +90,7 @@ celery_app = Celery(
     "assure",
     broker=_broker,
     backend=_result_backend,
+    task_cls=ScopedTask,
     include=[
         "prompt_matrix.tasks.llm_tasks",
         "prompt_matrix.tasks.substrate_tasks",

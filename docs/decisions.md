@@ -142,3 +142,31 @@ for the deploy, not something a local run can claim.
   See docs/scale_architecture.md §6.
 - **Async verification (>50 pages) stays deferred** with a written contract
   in docs/deferred.md ("Async verification").
+
+## 2026-09-25 — Models are local on every compose target; Parsure V1 (Phase A)
+
+- **`docker compose up` always brings the models.** The `ollama` +
+  `ollama-pull` services left the `local-llm` profile in the base file; the
+  pull is idempotent (`ollama show` before `pull`) and `assure-app` /
+  `assure-worker` wait for it (`service_completed_successfully`). `scripts/gen-env.sh ec2`
+  writes `ASSURE_LLM_BACKEND=ollama`. Reason: user decision — no OpenRouter
+  or other provider keys on the EC2 box; the models must be on disk before the
+  first request. Bedrock remains a documented, commented alternative. The
+  staging/prod overlays gate the pair behind the profile because they use the
+  cloud policies. `OLLAMA_CONTEXT_LENGTH=8192` because Ollama's default window
+  would silently truncate a compile prompt that carries source excerpts.
+- **Parsure V1 (Phase A) per `assure_parsure_v1_icp_spec.md`.** One router
+  (`services/parser_router.route_intake`) detects material/modality, runs the
+  visual quality probe and the rule-based Laya triage, then selects the parser
+  as before; `services/v1_orchestrator.run_after_parse` writes an intake report
+  (page quality, classification, ICP fields with `confidence_basis`,
+  `field_state` vs `routing_action`, plausibility rules, cross-document
+  conflicts, replay eligibility) to PostgreSQL (`parsure_*` tables, schema v32)
+  with corrections, disputes (72 h SLA) and an audit log behind
+  `/api/projects/<id>/parsure*`. Laya is rules, not a trained model, and the
+  code says so. The audit log is PostgreSQL, not the SQLite the spec names,
+  because SQLite is banned in this codebase. Replay is recorded as intent only.
+- **UI revision per `assure_ui_revisions.md`.** Header = brand | one status
+  chip | one primary action + overflow; rail = Workspaces / Sources /
+  Analytics / Settings; inspector sections collapsible with "why" lines;
+  Parsure page = one summary line, evidence cards, calm amber warnings.
