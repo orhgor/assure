@@ -30,7 +30,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-cloud}   # no Ollama service under this overlay; empty would now mean local
       ENVIRONMENT: staging
       ASSURE_ENV: staging
       ASSURE_USE_FREE_MODELS: "1"
@@ -56,7 +56,7 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-assure}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-assure}
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-cloud}   # no Ollama service under this overlay; empty would now mean local
       ENVIRONMENT: staging
       ASSURE_ENV: staging
       PEM_SECRET_KEY: ${PEM_SECRET_KEY:?set PEM_SECRET_KEY}

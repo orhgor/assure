@@ -140,6 +140,20 @@ def test_generator_bedrock_answer_sets_backend_and_both_roles(tmp_path: Path) ->
     assert "ASSURE_LLM_BACKEND=ollama\n" in out.read_text()  # default stays local
 
 
+def test_generator_openrouter_answer_writes_key_and_stage_models(tmp_path: Path) -> None:
+    # aws key, secret, region, bucket, port, bind, models-where, OR key, 7 stage models, gpu, 5 ollama models, textract
+    answers = "\n".join(["", "", "", "", "", "", "openrouter", "sk-or-abc123", "", "", "", "", "", "", "", "n", "", "", "", "", "", ""]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert proc.returncode == 0, proc.stderr
+    text = out.read_text()
+    assert "ASSURE_LLM_BACKEND=openrouter\n" in text and "OPENROUTER_API_KEY=sk-or-abc123\n" in text
+    for line in ("ASSURE_OPENROUTER_MODEL_PARSE=amazon/nova-lite-v1", "ASSURE_OPENROUTER_MODEL_DRAFT=meta-llama/llama-3.3-70b-instruct",
+                 "ASSURE_OPENROUTER_MODEL_ANCHOR=cohere/command-r7b-12-2024", "ASSURE_OPENROUTER_MODEL_EVIDENCE=mistralai/mistral-small-24b-instruct-2501",
+                 "ASSURE_OPENROUTER_MODEL_EDIT=mistralai/mistral-small-24b-instruct-2501"):
+        assert line + "\n" in text, line
+    assert not (tmp_path / "called.log").exists()
+
+
 def test_generator_refuses_to_overwrite_without_force(tmp_path: Path) -> None:
     out = tmp_path / "x.env"
     out.write_text("keep\n")

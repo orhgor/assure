@@ -89,7 +89,8 @@ REDIS_URL, CELERY_BROKER_URL     Redis locally; sqs:// on AWS
 ASSURE_DATA_DIR, ASSURE_S3_BUCKET, AWS_ACCESS_KEY_ID/SECRET  object store (or the IAM role / Sources panel)
 PARSE_ASYNC, SUBSTRATE_ASYNC_UPLOAD  1 = queued to the worker (default with a broker)
 PARSER_SCAN_BACKEND, JDF_OCR     jdf-ocr (tesseract, default) | textract
-ASSURE_LLM_BACKEND               ollama (compose default) | bedrock | empty (cloud policies)
+ASSURE_LLM_BACKEND               empty = openrouter if OPENROUTER_API_KEY is set, else ollama | ollama | bedrock | openrouter | cloud (legacy policies)
+ASSURE_OPENROUTER_MODEL_PARSE / _DRAFT / _ANCHOR / _EVIDENCE / _EDIT / _REDHAT / _COMPARE   OpenRouter: Nova Lite parses, Llama 3.3 70B drafts, Cohere anchors, Mistral Small 3 judges/edits
 ASSURE_OLLAMA_MODEL_PARSE / _DRAFT / _REDHAT / _EVIDENCE / _COMPARE   one open model per stage (fallback ASSURE_OLLAMA_MODEL); OLLAMA_API_BASE, OLLAMA_CONTEXT_LENGTH
 ASSURE_BEDROCK_MODEL_DRAFT / _ANALYSIS / _B   Bedrock: Sonnet 5 drafts, Opus 5 analyses (defaults); bare ids get the eu./us. profile prefix
 OPENROUTER_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY   cloud models (overlays only)

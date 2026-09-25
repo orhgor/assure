@@ -4,6 +4,7 @@ IAM-only server, the cloud policies otherwise."""
 from __future__ import annotations
 
 import importlib
+import os
 
 import pytest
 
@@ -23,8 +24,9 @@ def reload_policies(monkeypatch):
     importlib.reload(cost_governance)
 
 
-def test_cloud_backend_keeps_policies(reload_policies):
-    mod = reload_policies("")
+def test_cloud_backend_keeps_policies(reload_policies, monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    mod = reload_policies("cloud")
     assert mod.TASK_POLICIES[TaskType.DRAFT_COMPILE].litellm_model.startswith("openrouter/")
     assert mod.resolve_model("deepseek/deepseek-chat") == "deepseek/deepseek-chat"
 
@@ -118,3 +120,32 @@ def test_ollama_backend_one_model_per_stage(reload_policies, monkeypatch):
                                           "evidence": "qwen2.5:7b", "compare": "gemma3:27b"}
     monkeypatch.setenv("ASSURE_OLLAMA_MODEL_REDHAT", "qwen2.5:32b")
     assert mod.local_model("redhat") == "ollama/qwen2.5:32b"
+
+
+def test_openrouter_backend_one_hosted_model_per_stage(reload_policies, monkeypatch):
+    """User's table (2026-09-25): Nova Lite parses, Llama 3.3 70B drafts, Cohere
+    anchors, Mistral Small 3 judges entailment and paraphrases. A key in .env
+    with the switch unset means OpenRouter; no key and no switch means Ollama."""
+    for k in list(os.environ):
+        if k.startswith("ASSURE_OPENROUTER_MODEL"):
+            monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test")
+    mod = reload_policies("")
+    assert mod.llm_backend() == "openrouter"
+    P = mod.TASK_POLICIES
+    assert P[TaskType.FIELD_EXTRACTION].litellm_model == "openrouter/amazon/nova-lite-v1"
+    for t in (TaskType.DRAFT_COMPILE, TaskType.DEEP_SYNTHESIS, TaskType.SUMMARIZE_NODE, TaskType.REDHAT, TaskType.MACRO_AUDIT):
+        assert P[t].litellm_model == "openrouter/meta-llama/llama-3.3-70b-instruct", t
+    for t in (TaskType.SEMANTIC_VALIDATION, TaskType.SURGICAL_EDIT):
+        assert P[t].litellm_model == "openrouter/mistralai/mistral-small-24b-instruct-2501", t
+    assert mod.resolve_model("x", role="anchor") == "openrouter/cohere/command-r7b-12-2024"
+    assert mod.resolve_model("x", role="b") == "openrouter/mistralai/mistral-small-24b-instruct-2501"
+    monkeypatch.setenv("ASSURE_OPENROUTER_MODEL_DRAFT", "openrouter/qwen/qwen3-235b-a22b")
+    assert mod.openrouter_model("draft") == "openrouter/qwen/qwen3-235b-a22b"
+    # explicit switch wins over the key; no key + no switch = local
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "ollama")
+    assert mod.llm_backend() == "ollama"
+    monkeypatch.delenv("ASSURE_LLM_BACKEND"); monkeypatch.delenv("OPENROUTER_API_KEY")
+    assert mod.llm_backend() == "ollama"
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+    assert mod.llm_backend() == ""

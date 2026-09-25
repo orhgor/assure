@@ -78,6 +78,17 @@ def _local_models_check(timeout_s: float = 1.5) -> dict:
             "analysis": bedrock_model("analysis").split("/", 1)[-1],
             "compare_b": bedrock_model("b").split("/", 1)[-1],
         }
+    if backend == "openrouter":
+        try:
+            from ..cost_governance import openrouter_models_by_stage
+        except ImportError:
+            from cost_governance import openrouter_models_by_stage
+        return {
+            "backend": "openrouter",
+            "status": "not local",
+            "key": "present" if os.environ.get("OPENROUTER_API_KEY", "").strip() else "missing",
+            "stages": openrouter_models_by_stage(),
+        }
     if backend != "ollama":
         return {"backend": backend or "cloud", "status": "not local"}
     base = (os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434").rstrip("/")

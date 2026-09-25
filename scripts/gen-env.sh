@@ -82,11 +82,22 @@ ask AWS_REGION       "AWS region" "eu-central-1"
 ask S3_BUCKET        "S3 bucket for documents (empty = keep files on this machine)" ""
 ask SHELL_PORT       "Port for the app (shell) on this host" "80"
 ask SHELL_BIND       "Bind address for the app (0.0.0.0 = reachable from outside)" "$DEF_BIND"
-ask MODELS_WHERE     "Models: local Ollama on this machine (local) or Amazon Bedrock Sonnet 5 + Opus 5 (bedrock)" "local"
-case "$MODELS_WHERE" in b|bedrock|B|BEDROCK) MODELS_WHERE="bedrock" ;; *) MODELS_WHERE="local" ;; esac
+ask MODELS_WHERE     "Models: local Ollama (local), OpenRouter hosted models (openrouter) or Amazon Bedrock (bedrock)" "local"
+case "$MODELS_WHERE" in b|bedrock|B|BEDROCK) MODELS_WHERE="bedrock" ;; o|openrouter|O|OPENROUTER|or) MODELS_WHERE="openrouter" ;; *) MODELS_WHERE="local" ;; esac
 if [[ "$MODELS_WHERE" == "bedrock" ]]; then
   ask BEDROCK_DRAFT    "Bedrock model for drafting (compile, edit, summarise)" "anthropic.claude-sonnet-5"
   ask BEDROCK_ANALYSIS "Bedrock model for analysis (entailment, Red-Hat, field extraction)" "anthropic.claude-opus-5"
+fi
+OPENROUTER_KEY=""
+if [[ "$MODELS_WHERE" == "openrouter" ]]; then
+  ask_secret OPENROUTER_KEY "OpenRouter API key (sk-or-…, hidden)"
+  ask OR_PARSE     "Parsing & intake model" "amazon/nova-lite-v1"
+  ask OR_DRAFT     "Document compile model" "meta-llama/llama-3.3-70b-instruct"
+  ask OR_ANCHOR    "Claim anchoring model" "cohere/command-r7b-12-2024"
+  ask OR_EVIDENCE  "Entailment verdict model" "mistralai/mistral-small-24b-instruct-2501"
+  ask OR_EDIT      "Surgical paraphrasing model" "mistralai/mistral-small-24b-instruct-2501"
+  ask OR_REDHAT    "Red-Hat model" "meta-llama/llama-3.3-70b-instruct"
+  ask OR_COMPARE   "Compare 2nd-column model" "mistralai/mistral-small-24b-instruct-2501"
 fi
 GPU_DEFAULT="n"; command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && GPU_DEFAULT="y"
 ask GPU              "NVIDIA GPU on this machine? models run on it (y/n)" "$GPU_DEFAULT"
@@ -141,7 +152,17 @@ PORT=8765
 #                              Red-Hat, field extraction, locks) on ASSURE_BEDROCK_MODEL_ANALYSIS.
 #                              Bare anthropic.* ids get the region's eu./us. inference-profile
 #                              prefix automatically. Flip this line and run docker compose up -d.
-ASSURE_LLM_BACKEND=$([[ "$MODELS_WHERE" == "bedrock" ]] && echo bedrock || echo ollama)
+# ASSURE_LLM_BACKEND=openrouter → OpenRouter with OPENROUTER_API_KEY, one hosted model per
+#                              stage (ASSURE_OPENROUTER_MODEL_*). Empty backend + a key = openrouter.
+ASSURE_LLM_BACKEND=${MODELS_WHERE/local/ollama}
+OPENROUTER_API_KEY=${OPENROUTER_KEY}
+ASSURE_OPENROUTER_MODEL_PARSE=${OR_PARSE:-amazon/nova-lite-v1}
+ASSURE_OPENROUTER_MODEL_DRAFT=${OR_DRAFT:-meta-llama/llama-3.3-70b-instruct}
+ASSURE_OPENROUTER_MODEL_ANCHOR=${OR_ANCHOR:-cohere/command-r7b-12-2024}
+ASSURE_OPENROUTER_MODEL_EVIDENCE=${OR_EVIDENCE:-mistralai/mistral-small-24b-instruct-2501}
+ASSURE_OPENROUTER_MODEL_EDIT=${OR_EDIT:-mistralai/mistral-small-24b-instruct-2501}
+ASSURE_OPENROUTER_MODEL_REDHAT=${OR_REDHAT:-meta-llama/llama-3.3-70b-instruct}
+ASSURE_OPENROUTER_MODEL_COMPARE=${OR_COMPARE:-mistralai/mistral-small-24b-instruct-2501}
 ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5}
 ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_ANALYSIS:-anthropic.claude-opus-5}
 ASSURE_BEDROCK_MODEL_B=anthropic.claude-opus-5

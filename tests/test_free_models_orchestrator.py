@@ -13,6 +13,11 @@ def orchestrator_module(monkeypatch):
 
     importlib.reload(mod)
     monkeypatch.delenv("ASSURE_USE_FREE_MODELS", raising=False)
+    # The free-model pairs belong to the legacy cloud policies. Since 2026-09-25
+    # an empty ASSURE_LLM_BACKEND means "decide from the env" (OpenRouter key →
+    # openrouter, else the local models), so this suite pins `cloud` explicitly.
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     mod._assure_router = None
     yield mod
     mod._assure_router = None

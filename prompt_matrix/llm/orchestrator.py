@@ -168,13 +168,15 @@ def get_compare_pair(index: int = 0) -> tuple[str, str]:
     (``ASSURE_OLLAMA_MODEL`` / ``ASSURE_OLLAMA_MODEL_B``); otherwise the
     free or production pair."""
     try:
-        from ..cost_governance import bedrock_model, llm_backend, local_model
+        from ..cost_governance import bedrock_model, llm_backend, local_model, openrouter_model
     except ImportError:
-        from cost_governance import bedrock_model, llm_backend, local_model
+        from cost_governance import bedrock_model, llm_backend, local_model, openrouter_model
     if llm_backend() == "ollama":
         return local_model("a"), local_model("b")
     if llm_backend() == "bedrock":
         return bedrock_model("a"), bedrock_model("b")
+    if llm_backend() == "openrouter":
+        return openrouter_model("a"), openrouter_model("b")
     return _cloud_compare_pair(index)
 
 

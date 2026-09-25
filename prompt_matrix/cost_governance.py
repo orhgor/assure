@@ -197,11 +197,22 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
 }
 
 def llm_backend() -> str:
-    """``ASSURE_LLM_BACKEND``: ``""``/``"cloud"`` (the policies above, OpenRouter/
-    DeepSeek), ``"ollama"`` (every task on the local Ollama container) or
-    ``"bedrock"`` (every task on Amazon Bedrock through the instance/task IAM
-    role — no provider key at all; the EC2 default of scripts/gen-env.sh)."""
-    return os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
+    """``ASSURE_LLM_BACKEND``: ``"ollama"`` (every task on the local Ollama
+    container, one model per stage), ``"bedrock"`` (Amazon Bedrock, Sonnet
+    drafts / Opus analyses), ``"openrouter"`` (OpenRouter, one hosted model per
+    stage — see OPENROUTER_STAGE_DEFAULTS), or ``""``/``"cloud"`` (the policies
+    above). User decision 2026-09-25: an OpenRouter key in .env with the switch
+    unset means OpenRouter — "if OpenRouter is in the env file, send every
+    request there"."""
+    explicit = os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
+    if explicit:
+        return "" if explicit == "cloud" else explicit
+    if os.environ.get("OPENROUTER_API_KEY", "").strip():
+        return "openrouter"
+    # Nothing set and no OpenRouter key: the models on this machine. The legacy
+    # cloud policies (OpenRouter/DeepSeek ids) are still reachable with
+    # ASSURE_LLM_BACKEND=cloud.
+    return "ollama"
 
 
 # Bedrock defaults (user decision 2026-09-25: "LLM tarafı Sonnet, analiz tarafı
@@ -258,6 +269,10 @@ def bedrock_model(role: str = "a") -> str:
     is the shared fallback for draft and analysis. Defaults: Sonnet 5 / Opus 5 /
     Opus 5, through the region's inference profile."""
     shared = os.environ.get("ASSURE_BEDROCK_MODEL", "").strip()
+    if role == "anchor":
+        role = "analysis"
+    elif role == "edit":
+        role = "draft"
     if role == "b":
         raw = os.environ.get("ASSURE_BEDROCK_MODEL_B", "").strip() or BEDROCK_MODEL_B
     elif role == "analysis":
@@ -293,7 +308,66 @@ OLLAMA_TASK_STAGE = {
 #: (docker-compose.gpu.yml) and gen-env's GPU tiers set larger ones per stage.
 OLLAMA_DEFAULT_MODEL = "qwen2.5:1.5b"
 OLLAMA_DEFAULT_COMPARE = "llama3.2:1b"
-_OLLAMA_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence"}
+_OLLAMA_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence", "anchor": "evidence", "edit": "draft"}
+
+
+#: OpenRouter, one hosted model per stage (user's table, 2026-09-25, with the
+#: prices they quoted): Parsing & Intake → Amazon Nova Lite 1.0 (300k context,
+#: $0.06/$0.24 per M); Document Compile → Llama 3.3 70B Instruct ($0.10/$0.32);
+#: Claim anchoring → Cohere Command R7B (built for citations); Entailment
+#: verdict → Mistral Small 3 (sub-second checks); Surgical paraphrasing →
+#: Mistral Small 3. Red-Hat and Compare were not in the table: Red-Hat gets the
+#: drafting model (a critique needs the stronger writer), Compare's second
+#: column Mistral Small 3 (a different family from the first column).
+OPENROUTER_STAGE_ENV = {
+    "parse": "ASSURE_OPENROUTER_MODEL_PARSE",
+    "draft": "ASSURE_OPENROUTER_MODEL_DRAFT",
+    "anchor": "ASSURE_OPENROUTER_MODEL_ANCHOR",
+    "evidence": "ASSURE_OPENROUTER_MODEL_EVIDENCE",
+    "edit": "ASSURE_OPENROUTER_MODEL_EDIT",
+    "redhat": "ASSURE_OPENROUTER_MODEL_REDHAT",
+    "compare": "ASSURE_OPENROUTER_MODEL_COMPARE",
+}
+OPENROUTER_STAGE_DEFAULTS = {
+    "parse": "amazon/nova-lite-v1",
+    "draft": "meta-llama/llama-3.3-70b-instruct",
+    "anchor": "cohere/command-r7b-12-2024",
+    "evidence": "mistralai/mistral-small-24b-instruct-2501",
+    "edit": "mistralai/mistral-small-24b-instruct-2501",
+    "redhat": "meta-llama/llama-3.3-70b-instruct",
+    "compare": "mistralai/mistral-small-24b-instruct-2501",
+}
+OPENROUTER_TASK_STAGE = {
+    TaskType.FIELD_EXTRACTION: "parse",
+    TaskType.DRAFT_COMPILE: "draft",
+    TaskType.DEEP_SYNTHESIS: "draft",
+    TaskType.SUMMARIZE_NODE: "draft",
+    TaskType.SURGICAL_EDIT: "edit",
+    TaskType.SEMANTIC_VALIDATION: "evidence",
+    TaskType.REDHAT: "redhat",
+    TaskType.MACRO_AUDIT: "redhat",
+}
+_OPENROUTER_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence"}
+
+
+def openrouter_model(role: str = "a") -> str:
+    """OpenRouter model for one stage (``parse`` / ``draft`` / ``anchor`` /
+    ``evidence`` / ``edit`` / ``redhat`` / ``compare``; aliases ``a``, ``b``,
+    ``analysis``). Stage variable → ``ASSURE_OPENROUTER_MODEL`` → the table
+    default. Returns the litellm id (``openrouter/<vendor>/<model>``)."""
+    stage = _OPENROUTER_ROLE_ALIASES.get(role, role)
+    if stage not in OPENROUTER_STAGE_ENV:
+        stage = "draft"
+    raw = (
+        os.environ.get(OPENROUTER_STAGE_ENV[stage], "").strip()
+        or os.environ.get("ASSURE_OPENROUTER_MODEL", "").strip()
+        or OPENROUTER_STAGE_DEFAULTS[stage]
+    )
+    return raw if raw.startswith("openrouter/") else f"openrouter/{raw}"
+
+
+def openrouter_models_by_stage() -> dict[str, str]:
+    return {stage: openrouter_model(stage).split("/", 1)[-1] for stage in OPENROUTER_STAGE_ENV}
 
 
 def local_model(role: str = "a") -> str:
@@ -339,17 +413,21 @@ def resolve_model(default: str, *, role: str = "a") -> str:
         return local_model(role)
     if backend == "bedrock":
         return bedrock_model(role)
+    if backend == "openrouter":
+        return openrouter_model(role)
     return default
 
 
 def _apply_llm_backend(policies: dict) -> dict:
     backend = llm_backend()
-    if backend not in ("ollama", "bedrock"):
+    if backend not in ("ollama", "bedrock", "openrouter"):
         return policies
 
     def _model_for(task: TaskType) -> str:
         if backend == "ollama":
             return local_model(OLLAMA_TASK_STAGE.get(task, "draft"))
+        if backend == "openrouter":
+            return openrouter_model(OPENROUTER_TASK_STAGE.get(task, "draft"))
         return bedrock_model("analysis" if task in BEDROCK_ANALYSIS_TASKS else "draft")
 
     return {

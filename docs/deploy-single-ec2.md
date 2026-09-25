@@ -96,6 +96,25 @@ loaded only when Compare runs (`OLLAMA_MAX_LOADED_MODELS=3`). `ASSURE_OLLAMA_MOD
 is the fallback for any stage left empty. `/health` `checks.models.stages` shows
 the resolved tag per stage and `present`/`missing` the download state.
 
+**Models on OpenRouter (`.env` with `OPENROUTER_API_KEY`; `gen-env` answer `openrouter`).**
+A key in `.env` with `ASSURE_LLM_BACKEND` unset means every model call goes to
+OpenRouter — one hosted model per stage (user's table, 2026-09-25):
+
+| Stage | `.env` variable | Default | Why (user's note) |
+|---|---|---|---|
+| Parsing & intake (field extraction) | `ASSURE_OPENROUTER_MODEL_PARSE` | `amazon/nova-lite-v1` | 300k context, $0.06 / $0.24 per M tokens |
+| Document compile (drafting, summaries) | `ASSURE_OPENROUTER_MODEL_DRAFT` | `meta-llama/llama-3.3-70b-instruct` | 131k context, $0.10 / $0.32 |
+| Claim anchoring (lock inference) | `ASSURE_OPENROUTER_MODEL_ANCHOR` | `cohere/command-r7b-12-2024` | built for citations and grounding |
+| Entailment verdict (supported / partial / unsupported) | `ASSURE_OPENROUTER_MODEL_EVIDENCE` | `mistralai/mistral-small-24b-instruct-2501` | sub-second checks |
+| Surgical paraphrasing (paragraph edits) | `ASSURE_OPENROUTER_MODEL_EDIT` | `mistralai/mistral-small-24b-instruct-2501` | |
+| Red-Hat (not in the table) | `ASSURE_OPENROUTER_MODEL_REDHAT` | `meta-llama/llama-3.3-70b-instruct` | the critique gets the stronger writer |
+| Compare, 2nd column (not in the table) | `ASSURE_OPENROUTER_MODEL_COMPARE` | `mistralai/mistral-small-24b-instruct-2501` | a different family from column one |
+
+`ASSURE_OPENROUTER_MODEL` is the fallback for an empty stage. Explicit
+`ASSURE_LLM_BACKEND=ollama|bedrock|openrouter|cloud` always wins over the key
+(`cloud` = the legacy policies). No key and no switch = the models on this
+machine. `ollama-pull` skips the download when the backend is not local.
+
 **Models on Amazon Bedrock instead of the box (`gen-env` question "Models: local or bedrock"):**
 `ASSURE_LLM_BACKEND=bedrock` sends drafting (compile, edit, summarise) to
 `ASSURE_BEDROCK_MODEL_DRAFT` (default Claude Sonnet 5) and analysis (entailment,

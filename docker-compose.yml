@@ -49,10 +49,20 @@ x-app-env: &app-env
   # Only for temporary (SSO/assumed-role) credentials on a laptop; a server uses
   # a permanent key pair or the instance role and leaves this empty.
   AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
-  # Models. Locally every LLM call goes to the `ollama` container (no provider
-  # key, small models); production/staging override ASSURE_LLM_BACKEND to ""
-  # and use the OpenRouter/DeepSeek policies in cost_governance.py.
-  ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
+  # Models. Empty = the code decides: an OPENROUTER_API_KEY in .env means every
+  # call goes to OpenRouter (one hosted model per stage, ASSURE_OPENROUTER_MODEL_*),
+  # otherwise the `ollama` container on this machine. Explicit values: ollama |
+  # bedrock | openrouter | cloud (the legacy policies in cost_governance.py).
+  ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  ASSURE_OPENROUTER_MODEL: ${ASSURE_OPENROUTER_MODEL:-}
+  ASSURE_OPENROUTER_MODEL_PARSE: ${ASSURE_OPENROUTER_MODEL_PARSE:-}
+  ASSURE_OPENROUTER_MODEL_DRAFT: ${ASSURE_OPENROUTER_MODEL_DRAFT:-}
+  ASSURE_OPENROUTER_MODEL_ANCHOR: ${ASSURE_OPENROUTER_MODEL_ANCHOR:-}
+  ASSURE_OPENROUTER_MODEL_EVIDENCE: ${ASSURE_OPENROUTER_MODEL_EVIDENCE:-}
+  ASSURE_OPENROUTER_MODEL_EDIT: ${ASSURE_OPENROUTER_MODEL_EDIT:-}
+  ASSURE_OPENROUTER_MODEL_REDHAT: ${ASSURE_OPENROUTER_MODEL_REDHAT:-}
+  ASSURE_OPENROUTER_MODEL_COMPARE: ${ASSURE_OPENROUTER_MODEL_COMPARE:-}
   ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}
   ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}
   # One open model per stage (empty = ASSURE_OLLAMA_MODEL). The GPU overlay and
@@ -141,8 +151,10 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        if [ "$${ASSURE_LLM_BACKEND}" != "ollama" ]; then
-          echo "ASSURE_LLM_BACKEND=$${ASSURE_LLM_BACKEND:-cloud}: no local models to pull"; exit 0;
+        backend="$${ASSURE_LLM_BACKEND}";
+        if [ -z "$$backend" ]; then if [ -n "$${OPENROUTER_API_KEY}" ]; then backend=openrouter; else backend=ollama; fi; fi;
+        if [ "$$backend" != "ollama" ]; then
+          echo "backend $$backend: no local models to pull"; exit 0;
         fi;
         seen=" ";
         for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}" "${ASSURE_OLLAMA_MODEL_PARSE:-}" "${ASSURE_OLLAMA_MODEL_DRAFT:-}" "${ASSURE_OLLAMA_MODEL_REDHAT:-}" "${ASSURE_OLLAMA_MODEL_EVIDENCE:-}" "${ASSURE_OLLAMA_MODEL_COMPARE:-}"; do
@@ -154,7 +166,8 @@ services:
         ollama list && echo "models ready"
     environment:
       OLLAMA_HOST: http://ollama:11434
-      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
+      ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     depends_on:
       ollama:
         condition: service_healthy
