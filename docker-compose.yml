@@ -145,9 +145,7 @@ services:
           echo "ASSURE_LLM_BACKEND=$${ASSURE_LLM_BACKEND:-cloud}: no local models to pull"; exit 0;
         fi;
         seen=" ";
-        for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}"
-                 "${ASSURE_OLLAMA_MODEL_PARSE:-}" "${ASSURE_OLLAMA_MODEL_DRAFT:-}" "${ASSURE_OLLAMA_MODEL_REDHAT:-}"
-                 "${ASSURE_OLLAMA_MODEL_EVIDENCE:-}" "${ASSURE_OLLAMA_MODEL_COMPARE:-}"; do
+        for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}" "${ASSURE_OLLAMA_MODEL_PARSE:-}" "${ASSURE_OLLAMA_MODEL_DRAFT:-}" "${ASSURE_OLLAMA_MODEL_REDHAT:-}" "${ASSURE_OLLAMA_MODEL_EVIDENCE:-}" "${ASSURE_OLLAMA_MODEL_COMPARE:-}"; do
           [ -z "$$m" ] && continue;
           case "$$seen" in *" $$m "*) continue;; esac; seen="$$seen$$m ";
           if ollama show "$$m" >/dev/null 2>&1; then echo "$$m already present"; continue; fi;
