@@ -7,7 +7,7 @@
 - Entailment: does the source support this claim?
 - Numeral audit: do the numbers reconcile? (Z3; a solver timeout is reported as `TIMEOUT`, never as a pass)
 
-**Parsure** is the intake side of the same product: every upload (PDF, scan, phone photo, screenshot, image) gets a per-page quality score, a document type, extracted fields with a stated confidence basis, and a review/dispute trail. Parsure computes and flags; Assure displays, decides and delivers. Specs: [assure_parsure_v1_icp_spec.md](assure_parsure_v1_icp_spec.md), [assure_ui_revisions.md](assure_ui_revisions.md).
+**Parsure** is the intake side of the same product: every upload (PDF, scan, phone photo, screenshot, image) gets a per-page quality score, a document type, extracted fields with a stated confidence basis, and a review/dispute trail. Parsure computes and flags; Assure displays, decides and delivers. Contract: [docs/parsure.md](docs/parsure.md). Specs: [assure_parsure_v1_icp_spec.md](assure_parsure_v1_icp_spec.md), [assure_ui_revisions.md](assure_ui_revisions.md).
 
 **Staging:** `https://staging.getassureai.com` — the shell (`prototype/`) behind the Cloudflare tunnel; Flask serves `/api/*`.
 

@@ -74,6 +74,7 @@ class TaskType(str, Enum):
     DEEP_SYNTHESIS = "deep_synthesis"
     MACRO_AUDIT = "macro_audit"
     REDHAT = "redhat"
+    FIELD_EXTRACTION = "field_extraction"
 
 
 # Hard per-request input caps (tokens). Independent of remaining project budget.
@@ -83,6 +84,10 @@ MAX_INPUT_TOKENS: dict[TaskType, int] = {
     TaskType.SEMANTIC_VALIDATION: 4000,
     TaskType.DRAFT_COMPILE: 100_000,
     TaskType.REDHAT: 8000,
+    # Parsure grounded field extraction (services/llm_extraction): one call
+    # per document holds the page texts of an ICP document (the golden set is
+    # 150–450 tokens a page); anything longer is chunked by page against this cap.
+    TaskType.FIELD_EXTRACTION: 6000,
     # Only DRAFT_COMPILE was raised (it must hold two numbered policies).
     # These two were raised alongside it on the reasoning that they carried the
     # same 30,000, which widened the input ceiling on two task types nobody
@@ -173,6 +178,19 @@ TASK_POLICIES: dict[TaskType, ModelPolicy] = {
         model_id="openrouter/qwen/qwen3-next-80b-a3b-instruct",
         max_input_tokens=MAX_INPUT_TOKENS[TaskType.REDHAT],
         max_output_tokens=8192,
+        caching=False,
+        litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
+    ),
+    # Parsure field extraction → the same non-reasoning instruct model as
+    # SEMANTIC_VALIDATION: the answer is one strict JSON object of at most a
+    # dozen short quote/value pairs (180–400 output tokens on the golden set),
+    # so a reasoning model would spend the cap before writing it. Every value
+    # the model names is re-found verbatim in the page text before it is used
+    # (services/llm_extraction), which is why a small model is acceptable here.
+    TaskType.FIELD_EXTRACTION: ModelPolicy(
+        model_id="qwen/qwen3-next-80b-a3b-instruct",
+        max_input_tokens=MAX_INPUT_TOKENS[TaskType.FIELD_EXTRACTION],
+        max_output_tokens=1024,
         caching=False,
         litellm_model="openrouter/qwen/qwen3-next-80b-a3b-instruct",
     ),

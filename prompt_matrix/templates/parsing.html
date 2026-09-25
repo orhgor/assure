@@ -355,6 +355,162 @@ details.tech dl {
 details.tech dt { color: var(--muted); }
 details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); }
 
+/* ---- sections: title dominant, hairline above, count secondary ---- */
+.section {
+  margin: var(--space-10) 0 0;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--rule);
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.section-head h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.section-head .section-meta { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-empty { font-size: var(--fs-md); color: var(--muted); margin: 0; }
+.section + .document-list { margin-top: var(--space-6); }
+.document-list-head { margin: var(--space-8) 0 var(--space-3); }
+.document-list-head h2 { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+
+/* ---- review queue (calm table) ---- */
+.queue-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-md); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-card); }
+.queue-table .c-doc { width: 21%; }
+.queue-table .c-field { width: 15%; }
+.queue-table .c-value { width: 12%; }
+.queue-table .c-why { width: 24%; }
+.queue-table .c-state { width: 14%; }
+.queue-table .c-act { width: 14%; }
+.queue-table th {
+  text-align: left;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--muted);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.queue-table td {
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+.queue-table tr:last-child td { border-bottom: none; }
+.queue-table tr[hidden] { display: none; }
+.queue-doc { font-weight: 500; overflow-wrap: anywhere; }
+.queue-doc small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.queue-field small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.queue-value { font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-why { color: var(--ink); overflow-wrap: anywhere; }
+.queue-why small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.queue-state { overflow-wrap: anywhere; }
+.queue-state .status { font-size: var(--fs-sm); white-space: nowrap; }
+.status--accepted { color: var(--verified); }
+.status--partial { color: var(--partial); }
+.status--unverified { color: var(--unverified); }
+.status--disputed { color: var(--partial); }
+.status--rejected { color: var(--contradicted); }
+.queue-state .sla { display: block; margin-top: var(--space-1); font-size: var(--fs-xs); color: var(--muted); }
+.queue-state .chip { display: inline-flex; margin: var(--space-1) 0 0; }
+.queue-actions { text-align: right; }
+.queue-actions .btn-tertiary { height: 22px; font-size: var(--fs-sm); white-space: nowrap; }
+.queue-quick { display: flex; justify-content: flex-end; gap: var(--space-3); margin-bottom: 2px; }
+.queue-actions .btn-accept { color: var(--ink); }
+.queue-actions .note { display: block; font-size: var(--fs-xs); color: var(--muted); }
+.queue-actions .note[data-tone="error"] { color: var(--contradicted); }
+.queue-more { margin-top: var(--space-3); }
+tr.queue-row--done td { color: var(--muted); }
+
+/* ---- analytics: premium report, not BI wall ---- */
+.report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+  padding: var(--space-2) 0 var(--space-6);
+}
+.metric-label { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-1); }
+.metric-value {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+  font-variant-numeric: proportional-nums;
+}
+.metric-note { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-1) 0 0; }
+.metric-note b { color: var(--partial); font-weight: 500; }
+
+.report-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8) var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+.report-figure h3 {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+}
+.report-figure .figure-sub { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-3); }
+.report-figure--wide { grid-column: 1 / -1; }
+
+.spark { display: block; width: 100%; height: auto; overflow: visible; }
+.spark .baseline { stroke: var(--rule); stroke-width: 1; }
+.spark .line { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.spark .end { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.spark .hit { fill: transparent; }
+.spark .hit:hover + .pt, .spark .pt:hover { opacity: 1; }
+.spark .pt { fill: var(--ink); stroke: var(--surface); stroke-width: 2; opacity: 0; pointer-events: none; }
+.spark-labels { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); margin-top: var(--space-1); font-variant-numeric: tabular-nums; }
+.spark-end-label { font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.hist { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); align-items: end; height: 96px; }
+.hist-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.hist-count { font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; margin-bottom: var(--space-1); }
+.hist-bar { width: 24px; min-height: 2px; background: var(--muted); border-radius: 4px 4px 0 0; }
+.hist-bar[data-tone="verified"] { background: var(--verified); }
+.hist-bar[data-tone="partial"] { background: var(--partial); }
+.hist-bar[data-empty] { background: var(--rule); }
+.hist-labels { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); margin-top: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--rule); font-size: var(--fs-xs); color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+
+.issues { list-style: none; margin: 0; padding: 0; }
+.issues li { display: grid; grid-template-columns: 140px 1fr 40px; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--rule); font-size: var(--fs-md); }
+.issues li:last-child { border-bottom: none; }
+.issues .issue-label { color: var(--ink); }
+.issues .issue-label small { color: var(--muted); font-size: var(--fs-xs); margin-left: 4px; }
+.issues .issue-track { height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.issues .issue-fill { height: 100%; background: var(--muted); border-radius: 2px; }
+.issues .issue-count { text-align: right; padding-right: 2px; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.report-empty { padding: var(--space-6) 0 var(--space-2); }
+.report-empty .metric-value { color: var(--muted); }
+.report-table { font-size: var(--fs-sm); }
+.report-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 0 var(--space-3) var(--space-1) 0; border-bottom: 1px solid var(--rule); }
+.report-table td { padding: var(--space-1) var(--space-3) var(--space-1) 0; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .report-metrics { grid-template-columns: 1fr 1fr; }
+  .report-grid { grid-template-columns: 1fr; }
+  .queue-table, .queue-table tbody, .queue-table tr, .queue-table td { display: block; width: auto; }
+  .queue-table thead, .queue-table colgroup { display: none; }
+  .queue-table tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); }
+  .queue-table tr:last-child { border-bottom: none; }
+  .queue-table td { padding: var(--space-1) var(--space-3); border-bottom: none; }
+  .queue-value { white-space: normal; }
+  .queue-value::before { content: "Value "; color: var(--muted); }
+  .queue-actions { text-align: left; }
+  .queue-quick { justify-content: flex-start; }
+}
+
 /* ---- empty state ---- */
 .empty-state { text-align: center; padding: 96px 24px 64px; }
 .empty-state p {
@@ -431,6 +587,59 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       <span>Ready for Assure: <b>{{ summary.ready }}</b></span>
     </p>
     <p class="upload-status" id="upload-status" aria-live="polite"></p>
+
+    {% if queue is not none %}
+    <section class="section section--queue" id="needs-attention" data-total="{{ queue.total }}">
+      <div class="section-head">
+        <h2>Needs attention</h2>
+        {% if queue.total %}
+        <span class="section-meta" id="queue-meta">
+          {{ queue.total }} item{{ "" if queue.total == 1 else "s" }}
+          {%- if queue.counts.disputed %} · {{ queue.counts.disputed }} disputed{% endif %}
+          {%- if queue.counts.overdue %} · <b>{{ queue.counts.overdue }} overdue</b>{% endif %}
+        </span>
+        {% endif %}
+      </div>
+      {% if queue.rows %}
+      <table class="queue-table" id="queue-table">
+        <colgroup><col class="c-doc"><col class="c-field"><col class="c-value"><col class="c-why"><col class="c-state"><col class="c-act"></colgroup>
+        <thead>
+          <tr><th>Document</th><th>Field</th><th>Value</th><th>Why</th><th>State</th><th class="queue-actions">Action</th></tr>
+        </thead>
+        <tbody>
+        {% for r in queue.rows %}
+          <tr class="queue-row" data-report-id="{{ r.report_id }}" data-field="{{ r.field_name }}" data-state="{{ r.state }}"{% if r.overdue %} data-overdue="1"{% endif %}{% if loop.index > queue.visible %} hidden data-collapsed="1"{% endif %}>
+            <td class="queue-doc">{{ r.filename }}<small>{{ r.doc_type_label }}</small></td>
+            <td class="queue-field">{{ r.label }}<small>Confidence {{ r.confidence_label }}</small></td>
+            <td class="queue-value" title="{{ r.value_label }}">{{ r.value_label }}</td>
+            <td class="queue-why">{{ r.reason }}<small>{{ r.reason_category }}</small></td>
+            <td class="queue-state">
+              <span class="status status--{{ r.state }}">{{ r.state_label }}</span>
+              {% if r.overdue %}<span class="chip">Overdue</span>{% endif %}
+              {% if r.due_words %}<span class="sla">{{ r.due_words }}</span>{% else %}<span class="sla">{{ r.action_label }}</span>{% endif %}
+            </td>
+            <td class="queue-actions">
+              {% if r.state != "disputed" %}
+              <span class="queue-quick">
+                {% if r.has_value %}<button type="button" class="btn-tertiary btn-accept" data-act="accept">Accept</button>{% endif %}
+                <button type="button" class="btn-tertiary btn-dispute" data-act="dispute">Dispute</button>
+              </span>
+              {% endif %}
+              <a class="btn-tertiary" href="{{ r.review_href }}">Review in Assure</a>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if queue.total > queue.visible %}
+      <p class="queue-more"><button type="button" class="btn-tertiary" id="queue-show-all">Show all {{ queue.total }}</button></p>
+      {% endif %}
+      {% else %}
+      <p class="section-empty">No review items. New intake will appear here.</p>
+      {% endif %}
+    </section>
+    <div class="document-list-head"><h2>Documents</h2></div>
+    {% endif %}
 
     <div class="document-list">
       {% for doc in documents %}
@@ -554,6 +763,127 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       </article>
       {% endfor %}
     </div>
+
+    {% if analytics is not none %}
+    <section class="section section--report" id="analytics" data-has-data="{{ 'true' if analytics.has_data else 'false' }}">
+      <div class="section-head">
+        <h2>Analytics</h2>
+        {% if analytics.has_data %}<span class="section-meta">{{ analytics.documents }} document{{ "" if analytics.documents == 1 else "s" }} · last {{ analytics.trend_days }} days shown</span>{% endif %}
+      </div>
+
+      <div class="report-metrics">
+        <div class="metric">
+          <p class="metric-label">Avg quality</p>
+          <p class="metric-value">{{ analytics.avg_quality_label }}</p>
+          {% if analytics.has_data and analytics.unscored %}<p class="metric-note">{{ analytics.unscored }} not scored</p>{% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Review rate</p>
+          <p class="metric-value">{{ analytics.review_rate_label }}</p>
+          {% if analytics.has_data %}<p class="metric-note">{{ analytics.fields_review }} of {{ analytics.fields_total }} fields</p>{% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Open disputes</p>
+          <p class="metric-value">{% if analytics.has_data %}{{ analytics.disputes_open }}{% else %}—{% endif %}</p>
+          {% if analytics.has_data %}
+          <p class="metric-note">
+            {%- if analytics.disputes_overdue %}<b>{{ analytics.disputes_overdue }} overdue</b>{% if analytics.disputes_due_24h %} · {% endif %}{% endif -%}
+            {%- if analytics.disputes_due_24h %}{{ analytics.disputes_due_24h }} due within 24 h{% endif -%}
+            {%- if not analytics.disputes_overdue and not analytics.disputes_due_24h %}{% if analytics.disputes_open %}all within 72 h{% else %}none open{% endif %}{% endif -%}
+          </p>
+          {% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Corrections</p>
+          <p class="metric-value">{% if analytics.has_data %}{{ analytics.corrections }}{% else %}—{% endif %}</p>
+          {% if analytics.has_data %}<p class="metric-note">{{ analytics.correction_rate_label }} of fields · replay ready {{ analytics.replay_rate_label }}</p>{% endif %}
+        </div>
+      </div>
+
+      {% if analytics.has_data %}
+      <div class="report-grid">
+        <figure class="report-figure report-figure--wide" style="margin:0">
+          <h3>Average quality per day</h3>
+          <p class="figure-sub">Last {{ analytics.trend_days }} days · {% if analytics.spark %}{{ analytics.spark.days_with_intake }} day{{ "" if analytics.spark.days_with_intake == 1 else "s" }} with scored intake{% else %}no scored intake in this window{% endif %}</p>
+          {% if analytics.spark %}
+          <svg class="spark" viewBox="0 0 {{ analytics.spark.width }} {{ analytics.spark.height }}" role="img" aria-label="Average document quality per day over the last {{ analytics.trend_days }} days; latest {{ analytics.spark.last.label }}">
+            <line class="baseline" x1="6" x2="{{ analytics.spark.width - 6 }}" y1="{{ analytics.spark.height - 6 }}" y2="{{ analytics.spark.height - 6 }}"/>
+            {% if not analytics.spark.single %}<path class="line" d="{{ analytics.spark.path }}"/>{% endif %}
+            {% for pt in analytics.spark.points %}
+            <g>
+              <circle class="hit" cx="{{ pt.x }}" cy="{{ pt.y }}" r="12"><title>{{ pt.day }} · avg quality {{ pt.label }} · {{ pt.documents }} document{{ "" if pt.documents == 1 else "s" }}</title></circle>
+              <circle class="pt" cx="{{ pt.x }}" cy="{{ pt.y }}" r="4"/>
+            </g>
+            {% endfor %}
+            <circle class="end" cx="{{ analytics.spark.last.x }}" cy="{{ analytics.spark.last.y }}" r="4"/>
+          </svg>
+          <div class="spark-labels">
+            <span>{{ analytics.trend_start_label }}</span>
+            <span><span class="spark-end-label">Latest {{ analytics.spark.last.label }}</span> · {{ analytics.trend_end_label }}</span>
+          </div>
+          {% else %}
+          <p class="section-empty">No scored intake in the last {{ analytics.trend_days }} days.</p>
+          {% endif %}
+          <details class="tech">
+            <summary>Table view</summary>
+            <table class="report-table">
+              <thead><tr><th>Day</th><th>Documents</th><th>Avg quality</th><th>Fields needing review</th></tr></thead>
+              <tbody>
+              {% for d in analytics.trend_rows %}
+              <tr><td>{{ d.day }}</td><td>{{ d.documents }}</td><td>{{ "%.2f"|format(d.avg_quality) if d.avg_quality is not none else "—" }}</td><td>{{ d.fields_review }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        </figure>
+
+        <figure class="report-figure" style="margin:0">
+          <h3>Quality distribution</h3>
+          <p class="figure-sub">Documents by quality score{% if analytics.unscored %} · {{ analytics.unscored }} not scored{% endif %}</p>
+          <div class="hist" role="img" aria-label="Documents by quality score band">
+            {% for h in analytics.histogram %}
+            <div class="hist-col">
+              <span class="hist-count">{{ h.count }}</span>
+              <div class="hist-bar" data-tone="{{ h.tone }}"{% if not h.count %} data-empty="1"{% endif %} style="height: {{ (h.pct * 0.7)|round(1) }}%" title="{{ h.bucket }}: {{ h.count }}"></div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="hist-labels">{% for h in analytics.histogram %}<span>{{ h.bucket }}</span>{% endfor %}</div>
+        </figure>
+
+        <figure class="report-figure" style="margin:0">
+          <h3>What needs attention, by reason</h3>
+          <p class="figure-sub">Fields still asking for a person, and page issues seen</p>
+          {% if analytics.issues %}
+          <ul class="issues">
+            {% for i in analytics.issues %}
+            <li>
+              <span class="issue-label">{{ i.label }}{% if i.kind == "page" %}<small>page</small>{% endif %}</span>
+              <span class="issue-track"><span class="issue-fill" style="width: {{ i.pct|round(1) }}%"></span></span>
+              <span class="issue-count">{{ i.count }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="section-empty">Nothing is waiting on a person.</p>
+          {% endif %}
+          {% if analytics.modality %}
+          <details class="tech">
+            <summary>By source</summary>
+            <table class="report-table">
+              <tbody>
+              {% for m in analytics.modality %}<tr><td>{{ m.label }}</td><td>{{ m.count }}</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </details>
+          {% endif %}
+        </figure>
+      </div>
+      {% else %}
+      <p class="section-empty report-empty">No intake yet.</p>
+      {% endif %}
+    </section>
+    {% endif %}
     {% else %}
     <div class="empty-state">
       <p>No documents yet. Upload evidence to begin.</p>
@@ -664,6 +994,111 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           button.disabled = false;
         })
         .then(function () { input.value = ""; });
+    });
+  })();
+  </script>
+  <script>
+  (function () {
+    // Review queue quick actions: Accept / Dispute post to the field routes as
+    // actor "reviewer" and re-render the row from the returned field; "Show
+    // all" reveals the rows collapsed past the first eight.
+    var projectId = document.body.getAttribute("data-project-id") || "default";
+    var table = document.getElementById("queue-table");
+    var showAll = document.getElementById("queue-show-all");
+    if (showAll) {
+      showAll.addEventListener("click", function () {
+        var rows = document.querySelectorAll('#queue-table tr[data-collapsed]');
+        for (var i = 0; i < rows.length; i++) rows[i].removeAttribute("hidden");
+        showAll.parentNode.removeChild(showAll);
+      });
+    }
+    if (!table) return;
+
+    var stateWords = { accepted: "Accepted", partial: "Partial", unverified: "Unverified", disputed: "Disputed", rejected: "Rejected" };
+
+    function headers() {
+      var h = { "Content-Type": "application/json" };
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) h["X-CSRFToken"] = meta.content;
+      return h;
+    }
+
+    function note(row, text, tone) {
+      var cell = row.querySelector(".queue-actions");
+      var n = cell.querySelector(".note");
+      if (!n) { n = document.createElement("span"); n.className = "note"; cell.appendChild(n); }
+      n.textContent = text || "";
+      if (tone) n.setAttribute("data-tone", tone); else n.removeAttribute("data-tone");
+    }
+
+    function render(row, field, dispute) {
+      var state = String(field.field_state || "unverified");
+      row.setAttribute("data-state", state);
+      row.removeAttribute("data-overdue");
+      var stateCell = row.querySelector(".queue-state");
+      while (stateCell.firstChild) stateCell.removeChild(stateCell.firstChild);
+      var s = document.createElement("span");
+      s.className = "status status--" + state;
+      s.textContent = stateWords[state] || state;
+      stateCell.appendChild(s);
+      var sla = document.createElement("span");
+      sla.className = "sla";
+      sla.textContent = dispute && dispute.due_words ? dispute.due_words : (state === "accepted" ? "Done" : "");
+      stateCell.appendChild(sla);
+      var why = row.querySelector(".queue-why");
+      if (why && field.reason) {
+        var small = why.querySelector("small");
+        var reason = String(field.reason);
+        why.textContent = reason.charAt(0).toUpperCase() + reason.slice(1);
+        if (small) {
+          if (dispute) small.textContent = "Disputed";
+          why.appendChild(small);
+        }
+      }
+      var actions = row.querySelector(".queue-actions");
+      var quick = actions.querySelector(".queue-quick");
+      if (quick) quick.parentNode.removeChild(quick);
+      if (state === "accepted") row.classList.add("queue-row--done");
+    }
+
+    function post(row, act, body) {
+      var reportId = row.getAttribute("data-report-id");
+      var field = row.getAttribute("data-field");
+      var url = "/api/projects/" + encodeURIComponent(projectId) + "/parsure/" + encodeURIComponent(reportId) + "/fields/" + encodeURIComponent(field) + "/" + act;
+      body.actor = "reviewer";
+      var buttons = row.querySelectorAll("button");
+      for (var i = 0; i < buttons.length; i++) buttons[i].disabled = true;
+      note(row, "Saving…");
+      fetch(url, { method: "POST", headers: headers(), credentials: "same-origin", body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (b) { return { code: r.status, body: b || {} }; }); })
+        .then(function (res) {
+          if (res.code >= 200 && res.code < 300 && res.body.field) {
+            render(row, res.body.field, res.body.dispute || null);
+            note(row, act === "accept" ? "Accepted." : "Dispute opened.");
+            return;
+          }
+          for (var j = 0; j < buttons.length; j++) buttons[j].disabled = false;
+          note(row, res.body.error || "Could not save.", "error");
+        })
+        .catch(function () {
+          for (var j = 0; j < buttons.length; j++) buttons[j].disabled = false;
+          note(row, "Could not save. Check your connection and try again.", "error");
+        });
+    }
+
+    table.addEventListener("click", function (ev) {
+      var btn = ev.target.closest ? ev.target.closest("button[data-act]") : null;
+      if (!btn) return;
+      var row = btn.closest("tr");
+      var act = btn.getAttribute("data-act");
+      if (act === "accept") { post(row, "accept", {}); return; }
+      if (act === "dispute") {
+        var reason = window.prompt("Why is this field disputed? The adjudicator has 72 hours to answer.");
+        if (reason === null) return;
+        reason = String(reason).trim();
+        if (!reason) { note(row, "A dispute needs a reason.", "error"); return; }
+        post(row, "dispute", { reason: reason });
+      }
     });
   })();
   </script>

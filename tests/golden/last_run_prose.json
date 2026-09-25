@@ -1,0 +1,959 @@
+{
+  "run_at": "2026-09-25T08:11:05+00:00",
+  "golden_dir": "tests/golden/prose",
+  "documents": 7,
+  "type_accuracy": 1.0,
+  "fields_checked": 68,
+  "field_accuracy": 0.3088,
+  "per_type": {
+    "auto_policy": {
+      "documents": 2,
+      "classified": 2,
+      "fields": 33,
+      "correct": 14,
+      "field_accuracy": 0.4242
+    },
+    "auto_claim": {
+      "documents": 1,
+      "classified": 1,
+      "fields": 13,
+      "correct": 6,
+      "field_accuracy": 0.4615
+    },
+    "property_policy": {
+      "documents": 1,
+      "classified": 1,
+      "fields": 9,
+      "correct": 0,
+      "field_accuracy": 0.0
+    },
+    "deed": {
+      "documents": 1,
+      "classified": 1,
+      "fields": 6,
+      "correct": 1,
+      "field_accuracy": 0.1667
+    },
+    "mortgage": {
+      "documents": 1,
+      "classified": 1,
+      "fields": 7,
+      "correct": 0,
+      "field_accuracy": 0.0
+    }
+  },
+  "per_field": {
+    "adjuster_name": {
+      "checked": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    },
+    "agent_name": {
+      "checked": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "borrower_name": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "claim_number": {
+      "checked": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    },
+    "claimant_name": {
+      "checked": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    },
+    "collision_deductible": {
+      "checked": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "comprehensive_deductible": {
+      "checked": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "consideration": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "county": {
+      "checked": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "date_of_loss": {
+      "checked": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    },
+    "deductible": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "dwelling_coverage": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "effective_date": {
+      "checked": 4,
+      "correct": 1,
+      "accuracy": 0.25
+    },
+    "estimated_damage": {
+      "checked": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    },
+    "execution_date": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "expiration_date": {
+      "checked": 4,
+      "correct": 2,
+      "accuracy": 0.5
+    },
+    "grantor": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "insured_name": {
+      "checked": 4,
+      "correct": 1,
+      "accuracy": 0.25
+    },
+    "interest_rate": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "liability_limit": {
+      "checked": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "loan_number": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "maturity_date": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "parcel_number": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "personal_property_coverage": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "policy_number": {
+      "checked": 5,
+      "correct": 1,
+      "accuracy": 0.2
+    },
+    "premium": {
+      "checked": 4,
+      "correct": 1,
+      "accuracy": 0.25
+    },
+    "principal_amount": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "property_address": {
+      "checked": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "recording_date": {
+      "checked": 1,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "vehicle_year_make_model": {
+      "checked": 4,
+      "correct": 1,
+      "accuracy": 0.25
+    },
+    "vin": {
+      "checked": 4,
+      "correct": 4,
+      "accuracy": 1.0
+    }
+  },
+  "documents_detail": [
+    {
+      "document": "auto_policy_1.txt",
+      "expected_type": "auto_policy",
+      "detected_type": "auto_policy",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "auto_policy",
+          "confidence": 0.833
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "policy_number",
+            "expected": "NAP-4471-2025",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "insured_name",
+            "expected": "Daniel R. Whitfield",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "effective_date",
+            "expected": "2025-03-01",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "vehicle_year_make_model",
+            "expected": "2003 Honda Accord EX Sedan",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "premium",
+            "expected": 1486.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "liability_limit",
+            "expected": 250000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "collision_deductible",
+            "expected": 500.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "comprehensive_deductible",
+            "expected": 250.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "agent_name",
+            "expected": "Marianne Costa",
+            "got": null,
+            "method": null
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "premium",
+            "expected": 1486.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "liability_limit",
+            "expected": 250000.0,
+            "got": null,
+            "method": null
+          }
+        ],
+        "notes": [
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 7 field(s) grounded, 0 candidate(s) rejected, 1.7s"
+        ],
+        "elapsed_s": 2.66,
+        "llm_grounded": 7
+      }
+    },
+    {
+      "document": "auto_policy_2.txt",
+      "expected_type": "auto_policy",
+      "detected_type": "auto_policy",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "auto_policy",
+          "confidence": 0.583
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "policy_number",
+            "expected": "BCC 88-2210-A",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "insured_name",
+            "expected": "Priya Nandakumar",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "effective_date",
+            "expected": "2025-07-15",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "expiration_date",
+            "expected": "2026-01-15",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "vehicle_year_make_model",
+            "expected": "2011 Toyota Camry LE",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "premium",
+            "expected": 612.5,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "liability_limit",
+            "expected": 100000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "collision_deductible",
+            "expected": 1000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "comprehensive_deductible",
+            "expected": 500.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "agent_name",
+            "expected": "Elliot Marsh",
+            "got": null,
+            "method": null
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "vehicle_year_make_model",
+            "expected": "2011 Toyota Camry LE",
+            "got": "2011 Toyota Camry LE, VIN 4T1BF3EK6BU123456",
+            "method": "llm_grounded"
+          }
+        ],
+        "notes": [
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 10 field(s) grounded, 0 candidate(s) rejected, 2.1s"
+        ],
+        "elapsed_s": 2.08,
+        "llm_grounded": 10
+      }
+    },
+    {
+      "document": "auto_claim_1.txt",
+      "expected_type": "auto_claim",
+      "detected_type": "auto_claim",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "auto_claim",
+          "confidence": 0.667
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "claim_number",
+            "expected": "CLM-2025-093311",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "policy_number",
+            "expected": "NAP-4471-2025",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "claimant_name",
+            "expected": "Daniel R. Whitfield",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "date_of_loss",
+            "expected": "2025-08-14",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "vehicle_year_make_model",
+            "expected": "2003 Honda Accord EX Sedan",
+            "got": ". The rear bumper, trunk lid and tail lamps were damaged; no injuries were reported. Plymouth PD report #25-11873 was filed at the scene",
+            "method": "label_anchor"
+          },
+          {
+            "field": "estimated_damage",
+            "expected": 4275.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "adjuster_name",
+            "expected": "Thomas Greeley",
+            "got": "Thomas Greeley, who will contact the claimant within two business days",
+            "method": "label_anchor"
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "vehicle_year_make_model",
+            "expected": "2003 Honda Accord EX Sedan",
+            "got": ". The rear bumper, trunk lid and tail lamps were damaged; no injuries were reported. Plymouth PD report #25-11873 was filed at the scene",
+            "method": "label_anchor"
+          },
+          {
+            "field": "adjuster_name",
+            "expected": "Thomas Greeley",
+            "got": "Thomas Greeley, who will contact the claimant within two business days",
+            "method": "label_anchor"
+          }
+        ],
+        "notes": [
+          "llm candidate rejected for loss_description: quote not found verbatim in the text",
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 5 field(s) grounded, 1 candidate(s) rejected, 2.5s"
+        ],
+        "elapsed_s": 2.51,
+        "llm_grounded": 5
+      }
+    },
+    {
+      "document": "property_policy_1.txt",
+      "expected_type": "property_policy",
+      "detected_type": "property_policy",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "property_policy",
+          "confidence": 0.667
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "policy_number",
+            "expected": "HO3-55120-PL",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "insured_name",
+            "expected": "Rosa and Miguel Alvarez",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "property_address",
+            "expected": "42 Sandwich Road, Plymouth, MA 02360",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "effective_date",
+            "expected": "2025-05-01",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "expiration_date",
+            "expected": "2026-05-01",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "dwelling_coverage",
+            "expected": 425000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "personal_property_coverage",
+            "expected": 212500.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "premium",
+            "expected": 2140.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "deductible",
+            "expected": 2500.0,
+            "got": null,
+            "method": null
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "policy_number",
+            "expected": "HO3-55120-PL",
+            "got": null,
+            "method": null
+          }
+        ],
+        "notes": [
+          "llm candidate rejected for policy_number: quote not found verbatim in the text",
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 9 field(s) grounded, 1 candidate(s) rejected, 2.2s"
+        ],
+        "elapsed_s": 2.2,
+        "llm_grounded": 9
+      }
+    },
+    {
+      "document": "deed_1.txt",
+      "expected_type": "deed",
+      "detected_type": "deed",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "deed",
+          "confidence": 0.417
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "grantor",
+            "expected": "Eleanor M. Bradford",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "property_address",
+            "expected": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "consideration",
+            "expected": 585000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "recording_date",
+            "expected": "2025-06-16",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "parcel_number",
+            "expected": "023-000-014-000",
+            "got": null,
+            "method": null
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "property_address",
+            "expected": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+            "got": null,
+            "method": null
+          }
+        ],
+        "notes": [
+          "llm candidate rejected for property_address: quote not found verbatim in the text",
+          "llm candidate rejected for legal_description: quote not found verbatim in the text",
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 5 field(s) grounded, 2 candidate(s) rejected, 3.1s"
+        ],
+        "elapsed_s": 3.13,
+        "llm_grounded": 5
+      }
+    },
+    {
+      "document": "mortgage_1.txt",
+      "expected_type": "mortgage",
+      "detected_type": "mortgage",
+      "segments": [
+        {
+          "pages": [
+            1
+          ],
+          "document_type": "mortgage",
+          "confidence": 0.583
+        }
+      ],
+      "label_only": {
+        "misses": [
+          {
+            "field": "loan_number",
+            "expected": "0031-778-2025",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "borrower_name",
+            "expected": "Samuel T. Okafor and Grace A. Okafor",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "principal_amount",
+            "expected": 468000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "interest_rate",
+            "expected": 6.125,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "maturity_date",
+            "expected": "2055-07-01",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "property_address",
+            "expected": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+            "got": "7 Cole's Hill Terrace, Plymouth, MA 02360, together with all improvements now or hereafter erected on it. Escrow for taxes and insurance is required under this",
+            "method": "label_anchor"
+          },
+          {
+            "field": "execution_date",
+            "expected": "2025-06-12",
+            "got": null,
+            "method": null
+          }
+        ]
+      },
+      "label_llm": {
+        "misses": [
+          {
+            "field": "loan_number",
+            "expected": "0031-778-2025",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "borrower_name",
+            "expected": "Samuel T. Okafor and Grace A. Okafor",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "principal_amount",
+            "expected": 468000.0,
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "maturity_date",
+            "expected": "2055-07-01",
+            "got": null,
+            "method": null
+          },
+          {
+            "field": "property_address",
+            "expected": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+            "got": "7 Cole's Hill Terrace, Plymouth, MA 02360, together with all improvements now or hereafter erected on it. Escrow for taxes and insurance is required under this",
+            "method": "label_anchor"
+          },
+          {
+            "field": "execution_date",
+            "expected": "2025-06-12",
+            "got": null,
+            "method": null
+          }
+        ],
+        "notes": [
+          "llm candidate rejected for principal_amount: value not inside the quoted text",
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 2 field(s) grounded, 1 candidate(s) rejected, 2.1s"
+        ],
+        "elapsed_s": 2.08,
+        "llm_grounded": 2
+      }
+    },
+    {
+      "document": "mixed_bundle_1.txt",
+      "expected_type": "mixed_bundle",
+      "detected_type": "mixed_bundle",
+      "segments": [
+        {
+          "pages": [
+            1,
+            2
+          ],
+          "document_type": "auto_policy",
+          "confidence": 0.9
+        },
+        {
+          "pages": [
+            3
+          ],
+          "document_type": "auto_claim",
+          "confidence": 0.75
+        }
+      ],
+      "segmentation_ok": true,
+      "label_only": {
+        "misses": []
+      },
+      "label_llm": {
+        "misses": [],
+        "notes": [
+          "llm candidate rejected for vehicle_year_make_model: quote not found verbatim in the text",
+          "llm extraction: model ollama/qwen2.5:1.5b, 1 call(s), 0 field(s) grounded, 1 candidate(s) rejected, 1.5s"
+        ],
+        "elapsed_s": 1.55,
+        "llm_grounded": 0
+      }
+    }
+  ],
+  "label_llm": {
+    "enabled": true,
+    "model": "ollama/qwen2.5:1.5b",
+    "backend": "ollama",
+    "reachable": true,
+    "elapsed_s_total": 16.21,
+    "fields_checked": 68,
+    "field_accuracy": 0.8088,
+    "per_type": {
+      "auto_policy": {
+        "fields": 33,
+        "correct": 30,
+        "field_accuracy": 0.9091
+      },
+      "auto_claim": {
+        "fields": 13,
+        "correct": 11,
+        "field_accuracy": 0.8462
+      },
+      "property_policy": {
+        "fields": 9,
+        "correct": 8,
+        "field_accuracy": 0.8889
+      },
+      "deed": {
+        "fields": 6,
+        "correct": 5,
+        "field_accuracy": 0.8333
+      },
+      "mortgage": {
+        "fields": 7,
+        "correct": 1,
+        "field_accuracy": 0.1429
+      }
+    },
+    "per_field": {
+      "adjuster_name": {
+        "checked": 2,
+        "correct": 1,
+        "accuracy": 0.5
+      },
+      "agent_name": {
+        "checked": 3,
+        "correct": 3,
+        "accuracy": 1.0
+      },
+      "borrower_name": {
+        "checked": 1,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "claim_number": {
+        "checked": 2,
+        "correct": 2,
+        "accuracy": 1.0
+      },
+      "claimant_name": {
+        "checked": 2,
+        "correct": 2,
+        "accuracy": 1.0
+      },
+      "collision_deductible": {
+        "checked": 3,
+        "correct": 3,
+        "accuracy": 1.0
+      },
+      "comprehensive_deductible": {
+        "checked": 3,
+        "correct": 3,
+        "accuracy": 1.0
+      },
+      "consideration": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "county": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "date_of_loss": {
+        "checked": 2,
+        "correct": 2,
+        "accuracy": 1.0
+      },
+      "deductible": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "dwelling_coverage": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "effective_date": {
+        "checked": 4,
+        "correct": 4,
+        "accuracy": 1.0
+      },
+      "estimated_damage": {
+        "checked": 2,
+        "correct": 2,
+        "accuracy": 1.0
+      },
+      "execution_date": {
+        "checked": 1,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "expiration_date": {
+        "checked": 4,
+        "correct": 4,
+        "accuracy": 1.0
+      },
+      "grantor": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "insured_name": {
+        "checked": 4,
+        "correct": 4,
+        "accuracy": 1.0
+      },
+      "interest_rate": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "liability_limit": {
+        "checked": 3,
+        "correct": 2,
+        "accuracy": 0.6667
+      },
+      "loan_number": {
+        "checked": 1,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "maturity_date": {
+        "checked": 1,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "parcel_number": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "personal_property_coverage": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "policy_number": {
+        "checked": 5,
+        "correct": 4,
+        "accuracy": 0.8
+      },
+      "premium": {
+        "checked": 4,
+        "correct": 3,
+        "accuracy": 0.75
+      },
+      "principal_amount": {
+        "checked": 1,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "property_address": {
+        "checked": 3,
+        "correct": 1,
+        "accuracy": 0.3333
+      },
+      "recording_date": {
+        "checked": 1,
+        "correct": 1,
+        "accuracy": 1.0
+      },
+      "vehicle_year_make_model": {
+        "checked": 4,
+        "correct": 2,
+        "accuracy": 0.5
+      },
+      "vin": {
+        "checked": 4,
+        "correct": 4,
+        "accuracy": 1.0
+      }
+    }
+  }
+}

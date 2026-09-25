@@ -1070,12 +1070,219 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "reports_available": reports_available,
         }
 
+        # Review queue (spec §9 item 18) and analytics (item 27) come from the
+        # same repository; when either is absent (older module, missing table)
+        # the section is omitted or reads "—", never a default number.
+        queue = None
+        analytics = None
+        if reports_available:
+            try:
+                try:
+                    from .db import parsure_repository as _parsure_repo
+                except ImportError:
+                    from db import parsure_repository as _parsure_repo
+                queue = _parsure_repo.list_queue(project_id, limit=200)
+            except Exception:  # noqa: BLE001 — queue must not break intake
+                queue = None
+            try:
+                analytics = _parsure_repo.analytics(project_id)
+            except Exception:  # noqa: BLE001
+                analytics = None
+
+        def _value_label(value):
+            if value is None:
+                return "—"
+            if isinstance(value, bool):
+                return "Yes" if value else "No"
+            if isinstance(value, int):
+                return f"{value:,}"
+            if isinstance(value, float):
+                return f"{value:,.2f}".rstrip("0").rstrip(".") if value != int(value) else f"{int(value):,}"
+            return str(value)
+
+        import re as _re
+
+        def _reason_words(reason):
+            """The decision policy's reason string in plain words for the Why column.
+
+            The raw string stays in the card's Details table and the API; here the
+            system tokens (``extraction_confidence 0.52 < 0.75``,
+            ``number_quality handwritten: …``) read as a sentence fragment a
+            reviewer can act on (brief §2 "Wording clarity").
+            """
+            if not reason:
+                return "No reason recorded"
+            text = str(reason).strip()
+            m = _re.match(r"^(extraction|verification)_confidence\s+([0-9.]+)\s*<\s*([0-9.]+)$", text)
+            if m:
+                return f"{m.group(1).capitalize()} confidence {m.group(2)} is below {m.group(3)}"
+            m = _re.match(r"^(number|signature)_quality\s+([a-z_]+)\s*:?\s*(.*)$", text, _re.I)
+            if m:
+                tail = f": {m.group(3).strip()}" if m.group(3).strip() else ""
+                return f"{m.group(1).capitalize()} reads {m.group(2).replace('_', ' ')}{tail}"
+            m = _re.match(r"^z3 violation\s*:\s*(.*)$", text, _re.I)
+            if m:
+                return f"Verification failed: {m.group(1).strip()}" if m.group(1).strip() else "Verification failed"
+            m = _re.match(r"^plausibility rule '([^']+)' failed\s*:?\s*(.*)$", text, _re.I)
+            if m:
+                return f"Implausible ({m.group(1).replace('_', ' ')}){': ' + m.group(2).strip() if m.group(2).strip() else ''}"
+            m = _re.match(r"^disputed\s*:\s*(.*)$", text, _re.I)
+            if m:
+                return f"Disputed: {m.group(1).strip()}"
+            if text.lower() == "field not found":
+                return "Not found in the document"
+            if text.lower().startswith("compliance-bound"):
+                return "Compliance-bound: a person must confirm it"
+            return text[0].upper() + text[1:]
+
+        _routing_words = {
+            "manual_review": "Needs a reviewer",
+            "adjudicator_queue": "With an adjudicator",
+            "compliance_review": "Needs compliance sign-off",
+            "retry_parsure": "Retry with another reader",
+            "replay_later": "Waiting for replay",
+            "none": "No action",
+        }
+        _reason_labels = {
+            "disputed": "Disputed",
+            "not_found": "Not found",
+            "signature": "Signature",
+            "number_quality": "Number quality",
+            "plausibility": "Plausibility",
+            "verification": "Verification",
+            "compliance": "Compliance-bound",
+            "low_confidence": "Low confidence",
+            "other": "Other",
+        }
+
+        queue_view = None
+        if queue is not None:
+            rows_out = []
+            for item in queue.get("items") or []:
+                state = str(item.get("field_state") or "unverified")
+                dispute = item.get("dispute") or None
+                rows_out.append(
+                    {
+                        "report_id": item.get("report_id") or "",
+                        "field_name": item.get("field_name") or "",
+                        "filename": item.get("filename") or "Untitled",
+                        "doc_type_label": _words(item.get("document_type")) if item.get("document_type") not in (None, "", "uncertain", "unknown", "other") else "Type uncertain",
+                        "label": item.get("label") or _words(item.get("field_name")) or "Field",
+                        "value_label": _value_label(item.get("value")),
+                        "has_value": item.get("value") is not None,
+                        "confidence_label": _score_label(item.get("extraction_confidence")),
+                        "reason": _reason_words(item.get("reason")),
+                        "reason_category": _reason_labels.get(item.get("reason_category") or "other", "Other"),
+                        "state": state,
+                        "state_label": _words(state, _state_words) or "—",
+                        "action_label": _routing_words.get(str(item.get("routing_action") or "none"), _words(item.get("routing_action")) or "—"),
+                        "dispute": dispute,
+                        "overdue": bool(dispute and dispute.get("overdue")),
+                        "due_words": (dispute or {}).get("due_words"),
+                        "review_href": f"/?project_id={project_id}&report_id={item.get('report_id')}",
+                    }
+                )
+            queue_view = {
+                "rows": rows_out,
+                "total": int(queue.get("total") or len(rows_out)),
+                "counts": queue.get("counts") or {},
+                "visible": 8,
+            }
+
+        def _pct_label(rate):
+            n = _num(rate)
+            return f"{round(n * 100)}%" if n is not None else "—"
+
+        analytics_view = None
+        if analytics is not None:
+            documents_n = int(analytics.get("documents") or 0)
+            trend = list(analytics.get("trend") or [])
+            points = [(i, _num(d.get("avg_quality"))) for i, d in enumerate(trend)]
+            scored = [(i, q) for i, q in points if q is not None]
+            width, height, pad = 560.0, 64.0, 6.0
+            step = (width - 2 * pad) / max(1, len(trend) - 1)
+
+            def _xy(i, q):
+                return round(pad + i * step, 1), round(pad + (1.0 - max(0.0, min(1.0, q))) * (height - 2 * pad), 1)
+
+            spark = None
+            if scored:
+                coords = [_xy(i, q) for i, q in scored]
+                spark = {
+                    "width": int(width),
+                    "height": int(height),
+                    "path": " ".join(("M" if k == 0 else "L") + f"{x} {y}" for k, (x, y) in enumerate(coords)),
+                    "points": [
+                        {"x": x, "y": y, "day": trend[i]["day"], "label": f"{q:.2f}", "documents": trend[i]["documents"]}
+                        for (x, y), (i, q) in zip(coords, scored)
+                    ],
+                    "last": {"x": coords[-1][0], "y": coords[-1][1], "label": f"{scored[-1][1]:.2f}"},
+                    "days_with_intake": len(scored),
+                    "single": len(scored) == 1,
+                }
+            hist = list(analytics.get("quality_histogram") or [])
+            hist_max = max([int(h.get("count") or 0) for h in hist] or [0])
+            hist_view = [
+                {
+                    "bucket": h.get("bucket"),
+                    "count": int(h.get("count") or 0),
+                    "pct": (int(h.get("count") or 0) / hist_max * 100.0) if hist_max else 0.0,
+                    # Tone only where it means something: the top band is what
+                    # Assure accepts without a second look; the bottom two are
+                    # what the cards flag as "Page quality is low."
+                    "tone": "verified" if _num(h.get("low")) is not None and _num(h.get("low")) >= 0.8 else ("partial" if _num(h.get("high")) is not None and _num(h.get("high")) <= 0.4 else "neutral"),
+                }
+                for h in hist
+            ]
+            issues_src = (analytics.get("issue_distribution") or {})
+            issues = [
+                {"label": i.get("label") or i.get("key"), "count": int(i.get("count") or 0), "kind": "field"}
+                for i in (issues_src.get("field_reasons") or [])
+            ] + [
+                {"label": _words(i.get("key"), _flag_words) or i.get("label"), "count": int(i.get("count") or 0), "kind": "page"}
+                for i in (issues_src.get("quality_flags") or [])
+            ]
+            issues.sort(key=lambda i: (-i["count"], i["label"]))
+            issue_max = max([i["count"] for i in issues] or [0])
+            for i in issues:
+                i["pct"] = (i["count"] / issue_max * 100.0) if issue_max else 0.0
+            modality = [
+                {"label": _words(k, _modality_words) or k, "count": int(v or 0)}
+                for k, v in (analytics.get("by_modality") or {}).items()
+            ]
+            analytics_view = {
+                "has_data": documents_n > 0,
+                "documents": documents_n,
+                "avg_quality_label": _score_label(analytics.get("avg_document_quality")),
+                "review_rate_label": _pct_label(analytics.get("review_rate")),
+                "fields_review": int(analytics.get("fields_review") or 0),
+                "fields_total": int(analytics.get("fields_total") or 0),
+                "disputes_open": int(analytics.get("disputes_open") or 0),
+                "disputes_overdue": int(analytics.get("disputes_overdue") or 0),
+                "disputes_due_24h": int(analytics.get("disputes_due_24h") or 0),
+                "corrections": int(analytics.get("corrections") or 0),
+                "correction_rate_label": _pct_label(analytics.get("correction_rate")),
+                "replay_rate_label": _pct_label(analytics.get("replay_eligible_rate")),
+                "replay_eligible": int(analytics.get("replay_eligible") or 0),
+                "spark": spark,
+                "trend_rows": [d for d in trend if int(d.get("documents") or 0) > 0],
+                "trend_start_label": _date_label(trend[0]["day"]) if trend else "—",
+                "trend_end_label": _date_label(trend[-1]["day"]) if trend else "—",
+                "trend_days": int(analytics.get("trend_days") or 30),
+                "histogram": hist_view,
+                "unscored": int(analytics.get("quality_unscored") or 0),
+                "issues": issues[:8],
+                "modality": modality,
+            }
+
         return _page(
             "parsing.html",
             "parsing",
             project_id=project_id,
             documents=cards,
             summary=summary,
+            queue=queue_view,
+            analytics=analytics_view,
         )
 
     @app.get("/signin")

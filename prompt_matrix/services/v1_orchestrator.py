@@ -11,6 +11,23 @@ never re-parses, never re-verifies and never routes: those belong to
 from the signals at hand; when that module is absent the page score is
 ``None`` and the basis says so.
 
+Two Phase A additions live here because they are orchestration, not
+extraction:
+
+* **Grounded LLM fill** — the fields the label pass leaves empty are offered
+  to ``services/llm_extraction`` (``PARSURE_LLM_EXTRACTION``, default on),
+  which only returns a value it re-found verbatim in the page text. Its notes
+  land in ``report["extraction_notes"]``.
+* **Mixed bundles** (spec §6) — every page is classified on its own; when two
+  or more pages carry *different confident* types the upload is split into
+  ``documents`` segments, each classified and extracted separately, and the
+  report is flagged ``mixed_bundle`` with ``material_type="mixed_bundle"``,
+  ``modality="mixed"``. Boundary detection is **by page-level classification
+  change only**: there is no visual boundary detection (blank pages, headers,
+  page-number resets) in V1, so a two-page policy whose second page reads
+  like a claim form will be split, and two same-type documents stapled
+  together will not be. The flag routes the bundle to a reviewer either way.
+
 Failure isolation: the pipeline treats the return value as advisory. Any
 exception here is logged and turns into ``None`` so a review-backend bug can
 never fail an ingest that already has its revision.
@@ -26,8 +43,10 @@ from typing import Any
 
 try:
     from ..services import field_extractor as fx
+    from ..services import llm_extraction as lx
 except ImportError:
     from services import field_extractor as fx  # type: ignore
+    from services import llm_extraction as lx  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -205,12 +224,15 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None) -> tuple[li
     return pages, signatures
 
 
-def quality_summary(pages: list[dict], signature: dict | None, numbers_flagged: int) -> str:
+def quality_summary(pages: list[dict], signature: dict | None, numbers_flagged: int, *, documents: list[dict] | None = None) -> str:
     """One calm sentence a reviewer can read at a glance."""
     total = len(pages)
     if not total:
         return "No pages were parsed."
     parts: list[str] = []
+    if documents and len(documents) > 1:
+        parts.append(f"{len(documents)} documents detected in one upload (" + ", ".join(
+            f"{d['document_type']} p.{d['pages'][0]}" + (f"–{d['pages'][-1]}" if len(d["pages"]) > 1 else "") for d in documents) + ")")
     counts: dict[str, int] = {}
     for p in pages:
         for flag in p.get("flags") or []:
@@ -270,6 +292,153 @@ def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous
     }
 
 
+def _page_range(pages: list[int]) -> str:
+    return f"p.{pages[0]}" + (f"–{pages[-1]}" if len(pages) > 1 else "")
+
+
+def segment_pages(texts: list[str]) -> list[dict[str, Any]]:
+    """Spec §6 "Mixed Bundles": split an upload into documents by page-level
+    classification change — and by nothing else (no visual boundary
+    detection in V1; see the module docstring).
+
+    Each page is classified alone. A confident page (not ``uncertain``) that
+    differs from the running segment's type opens a new segment; an uncertain
+    page joins the running segment (a continuation page rarely repeats the
+    title vocabulary), or the first confident segment when it comes before
+    one. When fewer than two distinct confident types appear the whole upload
+    is one segment classified from its joined text — the pre-Phase A
+    behaviour. Otherwise each segment is re-classified from its own joined
+    text so its ``confidence``/``basis`` describe the segment, and the
+    boundary basis names the pages where the type changed.
+    """
+    texts = list(texts or [])
+    all_pages = list(range(1, len(texts) + 1))
+    whole = fx.classify_document("\n".join(texts))
+    single = [{"index": 0, "pages": all_pages, "document_type": whole["document_type"], "confidence": whole["confidence"],
+               "basis": whole["basis"], "matched_keywords": whole.get("matched_keywords") or [], "page_types": None}]
+    if len(texts) < 2:
+        return single
+    page_types = [fx.classify_document(t or "")["document_type"] for t in texts]
+    segments: list[dict[str, Any]] = []
+    leading: list[int] = []
+    for page_no, ptype in zip(all_pages, page_types):
+        if ptype == "uncertain":
+            (segments[-1]["pages"] if segments else leading).append(page_no)
+            continue
+        if segments and segments[-1]["document_type"] == ptype:
+            segments[-1]["pages"].append(page_no)
+        else:
+            segments.append({"document_type": ptype, "pages": leading + [page_no]})
+            leading = []
+    if len({seg["document_type"] for seg in segments}) < 2:
+        single[0]["page_types"] = page_types
+        return single
+    out: list[dict[str, Any]] = []
+    for idx, seg in enumerate(segments):
+        cls = fx.classify_document("\n".join(texts[p - 1] or "" for p in seg["pages"]))
+        doc_type = cls["document_type"] if cls["document_type"] != "uncertain" else seg["document_type"]
+        out.append({
+            "index": idx, "pages": seg["pages"], "document_type": doc_type, "confidence": cls["confidence"],
+            "basis": f"pages {_page_range(seg['pages'])} classified alone as {seg['document_type']}; segment text: {cls['basis']}",
+            "matched_keywords": cls.get("matched_keywords") or [], "page_types": [page_types[p - 1] for p in seg["pages"]],
+        })
+    return out
+
+
+def bundle_classification(segments: list[dict]) -> dict[str, Any]:
+    """The report-level ``classification`` for a mixed bundle: the type is the
+    literal ``mixed_bundle`` (no single ICP type describes the upload) and the
+    basis names the page boundaries and how they were found."""
+    boundary = " → ".join(f"{s['document_type']} ({_page_range(s['pages'])})" for s in segments)
+    return {
+        "document_type": "mixed_bundle",
+        "confidence": round(min(float(s.get("confidence") or 0.0) for s in segments), 3),
+        "basis": f"page-level classification change: {boundary}; boundaries by per-page keyword classification only (no visual boundary detection in V1)",
+        "matched_keywords": [],
+        "segments": [{k: s[k] for k in ("index", "pages", "document_type", "confidence")} for s in segments],
+    }
+
+
+def segment_texts(texts: list[str], pages: list[int]) -> list[str]:
+    """The page list cut to one segment: pages outside it before the segment
+    are blanked (page numbers, layout and quality indexes stay aligned with
+    the document) and pages after it are dropped (so the signature fallback's
+    "last page" is the segment's last page)."""
+    keep = set(pages)
+    last = max(pages) if pages else 0
+    return [(texts[i] if (i + 1) in keep else "") for i in range(min(last, len(texts)))]
+
+
+def llm_fill_missing(
+    document_type: str,
+    texts: list[str],
+    fields: list[dict],
+    *,
+    completion: Any = None,
+    notes: list[str],
+    parser_name: str | None,
+    parse_confidence: float | None,
+    ocr_confidence: float | None,
+    page_quality: list[float | None] | None,
+    visual_pages: list[dict] | None,
+    layout: list[list[dict]] | None,
+    project_id: str | None = None,
+) -> list[dict]:
+    """Offer the label pass's empty fields to the grounded LLM pass and merge
+    what it can prove. The signature field is never offered; a field the pass
+    cannot ground stays exactly as it was. Never raises (the pass itself
+    does not); ``notes`` collects its skip/reject lines."""
+    specs = {s.name: s for s in fx.FIELD_TAXONOMY.get(document_type) or []}
+    missing = [specs[f["name"]] for f in fields if f.get("value") is None and f["name"] in specs and specs[f["name"]].field_type != "signature"]
+    if not missing:
+        return fields
+    try:
+        filled = lx.extract_missing_fields(
+            document_type, texts, missing, completion=completion, notes=notes, parser_name=parser_name,
+            parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
+            visual_pages=visual_pages, layout=layout, project_id=project_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — advisory pass
+        log.exception("llm_fill_missing failed")
+        notes.append(f"llm extraction skipped: {type(exc).__name__}: {exc}")
+        return fields
+    by_name = {f["name"]: f for f in filled if f.get("value") is not None}
+    return [by_name.get(f["name"], f) for f in fields]
+
+
+def extract_segment_fields(
+    document_type: str,
+    texts: list[str],
+    *,
+    layout: list[list[dict]] | None,
+    parser_name: str | None,
+    parse_confidence: float | None,
+    ocr_confidence: float | None,
+    page_quality: list[float | None],
+    visual_pages: list[dict | None],
+    verification: dict | None,
+    notes: list[str],
+    completion: Any = None,
+    project_id: str | None = None,
+    llm: bool = True,
+) -> tuple[list[dict], list[dict]]:
+    """Label pass → grounded LLM fill (``llm=True``) → plausibility/Z3 → 3-rule
+    policy, for one document (segment). ``llm=False`` leaves a note instead."""
+    fields = fx.extract_fields(
+        document_type, texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
+        ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
+    )
+    if llm:
+        fields = llm_fill_missing(
+            document_type, texts, fields, completion=completion, notes=notes, parser_name=parser_name,
+            parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
+            visual_pages=visual_pages, layout=layout, project_id=project_id,
+        )
+    elif any(f.get("value") is None and f.get("field_type") != "signature" for f in fields):
+        notes.append("llm extraction skipped: not run on this path (label pass only)")
+    return decide_fields(fields, verification=verification, document_type=document_type)
+
+
 def decide_fields(fields: list[dict], *, verification: dict | None, document_type: str) -> tuple[list[dict], list[dict]]:
     """Plausibility rules (auto types) + real Z3 hits, then the 3-rule policy."""
     rules: list[dict] = []
@@ -293,26 +462,50 @@ def build_report(
     result: dict,
     job_id: str | None,
     intake: dict | None,
+    completion: Any = None,
 ) -> dict[str, Any]:
-    """The contract dict, not yet saved (``run_after_parse`` saves it)."""
+    """The contract dict, not yet saved (``run_after_parse`` saves it).
+
+    ``completion`` is the injectable model call for the grounded LLM pass
+    (tests); production leaves it None and ``llm_extraction`` uses the app's
+    model path.
+    """
     texts = fx.page_texts(bundle)
     layout = fx.page_layout(bundle)
     pname = contract_parser_name(bundle.get("parser_name") or (intake or {}).get("parser"))
     pver = parser_version(pname, bundle.get("jdf"))
     pages, signatures = score_pages(bundle, texts, intake)
     page_quality = [p["quality_score"] for p in pages]
-    classification = fx.classify_document("\n".join(texts))
-    classification["override"] = None
-    doc_type = classification["document_type"]
     visual_pages = [p.get("visual") for p in pages]
-    fields = fx.extract_fields(
-        doc_type, texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
-        ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
-    )
-    fields, rules = decide_fields(fields, verification=verification, document_type=doc_type)
+    documents = segment_pages(texts)
+    mixed = len(documents) > 1
+    if mixed:
+        classification = bundle_classification(documents)
+    else:
+        classification = {k: documents[0][k] for k in ("document_type", "confidence", "basis", "matched_keywords")}
+    classification["override"] = None
+    notes: list[str] = []
+    fields: list[dict] = []
+    rules: list[dict] = []
+    for seg in documents:
+        seg_texts = segment_texts(texts, seg["pages"]) if mixed else texts
+        seg_fields, seg_rules = extract_segment_fields(
+            seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
+            ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
+            verification=verification, notes=notes, completion=completion, project_id=project_id,
+        )
+        for f in seg_fields:
+            f["segment"] = seg["index"]
+        for r in seg_rules:
+            r["segment"] = seg["index"]
+        seg["fields_total"] = len(seg_fields)
+        seg["fields_found"] = sum(1 for f in seg_fields if f.get("value") is not None)
+        seg.pop("page_types", None)
+        fields.extend(seg_fields)
+        rules.extend(seg_rules)
     scored = [s for s in page_quality if s is not None]
     doc_quality = round(sum(scored) / len(scored), 3) if scored else None
-    quality_flags = sorted({flag for p in pages for flag in p.get("flags") or []})
+    quality_flags = sorted({flag for p in pages for flag in p.get("flags") or []} | ({"mixed_bundle"} if mixed else set()))
     sig_field = next((f for f in fields if f.get("field_type") == "signature"), None)
     signature = (sig_field or {}).get("signature_quality") if sig_field else next((s for s in signatures if s.get("present") is not None), None)
     numbers_flagged = sum(1 for f in fields if (f.get("number_quality") or {}).get("review_required"))
@@ -325,6 +518,12 @@ def build_report(
             "material_type": "text_file" if source_kind == "text" else "pdf",
             "modality": "scanned_pdf" if source_kind == "scanned" else ("text" if source_kind == "text" else "digital_pdf"),
         }
+    if mixed:
+        # Spec §6: the upload is several documents; the router's single
+        # material/modality no longer describes it. The router's own values
+        # are kept underneath for the audit trail.
+        material = {**material, "source_material_type": material.get("material_type"), "source_modality": material.get("modality"),
+                    "material_type": "mixed_bundle", "modality": "mixed"}
     z3 = (verification or {}).get("z3") if isinstance(verification, dict) else None
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -347,7 +546,9 @@ def build_report(
         "document_quality_score": doc_quality,
         "quality_flags": quality_flags,
         "classification": classification,
+        "documents": documents,
         "fields": fields,
+        "extraction_notes": notes,
         "plausibility": rules,
         "conflicts": [],
         "verification": {
@@ -357,7 +558,7 @@ def build_report(
         },
         "review_summary": review_summary(fields),
         "quality_report": {
-            "summary": quality_summary(pages, signature, numbers_flagged),
+            "summary": quality_summary(pages, signature, numbers_flagged, documents=documents),
             "flags": quality_flags,
             "signature": signature,
             "numbers": {"flagged": numbers_flagged},
@@ -380,19 +581,37 @@ def refresh_report(report: dict[str, Any]) -> dict[str, Any]:
     return report
 
 
-def reextract_for_type(report: dict[str, Any], document_type: str, *, verification: dict | None = None) -> dict[str, Any]:
-    """Classification override: re-run extraction + policy over the stored page texts."""
+def reextract_for_type(report: dict[str, Any], document_type: str, *, verification: dict | None = None, completion: Any = None, llm: bool = False) -> dict[str, Any]:
+    """Classification override: re-run the label pass and the policy over the
+    stored page texts. The reviewer named one type for the whole upload, so a
+    mixed bundle collapses to a single segment of that type — the override is
+    the reviewer's boundary decision.
+
+    The grounded LLM pass is off here by default: this runs inside the
+    override request on the web tier, and a model call (2–6 s on the local
+    model, up to the 90 s bound on a stalled provider) is exactly the long
+    work the web tier must not do. The report says so in
+    ``extraction_notes``; a worker-side caller passes ``llm=True``."""
     texts = list(report.get("_page_texts") or [])
     layout = report.get("_layout")
-    fields = fx.extract_fields(
+    notes: list[str] = []
+    fields, rules = extract_segment_fields(
         document_type, texts, layout=layout if isinstance(layout, list) else None,
         parser_name=report.get("parser_name"), parse_confidence=None,
         ocr_confidence=None, page_quality=list(report.get("_page_quality") or []),
         visual_pages=[p.get("visual") for p in report.get("pages") or []],
+        verification=verification, notes=notes, completion=completion, project_id=report.get("project_id"), llm=llm,
     )
-    fields, rules = decide_fields(fields, verification=verification, document_type=document_type)
+    for f in fields:
+        f["segment"] = 0
+    for r in rules:
+        r["segment"] = 0
     report["fields"] = fields
     report["plausibility"] = rules
+    report["extraction_notes"] = notes
+    report["documents"] = [{"index": 0, "pages": list(range(1, len(texts) + 1)), "document_type": document_type,
+                            "confidence": None, "basis": "reviewer override", "matched_keywords": [],
+                            "fields_total": len(fields), "fields_found": sum(1 for f in fields if f.get("value") is not None)}]
     return refresh_report(report)
 
 
@@ -417,6 +636,7 @@ def run_after_parse(
     result: dict,
     job_id: str | None,
     intake: dict | None,
+    completion: Any = None,
 ) -> dict[str, Any] | None:
     """Build, save and log the intake report. Returns ``{"report_id", "report"}`` or None on error.
 
@@ -432,6 +652,7 @@ def run_after_parse(
     try:
         report = build_report(
             project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id, intake=intake,
+            completion=completion,
         )
         attach_conflicts(project_id, report)
         report_id = repo.save_report(project_id, report)
@@ -444,10 +665,13 @@ def run_after_parse(
             "document_quality_score": report["document_quality_score"], "flags": report["quality_flags"], "summary": report["quality_report"]["summary"],
         })
         repo.log_event(project_id, "classified", report_id=rid, payload={
-            k: report["classification"].get(k) for k in ("document_type", "confidence", "basis")
+            **{k: report["classification"].get(k) for k in ("document_type", "confidence", "basis")},
+            "documents": [{k: d[k] for k in ("index", "pages", "document_type")} for d in report["documents"]],
         })
         repo.log_event(project_id, "fields_extracted", report_id=rid, payload={
             "fields_total": len(report["fields"]), "found": sum(1 for f in report["fields"] if f.get("value") is not None),
+            "llm_grounded": sum(1 for f in report["fields"] if f.get("extraction_method") == "llm_grounded"),
+            "extraction_notes": report["extraction_notes"],
         })
         repo.log_event(project_id, "decision_applied", report_id=rid, payload={
             **{k: v for k, v in report["review_summary"].items() if k != "reasons"},

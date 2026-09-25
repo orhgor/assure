@@ -105,6 +105,11 @@
                of buttons: one export is primary, the rest are variants. -->
           <button type="button" class="menu-item menu-sub-trigger" id="export-variants-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="export-variants" data-i18n="shell.menu.export_variants">Export variants…</button>
           <div id="export-variants" class="menu-sub" role="menu" hidden>
+            <!-- The intake report's own exports (spec §9 item 24). Enabled while
+                 a report is open; the document exports below stay as they were. -->
+            <button type="button" role="menuitem" class="menu-item" data-export-format="parsure-json" data-export-kind="report" data-i18n="shell.export.parsure_json">Fields report (JSON)</button>
+            <button type="button" role="menuitem" class="menu-item" data-export-format="parsure-csv" data-export-kind="report" data-i18n="shell.export.parsure_csv">Fields table (CSV)</button>
+            <div class="menu-rule" role="separator"></div>
             <button type="button" role="menuitem" class="menu-item" data-export-format="dossier-pdf" data-i18n="shell.export.dossier_pdf">Dossier (PDF)</button>
             <button type="button" role="menuitem" class="menu-item" data-export-format="pdf" data-i18n="shell.export.pdf">Document (PDF)</button>
             <button type="button" role="menuitem" class="menu-item" data-export-format="docx" data-i18n="shell.export.docx">Document (Word)</button>
@@ -360,7 +365,18 @@
     <!-- ============================================================= -->
     <aside class="pane pane-right" aria-label="Inspector" id="pane-right">
       <header class="pane-header">
-        <h2 class="pane-title" data-i18n="shell.inspector.title">Inspector</h2>
+        <!-- Two views of the same document (brief §2 step 4): the inspector is
+             the paragraph's evidence; Fields is the intake report's review
+             queue — each extracted field, why it needs attention, and the
+             accept / correct / dispute actions. The count is the fields still
+             waiting, painted by shell.js from the report. -->
+        <div class="mode-toggle" role="tablist" aria-label="Inspector mode" id="right-mode-toggle">
+          <button type="button" class="mode-tab is-active" id="right-tab-inspector" data-right-mode="inspector" role="tab" aria-selected="true" aria-controls="right-inspector" data-i18n="shell.inspector.title">Inspector</button>
+          <button type="button" class="mode-tab" id="right-tab-fields" data-right-mode="fields" role="tab" aria-selected="false" aria-controls="right-fields">
+            <span data-i18n="shell.fields.tab">Fields</span>
+            <span class="tab-count" id="fields-tab-count" hidden aria-live="polite"></span>
+          </button>
+        </div>
         <div class="pane-header-actions">
           <button type="button" id="compare-toggle" class="btn-tertiary" aria-label="Compare two models" title="Compare two models" data-i18n="shell.inspector.compare">Compare</button>
           <button type="button" class="pane-close" id="right-close" aria-label="Close inspector" title="Close">
@@ -467,6 +483,51 @@
       <div id="right-compare" class="pane-mode" style="display:none;">
         <div class="pane-body compare-body" id="compare-body" role="tabpanel">
           <p class="empty-hint" data-i18n="shell.compare.empty">Draft first, then compare.</p>
+        </div>
+      </div>
+
+      <!-- FIELDS — the intake report's review queue (spec §9 items 17–21, 24).
+           The head names the document and its type (with the one tertiary
+           "Change" for the classification override); the list puts the
+           fields that need attention first, then the verified ones. Rows are
+           built by shell.js (_renderFieldsPanel) from GET
+           /api/projects/<id>/parsure/<report_id>; every action re-reads the
+           report and repaints, so the row, the strip and the chip agree. -->
+      <div id="right-fields" class="pane-mode" role="tabpanel" style="display:none;">
+        <div class="pane-body fields-body">
+          <header class="fields-head" id="fields-head" hidden>
+            <label class="fields-report" id="fields-report-wrap" hidden>
+              <span class="fields-label" data-i18n="shell.fields.document">Document</span>
+              <select id="fields-report-select" class="fields-report-select"></select>
+            </label>
+            <div class="fields-doc" id="fields-doc">
+              <span class="fields-doc-name" id="fields-doc-name"></span>
+              <span class="fields-doc-meta" id="fields-doc-meta"></span>
+            </div>
+            <div class="fields-type" id="fields-type">
+              <span class="fields-label" data-i18n="shell.fields.type">Document type</span>
+              <span class="fields-type-value" id="fields-type-value"></span>
+              <button type="button" class="btn-tertiary fields-type-change" id="fields-type-change" data-i18n="shell.fields.change">Change</button>
+            </div>
+            <p class="fields-type-note" id="fields-type-note" hidden></p>
+            <form class="fields-type-form" id="fields-type-form" hidden>
+              <label class="dialog-field">
+                <span data-i18n="shell.fields.type">Document type</span>
+                <select id="fields-type-select"></select>
+              </label>
+              <label class="dialog-field">
+                <span data-i18n="shell.fields.type_reason">Why the type is changing (optional)</span>
+                <input type="text" id="fields-type-reason" autocomplete="off">
+              </label>
+              <p class="dialog-error" id="fields-type-error" hidden></p>
+              <div class="fields-editor-actions">
+                <button type="button" class="btn-tertiary" id="fields-type-cancel" data-i18n="shell.dialog.cancel">Cancel</button>
+                <button type="submit" class="btn-secondary" id="fields-type-save" data-i18n="shell.fields.type_save">Save type</button>
+              </div>
+            </form>
+          </header>
+          <p id="fields-empty" class="empty-state-text" data-i18n="shell.fields.empty">No fields to review. New intake will appear here.</p>
+          <ul id="fields-list" class="fields-list" role="list" hidden></ul>
         </div>
       </div>
     </aside>

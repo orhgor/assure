@@ -15,7 +15,12 @@ Boundaries, so this does not become a second router or verifier (spec §8):
 * Extraction is label-anchored regex per page (``extract_fields``). A field
   whose label or value is not found is ``value=None``,
   ``extraction_confidence=0.0``, ``review_required=True``,
-  ``reason="field not found"``. Nothing is inferred from context.
+  ``reason="field not found"``. Nothing is inferred from context. The
+  fields this pass leaves empty may be offered to ``services/llm_extraction``
+  (prose documents carry no labels); that pass only ever accepts a value it
+  can re-find verbatim in the page text, and records the find through
+  ``build_found_field(method="llm_grounded")`` so both passes yield the same
+  record shape.
 * ``coverage_plausibility`` is six arithmetic rules for auto insurance. It is
   *not* a second Z3: real Z3 hits come from ``verification["z3"]["violations"]``
   (services/verification.py) and are mapped onto fields by
@@ -364,9 +369,13 @@ def _parse_number(raw: str) -> float | None:
 
 
 def _clean_text_value(raw: str) -> str:
-    """Trim a rest-of-line capture at the next inline label (two+ spaces, a tab, or a pipe)."""
+    """Trim a rest-of-line capture at the next inline label (two+ spaces, a tab,
+    or a pipe). A sentence-final period is dropped when the last word is four
+    or more letters ("County of Plymouth." → "Plymouth"; "Inc." and "Jr."
+    keep theirs) — prose golden set, 2026-09-25."""
     value = re.split(r"\s{2,}|\t|\s\|\s", raw.strip(), maxsplit=1)[0]
     value = re.sub(r"\s+", " ", value).strip(" :;,-–—")
+    value = re.sub(r"(?<=[A-Za-z]{4})\.$", "", value)
     return value
 
 
@@ -732,10 +741,23 @@ def page_layout(bundle: dict) -> list[list[dict]]:
         return layouts
 
     text = str(bundle.get("text") or "") if isinstance(bundle, dict) else ""
-    pages = text.split("\f") if "\f" in text else [text]
+    pages = split_pages(text)
     for page_text in pages:
         _append(_segments_from([(page_text, None, None)]))
     return layouts
+
+
+#: Page separators a flat text carries: the form feed PyMuPDF/pdftotext emit,
+#: or a ``=== PAGE ===`` / ``=== PAGE 2 ===`` line — the readable form the
+#: golden fixtures use (a literal \f is invisible in a diff).
+_PAGE_BREAK_RE = re.compile(r"\f|\n?^[ \t]*=== PAGE(?: \d+)? ===[ \t]*$\n?", re.M)
+
+
+def split_pages(text: str) -> list[str]:
+    """A flat text into per-page strings on ``\f`` or a ``=== PAGE ===`` line."""
+    if not _PAGE_BREAK_RE.search(text or ""):
+        return [text or ""]
+    return _PAGE_BREAK_RE.split(text)
 
 
 def page_texts(bundle: dict) -> list[str]:
@@ -770,10 +792,20 @@ def _find_field(spec: FieldSpec, text: str) -> tuple[str, int, int] | None:
     Signature" is not the buyer's name) and the separator may cross at most
     one line break, so a label whose value sits on the next line is read but a
     label followed by *another* label is not.
+
+    A text/name capture with **no separator** after the label (only spaces)
+    that starts with a lowercase letter is prose running on from the word,
+    not a value: "the covered vehicle is a 2003 Honda…" is not
+    ``vehicle = "is a 2003 Honda…"``. Measured on tests/golden/prose
+    (2026-09-25): 12 of the 15 residual misses after the LLM pass were such
+    captures, and because the field then held a (wrong) value it was never
+    offered to the grounded pass. Form values start with a capital or a digit
+    ("Agent Mary Agent" with an OCR-dropped colon still reads), so labeled
+    documents are unaffected (tests/golden stays 52/52).
     """
     for anchor in spec.anchors:
         pattern = re.compile(
-            r"(?<![a-z])" + anchor + r"(?!'|[a-z])" + _SEP + r"(?P<val>" + _value_pattern(spec.field_type) + r")",
+            r"(?<![a-z])" + anchor + r"(?!'|[a-z])" + r"(?P<sep>" + _SEP + r")(?P<val>" + _value_pattern(spec.field_type) + r")",
             re.I,
         )
         for m in pattern.finditer(text):
@@ -788,6 +820,8 @@ def _find_field(spec: FieldSpec, text: str) -> tuple[str, int, int] | None:
                 start += len(raw) - len(stripped)
                 raw = _clean_text_value(stripped)
                 if not raw or re.fullmatch(r"[_\s.]*", raw) or _LABEL_LIKE.match(raw):
+                    continue
+                if spec.field_type in ("text", "name") and not re.search(r"[:#\-–—\n]", m.group("sep")) and raw[:1].islower():
                     continue
                 end = start + len(raw)
             else:
@@ -822,7 +856,104 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
         "verification_source": None,
         "compliance_bound": spec.compliance_bound,
         "corrected": False,
+        "extraction_method": None,
     }
+
+
+#: How a value was located. ``label_anchor``: the regex pass in this module.
+#: ``llm_grounded``: ``services/llm_extraction`` asked a model for a verbatim
+#: quote and the quote (and the value inside it) was re-found in the page text
+#: before the value was taken (spec §8 item 6 — the model never supplies the
+#: value, only the place to look).
+EXTRACTION_METHODS = ("label_anchor", "llm_grounded")
+#: A grounded LLM find is a real, located value, but the *locating* step was a
+#: model's reading rather than a label match, and the model can quote the
+#: neighbouring sentence (qwen2.5:1.5b returned the property-damage figure
+#: for ``liability_limit`` in 3 of 5 prose runs, 2026-09-25 — a value that is
+#: on the page but not this field's). The factor is stated in the basis and,
+#: at default parser confidence, keeps a grounded field below the 0.75
+#: auto-accept line (0.85 × 1.0 × 0.85 = 0.72 → manual review).
+LLM_GROUNDED_FACTOR = 0.85
+
+
+def build_found_field(
+    spec: FieldSpec,
+    *,
+    page_index: int,
+    raw: str,
+    start: int,
+    end: int,
+    parser_name: str | None,
+    parse_confidence: float | None,
+    ocr_confidence: float | None,
+    page_quality: list[float | None],
+    visual_pages: list[dict],
+    layout: list[list[dict]],
+    method: str = "label_anchor",
+) -> dict[str, Any]:
+    """The contract record for a value located at ``[start, end)`` on a page.
+
+    Shared by the label pass here and the grounded LLM pass so both produce
+    the same shape: typed value (money/number/date parsed, VIN upper-cased and
+    check-digit validated), ``source_span`` (bbox when the layout has one,
+    text range otherwise), ``field_source_node_id``, ``number_quality`` and the
+    quality-weighted confidence with its basis. A value that does not parse
+    for its type stays ``None`` with the reason saying what was read.
+    ``method="llm_grounded"`` multiplies the confidence by
+    ``LLM_GROUNDED_FACTOR`` and extends the basis.
+    """
+    field = _empty_field(spec)
+    field["raw"] = raw
+    value: Any = raw
+    if spec.field_type == "money":
+        value = _parse_money(raw)
+    elif spec.field_type == "number":
+        value = _parse_number(raw)
+    elif spec.field_type == "date":
+        value = _parse_date(raw)
+    elif spec.field_type == "vin":
+        value = raw.upper()
+    if value is None:
+        field["reason"] = f"{spec.field_type} value could not be parsed from '{raw[:40]}' — manual review required"
+        field["confidence_basis"] = field["reason"]
+        return field
+    field["value"] = value
+    field["extraction_method"] = method
+    pq = page_quality[page_index] if page_index < len(page_quality) else None
+    visual = visual_pages[page_index] if page_index < len(visual_pages) else None
+    handwritten = bool(visual and "handwritten" in (visual.get("flags") or []))
+    segments = layout[page_index] if page_index < len(layout) else []
+    seg = _segment_at(segments, start)
+    span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
+    if seg and seg.get("bbox"):
+        span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
+    field["source_span"] = span
+    field["field_source_node_id"] = seg.get("node_id") if seg else None
+    field["provenance_confidence"] = 1.0
+    number_quality = None
+    if spec.field_type in ("money", "number", "vin"):
+        nq = assess_number(raw, ocr_confidence=ocr_confidence, page_quality=pq, handwritten=handwritten)
+        field["number_quality"] = nq
+        number_quality = nq.get("quality")
+    conf, basis = quality_weighted_confidence(
+        parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, number_quality=number_quality,
+    )
+    if method == "llm_grounded":
+        conf = round(conf * LLM_GROUNDED_FACTOR, 4)
+        basis = f"{basis.rsplit(' = ', 1)[0]} × llm_grounded ({LLM_GROUNDED_FACTOR:.2f}) = {conf:.2f}"
+    field["extraction_confidence"] = conf
+    field["confidence_basis"] = basis
+    field["reason"] = None
+    if spec.field_type == "vin":
+        check = validate_vin(value)
+        field["vin_check"] = check
+        if not check["valid"]:
+            field["plausibility_violation"] = True
+            field["verification_source"] = "vin_check"
+            field["reason"] = f"VIN rejected: {check['reason']}"
+    if field["number_quality"] and field["number_quality"].get("review_required"):
+        field["reason"] = field["reason"] or f"number_quality {field['number_quality']['quality']}: {field['number_quality'].get('basis', '')}"
+    return field
 
 
 def extract_fields(
@@ -879,55 +1010,11 @@ def extract_fields(
             results.append(_empty_field(spec))
             continue
         page_index, raw, start, end = hit
-        field = _empty_field(spec)
-        field["raw"] = raw
-        value: Any = raw
-        if spec.field_type == "money":
-            value = _parse_money(raw)
-        elif spec.field_type == "number":
-            value = _parse_number(raw)
-        elif spec.field_type == "date":
-            value = _parse_date(raw)
-        elif spec.field_type == "vin":
-            value = raw.upper()
-        if value is None:
-            field["reason"] = f"{spec.field_type} value could not be parsed from '{raw[:40]}' — manual review required"
-            field["confidence_basis"] = field["reason"]
-            results.append(field)
-            continue
-        field["value"] = value
-        pq = page_quality[page_index] if page_index < len(page_quality) else None
-        visual = visual_pages[page_index] if page_index < len(visual_pages) else None
-        handwritten = bool(visual and "handwritten" in (visual.get("flags") or []))
-        segments = layout[page_index] if page_index < len(layout) else []
-        seg = _segment_at(segments, start)
-        span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
-        if seg and seg.get("bbox"):
-            span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
-        field["source_span"] = span
-        field["field_source_node_id"] = seg.get("node_id") if seg else None
-        field["provenance_confidence"] = 1.0
-        number_quality = None
-        if spec.field_type in ("money", "number", "vin"):
-            nq = assess_number(raw, ocr_confidence=ocr_confidence, page_quality=pq, handwritten=handwritten)
-            field["number_quality"] = nq
-            number_quality = nq.get("quality")
-        conf, basis = quality_weighted_confidence(
-            parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, number_quality=number_quality,
-        )
-        field["extraction_confidence"] = conf
-        field["confidence_basis"] = basis
-        field["reason"] = None
-        if spec.field_type == "vin":
-            check = validate_vin(value)
-            field["vin_check"] = check
-            if not check["valid"]:
-                field["plausibility_violation"] = True
-                field["verification_source"] = "vin_check"
-                field["reason"] = f"VIN rejected: {check['reason']}"
-        if field["number_quality"] and field["number_quality"].get("review_required"):
-            field["reason"] = field["reason"] or f"number_quality {field['number_quality']['quality']}: {field['number_quality'].get('basis', '')}"
-        results.append(field)
+        results.append(build_found_field(
+            spec, page_index=page_index, raw=raw, start=start, end=end, parser_name=parser_name,
+            parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
+            visual_pages=visual_pages, layout=layout,
+        ))
     return results
 
 
@@ -957,6 +1044,7 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
         return field
     quality = str(sig.get("quality") or "questionable")
     field["value"] = "present"
+    field["extraction_method"] = "label_anchor"
     field["raw"] = hit[1] if hit is not None else None
     pq = page_quality[page_index] if page_index < len(page_quality) else None
     if hit is not None:

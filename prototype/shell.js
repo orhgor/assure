@@ -19,6 +19,39 @@
   ];
   var STORAGE_KEY = "assure_project";
 
+  // Deep links. The Parsure page links `?project_id=…&report_id=…` (spec §2
+  // "the transition"): the project becomes the active one before anything
+  // reads it, and the report is opened in the Fields panel once, on boot. Read
+  // here, before the DOMContentLoaded body, so _refreshProjectName and the
+  // boot restore see the linked project rather than the stored one.
+  var __urlProjectId = "", __urlReportId = "";
+  try {
+    var __qs = new URLSearchParams(window.location.search || "");
+    __urlProjectId = String(__qs.get("project_id") || "").trim();
+    __urlReportId = String(__qs.get("report_id") || "").trim();
+  } catch (_) {}
+  if (__urlProjectId) {
+    try { window.localStorage.setItem(STORAGE_KEY, __urlProjectId); } catch (_) {}
+  }
+
+  // The open intake report (Parsure) and its review state. Declared here, not
+  // in the DOMContentLoaded body: the boot path calls the loader before that
+  // body reaches its own `var` line, and the 2026-09-25 revision's
+  // `var __parsureProject = ""` ran after the first load had set it, so the
+  // "switched away meanwhile" guard dropped every boot-time report.
+  var __parsure = null;            // the open report, as GET /parsure/<id> returned it
+  var __parsureMeta = { corrections: [], disputes: [] };
+  var __parsureReports = [];       // the project's report summaries (GET /parsure)
+  var __parsureReportId = "";
+  var __parsureProject = "";
+  var __parsureWantReport = __urlReportId;   // consumed by the first load
+  var __parsureFieldSel = null;    // selected field name in the Fields panel
+  var __fieldsEditor = null;       // { name, kind: "correct" | "dispute" | "resolve" }
+  var __fieldsErrors = {};         // field name -> the server's sentence
+  var __fieldsBusy = false;
+  var __actor = null;              // /api/auth/me → email | user_id | "reviewer"
+  var _canExportReportFn = null;   // set by the DOMContentLoaded body
+
   // ---------------------------------------------------------------
   // The entry gate. POST /auth sets an HttpOnly `assure_shell_key`
   // cookie for this origin, so every same-origin call — fetch, <script>,
@@ -163,6 +196,7 @@
     ui: {
       leftTab: "sources",
       rightTab: "evidence",
+      rightMode: "inspector",   // "inspector" | "fields" (the intake review queue)
       selection: { nodeId: null, evidence: null },
       modal: null,
       layout: { leftWidth: 280, rightWidth: 320, leftCollapsed: false, rightCollapsed: false },
@@ -401,6 +435,9 @@
       if (typeof _loadNodeHistory === "function") _loadNodeHistory(value);
       if (typeof _attachNodeRephrase === "function") _attachNodeRephrase(value);
       inspectorCompareActive = false;
+      // A paragraph was named: its evidence is the inspector's, so the pane
+      // leaves the Fields queue for it. Clearing the selection changes nothing.
+      if (value) SHELL.ui.rightMode = "inspector";
       if (_applyRightViewFn) _applyRightViewFn();
     } else if (path === "ui.selection.evidence") {
       // §6: the evidence payload is the pane's third input — a z3/cite chip's
@@ -656,13 +693,22 @@
            SHELL.document.mode === "ready" &&
            Boolean(_exportProjectId());
   }
+  function _canExportReport() {
+    return Boolean(_canExportReportFn && _canExportReportFn());
+  }
   function _syncExportEnabled() {
     var can = _canExport();
-    if (exportBtnEl) exportBtnEl.disabled = !can;
-    // The variants and the audit report export the same document: one state.
-    document.querySelectorAll("[data-export-format], #export-variants-btn").forEach(function (el) {
-      el.disabled = !can;
+    var canReport = _canExportReport();
+    // Export is the one primary export: the intake report when one is open,
+    // else the document bundle. The variants split by what each one exports —
+    // the report's JSON/CSV follow the report, the document formats and the
+    // audit report follow the document.
+    if (exportBtnEl) exportBtnEl.disabled = !(can || canReport);
+    document.querySelectorAll("[data-export-format]").forEach(function (el) {
+      el.disabled = el.getAttribute("data-export-kind") === "report" ? !canReport : !can;
     });
+    var variants = document.getElementById("export-variants-btn");
+    if (variants) variants.disabled = !(can || canReport);
   }
 
   // A4 — the compile state the AI view reads, derived rather than
@@ -4887,11 +4933,11 @@
     exportBtnEl = document.getElementById("export-btn");
     if (exportBtnEl) {
       exportBtnEl.addEventListener("click", function () {
-        if (!_canExport()) { _syncExportEnabled(); return; }
-        // 2D.1: one download holding both files, so the readable dossier and the
-        // verifiable one cannot be separated. `format=jdf` serves the sidecar alone.
-        window.location.href =
-          "/api/projects/" + encodeURIComponent(_exportProjectId()) + "/export?format=bundle";
+        // The intake report when one is open (its JSON is the structured output,
+        // spec §9 item 23/24); otherwise 2D.1: one download holding both files,
+        // so the readable dossier and the verifiable one cannot be separated.
+        // `format=jdf` serves the sidecar alone. _download decides between them.
+        _download("bundle");
       });
       _syncExportEnabled();
     }
@@ -6394,17 +6440,36 @@
       // .pane-mode is its third row). Writing "block" here would pin the inline
       // value over that rule and collapse the body back to its content height,
       // so the visible pane reverts to the stylesheet's flex column.
+      var fieldsPane = document.getElementById("right-fields");
       if (inspectorCompareActive) {
         if (rightModeToggleEl) rightModeToggleEl.style.display = "none";
         if (insp) insp.style.display = "none";
+        if (fieldsPane) fieldsPane.style.display = "none";
         if (cmp) cmp.style.display = "";
         if (compareToggleEl) compareToggleEl.classList.add("is-active");
         return;
       }
       if (rightModeToggleEl) rightModeToggleEl.style.display = "";
       if (compareToggleEl) compareToggleEl.classList.remove("is-active");
-      if (insp) insp.style.display = "";
       if (cmp) cmp.style.display = "none";
+      // The Fields queue is the pane's third mode (index.html #right-fields):
+      // the intake report's fields, in review order. Compare belongs to the
+      // inspector, so its toggle steps aside while the queue is up.
+      var fieldsMode = SHELL.ui.rightMode === "fields";
+      document.querySelectorAll("[data-right-mode]").forEach(function (tab) {
+        var on = (tab.getAttribute("data-right-mode") === "fields") === fieldsMode;
+        tab.classList.toggle("is-active", on);
+        tab.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      if (compareToggleEl) compareToggleEl.hidden = fieldsMode;
+      if (fieldsMode) {
+        if (insp) insp.style.display = "none";
+        if (fieldsPane) fieldsPane.style.display = "";
+        if (typeof _renderFieldsPanel === "function") _renderFieldsPanel();
+        return;
+      }
+      if (fieldsPane) fieldsPane.style.display = "none";
+      if (insp) insp.style.display = "";
       var nodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
       if (!nodeId) {
         _setInspectorPane(SHELL.ui.rightTab || "evidence");
@@ -6975,13 +7040,12 @@
     // two surfaces can disagree about the document's state.
     // =================================================================
 
-    // The latest Parsure intake report for the active project, when the route
-    // answers. `GET /api/projects/<id>/parsure/latest` is being built beside
-    // this shell (2026-09-25); an older API answers 404, and a 404 means "no
-    // intake widget", not an error — nothing is retried and nothing is logged.
-    var __parsure = null;
-    var __parsureProject = "";
-    var __parsureUnavailable = false;
+    // The Parsure intake reports for the active project (state at module top).
+    // `GET /api/projects/<id>/parsure` lists them newest first;
+    // `GET /api/projects/<id>/parsure/<report_id>` is the one that also carries
+    // the corrections and disputes (`/latest` does not — measured 2026-09-25),
+    // so the open report is always read through the id route. A 404 on the list
+    // means an API without intake, not an error: nothing is retried or logged.
     // Queued / running intake jobs for the active project (the Sources badge
     // and the "Pending" state). Polled only while any job is active.
     var __activeJobs = 0;
@@ -6989,37 +7053,104 @@
     var __jobsProject = "";
     var __jobsUnavailable = false;
 
+    // A field needs attention when the router still routes it somewhere or the
+    // report says a human must look (spec §5: routing_action is the operational
+    // response, field_state the semantic result — both are read, neither alone).
+    function _fieldNeedsAttention(f) {
+      if (!f || typeof f !== "object") return false;
+      var ra = String(f.routing_action || "none");
+      return (ra !== "none") || f.review_required === true;
+    }
     function _parsureCounts() {
       var rep = __parsure;
-      if (!rep || typeof rep !== "object") return { review: 0, conflicts: 0, fields: [], loaded: false };
-      var rs = rep.review_summary || {};
-      var fr = rs.fields_review;
-      var review = Array.isArray(fr) ? fr.length : (typeof fr === "number" ? fr : 0);
-      var conflicts = Array.isArray(rep.conflicts) ? rep.conflicts.length : 0;
+      if (!rep || typeof rep !== "object") return { review: 0, conflicts: 0, fields: [], loaded: false, rejected: 0 };
       var fields = Array.isArray(rep.fields) ? rep.fields : [];
-      return { review: review, conflicts: conflicts, fields: fields, loaded: true };
+      var review = fields.filter(_fieldNeedsAttention).length;
+      var rejected = fields.filter(function (f) { return f && f.field_state === "rejected"; }).length;
+      var conflicts = Array.isArray(rep.conflicts) ? rep.conflicts.length : 0;
+      return { review: review, conflicts: conflicts, fields: fields, loaded: true, rejected: rejected };
     }
-    function _loadParsureLatest(pid) {
+    function _parsureJson(url, init) {
+      var opts = init || {};
+      opts.headers = Object.assign({ Accept: "application/json" }, opts.headers || {});
+      return fetch(url, opts).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          return { status: r.status, ok: r.ok, body: j || {} };
+        });
+      });
+    }
+    function _afterParsureChange() {
+      _syncTrustState();
+      _syncExportEnabled();
+      if (typeof _renderFieldsPanel === "function") _renderFieldsPanel();
+      var sel = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+      var node = (sel && SHELL.document.current) ? findJdfNodeById(sel, SHELL.document.current) : null;
+      if (node) renderConfidencePanel(node);
+    }
+    function _openParsureReport(pid, reportId) {
+      if (!pid || !reportId) return Promise.resolve(false);
+      return _parsureJson("/api/projects/" + encodeURIComponent(pid) + "/parsure/" + encodeURIComponent(reportId))
+        .then(function (res) {
+          if (__parsureProject !== pid) return false;   // switched away meanwhile
+          if (!res.ok || !res.body.report) return false;
+          var b = res.body;
+          __parsure = b.report;
+          __parsureReportId = String(b.report.report_id || reportId);
+          __parsureMeta = {
+            corrections: Array.isArray(b.corrections) ? b.corrections : [],
+            disputes: Array.isArray(b.disputes) ? b.disputes : [],
+          };
+          // The summary row for this report follows the report it summarises.
+          __parsureReports = __parsureReports.map(function (s) {
+            if (!s || s.report_id !== __parsureReportId) return s;
+            return Object.assign({}, s, {
+              document_type: (b.report.classification || {}).document_type,
+              review_summary: b.report.review_summary,
+              document_quality_score: b.report.document_quality_score,
+            });
+          });
+          _afterParsureChange();
+          return true;
+        })
+        .catch(function () { return false; });
+    }
+    function _loadParsure(pid, reportId) {
       pid = pid || _activeProjectId();
-      if (!pid || __parsureUnavailable) return;
+      if (!pid) return;
+      if (pid !== __parsureProject) {
+        // A different project: nothing of the old queue survives.
+        __parsure = null; __parsureReportId = ""; __parsureReports = [];
+        __parsureMeta = { corrections: [], disputes: [] };
+        __parsureFieldSel = null; __fieldsEditor = null; __fieldsErrors = {};
+      }
       __parsureProject = pid;
-      fetch("/api/projects/" + encodeURIComponent(pid) + "/parsure/latest",
-            { headers: { Accept: "application/json" } })
-        .then(function (r) {
-          if (r.status === 404) { __parsureUnavailable = true; return null; }
-          if (!r.ok) return null;
-          return r.json().catch(function () { return null; });
+      var want = reportId || __parsureWantReport || "";
+      __parsureWantReport = "";
+      _parsureJson("/api/projects/" + encodeURIComponent(pid) + "/parsure?limit=100")
+        .then(function (res) {
+          if (__parsureProject !== pid) return;
+          // A 404 is this project (unknown to the API, or an API without intake),
+          // not the session: the next project asks again. The old sticky flag
+          // hid every later project's report after one such answer.
+          if (!res.ok) { __parsure = null; __parsureReportId = ""; _afterParsureChange(); return; }
+          var reports = Array.isArray(res.body.reports) ? res.body.reports : [];
+          __parsureReports = reports;
+          var known = reports.some(function (s) { return s && s.report_id === want; });
+          var id = known ? want : (reports[0] && reports[0].report_id);
+          if (!id) {
+            __parsure = null; __parsureReportId = "";
+            _afterParsureChange();
+            return;
+          }
+          return _openParsureReport(pid, id).then(function (opened) {
+            // A linked report is the reason the page was opened: show it.
+            if (opened && known && want && typeof _showFieldsPanel === "function") _showFieldsPanel(null);
+          });
         })
-        .then(function (j) {
-          if (__parsureProject !== pid) return;   // switched away meanwhile
-          __parsure = j ? (j.report || j) : null;
-          _syncTrustState();
-          var sel = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
-          var node = (sel && SHELL.document.current) ? findJdfNodeById(sel, SHELL.document.current) : null;
-          if (node) renderConfidencePanel(node);
-        })
-        .catch(function () { /* the widget stays hidden */ });
+        .catch(function () { /* the queue stays empty */ });
     }
+    // The name the project switch and the boot path call.
+    function _loadParsureLatest(pid) { _loadParsure(pid, ""); }
 
     function _setSourcesBadge(n) {
       var badge = document.getElementById("rail-sources-badge");
@@ -7074,13 +7205,21 @@
       var derived = hasDoc ? _derivedCounts(doc) : null;
       var b = hasDoc ? _counterBuckets(stats, derived) : _counterBuckets(null, null);
       var pc = _parsureCounts();
+      // An intake report is a document too (brief §2 "the transition"): a
+      // workspace with a report and no draft still has a state, a review
+      // queue and a next action.
+      var hasReport = pc.loaded && pc.fields.length > 0;
+      var paraReview = hasDoc ? b.partial + b.unanchored : 0;
       var conflicts = (hasDoc ? b.unsupported : 0) + pc.conflicts;
-      var review = (hasDoc ? b.partial + b.unanchored : 0) + pc.review;
+      var review = paraReview + pc.review;
       var pending = mode === "streaming" || Boolean(runInProgress) || __activeJobs > 0;
       var signed = SHELL.document.signoff && SHELL.document.signoff.status === "signed";
-      var verified = hasDoc && b.eligible > 0 && b.supported > 0 && conflicts === 0 && review === 0;
+      var docVerified = hasDoc ? (b.eligible > 0 && b.supported > 0) : true;
+      var verified = (hasDoc || hasReport) && docVerified && conflicts === 0 && review === 0;
       return {
-        hasDoc: hasDoc, buckets: b, conflicts: conflicts, review: review,
+        hasDoc: hasDoc, hasReport: hasReport, present: hasDoc || hasReport,
+        buckets: b, conflicts: conflicts, review: review,
+        paraReview: paraReview, fieldReview: pc.review,
         pending: pending, signed: Boolean(signed), verified: verified,
       };
     }
@@ -7102,7 +7241,7 @@
 
       // --- the chip: one line, one tone -----------------------------------
       var chipText, chipTone = "none";
-      if (!m.hasDoc) {
+      if (!m.present) {
         chipText = m.pending ? _t("shell.status.pending", "Pending")
                              : _t("shell.status.no_document", "No document yet");
       } else if (m.pending) {
@@ -7125,7 +7264,7 @@
 
       // --- the primary action ---------------------------------------------
       var action = "none", label;
-      if (!m.hasDoc) {
+      if (!m.present) {
         label = _t("shell.primary.no_document", "No document");
       } else if (m.pending) {
         label = _t("shell.status.pending", "Pending");
@@ -7139,13 +7278,20 @@
       if (primary) {
         primary.textContent = label;
         primary.setAttribute("data-action", action);
-        primary.disabled = action === "none" || (action === "export" && !_canExport());
+        primary.disabled = action === "none" || (action === "export" && !_canExport() && !_canExportReport());
+      }
+      // The Fields tab carries the count still waiting, so the queue's size is
+      // visible before it is opened.
+      var tabCount = document.getElementById("fields-tab-count");
+      if (tabCount) {
+        tabCount.hidden = !(m.fieldReview > 0);
+        tabCount.textContent = m.fieldReview > 0 ? String(m.fieldReview) : "";
       }
 
       // --- the strip: Status · Conflicts · Review · Next -------------------
       if (strip) {
-        strip.hidden = !m.hasDoc;
-        if (m.hasDoc) {
+        strip.hidden = !m.present;
+        if (m.present) {
           var statusWord, statusTone = "none";
           if (m.pending)            { statusWord = _t("shell.status.pending", "Pending"); }
           else if (m.conflicts > 0) { statusWord = _t("shell.strip.status.conflicts", "Conflicts"); statusTone = "contradicted"; }
@@ -7161,9 +7307,12 @@
           }
           var rv = document.getElementById("strip-review-value");
           if (rv) {
-            rv.textContent = m.review > 0
-              ? _plural(m.review, "shell.strip.review_one", "1 item", "shell.strip.review_many", "{n} items")
-              : _t("shell.strip.none", "None");
+            // Fields from the intake report, paragraphs from the draft; each
+            // named for what it is, never summed into one unexplained number.
+            var parts = [];
+            if (m.fieldReview > 0) parts.push(_plural(m.fieldReview, "shell.strip.fields_one", "1 field", "shell.strip.fields_many", "{n} fields"));
+            if (m.paraReview > 0) parts.push(_plural(m.paraReview, "shell.strip.review_one", "1 item", "shell.strip.review_many", "{n} items"));
+            rv.textContent = parts.length ? parts.join(" · ") : _t("shell.strip.none", "None");
             _setTone(rv, m.review > 0 ? "partial" : "none");
           }
           var nx = document.getElementById("strip-next-action");
@@ -7194,7 +7343,12 @@
       }
       return null;
     }
+    // Review opens what needs attention first: the intake report's first
+    // waiting field in the Fields queue when there is one, else the first
+    // paragraph whose verdict needs a reader (contradicted, partial, unanchored).
     function _reviewFirst() {
+      var waiting = _parsureCounts().fields.filter(_fieldNeedsAttention);
+      if (waiting.length) { _showFieldsPanel(waiting[0].name); return; }
       var id = _firstReviewNodeId();
       if (!id) { openRight(); return; }
       setShell("ui.selection.evidence", null);
@@ -7202,10 +7356,32 @@
       openRight();
       _locateNode(id);
     }
+    function _canExportReportNow() {
+      return Boolean(__parsure && __parsureReportId && _activeProjectId());
+    }
+    _canExportReportFn = _canExportReportNow;
+    function _reportExportUrl(fmt) {
+      return "/api/projects/" + encodeURIComponent(_activeProjectId()) +
+        "/parsure/" + encodeURIComponent(__parsureReportId) + "/export?format=" + encodeURIComponent(fmt);
+    }
+    // One download. `parsure-json` / `parsure-csv` are the open report's own
+    // exports; the default ("bundle") is the report's JSON while a report is
+    // open, else the document bundle. A format that has nothing to act on
+    // re-syncs the menu's disabled states instead of dead-ending.
     function _download(format) {
+      var fmt = format || "bundle";
+      if (fmt.indexOf("parsure-") === 0) {
+        if (!_canExportReportNow()) { _syncExportEnabled(); return; }
+        window.location.href = _reportExportUrl(fmt.slice("parsure-".length));
+        return;
+      }
+      if (fmt === "bundle" && _canExportReportNow()) {
+        window.location.href = _reportExportUrl("json");
+        return;
+      }
       if (!_canExport()) { _syncExportEnabled(); return; }
       window.location.href = "/api/projects/" + encodeURIComponent(_exportProjectId()) +
-        "/export?format=" + encodeURIComponent(format || "bundle");
+        "/export?format=" + encodeURIComponent(fmt);
     }
     function _runPrimaryAction() {
       var primary = document.getElementById("shell-primary");
@@ -7535,22 +7711,43 @@
       el.textContent = text;
       return el;
     }
-    function _qualityWarnings(f) {
+    // The report's `signature_quality` / `number_quality` are objects
+    // ({quality, basis, …}) on the API as shipped (2026-09-25); a bare string is
+    // still read so an older report renders the same.
+    function _qualityWord(q) {
+      if (q && typeof q === "object") q = q.quality;
+      return String(q || "").toLowerCase();
+    }
+    // Page quality is the report's, per page (report.pages[].quality_score);
+    // the field points at its page through source_span.
+    function _fieldPageQuality(f) {
+      if (!f) return null;
+      if (typeof f.page_quality_score === "number") return f.page_quality_score;
+      var rep = __parsure || {};
+      var pages = Array.isArray(rep.pages) ? rep.pages : [];
+      var page = f.source_span && f.source_span.page;
+      if (page == null && pages.length === 1) page = pages[0].page;
+      for (var i = 0; i < pages.length; i++) {
+        if (pages[i] && pages[i].page === page && typeof pages[i].quality_score === "number") return pages[i].quality_score;
+      }
+      return null;
+    }
+    function _qualityWarnings(f, opts) {
       var out = [];
-      var sig = String(f.signature_quality || "").toLowerCase();
+      var sig = _qualityWord(f.signature_quality);
       if (sig === "faint") out.push(_t("shell.quality.signature_faint", "Signature is faint."));
       else if (sig === "incomplete") out.push(_t("shell.quality.signature_incomplete", "Signature is incomplete."));
       else if (sig === "stamped") out.push(_t("shell.quality.signature_stamped", "Signature is a stamp, not handwritten."));
       else if (sig === "missing") out.push(_t("shell.quality.signature_missing", "An expected signature is missing."));
-      var num = String(f.number_quality || "").toLowerCase();
+      var num = _qualityWord(f.number_quality);
       if (num === "handwritten") out.push(_t("shell.quality.numbers_handwritten", "Numbers are handwritten."));
       else if (num === "faded") out.push(_t("shell.quality.numbers_faded", "Numbers are faded."));
       else if (num === "typewritten_low_quality") out.push(_t("shell.quality.page_low", "Page quality is low."));
-      var pq = f.page_quality_score;
+      var pq = _fieldPageQuality(f);
       if (typeof pq === "number" && pq < 0.5 && num !== "typewritten_low_quality") {
         out.push(_t("shell.quality.page_low", "Page quality is low."));
       }
-      if (f.review_required === true) out.push(_t("shell.quality.review", "This field needs review."));
+      if (f.review_required === true && !(opts && opts.skipReview)) out.push(_t("shell.quality.review", "This field needs review."));
       var flags = Array.isArray(f.quality_flags) ? f.quality_flags : [];
       flags.forEach(function (flag) {
         var s = String(flag || "").replace(/_/g, " ").trim();
@@ -7592,8 +7789,9 @@
           _confField(wrap, _t("shell.confidence.extraction", "Extraction confidence"), _pct(f.extraction_confidence));
         }
         if (f.confidence_basis) _confField(wrap, _t("shell.confidence.basis", "How it was computed"), f.confidence_basis);
-        if (typeof f.page_quality_score === "number") {
-          _confField(wrap, _t("shell.confidence.page_quality", "Page quality"), _pct(f.page_quality_score));
+        var fpq = _fieldPageQuality(f);
+        if (typeof fpq === "number") {
+          _confField(wrap, _t("shell.confidence.page_quality", "Page quality"), _pct(fpq));
         }
         if (typeof f.verification_confidence === "number") {
           _confField(wrap, _t("shell.confidence.verification", "Verification confidence"), _pct(f.verification_confidence));
@@ -7623,7 +7821,7 @@
         if (!wrap.firstChild) {
           var none = document.createElement("p");
           none.className = "empty-hint";
-          none.textContent = __parsureUnavailable || !_parsureCounts().loaded
+          none.textContent = !_parsureCounts().loaded
             ? _t("shell.confidence.none", "No confidence data for this paragraph.")
             : _t("shell.confidence.no_field", "The intake report has no field for this paragraph.");
           wrap.appendChild(none);
@@ -7631,6 +7829,582 @@
       }
       el.appendChild(wrap);
     }
+
+    // =================================================================
+    // The Fields queue (spec §9 items 17–21, 24; brief §2 step 4, §3 D–H).
+    // The intake report's fields, the ones that need attention first, each
+    // with the reason before the tools; Accept / Correct / Dispute on the
+    // selected row only. Every action re-reads the report through
+    // _openParsureReport, so the row, the strip and the chip cannot disagree.
+    // =================================================================
+    var DOC_TYPES = ["auto_policy", "auto_claim", "auto_title", "property_policy", "property_claim",
+                     "deed", "mortgage", "title", "closing", "uncertain"];
+    var LOW_CONFIDENCE = 0.75;   // the report's own threshold (review_summary reasons: "< 0.75")
+    var DISPUTE_SLA_H = 72;
+
+    function _humanize(s) {
+      var t = String(s == null ? "" : s).replace(/_/g, " ").trim();
+      return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+    }
+    function _docTypeWords(t) {
+      var key = String(t || "uncertain");
+      return _t("shell.fields.type." + key, _humanize(key));
+    }
+    function _modalityWords(m) {
+      if (!m) return "";
+      return _t("shell.fields.modality." + String(m), _humanize(m));
+    }
+    function _fieldValueText(f) {
+      if (!f) return "";
+      if (f.value == null) return "";
+      if (f.raw != null && String(f.raw).trim()) return String(f.raw).trim();
+      return String(f.value);
+    }
+    function _fieldEditValue(f) {
+      if (!f || f.value == null) return "";
+      // Numbers and dates are edited as the normalised value the server keeps;
+      // text as the document's own words.
+      var ft = String(f.field_type || "");
+      if (ft === "money" || ft === "number" || ft === "date") return String(f.value);
+      return _fieldValueText(f);
+    }
+    function _openDisputeFor(name) {
+      var ds = (__parsureMeta && Array.isArray(__parsureMeta.disputes)) ? __parsureMeta.disputes : [];
+      for (var i = 0; i < ds.length; i++) {
+        if (ds[i] && ds[i].field_name === name && ds[i].status === "open") return ds[i];
+      }
+      return null;
+    }
+    function _correctionsFor(name) {
+      var cs = (__parsureMeta && Array.isArray(__parsureMeta.corrections)) ? __parsureMeta.corrections : [];
+      return cs.filter(function (c) { return c && c.field_name === name; });
+    }
+    function _disputesFor(name) {
+      var ds = (__parsureMeta && Array.isArray(__parsureMeta.disputes)) ? __parsureMeta.disputes : [];
+      return ds.filter(function (d) { return d && d.field_name === name; });
+    }
+    // Server timestamps are "YYYY-MM-DD HH:MM:SS" in UTC (parsure_repository._TS).
+    function _parseServerTs(s) {
+      if (!s) return NaN;
+      var t = String(s).trim();
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(t)) t = t.replace(" ", "T") + "Z";
+      var ms = Date.parse(t);
+      return isNaN(ms) ? NaN : ms;
+    }
+    function _whenWords(s) {
+      var ms = _parseServerTs(s);
+      if (isNaN(ms)) return String(s || "");
+      try { return new Date(ms).toLocaleString(SHELL_I18N.locale || undefined, { dateStyle: "medium", timeStyle: "short" }); }
+      catch (_) { return new Date(ms).toISOString().slice(0, 16).replace("T", " "); }
+    }
+    function _disputeDueWords(d) {
+      var due = _parseServerTs(d && d.due_at);
+      var hours = isNaN(due) ? (d && d.sla_hours) || DISPUTE_SLA_H : Math.ceil((due - Date.now()) / 3600000);
+      if (hours <= 0) return _t("shell.fields.reason.disputed_overdue", "Disputed · past due");
+      return _tf("shell.fields.reason.disputed", "Disputed · due in {h} h", { h: hours });
+    }
+    function _fieldInConflict(name) {
+      var cs = (__parsure && Array.isArray(__parsure.conflicts)) ? __parsure.conflicts : [];
+      return cs.some(function (c) { return c && c.field === name; });
+    }
+    // The state chip: the semantic result in words, in the four tones the
+    // document's own marks use. Amber for everything a reader still decides;
+    // red only for rejected and conflict (brief §3F).
+    function _fieldChip(f) {
+      var st = String(f.field_state || "");
+      if (_fieldInConflict(f.name)) return { key: "conflict", tone: "contradicted", words: _t("shell.fields.state.conflict", "Conflict") };
+      if (st === "rejected") return { key: "rejected", tone: "contradicted", words: _t("shell.fields.state.rejected", "Rejected") };
+      if (st === "disputed") return { key: "disputed", tone: "partial", words: _t("shell.fields.state.disputed", "Disputed") };
+      if (st === "accepted" && !_fieldNeedsAttention(f)) return { key: "accepted", tone: "verified", words: _t("shell.fields.state.accepted", "Verified") };
+      return { key: "review", tone: "partial", words: _t("shell.fields.state.review", "Review needed") };
+    }
+    function _actorWords(a) { return a ? String(a) : _t("shell.fields.reviewer", "a reviewer"); }
+    // One calm reason line per row, from the field's own facts — the server's
+    // `reason` is a rule name, not a sentence, so it is read for its cause and
+    // said in words. Nothing is claimed the report does not carry.
+    function _fieldReason(f) {
+      var st = String(f.field_state || "");
+      if (_fieldInConflict(f.name)) return _t("shell.fields.reason.conflict", "Differs from another document in this workspace");
+      if (st === "disputed") {
+        var d = _openDisputeFor(f.name);
+        return d ? _disputeDueWords(d) : _tf("shell.fields.reason.disputed", "Disputed · due in {h} h", { h: DISPUTE_SLA_H });
+      }
+      if (st === "rejected") return _t("shell.fields.reason.rejected", "Rejected after dispute");
+      var sig = _qualityWord(f.signature_quality);
+      if (String(f.field_type || "") === "signature" || sig) {
+        if (sig === "missing" || (f.value == null && String(f.field_type || "") === "signature")) return _t("shell.fields.reason.signature_missing", "Signature is missing");
+        if (sig === "faint") return _t("shell.fields.reason.signature_faint", "Signature is faint");
+        if (sig === "incomplete") return _t("shell.fields.reason.signature_incomplete", "Signature is incomplete");
+        if (sig === "stamped") return _t("shell.fields.reason.signature_stamped", "Signature is a stamp, not handwritten");
+        if (sig === "questionable") return _t("shell.fields.reason.signature_questionable", "Signature is hard to read");
+      }
+      if (f.value == null) return _t("shell.fields.reason.not_found", "Not found in the document");
+      if (f.z3_violation === true) return _t("shell.fields.reason.z3", "The numbers do not agree with each other");
+      if (f.plausibility_violation === true) return _t("shell.fields.reason.plausibility", "The value is outside the usual range");
+      if (_fieldNeedsAttention(f)) {
+        // The server's `reason` names the rule that fired (field_extractor's
+        // decision policy, in its own order); the line says that rule in words
+        // and falls back to the field's facts only when the rule is unnamed.
+        var rule = String(f.reason || "").toLowerCase();
+        var ec = f.extraction_confidence;
+        var lowConf = (typeof ec === "number" && ec < LOW_CONFIDENCE) || /extraction_confidence/.test(rule);
+        function lowConfWords() {
+          var pq = _fieldPageQuality(f);
+          if (typeof pq === "number") return _tf("shell.fields.reason.low_confidence", "Low confidence ({pct}) — page quality {q}", { pct: _pct(ec), q: pq.toFixed(2) });
+          return _tf("shell.fields.reason.low_confidence_plain", "Low confidence — {pct}", { pct: _pct(ec) });
+        }
+        if (/compliance/.test(rule)) return _t("shell.fields.reason.compliance", "Compliance-bound — confirm the value");
+        if (/extraction_confidence/.test(rule)) return lowConfWords();
+        if (f.compliance_bound === true) return _t("shell.fields.reason.compliance", "Compliance-bound — confirm the value");
+        if (lowConf) return lowConfWords();
+        return _t("shell.fields.reason.review", "Needs a second look");
+      }
+      if (f.corrected === true) {
+        var cs = _correctionsFor(f.name);
+        var last = cs.length ? cs[cs.length - 1] : null;
+        return _tf("shell.fields.reason.corrected", "Corrected by {who}", { who: _actorWords(last && last.actor) });
+      }
+      if (f.accepted_by) return _tf("shell.fields.reason.accepted_by", "Confirmed by {who}", { who: _actorWords(f.accepted_by) });
+      return _t("shell.fields.reason.accepted", "Verified against the document");
+    }
+    function _fieldsOrdered(fields) {
+      var attention = [], rest = [];
+      fields.forEach(function (f) {
+        if (!f || typeof f !== "object" || !f.name) return;
+        (_fieldNeedsAttention(f) ? attention : rest).push(f);
+      });
+      return attention.concat(rest);
+    }
+    function _ensureActor() {
+      if (__actor) return Promise.resolve(__actor);
+      return fetch("/api/auth/me", { cache: "no-store", headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .catch(function () { return {}; })
+        .then(function (j) {
+          __actor = (j && (j.email || j.user_id)) ? String(j.email || j.user_id) : "reviewer";
+          return __actor;
+        });
+    }
+    function _el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = String(text);
+      return e;
+    }
+    function _btn(cls, text, id) {
+      var b = _el("button", cls, text);
+      b.type = "button";
+      if (id) b.id = id;
+      return b;
+    }
+
+    // ---- the head: which document, what type ------------------------------
+    function _renderFieldsHead(rep) {
+      var head = document.getElementById("fields-head");
+      if (!head) return;
+      head.hidden = !rep;
+      if (!rep) return;
+      var pid = _activeProjectId();
+      var wrap = document.getElementById("fields-report-wrap");
+      var select = document.getElementById("fields-report-select");
+      var several = __parsureReports.length > 1;
+      if (wrap) wrap.hidden = !several;
+      if (select && several) {
+        while (select.firstChild) select.removeChild(select.firstChild);
+        __parsureReports.forEach(function (s) {
+          if (!s || !s.report_id) return;
+          var opt = document.createElement("option");
+          opt.value = s.report_id;
+          var bits = [s.filename || s.report_id, _docTypeWords(s.document_type)];
+          if (typeof s.document_quality_score === "number") bits.push(_tf("shell.fields.quality", "Quality {pct}", { pct: _pct(s.document_quality_score) }));
+          opt.textContent = bits.join(" · ");
+          if (s.report_id === __parsureReportId) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.onchange = function () {
+          __parsureFieldSel = null; __fieldsEditor = null; __fieldsErrors = {};
+          _openParsureReport(pid, select.value);
+        };
+      }
+      // With several reports the selector names the document; the meta line
+      // (modality · quality) stays under it either way.
+      var nameEl = document.getElementById("fields-doc-name");
+      if (nameEl) {
+        nameEl.hidden = several;
+        nameEl.textContent = rep.filename || rep.document_id || "";
+      }
+      var metaEl = document.getElementById("fields-doc-meta");
+      if (metaEl) {
+        var bits = [];
+        var mod = _modalityWords(rep.modality || rep.material_type);
+        if (mod) bits.push(mod);
+        if (typeof rep.document_quality_score === "number") bits.push(_tf("shell.fields.quality", "Quality {pct}", { pct: _pct(rep.document_quality_score) }));
+        metaEl.textContent = bits.join(" · ");
+      }
+      var cls = rep.classification || {};
+      var typeEl = document.getElementById("fields-type-value");
+      if (typeEl) typeEl.textContent = _docTypeWords(cls.document_type);
+      var note = document.getElementById("fields-type-note");
+      if (note) {
+        var ov = cls.override;
+        note.hidden = !(ov && ov.previous && ov.previous !== cls.document_type);
+        if (!note.hidden) note.textContent = _tf("shell.fields.type_changed", "Changed from {previous}", { previous: _docTypeWords(ov.previous) });
+      }
+      var form = document.getElementById("fields-type-form");
+      var typeRow = document.getElementById("fields-type");
+      var editing = Boolean(__fieldsEditor && __fieldsEditor.kind === "type");
+      if (form) form.hidden = !editing;
+      if (typeRow) typeRow.hidden = editing;
+      if (editing) {
+        var sel = document.getElementById("fields-type-select");
+        if (sel && !sel.options.length) {
+          DOC_TYPES.forEach(function (t) {
+            var o = document.createElement("option");
+            o.value = t; o.textContent = _docTypeWords(t);
+            sel.appendChild(o);
+          });
+        }
+        if (sel && !__fieldsEditor.touched) sel.value = cls.document_type || "uncertain";
+        var err = document.getElementById("fields-type-error");
+        if (err) { err.hidden = !__fieldsErrors.__type; err.textContent = __fieldsErrors.__type || ""; }
+      }
+    }
+    function _overrideType() {
+      var pid = _activeProjectId();
+      var sel = document.getElementById("fields-type-select");
+      var reason = document.getElementById("fields-type-reason");
+      var save = document.getElementById("fields-type-save");
+      if (!pid || !__parsureReportId || !sel || __fieldsBusy) return;
+      __fieldsBusy = true;
+      if (save) save.disabled = true;
+      delete __fieldsErrors.__type;
+      _ensureActor().then(function (actor) {
+        return jsonPost("/api/projects/" + encodeURIComponent(pid) + "/parsure/" + encodeURIComponent(__parsureReportId) + "/classification",
+          { document_type: sel.value, reason: String(reason && reason.value || "").trim() || null, actor: actor });
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status));
+        });
+      }).then(function () {
+        __fieldsEditor = null;
+        if (reason) reason.value = "";
+        // The fields were re-extracted for the new type: read the whole report.
+        return _openParsureReport(pid, __parsureReportId);
+      }).catch(function (err) {
+        __fieldsErrors.__type = _tf("shell.fields.failed", "That did not go through: {error}", { error: String(err && err.message ? err.message : err) });
+      }).then(function () {
+        __fieldsBusy = false;
+        if (save) save.disabled = false;
+        _renderFieldsPanel();
+      });
+    }
+
+    // ---- the rows ----------------------------------------------------------
+    function _renderFieldDetail(f, li) {
+      var detail = _el("div", "field-detail");
+      var facts = _el("div", "field-facts");
+      if (typeof f.extraction_confidence === "number") {
+        facts.appendChild(_el("span", "field-conf", _tf("shell.fields.confidence", "Confidence {pct}", { pct: _pct(f.extraction_confidence) })));
+        if (f.confidence_basis) {
+          var why = document.createElement("details");
+          why.className = "field-why";
+          var ws = _el("summary", null, _t("shell.fields.why", "why"));
+          why.appendChild(ws);
+          why.appendChild(_el("p", "field-basis", f.confidence_basis));
+          facts.appendChild(why);
+        }
+      }
+      var page = f.source_span && f.source_span.page;
+      if (page != null) {
+        var nodeId = f.field_source_node_id || f.node_id || null;
+        var pageWords = _tf("shell.fields.page", "Page {n}", { n: page });
+        var canLocate = Boolean(nodeId && _nodeWrapper(String(nodeId)));
+        if (canLocate) {
+          var pageBtn = _btn("btn-tertiary field-page", pageWords);
+          pageBtn.title = _t("shell.fields.page_open", "Show in the document");
+          pageBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            _locateNode(String(nodeId));
+          });
+          facts.appendChild(pageBtn);
+        } else {
+          facts.appendChild(_el("span", "field-page field-page-static", pageWords));
+        }
+      }
+      if (facts.firstChild) detail.appendChild(facts);
+      var warnings = _qualityWarnings(f, { skipReview: true });
+      if (warnings.length) {
+        var chips = _el("div", "quality-chips");
+        warnings.forEach(function (w) { chips.appendChild(_qualityChip(w)); });
+        detail.appendChild(chips);
+      }
+      var errText = __fieldsErrors[f.name];
+      var err = _el("p", "field-error dialog-error", errText || "");
+      err.hidden = !errText;
+      detail.appendChild(err);
+
+      var open = _openDisputeFor(f.name);
+      var editor = (__fieldsEditor && __fieldsEditor.name === f.name) ? __fieldsEditor.kind : null;
+      if (!editor) {
+        var actions = _el("div", "field-actions");
+        var hasValue = f.value != null;
+        var st = String(f.field_state || "");
+        if (open || st === "disputed") {
+          if (open) {
+            var resolve = _btn("btn-primary field-resolve", _t("shell.fields.resolve", "Resolve"));
+            resolve.addEventListener("click", function () { _openEditor(f.name, "resolve"); });
+            actions.appendChild(resolve);
+          }
+        } else {
+          var accepted = st === "accepted" && !_fieldNeedsAttention(f);
+          if (hasValue && !accepted) {
+            var accept = _btn("btn-primary field-accept", _t("shell.fields.accept", "Accept"));
+            accept.addEventListener("click", function () { _fieldAction(f.name, "accept", {}); });
+            actions.appendChild(accept);
+          }
+          // Correct is the filled action when there is nothing to accept.
+          var correct = _btn((hasValue || accepted ? "btn-tertiary" : "btn-primary") + " field-correct", _t("shell.fields.correct", "Correct"));
+          correct.addEventListener("click", function () { _openEditor(f.name, "correct"); });
+          actions.appendChild(correct);
+          var dispute = _btn("btn-tertiary field-dispute", _t("shell.fields.dispute", "Dispute"));
+          dispute.addEventListener("click", function () { _openEditor(f.name, "dispute"); });
+          actions.appendChild(dispute);
+        }
+        if (actions.firstChild) detail.appendChild(actions);
+      } else {
+        detail.appendChild(_renderFieldEditor(f, editor, open));
+      }
+      detail.appendChild(_renderFieldHistory(f));
+      li.appendChild(detail);
+    }
+    function _renderFieldEditor(f, kind, open) {
+      var form = document.createElement("form");
+      form.className = "field-editor";
+      form.setAttribute("data-kind", kind);
+      var valueInput = null, reasonInput = null;
+      function field(labelText, input, cls) {
+        var lab = _el("label", "dialog-field");
+        lab.appendChild(_el("span", null, labelText));
+        input.className = cls;
+        input.autocomplete = "off";
+        lab.appendChild(input);
+        form.appendChild(lab);
+        return input;
+      }
+      if (kind === "correct") {
+        valueInput = field(_t("shell.fields.correct_value", "Corrected value"), document.createElement("input"), "field-editor-value");
+        valueInput.type = "text";
+        valueInput.value = _fieldEditValue(f);
+        reasonInput = field(_t("shell.fields.correct_reason", "Why (optional)"), document.createElement("input"), "field-editor-reason");
+        reasonInput.type = "text";
+      } else if (kind === "dispute") {
+        reasonInput = field(_t("shell.fields.dispute_reason", "Why this value is disputed"), document.createElement("input"), "field-editor-reason");
+        reasonInput.type = "text";
+        reasonInput.required = true;
+      } else if (kind === "resolve") {
+        if (open && open.reason) form.appendChild(_el("p", "field-editor-note", _tf("shell.fields.dispute_said", "Dispute: {reason}", { reason: open.reason })));
+        reasonInput = field(_t("shell.fields.resolve_note", "Resolution"), document.createElement("input"), "field-editor-reason");
+        reasonInput.type = "text";
+        reasonInput.required = true;
+        valueInput = field(_t("shell.fields.resolve_value", "Corrected value (leave empty to reject the field)"), document.createElement("input"), "field-editor-value");
+        valueInput.type = "text";
+        valueInput.value = "";
+      }
+      var row = _el("div", "fields-editor-actions");
+      var cancel = _btn("btn-tertiary field-editor-cancel", _t("shell.dialog.cancel", "Cancel"));
+      cancel.addEventListener("click", function () { __fieldsEditor = null; delete __fieldsErrors[f.name]; _renderFieldsPanel(); });
+      var saveText = kind === "dispute" ? _t("shell.fields.dispute_open", "Open dispute")
+                   : kind === "resolve" ? _t("shell.fields.resolve_action", "Resolve dispute")
+                   : _t("shell.fields.save", "Save");
+      var save = _btn("btn-primary field-editor-save", saveText);
+      save.type = "submit";
+      row.appendChild(cancel);
+      row.appendChild(save);
+      form.appendChild(row);
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var reason = reasonInput ? String(reasonInput.value || "").trim() : "";
+        if (kind === "correct") {
+          _fieldAction(f.name, "correct", { value: String(valueInput.value || "").trim(), reason: reason || null });
+        } else if (kind === "dispute") {
+          if (!reason) { reasonInput.focus(); return; }
+          _fieldAction(f.name, "dispute", { reason: reason });
+        } else if (kind === "resolve" && open) {
+          if (!reason) { reasonInput.focus(); return; }
+          var v = String(valueInput.value || "").trim();
+          _fieldAction(f.name, "resolve", { resolution: reason, value: v || null, dispute_id: open.dispute_id });
+        }
+      });
+      setTimeout(function () { var first = form.querySelector("input"); if (first) first.focus(); }, 0);
+      return form;
+    }
+    // Item 20 — the field's own record: what it was, what it became, who and
+    // when and why, plus its disputes. From the report GET's corrections and
+    // disputes; nothing is invented for a field nobody touched.
+    function _renderFieldHistory(f) {
+      var det = document.createElement("details");
+      det.className = "field-history";
+      det.appendChild(_el("summary", null, _t("shell.fields.history", "History")));
+      var body = _el("div", "field-history-body");
+      var cs = _correctionsFor(f.name);
+      var ds = _disputesFor(f.name);
+      if (!cs.length && !ds.length) {
+        body.appendChild(_el("p", "empty-hint", _t("shell.fields.history_empty", "No changes yet.")));
+      } else {
+        if (cs.length) {
+          var orig = cs[0].original_value;
+          body.appendChild(_el("p", "field-history-line", _t("shell.fields.history_original", "Original") + ": " + (orig == null ? "—" : String(orig))));
+        }
+        cs.forEach(function (c) {
+          var line = _el("p", "field-history-line");
+          line.appendChild(_el("span", "field-history-change", _tf("shell.fields.history_corrected", "{from} → {to}",
+            { from: c.original_value == null ? "—" : String(c.original_value), to: c.corrected_value == null ? "—" : String(c.corrected_value) })));
+          var meta = [_tf("shell.fields.by", "by {who}", { who: _actorWords(c.actor) }), _whenWords(c.created_at)];
+          if (c.reason) meta.push(c.reason);
+          line.appendChild(_el("span", "field-history-meta", meta.join(" · ")));
+          body.appendChild(line);
+        });
+        ds.forEach(function (d) {
+          var line = _el("p", "field-history-line");
+          var head = d.status === "open"
+            ? _t("shell.fields.history_dispute", "Dispute opened")
+            : _tf("shell.fields.history_resolved", "Dispute resolved: {resolution}", { resolution: d.resolution || "" });
+          line.appendChild(_el("span", "field-history-change", head));
+          var meta = [_tf("shell.fields.by", "by {who}", { who: _actorWords(d.actor) }), _whenWords(d.status === "open" ? d.opened_at : (d.resolved_at || d.opened_at))];
+          if (d.reason) meta.push(d.reason);
+          line.appendChild(_el("span", "field-history-meta", meta.join(" · ")));
+          body.appendChild(line);
+        });
+      }
+      det.appendChild(body);
+      return det;
+    }
+    function _renderFieldsPanel() {
+      var list = document.getElementById("fields-list");
+      var empty = document.getElementById("fields-empty");
+      if (!list) return;
+      var rep = __parsure;
+      var fields = rep && Array.isArray(rep.fields) ? _fieldsOrdered(rep.fields) : [];
+      _renderFieldsHead(rep);
+      while (list.firstChild) list.removeChild(list.firstChild);
+      if (!fields.length) {
+        list.hidden = true;
+        if (empty) empty.hidden = false;
+        return;
+      }
+      if (empty) empty.hidden = true;
+      list.hidden = false;
+      if (__parsureFieldSel && !fields.some(function (f) { return f.name === __parsureFieldSel; })) __parsureFieldSel = null;
+      fields.forEach(function (f) {
+        var chip = _fieldChip(f);
+        var selected = f.name === __parsureFieldSel;
+        var li = _el("li", "field-row" + (selected ? " is-selected" : ""));
+        li.setAttribute("data-field", f.name);
+        li.setAttribute("data-state", chip.key);
+        li.setAttribute("data-attention", _fieldNeedsAttention(f) ? "1" : "0");
+        li.setAttribute("data-has-value", f.value == null ? "0" : "1");
+        var head = _btn("field-row-head");
+        head.setAttribute("aria-expanded", selected ? "true" : "false");
+        var main = _el("span", "field-main");
+        main.appendChild(_el("span", "field-label", f.label || _humanize(f.name)));
+        var vt = _fieldValueText(f);
+        if (vt) {
+          main.appendChild(_el("span", "field-value", vt));
+        } else {
+          var missing = _el("span", "field-value is-missing", "— ");
+          missing.appendChild(_el("i", null, _t("shell.fields.not_found", "not found")));
+          main.appendChild(missing);
+        }
+        head.appendChild(main);
+        var chipEl = _el("span", "field-chip", chip.words);
+        chipEl.setAttribute("data-tone", chip.tone);
+        head.appendChild(chipEl);
+        head.addEventListener("click", function () {
+          if (__parsureFieldSel === f.name) { __parsureFieldSel = null; __fieldsEditor = null; }
+          else { __parsureFieldSel = f.name; __fieldsEditor = null; }
+          _renderFieldsPanel();
+        });
+        li.appendChild(head);
+        li.appendChild(_el("p", "field-reason", _fieldReason(f)));
+        if (selected) _renderFieldDetail(f, li);
+        list.appendChild(li);
+      });
+    }
+
+    // ---- actions -----------------------------------------------------------
+    function _openEditor(name, kind) {
+      __fieldsEditor = { name: name, kind: kind };
+      delete __fieldsErrors[name];
+      _renderFieldsPanel();
+    }
+    function _fieldAction(name, kind, payload) {
+      var pid = _activeProjectId();
+      if (!pid || !__parsureReportId || __fieldsBusy) return;
+      __fieldsBusy = true;
+      var li = document.querySelector('#fields-list .field-row[data-field="' + name + '"]');
+      if (li) li.classList.add("is-busy");
+      delete __fieldsErrors[name];
+      var base = "/api/projects/" + encodeURIComponent(pid) + "/parsure/" + encodeURIComponent(__parsureReportId);
+      _ensureActor().then(function (actor) {
+        var body = Object.assign({}, payload, { actor: actor });
+        var url;
+        if (kind === "resolve") {
+          url = base + "/disputes/" + encodeURIComponent(payload.dispute_id) + "/resolve";
+          delete body.dispute_id;
+        } else {
+          url = base + "/fields/" + encodeURIComponent(name) + "/" + kind;
+        }
+        return jsonPost(url, body);
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status));
+        });
+      }).then(function () {
+        __fieldsEditor = null;
+        // The mutation routes answer with the field and the review summary,
+        // not the report (parsure_routes.py, 2026-09-25); the report is read
+        // back whole so corrections, disputes and the summary are the server's.
+        return _openParsureReport(pid, __parsureReportId);
+      }).catch(function (err) {
+        __fieldsErrors[name] = _tf("shell.fields.failed", "That did not go through: {error}", { error: String(err && err.message ? err.message : err) });
+      }).then(function () {
+        __fieldsBusy = false;
+        _renderFieldsPanel();
+      });
+    }
+
+    // ---- the pane's mode ---------------------------------------------------
+    function _setRightMode(mode) {
+      SHELL.ui.rightMode = mode === "fields" ? "fields" : "inspector";
+      inspectorCompareActive = false;
+      _applyRightView();
+    }
+    function _showFieldsPanel(fieldName) {
+      if (fieldName) { __parsureFieldSel = fieldName; __fieldsEditor = null; }
+      _setRightMode("fields");
+      openRight();
+      var row = fieldName ? document.querySelector('#fields-list .field-row[data-field="' + fieldName + '"]') : null;
+      if (row) { try { row.scrollIntoView({ block: "nearest" }); } catch (_) {} }
+    }
+    document.querySelectorAll("[data-right-mode]").forEach(function (tab) {
+      tab.addEventListener("click", function () { _setRightMode(tab.getAttribute("data-right-mode")); });
+    });
+    var typeChange = document.getElementById("fields-type-change");
+    if (typeChange) typeChange.addEventListener("click", function () {
+      __fieldsEditor = { name: null, kind: "type" };
+      delete __fieldsErrors.__type;
+      _renderFieldsPanel();
+      var sel = document.getElementById("fields-type-select");
+      if (sel) sel.focus();
+    });
+    var typeSelect = document.getElementById("fields-type-select");
+    if (typeSelect) typeSelect.addEventListener("change", function () { if (__fieldsEditor) __fieldsEditor.touched = true; });
+    var typeCancel = document.getElementById("fields-type-cancel");
+    if (typeCancel) typeCancel.addEventListener("click", function () {
+      __fieldsEditor = null; delete __fieldsErrors.__type; _renderFieldsPanel();
+    });
+    var typeForm = document.getElementById("fields-type-form");
+    if (typeForm) typeForm.addEventListener("submit", function (e) { e.preventDefault(); _overrideType(); });
 
     _syncTrustState();
     _syncSourceEmpty();

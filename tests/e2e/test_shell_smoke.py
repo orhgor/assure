@@ -221,3 +221,164 @@ def test_compare_toggle_swaps_inspector_for_compare(goto_shell, browser_page):
         "i && getComputedStyle(i).display !== 'none'; }",
         timeout=10000,
     )
+
+
+# ---- The Fields queue (spec §9 items 17–21; brief §2 step 4) -----------------
+# These run against a project that holds real intake reports. The shell is
+# reached through the gate (SHELL_BASE_URL), so the key has to arrive with the
+# request — locally a small forwarding proxy that adds X-Shell-Key is enough
+# (/tmp/keyproxy.py in the 2026-09-25 runs); the fixtures themselves carry none.
+
+import os as _os
+
+_SHELL_BASE = _os.environ.get("SHELL_BASE_URL", "http://localhost:8990")
+_PARSURE_PROJECT = _os.environ.get("PARSURE_PROJECT", "e2e-parsure-4")
+_DOC_TYPES = [
+    "auto_policy", "auto_claim", "auto_title", "property_policy", "property_claim",
+    "deed", "mortgage", "title", "closing", "uncertain",
+]
+
+
+@pytest.fixture
+def parsure_shell(browser_page):
+    """Open the shell on the intake project through the deep link and wait for
+    the report's rows (built into the hidden Fields pane as soon as the report
+    answers, whichever pane is showing)."""
+
+    def _open(project_id: str = _PARSURE_PROJECT, report_id: str | None = None) -> None:
+        browser_page.set_default_timeout(20000)
+        url = _SHELL_BASE + "/index.html?project_id=" + project_id
+        if report_id:
+            url += "&report_id=" + report_id
+        browser_page.goto(url, wait_until="domcontentloaded")
+        browser_page.wait_for_selector("#pane-right", state="visible")
+        browser_page.wait_for_function(
+            "() => document.querySelectorAll('#fields-list .field-row').length > 0", timeout=25000
+        )
+
+    return _open
+
+
+def _reports(browser_page, project_id: str) -> list[dict]:
+    r = browser_page.request.get(_SHELL_BASE + f"/api/projects/{project_id}/parsure")
+    if r.status == 404:
+        pytest.skip(f"{project_id} has no intake reports on this API")
+    return (r.json() or {}).get("reports") or []
+
+
+def test_fields_panel_renders_rows_for_intake_report(parsure_shell, browser_page):
+    """Review is the primary action while fields wait; it opens the Fields pane
+    on the first waiting field, needs-attention rows first, each row with its
+    label, value, state chip and one reason line; the strip counts the fields."""
+    parsure_shell()
+    primary = browser_page.locator("#shell-primary")
+    assert primary.get_attribute("data-action") == "review", "fields waiting → primary is Review"
+    assert primary.inner_text().strip() == "Review"
+    assert "field" in browser_page.inner_text("#strip-review-value"), "the strip's Review cell counts fields"
+    assert browser_page.locator("#fields-tab-count").is_visible(), "the Fields tab carries the waiting count"
+
+    primary.click()
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    assert browser_page.locator("#right-inspector").is_hidden(), "the inspector steps aside for the queue"
+    assert browser_page.locator("#compare-toggle").is_hidden(), "Compare belongs to the inspector"
+
+    rows = browser_page.locator("#fields-list .field-row")
+    assert rows.count() >= 1
+    attention = rows.evaluate_all("els => els.map(e => e.dataset.attention)")
+    split = attention.index("0") if "0" in attention else len(attention)
+    assert all(a == "1" for a in attention[:split]) and all(a == "0" for a in attention[split:]), (
+        f"needs-attention rows come first: {attention}"
+    )
+    for i in range(rows.count()):
+        row = rows.nth(i)
+        assert row.locator(".field-label").inner_text().strip(), f"row {i} has a label"
+        assert row.locator(".field-value").inner_text().strip(), f"row {i} shows a value or 'not found'"
+        chip = row.locator(".field-chip")
+        assert chip.inner_text().strip() in ("Verified", "Review needed", "Disputed", "Rejected", "Conflict")
+        assert chip.get_attribute("data-tone") in ("verified", "partial", "contradicted")
+        assert row.locator(".field-reason").inner_text().strip(), f"row {i} says why it is in its state"
+    # Review landed on the first waiting field: the reason precedes the tools.
+    sel = browser_page.locator("#fields-list .field-row.is-selected")
+    assert sel.count() == 1 and sel.get_attribute("data-attention") == "1"
+    assert sel.locator(".field-detail").is_visible()
+    assert sel.locator(".field-actions .btn-primary").count() == 1, "one filled action on the open row"
+    assert browser_page.locator("#fields-list .field-actions").count() == 1, "tools only on the open row"
+    assert browser_page.locator("#fields-type-value").inner_text().strip()
+    assert browser_page.locator("#fields-type-change").is_visible()
+
+
+def test_accept_moves_field_to_verified(parsure_shell, browser_page):
+    """Accept on a waiting field with a value: the row turns Verified, leaves the
+    attention group, and the strip / tab count / server report all agree."""
+    parsure_shell()
+    browser_page.click("#right-tab-fields")
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    cand = browser_page.locator(
+        '#fields-list .field-row[data-attention="1"][data-has-value="1"][data-state="review"]'
+    )
+    if cand.count() == 0:
+        pytest.skip(f"every valued field in {_PARSURE_PROJECT} is already verified or disputed")
+    name = cand.first.get_attribute("data-field")
+    before = int(browser_page.inner_text("#fields-tab-count") or "0")
+    cand.first.locator(".field-row-head").click()
+    row = browser_page.locator(f'#fields-list .field-row[data-field="{name}"]')
+    row.locator(".field-accept").click()
+    browser_page.wait_for_function(
+        "(n) => { var e = document.querySelector('#fields-list .field-row[data-field=\"' + n + '\"]');"
+        " return e && e.dataset.state === 'accepted'; }",
+        arg=name, timeout=15000,
+    )
+    row = browser_page.locator(f'#fields-list .field-row[data-field="{name}"]')
+    assert row.locator(".field-chip").inner_text().strip() == "Verified"
+    assert row.locator(".field-chip").get_attribute("data-tone") == "verified"
+    assert row.get_attribute("data-attention") == "0"
+    tab = browser_page.locator("#fields-tab-count")
+    after = int(tab.inner_text() or "0") if tab.is_visible() else 0
+    assert after == before - 1, f"tab count {before} → {after}"
+    # The server's report says the same: the row is not the shell's opinion.
+    select = browser_page.locator("#fields-report-select")
+    report_id = select.input_value() if select.is_visible() else _reports(browser_page, _PARSURE_PROJECT)[0]["report_id"]
+    rep = browser_page.request.get(_SHELL_BASE + f"/api/projects/{_PARSURE_PROJECT}/parsure/{report_id}").json()
+    field = next(f for f in rep["report"]["fields"] if f["name"] == name)
+    assert field["field_state"] == "accepted" and field["routing_action"] == "none"
+    assert field["review_required"] is False
+
+
+def test_classification_override_select_exists(parsure_shell, browser_page):
+    """Change on the document type opens the ten-type select with a reason;
+    Cancel puts the type line back untouched."""
+    parsure_shell()
+    browser_page.click("#right-tab-fields")
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    shown = browser_page.locator("#fields-type-value").inner_text().strip()
+    assert shown
+    browser_page.click("#fields-type-change")
+    select = browser_page.locator("#fields-type-select")
+    assert select.is_visible()
+    assert select.locator("option").evaluate_all("els => els.map(e => e.value)") == _DOC_TYPES
+    assert browser_page.locator("#fields-type-reason").is_visible()
+    assert browser_page.locator("#fields-type-save").is_visible()
+    assert browser_page.locator("#fields-type").is_hidden(), "the type line yields to the form"
+    browser_page.click("#fields-type-cancel")
+    assert select.is_hidden()
+    assert browser_page.locator("#fields-type-value").inner_text().strip() == shown
+
+
+def test_report_deep_link_opens_fields_panel(parsure_shell, browser_page):
+    """`?project_id=…&report_id=…` (the Parsure page's link) opens that report
+    in the Fields pane; without it the latest report is open and the pane is
+    the inspector."""
+    reports = _reports(browser_page, _PARSURE_PROJECT)
+    if len(reports) < 2:
+        pytest.skip("needs a project with at least two reports")
+    older = reports[-1]["report_id"]
+    parsure_shell(report_id=older)
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    select = browser_page.locator("#fields-report-select")
+    assert select.is_visible(), "several reports → the quiet document selector"
+    assert select.input_value() == older
+    assert len(select.locator("option").all_inner_texts()) == len(reports)
+    parsure_shell()
+    assert browser_page.locator("#right-inspector").is_visible()
+    if select.is_visible():
+        assert select.input_value() == reports[0]["report_id"], "no link → the latest report"

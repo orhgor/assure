@@ -150,6 +150,22 @@ def register_parsure_routes(app) -> None:
     def parsure_analytics(project_id: str):
         return jsonify({"ok": True, "analytics": repo.analytics(project_id)})
 
+    @app.get("/api/projects/<project_id>/parsure/queue")
+    @project_ownership_required
+    def parsure_queue(project_id: str):
+        """Review queue: every field still asking for a person (spec §9 item 18).
+
+        Newest report first; within a report overdue disputes, then disputes,
+        then the rest. Each item's ``dispute`` carries ``overdue`` and the SLA
+        in words so the page can say "overdue by 2 h" without its own clock.
+        """
+        try:
+            limit = int(request.args.get("limit") or 200)
+        except ValueError:
+            limit = 200
+        queue = repo.list_queue(project_id, limit=limit)
+        return jsonify({"ok": True, "items": queue["items"], "counts": queue["counts"], "total": queue["total"], "now": queue["now"]})
+
     @app.get("/api/projects/<project_id>/parsure/audit-log")
     @project_ownership_required
     def parsure_audit_log(project_id: str):

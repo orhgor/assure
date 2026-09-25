@@ -1,0 +1,117 @@
+{
+  "auto_policy_1.txt": {
+    "document_type": "auto_policy",
+    "fields": {
+      "policy_number": "NAP-4471-2025",
+      "insured_name": "Daniel R. Whitfield",
+      "effective_date": "2025-03-01",
+      "expiration_date": "2026-03-01",
+      "vin": "1HGCM82633A004352",
+      "vehicle_year_make_model": "2003 Honda Accord EX Sedan",
+      "premium": 1486.0,
+      "liability_limit": 250000.0,
+      "collision_deductible": 500.0,
+      "comprehensive_deductible": 250.0,
+      "agent_name": "Marianne Costa"
+    }
+  },
+  "auto_policy_2.txt": {
+    "document_type": "auto_policy",
+    "fields": {
+      "policy_number": "BCC 88-2210-A",
+      "insured_name": "Priya Nandakumar",
+      "effective_date": "2025-07-15",
+      "expiration_date": "2026-01-15",
+      "vin": "4T1BF3EK6BU123456",
+      "vehicle_year_make_model": "2011 Toyota Camry LE",
+      "premium": 612.5,
+      "liability_limit": 100000.0,
+      "collision_deductible": 1000.0,
+      "comprehensive_deductible": 500.0,
+      "agent_name": "Elliot Marsh"
+    }
+  },
+  "auto_claim_1.txt": {
+    "document_type": "auto_claim",
+    "fields": {
+      "claim_number": "CLM-2025-093311",
+      "policy_number": "NAP-4471-2025",
+      "claimant_name": "Daniel R. Whitfield",
+      "date_of_loss": "2025-08-14",
+      "vin": "1HGCM82633A004352",
+      "vehicle_year_make_model": "2003 Honda Accord EX Sedan",
+      "estimated_damage": 4275.0,
+      "adjuster_name": "Thomas Greeley"
+    }
+  },
+  "property_policy_1.txt": {
+    "document_type": "property_policy",
+    "fields": {
+      "policy_number": "HO3-55120-PL",
+      "insured_name": "Rosa and Miguel Alvarez",
+      "property_address": "42 Sandwich Road, Plymouth, MA 02360",
+      "effective_date": "2025-05-01",
+      "expiration_date": "2026-05-01",
+      "dwelling_coverage": 425000.0,
+      "personal_property_coverage": 212500.0,
+      "premium": 2140.0,
+      "deductible": 2500.0
+    }
+  },
+  "deed_1.txt": {
+    "document_type": "deed",
+    "fields": {
+      "grantor": "Eleanor M. Bradford",
+      "property_address": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+      "consideration": 585000.0,
+      "recording_date": "2025-06-16",
+      "parcel_number": "023-000-014-000",
+      "county": "Plymouth"
+    }
+  },
+  "mortgage_1.txt": {
+    "document_type": "mortgage",
+    "fields": {
+      "loan_number": "0031-778-2025",
+      "borrower_name": "Samuel T. Okafor and Grace A. Okafor",
+      "principal_amount": 468000.0,
+      "interest_rate": 6.125,
+      "maturity_date": "2055-07-01",
+      "property_address": "7 Cole's Hill Terrace, Plymouth, MA 02360",
+      "execution_date": "2025-06-12"
+    }
+  },
+  "mixed_bundle_1.txt": {
+    "document_type": "mixed_bundle",
+    "documents": [
+      {
+        "pages": [1, 2],
+        "document_type": "auto_policy",
+        "fields": {
+          "policy_number": "NAP-4471-2025",
+          "insured_name": "Daniel R. Whitfield",
+          "effective_date": "2025-03-01",
+          "expiration_date": "2026-03-01",
+          "vin": "1HGCM82633A004352",
+          "vehicle_year_make_model": "2003 Honda Accord EX Sedan",
+          "premium": 1486.0,
+          "liability_limit": 250000.0,
+          "collision_deductible": 500.0,
+          "comprehensive_deductible": 250.0,
+          "agent_name": "Marianne Costa, Costa Insurance Agency"
+        }
+      },
+      {
+        "pages": [3],
+        "document_type": "auto_claim",
+        "fields": {
+          "claim_number": "CLM-2025-093311",
+          "claimant_name": "Daniel R. Whitfield",
+          "date_of_loss": "2025-08-14",
+          "estimated_damage": 4275.0,
+          "adjuster_name": "Thomas Greeley"
+        }
+      }
+    ]
+  }
+}

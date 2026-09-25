@@ -105,6 +105,7 @@ tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 ## 6. Checks
 
 - `docker compose ps`: `ollama-pull` is `Exited (0)`, the other six services are `healthy`/`running`.
+- `curl -s http://127.0.0.1:8765/health | python3 -m json.tool | grep -A6 '"models"'`: `status: ok` with both models under `present`; `missing` or `unreachable` makes `/health` report `degraded`.
 - Upload a PDF or a phone photo on the Sources panel: Processing panel shows `jdf-cli`, Z3 verdict; the Parsure page (`/parsing`) shows quality and fields; object under `s3://<bucket>/assure/…` when S3 is set, else `./data/objects`.
 - Compile: first frame `Drafting with ollama/qwen2.5:1.5b`; minutes on CPU.
 - With S3: `GET /api/integrations/aws` (through the shell, with the key): `reachable: true`, `credential_source: keys` or `role`.

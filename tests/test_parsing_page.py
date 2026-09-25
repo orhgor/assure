@@ -273,3 +273,107 @@ def test_repository_errors_do_not_break_the_page(client, monkeypatch):
     assert "Documents: 1 · Pages: 1 · Avg quality: —" in text
     assert "Image" in text
     assert "Quality not assessed (uploaded before intake scoring)" in text
+
+
+# --------------------------------------------------------------------------
+# Needs attention (review queue) and Analytics (premium report) sections
+# --------------------------------------------------------------------------
+
+def _queue_report(project: str, report_id: str, filename: str, *, quality, review_fields: int, created_at=None, modality="scanned_pdf", flags=()):
+    """A report with ``review_fields`` fields asking for a person plus one accepted."""
+    from prompt_matrix.db import parsure_repository as repo
+
+    fields = [
+        {"name": f"f{i}", "label": f"Field {i}", "value": f"v{i}" if i % 2 else None, "extraction_confidence": 0.41,
+         "field_state": "unverified", "routing_action": "manual_review", "review_required": True,
+         "reason": "field not found" if i % 2 == 0 else "extraction_confidence 0.41 < 0.75"}
+        for i in range(review_fields)
+    ] + [{"name": "ok", "label": "Policy number", "value": "PR-1", "extraction_confidence": 0.95, "field_state": "accepted", "routing_action": "none", "review_required": False, "reason": ""}]
+    report = {
+        "report_id": report_id, "document_id": f"doc-{report_id}", "filename": filename, "modality": modality, "material_type": "pdf",
+        "parser_name": "jdf-cli", "page_count": 2, "pages": [], "document_quality_score": quality, "quality_flags": list(flags),
+        "classification": {"document_type": "auto_policy", "confidence": 0.9}, "fields": fields, "conflicts": [],
+        "quality_report": {"summary": "", "flags": list(flags), "signature": {}, "numbers": {"flagged": []}},
+        "replay": {"eligible": False, "reasons": [], "history": []},
+    }
+    if created_at:
+        report["created_at"] = created_at
+    return repo.save_report(project, report)
+
+
+def test_needs_attention_table_renders_collapses_and_marks_overdue(client):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+    from prompt_matrix.history import get_db
+
+    ensure_project("p-queue")
+    _queue_report("p-queue", "rep-old", "older-scan.pdf", quality=0.61, review_fields=6, created_at="2026-01-01 00:00:00")
+    _queue_report("p-queue", "rep-new", "claim-photo.jpg", quality=0.42, review_fields=6, modality="phone_photo", flags=["blurry"])
+    dispute = repo.open_dispute("p-queue", "rep-old", "f1", reason="insured disagrees", actor="bob")
+    db = get_db()
+    db.execute("UPDATE parsure_disputes SET due_at = ? WHERE dispute_id = ?", ("2020-01-01 00:00:00", dispute["dispute_id"]))
+    db.commit()
+    report = repo.get_report("p-queue", "rep-old")
+    f1 = next(f for f in report["fields"] if f["name"] == "f1")
+    f1.update(field_state="disputed", routing_action="adjudicator_queue", dispute_id=dispute["dispute_id"], reason="disputed: insured disagrees")
+    repo.update_report("p-queue", "rep-old", report)
+
+    res = client.get("/parsing?project_id=p-queue")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Section order: summary line → Needs attention → cards → Analytics; one primary action.
+    assert text.index("Documents:") < text.index("Needs attention") < text.index("older-scan.pdf") < text.index("Analytics")
+    assert html.count('class="btn-primary"') == 1
+    assert "12 items · 1 disputed · 1 overdue" in text
+    assert "Document Field Value Why State Action" in text
+
+    # Collapsed to the first 8 rows, the rest hidden behind "Show all 12".
+    rows = re.findall(r'<tr class="queue-row"[^>]*>', html)
+    assert len(rows) == 12
+    assert sum(1 for r in rows if "hidden" in r) == 4 and all("hidden" not in r for r in rows[:8])
+    assert "Show all 12" in text
+
+    # Newest report first; within the old report the overdue dispute leads.
+    assert rows[0].count('data-report-id="rep-new"') == 1 and rows[6].count('data-report-id="rep-old"') == 1
+    assert 'data-field="f1"' in rows[6] and 'data-overdue="1"' in rows[6]
+    assert "Overdue" in text and "overdue by" in text
+    assert "Disputed" in text and "insured disagrees" in text
+
+    # Actions: Accept only where a value exists; Dispute; Review link with report id.
+    assert html.count('data-act="accept"') == 5  # 11 undisputed review fields, odd-numbered ones have a value... minus the disputed f1
+    assert html.count('data-act="dispute"') == 11
+    assert 'href="/?project_id=p-queue&amp;report_id=rep-new"' in html or 'href="/?project_id=p-queue&report_id=rep-new"' in html
+    assert "Review in Assure" in text
+    assert "Not found" in text and "Low confidence" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # Analytics: strong metrics, sparkline, histogram and issue list from real counts.
+    assert "Avg quality 0.52" in text  # (0.61 + 0.42) / 2 → 0.515 rounds to 0.52 at two decimals
+    assert "Review rate 86%" in text  # 12 of 14 fields
+    assert "12 of 14 fields" in text
+    assert "Open disputes 1" in text and "1 overdue" in text
+    assert "Corrections 0" in text
+    assert 'class="spark"' in html and "Average quality per day" in text
+    assert "Quality distribution" in text and "0.4–0.6" in text
+    assert "What needs attention, by reason" in text and "Blurry" in text
+    assert "Table view" in text
+
+
+def test_analytics_and_queue_empty_states_have_no_fabricated_numbers(client):
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p-none")
+    _seed_vault("p-none", "note.png", parser_name="textract", source_kind="image", page_count=1)
+
+    res = client.get("/parsing?project_id=p-none")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert "No review items. New intake will appear here." in text
+    assert "Analytics" in text and "No intake yet." in text
+    assert "Avg quality —" in text and "Review rate —" in text and "Open disputes —" in text and "Corrections —" in text
+    assert 'class="spark"' not in html and "Quality distribution" not in text
+    assert "%" not in text
+    assert not re.search(r"\b0\.\d\d\b", text)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)

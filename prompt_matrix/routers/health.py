@@ -52,6 +52,54 @@ def _parse_created_at(raw: str) -> datetime:
     return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).replace(tzinfo=None)
 
 
+def _local_models_check(timeout_s: float = 1.5) -> dict:
+    """Are the configured local models actually on the Ollama daemon?
+
+    Only meaningful with ``ASSURE_LLM_BACKEND=ollama`` (every compose target
+    since 2026-09-25); the cloud backends have no local inventory. Reads
+    ``GET <OLLAMA_API_BASE>/api/tags`` — the same list ``ollama list`` prints —
+    and compares it with ``cost_governance.local_model`` for both roles. A
+    ``:latest`` suffix on the daemon side is treated as equal to a bare tag.
+    """
+    try:
+        from ..cost_governance import llm_backend, local_model
+    except ImportError:
+        from cost_governance import llm_backend, local_model
+    backend = llm_backend()
+    if backend != "ollama":
+        return {"backend": backend or "cloud", "status": "not local"}
+    base = (os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434").rstrip("/")
+    wanted = []
+    for role in ("a", "b"):
+        name = local_model(role).split("/", 1)[-1]
+        if name not in wanted:
+            wanted.append(name)
+    try:
+        import json as _json
+        import urllib.request
+
+        with urllib.request.urlopen(f"{base}/api/tags", timeout=timeout_s) as resp:  # noqa: S310 — fixed local URL
+            payload = _json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        return {"backend": "ollama", "api_base": base, "status": "unreachable", "error": exc.__class__.__name__, "wanted": wanted}
+    have = set()
+    for m in payload.get("models") or []:
+        name = str(m.get("name") or m.get("model") or "")
+        if name:
+            have.add(name)
+            if name.endswith(":latest"):
+                have.add(name[: -len(":latest")])
+    present = [w for w in wanted if w in have or f"{w}:latest" in have]
+    missing = [w for w in wanted if w not in present]
+    return {
+        "backend": "ollama",
+        "api_base": base,
+        "status": "ok" if not missing else "missing",
+        "present": present,
+        "missing": missing,
+    }
+
+
 @health_bp.route("/health", methods=["GET"])
 def health_check():
     status: dict = {"ok": True, "status": "healthy", "checks": {}}
@@ -209,6 +257,15 @@ def health_check():
         status["checks"]["textract_budget"] = _textract_usage()
     except Exception as exc:  # the cap is enforced at call time; here it is only reported
         status["checks"]["textract_budget"] = {"error": exc.__class__.__name__}
+    models = _local_models_check()
+    status["checks"]["models"] = models
+    if models.get("status") in ("missing", "unreachable"):
+        # The box was asked to run without provider keys (2026-09-25): a compile
+        # with the model absent fails at the first token, so the daemon being up
+        # is not enough — the configured model files must be present.
+        status["degraded"] = True
+        if status["status"] == "healthy":
+            status["status"] = "degraded"
     status.setdefault("degraded", False)
     build_sha = (os.environ.get("ASSURE_BUILD_SHA") or "").strip() or _deployed_commit()
     if build_sha:
