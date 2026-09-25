@@ -81,9 +81,13 @@ def _local_models_check(timeout_s: float = 1.5) -> dict:
     if backend != "ollama":
         return {"backend": backend or "cloud", "status": "not local"}
     base = (os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434").rstrip("/")
+    try:
+        from ..cost_governance import local_models_by_stage
+    except ImportError:
+        from cost_governance import local_models_by_stage
+    by_stage = local_models_by_stage()
     wanted = []
-    for role in ("a", "b"):
-        name = local_model(role).split("/", 1)[-1]
+    for name in by_stage.values():
         if name not in wanted:
             wanted.append(name)
     try:
@@ -109,6 +113,7 @@ def _local_models_check(timeout_s: float = 1.5) -> dict:
         "status": "ok" if not missing else "missing",
         "present": present,
         "missing": missing,
+        "stages": by_stage,
     }
 
 

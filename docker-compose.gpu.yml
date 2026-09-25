@@ -1,21 +1,28 @@
 # GPU overlay for a machine with an NVIDIA card (EC2 g5/g6, a workstation):
 #
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#   (gen-env writes COMPOSE_FILE into .env so plain `docker compose up -d` does this)
 #
 # Prerequisite on the host: NVIDIA driver + nvidia-container-toolkit
-# (`nvidia-smi` works, `docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi` works).
-# Ollama then loads the models on the GPU; qwen2.5:7b answers at ~60–80 tok/s on
-# an A10G/L4 (24 GB) instead of ~3–5 tok/s on 4 Graviton vCPUs, so a compile
-# takes seconds, not minutes, and the 7B model passes the anchoring gate far
-# more often than the 1.5B default (measured 2026-09-25: the 1.5B model wrote a
-# source-free "What is AI?" paragraph and the gate refused it).
-# Model tags still come from .env (ASSURE_OLLAMA_MODEL / _B); the defaults here
-# are only used when .env does not set them.
+# (`docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi` works).
+#
+# One open model per stage — the open-weights counterparts of the recommended
+# hosted models (user's table, 2026-09-25), sized for ONE 24 GB card (L4 / A10G):
+#   Parsing (field extraction)   GPT-5.6 Sol/Luna/Terra → qwen2.5:7b   (JSON-strict, fast; ~4.7 GB)
+#   Prompt Compile (drafting)    Claude Sonnet 5        → qwen2.5:14b  (~9 GB)
+#   Red-Hat (critique/compliance) GPT-6 Luna/Sol        → qwen2.5:14b  (same weights as drafting, so it stays resident)
+#   Evidence (claims validation) Grok 4.6 / GPT-6 Astra → qwen2.5:7b   (many short calls per draft; speed matters)
+#   Compare (policy comparison)  Opus 5.5 / Fable 5.1   → gemma3:27b   (~17 GB; loaded on demand for Compare only)
+# 7b + 14b stay resident together (~14 GB + KV cache); gemma3:27b swaps in when
+# Compare runs. gen-env picks bigger tags for 48 GB / 80 GB cards. Change any
+# ASSURE_OLLAMA_MODEL_* line in .env and run docker compose up -d.
 services:
   ollama:
     environment:
       OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-16384}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-2h}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
+      OLLAMA_FLASH_ATTENTION: "1"
     deploy:
       resources:
         reservations:
@@ -24,14 +31,15 @@ services:
               count: all
               capabilities: [gpu]
   ollama-pull:
-    environment:
-      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
-      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}
+    environment: &gpu-models
+      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:14b}
+      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-gemma3:27b}
+      ASSURE_OLLAMA_MODEL_PARSE: ${ASSURE_OLLAMA_MODEL_PARSE:-qwen2.5:7b}
+      ASSURE_OLLAMA_MODEL_DRAFT: ${ASSURE_OLLAMA_MODEL_DRAFT:-qwen2.5:14b}
+      ASSURE_OLLAMA_MODEL_REDHAT: ${ASSURE_OLLAMA_MODEL_REDHAT:-qwen2.5:14b}
+      ASSURE_OLLAMA_MODEL_EVIDENCE: ${ASSURE_OLLAMA_MODEL_EVIDENCE:-qwen2.5:7b}
+      ASSURE_OLLAMA_MODEL_COMPARE: ${ASSURE_OLLAMA_MODEL_COMPARE:-gemma3:27b}
   assure-app:
-    environment:
-      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
-      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}
+    environment: *gpu-models
   assure-worker:
-    environment:
-      ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:7b}
-      ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.1:8b}
+    environment: *gpu-models

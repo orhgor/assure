@@ -88,7 +88,7 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
     """The user asked (2026-09-25) to be prompted for the access key and secret
     instead of editing the file afterwards: both are questions, the secret is
     read hidden, and empty answers keep the defaults."""
-    answers = "\n".join(["AKIAEXAMPLE", "s3cr3t/with+chars", "eu-west-1", "my-bucket", "8080", "", "local", "n", "qwen2.5:7b", "", "0"]) + "\n"
+    answers = "\n".join(["AKIAEXAMPLE", "s3cr3t/with+chars", "eu-west-1", "my-bucket", "8080", "", "local", "n", "", "qwen2.5:7b", "", "", "", "0"]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     assert not (tmp_path / "called.log").exists()
@@ -98,7 +98,8 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
     assert "AWS_DEFAULT_REGION=eu-west-1\n" in text
     assert "ASSURE_S3_BUCKET=my-bucket\n" in text
     assert "SHELL_PORT=8080\n" in text and "SHELL_BIND=0.0.0.0\n" in text
-    assert "ASSURE_OLLAMA_MODEL=qwen2.5:7b\n" in text and "ASSURE_OLLAMA_MODEL_B=llama3.2:1b\n" in text
+    assert "ASSURE_OLLAMA_MODEL_DRAFT=qwen2.5:7b\n" in text and "ASSURE_OLLAMA_MODEL=qwen2.5:7b\n" in text
+    assert "ASSURE_OLLAMA_MODEL_PARSE=qwen2.5:1.5b\n" in text and "ASSURE_OLLAMA_MODEL_COMPARE=llama3.2:1b\n" in text
     assert "ASSURE_TEXTRACT_MONTHLY_USD_CAP=0\n" in text
     prompts = proc.stdout + proc.stderr  # read -p writes the prompt to stderr
     assert "AWS access key id" in prompts and "secret access key" in prompts
@@ -107,12 +108,20 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
 def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Path) -> None:
     """'y' to the GPU question: COMPOSE_FILE adds docker-compose.gpu.yml so a plain
     `docker compose up -d` uses the card, and the 7B/8B tags become defaults."""
-    answers = "\n".join(["", "", "", "", "", "", "", "y", "", "", ""]) + "\n"
+    answers = "\n".join(["", "", "", "", "", "", "", "y", "", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()
     assert "COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml\n" in text
-    assert "ASSURE_OLLAMA_MODEL=qwen2.5:7b\n" in text and "ASSURE_OLLAMA_MODEL_B=llama3.1:8b\n" in text
+    # 24 GB tier: 7b parse/evidence, 14b draft/red-hat, gemma3:27b compare
+    for line in ("ASSURE_OLLAMA_MODEL_PARSE=qwen2.5:7b", "ASSURE_OLLAMA_MODEL_DRAFT=qwen2.5:14b",
+                 "ASSURE_OLLAMA_MODEL_REDHAT=qwen2.5:14b", "ASSURE_OLLAMA_MODEL_EVIDENCE=qwen2.5:7b",
+                 "ASSURE_OLLAMA_MODEL_COMPARE=gemma3:27b", "ASSURE_OLLAMA_MODEL=qwen2.5:14b", "OLLAMA_CONTEXT_LENGTH=16384"):
+        assert line + "\n" in text, line
+    # 80 GB tier
+    answers = "\n".join(["", "", "", "", "", "", "", "y", "80", "", "", "", "", "", ""]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert "ASSURE_OLLAMA_MODEL_DRAFT=qwen2.5:72b\n" in out.read_text() and "ASSURE_OLLAMA_MODEL_COMPARE=llama3.3:70b\n" in out.read_text()
     proc, out = _run(tmp_path, "ec2", "--yes")
     assert "COMPOSE_FILE=" not in out.read_text()  # no nvidia-smi in the stub PATH → CPU
 
@@ -120,7 +129,7 @@ def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Pa
 def test_generator_bedrock_answer_sets_backend_and_both_roles(tmp_path: Path) -> None:
     """'bedrock' to the models question: backend bedrock, Sonnet 5 for drafting,
     Opus 5 for analysis (user decision 2026-09-25), overridable per role."""
-    answers = "\n".join(["", "", "", "", "", "", "bedrock", "", "anthropic.claude-opus-5-5", "n", "", "", ""]) + "\n"
+    answers = "\n".join(["", "", "", "", "", "", "bedrock", "", "anthropic.claude-opus-5-5", "n", "", "", "", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()

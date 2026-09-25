@@ -55,6 +55,13 @@ x-app-env: &app-env
   ASSURE_LLM_BACKEND: ${ASSURE_LLM_BACKEND:-ollama}
   ASSURE_OLLAMA_MODEL: ${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}
   ASSURE_OLLAMA_MODEL_B: ${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}
+  # One open model per stage (empty = ASSURE_OLLAMA_MODEL). The GPU overlay and
+  # gen-env fill these; on a CPU box one small model serves every stage.
+  ASSURE_OLLAMA_MODEL_PARSE: ${ASSURE_OLLAMA_MODEL_PARSE:-}
+  ASSURE_OLLAMA_MODEL_DRAFT: ${ASSURE_OLLAMA_MODEL_DRAFT:-}
+  ASSURE_OLLAMA_MODEL_REDHAT: ${ASSURE_OLLAMA_MODEL_REDHAT:-}
+  ASSURE_OLLAMA_MODEL_EVIDENCE: ${ASSURE_OLLAMA_MODEL_EVIDENCE:-}
+  ASSURE_OLLAMA_MODEL_COMPARE: ${ASSURE_OLLAMA_MODEL_COMPARE:-}
   OLLAMA_API_BASE: http://ollama:11434
   OLLAMA_HOST: http://ollama:11434
   ASSURE_LOG_STDOUT: "1"
@@ -137,7 +144,12 @@ services:
         if [ "$${ASSURE_LLM_BACKEND}" != "ollama" ]; then
           echo "ASSURE_LLM_BACKEND=$${ASSURE_LLM_BACKEND:-cloud}: no local models to pull"; exit 0;
         fi;
-        for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}"; do
+        seen=" ";
+        for m in "${ASSURE_OLLAMA_MODEL:-qwen2.5:1.5b}" "${ASSURE_OLLAMA_MODEL_B:-llama3.2:1b}"
+                 "${ASSURE_OLLAMA_MODEL_PARSE:-}" "${ASSURE_OLLAMA_MODEL_DRAFT:-}" "${ASSURE_OLLAMA_MODEL_REDHAT:-}"
+                 "${ASSURE_OLLAMA_MODEL_EVIDENCE:-}" "${ASSURE_OLLAMA_MODEL_COMPARE:-}"; do
+          [ -z "$$m" ] && continue;
+          case "$$seen" in *" $$m "*) continue;; esac; seen="$$seen$$m ";
           if ollama show "$$m" >/dev/null 2>&1; then echo "$$m already present"; continue; fi;
           echo "pulling $$m"; ollama pull "$$m" || exit 1;
         done;

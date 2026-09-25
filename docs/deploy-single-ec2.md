@@ -77,6 +77,25 @@ Also needed, not in the policy: **`sts:GetCallerIdentity`** is allowed for every
 principal by default (the Sources panel calls it). SSM access (`AmazonSSMManagedInstanceCore`,
 managed policy) if you want `scripts/aws/_box.sh` style remote commands instead of SSH.
 
+**One open model per stage (GPU box).** The recommended hosted models and the
+open-weights tags the stack uses in their place — chosen by `gen-env` from the
+card's memory, changeable per line in `.env` (`docker compose up -d` pulls a new
+tag). These are our picks for the role, not measured equivalents.
+
+| Stage | `.env` variable | Recommended hosted | 24 GB (L4 / A10G) | 48 GB (L40S) | 80 GB (A100 / H100) |
+|---|---|---|---|---|---|
+| Parsing (field extraction) | `ASSURE_OLLAMA_MODEL_PARSE` | GPT-5.6 Sol / Luna / Terra | `qwen2.5:7b` | `qwen2.5:14b` | `qwen2.5:14b` |
+| Prompt Compile (drafting) | `ASSURE_OLLAMA_MODEL_DRAFT` | Claude Sonnet 5 | `qwen2.5:14b` | `qwen2.5:32b` | `qwen2.5:72b` |
+| Red-Hat (critique / compliance) | `ASSURE_OLLAMA_MODEL_REDHAT` | GPT-6 Luna / Sol | `qwen2.5:14b` | `qwen2.5:32b` | `qwen2.5:72b` |
+| Evidence (claims validation) | `ASSURE_OLLAMA_MODEL_EVIDENCE` | Grok 4.6 / GPT-6 Astra | `qwen2.5:7b` | `qwen2.5:14b` | `qwen2.5:14b` |
+| Compare (policy comparison) | `ASSURE_OLLAMA_MODEL_COMPARE` | Claude Opus 5.5 / Fable 5.1 | `gemma3:27b` | `gemma3:27b` | `llama3.3:70b` |
+
+Drafting and Red-Hat share weights so both stay resident; Evidence runs many
+short calls per draft, so it gets the smaller, faster tag; Compare's model is
+loaded only when Compare runs (`OLLAMA_MAX_LOADED_MODELS=3`). `ASSURE_OLLAMA_MODEL`
+is the fallback for any stage left empty. `/health` `checks.models.stages` shows
+the resolved tag per stage and `present`/`missing` the download state.
+
 **Models on Amazon Bedrock instead of the box (`gen-env` question "Models: local or bedrock"):**
 `ASSURE_LLM_BACKEND=bedrock` sends drafting (compile, edit, summarise) to
 `ASSURE_BEDROCK_MODEL_DRAFT` (default Claude Sonnet 5) and analysis (entailment,

@@ -91,9 +91,24 @@ fi
 GPU_DEFAULT="n"; command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && GPU_DEFAULT="y"
 ask GPU              "NVIDIA GPU on this machine? models run on it (y/n)" "$GPU_DEFAULT"
 case "$GPU" in y|Y|yes|YES) GPU="y" ;; *) GPU="n" ;; esac
-if [[ "$GPU" == "y" ]]; then DEF_MODEL_A="qwen2.5:7b"; DEF_MODEL_B="llama3.1:8b"; else DEF_MODEL_A="qwen2.5:1.5b"; DEF_MODEL_B="llama3.2:1b"; fi
-ask MODEL_A          "Ollama model for drafting and checks" "$DEF_MODEL_A"
-ask MODEL_B          "Ollama model for Compare's second column" "$DEF_MODEL_B"
+# One open model per stage — open-weights counterparts of the recommended hosted
+# models (Parsing GPT-5.6 → Qwen2.5; Prompt Compile Sonnet 5 → Qwen2.5 14B+;
+# Red-Hat GPT-6 → Qwen2.5 14B+; Evidence Grok 4.6 → Qwen2.5 7B+; Compare Opus 5.5
+# / Fable 5.1 → Gemma 3 27B / Llama 3.3 70B), sized to the card's memory.
+if [[ "$GPU" == "y" ]]; then
+  ask VRAM_GB        "GPU memory in GB (24 = L4/A10G, 48 = L40S/A6000, 80 = A100/H100)" "24"
+  if   [[ "${VRAM_GB%%.*}" -ge 80 ]]; then M_PARSE="qwen2.5:14b"; M_DRAFT="qwen2.5:72b"; M_REDHAT="qwen2.5:72b"; M_EVIDENCE="qwen2.5:14b"; M_COMPARE="llama3.3:70b"
+  elif [[ "${VRAM_GB%%.*}" -ge 48 ]]; then M_PARSE="qwen2.5:14b"; M_DRAFT="qwen2.5:32b"; M_REDHAT="qwen2.5:32b"; M_EVIDENCE="qwen2.5:14b"; M_COMPARE="gemma3:27b"
+  else                                     M_PARSE="qwen2.5:7b";  M_DRAFT="qwen2.5:14b"; M_REDHAT="qwen2.5:14b"; M_EVIDENCE="qwen2.5:7b";  M_COMPARE="gemma3:27b"; fi
+else
+  M_PARSE="qwen2.5:1.5b"; M_DRAFT="qwen2.5:1.5b"; M_REDHAT="qwen2.5:1.5b"; M_EVIDENCE="qwen2.5:1.5b"; M_COMPARE="llama3.2:1b"
+fi
+ask MODEL_PARSE      "Parsing model (field extraction)" "$M_PARSE"
+ask MODEL_DRAFT      "Prompt Compile model (drafting)" "$M_DRAFT"
+ask MODEL_REDHAT     "Red-Hat model (critique / compliance)" "$M_REDHAT"
+ask MODEL_EVIDENCE   "Evidence model (claims validation)" "$M_EVIDENCE"
+ask MODEL_COMPARE    "Compare model (policy comparison, 2nd column)" "$M_COMPARE"
+MODEL_A="$MODEL_DRAFT"; MODEL_B="$MODEL_COMPARE"
 ask TEXTRACT_CAP     "Textract monthly cap in USD (fallback OCR; 0 = never call Textract)" "100"
 
 POSTGRES_PASSWORD="$(rand 24)"
@@ -130,9 +145,15 @@ ASSURE_LLM_BACKEND=$([[ "$MODELS_WHERE" == "bedrock" ]] && echo bedrock || echo 
 ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5}
 ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_ANALYSIS:-anthropic.claude-opus-5}
 ASSURE_BEDROCK_MODEL_B=anthropic.claude-opus-5
+# Ollama, one open model per stage (see the table in docs/deploy-single-ec2.md):
+ASSURE_OLLAMA_MODEL_PARSE=${MODEL_PARSE}
+ASSURE_OLLAMA_MODEL_DRAFT=${MODEL_DRAFT}
+ASSURE_OLLAMA_MODEL_REDHAT=${MODEL_REDHAT}
+ASSURE_OLLAMA_MODEL_EVIDENCE=${MODEL_EVIDENCE}
+ASSURE_OLLAMA_MODEL_COMPARE=${MODEL_COMPARE}
 ASSURE_OLLAMA_MODEL=${MODEL_A}
 ASSURE_OLLAMA_MODEL_B=${MODEL_B}
-OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_CONTEXT_LENGTH=$([[ "$GPU" == "y" ]] && echo 16384 || echo 8192)
 
 # ---- AWS (optional: documents in S3, Textract as OCR fallback) -----------------
 ASSURE_S3_BUCKET=${S3_BUCKET}

@@ -267,16 +267,61 @@ def bedrock_model(role: str = "a") -> str:
     return _bedrock_qualify(raw)
 
 
+#: The five stages a deployment picks an open model for (user's table,
+#: 2026-09-25: Parsing / Prompt Compile / Red-Hat / Evidence / Compare), the
+#: .env variable of each, and which policies belong to it. ``ASSURE_OLLAMA_MODEL``
+#: is the fallback for every stage; ``ASSURE_OLLAMA_MODEL_B`` is the old name of
+#: the Compare column and still works.
+OLLAMA_STAGE_ENV = {
+    "parse": "ASSURE_OLLAMA_MODEL_PARSE",        # field extraction from the parsed text
+    "draft": "ASSURE_OLLAMA_MODEL_DRAFT",        # compile, deep synthesis, summarise, surgical edit
+    "redhat": "ASSURE_OLLAMA_MODEL_REDHAT",      # Red-Hat critique, macro audit
+    "evidence": "ASSURE_OLLAMA_MODEL_EVIDENCE",  # entailment (claims validation), lock inference
+    "compare": "ASSURE_OLLAMA_MODEL_COMPARE",    # Compare's second column
+}
+OLLAMA_TASK_STAGE = {
+    TaskType.FIELD_EXTRACTION: "parse",
+    TaskType.DRAFT_COMPILE: "draft",
+    TaskType.DEEP_SYNTHESIS: "draft",
+    TaskType.SUMMARIZE_NODE: "draft",
+    TaskType.SURGICAL_EDIT: "draft",
+    TaskType.REDHAT: "redhat",
+    TaskType.MACRO_AUDIT: "redhat",
+    TaskType.SEMANTIC_VALIDATION: "evidence",
+}
+#: CPU defaults (a laptop or a Graviton box without a GPU). The GPU overlay
+#: (docker-compose.gpu.yml) and gen-env's GPU tiers set larger ones per stage.
+OLLAMA_DEFAULT_MODEL = "qwen2.5:1.5b"
+OLLAMA_DEFAULT_COMPARE = "llama3.2:1b"
+_OLLAMA_ROLE_ALIASES = {"a": "draft", "b": "compare", "analysis": "evidence"}
+
+
 def local_model(role: str = "a") -> str:
-    """Ollama model for the local backend: ``ASSURE_OLLAMA_MODEL`` (and
-    ``ASSURE_OLLAMA_MODEL_B`` for the Compare pair's second column)."""
-    if role == "b":
-        raw = os.environ.get("ASSURE_OLLAMA_MODEL_B", "").strip() or os.environ.get(
-            "ASSURE_OLLAMA_MODEL", ""
-        ).strip() or "llama3.2:1b"
-    else:
-        raw = os.environ.get("ASSURE_OLLAMA_MODEL", "").strip() or "qwen2.5:1.5b"
+    """Ollama model for one stage of the local backend.
+
+    ``role`` is a stage name (``parse`` / ``draft`` / ``redhat`` / ``evidence`` /
+    ``compare``) or one of the older aliases ``a`` (draft), ``b`` (compare),
+    ``analysis`` (evidence). Resolution: the stage's own variable →
+    ``ASSURE_OLLAMA_MODEL`` (``ASSURE_OLLAMA_MODEL_B`` for compare) → the CPU
+    default. The ``ollama/`` litellm prefix is added.
+    """
+    stage = _OLLAMA_ROLE_ALIASES.get(role, role)
+    if stage not in OLLAMA_STAGE_ENV:
+        stage = "draft"
+    raw = os.environ.get(OLLAMA_STAGE_ENV[stage], "").strip()
+    if not raw and stage == "compare":
+        raw = os.environ.get("ASSURE_OLLAMA_MODEL_B", "").strip()
+    if not raw:
+        raw = os.environ.get("ASSURE_OLLAMA_MODEL", "").strip()
+    if not raw:
+        raw = OLLAMA_DEFAULT_COMPARE if stage == "compare" else OLLAMA_DEFAULT_MODEL
     return raw if raw.startswith("ollama/") else f"ollama/{raw}"
+
+
+def local_models_by_stage() -> dict[str, str]:
+    """Stage → bare Ollama tag (no ``ollama/`` prefix) for every stage; what
+    ollama-pull downloads and /health checks."""
+    return {stage: local_model(stage).split("/", 1)[-1] for stage in OLLAMA_STAGE_ENV}
 
 
 def resolve_model(default: str, *, role: str = "a") -> str:
@@ -304,7 +349,7 @@ def _apply_llm_backend(policies: dict) -> dict:
 
     def _model_for(task: TaskType) -> str:
         if backend == "ollama":
-            return local_model()
+            return local_model(OLLAMA_TASK_STAGE.get(task, "draft"))
         return bedrock_model("analysis" if task in BEDROCK_ANALYSIS_TASKS else "draft")
 
     return {

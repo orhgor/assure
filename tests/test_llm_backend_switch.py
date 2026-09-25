@@ -92,3 +92,29 @@ def test_bedrock_backend_splits_drafting_and_analysis(reload_policies, monkeypat
         monkeypatch.delenv(k)
     monkeypatch.setenv("ASSURE_BEDROCK_MODEL", "anthropic.claude-opus-4-8")
     assert mod.bedrock_model("draft") == mod.bedrock_model("analysis") == "bedrock/eu.anthropic.claude-opus-4-8"
+
+
+def test_ollama_backend_one_model_per_stage(reload_policies, monkeypatch):
+    """User's table (2026-09-25): Parsing / Prompt Compile / Red-Hat / Evidence /
+    Compare each get their own open model from .env; unset stages fall back to
+    ASSURE_OLLAMA_MODEL; the old _B name still means Compare."""
+    for k in ("ASSURE_OLLAMA_MODEL", "ASSURE_OLLAMA_MODEL_B", "ASSURE_OLLAMA_MODEL_PARSE", "ASSURE_OLLAMA_MODEL_DRAFT",
+              "ASSURE_OLLAMA_MODEL_REDHAT", "ASSURE_OLLAMA_MODEL_EVIDENCE", "ASSURE_OLLAMA_MODEL_COMPARE"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("ASSURE_OLLAMA_MODEL", "qwen2.5:14b")
+    monkeypatch.setenv("ASSURE_OLLAMA_MODEL_PARSE", "qwen2.5:7b")
+    monkeypatch.setenv("ASSURE_OLLAMA_MODEL_EVIDENCE", "qwen2.5:7b")
+    monkeypatch.setenv("ASSURE_OLLAMA_MODEL_B", "gemma3:27b")
+    mod = reload_policies("ollama")
+    P = mod.TASK_POLICIES
+    assert P[TaskType.FIELD_EXTRACTION].litellm_model == "ollama/qwen2.5:7b"
+    assert P[TaskType.SEMANTIC_VALIDATION].litellm_model == "ollama/qwen2.5:7b"
+    for t in (TaskType.DRAFT_COMPILE, TaskType.DEEP_SYNTHESIS, TaskType.SUMMARIZE_NODE, TaskType.SURGICAL_EDIT,
+              TaskType.REDHAT, TaskType.MACRO_AUDIT):
+        assert P[t].litellm_model == "ollama/qwen2.5:14b", t
+    assert mod.resolve_model("x", role="analysis") == "ollama/qwen2.5:7b"   # lock inference = evidence
+    assert mod.resolve_model("x", role="b") == "ollama/gemma3:27b"
+    assert mod.local_models_by_stage() == {"parse": "qwen2.5:7b", "draft": "qwen2.5:14b", "redhat": "qwen2.5:14b",
+                                          "evidence": "qwen2.5:7b", "compare": "gemma3:27b"}
+    monkeypatch.setenv("ASSURE_OLLAMA_MODEL_REDHAT", "qwen2.5:32b")
+    assert mod.local_model("redhat") == "ollama/qwen2.5:32b"

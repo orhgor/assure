@@ -90,7 +90,7 @@ ASSURE_DATA_DIR, ASSURE_S3_BUCKET, AWS_ACCESS_KEY_ID/SECRET  object store (or th
 PARSE_ASYNC, SUBSTRATE_ASYNC_UPLOAD  1 = queued to the worker (default with a broker)
 PARSER_SCAN_BACKEND, JDF_OCR     jdf-ocr (tesseract, default) | textract
 ASSURE_LLM_BACKEND               ollama (compose default) | bedrock | empty (cloud policies)
-ASSURE_OLLAMA_MODEL(_B), OLLAMA_API_BASE, OLLAMA_CONTEXT_LENGTH
+ASSURE_OLLAMA_MODEL_PARSE / _DRAFT / _REDHAT / _EVIDENCE / _COMPARE   one open model per stage (fallback ASSURE_OLLAMA_MODEL); OLLAMA_API_BASE, OLLAMA_CONTEXT_LENGTH
 ASSURE_BEDROCK_MODEL_DRAFT / _ANALYSIS / _B   Bedrock: Sonnet 5 drafts, Opus 5 analyses (defaults); bare ids get the eu./us. profile prefix
 OPENROUTER_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY   cloud models (overlays only)
 ASSURE_EDITION / PEM_EDITION     "self-hosted" = no Clerk

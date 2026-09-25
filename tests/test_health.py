@@ -96,13 +96,15 @@ def test_health_models_check_reads_ollama_inventory(health_client, monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_open)
     payload = health_client.get("/health").get_json()
-    assert payload["checks"]["models"] == {
+    models = payload["checks"]["models"]
+    assert {k: models[k] for k in ("backend", "api_base", "status", "present", "missing")} == {
         "backend": "ollama",
         "api_base": "http://ollama.test:11434",
         "status": "ok",
         "present": ["qwen2.5:1.5b", "llama3.2:1b"],
         "missing": [],
     }
+    assert models["stages"] == {"parse": "qwen2.5:1.5b", "draft": "qwen2.5:1.5b", "redhat": "qwen2.5:1.5b", "evidence": "qwen2.5:1.5b", "compare": "llama3.2:1b"}
     assert payload["status"] == "healthy", payload["checks"]
 
     def fake_open_missing(url, timeout=None):
