@@ -112,6 +112,14 @@ tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 - Compile: first frame `Drafting with ollama/qwen2.5:1.5b`; minutes on CPU.
 - With S3: `GET /api/integrations/aws` (through the shell, with the key): `reachable: true`, `credential_source: keys` or `role`.
 
+## 6b. If something looks wrong
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `password authentication failed for user "assure"` in `docker compose logs assure-app` | the `pgdata` volume was created with another `POSTGRES_PASSWORD` | none since 2026-09-25: `scripts/postgres-start.sh` sets the role password from `.env` on every start; just `docker compose up -d` again |
+| `pull access denied for assure-app` | old compose file | `git pull && docker compose up -d` (worker/shell no longer pull the built tag) |
+| `/health` → `"models": {"status": "missing"}` | first-start download interrupted | `docker compose up -d` again; `ollama-pull` resumes |
+
 ## 7. Updating
 
 ```bash

@@ -67,11 +67,14 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-assure}
       POSTGRES_USER: ${POSTGRES_USER:-assure}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-assure}
-    command: >
-      postgres -c shared_buffers=128MB -c max_connections=100
-      -c log_min_duration_statement=500
+    # scripts/postgres-start.sh = the stock entrypoint plus one ALTER USER after
+    # start-up, so the role's password always equals POSTGRES_PASSWORD in .env
+    # (the image applies it only on first init; a regenerated .env otherwise
+    # locks the app out — EC2, 2026-09-25).
+    entrypoint: ["/usr/local/bin/assure-postgres-start"]
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres-start.sh:/usr/local/bin/assure-postgres-start:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-assure} -d ${POSTGRES_DB:-assure}"]
       interval: 5s
