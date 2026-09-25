@@ -204,8 +204,24 @@ def llm_backend() -> str:
     return os.environ.get("ASSURE_LLM_BACKEND", "").strip().lower()
 
 
-BEDROCK_MODEL_A = "anthropic.claude-sonnet-4-20250514-v1:0"
-BEDROCK_MODEL_B = "anthropic.claude-3-5-haiku-20241022-v1:0"
+# Bedrock defaults (user decision 2026-09-25: "LLM tarafı Sonnet, analiz tarafı
+# Opus"): the drafting tasks write with Claude Sonnet 5, the analysis tasks —
+# entailment, Red-Hat, macro audit, field extraction, lock inference — judge
+# with Claude Opus 5. Both ids were listed by `bedrock list-foundation-models`
+# in eu-central-1 and answered a Converse call through the `eu.` inference
+# profile on 2026-09-25 (1.9 s each). Override per role in .env:
+#   ASSURE_BEDROCK_MODEL_DRAFT, ASSURE_BEDROCK_MODEL_ANALYSIS, ASSURE_BEDROCK_MODEL_B
+# (ASSURE_BEDROCK_MODEL alone still sets both draft and analysis, as before).
+BEDROCK_MODEL_DRAFT = "anthropic.claude-sonnet-5"
+BEDROCK_MODEL_ANALYSIS = "anthropic.claude-opus-5"
+BEDROCK_MODEL_A = BEDROCK_MODEL_DRAFT
+BEDROCK_MODEL_B = "anthropic.claude-opus-5"  # Compare's second column
+
+#: Which task class each policy belongs to on the Bedrock backend.
+BEDROCK_ANALYSIS_TASKS = frozenset(
+    {TaskType.SEMANTIC_VALIDATION, TaskType.MACRO_AUDIT, TaskType.REDHAT, TaskType.FIELD_EXTRACTION}
+)
+_GEO_PREFIXES = ("us.", "eu.", "apac.", "global.")
 
 
 def _bedrock_geo_prefix() -> str:
@@ -220,15 +236,35 @@ def _bedrock_geo_prefix() -> str:
     return "us."
 
 
+def _bedrock_qualify(raw: str) -> str:
+    """``bedrock/<geo>.<id>``: a bare ``anthropic.…`` id gets the region's
+    cross-region inference-profile prefix (bare ids are not invocable
+    on-demand in most regions); ids that already carry ``eu.``/``us.``/
+    ``apac.``/``global.``, an ARN, or the ``bedrock/`` prefix pass through."""
+    raw = raw.strip()
+    if raw.startswith("bedrock/"):
+        return raw
+    if raw.startswith("anthropic."):
+        raw = _bedrock_geo_prefix() + raw
+    return f"bedrock/{raw}"
+
+
 def bedrock_model(role: str = "a") -> str:
-    """Bedrock model id for the IAM-only backend: ``ASSURE_BEDROCK_MODEL`` (and
-    ``ASSURE_BEDROCK_MODEL_B`` for Compare's second column). Default: the
-    cross-region profile of Claude Sonnet 4 / Claude 3.5 Haiku for the region
-    in ``AWS_DEFAULT_REGION``; the ``bedrock/`` prefix is added."""
-    raw = os.environ.get("ASSURE_BEDROCK_MODEL_B" if role == "b" else "ASSURE_BEDROCK_MODEL", "").strip()
-    if not raw:
-        raw = _bedrock_geo_prefix() + (BEDROCK_MODEL_B if role == "b" else BEDROCK_MODEL_A)
-    return raw if raw.startswith("bedrock/") else f"bedrock/{raw}"
+    """Bedrock model id per role. ``"a"``/``"draft"`` → ``ASSURE_BEDROCK_MODEL_DRAFT``
+    (drafting: compile, deep synthesis, summarise, surgical edit);
+    ``"analysis"`` → ``ASSURE_BEDROCK_MODEL_ANALYSIS`` (entailment, Red-Hat,
+    macro audit, field extraction, lock inference); ``"b"`` →
+    ``ASSURE_BEDROCK_MODEL_B`` (Compare's second column). ``ASSURE_BEDROCK_MODEL``
+    is the shared fallback for draft and analysis. Defaults: Sonnet 5 / Opus 5 /
+    Opus 5, through the region's inference profile."""
+    shared = os.environ.get("ASSURE_BEDROCK_MODEL", "").strip()
+    if role == "b":
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL_B", "").strip() or BEDROCK_MODEL_B
+    elif role == "analysis":
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL_ANALYSIS", "").strip() or shared or BEDROCK_MODEL_ANALYSIS
+    else:
+        raw = os.environ.get("ASSURE_BEDROCK_MODEL_DRAFT", "").strip() or shared or BEDROCK_MODEL_DRAFT
+    return _bedrock_qualify(raw)
 
 
 def local_model(role: str = "a") -> str:
@@ -245,7 +281,8 @@ def local_model(role: str = "a") -> str:
 
 def resolve_model(default: str, *, role: str = "a") -> str:
     """The model a task actually calls: ``default`` on the cloud backend, the
-    local Ollama model when ``ASSURE_LLM_BACKEND=ollama``.
+    local Ollama model when ``ASSURE_LLM_BACKEND=ollama``, the per-role Bedrock
+    model (``role`` ``"a"``/``"draft"``, ``"analysis"``, ``"b"``) on Bedrock.
 
     One switch instead of six hard-coded ids (compile, locks, entailment,
     Red-Hat, surgical edit, Compare) so `docker compose up` runs every model
@@ -264,16 +301,21 @@ def _apply_llm_backend(policies: dict) -> dict:
     backend = llm_backend()
     if backend not in ("ollama", "bedrock"):
         return policies
-    model = local_model() if backend == "ollama" else bedrock_model()
+
+    def _model_for(task: TaskType) -> str:
+        if backend == "ollama":
+            return local_model()
+        return bedrock_model("analysis" if task in BEDROCK_ANALYSIS_TASKS else "draft")
+
     return {
         task: ModelPolicy(
-            model_id=model,
+            model_id=_model_for(task),
             max_input_tokens=pol.max_input_tokens,
             # Small local models: cap answers so a 1–2B model does not spend
             # minutes on a 8k-token reply on CPU. Bedrock keeps the policy cap.
             max_output_tokens=min(pol.max_output_tokens, 4096) if backend == "ollama" else pol.max_output_tokens,
             caching=pol.caching if backend == "bedrock" else False,
-            litellm_model=model,
+            litellm_model=_model_for(task),
         )
         for task, pol in policies.items()
     }

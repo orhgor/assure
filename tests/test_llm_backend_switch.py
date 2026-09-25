@@ -63,3 +63,32 @@ def test_litellm_kwargs_turns_on_drop_params(monkeypatch):
 
     litellm_kwargs_for("bedrock")
     assert litellm.drop_params is True
+
+
+def test_bedrock_backend_splits_drafting_and_analysis(reload_policies, monkeypatch):
+    """User decision 2026-09-25: drafting on Sonnet, analysis on Opus, both set
+    from .env. A bare ``anthropic.…`` id gets the region's inference-profile
+    prefix; ids that already carry one, or an ARN, pass through."""
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
+    for k in ("ASSURE_BEDROCK_MODEL", "ASSURE_BEDROCK_MODEL_DRAFT", "ASSURE_BEDROCK_MODEL_ANALYSIS", "ASSURE_BEDROCK_MODEL_B"):
+        monkeypatch.delenv(k, raising=False)
+    mod = reload_policies("bedrock")
+    drafting = {TaskType.DRAFT_COMPILE, TaskType.DEEP_SYNTHESIS, TaskType.SUMMARIZE_NODE, TaskType.SURGICAL_EDIT}
+    for task, pol in mod.TASK_POLICIES.items():
+        expected = "bedrock/eu.anthropic.claude-sonnet-5" if task in drafting else "bedrock/eu.anthropic.claude-opus-5"
+        assert pol.litellm_model == expected, task
+    assert mod.resolve_model("x", role="analysis") == "bedrock/eu.anthropic.claude-opus-5"
+    assert mod.resolve_model("x") == "bedrock/eu.anthropic.claude-sonnet-5"
+
+    monkeypatch.setenv("ASSURE_BEDROCK_MODEL_DRAFT", "anthropic.claude-sonnet-4-6")
+    monkeypatch.setenv("ASSURE_BEDROCK_MODEL_ANALYSIS", "us.anthropic.claude-opus-5-5")
+    monkeypatch.setenv("ASSURE_BEDROCK_MODEL_B", "arn:aws:bedrock:eu-central-1:1:inference-profile/p")
+    assert mod.bedrock_model("draft") == "bedrock/eu.anthropic.claude-sonnet-4-6"
+    assert mod.bedrock_model("analysis") == "bedrock/us.anthropic.claude-opus-5-5"
+    assert mod.bedrock_model("b") == "bedrock/arn:aws:bedrock:eu-central-1:1:inference-profile/p"
+
+    # the old single variable still sets both roles
+    for k in ("ASSURE_BEDROCK_MODEL_DRAFT", "ASSURE_BEDROCK_MODEL_ANALYSIS"):
+        monkeypatch.delenv(k)
+    monkeypatch.setenv("ASSURE_BEDROCK_MODEL", "anthropic.claude-opus-4-8")
+    assert mod.bedrock_model("draft") == mod.bedrock_model("analysis") == "bedrock/eu.anthropic.claude-opus-4-8"

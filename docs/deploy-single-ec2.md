@@ -77,7 +77,20 @@ Also needed, not in the policy: **`sts:GetCallerIdentity`** is allowed for every
 principal by default (the Sources panel calls it). SSM access (`AmazonSSMManagedInstanceCore`,
 managed policy) if you want `scripts/aws/_box.sh` style remote commands instead of SSH.
 
-**Models:** nothing to do here for the default. The `ollama` service serves
+**Models on Amazon Bedrock instead of the box (`gen-env` question "Models: local or bedrock"):**
+`ASSURE_LLM_BACKEND=bedrock` sends drafting (compile, edit, summarise) to
+`ASSURE_BEDROCK_MODEL_DRAFT` (default Claude Sonnet 5) and analysis (entailment,
+Red-Hat, field extraction, lock inference) to `ASSURE_BEDROCK_MODEL_ANALYSIS`
+(default Claude Opus 5). Needs the AWS key pair or role with
+`bedrock:InvokeModel`/`InvokeModelWithResponseStream` (in the runtime policy) and
+model access enabled in the Bedrock console for the region. A draft then takes
+seconds on any instance size — no GPU needed; the Ollama services stay in the
+stack idle and `ollama-pull` skips the download. Flip the line in `.env` and
+`docker compose up -d` to switch either way. Measured 2026-09-25 (eu-central-1):
+`eu.anthropic.claude-sonnet-5` and `eu.anthropic.claude-opus-5` answered a
+Converse call in 1.9 s each.
+
+**Models on the box (default):** nothing to do here. The `ollama` service serves
 `ASSURE_OLLAMA_MODEL` / `ASSURE_OLLAMA_MODEL_B` from `.env`; `ollama-pull`
 downloads them on the first `docker compose up` (outbound HTTPS to ollama.com
 once, ~2.3 GB) and only verifies them afterwards. To use Amazon Bedrock instead,

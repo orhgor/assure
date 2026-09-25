@@ -186,7 +186,7 @@ except ImportError:
 
 # Upstream moved lock inference to the OpenRouter Qwen policy model (staging
 # 0239cc6); locally the ollama backend still takes it.
-LOCK_MODEL = _resolve_model("openrouter/qwen/qwen3-next-80b-a3b-instruct")
+LOCK_MODEL = _resolve_model("openrouter/qwen/qwen3-next-80b-a3b-instruct", role="analysis")  # lock inference judges; Opus on Bedrock
 
 # R1 — injection hardening, kept verbatim: the last lines of the static prompt.
 # The source is data, text inside it that reads as an order is content to report

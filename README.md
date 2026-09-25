@@ -91,6 +91,7 @@ PARSE_ASYNC, SUBSTRATE_ASYNC_UPLOAD  1 = queued to the worker (default with a br
 PARSER_SCAN_BACKEND, JDF_OCR     jdf-ocr (tesseract, default) | textract
 ASSURE_LLM_BACKEND               ollama (compose default) | bedrock | empty (cloud policies)
 ASSURE_OLLAMA_MODEL(_B), OLLAMA_API_BASE, OLLAMA_CONTEXT_LENGTH
+ASSURE_BEDROCK_MODEL_DRAFT / _ANALYSIS / _B   Bedrock: Sonnet 5 drafts, Opus 5 analyses (defaults); bare ids get the eu./us. profile prefix
 OPENROUTER_API_KEY, DEEPSEEK_API_KEY, ANTHROPIC_API_KEY   cloud models (overlays only)
 ASSURE_EDITION / PEM_EDITION     "self-hosted" = no Clerk
 CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, ASSURE_CLERK_ONLY

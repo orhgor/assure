@@ -12,7 +12,8 @@
 # Questions (Enter keeps the default shown in brackets):
 #   AWS access key id + secret (hidden; empty = instance IAM role or no AWS at
 #   all), AWS region, S3 bucket (empty = files stay on the instance), app port
-#   and bind, NVIDIA GPU yes/no (auto-detected; yes = docker-compose.gpu.yml
+#   and bind, models local/bedrock (bedrock = Sonnet 5 drafts, Opus 5 analyses,
+#   needs the AWS credentials or an instance role with bedrock:InvokeModel), NVIDIA GPU yes/no (auto-detected; yes = docker-compose.gpu.yml
 #   joins every compose command and the 7B/8B models become the default), the
 #   two Ollama model tags, Textract monthly cap.
 # Generated, never asked: POSTGRES_PASSWORD, PEM_SECRET_KEY, ENCRYPTION_KEY,
@@ -81,6 +82,12 @@ ask AWS_REGION       "AWS region" "eu-central-1"
 ask S3_BUCKET        "S3 bucket for documents (empty = keep files on this machine)" ""
 ask SHELL_PORT       "Port for the app (shell) on this host" "80"
 ask SHELL_BIND       "Bind address for the app (0.0.0.0 = reachable from outside)" "$DEF_BIND"
+ask MODELS_WHERE     "Models: local Ollama on this machine (local) or Amazon Bedrock Sonnet 5 + Opus 5 (bedrock)" "local"
+case "$MODELS_WHERE" in b|bedrock|B|BEDROCK) MODELS_WHERE="bedrock" ;; *) MODELS_WHERE="local" ;; esac
+if [[ "$MODELS_WHERE" == "bedrock" ]]; then
+  ask BEDROCK_DRAFT    "Bedrock model for drafting (compile, edit, summarise)" "anthropic.claude-sonnet-5"
+  ask BEDROCK_ANALYSIS "Bedrock model for analysis (entailment, Red-Hat, field extraction)" "anthropic.claude-opus-5"
+fi
 GPU_DEFAULT="n"; command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 && GPU_DEFAULT="y"
 ask GPU              "NVIDIA GPU on this machine? models run on it (y/n)" "$GPU_DEFAULT"
 case "$GPU" in y|Y|yes|YES) GPU="y" ;; *) GPU="n" ;; esac
@@ -111,11 +118,18 @@ SHELL_ACCESS_KEY=${SHELL_ACCESS_KEY}
 APP_BIND=127.0.0.1
 PORT=8765
 
-# ---- models: local Ollama on this machine, no provider key ---------------------
-# ollama-pull downloads these on the first docker compose up into the ollama
-# volume; later starts only check them. Bigger = better grounding, slower on CPU
-# (qwen2.5:7b needs ~4.7 GB RAM).
-ASSURE_LLM_BACKEND=ollama
+# ---- models --------------------------------------------------------------------
+# ASSURE_LLM_BACKEND=ollama  → every model call on this machine's Ollama (models below;
+#                              ollama-pull downloads them on the first docker compose up)
+# ASSURE_LLM_BACKEND=bedrock → Amazon Bedrock with the AWS credentials/role above:
+#                              drafting on ASSURE_BEDROCK_MODEL_DRAFT, analysis (entailment,
+#                              Red-Hat, field extraction, locks) on ASSURE_BEDROCK_MODEL_ANALYSIS.
+#                              Bare anthropic.* ids get the region's eu./us. inference-profile
+#                              prefix automatically. Flip this line and run docker compose up -d.
+ASSURE_LLM_BACKEND=$([[ "$MODELS_WHERE" == "bedrock" ]] && echo bedrock || echo ollama)
+ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5}
+ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_ANALYSIS:-anthropic.claude-opus-5}
+ASSURE_BEDROCK_MODEL_B=anthropic.claude-opus-5
 ASSURE_OLLAMA_MODEL=${MODEL_A}
 ASSURE_OLLAMA_MODEL_B=${MODEL_B}
 OLLAMA_CONTEXT_LENGTH=8192

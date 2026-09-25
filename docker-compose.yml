@@ -46,6 +46,9 @@ x-app-env: &app-env
   AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  # Only for temporary (SSO/assumed-role) credentials on a laptop; a server uses
+  # a permanent key pair or the instance role and leaves this empty.
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
   # Models. Locally every LLM call goes to the `ollama` container (no provider
   # key, small models); production/staging override ASSURE_LLM_BACKEND to ""
   # and use the OpenRouter/DeepSeek policies in cost_governance.py.

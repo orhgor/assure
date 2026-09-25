@@ -88,7 +88,7 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
     """The user asked (2026-09-25) to be prompted for the access key and secret
     instead of editing the file afterwards: both are questions, the secret is
     read hidden, and empty answers keep the defaults."""
-    answers = "\n".join(["AKIAEXAMPLE", "s3cr3t/with+chars", "eu-west-1", "my-bucket", "8080", "", "n", "qwen2.5:7b", "", "0"]) + "\n"
+    answers = "\n".join(["AKIAEXAMPLE", "s3cr3t/with+chars", "eu-west-1", "my-bucket", "8080", "", "local", "n", "qwen2.5:7b", "", "0"]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     assert not (tmp_path / "called.log").exists()
@@ -107,7 +107,7 @@ def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> N
 def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Path) -> None:
     """'y' to the GPU question: COMPOSE_FILE adds docker-compose.gpu.yml so a plain
     `docker compose up -d` uses the card, and the 7B/8B tags become defaults."""
-    answers = "\n".join(["", "", "", "", "", "", "y", "", "", ""]) + "\n"
+    answers = "\n".join(["", "", "", "", "", "", "", "y", "", "", ""]) + "\n"
     proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()
@@ -115,6 +115,20 @@ def test_generator_gpu_answer_selects_the_overlay_and_bigger_models(tmp_path: Pa
     assert "ASSURE_OLLAMA_MODEL=qwen2.5:7b\n" in text and "ASSURE_OLLAMA_MODEL_B=llama3.1:8b\n" in text
     proc, out = _run(tmp_path, "ec2", "--yes")
     assert "COMPOSE_FILE=" not in out.read_text()  # no nvidia-smi in the stub PATH → CPU
+
+
+def test_generator_bedrock_answer_sets_backend_and_both_roles(tmp_path: Path) -> None:
+    """'bedrock' to the models question: backend bedrock, Sonnet 5 for drafting,
+    Opus 5 for analysis (user decision 2026-09-25), overridable per role."""
+    answers = "\n".join(["", "", "", "", "", "", "bedrock", "", "anthropic.claude-opus-5-5", "n", "", "", ""]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert proc.returncode == 0, proc.stderr
+    text = out.read_text()
+    assert "ASSURE_LLM_BACKEND=bedrock\n" in text
+    assert "ASSURE_BEDROCK_MODEL_DRAFT=anthropic.claude-sonnet-5\n" in text
+    assert "ASSURE_BEDROCK_MODEL_ANALYSIS=anthropic.claude-opus-5-5\n" in text
+    proc, out = _run(tmp_path, "ec2", "--yes")
+    assert "ASSURE_LLM_BACKEND=ollama\n" in out.read_text()  # default stays local
 
 
 def test_generator_refuses_to_overwrite_without_force(tmp_path: Path) -> None:

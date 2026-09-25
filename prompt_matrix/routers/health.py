@@ -66,6 +66,18 @@ def _local_models_check(timeout_s: float = 1.5) -> dict:
     except ImportError:
         from cost_governance import llm_backend, local_model
     backend = llm_backend()
+    if backend == "bedrock":
+        try:
+            from ..cost_governance import bedrock_model
+        except ImportError:
+            from cost_governance import bedrock_model
+        return {
+            "backend": "bedrock",
+            "status": "not local",
+            "draft": bedrock_model("draft").split("/", 1)[-1],
+            "analysis": bedrock_model("analysis").split("/", 1)[-1],
+            "compare_b": bedrock_model("b").split("/", 1)[-1],
+        }
     if backend != "ollama":
         return {"backend": backend or "cloud", "status": "not local"}
     base = (os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_HOST") or "http://127.0.0.1:11434").rstrip("/")
