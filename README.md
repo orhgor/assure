@@ -38,7 +38,7 @@ open http://localhost/                # shell on port 80; enter SHELL_ACCESS_KEY
 ./scripts/gen-env.sh ec2              # asks: AWS key id + secret (hidden, empty = none), region, S3 bucket, port, models; writes .env, runs nothing
 docker compose up -d --build          # runbook: docs/deploy-single-ec2.md; one command, builds the image once
 docker compose ps                     # ollama-pull "Exited (0)" = models present; app/worker start after it
-curl -s localhost:8765/health | grep -o '"models": {[^}]*}'   # status ok + both models
+./scripts/errors.sh                   # services + health + every error line, one command
 # open http://<host>/ and enter SHELL_ACCESS_KEY from .env
 
 # venv (what CI does)

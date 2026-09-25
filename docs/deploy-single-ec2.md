@@ -115,6 +115,8 @@ tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 ## 6a. Reading errors
 
 ```bash
+./scripts/errors.sh            # ONE command: services, /health summary, every error line of the last 30 min
+./scripts/errors.sh -f         # keep watching, errors only;  ./scripts/errors.sh 2h  for a longer window
 docker compose ps                                  # which service is up / restarting
 docker compose logs -f --tail=200 assure-app       # API errors (Flask/gunicorn)
 docker compose logs -f --tail=200 assure-worker    # document intake, OCR, model calls
