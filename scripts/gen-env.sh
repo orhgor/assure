@@ -38,13 +38,19 @@ if [[ ! -t 0 && "$ASK" != "1" ]]; then YES=1; fi   # no terminal: defaults, no q
 ask() {  # ask VAR "question" "default"  → sets VAR
   local var="$1" q="$2" def="$3" ans=""
   if [[ "$YES" == "1" ]]; then printf -v "$var" '%s' "$def"; return; fi
-  if [[ -n "$def" ]]; then read -r -p "$q [$def]: " ans; else read -r -p "$q [empty]: " ans; fi
+  # bash prints a -p prompt only when stdin is a terminal; write it ourselves so
+  # answers piped in (--ask) still show which question they answered.
+  printf '%s [%s]: ' "$q" "${def:-empty}" >&2
+  read -r ans || ans=""
+  [[ -t 0 ]] || echo >&2
   printf -v "$var" '%s' "${ans:-$def}"
 }
 ask_secret() {  # hidden input, empty allowed
   local var="$1" q="$2" ans=""
   if [[ "$YES" == "1" ]]; then printf -v "$var" '%s' ""; return; fi
-  read -r -s -p "$q [empty]: " ans; echo
+  printf '%s [empty]: ' "$q" >&2
+  read -r -s ans || ans=""
+  echo >&2
   printf -v "$var" '%s' "$ans"
 }
 rand() { openssl rand -hex "$1"; }
