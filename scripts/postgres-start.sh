@@ -10,6 +10,11 @@
 # after the server is up we ALTER the role to whatever .env says — no old
 # password needed. Idempotent; runs on every start.
 set -eu
+if ! command -v docker-entrypoint.sh >/dev/null 2>&1; then
+  echo "postgres-start.sh runs INSIDE the postgres container (docker-compose.yml mounts it as the entrypoint)." >&2
+  echo "Nothing to run by hand. On the host just run:  docker compose up -d" >&2
+  exit 1
+fi
 docker-entrypoint.sh postgres \
   -c shared_buffers=128MB -c max_connections=100 -c log_min_duration_statement=500 &
 pid=$!
