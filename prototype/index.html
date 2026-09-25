@@ -243,7 +243,7 @@
           </div>
           <div id="source-list" class="source-list"></div>
           <button type="button" class="btn-secondary" id="source-upload-btn" data-i18n="shell.action.upload_evidence">Upload evidence</button>
-          <input type="file" id="source-file-input" accept=".pdf,.txt,.md,.csv,.json,application/pdf,text/plain,text/markdown" style="display:none;">
+          <input type="file" id="source-file-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt,.md,.csv,.json" style="display:none;">
         </div>
       </div>
 
@@ -279,7 +279,7 @@
                    is kept (the shell and the e2e specs address it). The label is
                    the user's verb; the tooltip carries the technical one. -->
               <button type="button" id="dock-ingest" class="btn-tertiary" title="Ingest a PDF into the figure index (jdf convert + chunk)" data-i18n="shell.action.upload_pdf">Upload PDF</button>
-              <input type="file" id="dock-ingest-file" accept=".pdf" hidden>
+              <input type="file" id="dock-ingest-file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" hidden>
             </div>
             <div id="source-manifest" class="manifest"></div>
           </section>

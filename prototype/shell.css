@@ -3897,3 +3897,61 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .field-history-line { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-sm); color: var(--ink); }
 .field-history-meta { color: var(--muted); font-size: var(--fs-xs); }
 .field-history-body .empty-hint { margin: 0; }
+
+/* =============================================================
+   Phone widths (≤640px) — measured 2026-09-25 at 390px: the status chip was
+   clipped under the primary button, the strip lost its labels and its values
+   ran together ("Review neededNone"), the dock squeezed the input to three
+   words. Rule (brief §17): same structure, fewer pixels — never fewer labels.
+   ============================================================= */
+@media (max-width: 640px) {
+  .app-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+  }
+  .app-header-center { justify-self: stretch; justify-content: center; min-width: 0; }
+  .status-chip {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 26px;
+    padding: 0 var(--space-2) 0 18px;
+  }
+  .app-header-right { gap: var(--space-1); }
+  .app-header-right .btn-primary { height: 32px; padding: 0 var(--space-3); font-size: var(--fs-sm); }
+  .app-header-left .project-switcher-btn { max-width: 88px; }
+
+  .assure-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-3);
+  }
+  .strip-label { display: inline; }
+  .strip-cell { flex-direction: column; align-items: flex-start; gap: 0; }
+  .strip-value { white-space: normal; font-size: var(--fs-sm); }
+  .strip-next { margin-left: 0; }
+  .strip-next .strip-value { height: auto; padding: 0; }
+
+  .dock {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+  .dock-jdf { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+  /* one column in the dock: the prompt, then the source search under it */
+  .dock-input, .dock-jdf { grid-column: 1; justify-self: stretch; }
+  .dock-jdf { justify-content: flex-start; }
+  /* an open pane sits above the rails pinned in the top corners (the left
+     rail's icons showed through the pane header at 390px) */
+  .pane-left, .pane-right { z-index: 55; }
+  /* the workspace name has no room next to the status chip; Workspaces is
+     the first rail item */
+  .app-header-left .project-switcher { display: none; }
+}

@@ -966,9 +966,9 @@
     function handleSourceFile(file) {
       if (!file) return;
       var name = file.name || "source.txt";
-      if (!/\.(pdf|txt|md|csv|json)$/i.test(name)) {
+      if (!/\.(pdf|png|jpe?g|tiff?|bmp|txt|md|csv|json)$/i.test(name)) {
         sourceUploadError(
-          "Only .pdf, .txt, .md, .csv and .json are accepted here. DOCX is not wired."
+          "PDF, PNG, JPEG, TIFF, BMP, .txt, .md, .csv and .json are accepted here. DOCX is not wired."
         );
         var fi = document.getElementById("source-file-input");
         if (fi) fi.value = "";
@@ -2041,8 +2041,15 @@
         el = document.createElement("figure");
         el.className = "jdf-fig";
         var img = document.createElement("img");
-        img.src = node.url || "";
+        var fig = el; // `el` is reused for the next node; the async onerror needs this one
+        img.src = node.url || node.src || "";
         img.alt = node.alt || "";
+        img.loading = "lazy";
+        // A page image whose file is not served (local extraction path, S3 key
+        // without a URL) rendered as the browser's broken-image glyph above
+        // the text (seen 2026-09-25); the figure hides instead of the glyph.
+        img.onerror = function () { fig.hidden = true; };
+        if (!img.getAttribute("src")) fig.hidden = true;
         el.appendChild(img);
         if (node.caption) {
           var cap = document.createElement("figcaption");

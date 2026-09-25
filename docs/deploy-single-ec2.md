@@ -112,6 +112,18 @@ tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 - Compile: first frame `Drafting with ollama/qwen2.5:1.5b`; minutes on CPU.
 - With S3: `GET /api/integrations/aws` (through the shell, with the key): `reachable: true`, `credential_source: keys` or `role`.
 
+## 6a. Reading errors
+
+```bash
+docker compose ps                                  # which service is up / restarting
+docker compose logs -f --tail=200 assure-app       # API errors (Flask/gunicorn)
+docker compose logs -f --tail=200 assure-worker    # document intake, OCR, model calls
+docker compose logs -f --tail=100 assure-shell     # UI gate, /api proxy
+docker compose logs --tail=50 postgres ollama ollama-pull
+curl -s localhost:8765/health | python3 -m json.tool   # db, disk, models, degraded flag
+```
+Browser side: DevTools → Console and Network; a failing `/api/...` call answers `{"ok": false, "error": "..."}`.
+
 ## 6b. If something looks wrong
 
 | Symptom | Cause | Fix |
