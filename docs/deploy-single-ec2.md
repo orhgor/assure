@@ -83,8 +83,10 @@ uploads are deleted by the worker after a successful parse anyway. Nothing else.
 ## 5. Environment and start
 
 ```bash
-./scripts/gen-env.sh ec2          # writes .env with generated secrets; optional:
-#   ASSURE_S3_BUCKET=<bucket>   AWS_DEFAULT_REGION=<region>
+./scripts/gen-env.sh ec2          # asks for: AWS access key id + secret (hidden; Enter = none / IAM role),
+                                  # region, S3 bucket (Enter = files on disk), app port [80], bind, models,
+                                  # Textract cap. Generates the passwords. Writes .env and nothing else.
+                                  # --yes = all defaults, no questions.
 docker compose up -d --build      # builds assure-app once; worker and shell reuse the tag (pull_policy: never)
 docker compose logs -f ollama-pull   # first start: "pulling qwen2.5:1.5b" … "models ready"
 docker compose ps                    # ollama-pull Exited (0); app + worker healthy after it

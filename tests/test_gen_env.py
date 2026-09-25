@@ -1,0 +1,114 @@
+"""scripts/gen-env.sh writes one file and runs nothing else.
+
+Why this test exists: the .env template is an unquoted bash heredoc (the
+values must expand), and a comment in it read ``run `docker compose up -d`
+again`` — inside a heredoc those backticks are a command substitution, so
+generating the env file started the whole stack and pulled the Ollama image
+(reported by the user on EC2 as "gen-env downloads ollama", reproduced with
+``bash -x`` on 2026-09-25). The script must stay a pure generator.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import stat
+import subprocess
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "gen-env.sh"
+
+
+def _stub_bin(tmp_path: Path) -> Path:
+    """A PATH prefix where every tool the generator must NOT call leaves a mark."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for tool in ("docker", "docker-compose", "curl", "wget", "ollama", "pip", "pip3", "npm", "apt-get", "python3"):
+        stub = bin_dir / tool
+        stub.write_text(f'#!/bin/sh\necho "{tool} $*" >> "{tmp_path}/called.log"\nexit 0\n')
+        stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
+    return bin_dir
+
+
+def _run(tmp_path: Path, *args: str, stdin: str | None = None) -> tuple[subprocess.CompletedProcess, Path]:
+    out = tmp_path / "generated.env"
+    env = dict(os.environ, PATH=f"{_stub_bin(tmp_path)}:{os.environ['PATH']}", FORCE="1")
+    proc = subprocess.run(
+        ["bash", str(SCRIPT), *args, str(out)],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=str(ROOT),
+        timeout=30,
+    )
+    return proc, out
+
+
+def test_heredoc_has_no_backticks() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    start = text.index('cat > "$OUT" <<ENV')
+    end = text.index("\nENV\n", start)
+    assert "`" not in text[start:end], "a backtick inside the unquoted heredoc runs a command"
+
+
+@pytest.mark.parametrize("target", ["ec2", "local"])
+def test_generator_runs_nothing_and_writes_the_file(tmp_path: Path, target: str) -> None:
+    proc, out = _run(tmp_path, target, "--yes")
+    assert proc.returncode == 0, proc.stderr
+    assert not (tmp_path / "called.log").exists(), (tmp_path / "called.log").read_text()
+    values = dict(
+        line.split("=", 1) for line in out.read_text().splitlines() if line and not line.startswith("#")
+    )
+    assert values["ASSURE_LLM_BACKEND"] == "ollama"
+    assert values["SHELL_PORT"] == "80"
+    assert values["SHELL_BIND"] == ("0.0.0.0" if target == "ec2" else "127.0.0.1")
+    assert values["ENVIRONMENT"] == ("production" if target == "ec2" else "development")
+    assert len(values["PEM_SECRET_KEY"]) == 64 and len(values["POSTGRES_PASSWORD"]) == 48
+    # Fernet: 44 urlsafe-base64 characters
+    assert re.fullmatch(r"[A-Za-z0-9_-]{43}=", values["ENCRYPTION_KEY"]), values["ENCRYPTION_KEY"]
+    assert values["ASSURE_S3_BUCKET"] == "" and values["AWS_ACCESS_KEY_ID"] == ""
+    assert "SHELL_ACCESS_KEY" in values and values["SHELL_ACCESS_KEY"]
+    assert oct(out.stat().st_mode & 0o777) == "0o600"
+    assert "next:       docker compose up -d" in proc.stdout
+
+
+def test_generator_asks_when_interactive(tmp_path: Path) -> None:
+    """Piped answers stand in for a terminal: --yes absent, but stdin is not a
+    tty, so the script must fall back to defaults instead of hanging."""
+    proc, out = _run(tmp_path, "ec2", stdin="")
+    assert proc.returncode == 0, proc.stderr
+    assert "ASSURE_OLLAMA_MODEL=qwen2.5:1.5b" in out.read_text()
+
+
+def test_generator_takes_answers_including_the_aws_key_pair(tmp_path: Path) -> None:
+    """The user asked (2026-09-25) to be prompted for the access key and secret
+    instead of editing the file afterwards: both are questions, the secret is
+    read hidden, and empty answers keep the defaults."""
+    answers = "\n".join(["AKIAEXAMPLE", "s3cr3t/with+chars", "eu-west-1", "my-bucket", "8080", "", "qwen2.5:7b", "", "0"]) + "\n"
+    proc, out = _run(tmp_path, "ec2", "--ask", stdin=answers)
+    assert proc.returncode == 0, proc.stderr
+    assert not (tmp_path / "called.log").exists()
+    text = out.read_text()
+    assert "AWS_ACCESS_KEY_ID=AKIAEXAMPLE\n" in text
+    assert "AWS_SECRET_ACCESS_KEY=s3cr3t/with+chars\n" in text
+    assert "AWS_DEFAULT_REGION=eu-west-1\n" in text
+    assert "ASSURE_S3_BUCKET=my-bucket\n" in text
+    assert "SHELL_PORT=8080\n" in text and "SHELL_BIND=0.0.0.0\n" in text
+    assert "ASSURE_OLLAMA_MODEL=qwen2.5:7b\n" in text and "ASSURE_OLLAMA_MODEL_B=llama3.2:1b\n" in text
+    assert "ASSURE_TEXTRACT_MONTHLY_USD_CAP=0\n" in text
+    prompts = proc.stdout + proc.stderr  # read -p writes the prompt to stderr
+    assert "AWS access key id" in prompts and "secret access key" in prompts
+
+
+def test_generator_refuses_to_overwrite_without_force(tmp_path: Path) -> None:
+    out = tmp_path / "x.env"
+    out.write_text("keep\n")
+    env = dict(os.environ, PATH=f"{_stub_bin(tmp_path)}:{os.environ['PATH']}")
+    env.pop("FORCE", None)
+    proc = subprocess.run(["bash", str(SCRIPT), "ec2", "--yes", str(out)], capture_output=True, text=True, env=env, cwd=str(ROOT))
+    assert proc.returncode == 1 and "exists" in proc.stderr
+    assert out.read_text() == "keep\n"
