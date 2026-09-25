@@ -17,6 +17,7 @@ services:
     volumes: !override
       - pgdata-staging:/var/lib/postgresql/data
   assure-app:
+    pull_policy: missing
     image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
     build: !reset null
     depends_on: !override
@@ -38,7 +39,11 @@ services:
       WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-1}
     volumes: !override
       - ./data-staging:/app/data
+  assure-shell:
+    # pulled with the others here; the base file's `never` is for the built tag
+    pull_policy: missing
   assure-worker:
+    pull_policy: missing
     image: ${APP_IMAGE:-ghcr.io/orhgor/assure-app:staging}
     build: !reset null
     depends_on: !override

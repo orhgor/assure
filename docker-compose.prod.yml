@@ -16,6 +16,7 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
   assure-app:
+    pull_policy: missing
     image: ${APP_IMAGE:?set APP_IMAGE (ghcr.io/orhgor/assure-app:<sha>)}
     build: !reset null
     depends_on: !override
@@ -39,7 +40,11 @@ services:
       # Queue: Redis on this host by default; sqs:// on AWS (results then in PostgreSQL).
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       USE_GROUNDRAILS_SERVICE: ${USE_GROUNDRAILS_SERVICE:-0}
+  assure-shell:
+    # pulled with the others here; the base file's `never` is for the built tag
+    pull_policy: missing
   assure-worker:
+    pull_policy: missing
     image: ${APP_IMAGE:?set APP_IMAGE (ghcr.io/orhgor/assure-app:<sha>)}
     build: !reset null
     depends_on: !override

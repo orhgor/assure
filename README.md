@@ -14,7 +14,7 @@
 ## Architecture
 
 ```
-Shell gate (prototype/dev-server.py :8891, :80 on EC2)   the product UI; proxies /api/* and /signin,/signup,/signout,/parsing,/connect
+Shell gate (prototype/dev-server.py, host port 80)         the product UI; proxies /api/* and /signin,/signup,/signout,/parsing,/connect
   → Gunicorn (prompt_matrix.web:app :8765)               Flask API
     → PostgreSQL (DATABASE_URL)                          the only database (SQLite is gone; db/pg_compat.py runs the SQL)
     → Redis (REDIS_URL)                                  Celery broker/results, rate limits, debounce locks
@@ -25,19 +25,21 @@ Shell gate (prototype/dev-server.py :8891, :80 on EC2)   the product UI; proxies
 
 One image runs web and worker; `docker compose up` gives the whole topology on a laptop or on one EC2 instance. `infra/terraform` runs the same image on ECS Fargate (ARM64, On-Demand only) for the managed-services variant. Details: [docs/scale_architecture.md](docs/scale_architecture.md).
 
-**Ports:** `8891` shell gate (`80` with the EC2 env) · `8765` Flask API · `11434` Ollama · `5432`/`6379` PostgreSQL/Redis (dev compose only) · `8890` venv Flask started by hand.
+**Ports:** `80` shell gate — the product UI (`SHELL_BIND`/`SHELL_PORT` in `.env` move it) · `8765` Flask API · `11434` Ollama · `5432`/`6379` PostgreSQL/Redis (dev compose only) · `8890` venv Flask started by hand.
 
 ## Quick start
 
 ```bash
 # laptop — everything, including the models
 ./scripts/gen-env.sh local && docker compose up -d --build
-open http://127.0.0.1:8891            # shell; enter SHELL_ACCESS_KEY (.env)
+open http://localhost/                # shell on port 80; enter SHELL_ACCESS_KEY (.env)
 
 # server (EC2 Graviton, Ubuntu 24.04 arm64) — same stack, shell on 0.0.0.0:80
 ./scripts/gen-env.sh ec2              # generated secrets; fill ASSURE_S3_BUCKET + AWS_DEFAULT_REGION (optional)
-docker compose up -d --build          # runbook: docs/deploy-single-ec2.md
+docker compose up -d --build          # runbook: docs/deploy-single-ec2.md; one command, builds the image once
 docker compose ps                     # ollama-pull "Exited (0)" = models present; app/worker start after it
+curl -s localhost:8765/health | grep -o '"models": {[^}]*}'   # status ok + both models
+# open http://<host>/ and enter SHELL_ACCESS_KEY from .env
 
 # venv (what CI does)
 ./scripts/install.sh                  # or: uv sync --extra dev

@@ -1,7 +1,7 @@
 # Full stack in one command — no .env required:
 #
 #   docker compose up -d --build
-#   open http://127.0.0.1:8891          (shell, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
+#   open http://localhost/              (shell on port 80, key: SHELL_ACCESS_KEY, default assure-local-shell-key)
 #
 # EC2 / server: ./scripts/gen-env.sh ec2 writes a .env (generated secrets, shell
 # bound to 0.0.0.0:80, production flags); fill in the S3 bucket + region, then
@@ -146,6 +146,11 @@ services:
 
   assure-app:
     image: ${APP_IMAGE:-assure-app:local}
+    # `docker compose up -d` is the whole deploy (user decision 2026-09-25): the
+    # image is (re)built from this checkout on every up — cached layers make
+    # that seconds — and never looked up on Docker Hub. Overlays that pull a
+    # published image reset this to `missing`.
+    pull_policy: build
     build:
       context: .
       dockerfile: Dockerfile
@@ -184,6 +189,13 @@ services:
 
   assure-worker:
     image: ${APP_IMAGE:-assure-app:local}
+    # Same image as assure-app, built once there. Without this, compose tries
+    # to *pull* assure-app:local for this service while the build is still
+    # running and `up` fails with "pull access denied for assure-app"
+    # (reproduced 2026-09-25 from a clean daemon, EC2 and laptop alike). The
+    # staging/prod overlays set pull_policy back to missing because there the
+    # image comes from ghcr and nothing is built.
+    pull_policy: never
     command: >
       sh -c "exec celery -A prompt_matrix.celery_app:celery_app worker
       --loglevel=info
@@ -220,11 +232,12 @@ services:
         max-file: "3"
 
 
-  # The workbench shell — what staging.getassureai.com serves. Static shell from
-  # prototype/ with /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY
-  # gate (fails closed if unset). Open http://127.0.0.1:8891 and enter the key.
+  # The workbench shell — the product UI. Static shell from prototype/ with
+  # /api/* proxied to assure-app, behind the SHELL_ACCESS_KEY gate (fails closed
+  # if unset). Open http://localhost/ and enter the key.
   assure-shell:
     image: ${APP_IMAGE:-assure-app:local}
+    pull_policy: never   # see assure-worker
     command: ["python", "prototype/dev-server.py"]
     # Serve the working tree's shell, not the image's copy: UI edits show on
     # reload without a rebuild (dev-server sends Cache-Control: no-store).
@@ -236,8 +249,11 @@ services:
       PORT: "8891"
       SHELL_ACCESS_KEY: ${SHELL_ACCESS_KEY:-assure-local-shell-key}
       PYTHONUNBUFFERED: "1"
+    # The product UI answers on port 80 by default (user decision 2026-09-25):
+    # http://<host>/ on a server, http://localhost/ on a laptop. SHELL_BIND /
+    # SHELL_PORT in .env move it (scripts/gen-env.sh local keeps 127.0.0.1).
     ports:
-      - "${SHELL_BIND:-127.0.0.1}:${SHELL_PORT:-8891}:8891"
+      - "${SHELL_BIND:-0.0.0.0}:${SHELL_PORT:-80}:8891"
     depends_on:
       assure-app:
         condition: service_healthy

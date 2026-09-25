@@ -13,7 +13,7 @@ the Textract fallback, with one IAM user key pair in `.env` or an instance role.
 | Family | Graviton: `m7g.large` (2 vCPU / 8 GB) minimum, `m7g.xlarge` (4 vCPU / 16 GB) recommended, `m7g.2xlarge` for `qwen2.5:7b` | web + worker + PostgreSQL + Redis ≈ 2 GB; the default 1–2B models take ~1.5 GB each when loaded; a 7B model ~4.7 GB. OCR is CPU-bound (~3 s/page/vCPU) and model inference shares the same vCPUs |
 | AMI | Ubuntu 24.04 LTS **arm64** | the app image is built linux/arm64 |
 | Disk | gp3 100 GB | PostgreSQL + Docker images (ollama image ~1 GB, app ~1.8 GB) + models (~2.3 GB default, ~5 GB with a 7B) + `./data` scratch |
-| Security group | inbound 22 from your IP, 443/80 from the world **only if** a reverse proxy runs on the box; otherwise nothing public and a Cloudflare tunnel to :8891 | 8891/8765 are never exposed directly |
+| Security group | inbound 80 from where your users are (the shell gate asks for `SHELL_ACCESS_KEY`), 22 from your IP; for TLS put Cloudflare / caddy on 443 in front | 8765 (API) stays on 127.0.0.1 |
 | IAM | optional — an IAM **user** with the runtime policy (§3) or an instance role; needed only for S3 / Textract | without it files stay under `./data/objects` on the instance |
 
 ## 2. Host setup
@@ -85,7 +85,7 @@ uploads are deleted by the worker after a successful parse anyway. Nothing else.
 ```bash
 ./scripts/gen-env.sh ec2          # writes .env with generated secrets; optional:
 #   ASSURE_S3_BUCKET=<bucket>   AWS_DEFAULT_REGION=<region>
-docker compose up -d --build      # or APP_IMAGE=ghcr.io/orhgor/assure-app:<sha> in .env to pull
+docker compose up -d --build      # builds assure-app once; worker and shell reuse the tag (pull_policy: never)
 docker compose logs -f ollama-pull   # first start: "pulling qwen2.5:1.5b" … "models ready"
 docker compose ps                    # ollama-pull Exited (0); app + worker healthy after it
 curl -s http://127.0.0.1:8765/ready
@@ -97,7 +97,7 @@ come up (a few minutes on a typical EC2 link); later starts only check the
 volume and need no network. `docker compose down` keeps the `ollama` volume;
 `docker compose down -v` deletes it and the next start pulls again.
 
-The shell listens on `0.0.0.0:80` (`SHELL_BIND` / `SHELL_PORT` in `.env`) behind
+The shell (the product UI) listens on `0.0.0.0:80` (`SHELL_BIND` / `SHELL_PORT` in `.env`) behind
 the `SHELL_ACCESS_KEY` the script generated (`grep SHELL_ACCESS_KEY .env`);
 security group: inbound 80 (and 22 from your IP). For TLS put a Cloudflare
 tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
