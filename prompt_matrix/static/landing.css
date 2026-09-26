@@ -2990,3 +2990,20 @@ body.waitlist-open {
     font-size: 1.25rem;
     font-weight: 600;
 }
+
+/* No orphan words — keep wrapped lines balanced and pull short
+   last lines back into the sentence (Safari/Chrome/Firefox 121+). */
+.diff-intro,
+.diff-body,
+.diff-card-featured .diff-body {
+    text-wrap: pretty;
+}
+
+.diff-close,
+.diff-callout {
+    text-wrap: balance;
+}
+
+.diff-row span:last-child {
+    text-wrap: pretty;
+}
