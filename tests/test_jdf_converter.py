@@ -364,3 +364,39 @@ def test_document_tree_keeps_ocr_text_as_paragraphs():
     assert [c["type"] for c in children] == ["image", "paragraph"]
     assert children[1]["content"] == "COMMERCIAL PROPERTY CP 10 30"
     assert children[1]["meta"] == {"ocr": True, "page": 1}
+
+
+def test_document_tree_paragraph_lists_its_elements_with_offsets_and_eids():
+    """``jdf chunk --strategy section`` folds a page's elements into one chunk
+    (6 → 1 on /tmp/auto_policy.pdf, 2026-09-26); the paragraph stays one per
+    chunk and ``meta.elements`` names each element inside it."""
+    from prompt_matrix.services.field_extractor import derive_element_id
+    from prompt_matrix.services.jdf_converter import chunk_elements, jdf_to_document_tree
+
+    lines = ["Policy Number: PA-1", "VIN: 1HGCM82633A004352\nTotal Premium: $1,284.00", "Authorized Signature: ____"]
+    page = {"pageSize": {"width": 210, "height": 297}, "elements": [
+        {"type": "text", "content": l, "position": {"x": 20, "y": 30 + 10 * i}, "width": 80, "style": {"fontSize": 11}} for i, l in enumerate(lines)]}
+    jdf = {"pages": [page]}
+    chunks = [{"id": "p1e0", "page": 1, "text": "\n\n".join(lines), "types": ["text"]}]
+    tree = jdf_to_document_tree(jdf, chunks, document_id="d", title="t")
+    assert tree["meta"]["node_id_policy"] == "eid-v1"
+    para = tree["body"][0]["children"][0]
+    els = para["meta"]["elements"]
+    assert para["meta"]["chunk_id"] == "p1e0" and len(els) == 3
+    for el, line in zip(els, lines):
+        assert para["content"][el["start_char"]:el["end_char"]] == line
+        assert el["text_preview"] == line[:40] and len(el["text_preview"]) <= 40
+        assert el["page"] == 1 and len(el["bbox"]) == 4
+        assert el["element_id"] == derive_element_id("p1e0", 1, el["bbox"], line)
+    assert len({el["element_id"] for el in els}) == 3
+    assert set(els[0]) == {"element_id", "page", "bbox", "start_char", "end_char", "text_preview"}
+    # an element whose text is not in the chunk is not listed; no jdf pages → no list
+    assert chunk_elements(jdf, {"id": "p1e9", "page": 1}, "unrelated words") == []
+    assert chunk_elements({}, chunks[0], chunks[0]["text"]) == []
+    # a whitespace re-wrap between element and chunk text still resolves
+    rewrapped = [{"id": "p1e0", "page": 1, "text": "Policy Number:\nPA-1", "types": ["text"]}]
+    els2 = jdf_to_document_tree({"pages": [{"elements": [{"type": "text", "content": "Policy Number: PA-1"}]}]}, rewrapped, document_id="d", title="t")["body"][0]["children"][0]["meta"]["elements"]
+    assert len(els2) == 1 and (els2[0]["start_char"], els2[0]["end_char"]) == (0, 19) and els2[0]["bbox"] is None
+    # the OCR paragraph of an image chunk keeps its exact meta (no elements key)
+    scan = jdf_to_document_tree({"pages": [{"elements": []}]}, [{"id": "s", "text": "CP 10 30", "page": 1, "types": ["image"]}], document_id="d", title="t")
+    assert scan["body"][0]["children"][1]["meta"] == {"ocr": True, "page": 1}

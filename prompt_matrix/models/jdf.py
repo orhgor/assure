@@ -107,6 +107,38 @@ def empty_annotations() -> dict[str, Any]:
     return JDFNodeAnnotations().model_dump(mode="json")
 
 
+class JDFElementRef(BaseModel):
+    """One entry of a paragraph's ``meta.elements`` (2026-09-26, policy ``eid-v1``).
+
+    A jdf-cli chunk paragraph folds several page elements into one node; this
+    is the address of one of them inside it: ``element_id`` is
+    ``services.field_extractor.derive_element_id`` (chunk id + bbox rounded to
+    3 dp + whitespace-collapsed text, sha1[:12] — deterministic, unlike the
+    paragraph's own ``new_node_id``), ``bbox`` the relative page box (None
+    when jdf-cli gave no position), ``start_char``/``end_char`` the range in
+    the paragraph's ``content``, ``text_preview`` its first 40 characters.
+    Kept as a model so the shape is checkable; the tree stores plain dicts in
+    ``meta`` and this class is not part of the node union.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    element_id: str
+    page: int | None = None
+    bbox: list[float] | None = None
+    start_char: int
+    end_char: int
+    text_preview: str = ""
+
+
+#: Node-id policy a tree built by ``services.jdf_converter.jdf_to_document_tree``
+#: records in ``meta.node_id_policy``. Paragraph/section ids stay ``new_node_id``
+#: (random, for uniqueness); stable identity lives on ``meta.elements`` under
+#: this policy. Mirrors ``field_extractor.NODE_ID_POLICY`` (kept in one place
+#: there; this constant exists so the model layer can say which policy it knows).
+KNOWN_NODE_ID_POLICIES = ("eid-v1",)
+
+
 class JDFParagraphNode(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -1363,6 +1395,8 @@ __all__ = [
     "insert_node_after_anchor",
     "merge_document_bodies",
     "new_node_id",
+    "JDFElementRef",
+    "KNOWN_NODE_ID_POLICIES",
     "parse_document",
     "splice_node",
     "upsert_block_node",

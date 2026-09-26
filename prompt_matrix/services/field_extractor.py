@@ -50,6 +50,7 @@ Boundaries, so this does not become a second router or verifier (spec §8):
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from dataclasses import field as dc_field
@@ -943,6 +944,72 @@ def _walk_elements(elements: Any):
                 yield from _walk_elements(el[key])
 
 
+# --------------------------------------------------------------------------
+# Stable element identity (policy ``eid-v1``, 2026-09-26)
+# --------------------------------------------------------------------------
+
+#: Version of the element-id derivation. jdf-cli 0.2.3 elements carry no id
+#: and the tree paragraph id is ``new_node_id`` (random per run), so a replay
+#: could never name the same node twice (customer benchmark P0 "missing stable
+#: element IDs"). An element id is derived from what the document itself
+#: fixes — the chunk it belongs to, where it sits, what it says — so the same
+#: bytes give the same id in every process. **Any change to the derivation
+#: bumps this string** (``eid-v2`` …) and is recorded in docs/parsure.md;
+#: ids of different policies are never compared.
+NODE_ID_POLICY = "eid-v1"
+#: The derivation in words, carried on every report next to the policy.
+NODE_ID_DERIVATION = "chunk_id + bbox(3dp) + text sha1[:12]"
+
+
+def derive_element_id(chunk_id: str | None, page: int | None, bbox: list | tuple | None, text: str) -> str:
+    """``"<chunk_id or p<page>>:<sha1(bbox 3dp | collapsed text)[:12]>"`` — the
+    ``eid-v1`` identity of one layout element.
+
+    Deterministic across runs and processes: no uuid, no clock, no counter.
+    The bbox is rounded to three decimals (relative page coordinates, so
+    0.001 ≈ 0.3 mm on A4 — below jdf-cli's own placement noise) and the text
+    is whitespace-collapsed, so a re-parse that shifts a box by a hair or
+    re-wraps a line still names the same element; a different box or a
+    different word is a different element. Two elements with identical text
+    at identical positions are the same element.
+    """
+    prefix = str(chunk_id).strip() if chunk_id else f"p{int(page) if page is not None else 0}"
+    bbox_part = ""
+    if isinstance(bbox, (list, tuple)) and len(bbox) == 4 and all(isinstance(v, (int, float)) for v in bbox):
+        bbox_part = ",".join(f"{round(float(v), 3):.3f}" for v in bbox)
+    text_part = " ".join(str(text or "").split())
+    digest = hashlib.sha1(f"{bbox_part}|{text_part}".encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}:{digest}"
+
+
+def _stamp_element_ids(layouts: list[list[dict]]) -> None:
+    """``element_id`` on every layout segment (``eid-v1``), from the chunk the
+    segment belongs to (``chunk_id``; the page number when there is none), its
+    bbox and its text. Called once per ``page_layout`` shape, after chunk ids
+    are attached, so the id is the same whether the layout came from jdf-cli
+    pages or the saved tree that kept those chunk ids."""
+    for idx, segs in enumerate(layouts):
+        for seg in segs:
+            if seg.get("element_id"):
+                continue
+            seg["element_id"] = derive_element_id(seg.get("chunk_id"), idx + 1, seg.get("bbox"), seg.get("text") or "")
+
+
+def _element_at(seg: dict | None, rel_start: int) -> dict | None:
+    """The ``meta.elements`` entry of a paragraph segment whose character range
+    covers offset ``rel_start`` (relative to the segment's text); None when the
+    segment carries no element list."""
+    if not seg:
+        return None
+    for el in seg.get("elements") or []:
+        if not isinstance(el, dict):
+            continue
+        s, e = el.get("start_char"), el.get("end_char")
+        if isinstance(s, int) and isinstance(e, int) and s <= rel_start < max(e, s + 1):
+            return el
+    return None
+
+
 def _attach_chunk_ids(layouts: list[list[dict]], chunks: Any) -> None:
     """Give element segments the id of the jdf-cli chunk that contains them.
 
@@ -952,7 +1019,9 @@ def _attach_chunk_ids(layouts: list[list[dict]], chunks: Any) -> None:
     does not address JDF nodes". The ``jdf chunk`` output does carry ids
     (``p1e0`` = page 1, element group 0) and a page, and the Assure document
     tree keeps that id on each paragraph (``meta.chunk_id``), so the chunk id
-    is the address that survives from parse to tree to review.
+    is the address that survives from parse to tree to review. The chunk id
+    always lands in ``chunk_id`` (the ``eid-v1`` prefix); ``node_id`` takes it
+    only when the element had no id of its own.
     """
     if not isinstance(chunks, list) or not chunks:
         return
@@ -972,29 +1041,36 @@ def _attach_chunk_ids(layouts: list[list[dict]], chunks: Any) -> None:
     for idx, segs in enumerate(layouts):
         candidates = by_page.get(idx + 1) or [c for cs in by_page.values() for c in cs]
         for seg in segs:
-            if seg.get("node_id"):
+            if seg.get("chunk_id"):
                 continue
             needle = " ".join(str(seg.get("text") or "").split())
             if not needle:
                 continue
             for cid, text in candidates:
                 if needle in text or (len(needle) > 40 and needle[:40] in text):
-                    seg["node_id"] = cid
+                    seg["chunk_id"] = cid
+                    if not seg.get("node_id"):
+                        seg["node_id"] = cid
                     break
 
 
 def page_layout(bundle: dict) -> list[list[dict]]:
     """Per page, the text segments in reading order with their provenance.
 
-    Each segment: ``{"start", "end", "text", "node_id", "bbox",
-    "ocr_confidence", "local_quality"}`` where ``start``/``end`` are offsets
-    into that page's text as ``page_texts`` returns it (segments joined by
-    ``"\\n"``). ``ocr_confidence`` is the mean jdf-cli block confidence inside
-    that element (None on the text layer) and ``local_quality`` is the
-    quality factor a field on that segment should use — the OCR confidence
-    when there is one, else None so the caller falls back to the page score
-    (the visual probe's factors are page-global). Handles the three shapes the
-    ingest produces: jdf-cli ``pages[].elements[]`` (``content``/``text`` +
+    Each segment: ``{"start", "end", "text", "node_id", "chunk_id", "bbox",
+    "ocr_confidence", "local_quality", "element_id", "elements"}`` where
+    ``start``/``end`` are offsets into that page's text as ``page_texts``
+    returns it (segments joined by ``"\\n"``). ``ocr_confidence`` is the mean
+    jdf-cli block confidence inside that element (None on the text layer) and
+    ``local_quality`` is the quality factor a field on that segment should
+    use — the OCR confidence when there is one, else None so the caller falls
+    back to the page score (the visual probe's factors are page-global).
+    ``chunk_id`` is the jdf-cli chunk the segment belongs to (from the chunk
+    list, or the tree paragraph's ``meta.chunk_id``), ``element_id`` its
+    ``eid-v1`` identity (``derive_element_id``), and ``elements`` — tree
+    paragraphs only — the paragraph's ``meta.elements`` so a value's span
+    resolves to the element inside it. Handles the three shapes the ingest
+    produces: jdf-cli ``pages[].elements[]`` (``content``/``text`` +
     ``position``; OCR ``ocr.blocks``), the Assure tree ``body[].children[]``
     (paragraph ``content`` with node ids, page from ``meta.source_page``),
     and, failing both, the bundle's ``chunks`` grouped by ``page`` or the
@@ -1012,11 +1088,14 @@ def page_layout(bundle: dict) -> list[list[dict]]:
         for item in items:
             text, node_id, bbox = item[0], item[1], item[2]
             ocr_conf = item[3] if len(item) > 3 else None
+            chunk_id = item[4] if len(item) > 4 else None
+            elements = item[5] if len(item) > 5 else None
             text = text.rstrip("\n")
             if not text.strip():
                 continue
-            segs.append({"start": cursor, "end": cursor + len(text), "text": text, "node_id": node_id, "bbox": bbox,
-                         "ocr_confidence": ocr_conf, "local_quality": ocr_conf})
+            segs.append({"start": cursor, "end": cursor + len(text), "text": text, "node_id": node_id, "chunk_id": chunk_id, "bbox": bbox,
+                         "ocr_confidence": ocr_conf, "local_quality": ocr_conf, "element_id": None,
+                         "elements": list(elements) if isinstance(elements, list) else None})
             cursor += len(text) + 1
         return segs
 
@@ -1035,6 +1114,7 @@ def page_layout(bundle: dict) -> list[list[dict]]:
             _append(_segments_from(items))
         if any(layouts):
             _attach_chunk_ids(layouts, bundle.get("chunks"))
+            _stamp_element_ids(layouts)
             return layouts
         layouts = []
 
@@ -1054,10 +1134,14 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 else:
                     text = str(node.get("content") or node.get("title") or node.get("alt") or "")
                 if text.strip():
-                    items.append((text, str(node.get("id")) if node.get("id") else None, None))
+                    nmeta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
+                    chunk_id = str(nmeta.get("chunk_id")) if nmeta.get("chunk_id") else None
+                    elements = nmeta.get("elements") if isinstance(nmeta.get("elements"), list) else None
+                    items.append((text, str(node.get("id")) if node.get("id") else None, None, None, chunk_id, elements))
                 stack = list(node.get("children") or []) + stack
             _append(_segments_from(items))
         if layouts:
+            _stamp_element_ids(layouts)
             return layouts
 
     chunks = bundle.get("chunks") if isinstance(bundle, dict) else None
@@ -1070,16 +1154,19 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 page_no = int(chunk.get("page") or 1)
             except (TypeError, ValueError):
                 page_no = 1
-            by_page.setdefault(page_no, []).append((str(chunk.get("text") or chunk.get("content") or ""), str(chunk.get("id")) if chunk.get("id") else None, None))
+            cid = str(chunk.get("id")) if chunk.get("id") else None
+            by_page.setdefault(page_no, []).append((str(chunk.get("text") or chunk.get("content") or ""), cid, None, None, cid))
         page_count = max(int(bundle.get("page_count") or 1), max(by_page) if by_page else 1)
         for page_no in range(1, page_count + 1):
             _append(_segments_from(by_page.get(page_no, [])))
+        _stamp_element_ids(layouts)
         return layouts
 
     text = str(bundle.get("text") or "") if isinstance(bundle, dict) else ""
     pages = split_pages(text)
     for page_text in pages:
         _append(_segments_from([(page_text, None, None)]))
+    _stamp_element_ids(layouts)
     return layouts
 
 
@@ -1183,6 +1270,7 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
         "number_quality": None,
         "source_span": None,
         "field_source_node_id": None,
+        "element_id": None,
         "field_state": "unverified",
         "routing_action": "manual_review",
         "review_required": True,
@@ -1385,10 +1473,26 @@ def build_found_field(
     span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
     if seg and seg.get("bbox"):
         span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
+    # Element identity (``eid-v1``, 2026-09-26): the segment's own id, or —
+    # when the segment is a tree paragraph carrying ``meta.elements`` — the
+    # element inside it whose character range holds the value, with that
+    # element's bbox and the value's offsets inside the paragraph
+    # (``node_offsets``), so a one-paragraph page still resolves to the line.
+    element_id = seg.get("element_id") if seg else None
+    if seg:
+        rel_start, rel_end = start - int(seg.get("start") or 0), end - int(seg.get("start") or 0)
+        el = _element_at(seg, rel_start)
+        if el:
+            element_id = el.get("element_id") or element_id
+            span["node_offsets"] = {"start_char": rel_start, "end_char": rel_end}
+            if isinstance(el.get("bbox"), list) and len(el["bbox"]) == 4:
+                span = {**span, "span_type": "bbox_relative", "bbox": el["bbox"]}
+    span["element_id"] = element_id
     field["source_span"] = span
     field["field_source_node_id"] = seg.get("node_id") if seg else None
+    field["element_id"] = element_id
     field["provenance_confidence"] = 1.0
-    field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "method": method}
+    field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "element_id": element_id, "method": method}
     # Field-level quality (2026-09-26): the OCR confidence of the line the
     # value sits on is a nearer measurement than the page-global score, so it
     # takes the quality factor's place when the segment carries one; the basis

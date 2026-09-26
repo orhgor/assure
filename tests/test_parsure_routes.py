@@ -269,7 +269,7 @@ def test_queue_orders_newest_report_first_and_overdue_disputes_first(client):
 
 def test_queue_is_empty_for_a_project_without_reports(client):
     body = client.get("/api/projects/default/parsure/queue").get_json()
-    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0, "documents": 0, "nothing_extracted": 0, "fields_found": 0, "schema_mismatch": 0},
+    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0, "documents": 0, "nothing_extracted": 0, "fields_found": 0, "schema_mismatch": 0, "redhat_high": 0},
                     "total": 0, "now": body["now"]}
 
 
@@ -483,3 +483,67 @@ def test_summaries_and_queue_carry_fields_found_and_document_counts(client, monk
     # The analytics column counts by the same rule as the queue.
     a = client.get("/api/projects/default/parsure/analytics").get_json()["analytics"]
     assert a["fields_review"] == queue["total"]
+
+
+# ---------------------------------------------------------------------------
+# Intake graph critique (services/redhat_graph) on the API surfaces
+# ---------------------------------------------------------------------------
+
+
+def _attach_critique(project, report_id, **critique_kw):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.services import redhat_graph as rg
+
+    report = repo.get_report(project, report_id)
+    critique_kw.setdefault("llm", False)
+    rg.attach_findings(report, rg.critique_report(report, **critique_kw))
+    repo.update_report(project, report_id, report)
+    return report
+
+
+def _strip_critique(project, report_id):
+    """Since 2026-09-26 run_after_parse runs the critique itself; these tests
+    exercise the 'not run' surfaces, so the auto block is removed first."""
+    from prompt_matrix.db import parsure_repository as repo
+
+    report = repo.get_report(project, report_id)
+    report.pop("redhat", None)
+    report["review_summary"]["reasons"] = [r for r in report["review_summary"].get("reasons", []) if not str(r.get("reason", "")).startswith("Red-Hat: ")]
+    repo.update_report(project, report_id, report)
+
+
+def test_queue_counts_carry_redhat_high_and_summaries_carry_the_block_counts(client, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    rid = _seed()
+    _strip_critique("default", rid)
+    # Before any critique: "not run", zero highs, summary says so.
+    summary = client.get("/api/projects/default/parsure").get_json()["reports"][0]
+    assert summary["redhat"] == {"ran": False, "count": 0, "high": 0, "medium": 0, "low": 0, "classes": {}}
+    assert client.get("/api/projects/default/parsure/queue").get_json()["counts"]["redhat_high"] == 0
+
+    report = _attach_critique("default", rid, export_state={"trust_state": "review_required", "title": "Formal Verification Certificate", "renderer": "text"})
+    assert report["redhat"]["counts"]["high"] == 2  # certificate language + fallback renderer
+    body = client.get(f"/api/projects/default/parsure/{rid}").get_json()["report"]
+    assert body["redhat"]["policy"] == "rh-graph-v1" and body["redhat"]["counts"]["high"] == 2
+    assert body["review_summary"]["reasons"][0]["reason"].startswith("Red-Hat: ")
+    assert all(f["anchor"]["node_id"] for f in body["redhat"]["findings"])
+    summary = client.get("/api/projects/default/parsure").get_json()["reports"][0]
+    assert summary["redhat"]["ran"] is True and summary["redhat"]["high"] == 2 and summary["redhat"]["classes"]["export"] == 2
+    queue = client.get("/api/projects/default/parsure/queue").get_json()
+    assert queue["counts"]["redhat_high"] == 2
+
+
+def test_analytics_redhat_findings_by_class_counts_only_reports_that_ran(client, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    rid_a = _seed()
+    rid_b = _seed(filename="second.pdf", result={"document_id": "doc-2", "revision_id": "rev-2", "version": 2})
+    _strip_critique("default", rid_a)
+    _strip_critique("default", rid_b)
+    a = client.get("/api/projects/default/parsure/analytics").get_json()["analytics"]
+    assert a["redhat_reports_run"] == 0 and a["redhat_findings_by_class"] == {"structural": 0, "evidentiary": 0, "export": 0}
+    report = _attach_critique("default", rid_a, export_state={"trust_state": "not_verified", "renderer": "fallback"})
+    a = client.get("/api/projects/default/parsure/analytics").get_json()["analytics"]
+    assert a["redhat_reports_run"] == 1
+    assert a["redhat_findings_by_class"]["export"] == 1
+    assert a["redhat_findings_by_class"] == report["redhat"]["classes"]
+    assert a["redhat_findings_by_severity"] == report["redhat"]["counts"]

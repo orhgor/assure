@@ -266,6 +266,10 @@ body {
   color: var(--muted);
   background: color-mix(in srgb, var(--muted) 10%, transparent);
 }
+/* Red-Hat count line: red only for a high finding, amber for medium, quiet for low. */
+.chip--redhat { text-decoration: none; }
+.chip--redhat[data-tone="high"] { color: var(--contradicted); background: color-mix(in srgb, var(--contradicted) 10%, transparent); }
+.chip--redhat[data-tone="low"] { color: var(--muted); background: color-mix(in srgb, var(--muted) 10%, transparent); }
 .badge-parser {
   margin-left: auto;
   font-size: var(--fs-xs);
@@ -668,6 +672,7 @@ tr.queue-row--done td { color: var(--muted); }
           {{ queue.total }} field{{ "" if queue.total == 1 else "s" }} across {{ queue.documents }} document{{ "" if queue.documents == 1 else "s" }}
           {%- if queue.counts.disputed %} · {{ queue.counts.disputed }} disputed{% endif %}
           {%- if queue.counts.overdue %} · <b>{{ queue.counts.overdue }} overdue</b>{% endif %}
+          {%- if queue.counts.redhat_high %} · <b class="redhat-high">{{ queue.counts.redhat_high }} Red-Hat high</b>{% endif %}
         </span>
         {% endif %}
       </div>
@@ -834,6 +839,7 @@ tr.queue-row--done td { color: var(--muted); }
         <div class="card-status">
           <span class="status status--{{ doc.status }}">{{ doc.status_label }}</span>
           {% for chip in doc.chips %}<span class="chip">{{ chip }}</span>{% endfor %}
+          {% if doc.redhat_label %}<a class="chip chip--redhat" data-tone="{{ doc.redhat_tone }}" href="{{ doc.record_href or doc.primary_href }}#redhat" title="Intake graph critique — open the record">{{ doc.redhat_label }}</a>{% endif %}
           {% if doc.parser_label %}<span class="badge-parser" title="How the text was read">{{ doc.parser_label }}</span>{% endif %}
         </div>
         {% if doc.quality_note %}<p class="card-note">{{ doc.quality_note }}</p>{% endif %}

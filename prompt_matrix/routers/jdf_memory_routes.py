@@ -259,7 +259,6 @@ def register_jdf_memory_routes(app) -> None:
                     try:
                         bundle = pdf_to_parse_bundle(
                             pdf_bytes,
-                            strategy="section",
                             filename=f.filename,
                             source_kind="scanned",
                             ocr=ocr_engine(),
@@ -290,7 +289,7 @@ def register_jdf_memory_routes(app) -> None:
                         # confidence a route or OMP staging needs — not just
                         # the raw JDF tree.
                         bundle = pdf_to_parse_bundle(
-                            pdf_bytes, strategy="section", filename=f.filename
+                            pdf_bytes, filename=f.filename
                         )
                 else:
                     return jsonify({"error": "Unsupported document type"}), 400

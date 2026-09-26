@@ -30,6 +30,13 @@ def pytest_configure(config):
     # unless a test sets PARSE_ASYNC=1 to exercise the 202 + task_id contract.
     os.environ.setdefault("CELERY_BROKER_URL", "")
     os.environ.setdefault("PARSE_ASYNC", "0")
+    # No live model calls from the suite: since 2026-09-26 an unset backend
+    # resolves to the local Ollama and the intake critique's grounded check
+    # would reach it from every run_after_parse (the full suite went from
+    # 6 min to >13 min on this laptop). Tests that exercise the model paths
+    # inject a completion and set these themselves.
+    os.environ.setdefault("PARSURE_LLM_EXTRACTION", "0")
+    os.environ.setdefault("PARSURE_REDHAT_LLM", "0")
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None

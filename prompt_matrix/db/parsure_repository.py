@@ -803,7 +803,35 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
         group.sort(key=lambda t: (t[0], t[1]))
         items.extend(item for _, _, item in group)
     counts.update({k: attention[k] for k in ("documents", "nothing_extracted", "fields_found", "schema_mismatch")})
+    # Red-Hat (intake graph critique, services/redhat_graph): a high finding
+    # is a review item on the document even when no field asks for a person,
+    # so the queue header can say "N Red-Hat high" from the same scan.
+    counts["redhat_high"] = sum(redhat_counts(report)["high"] for report in reports)
     return {"items": items[:limit], "counts": counts, "total": len(items) - mismatch_items, "now": now.strftime(_TS)}
+
+
+def redhat_counts(report: dict[str, Any]) -> dict[str, Any]:
+    """``{"ran", "count", "high", "medium", "low", "classes"}`` from
+    ``report["redhat"]`` (written by ``services/redhat_graph.attach_findings``).
+    ``ran`` is false, counts 0, when the report carries no block — a report
+    saved before the critique existed is "not run", not "clean"."""
+    block = report.get("redhat") if isinstance(report, dict) and isinstance(report.get("redhat"), dict) else None
+    if block is None:
+        return {"ran": False, "count": 0, "high": 0, "medium": 0, "low": 0, "classes": {}}
+    items = [f for f in (block.get("findings") or []) if isinstance(f, dict)]
+    stored = block.get("counts") if isinstance(block.get("counts"), dict) else {}
+    classes: dict[str, int] = {}
+    for f in items:
+        cls = str(f.get("class") or "structural")
+        classes[cls] = classes.get(cls, 0) + 1
+    return {
+        "ran": True,
+        "count": len(items),
+        "high": int(stored.get("high") if stored.get("high") is not None else sum(1 for f in items if f.get("severity") == "high")),
+        "medium": int(stored.get("medium") if stored.get("medium") is not None else sum(1 for f in items if f.get("severity") == "medium")),
+        "low": int(stored.get("low") if stored.get("low") is not None else sum(1 for f in items if f.get("severity") == "low")),
+        "classes": classes,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -879,6 +907,9 @@ def analytics(project_id: str) -> dict[str, Any]:
     by_modality: dict[str, int] = {}
     flag_counts: dict[str, int] = {}
     reason_counts: dict[str, int] = {}
+    redhat_by_class: dict[str, int] = {"structural": 0, "evidentiary": 0, "export": 0}
+    redhat_by_severity: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
+    redhat_reports_run = 0
     days: dict[str, dict[str, Any]] = {}
     for offset in range(TREND_DAYS):
         day = (since + timedelta(days=offset)).strftime("%Y-%m-%d")
@@ -899,6 +930,13 @@ def analytics(project_id: str) -> dict[str, Any]:
             if _needs_attention(field):
                 cat = reason_category(field)
                 reason_counts[cat] = reason_counts.get(cat, 0) + 1
+        rh = redhat_counts(report)
+        if rh["ran"]:
+            redhat_reports_run += 1
+            for cls, n in rh["classes"].items():
+                redhat_by_class[cls] = redhat_by_class.get(cls, 0) + int(n)
+            for sev in ("high", "medium", "low"):
+                redhat_by_severity[sev] += int(rh[sev])
         created = _parse_dt(created_at)
         if created is not None:
             day = created.strftime("%Y-%m-%d")
@@ -959,5 +997,11 @@ def analytics(project_id: str) -> dict[str, Any]:
         },
         "trend": trend,
         "trend_days": TREND_DAYS,
+        # Intake graph critique (services/redhat_graph): counts over the
+        # reports that carry a block; ``redhat_reports_run`` says how many did,
+        # so three zeros next to zero reports read "not run", not "clean".
+        "redhat_reports_run": redhat_reports_run,
+        "redhat_findings_by_class": redhat_by_class,
+        "redhat_findings_by_severity": redhat_by_severity,
         "golden_accuracy": golden_accuracy(),
     }

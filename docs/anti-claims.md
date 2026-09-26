@@ -97,3 +97,26 @@
 | "Confidence 0.00 and 'field not found' ×12 means the OCR failed" | `evidence_state` separates `not_on_document` (readable page, ≥ 200 chars and quality ≥ 0.5) from `unreadable` (< 200 chars or quality < 0.3), and the reason says which: "Not on this document type" / "Page could not be read" | quote `evidence_state` and `review_summary.evidence_states` |
 | "A confidence of 0.85 × 0.28 describes this value" when the OCR read its line at 0.91 | the page score is page-global; when the segment carries a jdf-cli OCR confidence the field uses it and the basis reads `local_ocr (0.91)` instead of `page_quality (0.28)` | quote `confidence_basis`; `quality_source` says which factor was used |
 | "Confidence is computed for every field" | `schema_mismatch` fields carry `extraction_confidence: null`, basis "not computed: schema mismatch" — a number there would describe a value that has no business on the page | "not computed" |
+
+## Added 2026-09-26 (Parsure: stable element ids, evidence granularity, timings)
+
+| Claim the code must not make | Why | What to say instead |
+|---|---|---|
+| "The node id identifies the element across runs" for a `p-…` / `sec-…` id | tree ids are `new_node_id` (uuid per run): a replay produces new ones and cannot name the same node twice | the `eid-v1` `element_id` (`chunk_id:sha1[:12]` of bbox + text) is the stable identity; `node_id_policy` on the report says which policy it follows |
+| "Two element ids are the same element" across policies | the derivation is versioned; `eid-v2` ids would be computed differently | compare ids only under the same `identity.policy` |
+| "The field points at the line it was read from" on a `section`-chunked tree without `meta.elements` | until 2026-09-26 the whole page was one paragraph and every field pointed at it; only paragraphs carrying `meta.elements` resolve below the node | quote `source_span.element_id` and `node_offsets`; a span without them is paragraph-level |
+| "An absent field has an element id" | it has an anchor node (`evidence.anchor_node_id`), never an element — nothing was read | `element_id: null`, `graph_integrity.element_ids` counts found fields only |
+| "`timings_ms.llm_extract = 0` means the model was fast" | 0.0 is the value when the pass did not run (`PARSURE_LLM_EXTRACTION=0`, schema mismatch, nothing missing) | read `extraction_notes` for the skip line; a run that happened has a positive figure |
+| "`latency_class` is what the customer uploaded" | it is derived from `material_type` / `modality` / document type / `documents[]`; a scanned PDF is not `photo_signature` | quote the rule in `v1_orchestrator.latency_class` |
+| "Switching to `jdf chunk --strategy element` is done" | done 2026-09-26 (later the same day): `jdf_converter.CHUNK_STRATEGY_DEFAULT = "element"`, `JDF_CHUNK_STRATEGY` overrides, and no caller pins `section` any more; 219 tests over the jdf/verification/ingest/identity suites stayed green. One-page declarations PDF → 6 paragraph nodes, 3-page bundle → 16 | "`element` is the default; `section` is one env var away" |
+
+## Added 2026-09-26 (Automated Red-Hat over the intake graph)
+
+| Claim the code must not make | Why | What to say instead |
+|---|---|---|
+| "Red-Hat found nothing" for an intake report without a `redhat` block | the intake graph critique (`services/redhat_graph`, `rh-graph-v1`) writes `report["redhat"]` when it ran; a report saved before it existed, or one the caller did not critique, carries none. The record page, the card, analytics and the dossier all distinguish `not run` from `0 findings` (`redhat_reports_run`, `redhat_intake_findings: null`, "Not run — no critique is recorded for this report.") | "Not run — no critique is recorded" vs "No findings" |
+| "The Red-Hat section is one pass" | there are two: the draft audit (`tasks/redhat.py` multipass over the compiled draft) and the intake graph critique (rules over the intake report's evidence graph). The dossier's §4 labels both and each says "not run" on its own | "draft audit: … · intake graph critique: …" |
+| "A Red-Hat finding was dismissed / resolved" | V1 has no dismiss action for intake findings; every finding is open until the report is re-read and the critique runs again. A high finding therefore keeps the dossier at `review_required` | "open until re-read" |
+| "The model found an unsupported value" without a quote | the model check keeps a candidate only when its `quote` is found verbatim in the page text; the rest are dropped and counted in `report["redhat"]["notes"]` ("N dropped without a verbatim quote") | quote the finding's `quote` and `model` |
+| "A finding has no location" | every finding carries an anchor; when no field or page node exists it is the document root, `anchor.kind = document_root` with the note "no closer node on the graph; the document root is named" | "Document root · doc-…" |
+| "Identical confidence on every field means they were measured" | `confidence_flattening` flags ≥ 80 % of found fields sharing one extraction confidence (low) and extraction = verification = provenance with a default basis (medium): the number does not distinguish the fields | quote `confidence_basis` beside the finding |

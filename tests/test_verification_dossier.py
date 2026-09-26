@@ -356,3 +356,111 @@ def test_no_intake_report_says_not_run_not_none(db):
     assert "no intake report · conflicts: not run · signature not assessed" in state["status_band"]
     assert "Not run — no intake report" in built["html"]
     assert "detected" not in built["html"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Intake graph critique (services/redhat_graph) — the second Red-Hat pass
+# ---------------------------------------------------------------------------
+
+
+def _seed_with_intake_critique(project_id: str, *, conflicts: bool):
+    """The customer run, its reports carrying an rh-graph-v1 block; with
+    ``conflicts=False`` the block is attached to a clean single report."""
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+    from prompt_matrix.services import redhat_graph as rg
+
+    if conflicts:
+        a, b = _seed_customer_run(project_id)
+        for r in (a, b):
+            rg.attach_findings(r, rg.critique_report(r, llm=False))
+            repo.update_report(project_id, r["report_id"], r)
+        return a, b
+    ensure_project(project_id, "Clean run")
+    fields = [_field("insured_name", value="Jane", state="accepted", routing="none", reason="", confidence=0.9,
+                     field_source_node_id="el-1", evidence_state="found_verified", verification_confidence=1.0, provenance_confidence=1.0)]
+    r = _report("pr-clean", "renewal.pdf", fields=fields, insured="Jane", accepted=1, flags=(), quality=1.0,
+                signature={"present": None, "quality": "unknown", "review_required": False, "page": None, "basis": "no signature label"})
+    r["graph_integrity"] = {"fields": 1, "anchored": 1, "orphans": 0, "basis": "every field names a JDF node"}
+    r["node_id_policy"] = "jdf-cli element ids"
+    r["classification"]["validation"] = {"agrees": True, "family": "auto", "type_family": "auto"}
+    rg.attach_findings(r, rg.critique_report(r, llm=False))
+    repo.save_report(project_id, r)
+    return r, None
+
+
+def test_intake_critique_findings_are_listed_beside_the_draft_audit_and_a_high_one_blocks_verified(db, monkeypatch):
+    """Two passes, two labels: the draft audit (project_redhat_findings) and
+    the intake graph critique (report["redhat"]). The customer's conflict on
+    insured_name is a high intake finding; it alone must keep the export
+    from reading verified."""
+    a, _b = _seed_with_intake_critique("qa-rh-intake", conflicts=True)
+    assert a["redhat"]["counts"]["high"] >= 1 and a["redhat"]["policy"] == "rh-graph-v1"
+    ran_clean = {"items": [], "count": 0, "ran": True, "reason": "", "other_revisions": [], "in_export": False}
+    monkeypatch.setattr(vd, "project_redhat_findings", lambda pid, tree: ran_clean)
+    built = build_dossier("qa-rh-intake")
+    state, html = built["state"], built["html"]
+    section = state["sections"]["redhat"]
+    assert section["status"] == "clear" and section["draft_label"] == "draft audit" and section["intake_label"] == "intake graph critique"
+    intake = section["intake"]
+    assert intake["status"] == "findings" and intake["reports_run"] == 2 and intake["policy"] == "rh-graph-v1"
+    assert intake["high"] >= 2  # one conflict finding per report
+    titles = {i["title"] for i in intake["items"]}
+    assert "Insured name conflicts with another document" in titles
+    item = next(i for i in intake["items"] if i["rule"] == "cross_document_conflict")
+    assert item["severity"] == "high" and item["class"] == "evidentiary" and item["report_id"] in ("pr-a", "pr-b")
+    # The customer's fields carried no node id, so the anchor is the document root — named as such, with the field it concerns.
+    assert item["anchor"]["kind"] == "document_root" and item["anchor"]["field"] == "insured_name"
+    assert item["where"] == f"Field insured name · Page 1 · Document root · doc-{item['report_id']}"
+    assert state["counts"]["redhat_intake_findings"] == intake["count"] and state["counts"]["redhat_intake_high"] == intake["high"]
+    assert f"intake critique: {intake['count']} findings ({intake['high']} high)" in state["status_band"]
+    # The HTML carries both passes, labelled, and the intake rows.
+    assert "Draft audit — Red-Hat multipass over the compiled draft" in html
+    assert "Intake graph critique — rules over the intake evidence graph" in html
+    assert "Red-Hat ran and recorded 0 findings" in html
+    assert "Insured name conflicts with another document" in html and "Field insured name" in html
+    assert "intake graph critique:" in html and "draft audit:" in html
+    assert state["trust_state"] != "verified"
+
+
+def test_a_high_intake_finding_alone_makes_review_required_never_verified(db, monkeypatch):
+    """Everything else closed, one high intake finding → review_required with
+    the reason named; the same run with no high finding → verified."""
+    from prompt_matrix.db import parsure_repository as repo
+
+    r, _ = _seed_with_intake_critique("qa-rh-high", conflicts=False)
+    assert r["redhat"]["counts"]["high"] == 0
+    monkeypatch.setattr(vd, "compute_export_gate", lambda pid, tree: {"gate_status": "pass", "z3_status": "PASS", "unverified": False, "provenance_stats": {"eligible": 0, "anchored": 0, "supported": 0, "unsupported": 0}, "violations": []})
+    monkeypatch.setattr(vd, "project_redhat_findings", lambda pid, tree: {"items": [], "count": 0, "ran": True, "reason": "", "other_revisions": [], "in_export": False})
+    monkeypatch.setattr(vd, "list_runs", lambda workspace_id: [])
+    state = build_dossier("qa-rh-high")["state"]
+    assert state["trust_state"] == "verified", state["reasons"]
+    assert state["sections"]["redhat"]["intake"]["status"] == "clear" and state["counts"]["redhat_intake_findings"] == 0
+    assert "intake critique: 0 findings" in state["status_band"]
+    assert "recorded 0 findings" in build_dossier("qa-rh-high")["html"]
+
+    # Now one high finding on the intake graph (a certificate-language export state judged at export time).
+    from prompt_matrix.services import redhat_graph as rg
+
+    rg.attach_findings(r, rg.critique_report(r, llm=False, export_state={"trust_state": "review_required", "title": "Formal Verification Certificate"}))
+    assert r["redhat"]["counts"]["high"] == 1
+    repo.update_report("qa-rh-high", r["report_id"], r)
+    state = build_dossier("qa-rh-high")["state"]
+    assert state["trust_state"] == "review_required"
+    assert "1 high Red-Hat finding on the intake graph" in state["reasons"]
+    assert state["title"] == "Verification Dossier — Review required"
+
+
+def test_intake_critique_not_run_is_said_not_counted_as_zero(db):
+    """Reports saved without a block (before the critique existed) read
+    "not run" with the reason; the draft audit's words are untouched."""
+    _seed_customer_run("qa-rh-none")
+    state = build_dossier("qa-rh-none")["state"]
+    intake = state["sections"]["redhat"]["intake"]
+    assert intake["status"] == "not_run" and "no critique is recorded on the 2 intake reports" in intake["reason"]
+    assert state["counts"]["redhat_intake_findings"] is None and state["counts"]["redhat_intake_high"] is None
+    assert "intake critique: not run" in state["status_band"]
+    html = build_dossier("qa-rh-none")["html"]
+    assert "Not run — No critique is recorded on the 2 intake reports." in html
+    assert derive_trust_state(**_BASE, intake_redhat_high=1) == ("review_required", ["1 high Red-Hat finding on the intake graph"])
+    assert derive_trust_state(**_BASE, intake_redhat_high=0) == ("verified", [])

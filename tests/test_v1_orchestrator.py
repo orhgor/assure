@@ -728,3 +728,87 @@ def test_evidence_states_separate_absent_from_unreadable(db, monkeypatch):
     assert absent and all(f["evidence_state"] == "unreadable" for f in absent)
     found = next(f for f in r["fields"] if f["name"] == "claim_number")
     assert found["evidence_state"] == "found_unverified" and "page_quality (" in found["confidence_basis"]
+
+
+# --------------------------------------------------------------------------
+# Element identity, node offsets, per-stage timings (2026-09-26)
+# --------------------------------------------------------------------------
+
+def test_attach_tree_node_ids_sets_element_id_and_node_offsets_from_meta_elements():
+    """Sources-pane shape: the layout is jdf-cli's elements (chunk ``p1e0``);
+    the saved paragraph folded them into one node with ``meta.elements``. The
+    field keeps its element id and gains the offsets inside that paragraph."""
+    from prompt_matrix.services import jdf_converter as jc
+
+    lines = ["Policy Number: PA-1\nNamed Insured: Jordan Avery", "VIN: 1HGCM82633A004352\nTotal Premium: $1,284.00"]
+    elements = [{"type": "text", "content": l, "position": {"x": 20, "y": 30 + 10 * i}, "width": 90} for i, l in enumerate(lines)]
+    jdf = {"pages": [{"pageSize": {"width": 210, "height": 297}, "elements": elements}]}
+    chunks = [{"id": "p1e0", "page": 1, "text": "\n\n".join(lines), "types": ["text"]}]
+    bundle = {"jdf": jdf, "chunks": chunks, "text": jc.chunks_to_text(chunks)}
+    layout = fx.page_layout(bundle)
+    fields = fx.extract_fields("auto_policy", fx.page_texts(bundle), layout=layout, parser_name="jdf-cli", parse_confidence=None,
+                               ocr_confidence=None, page_quality=[1.0])
+    tree = jc.jdf_to_document_tree(jdf, chunks, document_id="d", title="t")
+    para = tree["body"][0]["children"][0]
+    assert len(para["meta"]["elements"]) == 2
+    n = orch.attach_tree_node_ids(fields, tree)
+    assert n == len(fields)
+    by = {f["name"]: f for f in fields}
+    vin = by["vin"]
+    assert vin["tree_node_id"] == para["id"] and vin["source_span"]["node_id"] == para["id"]
+    assert vin["source_span"]["element_id"] == vin["element_id"] == para["meta"]["elements"][1]["element_id"]
+    off = vin["source_span"]["node_offsets"]
+    assert para["content"][off["start_char"]:off["end_char"]] == "1HGCM82633A004352"
+    assert off["start_char"] != vin["source_span"]["start_char"]  # page offsets and node offsets differ ("\n\n" join in the chunk)
+    gi = orch.graph_integrity(fields)
+    assert gi["policy"] == "eid-v1" and gi["element_ids"] == sum(1 for f in fields if f["value"] is not None) and gi["orphans"] == 0
+    # a tree whose paragraph has no meta.elements: element_id still on the span, no offsets invented
+    bare = {"body": [{"type": "section", "id": "sec-1", "children": [{"type": "paragraph", "id": "p-x", "content": "\n".join(lines), "meta": {"chunk_id": "p1e0"}}]}]}
+    fields2 = fx.extract_fields("auto_policy", fx.page_texts(bundle), layout=fx.page_layout(bundle), parser_name="jdf-cli", parse_confidence=None,
+                                ocr_confidence=None, page_quality=[1.0])
+    orch.attach_tree_node_ids(fields2, bare)
+    vin2 = next(f for f in fields2 if f["name"] == "vin")
+    assert vin2["source_span"]["element_id"] == vin["element_id"] and "node_offsets" not in vin2["source_span"]
+
+
+def test_report_records_per_stage_timings_and_a_latency_class(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    r = _run(jdf_cli_bundle())["report"]
+    t = r["timings_ms"]
+    assert set(t) == {"layout", "classify", "extract", "llm_extract", "quality", "total"}
+    assert all(isinstance(v, float) and v >= 0.0 for v in t.values())
+    assert t["total"] >= max(t["layout"], t["classify"], t["extract"], t["quality"])
+    assert t["llm_extract"] == 0.0  # the model pass did not run
+    assert r["latency_class"] == "policy_form"
+    assert r["node_id_policy"] == "eid-v1" and r["identity"]["policy"] == "eid-v1"
+    assert r["graph_integrity"]["policy"] == "eid-v1" and r["graph_integrity"]["element_ids"] == sum(1 for f in r["fields"] if f["value"] is not None)
+    for f in r["fields"]:
+        if f["value"] is not None:
+            assert f["element_id"] and f["source_span"]["element_id"] == f["element_id"]
+
+
+def test_llm_extract_stage_is_timed_when_the_model_runs(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "1")
+    calls = []
+
+    def completion(*args, **kwargs):
+        calls.append(1)
+        return json.dumps({"fields": []})
+
+    lines = [l for l in POLICY_LINES if not l.startswith("Agent")]
+    r = _run(jdf_cli_bundle(lines), completion=completion)["report"]
+    assert r["timings_ms"]["llm_extract"] >= 0.0 and r["timings_ms"]["extract"] >= 0.0
+    if calls:
+        assert r["timings_ms"]["llm_extract"] > 0.0
+
+
+def test_latency_class_is_derived_from_material_modality_and_type():
+    assert orch.latency_class("pdf", "digital_pdf", "auto_policy", 1) == "policy_form"
+    assert orch.latency_class("pdf", "scanned_pdf", "auto_policy", 1) == "policy_form"  # a scan has the page shape of a PDF
+    assert orch.latency_class("pdf", "digital_pdf", "medical_claim", 1) == "claim_packet"
+    assert orch.latency_class("pdf", "digital_pdf", "auto_claim", 1) == "claim_packet"
+    assert orch.latency_class("photo", "phone_photo", "auto_claim", 1) == "photo_signature"
+    assert orch.latency_class("image", "scanned_pdf", "auto_policy", 1) == "photo_signature"
+    assert orch.latency_class("mixed_bundle", "mixed", "auto_policy", 1) == "mixed_bundle"
+    assert orch.latency_class("pdf", "digital_pdf", "auto_policy", 3) == "mixed_bundle"
+    assert orch.latency_class(None, None, None, 0) == "policy_form"

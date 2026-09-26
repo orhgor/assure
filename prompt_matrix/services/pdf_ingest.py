@@ -172,7 +172,6 @@ def ingest_pdf_for_project(
             try:
                 bundle = pdf_to_parse_bundle(
                     parse_bytes,
-                    strategy="section",
                     filename=filename,
                     source_kind="scanned",
                     ocr=ocr_engine(),
@@ -200,7 +199,7 @@ def ingest_pdf_for_project(
                         ) from textract_exc
         else:
             bundle = pdf_to_parse_bundle(
-                parse_bytes, strategy="section", filename=filename, source_kind="pdf"
+                parse_bytes, filename=filename, source_kind="pdf"
             )
         parse_meta = {
             "parser_name": bundle["parser_name"],

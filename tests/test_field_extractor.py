@@ -449,3 +449,58 @@ def test_schema_mismatch_fields_do_not_ask_for_review_and_have_no_confidence():
     assert vin["field_source_node_id"] == "n1"
     fx.attach_z3_violations(absent, [{"description": "x", "node_id": "n1"}])
     assert vin["z3_violation"] is False and next(f for f in absent if f["name"] == "policy_number")["z3_violation"] is True
+
+
+# --------------------------------------------------------------------------
+# Element identity on the layout (eid-v1, 2026-09-26)
+# --------------------------------------------------------------------------
+
+def test_every_layout_segment_carries_a_stable_element_id_in_every_shape():
+    text = "Policy Number: PA-1\nNamed Insured: Jordan Avery"
+    jdf_cli = {"jdf": {"pages": [{"pageSize": {"width": 210, "height": 297}, "elements": [
+        {"type": "text", "content": "Policy Number: PA-1", "position": {"x": 20, "y": 30}, "width": 80},
+        {"type": "text", "content": "Named Insured: Jordan Avery", "position": {"x": 20, "y": 40}, "width": 80}]}]},
+        "chunks": [{"id": "p1e0", "page": 1, "text": text}]}
+    segs = fx.page_layout(jdf_cli)[0]
+    assert [s["chunk_id"] for s in segs] == ["p1e0", "p1e0"] and [s["node_id"] for s in segs] == ["p1e0", "p1e0"]
+    assert segs[0]["element_id"] == fx.derive_element_id("p1e0", 1, segs[0]["bbox"], segs[0]["text"])
+    assert segs[0]["element_id"] != segs[1]["element_id"] and all(s["element_id"].startswith("p1e0:") for s in segs)
+    # an element with its own id keeps it as node_id; the chunk id is still the eid prefix
+    with_ids = {"jdf": {"pages": [{"elements": [{"id": "el-0", "type": "text", "content": "Policy Number: PA-1"}]}]},
+                "chunks": [{"id": "p1e0", "page": 1, "text": "Policy Number: PA-1"}]}
+    seg = fx.page_layout(with_ids)[0][0]
+    assert seg["node_id"] == "el-0" and seg["chunk_id"] == "p1e0" and seg["element_id"].startswith("p1e0:")
+    # tree shape: the paragraph's meta.chunk_id is the prefix, never its random id
+    tree = {"jdf": {"body": [{"type": "section", "id": "sec-1", "children": [
+        {"type": "paragraph", "id": "p-random", "content": text, "meta": {"chunk_id": "p1e0"}}]}]}}
+    tseg = fx.page_layout(tree)[0][0]
+    assert tseg["element_id"] == fx.derive_element_id("p1e0", 1, None, text) and "p-random" not in tseg["element_id"]
+    # chunks-only and flat text: still an id, prefixed by chunk or page
+    assert fx.page_layout({"jdf": None, "chunks": [{"id": "c9", "text": "a", "page": 2}], "page_count": 2})[1][0]["element_id"].startswith("c9:")
+    assert fx.page_layout({"text": "one\ftwo"})[1][0]["element_id"].startswith("p2:")
+
+
+def test_found_field_resolves_to_the_element_inside_a_paragraph_with_meta_elements():
+    """The import path's layout is the saved tree: one segment per paragraph,
+    no bbox. ``meta.elements`` gives the value its line, its bbox and its
+    offsets inside the paragraph."""
+    content = "Policy Number: PA-1\n\nVIN: 1HGCM82633A004352\nTotal Premium: $1,284.00"
+    elements = [
+        {"element_id": "p1e0:aaaaaaaaaaaa", "page": 1, "bbox": [0.1, 0.1, 0.5, 0.12], "start_char": 0, "end_char": 19, "text_preview": "Policy Number: PA-1"},
+        {"element_id": "p1e0:bbbbbbbbbbbb", "page": 1, "bbox": [0.1, 0.2, 0.5, 0.22], "start_char": 21, "end_char": 68, "text_preview": "VIN: 1HGCM82633A004352"},
+    ]
+    tree = {"jdf": {"body": [{"type": "section", "id": "sec-1", "meta": {"source_page": 1}, "children": [
+        {"type": "paragraph", "id": "p-1", "content": content, "meta": {"chunk_id": "p1e0", "elements": elements}}]}]}}
+    layout = fx.page_layout(tree)
+    assert layout[0][0]["elements"] == elements
+    fields = {f["name"]: f for f in fx.extract_fields("auto_policy", fx.page_texts(tree), layout=layout, parser_name="jdf-cli",
+                                                        parse_confidence=None, ocr_confidence=None, page_quality=[1.0])}
+    vin, pol = fields["vin"], fields["policy_number"]
+    assert vin["element_id"] == "p1e0:bbbbbbbbbbbb" and pol["element_id"] == "p1e0:aaaaaaaaaaaa"
+    assert vin["source_span"]["span_type"] == "bbox_relative" and vin["source_span"]["bbox"] == [0.1, 0.2, 0.5, 0.22]
+    off = vin["source_span"]["node_offsets"]
+    assert content[off["start_char"]:off["end_char"]] == "1HGCM82633A004352"
+    assert vin["source_span"]["element_id"] == vin["evidence"]["element_id"] == "p1e0:bbbbbbbbbbbb"
+    assert vin["field_source_node_id"] == "p-1"  # the paragraph stays the node address
+    assert fields["agent_name"]["value"] is None and fields["agent_name"]["element_id"] is None
+    assert fx._element_at(layout[0][0], 68) is None and fx._element_at(None, 0) is None

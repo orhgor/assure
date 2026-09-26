@@ -67,10 +67,13 @@ never fail an ingest that already has its revision.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Any
 
 try:
@@ -550,6 +553,58 @@ def segment_texts(texts: list[str], pages: list[int]) -> list[str]:
     return [(texts[i] if (i + 1) in keep else "") for i in range(min(last, len(texts)))]
 
 
+# --------------------------------------------------------------------------
+# Per-stage timings (plan P1 "latency tracked per family and modality")
+# --------------------------------------------------------------------------
+
+#: Stage names ``report["timings_ms"]`` always carries, in pipeline order.
+#: ``extract`` is the label pass + decision policy *without* the model call,
+#: which is ``llm_extract`` (the one stage whose wall time depends on a
+#: network); ``total`` is the whole of ``build_report``. A stage that did not
+#: run reads 0.0, never a guess.
+TIMING_STAGES = ("layout", "classify", "extract", "llm_extract", "quality", "total")
+#: The four latency classes the benchmark plan groups documents by; derived
+#: from what the report already knows (``latency_class``), never declared.
+LATENCY_CLASSES = ("policy_form", "claim_packet", "photo_signature", "mixed_bundle")
+_CLAIM_TYPES = frozenset({"medical_claim", "auto_claim", "property_claim"})
+_PHOTO_MODALITIES = frozenset({"phone_photo", "screenshot"})
+_PHOTO_MATERIALS = frozenset({"photo", "image", "screenshot"})
+
+_TIMINGS: contextvars.ContextVar[dict[str, float] | None] = contextvars.ContextVar("parsure_timings", default=None)
+
+
+@contextmanager
+def _timed(stage: str):
+    """Add the block's wall time (ms, ``perf_counter``) to ``stage`` of the
+    timings dict ``build_report`` opened for this call; a no-op outside one, so
+    the helpers stay callable on their own (tests, ``reextract_for_type``)."""
+    t0 = perf_counter()
+    try:
+        yield
+    finally:
+        acc = _TIMINGS.get()
+        if acc is not None:
+            acc[stage] = round(acc.get(stage, 0.0) + (perf_counter() - t0) * 1000.0, 3)
+
+
+def latency_class(material_type: Any, modality: Any, document_type: Any, n_documents: int) -> str:
+    """One of ``LATENCY_CLASSES`` for the analytics bucket a run belongs to.
+
+    Checked in order: several documents in one upload → ``mixed_bundle``; a
+    photo or scanned image (material ``photo``/``image``/``screenshot`` or
+    modality ``phone_photo``/``screenshot``; a scanned *PDF* is not — it has
+    the same page shape as a digital one and its cost is OCR, tracked by
+    ``parser_name``) → ``photo_signature``; a claim schema → ``claim_packet``;
+    everything else → ``policy_form``."""
+    if (n_documents or 0) > 1 or str(material_type or "") == "mixed_bundle":
+        return "mixed_bundle"
+    if str(material_type or "") in _PHOTO_MATERIALS or str(modality or "") in _PHOTO_MODALITIES:
+        return "photo_signature"
+    if str(document_type or "") in _CLAIM_TYPES:
+        return "claim_packet"
+    return "policy_form"
+
+
 def llm_fill_missing(
     document_type: str,
     texts: list[str],
@@ -574,11 +629,12 @@ def llm_fill_missing(
     if not missing:
         return fields
     try:
-        filled = lx.extract_missing_fields(
-            document_type, texts, missing, completion=completion, notes=notes, parser_name=parser_name,
-            parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
-            visual_pages=visual_pages, layout=layout, project_id=project_id,
-        )
+        with _timed("llm_extract"):
+            filled = lx.extract_missing_fields(
+                document_type, texts, missing, completion=completion, notes=notes, parser_name=parser_name,
+                parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
+                visual_pages=visual_pages, layout=layout, project_id=project_id,
+            )
     except Exception as exc:  # noqa: BLE001 — advisory pass
         log.exception("llm_fill_missing failed")
         notes.append(f"llm extraction skipped: {type(exc).__name__}: {exc}")
@@ -890,6 +946,7 @@ def attach_tree_node_ids(fields: list[dict], tree: dict | None) -> int:
         return 0
     by_chunk: dict[str, str] = {}
     node_ids: set[str] = set()
+    nodes: dict[str, dict] = {}
     root: str | None = None
     stack = list(tree.get("body") or [])
     for node in stack:
@@ -902,6 +959,7 @@ def attach_tree_node_ids(fields: list[dict], tree: dict | None) -> int:
             continue
         if node.get("id"):
             node_ids.add(str(node["id"]))
+            nodes[str(node["id"])] = node
         meta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
         cid = str(meta.get("chunk_id") or "")
         if cid and node.get("id") and cid not in by_chunk:
@@ -929,12 +987,68 @@ def attach_tree_node_ids(fields: list[dict], tree: dict | None) -> int:
             n += 1
             if isinstance(f.get("source_span"), dict):
                 f["source_span"]["node_id"] = nid
+                _attach_element_span(f, nodes.get(nid))
     return n
 
 
+def _attach_element_span(field: dict, node: dict | None) -> None:
+    """``source_span.element_id`` and, when the addressed paragraph carries
+    ``meta.elements`` (jdf_converter, ``eid-v1``), ``source_span.node_offsets``
+    = the value's ``{start_char, end_char}`` inside that paragraph's content,
+    so the shell can highlight the exact span rather than the whole node.
+
+    The offsets are located by the element the field already names (its
+    ``element_id``, from the layout) and the field's ``raw`` text inside that
+    element's range; a field whose layout segment *was* the paragraph already
+    carries offsets from ``build_found_field`` and they are kept. Nothing is
+    invented: a value whose text cannot be found in the node gets no offsets.
+    """
+    span = field.get("source_span")
+    if not isinstance(span, dict) or field.get("value") is None:
+        return
+    span.setdefault("element_id", field.get("element_id"))
+    if not isinstance(node, dict):
+        return
+    meta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
+    elements = [e for e in (meta.get("elements") or []) if isinstance(e, dict)]
+    if not elements:
+        return
+    content = str(node.get("content") or "")
+    raw = str(field.get("raw") or "")
+    if isinstance(span.get("node_offsets"), dict):
+        offsets = span["node_offsets"]
+        if span.get("element_id") is None:
+            for e in elements:
+                if isinstance(e.get("start_char"), int) and isinstance(e.get("end_char"), int) and e["start_char"] <= int(offsets.get("start_char", -1)) < e["end_char"]:
+                    span["element_id"] = field["element_id"] = e.get("element_id")
+                    break
+        return
+    if not raw or not content:
+        return
+    target = next((e for e in elements if e.get("element_id") and e["element_id"] == span.get("element_id")), None)
+    idx = -1
+    if target is not None and isinstance(target.get("start_char"), int):
+        idx = content.find(raw, target["start_char"])
+        if idx != -1 and isinstance(target.get("end_char"), int) and idx >= target["end_char"]:
+            idx = -1
+    if idx == -1:
+        idx = content.find(raw)
+        if idx != -1 and target is None:
+            for e in elements:
+                if isinstance(e.get("start_char"), int) and isinstance(e.get("end_char"), int) and e["start_char"] <= idx < e["end_char"]:
+                    span["element_id"] = field["element_id"] = e.get("element_id")
+                    if isinstance(e.get("bbox"), list) and len(e["bbox"]) == 4 and span.get("span_type") == "text_range":
+                        span["span_type"], span["bbox"] = "bbox_relative", e["bbox"]
+                    break
+    if idx != -1:
+        span["node_offsets"] = {"start_char": idx, "end_char": idx + len(raw)}
+
+
 def graph_integrity(fields: list[dict]) -> dict[str, Any]:
-    """``{"fields", "anchored", "orphans", "absent_anchored", "checked_at",
-    "basis"}`` — every field's link into the JDF graph, counted once the
+    """``{"fields", "anchored", "orphans", "absent_anchored", "element_ids",
+    "policy", "checked_at", "basis"}`` — every field's link into the JDF graph
+    (``element_ids``: found fields that name an ``eid-v1`` element;
+    ``policy``: ``field_extractor.NODE_ID_POLICY``), counted once the
     tree ids are attached. A field is anchored when ``field_source_node_id``
     (or ``tree_node_id``) is set; an absent field's anchor is the node it was
     searched from (``evidence.anchor_node_id``). ``orphans`` is the count with
@@ -943,6 +1057,7 @@ def graph_integrity(fields: list[dict]) -> dict[str, Any]:
     total = len(fields)
     anchored = sum(1 for f in fields if f.get("field_source_node_id") or f.get("tree_node_id"))
     absent_anchored = sum(1 for f in fields if f.get("value") is None and (f.get("field_source_node_id") or f.get("tree_node_id")))
+    element_ids = sum(1 for f in fields if f.get("value") is not None and f.get("element_id"))
     orphans = total - anchored
     if not total:
         basis = "no fields"
@@ -950,7 +1065,8 @@ def graph_integrity(fields: list[dict]) -> dict[str, Any]:
         basis = "every field names a JDF node (found: the node its value sits on; absent: the anchor it was searched from)"
     else:
         basis = f"{orphans} field{'s' if orphans != 1 else ''} without a node: the parse produced no node ids to anchor to"
-    return {"fields": total, "anchored": anchored, "orphans": orphans, "absent_anchored": absent_anchored, "checked_at": _now(), "basis": basis}
+    return {"fields": total, "anchored": anchored, "orphans": orphans, "absent_anchored": absent_anchored,
+            "element_ids": element_ids, "policy": fx.NODE_ID_POLICY, "checked_at": _now(), "basis": basis}
 
 
 def build_report(
@@ -971,11 +1087,40 @@ def build_report(
     (tests); production leaves it None and ``llm_extraction`` uses the app's
     model path.
     """
-    texts = fx.page_texts(bundle)
-    layout = fx.page_layout(bundle)
+    timings: dict[str, float] = {stage: 0.0 for stage in TIMING_STAGES}
+    t_start = perf_counter()
+    token = _TIMINGS.set(timings)
+    try:
+        return _build_report_timed(
+            project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id,
+            intake=intake, completion=completion, tree=tree, timings=timings, t_start=t_start,
+        )
+    finally:
+        _TIMINGS.reset(token)
+
+
+def _build_report_timed(
+    project_id: str,
+    *,
+    bundle: dict,
+    verification: dict | None,
+    filename: str,
+    result: dict,
+    job_id: str | None,
+    intake: dict | None,
+    completion: Any,
+    tree: dict | None,
+    timings: dict[str, float],
+    t_start: float,
+) -> dict[str, Any]:
+    """``build_report`` proper; the wrapper only opens the timings context."""
+    with _timed("layout"):
+        texts = fx.page_texts(bundle)
+        layout = fx.page_layout(bundle)
     pname = contract_parser_name(bundle.get("parser_name") or (intake or {}).get("parser"))
     pver = parser_version(pname, bundle.get("jdf"))
-    pages, signatures = score_pages(bundle, texts, intake)
+    with _timed("quality"):
+        pages, signatures = score_pages(bundle, texts, intake)
     page_quality = [p["quality_score"] for p in pages]
     visual_pages = [p.get("visual") for p in pages]
     documents = segment_pages(texts)
@@ -988,13 +1133,15 @@ def build_report(
         # Classification by evidence before any extraction (module docstring):
         # the label pass is the cheap step, the LLM fill the expensive one, so
         # the type is settled first and the model is asked once, for one type.
-        settle_segment_type(seg, seg_texts, completion=completion, project_id=project_id, notes=notes)
-        seg_fields, seg_rules = extract_segment_fields(
-            seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
-            ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
-            verification=verification, notes=notes, completion=completion, project_id=project_id,
-            schema_mismatch=bool(seg.get("schema_mismatch")),
-        )
+        with _timed("classify"):
+            settle_segment_type(seg, seg_texts, completion=completion, project_id=project_id, notes=notes)
+        with _timed("extract"):
+            seg_fields, seg_rules = extract_segment_fields(
+                seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
+                ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
+                verification=verification, notes=notes, completion=completion, project_id=project_id,
+                schema_mismatch=bool(seg.get("schema_mismatch")),
+            )
         for f in seg_fields:
             f["segment"] = seg["index"]
         for r in seg_rules:
@@ -1094,11 +1241,20 @@ def build_report(
         "_page_quality": page_quality,
         "_layout": layout,
     }
-    compose_quality_summary(report)
+    with _timed("quality"):
+        compose_quality_summary(report)
     # The saved Assure tree (import-pdf path) names the paragraph each value
     # came from; a Sources-pane upload has no tree and addresses the chunk only.
     report["tree_nodes_addressed"] = attach_tree_node_ids(report["fields"], tree)
     report["graph_integrity"] = graph_integrity(report["fields"])
+    report["node_id_policy"] = fx.NODE_ID_POLICY
+    report["identity"] = {"policy": fx.NODE_ID_POLICY, "derivation": fx.NODE_ID_DERIVATION}
+    report["latency_class"] = latency_class(report["material_type"], report["modality"], classification.get("document_type"), len(documents))
+    # ``extract`` is measured around the whole extraction call, which includes
+    # the model pass; take the model's own time back out so the stages add up.
+    timings["extract"] = round(max(0.0, timings.get("extract", 0.0) - timings.get("llm_extract", 0.0)), 3)
+    timings["total"] = round((perf_counter() - t_start) * 1000.0, 3)
+    report["timings_ms"] = {stage: float(timings.get(stage, 0.0)) for stage in TIMING_STAGES}
     return report
 
 
@@ -1216,6 +1372,28 @@ def run_after_parse(
             completion=completion, tree=tree,
         )
         attach_conflicts(project_id, report)
+        # Automated Red-Hat over the intake evidence graph (plan P0, 2026-09-26):
+        # rules first, a grounded model check second, never a manual label.
+        # Runs on every report; a failure is a note, not a missing pass.
+        try:
+            try:
+                from ..services import redhat_graph as rg
+            except ImportError:
+                from services import redhat_graph as rg  # type: ignore
+            try:
+                from ..services.llm_extraction import llm_extraction_enabled as _llm_on
+            except ImportError:
+                from services.llm_extraction import llm_extraction_enabled as _llm_on  # type: ignore
+            # PARSURE_LLM_EXTRACTION=0 means "no model calls on intake" for the
+            # critique's grounded check too; the rules always run.
+            # The critique's model check uses the app's own model path (not the
+            # extraction's injected completion): the extraction call budget and
+            # its tests stay one call per document.
+            rg.attach_findings(report, rg.critique_report(report, tree=tree, completion=None, llm=_llm_on()))
+        except Exception as exc:
+            log.exception("parsure: red-hat graph critique failed for %s", filename)
+            report.setdefault("redhat", {"policy": "rh-graph-v1", "findings": [], "counts": {}, "classes": {},
+                                         "notes": [f"critique failed: {exc.__class__.__name__}"]})
         report_id = repo.save_report(project_id, report)
         rid = report_id
         repo.log_event(project_id, "intake_received", report_id=rid, payload={

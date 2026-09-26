@@ -784,6 +784,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except ImportError:
             from routers import parsure_routes as _pv  # type: ignore
 
+        _pv_redhat_counts = None
+        try:
+            try:
+                from .db import parsure_repository as _rh_repo
+            except ImportError:
+                from db import parsure_repository as _rh_repo  # type: ignore
+            _pv_redhat_counts = getattr(_rh_repo, "redhat_counts", None)
+        except Exception:  # noqa: BLE001 — module absent: the card line is simply not shown
+            _pv_redhat_counts = None
+
         _modality_words = _pv.MODALITY_WORDS
         _material_words = _pv.MATERIAL_WORDS
         _parser_words = _pv.PARSER_WORDS
@@ -885,6 +895,20 @@ def create_app(*, require_auth: bool = True) -> Flask:
             card["nothing_extracted"] = bool(fields) and card["fields_found"] == 0 and not card["schema_mismatch"]
             card["record_href"] = f"/parsing/{card['report_id']}?project_id={project_id}" if card["report_id"] else None
             card["conflicts"] = len(conflicts)
+            # Intake graph critique (services/redhat_graph): one count line,
+            # red only when a high finding is open, amber for medium, quiet
+            # for low; nothing when the critique did not run or found nothing.
+            try:
+                rh = _pv_redhat_counts(report) if _pv_redhat_counts else {}
+            except Exception:  # noqa: BLE001 — a malformed block is "not run", never a number
+                rh = {}
+            card["redhat_count"] = int(rh.get("count") or 0)
+            card["redhat_high"] = int(rh.get("high") or 0)
+            card["redhat_tone"] = "high" if rh.get("high") else ("medium" if rh.get("medium") else "low")
+            card["redhat_label"] = (
+                f"{card['redhat_count']} Red-Hat finding{'' if card['redhat_count'] == 1 else 's'}"
+                + (f" ({card['redhat_high']} high)" if card["redhat_high"] and card["redhat_count"] != card["redhat_high"] else "")
+            ) if card["redhat_count"] else None
             card["quality"] = _num(report.get("document_quality_score"))
             card["quality_label"] = _score_label(report.get("document_quality_score"))
             if card["quality"] is None:
@@ -1350,11 +1374,13 @@ def create_app(*, require_auth: bool = True) -> Flask:
             from .db import parsure_repository as _repo
             from .middleware import check_project_ownership as _check_owner
             from .routers import parsure_routes as _pv
+            from .services import redhat_graph as _rg
             from .services import v1_orchestrator as _orch
         except ImportError:
             from db import parsure_repository as _repo  # type: ignore
             from middleware import check_project_ownership as _check_owner  # type: ignore
             from routers import parsure_routes as _pv  # type: ignore
+            from services import redhat_graph as _rg  # type: ignore
             from services import v1_orchestrator as _orch  # type: ignore
 
         project_hint = (request.args.get("project_id") or "").strip() or None
@@ -1556,6 +1582,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
         if source_label and source_label == modality_label:
             source_label = None
         replay_history = replay.get("history") if isinstance(replay.get("history"), list) else []
+        # Red-Hat findings (services/redhat_graph, the intake graph critique):
+        # severity, title, anchor ("Page 2 · el-3"), one-sentence rationale.
+        # "Not run — <reason>" when the report carries no block; "No findings"
+        # only when a critique ran and recorded none.
+        redhat_view = _rg.findings_view(report)
+        redhat_view["findings"] = [
+            {**f, "class_label": _pv.words(f.get("class")) or "—", "rule_label": _pv.words(f.get("rule")) or ""}
+            for f in redhat_view.get("findings") or []
+        ]
+        redhat_view["ran_at_label"] = _pv.datetime_label(redhat_view.get("ran_at")) if redhat_view.get("ran_at") else None
         technical = [
             ("Parser", report.get("parser_name") or "—"),
             ("Parser version", report.get("parser_version") or "—"),
@@ -1615,6 +1651,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 (c.get("summary") or c.get("reason") or c.get("field") or "Source conflict detected") if isinstance(c, dict) else str(c)
                 for c in (report.get("conflicts") or [])
             ],
+            "redhat": redhat_view,
             "review_href": f"/?project_id={project_id}&report_id={report.get('report_id')}",
             "export_json_href": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/export?format=json",
             "export_csv_href": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/export?format=csv",

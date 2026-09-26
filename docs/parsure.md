@@ -491,3 +491,199 @@ OCR did not measure. The field records `quality_source`
 the local OCR confidence for that field's digits.
 `quality_weighted_confidence(..., quality_label=…)` (both `quality_probe` and
 the extractor fallback) is where the label enters the basis.
+
+## Stable element identity and evidence granularity (2026-09-26)
+
+Two P0s from the customer's benchmark plan — "evidence granularity is too
+coarse" and "missing stable element IDs" — had one root: jdf-cli 0.2.3
+`pages[].elements[]` carry no `id`, `jdf chunk --strategy section` (the
+ingest default) folds every element of a page into **one** chunk, and the
+tree paragraph id is `new_node_id("p")` (random per run). Measured
+2026-09-26 on `/tmp/auto_policy.pdf` and the `tests/golden/prose` fixtures
+rendered with PyMuPDF:
+
+| Document | pages | jdf elements | `section` chunks | `element` chunks | `fixed` chunks |
+|---|---|---|---|---|---|
+| auto_policy.pdf | 1 | 6 | 1 | 6 | 1 |
+| auto_claim_1 / mortgage_1 / property_policy_1 | 1 | 5 | 1 | 5 | 1 |
+| auto_policy_1 / auto_policy_2 | 1 | 6 | 1 | 6 | 1 |
+| deed_1 | 1 | 7 | 1 | 7 | 1 |
+| mixed_bundle_1 | 3 | 16 | **1** (`page: 1`) | 16 (`p1e0…p3e6`) | 1 |
+
+So under `section` every found field of a one-page declarations PDF pointed
+at the same paragraph, and a three-page bundle became one paragraph on
+"Page 1" with two empty pages. `element` gives one chunk per jdf element
+with correct page attribution and ids `p<page>e<index>`. The ingest default
+stays `section` for now — `pdf_ingest.py` and `jdf_memory_routes.py` pass
+`strategy="section"` explicitly; that pin was removed the same day and `jdf_converter.CHUNK_STRATEGY_DEFAULT` is now `element` (`JDF_CHUNK_STRATEGY=section` restores the old shape). `meta.elements` stays on every paragraph, so a paragraph is still addressable below its own boundary.
+
+### `meta.elements` on every chunk paragraph
+
+`jdf_converter.chunk_elements` lists, for each chunk paragraph, the jdf-cli
+elements whose text the chunk contains (matched in document order with a
+moving cursor, exact first then whitespace-tolerant), with offsets into the
+paragraph's `content`:
+
+```
+meta = {"chunk_id": "p1e0", "source_page": 1,
+        "elements": [{"element_id": "p1e0:fcb36afc0079", "page": 1,
+                      "bbox": [0.0981, 0.0902, 0.5571, 0.1069],
+                      "start_char": 0, "end_char": 90,
+                      "text_preview": "AUTO INSURANCE POLICY DECLARATIONS\nPolic"},
+                     {"element_id": "p1e0:3adfe5047438", "page": 1, "bbox": [...],
+                      "start_char": 92, "end_char": 176, "text_preview": "Effective Date: 03/15/2026 Expiration Da"},
+                     …]}
+```
+
+The paragraph itself is unchanged (one per chunk, `content`, random `id`);
+the tree's `meta.node_id_policy` reads `eid-v1`. `page_layout` copies the
+list onto the paragraph's layout segment (`seg["elements"]`) on the import
+path, where `bundle["jdf"]` is the saved tree, so `build_found_field`
+resolves a value to the element whose range holds it: `source_span` gets
+that element's `bbox` (`span_type: bbox_relative` even though the tree
+segment has none), `element_id`, and `node_offsets = {start_char, end_char}`
+inside the paragraph. On the Sources-pane path (raw jdf-cli pages) the
+segment *is* the element, and `attach_tree_node_ids` adds `node_offsets`
+by finding the field's `raw` text inside the named element's range of the
+paragraph. `models.jdf.JDFElementRef` states the entry shape.
+
+### Policy `eid-v1`
+
+`field_extractor.derive_element_id(chunk_id, page, bbox, text)`:
+
+```
+f"{chunk_id or 'p'+page}:{sha1(bbox rounded to 3 dp joined by ',' + '|' + whitespace-collapsed text)[:12]}"
+```
+
+- Deterministic across runs and processes: no uuid, no clock, no counter.
+  `tests/test_node_identity.py` parses the same bundle twice, regenerates
+  the tree (new paragraph ids) and derives the id in a fresh interpreter —
+  identical ids every time; a changed word or a moved box is a new id,
+  sub-0.001 jitter or re-wrapped whitespace is not.
+- Where it appears: every layout segment (`element_id`, plus `chunk_id`),
+  every found field (`element_id`, `source_span.element_id`,
+  `evidence.element_id`), every `meta.elements` entry, and the report:
+  `node_id_policy: "eid-v1"`, `identity: {"policy": "eid-v1", "derivation":
+  "chunk_id + bbox(3dp) + text sha1[:12]"}`, `graph_integrity.element_ids`
+  (found fields naming an element) and `graph_integrity.policy`.
+- Absent fields carry `element_id: null` — the anchor they were searched
+  from is a node, not an element, and nothing is invented.
+- **Versioning rule:** any change to the derivation (hash, rounding,
+  prefix, what goes into the text) bumps `NODE_ID_POLICY` (`eid-v2`, …),
+  is recorded in this section with the date and the reason, and ids of
+  different policies are never compared. `models.jdf.KNOWN_NODE_ID_POLICIES`
+  lists the versions the model layer knows.
+
+### Per-stage timings and latency class
+
+`report["timings_ms"] = {"layout", "classify", "extract", "llm_extract",
+"quality", "total"}` — wall time (`perf_counter`, ms) of `page_texts` +
+`page_layout`; `settle_segment_type`; `extract_segment_fields` *minus* the
+model call; the grounded LLM pass (`lx.extract_missing_fields`, timed
+through a context variable so `llm_fill_missing` needs no extra argument);
+`score_pages` + `compose_quality_summary`; and the whole of `build_report`.
+A stage that did not run reads `0.0`. `report["latency_class"]` is one of
+`policy_form | claim_packet | photo_signature | mixed_bundle`
+(`v1_orchestrator.latency_class`): several documents or
+`material_type = mixed_bundle` → `mixed_bundle`; material `photo` / `image`
+/ `screenshot` or modality `phone_photo` / `screenshot` → `photo_signature`
+(a scanned *PDF* is a `policy_form`/`claim_packet` — same page shape, its
+cost is the OCR named by `parser_name`); `medical_claim` / `auto_claim` /
+`property_claim` → `claim_packet`; else `policy_form`. Analytics may read
+these; the report only records them.
+
+## Automated Red-Hat — the intake graph critique (2026-09-26)
+
+The customer's benchmark plan makes Red-Hat a first-class **automatic
+adversarial critique over the structured evidence graph** (P0). That pass
+is `services/redhat_graph.py`, policy `rh-graph-v1`. It is a *second*
+Red-Hat, apart from `tasks/redhat.py` (the multipass audit that argues with
+a compiled draft): this one reads the intake report — classification and
+its family validation, every field's anchor (`field_source_node_id`,
+`tree_node_id`, `source_span`), evidence state, the three confidences and
+their basis, page quality / flags / OCR confidence, `conflicts[]`,
+`graph_integrity`, the corrections, disputes and events against the report,
+and the export state when an export is being judged — and returns findings.
+It never re-parses, never names a value, and never runs on the web tier
+(it runs where `run_after_parse` runs).
+
+```
+critique_report(report, *, tree=None, corrections=None, disputes=None, events=None,
+                export_state=None, completion=None, llm=None, timeout_s=45) -> {
+    "policy": "rh-graph-v1", "ran_at", "findings": [...], "counts": {"high","medium","low"},
+    "classes": {"structural","evidentiary","export"}, "notes": [...], "rules": [...]}
+attach_findings(report, findings_or_block, *, notes=None) -> report["redhat"]
+```
+
+`attach_findings` writes `report["redhat"]` and prepends each high finding
+to `review_summary.reasons` as `Red-Hat: <title>`, so the card, the queue
+and the record read it without knowing the module.
+
+### A finding
+
+```
+{"id": "rh-evidentiary-1", "rule": "cross_document_conflict", "policy": "rh-graph-v1",
+ "title": "Insured name conflicts with another document", "severity": "high",
+ "class": "evidentiary",
+ "anchor": {"node_id": "p-ffa2…", "element_id": "p1e4", "page": 1, "field": "insured_name", "kind": "field"},
+ "rationale": "insured name differs across 2 documents ('Jane Q. Public', 'Jane Public-Smith'); a dispute is open on it."}
+```
+
+The anchor is never empty. A field finding names the field's node and page
+(`kind: field`); a page finding the page's first node (`kind: page`); a
+document finding the root — the tree's first body node, else the document
+id — with `kind: document_root` and a `note` saying no closer node exists.
+Surfaces print it as `Field insured name · Page 1 · p1e4`, `Page 2 · p2e0`,
+or `Document root · doc-…`. Findings have no open/closed state in V1 (there
+is no dismiss action); a high finding stays a review item until the report
+is re-read.
+
+### Rules (deterministic; each states the signal it reads)
+
+| Rule | Signal | Severity · class |
+|---|---|---|
+| `wrong_document_family` | `classification.validation.agrees` false; `schema_mismatch` | high (family contradicts the type) / medium (no schema of the family fits) · structural |
+| `coarse_chunking` | ≥ 2 found fields on a page share one node while the page has > 1 layout element or > 1,500 characters | medium · structural |
+| `unstable_or_missing_ids` | found field without `field_source_node_id`; `graph_integrity.orphans > 0`; no `node_id_policy` on the report | medium / medium / low · structural |
+| `broken_connectivity` | with a tree in hand: found field whose `tree_node_id` the tree lacks; found field with `tree_node_id` null | high / medium · structural (not run without a tree — noted) |
+| `not_applicable_vs_not_found` | `not_on_document` while the family disagrees; `unreadable` with a "not found" reason; absent field with no `evidence_state` | medium / medium / low · evidentiary |
+| `signature_ambiguity` | `signature_quality` questionable / faint / incomplete / stamped; `missing` where the schema has a signature field | medium (low once a reviewer accepted it) / low · evidentiary |
+| `low_quality_evidence` | page quality < 0.5, flags low_res / blurry / low_contrast / no_text, OCR < 0.7 on a page with found fields | medium when a found field rests on the page, low otherwise · evidentiary |
+| `cross_document_conflict` | each `conflicts[]` entry (open dispute / correction on the field named in the rationale) | high · evidentiary |
+| `export_overclaiming` | `export_state.trust_state != verified` with certificate language in title / subtitle / language | high · export |
+| `confidence_flattening` | extraction = verification = provenance confidence with a "default" basis; ≥ 80 % of ≥ 3 found fields share one extraction confidence | medium / low · evidentiary |
+| `fallback_rendering` | `export_state.renderer` in text / fallback (or `fallback: true`) | high · export |
+
+Export rules read `export_state` (the dossier's `build_verification_state`
+output or the exporter's record); without one they do not run and the
+notes say so.
+
+### Model-assisted unsupported-claim check (grounded, optional)
+
+`unsupported_claim` asks the `REDHAT` policy model (the backend
+`cost_governance` resolves — Ollama locally, Opus on Bedrock, the
+OpenRouter policy) over the found fields and the page text they anchor to
+which values the text does **not** support. A candidate is kept only when
+its `quote` is found verbatim in the page text (`llm_extraction.find_verbatim`,
+whitespace-collapsed, case-insensitive) and names a found field; the rest
+are dropped and counted in the note. Findings are medium, evidentiary, and
+carry `quote` and `model`. Bounded at 45 s (`LLM_TIMEOUT_S`), off with
+`PARSURE_REDHAT_LLM=0`, skipped with a reason (no backend, no page text, no
+found field, timeout, unparsable answer) in `report["redhat"]["notes"]`.
+The model never adds a value and never removes one — it can only point at
+a line.
+
+### Where the findings show
+
+| Surface | What |
+|---|---|
+| `/parsing/<report_id>` | "Red-Hat findings" section: severity chip, title, class, anchor, one-sentence rationale; "Not run — no critique is recorded for this report." vs "No findings." (only when a critique ran); "What did not run" folds the notes |
+| `/parsing` card | one line "N Red-Hat findings (M high)" linking to the record's section — red only for a high finding, amber for medium, quiet for low; nothing when not run |
+| `GET …/parsure/queue` | `counts.redhat_high` (the header says "N Red-Hat high") |
+| `GET …/parsure/analytics` | `redhat_reports_run`, `redhat_findings_by_class`, `redhat_findings_by_severity` — zeros next to `redhat_reports_run: 0` read "not run" |
+| `GET …/parsure` list | each summary carries `redhat: {ran, count, high, medium, low, classes}` |
+| Verification Dossier §4 | two blocks, labelled **draft audit** (`tasks/redhat.py`, read by `audit_bundle.project_redhat_findings`) and **intake graph critique** (`report["redhat"]` over the project's intake reports); `counts.redhat_intake_findings` / `redhat_intake_high`; the status band says `intake critique: N findings (M high)` or `intake critique: not run` |
+
+`derive_trust_state(..., intake_redhat_high=N)`: a high intake finding is
+`review_required` ("N high Red-Hat finding(s) on the intake graph"), never
+`verified`.

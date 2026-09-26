@@ -216,6 +216,22 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .conflicts p { margin: 0 0 var(--space-2); }
 .conflicts p:last-child { margin: 0; }
 
+/* ---- Red-Hat findings: severity chip, title, anchor, one sentence ---- */
+.findings { list-style: none; margin: 0; padding: 0; border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface); }
+.finding { display: flex; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--rule); }
+.finding:last-child { border-bottom: none; }
+.sev { flex: 0 0 auto; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; font-size: var(--fs-xs); font-weight: 500; text-transform: capitalize; margin-top: 1px; }
+.sev--high { color: var(--contradicted); background: color-mix(in srgb, var(--contradicted) 10%, transparent); }
+.sev--medium { color: var(--partial); background: color-mix(in srgb, var(--partial) 10%, transparent); }
+.sev--low { color: var(--muted); background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.finding-body p { margin: 0; }
+.finding-title { font-size: var(--fs-md); font-weight: 500; }
+.finding-title small { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); margin-left: var(--space-2); }
+.finding-anchor { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; color: var(--muted); margin-top: 2px; }
+.finding-why { font-size: var(--fs-md); color: var(--ink); margin-top: var(--space-1); overflow-wrap: anywhere; }
+.redhat-notes { margin-top: var(--space-3); }
+.redhat-notes .notes { margin: var(--space-2) 0 0; padding-left: var(--space-5); font-size: var(--fs-sm); color: var(--muted); }
+
 /* ---- missing ---- */
 .missing { text-align: center; padding: 96px 24px 64px; }
 .missing h1 { font-size: 20px; font-weight: 600; margin: 0 0 var(--space-3); letter-spacing: -0.01em; }
@@ -375,6 +391,34 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       {% for c in record.conflicts %}<p>{{ c }}</p>{% endfor %}
     </section>
     {% endif %}
+
+    <section class="section redhat" id="redhat" data-ran="{{ 1 if record.redhat.ran else 0 }}" data-count="{{ record.redhat.count }}" data-high="{{ record.redhat.high }}">
+      <div class="section-head">
+        <h2>Red-Hat findings</h2>
+        {% if record.redhat.ran %}<span class="section-meta">intake graph critique{% if record.redhat.count %} · {{ record.redhat.high }} high · {{ record.redhat.medium }} medium · {{ record.redhat.low }} low{% endif %}{% if record.redhat.ran_at_label %} · {{ record.redhat.ran_at_label }}{% endif %}</span>{% endif %}
+      </div>
+      {% if not record.redhat.ran %}
+      <p class="section-empty">Not run — {{ record.redhat.reason }}.</p>
+      {% elif not record.redhat.findings %}
+      <p class="section-empty">No findings.</p>
+      {% else %}
+      <ul class="findings">
+        {% for f in record.redhat.findings %}
+        <li class="finding" data-severity="{{ f.severity }}" data-class="{{ f.class }}" data-rule="{{ f.rule }}" data-id="{{ f.id }}">
+          <span class="sev sev--{{ f.severity }}">{{ f.severity }}</span>
+          <div class="finding-body">
+            <p class="finding-title">{{ f.title }} <small>{{ f.class_label }}</small></p>
+            <p class="finding-anchor">{{ f.anchor_label }}</p>
+            <p class="finding-why">{{ f.rationale }}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if record.redhat.notes %}
+      <details class="tech redhat-notes"><summary>What did not run</summary><ul class="notes">{% for n in record.redhat.notes %}<li>{{ n }}</li>{% endfor %}</ul></details>
+      {% endif %}
+    </section>
 
     <section class="section" id="pages">
       <div class="section-head">

@@ -24,6 +24,13 @@ Three rules follow from that, and this module is where they are enforced:
   uses Playwright when a browser is actually installed, else WeasyPrint, and
   raises :class:`PdfRendererUnavailable` when neither can run. Nothing here
   falls back to text.
+
+Section 4 carries two Red-Hat passes (2026-09-26): the *draft audit*
+(``tasks/redhat.py`` multipass over the compiled draft, read by
+``audit_bundle.project_redhat_findings``) and the *intake graph critique*
+(``services/redhat_graph``, policy ``rh-graph-v1``, recorded on each intake
+report as ``report["redhat"]``). Each says "not run" on its own; a ``high``
+intake finding is a review item for :func:`derive_trust_state`.
 """
 
 from __future__ import annotations
@@ -222,6 +229,7 @@ def derive_trust_state(
     conflicts: int,
     redhat_open: int,
     gate_unverified: bool = False,
+    intake_redhat_high: int = 0,
 ) -> tuple[str, list[str]]:
     """The one rule behind the title. Returns ``(state, reasons)``.
 
@@ -230,7 +238,11 @@ def derive_trust_state(
     at all has been accepted (no locked claim, no supported claim, no accepted
     intake field). ``review_required`` — anything is open: the gate is not
     ``pass``, a field waits for a person, a dispute or a conflict is open, a
-    Red-Hat finding is open. ``verified`` — none of the above.
+    Red-Hat finding is open — from the draft audit (``redhat_open``) or a
+    ``high`` finding of the intake graph critique (``intake_redhat_high``,
+    ``services/redhat_graph``; there is no dismiss action in V1, so a high
+    finding stays open until the report is re-read). ``verified`` — none of
+    the above.
 
     ``accepted_total`` counting nothing is ``not_verified`` rather than
     ``review_required`` on purpose: the customer's run had 12 fields in review and
@@ -264,6 +276,8 @@ def derive_trust_state(
         reasons.append(f"{_plural(int(conflicts), 'conflict is', 'conflicts are')} unresolved")
     if int(redhat_open or 0) > 0:
         reasons.append(f"{_plural(int(redhat_open), 'Red-Hat finding is', 'Red-Hat findings are')} open")
+    if int(intake_redhat_high or 0) > 0:
+        reasons.append(f"{_plural(int(intake_redhat_high), 'high Red-Hat finding', 'high Red-Hat findings')} on the intake graph")
     if reasons:
         return "review_required", reasons
     return "verified", []
@@ -551,6 +565,64 @@ def _laya_view(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _intake_redhat_view(reports: list[dict[str, Any]]) -> dict[str, Any]:
+    """The intake graph critique (``services/redhat_graph``, policy
+    ``rh-graph-v1``) as recorded on each intake report's ``redhat`` block.
+    ``status`` is ``not_run`` with the reason when no report carries a block
+    (no intake report, or reports saved before the critique existed),
+    ``findings`` / ``clear`` otherwise; ``high`` is what the trust state
+    reads. Distinct from the draft audit (``project_redhat_findings``): two
+    passes, two lists, both in section 4."""
+    try:
+        try:
+            from ..services import redhat_graph as rg
+        except ImportError:
+            from services import redhat_graph as rg
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "not_run", "reason": f"critique module not importable: {type(exc).__name__}", "count": 0, "high": 0,
+                "reports_run": 0, "reports_total": len(reports), "policy": None, "items": []}
+    items: list[dict[str, Any]] = []
+    ran = 0
+    policy = None
+    for r in reports:
+        view = rg.findings_view(r)
+        if not view.get("ran"):
+            continue
+        ran += 1
+        policy = policy or view.get("policy")
+        for f in view.get("findings") or []:
+            items.append({
+                "report_id": r.get("report_id"),
+                "filename": r.get("filename"),
+                "id": f.get("id"),
+                "severity": f.get("severity"),
+                "title": f.get("title"),
+                "class": f.get("class"),
+                "rule": f.get("rule"),
+                "anchor": f.get("anchor") or {},
+                "where": f.get("anchor_label"),
+                "rationale": f.get("rationale"),
+                "status": "open",
+            })
+    if not reports:
+        return {"status": "not_run", "reason": "no intake report is recorded for this project", "count": 0, "high": 0,
+                "reports_run": 0, "reports_total": 0, "policy": None, "items": []}
+    if ran == 0:
+        return {"status": "not_run", "reason": f"no critique is recorded on the {_plural(len(reports), 'intake report', 'intake reports')}",
+                "count": 0, "high": 0, "reports_run": 0, "reports_total": len(reports), "policy": None, "items": []}
+    high = sum(1 for i in items if i.get("severity") == "high")
+    return {
+        "status": "findings" if items else "clear",
+        "reason": "" if ran == len(reports) else f"{ran} of {len(reports)} intake reports carry a critique",
+        "count": len(items),
+        "high": high,
+        "reports_run": ran,
+        "reports_total": len(reports),
+        "policy": policy,
+        "items": items,
+    }
+
+
 def _review_summary_totals(reports: list[dict[str, Any]]) -> dict[str, int]:
     """Sums of each report's ``review_summary``; ``fields_review`` is recounted with
     the queue's rule (``attention_counts``) so the dossier's figure is the one the
@@ -601,6 +673,12 @@ def status_band(counts: dict[str, Any], *, intake_present: bool, signature_band:
         parts.append(f"Red-Hat: {_plural(int(redhat.get('count') or 0), 'finding', 'findings')}")
     else:
         parts.append("Red-Hat: not run")
+    intake_rh = counts.get("redhat_intake_findings")
+    if intake_rh is not None:
+        high = int(counts.get("redhat_intake_high") or 0)
+        parts.append(f"intake critique: {_plural(int(intake_rh), 'finding', 'findings')}" + (f" ({high} high)" if high else ""))
+    else:
+        parts.append("intake critique: not run")
     open_disputes = int(counts.get("disputes_open") or 0)
     if open_disputes:
         overdue = int(counts.get("disputes_overdue") or 0)
@@ -680,6 +758,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
     quality = _quality_view(reports)
     replay = _replay_view(reports)
     laya = _laya_view(reports)
+    intake_redhat = _intake_redhat_view(reports)
 
     disputes, disputes_error = _read_disputes(project_id)
     overdue = sum(1 for d in disputes if d.get("overdue"))
@@ -701,6 +780,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
         conflicts=len(conflicts) + len(cross_run["items"]),
         redhat_open=redhat_open,
         gate_unverified=bool(gate.get("unverified")),
+        intake_redhat_high=int(intake_redhat.get("high") or 0),
     )
     if signature.get("status") == "unresolved" and trust_state == "verified":
         # A questionable signature is a review item even when the field rows do
@@ -718,6 +798,8 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
         "cross_run_contradictions": len(cross_run["items"]),
         "redhat_findings": int(redhat.get("count") or 0) if redhat.get("ran") else None,
         "redhat_open": redhat_open if redhat.get("ran") else None,
+        "redhat_intake_findings": int(intake_redhat.get("count") or 0) if intake_redhat.get("status") != "not_run" else None,
+        "redhat_intake_high": int(intake_redhat.get("high") or 0) if intake_redhat.get("status") != "not_run" else None,
         "locked_claims": len(ledger),
         "claims_eligible": int(stats.get("eligible") or 0),
         "claims_anchored": int(stats.get("anchored") or 0),
@@ -810,6 +892,9 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
                 "other_revisions": list(redhat.get("other_revisions") or []),
                 "in_export": bool(redhat.get("in_export")),
                 "items": redhat_items,
+                "draft_label": "draft audit",
+                "intake_label": "intake graph critique",
+                "intake": intake_redhat,
             },
             "locked_claims": {
                 "status": "recorded" if ledger else "none",
@@ -929,10 +1014,43 @@ def _section_conflicts(section: dict[str, Any]) -> str:
     return out
 
 
+def _section_redhat_intake(intake: dict[str, Any]) -> str:
+    """The intake graph critique's rows (``services/redhat_graph``), or why
+    there are none. "0 findings" is only said when a critique ran."""
+    if not intake or intake.get("status") == "not_run":
+        reason = str((intake or {}).get("reason") or "no critique is recorded")
+        return f"<p class='empty'>Not run — {_esc(reason[:1].upper() + reason[1:])}.</p>"
+    rows = ""
+    for item in intake.get("items") or []:
+        where = str(item.get("where") or "")
+        doc = str(item.get("filename") or item.get("report_id") or "")
+        rows += (
+            f"<tr><td>{_esc(item.get('severity'))}</td><td>{_esc(item.get('class'))}</td><td>{_esc(item.get('title'))}</td>"
+            f"<td>{_esc(item.get('rationale'))}</td><td><code>{_esc(where)}</code>{(' · ' + _esc(doc)) if doc else ''}</td></tr>"
+        )
+    if not rows:
+        rows = _empty_row(5, f"The intake graph critique ran on {_plural(int(intake.get('reports_run') or 0), 'report', 'reports')} and recorded 0 findings.")
+    note = f"<p class='meta'>{_esc(intake.get('reason'))}.</p>" if intake.get("reason") else ""
+    return (
+        f"<p class='count'>Intake graph critique ({_esc(intake.get('policy') or 'rh-graph-v1')}): "
+        f"{_plural(int(intake.get('count') or 0), 'finding', 'findings')}, {int(intake.get('high') or 0)} high, "
+        f"over {_plural(int(intake.get('reports_run') or 0), 'intake report', 'intake reports')}.</p>"
+        "<table><thead><tr><th>Severity</th><th>Class</th><th>Finding</th><th>Rationale</th><th>Where</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>{note}"
+    )
+
+
 def _section_redhat(section: dict[str, Any]) -> str:
+    """Two passes, two blocks: the draft audit (``tasks/redhat.py`` multipass
+    over the compiled draft, read by ``project_redhat_findings``) and the
+    intake graph critique (``services/redhat_graph`` over each intake
+    report's evidence graph). Each says "not run" on its own."""
+    draft_head = "<h3>Draft audit — Red-Hat multipass over the compiled draft</h3>"
+    intake_head = "<h3>Intake graph critique — rules over the intake evidence graph</h3>"
+    intake_html = _section_redhat_intake(section.get("intake") or {})
     if section.get("status") == "not_run":
         reason = str(section.get("reason") or "Red-Hat has not been run for this project.")
-        return f"<p class='empty'>Not run — {_esc(reason[:1].upper() + reason[1:])}</p>"
+        return f"{draft_head}<p class='empty'>Not run — {_esc(reason[:1].upper() + reason[1:])}</p>{intake_head}{intake_html}"
     rows = ""
     for item in section.get("items") or []:
         where = str(item.get("node_id") or item.get("run_id") or "")
@@ -949,10 +1067,12 @@ def _section_redhat(section: dict[str, Any]) -> str:
         listed = ", ".join(str(int(v)) for v in section["other_revisions"])
         note = f"<p class='meta'>Recorded on revision {_esc(listed)} of this document; the version in this export does not carry them.</p>"
     return (
+        f"{draft_head}"
         f"<p class='count'>Red-Hat: {_plural(int(section.get('count') or 0), 'finding', 'findings')}, "
         f"{int(section.get('open') or 0)} open.</p>"
         "<table><thead><tr><th>Severity</th><th>Finding</th><th>Detail</th><th>Status</th><th>Where</th></tr></thead>"
         f"<tbody>{rows}</tbody></table>{note}"
+        f"{intake_head}{intake_html}"
     )
 
 
@@ -1140,7 +1260,8 @@ def build_verification_dossier_html(state: dict[str, Any], tree: dict[str, Any] 
             else "no intake report",
         ),
         ("Conflicts", f"{counts.get('conflicts', 0)} cross-document · {counts.get('cross_run_contradictions', 0)} cross-run"),
-        ("Red-Hat", f"{counts.get('redhat_findings')} findings ({counts.get('redhat_open')} open)" if counts.get("redhat_findings") is not None else "not run"),
+        ("Red-Hat", (f"draft audit: {counts.get('redhat_findings')} findings ({counts.get('redhat_open')} open)" if counts.get("redhat_findings") is not None else "draft audit: not run")
+                    + " · " + (f"intake graph critique: {counts.get('redhat_intake_findings')} findings ({counts.get('redhat_intake_high')} high)" if counts.get("redhat_intake_findings") is not None else "intake graph critique: not run")),
         ("Disputes", f"{counts.get('disputes_open', 0)} open · {counts.get('disputes_overdue', 0)} overdue"),
         ("Documents in intake", str(counts.get("documents", 0))),
     ]

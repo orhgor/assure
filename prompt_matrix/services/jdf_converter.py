@@ -5,8 +5,14 @@ import subprocess
 import tempfile
 import shutil
 import logging
+import re
 from pathlib import Path
 from typing import Any
+
+try:
+    from .field_extractor import NODE_ID_POLICY, _element_bbox, _element_text, _walk_elements, derive_element_id
+except ImportError:  # pragma: no cover - flat-import fallback
+    from services.field_extractor import NODE_ID_POLICY, _element_bbox, _element_text, _walk_elements, derive_element_id  # type: ignore
 
 log = logging.getLogger(__name__)
 JDF_BIN = shutil.which("jdf") or "/opt/node-v24.11.1-linux-arm64/bin/jdf"
@@ -263,10 +269,23 @@ def _bundle_assets(jdf_dict: dict, chunks: list[dict]) -> dict:
     }
 
 
+#: How `jdf chunk` splits a page. ``element`` keeps one chunk per jdf-cli
+#: element (6 for a one-page declarations PDF, 16 for a 3-page bundle);
+#: ``section`` collapsed each of those into ONE chunk — a 3-page bundle became
+#: a single page-1 chunk — so every extracted field pointed at the same node
+#: (measured 2026-09-26, see docs/parsure.md). ``JDF_CHUNK_STRATEGY`` overrides.
+CHUNK_STRATEGY_DEFAULT = "element"
+
+
+def chunk_strategy() -> str:
+    raw = os.environ.get("JDF_CHUNK_STRATEGY", "").strip().lower()
+    return raw if raw in ("element", "section", "fixed") else CHUNK_STRATEGY_DEFAULT
+
+
 def pdf_to_parse_bundle(
     pdf_bytes: bytes,
     *,
-    strategy: str = "section",
+    strategy: str | None = None,
     filename: str | None = None,
     source_kind: str = "pdf",
     ocr: str | None = None,
@@ -291,6 +310,7 @@ def pdf_to_parse_bundle(
     0.0, not dropped. Any failure in either jdf-cli step surfaces as a single
     ``JdfConversionError`` carrying that step's stderr.
     """
+    strategy = strategy or chunk_strategy()
     # pdf_to_jdf/jdf_to_chunks already raise JdfConversionError carrying the
     # failing step's stderr (`_run`'s stdout/stderr, truncated) — nothing to
     # translate here, just let it propagate as the one clean error type.
@@ -328,6 +348,79 @@ def pdf_to_parse_bundle(
     }
 
 
+#: Longest ``text_preview`` on a ``meta.elements`` entry — enough to recognise
+#: the line in a review UI, short enough that the tree does not carry the
+#: page twice.
+ELEMENT_PREVIEW_CHARS = 40
+
+
+def _locate(content: str, needle: str, cursor: int) -> tuple[int, int] | None:
+    """``(start, end)`` of ``needle`` in ``content`` at or after ``cursor`` —
+    exact first, then whitespace-tolerant (jdf-cli's chunker may re-wrap a
+    line it joined into a section chunk). None when the text is not there."""
+    idx = content.find(needle, cursor)
+    if idx != -1:
+        return idx, idx + len(needle)
+    words = needle.split()
+    if not words:
+        return None
+    m = re.compile(r"\s+".join(re.escape(w) for w in words)).search(content, cursor)
+    return (m.start(), m.end()) if m else None
+
+
+def chunk_elements(jdf_dict: dict, chunk: dict, content: str) -> list[dict[str, Any]]:
+    """``meta.elements`` for one chunk paragraph: the jdf-cli page elements whose
+    text the chunk contains, each with its ``eid-v1`` id, bbox, page and
+    character range inside ``content``.
+
+    ``jdf chunk --strategy section`` (the ingest default) folds every element
+    of a page — measured 2026-09-26: all 6 elements of a one-page declarations
+    PDF, all 16 elements of a three-page bundle — into one chunk, so the tree
+    had one paragraph and every field pointed at it (customer benchmark P0
+    "evidence granularity is too coarse"). The paragraph stays one per chunk
+    (the draft and verification pipelines read that shape); this list is what
+    lets a field's ``source_span`` name the element and its bbox inside it.
+    Elements are matched in document order with a moving cursor, the chunk's
+    own page first, so a repeated line binds to its first unmatched copy.
+    An element whose text is not in the chunk is simply not listed.
+    """
+    pages = jdf_dict.get("pages") if isinstance(jdf_dict, dict) else None
+    if not isinstance(pages, list) or not content:
+        return []
+    chunk_id = str(chunk.get("id") or "") or None
+    try:
+        chunk_page = int(chunk.get("page") or 0)
+    except (TypeError, ValueError):
+        chunk_page = 0
+    ordered = sorted(enumerate(pages, start=1), key=lambda ip: (ip[0] != chunk_page, ip[0]))
+    out: list[dict[str, Any]] = []
+    cursor = 0
+    for page_no, page in ordered:
+        if not isinstance(page, dict):
+            continue
+        for el in _walk_elements(page.get("elements")):
+            text = _element_text(el).strip()
+            if not text:
+                continue
+            hit = _locate(content, text, cursor)
+            if hit is None:
+                continue
+            start, end = hit
+            bbox = _element_bbox(el, page)
+            out.append(
+                {
+                    "element_id": derive_element_id(chunk_id, page_no, bbox, text),
+                    "page": page_no,
+                    "bbox": bbox,
+                    "start_char": start,
+                    "end_char": end,
+                    "text_preview": text[:ELEMENT_PREVIEW_CHARS],
+                }
+            )
+            cursor = end
+    return out
+
+
 def jdf_to_document_tree(
     jdf_dict: dict,
     chunks: list[dict],
@@ -348,13 +441,19 @@ def jdf_to_document_tree(
     node type; the flag keeps figures and images distinguishable). ``parse_meta``
     rides into ``meta`` verbatim so parse/OCR confidence and asset counts are
     on the saved tree.
+
+    One paragraph per chunk, always: the draft/verification pipelines read
+    that shape. Granularity below it is ``meta.elements`` on each paragraph
+    (``chunk_elements``) — the jdf-cli elements the chunk contains, with
+    ``eid-v1`` ids, bboxes and character offsets — and ``meta.node_id_policy``
+    on the tree names the policy those ids follow.
     """
     try:
         from ..models.jdf import empty_annotations, new_node_id
     except ImportError:  # pragma: no cover - flat-import fallback
         from models.jdf import empty_annotations, new_node_id
 
-    meta: dict[str, Any] = {"title": title, "import_source": "jdf-cli"}
+    meta: dict[str, Any] = {"title": title, "import_source": "jdf-cli", "node_id_policy": NODE_ID_POLICY}
     if parse_meta:
         meta.update(parse_meta)
 
@@ -368,16 +467,23 @@ def jdf_to_document_tree(
         # The chunk id (``p1e0``) is the address a field's ``source_span``
         # carries; keeping it on the paragraph lets the intake report name the
         # exact tree node a value came from (2026-09-26, "JDF node addressing").
+        # ``meta.elements`` (2026-09-26, ``eid-v1``) lists the elements the
+        # chunk folded together, with offsets into ``content``, so the span
+        # of a value resolves below the paragraph without changing its shape.
         pmeta: dict[str, Any] = {}
+        content = text.strip()
         if isinstance(chunk, dict):
             if chunk.get("id"):
                 pmeta["chunk_id"] = str(chunk["id"])
             if chunk.get("page") not in (None, ""):
                 pmeta["source_page"] = chunk.get("page")
+            elements = chunk_elements(jdf_dict, chunk, content)
+            if elements:
+                pmeta["elements"] = elements
         return {
             "type": "paragraph",
             "id": new_node_id("p"),
-            "content": text.strip(),
+            "content": content,
             "entities_referenced": [],
             "provenance": [],
             "meta": pmeta,

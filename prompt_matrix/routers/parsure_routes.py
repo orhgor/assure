@@ -520,6 +520,7 @@ def _summary(report: dict[str, Any]) -> dict[str, Any]:
         "quality_summary": (report.get("quality_report") or {}).get("summary"),
         "replay_eligible": bool((report.get("replay") or {}).get("eligible")),
         "conflicts": len(report.get("conflicts") or []),
+        "redhat": repo.redhat_counts(report),
         "created_at": report.get("created_at"),
         "updated_at": report.get("updated_at"),
     }

@@ -813,3 +813,82 @@ def test_schema_mismatch_is_one_line_with_the_type_selector_and_absent_fields_sh
     assert re.search(r'<small class="node-id" title="JDF node">el-17</small>', npi) and "searched" not in npi
     assert "Found, needs a look" in _visible_text(npi) and "Found, verified" in text
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+# ---------------------------------------------------------------------------
+# Intake graph critique (services/redhat_graph): record section and card line
+# ---------------------------------------------------------------------------
+
+
+def _critique(project, report_id, **kw):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.services import redhat_graph as rg
+
+    report = repo.get_report(project, report_id)
+    kw.setdefault("llm", False)
+    rg.attach_findings(report, rg.critique_report(report, **kw))
+    repo.update_report(project, report_id, report)
+    return report
+
+
+def test_record_page_redhat_section_says_not_run_then_lists_findings_with_anchors(client):
+    _seed_data_project("p-rh-record")
+    html = client.get("/parsing/rep-pol-1").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="redhat" data-ran="0"' in html
+    assert "Red-Hat findings" in text and "Not run — no critique is recorded for this report." in text
+    assert "No findings" not in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    report = _critique("p-rh-record", "rep-pol-1", export_state={"trust_state": "review_required", "title": "Formal Verification Certificate"})
+    high = [f for f in report["redhat"]["findings"] if f["severity"] == "high"]
+    assert high and high[0]["rule"] == "export_overclaiming"
+    html = client.get("/parsing/rep-pol-1").get_data(as_text=True)
+    text = _visible_text(html)
+    assert f'id="redhat" data-ran="1" data-count="{len(report["redhat"]["findings"])}" data-high="{len(high)}"' in html
+    assert "intake graph critique" in text and "Not run" not in text.split("Red-Hat findings", 1)[1].split("Pages", 1)[0]
+    assert 'data-severity="high"' in html and "Export uses certificate language before verification" in text
+    assert "Document root · doc-1" in text  # the anchor is never empty; the root is named as such
+    assert "only a verified state may carry that word" in text
+    assert re.search(r"\b\d+ high · \d+ medium · \d+ low\b", text)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_record_page_says_no_findings_only_when_a_critique_ran_clean(client):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.services import redhat_graph as rg
+
+    _seed_data_project("p-rh-clean")
+    report = repo.get_report("p-rh-clean", "rep-pol-1")
+    rg.attach_findings(report, [], notes=["unsupported-claim check skipped: PARSURE_REDHAT_LLM=0"])
+    repo.update_report("p-rh-clean", "rep-pol-1", report)
+    html = client.get("/parsing/rep-pol-1").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="redhat" data-ran="1" data-count="0" data-high="0"' in html
+    assert "No findings." in text and "What did not run" in text and "PARSURE_REDHAT_LLM=0" in text
+
+
+def test_card_shows_a_redhat_count_line_red_only_for_high(client):
+    _seed_data_project("p-rh-card")
+    html = client.get("/parsing?project_id=p-rh-card").get_data(as_text=True)
+    assert "Red-Hat finding" not in _visible_text(html)  # not run: no line, no zero
+
+    report = _critique("p-rh-card", "rep-pol-1")  # rules only, no export state → no high finding expected on this seed
+    n = len(report["redhat"]["findings"])
+    highs = report["redhat"]["counts"]["high"]
+    html = client.get("/parsing?project_id=p-rh-card").get_data(as_text=True)
+    text = _visible_text(html)
+    if n:
+        m = re.search(r'class="chip chip--redhat" data-tone="(\w+)"[^>]*>(\d+) Red-Hat finding', html)
+        assert m and int(m.group(2)) == n
+        assert m.group(1) == ("high" if highs else ("medium" if report["redhat"]["counts"]["medium"] else "low"))
+        assert 'href="/parsing/rep-pol-1?project_id=p-rh-card#redhat"' in html
+    else:
+        assert "Red-Hat finding" not in text
+
+    report = _critique("p-rh-card", "rep-pol-1", export_state={"trust_state": "not_verified", "renderer": "text", "title": "Certificate"})
+    html = client.get("/parsing?project_id=p-rh-card").get_data(as_text=True)
+    m = re.search(r'class="chip chip--redhat" data-tone="high"[^>]*>(\d+) Red-Hat findings \((\d+) high\)', html)
+    assert m and int(m.group(1)) == len(report["redhat"]["findings"]) and int(m.group(2)) == report["redhat"]["counts"]["high"] == 2
+    assert re.search(r"(\d+) Red-Hat high", _visible_text(html))  # the queue header's count comes from the same block
+    assert not FORBIDDEN_WORDS.search(_visible_text(html)), FORBIDDEN_WORDS.search(_visible_text(html))
