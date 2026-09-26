@@ -53,7 +53,7 @@ numbers: ``scripts/validate_golden_set.py --prose`` →
 ``tests/golden/last_run_prose.json``.
 
 ``classify_with_model`` (2026-09-26) is the same path used for one more
-grounded question: which of the ten type names fits the first ~3,000
+grounded question: which of the taxonomy's type names fits the first ~3,000
 characters. The answer is accepted only when it is exactly one of the names;
 the orchestrator then trusts it only if that type's fields are found on the
 page (``v1_orchestrator.classify_with_model_if_uncertain``). The model never
@@ -248,6 +248,7 @@ _TYPE_HINT = {
     "vin": "the 17-character vehicle identification number",
     "name": "a person's or company's name",
     "text": "a short text value",
+    "codes": "the codes as written, comma-separated (ICD-10 such as S13.4XXA, CPT/HCPCS such as 99213)",
 }
 
 
@@ -602,7 +603,7 @@ def extract_missing_fields(
 # --------------------------------------------------------------------------
 
 #: Characters of page text offered for a type suggestion: the title, the
-#: header block and the first coverage lines of any of the ten types fit in
+#: header block and the first coverage lines of any taxonomy type fit in
 #: the first page; more is cost without signal.
 CLASSIFY_TEXT_CHARS = 3000
 #: Hard wall-clock bound for the type call — it is one short answer.
@@ -656,13 +657,15 @@ def classify_with_model(
     """``{"document_type": <name>|None, "basis": <why>, "model": <id>}``.
 
     Asks the configured model (``default_completion`` unless ``completion`` is
-    injected) to pick one of the ten type names for the first
+    injected) to pick one of the taxonomy's type names for the first
     ``CLASSIFY_TEXT_CHARS`` characters of page text. ``document_type`` is set
     only for an exact name; ``uncertain`` from the model comes back as None
     with the basis saying the model was unsure. Never raises: the flag being
     off, no text, a timeout, an unreachable backend or an unusable answer are
     all ``None`` with the reason in ``basis``. The caller decides whether the
-    suggestion is confirmed by extraction; this function only relays it.
+    suggestion passes the family gate and is confirmed by a type-specific
+    field (``v1_orchestrator.classify_with_model_if_uncertain``); this
+    function only relays it.
     """
     if not llm_extraction_enabled():
         return {"document_type": None, "basis": "PARSURE_LLM_EXTRACTION is off", "model": None}

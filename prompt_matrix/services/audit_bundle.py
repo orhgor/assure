@@ -820,31 +820,15 @@ def export_audit_bundle_pdf(
         z3_results=z3_results,
         redhat_critiques=redhat_critiques,
     )
+    # One renderer policy for every PDF the app ships (services/verification_dossier
+    # .render_pdf): Playwright when a browser is installed, else WeasyPrint, else
+    # PdfRendererUnavailable. Until 2026-09-26 this fell through to the text
+    # writer in exporters/pdf_ast.py, and a customer received a "PDF" that was a
+    # Helvetica text dump naming the engines it lacked on page 1. The route turns
+    # the exception into a 503; the bundle omits the member and says so.
     try:
-        from ..exporters.pdf_ast import (
-            _pdf_via_playwright,
-            _pdf_via_weasyprint,
-            pdf_bytes_from_html,
-        )
+        from .verification_dossier import render_html_to_pdf
     except ImportError:
-        from exporters.pdf_ast import (
-            _pdf_via_playwright,
-            _pdf_via_weasyprint,
-            pdf_bytes_from_html,
-        )
+        from services.verification_dossier import render_html_to_pdf
 
-    pdf = _pdf_via_weasyprint(html_body)
-    if pdf:
-        return pdf
-    pdf = _pdf_via_playwright(html_body)
-    if pdf:
-        return pdf
-    # No HTML engine here. Measured on the deployment box: its venv carries
-    # neither WeasyPrint nor Playwright, so both probes return None (and neither
-    # is installable from the repo — see exporters/pdf_ast.py). The bundle's
-    # sections still travel: this is the same HTML just built, reduced to
-    # paginated text, so the gate, the counters, the Z3 rows, the Red-Hat
-    # findings, the sign-offs, the lock hash, the appendix and the document body
-    # all reach the file. The engines that could not be used are named on page 1.
-    title = str((tree.get("meta") or {}).get("title") or project_id)
-    return pdf_bytes_from_html(html_body, title=f"Compliance Audit Report - {title}")
+    return render_html_to_pdf(html_body)

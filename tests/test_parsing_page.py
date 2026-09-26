@@ -648,7 +648,7 @@ def test_every_needs_attention_figure_is_the_same_number(client):
     _seed_counts_project("p-counts")
     reports = repo.list_reports("p-counts")
     attention = repo.attention_counts(reports)
-    assert attention == {"documents": 4, "fields": 20, "nothing_extracted": 2, "fields_found": 8}  # 6+6+5+3 flagged fields; (3+1)+(3+1) values
+    assert attention == {"documents": 4, "fields": 20, "nothing_extracted": 2, "fields_found": 8, "schema_mismatch": 0}  # 6+6+5+3 flagged fields; (3+1)+(3+1) values
 
     api = client.get("/api/projects/p-counts/parsure/queue").get_json()
     assert api["total"] == 20 and api["counts"]["needs_review"] == 20
@@ -750,4 +750,66 @@ def test_record_page_notice_offers_the_type_and_reloads_with_fields(client):
     assert 'id="type-notice"' not in html and "Property policy (set by reviewer)" in text
     assert "Fields: 11 · Need review:" in text and "RE-500697" in text and "425,000.00" in text
     assert '<details class="text" open>' not in html
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_schema_mismatch_is_one_line_with_the_type_selector_and_absent_fields_show_their_anchor(client, monkeypatch):
+    """A CMS-1500 whose labels the OCR did not read: the family is medical, no
+    medical schema fits, and the document — not thirteen fields — asks for a
+    person: one card line, one queue row, one notice with the type selector
+    proposing Medical claim. A read CMS-1500 shows every field anchored, the
+    absent signature on the node it was searched from, marked "searched"."""
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+    from prompt_matrix.services.v1_orchestrator import run_after_parse
+    from tests.test_field_extractor import CMS_1500_LINES
+    from tests.test_v1_orchestrator import MEDICAL_PROSE_LINES, VERIFICATION, jdf_cli_bundle
+
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    ensure_project("p-mismatch")
+    letter = run_after_parse("p-mismatch", bundle=jdf_cli_bundle(MEDICAL_PROSE_LINES), verification=VERIFICATION, filename="clinic-letter.pdf",
+                             file_bytes=None, result={"document_id": "doc-letter", "revision_id": "rev-1", "version": 1}, job_id=None, intake=None)["report_id"]
+    claim = run_after_parse("p-mismatch", bundle=jdf_cli_bundle(CMS_1500_LINES), verification=VERIFICATION, filename="cms1500.pdf",
+                            file_bytes=None, result={"document_id": "doc-cms", "revision_id": "rev-2", "version": 1}, job_id=None, intake=None)["report_id"]
+    reports = repo.list_reports("p-mismatch")
+    attention = repo.attention_counts(reports)
+    assert attention["schema_mismatch"] == 1 and attention["documents"] == 2 and attention["nothing_extracted"] == 0
+    queue = client.get("/api/projects/p-mismatch/parsure/queue").get_json()
+    mismatch_items = [i for i in queue["items"] if i.get("kind") == "schema_mismatch"]
+    assert len(mismatch_items) == 1 and mismatch_items[0]["report_id"] == letter and mismatch_items[0]["suggested_type"] == "medical_claim"
+    assert queue["total"] == attention["fields"] and queue["counts"]["schema_mismatch"] == 1 and queue["counts"]["documents"] == 2
+
+    html = client.get("/parsing?project_id=p-mismatch").get_data(as_text=True)
+    text = _visible_text(html)
+    card = re.search(r'<article class="card" data-status="notype" data-report-id="%s">.*?</article>' % letter, html, re.S).group(0)
+    card_text = _visible_text(card)
+    assert "Wrong document type — read as Medical claim?" in card_text and "Medical — type unknown" in card_text
+    assert "need review" not in card_text and "Nothing extracted" not in card_text and ">Check type<" in card
+    visible_card = _visible_text(re.sub(r"<details.*?</details>", "", card, flags=re.S))  # the folded Details repeat the report's summary sentence
+    assert visible_card.count("Wrong document type") == 1
+    row = re.search(r'<tr class="queue-row queue-row--empty" data-kind="schema_mismatch" data-report-id="%s"[^>]*>.*?</tr>' % letter, html, re.S).group(0)
+    assert "Wrong document type — read as Medical claim?" in _visible_text(row) and f'href="/parsing/{letter}?project_id=p-mismatch"' in row
+    assert not re.findall(r'<tr class="queue-row" [^>]*data-report-id="%s"' % letter, html)  # no per-field rows for the mismatch
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    res = client.get(f"/parsing/{letter}?project_id=p-mismatch")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="type-notice" data-tone="partial" data-kind="schema_mismatch"' in html
+    assert text.count("Wrong document type — read as Medical claim?") == 1
+    options = re.findall(r'<option value="([^"]+)"( selected)?>([^<]+)</option>', html)
+    assert [o[2] for o in options if o[1]] == ["Medical claim"] and ("medical_claim", " selected", "Medical claim") in options
+    assert "Need review: 0" in text and "Medical — type unknown" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    html = client.get(f"/parsing/{claim}?project_id=p-mismatch").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="type-notice"' not in html and "Medical claim" in text
+    rows = re.findall(r'<tr class="field[^"]*" data-field="([^"]+)"[^>]*>.*?</tr>', html, re.S)
+    assert len(rows) == 13
+    sig = re.search(r'<tr class="field[^"]*" data-field="signature"[^>]*>.*?</tr>', html, re.S).group(0)
+    assert re.search(r'<small class="node-id" title="JDF node the field was searched from">el-0 · searched</small>', sig)
+    npi = re.search(r'<tr class="field[^"]*" data-field="provider_npi"[^>]*>.*?</tr>', html, re.S).group(0)
+    assert re.search(r'<small class="node-id" title="JDF node">el-17</small>', npi) and "searched" not in npi
+    assert "Found, needs a look" in _visible_text(npi) and "Found, verified" in text
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)

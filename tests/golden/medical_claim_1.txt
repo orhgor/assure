@@ -1,0 +1,30 @@
+HEALTH INSURANCE CLAIM FORM
+APPROVED BY NATIONAL UNIFORM CLAIM COMMITTEE (NUCC) 02/12   CMS-1500
+PICA   1. MEDICARE [ ]  MEDICAID [ ]  TRICARE [ ]  CHAMPVA [ ]  GROUP HEALTH PLAN [X]  FECA [ ]  OTHER [ ]
+
+1a. Insured's I.D. Number: HGP-2231-0087
+2. Patient's Name: Nandakumar, Priya
+3. Patient's Birth Date: 09/23/1985   Sex: F
+4. Insured's Name: Nandakumar, Priya
+5. Patient's Address: 14 Cordage Park Circle, Plymouth, MA 02360
+6. Patient Relationship to Insured: Self
+10a. Employment? [ ] Yes [X] No   10b. Auto Accident? [ ] Yes [X] No   Place (State): MA   10c. Other Accident? [ ] Yes [X] No
+11. Insured's Policy Group or FECA Number: GHP-7781
+17. Name of Referring Provider: Dr. Helen Marsh
+
+21. Diagnosis or Nature of Illness or Injury (ICD-10): A. M54.50  B. G89.29  C. Z79.899
+24a. Date(s) of Service: 08/14/2025 to 08/14/2025   24b. Place of Service: 11
+24d. Procedures, Services, or Supplies (CPT/HCPCS): 99214, 97140, 97110
+25. Federal Tax I.D. Number: 04-3456789   SSN [ ]  EIN [X]
+26. Patient's Account No.: 55120-A
+27. Accept Assignment? [X] Yes [ ] No
+28. Total Charge: $412.00
+29. Amount Paid: $25.00
+30. Rsvd for NUCC Use
+
+31. Signature of Physician or Supplier: /s/ Alan Reyes, MD   Date: 08/15/2025
+32. Service Facility Location Information: Plymouth Spine Clinic, 12 Court Street, Plymouth, MA 02360
+33. Billing Provider: Plymouth Spine Clinic
+    Ph #: (508) 555-0142
+33a. Rendering Provider NPI: 1234567893
+33b. Federal Tax ID: 04-3456789

@@ -679,7 +679,17 @@ tr.queue-row--done td { color: var(--muted); }
         </thead>
         <tbody>
         {% for r in queue.rows %}
-          {% if r.kind == "nothing_extracted" %}
+          {% if r.kind == "schema_mismatch" %}
+          <tr class="queue-row queue-row--empty" data-kind="schema_mismatch" data-report-id="{{ r.report_id }}" data-state="{{ r.state }}"{% if loop.index > queue.visible %} hidden data-collapsed="1"{% endif %}>
+            <td class="queue-doc">{{ r.filename }}<small>{{ r.doc_type_label }}</small></td>
+            <td class="queue-field" colspan="2">{{ r.label }}{% if r.fields_total %}<small>{{ r.fields_total }} field{{ "" if r.fields_total == 1 else "s" }} of this type, not applicable</small>{% endif %}</td>
+            <td class="queue-why">{{ r.reason }}</td>
+            <td class="queue-state"><span class="status status--partial">{{ r.state_label }}</span></td>
+            <td class="queue-actions">
+              <a class="btn-tertiary" href="{{ r.record_href }}">Check type</a>
+            </td>
+          </tr>
+          {% elif r.kind == "nothing_extracted" %}
           <tr class="queue-row queue-row--empty" data-kind="nothing_extracted" data-report-id="{{ r.report_id }}" data-state="{{ r.state }}"{% if loop.index > queue.visible %} hidden data-collapsed="1"{% endif %}>
             <td class="queue-doc">{{ r.filename }}<small>{{ r.doc_type_label }}</small></td>
             <td class="queue-field" colspan="2">{{ r.label }}<small>{{ r.fields_total }} field{{ "" if r.fields_total == 1 else "s" }} of this type, none found</small></td>
@@ -810,7 +820,8 @@ tr.queue-row--done td { color: var(--muted); }
               <span class="sep">·</span> Quality <b>{{ doc.quality_label }}</b>
               {%- if doc.details %}
               <span class="sep">·</span>
-              {%- if doc.nothing_extracted %} <b>0</b> of {{ doc.fields_total }} field{{ "" if doc.fields_total == 1 else "s" }} read
+              {%- if doc.schema_mismatch %} {% if doc.fields_total %}<b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} not applicable{% else %}no fields until the type is chosen{% endif %}
+              {%- elif doc.nothing_extracted %} <b>0</b> of {{ doc.fields_total }} field{{ "" if doc.fields_total == 1 else "s" }} read
               {%- elif doc.fields_total == 0 %} no fields until the type is chosen
               {%- elif doc.fields_review == 0 %} <b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} accepted
               {%- elif doc.fields_review == 1 %} <b>1</b> field needs review
@@ -863,7 +874,7 @@ tr.queue-row--done td { color: var(--muted); }
                   {% for f in doc.details.fields %}
                   <tr>
                     <td>{{ f.label }}</td>
-                    <td>{{ f.state }}</td>
+                    <td>{{ f.state }}{% if f.evidence %} <span class="why">· {{ f.evidence }}</span>{% endif %}</td>
                     <td class="num">{{ f.confidence }}</td>
                     <td>{{ f.reason }}<br><span class="why">{{ f.basis }}</span></td>
                   </tr>

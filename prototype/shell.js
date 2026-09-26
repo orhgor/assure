@@ -7604,20 +7604,48 @@
     // exports; the default ("bundle") is the report's JSON while a report is
     // open, else the document bundle. A format that has nothing to act on
     // re-syncs the menu's disabled states instead of dead-ending.
+    // Fetch, then save: a navigation to the URL turned a server refusal (the PDF
+    // renderer missing → 503 JSON since 2026-09-26) into an error page or an
+    // error body saved under a .pdf name. The refusal is a notice; a file is a file.
+    function _fetchDownload(url) {
+      fetch(url, { headers: { Accept: "*/*" } })
+        .then(function (r) {
+          if (!r.ok) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+              _jdfRow(_tf("shell.export.failed", "Export failed: {reason}",
+                          { reason: (j && (j.error || j.detail)) || ("HTTP " + r.status) }), true);
+            });
+          }
+          var cd = r.headers.get("content-disposition") || "";
+          var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+          var name = m ? decodeURIComponent(m[1]) : "export";
+          return r.blob().then(function (blob) {
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          });
+        })
+        .catch(function (err) {
+          _jdfRow(_tf("shell.export.failed", "Export failed: {reason}", { reason: String(err && err.message || err) }), true);
+        });
+    }
     function _download(format) {
       var fmt = format || "bundle";
       if (fmt.indexOf("parsure-") === 0) {
         if (!_canExportReportNow()) { _syncExportEnabled(); return; }
-        window.location.href = _reportExportUrl(fmt.slice("parsure-".length));
+        _fetchDownload(_reportExportUrl(fmt.slice("parsure-".length)));
         return;
       }
       if (fmt === "bundle" && _canExportReportNow()) {
-        window.location.href = _reportExportUrl("json");
+        _fetchDownload(_reportExportUrl("json"));
         return;
       }
       if (!_canExport()) { _syncExportEnabled(); return; }
-      window.location.href = "/api/projects/" + encodeURIComponent(_exportProjectId()) +
-        "/export?format=" + encodeURIComponent(fmt);
+      _fetchDownload("/api/projects/" + encodeURIComponent(_exportProjectId()) +
+        "/export?format=" + encodeURIComponent(fmt));
     }
     function _runPrimaryAction() {
       var primary = document.getElementById("shell-primary");

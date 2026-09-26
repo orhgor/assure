@@ -632,9 +632,25 @@ def fields_found(report: dict[str, Any]) -> int:
 def nothing_extracted(report: dict[str, Any]) -> bool:
     """A typed document whose every field is empty — one fact, not N failures.
     An untyped report (no fields at all) is not this: it has nothing to be
-    empty until a type is chosen."""
+    empty until a type is chosen, and a schema-mismatch report is the other
+    fact (``schema_mismatch``), said once as such."""
     fields = report.get("fields") or []
-    return bool(fields) and fields_found(report) == 0
+    return bool(fields) and fields_found(report) == 0 and not schema_mismatch(report)
+
+
+def schema_mismatch(report: dict[str, Any]) -> bool:
+    """``classification.schema_mismatch``: the type's family disagrees with the
+    page (or no schema of the page's family fits) — the document asks for a
+    person once; its fields never do (``field_extractor.field_needs_review``)."""
+    classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
+    return bool(classification.get("schema_mismatch"))
+
+
+def suggested_type(report: dict[str, Any]) -> str | None:
+    """The type ``classification.suggestion`` proposes for a mismatch, or None."""
+    classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
+    suggestion = classification.get("suggestion") if isinstance(classification.get("suggestion"), dict) else {}
+    return str(suggestion.get("document_type")) if suggestion.get("document_type") else None
 
 
 def attention_counts(reports: list[dict[str, Any]]) -> dict[str, int]:
@@ -642,25 +658,30 @@ def attention_counts(reports: list[dict[str, Any]]) -> dict[str, int]:
     header said "3", the section under it said "62 items", and the two were
     documents and fields by different rules).
 
-    ``documents`` — reports with at least one field that ``_needs_attention``
-    or with a recorded conflict; ``fields`` — every such field across the
-    reports (the review queue's item count, ``list_queue(...)["total"]``);
-    ``nothing_extracted`` — typed reports with no field found at all;
-    ``fields_found`` — fields with a value across the reports. Every surface
-    that shows a "needs attention" figure reads it from here.
+    ``documents`` — reports with at least one field that ``_needs_attention``,
+    with a recorded conflict, or with a schema mismatch; ``fields`` — every
+    such field across the reports (the review queue's field-item count,
+    ``list_queue(...)["total"]``); ``nothing_extracted`` — typed reports with
+    no field found at all; ``schema_mismatch`` — reports whose type does not
+    fit the page (counted once each, their fields never); ``fields_found`` —
+    fields with a value across the reports. Every surface that shows a
+    "needs attention" figure reads it from here.
     """
-    documents = fields = nothing = found = 0
+    documents = fields = nothing = found = mismatched = 0
     for report in reports:
         if not isinstance(report, dict):
             continue
         flagged = sum(1 for f in (report.get("fields") or []) if isinstance(f, dict) and _needs_attention(f))
         fields += flagged
         found += fields_found(report)
-        if flagged or (report.get("conflicts") or []):
+        mismatch = schema_mismatch(report)
+        if flagged or (report.get("conflicts") or []) or mismatch:
             documents += 1
         if nothing_extracted(report):
             nothing += 1
-    return {"documents": documents, "fields": fields, "nothing_extracted": nothing, "fields_found": found}
+        if mismatch:
+            mismatched += 1
+    return {"documents": documents, "fields": fields, "nothing_extracted": nothing, "fields_found": found, "schema_mismatch": mismatched}
 
 
 def _num(value: Any) -> float | None:
@@ -690,7 +711,10 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
     queued field or a conflict), ``nothing_extracted`` and ``fields_found``.
     ``total`` is the item count and equals ``attention_counts(...)["fields"]``.
     Each item carries ``nothing_extracted`` so a page can fold the N empty
-    rows of one such document into one line.
+    rows of one such document into one line. A schema-mismatch report
+    contributes one item of ``kind: "schema_mismatch"`` (no field) with the
+    suggested type; it is not counted in ``total`` (fields) but in
+    ``counts.schema_mismatch`` and ``counts.documents``.
     """
     init_db()
     limit = max(1, min(int(limit), 2000))
@@ -703,12 +727,36 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
     items: list[dict[str, Any]] = []
     counts: dict[str, int] = {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0}
     attention = attention_counts(reports)
+    mismatch_items = 0
     for report in reports:  # already newest first
         report_id = str(report.get("report_id"))
         document_type = (report.get("classification") or {}).get("document_type")
         empty = nothing_extracted(report)
         found = fields_found(report)
         group: list[tuple[int, int, dict[str, Any]]] = []
+        if schema_mismatch(report):
+            mismatch_items += 1
+            group.append((0, -1, {
+                "kind": "schema_mismatch",
+                "report_id": report_id,
+                "document_id": report.get("document_id"),
+                "filename": report.get("filename"),
+                "document_type": document_type,
+                "suggested_type": suggested_type(report),
+                "field_name": None,
+                "label": None,
+                "value": None,
+                "extraction_confidence": None,
+                "reason": ((report.get("quality_report") or {}).get("extraction_sentence")) or "Wrong document type — choose the document type.",
+                "reason_category": "other",
+                "field_state": "unverified",
+                "routing_action": "none",
+                "dispute": None,
+                "created_at": report.get("created_at"),
+                "nothing_extracted": False,
+                "fields_found": found,
+                "fields_total": len(report.get("fields") or []),
+            }))
         for order, field in enumerate(report.get("fields") or []):
             if not _needs_attention(field):
                 continue
@@ -733,6 +781,7 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
             else:
                 counts["needs_review"] += 1
             group.append((rank, order, {
+                "kind": "field",
                 "report_id": report_id,
                 "document_id": report.get("document_id"),
                 "filename": report.get("filename"),
@@ -753,8 +802,8 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
             }))
         group.sort(key=lambda t: (t[0], t[1]))
         items.extend(item for _, _, item in group)
-    counts.update({k: attention[k] for k in ("documents", "nothing_extracted", "fields_found")})
-    return {"items": items[:limit], "counts": counts, "total": len(items), "now": now.strftime(_TS)}
+    counts.update({k: attention[k] for k in ("documents", "nothing_extracted", "fields_found", "schema_mismatch")})
+    return {"items": items[:limit], "counts": counts, "total": len(items) - mismatch_items, "now": now.strftime(_TS)}
 
 
 # --------------------------------------------------------------------------

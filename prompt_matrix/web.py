@@ -835,6 +835,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "fields_total": 0,
                 "fields_found": 0,
                 "nothing_extracted": False,
+                "schema_mismatch": False,
+                "mismatch_line": None,
                 "conflicts": 0,
                 "chips": [],
                 "status": "unassessed",
@@ -876,7 +878,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
             card["fields_rejected"] = int(fields_rejected or 0)
             card["fields_total"] = int(fields_total or 0)
             card["fields_found"] = int(attention_one["fields_found"] if attention_one else (summary.get("fields_found") or 0))
-            card["nothing_extracted"] = bool(fields) and card["fields_found"] == 0
+            # Schema mismatch (2026-09-26): the type does not fit the page — one
+            # line on the card, the type selector on the record, no per-field rows.
+            card["schema_mismatch"] = bool((report.get("classification") or {}).get("schema_mismatch")) if isinstance(report.get("classification"), dict) else False
+            card["mismatch_line"] = _pv.mismatch_line(report.get("classification")) if card["schema_mismatch"] else None
+            card["nothing_extracted"] = bool(fields) and card["fields_found"] == 0 and not card["schema_mismatch"]
             card["record_href"] = f"/parsing/{card['report_id']}?project_id={project_id}" if card["report_id"] else None
             card["conflicts"] = len(conflicts)
             card["quality"] = _num(report.get("document_quality_score"))
@@ -911,7 +917,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             flagged_count = len(flagged_numbers) if isinstance(flagged_numbers, (list, tuple)) else int(flagged_numbers or 0)
             if flagged_count:
                 chips.append("Some numbers are unclear.")
-            if card["doc_type_label"] == "Type uncertain" and not card["nothing_extracted"]:
+            if card["doc_type_label"] == "Type uncertain" and not card["nothing_extracted"] and not card["schema_mismatch"]:
                 chips.append("Document type is uncertain.")
             if "no_text" in doc_flags:
                 # Deliverable of 2026-09-26: say the pages could not be read,
@@ -922,7 +928,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                     f"The pages could not be read ({int(text_chars)} character{'' if int(text_chars) == 1 else 's'})."
                     if isinstance(text_chars, (int, float)) else "The pages could not be read."
                 )
-            if replay.get("eligible") and not card["nothing_extracted"]:
+            if replay.get("eligible") and not card["nothing_extracted"] and not card["schema_mismatch"]:
                 chips.append("Replay available after policy update.")
             card["chips"] = chips
 
@@ -936,6 +942,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
                     "Conflict detected" if card["conflicts"] else _plural(card["fields_rejected"], "field") + " rejected"
                 )
                 card["primary_label"] = "Review"
+            elif card["schema_mismatch"]:
+                card["status"] = "notype"
+                card["status_label"] = card["mismatch_line"] or "Wrong document type — choose the document type."
+                card["primary_label"] = "Check type"
+                card["primary_href"] = card["record_href"] or f"/?project_id={project_id}&report_id={card['report_id']}"
             elif card["nothing_extracted"] or untyped_empty:
                 card["status"] = "notype"
                 card["status_label"] = (
@@ -962,12 +973,13 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 {
                     "label": f.get("label") or _words(f.get("name")) or "Field",
                     "state": _words(f.get("field_state"), _state_words) or "—",
+                    "evidence": _words(f.get("evidence_state"), _pv.EVIDENCE_WORDS) if f.get("evidence_state") else None,
                     "confidence": _score_label(f.get("extraction_confidence")),
                     "reason": f.get("reason") or "No reason recorded",
                     "basis": f.get("confidence_basis") or "—",
                 }
                 for f in fields
-                if _pv.field_needs_review(f) or f.get("field_state") in ("rejected", "disputed", "unverified", "partial")
+                if not card["schema_mismatch"] and (_pv.field_needs_review(f) or f.get("field_state") in ("rejected", "disputed", "unverified", "partial"))
             ]
             page_rows = [
                 {
@@ -1032,7 +1044,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
             attention = _pv.attention_counts(reports)
         except Exception:  # noqa: BLE001 — a stubbed repository must not break intake
             attention = {"documents": sum(1 for c in cards if c["status"] in ("review", "conflict")), "fields": sum(c["fields_review"] for c in cards),
-                         "nothing_extracted": sum(1 for c in cards if c["nothing_extracted"]), "fields_found": sum(c["fields_found"] for c in cards)}
+                         "nothing_extracted": sum(1 for c in cards if c["nothing_extracted"]), "fields_found": sum(c["fields_found"] for c in cards),
+                         "schema_mismatch": sum(1 for c in cards if c["schema_mismatch"])}
         ready = sum(1 for c in cards if c["status"] == "ready")
         summary = {
             "total": len(cards),
@@ -1042,6 +1055,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "need_attention": int(attention["documents"]),
             "fields_review": int(attention["fields"]),
             "nothing_extracted": int(attention["nothing_extracted"]),
+            "schema_mismatch": int(attention.get("schema_mismatch") or 0),
             "ready": ready,
             "reports_available": reports_available,
         }
@@ -1080,6 +1094,28 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 state = str(item.get("field_state") or "unverified")
                 dispute = item.get("dispute") or None
                 rid = str(item.get("report_id") or "")
+                if item.get("kind") == "schema_mismatch":
+                    # One row per mismatched document: the type is wrong for the
+                    # page, so no field of it is listed — the row leads to the
+                    # type selector with the family's proposal in the label.
+                    suggested = item.get("suggested_type")
+                    rows_out.append(
+                        {
+                            "kind": "schema_mismatch",
+                            "report_id": rid,
+                            "field_name": "",
+                            "filename": item.get("filename") or "Untitled",
+                            "doc_type_label": _pv.doc_type_label(item.get("document_type")),
+                            "label": (f"Wrong document type — read as {_pv.doc_type_label(suggested)}?" if suggested else "Wrong document type — choose the document type."),
+                            "fields_total": int(item.get("fields_total") or 0),
+                            "reason": item.get("reason") or "",
+                            "state": "unverified",
+                            "state_label": "Wrong type",
+                            "record_href": f"/parsing/{rid}?project_id={project_id}",
+                            "review_href": f"/?project_id={project_id}&report_id={rid}",
+                        }
+                    )
+                    continue
                 if item.get("nothing_extracted") and state not in ("disputed", "rejected"):
                     # The N "not found" rows of a document that yielded nothing
                     # are one fact — the type is the likely cause — so they fold
@@ -1345,7 +1381,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
         def _field_row(f):
             span = f.get("source_span") if isinstance(f.get("source_span"), dict) else {}
+            evidence = f.get("evidence") if isinstance(f.get("evidence"), dict) else {}
+            absent = evidence.get("kind") == "absent" or span.get("span_type") == "absent"
             mark = _pv.field_mark(f)
+            pages = [p for p in (span.get("pages") or []) if isinstance(p, int)]
+            page_label = None
+            if span.get("page") is not None:
+                page_label = str(span["page"])
+            elif pages:
+                page_label = f"{pages[0]}–{pages[-1]}" if len(pages) > 1 else str(pages[0])
             return {
                 "name": f.get("name") or "",
                 "label": f.get("label") or _pv.words(f.get("name")) or "Field",
@@ -1354,10 +1398,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "mark": mark,
                 "state": f.get("field_state") or "unverified",
                 "state_label": _pv.words(f.get("field_state"), _pv.STATE_WORDS) or "—",
+                "evidence_state": f.get("evidence_state"),
+                "evidence_label": _pv.words(f.get("evidence_state"), _pv.EVIDENCE_WORDS) if f.get("evidence_state") else None,
                 "confidence": _pv.score_label(f.get("extraction_confidence")),
                 "basis": f.get("confidence_basis") or "No basis recorded",
-                "page": span.get("page") if span.get("page") is not None else None,
+                "page": page_label,
+                # Found: the node the value sits on. Absent: the anchor it was
+                # searched from, shown with the word "searched" so nobody reads
+                # it as the value's address (graph has no orphan either way).
                 "node_id": span.get("node_id") or f.get("tree_node_id") or f.get("field_source_node_id") or None,
+                "node_note": "searched" if absent else None,
                 "reason": _pv.reason_words(f.get("reason")) if (f.get("reason") or mark != "accepted") else "",
                 "action": _pv.ROUTING_WORDS.get(str(f.get("routing_action") or "none"), _pv.words(f.get("routing_action")) or "—"),
                 "needs_person": _pv.field_needs_review(f),
@@ -1368,7 +1418,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
         field_rows.sort(key=lambda r: 0 if r["needs_person"] else 1)  # stable: report order within each half
         review_n = sum(1 for r in field_rows if r["needs_person"])  # the queue's rule — same number as /parsing
         found_n = _repo.fields_found(report)
-        nothing_extracted = bool(fields) and found_n == 0
+        schema_mismatch = bool(classification.get("schema_mismatch"))
+        mismatch_line = _pv.mismatch_line(classification) if schema_mismatch else None
+        suggested_type = ((classification.get("suggestion") or {}).get("document_type") if isinstance(classification.get("suggestion"), dict) else None)
+        nothing_extracted = bool(fields) and found_n == 0 and not schema_mismatch
 
         try:
             texts = _repo.report_page_texts(project_id, report["report_id"]) or []
@@ -1472,7 +1525,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
             extraction_sentence = _orch.extraction_sentence(classification.get("document_type"), len(fields), found_n, text_chars)
         no_text = "no_text" in {str(fl) for fl in (report.get("quality_flags") or [])}
         current_type = classification.get("document_type")
-        show_notice = nothing_extracted or (not fields and _pv.doc_type_label(classification) == "Type uncertain")
+        show_notice = nothing_extracted or schema_mismatch or (not fields and _pv.doc_type_label(classification) == "Type uncertain")
+        if schema_mismatch and extraction_sentence is None:
+            extraction_sentence = mismatch_line
         if show_notice and extraction_sentence:
             # The notice says it; the hero keeps the page-quality sentence so the
             # fact is stated once on the page.
@@ -1484,7 +1539,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
         # kept text (regex only, a few ms), so the selector proposes it and the
         # notice says how many fields that type finds.
         type_hint = None
-        if show_notice and texts:
+        if schema_mismatch and suggested_type:
+            suggestion = classification.get("suggestion") or {}
+            type_hint = {"type": suggested_type, "label": _pv.doc_type_label(suggested_type),
+                         "found": int(suggestion.get("found") or 0), "total": int(suggestion.get("total") or 0)}
+        elif show_notice and texts:
             try:
                 hint = _orch.reclassify_by_evidence(current_type, None, texts)
             except Exception:  # noqa: BLE001 — a hint, never a failure
@@ -1537,6 +1596,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "fields_review": review_n,
             "fields_found": found_n,
             "nothing_extracted": nothing_extracted,
+            "schema_mismatch": schema_mismatch,
+            "mismatch_line": mismatch_line,
             "untyped": not fields and _pv.doc_type_label(classification) == "Type uncertain",
             "extraction_sentence": extraction_sentence,
             "no_text": no_text,
@@ -1544,7 +1605,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "type_options": _pv.type_options(type_hint["type"] if type_hint else current_type),
             "type_hint": type_hint,
             "type_override_url": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/classification",
-            "pages_open": nothing_extracted or (not fields and _pv.doc_type_label(classification) == "Type uncertain"),
+            "pages_open": nothing_extracted or schema_mismatch or (not fields and _pv.doc_type_label(classification) == "Type uncertain"),
             "fields": field_rows,
             "pages": page_rows,
             "has_page_text": any(p["text"] for p in page_rows),

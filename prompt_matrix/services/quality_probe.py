@@ -655,13 +655,17 @@ def quality_weighted_confidence(
     number_quality: str | None,
     z3_violation: bool,
     signature_quality: str | None,
+    quality_label: str = "page_quality",
 ) -> tuple[float, str]:
     """Spec §4: ``parser × page_quality × number × z3 × signature``.
 
     Defaults are the spec's: parser 0.85 (jdf-cli) / 0.80 (textract) / 0.5
     otherwise, page quality 0.5 neutral. When *nothing* is known the answer is
     the conservative 0.50 with a basis that says so, never a computed-looking
-    number.
+    number. ``quality_label`` names the quality factor in the basis —
+    ``page_quality`` for the page-global score, ``local_ocr`` when the caller
+    passed the OCR confidence of the line the value sits on (field-level
+    confidence, 2026-09-26; the formula is the same, the factor is nearer).
     """
     name = (parser_name or "").lower()
     has_signal = any(
@@ -680,7 +684,7 @@ def quality_weighted_confidence(
         parts.append(f"parser_default[{name or 'unknown'}] ({parser:.2f})")
     if page_quality is not None:
         quality = max(0.0, min(1.0, float(page_quality)))
-        parts.append(f"page_quality ({quality:.2f})")
+        parts.append(f"{quality_label} ({quality:.2f})")
     else:
         quality = PAGE_QUALITY_NEUTRAL
         parts.append(f"page_quality_neutral ({quality:.2f})")

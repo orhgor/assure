@@ -53,8 +53,17 @@ ENV PYTHONPATH=/app \
     JDF_OCR=tesseract \
     PARSE_ASYNC=1
 
+# poppler/curl as before, plus WeasyPrint's native stack (Pango, Cairo,
+# GDK-PixBuf, libffi, the MIME database) and DejaVu so the dossier has a real
+# font to embed. WeasyPrint is the PDF renderer the app requires: until
+# 2026-09-26 the image had neither it nor a Playwright browser, and every PDF
+# export fell through to a Helvetica text writer (customer QA: a "dossier" that
+# named the missing engines on page 1). services/verification_dossier.render_pdf
+# now refuses to render without an engine, so the runtime must carry one.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends poppler-utils curl ca-certificates \
+        libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 \
+        shared-mime-info fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # tesseract.js language data for jdf-cli's OCR (`jdf convert --ocr tesseract`).

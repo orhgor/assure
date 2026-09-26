@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import re
@@ -19,6 +20,13 @@ try:
     from ..lib.logger import get_audit_logger
     from ..middleware import project_ownership_required
     from ..services.jdf_sidecar import build_jdf_sidecar
+    from ..services.verification_dossier import (
+        PdfRendererUnavailable,
+        build_dossier,
+        render_pdf,
+        renderer_status,
+        verification_state_json,
+    )
 except ImportError:
     from db.jdf_repository import current_document_version, fetch_latest_jdf_or_empty
     from exporters.docx_ast import export_jdf_to_docx
@@ -27,6 +35,13 @@ except ImportError:
     from lib.logger import get_audit_logger
     from middleware import project_ownership_required
     from services.jdf_sidecar import build_jdf_sidecar
+    from services.verification_dossier import (
+        PdfRendererUnavailable,
+        build_dossier,
+        render_pdf,
+        renderer_status,
+        verification_state_json,
+    )
 
 _SAFE_NAME = re.compile(r"[^\w\-]+")
 
@@ -63,6 +78,26 @@ def _bundle_zip(*members: tuple[str, bytes]) -> bytes:
         for name, payload in members:
             archive.writestr(name, payload)
     return buffer.getvalue()
+
+
+def _renderer_unavailable(exc: PdfRendererUnavailable):
+    """503 with each engine's answer. A missing renderer is a server condition,
+    not a document property: until 2026-09-26 the export fell through to a text
+    writer and a customer received a Helvetica dump titled as a PDF dossier."""
+    return jsonify(
+        {"ok": False, "error": "PDF renderer unavailable on this server", "detail": exc.detail}
+    ), 503
+
+
+def _require_pdf_renderer() -> None:
+    """Raise :class:`PdfRendererUnavailable` unless an engine can run.
+
+    Used before ``exporters.pdf_ast.export_jdf_to_pdf`` (the document-body PDF),
+    whose own probes still degrade to text when neither engine is present.
+    """
+    status = renderer_status()
+    if not any(v.startswith("ok") for v in status.values()):
+        raise PdfRendererUnavailable(status)
 
 
 def register_export_routes(app) -> None:
@@ -162,21 +197,30 @@ def register_export_routes(app) -> None:
             )
             try:
                 if audit_bundle:
-                    from ..services.audit_bundle import export_audit_bundle_pdf
-                else:
-                    export_audit_bundle_pdf = None  # type: ignore[assignment]
-            except ImportError:
-                from services.audit_bundle import export_audit_bundle_pdf
-
-            try:
-                if audit_bundle:
+                    try:
+                        from ..services.audit_bundle import export_audit_bundle_pdf
+                    except ImportError:
+                        from services.audit_bundle import export_audit_bundle_pdf
                     pdf_bytes = export_audit_bundle_pdf(project_id, tree)
                     filename = f"{filename_base}-audit-report.pdf"
                     action = "EXPORT_AUDIT_PDF"
                 else:
+                    _require_pdf_renderer()
                     pdf_bytes = export_jdf_to_pdf(tree)
                     filename = f"{filename_base}.pdf"
                     action = "EXPORT_PDF"
+            except PdfRendererUnavailable as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_audit(
+                    request_id,
+                    project_id,
+                    "EXPORT_PDF",
+                    success=False,
+                    duration_ms=duration_ms,
+                    error_message=str(exc),
+                    details={"format": fmt, "renderers": exc.detail},
+                )
+                return _renderer_unavailable(exc)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -192,7 +236,7 @@ def register_export_routes(app) -> None:
             audit.log_audit(
                 request_id,
                 project_id,
-                action if audit_bundle else "EXPORT_PDF",
+                action,
                 success=True,
                 duration_ms=duration_ms,
                 details={"format": "pdf", "filename": filename, "audit_bundle": audit_bundle},
@@ -204,12 +248,24 @@ def register_export_routes(app) -> None:
             )
 
         if fmt == "dossier-pdf":
+            # The dossier is titled by its trust state (services/verification_dossier
+            # .derive_trust_state); the state it was rendered from travels in the
+            # response headers so a reader of the PDF alone can check the two agree.
             try:
-                try:
-                    from ..services.verification_dossier import export_verification_dossier_pdf
-                except ImportError:
-                    from services.verification_dossier import export_verification_dossier_pdf
-                pdf_bytes = export_verification_dossier_pdf(project_id)
+                built = build_dossier(project_id, tree)
+                pdf_bytes, engine = render_pdf(built["html"])
+            except PdfRendererUnavailable as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_audit(
+                    request_id,
+                    project_id,
+                    "EXPORT_DOSSIER_PDF",
+                    success=False,
+                    duration_ms=duration_ms,
+                    error_message=str(exc),
+                    details={"format": fmt, "renderers": exc.detail},
+                )
+                return _renderer_unavailable(exc)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -220,6 +276,7 @@ def register_export_routes(app) -> None:
                     duration_ms=duration_ms,
                 )
                 return jsonify({"ok": False, "error": str(exc)}), 500
+            state = built["state"]
             filename = f"{filename_base}-verification-dossier.pdf"
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
@@ -228,12 +285,21 @@ def register_export_routes(app) -> None:
                 "EXPORT_DOSSIER_PDF",
                 success=True,
                 duration_ms=duration_ms,
-                details={"format": "dossier-pdf", "filename": filename},
+                details={
+                    "format": "dossier-pdf",
+                    "filename": filename,
+                    "trust_state": state.get("trust_state"),
+                    "renderer": engine,
+                },
             )
             return Response(
                 pdf_bytes,
                 mimetype="application/pdf",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "X-Assure-Trust-State": str(state.get("trust_state") or ""),
+                    "X-Assure-Renderer": engine,
+                },
             )
 
         if fmt == "audit-pdf":
@@ -243,6 +309,18 @@ def register_export_routes(app) -> None:
                 except ImportError:
                     from services.audit_bundle import export_audit_bundle_pdf
                 pdf_bytes = export_audit_bundle_pdf(project_id, tree)
+            except PdfRendererUnavailable as exc:
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                audit.log_audit(
+                    request_id,
+                    project_id,
+                    "EXPORT_AUDIT_PDF",
+                    success=False,
+                    duration_ms=duration_ms,
+                    error_message=str(exc),
+                    details={"format": fmt, "renderers": exc.detail},
+                )
+                return _renderer_unavailable(exc)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -273,14 +351,19 @@ def register_export_routes(app) -> None:
             # The sidecar is the half of the export that used to stay behind: the
             # document tree with its per-node provenance, each node's verification
             # state, the source manifest, the version chain and the drafting model.
-            # `jdf` serves it alone; `bundle` serves it with the same audit PDF the
-            # export button produced before, as two files in one download, so the
-            # readable document and the verifiable one cannot be separated. Both
-            # halves carry the export's own name — `<project>-<version>-dossier` —
-            # so a reader holding the PDF or the JSON can tell which export the
-            # other belongs to.
+            # `jdf` serves it alone; `bundle` serves it with the verification dossier
+            # PDF, the dossier's own state as `verification_state.json` (the same dict
+            # the PDF was rendered from — `services/verification_dossier.build_dossier`
+            # builds both, so they cannot disagree), the compliance audit report, and
+            # a `manifest.json` naming every member with its SHA-256. When no PDF
+            # engine can run on this server the PDF members are left out and the
+            # manifest says so; a text dump is never shipped under a .pdf name
+            # (customer QA, 2026-09-26). Every member carries the export's own name
+            # — `<project>-<version>-dossier` — so a reader holding one file can tell
+            # which export the others belong to.
             dossier = _dossier_base(project_id, current_document_version(project_id))
             jdf_name = f"{dossier}.jdf.json"
+            manifest: dict = {}
             try:
                 sidecar = build_jdf_sidecar(project_id, tree)
                 sidecar_bytes = json.dumps(sidecar, indent=2, ensure_ascii=False).encode("utf-8")
@@ -294,14 +377,49 @@ def register_export_routes(app) -> None:
                         from ..services.audit_bundle import export_audit_bundle_pdf
                     except ImportError:
                         from services.audit_bundle import export_audit_bundle_pdf
-                    pdf_bytes = export_audit_bundle_pdf(project_id, tree)
+                    built = build_dossier(project_id, tree)
+                    state = built["state"]
+                    state_bytes = verification_state_json(state)
+                    members: list[tuple[str, bytes]] = []
+                    pdf_note: dict
+                    try:
+                        dossier_pdf, engine = render_pdf(built["html"])
+                        audit_pdf = export_audit_bundle_pdf(project_id, tree)
+                        members.append((f"{dossier}.pdf", dossier_pdf))
+                        members.append((f"{dossier}-audit-report.pdf", audit_pdf))
+                        pdf_note = {"included": True, "renderer": engine}
+                    except PdfRendererUnavailable as exc:
+                        pdf_note = {
+                            "included": False,
+                            "reason": "PDF renderer unavailable on this server",
+                            "detail": exc.detail,
+                        }
+                    members.append((jdf_name, sidecar_bytes))
+                    members.append(("verification_state.json", state_bytes))
+                    manifest = {
+                        "export": dossier,
+                        "project_id": project_id,
+                        "exported_at": state.get("exported_at"),
+                        "trust_state": state.get("trust_state"),
+                        "title": state.get("title"),
+                        "status_band": state.get("status_band"),
+                        "pdf": pdf_note,
+                        "members": [
+                            {
+                                "name": name,
+                                "bytes": len(data),
+                                "sha256": hashlib.sha256(data).hexdigest(),
+                            }
+                            for name, data in members
+                        ],
+                    }
+                    members.append(
+                        ("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False).encode("utf-8"))
+                    )
                     action = "EXPORT_BUNDLE"
                     filename = f"{dossier}.zip"
                     mimetype = "application/zip"
-                    payload = _bundle_zip(
-                        (f"{dossier}.pdf", pdf_bytes),
-                        (jdf_name, sidecar_bytes),
-                    )
+                    payload = _bundle_zip(*members)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -324,6 +442,8 @@ def register_export_routes(app) -> None:
                     "format": fmt,
                     "filename": filename,
                     "anchors": sum(1 for node in sidecar.get("nodes") or [] if node.get("anchor")),
+                    "trust_state": manifest.get("trust_state"),
+                    "pdf_included": (manifest.get("pdf") or {}).get("included"),
                 },
             )
             return Response(

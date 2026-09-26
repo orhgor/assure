@@ -208,7 +208,7 @@ stages, each recorded in `classification`:
 | Stage | When | What it does | `classification.basis` |
 |---|---|---|---|
 | Keywords (`field_extractor.classify_document`) | always | counts each type's vocabulary; `uncertain` below 3 hits. **Near-tie rule:** when the top two types are within 1 hit (including an exact tie) the label pass runs for both and the type whose fields are actually found wins | `keyword heuristic: …` / `keyword near-tie (auto_claim 8, property_policy 7) decided by the label pass: property_policy 10/11 fields found vs auto_claim 1/10` |
-| Evidence (`v1_orchestrator.reclassify_by_evidence`) | the keyword type finds ≤ 1 field **and** its confidence < 0.7 (or is `uncertain`) | runs the cheap label pass for every other type; switches to the one with the most found fields when it finds ≥ 2 and strictly more than the original. Regex only, deterministic | `reclassified by extraction evidence: property_policy 10/11 fields found vs auto_claim 1/10 (keywords said auto_claim, 8 hits)`; `confidence` = found ratio capped at 0.9; `method: extraction_evidence`; `detected` = the keyword answer |
+| Evidence (`v1_orchestrator.reclassify_by_evidence`) | the keyword type finds ≤ 1 field **and** its confidence < 0.7 (or is `uncertain`) | runs the cheap label pass for every other type allowed by the family gate; switches to the one with the most found fields when it finds ≥ 3 (≥ 1 of them type-specific — see "Document families" below; was ≥ 2 of any field until 2026-09-26) and strictly more than the original. Regex only, deterministic | `reclassified by extraction evidence: property_policy 10/11 fields found vs auto_claim 1/10 (keywords said auto_claim, 8 hits)`; `confidence` = found ratio capped at 0.9; `method: extraction_evidence`; `detected` = the keyword answer |
 | Model suggestion (`llm_extraction.classify_with_model`) | still `uncertain` after the two above **and** `PARSURE_LLM_EXTRACTION` is on | asks the configured model for exactly one of the ten type names over the first 3,000 characters; accepted only as an exact name **and** only if that type's fields are then found (≥ 1) | `model suggestion (<model>), confirmed by N fields found (N/M)`; `confidence` = found ratio capped at 0.6; `method: model_suggestion`; the model never supplies a value |
 
 `TYPE_KEYWORDS["property_policy"]` also gained "real estate", "property
@@ -278,3 +278,216 @@ panel jumps to the paragraph when the id is on screen (`Page 1` → the node).
 Until 2026-09-26 `field_source_node_id` was `null` on every field because
 jdf-cli 0.2.3 elements carry no `id`; the chunk id is the address that
 survives from parse to tree to review.
+
+## Export — the Verification Dossier (2026-09-26)
+
+Customer QA on an exported PDF: it was titled "Formal Verification
+Certificate" while the run's JSON read `laya.suggested_route = human_review`,
+`fields_accepted 0 / fields_review 12`, a cross-document conflict on
+`insured_name` and `signature_quality.quality = questionable`; the PDF said
+"No locked claims recorded", "No cross-run contradictions detected", "No
+Red-Hat findings recorded"; and the file itself was the text fallback of
+`exporters/pdf_ast.py`, announcing the missing engines on page 1. Three
+rules now hold, all in `services/verification_dossier.py`.
+
+### One trust state, derived — never declared
+
+`derive_trust_state` maps the record to one of three states; the title, the
+subtitle and the zip manifest all read it. The word **Certificate** is
+emitted only in the `verified` state.
+
+| State | Title | Rule (checked in this order) |
+|---|---|---|
+| `not_verified` | Verification Dossier — Not verified | gate `blocked`, or Z3 `VIOLATION`, or a claim contradicted by its source (`provenance_stats.unsupported > 0`), or **nothing accepted at all** (0 locked claims + 0 supported claims + 0 accepted intake fields) |
+| `review_required` | Verification Dossier — Review required | otherwise, when anything is open: gate not `pass`, gate `unverified`, ≥ 1 field needs review (`field_extractor.field_needs_review`), ≥ 1 open dispute, ≥ 1 conflict (cross-document or cross-run), ≥ 1 open Red-Hat finding, or the signature is unresolved (`questionable` / `faint` / `incomplete` / missing) |
+| `verified` | Verification Dossier — Verified | none of the above |
+
+Inputs: `audit_bundle.compute_export_gate` (gate, Z3, provenance counts), the
+lock ledger (runs + draft `meta.lock_ledger`), `parsure_repository.list_reports`
+(current reports — review counts recounted with the queue's rule, `conflicts[]`,
+`quality_report.signature`, pages/flags/`no_text`, `replay`, `laya`),
+`audit_bundle.project_redhat_findings` (ran / count / items),
+`parsure_repository.list_disputes(status="open")`, `macro_verify.
+detect_cross_run_contradictions` (only with ≥ 2 runs).
+
+### The status band
+
+Under the title, real numbers or "not run" — never "No … detected" for a check
+that did not run:
+
+```
+12 fields need review · 0 accepted · 1 conflict · signature questionable · Red-Hat: not run · gate review
+0 fields need review · 4 accepted · 0 conflicts · signature stamped · Red-Hat: 0 findings · gate pass
+no intake report · conflicts: not run · signature not assessed · Red-Hat: not run · gate review
+```
+
+Open disputes are appended when there are any (`1 open dispute (1 overdue)`).
+
+### Sections (each present, with the reason when empty)
+
+1. Summary — gate, Z3, claims supported / contradicted / anchored, locked
+   claims, intake field counts, conflicts, Red-Hat, disputes, documents; Laya
+   triage table (`suggested_route`, `human_review`, `escalate`, reasons).
+2. Review required — every field asking for a person: document, field, value
+   read, confidence (%), state / routing, reason, page. Empty: "0 fields need
+   review." or "Not run — no intake report".
+3. Conflicts — cross-document (`field`, each value with its document, and why
+   it is a contradiction), then cross-run contradictions ("Not run — fewer
+   than two runs recorded (N)" when they were not compared).
+4. Red-Hat findings — "Red-Hat: N findings, M open" with the table, or "Red-Hat
+   ran and recorded 0 findings", or "Not run — <the compile's skip reason>".
+5. Locked claims — the ledger as before; "0 locked claims — no claim has been
+   locked for this project" when empty.
+6. Signature — one row per document: `present but questionable — <basis>`,
+   `present but faint`, `missing`, `confirmed (stamp or electronic signature)`,
+   `not assessed`; unresolved rows are flagged and block `verified`. The basis
+   is `quality_probe.assess_signature`'s measurement, verbatim.
+7. Disputes — open ones with reason, opened, `due in 31 h` / `overdue by 5 h`.
+8. Quality — per document: score, flags (`no_text` flagged), characters of
+   text, parser; per page: quality, flags, OCR confidence or "not measured".
+9. Replay eligibility — per document, with the reasons; "Replayed: no (V1
+   records eligibility only)".
+10. Document — the body (latest JDF revision, else the founder draft).
+
+### The machine-readable twin
+
+`GET /api/projects/<id>/export?format=bundle` → `<project>-<version>-dossier.zip`:
+
+| Member | What |
+|---|---|
+| `<stem>.pdf` | the Verification Dossier |
+| `<stem>-audit-report.pdf` | the Compliance Audit Report (unchanged) |
+| `<stem>.jdf.json` | the JDF sidecar (unchanged) |
+| `verification_state.json` | the dict the dossier HTML was rendered from — `trust_state`, `title`, `status_band`, `reasons`, `counts`, `gate`, `intake`, `sections` (schema `assure.verification_state/1`). `build_dossier` builds it once and renders the HTML from it, so PDF and JSON cannot disagree |
+| `manifest.json` | every member with size and SHA-256, the trust state, `pdf.included` and — when no renderer is present — `pdf.reason` and each engine's probe result |
+
+`format=dossier-pdf` also returns `X-Assure-Trust-State` and
+`X-Assure-Renderer` headers.
+
+### Renderer: real or refused
+
+`render_pdf` uses Playwright when a Chromium actually launches (probe cached
+per process), else WeasyPrint, else raises `PdfRendererUnavailable`. Every
+PDF format (`pdf`, `audit-pdf`, `dossier-pdf`, `pdf&audit_bundle=1`) then
+answers **503** `{"ok": false, "error": "PDF renderer unavailable on this
+server", "detail": {"playwright": …, "weasyprint": …}}`; `bundle` still
+answers 200 without the PDF members and says so in the manifest. The text
+writer in `exporters/pdf_ast.py` is no longer reachable from a route.
+
+The image installs WeasyPrint (`requirements.txt`) and its native stack in the
+runtime stage (`libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0
+libffi8 shared-mime-info fonts-dejavu-core`). Check:
+`docker compose run --rm assure-app python -c "import weasyprint; print(weasyprint.__version__)"`.
+
+Measured 2026-09-26 on the compose stack, project `node-check-4` (one saved
+document, one intake report), before and after this change:
+
+| | Old image (`exporters/pdf_ast.py` fallback) | New image |
+|---|---|---|
+| `dossier-pdf` | 200, 1 page, fonts `{Helvetica}` (unembedded core font), text begins "This dossier was rendered as text…", titled "Formal Verification Certificate" | 200, 4 pages, producer `WeasyPrint 70.0`, embedded `DejaVu-Serif`, `DejaVu-Serif-Bold`, `DejaVu-Serif-Oblique`, `DejaVu-Sans-Mono`; no "fallback" / "rendered as text"; title "Verification Dossier — Review required"; band "5 fields need review · 7 accepted · 0 conflicts · signature missing · Red-Hat: not run · gate review"; headers `X-Assure-Trust-State: review_required`, `X-Assure-Renderer: weasyprint` |
+| `bundle` | 2 members | 5 members; `manifest.pdf = {"included": true, "renderer": "weasyprint"}`; `manifest.trust_state == verification_state.trust_state` |
+| in-image probe | — | `renderer_status()` → `playwright: browser not installed: … Executable doesn't exist …`, `weasyprint: ok (70.0)` |
+
+## Document families, evidence states, graph integrity, field-level confidence (2026-09-26)
+
+Customer QA on a CMS-1500 medical claim (page quality 0.28): the report came
+back `classification.document_type = auto_policy` with
+`detected.document_type = uncertain` (the only keyword hit was "accident"),
+the auto-policy taxonomy with `fields_accepted 0 / fields_review 12`,
+`field_source_node_id` on three found fields and `null` on the rest. Four
+fixes, all in `field_extractor` / `v1_orchestrator`; the record page,
+cards and queue read them.
+
+### Document family gate — before any schema is assigned
+
+| Piece | What |
+|---|---|
+| `medical_claim` type | CMS-1500 (NUCC 02/12) taxonomy: `patient_name`, `insured_id`, `patient_dob`, `insured_name`, `diagnosis_codes` (ICD, a `codes` list), `procedure_codes` (CPT/HCPCS, list), `date_of_service`, `provider_name`, `provider_npi`, `federal_tax_id`, `total_charge`, `amount_paid`, `signature`. Keywords: cms-1500, health insurance claim form, patient, insured's id / i.d. number, diagnosis, icd, cpt, npi, place of service, total charge, amount paid, rendering provider, medicare, medicaid, group health plan. Golden fixture `tests/golden/medical_claim_1.txt` (12/12 fields; the set stays 100 %, now 64 fields). |
+| `field_extractor.document_family(text)` | `{"family": auto \| property \| real_estate_transaction \| medical \| unknown, "cues": [...], "counts": {...}, "basis"}` from **strong cues** (`FAMILY_CUES`): auto = vin / vehicle / collision / automobile / odometer / lienholder; property = dwelling / coverage a / homeowners / hazard insurance / personal property / insured location; transaction = deed / grantor / grantee / mortgagee / borrower / lender / promissory note / closing disclosure / settlement statement / title commitment / legal description / parcel / escrow; medical = the CMS-1500 keywords. A family is named at ≥ 2 cues **and** a margin of ≥ 2 over the runner-up; otherwise `unknown` and the basis lists the competing counts (the lender-facing declarations page whose exclusions mention vehicle/VIN/collision scores auto 3 / property 2 → unknown → the label pass decides as before). "accident", "claim", "premium", "deductible" are on every form and are **not** cues. |
+| The gate (`field_extractor.type_allowed`) | A type may be chosen — by keywords, by `reclassify_by_evidence`, by the model suggestion, by the family fallback — only when `TYPE_FAMILY[type]` equals the detected family or the family is `unknown`. `classify_document` runs only the allowed types and returns `family`; its basis carries `family gate: medical (…)`. |
+| Evidence rule, tightened | `reclassify_by_evidence` switches only to a candidate that finds **≥ 3 fields** (`RECLASSIFY_MIN_FOUND`) **of which ≥ 1 is type-specific** — not in `SHARED_FIELD_NAMES = {policy_number, insured_name, signature, effective_date, expiration_date}`. The customer's page was won by exactly those shared fields. `evidence.type_specific` / `type_specific_fields` record the proof. The model suggestion obeys the same gate and is refused when only shared fields confirm it (`extraction_notes`: "model suggested auto_policy but only shared fields were found (…)"). |
+| Family fallback (`v1_orchestrator.family_fallback`) | When the cues name a family and the keyword answer is weak (`uncertain` or confidence < 0.7): the family's schema with the most type-specific fields is chosen when it finds ≥ 2 of them (`method: family_evidence`); otherwise `classification.document_type = "<family>_unknown"` (e.g. `medical_unknown`) with **no taxonomy fields**, `classification.schema_mismatch = true`, `classification.suggestion = {document_type, found, total, type_specific, …}` (the nearest schema), and a basis that says why no schema was forced. A confident keyword type (≥ 0.7) is never second-guessed here — "nothing extracted as Auto claim — check the type" stays the path for a well-named type whose labels the OCR did not read. |
+| Validation (`classification.validation`) | `{"family", "type_family", "agrees", "cues", "basis", "type_specific", "type_specific_fields"}` on every report, computed after the final type. A reviewer's override to a type of another family stands, but when `agrees` is false **and** that type finds < 2 type-specific fields the report gets `schema_mismatch = true` and its fields are marked (below). `classification.family` keeps the cue record; the `classified` audit event carries `validation`, `schema_mismatch`, `suggestion`. |
+
+Tests pinning the case: `tests/test_field_extractor.py::test_cms_1500_with_the_word_accident_is_a_medical_claim_with_its_fields`
+(synthetic CMS-1500 with "Auto Accident?" → `medical_claim`, ≥ 6 found) and
+`::test_cms_1500_without_medical_cues_is_never_auto_policy` (same page with
+the medical cues removed and the shared fields present → `uncertain`);
+`tests/test_v1_orchestrator.py::test_cms_1500_without_medical_cues_stays_uncertain_never_auto_policy`
+(through `run_after_parse`, with a model that says `auto_policy` and is
+refused) and `::test_family_cues_without_a_fitting_schema_are_family_unknown_not_a_forced_schema`.
+
+### Every field carries an anchor (`graph_integrity`)
+
+A found field names the node its value sits on (`field_source_node_id`,
+`tree_node_id`, `source_span`), as before. A field that was **not** found
+now carries
+
+```
+evidence = {"kind": "absent", "searched_pages": [1..N], "searched_node_ids": [first 50 layout node ids],
+            "searched_chars": N, "anchor_node_id": <first layout node id>, "anchor_kind": "layout_node" | "document_root",
+            "readability": ["readable" | "low" | "unreadable", …]}
+source_span = {"span_type": "absent", "pages": [...], "node_id": <tree node when a tree exists>}
+field_source_node_id = anchor_node_id
+```
+
+`attach_tree_node_ids` maps the anchor through `meta.chunk_id` like any
+found field, and hangs an absent field with no layout anchor off the tree's
+first node (`anchor_kind: document_root`) — never an invented id. Found
+fields carry `evidence = {"kind": "found", "page", "node_id", "method"}`.
+The report's `graph_integrity = {"fields", "anchored", "orphans", "absent_anchored", "checked_at", "basis"}`
+is computed after the tree ids are attached (and again by `refresh_report`);
+`orphans` is 0 whenever the parse produced any node id, and the basis says
+so when a flat-text upload produced none. `attach_z3_violations` skips
+absent fields so a violation on the anchor node is not attributed to them.
+The record page prints the anchor in the node column with the word
+"searched" (`el-0 · searched`) and the searched page range in the page
+column.
+
+### `evidence_state` — the five outcomes, apart from `field_state`
+
+| `evidence_state` | When | `reason` (plain words) |
+|---|---|---|
+| `found_verified` | value, policy accepted | — |
+| `found_unverified` | value, policy did not accept (unverified / rejected / disputed) | the policy's reason |
+| `not_on_document` | no value, and at least one searched page is *readable* (≥ 200 characters and page quality ≥ 0.5, or quality unknown) | "Not on this document type" |
+| `unreadable` | no value, and every searched page is *unreadable* (< 200 characters, or page quality < 0.3) | "Page could not be read" |
+| `schema_mismatch` | the type's family disagrees with the page and its fields are not there (override case) | "Wrong document type — fields not applicable" |
+
+Pages between the two thresholds (quality 0.3–0.5) still read
+`not_on_document`, with "page quality low on p.N" in the confidence basis.
+`field_extractor.page_readability` is the rule; `attach_absent_evidence`
+applies it; `apply_decision_policy` sets the two `found_*` states and leaves
+absent and mismatch states alone. Schema-mismatch fields have
+`extraction_confidence: null`, `confidence_basis: "not computed: schema
+mismatch"`, routing `none`, and **do not count as needing review**
+(`field_needs_review` returns false); the document counts once —
+`attention_counts` gained `schema_mismatch`, `list_queue` emits one item of
+`kind: "schema_mismatch"` per such report (not in `total`, which stays the
+field count), `review_summary` gained `evidence_states` (a histogram) and
+`schema_mismatch`, and its first reason is "wrong document type — the
+fields of this type are not on the page".
+
+Surfaces: the card shows one amber line "Wrong document type — read as
+Medical claim?" (`Check type` → record); the queue shows one row of the
+same words; the record page's notice carries the line and the type
+selector pre-set to the suggestion, the Fields header reads "13 not
+applicable — wrong document type", and each row shows the evidence words
+under the state chip (`EVIDENCE_WORDS`: "Found, verified", "Found, needs a
+look", "Not on this document", "Page unreadable", "Wrong document type").
+`<family>_unknown` reads "Medical — type unknown".
+
+### Field-level confidence
+
+`page_layout` segments now carry `ocr_confidence` (mean of the jdf-cli
+`ocr.blocks[].confidence` inside that element; `None` on the text layer)
+and `local_quality` (= that OCR confidence when present). `build_found_field`
+uses the segment's local quality in place of the page score when it exists
+— the spec §4 product is unchanged, the factor is the nearer measurement —
+and the basis names it: `parser_default[jdf-cli] (0.85) × local_ocr (0.91) =
+0.77` versus `… × page_quality (0.28) = 0.24` for a field on a line the
+OCR did not measure. The field records `quality_source`
+(`local_ocr` | `page_quality`) and `local_quality`; `assess_number` receives
+the local OCR confidence for that field's digits.
+`quality_weighted_confidence(..., quality_label=…)` (both `quality_probe` and
+the extractor fallback) is where the label enters the basis.

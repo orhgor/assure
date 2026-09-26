@@ -209,8 +209,15 @@ def test_sidecar_bundle_holds_the_pdf_and_the_jdf(client):
     assert res.headers["Content-Type"] == "application/zip"
     archive = zipfile.ZipFile(io.BytesIO(res.data))
     names = archive.namelist()
-    assert len(names) == 2
-    assert any(name.endswith("-dossier.pdf") for name in names)
+    # Since 2026-09-26 the bundle also carries the dossier's own state and a
+    # manifest (docs/parsure.md, "Export"); the PDF member is present only where a
+    # renderer is, and the manifest says which.
+    assert "verification_state.json" in names and "manifest.json" in names
+    manifest = json.loads(archive.read("manifest.json"))
+    if manifest["pdf"]["included"]:
+        assert any(name.endswith("-dossier.pdf") for name in names)
+    else:
+        assert not any(name.endswith(".pdf") for name in names)
     inner = json.loads(archive.read([n for n in names if n.endswith(".jdf.json")][0]))
     assert inner["format"] == SIDECAR_FORMAT
     assert inner["document_sha256"] == sidecar_hash

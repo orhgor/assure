@@ -39,15 +39,31 @@ def test_classification_is_capped_heuristic_with_uncertain_fallback():
 
 
 def test_missing_field_is_none_zero_review_not_a_guess():
-    fields = _extract("Policy Number: X-1\nNamed Insured: A Person\n")
+    short = "Policy Number: X-1\nNamed Insured: A Person\n"
+    fields = _extract(short)
     missing = fields["vin"]
     assert missing["value"] is None and missing["raw"] is None
     assert missing["extraction_confidence"] == 0.0
     assert missing["review_required"] is True
-    assert missing["reason"] == "field not found"
-    assert missing["source_span"] is None and missing["provenance_confidence"] == 0.0
+    assert missing["provenance_confidence"] == 0.0
+    # 40 characters of text is not a readable page: its silence about the VIN
+    # is "could not be read", not "absent" (fx.READABLE_MIN_CHARS = 200).
+    assert missing["evidence_state"] == "unreadable" and missing["reason"] == "Page could not be read"
+    assert missing["source_span"] == {"span_type": "absent", "pages": [1]}
+    assert missing["evidence"]["kind"] == "absent" and missing["evidence"]["searched_pages"] == [1]
+    assert missing["evidence"]["searched_chars"] == len(short.strip()) and missing["evidence"]["anchor_node_id"] is None  # flat text: no node ids to anchor to
     fx.apply_decision_policy(missing)
     assert (missing["field_state"], missing["routing_action"]) == ("unverified", "manual_review")
+    assert missing["evidence_state"] == "unreadable"  # the policy does not overwrite an absent field's state
+    # On a readable page (≥ 200 chars, quality ≥ 0.5) the same silence is a fact about the document.
+    long_text = short + "Coverage notes. " * 20
+    absent = _extract(long_text)["vin"]
+    assert absent["evidence_state"] == "not_on_document" and absent["reason"] == "Not on this document type"
+    assert absent["confidence_basis"].startswith("not found on 1 page (")
+    low = _extract(long_text, page_quality=[0.28])["vin"]
+    assert low["evidence_state"] == "unreadable" and low["reason"] == "Page could not be read"  # quality < 0.3
+    mid = _extract(long_text, page_quality=[0.4])["vin"]
+    assert mid["evidence_state"] == "not_on_document" and "page quality low on p.1" in mid["confidence_basis"]
 
 
 def test_found_fields_carry_values_raw_and_text_range_spans():
@@ -202,7 +218,8 @@ def test_cross_document_conflicts_only_on_differing_values():
 def test_taxonomy_covers_every_icp_type_with_compliance_flags():
     for doc_type in fx.DOCUMENT_TYPES:
         specs = fx.FIELD_TAXONOMY[doc_type]
-        assert 6 <= len(specs) <= 12, doc_type
+        assert 6 <= len(specs) <= 13, doc_type  # CMS-1500 carries 13 (12 boxes + signature)
+        assert fx.TYPE_FAMILY[doc_type] in fx.DOCUMENT_FAMILIES
         assert all(s.field_type in fx.FIELD_TYPES for s in specs)
         assert any(s.field_type == "signature" and s.compliance_bound for s in specs)
     auto = {s.name: s for s in fx.FIELD_TAXONOMY["auto_policy"]}
@@ -285,3 +302,150 @@ def test_field_needs_review_is_the_one_rule():
     assert fx.field_needs_review({"routing_action": "none", "field_state": "disputed"}) is True
     assert fx.field_needs_review({}) is False  # no routing, no state: nothing asked
     assert fx.field_needs_review({"value": None, "routing_action": "none", "field_state": "unverified"}) is False  # not-found alone is not the rule; the policy routes it
+
+
+# --------------------------------------------------------------------------
+# Document family gate (2026-09-26): a CMS-1500 medical claim read as auto_policy
+# --------------------------------------------------------------------------
+
+#: A CMS-1500 (NUCC 02/12) health insurance claim form as its text layer reads.
+#: Box 10b literally asks "Auto Accident?" — the only auto_claim keyword on the
+#: page, and the one that started the customer's mis-typing.
+CMS_1500_LINES = [
+    "HEALTH INSURANCE CLAIM FORM",
+    "APPROVED BY NATIONAL UNIFORM CLAIM COMMITTEE (NUCC) 02/12   CMS-1500",
+    "1. MEDICARE [ ]  MEDICAID [ ]  GROUP HEALTH PLAN [X]",
+    "1a. Insured's I.D. Number: XYZ123456789",
+    "2. Patient's Name: Whitfield, Daniel R",
+    "3. Patient's Birth Date: 04/12/1978   Sex: M",
+    "4. Insured's Name: Whitfield, Daniel R",
+    "10b. Auto Accident? [ ] Yes [X] No   Place (State): MA",
+    "21. Diagnosis or Nature of Illness or Injury (ICD-10): A. S13.4XXA  B. M54.2",
+    "24. Date(s) of Service: 08/14/2025 to 08/14/2025   Place of Service: 11",
+    "24d. Procedures, Services, or Supplies (CPT/HCPCS): 99213, 97110",
+    "25. Federal Tax I.D. Number: 04-3456789",
+    "28. Total Charge: $385.00",
+    "29. Amount Paid: $40.00",
+    "31. Signature of Physician or Supplier: /s/ Alan Reyes, MD",
+    "32. Service Facility: Plymouth Spine Clinic",
+    "33. Billing Provider: Plymouth Spine Clinic, 12 Court St, Plymouth MA",
+    "33a. Rendering Provider NPI: 1234567893",
+]
+#: The same page with every medical cue gone — what a poor OCR pass leaves —
+#: plus the three shared insurance fields that won the customer's page for
+#: auto_policy (policy number, insured name, signature) and the word "accident".
+CMS_1500_NO_CUES_LINES = [
+    "CLAIM FORM (illegible header)",
+    "Policy Number: GHP-7781",
+    "Insured Name: Whitfield, Daniel R",
+    "Birth Date: 04/12/1978   Sex: M",
+    "10b. Auto Accident? [ ] Yes [X] No   Place (State): MA",
+    "21. Nature of Illness or Injury: A. S13.4XXA  B. M54.2",
+    "24. Service from 08/14/2025 to 08/14/2025",
+    "28. Charges: $385.00",
+    "29. Paid: $40.00",
+    "31. Signature of Physician or Supplier: /s/ Alan Reyes, MD",
+    "The remaining boxes could not be read by the scanner and are left as they were on the form itself.",
+]
+
+
+def test_document_family_names_the_dominant_family_or_none():
+    fam = fx.document_family("\n".join(CMS_1500_LINES))
+    assert fam["family"] == "medical" and fam["counts"]["auto"] == 0 and "no competing family" in fam["basis"]
+    assert {"cms-1500", "patient", "icd", "cpt", "npi"} <= set(fam["cues"])
+    # The lender-facing property page: auto 3 (exclusions), property 2 — no family dominates, the gate stays open.
+    fam = fx.document_family("\n".join(REAL_ESTATE_LINES))
+    assert fam["family"] == "unknown" and fam["counts"] == {"auto": 3, "property": 2, "real_estate_transaction": 0, "medical": 0}
+    assert fam["basis"].startswith("no family dominates (auto 3, property 2; margin over property is 1 < 2)")
+    assert fx.document_family("")["family"] == "unknown"
+    assert fx.document_family("Dear diary, today was fine.")["basis"] == "no family cue on the page"
+    assert fx.document_family("grantor grantee deed parcel")["family"] == "real_estate_transaction"
+    assert fx.type_allowed("auto_policy", "medical") is False and fx.type_allowed("medical_claim", "medical") is True
+    assert fx.type_allowed("auto_policy", "unknown") is True and fx.type_allowed("uncertain", "medical") is True
+    assert fx.type_allowed("medical_unknown", "medical") is True
+
+
+def test_cms_1500_with_the_word_accident_is_a_medical_claim_with_its_fields():
+    text = "\n".join(CMS_1500_LINES)
+    cls = fx.classify_document(text)
+    assert cls["document_type"] == "medical_claim" and cls["family"]["family"] == "medical"
+    assert "family gate: medical" in cls["basis"] and cls["confidence"] <= fx.CLASSIFICATION_CAP
+    assert "accident" not in cls["matched_keywords"]
+    found = fx.found_field_names("medical_claim", [text])
+    assert len(found) >= 6
+    assert {"patient_name", "insured_id", "patient_dob", "diagnosis_codes", "procedure_codes", "provider_npi", "total_charge"} <= set(found)
+    fields = _extract(text, "medical_claim")
+    assert fields["patient_name"]["value"] == "Whitfield, Daniel R"
+    assert fields["insured_id"]["value"] == "XYZ123456789" and fields["insured_id"]["compliance_bound"]
+    assert fields["patient_dob"]["value"] == "1978-04-12"
+    assert fields["insured_name"]["value"] == "Whitfield, Daniel R"
+    assert fields["diagnosis_codes"]["value"] == ["S13.4XXA", "M54.2"] and fields["diagnosis_codes"]["field_type"] == "codes"
+    assert fields["procedure_codes"]["value"] == ["99213", "97110"]
+    assert fields["date_of_service"]["value"] == "2025-08-14"
+    assert fields["provider_name"]["value"].startswith("Plymouth Spine Clinic")
+    assert fields["provider_npi"]["value"] == "1234567893" and fields["federal_tax_id"]["value"] == "04-3456789"
+    assert fields["total_charge"]["value"] == 385.0 and fields["amount_paid"]["value"] == 40.0
+    # The auto schema finds nothing type-specific on this page: only a shared date.
+    assert set(fx.type_specific_found("auto_policy", [text])) == set()
+    assert fx.SHARED_FIELD_NAMES == {"policy_number", "insured_name", "signature", "effective_date", "expiration_date"}
+
+
+def test_cms_1500_without_medical_cues_is_never_auto_policy():
+    text = "\n".join(CMS_1500_NO_CUES_LINES)
+    fam = fx.document_family(text)
+    assert fam["counts"]["medical"] == 0 and fam["family"] == "unknown"
+    cls = fx.classify_document(text)
+    assert cls["document_type"] == "uncertain" and len(cls["matched_keywords"]) == 1  # one stray keyword, as in the customer's `detected`
+    # The shared fields *are* on the page — that is exactly what used to win it for auto_policy.
+    assert set(fx.found_field_names("auto_policy", [text])) >= {"policy_number", "insured_name"}
+    assert fx.type_specific_found("auto_policy", [text]) == []
+
+
+def test_codes_are_parsed_as_lists_and_local_ocr_confidence_names_itself():
+    assert fx._parse_codes("A. S13.4XXA  B. M54.2") == ["S13.4XXA", "M54.2"]
+    assert fx._parse_codes("99213, 97110-59") == ["99213", "97110-59"]
+    assert fx._parse_codes("none") is None
+    # Field-level confidence: a low page (0.28) whose OCR read one line well.
+    bundle = {"jdf": {"pages": [{"pageSize": {"width": 210, "height": 297}, "elements": [
+        {"id": "el-1", "type": "image", "position": {"x": 10, "y": 10}, "width": 100, "ocr": {"blocks": [{"text": "Policy Number: AP-1", "confidence": 0.91}]}},
+        {"id": "el-2", "type": "image", "position": {"x": 10, "y": 30}, "width": 100, "ocr": {"blocks": [{"text": "Named Insured: John Q. Sample", "confidence": 0.30}]}},
+        {"id": "el-3", "type": "text", "position": {"x": 10, "y": 50}, "width": 100, "content": "Agent: Mary Agent"},
+    ]}]}}
+    layout = fx.page_layout(bundle)
+    assert [seg["ocr_confidence"] for seg in layout[0]] == [0.91, 0.3, None]
+    fields = {f["name"]: f for f in fx.extract_fields("auto_policy", fx.page_texts(bundle), layout=layout, parser_name="jdf-cli",
+                                                      parse_confidence=None, ocr_confidence=None, page_quality=[0.28])}
+    high, low, page = fields["policy_number"], fields["insured_name"], fields["agent_name"]
+    assert high["extraction_confidence"] > low["extraction_confidence"]
+    assert "local_ocr (0.91)" in high["confidence_basis"] and high["quality_source"] == "local_ocr" and high["local_quality"] == 0.91
+    assert "local_ocr (0.30)" in low["confidence_basis"] and high["confidence_basis"] != low["confidence_basis"]
+    assert "page_quality (0.28)" in page["confidence_basis"] and page["quality_source"] == "page_quality" and page["local_quality"] is None
+    assert high["extraction_confidence"] == pytest.approx(0.85 * 0.91, abs=0.01) and page["extraction_confidence"] == pytest.approx(0.85 * 0.28, abs=0.01)
+    # Absent fields on this parse are anchored to the first layout node and list what was searched.
+    absent = fields["vin"]
+    assert absent["field_source_node_id"] == "el-1" and absent["evidence"]["anchor_node_id"] == "el-1"
+    assert absent["evidence"]["searched_node_ids"] == ["el-1", "el-2", "el-3"] and absent["source_span"] == {"span_type": "absent", "pages": [1]}
+    assert absent["evidence_state"] == "unreadable"  # 3 short lines, quality 0.28
+
+
+def test_schema_mismatch_fields_do_not_ask_for_review_and_have_no_confidence():
+    fields = list(_extract().values())
+    for f in fields:
+        fx.apply_decision_policy(f)
+    assert {f["evidence_state"] for f in fields if f["value"] is not None} <= {"found_verified", "found_unverified"}
+    assert fields[0]["evidence_state"] in ("found_verified", "found_unverified")
+    fx.mark_schema_mismatch(fields)
+    for f in fields:
+        assert f["evidence_state"] == "schema_mismatch" and f["extraction_confidence"] is None
+        assert f["confidence_basis"] == "not computed: schema mismatch" and f["reason"] == "Wrong document type — fields not applicable"
+        assert fx.field_needs_review(f) is False
+        fx.apply_decision_policy(f)  # a second policy pass leaves them alone
+        assert f["evidence_state"] == "schema_mismatch" and f["routing_action"] == "none"
+    assert fx.cross_document_conflicts([{"report_id": "a", "fields": fields}, {"report_id": "b", "fields": [{"name": "policy_number", "value": "OTHER"}]}]) == []
+    # A Z3 violation on the anchor node of an absent field is not a violation of that field.
+    absent = fx.extract_fields("auto_policy", ["Policy Number: AP-1"], layout=[[{"start": 0, "end": 19, "text": "Policy Number: AP-1", "node_id": "n1", "bbox": None}]],
+                               parser_name="jdf-cli", parse_confidence=None, ocr_confidence=None, page_quality=[1.0])
+    vin = next(f for f in absent if f["name"] == "vin")
+    assert vin["field_source_node_id"] == "n1"
+    fx.attach_z3_violations(absent, [{"description": "x", "node_id": "n1"}])
+    assert vin["z3_violation"] is False and next(f for f in absent if f["name"] == "policy_number")["z3_violation"] is True

@@ -249,12 +249,15 @@ def test_llm_grounded_fill_merges_only_proven_values(db, monkeypatch):
     assert (fields["premium"]["field_state"], fields["premium"]["routing_action"]) == ("unverified", "manual_review")
     assert fields["collision_deductible"]["extraction_confidence"] == pytest.approx(0.85 * 0.85, abs=0.02)
     for name in ("agent_name", "comprehensive_deductible"):
-        assert fields[name]["value"] is None and fields[name]["reason"] == "field not found" and fields[name]["extraction_method"] is None
+        assert fields[name]["value"] is None and fields[name]["reason"] == "Not on this document type" and fields[name]["extraction_method"] is None
+        assert fields[name]["evidence_state"] == "not_on_document"  # 600+ readable characters on the page
     assert sum("llm candidate rejected" in n for n in r["extraction_notes"]) == 2
     assert any("4 field(s) grounded, 2 candidate(s) rejected" in n for n in r["extraction_notes"])
-    assert r["documents"] == [{"index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
-                               "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
-                               "fields_total": len(r["fields"]), "fields_found": sum(1 for f in r["fields"] if f["value"] is not None)}]
+    seg = r["documents"][0]
+    assert len(r["documents"]) == 1 and {k: seg[k] for k in ("index", "pages", "document_type", "confidence", "basis", "matched_keywords", "fields_total", "fields_found")} == {
+        "index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
+        "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
+        "fields_total": len(r["fields"]), "fields_found": sum(1 for f in r["fields"] if f["value"] is not None)}
     assert r["material_type"] == "pdf" and "mixed_bundle" not in r["quality_flags"]
     from prompt_matrix.db import parsure_repository as repo
 
@@ -397,18 +400,23 @@ def test_confident_or_productive_keyword_type_is_not_second_guessed(db, monkeypa
     monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
     r = _run(jdf_cli_bundle())["report"]  # auto_policy, 10/12 keywords, 12 fields found
     assert r["classification"]["document_type"] == "auto_policy" and "method" not in r["classification"]
-    assert r["documents"] == [{"index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
-                               "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
-                               "fields_total": 12, "fields_found": 11}]  # "/s/ Mary Agent" is a label hit, not measurable ink
+    seg = r["documents"][0]
+    assert {k: seg[k] for k in ("index", "pages", "document_type", "confidence", "basis", "matched_keywords", "fields_total", "fields_found")} == {
+        "index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
+        "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
+        "fields_total": 12, "fields_found": 11}  # "/s/ Mary Agent" is a label hit, not measurable ink
+    assert seg["family"]["family"] == "auto" and seg["validation"]["agrees"] is True and seg["schema_mismatch"] is False and seg["suggestion"] is None
+    assert r["classification"]["validation"] == seg["validation"] and r["classification"]["schema_mismatch"] is False
     # reclassify_by_evidence: the rule's three gates.
     texts = ["\n".join(REAL_ESTATE_LINES)]
     assert orch.reclassify_by_evidence("auto_claim", 0.7, texts) is None  # confident keyword answer stands
     assert orch.reclassify_by_evidence("auto_policy", 0.2, texts) is None  # 6 found > RECLASSIFY_MAX_FOUND
     out = orch.reclassify_by_evidence("auto_claim", 0.25, texts, keyword_hits=["claim number", "date of loss", "vehicle"])
     assert out["document_type"] == "property_policy" and out["basis"].endswith("(keywords said auto_claim, 3 hits)")
-    assert orch.reclassify_by_evidence("uncertain", 0.1, ["nothing here"]) is None  # no type finds 2 fields
+    assert orch.reclassify_by_evidence("uncertain", 0.1, ["nothing here"]) is None  # no type finds 3 fields
     out = orch.reclassify_by_evidence("uncertain", None, texts, keyword_hits=[])
     assert out["document_type"] == "property_policy" and out["basis"] == "reclassified by extraction evidence: property_policy 10/11 fields found (keywords said uncertain, 0 hits)"
+    assert out["evidence"]["type_specific"] == 6 and out["family"]["family"] == "unknown"  # 10 found, 4 of them shared
 
 
 def test_nothing_extracted_is_one_document_level_fact(db, monkeypatch):
@@ -555,8 +563,12 @@ def test_fields_address_the_jdf_chunk_and_the_tree_node():
     tree = {"body": [{"type": "section", "id": "sec-1", "children": [
         {"type": "paragraph", "id": "p-abc123", "content": text, "meta": {"chunk_id": "p1e0", "source_page": "1"}}]}]}
     n = attach_tree_node_ids(fields, tree)
-    assert n == len(found)
+    assert n == len(fields)  # found fields by their chunk, absent ones by the anchor they were searched from
     assert all(f["tree_node_id"] == "p-abc123" and f["source_span"]["node_id"] == "p-abc123" for f in found)
+    absent = [f for f in fields if f.get("value") is None]
+    assert absent and all(f["field_source_node_id"] == "p1e0" and f["tree_node_id"] == "p-abc123" and f["evidence"]["anchor_node_id"] == "p1e0" for f in absent)
+    integrity = orch.graph_integrity(fields)
+    assert integrity["orphans"] == 0 and integrity["anchored"] == integrity["fields"] == len(fields) and integrity["absent_anchored"] == len(absent)
     assert attach_tree_node_ids(fields, None) == 0  # no tree → nothing addressed, nothing invented
     # import path: the layout already names tree paragraphs — a direct id match counts too
     direct = [{"name": "x", "value": "1", "field_source_node_id": "p-abc123", "source_span": {"page": 1}}]
@@ -571,3 +583,148 @@ def test_tree_paragraphs_remember_their_chunk():
     tree = jdf_to_document_tree(jdf, chunks, document_id="doc-t", title="t.pdf", parse_meta={})
     paras = [n for sec in tree["body"] for n in sec.get("children", []) if n.get("type") == "paragraph"]
     assert paras and paras[0]["meta"]["chunk_id"] == "p1e0"
+
+
+# --------------------------------------------------------------------------
+# Document family gate, schema mismatch, evidence states, graph integrity
+# (customer report of 2026-09-26: a CMS-1500 medical claim read as auto_policy)
+# --------------------------------------------------------------------------
+
+from tests.test_field_extractor import CMS_1500_LINES, CMS_1500_NO_CUES_LINES  # noqa: E402
+
+#: Medical vocabulary as prose — six cues, no label anywhere: the family is
+#: certain, the schema is not (keyword confidence 6/16 < 0.7).
+MEDICAL_PROSE_LINES = [
+    "The patient was seen for a diagnosis of cervical strain after the auto accident and asked about the bill.",
+    "The rendering provider noted the ICD and CPT codes, and the total charge was sent to the plan administrator,",
+    "who said that payment would follow within thirty days once the paperwork had been reconciled at their office.",
+]
+
+
+def _tree_for(lines):
+    return {"body": [{"type": "section", "id": "sec-1", "children": [
+        {"type": "paragraph", "id": f"p-{i}", "content": line, "meta": {"chunk_id": "c1" if i == 0 else f"none-{i}"}} for i, line in enumerate(lines)]}]}
+
+
+def test_cms_1500_with_the_word_accident_becomes_a_medical_claim_not_an_auto_policy(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    r = _run(jdf_cli_bundle(CMS_1500_LINES), filename="cms1500.pdf", tree=_tree_for(CMS_1500_LINES))["report"]
+    cls = r["classification"]
+    assert cls["document_type"] == "medical_claim" and "method" not in cls and cls["schema_mismatch"] is False
+    assert cls["family"]["family"] == "medical" and cls["validation"] == {**cls["validation"], "family": "medical", "type_family": "medical", "agrees": True}
+    assert cls["validation"]["type_specific"] >= 6 and "accident" not in cls["matched_keywords"]
+    assert [f["name"] for f in r["fields"]] == [s.name for s in fx.FIELD_TAXONOMY["medical_claim"]]
+    assert r["review_summary"]["fields_found"] >= 6 and r["review_summary"]["schema_mismatch"] is False
+    fields = {f["name"]: f for f in r["fields"]}
+    assert fields["diagnosis_codes"]["value"] == ["S13.4XXA", "M54.2"] and fields["provider_npi"]["value"] == "1234567893"
+    assert fields["total_charge"]["evidence_state"] == "found_unverified"  # compliance-bound: found, a person confirms
+    assert fields["amount_paid"]["evidence_state"] == "found_verified"
+    # Every field is anchored — found ones on their element, the absent signature on the first layout node → tree root paragraph.
+    assert r["graph_integrity"]["orphans"] == 0 and r["graph_integrity"]["fields"] == r["graph_integrity"]["anchored"] == 13
+    assert all(f["field_source_node_id"] for f in r["fields"])
+    sig = fields["signature"]
+    assert sig["value"] is None and sig["evidence"]["kind"] == "absent" and sig["field_source_node_id"] == "el-0" and sig["tree_node_id"] == "sec-1"
+    assert sig["source_span"] == {"span_type": "absent", "pages": [1], "node_id": "sec-1"}
+    assert sig["evidence"]["searched_pages"] == [1] and sig["evidence"]["searched_node_ids"][:3] == ["el-0", "el-1", "el-2"] and sig["evidence"]["searched_chars"] > 500
+    assert set(r["review_summary"]["evidence_states"]) <= set(fx.EVIDENCE_STATES)
+    from prompt_matrix.db import parsure_repository as repo
+
+    ev = next(e for e in repo.list_events("default", report_id=r["report_id"]) if e["event_type"] == "classified")
+    assert ev["payload"]["validation"]["family"] == "medical" and ev["payload"]["schema_mismatch"] is False
+    ev = next(e for e in repo.list_events("default", report_id=r["report_id"]) if e["event_type"] == "fields_extracted")
+    assert ev["payload"]["graph_integrity"]["orphans"] == 0
+
+
+def test_cms_1500_without_medical_cues_stays_uncertain_never_auto_policy(db, monkeypatch):
+    """The customer's run, by construction: keywords found one stray word, the
+    page carries policy number / insured name / signature — the shared
+    fields — and the old evidence rule (≥ 2 found, any field) switched to
+    auto_policy. The gate now needs a type-specific field."""
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    texts = ["\n".join(CMS_1500_NO_CUES_LINES)]
+    assert set(fx.found_field_names("auto_policy", texts)) >= {"policy_number", "insured_name"}  # what used to win
+    assert orch.reclassify_by_evidence("uncertain", None, texts) is None
+    r = _run(jdf_cli_bundle(CMS_1500_NO_CUES_LINES), filename="cms1500-faint.pdf")["report"]
+    assert r["classification"]["document_type"] in ("uncertain", "medical_unknown")
+    assert r["classification"]["document_type"] != "auto_policy" and r["fields"] == []
+    assert r["classification"]["validation"]["agrees"] is True and r["classification"]["schema_mismatch"] is False
+    assert r["review_summary"]["reasons"][0]["reason"] == orch.UNCERTAIN_TYPE_REASON
+    # The model may not push it to auto_policy either: a suggestion confirmed only by shared fields is refused.
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "1")
+    calls = []
+    r = _run(jdf_cli_bundle(CMS_1500_NO_CUES_LINES), completion=lambda p: calls.append(p) or ("auto_policy" if "Which one of these" in p else "{}"),
+             result={"document_id": "d2", "revision_id": "r2", "version": 1})["report"]
+    assert calls and r["classification"]["document_type"] != "auto_policy"
+    assert any(n.startswith("model suggested auto_policy but only shared fields were found") for n in r["extraction_notes"]), r["extraction_notes"]
+
+
+def test_family_cues_without_a_fitting_schema_are_family_unknown_not_a_forced_schema(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    kw = fx.classify_document("\n".join(MEDICAL_PROSE_LINES))
+    assert kw["document_type"] == "medical_claim" and kw["confidence"] < orch.RECLASSIFY_BELOW_CONFIDENCE  # weak keyword answer
+    r = _run(jdf_cli_bundle(MEDICAL_PROSE_LINES), filename="letter.pdf")["report"]
+    cls = r["classification"]
+    assert cls["document_type"] == "medical_unknown" and cls["method"] == "family_fallback" and cls["schema_mismatch"] is True
+    assert cls["confidence"] is None and cls["detected"]["document_type"] == "medical_claim"
+    assert cls["suggestion"]["document_type"] == "medical_claim" and cls["suggestion"]["type_specific"] == 0
+    assert cls["basis"].startswith("family medical (") and "no medical schema fits" in cls["basis"] and "no schema is forced" in cls["basis"]
+    assert cls["validation"]["family"] == "medical" and cls["validation"]["type_family"] == "medical" and cls["validation"]["agrees"] is True
+    assert r["fields"] == [] and r["review_summary"]["fields_review"] == 0 and r["review_summary"]["schema_mismatch"] is True
+    assert r["review_summary"]["reasons"][0] == {"reason": orch.SCHEMA_MISMATCH_REASON, "count": 1}
+    assert r["quality_report"]["extraction_sentence"] == "Wrong document type — read as Medical claim?"
+    assert r["quality_report"]["summary"].startswith("Wrong document type — read as Medical claim? ")
+    assert any(n.startswith("family fallback: medical_unknown") for n in r["extraction_notes"])
+    assert orch.type_words("medical_unknown") == "Medical — type unknown"
+    # A confident keyword type is not second-guessed by the fallback: the "nothing extracted as Auto claim" path stays.
+    assert orch.family_fallback("auto_claim", 0.9, ["\n".join(CLAIM_PROSE_LINES)]) is None
+    assert orch.family_fallback("uncertain", None, ["nothing here"]) is None  # no family, no fallback
+    # The family's schema is chosen when it does find type-specific fields, at the found ratio.
+    out = orch.family_fallback("uncertain", None, ["\n".join(CMS_1500_LINES)], keyword_hits=[])
+    assert out["document_type"] == "medical_claim" and out["method"] == "family_evidence" and out["schema_mismatch"] is False
+    assert out["evidence"]["type_specific"] == 11 and 0 < out["confidence"] <= fx.CLASSIFICATION_CAP
+
+
+def test_override_to_a_wrong_family_marks_the_schema_mismatch_once(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    report = orch.build_report("default", bundle=jdf_cli_bundle(CMS_1500_LINES), verification=VERIFICATION, filename="cms.pdf", result=RESULT,
+                               job_id=None, intake=None, tree=_tree_for(CMS_1500_LINES))
+    orch.reextract_for_type(report, "auto_policy")
+    cls = report["classification"]
+    assert cls["validation"]["agrees"] is False and cls["validation"]["family"] == "medical" and cls["validation"]["type_family"] == "auto"
+    assert cls["schema_mismatch"] is True and cls["suggestion"]["document_type"] == "medical_claim" and cls["suggestion"]["type_specific"] >= 6
+    assert len(report["fields"]) == len(fx.FIELD_TAXONOMY["auto_policy"])
+    for f in report["fields"]:
+        assert f["evidence_state"] == "schema_mismatch" and f["extraction_confidence"] is None
+        assert f["confidence_basis"] == "not computed: schema mismatch" and f["reason"] == "Wrong document type — fields not applicable"
+        assert f["routing_action"] == "none" and fx.field_needs_review(f) is False
+        assert f["field_source_node_id"]  # anchored even so
+    assert report["review_summary"]["fields_review"] == 0 and report["review_summary"]["schema_mismatch"] is True
+    assert report["review_summary"]["reasons"][0]["reason"] == orch.SCHEMA_MISMATCH_REASON
+    assert report["quality_report"]["summary"].startswith("Wrong document type — read as Medical claim? ")
+    assert report["graph_integrity"]["orphans"] == 0 and report["graph_integrity"]["fields"] == len(report["fields"])
+    assert any(n.startswith("llm extraction skipped: schema mismatch") for n in report["extraction_notes"])
+    # A reviewer's override to a type whose fields ARE on the page stands even when the cues disagree.
+    orch.reextract_for_type(report, "medical_claim")
+    assert report["classification"]["schema_mismatch"] is False and report["review_summary"]["fields_found"] >= 6
+    assert {f["evidence_state"] for f in report["fields"]} <= {"found_verified", "found_unverified", "not_on_document", "unreadable"}
+
+
+def test_evidence_states_separate_absent_from_unreadable(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    # Readable page (≥ 200 chars, quality from the text signals ≈ 1.0): a missing field is not on the document.
+    r = _run(jdf_cli_bundle(POLICY_LINES + ["Notes: " + "the policy continues as written. " * 8]))["report"]
+    fields = {f["name"]: f for f in r["fields"]}
+    assert fields["policy_number"]["evidence_state"] == "found_unverified"  # compliance-bound
+    assert fields["collision_deductible"]["evidence_state"] == "found_verified"
+    assert r["review_summary"]["evidence_states"]["found_verified"] >= 1
+    # Unreadable page: little text, or a low visual quality.
+    r = _run(jdf_cli_bundle(SHORT_LINES), result={"document_id": "d2", "revision_id": "r2", "version": 1})["report"]
+    assert r["fields"] and all(f["evidence_state"] == "unreadable" and f["reason"] == "Page could not be read" for f in r["fields"] if f["field_type"] != "signature")
+    assert r["review_summary"]["evidence_states"] == {"unreadable": len(r["fields"])}
+    intake = {"visual_pages": [{"page": 1, "dpi_estimate": 60.0, "blur_variance": 10.0, "contrast_std": 5.0, "contrast_range": 8, "flags": ["low_res", "blurry", "low_contrast"], "basis": "bad"}]}
+    r = _run(jdf_cli_bundle(CLAIM_PROSE_LINES + ["Claim Number: CLM-1"]), intake=intake, result={"document_id": "d3", "revision_id": "r3", "version": 1})["report"]
+    assert r["pages"][0]["quality_score"] is not None and r["pages"][0]["quality_score"] < 0.3
+    absent = [f for f in r["fields"] if f["value"] is None and f["field_type"] != "signature"]
+    assert absent and all(f["evidence_state"] == "unreadable" for f in absent)
+    found = next(f for f in r["fields"] if f["name"] == "claim_number")
+    assert found["evidence_state"] == "found_unverified" and "page_quality (" in found["confidence_basis"]

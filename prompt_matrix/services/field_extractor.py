@@ -11,7 +11,19 @@ Boundaries, so this does not become a second router or verifier (spec §8):
 * Classification is a keyword count (``classify_document``). Its confidence is
   the share of a type's keywords matched, capped at 0.9 — a keyword heuristic
   cannot earn more than that, and the cap is stated here so nobody reads 0.9
-  as a model probability.
+  as a model probability. Before any type competes, ``document_family``
+  reads the page's strong cues (auto / property / real_estate_transaction /
+  medical) and only the named family's schemas may be chosen
+  (``type_allowed``); the orchestrator applies the same gate to the evidence
+  rule and the model suggestion, and a switch needs a *type-specific* field,
+  not one every insurance form shares (``SHARED_FIELD_NAMES``). Customer
+  case, 2026-09-26: a CMS-1500 medical claim became ``auto_policy`` on the
+  keyword "accident" plus policy number / insured name / signature.
+* Every field is anchored, found or not. A found field names the node its
+  value sits on; an absent one names what was searched and the first layout
+  node as ``anchor_node_id`` (``attach_absent_evidence``), so the provenance
+  graph has no orphan. ``evidence_state`` (``EVIDENCE_STATES``) says which
+  of five things happened; it never mixes with ``field_state`` / routing.
 * Extraction is label-anchored regex per page (``extract_fields``). A field
   whose label or value is not found is ``value=None``,
   ``extraction_confidence=0.0``, ``review_required=True``,
@@ -72,7 +84,24 @@ DOCUMENT_TYPES = (
     "auto_policy", "auto_claim", "auto_title",
     "property_policy", "property_claim",
     "deed", "mortgage", "title", "closing",
+    "medical_claim",
 )
+
+#: The document family each type belongs to. A type may be chosen only when
+#: its family agrees with the family the page's cues name (``document_family``)
+#: or when no family dominates. Added 2026-09-26 after a customer's CMS-1500
+#: medical claim was read as ``auto_policy``: the only keyword hit was
+#: "accident", and the evidence rule then switched to the auto schema on the
+#: strength of fields every insurance form shares (policy number, insured
+#: name, signature).
+TYPE_FAMILY: dict[str, str] = {
+    "auto_policy": "auto", "auto_claim": "auto", "auto_title": "auto",
+    "property_policy": "property", "property_claim": "property",
+    "deed": "real_estate_transaction", "mortgage": "real_estate_transaction",
+    "title": "real_estate_transaction", "closing": "real_estate_transaction",
+    "medical_claim": "medical",
+}
+DOCUMENT_FAMILIES = ("auto", "property", "real_estate_transaction", "medical")
 
 #: Keyword lists per ICP type. Matched case-insensitively as whole phrases.
 #: The first few of each list are the discriminating phrases; the rest are
@@ -118,7 +147,35 @@ TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
         "closing disclosure", "settlement statement", "closing date", "cash to close", "loan costs",
         "seller", "buyer", "settlement agent", "prorations", "disbursement", "hud-1", "sale price",
     ),
+    # CMS-1500 (NUCC 02/12) vocabulary; the same words are the medical
+    # family's cues in ``FAMILY_CUES``.
+    "medical_claim": (
+        "cms-1500", "health insurance claim form", "patient", "insured's id number", "insured's i.d. number",
+        "diagnosis", "icd", "cpt", "npi", "place of service", "total charge", "amount paid",
+        "rendering provider", "medicare", "medicaid", "group health plan",
+    ),
 }
+
+#: Strong cues per family — words that name the *kind* of document, not the
+#: vocabulary two kinds share ("premium", "deductible", "claim", "accident" are
+#: on auto, property and medical forms alike; CMS-1500 box 10b literally asks
+#: "Auto Accident?"). Matched as whole phrases, case-insensitive.
+FAMILY_CUES: dict[str, tuple[str, ...]] = {
+    "auto": ("vin", "vehicle identification", "vehicle", "collision", "automobile", "odometer", "lienholder", "auto policy"),
+    "property": ("dwelling", "coverage a", "homeowners", "hazard insurance", "personal property", "property insurance", "insured location"),
+    "real_estate_transaction": (
+        "deed", "grantor", "grantee", "mortgagee", "borrower", "lender", "promissory note", "closing disclosure",
+        "settlement statement", "title commitment", "legal description", "parcel", "escrow",
+    ),
+    "medical": TYPE_KEYWORDS["medical_claim"],
+}
+#: A family is named when its cue count reaches this …
+FAMILY_MIN_CUES = 2
+#: … and leads the runner-up by at least this. A lender-facing property
+#: declarations page whose exclusions mention "vehicle", "VIN" and "collision"
+#: (customer file, 2026-09-26) scores auto 3 / property 2: no family dominates,
+#: the gate stays open and the label pass decides as before.
+FAMILY_MARGIN = 2
 
 #: Fewer matched keywords than this and the heuristic will not name a type.
 MIN_KEYWORD_MATCHES = 3
@@ -131,6 +188,46 @@ def _keyword_hits(text_lower: str, keywords: tuple[str, ...]) -> list[str]:
         if re.search(pattern, text_lower):
             hits.append(kw)
     return hits
+
+
+def document_family(text: str) -> dict[str, Any]:
+    """``{"family", "cues", "counts", "basis"}`` — which kind of document the
+    page's strong cues name, or ``"unknown"`` when none dominates.
+
+    Counts ``FAMILY_CUES`` per family; the leader is named when it has at
+    least ``FAMILY_MIN_CUES`` hits and leads the runner-up by
+    ``FAMILY_MARGIN``. Anything else is ``unknown`` with the competing counts
+    in ``basis``. This is a gate, not a classifier: it never names a type,
+    it only says which schemas may be tried (``classify_document``,
+    ``v1_orchestrator.reclassify_by_evidence``).
+    """
+    text_lower = (text or "").lower()
+    if not text_lower.strip():
+        return {"family": "unknown", "cues": [], "counts": {}, "basis": "no text"}
+    hits = {fam: _keyword_hits(text_lower, cues) for fam, cues in FAMILY_CUES.items()}
+    counts = {fam: len(h) for fam, h in hits.items()}
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], DOCUMENT_FAMILIES.index(kv[0])))
+    (top, top_n), (second, second_n) = ranked[0], ranked[1]
+    if top_n >= FAMILY_MIN_CUES and top_n - second_n >= FAMILY_MARGIN:
+        others = ", ".join(f"{fam} {n}" for fam, n in ranked[1:] if n)
+        return {
+            "family": top, "cues": hits[top], "counts": counts,
+            "basis": f"{top}: {top_n} cue{'s' if top_n != 1 else ''} ({', '.join(hits[top][:6])})" + (f"; next {others}" if others else "; no competing family"),
+        }
+    if top_n == 0:
+        return {"family": "unknown", "cues": [], "counts": counts, "basis": "no family cue on the page"}
+    competing = ", ".join(f"{fam} {n}" for fam, n in ranked if n)
+    why = f"below {FAMILY_MIN_CUES} cues" if top_n < FAMILY_MIN_CUES else f"margin over {second} is {top_n - second_n} < {FAMILY_MARGIN}"
+    return {"family": "unknown", "cues": hits[top], "counts": counts, "basis": f"no family dominates ({competing}; {why})"}
+
+
+def type_allowed(document_type: Any, family: Any) -> bool:
+    """The family gate: a type may be chosen when its family agrees with the
+    detected family, or no family was detected. Types outside the taxonomy
+    (``uncertain``, ``mixed_bundle``, ``<family>_unknown``) are never gated."""
+    fam = str(family or "unknown")
+    type_fam = TYPE_FAMILY.get(str(document_type or ""))
+    return type_fam is None or fam == "unknown" or type_fam == fam
 
 
 #: Two types whose keyword counts differ by at most this are a near-tie; the
@@ -156,12 +253,22 @@ def classify_document(text: str) -> dict[str, Any]:
     page as ``auto_claim`` because its exclusions mention "claim", "date of
     loss" and "vehicle" (customer report, 2026-09-26); its fields are
     property-policy fields, and that is the evidence that counts.
+
+    Family gate (2026-09-26, CMS-1500 read as ``auto_policy``): when
+    ``document_family`` names a family, only that family's types compete; the
+    answer carries ``family`` so the caller can validate the final type
+    against it. A one-type family (medical) therefore needs its own keywords
+    to reach ``MIN_KEYWORD_MATCHES``, or the answer is ``uncertain`` and the
+    orchestrator's family fallback decides.
     """
     text_lower = (text or "").lower()
     if not text_lower.strip():
-        return {"document_type": "uncertain", "confidence": 0.0, "basis": "no text to classify", "matched_keywords": []}
+        return {"document_type": "uncertain", "confidence": 0.0, "basis": "no text to classify", "matched_keywords": [],
+                "family": {"family": "unknown", "cues": [], "counts": {}, "basis": "no text"}}
+    family = document_family(text)
+    candidates = [t for t in DOCUMENT_TYPES if type_allowed(t, family["family"])]
     scored: list[tuple[str, list[str]]] = []
-    for doc_type in DOCUMENT_TYPES:
+    for doc_type in candidates:
         hits = _keyword_hits(text_lower, TYPE_KEYWORDS[doc_type])
         scored.append((doc_type, hits))
     scored.sort(key=lambda item: len(item[1]), reverse=True)
@@ -169,12 +276,22 @@ def classify_document(text: str) -> dict[str, Any]:
     second_type, second_hits = scored[1] if len(scored) > 1 else (None, [])
     ratio = len(best_hits) / max(1, len(TYPE_KEYWORDS[best_type]))
     confidence = round(min(CLASSIFICATION_CAP, ratio), 3)
+    gate_note = f"; family gate: {family['family']} ({family['basis']})" if family["family"] != "unknown" else ""
     if len(best_hits) < MIN_KEYWORD_MATCHES:
         return {
             "document_type": "uncertain",
             "confidence": confidence,
-            "basis": f"only {len(best_hits)} keyword(s) matched for {best_type}; below minimum {MIN_KEYWORD_MATCHES}",
+            "basis": f"only {len(best_hits)} keyword(s) matched for {best_type}; below minimum {MIN_KEYWORD_MATCHES}{gate_note}",
             "matched_keywords": best_hits,
+            "family": family,
+        }
+    if second_type is None:
+        return {
+            "document_type": best_type,
+            "confidence": confidence,
+            "basis": f"keyword heuristic: {len(best_hits)}/{len(TYPE_KEYWORDS[best_type])} {best_type} keywords matched (only type of its family){gate_note}; capped at {CLASSIFICATION_CAP}",
+            "matched_keywords": best_hits,
+            "family": family,
         }
     if second_type is not None and len(best_hits) - len(second_hits) <= NEAR_TIE_MARGIN:
         best_found = count_found_fields(best_type, [text])
@@ -189,25 +306,28 @@ def classify_document(text: str) -> dict[str, Any]:
                 "basis": (
                     f"keyword near-tie ({best_type} {len(best_hits)}, {second_type} {len(second_hits)}) decided by the label pass: "
                     f"{winner} {winner_found}/{len(FIELD_TAXONOMY[winner])} fields found vs {loser} {loser_found}/{len(FIELD_TAXONOMY[loser])}; "
-                    f"capped at {CLASSIFICATION_CAP}"
+                    f"capped at {CLASSIFICATION_CAP}{gate_note}"
                 ),
                 "matched_keywords": winner_hits,
+                "family": family,
             }
     if len(second_hits) == len(best_hits):
         return {
             "document_type": "uncertain",
             "confidence": confidence,
-            "basis": f"tie between {best_type} and {scored[1][0]} ({len(best_hits)} keywords each; label pass found the same number of fields for both)",
+            "basis": f"tie between {best_type} and {scored[1][0]} ({len(best_hits)} keywords each; label pass found the same number of fields for both){gate_note}",
             "matched_keywords": best_hits,
+            "family": family,
         }
     return {
         "document_type": best_type,
         "confidence": confidence,
         "basis": (
             f"keyword heuristic: {len(best_hits)}/{len(TYPE_KEYWORDS[best_type])} {best_type} keywords matched "
-            f"(next: {scored[1][0]} {len(second_hits)}); capped at {CLASSIFICATION_CAP}"
+            f"(next: {scored[1][0]} {len(second_hits)}){gate_note}; capped at {CLASSIFICATION_CAP}"
         ),
         "matched_keywords": best_hits,
+        "family": family,
     }
 
 
@@ -215,7 +335,8 @@ def classify_document(text: str) -> dict[str, Any]:
 # Field taxonomy
 # --------------------------------------------------------------------------
 
-FIELD_TYPES = ("text", "number", "money", "date", "vin", "name", "signature")
+#: ``codes``: a list of ICD-10 / CPT / HCPCS codes as written (CMS-1500 boxes 21 and 24d).
+FIELD_TYPES = ("text", "number", "money", "date", "vin", "name", "signature", "codes")
 
 
 @dataclass(frozen=True)
@@ -253,6 +374,10 @@ _DATE_OF_LOSS = _f("date_of_loss", "Date of loss", "date", (r"date\s+of\s+loss",
 _ADJUSTER = _f("adjuster_name", "Adjuster", "name", (r"adjuster(?:\s+name)?",))
 _EST_DAMAGE = _f("estimated_damage", "Estimated damage", "money", (r"estimated\s+(?:damage|repair\s+cost|loss)", r"damage\s+estimate", r"repair\s+estimate"))
 _PROPERTY_ADDRESS = _f("property_address", "Property address", "text", (r"property\s+address", r"insured\s+location", r"premises", r"property\s+located\s+at"))
+#: CMS-1500 writes "INSURED'S NAME"; the shared insured-name anchor stops at the
+#: apostrophe (so "Insured's Signature" is not a name), hence a form-specific spec
+#: under the same field name — it stays a *shared* field for the family gate.
+_MEDICAL_INSURED_NAME = _f("insured_name", "Insured name", "name", (r"insured'?s?\s+name", r"(?:named\s+)?insured(?:\s+name)?(?!\s*(?:location|address|property|vehicle|party|signature|i\.?d))"))
 
 FIELD_TAXONOMY: dict[str, list[FieldSpec]] = {
     "auto_policy": [
@@ -333,7 +458,40 @@ FIELD_TAXONOMY: dict[str, list[FieldSpec]] = {
         _f("settlement_agent", "Settlement agent", "name", (r"settlement\s+agent", r"closing\s+agent")),
         _SIGNATURE,
     ],
+    # CMS-1500 (NUCC 02/12) box numbers in the labels' order: 2, 1a, 3, 4, 21,
+    # 24d, 24a, 33/32, 24j/33a, 25, 28, 29, 31.
+    "medical_claim": [
+        _f("patient_name", "Patient name", "name", (r"patient'?s?\s+name", r"name\s+of\s+patient")),
+        _f("insured_id", "Insured's ID number", "text", (r"insured'?s?\s+i\.?d\.?\s*(?:no\.?|number|#)?", r"(?:member|subscriber)\s+i\.?d\.?(?:\s*(?:no\.?|number|#))?", r"medicare\s+(?:no\.?|number|i\.?d\.?)"), True),
+        _f("patient_dob", "Patient date of birth", "date", (r"patient'?s?\s+(?:birth\s+date|date\s+of\s+birth|dob)", r"date\s+of\s+birth", r"birth\s+date", r"dob")),
+        _MEDICAL_INSURED_NAME,
+        _f("diagnosis_codes", "Diagnosis codes (ICD)", "codes", (
+            r"diagnosis(?:\s+or\s+nature\s+of\s+illness(?:\s+or\s+injury)?)?(?:\s*\((?:icd|dx)[^)]*\))?(?:\s+codes?)?",
+            r"icd(?:-?\s*(?:9|10)(?:-cm)?)?(?:\s+codes?)?", r"dx(?:\s+codes?)?",
+        )),
+        _f("procedure_codes", "Procedure codes (CPT/HCPCS)", "codes", (
+            r"procedures?(?:,\s*services,?\s*(?:or\s+)?supplies)?(?:\s*\((?:cpt|hcpcs)[^)]*\))?(?:\s+codes?)?",
+            r"(?:cpt|hcpcs)(?:\s*/\s*hcpcs)?(?:\s+codes?)?",
+        )),
+        _f("date_of_service", "Date of service", "date", (r"dates?(?:\(s\))?\s+of\s+service(?:\s+from)?", r"service\s+dates?(?:\s+from)?", r"dos")),
+        _f("provider_name", "Provider", "name", (
+            r"(?:rendering|billing)\s+provider(?:\s+(?:name|info(?:rmation)?))?(?:\s*&\s*ph\.?\s*#?)?", r"provider\s+name",
+            r"service\s+facility(?:\s+(?:name|location(?:\s+information)?))?", r"physician(?:\s+name)?",
+        )),
+        _f("provider_npi", "Provider NPI", "text", (r"(?:rendering\s+|billing\s+)?(?:provider\s+)?npi(?:\s*(?:no\.?|number|#))?",), True),
+        _f("federal_tax_id", "Federal tax ID", "text", (r"federal\s+tax\s+i\.?d\.?(?:\s*(?:no\.?|number|#))?", r"tax\s+i\.?d\.?(?:\s*(?:no\.?|number|#))?", r"(?:ein|tin)(?:\s*(?:no\.?|number|#))?"), True),
+        _f("total_charge", "Total charge", "money", (r"total\s+charges?",), True),
+        _f("amount_paid", "Amount paid", "money", (r"amount\s+paid",)),
+        _SIGNATURE,
+    ],
 }
+
+#: Fields whose presence says nothing about the document's kind: every
+#: insurance form carries a policy number, an insured, dates and a signature.
+#: The evidence rule and the model confirmation require at least one field
+#: *outside* this set before a type may be chosen — the customer's CMS-1500
+#: (2026-09-26) was switched to ``auto_policy`` by exactly these.
+SHARED_FIELD_NAMES = frozenset({"policy_number", "insured_name", "signature", "effective_date", "expiration_date"})
 
 # --------------------------------------------------------------------------
 # Extraction evidence — cheap label-pass counts used to check a classification
@@ -362,6 +520,19 @@ def count_found_fields(document_type: str, page_texts_in: list[str]) -> int:
     return found
 
 
+def found_field_names(document_type: str, page_texts_in: list[str]) -> list[str]:
+    """The names ``count_found_fields`` counts, in taxonomy order (signature excluded)."""
+    specs = [s for s in (FIELD_TAXONOMY.get(document_type) or []) if s.field_type != "signature"]
+    texts = [t or "" for t in (page_texts_in or [])]
+    return [spec.name for spec in specs if any(_find_field(spec, text) for text in texts if text)]
+
+
+def type_specific_found(document_type: str, page_texts_in: list[str]) -> list[str]:
+    """Found fields of ``document_type`` that are not in ``SHARED_FIELD_NAMES`` —
+    the evidence that this schema, and not any insurance form, is on the page."""
+    return [n for n in found_field_names(document_type, page_texts_in) if n not in SHARED_FIELD_NAMES]
+
+
 def found_field_counts(page_texts_in: list[str]) -> dict[str, int]:
     """``count_found_fields`` for every type in ``FIELD_TAXONOMY``, in taxonomy order."""
     return {doc_type: count_found_fields(doc_type, page_texts_in) for doc_type in FIELD_TAXONOMY}
@@ -379,6 +550,11 @@ def field_needs_review(field: dict[str, Any]) -> bool:
     customer read "Need attention: 3" next to "62 items" as a broken count:
     one figure counted documents, the other fields, by two different rules.
     """
+    if field.get("evidence_state") == "schema_mismatch":
+        # The document is wrong for these fields, not the fields for the
+        # document: the report asks for a person once (``classification.
+        # schema_mismatch``), never thirteen times.
+        return False
     routing = str(field.get("routing_action") or "none").lower()
     return routing != "none" or field.get("field_state") in ("disputed", "rejected")
 
@@ -398,6 +574,11 @@ _DATE_RE = (
 )
 _VIN_RE = r"([A-Za-z0-9]{17})"
 _TEXT_RE = r"([^\n]{1,160})"
+#: One ICD-10-CM code (letter, two digits, optional .1–4 alphanumerics: S13.4XXA)
+#: or one CPT/HCPCS code (five digits, optional -modifier: 99213-25), each
+#: optionally led by the CMS-1500 pointer letter ("A. S13.4XXA").
+_CODE_ITEM = r"(?:[A-L]\.\s*)?(?:[A-Z]\d{2}(?:\.[0-9A-Z]{1,4})?|\d{5}(?:-[0-9A-Z]{2})?)"
+_CODES_RE = r"(" + _CODE_ITEM + r"(?:[ \t,;]+" + _CODE_ITEM + r")*)"
 _MONTHS = {m: i for i, m in enumerate(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), start=1)}
 
 
@@ -450,6 +631,13 @@ def _parse_number(raw: str) -> float | None:
         return float(m.group(0).replace(",", ""))
     except ValueError:
         return None
+
+
+def _parse_codes(raw: str) -> list[str] | None:
+    """The code tokens of a ``codes`` capture, pointer letters dropped, upper-cased."""
+    codes = [re.sub(r"^[A-La-l]\.\s*", "", tok).upper() for tok in re.split(r"[ \t,;]+", raw.strip()) if tok.strip()]
+    codes = [c for c in codes if re.fullmatch(r"[A-Z]\d{2}(?:\.[0-9A-Z]{1,4})?|\d{5}(?:-[0-9A-Z]{2})?", c)]
+    return codes or None
 
 
 def _clean_text_value(raw: str) -> str:
@@ -630,6 +818,7 @@ def quality_weighted_confidence(
     number_quality: str | None = None,
     z3_violation: bool = False,
     signature_quality: str | None = None,
+    quality_label: str = "page_quality",
 ) -> tuple[float, str]:
     """``extraction_confidence`` and the ``confidence_basis`` that spells it out.
 
@@ -637,7 +826,10 @@ def quality_weighted_confidence(
     otherwise the spec §4 product with the spec's defaults. When nothing but
     defaults would enter the product, the answer is the flat 0.50 with the
     "no_signal_available" basis — a default multiplied by a default is not a
-    measurement.
+    measurement. ``quality_label`` names the quality factor in the basis:
+    ``page_quality`` (the page-global score) or ``local_ocr`` (the OCR
+    confidence of the line the value sits on — spec §4 formula unchanged,
+    the factor is just the nearer measurement; added 2026-09-26).
     """
     qp = _quality_probe()
     if qp is not None and hasattr(qp, "quality_weighted_confidence"):
@@ -645,6 +837,7 @@ def quality_weighted_confidence(
             value, basis = qp.quality_weighted_confidence(
                 parser_confidence=parser_confidence, parser_name=parser_name, page_quality=page_quality,
                 number_quality=number_quality, z3_violation=z3_violation, signature_quality=signature_quality,
+                quality_label=quality_label,
             )
             return float(value), str(basis)
         except Exception:
@@ -662,7 +855,7 @@ def quality_weighted_confidence(
     pc = float(parser_confidence) if parser_confidence is not None else parser_confidence_default(parser_name)
     parts.append(f"parser_confidence ({pc:.2f}{'' if parser_confidence is not None else ', default'})")
     pq = float(page_quality) if page_quality is not None else NEUTRAL_PAGE_QUALITY
-    parts.append(f"page_quality ({pq:.2f}{'' if page_quality is not None else ', neutral default'})")
+    parts.append(f"{quality_label} ({pq:.2f}{'' if page_quality is not None else ', neutral default'})")
     value = pc * pq
     if number_quality and number_quality in number_penalties and number_penalties[number_quality] < 1.0:
         pen = number_penalties[number_quality]
@@ -694,6 +887,16 @@ def _element_text(el: dict) -> str:
         if joined:
             return joined
     return ""
+
+
+def _element_ocr_confidence(el: dict) -> float | None:
+    """Mean of jdf-cli's ``ocr.blocks[].confidence`` inside one element, or None
+    when the element carries no OCR (text-layer elements)."""
+    ocr = el.get("ocr")
+    if not isinstance(ocr, dict):
+        return None
+    confs = [float(b["confidence"]) for b in ocr.get("blocks") or [] if isinstance(b, dict) and isinstance(b.get("confidence"), (int, float))]
+    return round(sum(confs) / len(confs), 4) if confs else None
 
 
 def _element_bbox(el: dict, page: dict) -> list[float] | None:
@@ -783,9 +986,14 @@ def _attach_chunk_ids(layouts: list[list[dict]], chunks: Any) -> None:
 def page_layout(bundle: dict) -> list[list[dict]]:
     """Per page, the text segments in reading order with their provenance.
 
-    Each segment: ``{"start", "end", "text", "node_id", "bbox"}`` where
-    ``start``/``end`` are offsets into that page's text as ``page_texts``
-    returns it (segments joined by ``"\\n"``). Handles the three shapes the
+    Each segment: ``{"start", "end", "text", "node_id", "bbox",
+    "ocr_confidence", "local_quality"}`` where ``start``/``end`` are offsets
+    into that page's text as ``page_texts`` returns it (segments joined by
+    ``"\\n"``). ``ocr_confidence`` is the mean jdf-cli block confidence inside
+    that element (None on the text layer) and ``local_quality`` is the
+    quality factor a field on that segment should use — the OCR confidence
+    when there is one, else None so the caller falls back to the page score
+    (the visual probe's factors are page-global). Handles the three shapes the
     ingest produces: jdf-cli ``pages[].elements[]`` (``content``/``text`` +
     ``position``; OCR ``ocr.blocks``), the Assure tree ``body[].children[]``
     (paragraph ``content`` with node ids, page from ``meta.source_page``),
@@ -798,14 +1006,17 @@ def page_layout(bundle: dict) -> list[list[dict]]:
     def _append(segments: list[dict]) -> None:
         layouts.append(segments)
 
-    def _segments_from(items: list[tuple[str, str | None, list[float] | None]]) -> list[dict]:
+    def _segments_from(items: list[tuple]) -> list[dict]:
         segs: list[dict] = []
         cursor = 0
-        for text, node_id, bbox in items:
+        for item in items:
+            text, node_id, bbox = item[0], item[1], item[2]
+            ocr_conf = item[3] if len(item) > 3 else None
             text = text.rstrip("\n")
             if not text.strip():
                 continue
-            segs.append({"start": cursor, "end": cursor + len(text), "text": text, "node_id": node_id, "bbox": bbox})
+            segs.append({"start": cursor, "end": cursor + len(text), "text": text, "node_id": node_id, "bbox": bbox,
+                         "ocr_confidence": ocr_conf, "local_quality": ocr_conf})
             cursor += len(text) + 1
         return segs
 
@@ -820,7 +1031,7 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 if not text.strip():
                     continue
                 node_id = el.get("id")
-                items.append((text, str(node_id) if node_id else None, _element_bbox(el, page)))
+                items.append((text, str(node_id) if node_id else None, _element_bbox(el, page), _element_ocr_confidence(el)))
             _append(_segments_from(items))
         if any(layouts):
             _attach_chunk_ids(layouts, bundle.get("chunks"))
@@ -903,7 +1114,7 @@ def _segment_at(segments: list[dict], start: int) -> dict | None:
 
 def _value_pattern(field_type: str) -> str:
     return {
-        "money": _MONEY_RE, "number": _NUMBER_RE, "date": _DATE_RE, "vin": _VIN_RE,
+        "money": _MONEY_RE, "number": _NUMBER_RE, "date": _DATE_RE, "vin": _VIN_RE, "codes": _CODES_RE,
     }.get(field_type, _TEXT_RE)
 
 
@@ -982,7 +1193,127 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
         "compliance_bound": spec.compliance_bound,
         "corrected": False,
         "extraction_method": None,
+        "evidence": None,
+        "evidence_state": None,
+        "quality_source": None,
     }
+
+
+#: The five outcomes a field can have, kept apart from ``field_state`` (what the
+#: policy decided) and ``routing_action`` (who acts) — spec §5 vocabularies never
+#: mix, and this one answers a different question: *what did the extractor see?*
+#: ``found_verified`` / ``found_unverified``: a value, accepted or not;
+#: ``not_on_document``: no value on pages that were readable;
+#: ``unreadable``: no value and no readable page to say it is absent;
+#: ``schema_mismatch``: the type is wrong for the page — the fields are not
+#: applicable, and the document, not the fields, asks for a person.
+EVIDENCE_STATES = ("found_verified", "found_unverified", "not_on_document", "unreadable", "schema_mismatch")
+EVIDENCE_REASONS = {
+    "not_on_document": "Not on this document type",
+    "unreadable": "Page could not be read",
+    "schema_mismatch": "Wrong document type — fields not applicable",
+}
+#: A page is *readable* (its silence about a field means absence) at this many
+#: characters and this page quality; *unreadable* below the second pair.
+#: Between the two the page is low but not blind, and an absent field still
+#: reads ``not_on_document`` with the quality named in the basis.
+READABLE_MIN_CHARS = 200
+READABLE_MIN_QUALITY = 0.5
+UNREADABLE_MAX_QUALITY = 0.3
+#: How many layout node ids an absent field lists as searched.
+ABSENT_NODE_LIST_MAX = 50
+
+
+def page_readability(texts: list[str], page_quality: list[float | None] | None) -> list[str]:
+    """``readable`` / ``low`` / ``unreadable`` per page from the two measured
+    facts at hand: characters of text and the page quality score (None →
+    judged on text alone)."""
+    out: list[str] = []
+    pq = list(page_quality or [])
+    for i, text in enumerate(texts or []):
+        chars = len((text or "").strip())
+        q = pq[i] if i < len(pq) else None
+        if chars < READABLE_MIN_CHARS or (q is not None and q < UNREADABLE_MAX_QUALITY):
+            out.append("unreadable")
+        elif q is None or q >= READABLE_MIN_QUALITY:
+            out.append("readable")
+        else:
+            out.append("low")
+    return out
+
+
+def attach_absent_evidence(field: dict[str, Any], texts: list[str], layout: list[list[dict]], page_quality: list[float | None] | None) -> dict[str, Any]:
+    """Anchor a field that was not found so the provenance graph has no orphan.
+
+    ``evidence`` records what was searched — the pages, the first
+    ``ABSENT_NODE_LIST_MAX`` layout node ids, the character count — and the
+    ``anchor_node_id``: the first layout node id (page 1 first, else any page).
+    ``field_source_node_id`` is that anchor and ``source_span`` is
+    ``{"span_type": "absent", "pages": [...]}``; ``v1_orchestrator.
+    attach_tree_node_ids`` maps the anchor onto the saved tree (or the tree
+    root) like any found field. ``evidence_state`` is ``not_on_document`` when
+    at least one searched page was readable, ``unreadable`` when none was
+    (``page_readability``); ``reason`` follows unless a more specific one
+    (signature missing, unparsable value) is already there. Added 2026-09-26:
+    a customer's report had ``field_source_node_id: null`` on nine of twelve
+    fields and read it as "Assure lost the link"."""
+    texts = list(texts or [])
+    pages = [i + 1 for i, t in enumerate(texts) if (t or "").strip()] or list(range(1, len(texts) + 1))
+    node_ids: list[str] = []
+    for segs in layout or []:
+        for seg in segs:
+            nid = seg.get("node_id")
+            if nid and nid not in node_ids:
+                node_ids.append(str(nid))
+    anchor = node_ids[0] if node_ids else None
+    readability = page_readability(texts, page_quality)
+    searched = [readability[p - 1] for p in pages if p - 1 < len(readability)]
+    if "readable" in searched:
+        state = "not_on_document"
+    elif searched and all(r == "unreadable" for r in searched):
+        state = "unreadable"
+    elif searched:
+        state = "not_on_document"
+    else:
+        state = "unreadable"
+    chars = sum(len((t or "").strip()) for t in texts)
+    field["evidence"] = {
+        "kind": "absent",
+        "searched_pages": pages,
+        "searched_node_ids": node_ids[:ABSENT_NODE_LIST_MAX],
+        "searched_chars": chars,
+        "anchor_node_id": anchor,
+        "anchor_kind": "layout_node" if anchor else None,
+        "readability": searched,
+    }
+    field["evidence_state"] = state
+    field["field_source_node_id"] = anchor
+    field["source_span"] = {"span_type": "absent", "pages": pages}
+    low = [str(p) for p, r in zip(pages, searched) if r == "low"]
+    field["confidence_basis"] = (
+        f"not found on {len(pages)} page{'s' if len(pages) != 1 else ''} ({chars} characters searched"
+        + (f"; page quality low on p.{', '.join(low)}" if low and state == "not_on_document" else "")
+        + ("; no readable page" if state == "unreadable" else "") + ")"
+    )
+    if field.get("reason") in (None, "field not found"):
+        field["reason"] = EVIDENCE_REASONS[state]
+    return field
+
+
+def mark_schema_mismatch(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every field of a schema the page does not carry: ``evidence_state``
+    ``schema_mismatch``, confidence ``None`` (not computed — a number here
+    would describe a value that has no business on this document), routing
+    ``none`` so the queue does not list them; the document asks once."""
+    for f in fields:
+        f["evidence_state"] = "schema_mismatch"
+        f["extraction_confidence"] = None
+        f["confidence_basis"] = "not computed: schema mismatch"
+        f["field_state"] = "unverified"
+        f["routing_action"] = "none"
+        f["review_required"] = False
+        f["reason"] = EVIDENCE_REASONS["schema_mismatch"]
+    return fields
 
 
 #: How a value was located. ``label_anchor``: the regex pass in this module.
@@ -1038,6 +1369,8 @@ def build_found_field(
         value = _parse_date(raw)
     elif spec.field_type == "vin":
         value = raw.upper()
+    elif spec.field_type == "codes":
+        value = _parse_codes(raw)
     if value is None:
         field["reason"] = f"{spec.field_type} value could not be parsed from '{raw[:40]}' — manual review required"
         field["confidence_basis"] = field["reason"]
@@ -1055,13 +1388,23 @@ def build_found_field(
     field["source_span"] = span
     field["field_source_node_id"] = seg.get("node_id") if seg else None
     field["provenance_confidence"] = 1.0
+    field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "method": method}
+    # Field-level quality (2026-09-26): the OCR confidence of the line the
+    # value sits on is a nearer measurement than the page-global score, so it
+    # takes the quality factor's place when the segment carries one; the basis
+    # names which was used. The page score stays the fallback on a text layer.
+    local = seg.get("local_quality") if seg else None
+    quality, quality_label = (float(local), "local_ocr") if isinstance(local, (int, float)) else (pq, "page_quality")
+    field["quality_source"] = quality_label
+    field["local_quality"] = float(local) if isinstance(local, (int, float)) else None
     number_quality = None
     if spec.field_type in ("money", "number", "vin"):
-        nq = assess_number(raw, ocr_confidence=ocr_confidence, page_quality=pq, handwritten=handwritten)
+        nq = assess_number(raw, ocr_confidence=float(local) if isinstance(local, (int, float)) else ocr_confidence, page_quality=pq, handwritten=handwritten)
         field["number_quality"] = nq
         number_quality = nq.get("quality")
     conf, basis = quality_weighted_confidence(
-        parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, number_quality=number_quality,
+        parser_confidence=parse_confidence, parser_name=parser_name, page_quality=quality, number_quality=number_quality,
+        quality_label=quality_label,
     )
     if method == "llm_grounded":
         conf = round(conf * LLM_GROUNDED_FACTOR, 4)
@@ -1140,6 +1483,9 @@ def extract_fields(
             parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
             visual_pages=visual_pages, layout=layout,
         ))
+    for f in results:
+        if f.get("value") is None:
+            attach_absent_evidence(f, texts, layout, page_quality)
     return results
 
 
@@ -1182,7 +1528,12 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
         field["source_span"] = span
         field["field_source_node_id"] = seg.get("node_id") if seg else None
         field["provenance_confidence"] = 1.0
-    conf, basis = quality_weighted_confidence(parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, signature_quality=quality)
+        field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "method": "label_anchor"}
+        local = seg.get("local_quality") if seg else None
+        if isinstance(local, (int, float)):
+            pq, field["quality_source"], field["local_quality"] = float(local), "local_ocr", float(local)
+    conf, basis = quality_weighted_confidence(parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, signature_quality=quality,
+                                              quality_label=field.get("quality_source") or "page_quality")
     field["extraction_confidence"] = conf
     field["confidence_basis"] = basis
     field["reason"] = None if not sig.get("review_required") else f"signature_quality {quality}: {sig.get('basis', '')}"
@@ -1299,6 +1650,11 @@ def attach_z3_violations(fields: list[dict], violations: list[dict] | None) -> l
     one primary node per field (spec §4). Unmatched violations stay
     document-level; nothing is invented to make them stick."""
     for f in fields:
+        if f.get("value") is None:
+            # An absent field's ``field_source_node_id`` is the anchor it was
+            # searched from (attach_absent_evidence), not a node it came from;
+            # a violation on that node is not a violation of this field.
+            continue
         hits = []
         for v in violations or []:
             if not isinstance(v, dict):
@@ -1344,6 +1700,9 @@ def apply_decision_policy(field: dict) -> dict:
     """
     if field.get("field_state") == "disputed":
         return field
+    if field.get("evidence_state") == "schema_mismatch":
+        # mark_schema_mismatch settled these: no confidence, no routing.
+        return field
     violation = bool(field.get("z3_violation") or field.get("plausibility_violation"))
     vc = float(field.get("verification_confidence") if field.get("verification_confidence") is not None else DEFAULT_VERIFICATION_CONFIDENCE)
     ec = float(field.get("extraction_confidence") or 0.0)
@@ -1376,7 +1735,10 @@ def apply_decision_policy(field: dict) -> dict:
         field["field_state"], field["routing_action"] = "unverified", "manual_review"
         field["review_required"] = True
         field["policy_rule"] = 2
+    if field.get("value") is not None:
+        field["evidence_state"] = "found_verified" if field["field_state"] == "accepted" else "found_unverified"
     assert field["field_state"] in FIELD_STATES and field["routing_action"] in ROUTING_ACTIONS
+    assert field.get("evidence_state") in (None, *EVIDENCE_STATES)
     return field
 
 
@@ -1402,7 +1764,7 @@ def cross_document_conflicts(reports: list[dict]) -> list[dict[str, Any]]:
         seen: list[dict[str, Any]] = []
         for report in reports:
             for f in report.get("fields") or []:
-                if f.get("name") == name and f.get("value") not in (None, ""):
+                if f.get("name") == name and f.get("value") not in (None, "") and f.get("evidence_state") != "schema_mismatch":
                     seen.append({"report_id": report.get("report_id"), "document_id": report.get("document_id"), "value": f["value"]})
         distinct = {_norm(s["value"]) for s in seen}
         if len(distinct) > 1:

@@ -80,5 +80,30 @@
       "property_address": "7 Cole's Hill Terrace, Plymouth, MA 02360",
       "execution_date": "2025-06-12"
     }
+  },
+  "medical_claim_1.txt": {
+    "document_type": "medical_claim",
+    "fields": {
+      "patient_name": "Nandakumar, Priya",
+      "insured_id": "HGP-2231-0087",
+      "patient_dob": "1985-09-23",
+      "insured_name": "Nandakumar, Priya",
+      "diagnosis_codes": [
+        "M54.50",
+        "G89.29",
+        "Z79.899"
+      ],
+      "procedure_codes": [
+        "99214",
+        "97140",
+        "97110"
+      ],
+      "date_of_service": "2025-08-14",
+      "provider_name": "Plymouth Spine Clinic",
+      "provider_npi": "1234567893",
+      "federal_tax_id": "04-3456789",
+      "total_charge": 412.0,
+      "amount_paid": 25.0
+    }
   }
 }

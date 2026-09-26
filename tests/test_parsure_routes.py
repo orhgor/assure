@@ -170,7 +170,8 @@ def test_classification_override_reextracts_for_the_new_type(client):
     names = {f["name"] for f in body["report"]["fields"]}
     assert "claim_number" in names and "collision_deductible" not in names
     claim = next(f for f in body["report"]["fields"] if f["name"] == "claim_number")
-    assert claim["value"] is None and claim["reason"] == "field not found"
+    assert claim["value"] is None and claim["reason"] == "Not on this document type" and claim["evidence_state"] == "not_on_document"
+    assert claim["field_source_node_id"] == "el-0" and claim["evidence"]["kind"] == "absent"  # anchored to the first layout node
     assert client.post(f"/api/projects/default/parsure/{rid}/classification", json={"document_type": "invoice"}).status_code == 400
     events = client.get(f"/api/projects/default/parsure/audit-log?report_id={rid}").get_json()["events"]
     assert events[0]["event_type"] == "classification_overridden" and events[0]["payload"]["document_type"] == "auto_claim"
@@ -268,7 +269,7 @@ def test_queue_orders_newest_report_first_and_overdue_disputes_first(client):
 
 def test_queue_is_empty_for_a_project_without_reports(client):
     body = client.get("/api/projects/default/parsure/queue").get_json()
-    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0, "documents": 0, "nothing_extracted": 0, "fields_found": 0},
+    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0, "documents": 0, "nothing_extracted": 0, "fields_found": 0, "schema_mismatch": 0},
                     "total": 0, "now": body["now"]}
 
 

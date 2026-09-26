@@ -285,6 +285,25 @@ def health_check():
         status["checks"]["textract_budget"] = _textract_usage()
     except Exception as exc:  # the cap is enforced at call time; here it is only reported
         status["checks"]["textract_budget"] = {"error": exc.__class__.__name__}
+    # The PDF export refuses (503) without a renderer since 2026-09-26 instead
+    # of shipping a text dump; say here which engine answers so an operator
+    # sees it before a customer does.
+    try:
+        try:
+            from ..services.verification_dossier import renderer_status
+        except ImportError:
+            from services.verification_dossier import renderer_status
+        engines = renderer_status()
+        status["checks"]["pdf_renderer"] = {
+            "status": "ok" if any(str(v).startswith("ok") for v in engines.values()) else "unavailable",
+            **engines,
+        }
+        if status["checks"]["pdf_renderer"]["status"] != "ok":
+            status["degraded"] = True
+            if status["status"] == "healthy":
+                status["status"] = "degraded"
+    except Exception as exc:  # observability only
+        status["checks"]["pdf_renderer"] = {"status": "unknown", "error": exc.__class__.__name__}
     models = _local_models_check()
     status["checks"]["models"] = models
     if models.get("status") in ("missing", "unreachable"):

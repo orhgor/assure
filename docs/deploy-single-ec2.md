@@ -195,6 +195,7 @@ Browser side: DevTools → Console and Network; a failing `/api/...` call answer
 | `password authentication failed for user "assure"` in `docker compose logs assure-app` | the `pgdata` volume was created with another `POSTGRES_PASSWORD` | none since 2026-09-25: `scripts/postgres-start.sh` sets the role password from `.env` on every start; just `docker compose up -d` again |
 | `pull access denied for assure-app` | old compose file | `git pull && docker compose up -d` (worker/shell no longer pull the built tag) |
 | `/health` → `"models": {"status": "missing"}` | first-start download interrupted | `docker compose up -d` again; `ollama-pull` resumes |
+| `…/export?format=pdf` (or `dossier-pdf`, `audit-pdf`) → 503 `PDF renderer unavailable on this server` | the image predates 2026-09-26 (no WeasyPrint, no Playwright browser); the old image shipped a text dump under a .pdf name instead | `git pull && docker compose up -d --build`; confirm with `docker compose run --rm assure-app python -c "import weasyprint; print(weasyprint.__version__)"`. The `detail` in the 503 names each engine's probe result |
 
 ## 7. Updating
 

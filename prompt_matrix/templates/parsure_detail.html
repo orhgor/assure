@@ -149,6 +149,7 @@ body {
 .fields .c-value[data-mark="missing"] { color: var(--unverified); }
 .fields .c-value small { display: block; color: var(--muted); font-size: var(--fs-sm); font-family: var(--mono); }
 .fields .c-state { width: 14%; white-space: nowrap; }
+.fields .c-state .evidence { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
 .fields .c-conf { width: 10%; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fields .c-page { width: 8%; text-align: right; font-variant-numeric: tabular-nums; }
 .fields .c-page .node-id { display: block; font-family: var(--mono, ui-monospace, monospace); font-size: 11px; color: var(--muted); }
@@ -306,9 +307,25 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
     <section class="section" id="fields">
       <div class="section-head">
         <h2>Fields</h2>
-        {% if record.fields %}<span class="section-meta">{% if record.nothing_extracted %}none of {{ record.fields_total }} found{% elif record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
+        {% if record.fields %}<span class="section-meta">{% if record.schema_mismatch %}{{ record.fields_total }} not applicable — wrong document type{% elif record.nothing_extracted %}none of {{ record.fields_total }} found{% elif record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
       </div>
-      {% if record.nothing_extracted or record.untyped %}
+      {% if record.schema_mismatch %}
+      <div class="notice" id="type-notice" data-tone="partial" data-kind="schema_mismatch">
+        <p>
+          <b>{{ record.mismatch_line or "Wrong document type — choose the document type." }}</b>
+          {% if record.type_hint %}The page carries {{ record.type_hint.found }} of {{ record.type_hint.total }} {{ record.type_hint.label }} fields — re-read it as that type.{% endif %}
+          {% if record.fields %}<small>The {{ record.fields_total }} {{ record.type_label }} fields are not applicable to this page and are not counted as needing review.</small>{% endif %}
+        </p>
+        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
+          <label for="type-select">Document type</label>
+          <select id="type-select" name="document_type">
+            {% for o in record.type_options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn-secondary" id="type-apply">Re-read as this type</button>
+          <span class="note" id="type-note" aria-live="polite"></span>
+        </form>
+      </div>
+      {% elif record.nothing_extracted or record.untyped %}
       <div class="notice" id="type-notice" data-tone="partial">
         <p>
           <b>{% if record.nothing_extracted %}Nothing extracted.{% else %}No type chosen.{% endif %}</b>
@@ -336,9 +353,9 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
             <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" data-mark="{{ f.mark }}">
               <td class="c-label">{{ f.label }}{% if f.corrected %}<small>corrected</small>{% endif %}</td>
               <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}</td>
-              <td class="c-state"><span class="status status--{{ f.state }}">{{ f.state_label }}</span></td>
+              <td class="c-state"><span class="status status--{{ f.state }}">{{ f.state_label }}</span>{% if f.evidence_label %}<small class="evidence" data-evidence="{{ f.evidence_state }}">{{ f.evidence_label }}</small>{% endif %}</td>
               <td class="c-conf">{{ f.confidence }}</td>
-              <td class="c-page">{{ f.page if f.page is not none else "—" }}{% if f.node_id %}<small class="node-id" title="JDF node">{{ f.node_id }}</small>{% endif %}</td>
+              <td class="c-page">{{ f.page if f.page is not none else "—" }}{% if f.node_id %}<small class="node-id" title="{% if f.node_note %}JDF node the field was searched from{% else %}JDF node{% endif %}">{{ f.node_id }}{% if f.node_note %} · {{ f.node_note }}{% endif %}</small>{% endif %}</td>
               <td class="c-why{% if not f.reason and not f.needs_person %} c-why--none{% endif %}">{% if f.reason %}{{ f.reason }}{% else %}—{% endif %}{% if f.needs_person %}<small>{{ f.action }}</small>{% endif %}
                 <details class="why"><summary>Why this confidence</summary><p>{{ f.basis }}</p></details>
               </td>

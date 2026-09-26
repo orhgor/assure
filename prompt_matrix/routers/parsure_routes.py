@@ -113,6 +113,16 @@ STATE_WORDS = {
     "disputed": "Disputed",
     "rejected": "Rejected",
 }
+#: ``evidence_state`` in words (field_extractor.EVIDENCE_STATES): what the
+#: extractor saw, apart from what the policy decided (STATE_WORDS).
+EVIDENCE_WORDS = {
+    "found_verified": "Found, verified",
+    "found_unverified": "Found, needs a look",
+    "not_on_document": "Not on this document",
+    "unreadable": "Page unreadable",
+    "schema_mismatch": "Wrong document type",
+}
+FAMILY_WORDS = {"auto": "Auto", "property": "Property", "real_estate_transaction": "Real estate transaction", "medical": "Medical"}
 ROUTING_WORDS = {
     "manual_review": "Needs a reviewer",
     "adjudicator_queue": "With an adjudicator",
@@ -201,8 +211,17 @@ def datetime_label(value: Any) -> str:
         return str(value)[:16]
 
 
+def family_of_unknown(value: Any) -> str | None:
+    """``medical_unknown`` → ``medical``; None otherwise."""
+    name = str(value or "")
+    if name.endswith("_unknown") and name[: -len("_unknown")] in FAMILY_WORDS:
+        return name[: -len("_unknown")]
+    return None
+
+
 def doc_type_label(classification: Any) -> str:
-    """The document type in words; anything not named reads "Type uncertain"."""
+    """The document type in words; anything not named reads "Type uncertain";
+    ``<family>_unknown`` reads "Medical — type unknown"."""
     if isinstance(classification, str):
         value = classification
     elif isinstance(classification, dict):
@@ -211,7 +230,25 @@ def doc_type_label(classification: Any) -> str:
         value = None
     if value in UNCERTAIN_TYPES:
         return "Type uncertain"
+    fam = family_of_unknown(value)
+    if fam:
+        return f"{FAMILY_WORDS[fam]} — type unknown"
     return words(value) or "Type uncertain"
+
+
+def mismatch_line(classification: Any) -> str | None:
+    """The one line a schema-mismatch document shows, or None — "Wrong document
+    type — read as Medical claim?" when the page's family proposes a schema."""
+    if not isinstance(classification, dict) or not classification.get("schema_mismatch"):
+        return None
+    suggestion = classification.get("suggestion") if isinstance(classification.get("suggestion"), dict) else {}
+    if suggestion.get("document_type"):
+        return f"Wrong document type — read as {doc_type_label(suggestion['document_type'])}?"
+    validation = classification.get("validation") if isinstance(classification.get("validation"), dict) else {}
+    fam = validation.get("family") or family_of_unknown(classification.get("document_type"))
+    if fam in FAMILY_WORDS:
+        return f"Wrong document type — the page reads as a {FAMILY_WORDS[fam].lower()} document, but no {FAMILY_WORDS[fam].lower()} schema fits it."
+    return "Wrong document type — choose the document type."
 
 
 def document_type_key(report: dict[str, Any]) -> str:
@@ -279,6 +316,8 @@ def reason_words(reason: Any) -> str:
         return f"Disputed: {m.group(1).strip()}"
     if text.lower() == "field not found":
         return "Not found in the document"
+    if text in ("Not on this document type", "Page could not be read", "Wrong document type — fields not applicable"):
+        return text  # field_extractor.EVIDENCE_REASONS: already the words a reader needs
     if text.lower().startswith("compliance-bound"):
         return "Compliance-bound: a person must confirm it"
     text = re.sub(r"could not be parsed", "could not be read", text, flags=re.I)
@@ -447,8 +486,8 @@ field_needs_review = fx.field_needs_review
 
 
 def type_options(current: Any = None) -> list[dict[str, Any]]:
-    """The ten types in words for the record page's type selector, the current
-    one marked; ``uncertain`` last as "Type uncertain"."""
+    """The taxonomy's types in words for the record page's type selector, the
+    current one marked; ``uncertain`` last as "Type uncertain"."""
     options = [{"value": t, "label": doc_type_label(t), "selected": t == current} for t in fx.DOCUMENT_TYPES]
     options.append({"value": "uncertain", "label": "Type uncertain", "selected": current in UNCERTAIN_TYPES})
     return options
