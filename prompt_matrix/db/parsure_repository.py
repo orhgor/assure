@@ -255,6 +255,46 @@ def list_reports(project_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
     return out
 
 
+def find_report(report_id: str) -> dict[str, Any] | None:
+    """The report for a bare ``report_id`` (its ``project_id`` is inside).
+
+    The server-rendered record page (``GET /parsing/<report_id>``) is reached
+    from a link that carries only the report id; the project is a property of
+    the report, not of the URL. Callers still run the ownership check on the
+    returned ``project_id`` before rendering anything.
+    """
+    init_db()
+    row = get_db().execute(
+        "SELECT report_json, report_id, created_at, updated_at, project_id FROM parsure_reports WHERE report_id = ?",
+        (report_id,),
+    ).fetchone()
+    report = _load(row)
+    if report is not None:
+        report["project_id"] = row[4]
+    return report
+
+
+def report_page_texts(project_id: str, report_id: str) -> list[str] | None:
+    """The per-page text the extractor ran on, for the reviewer's own record page.
+
+    ``_page_texts`` is a private working key: ``public_report`` strips it from
+    every API response and export, and that stays so. The record page at
+    ``/parsing/<report_id>`` is server-rendered for the project's own reviewer
+    and is the one place the text is shown — the client asked (2026-09-25)
+    where the extracted content can be read in bulk, and a value without its
+    page is not reviewable. ``None`` when the report is missing or was saved
+    without texts (pre-V1 rows, Textract bundles that kept no page text); the
+    page then says so instead of showing an empty page.
+    """
+    report = get_report(project_id, report_id)
+    if not report:
+        return None
+    texts = report.get("_page_texts")
+    if not isinstance(texts, list) or not texts:
+        return None
+    return [str(t or "") for t in texts]
+
+
 # --------------------------------------------------------------------------
 # Corrections
 # --------------------------------------------------------------------------

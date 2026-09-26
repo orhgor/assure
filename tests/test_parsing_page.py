@@ -377,3 +377,216 @@ def test_analytics_and_queue_empty_states_have_no_fabricated_numbers(client):
     assert "%" not in text
     assert not re.search(r"\b0\.\d\d\b", text)
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+# --------------------------------------------------------------------------
+# Extracted data (one table per document type) and the record page
+# --------------------------------------------------------------------------
+
+def _data_field(name, label, value, *, field_type="text", state="accepted", routing="none", conf=0.9, reason="", page=1, **extra):
+    f = {"name": name, "label": label, "value": value, "field_type": field_type, "extraction_confidence": conf,
+         "confidence_basis": f"parser_default[jdf-cli] (0.85) × page_quality ({conf})", "field_state": state,
+         "routing_action": routing, "review_required": routing != "none", "reason": reason,
+         "source_span": {"page": page, "span_type": "text_range"}}
+    f.update(extra)
+    return f
+
+
+def _seed_data_project(project):
+    """Two auto policies, one deed, one document of uncertain type (no fields)."""
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project(project)
+    policy_fields = lambda n, premium, state: [  # noqa: E731
+        _data_field("policy_number", "Policy number", n),
+        _data_field("insured_name", "Insured name", "Mary Sample"),
+        _data_field("effective_date", "Effective date", "2026-08-14", field_type="date"),
+        _data_field("premium", "Premium", premium, field_type="money", state=state, routing="none" if state == "accepted" else "manual_review",
+                    conf=0.52, reason="" if state == "accepted" else "extraction_confidence 0.52 < 0.75"),
+        _data_field("vin", "VIN", None, field_type="vin", state="unverified", routing="manual_review", conf=0.0, reason="field not found"),
+        _data_field("liability_limit", "Liability limit", 100000, field_type="money", state="disputed", routing="adjudicator_queue", reason="disputed: schedule shows 150,000"),
+    ]
+    repo.save_report(project, {
+        "report_id": "rep-pol-1", "document_id": "doc-1", "filename": "policy-declarations.pdf", "modality": "digital_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli", "parser_version": "0.2.3", "page_count": 2, "document_quality_score": 0.93,
+        "pages": [{"page": 1, "quality_score": 0.95, "flags": []}, {"page": 2, "quality_score": 0.91, "flags": ["low_contrast"]}],
+        "classification": {"document_type": "auto_policy", "confidence": 0.9, "basis": "keyword match"},
+        "fields": policy_fields("AP-2025-0001", 1284.0, "unverified"), "conflicts": [],
+        "quality_report": {"summary": "Low contrast on 1 of 2 pages.", "flags": ["low_contrast"], "signature": {}, "numbers": {"flagged": []}},
+        "replay": {"eligible": False, "reasons": [], "history": []}, "laya": {"suggested_route": "jdf", "escalate": False, "human_review": False, "reasons": [], "model": "rules-v1"},
+        "created_at": "2026-09-20 10:04:00",
+        "_page_texts": ["Policy Number: AP-2025-0001\nNamed Insured: Mary Sample\nTotal Premium: $1,284.00", "Page two text about coverage."],
+    })
+    repo.save_report(project, {
+        "report_id": "rep-pol-2", "document_id": "doc-2", "filename": "prior-policy.pdf", "modality": "digital_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli", "page_count": 1, "document_quality_score": 0.88, "pages": [{"page": 1, "quality_score": 0.88, "flags": []}],
+        "classification": {"document_type": "auto_policy", "confidence": 0.9},
+        "fields": policy_fields("AP-2024-0777", 1190.5, "accepted"), "conflicts": [],
+        "replay": {"eligible": False}, "created_at": "2026-09-18 09:00:00",
+    })
+    repo.save_report(project, {
+        "report_id": "rep-deed", "document_id": "doc-3", "filename": "warranty-deed-scan.pdf", "modality": "scanned_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli+tesseract", "page_count": 1, "document_quality_score": 0.66, "pages": [{"page": 1, "quality_score": 0.66, "flags": ["skewed"]}],
+        "classification": {"document_type": "deed", "confidence": 0.8},
+        "fields": [
+            _data_field("grantor", "Grantor", "John Q. Sample"),
+            _data_field("consideration", "Consideration", 425000, field_type="money"),
+            _data_field("legal_description", "Legal description", "Lot 4, Block 2, of the Riverside Addition to the City of Springfield, according to the plat thereof recorded in Book 12"),
+            _data_field("recording_date", "Recording date", "2026-07-02", field_type="date", state="rejected", routing="compliance_review", reason="Z3 violation: recorded before execution", z3_violation=True),
+        ], "conflicts": [], "replay": {"eligible": False}, "created_at": "2026-09-19 12:00:00",
+    })
+    repo.save_report(project, {
+        "report_id": "rep-unk", "document_id": "doc-4", "filename": "photo-of-something.jpg", "modality": "phone_photo", "material_type": "photo",
+        "parser_name": "textract", "page_count": 1, "document_quality_score": 0.12, "pages": [{"page": 1, "quality_score": 0.12, "flags": ["blurry"]}],
+        "classification": {"document_type": "uncertain", "confidence": None, "basis": "2 keyword hits"},
+        "fields": [], "conflicts": [], "replay": {"eligible": False}, "created_at": "2026-09-21 08:00:00",
+    })
+
+
+def test_extracted_data_tables_are_grouped_by_type_with_quiet_state_marks(client):
+    _seed_data_project("p-data")
+    res = client.get("/parsing?project_id=p-data")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Placement: after Needs attention, before the cards; still one page primary (Upload).
+    assert text.index("Needs attention") < text.index("Extracted data") < text.index(" Documents ", text.index("Extracted data"))
+    assert html.count('class="btn-primary"') == 1
+    assert 'id="data-export"' in html and ">Export all<" in html
+    assert 'href="/api/projects/p-data/parsure/export?format=csv&amp;wide=1"' in html or 'href="/api/projects/p-data/parsure/export?format=csv&wide=1"' in html
+    assert "CSV, one row per field" in text and ">JSON<" in html
+
+    # Count line from real counts: 4 documents; values = fields with a value; need review = not accepted.
+    assert "4 documents · 14 values · 6 need review" in text
+
+    # One table per type, taxonomy order, "Type uncertain" last; columns in taxonomy order.
+    groups = re.findall(r'<div class="data-group" data-type="([^"]+)">', html)
+    assert groups == ["auto_policy", "deed", "uncertain"]
+    assert text.index("Auto policy 2 documents") < text.index("Deed 1 document") < text.index("Type uncertain 1 document")
+    policy_head = re.search(r'data-type="auto_policy">.*?</thead>', html, re.S).group(0)
+    heads = re.findall(r'<th class="c-val">([^<]+)</th>', policy_head)
+    assert heads == ["Policy number", "Insured name", "Effective date", "VIN", "Premium", "Liability limit"]
+
+    # Cells: formatted values with a quiet mark; None is "—" with the reason in the title.
+    row = re.search(r'<tr class="data-row" data-report-id="rep-pol-1".*?</tr>', html, re.S).group(0)
+    assert 'data-mark="accepted"' in row and ">AP-2025-0001<" in row
+    assert ">Aug 14, 2026<" in row
+    assert 'data-mark="review"' in row and ">1,284.00<" in row and "Extraction confidence 0.52 is below 0.75" in row
+    assert 'data-mark="missing"' in row and 'title="— — Not found in the document"' in row
+    assert 'data-mark="rejected"' in row and ">100,000.00<" in row and "Disputed: schedule shows 150,000" in row
+    assert 'data-buckets="accepted needs_review not_found"' in row
+    assert 'href="/?project_id=p-data&amp;report_id=rep-pol-1"' in row or 'href="/?project_id=p-data&report_id=rep-pol-1"' in row
+    assert 'href="/parsing/rep-pol-1?project_id=p-data"' in row and ">Review<" in row and ">Record<" in row
+    deed_row = re.search(r'<tr class="data-row" data-report-id="rep-deed".*?</tr>', html, re.S).group(0)
+    assert ">425,000.00<" in deed_row
+    assert "Lot 4, Block 2, of the Riverside Additi…" in deed_row and 'title="Lot 4, Block 2, of the Riverside Addition to the City of Springfield' in deed_row
+    assert 'data-mark="rejected"' in deed_row and "Verification failed: recorded before execution" in deed_row
+    unk_row = re.search(r'<tr class="data-row" data-report-id="rep-unk".*?</tr>', html, re.S).group(0)
+    assert "No fields until the type is known" in unk_row
+
+    # Filters over the rendered rows; a legend that says what the marks mean.
+    assert 'id="data-type"' in html and '<option value="deed">Deed</option>' in html
+    assert 'id="data-state"' in html and '<option value="needs_review">Needs review</option>' in html and '<option value="not_found">Not found</option>' in html
+    assert 'id="data-search"' in html
+    assert "Needs review Rejected or disputed — not found" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_extracted_data_empty_state(client):
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p-nodata")
+    _seed_vault("p-nodata", "note.png", parser_name="textract", source_kind="image", page_count=1)
+    res = client.get("/parsing?project_id=p-nodata")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert "Extracted data" in text
+    assert "No extracted data yet. Upload a document to begin." in text
+    assert 'id="data-export"' not in html and 'id="data-type"' not in html
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_record_page_shows_fields_page_text_and_history(client):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.history import get_db
+
+    _seed_data_project("p-record")
+    repo.log_event("p-record", "intake_received", report_id="rep-pol-1", payload={})
+    repo.log_event("p-record", "quality_assessed", report_id="rep-pol-1", payload={"document_quality_score": 0.93})
+    repo.record_correction("p-record", "rep-pol-1", "insured_name", original_value="Mary Sampel", corrected_value="Mary Sample", actor="ana", reason="typo")
+    dispute = repo.open_dispute("p-record", "rep-pol-1", "liability_limit", reason="schedule shows 150,000", actor="bob")
+    db = get_db()
+    db.execute("UPDATE parsure_disputes SET due_at = ? WHERE dispute_id = ?", ("2020-01-01 00:00:00", dispute["dispute_id"]))
+    db.commit()
+
+    res = client.get("/parsing/rep-pol-1")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Head: back link, filename, type in words, the quality sentence, one primary action.
+    assert "← Parsure" in text and 'href="/parsing?project_id=p-record"' in html
+    assert "policy-declarations.pdf" in text
+    assert "Auto policy · PDF · Digital PDF · Sep 20, 2026" in text
+    assert "Quality 0.93 · Low contrast on 1 of 2 pages." in text
+    assert html.count('class="btn-primary"') == 1 and "Review in Assure" in text
+    assert 'href="/?project_id=p-record&amp;report_id=rep-pol-1"' in html or 'href="/?project_id=p-record&report_id=rep-pol-1"' in html
+    assert "Export JSON" in text and 'href="/api/projects/p-record/parsure/rep-pol-1/export?format=csv"' in html
+    assert "Pages: 2 · Fields: 6 · Need review: 3" in text
+
+    # Fields: needs-review rows first, then accepted; state chip, confidence + why, page, reason in words.
+    order = re.findall(r'<tr class="field[^"]*" data-field="([^"]+)"', html)
+    assert order == ["premium", "vin", "liability_limit", "policy_number", "insured_name", "effective_date"]
+    assert "3 need review, listed first" in text
+    prem = re.search(r'data-field="premium".*?</tr>', html, re.S).group(0)
+    assert ">1,284.00<" in prem and "Unverified" in prem and ">0.52<" in prem and "parser_default[jdf-cli] (0.85) × page_quality (0.52)" in prem and "Why this confidence" in prem
+    assert "Extraction confidence 0.52 is below 0.75" in prem and "Needs a reviewer" in prem
+    vin = re.search(r'data-field="vin".*?</tr>', html, re.S).group(0)
+    assert 'data-mark="missing"' in vin and "Not found in the document" in vin and ">—<" in vin
+    assert ">0.00<" in vin  # a not-found field's confidence is a measured 0.0, not a blank
+    assert "Aug 14, 2026" in text
+
+    # Pages: quality and flags in words, the text of each page behind a disclosure.
+    assert "Page 1 Quality 0.95 No issues" in text
+    assert "Page 2 Quality 0.91 Low contrast" in text
+    assert text.count("Text of this page") == 2
+    assert "Policy Number: AP-2025-0001" in text and "Page two text about coverage." in text
+
+    # History: correction, overdue dispute and events in one timeline, newest first.
+    assert "Provenance &amp; history" in text
+    assert "Insured name corrected" in text and "Mary Sampel → Mary Sample — typo" in text and "ana" in text
+    assert "Liability limit disputed · overdue" in text and "schedule shows 150,000 — overdue by" in text
+    assert 'data-kind="dispute" data-overdue="1"' in html
+    assert "Received" in text and "Quality assessed" in text and "Quality 0.93" in text
+    kinds = re.findall(r'<li data-kind="([^"]+)"', html)
+    assert kinds[0] in ("dispute", "correction") and "event" in kinds
+
+    # Technical details folded away; the private page-text key never leaks by name.
+    assert "Technical details" in text and "jdf-cli" in text and "0.2.3" in text and "rules-v1" in text
+    assert "_page_texts" not in html
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # The same record by project hint; a wrong project is not found.
+    assert client.get("/parsing/rep-pol-1?project_id=p-record").status_code == 200
+    assert client.get("/parsing/rep-pol-1?project_id=someone-else").status_code == 404
+
+
+def test_record_page_without_page_text_says_so_and_404_is_calm(client):
+    _seed_data_project("p-record-2")
+    res = client.get("/parsing/rep-pol-2")
+    assert res.status_code == 200
+    text = _visible_text(res.get_data(as_text=True))
+    assert "prior-policy.pdf" in text
+    assert "text not kept" in text and "The text of this page was not kept with the record." in text
+    assert "Quality 0.88 · No page issues were found." in text
+    assert "all accepted" not in text  # vin is not found, liability is disputed → still need review
+    assert "Nothing has been changed on this record." in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    res = client.get("/parsing/rep-nope")
+    assert res.status_code == 404
+    text = _visible_text(res.get_data(as_text=True))
+    assert "This record is not here." in text and "Back to Parsure" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)

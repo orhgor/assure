@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if missing %}Record not found{% else %}{{ record.filename }}{% endif %} · Parsure · Assure</title>
+  {% if csrf_token is defined %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+:root {
+  --ink: #0A0A0A;
+  --paper: #FAFAF7;
+  --surface: #FFFFFF;
+  --rule: #E8E8E4;
+  --muted: #6B6B66;
+  --verified: #0F6E3F;
+  --partial: #B8730E;
+  --contradicted: #A32D2D;
+  --unverified: #9A9A94;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --fs-h1: 24px;
+  --fs-lg: 14px;
+  --fs-md: 13px;
+  --fs-sm: 12px;
+  --fs-xs: 11px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-card: 4px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- header (same chrome as /parsing) ---- */
+.app-header {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  align-items: center;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.app-header-left { display: flex; align-items: center; gap: 8px; }
+.app-header-right { display: flex; justify-content: flex-end; }
+.app-brand { display: flex; align-items: center; gap: 8px; }
+.app-brand-icon { width: 24px; height: 24px; }
+.app-brand-name { font-size: var(--fs-md); font-weight: 600; letter-spacing: -0.01em; }
+.brand-mark rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1.5; }
+.brand-mark path { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- buttons ---- */
+.btn-primary {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 16px;
+  background: var(--ink); color: var(--paper); border: 1px solid var(--ink); border-radius: var(--radius-card);
+  font-family: var(--sans); font-size: var(--fs-md); font-weight: 500; text-decoration: none; cursor: pointer;
+  transition: opacity 120ms ease;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-tertiary {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 2px;
+  background: transparent; border: none; border-bottom: 1px solid transparent;
+  font-family: var(--sans); font-size: var(--fs-md); font-weight: 450; color: var(--muted); text-decoration: none; cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.btn-tertiary:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ---- page ---- */
+.record { max-width: 880px; margin: 0 auto; padding: var(--space-8) var(--space-6) 80px; }
+.back { display: inline-flex; align-items: center; height: 24px; font-size: var(--fs-md); color: var(--muted); text-decoration: none; margin-bottom: var(--space-6); }
+.back:hover { color: var(--ink); }
+
+.record-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-6); }
+.record-kicker { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-1); }
+.record-hero h1 { font-size: var(--fs-h1); font-weight: 600; margin: 0; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.record-quality { font-size: var(--fs-lg); color: var(--muted); margin: var(--space-2) 0 0; }
+.record-quality b { color: var(--ink); font-weight: 500; }
+.record-actions { display: flex; align-items: center; gap: var(--space-4); flex-shrink: 0; }
+
+.record-summary {
+  display: flex; flex-wrap: wrap; gap: 0 var(--space-3);
+  padding: var(--space-3) 0; margin: var(--space-6) 0 0;
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  font-size: var(--fs-md); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.record-summary b { color: var(--ink); font-weight: 500; }
+.record-summary .sep { color: var(--rule); }
+
+.section { margin: var(--space-10) 0 0; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.section-head h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.section-head .section-meta { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.section-empty { font-size: var(--fs-md); color: var(--muted); margin: 0; }
+
+/* ---- fields ---- */
+.frame { border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface); overflow-x: auto; }
+.fields { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.fields th { text-align: left; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.fields td { padding: var(--space-3); border-bottom: 1px solid var(--rule); vertical-align: top; }
+.fields tr:last-child td { border-bottom: none; }
+.fields .c-label { font-weight: 500; width: 20%; }
+.fields .c-label small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.fields .c-value { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; width: 20%; }
+.fields .c-value[data-mark="missing"] { color: var(--unverified); }
+.fields .c-value small { display: block; color: var(--muted); font-size: var(--fs-sm); font-family: var(--mono); }
+.fields .c-state { width: 14%; white-space: nowrap; }
+.fields .c-conf { width: 10%; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fields .c-page { width: 8%; text-align: right; font-variant-numeric: tabular-nums; }
+.fields .c-why { color: var(--ink); overflow-wrap: anywhere; }
+.fields .c-why small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+tr.field--done td { color: var(--muted); }
+tr.field--done td.c-value { color: var(--ink); }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 500; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status--accepted { color: var(--verified); }
+.status--partial, .status--disputed { color: var(--partial); }
+.status--unverified { color: var(--unverified); }
+.status--rejected { color: var(--contradicted); }
+details.why { margin: var(--space-1) 0 0; }
+details.why > summary { list-style: none; cursor: pointer; color: var(--muted); font-size: var(--fs-xs); border-bottom: 1px solid transparent; display: inline-block; }
+details.why > summary::-webkit-details-marker { display: none; }
+details.why > summary:hover { color: var(--ink); border-bottom-color: var(--ink); }
+details.why p { margin: var(--space-1) 0 0; font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+
+/* ---- pages ---- */
+.pages { display: grid; gap: var(--space-3); }
+.page { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); }
+.page-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); font-size: var(--fs-md); }
+.page-line b { font-weight: 600; }
+.page-line .q { font-variant-numeric: tabular-nums; }
+.page-line .flags { color: var(--muted); }
+.page-line .flags[data-tone="partial"] { color: var(--partial); }
+.page-line .chars { margin-left: auto; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+details.text { margin-top: var(--space-2); }
+details.text > summary { list-style: none; cursor: pointer; font-size: var(--fs-sm); color: var(--muted); display: inline-block; border-bottom: 1px solid transparent; }
+details.text > summary::-webkit-details-marker { display: none; }
+details.text > summary:hover { color: var(--ink); border-bottom-color: var(--ink); }
+details.text[open] > summary { color: var(--ink); }
+details.text pre {
+  margin: var(--space-3) 0 0; padding: var(--space-4) 0 0; border-top: 1px solid var(--rule);
+  font-family: var(--serif); font-size: 15px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink);
+}
+.page-note { font-size: var(--fs-sm); color: var(--muted); margin: var(--space-2) 0 0; }
+
+/* ---- history: a quiet timeline ---- */
+.timeline { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--rule); }
+.timeline li { position: relative; padding: 0 0 var(--space-4) var(--space-5); }
+.timeline li:last-child { padding-bottom: 0; }
+.timeline li::before { content: ""; position: absolute; left: -4px; top: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--surface); border: 1px solid var(--muted); }
+.timeline li[data-kind="correction"]::before { background: var(--ink); border-color: var(--ink); }
+.timeline li[data-kind="dispute"]::before { background: var(--partial); border-color: var(--partial); }
+.timeline li[data-kind="dispute"][data-overdue="1"]::before { background: var(--contradicted); border-color: var(--contradicted); }
+.timeline li[data-kind="resolution"]::before { background: var(--verified); border-color: var(--verified); }
+.timeline .t-when { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+.timeline .t-title { font-size: var(--fs-md); font-weight: 500; margin: 2px 0 0; }
+.timeline .t-detail { font-size: var(--fs-md); color: var(--muted); margin: 2px 0 0; overflow-wrap: anywhere; }
+.timeline .t-actor { color: var(--muted); font-size: var(--fs-sm); }
+
+/* ---- technical (collapsed) ---- */
+details.tech > summary { cursor: pointer; font-size: var(--fs-md); color: var(--muted); list-style: none; display: inline-block; border-bottom: 1px solid transparent; }
+details.tech > summary::-webkit-details-marker { display: none; }
+details.tech > summary::before { content: "+ "; }
+details.tech[open] > summary::before { content: "− "; }
+details.tech > summary:hover { color: var(--ink); }
+details.tech dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); margin: var(--space-4) 0 0; font-size: var(--fs-sm); }
+details.tech dt { color: var(--muted); }
+details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); overflow-wrap: anywhere; }
+
+.conflicts p { margin: 0 0 var(--space-2); }
+.conflicts p:last-child { margin: 0; }
+
+/* ---- missing ---- */
+.missing { text-align: center; padding: 96px 24px 64px; }
+.missing h1 { font-size: 20px; font-weight: 600; margin: 0 0 var(--space-3); letter-spacing: -0.01em; }
+.missing p { font-size: var(--fs-lg); color: var(--muted); margin: 0 auto var(--space-6); max-width: 380px; }
+
+/* ---- footer ---- */
+.site-footer { border-top: 1px solid var(--rule); padding: 24px; background: var(--surface); }
+.footer-inner { max-width: 880px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-sm); color: var(--muted); }
+.footer-inner a { color: var(--ink); text-decoration: none; margin-left: 16px; }
+.footer-copy { display: flex; align-items: center; gap: 8px; }
+.footer-copy svg { width: 14px; height: 14px; fill: var(--muted); }
+
+@media (max-width: 640px) {
+  .app-header { grid-template-columns: 1fr auto; }
+  .app-header-center { display: none; }
+  .record { padding: var(--space-6) var(--space-4) 64px; }
+  .record-hero { flex-direction: column; align-items: flex-start; }
+  .record-actions { flex-wrap: wrap; gap: var(--space-3) var(--space-4); }
+  .fields, .fields tbody, .fields tr, .fields td { display: block; width: auto; }
+  .fields thead { display: none; }
+  .fields tr { padding: var(--space-3) 0; border-bottom: 1px solid var(--rule); }
+  .fields tr:last-child { border-bottom: none; }
+  .fields td { padding: var(--space-1) var(--space-3); border-bottom: none; width: auto; }
+  .fields .c-label, .fields .c-value, .fields .c-state, .fields .c-conf, .fields .c-page { width: auto; }
+  .fields .c-label { font-size: var(--fs-lg); }
+  .fields .c-why--none { display: none; }
+  .fields .c-page { text-align: left; }
+  .fields .c-page::before { content: "Page "; color: var(--muted); }
+  .fields .c-conf::before { content: "Confidence "; color: var(--muted); }
+  .footer-inner { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .footer-inner a { margin-left: 0; margin-right: 12px; }
+}
+  </style>
+</head>
+<body data-project-id="{{ project_id }}">
+  <header class="app-header">
+    <div class="app-header-left">
+      <div class="app-brand">
+        <span class="app-brand-icon">
+          <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+            <rect x="1" y="1" width="34" height="34" rx="8" />
+            <path d="M10 18.5 15.2 23.5 26 12.5"/>
+          </svg>
+        </span>
+        <span class="app-brand-name">Assure</span>
+      </div>
+    </div>
+    <div class="app-header-center"></div>
+    <div class="app-header-right">
+      <a href="/?project_id={{ project_id }}" class="btn-tertiary">Back to Assure</a>
+    </div>
+  </header>
+
+  <main class="record">
+  {% if missing %}
+    <div class="missing">
+      <h1>This record is not here.</h1>
+      <p>It may have been removed, or the link is not one Parsure wrote.</p>
+      <a class="btn-primary" href="/parsing?project_id={{ project_id }}">Back to Parsure</a>
+    </div>
+  {% else %}
+    <a class="back" href="{{ record.back_href }}">← Parsure</a>
+
+    <div class="record-hero">
+      <div>
+        <p class="record-kicker">
+          {{ record.type_label }}{% if record.type_overridden %} (set by reviewer){% endif %}
+          {%- if record.source_label %} · {{ record.source_label }}{% endif %}
+          {%- if record.modality_label %} · {{ record.modality_label }}{% endif %}
+          · {{ record.date_label }}
+        </p>
+        <h1>{{ record.filename }}</h1>
+        <p class="record-quality">Quality <b>{{ record.quality_label }}</b> · {{ record.quality_sentence }}</p>
+      </div>
+      <div class="record-actions">
+        <a class="btn-tertiary" href="{{ record.export_json_href }}">Export JSON</a>
+        <a class="btn-tertiary" href="{{ record.export_csv_href }}">CSV</a>
+        <a class="btn-primary" href="{{ record.review_href }}">Review in Assure</a>
+      </div>
+    </div>
+
+    <p class="record-summary">
+      <span>Pages: <b>{{ record.page_count or "—" }}</b></span><span class="sep">·</span>
+      <span>Fields: <b>{{ record.fields_total }}</b></span><span class="sep">·</span>
+      <span>Need review: <b>{{ record.fields_review }}</b></span>
+      {%- if record.conflicts %}<span class="sep">·</span><span>Conflicts: <b>{{ record.conflicts|length }}</b></span>{% endif %}
+    </p>
+
+    <section class="section" id="fields">
+      <div class="section-head">
+        <h2>Fields</h2>
+        {% if record.fields %}<span class="section-meta">{% if record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
+      </div>
+      {% if record.fields %}
+      <div class="frame">
+        <table class="fields">
+          <thead><tr><th>Field</th><th>Value</th><th>State</th><th>Confidence</th><th class="c-page">Page</th><th>Why</th></tr></thead>
+          <tbody>
+          {% for f in record.fields %}
+            <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" data-mark="{{ f.mark }}">
+              <td class="c-label">{{ f.label }}{% if f.corrected %}<small>corrected</small>{% endif %}</td>
+              <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}</td>
+              <td class="c-state"><span class="status status--{{ f.state }}">{{ f.state_label }}</span></td>
+              <td class="c-conf">{{ f.confidence }}</td>
+              <td class="c-page">{{ f.page if f.page is not none else "—" }}</td>
+              <td class="c-why{% if not f.reason and not f.needs_person %} c-why--none{% endif %}">{% if f.reason %}{{ f.reason }}{% else %}—{% endif %}{% if f.needs_person %}<small>{{ f.action }}</small>{% endif %}
+                <details class="why"><summary>Why this confidence</summary><p>{{ f.basis }}</p></details>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="section-empty">No fields for this document{% if record.type_label == "Type uncertain" %} until its type is known{% endif %}.</p>
+      {% endif %}
+    </section>
+
+    {% if record.conflicts %}
+    <section class="section conflicts" id="conflicts">
+      <div class="section-head"><h2>Conflicts with other documents</h2></div>
+      {% for c in record.conflicts %}<p>{{ c }}</p>{% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="section" id="pages">
+      <div class="section-head">
+        <h2>Pages</h2>
+        {% if record.pages %}<span class="section-meta">{{ record.pages|length }} page{{ "" if record.pages|length == 1 else "s" }}{% if not record.has_page_text %} · text not kept{% endif %}</span>{% endif %}
+      </div>
+      {% if record.pages %}
+      <div class="pages">
+        {% for p in record.pages %}
+        <article class="page" data-page="{{ p.page }}">
+          <div class="page-line">
+            <b>Page {{ p.page }}</b>
+            <span class="q">Quality {{ p.score }}</span>
+            <span class="flags"{% if p.flags != "No issues" %} data-tone="partial"{% endif %}>{{ p.flags }}{% if p.basis %} — {{ p.basis }}{% endif %}</span>
+            {% if p.text %}<span class="chars">{{ "{:,}".format(p.chars) }} characters</span>{% endif %}
+          </div>
+          {% if p.text %}
+          <details class="text">
+            <summary>Text of this page</summary>
+            <pre>{{ p.text }}</pre>
+          </details>
+          {% else %}
+          <p class="page-note">The text of this page was not kept with the record.</p>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="section-empty">No page records.</p>
+      {% endif %}
+    </section>
+
+    <section class="section" id="history">
+      <div class="section-head">
+        <h2>Provenance &amp; history</h2>
+        {% if record.history %}<span class="section-meta">{{ record.history|length }} entr{{ "y" if record.history|length == 1 else "ies" }}, newest first</span>{% endif %}
+      </div>
+      {% if record.history %}
+      <ol class="timeline">
+        {% for h in record.history %}
+        <li data-kind="{{ h.kind }}"{% if h.overdue %} data-overdue="1"{% endif %}>
+          <div class="t-when">{{ h.at_label }}{% if h.actor %} <span class="t-actor">· {{ h.actor }}</span>{% endif %}</div>
+          <p class="t-title">{{ h.title }}{% if h.overdue %} · overdue{% endif %}</p>
+          {% if h.detail %}<p class="t-detail">{{ h.detail }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="section-empty">Nothing has been changed on this record.</p>
+      {% endif %}
+    </section>
+
+    <section class="section" id="technical">
+      <details class="tech">
+        <summary>Technical details</summary>
+        <dl>
+          {% for k, v in record.technical %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}
+        </dl>
+      </details>
+    </section>
+  {% endif %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-copy">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Your data stays on your machine.</span>
+      </div>
+      <div class="footer-meta">
+        <strong>Assure</strong>. PEM engine. &copy; 2026 Assure. All rights reserved.
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/pricing">Pricing</a>
+        <a href="mailto:feedback@getassureai.com">Help</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

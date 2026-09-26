@@ -2083,7 +2083,37 @@ body.collapsed .pane-left {
   font-family: var(--sans, inherit);
   color: currentColor;
   padding: var(--space-0) 6px;
+  flex-wrap: wrap;
 }
+/* What intake extracted, under the filename (client feedback 2026-09-25: the
+   row appeared and nothing said what came out). Muted; only the review count
+   takes the amber, and only while it is above zero. View is the door to the
+   Fields queue on that report. */
+.source-result {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  padding-left: 22px;
+  font: 400 var(--fs-xs)/1.4 var(--sans, inherit);
+  color: var(--muted);
+}
+/* Each count is one unit: the line wraps between them, never inside one. */
+.source-result > span { white-space: nowrap; }
+.source-result-sep { color: var(--muted); opacity: .6; }
+.source-result-review[data-tone="partial"] { color: var(--partial); }
+.source-view {
+  height: 22px;
+  margin-left: 2px;
+  padding: 0 2px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.source-view:hover:not([disabled]) { color: var(--ink); text-decoration-color: var(--ink); background: transparent; }
 .source-include {
   margin: 0;
 }
@@ -3478,6 +3508,18 @@ body.collapsed.right-hidden #resize-right { display: none; }
   text-underline-offset: 3px;
 }
 .strip-next .strip-value:hover:not([disabled]) { text-decoration-color: var(--ink); }
+/* The Review cell is a link into the queue while anything waits; at "None"
+   it reads as the plain value it is. */
+.strip-link {
+  height: 28px;
+  padding: 0 var(--space-2);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.strip-link[data-tone="partial"] { color: var(--partial); }
+.strip-link:hover:not([disabled]) { text-decoration-color: var(--ink); }
+.strip-link[disabled] { opacity: 1; cursor: default; text-decoration: none; }
 
 /* =============================================================
    The inspector — collapsible sections whose titles say what the data
@@ -3486,6 +3528,32 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .inspector-body { padding: 0 var(--space-4) var(--space-4); gap: 0; }
 .inspector-idle { padding: var(--space-4) 0; }
 .inspector-idle[hidden] { display: none; }
+/* One line above the review list: what intake extracted, and the way in. */
+.idle-fields-line {
+  display: block;
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--muted);
+}
+.idle-fields-line[hidden] { display: none; }
+.idle-fields-tail { white-space: nowrap; }
+.idle-fields-sep { color: var(--muted); opacity: .6; margin-right: 2px; }
+/* Inline in the sentence: on a narrow pane the whole "Open fields" moves to
+   the next line as one word; nothing dangles. */
+.idle-fields-open {
+  display: inline;
+  height: auto;
+  padding: 0;
+  line-height: inherit;
+  vertical-align: baseline;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.idle-fields-open:hover:not([disabled]) { text-decoration-color: var(--ink); background: transparent; }
 #inspector-sections[hidden] { display: none; }
 .insp-section {
   border-bottom: 1px solid var(--rule);
@@ -3743,6 +3811,21 @@ body.collapsed.right-hidden #resize-right { display: none; }
   max-width: 100%;
 }
 .fields-report-select:focus { border-color: var(--ink); outline: none; }
+/* The document (selector or name) on the left, the record and the table on
+   the right; on a narrow pane the links wrap under the name. */
+.fields-doc-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.fields-doc-row .fields-report, .fields-doc-row .fields-doc { flex: 1 1 160px; min-width: 0; }
+.fields-links { display: flex; align-items: center; gap: var(--space-1); margin-left: auto; flex-shrink: 0; }
+.fields-link {
+  height: 24px;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.fields-link:hover { color: var(--ink); text-decoration-color: var(--ink); background: transparent; }
 .fields-doc { display: flex; flex-direction: column; gap: 2px; }
 .fields-doc[hidden] { display: none; }
 .fields-doc-name { font: 500 var(--fs-md)/1.4 var(--sans); color: var(--ink); word-break: break-word; }

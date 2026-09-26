@@ -8,6 +8,16 @@ correction sets ``field_state=accepted`` / ``routing_action=none``; a dispute
 sets ``disputed`` / ``adjudicator_queue`` with ``due_at = opened_at + 72h``;
 each mutation is one audit event (spec §9 item 22). Exports strip the
 report's private ``_`` keys (page texts kept for re-extraction).
+
+The project-wide export (``GET …/parsure/export``) and the two server-rendered
+pages (``/parsing``, ``/parsing/<report_id>`` in ``web.py``) share the words
+and formatting in the "Words" section below — one table of modality names, one
+money/date formatter, one reason-to-sentence rewrite — so a value reads the
+same in a cell, a CSV and a record page. They live here rather than in the
+db layer because they are presentation, and here rather than in ``web.py``
+because that file is a route registry and the same words are needed by the
+routes. Added 2026-09-26 after the client asked where the extracted data can
+be read in bulk.
 """
 
 from __future__ import annotations
@@ -16,6 +26,8 @@ import csv
 import io
 import json
 import logging
+import re
+from datetime import datetime
 from typing import Any
 
 from flask import Response, jsonify, request
@@ -40,6 +52,388 @@ CSV_COLUMNS = (
     "name", "label", "value", "extraction_confidence", "confidence_basis", "verification_confidence",
     "field_state", "routing_action", "review_required", "reason", "source_page",
 )
+
+#: Project-wide CSV, long format: one row per document × field.
+PROJECT_CSV_COLUMNS = (
+    "report_id", "document_id", "filename", "document_type", "field", "label", "value",
+    "extraction_confidence", "field_state", "routing_action", "review_required", "reason", "source_page", "created_at",
+)
+
+#: ``state=`` filter values for the project export and the page's state select.
+#: ``needs_review`` is every field still asking for a person (routing not
+#: ``none``, or disputed / rejected); ``not_found`` is a field the extractor did
+#: not find (``value: null``) — it also needs a person, so the two overlap on
+#: purpose: they are "show me" filters, not a partition.
+STATE_FILTERS = ("needs_review", "accepted", "not_found")
+
+
+# --------------------------------------------------------------------------
+# Words — shared by the export, /parsing and /parsing/<report_id>
+# --------------------------------------------------------------------------
+
+MODALITY_WORDS = {
+    "digital_pdf": "Digital PDF",
+    "scanned_pdf": "Scan",
+    "phone_photo": "Phone photo",
+    "screenshot": "Screenshot",
+    "handwritten": "Handwritten",
+    "table_image": "Table image",
+    "mixed": "Mixed bundle",
+    "text": "Text",
+}
+MATERIAL_WORDS = {
+    "pdf": "PDF",
+    "image": "Image",
+    "photo": "Photo",
+    "screenshot": "Screenshot",
+    "handwritten_image": "Handwritten note",
+    "table": "Table image",
+    "mixed_bundle": "Mixed bundle",
+    "text_file": "Text file",
+}
+PARSER_WORDS = {"jdf-cli": "JDF", "jdf-cli+tesseract": "JDF + OCR", "textract": "Textract", "pymupdf": "PyMuPDF", "text": "Text"}
+FLAG_WORDS = {
+    "low_res": "Low resolution",
+    "low_resolution": "Low resolution",
+    "blurry": "Blurry",
+    "low_contrast": "Low contrast",
+    "no_text": "No text",
+    "skewed": "Skewed",
+    "glare": "Glare",
+    "noisy": "Noisy",
+    "faint_signature": "Faint signature",
+    "handwritten": "Handwritten",
+    "no_text_layer": "No text layer",
+}
+LOW_QUALITY_FLAGS = {"low_res", "low_resolution", "blurry", "low_contrast", "skewed", "glare", "noisy"}
+STATE_WORDS = {
+    "accepted": "Accepted",
+    "partial": "Partial",
+    "unverified": "Unverified",
+    "disputed": "Disputed",
+    "rejected": "Rejected",
+}
+ROUTING_WORDS = {
+    "manual_review": "Needs a reviewer",
+    "adjudicator_queue": "With an adjudicator",
+    "compliance_review": "Needs compliance sign-off",
+    "retry_parsure": "Retry with another reader",
+    "replay_later": "Waiting for replay",
+    "none": "No action",
+}
+REASON_LABELS = dict(repo.REASON_CATEGORIES) if hasattr(repo, "REASON_CATEGORIES") else {}
+#: Audit event types in words (docs/parsure.md lists the machine names).
+EVENT_WORDS = {
+    "intake_received": "Received",
+    "quality_assessed": "Quality assessed",
+    "classified": "Type identified",
+    "fields_extracted": "Fields extracted",
+    "decision_applied": "Decision applied",
+    "field_accepted": "Field accepted",
+    "field_corrected": "Field corrected",
+    "dispute_opened": "Dispute opened",
+    "dispute_resolved": "Dispute resolved",
+    "classification_overridden": "Type changed by reviewer",
+    "exported": "Exported",
+}
+UNCERTAIN_TYPES = (None, "", "unknown", "uncertain", "other")
+
+
+def words(value: Any, table: dict[str, str] | None = None) -> str | None:
+    """``snake_case`` → "Snake case", through ``table`` when it has the key."""
+    if value in (None, ""):
+        return None
+    key = str(value).strip().lower()
+    if table and key in table:
+        return table[key]
+    return key.replace("_", " ").replace("-", " ").strip().capitalize()
+
+
+def num(value: Any) -> float | None:
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def score_label(value: Any) -> str:
+    """A 0–1 score at two decimals; ``None`` reads "—", never a default."""
+    n = num(value)
+    return f"{n:.2f}" if n is not None else "—"
+
+
+def date_label(value: Any) -> str:
+    """"Mar 15, 2026" from an ISO string / datetime; "—" when there is none."""
+    if value in (None, ""):
+        return "—"
+    dt = value
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value[:10]
+    try:
+        return f"{dt:%b} {dt.day}, {dt.year}"
+    except (AttributeError, ValueError):
+        return str(value)[:10]
+
+
+def datetime_label(value: Any) -> str:
+    """"Mar 15, 2026 · 10:04" for the history timeline."""
+    if value in (None, ""):
+        return "—"
+    dt = value
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00").replace(" ", "T"))
+        except ValueError:
+            return value[:16]
+    try:
+        return f"{dt:%b} {dt.day}, {dt.year} · {dt:%H:%M}"
+    except (AttributeError, ValueError):
+        return str(value)[:16]
+
+
+def doc_type_label(classification: Any) -> str:
+    """The document type in words; anything not named reads "Type uncertain"."""
+    if isinstance(classification, str):
+        value = classification
+    elif isinstance(classification, dict):
+        value = classification.get("document_type")
+    else:
+        value = None
+    if value in UNCERTAIN_TYPES:
+        return "Type uncertain"
+    return words(value) or "Type uncertain"
+
+
+def document_type_key(report: dict[str, Any]) -> str:
+    """The grouping key for a report: its (possibly overridden) type or ``uncertain``."""
+    value = (report.get("classification") or {}).get("document_type") if isinstance(report.get("classification"), dict) else None
+    return "uncertain" if value in UNCERTAIN_TYPES else str(value)
+
+
+def value_label(field: dict[str, Any] | None, value: Any = None, *, raw: bool = False) -> str:
+    """A field's value for a cell or a CSV.
+
+    Money reads ``1,284.00`` — two decimals, no currency sign, because the
+    extractor does not record a currency and a "$" would be a guess. Dates read
+    "Aug 14, 2026". Numbers keep their own precision with thousands separators.
+    ``None`` is "—" (the field was not found). ``raw=True`` skips the "—" so a
+    CSV cell stays empty rather than carrying a dash.
+    """
+    if field is not None and value is None:
+        value = field.get("value")
+    if value is None:
+        return "" if raw else "—"
+    ftype = (field or {}).get("field_type")
+    if isinstance(value, bool):
+        return "Yes" if value else "No"
+    if ftype == "money" and isinstance(value, (int, float)):
+        return f"{float(value):,.2f}"
+    if ftype == "date" and isinstance(value, str):
+        label = date_label(value)
+        return label if label != "—" else value
+    if isinstance(value, int):
+        return f"{value:,}"
+    if isinstance(value, float):
+        return f"{value:,.2f}".rstrip("0").rstrip(".") if value != int(value) else f"{int(value):,}"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(value_label(None, v, raw=raw) for v in value)
+    return str(value)
+
+
+def reason_words(reason: Any) -> str:
+    """The decision policy's reason string in plain words.
+
+    The raw string stays in the API and the CSV; on the pages the system
+    tokens (``extraction_confidence 0.52 < 0.75``, ``number_quality
+    handwritten: …``) read as a sentence fragment a reviewer can act on
+    (brief §2 "Wording clarity").
+    """
+    if not reason:
+        return "No reason recorded"
+    text = str(reason).strip()
+    m = re.match(r"^(extraction|verification)_confidence\s+([0-9.]+)\s*<\s*([0-9.]+)$", text)
+    if m:
+        return f"{m.group(1).capitalize()} confidence {m.group(2)} is below {m.group(3)}"
+    m = re.match(r"^(number|signature)_quality\s+([a-z_]+)\s*:?\s*(.*)$", text, re.I)
+    if m:
+        tail = f": {m.group(3).strip()}" if m.group(3).strip() else ""
+        return f"{m.group(1).capitalize()} reads {m.group(2).replace('_', ' ')}{tail}"
+    m = re.match(r"^z3 violation\s*:\s*(.*)$", text, re.I)
+    if m:
+        return f"Verification failed: {m.group(1).strip()}" if m.group(1).strip() else "Verification failed"
+    m = re.match(r"^plausibility rule '([^']+)' failed\s*:?\s*(.*)$", text, re.I)
+    if m:
+        return f"Implausible ({m.group(1).replace('_', ' ')}){': ' + m.group(2).strip() if m.group(2).strip() else ''}"
+    m = re.match(r"^disputed\s*:\s*(.*)$", text, re.I)
+    if m:
+        return f"Disputed: {m.group(1).strip()}"
+    if text.lower() == "field not found":
+        return "Not found in the document"
+    if text.lower().startswith("compliance-bound"):
+        return "Compliance-bound: a person must confirm it"
+    text = re.sub(r"could not be parsed", "could not be read", text, flags=re.I)
+    return text[0].upper() + text[1:]
+
+
+def field_bucket(field: dict[str, Any]) -> str:
+    """``not_found`` / ``accepted`` / ``needs_review`` — the filter a field answers to.
+
+    A field with no value is ``not_found`` whatever its state says; an accepted
+    field is ``accepted``; everything else has a value and is not accepted, so
+    a person still has to look at it.
+    """
+    if field.get("value") is None:
+        return "not_found"
+    if str(field.get("field_state") or "") == "accepted":
+        return "accepted"
+    return "needs_review"
+
+
+def field_mark(field: dict[str, Any]) -> str:
+    """The quiet cell mark: ``accepted`` (plain ink), ``review`` (amber dot),
+    ``rejected`` (red dot; also disputed), ``missing`` ("—")."""
+    if field.get("value") is None:
+        return "missing"
+    state = str(field.get("field_state") or "")
+    if state == "accepted":
+        return "accepted"
+    if state in ("rejected", "disputed"):
+        return "rejected"
+    return "review"
+
+
+def _matches_state(field: dict[str, Any], state: str | None) -> bool:
+    if not state:
+        return True
+    if state == "needs_review":
+        return repo._needs_attention(field) or field_bucket(field) == "needs_review"
+    return field_bucket(field) == state
+
+
+def taxonomy_order(document_type: str) -> list[str]:
+    """Field names in the ICP taxonomy's order for ``document_type``; empty for
+    ``uncertain`` or a type the taxonomy does not know."""
+    specs = getattr(fx, "FIELD_TAXONOMY", {}).get(document_type) or []
+    return [spec.name for spec in specs]
+
+
+def type_columns(document_type: str, reports: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The columns of one document-type table: taxonomy order first, then any
+    field a report carries that the taxonomy does not name, in first-seen order.
+    Only fields present in at least one report become columns."""
+    seen: dict[str, str] = {}
+    for report in reports:
+        for f in report.get("fields") or []:
+            name = str(f.get("name") or "")
+            if name and name not in seen:
+                seen[name] = str(f.get("label") or words(name) or name)
+    ordered = [n for n in taxonomy_order(document_type) if n in seen]
+    ordered += [n for n in seen if n not in ordered]
+    return [{"name": n, "label": seen[n]} for n in ordered]
+
+
+def group_reports_by_type(reports: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
+    """(type key, reports) in taxonomy order, ``uncertain`` last; each group in
+    the reports' own (newest-first) order."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for report in reports:
+        groups.setdefault(document_type_key(report), []).append(report)
+    known = [t for t in getattr(fx, "DOCUMENT_TYPES", ()) if t in groups]
+    extra = sorted(t for t in groups if t not in known and t != "uncertain")
+    order = known + extra + (["uncertain"] if "uncertain" in groups else [])
+    return [(t, groups[t]) for t in order]
+
+
+def export_documents(project_id: str, *, document_type: str | None = None, state: str | None = None) -> list[dict[str, Any]]:
+    """Every report of the project as ``{report_id, document_id, filename,
+    document_type, created_at, fields:[…]}`` with private keys stripped and the
+    filters applied. A document whose fields all fall outside ``state`` is
+    dropped; a document with no fields at all stays (it is data the reviewer
+    should see is missing) unless a state filter is set."""
+    out: list[dict[str, Any]] = []
+    for report in repo.list_reports(project_id, limit=1000):
+        type_key = document_type_key(report)
+        if document_type and type_key != document_type:
+            continue
+        fields = [repo.public_report(f) if isinstance(f, dict) else f for f in (report.get("fields") or [])]
+        if state:
+            fields = [f for f in fields if _matches_state(f, state)]
+            if not fields:
+                continue
+        out.append({
+            "report_id": report.get("report_id"),
+            "document_id": report.get("document_id"),
+            "filename": report.get("filename"),
+            "document_type": type_key,
+            "document_type_label": doc_type_label(type_key),
+            "created_at": report.get("created_at"),
+            "fields": fields,
+        })
+    return out
+
+
+def project_csv_long(documents: list[dict[str, Any]]) -> str:
+    """One row per document × field (``PROJECT_CSV_COLUMNS``); values raw, not formatted."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(PROJECT_CSV_COLUMNS)
+    for d in documents:
+        for f in d["fields"]:
+            span = f.get("source_span") or {}
+            writer.writerow([
+                d.get("report_id"), d.get("document_id") or "", d.get("filename") or "", d.get("document_type"),
+                f.get("name"), f.get("label"), "" if f.get("value") is None else f.get("value"),
+                f.get("extraction_confidence"), f.get("field_state"), f.get("routing_action"),
+                "true" if f.get("review_required") else "false", f.get("reason") or "", span.get("page") or "",
+                d.get("created_at") or "",
+            ])
+    return buf.getvalue()
+
+
+def project_csv_wide(documents: list[dict[str, Any]]) -> str:
+    """One row per document, one column per field, headed by the field labels.
+
+    This is the shape a spreadsheet user asked for (2026-09-25): a table with a
+    document per row. Columns are grouped by document type in taxonomy order,
+    deduplicated by field name (``policy_number`` appears in several types and
+    gets one column); a label two different fields share gets the field name in
+    parentheses so no two columns read the same. Cells hold the value as the
+    document carries it; ``needs_review`` counts the fields of that row still
+    asking for a person so a filter in the spreadsheet finds them.
+    """
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for d in documents:
+        by_type.setdefault(d["document_type"], []).append(d)
+    type_order = [t for t, _ in group_reports_by_type([{"classification": {"document_type": t}} for t in by_type])]
+    columns: list[dict[str, str]] = []
+    names: set[str] = set()
+    for t in type_order:
+        for col in type_columns(t, by_type[t]):
+            if col["name"] not in names:
+                names.add(col["name"])
+                columns.append(col)
+    label_counts: dict[str, int] = {}
+    for col in columns:
+        label_counts[col["label"]] = label_counts.get(col["label"], 0) + 1
+    headers = [c["label"] if label_counts[c["label"]] == 1 else f"{c['label']} ({c['name']})" for c in columns]
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["report_id", "filename", "document_type", "created_at", "needs_review", *headers])
+    for t in type_order:
+        for d in by_type[t]:
+            by_name = {str(f.get("name")): f for f in d["fields"]}
+            needs = sum(1 for f in d["fields"] if repo._needs_attention(f))
+            row = [d.get("report_id"), d.get("filename") or "", d.get("document_type"), d.get("created_at") or "", needs]
+            for col in columns:
+                f = by_name.get(col["name"])
+                row.append("" if f is None or f.get("value") is None else f.get("value"))
+            writer.writerow(row)
+    return buf.getvalue()
 
 
 def _summary(report: dict[str, Any]) -> dict[str, Any]:
@@ -176,6 +570,57 @@ def register_parsure_routes(app) -> None:
             limit = 200
         events = repo.list_events(project_id, report_id=report_id, limit=limit)
         return jsonify({"ok": True, "events": events, "event_types": list(repo.EVENT_TYPES)})
+
+    @app.get("/api/projects/<project_id>/parsure/export")
+    @project_ownership_required
+    def parsure_export_project(project_id: str):
+        """Every extracted value of the project in one file (the client's
+        "where can we show the parsed data in bulk?", 2026-09-25).
+
+        ``format=csv`` is long (one row per document × field, raw values);
+        ``format=csv&wide=1`` is one row per document with a column per field —
+        the spreadsheet shape; ``format=json`` nests fields by name. Filters:
+        ``document_type=<type>`` and ``state=needs_review|accepted|not_found``.
+        One ``exported`` audit event with scope ``project`` per download.
+        """
+        fmt = (request.args.get("format") or "csv").strip().lower()
+        if fmt not in ("json", "csv"):
+            return jsonify({"ok": False, "error": "format must be json or csv."}), 400
+        state = (request.args.get("state") or "").strip().lower() or None
+        if state and state not in STATE_FILTERS:
+            return jsonify({"ok": False, "error": f"state must be one of {', '.join(STATE_FILTERS)}."}), 400
+        document_type = (request.args.get("document_type") or "").strip().lower() or None
+        wide = (request.args.get("wide") or "").strip().lower() in ("1", "true", "yes")
+        documents = export_documents(project_id, document_type=document_type, state=state)
+        fields_n = sum(len(d["fields"]) for d in documents)
+        repo.log_event(project_id, "exported", payload={
+            "scope": "project", "format": fmt, "wide": wide and fmt == "csv",
+            "documents": len(documents), "fields": fields_n,
+            "filters": {"document_type": document_type, "state": state},
+        })
+        stamp = datetime.utcnow().strftime("%Y-%m-%d")
+        safe_project = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(project_id))[:64] or "project"
+        filename = f"parsure-{safe_project}-{stamp}.{fmt}"
+        if fmt == "csv":
+            payload = project_csv_wide(documents) if wide else project_csv_long(documents)
+            mimetype = "text/csv; charset=utf-8"
+        else:
+            body = {
+                "ok": True,
+                "project_id": project_id,
+                "exported_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+                "filters": {"document_type": document_type, "state": state},
+                "documents": [
+                    {
+                        "report_id": d["report_id"], "document_id": d["document_id"], "filename": d["filename"],
+                        "document_type": d["document_type"], "created_at": d["created_at"],
+                        "fields": {str(f.get("name")): f for f in d["fields"]},
+                    }
+                    for d in documents
+                ],
+            }
+            payload, mimetype = json.dumps(body, ensure_ascii=False, indent=2, default=str), "application/json"
+        return Response(payload, mimetype=mimetype, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
     @app.get("/api/projects/<project_id>/parsure/<report_id>")
     @project_ownership_required

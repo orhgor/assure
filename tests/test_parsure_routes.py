@@ -352,3 +352,105 @@ def test_analytics_rates_are_none_not_zero_without_fields(client):
     assert [h["count"] for h in a["quality_histogram"]] == [0, 0, 0, 0, 0]
     assert a["issue_distribution"] == {"quality_flags": [], "field_reasons": []} and a["by_modality"] == {}
     assert len(a["trend"]) == 30 and all(d["avg_quality"] is None for d in a["trend"])
+
+
+# --------------------------------------------------------------------------
+# Project-wide export (client ask of 2026-09-25: the extracted data, in bulk)
+# --------------------------------------------------------------------------
+
+def test_project_export_csv_long_wide_json_and_filters(client):
+    from prompt_matrix.routers.parsure_routes import PROJECT_CSV_COLUMNS
+
+    rid_policy = _seed()
+    rid_claim = _seed(lines=[line.replace("AP-2025-0001", "AP-7") for line in POLICY_LINES], filename="loss-notice.pdf",
+                      result={"document_id": "doc-2", "revision_id": "rev-2", "version": 2})
+    client.post(f"/api/projects/default/parsure/{rid_claim}/classification", json={"document_type": "auto_claim", "reason": "loss notice"})
+    client.post(f"/api/projects/default/parsure/{rid_policy}/fields/premium/accept", json={"actor": "ana"})
+
+    # Long CSV: one row per document × field, the documented columns, a dated filename.
+    res = client.get("/api/projects/default/parsure/export?format=csv")
+    assert res.status_code == 200 and res.mimetype == "text/csv"
+    import re as _re
+    assert _re.fullmatch(r'attachment; filename="parsure-default-\d{4}-\d{2}-\d{2}\.csv"', res.headers["Content-Disposition"])
+    rows = list(csv.DictReader(io.StringIO(res.get_data(as_text=True))))
+    assert tuple(rows[0].keys()) == PROJECT_CSV_COLUMNS
+    reports = {r["report_id"]: r for r in client.get("/api/projects/default/parsure").get_json()["reports"]}
+    assert len(rows) == sum(r["review_summary"]["fields_total"] for r in reports.values())
+    assert {r["report_id"] for r in rows} == {rid_policy, rid_claim}
+    assert {r["document_type"] for r in rows} == {"auto_policy", "auto_claim"}
+    premium = next(r for r in rows if r["report_id"] == rid_policy and r["field"] == "premium")
+    assert premium["label"] == "Premium" and premium["value"] == "1250.0" and premium["field_state"] == "accepted" and premium["source_page"] == "1"
+    assert premium["filename"] == "policy.pdf" and premium["created_at"]
+
+    # Filters: by type, by state; not_found rows have no value, accepted rows are accepted.
+    only_claim = list(csv.DictReader(io.StringIO(client.get("/api/projects/default/parsure/export?format=csv&document_type=auto_claim").get_data(as_text=True))))
+    assert only_claim and all(r["document_type"] == "auto_claim" for r in only_claim)
+    missing = list(csv.DictReader(io.StringIO(client.get("/api/projects/default/parsure/export?format=csv&state=not_found").get_data(as_text=True))))
+    assert missing and all(r["value"] == "" for r in missing)
+    accepted = list(csv.DictReader(io.StringIO(client.get("/api/projects/default/parsure/export?format=csv&state=accepted").get_data(as_text=True))))
+    assert accepted and all(r["field_state"] == "accepted" for r in accepted)
+    review = list(csv.DictReader(io.StringIO(client.get("/api/projects/default/parsure/export?format=csv&state=needs_review").get_data(as_text=True))))
+    assert review and all(r["field_state"] != "accepted" for r in review)
+    assert client.get("/api/projects/default/parsure/export?format=csv&state=bogus").status_code == 400
+    assert client.get("/api/projects/default/parsure/export?format=xml").status_code == 400
+    assert client.get("/api/projects/nope/parsure/export?format=csv").status_code == 404
+
+    # Wide CSV: one row per document, labels as headers, a needs_review count.
+    wide = client.get("/api/projects/default/parsure/export?format=csv&wide=1")
+    assert wide.status_code == 200
+    table = list(csv.reader(io.StringIO(wide.get_data(as_text=True))))
+    header, body = table[0], table[1:]
+    assert header[:5] == ["report_id", "filename", "document_type", "created_at", "needs_review"]
+    assert "Policy number" in header and "Premium" in header and "Claim number" in header
+    assert header.index("Policy number") < header.index("Premium")  # taxonomy order
+    assert len(set(header)) == len(header)  # no two columns read the same
+    assert len(body) == 2 and {r[0] for r in body} == {rid_policy, rid_claim}
+    policy_row = next(r for r in body if r[0] == rid_policy)
+    assert policy_row[header.index("Premium")] == "1250.0" and policy_row[header.index("Claim number")] == ""
+    assert int(policy_row[4]) == reports[rid_policy]["review_summary"]["fields_review"]
+
+    # JSON: fields nested by name, private keys absent.
+    js = client.get("/api/projects/default/parsure/export?format=json")
+    assert js.status_code == 200 and js.headers["Content-Disposition"].endswith('.json"')
+    body = js.get_json()
+    assert body["ok"] and body["project_id"] == "default" and len(body["documents"]) == 2
+    doc = next(d for d in body["documents"] if d["report_id"] == rid_policy)
+    assert set(doc) == {"report_id", "document_id", "filename", "document_type", "created_at", "fields"}
+    assert doc["fields"]["premium"]["value"] == 1250.0 and doc["fields"]["premium"]["field_state"] == "accepted"
+    assert "_page_texts" not in json_dumps(body)
+
+    # One project-scoped audit event per download.
+    events = client.get("/api/projects/default/parsure/audit-log").get_json()["events"]
+    exported = [e for e in events if e["event_type"] == "exported" and e["payload"].get("scope") == "project"]
+    assert len(exported) == 7 and exported[0]["report_id"] is None
+    assert exported[0]["payload"]["format"] == "json" and exported[0]["payload"]["documents"] == 2
+    assert any(e["payload"]["wide"] for e in exported)
+    assert any(e["payload"]["filters"] == {"document_type": "auto_claim", "state": None} for e in exported)
+
+
+def json_dumps(value):
+    import json
+
+    return json.dumps(value, default=str)
+
+
+def test_report_page_texts_and_find_report_are_repository_only(client):
+    from prompt_matrix.db import parsure_repository as repo
+
+    rid = _seed()
+    found = repo.find_report(rid)
+    assert found and found["project_id"] == "default" and found["report_id"] == rid
+    assert repo.find_report("pr-nope") is None
+
+    texts = repo.report_page_texts("default", rid)
+    assert isinstance(texts, list) and texts and all(isinstance(t, str) for t in texts)
+    assert "AP-2025-0001" in texts[0]
+    assert repo.report_page_texts("default", "pr-nope") is None
+    assert repo.report_page_texts("other", rid) is None
+    repo.save_report("default", {"report_id": "bare", "filename": "bare.pdf", "fields": [], "pages": []})
+    assert repo.report_page_texts("default", "bare") is None
+
+    # The API and both exports never carry the page text.
+    for url in (f"/api/projects/default/parsure/{rid}", f"/api/projects/default/parsure/{rid}/export?format=json",
+                "/api/projects/default/parsure/export?format=json", "/api/projects/default/parsure/latest"):
+        assert "_page_texts" not in client.get(url).get_data(as_text=True), url

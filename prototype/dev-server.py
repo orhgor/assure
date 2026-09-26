@@ -465,7 +465,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path.startswith("/api/"):
             self._proxy(method)
-        elif self.path.split("?", 1)[0] in PROXIED_PAGES:
+        elif self.path.split("?", 1)[0] in PROXIED_PAGES or self.path.startswith("/parsing/"):
+            # /parsing/<report_id> is the Parsure document detail page (Flask),
+            # added 2026-09-26; the set above lists exact paths only.
             if method not in ("GET", "HEAD"):
                 self.send_error(405)
                 return

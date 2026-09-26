@@ -1079,6 +1079,25 @@ def _split_statements(script: str) -> list[str]:
 # --------------------------------------------------------------------------- #
 
 _pools: dict[tuple[str, str], Any] = {}
+
+
+def _forget_pools_in_child() -> None:
+    """A forked child starts with no pool.
+
+    psycopg_pool runs its maintenance (reconnect, grow, shrink) on threads;
+    threads do not survive ``fork``, so a pool built in the parent is inert in
+    the child: it can hand out the inherited connections once, and after the
+    server drops them it can never add new ones — ``getconn`` waits out the
+    timeout forever (Celery prefork, 2026-09-26, see celery_app.py). Dropping
+    the dict lets the first checkout in the child build a fresh pool with live
+    threads. The inherited connection objects are not closed here on purpose:
+    closing would send Terminate over sockets the parent still owns.
+    """
+    _pools.clear()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_forget_pools_in_child)
 _pools_lock = threading.Lock()
 #: Pools kept open at once. Production has one schema; the test-suite derives
 #: a schema per test, and without a cap every one of them would keep its
@@ -1136,6 +1155,16 @@ def _get_pool(url: str, schema: str):
             open=True,
             kwargs={"options": options, "autocommit": False, "application_name": app_name},
             name=f"assure-{schema}",
+            # A connection the server has closed (PostgreSQL restarted under a
+            # running stack — `docker compose up -d` recreating the container,
+            # a failover) otherwise comes back out of the pool and every
+            # statement fails with "server closed the connection unexpectedly";
+            # measured 2026-09-26: after `docker compose restart postgres`
+            # each upload answered 500 and the worker died with PoolTimeout.
+            # The check pings the connection on checkout and the pool replaces
+            # a dead one instead of handing it out.
+            check=ConnectionPool.check_connection,
+            reconnect_timeout=max(30.0, timeout * 6),
         )
         while len(_pools) >= _MAX_POOLS:
             oldest_key = next(iter(_pools))
@@ -1159,13 +1188,35 @@ def checkout(db_path: str | None = None) -> Connection:
         raise RuntimeError("DATABASE_URL is not a PostgreSQL DSN")
     schema = current_schema(db_path)
     pool = _get_pool(url, schema)
-    pgconn = pool.getconn()
+    try:
+        pgconn = pool.getconn()
+    except Exception as exc:
+        # The stats name the holders' problem (pool_available 0, requests_waiting
+        # N, connections_lost M) instead of a bare timeout.
+        try:
+            stats = pool.get_stats()
+        except Exception:
+            stats = {}
+        _log.error(
+            "PostgreSQL pool checkout failed (%s: %s) pool=%s stats=%s",
+            exc.__class__.__name__, exc, pool.name, {k: stats[k] for k in sorted(stats) if k in (
+                "pool_size", "pool_available", "requests_waiting", "requests_errors", "connections_lost",
+                "connections_num", "connections_errors", "usage_ms")},
+        )
+        raise
 
     def _release(raw: Any) -> None:
         try:
             pool.putconn(raw)
         except Exception as exc:
-            _log.error("PostgreSQL connection not returned to pool (%s: %s)", exc.__class__.__name__, exc)
+            _log.error("PostgreSQL connection not returned to pool (%s: %s); discarding it", exc.__class__.__name__, exc)
+            # A closed connection is accepted by putconn and replaced by the
+            # pool; anything else is dropped so it cannot hold a slot.
+            try:
+                raw.close()
+                pool.putconn(raw)
+            except Exception:
+                pass
 
     return Connection(pgconn, release=_release, schema=schema)
 

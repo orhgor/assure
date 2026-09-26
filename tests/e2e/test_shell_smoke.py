@@ -230,6 +230,7 @@ def test_compare_toggle_swaps_inspector_for_compare(goto_shell, browser_page):
 # (/tmp/keyproxy.py in the 2026-09-25 runs); the fixtures themselves carry none.
 
 import os as _os
+import re
 
 _SHELL_BASE = _os.environ.get("SHELL_BASE_URL", "http://localhost:8990")
 _PARSURE_PROJECT = _os.environ.get("PARSURE_PROJECT", "e2e-parsure-4")
@@ -382,3 +383,112 @@ def test_report_deep_link_opens_fields_panel(parsure_shell, browser_page):
     assert browser_page.locator("#right-inspector").is_visible()
     if select.is_visible():
         assert select.input_value() == reports[0]["report_id"], "no link → the latest report"
+
+
+# ---- Upload → result, in place (client feedback 2026-09-25: "how do we access
+# the parsed information?") -----------------------------------------------------
+# The source row says what intake extracted and View opens the Fields queue;
+# the idle inspector and the Fields head point at the record and the table.
+
+_UPLOAD_FILE = _os.environ.get("E2E_UPLOAD_FILE", "/tmp/auto_policy.pdf")
+
+
+def test_upload_row_shows_extracted_fields_and_view_opens_queue(browser_page):
+    """A fresh project, one upload: the row gains "N fields extracted · M need
+    review" with a View that lands on the Fields tab, first waiting field open;
+    the header chip and the primary action follow without a reload."""
+    if not _os.path.isfile(_UPLOAD_FILE):
+        pytest.skip(f"{_UPLOAD_FILE} is not on this machine")
+    created = browser_page.request.post(_SHELL_BASE + "/api/projects", data={"title": "e2e upload flow"})
+    assert created.ok, created.text()
+    pid = created.json()["id"]
+    browser_page.set_default_timeout(20000)
+    browser_page.goto(_SHELL_BASE + "/index.html?project_id=" + pid, wait_until="domcontentloaded")
+    browser_page.wait_for_selector("#pane-right", state="visible")
+    assert browser_page.locator("#shell-primary").is_disabled(), "an empty workspace has no primary action"
+    # The Sources pane, as the reader reaches it: from the rail.
+    browser_page.click("#rail-sources")
+    browser_page.wait_for_selector("#left-sources", state="visible")
+
+    browser_page.set_input_files("#source-file-input", _UPLOAD_FILE)
+    row = browser_page.locator("#source-list .source-item[data-source-id]").first
+    row.wait_for(state="attached", timeout=120000)
+    result = row.locator(".source-result")
+    result.wait_for(state="visible", timeout=60000)
+    text = result.inner_text()
+    assert re.search(r"\d+ fields? extracted", text), f"the row says what came out: {text!r}"
+    view = result.locator(".source-view")
+    assert view.inner_text().strip() == "View"
+    report_id = row.get_attribute("data-report-id")
+    assert report_id and report_id.startswith("pr-"), "the row is tied to its report"
+    rep = browser_page.request.get(_SHELL_BASE + f"/api/projects/{pid}/parsure/{report_id}").json()["report"]
+    summary = rep["review_summary"]
+    assert f"{summary['fields_total']} field" in text, f"the count is the report's: {text!r} vs {summary}"
+    if summary["fields_review"] > 0:
+        amber = result.locator('.source-result-review[data-tone="partial"]')
+        assert amber.count() == 1 and f"{summary['fields_review']} need" in amber.inner_text()
+        # Deliverable 4: the header follows the upload without a reload.
+        browser_page.wait_for_function(
+            "() => document.getElementById('shell-primary').dataset.action === 'review'", timeout=15000
+        )
+        assert "need review" in browser_page.inner_text("#shell-status-chip")
+        assert browser_page.locator("#fields-tab-count").is_visible(), "the Fields badge appears with the list"
+        assert browser_page.locator("#strip-review-value").is_enabled(), "the strip's Review cell is a link"
+    assert browser_page.locator("#right-inspector").is_visible(), "the upload does not switch the pane by itself"
+
+    view.click()
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    assert browser_page.locator('#right-tab-fields[aria-selected="true"]').count() == 1
+    rows = browser_page.locator("#fields-list .field-row")
+    assert rows.count() == summary["fields_total"]
+    if summary["fields_review"] > 0:
+        sel = browser_page.locator("#fields-list .field-row.is-selected")
+        assert sel.count() == 1 and sel.get_attribute("data-attention") == "1", "View lands on the first waiting field"
+
+
+def test_idle_inspector_points_at_extracted_fields(parsure_shell, browser_page):
+    """Nothing selected, a report in the project: the inspector's idle state
+    carries one line — "N fields extracted from M documents · Open fields" —
+    and the tertiary opens the Fields tab."""
+    parsure_shell()
+    assert browser_page.locator("#right-inspector").is_visible()
+    line = browser_page.locator("#inspector-fields-line")
+    assert line.is_visible(), "the idle inspector names the extracted fields"
+    text = browser_page.inner_text("#inspector-fields-text")
+    m = re.match(r"(\d+) fields? extracted from (\d+) documents?$", text)
+    assert m, text
+    reports = _reports(browser_page, _PARSURE_PROJECT)
+    assert int(m.group(2)) == len(reports)
+    assert int(m.group(1)) == sum((r.get("review_summary") or {}).get("fields_total", 0) for r in reports)
+    assert browser_page.locator("#inspector-fields-line .btn-primary, #inspector-fields-line .btn-secondary").count() == 0, (
+        "one tertiary line, not a banner"
+    )
+    browser_page.click("#inspector-open-fields")
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    assert browser_page.locator("#right-inspector").is_hidden()
+
+
+def test_fields_head_links_to_record_and_table(parsure_shell, browser_page):
+    """The Fields head links to the document record (/parsing/<report_id>) and
+    the project's data table (/parsing?project_id=…#data); the strip's Review
+    cell opens the same queue."""
+    parsure_shell()
+    browser_page.click("#right-tab-fields")
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    record = browser_page.locator("#fields-link-record")
+    data = browser_page.locator("#fields-link-data")
+    assert record.is_visible() and data.is_visible()
+    assert record.inner_text().strip() == "Full record"
+    assert data.inner_text().strip() == "All data"
+    select = browser_page.locator("#fields-report-select")
+    report_id = select.input_value() if select.is_visible() else _reports(browser_page, _PARSURE_PROJECT)[0]["report_id"]
+    assert record.get_attribute("href") == f"/parsing/{report_id}"
+    assert data.get_attribute("href") == f"/parsing?project_id={_PARSURE_PROJECT}#data"
+    # Deliverable 5: the strip's Review value is the door to the queue.
+    browser_page.click("#right-tab-inspector")
+    browser_page.wait_for_selector("#right-inspector", state="visible")
+    cell = browser_page.locator("#strip-review-value")
+    assert cell.evaluate("e => e.tagName") == "BUTTON" and cell.is_enabled()
+    cell.click()
+    browser_page.wait_for_selector("#right-fields", state="visible")
+    assert browser_page.locator("#fields-list .field-row.is-selected").count() == 1

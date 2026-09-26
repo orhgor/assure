@@ -776,84 +776,22 @@ def create_app(*, require_auth: bool = True) -> Flask:
         except Exception:  # noqa: BLE001 — module/table absent must not break intake
             reports = []
 
-        _modality_words = {
-            "digital_pdf": "Digital PDF",
-            "scanned_pdf": "Scan",
-            "phone_photo": "Phone photo",
-            "screenshot": "Screenshot",
-            "handwritten": "Handwritten",
-            "table_image": "Table image",
-            "mixed": "Mixed bundle",
-            "text": "Text",
-        }
-        _material_words = {
-            "pdf": "PDF",
-            "image": "Image",
-            "photo": "Photo",
-            "screenshot": "Screenshot",
-            "handwritten_image": "Handwritten note",
-            "table": "Table image",
-            "mixed_bundle": "Mixed bundle",
-            "text_file": "Text file",
-        }
-        _parser_words = {"jdf-cli": "JDF", "textract": "Textract", "pymupdf": "PyMuPDF", "text": "Text"}
-        _flag_words = {
-            "low_res": "Low resolution",
-            "low_resolution": "Low resolution",
-            "blurry": "Blurry",
-            "low_contrast": "Low contrast",
-            "skewed": "Skewed",
-            "glare": "Glare",
-            "noisy": "Noisy",
-            "faint_signature": "Faint signature",
-            "handwritten": "Handwritten",
-            "no_text_layer": "No text layer",
-        }
-        _low_quality_flags = {"low_res", "low_resolution", "blurry", "low_contrast", "skewed", "glare", "noisy"}
-        _state_words = {
-            "accepted": "Accepted",
-            "partial": "Partial",
-            "unverified": "Unverified",
-            "disputed": "Disputed",
-            "rejected": "Rejected",
-        }
+        # Words, formatting and grouping are shared with the export routes and
+        # the record page (routers/parsure_routes "Words" section) so a value
+        # reads the same in a cell, a CSV and a record.
+        try:
+            from .routers import parsure_routes as _pv
+        except ImportError:
+            from routers import parsure_routes as _pv  # type: ignore
+
+        _modality_words = _pv.MODALITY_WORDS
+        _material_words = _pv.MATERIAL_WORDS
+        _parser_words = _pv.PARSER_WORDS
+        _flag_words = _pv.FLAG_WORDS
+        _low_quality_flags = _pv.LOW_QUALITY_FLAGS
+        _state_words = _pv.STATE_WORDS
+        _words, _num, _score_label, _date_label = _pv.words, _pv.num, _pv.score_label, _pv.date_label
         _image_ext = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".heic", ".gif", ".bmp")
-
-        def _words(value, table=None):
-            if value in (None, ""):
-                return None
-            key = str(value).strip().lower()
-            if table and key in table:
-                return table[key]
-            return key.replace("_", " ").replace("-", " ").strip().capitalize()
-
-        def _num(value):
-            try:
-                if value is None or isinstance(value, bool):
-                    return None
-                return float(value)
-            except (TypeError, ValueError):
-                return None
-
-        def _score_label(value):
-            n = _num(value)
-            return f"{n:.2f}" if n is not None else "—"
-
-        def _date_label(value):
-            if value in (None, ""):
-                return "—"
-            dt = value
-            if isinstance(value, str):
-                try:
-                    from datetime import datetime as _dt
-
-                    dt = _dt.fromisoformat(value.replace("Z", "+00:00"))
-                except ValueError:
-                    return value[:10]
-            try:
-                return f"{dt:%b} {dt.day}, {dt.year}"
-            except (AttributeError, ValueError):
-                return str(value)[:10]
 
         def _plural(n, word):
             return f"{n} {word}" if n == 1 else f"{n} {word}s"
@@ -875,9 +813,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             if not isinstance(classification, dict):
                 return "Type uncertain"
             value = classification.get("override") or classification.get("document_type")
-            if value in (None, "", "unknown", "uncertain", "other"):
-                return "Type uncertain"
-            return _words(value) or "Type uncertain"
+            return _pv.doc_type_label(value if isinstance(value, str) else classification)
 
         def _card_from(row, report):
             filename = (row or {}).get("filename") or (report or {}).get("filename") or "Untitled"
@@ -1090,70 +1026,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 analytics = None
 
         def _value_label(value):
-            if value is None:
-                return "—"
-            if isinstance(value, bool):
-                return "Yes" if value else "No"
-            if isinstance(value, int):
-                return f"{value:,}"
-            if isinstance(value, float):
-                return f"{value:,.2f}".rstrip("0").rstrip(".") if value != int(value) else f"{int(value):,}"
-            return str(value)
+            return _pv.value_label(None, value)
 
-        import re as _re
-
-        def _reason_words(reason):
-            """The decision policy's reason string in plain words for the Why column.
-
-            The raw string stays in the card's Details table and the API; here the
-            system tokens (``extraction_confidence 0.52 < 0.75``,
-            ``number_quality handwritten: …``) read as a sentence fragment a
-            reviewer can act on (brief §2 "Wording clarity").
-            """
-            if not reason:
-                return "No reason recorded"
-            text = str(reason).strip()
-            m = _re.match(r"^(extraction|verification)_confidence\s+([0-9.]+)\s*<\s*([0-9.]+)$", text)
-            if m:
-                return f"{m.group(1).capitalize()} confidence {m.group(2)} is below {m.group(3)}"
-            m = _re.match(r"^(number|signature)_quality\s+([a-z_]+)\s*:?\s*(.*)$", text, _re.I)
-            if m:
-                tail = f": {m.group(3).strip()}" if m.group(3).strip() else ""
-                return f"{m.group(1).capitalize()} reads {m.group(2).replace('_', ' ')}{tail}"
-            m = _re.match(r"^z3 violation\s*:\s*(.*)$", text, _re.I)
-            if m:
-                return f"Verification failed: {m.group(1).strip()}" if m.group(1).strip() else "Verification failed"
-            m = _re.match(r"^plausibility rule '([^']+)' failed\s*:?\s*(.*)$", text, _re.I)
-            if m:
-                return f"Implausible ({m.group(1).replace('_', ' ')}){': ' + m.group(2).strip() if m.group(2).strip() else ''}"
-            m = _re.match(r"^disputed\s*:\s*(.*)$", text, _re.I)
-            if m:
-                return f"Disputed: {m.group(1).strip()}"
-            if text.lower() == "field not found":
-                return "Not found in the document"
-            if text.lower().startswith("compliance-bound"):
-                return "Compliance-bound: a person must confirm it"
-            return text[0].upper() + text[1:]
-
-        _routing_words = {
-            "manual_review": "Needs a reviewer",
-            "adjudicator_queue": "With an adjudicator",
-            "compliance_review": "Needs compliance sign-off",
-            "retry_parsure": "Retry with another reader",
-            "replay_later": "Waiting for replay",
-            "none": "No action",
-        }
-        _reason_labels = {
-            "disputed": "Disputed",
-            "not_found": "Not found",
-            "signature": "Signature",
-            "number_quality": "Number quality",
-            "plausibility": "Plausibility",
-            "verification": "Verification",
-            "compliance": "Compliance-bound",
-            "low_confidence": "Low confidence",
-            "other": "Other",
-        }
+        _reason_words = _pv.reason_words
+        _routing_words = _pv.ROUTING_WORDS
+        _reason_labels = _pv.REASON_LABELS or {"other": "Other"}
 
         queue_view = None
         if queue is not None:
@@ -1275,6 +1152,68 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "modality": modality,
             }
 
+        # Extracted data: one table per document type, rows = documents, columns
+        # = the type's fields in taxonomy order. This answers the client's
+        # question of 2026-09-25 ("how do we access the parsed information …
+        # in bulk?") on the page itself; the export routes give the same rows
+        # as a file. Built from the reports already loaded above — no second
+        # query, and a repository without reports simply yields no tables.
+        data_view = None
+        if reports_available:
+            groups_out = []
+            docs_n = values_n = review_n = 0
+            for type_key, group in _pv.group_reports_by_type(reports):
+                columns = _pv.type_columns(type_key, group)
+                rows_out = []
+                for rep in group:
+                    by_name = {str(f.get("name")): f for f in (rep.get("fields") or []) if isinstance(f, dict)}
+                    cells = []
+                    buckets = set()
+                    for col in columns:
+                        f = by_name.get(col["name"])
+                        if f is None:
+                            cells.append({"text": "—", "title": "Not a field of this document", "mark": "absent", "bucket": ""})
+                            continue
+                        full = _pv.value_label(f)
+                        text = full if len(full) <= 40 else full[:39].rstrip() + "…"
+                        mark, bucket = _pv.field_mark(f), _pv.field_bucket(f)
+                        buckets.add(bucket)
+                        if f.get("value") is not None:
+                            values_n += 1
+                        if bucket != "accepted":
+                            review_n += 1
+                        title = full if mark == "accepted" else f"{full} — {_pv.reason_words(f.get('reason'))}"
+                        cells.append({"text": text, "title": title, "mark": mark, "bucket": bucket})
+                    docs_n += 1
+                    rid = rep.get("report_id") or ""
+                    rows_out.append({
+                        "report_id": rid,
+                        "filename": rep.get("filename") or "Untitled",
+                        "date_label": _date_label(rep.get("created_at")),
+                        "review_href": f"/?project_id={project_id}&report_id={rid}",
+                        "record_href": f"/parsing/{rid}?project_id={project_id}",
+                        "cells": cells,
+                        "buckets": " ".join(sorted(buckets)),
+                        "search": " ".join([str(rep.get("filename") or "")] + [c["title"] for c in cells if c["mark"] != "absent"]).lower(),
+                    })
+                groups_out.append({
+                    "key": type_key,
+                    "label": _pv.doc_type_label(type_key),
+                    "columns": columns,
+                    "rows": rows_out,
+                    "no_fields_note": ("No fields until the type is known" if type_key == "uncertain" else "No fields were extracted"),
+                })
+            data_view = {
+                "groups": groups_out,
+                "documents": docs_n,
+                "value_count": values_n,
+                "need_review": review_n,
+                "has_data": any(g["columns"] for g in groups_out),
+                "export_wide_href": f"/api/projects/{project_id}/parsure/export?format=csv&wide=1",
+                "export_long_href": f"/api/projects/{project_id}/parsure/export?format=csv",
+                "export_json_href": f"/api/projects/{project_id}/parsure/export?format=json",
+            }
+
         return _page(
             "parsing.html",
             "parsing",
@@ -1283,7 +1222,227 @@ def create_app(*, require_auth: bool = True) -> Flask:
             summary=summary,
             queue=queue_view,
             analytics=analytics_view,
+            data=data_view,
         )
+
+
+    @app.get("/parsing/<report_id>")
+    def parsing_record_page(report_id: str):
+        """One document's record: every field with its value, state, confidence
+        and reason; the text of each page; the corrections, disputes and audit
+        events against it; the technical details folded away.
+
+        Reached from the "Record" link in the Extracted data tables (client ask
+        of 2026-09-25: "how do we access the parsed information?"). The project
+        comes from the report itself (``parsure_repository.find_report``) and
+        the ownership check runs on it before anything renders; a report that
+        is not there is a calm 404 page, not an error. Page text comes from
+        ``report_page_texts`` — the only place the private ``_page_texts`` is
+        shown — never through the public API.
+        """
+        try:
+            from .db import parsure_repository as _repo
+            from .middleware import check_project_ownership as _check_owner
+            from .routers import parsure_routes as _pv
+        except ImportError:
+            from db import parsure_repository as _repo  # type: ignore
+            from middleware import check_project_ownership as _check_owner  # type: ignore
+            from routers import parsure_routes as _pv  # type: ignore
+
+        project_hint = (request.args.get("project_id") or "").strip() or None
+        report = None
+        try:
+            report = _repo.get_report(project_hint, report_id) if project_hint else _repo.find_report(report_id)
+        except Exception:  # noqa: BLE001 — a missing table reads as a missing record
+            report = None
+        if not report:
+            resp = _page("parsure_detail.html", "parsing", missing=True, report_id=report_id, project_id=project_hint or "default")
+            resp.status_code = 404
+            return resp
+        project_id = str(report.get("project_id") or project_hint or "default")
+        denied = _check_owner(project_id)
+        if denied is not None:
+            return denied
+
+        fields = [f for f in (report.get("fields") or []) if isinstance(f, dict)]
+        classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
+        quality_report = report.get("quality_report") if isinstance(report.get("quality_report"), dict) else {}
+        replay = report.get("replay") if isinstance(report.get("replay"), dict) else {}
+        laya = report.get("laya") if isinstance(report.get("laya"), dict) else {}
+        verification = report.get("verification") if isinstance(report.get("verification"), dict) else {}
+
+        def _field_row(f):
+            span = f.get("source_span") if isinstance(f.get("source_span"), dict) else {}
+            mark = _pv.field_mark(f)
+            return {
+                "name": f.get("name") or "",
+                "label": f.get("label") or _pv.words(f.get("name")) or "Field",
+                "value": _pv.value_label(f),
+                "raw": f.get("raw") if f.get("raw") not in (None, "") and str(f.get("raw")) != _pv.value_label(f) else None,
+                "mark": mark,
+                "state": f.get("field_state") or "unverified",
+                "state_label": _pv.words(f.get("field_state"), _pv.STATE_WORDS) or "—",
+                "confidence": _pv.score_label(f.get("extraction_confidence")),
+                "basis": f.get("confidence_basis") or "No basis recorded",
+                "page": span.get("page") if span.get("page") is not None else None,
+                "reason": _pv.reason_words(f.get("reason")) if (f.get("reason") or mark != "accepted") else "",
+                "action": _pv.ROUTING_WORDS.get(str(f.get("routing_action") or "none"), _pv.words(f.get("routing_action")) or "—"),
+                "needs_person": mark != "accepted",
+                "corrected": bool(f.get("corrected")),
+            }
+
+        field_rows = [_field_row(f) for f in fields]
+        field_rows.sort(key=lambda r: 0 if r["needs_person"] else 1)  # stable: report order within each half
+        review_n = sum(1 for r in field_rows if r["needs_person"])
+
+        try:
+            texts = _repo.report_page_texts(project_id, report["report_id"]) or []
+        except Exception:  # noqa: BLE001
+            texts = []
+        page_rows = []
+        pages = [p for p in (report.get("pages") or []) if isinstance(p, dict)]
+        page_numbers = [p.get("page") for p in pages] or list(range(1, len(texts) + 1))
+        for idx, number in enumerate(page_numbers):
+            p = pages[idx] if idx < len(pages) else {}
+            text = texts[idx] if idx < len(texts) else None
+            flags = [_pv.words(fl, _pv.FLAG_WORDS) for fl in (p.get("flags") or [])]
+            page_rows.append({
+                "page": number if number is not None else idx + 1,
+                "score": _pv.score_label(p.get("quality_score")),
+                "flags": ", ".join(fl for fl in flags if fl) or "No issues",
+                "basis": p.get("basis") or "",
+                "text": text.strip() if isinstance(text, str) and text.strip() else None,
+                "chars": len(text) if isinstance(text, str) else 0,
+            })
+
+        try:
+            corrections = _repo.list_corrections(project_id, report["report_id"])
+            disputes = _repo.list_disputes(project_id, report_id=report["report_id"])
+            events = _repo.list_events(project_id, report_id=report["report_id"], limit=500)
+        except Exception:  # noqa: BLE001
+            corrections, disputes, events = [], [], []
+        labels = {r["name"]: r["label"] for r in field_rows}
+        history = []
+        for c in corrections:
+            history.append({
+                "at": c.get("created_at"), "kind": "correction",
+                "title": f"{labels.get(c.get('field_name'), _pv.words(c.get('field_name')) or 'Field')} corrected",
+                "detail": f"{_pv.value_label(None, c.get('original_value'))} → {_pv.value_label(None, c.get('corrected_value'))}"
+                          + (f" — {c.get('reason')}" if c.get("reason") else ""),
+                "actor": c.get("actor"),
+            })
+        for d in disputes:
+            label = labels.get(d.get("field_name"), _pv.words(d.get("field_name")) or "Field")
+            if d.get("status") == "open":
+                sla = d.get("due_words") or ""
+                history.append({
+                    "at": d.get("opened_at"), "kind": "dispute", "overdue": bool(d.get("overdue")),
+                    "title": f"{label} disputed", "detail": (d.get("reason") or "") + (f" — {sla}" if sla else ""),
+                    "actor": d.get("actor"),
+                })
+            else:
+                history.append({
+                    "at": d.get("opened_at"), "kind": "dispute", "overdue": False,
+                    "title": f"{label} disputed", "detail": d.get("reason") or "", "actor": d.get("actor"),
+                })
+                history.append({
+                    "at": d.get("resolved_at"), "kind": "resolution",
+                    "title": f"{label} dispute resolved", "detail": d.get("resolution") or "", "actor": d.get("actor"),
+                })
+        for e in events:
+            if e.get("event_type") in ("field_corrected", "dispute_opened", "dispute_resolved"):
+                continue  # the correction / dispute rows above carry the fuller record
+            payload = e.get("payload") if isinstance(e.get("payload"), dict) else {}
+            detail = ""
+            et = e.get("event_type")
+            if et == "field_accepted":
+                detail = f"Value {_pv.value_label(None, payload.get('value'))}"
+            elif et == "classification_overridden":
+                detail = f"{_pv.doc_type_label(payload.get('previous'))} → {_pv.doc_type_label(payload.get('document_type'))}"
+                if payload.get("reason"):
+                    detail += f" — {payload['reason']}"
+            elif et == "exported":
+                detail = f"{str(payload.get('format') or '').upper()}" + (" (project)" if payload.get("scope") == "project" else "")
+            elif et == "quality_assessed" and payload.get("document_quality_score") is not None:
+                detail = f"Quality {_pv.score_label(payload.get('document_quality_score'))}"
+            elif et == "classified" and payload.get("document_type"):
+                detail = _pv.doc_type_label(payload.get("document_type"))
+            elif et == "fields_extracted" and payload.get("fields_total") is not None:
+                detail = f"{payload.get('fields_found', '—')} of {payload.get('fields_total')} found"
+            field_label = labels.get(e.get("field_name")) if e.get("field_name") else None
+            history.append({
+                "at": e.get("created_at"), "kind": "event",
+                "title": (f"{field_label} " if field_label and et == "field_accepted" else "") + (
+                    "accepted" if field_label and et == "field_accepted" else _pv.EVENT_WORDS.get(str(et), _pv.words(et) or "Event")
+                ),
+                "detail": detail, "actor": e.get("actor"),
+            })
+        history.sort(key=lambda h: str(h.get("at") or ""), reverse=True)
+        for h in history:
+            h["at_label"] = _pv.datetime_label(h.get("at"))
+
+        quality = _pv.num(report.get("document_quality_score"))
+        quality_sentence = (quality_report.get("summary") or "").strip()
+        if not quality_sentence:
+            quality_sentence = "Quality not scored for this document." if quality is None else "No page issues were found."
+        source_label = _pv.words(report.get("material_type"), _pv.MATERIAL_WORDS)
+        modality_label = _pv.words(report.get("modality"), _pv.MODALITY_WORDS)
+        if source_label and source_label == modality_label:
+            source_label = None
+        replay_history = replay.get("history") if isinstance(replay.get("history"), list) else []
+        technical = [
+            ("Parser", report.get("parser_name") or "—"),
+            ("Parser version", report.get("parser_version") or "—"),
+            ("Verification", ", ".join(f"{k.replace('_', ' ')}: {v}" for k, v in verification.items() if v is not None) or "—"),
+            ("Policy version", report.get("policy_version") or "—"),
+            ("Modality", report.get("modality") or "—"),
+            ("Material", report.get("material_type") or "—"),
+            ("Source kind", report.get("source_kind") or "—"),
+            ("Type basis", f"{classification.get('basis') or '—'} (confidence {_pv.score_label(classification.get('confidence'))})"),
+            ("Laya", (
+                f"suggested path {laya.get('suggested_route') or '—'}; escalate {'yes' if laya.get('escalate') else 'no'}; "
+                f"human review {'yes' if laya.get('human_review') else 'no'}"
+                + (f"; reasons: {', '.join(str(r) for r in laya.get('reasons') or [])}" if laya.get("reasons") else "")
+                + (f"; model {laya.get('model')}" if laya.get("model") else "")
+            ) if laya else "—"),
+            ("Replay", (
+                ("eligible" if replay.get("eligible") else "not eligible")
+                + (f" — {'; '.join(str(r) for r in replay.get('reasons') or [])}" if replay.get("reasons") else "")
+                + (f"; {len(replay_history)} earlier replay{'s' if len(replay_history) != 1 else ''}" if replay_history else "")
+            ) if replay else "—"),
+            ("Report", report.get("report_id") or "—"),
+            ("Document", report.get("document_id") or "—"),
+            ("Revision", report.get("revision_id") or "—"),
+            ("Job", report.get("job_id") or "—"),
+        ]
+        record = {
+            "report_id": report.get("report_id") or report_id,
+            "filename": report.get("filename") or "Untitled",
+            "type_label": _pv.doc_type_label(classification),
+            "type_overridden": bool(classification.get("override")),
+            "source_label": source_label,
+            "modality_label": modality_label,
+            "date_label": _pv.date_label(report.get("created_at")),
+            "page_count": int(report.get("page_count") or len(page_rows) or 0),
+            "quality_label": _pv.score_label(report.get("document_quality_score")),
+            "quality_sentence": quality_sentence,
+            "fields_total": len(field_rows),
+            "fields_review": review_n,
+            "fields": field_rows,
+            "pages": page_rows,
+            "has_page_text": any(p["text"] for p in page_rows),
+            "history": history,
+            "technical": technical,
+            "conflicts": [
+                (c.get("summary") or c.get("reason") or c.get("field") or "Source conflict detected") if isinstance(c, dict) else str(c)
+                for c in (report.get("conflicts") or [])
+            ],
+            "review_href": f"/?project_id={project_id}&report_id={report.get('report_id')}",
+            "export_json_href": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/export?format=json",
+            "export_csv_href": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/export?format=csv",
+            "back_href": f"/parsing?project_id={project_id}",
+        }
+        return _page("parsure_detail.html", "parsing", missing=False, project_id=project_id, record=record)
 
     @app.get("/signin")
     def signin():

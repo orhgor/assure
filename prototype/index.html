@@ -317,7 +317,7 @@
         </div>
         <div class="strip-cell" id="strip-review">
           <span class="strip-label" data-i18n="shell.strip.review">Review</span>
-          <span class="strip-value" id="strip-review-value">—</span>
+          <button type="button" class="btn-tertiary strip-value strip-link" id="strip-review-value" disabled>—</button>
         </div>
         <div class="strip-cell strip-next" id="strip-next">
           <span class="strip-label" data-i18n="shell.strip.next">Next</span>
@@ -394,6 +394,13 @@
           <!-- Nothing selected: the review list (paragraphs that need attention,
                click to open) or the calm empty line. Both are shell.js's. -->
           <div id="inspector-idle" class="inspector-idle">
+            <!-- What intake extracted, in one line (client feedback 2026-09-25:
+                 "how do we access the parsed information?"). Painted by shell.js
+                 from the report list; hidden while the project has no report. -->
+            <p id="inspector-fields-line" class="idle-fields-line" hidden>
+              <span id="inspector-fields-text"></span>
+              <span class="idle-fields-tail"><span class="idle-fields-sep" aria-hidden="true">·</span> <button type="button" class="btn-tertiary idle-fields-open" id="inspector-open-fields" data-i18n="shell.inspector.open_fields">Open fields</button></span>
+            </p>
             <p id="inspector-empty" class="empty-state-text" data-i18n="shell.inspector.empty">No review items. New intake will appear here.</p>
             <ul id="inspector-review-list" class="review-list" role="list" hidden></ul>
           </div>
@@ -496,13 +503,22 @@
       <div id="right-fields" class="pane-mode" role="tabpanel" style="display:none;">
         <div class="pane-body fields-body">
           <header class="fields-head" id="fields-head" hidden>
-            <label class="fields-report" id="fields-report-wrap" hidden>
-              <span class="fields-label" data-i18n="shell.fields.document">Document</span>
-              <select id="fields-report-select" class="fields-report-select"></select>
-            </label>
-            <div class="fields-doc" id="fields-doc">
-              <span class="fields-doc-name" id="fields-doc-name"></span>
-              <span class="fields-doc-meta" id="fields-doc-meta"></span>
+            <div class="fields-doc-row">
+              <label class="fields-report" id="fields-report-wrap" hidden>
+                <span class="fields-label" data-i18n="shell.fields.document">Document</span>
+                <select id="fields-report-select" class="fields-report-select"></select>
+              </label>
+              <div class="fields-doc" id="fields-doc">
+                <span class="fields-doc-name" id="fields-doc-name"></span>
+                <span class="fields-doc-meta" id="fields-doc-meta"></span>
+              </div>
+              <!-- The document record (/parsing/<report_id>: every field, page
+                   texts, history) and the project's data table (/parsing#data).
+                   shell.js writes the hrefs when a report is open. -->
+              <nav class="fields-links" id="fields-links" aria-label="Extracted data">
+                <a class="btn-tertiary fields-link" id="fields-link-record" href="/parsing" data-i18n="shell.fields.full_record">Full record</a>
+                <a class="btn-tertiary fields-link" id="fields-link-data" href="/parsing#data" data-i18n="shell.fields.all_data">All data</a>
+              </nav>
             </div>
             <div class="fields-type" id="fields-type">
               <span class="fields-label" data-i18n="shell.fields.type">Document type</span>
@@ -526,7 +542,10 @@
               </div>
             </form>
           </header>
-          <p id="fields-empty" class="empty-state-text" data-i18n="shell.fields.empty">No fields to review. New intake will appear here.</p>
+          <div id="fields-empty" class="empty-state">
+            <p id="fields-empty-text" class="empty-state-text" data-i18n="shell.fields.empty">No fields yet. Upload a document to begin.</p>
+            <button type="button" class="btn-secondary" id="fields-empty-upload" data-i18n="shell.action.upload">Upload</button>
+          </div>
           <ul id="fields-list" class="fields-list" role="list" hidden></ul>
         </div>
       </div>

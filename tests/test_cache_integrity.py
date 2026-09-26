@@ -51,6 +51,12 @@ CREATE TABLE "pipeline_cache" (
 def _migrated_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A database whose pipeline_cache carries the foreign key staging declares."""
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "cache.sqlite"))
+    # This suite counts the compile's cache rows under the legacy cloud policies
+    # (one `ast` row). Since 2026-09-25 an empty ASSURE_LLM_BACKEND resolves to
+    # the local models, where the stubbed entailment pass also writes its own
+    # cache row; pin the policies the assertions were written against.
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     import prompt_matrix.history as history_mod
 
     history_mod.DB_PATH = history_mod._resolve_db_path()

@@ -896,12 +896,109 @@
       rowEl.appendChild(nameEl);
       if (flagEl) rowEl.appendChild(flagEl);
       rowEl.appendChild(rm);
+      // A fresh upload names its report before the list has been re-read; the
+      // id waits on the row for the sync that paints the line.
+      if (row && row.parsure_report_id) rowEl.setAttribute("data-report-id", String(row.parsure_report_id));
+      _paintSourceResult(rowEl, _reportSummaryForSource(id, row));
       return rowEl;
     }
-    function appendSourceItem(name, id) {
+    // ---- what intake extracted from a source, on the row itself ----------
+    // Client feedback (2026-09-25): a document was uploaded, the row appeared,
+    // and nothing said what came out or where to look. The intake report's
+    // summary answers that under the filename; View opens the Fields queue on
+    // the first field that needs a reader.
+    //
+    // A report is tied to its vault row by id: routers/substrate.py writes the
+    // row's id as the report's document_id, and a fresh upload's task result
+    // carries parsure_report_id before the report list has been re-read.
+    function _reportSummaryForSource(id, row) {
+      var rid = row && row.parsure_report_id ? String(row.parsure_report_id) : "";
+      var sid = String(id || "");
+      for (var i = 0; i < __parsureReports.length; i++) {
+        var s = __parsureReports[i];
+        if (!s || !s.report_id) continue;
+        if (rid && String(s.report_id) === rid) return s;
+        if (sid && String(s.document_id || "") === sid) return s;
+      }
+      return null;
+    }
+    function _paintSourceResult(rowEl, summary) {
+      if (!rowEl) return;
+      var line = rowEl.querySelector(".source-result");
+      if (!summary) {
+        if (line) line.remove();
+        return;
+      }
+      if (!line) {
+        line = document.createElement("div");
+        line.className = "source-result";
+        rowEl.appendChild(line);
+      }
+      while (line.firstChild) line.removeChild(line.firstChild);
+      rowEl.setAttribute("data-report-id", String(summary.report_id));
+      var rs = summary.review_summary || {};
+      var total = Number(rs.fields_total) || 0;
+      var review = Number(rs.fields_review) || 0;
+      var text = document.createElement("span");
+      text.className = "source-result-text";
+      if (total > 0) {
+        text.textContent = _plural(total, "shell.source.result.fields_one", "1 field extracted",
+                                   "shell.source.result.fields_many", "{n} fields extracted");
+        line.appendChild(text);
+        if (review > 0) {
+          var sep = document.createElement("span");
+          sep.className = "source-result-sep";
+          sep.setAttribute("aria-hidden", "true");
+          sep.textContent = "\u00b7";
+          line.appendChild(sep);
+          var rev = document.createElement("span");
+          rev.className = "source-result-review";
+          rev.setAttribute("data-tone", "partial");
+          rev.textContent = _plural(review, "shell.source.result.review_one", "1 needs review",
+                                    "shell.source.result.review_many", "{n} need review");
+          line.appendChild(rev);
+        }
+      } else {
+        var dt = String(summary.document_type || "uncertain");
+        text.textContent = (dt === "uncertain" || !dt)
+          ? _t("shell.source.result.none_uncertain", "Nothing extracted \u2014 type uncertain")
+          : _t("shell.source.result.none", "Nothing extracted");
+        line.appendChild(text);
+      }
+      var view = document.createElement("button");
+      view.type = "button";
+      view.className = "btn-tertiary source-view";
+      view.textContent = _t("shell.source.result.view", "View");
+      view.addEventListener("click", function () { _viewReport(String(summary.report_id)); });
+      line.appendChild(view);
+    }
+    // The report list and the source list arrive in either order: whichever
+    // lands second paints the lines.
+    function _syncSourceResults() {
       var el = document.getElementById("source-list");
       if (!el) return;
-      el.appendChild(_buildSourceRow(name, id));
+      el.querySelectorAll(".source-item[data-source-id]").forEach(function (rowEl) {
+        var id = rowEl.getAttribute("data-source-id");
+        var keep = rowEl.getAttribute("data-report-id");
+        _paintSourceResult(rowEl, _reportSummaryForSource(id, keep ? { parsure_report_id: keep } : null));
+      });
+    }
+    // View: the Fields queue, on that report, on its first waiting field.
+    function _viewReport(reportId) {
+      var pid = _activeProjectId();
+      if (!pid || !reportId) return;
+      var ready = (__parsure && __parsureReportId === reportId)
+        ? Promise.resolve(true)
+        : _openParsureReport(pid, reportId);
+      ready.then(function () {
+        var waiting = _fieldsOrdered(_parsureCounts().fields.filter(_fieldNeedsAttention));
+        _showFieldsPanel(waiting.length ? waiting[0].name : null);
+      });
+    }
+    function appendSourceItem(name, id, row) {
+      var el = document.getElementById("source-list");
+      if (!el) return;
+      el.appendChild(_buildSourceRow(name, id, row || null));
     }
     // Poll GET /api/tasks/<id> until the worker reports a terminal state.
     // Ingest is queued since 2026-09-22 (PARSE_ASYNC / SUBSTRATE_ASYNC_UPLOAD):
@@ -1023,13 +1120,23 @@
               throw err;
             });
           }
-          return r.j;
+          // Inline (PARSE_ASYNC=0): the route's body is the entry.
+          return { id: r.j.id, entry: r.j };
         })
         .then(function (j) {
           if (!j || !j.id) throw new Error("No file id returned.");
           var newId = String(j.id);
+          var entry = j.entry || {};
           setShell("sources", SHELL.sources.concat([newId]));
-          appendSourceItem(name, newId);
+          appendSourceItem(name, newId, entry);
+          // The upload produced an intake report: re-read the list so the
+          // chip, the primary action, the Fields badge and this row's result
+          // line all follow it without a reload. Quietly — the pane does not
+          // switch; the row's View is the door.
+          var rid = entry.parsure_report_id ? String(entry.parsure_report_id) : "";
+          if (rid) {
+            _loadParsure(_activeProjectId(), rid, { quiet: true }).then(_syncSourceResults);
+          }
           // The task is terminal before the vault row is always visible to the
           // manifest read (the worker commits after it reports); one re-read a
           // second later closes that window without polling.
@@ -5917,6 +6024,25 @@
       if (state === "partial") return _t("shell.review.reason.partial", "The source carries this claim only in part.");
       return _t("shell.review.reason.unanchored", "No source could be traced to this claim.");
     }
+    // One line, not a banner: how many fields intake extracted from how many
+    // documents, and the tertiary that opens them. Hidden without a report.
+    function _renderInspectorFieldsLine() {
+      var line = document.getElementById("inspector-fields-line");
+      var text = document.getElementById("inspector-fields-text");
+      if (!line || !text) return;
+      var docs = 0, fields = 0;
+      __parsureReports.forEach(function (s) {
+        if (!s || !s.report_id) return;
+        docs += 1;
+        fields += Number(s.review_summary && s.review_summary.fields_total) || 0;
+      });
+      line.hidden = docs === 0;
+      if (docs === 0) { text.textContent = ""; return; }
+      text.textContent = _plural(fields, "shell.source.result.fields_one", "1 field extracted",
+                                 "shell.source.result.fields_many", "{n} fields extracted") + " " +
+                         _plural(docs, "shell.inspector.from_doc_one", "from 1 document",
+                                 "shell.inspector.from_doc_many", "from {n} documents");
+    }
     function _renderInspectorIdlePane() {
       var idle = document.getElementById("inspector-idle");
       var sections = document.getElementById("inspector-sections");
@@ -5924,6 +6050,7 @@
       var list = document.getElementById("inspector-review-list");
       if (idle) idle.hidden = false;
       if (sections) sections.hidden = true;
+      _renderInspectorFieldsLine();
       if (!list) return;
       while (list.firstChild) list.removeChild(list.firstChild);
       var doc = SHELL.document.current;
@@ -7070,12 +7197,23 @@
     }
     function _parsureCounts() {
       var rep = __parsure;
-      if (!rep || typeof rep !== "object") return { review: 0, conflicts: 0, fields: [], loaded: false, rejected: 0 };
-      var fields = Array.isArray(rep.fields) ? rep.fields : [];
-      var review = fields.filter(_fieldNeedsAttention).length;
-      var rejected = fields.filter(function (f) { return f && f.field_state === "rejected"; }).length;
-      var conflicts = Array.isArray(rep.conflicts) ? rep.conflicts.length : 0;
-      return { review: review, conflicts: conflicts, fields: fields, loaded: true, rejected: rejected };
+      if (rep && typeof rep === "object") {
+        var fields = Array.isArray(rep.fields) ? rep.fields : [];
+        var review = fields.filter(_fieldNeedsAttention).length;
+        var rejected = fields.filter(function (f) { return f && f.field_state === "rejected"; }).length;
+        var conflicts = Array.isArray(rep.conflicts) ? rep.conflicts.length : 0;
+        return { review: review, conflicts: conflicts, fields: fields, loaded: true, rejected: rejected, total: fields.length };
+      }
+      // The list answered before the report did: the newest summary's counts
+      // (the server's review_summary) stand in, so the Fields badge and the
+      // chip are right from the first paint, not from the second request.
+      var s = __parsureReports[0];
+      var rs = s && s.review_summary;
+      if (rs && typeof rs === "object") {
+        return { review: Number(rs.fields_review) || 0, conflicts: Number(s.conflicts) || 0, fields: [],
+                 loaded: true, rejected: Number(rs.fields_rejected) || 0, total: Number(rs.fields_total) || 0 };
+      }
+      return { review: 0, conflicts: 0, fields: [], loaded: false, rejected: 0, total: 0 };
     }
     function _parsureJson(url, init) {
       var opts = init || {};
@@ -7121,9 +7259,10 @@
         })
         .catch(function () { return false; });
     }
-    function _loadParsure(pid, reportId) {
+    function _loadParsure(pid, reportId, opts) {
+      var quiet = Boolean(opts && opts.quiet);
       pid = pid || _activeProjectId();
-      if (!pid) return;
+      if (!pid) return Promise.resolve(false);
       if (pid !== __parsureProject) {
         // A different project: nothing of the old queue survives.
         __parsure = null; __parsureReportId = ""; __parsureReports = [];
@@ -7133,28 +7272,34 @@
       __parsureProject = pid;
       var want = reportId || __parsureWantReport || "";
       __parsureWantReport = "";
-      _parsureJson("/api/projects/" + encodeURIComponent(pid) + "/parsure?limit=100")
+      return _parsureJson("/api/projects/" + encodeURIComponent(pid) + "/parsure?limit=100")
         .then(function (res) {
-          if (__parsureProject !== pid) return;
+          if (__parsureProject !== pid) return false;
           // A 404 is this project (unknown to the API, or an API without intake),
           // not the session: the next project asks again. The old sticky flag
           // hid every later project's report after one such answer.
-          if (!res.ok) { __parsure = null; __parsureReportId = ""; _afterParsureChange(); return; }
+          if (!res.ok) { __parsure = null; __parsureReportId = ""; _afterParsureChange(); _syncSourceResults(); return false; }
           var reports = Array.isArray(res.body.reports) ? res.body.reports : [];
           __parsureReports = reports;
+          // The list is enough for the badge, the idle line and the source
+          // rows' result lines; the open report follows a request later.
+          _afterParsureChange();
+          _syncSourceResults();
           var known = reports.some(function (s) { return s && s.report_id === want; });
           var id = known ? want : (reports[0] && reports[0].report_id);
           if (!id) {
             __parsure = null; __parsureReportId = "";
             _afterParsureChange();
-            return;
+            return false;
           }
           return _openParsureReport(pid, id).then(function (opened) {
-            // A linked report is the reason the page was opened: show it.
-            if (opened && known && want && typeof _showFieldsPanel === "function") _showFieldsPanel(null);
+            // A linked report is the reason the page was opened: show it. An
+            // upload's re-read is quiet — the pane stays where the reader is.
+            if (opened && known && want && !quiet && typeof _showFieldsPanel === "function") _showFieldsPanel(null);
+            return opened;
           });
         })
-        .catch(function () { /* the queue stays empty */ });
+        .catch(function () { return false; /* the queue stays empty */ });
     }
     // The name the project switch and the boot path call.
     function _loadParsureLatest(pid) { _loadParsure(pid, ""); }
@@ -7215,7 +7360,7 @@
       // An intake report is a document too (brief §2 "the transition"): a
       // workspace with a report and no draft still has a state, a review
       // queue and a next action.
-      var hasReport = pc.loaded && pc.fields.length > 0;
+      var hasReport = pc.loaded && pc.total > 0;
       var paraReview = hasDoc ? b.partial + b.unanchored : 0;
       var conflicts = (hasDoc ? b.unsupported : 0) + pc.conflicts;
       var review = paraReview + pc.review;
@@ -7316,11 +7461,13 @@
           if (rv) {
             // Fields from the intake report, paragraphs from the draft; each
             // named for what it is, never summed into one unexplained number.
+            // The cell is the door to the queue while anything waits.
             var parts = [];
             if (m.fieldReview > 0) parts.push(_plural(m.fieldReview, "shell.strip.fields_one", "1 field", "shell.strip.fields_many", "{n} fields"));
             if (m.paraReview > 0) parts.push(_plural(m.paraReview, "shell.strip.review_one", "1 item", "shell.strip.review_many", "{n} items"));
             rv.textContent = parts.length ? parts.join(" · ") : _t("shell.strip.none", "None");
             _setTone(rv, m.review > 0 ? "partial" : "none");
+            rv.disabled = !(m.review > 0);
           }
           var nx = document.getElementById("strip-next-action");
           if (nx) {
@@ -7401,6 +7548,20 @@
     if (primaryBtn) primaryBtn.addEventListener("click", _runPrimaryAction);
     var stripNext = document.getElementById("strip-next-action");
     if (stripNext) stripNext.addEventListener("click", _runPrimaryAction);
+    // The strip's Review cell and the idle inspector's line open the queue.
+    var stripReview = document.getElementById("strip-review-value");
+    if (stripReview) stripReview.addEventListener("click", _reviewFirst);
+    var idleOpenFields = document.getElementById("inspector-open-fields");
+    if (idleOpenFields) idleOpenFields.addEventListener("click", function () { _showFieldsPanel(null); });
+    // The Fields pane's empty state: an upload, in the Sources pane where the
+    // row (and its result line) will land.
+    var fieldsEmptyUpload = document.getElementById("fields-empty-upload");
+    if (fieldsEmptyUpload) fieldsEmptyUpload.addEventListener("click", function () {
+      openLeft();
+      leftGroupSetTab("sources");
+      var input = document.getElementById("source-file-input");
+      if (input) input.click();
+    });
 
     // ---- the overflow menu ------------------------------------------------
     var moreBtn = document.getElementById("shell-more");
@@ -8033,6 +8194,11 @@
           _openParsureReport(pid, select.value);
         };
       }
+      // The document record and the project's data table (server pages).
+      var recordLink = document.getElementById("fields-link-record");
+      if (recordLink) recordLink.href = "/parsing/" + encodeURIComponent(__parsureReportId || rep.report_id || "");
+      var dataLink = document.getElementById("fields-link-data");
+      if (dataLink) dataLink.href = "/parsing?project_id=" + encodeURIComponent(pid || "") + "#data";
       // With several reports the selector names the document; the meta line
       // (modality · quality) stays under it either way.
       var nameEl = document.getElementById("fields-doc-name");
@@ -8297,6 +8463,21 @@
       if (!fields.length) {
         list.hidden = true;
         if (empty) empty.hidden = false;
+        // No report: the next step is an upload. A report with nothing in it
+        // says so — the record (Full record) is still there to open.
+        var emptyText = document.getElementById("fields-empty-text");
+        var emptyUpload = document.getElementById("fields-empty-upload");
+        if (emptyText) {
+          if (rep) {
+            var dt = String((rep.classification || {}).document_type || "uncertain");
+            emptyText.textContent = (dt === "uncertain")
+              ? _t("shell.source.result.none_uncertain", "Nothing extracted \u2014 type uncertain")
+              : _t("shell.source.result.none", "Nothing extracted");
+          } else {
+            emptyText.textContent = _t("shell.fields.empty", "No fields yet. Upload a document to begin.");
+          }
+        }
+        if (emptyUpload) emptyUpload.hidden = Boolean(rep);
         return;
       }
       if (empty) empty.hidden = true;

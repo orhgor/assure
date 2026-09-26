@@ -93,6 +93,7 @@ therefore always ask for a human even on a perfect page — by design.
 | Resolve | `POST …/disputes/<id>/resolve {resolution, value?}` | `accepted` with a value, else `rejected` |
 | Change type | `POST …/classification {document_type, reason}` | override recorded, fields re-extracted |
 | Export | `GET …/export?format=json\|csv` | the report (JSON) or one row per field (CSV) |
+| Export the project | `GET /api/projects/<id>/parsure/export?format=csv\|json[&wide=1][&document_type=…][&state=…]` | every document's fields in one file — see "Reading the data in bulk" below |
 | History | `GET …/fields/<name>/history`, `GET …/parsure/audit-log` | every correction, dispute and event |
 
 Audit events (`parsure_audit_events`, PostgreSQL): `intake_received`,
@@ -114,3 +115,79 @@ Audit events (`parsure_audit_events`, PostgreSQL): `intake_received`,
 Detect skew, glare, noise, handwriting, tables or mixed bundles from pixels;
 learn anything (Laya is rules); re-parse on replay; extract from free prose
 with the label rules alone; decode WebP.
+
+## Reading the data in bulk (2026-09-26)
+
+Client feedback of 2026-09-25: "How do we access the parsed information? …
+Where can we show the parsed data in bulk?" The flow now reads upload → see
+what came out → review → export, on three surfaces.
+
+### `/parsing` — "Extracted data"
+
+Right after "Needs attention" and before the document cards: one table per
+document type present in the project, in taxonomy order (`auto_policy`,
+`auto_claim`, …, `deed`, …), "Type uncertain" last. Rows are documents
+(filename, date); columns are that type's fields in
+`field_extractor.FIELD_TAXONOMY` order, labelled in words, plus any field a
+report carries that the taxonomy does not name. A cell is the value with a
+quiet mark: accepted in plain ink, needs review an amber dot, rejected or
+disputed a red dot, not found "—". The cell's `title` carries the full value
+and the reason. Money reads `1,284.00` (no currency sign — the extractor does
+not record one), dates `Aug 14, 2026`, long text is cut at 40 characters.
+Above the tables: a type select, a state select (all / needs review /
+accepted / not found) and a value search, all over the rendered rows in plain
+JS; a count line "12 documents · 144 values · 31 need review" from real counts
+(values = fields with a value; need review = fields not accepted). The
+section's leading action is **Export all** (CSV, one row per document);
+"CSV, one row per field" and "JSON" are tertiary links. The export links
+follow the type and state selects. Each row ends with **Review** (the Assure
+shell, `/?project_id=…&report_id=…`) and **Record** (`/parsing/<report_id>`).
+Empty: "No extracted data yet. Upload a document to begin."
+
+### `GET /api/projects/<id>/parsure/export`
+
+| Query | Result |
+|---|---|
+| `format=csv` (default) | **long**: one row per document × field — `report_id, document_id, filename, document_type, field, label, value, extraction_confidence, field_state, routing_action, review_required, reason, source_page, created_at`. Values raw (`1250.0`, `2026-08-14`), empty when not found. |
+| `format=csv&wide=1` | **wide**: one row per document, one column per field headed by the field label, preceded by `report_id, filename, document_type, created_at, needs_review` (count of the row's fields still asking for a person). Columns are grouped by type in taxonomy order and deduplicated by field name; a label two fields share gets the name in parentheses. This is the spreadsheet shape. |
+| `format=json` | `{ok, project_id, exported_at, filters, documents:[{report_id, document_id, filename, document_type, created_at, fields:{name: {…field…}}}]}` |
+| `document_type=<type>` | only that type (`uncertain` for unnamed) |
+| `state=needs_review\|accepted\|not_found` | only fields in that state; a document with no matching field is dropped. `needs_review` includes not-found fields (they also need a person); the two are "show me" filters, not a partition. Anything else → 400. |
+
+`Content-Disposition: attachment; filename=parsure-<project>-<YYYY-MM-DD>.csv`.
+One `exported` audit event per download with `payload.scope = "project"`,
+the format, `wide`, the document and field counts and the filters;
+`report_id` is null on that event. Private `_` keys are never exported.
+
+### `GET /parsing/<report_id>` — the record
+
+Server-rendered (`templates/parsure_detail.html`). The project comes from the
+report (`parsure_repository.find_report`), `?project_id=` narrows it, and the
+ownership check runs before rendering. Top to bottom: "← Parsure"; the
+filename with type, source, modality and date in words and the quality
+sentence; one primary action **Review in Assure**, tertiary Export JSON / CSV;
+**Fields** — needs-review rows first — with value, state chip, confidence,
+page, reason in words, the routing in words and a "Why this confidence"
+disclosure showing `confidence_basis`; **Pages** — quality and flags in words
+and the text of each page behind "Text of this page"; **Provenance & history**
+— corrections (`original → corrected — reason`), disputes (with `due in 31 h`
+/ `overdue by 5 h`), resolutions and the remaining audit events in one
+timeline, newest first; **Technical details** collapsed (parser, version,
+verification statuses, policy version, modality, material, type basis, Laya,
+replay, ids). A missing report is a 404 page: "This record is not here."
+
+The page text comes from `parsure_repository.report_page_texts(project_id,
+report_id)`, which reads the report's private `_page_texts`. That helper is
+used only by this page; `public_report` still strips the key from every API
+response and export, and a report saved without texts reads "The text of this
+page was not kept with the record." — never an empty page.
+
+### Words
+
+The pages and the exports share one vocabulary
+(`routers/parsure_routes.py`, "Words" section): modality / material / flag /
+state / routing / event names in words, `value_label` (money, dates,
+numbers), `reason_words` (the policy's reason strings as sentences) and
+`field_bucket` / `field_mark` (the filter a field answers to, the mark a cell
+shows). A `value: null` field's confidence is the measured `0.0` and is shown
+as such; a `None` confidence reads "—".

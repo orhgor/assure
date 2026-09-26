@@ -428,6 +428,67 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .queue-more { margin-top: var(--space-3); }
 tr.queue-row--done td { color: var(--muted); }
 
+/* ---- extracted data: one table per document type ---- */
+.data-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-4); }
+.data-head h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.data-head .data-count { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; margin: 0; }
+.data-head .data-count b { color: var(--ink); font-weight: 500; }
+.data-head .data-shown { font-size: var(--fs-sm); color: var(--muted); }
+.data-actions { display: flex; align-items: center; gap: var(--space-4); margin-left: auto; }
+.data-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-5); }
+.data-filters select, .data-filters input {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+}
+.data-filters select { padding-right: var(--space-6); }
+.data-filters input { flex: 1 1 200px; min-width: 160px; }
+.data-filters input::placeholder { color: var(--unverified); }
+.data-filters select:focus, .data-filters input:focus { outline: none; border-color: var(--ink); }
+.data-group { margin-top: var(--space-6); }
+.data-group:first-of-type { margin-top: 0; }
+.data-group[hidden] { display: none; }
+.data-group-head { display: flex; align-items: baseline; gap: var(--space-3); margin: 0 0 var(--space-2); }
+.data-group-head h3 { font-size: var(--fs-lg); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.data-group-head .section-meta { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.data-frame { overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface); }
+.data-table { border-collapse: separate; border-spacing: 0; font-size: var(--fs-md); min-width: 100%; }
+.data-table th, .data-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; white-space: nowrap; }
+.data-table th { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); background: var(--surface); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr[hidden] { display: none; }
+.data-table .c-doc { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 200px; max-width: 260px; box-shadow: 1px 0 0 var(--rule); }
+.data-table td.c-doc { font-weight: 500; white-space: normal; overflow-wrap: anywhere; }
+.data-table td.c-doc small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.data-table td.c-val { font-variant-numeric: tabular-nums; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.data-table td.c-val[data-mark="missing"], .data-table td.c-val[data-mark="absent"] { color: var(--unverified); }
+.data-table td.c-val[data-mark="review"]::before, .data-table td.c-val[data-mark="rejected"]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.data-table td.c-val[data-mark="review"]::before { background: var(--partial); }
+.data-table td.c-val[data-mark="rejected"]::before { background: var(--contradicted); }
+.data-table .c-act { position: sticky; right: 0; z-index: 1; background: var(--surface); text-align: right; box-shadow: -1px 0 0 var(--rule); }
+.data-table td.c-act .btn-tertiary { height: 22px; font-size: var(--fs-sm); margin-left: var(--space-3); }
+.data-table td.c-act .btn-tertiary:first-child { margin-left: 0; }
+.data-table td.c-none { color: var(--muted); white-space: normal; min-width: 240px; }
+.data-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0 0; font-size: var(--fs-xs); color: var(--muted); }
+.data-legend span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.data-legend .l-review::before { background: var(--partial); }
+.data-legend .l-rejected::before { background: var(--contradicted); }
+.data-legend .l-missing::before { display: none; }
+.data-empty-filter { font-size: var(--fs-md); color: var(--muted); margin: var(--space-4) 0 0; }
+
 /* ---- analytics: premium report, not BI wall ---- */
 .report-metrics {
   display: grid;
@@ -498,6 +559,12 @@ tr.queue-row--done td { color: var(--muted); }
 .report-table td { padding: var(--space-1) var(--space-3) var(--space-1) 0; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 640px) {
+  .data-actions { margin-left: 0; width: 100%; }
+  .data-filters select { flex: 1 1 45%; }
+  .data-filters input { flex: 1 1 100%; }
+  .data-table .c-doc { min-width: 128px; max-width: 150px; }
+  .data-table .c-act { position: static; box-shadow: none; }
+  .data-table td.c-none { min-width: 180px; }
   .report-metrics { grid-template-columns: 1fr 1fr; }
   .report-grid { grid-template-columns: 1fr; }
   .queue-table, .queue-table tbody, .queue-table tr, .queue-table td { display: block; width: auto; }
@@ -638,6 +705,71 @@ tr.queue-row--done td { color: var(--muted); }
       <p class="section-empty">No review items. New intake will appear here.</p>
       {% endif %}
     </section>
+    {% if data is not none %}
+    <section class="section section--data" id="extracted-data" data-documents="{{ data.documents }}">
+      <div class="data-head">
+        <h2>Extracted data</h2>
+        {% if data.has_data %}
+        <p class="data-count" id="data-count"><b>{{ data.documents }}</b> document{{ "" if data.documents == 1 else "s" }} · <b>{{ data.value_count }}</b> value{{ "" if data.value_count == 1 else "s" }} · <b>{{ data.need_review }}</b> need{{ "s" if data.need_review == 1 else "" }} review</p>
+        <span class="data-shown" id="data-shown" hidden></span>
+        <div class="data-actions">
+          <a class="btn-tertiary" id="data-export-json" href="{{ data.export_json_href }}">JSON</a>
+          <a class="btn-tertiary" id="data-export-long" href="{{ data.export_long_href }}" title="One row per document and field">CSV, one row per field</a>
+          <a class="btn-card" id="data-export" href="{{ data.export_wide_href }}" title="One row per document, one column per field">Export all</a>
+        </div>
+        {% endif %}
+      </div>
+      {% if data.has_data %}
+      <div class="data-filters" id="data-filters">
+        <select id="data-type" aria-label="Document type">
+          <option value="">All types</option>
+          {% for g in data.groups %}<option value="{{ g.key }}">{{ g.label }}</option>{% endfor %}
+        </select>
+        <select id="data-state" aria-label="State">
+          <option value="">All states</option>
+          <option value="needs_review">Needs review</option>
+          <option value="accepted">Accepted</option>
+          <option value="not_found">Not found</option>
+        </select>
+        <input type="search" id="data-search" placeholder="Search values" aria-label="Search values">
+      </div>
+      {% for g in data.groups %}
+      <div class="data-group" data-type="{{ g.key }}">
+        <div class="data-group-head">
+          <h3>{{ g.label }}</h3>
+          <span class="section-meta">{{ g.rows|length }} document{{ "" if g.rows|length == 1 else "s" }}</span>
+        </div>
+        <div class="data-frame">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="c-doc">Document</th>
+                {% for col in g.columns %}<th class="c-val">{{ col.label }}</th>{% endfor %}
+                {% if not g.columns %}<th class="c-none">Fields</th>{% endif %}
+                <th class="c-act"></th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for r in g.rows %}
+              <tr class="data-row" data-report-id="{{ r.report_id }}" data-buckets="{{ r.buckets }}" data-search="{{ r.search }}">
+                <td class="c-doc">{{ r.filename }}<small>{{ r.date_label }}</small></td>
+                {% for c in r.cells %}<td class="c-val" data-mark="{{ c.mark }}" data-bucket="{{ c.bucket }}" title="{{ c.title }}">{{ c.text }}</td>{% endfor %}
+                {% if not g.columns %}<td class="c-none">{{ g.no_fields_note }}</td>{% endif %}
+                <td class="c-act"><a class="btn-tertiary" href="{{ r.review_href }}">Review</a><a class="btn-tertiary" href="{{ r.record_href }}">Record</a></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+      <p class="data-legend"><span class="l-review">Needs review</span><span class="l-rejected">Rejected or disputed</span><span class="l-missing">— not found</span></p>
+      <p class="data-empty-filter" id="data-empty-filter" hidden>No values match. Clear a filter to see more.</p>
+      {% else %}
+      <p class="section-empty">No extracted data yet. Upload a document to begin.</p>
+      {% endif %}
+    </section>
+    {% endif %}
     <div class="document-list-head"><h2>Documents</h2></div>
     {% endif %}
 
@@ -995,6 +1127,67 @@ tr.queue-row--done td { color: var(--muted); }
         })
         .then(function () { input.value = ""; });
     });
+  })();
+  </script>
+  <script>
+  (function () {
+    // Extracted data filters run over the rendered rows: the type select hides
+    // whole tables, the state select keeps rows with at least one matching
+    // value, the search matches filename and values. Export links carry the
+    // type and state so the file is what the screen shows (search excepted).
+    var section = document.getElementById("extracted-data");
+    if (!section) return;
+    var typeSel = document.getElementById("data-type");
+    var stateSel = document.getElementById("data-state");
+    var search = document.getElementById("data-search");
+    var shown = document.getElementById("data-shown");
+    var empty = document.getElementById("data-empty-filter");
+    if (!typeSel || !stateSel || !search) return;
+    var groups = section.querySelectorAll(".data-group");
+    var total = section.querySelectorAll(".data-row").length;
+    var exports = [
+      [document.getElementById("data-export"), "csv", true],
+      [document.getElementById("data-export-long"), "csv", false],
+      [document.getElementById("data-export-json"), "json", false]
+    ];
+    var base = "/api/projects/" + encodeURIComponent(document.body.getAttribute("data-project-id") || "default") + "/parsure/export";
+
+    function apply() {
+      var type = typeSel.value, state = stateSel.value, q = String(search.value || "").trim().toLowerCase();
+      var visible = 0;
+      for (var g = 0; g < groups.length; g++) {
+        var group = groups[g];
+        var groupOn = !type || group.getAttribute("data-type") === type;
+        var rows = group.querySelectorAll(".data-row");
+        var rowsOn = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var on = groupOn;
+          if (on && state) on = (" " + (row.getAttribute("data-buckets") || "") + " ").indexOf(" " + state + " ") !== -1;
+          if (on && q) on = (row.getAttribute("data-search") || "").indexOf(q) !== -1;
+          if (on) { row.removeAttribute("hidden"); rowsOn++; } else { row.setAttribute("hidden", ""); }
+        }
+        if (groupOn && rowsOn) group.removeAttribute("hidden"); else group.setAttribute("hidden", "");
+        visible += rowsOn;
+      }
+      var filtered = !!(type || state || q);
+      if (shown) {
+        if (filtered) { shown.textContent = "Showing " + visible + " of " + total; shown.removeAttribute("hidden"); }
+        else shown.setAttribute("hidden", "");
+      }
+      if (empty) { if (filtered && !visible) empty.removeAttribute("hidden"); else empty.setAttribute("hidden", ""); }
+      for (var e = 0; e < exports.length; e++) {
+        var a = exports[e][0];
+        if (!a) continue;
+        var href = base + "?format=" + exports[e][1] + (exports[e][2] ? "&wide=1" : "");
+        if (type) href += "&document_type=" + encodeURIComponent(type);
+        if (state) href += "&state=" + encodeURIComponent(state);
+        a.setAttribute("href", href);
+      }
+    }
+    typeSel.addEventListener("change", apply);
+    stateSel.addEventListener("change", apply);
+    search.addEventListener("input", apply);
   })();
   </script>
   <script>

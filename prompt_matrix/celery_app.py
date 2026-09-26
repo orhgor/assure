@@ -179,10 +179,32 @@ def _apply_aws_integration(**_kwargs):
         logging.getLogger("assure").exception("aws integration: worker could not apply saved settings")
 
 
+def _apply_aws_integration_in_parent(**kwargs):
+    """celeryd_init runs in the prefork PARENT (the SQS transport signs there),
+    so the saved identity must reach it — but the DB read must not leave a
+    PostgreSQL pool behind: a pool built before the fork is inert in every
+    child (its maintenance threads do not survive fork), and after the server
+    dropped the inherited connections each task died with PoolTimeout
+    (measured 2026-09-26, stats connections_lost=2, pool never refilled).
+    Closing the pools here — plus pg_compat's register_at_fork guard — means
+    each child builds its own."""
+    _apply_aws_integration(**kwargs)
+    try:
+        try:
+            from .db.pg_compat import close_all_pools
+        except ImportError:
+            from db.pg_compat import close_all_pools
+        close_all_pools()
+    except Exception:  # pragma: no cover - observability only
+        import logging
+
+        logging.getLogger("assure").exception("celeryd_init: could not close the parent's PostgreSQL pools")
+
+
 try:
     from celery.signals import beat_init, celeryd_init, worker_process_init
 
-    celeryd_init.connect(_apply_aws_integration, weak=False)
+    celeryd_init.connect(_apply_aws_integration_in_parent, weak=False)
     beat_init.connect(_apply_aws_integration, weak=False)
     worker_process_init.connect(_apply_aws_integration, weak=False)
 except ImportError:  # pragma: no cover

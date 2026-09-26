@@ -32,9 +32,30 @@ def test_every_process_kind_has_the_handler():
 
     from prompt_matrix import celery_app as mod
 
-    for sig in (celeryd_init, beat_init, worker_process_init):
+    expected = {
+        celeryd_init: mod._apply_aws_integration_in_parent,  # parent: applies, then closes its pools
+        beat_init: mod._apply_aws_integration,
+        worker_process_init: mod._apply_aws_integration,
+    }
+    for sig, handler in expected.items():
         receivers = [ref() if callable(ref) and not hasattr(ref, "__code__") else ref for _, ref in sig.receivers]
-        assert mod._apply_aws_integration in receivers, sig.name
+        assert handler in receivers, sig.name
+
+
+def test_celeryd_init_leaves_no_pool_for_the_children(monkeypatch):
+    """The parent's DB read must not survive the fork as a pool (2026-09-26:
+    inherited pools cannot reconnect in a child; every task hit PoolTimeout
+    after PostgreSQL restarted)."""
+    from celery.signals import celeryd_init
+
+    from prompt_matrix import celery_app as mod
+    from prompt_matrix.db import pg_compat
+
+    closed: list[str] = []
+    monkeypatch.setattr("prompt_matrix.services.aws_integration.apply_to_environment", lambda: "role")
+    monkeypatch.setattr(pg_compat, "close_all_pools", lambda: closed.append("closed"))
+    celeryd_init.send(sender="w1@test", instance=None, conf=mod.celery_app.conf, options={})
+    assert closed == ["closed"]
 
 
 def test_handler_survives_a_missing_database(monkeypatch):
