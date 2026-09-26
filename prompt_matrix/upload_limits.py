@@ -9,7 +9,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-MAX_FILE_SIZE_MB = 10
+MAX_FILE_SIZE_MB = 25  # default; MAX_UPLOAD_SIZE_MB in .env overrides (was 10 until 2026-09-26: a customer's real policy PDF was refused)
 MAX_PAGE_COUNT = int(os.environ.get("ASSURE_MAX_PAGES", "50"))
 
 _FILE_HEADER = re.compile(r"^### File:\s*(.+?)\r?\n", re.MULTILINE)

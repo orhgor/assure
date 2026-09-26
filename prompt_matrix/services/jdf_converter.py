@@ -365,13 +365,22 @@ def jdf_to_document_tree(
             if isinstance(chunk, str)
             else str(chunk.get("text") or chunk.get("content") or "")
         )
+        # The chunk id (``p1e0``) is the address a field's ``source_span``
+        # carries; keeping it on the paragraph lets the intake report name the
+        # exact tree node a value came from (2026-09-26, "JDF node addressing").
+        pmeta: dict[str, Any] = {}
+        if isinstance(chunk, dict):
+            if chunk.get("id"):
+                pmeta["chunk_id"] = str(chunk["id"])
+            if chunk.get("page") not in (None, ""):
+                pmeta["source_page"] = chunk.get("page")
         return {
             "type": "paragraph",
             "id": new_node_id("p"),
             "content": text.strip(),
             "entities_referenced": [],
             "provenance": [],
-            "meta": {},
+            "meta": pmeta,
             "annotations": empty_annotations(),
         }
 

@@ -261,3 +261,20 @@ count line ("12 documents · 144 values · 62 need review"), each card's
 "N fields need review" and the record page's "Need review: N".
 `tests/test_parsing_page.py::test_every_needs_attention_figure_is_the_same_number`
 asserts the same 20 / 4 in every place for one seeded project.
+
+
+## JDF node addressing (2026-09-26)
+
+Every extracted field names where it came from, at three levels:
+
+| Key | What | When |
+|---|---|---|
+| `source_span.page` + `bbox` / `text_range` | the page and the position on it | always when found |
+| `field_source_node_id` | the JDF address the parse produced: on the import path the saved Assure paragraph id (`p-…`, the `data-node-id` the shell renders), on the Sources-pane path the jdf-cli chunk id (`p1e0` = page 1, element group 0) | always when found |
+| `tree_node_id` (also `source_span.node_id`) | the saved Assure paragraph, resolved through the chunk id the tree keeps in `meta.chunk_id` or by direct match | when a saved tree exists (import path); `null` on a Sources-pane upload, which has no tree |
+
+The record page shows the node id under the page number; the shell's Fields
+panel jumps to the paragraph when the id is on screen (`Page 1` → the node).
+Until 2026-09-26 `field_source_node_id` was `null` on every field because
+jdf-cli 0.2.3 elements carry no `id`; the chunk id is the address that
+survives from parse to tree to review.

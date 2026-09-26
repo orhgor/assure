@@ -1357,6 +1357,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "confidence": _pv.score_label(f.get("extraction_confidence")),
                 "basis": f.get("confidence_basis") or "No basis recorded",
                 "page": span.get("page") if span.get("page") is not None else None,
+                "node_id": span.get("node_id") or f.get("tree_node_id") or f.get("field_source_node_id") or None,
                 "reason": _pv.reason_words(f.get("reason")) if (f.get("reason") or mark != "accepted") else "",
                 "action": _pv.ROUTING_WORDS.get(str(f.get("routing_action") or "none"), _pv.words(f.get("routing_action")) or "—"),
                 "needs_person": _pv.field_needs_review(f),

@@ -8378,7 +8378,9 @@
       }
       var page = f.source_span && f.source_span.page;
       if (page != null) {
-        var nodeId = f.field_source_node_id || f.node_id || null;
+        // tree_node_id is the saved Assure paragraph (data-node-id in the column);
+        // field_source_node_id is the jdf-cli chunk id — only the first can be located here.
+        var nodeId = f.tree_node_id || f.field_source_node_id || f.node_id || null;
         var pageWords = _tf("shell.fields.page", "Page {n}", { n: page });
         var canLocate = Boolean(nodeId && _nodeWrapper(String(nodeId)));
         if (canLocate) {

@@ -740,6 +740,46 @@ def _walk_elements(elements: Any):
                 yield from _walk_elements(el[key])
 
 
+def _attach_chunk_ids(layouts: list[list[dict]], chunks: Any) -> None:
+    """Give element segments the id of the jdf-cli chunk that contains them.
+
+    jdf-cli 0.2.3 ``pages[].elements[]`` carry no ``id`` (checked 2026-09-26:
+    keys are content/position/style/type/width), so every field's
+    ``field_source_node_id`` was ``None`` — a customer read that as "Assure
+    does not address JDF nodes". The ``jdf chunk`` output does carry ids
+    (``p1e0`` = page 1, element group 0) and a page, and the Assure document
+    tree keeps that id on each paragraph (``meta.chunk_id``), so the chunk id
+    is the address that survives from parse to tree to review.
+    """
+    if not isinstance(chunks, list) or not chunks:
+        return
+    by_page: dict[int, list[tuple[str, str]]] = {}
+    for c in chunks:
+        if not isinstance(c, dict):
+            continue
+        cid = str(c.get("id") or "").strip()
+        text = " ".join(str(c.get("text") or c.get("content") or "").split())
+        if not cid or not text:
+            continue
+        try:
+            page_no = int(c.get("page") or 0)
+        except (TypeError, ValueError):
+            page_no = 0
+        by_page.setdefault(page_no, []).append((cid, text))
+    for idx, segs in enumerate(layouts):
+        candidates = by_page.get(idx + 1) or [c for cs in by_page.values() for c in cs]
+        for seg in segs:
+            if seg.get("node_id"):
+                continue
+            needle = " ".join(str(seg.get("text") or "").split())
+            if not needle:
+                continue
+            for cid, text in candidates:
+                if needle in text or (len(needle) > 40 and needle[:40] in text):
+                    seg["node_id"] = cid
+                    break
+
+
 def page_layout(bundle: dict) -> list[list[dict]]:
     """Per page, the text segments in reading order with their provenance.
 
@@ -783,6 +823,7 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 items.append((text, str(node_id) if node_id else None, _element_bbox(el, page)))
             _append(_segments_from(items))
         if any(layouts):
+            _attach_chunk_ids(layouts, bundle.get("chunks"))
             return layouts
         layouts = []
 

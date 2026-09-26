@@ -530,3 +530,44 @@ def test_review_summary_counts_by_the_queue_rule():
     assert rs["reasons"][0]["reason"] != orch.WRONG_TYPE_REASON
     assert orch.review_summary([], document_type="uncertain")["reasons"] == [{"reason": orch.UNCERTAIN_TYPE_REASON, "count": 0}]
     assert orch.review_summary([], document_type="deed")["reasons"] == []
+
+
+
+def test_fields_address_the_jdf_chunk_and_the_tree_node():
+    """jdf-cli elements carry no id, so the chunk id is the address; a saved
+    tree whose paragraph remembers that chunk gives the node id the shell
+    renders (customer, 2026-09-26: "Assure does not address JDF nodes")."""
+    from prompt_matrix.services import field_extractor as fx
+    from prompt_matrix.services.v1_orchestrator import attach_tree_node_ids
+
+    text = "AUTO INSURANCE POLICY DECLARATIONS\nPolicy Number: PA-1\nNamed Insured: Jordan Avery\nTotal Premium: $1,284.00"
+    bundle = {
+        "jdf": {"pages": [{"elements": [{"type": "text", "content": text, "position": {"x": 0, "y": 0}}], "width": 612, "height": 792}]},
+        "chunks": [{"id": "p1e0", "page": "1", "text": text}],
+        "text": text,
+    }
+    layout = fx.page_layout(bundle)
+    assert layout and layout[0] and layout[0][0]["node_id"] == "p1e0"
+    fields = fx.extract_fields("auto_policy", [text], layout=layout, parser_name="jdf-cli", parse_confidence=None,
+                               ocr_confidence=None, page_quality=[1.0])
+    found = [f for f in fields if f.get("value") is not None]
+    assert found and all(f["field_source_node_id"] == "p1e0" for f in found)
+    tree = {"body": [{"type": "section", "id": "sec-1", "children": [
+        {"type": "paragraph", "id": "p-abc123", "content": text, "meta": {"chunk_id": "p1e0", "source_page": "1"}}]}]}
+    n = attach_tree_node_ids(fields, tree)
+    assert n == len(found)
+    assert all(f["tree_node_id"] == "p-abc123" and f["source_span"]["node_id"] == "p-abc123" for f in found)
+    assert attach_tree_node_ids(fields, None) == 0  # no tree → nothing addressed, nothing invented
+    # import path: the layout already names tree paragraphs — a direct id match counts too
+    direct = [{"name": "x", "value": "1", "field_source_node_id": "p-abc123", "source_span": {"page": 1}}]
+    assert attach_tree_node_ids(direct, tree) == 1 and direct[0]["tree_node_id"] == "p-abc123"
+
+
+def test_tree_paragraphs_remember_their_chunk():
+    from prompt_matrix.services.jdf_converter import jdf_to_document_tree
+
+    jdf = {"pages": [{"elements": [{"type": "text", "content": "Policy Number: PA-1"}]}]}
+    chunks = [{"id": "p1e0", "page": "1", "text": "Policy Number: PA-1"}]
+    tree = jdf_to_document_tree(jdf, chunks, document_id="doc-t", title="t.pdf", parse_meta={})
+    paras = [n for sec in tree["body"] for n in sec.get("children", []) if n.get("type") == "paragraph"]
+    assert paras and paras[0]["meta"]["chunk_id"] == "p1e0"

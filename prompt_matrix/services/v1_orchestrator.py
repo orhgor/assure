@@ -656,6 +656,45 @@ def decide_fields(fields: list[dict], *, verification: dict | None, document_typ
     return fields, rules
 
 
+def attach_tree_node_ids(fields: list[dict], tree: dict | None) -> int:
+    """``tree_node_id`` + ``source_span.node_id`` on every field whose chunk id
+    (``field_source_node_id``, the jdf-cli ``p1e0``) a paragraph of the saved
+    Assure tree carries as ``meta.chunk_id`` (jdf_converter stamps it since
+    2026-09-26). That paragraph id is what the shell renders as
+    ``data-node-id``, so Review can jump to the exact node. Returns how many
+    fields were addressed; a ``None`` tree addresses none and says nothing."""
+    if not isinstance(tree, dict) or not fields:
+        return 0
+    by_chunk: dict[str, str] = {}
+    node_ids: set[str] = set()
+    stack = list(tree.get("body") or [])
+    while stack:
+        node = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if node.get("id"):
+            node_ids.add(str(node["id"]))
+        meta = node.get("meta") if isinstance(node.get("meta"), dict) else {}
+        cid = str(meta.get("chunk_id") or "")
+        if cid and node.get("id") and cid not in by_chunk:
+            by_chunk[cid] = str(node["id"])
+        stack.extend(node.get("children") or [])
+    n = 0
+    for f in fields:
+        fsn = str(f.get("field_source_node_id") or "")
+        # On the import path the bundle's ``jdf`` IS the saved tree, so the
+        # layout already carries paragraph ids (measured 2026-09-26:
+        # ``p-ffa247f9d47f`` on every found field); a chunk id maps through
+        # meta.chunk_id instead.
+        nid = fsn if fsn in node_ids else by_chunk.get(fsn)
+        f["tree_node_id"] = nid
+        if nid:
+            n += 1
+            if isinstance(f.get("source_span"), dict):
+                f["source_span"]["node_id"] = nid
+    return n
+
+
 def build_report(
     project_id: str,
     *,
@@ -666,6 +705,7 @@ def build_report(
     job_id: str | None,
     intake: dict | None,
     completion: Any = None,
+    tree: dict | None = None,
 ) -> dict[str, Any]:
     """The contract dict, not yet saved (``run_after_parse`` saves it).
 
@@ -789,6 +829,9 @@ def build_report(
         "_layout": layout,
     }
     compose_quality_summary(report)
+    # The saved Assure tree (import-pdf path) names the paragraph each value
+    # came from; a Sources-pane upload has no tree and addresses the chunk only.
+    report["tree_nodes_addressed"] = attach_tree_node_ids(report["fields"], tree)
     return report
 
 
@@ -876,6 +919,7 @@ def run_after_parse(
     job_id: str | None,
     intake: dict | None,
     completion: Any = None,
+    tree: dict | None = None,
 ) -> dict[str, Any] | None:
     """Build, save and log the intake report. Returns ``{"report_id", "report"}`` or None on error.
 
@@ -891,7 +935,7 @@ def run_after_parse(
     try:
         report = build_report(
             project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id, intake=intake,
-            completion=completion,
+            completion=completion, tree=tree,
         )
         attach_conflicts(project_id, report)
         report_id = repo.save_report(project_id, report)

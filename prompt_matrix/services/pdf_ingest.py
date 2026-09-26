@@ -312,6 +312,7 @@ def ingest_pdf_for_project(
                 result=result,
                 job_id=job_id,
                 intake=intake,
+                tree=tree,
             )
         except Exception:
             log.exception("parsure report failed; parse result is unaffected")

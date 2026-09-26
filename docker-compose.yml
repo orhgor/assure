@@ -74,6 +74,8 @@ x-app-env: &app-env
   ASSURE_OLLAMA_MODEL_COMPARE: ${ASSURE_OLLAMA_MODEL_COMPARE:-}
   OLLAMA_API_BASE: http://ollama:11434
   OLLAMA_HOST: http://ollama:11434
+  # Upload ceiling per file (MB). Real policy bundles with scans run past 10.
+  MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-25}
   ASSURE_LOG_STDOUT: "1"
   PYTHONUNBUFFERED: "1"
   BUILD_SHA: ${BUILD_SHA:-local}
