@@ -163,7 +163,7 @@ def test_vault_rows_without_reports_render_dashes_and_the_reason(client, monkeyp
     text = _visible_text(res.get_data(as_text=True))
 
     assert "Here's what came in, its quality, and what needs attention." in text
-    assert "Documents: 2 · Pages: 8 · Avg quality: — · Need attention: 0 · Ready for Assure: 0" in text
+    assert "Documents: 2 · Pages: 8 · Avg quality: — · Need attention: 0 documents · 0 fields · Ready for Assure: 0" in text
     assert text.count("Quality not assessed (uploaded before intake scoring)") == 2
     assert "Quality —" in text
     assert "Type uncertain" in text
@@ -188,13 +188,13 @@ def test_rows_joined_with_a_report_show_quality_chips_and_review_copy(client, mo
     text = _visible_text(html)
 
     # Summary line: pages come from the report when there is one; avg over scored docs only.
-    assert "Documents: 2 · Pages: 6 · Avg quality: 0.42 · Need attention: 1 · Ready for Assure: 0" in text
+    assert "Documents: 2 · Pages: 6 · Avg quality: 42% · Need attention: 1 document · 2 fields · Ready for Assure: 0" in text
 
     # Card copy: source · modality in words, document type in words, facts line.
     assert "Photo · Phone photo" in text
     assert "Auto policy" in text
     assert "Mar 15, 2026" in text
-    assert "Pages 4 · Quality 0.42 · 2 fields need review" in text
+    assert "Pages 4 · Quality 42% · 2 fields need review" in text
     assert "2 fields need review" in text
     assert 'data-status="review"' in html
     assert 'data-report-id="rep-photo-1"' in html
@@ -248,7 +248,7 @@ def test_ready_and_conflict_ranking(client, monkeypatch):
     html = res.get_data(as_text=True)
     text = _visible_text(html)
 
-    assert "Need attention: 1 · Ready for Assure: 1" in text
+    assert "Need attention: 1 document · 2 fields · Ready for Assure: 1" in text  # 2 = the fake report's two manual_review fields, by the queue's rule
     assert "Ready for Assure" in text and ">Send to Assure<" in html
     assert 'data-status="ready"' in html and 'data-status="conflict"' in html
     assert "Conflict detected" in text
@@ -326,7 +326,7 @@ def test_needs_attention_table_renders_collapses_and_marks_overdue(client):
     # Section order: summary line → Needs attention → cards → Analytics; one primary action.
     assert text.index("Documents:") < text.index("Needs attention") < text.index("older-scan.pdf") < text.index("Analytics")
     assert html.count('class="btn-primary"') == 1
-    assert "12 items · 1 disputed · 1 overdue" in text
+    assert "12 fields across 2 documents · 1 disputed · 1 overdue" in text
     assert "Document Field Value Why State Action" in text
 
     # Collapsed to the first 8 rows, the rest hidden behind "Show all 12".
@@ -350,7 +350,7 @@ def test_needs_attention_table_renders_collapses_and_marks_overdue(client):
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
 
     # Analytics: strong metrics, sparkline, histogram and issue list from real counts.
-    assert "Avg quality 0.52" in text  # (0.61 + 0.42) / 2 → 0.515 rounds to 0.52 at two decimals
+    assert "Avg quality 52%" in text  # (0.61 + 0.42) / 2 → 0.515 rounds to 0.52 at two decimals
     assert "Review rate 86%" in text  # 12 of 14 fields
     assert "12 of 14 fields" in text
     assert "Open disputes 1" in text and "1 overdue" in text
@@ -530,7 +530,7 @@ def test_record_page_shows_fields_page_text_and_history(client):
     assert "← Parsure" in text and 'href="/parsing?project_id=p-record"' in html
     assert "policy-declarations.pdf" in text
     assert "Auto policy · PDF · Digital PDF · Sep 20, 2026" in text
-    assert "Quality 0.93 · Low contrast on 1 of 2 pages." in text
+    assert "Quality 93% · Low contrast on 1 of 2 pages." in text
     assert html.count('class="btn-primary"') == 1 and "Review in Assure" in text
     assert 'href="/?project_id=p-record&amp;report_id=rep-pol-1"' in html or 'href="/?project_id=p-record&report_id=rep-pol-1"' in html
     assert "Export JSON" in text and 'href="/api/projects/p-record/parsure/rep-pol-1/export?format=csv"' in html
@@ -541,16 +541,16 @@ def test_record_page_shows_fields_page_text_and_history(client):
     assert order == ["premium", "vin", "liability_limit", "policy_number", "insured_name", "effective_date"]
     assert "3 need review, listed first" in text
     prem = re.search(r'data-field="premium".*?</tr>', html, re.S).group(0)
-    assert ">1,284.00<" in prem and "Unverified" in prem and ">0.52<" in prem and "parser_default[jdf-cli] (0.85) × page_quality (0.52)" in prem and "Why this confidence" in prem
+    assert ">1,284.00<" in prem and "Unverified" in prem and ">52%<" in prem and "parser_default[jdf-cli] (0.85) × page_quality (0.52)" in prem and "Why this confidence" in prem
     assert "Extraction confidence 0.52 is below 0.75" in prem and "Needs a reviewer" in prem
     vin = re.search(r'data-field="vin".*?</tr>', html, re.S).group(0)
     assert 'data-mark="missing"' in vin and "Not found in the document" in vin and ">—<" in vin
-    assert ">0.00<" in vin  # a not-found field's confidence is a measured 0.0, not a blank
+    assert ">0%<" in vin  # a not-found field's confidence is a measured 0.0, not a blank
     assert "Aug 14, 2026" in text
 
     # Pages: quality and flags in words, the text of each page behind a disclosure.
-    assert "Page 1 Quality 0.95 No issues" in text
-    assert "Page 2 Quality 0.91 Low contrast" in text
+    assert "Page 1 Quality 95% No issues" in text
+    assert "Page 2 Quality 91% Low contrast" in text
     assert text.count("Text of this page") == 2
     assert "Policy Number: AP-2025-0001" in text and "Page two text about coverage." in text
 
@@ -559,7 +559,7 @@ def test_record_page_shows_fields_page_text_and_history(client):
     assert "Insured name corrected" in text and "Mary Sampel → Mary Sample — typo" in text and "ana" in text
     assert "Liability limit disputed · overdue" in text and "schedule shows 150,000 — overdue by" in text
     assert 'data-kind="dispute" data-overdue="1"' in html
-    assert "Received" in text and "Quality assessed" in text and "Quality 0.93" in text
+    assert "Received" in text and "Quality assessed" in text and "Quality 93%" in text
     kinds = re.findall(r'<li data-kind="([^"]+)"', html)
     assert kinds[0] in ("dispute", "correction") and "event" in kinds
 
@@ -580,7 +580,7 @@ def test_record_page_without_page_text_says_so_and_404_is_calm(client):
     text = _visible_text(res.get_data(as_text=True))
     assert "prior-policy.pdf" in text
     assert "text not kept" in text and "The text of this page was not kept with the record." in text
-    assert "Quality 0.88 · No page issues were found." in text
+    assert "Quality 88% · No page issues were found." in text
     assert "all accepted" not in text  # vin is not found, liability is disputed → still need review
     assert "Nothing has been changed on this record." in text
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
@@ -589,4 +589,165 @@ def test_record_page_without_page_text_says_so_and_404_is_calm(client):
     assert res.status_code == 404
     text = _visible_text(res.get_data(as_text=True))
     assert "This record is not here." in text and "Back to Parsure" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+# --------------------------------------------------------------------------
+# One unit per count, and "nothing extracted" said plainly (customer report,
+# 2026-09-26: "Need attention: 3" over "62 items", and twelve "not found" rows
+# read as a broken OCR step)
+# --------------------------------------------------------------------------
+
+def _empty_report(project, report_id, filename, *, fields, doc_type="auto_claim", page_texts=None, text_chars=None, flags=(), created_at="2026-09-24 09:30:00"):
+    """A typed report whose every field is empty — the customer's real_estate_policy_500697.pdf shape."""
+    from prompt_matrix.db import parsure_repository as repo
+
+    report = {
+        "report_id": report_id, "document_id": f"doc-{report_id}", "filename": filename, "modality": "digital_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli", "parser_version": "0.2.3", "page_count": 1, "document_quality_score": 0.97,
+        "pages": [{"page": 1, "quality_score": 0.97, "flags": list(flags)}], "quality_flags": list(flags),
+        "classification": {"document_type": doc_type, "confidence": 0.25, "basis": "keyword heuristic: 3/12 auto_claim keywords matched", "override": None},
+        "fields": [
+            {"name": n, "label": lbl, "field_type": ft, "value": None, "raw": None, "extraction_confidence": 0.0, "confidence_basis": "field not found",
+             "field_state": "unverified", "routing_action": "manual_review", "review_required": True, "reason": "field not found", "source_span": None}
+            for n, lbl, ft in fields
+        ],
+        "conflicts": [],
+        "quality_report": {"summary": "No quality issues detected on 1 page.", "flags": list(flags), "signature": {}, "numbers": {"flagged": []}, "text_chars": text_chars},
+        "replay": {"eligible": False, "reasons": [], "history": []},
+        "created_at": created_at,
+    }
+    if page_texts is not None:
+        report["_page_texts"] = page_texts
+    return repo.save_report(project, report)
+
+
+CLAIM_FIELDS = [("claim_number", "Claim number", "text"), ("policy_number", "Policy number", "text"), ("claimant_name", "Claimant", "name"),
+                ("date_of_loss", "Date of loss", "date"), ("vin", "VIN", "vin")]
+
+
+def _seed_counts_project(project):
+    from prompt_matrix.db.jdf_repository import ensure_project
+    from tests.test_field_extractor import REAL_ESTATE_LINES
+
+    ensure_project(project)
+    _queue_report(project, "rep-a", "older-scan.pdf", quality=0.61, review_fields=6, created_at="2026-09-01 00:00:00")
+    _queue_report(project, "rep-b", "claim-photo.jpg", quality=0.42, review_fields=6, modality="phone_photo", created_at="2026-09-02 00:00:00")
+    text = "\n".join(REAL_ESTATE_LINES)
+    _empty_report(project, "rep-re", "real_estate_policy_500697.pdf", fields=CLAIM_FIELDS, page_texts=[text], text_chars=len(text))
+    _empty_report(project, "rep-blank", "blank-scan.pdf", fields=CLAIM_FIELDS[:3], page_texts=["Cl aim  n0."], text_chars=11, flags=["no_text"],
+                  created_at="2026-09-25 09:30:00")
+
+
+def test_every_needs_attention_figure_is_the_same_number(client):
+    """Summary line, "Needs attention" header, Extracted-data count line, the
+    queue API's counts and the repository helper all say the same documents
+    and the same fields for the same data."""
+    from prompt_matrix.db import parsure_repository as repo
+
+    _seed_counts_project("p-counts")
+    reports = repo.list_reports("p-counts")
+    attention = repo.attention_counts(reports)
+    assert attention == {"documents": 4, "fields": 20, "nothing_extracted": 2, "fields_found": 8}  # 6+6+5+3 flagged fields; (3+1)+(3+1) values
+
+    api = client.get("/api/projects/p-counts/parsure/queue").get_json()
+    assert api["total"] == 20 and api["counts"]["needs_review"] == 20
+    assert api["counts"]["documents"] == 4 and api["counts"]["nothing_extracted"] == 2 and api["counts"]["fields_found"] == 8
+    assert api["total"] == attention["fields"] and api["counts"]["documents"] == attention["documents"]
+
+    res = client.get("/parsing?project_id=p-counts")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    summary = re.search(r"Need attention: (\d+) documents · (\d+) fields", text)
+    header = re.search(r'id="queue-meta" data-fields="(\d+)" data-documents="(\d+)"', html)
+    header_text = re.search(r"(\d+) fields across (\d+) documents", text)
+    data_line = re.search(r"(\d+) documents · (\d+) values · (\d+) need review", text)
+    assert summary and header and header_text and data_line
+    assert int(summary.group(1)) == int(header.group(2)) == int(header_text.group(2)) == api["counts"]["documents"] == 4
+    assert int(summary.group(2)) == int(header.group(1)) == int(header_text.group(1)) == int(data_line.group(3)) == api["counts"]["needs_review"] == 20
+    assert int(data_line.group(2)) == attention["fields_found"] == 8
+    assert "items" not in text.lower()  # the unit is always named
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_nothing_extracted_folds_to_one_queue_row_and_one_amber_card_line(client):
+    _seed_counts_project("p-empty")
+    res = client.get("/parsing?project_id=p-empty")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Queue: the two empty documents are one row each (not 5 + 3 "not found" rows); the count is unchanged.
+    folded = re.findall(r'<tr class="queue-row queue-row--empty" data-kind="nothing_extracted" data-report-id="([^"]+)"', html)
+    assert folded == ["rep-blank", "rep-re"]  # newest first
+    assert len(re.findall(r'<tr class="queue-row', html)) == 14 and "Show all 14" in text
+    assert "20 fields across 4 documents" in text
+    assert "real_estate_policy_500697.pdf Auto claim nothing extracted as Auto claim 5 fields of this type, none found" in text
+    assert "The document type may be wrong — change it and the fields are re-read." in text
+    row = re.search(r'data-report-id="rep-re"[^>]*>.*?</tr>', html, re.S).group(0)
+    assert 'href="/parsing/rep-re?project_id=p-empty"' in row and ">Check type<" in row and "data-act=" not in row
+    # No per-field "not found" rows for the empty documents: one folded row each, and nothing else.
+    assert not re.findall(r'<tr class="queue-row" [^>]*data-report-id="rep-(?:re|blank)"', html)
+    assert len(re.findall(r'data-kind="nothing_extracted"', html)) == 2
+
+    # Cards: amber "nothing extracted" status, one primary action to the record page, no red.
+    card = re.search(r'<article class="card" data-status="notype" data-report-id="rep-re">.*?</article>', html, re.S).group(0)
+    card_text = _visible_text(card)
+    assert "Nothing extracted — check the document type" in card_text
+    assert "0 of 5 fields read" in card_text and "need review" not in card_text
+    assert 'href="/parsing/rep-re?project_id=p-empty"' in card and ">Check type<" in card
+    assert "Replay available" not in card_text and "Document type is uncertain" not in card_text
+    blank = _visible_text(re.search(r'<article class="card" data-status="notype" data-report-id="rep-blank">.*?</article>', html, re.S).group(0))
+    assert "The pages could not be read (11 characters)." in blank and "0 of 3 fields read" in blank
+    assert not re.search(r"OCR confidence|0\.\d\d confidence", blank)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_untyped_report_without_fields_is_not_called_ready(client):
+    _seed_data_project("p-untyped")
+    html = client.get("/parsing?project_id=p-untyped").get_data(as_text=True)
+    card = _visible_text(re.search(r'<article class="card" data-status="notype" data-report-id="rep-unk">.*?</article>', html, re.S).group(0))
+    assert "Nothing extracted — choose the document type" in card and "Choose type" in card
+    assert "Ready for Assure" not in card and "no fields until the type is chosen" in card
+
+
+def test_record_page_notice_offers_the_type_and_reloads_with_fields(client):
+    _seed_counts_project("p-notice")
+    res = client.get("/parsing/rep-re?project_id=p-notice")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # The notice: one calm sentence, the likely cause, the selector, above the table.
+    assert 'id="type-notice"' in html and text.index("Nothing extracted.") < text.index("Claim number")
+    assert "Nothing extracted. No fields could be read as Auto claim. The page carries 10 of 11 Property policy fields" in text
+    assert "Fields: 5 · Need review: 5" in text and "none of 5 found" in text
+    options = re.findall(r'<option value="([^"]+)"( selected)?>([^<]+)</option>', html)
+    assert [o[0] for o in options] == list(__import__("prompt_matrix.services.field_extractor", fromlist=["x"]).DOCUMENT_TYPES) + ["uncertain"]
+    # The evidence pass proposes the type whose fields are on the page: pre-selected, and said in words.
+    assert [o[2] for o in options if o[1]] == ["Property policy"] and ("auto_claim", "", "Auto claim") in options
+    assert "The page carries 10 of 11 Property policy fields — re-read it as that type." in text
+    assert "Quality 97% · No quality issues detected on 1 page." in text  # the hero does not repeat the notice
+    assert 'id="type-form" data-url="/api/projects/p-notice/parsure/rep-re/classification"' in html
+    assert ">Re-read as this type<" in html and html.count('class="btn-primary"') == 1  # the selector is not a second primary
+    # The page text is open so the reader sees what was read.
+    assert '<details class="text" open>' in html and "Policy Number: RE-500697" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # The blank scan says the pages could not be read, with the count, and does not invent a confidence.
+    blank = _visible_text(client.get("/parsing/rep-blank?project_id=p-notice").get_data(as_text=True))
+    assert "the pages carry 11 characters of text; the file may be a scan the OCR could not read" in blank
+    assert "The pages could not be read (11 characters of text)" in blank and "Changing the type will not add text." in blank
+    assert "The document type may be wrong — choose the right one" in blank  # no type finds fields in 11 characters: no hint
+
+    # Choosing the type through the same route the selector posts to re-reads the fields; the notice goes away.
+    res = client.post("/api/projects/p-notice/parsure/rep-re/classification", json={"document_type": "property_policy", "reason": "set on the record page", "actor": "reviewer"})
+    assert res.status_code == 200 and res.get_json()["reextracted"] is True
+    body = res.get_json()["report"]
+    assert body["review_summary"]["fields_found"] == 10 and body["classification"]["override"]["previous"] == "auto_claim"
+    assert not body["quality_report"]["summary"].startswith("No fields could be read")
+    html = client.get("/parsing/rep-re?project_id=p-notice").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="type-notice"' not in html and "Property policy (set by reviewer)" in text
+    assert "Fields: 11 · Need review:" in text and "RE-500697" in text and "425,000.00" in text
+    assert '<details class="text" open>' not in html
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)

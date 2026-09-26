@@ -208,3 +208,80 @@ def test_taxonomy_covers_every_icp_type_with_compliance_flags():
     auto = {s.name: s for s in fx.FIELD_TAXONOMY["auto_policy"]}
     assert all(auto[n].compliance_bound for n in ("policy_number", "vin", "premium", "liability_limit", "signature"))
     assert not auto["agent_name"].compliance_bound
+
+
+# --------------------------------------------------------------------------
+# Classification by evidence (2026-09-26): keywords are a hint, found fields decide
+# --------------------------------------------------------------------------
+
+#: A lender-facing real-estate declarations page whose exclusions mention the
+#: auto-claim vocabulary. Keywords alone: auto_claim 8, auto_policy 6,
+#: property_policy 6 (no near-tie, auto_claim confidence 8/12 = 0.667). The
+#: label pass: property_policy 10/11 fields, auto_policy 6/12, auto_claim 1/10.
+REAL_ESTATE_LINES = [
+    "SCHEDULE OF COVERAGE",
+    "Policy Number: RE-500697",
+    "Named Insured: Rosa and Miguel Alvarez",
+    "Premises: 42 Sandwich Road, Plymouth, MA 02360",
+    "Effective Date: 05/01/2025",
+    "Expiration Date: 05/01/2026",
+    "Dwelling: $425,000",
+    "Personal Property Coverage: $212,500",
+    "Annual Premium: $2,140.00",
+    "All Peril Deductible: $2,500",
+    "Agent: Elliot Marsh",
+    "EXCLUSIONS. This policy does not cover any vehicle or its VIN, nor collision or accident damage to a vehicle or the repair of one.",
+    "Open a claim number with your auto carrier and report the date of loss to them, not to this agent.",
+]
+#: The same page titled so that property_policy lands one keyword behind
+#: auto_claim (7 vs 8): the near-tie rule decides by the label pass.
+REAL_ESTATE_NEAR_TIE_LINES = ["REAL ESTATE POLICY"] + REAL_ESTATE_LINES[1:]
+
+
+def test_real_estate_wording_classifies_as_property_policy():
+    text = ("Hazard insurance for the real estate at 42 Sandwich Road; mortgagee: First Plymouth Bank. "
+            "Property insurance premium and dwelling coverage as stated in the schedule.")
+    cls = fx.classify_document(text)
+    assert cls["document_type"] == "property_policy"
+    assert {"real estate", "hazard insurance", "mortgagee", "property insurance", "dwelling coverage"} <= set(cls["matched_keywords"])
+
+
+def test_keywords_alone_mistype_the_real_estate_page_as_auto_claim():
+    """The customer's case, by construction: the vocabulary of the exclusions
+    outnumbers the vocabulary of the declarations. Recorded here so the
+    orchestrator test (tests/test_v1_orchestrator) proves the fix from the
+    same input."""
+    text = "\n".join(REAL_ESTATE_LINES)
+    cls = fx.classify_document(text)
+    assert cls["document_type"] == "auto_claim" and cls["confidence"] < 0.7
+    counts = fx.found_field_counts([text])
+    assert counts["property_policy"] == 10 and counts["auto_claim"] == 1 and counts["auto_policy"] == 6
+    assert list(counts) == list(fx.FIELD_TAXONOMY)
+
+
+def test_keyword_near_tie_is_decided_by_the_label_pass():
+    text = "\n".join(REAL_ESTATE_NEAR_TIE_LINES)
+    cls = fx.classify_document(text)
+    assert cls["document_type"] == "property_policy"
+    assert cls["basis"].startswith("keyword near-tie (auto_claim 8, property_policy 7) decided by the label pass: property_policy 10/11 fields found vs auto_claim 1/10")
+    assert 0 < cls["confidence"] <= fx.CLASSIFICATION_CAP
+    # An exact tie that the label pass cannot break stays uncertain.
+    tie = fx.classify_document("grantor grantee conveys — borrower lender escrow")
+    assert tie["document_type"] == "uncertain" and "label pass found the same number of fields for both" in tie["basis"]
+
+
+def test_count_found_fields_excludes_signature_and_handles_unknown_type():
+    text = "\n".join(REAL_ESTATE_LINES) + "\nAuthorized Signature: /s/ Elliot Marsh"
+    assert fx.count_found_fields("property_policy", [text]) == 10  # signature not counted
+    assert fx.count_found_fields("uncertain", [text]) == 0
+    assert fx.count_found_fields("property_policy", []) == 0
+    assert fx.count_found_fields("property_policy", ["", None]) == 0
+
+
+def test_field_needs_review_is_the_one_rule():
+    assert fx.field_needs_review({"routing_action": "manual_review", "field_state": "unverified"}) is True
+    assert fx.field_needs_review({"routing_action": "none", "field_state": "accepted"}) is False
+    assert fx.field_needs_review({"routing_action": "none", "field_state": "rejected"}) is True  # adjudicator rejection, no routing
+    assert fx.field_needs_review({"routing_action": "none", "field_state": "disputed"}) is True
+    assert fx.field_needs_review({}) is False  # no routing, no state: nothing asked
+    assert fx.field_needs_review({"value": None, "routing_action": "none", "field_state": "unverified"}) is False  # not-found alone is not the rule; the policy routes it

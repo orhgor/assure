@@ -50,7 +50,16 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 32
+_SCHEMA_VERSION = 33
+
+
+def _migrate_v33(db: sqlite3.Connection) -> None:
+    """``parsure_reports.deleted_at``: a document removed from Sources keeps its
+    report (audit trail: corrections, disputes, events must stay readable) but
+    leaves every list — cards, data tables, queue, analytics, exports. Until
+    2026-09-26 deleting a source left its report in all of them."""
+    if not _column_exists(db, "parsure_reports", "deleted_at"):
+        db.execute("ALTER TABLE parsure_reports ADD COLUMN deleted_at DATETIME")
 
 
 def _migrate_v32(db: sqlite3.Connection) -> None:
@@ -1333,6 +1342,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v31(db)
     if current < 32:
         _migrate_v32(db)
+    if current < 33:
+        _migrate_v33(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

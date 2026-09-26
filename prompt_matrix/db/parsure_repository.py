@@ -43,9 +43,11 @@ from typing import Any
 try:
     from ..db.connection import init_db
     from ..history import get_db
+    from ..services import field_extractor as _fx
 except ImportError:
     from db.connection import init_db
     from history import get_db
+    from services import field_extractor as _fx  # type: ignore
 
 EVENT_TYPES = (
     "intake_received",
@@ -134,7 +136,7 @@ def _review_counts(report: dict[str, Any]) -> tuple[int, int, int]:
     summary = report.get("review_summary") or {}
     fields = report.get("fields") or []
     total = int(summary.get("fields_total") if summary.get("fields_total") is not None else len(fields))
-    review = int(summary.get("fields_review") if summary.get("fields_review") is not None else sum(1 for f in fields if f.get("review_required")))
+    review = int(summary.get("fields_review") if summary.get("fields_review") is not None else sum(1 for f in fields if _needs_attention(f)))
     rejected = int(summary.get("fields_rejected") if summary.get("fields_rejected") is not None else sum(1 for f in fields if f.get("field_state") == "rejected"))
     return total, review, rejected
 
@@ -231,28 +233,74 @@ def get_report(project_id: str, report_id: str) -> dict[str, Any] | None:
 def get_latest_report(project_id: str) -> dict[str, Any] | None:
     init_db()
     row = get_db().execute(
-        "SELECT report_json, report_id, created_at, updated_at FROM parsure_reports WHERE project_id = ? "
+        "SELECT report_json, report_id, created_at, updated_at FROM parsure_reports "
+        "WHERE project_id = ? AND deleted_at IS NULL "
         "ORDER BY created_at DESC, report_id DESC LIMIT 1",
         (project_id,),
     ).fetchone()
     return _load(row)
 
 
-def list_reports(project_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
-    """Full report dicts, newest first."""
+def list_reports(
+    project_id: str, *, limit: int = 100, current_only: bool = True
+) -> list[dict[str, Any]]:
+    """Full report dicts, newest first.
+
+    ``current_only`` (the default every list, table, queue, analytics and
+    export uses) leaves out reports of documents removed from Sources
+    (``deleted_at``) and keeps one report per document — the newest by
+    ``document_id`` (``filename`` when a report has no document id), so a
+    re-uploaded file does not appear twice with two sets of numbers
+    (customer read that as "the count is inconsistent", 2026-09-26). Older
+    reports of the same document stay in the table for history and are still
+    reachable by id.
+    """
     init_db()
     limit = max(1, min(int(limit), 1000))
     rows = get_db().execute(
-        "SELECT report_json, report_id, created_at, updated_at FROM parsure_reports WHERE project_id = ? "
+        "SELECT report_json, report_id, created_at, updated_at FROM parsure_reports "
+        "WHERE project_id = ? AND (deleted_at IS NULL OR ? = 0) "
         "ORDER BY created_at DESC, report_id DESC LIMIT ?",
-        (project_id, limit),
+        (project_id, 1 if current_only else 0, limit),
     ).fetchall()
     out = []
+    seen: set[str] = set()
     for row in rows:
         report = _load(row)
-        if report:
-            out.append(report)
+        if not report:
+            continue
+        if current_only:
+            key = str(report.get("document_id") or "") or f"file:{report.get('filename') or ''}"
+            if key in seen:
+                continue
+            seen.add(key)
+        out.append(report)
     return out
+
+
+def mark_document_deleted(project_id: str, document_id: str | None, *, filename: str | None = None) -> int:
+    """Hide every report of a removed Sources document from the lists (soft
+    delete: ``deleted_at``), matching by ``document_id`` and, failing that, by
+    ``filename``. Returns the number of reports hidden. Called by the Sources
+    delete route (routers/substrate)."""
+    init_db()
+    db = get_db()
+    now = _now()
+    total = 0
+    if document_id:
+        cur = db.execute(
+            "UPDATE parsure_reports SET deleted_at = ?, updated_at = ? WHERE project_id = ? AND document_id = ? AND deleted_at IS NULL",
+            (now, now, project_id, str(document_id)),
+        )
+        total += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+    if not total and filename:
+        cur = db.execute(
+            "UPDATE parsure_reports SET deleted_at = ?, updated_at = ? WHERE project_id = ? AND filename = ? AND deleted_at IS NULL",
+            (now, now, project_id, filename),
+        )
+        total += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+    db.commit()
+    return total
 
 
 def find_report(report_id: str) -> dict[str, Any] | None:
@@ -567,8 +615,52 @@ def reason_category(field: dict[str, Any]) -> str:
 
 
 def _needs_attention(field: dict[str, Any]) -> bool:
-    routing = str(field.get("routing_action") or "none").lower()
-    return routing != "none" or field.get("field_state") in ("disputed", "rejected")
+    """The queue's rule — ``field_extractor.field_needs_review`` — kept under
+    its old name for the callers that grew around it."""
+    return _fx.field_needs_review(field)
+
+
+def fields_found(report: dict[str, Any]) -> int:
+    """Fields with a value; from ``review_summary.fields_found`` when the report
+    recorded it, else counted (reports saved before 2026-09-26)."""
+    summary = report.get("review_summary") or {}
+    if summary.get("fields_found") is not None:
+        return int(summary["fields_found"])
+    return sum(1 for f in (report.get("fields") or []) if isinstance(f, dict) and f.get("value") is not None)
+
+
+def nothing_extracted(report: dict[str, Any]) -> bool:
+    """A typed document whose every field is empty — one fact, not N failures.
+    An untyped report (no fields at all) is not this: it has nothing to be
+    empty until a type is chosen."""
+    fields = report.get("fields") or []
+    return bool(fields) and fields_found(report) == 0
+
+
+def attention_counts(reports: list[dict[str, Any]]) -> dict[str, int]:
+    """One unit per count, computed once (customer report of 2026-09-26: a
+    header said "3", the section under it said "62 items", and the two were
+    documents and fields by different rules).
+
+    ``documents`` — reports with at least one field that ``_needs_attention``
+    or with a recorded conflict; ``fields`` — every such field across the
+    reports (the review queue's item count, ``list_queue(...)["total"]``);
+    ``nothing_extracted`` — typed reports with no field found at all;
+    ``fields_found`` — fields with a value across the reports. Every surface
+    that shows a "needs attention" figure reads it from here.
+    """
+    documents = fields = nothing = found = 0
+    for report in reports:
+        if not isinstance(report, dict):
+            continue
+        flagged = sum(1 for f in (report.get("fields") or []) if isinstance(f, dict) and _needs_attention(f))
+        fields += flagged
+        found += fields_found(report)
+        if flagged or (report.get("conflicts") or []):
+            documents += 1
+        if nothing_extracted(report):
+            nothing += 1
+    return {"documents": documents, "fields": fields, "nothing_extracted": nothing, "fields_found": found}
 
 
 def _num(value: Any) -> float | None:
@@ -592,7 +684,13 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
     is the operational ask; a rejected field with no routing still needs a
     decision recorded against it). Newest report first; within a report an
     overdue dispute comes first, then other disputes, then the rest in the
-    report's own field order. ``counts`` are counts of the queued items.
+    report's own field order. ``counts`` are counts of the queued items
+    (``needs_review`` / ``disputed`` / ``overdue`` / ``rejected``) plus, from
+    ``attention_counts`` over the same reports, ``documents`` (reports with a
+    queued field or a conflict), ``nothing_extracted`` and ``fields_found``.
+    ``total`` is the item count and equals ``attention_counts(...)["fields"]``.
+    Each item carries ``nothing_extracted`` so a page can fold the N empty
+    rows of one such document into one line.
     """
     init_db()
     limit = max(1, min(int(limit), 2000))
@@ -603,10 +701,13 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
         open_disputes.setdefault((str(d["report_id"]), str(d["field_name"])), d)
 
     items: list[dict[str, Any]] = []
-    counts = {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0}
+    counts: dict[str, int] = {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0}
+    attention = attention_counts(reports)
     for report in reports:  # already newest first
         report_id = str(report.get("report_id"))
         document_type = (report.get("classification") or {}).get("document_type")
+        empty = nothing_extracted(report)
+        found = fields_found(report)
         group: list[tuple[int, int, dict[str, Any]]] = []
         for order, field in enumerate(report.get("fields") or []):
             if not _needs_attention(field):
@@ -646,9 +747,13 @@ def list_queue(project_id: str, *, limit: int = 200) -> dict[str, Any]:
                 "routing_action": str(field.get("routing_action") or "none"),
                 "dispute": dispute_view,
                 "created_at": report.get("created_at"),
+                "nothing_extracted": empty,
+                "fields_found": found,
+                "fields_total": len(report.get("fields") or []),
             }))
         group.sort(key=lambda t: (t[0], t[1]))
         items.extend(item for _, _, item in group)
+    counts.update({k: attention[k] for k in ("documents", "nothing_extracted", "fields_found")})
     return {"items": items[:limit], "counts": counts, "total": len(items), "now": now.strftime(_TS)}
 
 

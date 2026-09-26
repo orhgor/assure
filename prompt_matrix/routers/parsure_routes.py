@@ -159,9 +159,14 @@ def num(value: Any) -> float | None:
 
 
 def score_label(value: Any) -> str:
-    """A 0–1 score at two decimals; ``None`` reads "—", never a default."""
+    """A 0–1 score as a percentage ("85%"); ``None`` reads "—", never a default.
+
+    The shell shows every confidence and quality as a percentage; the intake
+    page showed the same numbers as 0.85 next to 0.42, so a reader compared
+    two notations for one figure (2026-09-26). One notation everywhere.
+    """
     n = num(value)
-    return f"{n:.2f}" if n is not None else "—"
+    return f"{round(max(0.0, min(1.0, n)) * 100):d}%" if n is not None else "—"
 
 
 def date_label(value: Any) -> str:
@@ -436,7 +441,27 @@ def project_csv_wide(documents: list[dict[str, Any]]) -> str:
     return buf.getvalue()
 
 
+#: The one rule for "this field still asks for a person" — the pages import
+#: it from here so they never grow a rule of their own.
+field_needs_review = fx.field_needs_review
+
+
+def type_options(current: Any = None) -> list[dict[str, Any]]:
+    """The ten types in words for the record page's type selector, the current
+    one marked; ``uncertain`` last as "Type uncertain"."""
+    options = [{"value": t, "label": doc_type_label(t), "selected": t == current} for t in fx.DOCUMENT_TYPES]
+    options.append({"value": "uncertain", "label": "Type uncertain", "selected": current in UNCERTAIN_TYPES})
+    return options
+
+
+def attention_counts(reports: list[dict[str, Any]]) -> dict[str, int]:
+    """``parsure_repository.attention_counts`` for the page code that already imports this module."""
+    return repo.attention_counts(reports)
+
+
 def _summary(report: dict[str, Any]) -> dict[str, Any]:
+    review = dict(report.get("review_summary") or {})
+    review.setdefault("fields_found", repo.fields_found(report))
     return {
         "report_id": report.get("report_id"),
         "document_id": report.get("document_id"),
@@ -450,7 +475,9 @@ def _summary(report: dict[str, Any]) -> dict[str, Any]:
         "parser_name": report.get("parser_name"),
         "page_count": report.get("page_count"),
         "document_quality_score": report.get("document_quality_score"),
-        "review_summary": report.get("review_summary"),
+        "review_summary": review,
+        "fields_found": review["fields_found"],
+        "nothing_extracted": repo.nothing_extracted(report),
         "quality_summary": (report.get("quality_report") or {}).get("summary"),
         "replay_eligible": bool((report.get("replay") or {}).get("eligible")),
         "conflicts": len(report.get("conflicts") or []),

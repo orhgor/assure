@@ -246,6 +246,7 @@ body {
 }
 .status--ready { color: var(--verified); }
 .status--review { color: var(--partial); }
+.status--notype { color: var(--partial); }
 .status--conflict { color: var(--contradicted); }
 .status--unassessed { color: var(--unverified); }
 
@@ -404,6 +405,9 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 }
 .queue-table tr:last-child td { border-bottom: none; }
 .queue-table tr[hidden] { display: none; }
+.queue-row--empty td { background: var(--paper); }
+.queue-row--empty .queue-field { color: var(--partial); font-weight: 500; }
+.queue-row--empty .queue-field small { color: var(--muted); font-weight: 400; }
 .queue-doc { font-weight: 500; overflow-wrap: anywhere; }
 .queue-doc small { display: block; font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
 .queue-field small { display: block; color: var(--muted); font-size: var(--fs-sm); }
@@ -650,7 +654,7 @@ tr.queue-row--done td { color: var(--muted); }
       <span>Documents: <b>{{ summary.total }}</b></span><span class="sep">·</span>
       <span>Pages: <b>{{ summary.pages }}</b></span><span class="sep">·</span>
       <span>Avg quality: <b>{{ summary.avg_quality_label }}</b></span><span class="sep">·</span>
-      <span>Need attention: <b>{{ summary.need_attention }}</b></span><span class="sep">·</span>
+      <span>Need attention: <b>{{ summary.need_attention }}</b> document{{ "" if summary.need_attention == 1 else "s" }} · <b>{{ summary.fields_review }}</b> field{{ "" if summary.fields_review == 1 else "s" }}</span><span class="sep">·</span>
       <span>Ready for Assure: <b>{{ summary.ready }}</b></span>
     </p>
     <p class="upload-status" id="upload-status" aria-live="polite"></p>
@@ -660,8 +664,8 @@ tr.queue-row--done td { color: var(--muted); }
       <div class="section-head">
         <h2>Needs attention</h2>
         {% if queue.total %}
-        <span class="section-meta" id="queue-meta">
-          {{ queue.total }} item{{ "" if queue.total == 1 else "s" }}
+        <span class="section-meta" id="queue-meta" data-fields="{{ queue.total }}" data-documents="{{ queue.documents }}">
+          {{ queue.total }} field{{ "" if queue.total == 1 else "s" }} across {{ queue.documents }} document{{ "" if queue.documents == 1 else "s" }}
           {%- if queue.counts.disputed %} · {{ queue.counts.disputed }} disputed{% endif %}
           {%- if queue.counts.overdue %} · <b>{{ queue.counts.overdue }} overdue</b>{% endif %}
         </span>
@@ -675,6 +679,17 @@ tr.queue-row--done td { color: var(--muted); }
         </thead>
         <tbody>
         {% for r in queue.rows %}
+          {% if r.kind == "nothing_extracted" %}
+          <tr class="queue-row queue-row--empty" data-kind="nothing_extracted" data-report-id="{{ r.report_id }}" data-state="{{ r.state }}"{% if loop.index > queue.visible %} hidden data-collapsed="1"{% endif %}>
+            <td class="queue-doc">{{ r.filename }}<small>{{ r.doc_type_label }}</small></td>
+            <td class="queue-field" colspan="2">{{ r.label }}<small>{{ r.fields_total }} field{{ "" if r.fields_total == 1 else "s" }} of this type, none found</small></td>
+            <td class="queue-why">{{ r.reason }}</td>
+            <td class="queue-state"><span class="status status--partial">{{ r.state_label }}</span></td>
+            <td class="queue-actions">
+              <a class="btn-tertiary" href="{{ r.record_href }}">Check type</a>
+            </td>
+          </tr>
+          {% else %}
           <tr class="queue-row" data-report-id="{{ r.report_id }}" data-field="{{ r.field_name }}" data-state="{{ r.state }}"{% if r.overdue %} data-overdue="1"{% endif %}{% if loop.index > queue.visible %} hidden data-collapsed="1"{% endif %}>
             <td class="queue-doc">{{ r.filename }}<small>{{ r.doc_type_label }}</small></td>
             <td class="queue-field">{{ r.label }}<small>Confidence {{ r.confidence_label }}</small></td>
@@ -695,11 +710,12 @@ tr.queue-row--done td { color: var(--muted); }
               <a class="btn-tertiary" href="{{ r.review_href }}">Review in Assure</a>
             </td>
           </tr>
+          {% endif %}
         {% endfor %}
         </tbody>
       </table>
-      {% if queue.total > queue.visible %}
-      <p class="queue-more"><button type="button" class="btn-tertiary" id="queue-show-all">Show all {{ queue.total }}</button></p>
+      {% if queue.rows|length > queue.visible %}
+      <p class="queue-more"><button type="button" class="btn-tertiary" id="queue-show-all">Show all {{ queue.rows|length }}</button></p>
       {% endif %}
       {% else %}
       <p class="section-empty">No review items. New intake will appear here.</p>
@@ -794,7 +810,9 @@ tr.queue-row--done td { color: var(--muted); }
               <span class="sep">·</span> Quality <b>{{ doc.quality_label }}</b>
               {%- if doc.details %}
               <span class="sep">·</span>
-              {%- if doc.fields_review == 0 %} <b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} accepted
+              {%- if doc.nothing_extracted %} <b>0</b> of {{ doc.fields_total }} field{{ "" if doc.fields_total == 1 else "s" }} read
+              {%- elif doc.fields_total == 0 %} no fields until the type is chosen
+              {%- elif doc.fields_review == 0 %} <b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} accepted
               {%- elif doc.fields_review == 1 %} <b>1</b> field needs review
               {%- else %} <b>{{ doc.fields_review }}</b> fields need review{% endif %}
               {%- endif %}
@@ -962,7 +980,7 @@ tr.queue-row--done td { color: var(--muted); }
               <thead><tr><th>Day</th><th>Documents</th><th>Avg quality</th><th>Fields needing review</th></tr></thead>
               <tbody>
               {% for d in analytics.trend_rows %}
-              <tr><td>{{ d.day }}</td><td>{{ d.documents }}</td><td>{{ "%.2f"|format(d.avg_quality) if d.avg_quality is not none else "—" }}</td><td>{{ d.fields_review }}</td></tr>
+              <tr><td>{{ d.day }}</td><td>{{ d.documents }}</td><td>{{ (d.avg_quality * 100)|round|int ~ "%" if d.avg_quality is not none else "—" }}</td><td>{{ d.fields_review }}</td></tr>
               {% endfor %}
               </tbody>
             </table>

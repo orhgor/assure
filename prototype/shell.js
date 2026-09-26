@@ -939,9 +939,19 @@
       var rs = summary.review_summary || {};
       var total = Number(rs.fields_total) || 0;
       var review = Number(rs.fields_review) || 0;
+      // fields_found (2026-09-26): values actually read. Twelve "not found"
+      // rows read as a broken pipeline to a customer; the document-level fact
+      // is "nothing could be read as this type", and the fix is the type.
+      var found = (rs.fields_found === undefined || rs.fields_found === null) ? null : Number(rs.fields_found);
       var text = document.createElement("span");
       text.className = "source-result-text";
-      if (total > 0) {
+      if (total > 0 && found === 0) {
+        var dt0 = String(summary.document_type || "uncertain");
+        text.setAttribute("data-tone", "partial");
+        text.textContent = _tf("shell.source.result.none_as_type", "Nothing could be read as {type} \u2014 check the type",
+                               { type: _t("shell.fields.type." + dt0, dt0) });
+        line.appendChild(text);
+      } else if (total > 0) {
         text.textContent = _plural(total, "shell.source.result.fields_one", "1 field extracted",
                                    "shell.source.result.fields_many", "{n} fields extracted");
         line.appendChild(text);
@@ -1788,7 +1798,7 @@
     }
     function _clearStateCards() {
       if (!docSurface) return;
-      var stale = docSurface.querySelectorAll(".doc-refusal, .doc-halt, .doc-prereq");
+      var stale = docSurface.querySelectorAll(".doc-refusal, .doc-halt, .doc-prereq, .doc-intake");
       for (var i = 0; i < stale.length; i++) stale[i].remove();
     }
     // The streamed draft goes first, always: whatever the column is about to
@@ -1836,12 +1846,83 @@
     // the missing source instead of sitting blank behind a button that refuses
     // without a reason. It stands only while no document does — a document whose
     // source was removed afterwards keeps its column.
+    var _intakeCardBusy = false;
+    function _renderIntakeCard() {
+      if (!docSurface || _intakeCardBusy) return;
+      var reports = Array.isArray(__parsureReports) ? __parsureReports : [];
+      if (!reports.length) { _clearStateCards(); return; }
+      var fields = 0, review = 0, found = 0;
+      reports.forEach(function (r) {
+        var rs = (r && r.review_summary) || {};
+        fields += Number(rs.fields_total) || 0; review += Number(rs.fields_review) || 0;
+        found += (rs.fields_found === undefined || rs.fields_found === null) ? (Number(rs.fields_total) || 0) : (Number(rs.fields_found) || 0);
+      });
+      var sig = reports.length + ":" + fields + ":" + review + ":" + found;
+      var existing = docSurface.querySelector(".doc-intake");
+      if (existing && existing.getAttribute("data-sig") === sig) return;
+      _intakeCardBusy = true;
+      try {
+        var latest = reports[0] || {};
+        var n = reports.length;
+        var lead = _tf(n === 1 ? "shell.doc.intake.lead_one" : "shell.doc.intake.lead_many",
+                       n === 1 ? "{n} document read" : "{n} documents read", { n: n });
+        var detail = found === 0
+          ? _t("shell.doc.intake.none", "Nothing could be read yet \u2014 check the document type in Fields.")
+          : (review > 0
+              ? _tf("shell.doc.intake.detail_review", "{fields} fields extracted \u00b7 {review} need review. Ask for a draft below when you are ready.", { fields: fields, review: review })
+              : _tf("shell.doc.intake.detail_ok", "{fields} fields extracted, nothing waiting on you. Ask for a draft below.", { fields: fields }));
+        if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
+        draftEl = null;
+        _clearStateCards();
+        // Built here, not via _renderStateCard: that helper writes document.mode,
+        // which re-enters _syncDocState and rebuilt this card in a loop.
+        var card = document.createElement("div");
+        card.className = "doc-intake";
+        card.setAttribute("role", "status");
+        card.setAttribute("data-sig", sig);
+        var line = document.createElement("p");
+        line.className = "doc-state-line";
+        line.textContent = lead;
+        card.appendChild(line);
+        var det = document.createElement("p");
+        det.className = "doc-state-detail";
+        det.textContent = detail;
+        card.appendChild(det);
+        var actions = document.createElement("div");
+        actions.className = "doc-state-actions";
+        var primary = document.createElement("button");
+        primary.type = "button";
+        primary.className = "btn-primary";
+        primary.textContent = _t("shell.doc.intake.review", "Review fields");
+        primary.addEventListener("click", function () { _viewReport(String(latest.report_id || "")); });
+        actions.appendChild(primary);
+        if (latest.report_id) {
+          var rec = document.createElement("a");
+          rec.className = "btn-tertiary";
+          rec.href = "/parsing/" + encodeURIComponent(String(latest.report_id));
+          rec.textContent = _t("shell.fields.full_record", "Full record");
+          actions.appendChild(rec);
+        }
+        card.appendChild(actions);
+        docSurface.appendChild(card);
+      } finally {
+        _intakeCardBusy = false;
+      }
+    }
+
     function _syncDocState() {
       var mode = SHELL.document.mode;
       if (docSurface) docSurface.setAttribute("data-mode", mode);
       if (mode === "refused" || mode === "failed") return;
-      if (mode !== "empty" || !_sourcesLoaded || _hasAttachedSource()) {
+      if (mode !== "empty" || !_sourcesLoaded) {
         _clearStateCards();
+        return;
+      }
+      if (_hasAttachedSource()) {
+        // Sources in, no draft yet: the column used to sit blank. The document
+        // is the hero (brief §3C), so the column says what came out of the
+        // sources and where to act on it, until a draft takes the space.
+        _renderIntakeCard();
         return;
       }
       if (docSurface && docSurface.querySelector(".doc-prereq")) return;
@@ -7225,6 +7306,7 @@
       });
     }
     function _afterParsureChange() {
+      try { if (typeof _syncDocState === "function") _syncDocState(); } catch (_) {}
       _syncTrustState();
       _syncExportEnabled();
       if (typeof _renderFieldsPanel === "function") _renderFieldsPanel();
@@ -7642,6 +7724,13 @@
 
     // ---- the rail: Workspaces · Sources · Analytics · Settings ------------
     function _syncRail() {
+      // Analytics is the intake page for THIS workspace: a bare /parsing opened
+      // the default project's data (seen 2026-09-26).
+      var an = document.getElementById("rail-analytics");
+      if (an) {
+        var apid = _activeProjectId();
+        an.setAttribute("href", apid ? "/parsing?project_id=" + encodeURIComponent(apid) : "/parsing");
+      }
       var ws = document.getElementById("rail-workspaces");
       var src = document.getElementById("rail-sources");
       var st = document.getElementById("rail-settings");

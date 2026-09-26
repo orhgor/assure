@@ -28,6 +28,20 @@ extraction:
   like a claim form will be split, and two same-type documents stapled
   together will not be. The flag routes the bundle to a reviewer either way.
 
+Classification by evidence (2026-09-26, customer report on
+``real_estate_policy_500697.pdf``: keywords typed a real-estate declarations
+page as ``auto_claim`` and every auto-claim field was honestly "not found",
+which the customer read as a broken OCR step). After the keyword pass and
+before extraction, ``reclassify_by_evidence`` runs the cheap label pass for
+every other type when the keyword type finds at most one field at confidence
+under 0.7, and switches to the type whose fields are actually on the page
+(≥ 2 found, strictly more than the keyword type). The switch is recorded in
+``classification.basis``; the keyword answer stays in
+``classification.detected``. When the type is still ``uncertain`` and the
+grounded-LLM path is on, ``llm_extraction.classify_with_model`` may suggest
+one type name; it is used only if that type's fields are then found, at
+confidence ≤ 0.6, and its basis says so. No model ever names a value.
+
 Failure isolation: the pipeline treats the return value as advisory. Any
 exception here is logged and turns into ``None`` so a review-backend bug can
 never fail an ingest that already has its revision.
@@ -62,6 +76,22 @@ TEXTRACT_VERSION = "detect-2026-09"
 REPLAY_LOW_CONFIDENCE = 0.5
 #: Characters on a page that count as "full" text density for the quality score.
 TEXT_DENSITY_FULL_CHARS = 1500
+#: Fewer characters than this across the whole upload and the document is
+#: flagged ``no_text``: a one-page declarations PDF carries 1,500–3,000
+#: characters of text layer; a scan the OCR could not read yields a few dozen
+#: stray characters. The threshold is stated to the reader with the count.
+NO_TEXT_MIN_CHARS = 200
+#: ``reclassify_by_evidence`` runs when the keyword type finds at most this
+#: many fields …
+RECLASSIFY_MAX_FOUND = 1
+#: … at a keyword confidence below this …
+RECLASSIFY_BELOW_CONFIDENCE = 0.7
+#: … and switches only to a type that finds at least this many fields.
+RECLASSIFY_MIN_FOUND = 2
+#: A model's type suggestion cannot earn more than this (spec §4: no fabricated
+#: confidence; the number is the found ratio, and the cap says a model guess is
+#: worth less than a keyword match, which is itself capped at 0.9).
+MODEL_CLASSIFICATION_CAP = 0.6
 
 _FLAG_SENTENCES = {
     "low_res": "Low resolution",
@@ -256,24 +286,98 @@ def quality_summary(pages: list[dict], signature: dict | None, numbers_flagged: 
     return sentence[0].upper() + sentence[1:] + "."
 
 
-def review_summary(fields: list[dict]) -> dict[str, Any]:
+#: The reason a reviewer sees first when a typed document yielded no field at
+#: all: in every case examined so far (2026-09-26) the type was wrong, not the
+#: OCR — and the fix is one click on the record page.
+WRONG_TYPE_REASON = "document type may be wrong — change it and the fields are re-read"
+UNCERTAIN_TYPE_REASON = "document type is uncertain — choose it and the fields are read"
+
+
+def type_words(document_type: Any) -> str:
+    """``auto_claim`` → "Auto claim" — the same rendering the pages use
+    (``routers/parsure_routes.words``) without importing a Flask module here."""
+    if document_type in (None, "", "uncertain", "unknown", "other"):
+        return "an uncertain type"
+    return str(document_type).replace("_", " ").replace("-", " ").strip().capitalize()
+
+
+def fields_found_count(fields: list[dict]) -> int:
+    return sum(1 for f in fields if f.get("value") is not None)
+
+
+def extraction_sentence(document_type: Any, fields_total: int, fields_found: int, text_chars: int | None) -> str | None:
+    """The document-level sentence for "nothing was read", or None when
+    something was.
+
+    Said plainly and first, because twelve "not found" rows read as twelve
+    failures (customer report, 2026-09-26) when the fact is one: no field of
+    the chosen type is on the page. Under ``NO_TEXT_MIN_CHARS`` the more
+    likely fact is an unreadable scan, and the character count is given so
+    the reader can judge — never an OCR confidence this code did not measure.
+    """
+    if fields_found > 0:
+        return None
+    chars = int(text_chars) if text_chars is not None else None
+    little_text = chars is not None and chars < NO_TEXT_MIN_CHARS
+    if fields_total > 0:
+        head = f"No fields could be read as {type_words(document_type)}"
+        if little_text:
+            return f"{head} — the pages carry {chars} characters of text; the file may be a scan the OCR could not read."
+        return f"{head}."
+    if little_text:
+        return f"The pages could not be read ({chars} characters of text); the file may be a scan the OCR could not read."
+    if document_type in (None, "", "uncertain"):
+        return "No fields could be read: the document type is uncertain."
+    return None
+
+
+def compose_quality_summary(report: dict[str, Any]) -> str:
+    """``quality_report.summary`` = the extraction sentence (when nothing was
+    read) + the page-quality sentence. Re-run after a type change so the
+    sentence names the type that was actually tried."""
+    qr = report.setdefault("quality_report", {})
+    fields = report.get("fields") or []
+    classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
+    document_type = classification.get("document_type")
+    sentence = qr.get("quality_sentence")
+    if sentence is None:
+        sentence = str(qr.get("summary") or "")
+        qr["quality_sentence"] = sentence
+    lead = extraction_sentence(document_type, len(fields), fields_found_count(fields), qr.get("text_chars"))
+    qr["extraction_sentence"] = lead
+    qr["summary"] = f"{lead} {sentence}".strip() if lead else sentence
+    return qr["summary"]
+
+
+def review_summary(fields: list[dict], *, document_type: Any = None) -> dict[str, Any]:
+    """Counts a reviewer can trust: ``fields_review`` uses the same rule as
+    the review queue (``field_extractor.field_needs_review``), so the summary
+    line, the queue header, the data count and the analytics column agree.
+    ``fields_found`` is always present; when it is 0 for a typed document the
+    first reason says the type is the likely cause."""
     reasons: dict[str, int] = {}
     for f in fields:
-        if f.get("review_required") and f.get("reason"):
+        if fx.field_needs_review(f) and f.get("reason"):
             key = str(f["reason"]).split(":", 1)[0][:80]
             reasons[key] = reasons.get(key, 0) + 1
-    top = sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+    top = [{"reason": r, "count": n} for r, n in sorted(reasons.items(), key=lambda kv: (-kv[1], kv[0]))[:5]]
+    found = fields_found_count(fields)
+    if fields and found == 0:
+        top.insert(0, {"reason": WRONG_TYPE_REASON, "count": len(fields)})
+    elif not fields and document_type in (None, "", "uncertain"):
+        top.insert(0, {"reason": UNCERTAIN_TYPE_REASON, "count": 0})
     return {
         "fields_total": len(fields),
+        "fields_found": found,
         "fields_accepted": sum(1 for f in fields if f.get("field_state") == "accepted"),
-        "fields_review": sum(1 for f in fields if f.get("review_required")),
+        "fields_review": sum(1 for f in fields if fx.field_needs_review(f)),
         "fields_rejected": sum(1 for f in fields if f.get("field_state") == "rejected"),
         "fields_disputed": sum(1 for f in fields if f.get("field_state") == "disputed"),
-        "reasons": [{"reason": r, "count": n} for r, n in top],
+        "reasons": top,
     }
 
 
-def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous: dict | None = None) -> dict[str, Any]:
+def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous: dict | None = None, *, document_type: Any = None) -> dict[str, Any]:
     """Spec §7: eligibility is recorded, execution is not (no durable replay path yet)."""
     reasons: list[str] = []
     low = [f["name"] for f in fields if f.get("value") is not None and float(f.get("extraction_confidence") or 0) < REPLAY_LOW_CONFIDENCE]
@@ -282,6 +386,8 @@ def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous
     corrected = [f["name"] for f in fields if f.get("corrected")]
     if corrected:
         reasons.append(f"corrected field(s): {', '.join(corrected[:6])}")
+    if fields and fields_found_count(fields) == 0:
+        reasons.append(f"no field was found as {document_type or 'this type'} — re-read after the document type is changed")
     if parser_name == "jdf-cli" and parser_ver != current_jdf_cli_version():
         reasons.append(f"parser_version {parser_ver} older than current {current_jdf_cli_version()}")
     return {
@@ -406,6 +512,103 @@ def llm_fill_missing(
     return [by_name.get(f["name"], f) for f in fields]
 
 
+def reclassify_by_evidence(document_type: Any, confidence: Any, texts: list[str], *, keyword_hits: list | None = None) -> dict[str, Any] | None:
+    """Pick the type whose fields are on the page when the keyword type's are not.
+
+    Runs only when ``document_type`` finds at most ``RECLASSIFY_MAX_FOUND``
+    fields with the label pass and its keyword confidence is below
+    ``RECLASSIFY_BELOW_CONFIDENCE`` (``None`` counts as below). Then every
+    other type in ``FIELD_TAXONOMY`` gets the same cheap label pass and the
+    one with the most found fields wins — if it finds at least
+    ``RECLASSIFY_MIN_FOUND`` and strictly more than the original; ties between
+    candidates go to taxonomy order, so the outcome is deterministic. Returns
+    the replacement classification (``document_type``, ``confidence`` = found
+    ratio capped at ``CLASSIFICATION_CAP``, ``basis`` naming both counts,
+    ``detected`` = the keyword answer, ``method``) or None to keep the keyword
+    answer. Regex only: no model, nothing inferred.
+    """
+    doc_type = str(document_type or "uncertain")
+    current_total = len(fx.FIELD_TAXONOMY.get(doc_type) or [])
+    current_found = fx.count_found_fields(doc_type, texts) if current_total else 0
+    if current_found > RECLASSIFY_MAX_FOUND:
+        return None
+    conf = float(confidence) if isinstance(confidence, (int, float)) else None
+    if conf is not None and conf >= RECLASSIFY_BELOW_CONFIDENCE:
+        return None
+    counts = {t: n for t, n in fx.found_field_counts(texts).items() if t != doc_type}
+    if not counts:
+        return None
+    best = max(counts, key=lambda t: (counts[t], -list(fx.FIELD_TAXONOMY).index(t)))
+    best_found = counts[best]
+    if best_found < RECLASSIFY_MIN_FOUND or best_found <= current_found:
+        return None
+    best_total = len(fx.FIELD_TAXONOMY[best])
+    hits = len(keyword_hits or [])
+    if current_total:
+        versus = f" vs {doc_type} {current_found}/{current_total} (keywords said {doc_type}, {hits} hit{'s' if hits != 1 else ''})"
+    else:
+        versus = f" (keywords said uncertain, {hits} hit{'s' if hits != 1 else ''})"
+    return {
+        "document_type": best,
+        "confidence": round(min(fx.CLASSIFICATION_CAP, best_found / best_total), 3),
+        "basis": f"reclassified by extraction evidence: {best} {best_found}/{best_total} fields found{versus}",
+        "matched_keywords": [],
+        "method": "extraction_evidence",
+        "detected": {"document_type": doc_type, "confidence": confidence, "basis": None, "matched_keywords": list(keyword_hits or [])},
+        "evidence": {"found": best_found, "total": best_total, "current_found": current_found, "current_total": current_total},
+    }
+
+
+def classify_with_model_if_uncertain(texts: list[str], *, completion: Any, project_id: str | None, notes: list[str],
+                                     detected: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Ask the configured model for ONE type name and accept it only when that
+    type's fields are then found (≥ 1) by the label pass. Confidence is the
+    found ratio capped at ``MODEL_CLASSIFICATION_CAP``; the basis names the
+    model and the count. Honors ``PARSURE_LLM_EXTRACTION``; never raises —
+    every skip is a line in ``notes``."""
+    if not lx.llm_extraction_enabled():
+        return None
+    try:
+        out = lx.classify_with_model(texts, completion=completion, project_id=project_id)
+    except Exception as exc:  # noqa: BLE001 — advisory
+        log.exception("classify_with_model failed")
+        notes.append(f"model type suggestion skipped: {type(exc).__name__}: {exc}")
+        return None
+    suggested = out.get("document_type") if isinstance(out, dict) else None
+    if not suggested or suggested not in fx.FIELD_TAXONOMY:
+        notes.append(f"model type suggestion skipped: {(out or {}).get('basis') or 'no usable answer'}")
+        return None
+    found = fx.count_found_fields(suggested, texts)
+    total = len(fx.FIELD_TAXONOMY[suggested])
+    if found == 0:
+        notes.append(f"model suggested {suggested} but none of its {total} fields were found; type stays uncertain")
+        return None
+    model = out.get("model") or "model"
+    notes.append(f"model type suggestion accepted: {suggested} ({found}/{total} fields found)")
+    return {
+        "document_type": suggested,
+        "confidence": round(min(MODEL_CLASSIFICATION_CAP, found / total), 3),
+        "basis": f"model suggestion ({model}), confirmed by {found} field{'s' if found != 1 else ''} found ({found}/{total})",
+        "matched_keywords": [],
+        "method": "model_suggestion",
+        "detected": detected or {},
+    }
+
+
+def settle_segment_type(seg: dict[str, Any], texts: list[str], *, completion: Any, project_id: str | None, notes: list[str], llm: bool = True) -> None:
+    """Apply the evidence rule, then (still uncertain, LLM path on) the model
+    suggestion, to one segment in place. Adds ``detected`` / ``method`` only
+    when the type changed, so an untouched segment keeps its shape."""
+    detected = {k: seg.get(k) for k in ("document_type", "confidence", "basis", "matched_keywords")}
+    evidence = reclassify_by_evidence(seg.get("document_type"), seg.get("confidence"), texts, keyword_hits=seg.get("matched_keywords"))
+    if evidence is None and seg.get("document_type") == "uncertain" and llm and any((t or "").strip() for t in texts):
+        evidence = classify_with_model_if_uncertain(texts, completion=completion, project_id=project_id, notes=notes, detected=detected)
+    if evidence is None:
+        return
+    evidence["detected"] = {**detected, **{k: v for k, v in evidence.get("detected", {}).items() if v is not None}}
+    seg.update(evidence)
+
+
 def extract_segment_fields(
     document_type: str,
     texts: list[str],
@@ -479,16 +682,15 @@ def build_report(
     visual_pages = [p.get("visual") for p in pages]
     documents = segment_pages(texts)
     mixed = len(documents) > 1
-    if mixed:
-        classification = bundle_classification(documents)
-    else:
-        classification = {k: documents[0][k] for k in ("document_type", "confidence", "basis", "matched_keywords")}
-    classification["override"] = None
     notes: list[str] = []
     fields: list[dict] = []
     rules: list[dict] = []
     for seg in documents:
         seg_texts = segment_texts(texts, seg["pages"]) if mixed else texts
+        # Classification by evidence before any extraction (module docstring):
+        # the label pass is the cheap step, the LLM fill the expensive one, so
+        # the type is settled first and the model is asked once, for one type.
+        settle_segment_type(seg, seg_texts, completion=completion, project_id=project_id, notes=notes)
         seg_fields, seg_rules = extract_segment_fields(
             seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
             ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
@@ -499,13 +701,26 @@ def build_report(
         for r in seg_rules:
             r["segment"] = seg["index"]
         seg["fields_total"] = len(seg_fields)
-        seg["fields_found"] = sum(1 for f in seg_fields if f.get("value") is not None)
+        seg["fields_found"] = fields_found_count(seg_fields)
         seg.pop("page_types", None)
         fields.extend(seg_fields)
         rules.extend(seg_rules)
+    if mixed:
+        classification = bundle_classification(documents)
+    else:
+        classification = {k: documents[0][k] for k in ("document_type", "confidence", "basis", "matched_keywords")}
+        for key in ("method", "detected"):
+            if key in documents[0]:
+                classification[key] = documents[0][key]
+    classification["override"] = None
     scored = [s for s in page_quality if s is not None]
     doc_quality = round(sum(scored) / len(scored), 3) if scored else None
-    quality_flags = sorted({flag for p in pages for flag in p.get("flags") or []} | ({"mixed_bundle"} if mixed else set()))
+    text_chars = sum(len((t or "").strip()) for t in texts)
+    quality_flags = sorted(
+        {flag for p in pages for flag in p.get("flags") or []}
+        | ({"mixed_bundle"} if mixed else set())
+        | ({"no_text"} if text_chars < NO_TEXT_MIN_CHARS else set())
+    )
     sig_field = next((f for f in fields if f.get("field_type") == "signature"), None)
     signature = (sig_field or {}).get("signature_quality") if sig_field else next((s for s in signatures if s.get("present") is not None), None)
     numbers_flagged = sum(1 for f in fields if (f.get("number_quality") or {}).get("review_required"))
@@ -556,32 +771,42 @@ def build_report(
             "redhat_status": (verification or {}).get("redhat_status") if isinstance(verification, dict) else None,
             "z3_violation_count": len(z3.get("violations") or []) if isinstance(z3, dict) else None,
         },
-        "review_summary": review_summary(fields),
+        "review_summary": review_summary(fields, document_type=classification.get("document_type")),
         "quality_report": {
-            "summary": quality_summary(pages, signature, numbers_flagged, documents=documents),
+            "summary": None,
+            "quality_sentence": quality_summary(pages, signature, numbers_flagged, documents=documents),
+            "extraction_sentence": None,
+            "text_chars": text_chars,
             "flags": quality_flags,
             "signature": signature,
             "numbers": {"flagged": numbers_flagged},
         },
         "laya": (intake or {}).get("laya"),
-        "replay": replay_state(fields, pname, pver),
+        "replay": replay_state(fields, pname, pver, document_type=classification.get("document_type")),
         "created_at": _now(),
         "_page_texts": texts,
         "_page_quality": page_quality,
         "_layout": layout,
     }
+    compose_quality_summary(report)
     return report
 
 
 def refresh_report(report: dict[str, Any]) -> dict[str, Any]:
     """Recompute the derived blocks after a field changed (correct/dispute/override)."""
     fields = report.get("fields") or []
-    report["review_summary"] = review_summary(fields)
-    report["replay"] = replay_state(fields, str(report.get("parser_name") or ""), str(report.get("parser_version") or ""), report.get("replay"))
+    classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
+    document_type = classification.get("document_type")
+    report["review_summary"] = review_summary(fields, document_type=document_type)
+    report["replay"] = replay_state(fields, str(report.get("parser_name") or ""), str(report.get("parser_version") or ""), report.get("replay"),
+                                    document_type=document_type)
+    if isinstance(report.get("quality_report"), dict):
+        compose_quality_summary(report)
     return report
 
 
-def reextract_for_type(report: dict[str, Any], document_type: str, *, verification: dict | None = None, completion: Any = None, llm: bool = False) -> dict[str, Any]:
+def reextract_for_type(report: dict[str, Any], document_type: str, *, verification: dict | None = None, completion: Any = None, llm: bool = False,
+                       by_evidence: bool = False) -> dict[str, Any]:
     """Classification override: re-run the label pass and the policy over the
     stored page texts. The reviewer named one type for the whole upload, so a
     mixed bundle collapses to a single segment of that type — the override is
@@ -591,10 +816,24 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
     override request on the web tier, and a model call (2–6 s on the local
     model, up to the 90 s bound on a stalled provider) is exactly the long
     work the web tier must not do. The report says so in
-    ``extraction_notes``; a worker-side caller passes ``llm=True``."""
+    ``extraction_notes``; a worker-side caller passes ``llm=True``.
+
+    ``by_evidence=True`` applies ``reclassify_by_evidence`` to the requested
+    type first (a caller that is not sure — a replay, a batch re-read — rather
+    than a reviewer who is); when the evidence names another type the report's
+    ``classification`` follows it and says why."""
     texts = list(report.get("_page_texts") or [])
     layout = report.get("_layout")
     notes: list[str] = []
+    basis = "reviewer override"
+    classification = report.setdefault("classification", {})
+    if by_evidence:
+        evidence = reclassify_by_evidence(document_type, None, texts)
+        if evidence is not None:
+            evidence["detected"] = {"document_type": document_type, "confidence": None, "basis": "requested type", "matched_keywords": []}
+            document_type = evidence["document_type"]
+            basis = evidence["basis"]
+            classification.update({k: evidence[k] for k in ("document_type", "confidence", "basis", "method", "detected")})
     fields, rules = extract_segment_fields(
         document_type, texts, layout=layout if isinstance(layout, list) else None,
         parser_name=report.get("parser_name"), parse_confidence=None,
@@ -610,8 +849,8 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
     report["plausibility"] = rules
     report["extraction_notes"] = notes
     report["documents"] = [{"index": 0, "pages": list(range(1, len(texts) + 1)), "document_type": document_type,
-                            "confidence": None, "basis": "reviewer override", "matched_keywords": [],
-                            "fields_total": len(fields), "fields_found": sum(1 for f in fields if f.get("value") is not None)}]
+                            "confidence": classification.get("confidence") if by_evidence else None, "basis": basis, "matched_keywords": [],
+                            "fields_total": len(fields), "fields_found": fields_found_count(fields)}]
     return refresh_report(report)
 
 
@@ -665,11 +904,12 @@ def run_after_parse(
             "document_quality_score": report["document_quality_score"], "flags": report["quality_flags"], "summary": report["quality_report"]["summary"],
         })
         repo.log_event(project_id, "classified", report_id=rid, payload={
-            **{k: report["classification"].get(k) for k in ("document_type", "confidence", "basis")},
+            **{k: report["classification"].get(k) for k in ("document_type", "confidence", "basis", "method", "detected")},
             "documents": [{k: d[k] for k in ("index", "pages", "document_type")} for d in report["documents"]],
         })
         repo.log_event(project_id, "fields_extracted", report_id=rid, payload={
-            "fields_total": len(report["fields"]), "found": sum(1 for f in report["fields"] if f.get("value") is not None),
+            "fields_total": len(report["fields"]), "fields_found": fields_found_count(report["fields"]),
+            "found": fields_found_count(report["fields"]),
             "llm_grounded": sum(1 for f in report["fields"] if f.get("extraction_method") == "llm_grounded"),
             "extraction_notes": report["extraction_notes"],
         })

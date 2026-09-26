@@ -833,12 +833,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "fields_review": 0,
                 "fields_rejected": 0,
                 "fields_total": 0,
+                "fields_found": 0,
+                "nothing_extracted": False,
                 "conflicts": 0,
                 "chips": [],
                 "status": "unassessed",
                 "status_label": "Not assessed",
                 "primary_label": "Open",
                 "primary_href": f"/?project_id={project_id}",
+                "record_href": None,
                 "details": None,
             }
             if not report:
@@ -864,9 +867,17 @@ def create_app(*, require_auth: bool = True) -> Flask:
             if fields_total is None:
                 fields_total = len(fields)
 
-            card["fields_review"] = int(fields_review or 0)
+            # One rule for "needs review" (field_extractor.field_needs_review,
+            # via attention_counts) so this card, the summary line, the queue
+            # and the data count agree; the stored summary is only the fallback
+            # for a report saved without its fields.
+            attention_one = _pv.attention_counts([report]) if fields else None
+            card["fields_review"] = int(attention_one["fields"] if attention_one else (fields_review or 0))
             card["fields_rejected"] = int(fields_rejected or 0)
             card["fields_total"] = int(fields_total or 0)
+            card["fields_found"] = int(attention_one["fields_found"] if attention_one else (summary.get("fields_found") or 0))
+            card["nothing_extracted"] = bool(fields) and card["fields_found"] == 0
+            card["record_href"] = f"/parsing/{card['report_id']}?project_id={project_id}" if card["report_id"] else None
             card["conflicts"] = len(conflicts)
             card["quality"] = _num(report.get("document_quality_score"))
             card["quality_label"] = _score_label(report.get("document_quality_score"))
@@ -900,19 +911,38 @@ def create_app(*, require_auth: bool = True) -> Flask:
             flagged_count = len(flagged_numbers) if isinstance(flagged_numbers, (list, tuple)) else int(flagged_numbers or 0)
             if flagged_count:
                 chips.append("Some numbers are unclear.")
-            if card["doc_type_label"] == "Type uncertain":
+            if card["doc_type_label"] == "Type uncertain" and not card["nothing_extracted"]:
                 chips.append("Document type is uncertain.")
-            if replay.get("eligible"):
+            if "no_text" in doc_flags:
+                # Deliverable of 2026-09-26: say the pages could not be read,
+                # with the measured character count — never an OCR confidence
+                # this code did not measure.
+                text_chars = quality_report.get("text_chars") if isinstance(quality_report, dict) else None
+                chips.append(
+                    f"The pages could not be read ({int(text_chars)} character{'' if int(text_chars) == 1 else 's'})."
+                    if isinstance(text_chars, (int, float)) else "The pages could not be read."
+                )
+            if replay.get("eligible") and not card["nothing_extracted"]:
                 chips.append("Replay available after policy update.")
             card["chips"] = chips
 
-            # Status ranking (brief §3H): conflict > needs review > ready.
+            # Status ranking (brief §3H): conflict > nothing extracted > needs
+            # review > ready. "Nothing extracted" is one amber fact about the
+            # document (the type is the likely cause), not N red field failures.
+            untyped_empty = not fields and card["doc_type_label"] == "Type uncertain"
             if card["fields_rejected"] > 0 or card["conflicts"] > 0:
                 card["status"] = "conflict"
                 card["status_label"] = (
                     "Conflict detected" if card["conflicts"] else _plural(card["fields_rejected"], "field") + " rejected"
                 )
                 card["primary_label"] = "Review"
+            elif card["nothing_extracted"] or untyped_empty:
+                card["status"] = "notype"
+                card["status_label"] = (
+                    "Nothing extracted — check the document type" if card["nothing_extracted"] else "Nothing extracted — choose the document type"
+                )
+                card["primary_label"] = "Check type" if card["nothing_extracted"] else "Choose type"
+                card["primary_href"] = card["record_href"] or f"/?project_id={project_id}&report_id={card['report_id']}"
             elif card["fields_review"] > 0:
                 card["status"] = "review"
                 card["status_label"] = (
@@ -925,7 +955,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 card["status"] = "ready"
                 card["status_label"] = "Ready for Assure"
                 card["primary_label"] = "Send to Assure"
-            card["primary_href"] = f"/?project_id={project_id}&report_id={card['report_id']}"
+            if card["status"] != "notype":
+                card["primary_href"] = f"/?project_id={project_id}&report_id={card['report_id']}"
 
             attention = [
                 {
@@ -936,7 +967,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                     "basis": f.get("confidence_basis") or "—",
                 }
                 for f in fields
-                if f.get("review_required") or f.get("field_state") in ("rejected", "disputed", "unverified", "partial")
+                if _pv.field_needs_review(f) or f.get("field_state") in ("rejected", "disputed", "unverified", "partial")
             ]
             page_rows = [
                 {
@@ -994,14 +1025,23 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 cards.append(_card_from(None, rep))
 
         qualities = [c["quality"] for c in cards if c["quality"] is not None]
-        need_attention = sum(1 for c in cards if c["status"] in ("review", "conflict"))
+        # One unit per count (2026-09-26): documents and fields needing
+        # attention come from parsure_repository.attention_counts — the same
+        # helper the queue, its API counts and the data count line use.
+        try:
+            attention = _pv.attention_counts(reports)
+        except Exception:  # noqa: BLE001 — a stubbed repository must not break intake
+            attention = {"documents": sum(1 for c in cards if c["status"] in ("review", "conflict")), "fields": sum(c["fields_review"] for c in cards),
+                         "nothing_extracted": sum(1 for c in cards if c["nothing_extracted"]), "fields_found": sum(c["fields_found"] for c in cards)}
         ready = sum(1 for c in cards if c["status"] == "ready")
         summary = {
             "total": len(cards),
             "pages": sum(int(c["page_count"] or 0) for c in cards),
             "avg_quality": (sum(qualities) / len(qualities)) if qualities else None,
-            "avg_quality_label": f"{sum(qualities) / len(qualities):.2f}" if qualities else "—",
-            "need_attention": need_attention,
+            "avg_quality_label": _score_label(sum(qualities) / len(qualities)) if qualities else "—",
+            "need_attention": int(attention["documents"]),
+            "fields_review": int(attention["fields"]),
+            "nothing_extracted": int(attention["nothing_extracted"]),
             "ready": ready,
             "reports_available": reports_available,
         }
@@ -1035,12 +1075,41 @@ def create_app(*, require_auth: bool = True) -> Flask:
         queue_view = None
         if queue is not None:
             rows_out = []
+            folded: set = set()
             for item in queue.get("items") or []:
                 state = str(item.get("field_state") or "unverified")
                 dispute = item.get("dispute") or None
+                rid = str(item.get("report_id") or "")
+                if item.get("nothing_extracted") and state not in ("disputed", "rejected"):
+                    # The N "not found" rows of a document that yielded nothing
+                    # are one fact — the type is the likely cause — so they fold
+                    # into one row that leads to the type selector. Counts are
+                    # not changed by the fold: the header still says N fields.
+                    if rid in folded:
+                        continue
+                    folded.add(rid)
+                    type_label = _words(item.get("document_type")) if item.get("document_type") not in (None, "", "uncertain", "unknown", "other") else "an uncertain type"
+                    rows_out.append(
+                        {
+                            "kind": "nothing_extracted",
+                            "report_id": rid,
+                            "field_name": "",
+                            "filename": item.get("filename") or "Untitled",
+                            "doc_type_label": _words(item.get("document_type")) if item.get("document_type") not in (None, "", "uncertain", "unknown", "other") else "Type uncertain",
+                            "label": f"nothing extracted as {type_label}",
+                            "fields_total": int(item.get("fields_total") or 0),
+                            "reason": "The document type may be wrong — change it and the fields are re-read.",
+                            "state": "unverified",
+                            "state_label": "Nothing extracted",
+                            "record_href": f"/parsing/{rid}?project_id={project_id}",
+                            "review_href": f"/?project_id={project_id}&report_id={rid}",
+                        }
+                    )
+                    continue
                 rows_out.append(
                     {
-                        "report_id": item.get("report_id") or "",
+                        "kind": "field",
+                        "report_id": rid,
                         "field_name": item.get("field_name") or "",
                         "filename": item.get("filename") or "Untitled",
                         "doc_type_label": _words(item.get("document_type")) if item.get("document_type") not in (None, "", "uncertain", "unknown", "other") else "Type uncertain",
@@ -1061,7 +1130,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 )
             queue_view = {
                 "rows": rows_out,
-                "total": int(queue.get("total") or len(rows_out)),
+                "total": int(queue.get("total") or 0),
+                "documents": len({str(i.get("report_id")) for i in (queue.get("items") or [])}),
                 "counts": queue.get("counts") or {},
                 "visible": 8,
             }
@@ -1180,7 +1250,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                         buckets.add(bucket)
                         if f.get("value") is not None:
                             values_n += 1
-                        if bucket != "accepted":
+                        if _pv.field_needs_review(f):
                             review_n += 1
                         title = full if mark == "accepted" else f"{full} — {_pv.reason_words(f.get('reason'))}"
                         cells.append({"text": text, "title": title, "mark": mark, "bucket": bucket})
@@ -1244,10 +1314,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             from .db import parsure_repository as _repo
             from .middleware import check_project_ownership as _check_owner
             from .routers import parsure_routes as _pv
+            from .services import v1_orchestrator as _orch
         except ImportError:
             from db import parsure_repository as _repo  # type: ignore
             from middleware import check_project_ownership as _check_owner  # type: ignore
             from routers import parsure_routes as _pv  # type: ignore
+            from services import v1_orchestrator as _orch  # type: ignore
 
         project_hint = (request.args.get("project_id") or "").strip() or None
         report = None
@@ -1287,13 +1359,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "page": span.get("page") if span.get("page") is not None else None,
                 "reason": _pv.reason_words(f.get("reason")) if (f.get("reason") or mark != "accepted") else "",
                 "action": _pv.ROUTING_WORDS.get(str(f.get("routing_action") or "none"), _pv.words(f.get("routing_action")) or "—"),
-                "needs_person": mark != "accepted",
+                "needs_person": _pv.field_needs_review(f),
                 "corrected": bool(f.get("corrected")),
             }
 
         field_rows = [_field_row(f) for f in fields]
         field_rows.sort(key=lambda r: 0 if r["needs_person"] else 1)  # stable: report order within each half
-        review_n = sum(1 for r in field_rows if r["needs_person"])
+        review_n = sum(1 for r in field_rows if r["needs_person"])  # the queue's rule — same number as /parsing
+        found_n = _repo.fields_found(report)
+        nothing_extracted = bool(fields) and found_n == 0
 
         try:
             texts = _repo.report_page_texts(project_id, report["report_id"]) or []
@@ -1385,6 +1459,38 @@ def create_app(*, require_auth: bool = True) -> Flask:
         quality_sentence = (quality_report.get("summary") or "").strip()
         if not quality_sentence:
             quality_sentence = "Quality not scored for this document." if quality is None else "No page issues were found."
+        # The document-level fact when nothing was read: from the report when
+        # the orchestrator recorded it, else derived the same way (reports
+        # saved before 2026-09-26). The character count is the measured length
+        # of the kept page text; when no text was kept it is unknown, not 0.
+        text_chars = quality_report.get("text_chars")
+        if not isinstance(text_chars, (int, float)):
+            text_chars = sum(len((t or "").strip()) for t in texts) if texts else None
+        extraction_sentence = quality_report.get("extraction_sentence")
+        if extraction_sentence is None and (nothing_extracted or (not fields and _pv.doc_type_label(classification) == "Type uncertain")):
+            extraction_sentence = _orch.extraction_sentence(classification.get("document_type"), len(fields), found_n, text_chars)
+        no_text = "no_text" in {str(fl) for fl in (report.get("quality_flags") or [])}
+        current_type = classification.get("document_type")
+        show_notice = nothing_extracted or (not fields and _pv.doc_type_label(classification) == "Type uncertain")
+        if show_notice and extraction_sentence:
+            # The notice says it; the hero keeps the page-quality sentence so the
+            # fact is stated once on the page.
+            plain = quality_report.get("quality_sentence")
+            if not isinstance(plain, str):
+                plain = quality_sentence[len(extraction_sentence):].strip() if quality_sentence.startswith(extraction_sentence) else quality_sentence
+            quality_sentence = plain or ("Quality not scored for this document." if quality is None else "No page issues were found.")
+        # Which type's fields *are* on the page — the evidence pass, run on the
+        # kept text (regex only, a few ms), so the selector proposes it and the
+        # notice says how many fields that type finds.
+        type_hint = None
+        if show_notice and texts:
+            try:
+                hint = _orch.reclassify_by_evidence(current_type, None, texts)
+            except Exception:  # noqa: BLE001 — a hint, never a failure
+                hint = None
+            if hint:
+                type_hint = {"type": hint["document_type"], "label": _pv.doc_type_label(hint["document_type"]),
+                             "found": hint["evidence"]["found"], "total": hint["evidence"]["total"]}
         source_label = _pv.words(report.get("material_type"), _pv.MATERIAL_WORDS)
         modality_label = _pv.words(report.get("modality"), _pv.MODALITY_WORDS)
         if source_label and source_label == modality_label:
@@ -1428,6 +1534,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "quality_sentence": quality_sentence,
             "fields_total": len(field_rows),
             "fields_review": review_n,
+            "fields_found": found_n,
+            "nothing_extracted": nothing_extracted,
+            "untyped": not fields and _pv.doc_type_label(classification) == "Type uncertain",
+            "extraction_sentence": extraction_sentence,
+            "no_text": no_text,
+            "text_chars": int(text_chars) if isinstance(text_chars, (int, float)) else None,
+            "type_options": _pv.type_options(type_hint["type"] if type_hint else current_type),
+            "type_hint": type_hint,
+            "type_override_url": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/classification",
+            "pages_open": nothing_extracted or (not fields and _pv.doc_type_label(classification) == "Type uncertain"),
             "fields": field_rows,
             "pages": page_rows,
             "has_page_text": any(p["text"] for p in page_rows),

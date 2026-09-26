@@ -114,6 +114,29 @@ body {
 .section-head .section-meta { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
 .section-empty { font-size: var(--fs-md); color: var(--muted); margin: 0; }
 
+/* ---- notice: one calm fact above the table (brief §3F: amber, not red) ---- */
+.notice {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-6);
+  padding: var(--space-4) var(--space-5); margin: 0 0 var(--space-4);
+  border: 1px solid var(--rule); border-left: 3px solid var(--partial); border-radius: var(--radius-card); background: var(--surface);
+}
+.notice p { margin: 0; font-size: var(--fs-lg); color: var(--ink); max-width: 62ch; }
+.notice p b { color: var(--partial); font-weight: 600; }
+.notice small { display: block; margin-top: var(--space-1); font-size: var(--fs-sm); color: var(--muted); }
+.notice form { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+.notice label { font-size: var(--fs-sm); color: var(--muted); }
+.notice select {
+  height: 32px; padding: 0 var(--space-3); font: inherit; font-size: var(--fs-md); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface);
+}
+.notice .btn-secondary {
+  height: 32px; padding: 0 var(--space-4); font: inherit; font-size: var(--fs-md); font-weight: 500; color: var(--ink);
+  border: 1px solid var(--ink); border-radius: var(--radius-card); background: var(--surface); cursor: pointer;
+}
+.notice .btn-secondary:disabled { opacity: 0.5; cursor: default; }
+.notice .note { font-size: var(--fs-sm); color: var(--muted); }
+.notice .note[data-tone="error"] { color: var(--contradicted); }
+
 /* ---- fields ---- */
 .frame { border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface); overflow-x: auto; }
 .fields { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
@@ -282,8 +305,27 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
     <section class="section" id="fields">
       <div class="section-head">
         <h2>Fields</h2>
-        {% if record.fields %}<span class="section-meta">{% if record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
+        {% if record.fields %}<span class="section-meta">{% if record.nothing_extracted %}none of {{ record.fields_total }} found{% elif record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
       </div>
+      {% if record.nothing_extracted or record.untyped %}
+      <div class="notice" id="type-notice" data-tone="partial">
+        <p>
+          <b>{% if record.nothing_extracted %}Nothing extracted.{% else %}No type chosen.{% endif %}</b>
+          {{ record.extraction_sentence or ("No fields could be read as " ~ record.type_label ~ ".") }}
+          {% if record.type_hint %}The page carries {{ record.type_hint.found }} of {{ record.type_hint.total }} {{ record.type_hint.label }} fields — re-read it as that type.
+          {% elif record.nothing_extracted %}The document type may be wrong — choose the right one and the fields are re-read.{% else %}Choose the document type and the fields are read.{% endif %}
+          {% if record.no_text %}<small>The pages could not be read{% if record.text_chars is not none %} ({{ "{:,}".format(record.text_chars) }} character{{ "" if record.text_chars == 1 else "s" }} of text){% endif %}; a scan the OCR could not read looks like this. Changing the type will not add text.</small>{% endif %}
+        </p>
+        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
+          <label for="type-select">Document type</label>
+          <select id="type-select" name="document_type">
+            {% for o in record.type_options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn-secondary" id="type-apply">Re-read as this type</button>
+          <span class="note" id="type-note" aria-live="polite"></span>
+        </form>
+      </div>
+      {% endif %}
       {% if record.fields %}
       <div class="frame">
         <table class="fields">
@@ -332,7 +374,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
             {% if p.text %}<span class="chars">{{ "{:,}".format(p.chars) }} characters</span>{% endif %}
           </div>
           {% if p.text %}
-          <details class="text">
+          <details class="text"{% if record.pages_open %} open{% endif %}>
             <summary>Text of this page</summary>
             <pre>{{ p.text }}</pre>
           </details>
@@ -377,6 +419,42 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
     </section>
   {% endif %}
   </main>
+
+  <script>
+  (function () {
+    // Type selector on a record that yielded nothing: POST the chosen type to
+    // the classification override route (which re-reads the fields on the
+    // stored page text) and reload so the page shows what that type finds.
+    var form = document.getElementById("type-form");
+    if (!form) return;
+    var select = document.getElementById("type-select");
+    var button = document.getElementById("type-apply");
+    var note = document.getElementById("type-note");
+    function say(text, tone) {
+      note.textContent = text || "";
+      if (tone) note.setAttribute("data-tone", tone); else note.removeAttribute("data-tone");
+    }
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var headers = { "Content-Type": "application/json" };
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) headers["X-CSRFToken"] = meta.content;
+      button.disabled = true;
+      say("Re-reading…");
+      fetch(form.getAttribute("data-url"), {
+        method: "POST", headers: headers, credentials: "same-origin",
+        body: JSON.stringify({ document_type: select.value, reason: "set on the record page", actor: "reviewer" })
+      })
+        .then(function (r) { return r.json().then(function (b) { return { code: r.status, body: b || {} }; }); })
+        .then(function (res) {
+          if (res.code >= 200 && res.code < 300 && res.body.ok) { window.location.reload(); return; }
+          button.disabled = false;
+          say(res.body.error || "Could not change the type.", "error");
+        })
+        .catch(function () { button.disabled = false; say("Could not change the type. Check your connection and try again.", "error"); });
+    });
+  })();
+  </script>
 
   <footer class="site-footer">
     <div class="footer-inner">

@@ -93,6 +93,10 @@ TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "property_policy": (
         "homeowners", "dwelling", "property policy", "coverage a", "personal property",
         "premium", "deductible", "policy number", "insured location", "wind", "hail", "named insured",
+        # Real-estate wording seen on lender-facing declarations (customer file
+        # ``real_estate_policy_*.pdf``, 2026-09-26, typed auto_claim on
+        # "claim" / "date of loss" / "vehicle" in its exclusions).
+        "real estate", "property insurance", "dwelling coverage", "hazard insurance", "mortgagee",
     ),
     "property_claim": (
         "claim number", "date of loss", "property damage", "cause of loss", "dwelling",
@@ -129,14 +133,29 @@ def _keyword_hits(text_lower: str, keywords: tuple[str, ...]) -> list[str]:
     return hits
 
 
+#: Two types whose keyword counts differ by at most this are a near-tie; the
+#: label pass over both decides (``classify_document``).
+NEAR_TIE_MARGIN = 1
+
+
 def classify_document(text: str) -> dict[str, Any]:
     """Keyword-heuristic document type with an ``uncertain`` fallback.
 
     ``confidence`` is the share of the winning type's keywords that occur in
     the text, capped at ``CLASSIFICATION_CAP`` (0.9): a keyword count is not a
     calibrated probability and must never present as one. Fewer than
-    ``MIN_KEYWORD_MATCHES`` hits, or a tie between two types, is
-    ``"uncertain"`` — the reviewer picks (classification override route).
+    ``MIN_KEYWORD_MATCHES`` hits is ``"uncertain"`` — the reviewer picks
+    (classification override route).
+
+    Near-tie rule (2026-09-26): when the top two types are within
+    ``NEAR_TIE_MARGIN`` hits of each other — including an exact tie — the
+    label pass (``count_found_fields``) runs for both and the type whose
+    fields are actually found wins; the basis records both counts. Only when
+    the found counts are equal too does an exact tie stay ``uncertain`` and a
+    one-hit lead stand. Keywords alone mistyped a real-estate declarations
+    page as ``auto_claim`` because its exclusions mention "claim", "date of
+    loss" and "vehicle" (customer report, 2026-09-26); its fields are
+    property-policy fields, and that is the evidence that counts.
     """
     text_lower = (text or "").lower()
     if not text_lower.strip():
@@ -147,7 +166,7 @@ def classify_document(text: str) -> dict[str, Any]:
         scored.append((doc_type, hits))
     scored.sort(key=lambda item: len(item[1]), reverse=True)
     best_type, best_hits = scored[0]
-    second_hits = scored[1][1] if len(scored) > 1 else []
+    second_type, second_hits = scored[1] if len(scored) > 1 else (None, [])
     ratio = len(best_hits) / max(1, len(TYPE_KEYWORDS[best_type]))
     confidence = round(min(CLASSIFICATION_CAP, ratio), 3)
     if len(best_hits) < MIN_KEYWORD_MATCHES:
@@ -157,11 +176,28 @@ def classify_document(text: str) -> dict[str, Any]:
             "basis": f"only {len(best_hits)} keyword(s) matched for {best_type}; below minimum {MIN_KEYWORD_MATCHES}",
             "matched_keywords": best_hits,
         }
+    if second_type is not None and len(best_hits) - len(second_hits) <= NEAR_TIE_MARGIN:
+        best_found = count_found_fields(best_type, [text])
+        second_found = count_found_fields(second_type, [text])
+        if best_found != second_found:
+            winner, loser = (best_type, second_type) if best_found > second_found else (second_type, best_type)
+            winner_hits = best_hits if winner == best_type else second_hits
+            winner_found, loser_found = max(best_found, second_found), min(best_found, second_found)
+            return {
+                "document_type": winner,
+                "confidence": round(min(CLASSIFICATION_CAP, len(winner_hits) / max(1, len(TYPE_KEYWORDS[winner]))), 3),
+                "basis": (
+                    f"keyword near-tie ({best_type} {len(best_hits)}, {second_type} {len(second_hits)}) decided by the label pass: "
+                    f"{winner} {winner_found}/{len(FIELD_TAXONOMY[winner])} fields found vs {loser} {loser_found}/{len(FIELD_TAXONOMY[loser])}; "
+                    f"capped at {CLASSIFICATION_CAP}"
+                ),
+                "matched_keywords": winner_hits,
+            }
     if len(second_hits) == len(best_hits):
         return {
             "document_type": "uncertain",
             "confidence": confidence,
-            "basis": f"tie between {best_type} and {scored[1][0]} ({len(best_hits)} keywords each)",
+            "basis": f"tie between {best_type} and {scored[1][0]} ({len(best_hits)} keywords each; label pass found the same number of fields for both)",
             "matched_keywords": best_hits,
         }
     return {
@@ -298,6 +334,54 @@ FIELD_TAXONOMY: dict[str, list[FieldSpec]] = {
         _SIGNATURE,
     ],
 }
+
+# --------------------------------------------------------------------------
+# Extraction evidence — cheap label-pass counts used to check a classification
+# --------------------------------------------------------------------------
+
+def count_found_fields(document_type: str, page_texts_in: list[str]) -> int:
+    """How many of ``document_type``'s non-signature fields the label pass finds
+    in ``page_texts_in`` — the regex pass only, no confidence, no model.
+
+    This is the evidence ``classify_document`` (near-tie rule) and
+    ``v1_orchestrator.reclassify_by_evidence`` weigh against the keyword count:
+    a type whose fields are on the page is a better answer than a type whose
+    vocabulary merely appears in it. Signature is excluded because its
+    presence is a quality-probe question, not a label match. Costs one
+    ``_find_field`` per field per page (about 10 × pages regex searches per
+    type); on a 12-page policy all nine types take under 50 ms.
+    """
+    specs = [s for s in (FIELD_TAXONOMY.get(document_type) or []) if s.field_type != "signature"]
+    if not specs:
+        return 0
+    texts = [t or "" for t in (page_texts_in or [])]
+    found = 0
+    for spec in specs:
+        if any(_find_field(spec, text) for text in texts if text):
+            found += 1
+    return found
+
+
+def found_field_counts(page_texts_in: list[str]) -> dict[str, int]:
+    """``count_found_fields`` for every type in ``FIELD_TAXONOMY``, in taxonomy order."""
+    return {doc_type: count_found_fields(doc_type, page_texts_in) for doc_type in FIELD_TAXONOMY}
+
+
+def field_needs_review(field: dict[str, Any]) -> bool:
+    """The one rule for "this field still asks for a person": its routing is
+    not ``none``, or its state is ``disputed`` / ``rejected``.
+
+    Every count a reviewer sees — the review queue and its ``counts``, the
+    "Needs attention" header, ``review_summary.fields_review`` (hence the
+    analytics column), the Extracted-data count line, the record page's "Need
+    review" and the card's status line — goes through this function so the
+    same document yields the same number everywhere. Added 2026-09-26 after a
+    customer read "Need attention: 3" next to "62 items" as a broken count:
+    one figure counted documents, the other fields, by two different rules.
+    """
+    routing = str(field.get("routing_action") or "none").lower()
+    return routing != "none" or field.get("field_state") in ("disputed", "rejected")
+
 
 # --------------------------------------------------------------------------
 # Value parsing

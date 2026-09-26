@@ -51,6 +51,13 @@ grounded fields under the 0.75 auto-accept line at default parser
 confidence (0.85 × 1.0 × 0.85 = 0.72) and in manual review. Current
 numbers: ``scripts/validate_golden_set.py --prose`` →
 ``tests/golden/last_run_prose.json``.
+
+``classify_with_model`` (2026-09-26) is the same path used for one more
+grounded question: which of the ten type names fits the first ~3,000
+characters. The answer is accepted only when it is exactly one of the names;
+the orchestrator then trusts it only if that type's fields are found on the
+page (``v1_orchestrator.classify_with_model_if_uncertain``). The model never
+names a value and never earns more than 0.6 confidence for a type.
 """
 
 from __future__ import annotations
@@ -588,3 +595,97 @@ def extract_missing_fields(
         log.exception("llm_extraction failed; fields left empty")
         note(f"llm extraction skipped: {type(exc).__name__}: {exc}")
     return ordered()
+
+
+# --------------------------------------------------------------------------
+# Type suggestion — one name, exact match only
+# --------------------------------------------------------------------------
+
+#: Characters of page text offered for a type suggestion: the title, the
+#: header block and the first coverage lines of any of the ten types fit in
+#: the first page; more is cost without signal.
+CLASSIFY_TEXT_CHARS = 3000
+#: Hard wall-clock bound for the type call — it is one short answer.
+CLASSIFY_TIMEOUT_S = 45
+
+
+def classify_prompt(text: str) -> str:
+    names = list(fx.DOCUMENT_TYPES) + ["uncertain"]
+    return "\n".join([
+        "Which one of these document types is the text below? Answer with exactly one name from the list and nothing else.",
+        "Types: " + ", ".join(names),
+        "Use 'uncertain' if the text does not clearly match one type.",
+        "",
+        "Text:",
+        text.strip(),
+        "",
+        "Type:",
+    ])
+
+
+def parse_type_answer(answer: Any) -> str | None:
+    """The type name in a model answer, or None. Exact names only: the answer
+    stripped of whitespace, quotes, code fences and a trailing period must be
+    one of ``DOCUMENT_TYPES`` or ``uncertain``; a JSON object with a
+    ``document_type`` key holding such a name is also read. Anything else —
+    prose, two names, a near-miss like "auto claims" — is not a type."""
+    if not isinstance(answer, str):
+        return None
+    body = re.sub(r"^```(?:json)?\s*|\s*```$", "", answer.strip(), flags=re.I | re.M).strip()
+    if not body:
+        return None
+    if body.startswith("{"):
+        try:
+            data = json.loads(body)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            body = str(data.get("document_type") or data.get("type") or "")
+    name = re.sub(r"^[\s\"'`*]+|[\s\"'`*.:;,!]+$", "", body).lower().replace("-", "_").replace(" ", "_")
+    allowed = set(fx.DOCUMENT_TYPES) | {"uncertain"}
+    return name if name in allowed else None
+
+
+def classify_with_model(
+    page_texts: list[str],
+    *,
+    completion: Completion | None = None,
+    timeout_s: float = CLASSIFY_TIMEOUT_S,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    """``{"document_type": <name>|None, "basis": <why>, "model": <id>}``.
+
+    Asks the configured model (``default_completion`` unless ``completion`` is
+    injected) to pick one of the ten type names for the first
+    ``CLASSIFY_TEXT_CHARS`` characters of page text. ``document_type`` is set
+    only for an exact name; ``uncertain`` from the model comes back as None
+    with the basis saying the model was unsure. Never raises: the flag being
+    off, no text, a timeout, an unreachable backend or an unusable answer are
+    all ``None`` with the reason in ``basis``. The caller decides whether the
+    suggestion is confirmed by extraction; this function only relays it.
+    """
+    if not llm_extraction_enabled():
+        return {"document_type": None, "basis": "PARSURE_LLM_EXTRACTION is off", "model": None}
+    text = "\n".join((t or "").strip() for t in (page_texts or []) if (t or "").strip())
+    if not text:
+        return {"document_type": None, "basis": "no page text", "model": None}
+    model_id = current_model_id() if completion is None else "injected"
+    try:
+        call = completion if completion is not None else (lambda p: default_completion(p, project_id=project_id))
+        prompt = classify_prompt(text[:CLASSIFY_TEXT_CHARS])
+        started = time.monotonic()
+        answer = _call_with_timeout(lambda: call(prompt), timeout_s)
+        elapsed = time.monotonic() - started
+        name = parse_type_answer(answer)
+        log.info("llm_extraction.classify: model=%s answer=%r type=%s elapsed=%.1fs", model_id, str(answer)[:60], name, elapsed)
+        if name is None:
+            head = re.sub(r"\s+", " ", str(answer))[:60]
+            return {"document_type": None, "basis": f"model answer was not a type name (starts: {head!r})", "model": model_id}
+        if name == "uncertain":
+            return {"document_type": None, "basis": f"model ({model_id}) was unsure", "model": model_id}
+        return {"document_type": name, "basis": f"model ({model_id}) suggested {name} in {elapsed:.1f}s", "model": model_id}
+    except LLMUnavailable as exc:
+        return {"document_type": None, "basis": f"model unavailable: {exc}", "model": model_id}
+    except Exception as exc:  # noqa: BLE001 — advisory; the pipeline must not see this
+        log.exception("classify_with_model failed")
+        return {"document_type": None, "basis": f"{type(exc).__name__}: {exc}", "model": model_id}

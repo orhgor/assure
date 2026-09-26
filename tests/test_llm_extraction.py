@@ -198,3 +198,55 @@ def test_find_verbatim_maps_collapsed_match_back_to_original_offsets():
     assert span and text[span[0]:span[1]] == "Total   Premium:\t$1,486.00"
     assert lx.find_verbatim(text, "premium: $1,486.01") is None
     assert lx.ground_candidate(SPECS["premium"], [text], "Total Premium: $1,486.00", "1,486") == (0, "$1,486.00", 30, 39)
+
+
+# --------------------------------------------------------------------------
+# classify_with_model: one exact type name, or nothing (2026-09-26)
+# --------------------------------------------------------------------------
+
+def test_parse_type_answer_accepts_exact_names_only():
+    assert lx.parse_type_answer("property_policy") == "property_policy"
+    assert lx.parse_type_answer('  "Auto-Claim".\n') == "auto_claim"
+    assert lx.parse_type_answer("```\ndeed\n```") == "deed"
+    assert lx.parse_type_answer('{"document_type": "mortgage"}') == "mortgage"
+    assert lx.parse_type_answer("uncertain") == "uncertain"
+    assert lx.parse_type_answer("This looks like a deed.") is None
+    assert lx.parse_type_answer("deeds") is None
+    assert lx.parse_type_answer("auto_policy or auto_claim") is None
+    assert lx.parse_type_answer("") is None and lx.parse_type_answer(None) is None and lx.parse_type_answer({"document_type": "deed"}) is None
+
+
+def test_classify_with_model_relays_a_name_and_nothing_else(monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "1")
+    prompts = []
+    out = lx.classify_with_model(["Grantor: John Q. Sample", "x" * 5000], completion=lambda p: prompts.append(p) or "deed")
+    assert out["document_type"] == "deed" and out["model"] == "injected" and out["basis"].startswith("model (injected) suggested deed")
+    assert len(prompts) == 1
+    assert "Types: " + ", ".join(list(fx.DOCUMENT_TYPES) + ["uncertain"]) in prompts[0]
+    assert "Grantor: John Q. Sample" in prompts[0] and prompts[0].count("x") < lx.CLASSIFY_TEXT_CHARS + 50  # first ~3000 characters only
+    assert lx.classify_with_model(["some text"], completion=lambda p: "uncertain") == {"document_type": None, "basis": "model (injected) was unsure", "model": "injected"}
+    out = lx.classify_with_model(["some text"], completion=lambda p: "Probably a deed, or maybe a title.")
+    assert out["document_type"] is None and out["basis"].startswith("model answer was not a type name (starts: 'Probably a deed")
+
+
+def test_classify_with_model_never_raises(monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "1")
+
+    def down(prompt):
+        raise ConnectionError("connect: connection refused")
+
+    out = lx.classify_with_model(["some text"], completion=down)
+    assert out["document_type"] is None and out["basis"] == "model unavailable: ConnectionError: connect: connection refused"
+
+    def slow(prompt):
+        time.sleep(0.5)
+        return "deed"
+
+    out = lx.classify_with_model(["some text"], completion=slow, timeout_s=0.05)
+    assert out["document_type"] is None and out["basis"] == "model unavailable: timed out after 0.05s"
+    assert lx.classify_with_model([], completion=lambda p: "deed") == {"document_type": None, "basis": "no page text", "model": None}
+    assert lx.classify_with_model(["   ", None], completion=lambda p: "deed")["basis"] == "no page text"
+    calls = []
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    out = lx.classify_with_model(["some text"], completion=lambda p: calls.append(p) or "deed")
+    assert calls == [] and out == {"document_type": None, "basis": "PARSURE_LLM_EXTRACTION is off", "model": None}

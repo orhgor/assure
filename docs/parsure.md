@@ -191,3 +191,73 @@ numbers), `reason_words` (the policy's reason strings as sentences) and
 `field_bucket` / `field_mark` (the filter a field answers to, the mark a cell
 shows). A `value: null` field's confidence is the measured `0.0` and is shown
 as such; a `None` confidence reads "—".
+
+## Classification by evidence, `fields_found`, and one unit per count (2026-09-26)
+
+Customer report on `real_estate_policy_500697.pdf`: every field read "not
+found, confidence 0.00, unverified", and the page said "Need attention: 3"
+above a section that said "62 items". Two findings, two fixes.
+
+### The type was wrong, not the OCR
+
+The keyword pass typed a real-estate declarations page as `auto_claim`
+because its exclusions mention "claim", "date of loss" and "vehicle"; every
+auto-claim field was then honestly empty. Classification now has three
+stages, each recorded in `classification`:
+
+| Stage | When | What it does | `classification.basis` |
+|---|---|---|---|
+| Keywords (`field_extractor.classify_document`) | always | counts each type's vocabulary; `uncertain` below 3 hits. **Near-tie rule:** when the top two types are within 1 hit (including an exact tie) the label pass runs for both and the type whose fields are actually found wins | `keyword heuristic: …` / `keyword near-tie (auto_claim 8, property_policy 7) decided by the label pass: property_policy 10/11 fields found vs auto_claim 1/10` |
+| Evidence (`v1_orchestrator.reclassify_by_evidence`) | the keyword type finds ≤ 1 field **and** its confidence < 0.7 (or is `uncertain`) | runs the cheap label pass for every other type; switches to the one with the most found fields when it finds ≥ 2 and strictly more than the original. Regex only, deterministic | `reclassified by extraction evidence: property_policy 10/11 fields found vs auto_claim 1/10 (keywords said auto_claim, 8 hits)`; `confidence` = found ratio capped at 0.9; `method: extraction_evidence`; `detected` = the keyword answer |
+| Model suggestion (`llm_extraction.classify_with_model`) | still `uncertain` after the two above **and** `PARSURE_LLM_EXTRACTION` is on | asks the configured model for exactly one of the ten type names over the first 3,000 characters; accepted only as an exact name **and** only if that type's fields are then found (≥ 1) | `model suggestion (<model>), confirmed by N fields found (N/M)`; `confidence` = found ratio capped at 0.6; `method: model_suggestion`; the model never supplies a value |
+
+`TYPE_KEYWORDS["property_policy"]` also gained "real estate", "property
+insurance", "dwelling coverage", "hazard insurance", "mortgagee". The type
+that was tried is always in `classification.document_type`; the keyword
+answer survives in `classification.detected` when they differ.
+`reextract_for_type(..., by_evidence=True)` applies the evidence rule to a
+requested type (a batch re-read); the reviewer's override route does not —
+a reviewer's choice stands.
+
+### "Nothing extracted" is one fact about the document
+
+`review_summary.fields_found` is always present (also on `/parsure` list
+summaries and as `queue.counts.fields_found`). When a typed document has
+`fields_found == 0`:
+
+- `quality_report.summary` starts with "No fields could be read as Auto
+  claim." — or, when the whole upload carries fewer than 200 characters of
+  text (`NO_TEXT_MIN_CHARS`), "No fields could be read as Auto claim — the
+  pages carry 37 characters of text; the file may be a scan the OCR could not
+  read." The count is the measured length of the page text; no OCR confidence
+  is invented. `quality_report.text_chars` carries the number, `quality_flags`
+  gets `no_text` at document level.
+- `review_summary.reasons[0]` is "document type may be wrong — change it and
+  the fields are re-read"; `replay.eligible` is true with the reason.
+- `/parsing` card: amber "Nothing extracted — check the document type", facts
+  "0 of 12 fields read", primary action **Check type** → the record page. An
+  untyped report with no fields reads "Nothing extracted — choose the document
+  type" / **Choose type** (it was "Ready for Assure" before).
+- Review queue: the N empty rows of such a document fold into one row
+  "`real_estate_policy_500697.pdf` — nothing extracted as Auto claim · Check
+  type". Counts are unchanged by the fold (the header still says N fields).
+- Record page: a notice above the Fields table with the sentence and an
+  inline type selector (the ten types in words) that POSTs to
+  `…/classification` and reloads; the page text is expanded by default so
+  the reader sees what was read.
+
+### One unit per count
+
+`field_extractor.field_needs_review(field)` — routing not `none`, or state
+`disputed` / `rejected` — is the single rule, and
+`parsure_repository.attention_counts(reports)` computes `documents` (reports
+with ≥ 1 such field or a conflict), `fields`, `nothing_extracted`,
+`fields_found` once. It feeds `review_summary.fields_review` (hence the
+`fields_review` column and `analytics.fields_review`), the queue and its
+`counts` (`documents`, `nothing_extracted`, `fields_found` added), the
+`/parsing` summary line ("Need attention: 3 documents · 62 fields"), the
+"Needs attention" header ("62 fields across 3 documents"), the Extracted-data
+count line ("12 documents · 144 values · 62 need review"), each card's
+"N fields need review" and the record page's "Need review: N".
+`tests/test_parsing_page.py::test_every_needs_attention_figure_is_the_same_number`
+asserts the same 20 / 4 in every place for one seeded project.

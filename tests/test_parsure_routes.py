@@ -268,7 +268,8 @@ def test_queue_orders_newest_report_first_and_overdue_disputes_first(client):
 
 def test_queue_is_empty_for_a_project_without_reports(client):
     body = client.get("/api/projects/default/parsure/queue").get_json()
-    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0}, "total": 0, "now": body["now"]}
+    assert body == {"ok": True, "items": [], "counts": {"needs_review": 0, "disputed": 0, "overdue": 0, "rejected": 0, "documents": 0, "nothing_extracted": 0, "fields_found": 0},
+                    "total": 0, "now": body["now"]}
 
 
 def _report(report_id, *, quality, created_at, modality="scanned_pdf", flags=(), fields=()):
@@ -454,3 +455,30 @@ def test_report_page_texts_and_find_report_are_repository_only(client):
     for url in (f"/api/projects/default/parsure/{rid}", f"/api/projects/default/parsure/{rid}/export?format=json",
                 "/api/projects/default/parsure/export?format=json", "/api/projects/default/parsure/latest"):
         assert "_page_texts" not in client.get(url).get_data(as_text=True), url
+
+
+def test_summaries_and_queue_carry_fields_found_and_document_counts(client, monkeypatch):
+    """``fields_found`` on every list summary and on the queue counts, and the
+    queue's ``documents`` equals ``attention_counts`` — one unit per count."""
+    from prompt_matrix.db import parsure_repository as repo
+    from tests.test_v1_orchestrator import CLAIM_PROSE_LINES
+
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    rid_ok = _seed()
+    rid_empty = _seed(lines=CLAIM_PROSE_LINES, filename="loss-letter.pdf", result={"document_id": "doc-2", "revision_id": "rev-2", "version": 2})
+    listing = {r["report_id"]: r for r in client.get("/api/projects/default/parsure").get_json()["reports"]}
+    assert listing[rid_ok]["fields_found"] == 11 and listing[rid_ok]["review_summary"]["fields_found"] == 11 and listing[rid_ok]["nothing_extracted"] is False
+    assert listing[rid_empty]["fields_found"] == 0 and listing[rid_empty]["nothing_extracted"] is True
+    assert listing[rid_empty]["review_summary"]["reasons"][0]["reason"] == "document type may be wrong — change it and the fields are re-read"
+    assert listing[rid_empty]["quality_summary"].startswith("No fields could be read as Auto claim.")
+
+    queue = client.get("/api/projects/default/parsure/queue").get_json()
+    attention = repo.attention_counts(repo.list_reports("default"))
+    assert queue["total"] == attention["fields"] and queue["counts"]["documents"] == attention["documents"] == 2
+    assert queue["counts"]["nothing_extracted"] == 1 and queue["counts"]["fields_found"] == 11
+    empty_items = [i for i in queue["items"] if i["report_id"] == rid_empty]
+    assert len(empty_items) == 10 and all(i["nothing_extracted"] is True and i["fields_total"] == 10 and i["fields_found"] == 0 for i in empty_items)
+    assert all(i["nothing_extracted"] is False for i in queue["items"] if i["report_id"] == rid_ok)
+    # The analytics column counts by the same rule as the queue.
+    a = client.get("/api/projects/default/parsure/analytics").get_json()["analytics"]
+    assert a["fields_review"] == queue["total"]

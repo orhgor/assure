@@ -1109,7 +1109,8 @@ body.collapsed .pane-left {
    competes with it. One renderer draws all three (shell.js:_renderStateCard). */
 .doc-refusal,
 .doc-halt,
-.doc-prereq {
+.doc-prereq,
+.doc-intake {
   width: 100%;
   max-width: 720px;
   margin: var(--space-6) auto 0;
@@ -1120,6 +1121,7 @@ body.collapsed .pane-left {
   background: var(--surface);
   white-space: normal;
 }
+.doc-intake { border-left-color: var(--ink); }
 
 .doc-state-line {
   margin: 0;

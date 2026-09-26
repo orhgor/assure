@@ -834,6 +834,17 @@ def register_substrate_routes(app) -> None:
         removed = delete_substrate_entry(project_id, file_id)
         if not removed:
             return jsonify({"ok": False, "error": "File not found."}), 404
+        # The intake report leaves the lists with its document (audit rows stay).
+        try:
+            try:
+                from ..db.parsure_repository import mark_document_deleted
+            except ImportError:
+                from db.parsure_repository import mark_document_deleted
+            mark_document_deleted(
+                project_id, str(file_id), filename=(existing or {}).get("filename") if isinstance(existing, dict) else None
+            )
+        except Exception:
+            log.exception("Substrate delete: could not hide the intake report for %s", file_id)
         # A deleted source must stop answering searches: forget its chunks
         # (durable rows and, when configured, OMP) under the same doc_id the
         # ingest wrote them. Guarded — the row is already gone, and a failed

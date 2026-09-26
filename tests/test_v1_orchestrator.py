@@ -343,3 +343,190 @@ def test_segment_pages_rules():
     assert orch.segment_pages([blank, blank])[0]["document_type"] == "uncertain"
     assert orch.segment_pages([])[0]["pages"] == []
     assert orch.segment_texts(["a", "b", "c", "d"], [2, 3]) == ["", "b", "c"]
+
+
+# --------------------------------------------------------------------------
+# Classification by evidence, model suggestion, "nothing extracted" said plainly
+# (customer report of 2026-09-26 on real_estate_policy_500697.pdf)
+# --------------------------------------------------------------------------
+
+from tests.test_field_extractor import REAL_ESTATE_LINES  # noqa: E402
+
+#: Auto-claim vocabulary as prose: typed auto_claim with every keyword, but no
+#: label anywhere, so the label pass finds nothing for any type (275 chars).
+CLAIM_PROSE_LINES = [
+    "The claimant telephoned about the accident and the damage to the vehicle; the adjuster asked for the date of loss, the claim number and the VIN,",
+    "and for a loss description and a repair estimate from the collision shop before anything further could be done on the file at all.",
+]
+#: Under NO_TEXT_MIN_CHARS: what a scan the OCR could not read leaves behind.
+SHORT_LINES = ["Claim number, date of loss, claimant, adjuster and vehicle."]
+#: Uncertain by keywords (one deed hit), one deed field on the page.
+UNCERTAIN_LINES = [
+    "Grantor: John Q. Sample",
+    "The parties met on a Tuesday and agreed that the garden wall would be repaired before the autumn, at the expense of whoever had",
+    "last leaned on it, which nobody could now remember with any certainty at all.",
+]
+
+
+def test_real_estate_page_typed_auto_claim_by_keywords_is_reclassified_by_evidence(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    assert fx.classify_document("\n".join(REAL_ESTATE_LINES))["document_type"] == "auto_claim"  # the bug, by construction
+    r = _run(jdf_cli_bundle(REAL_ESTATE_LINES), filename="real_estate_policy_500697.pdf")["report"]
+    cls = r["classification"]
+    assert cls["document_type"] == "property_policy" and cls["override"] is None
+    assert cls["basis"] == "reclassified by extraction evidence: property_policy 10/11 fields found vs auto_claim 1/10 (keywords said auto_claim, 8 hits)"
+    assert cls["method"] == "extraction_evidence"
+    assert cls["detected"]["document_type"] == "auto_claim" and cls["detected"]["confidence"] == pytest.approx(0.667, abs=0.001)
+    assert cls["detected"]["basis"].startswith("keyword heuristic") and len(cls["detected"]["matched_keywords"]) == 8
+    assert cls["confidence"] == 0.9  # 10/11 capped at 0.9
+    names = [f["name"] for f in r["fields"]]
+    assert names == [s.name for s in fx.FIELD_TAXONOMY["property_policy"]]
+    assert r["review_summary"]["fields_found"] == 10 and r["review_summary"]["fields_total"] == 11  # 11 specs; the signature line is not on the page
+    assert r["documents"][0]["document_type"] == "property_policy" and r["documents"][0]["fields_found"] == 10
+    assert r["documents"][0]["detected"]["document_type"] == "auto_claim"
+    assert not r["quality_report"]["summary"].startswith("No fields could be read")
+    assert r["extraction_notes"] == []  # every non-signature property field was found; nothing was offered to the model
+    from prompt_matrix.db import parsure_repository as repo
+
+    ev = next(e for e in repo.list_events("default", report_id=r["report_id"]) if e["event_type"] == "classified")
+    assert ev["payload"]["document_type"] == "property_policy" and ev["payload"]["method"] == "extraction_evidence"
+    assert ev["payload"]["detected"]["document_type"] == "auto_claim"
+
+
+def test_confident_or_productive_keyword_type_is_not_second_guessed(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    r = _run(jdf_cli_bundle())["report"]  # auto_policy, 10/12 keywords, 12 fields found
+    assert r["classification"]["document_type"] == "auto_policy" and "method" not in r["classification"]
+    assert r["documents"] == [{"index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
+                               "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
+                               "fields_total": 12, "fields_found": 11}]  # "/s/ Mary Agent" is a label hit, not measurable ink
+    # reclassify_by_evidence: the rule's three gates.
+    texts = ["\n".join(REAL_ESTATE_LINES)]
+    assert orch.reclassify_by_evidence("auto_claim", 0.7, texts) is None  # confident keyword answer stands
+    assert orch.reclassify_by_evidence("auto_policy", 0.2, texts) is None  # 6 found > RECLASSIFY_MAX_FOUND
+    out = orch.reclassify_by_evidence("auto_claim", 0.25, texts, keyword_hits=["claim number", "date of loss", "vehicle"])
+    assert out["document_type"] == "property_policy" and out["basis"].endswith("(keywords said auto_claim, 3 hits)")
+    assert orch.reclassify_by_evidence("uncertain", 0.1, ["nothing here"]) is None  # no type finds 2 fields
+    out = orch.reclassify_by_evidence("uncertain", None, texts, keyword_hits=[])
+    assert out["document_type"] == "property_policy" and out["basis"] == "reclassified by extraction evidence: property_policy 10/11 fields found (keywords said uncertain, 0 hits)"
+
+
+def test_nothing_extracted_is_one_document_level_fact(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    r = _run(jdf_cli_bundle(CLAIM_PROSE_LINES), filename="loss-letter.pdf")["report"]
+    assert r["classification"]["document_type"] == "auto_claim" and "method" not in r["classification"]  # nothing better on the page
+    rs = r["review_summary"]
+    assert rs["fields_found"] == 0 and rs["fields_total"] == len(fx.FIELD_TAXONOMY["auto_claim"]) and rs["fields_review"] == rs["fields_total"]
+    assert rs["reasons"][0] == {"reason": orch.WRONG_TYPE_REASON, "count": rs["fields_total"]}
+    assert rs["reasons"][0]["reason"] == "document type may be wrong — change it and the fields are re-read"
+    assert r["quality_report"]["summary"].startswith("No fields could be read as Auto claim. ")
+    assert r["quality_report"]["extraction_sentence"] == "No fields could be read as Auto claim."
+    assert r["quality_report"]["text_chars"] == sum(len(line) for line in CLAIM_PROSE_LINES) + 1
+    assert "no_text" not in r["quality_flags"]
+    assert r["replay"]["eligible"] is True
+    assert "no field was found as auto_claim — re-read after the document type is changed" in r["replay"]["reasons"]
+    assert all(f["value"] is None and f["extraction_confidence"] == 0.0 for f in r["fields"])
+
+
+def test_too_little_text_is_flagged_no_text_with_the_measured_count(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    r = _run(jdf_cli_bundle(SHORT_LINES), filename="scan.pdf")["report"]
+    chars = len(SHORT_LINES[0])
+    assert chars < orch.NO_TEXT_MIN_CHARS
+    assert r["classification"]["document_type"] == "auto_claim"
+    assert "no_text" in r["quality_flags"] and r["quality_report"]["text_chars"] == chars
+    assert r["quality_report"]["summary"].startswith(
+        f"No fields could be read as Auto claim — the pages carry {chars} characters of text; the file may be a scan the OCR could not read."
+    )
+    assert r["pages"][0]["ocr_confidence"] is None  # nothing measured, nothing invented
+    assert r["review_summary"]["fields_found"] == 0
+    # The sentence for an untyped upload with too little text names the count too.
+    assert orch.extraction_sentence("uncertain", 0, 0, 12) == "The pages could not be read (12 characters of text); the file may be a scan the OCR could not read."
+    assert orch.extraction_sentence("uncertain", 0, 0, 900) == "No fields could be read: the document type is uncertain."
+    assert orch.extraction_sentence("deed", 9, 3, 900) is None
+
+
+def test_model_type_suggestion_is_used_only_when_its_fields_are_found(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "1")
+    assert fx.classify_document("\n".join(UNCERTAIN_LINES))["document_type"] == "uncertain"
+
+    def fake(answer):
+        calls = []
+
+        def completion(prompt):
+            calls.append(prompt)
+            return answer if "Which one of these document types" in prompt else "{}"
+
+        completion.calls = calls
+        return completion
+
+    # Suggested deed, one deed field (grantor) on the page → deed at ≤ 0.6.
+    say_deed = fake("deed")
+    r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=say_deed)["report"]
+    assert say_deed.calls and "Types: auto_policy, auto_claim" in say_deed.calls[0] and say_deed.calls[0].rstrip().endswith("Type:")
+    cls = r["classification"]
+    assert cls["document_type"] == "deed" and cls["method"] == "model_suggestion"
+    assert cls["basis"] == "model suggestion (injected), confirmed by 1 field found (1/9)"
+    assert cls["confidence"] == round(1 / 9, 3) <= orch.MODEL_CLASSIFICATION_CAP
+    assert cls["detected"]["document_type"] == "uncertain" and cls["detected"]["basis"].startswith("only 1 keyword(s) matched")
+    assert next(f for f in r["fields"] if f["name"] == "grantor")["value"] == "John Q. Sample"
+    assert "model type suggestion accepted: deed (1/9 fields found)" in r["extraction_notes"]
+
+    # Suggested type whose fields are not on the page → stays uncertain, with the note.
+    r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=fake("auto_claim"), result={"document_id": "d2", "revision_id": "r2", "version": 1})["report"]
+    assert r["classification"]["document_type"] == "uncertain" and "method" not in r["classification"] and r["fields"] == []
+    assert "model suggested auto_claim but none of its 10 fields were found; type stays uncertain" in r["extraction_notes"]
+    assert r["review_summary"]["reasons"][0]["reason"] == orch.UNCERTAIN_TYPE_REASON
+
+    # Prose, a near-miss and an unreachable model are all "uncertain", never an error.
+    for answer in ("I think this is a deed.", "deeds", "auto claim form"):
+        r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=fake(answer), result={"document_id": "d3", "revision_id": "r3", "version": 1})["report"]
+        assert r["classification"]["document_type"] == "uncertain", answer
+        assert any(n.startswith("model type suggestion skipped: model answer was not a type name") for n in r["extraction_notes"]), r["extraction_notes"]
+
+    def down(prompt):
+        raise ConnectionError("connection refused")
+
+    r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=down, result={"document_id": "d4", "revision_id": "r4", "version": 1})["report"]
+    assert r["classification"]["document_type"] == "uncertain"
+    assert any("model type suggestion skipped: model unavailable: ConnectionError" in n for n in r["extraction_notes"])
+
+    # Flag off → the model is not asked for a type either.
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    quiet = fake("deed")
+    r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=quiet, result={"document_id": "d5", "revision_id": "r5", "version": 1})["report"]
+    assert quiet.calls == [] and r["classification"]["document_type"] == "uncertain"
+
+
+def test_reextract_for_type_can_defer_to_evidence(db, monkeypatch):
+    monkeypatch.setenv("PARSURE_LLM_EXTRACTION", "0")
+    report = orch.build_report("default", bundle=jdf_cli_bundle(REAL_ESTATE_LINES), verification=VERIFICATION, filename="re.pdf", result=RESULT, job_id=None, intake=None)
+    # A reviewer's explicit choice is honoured even when it finds little …
+    orch.reextract_for_type(report, "auto_claim")
+    assert report["documents"][0] == {"index": 0, "pages": [1], "document_type": "auto_claim", "confidence": None, "basis": "reviewer override",
+                                      "matched_keywords": [], "fields_total": 10, "fields_found": 1}
+    assert report["review_summary"]["fields_found"] == 1
+    # … while a caller that asks for evidence gets the type the page supports.
+    orch.reextract_for_type(report, "auto_claim", by_evidence=True)
+    assert report["classification"]["document_type"] == "property_policy" and report["classification"]["method"] == "extraction_evidence"
+    assert report["documents"][0]["basis"] == "reclassified by extraction evidence: property_policy 10/11 fields found vs auto_claim 1/10 (keywords said auto_claim, 0 hits)"
+    assert report["documents"][0]["confidence"] == 0.9 and report["review_summary"]["fields_found"] == 10
+    # After a type change the quality summary names the type that was tried.
+    orch.reextract_for_type(report, "closing")
+    report["classification"]["document_type"] = "closing"
+    orch.refresh_report(report)
+    assert report["quality_report"]["summary"].startswith("No fields could be read as Closing. ") or report["review_summary"]["fields_found"] > 0
+
+
+def test_review_summary_counts_by_the_queue_rule():
+    fields = [
+        {"value": "a", "field_state": "accepted", "routing_action": "none", "review_required": False},
+        {"value": "b", "field_state": "unverified", "routing_action": "manual_review", "review_required": True, "reason": "compliance-bound field"},
+        {"value": None, "field_state": "unverified", "routing_action": "manual_review", "review_required": True, "reason": "field not found"},
+        {"value": "d", "field_state": "rejected", "routing_action": "none", "review_required": False, "reason": "rejected by adjudicator: x"},
+    ]
+    rs = orch.review_summary(fields, document_type="deed")
+    assert (rs["fields_total"], rs["fields_found"], rs["fields_accepted"], rs["fields_review"], rs["fields_rejected"]) == (4, 3, 1, 3, 1)
+    assert rs["reasons"][0]["reason"] != orch.WRONG_TYPE_REASON
+    assert orch.review_summary([], document_type="uncertain")["reasons"] == [{"reason": orch.UNCERTAIN_TYPE_REASON, "count": 0}]
+    assert orch.review_summary([], document_type="deed")["reasons"] == []
