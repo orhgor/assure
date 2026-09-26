@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ brand.page_title }}</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
     <meta name="description" content="{{ brand.meta_description }}">
     <meta property="og:title" content="{{ brand.page_title }}">
     <meta property="og:description" content="{{ brand.meta_description }}">
@@ -59,6 +59,39 @@
             <div class="container">
                 <h2 class="section-title" data-i18n-html="landing.why.title_html">{{ strings.get('landing.why.title_html', strings.get('landing.why.title', ''))|safe }}</h2>
                 <p class="why-copy" data-i18n="landing.why.body">{{ strings.get('landing.why.body', '') }}</p>
+            </div>
+        </section>
+
+        <section id="different" class="diff-section">
+            <div class="container">
+                <h2 class="section-title" data-i18n="landing.diff.title">{{ strings.get('landing.diff.title', 'Why Assure is different') }}</h2>
+                <p class="diff-intro" data-i18n="landing.diff.intro">{{ strings.get('landing.diff.intro', 'Most enterprise AI tools help you extract, draft, or search. Assure is built for the harder problem: proving that every output is grounded in the source.') }}</p>
+                <div class="diff-grid">
+                    <article class="diff-card">
+                        <h3 data-i18n="landing.diff.cat1.title">{{ strings.get('landing.diff.cat1.title', 'Legal copilots') }}</h3>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat1.examples">{{ strings.get('landing.diff.cat1.examples', 'Harvey, CoCounsel, Spellbook, Paxton') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat1.strength">{{ strings.get('landing.diff.cat1.strength', 'Speed up drafting, research, and review.') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat1.gap">{{ strings.get('landing.diff.cat1.gap', 'The proof layer — deterministic grounding, page-level provenance, and reusable verification.') }}</span></p>
+                    </article>
+                    <article class="diff-card">
+                        <h3 data-i18n="landing.diff.cat2.title">{{ strings.get('landing.diff.cat2.title', 'Document AI / IDP') }}</h3>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat2.examples">{{ strings.get('landing.diff.cat2.examples', 'ABBYY, UiPath Document Understanding, AWS Textract, Google Document AI, Azure Document Intelligence') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat2.strength">{{ strings.get('landing.diff.cat2.strength', 'OCR, extraction, tables, forms, and layout understanding.') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat2.gap">{{ strings.get('landing.diff.cat2.gap', 'Claim-level verification and a durable audit trail.') }}</span></p>
+                    </article>
+                    <article class="diff-card">
+                        <h3 data-i18n="landing.diff.cat3.title">{{ strings.get('landing.diff.cat3.title', 'DIY LLM stacks') }}</h3>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.examples">{{ strings.get('landing.diff.label.examples', 'Examples') }}</span><span data-i18n="landing.diff.cat3.examples">{{ strings.get('landing.diff.cat3.examples', 'Claude / GPT + prompts + RAG + internal scripts') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.strength">{{ strings.get('landing.diff.label.strength', 'What they do well') }}</span><span data-i18n="landing.diff.cat3.strength">{{ strings.get('landing.diff.cat3.strength', 'Fast to prototype and flexible to customize.') }}</span></p>
+                        <p class="diff-row"><span class="diff-label" data-i18n="landing.diff.label.gap">{{ strings.get('landing.diff.label.gap', "What's missing") }}</span><span data-i18n="landing.diff.cat3.gap">{{ strings.get('landing.diff.cat3.gap', 'Trust, consistency, auditability, and reusable evidence.') }}</span></p>
+                    </article>
+                    <article class="diff-card diff-card-featured">
+                        <h3 data-i18n="landing.diff.cat4.title">{{ strings.get('landing.diff.cat4.title', 'Assure') }}</h3>
+                        <p class="diff-body" data-i18n="landing.diff.cat4.body">{{ strings.get('landing.diff.cat4.body', 'Structured evidence. Deterministic logic. Adversarial review. Page-level provenance.') }}</p>
+                        <p class="diff-callout" data-i18n="landing.diff.callout">{{ strings.get('landing.diff.callout', 'The output is a document. The product is verification.') }}</p>
+                    </article>
+                </div>
+                <p class="diff-close" data-i18n="landing.diff.close">{{ strings.get('landing.diff.close', 'The market is full of tools that process documents. Assure is built to prove them.') }}</p>
             </div>
         </section>
 

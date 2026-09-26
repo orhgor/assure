@@ -8,6 +8,9 @@ function contentType(key) {
   if (key.endsWith(".css")) return "text/css; charset=utf-8";
   if (key.endsWith(".js")) return "application/javascript; charset=utf-8";
   if (key.endsWith(".svg")) return "image/svg+xml";
+  if (key.endsWith(".png")) return "image/png";
+  if (key.endsWith(".jpg") || key.endsWith(".jpeg")) return "image/jpeg";
+  if (key.endsWith(".webp")) return "image/webp";
   if (key.endsWith(".ico")) return "image/x-icon";
   if (key.endsWith(".txt")) return "text/plain; charset=utf-8";
   return "application/octet-stream";

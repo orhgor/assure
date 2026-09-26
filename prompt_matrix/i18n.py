@@ -239,6 +239,38 @@ EN = {
         "Export a complete audit dossier — cryptographic locks, Red-Hat findings, reviewer sign-offs. "
         "One click, full provenance."
     ),
+    "landing.diff.title": "Why Assure is different",
+    "landing.diff.intro": (
+        "Most enterprise AI tools help you extract, draft, or search. "
+        "Assure is built for the harder problem: proving that every output is grounded in the source."
+    ),
+    "landing.diff.label.examples": "Examples",
+    "landing.diff.label.strength": "What they do well",
+    "landing.diff.label.gap": "What's missing",
+    "landing.diff.cat1.title": "Legal copilots",
+    "landing.diff.cat1.examples": "Harvey, CoCounsel, Spellbook, Paxton",
+    "landing.diff.cat1.strength": "Speed up drafting, research, and review.",
+    "landing.diff.cat1.gap": (
+        "The proof layer — deterministic grounding, page-level provenance, and reusable verification."
+    ),
+    "landing.diff.cat2.title": "Document AI / IDP",
+    "landing.diff.cat2.examples": (
+        "ABBYY, UiPath Document Understanding, AWS Textract, Google Document AI, Azure Document Intelligence"
+    ),
+    "landing.diff.cat2.strength": "OCR, extraction, tables, forms, and layout understanding.",
+    "landing.diff.cat2.gap": "Claim-level verification and a durable audit trail.",
+    "landing.diff.cat3.title": "DIY LLM stacks",
+    "landing.diff.cat3.examples": "Claude / GPT + prompts + RAG + internal scripts",
+    "landing.diff.cat3.strength": "Fast to prototype and flexible to customize.",
+    "landing.diff.cat3.gap": "Trust, consistency, auditability, and reusable evidence.",
+    "landing.diff.cat4.title": "Assure",
+    "landing.diff.cat4.body": (
+        "Structured evidence. Deterministic logic. Adversarial review. Page-level provenance."
+    ),
+    "landing.diff.callout": "The output is a document. The product is verification.",
+    "landing.diff.close": (
+        "The market is full of tools that process documents. Assure is built to prove them."
+    ),
     "landing.plans.lead": "You bring your own keys. Assure charges for the workbench, not the models.",
     "landing.footer.docs": "Developer documentation",
     "landing.footer.back_top": "Back to top",

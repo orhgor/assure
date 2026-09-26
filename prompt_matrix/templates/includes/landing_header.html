@@ -3,10 +3,7 @@
 <header class="site-header">
     <div class="container nav-container">
         <a href="/" class="logo logo-brand">
-            <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true" width="28" height="28">
-                <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
-                <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="28" height="28">
             <span class="logo-copy">
                 <span class="logo-name">{{ brand.name }}</span>
             </span>

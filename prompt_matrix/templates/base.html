@@ -10,8 +10,8 @@
   <meta property="og:title" content="{% block og_title %}{{ brand.page_title }}{% endblock %}">
   <meta property="og:description" content="{{ brand.meta_description }}">
   <title>{% block title %}{{ brand.page_title }}{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="icon" href="{{ url_for('static', filename='assure-logo.png') }}" type="image/png">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='assure-logo.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -37,10 +37,7 @@
   <div class="shell">
     <header class="site-header">
       <a class="brand-home" href="/{{ q }}">
-        <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
-          <rect width="36" height="36" rx="8" fill="#1A4B8C"/>
-          <path d="M10 18.5 15.2 23.5 26 12.5" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+        <img class="brand-mark" src="{{ url_for('static', filename='assure-logo.png') }}" alt="" width="36" height="36">
         <span class="brand-copy">
           <span class="wordmark" data-i18n="hero">{{ gettext('Assure') }}</span>
         </span>
