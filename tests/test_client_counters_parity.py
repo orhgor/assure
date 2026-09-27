@@ -58,7 +58,7 @@ CLIENT_KEYS = (
 )
 
 #: The shell helpers the counter and the mark call, in dependency order.
-_COUNTER_HELPERS = ("_entailmentFor", "_claimOf", "_derivedClaimVerdict", "_claimVerdictOf", "_claimStateOf")
+_COUNTER_HELPERS = ("_entailmentFor", "_isMetaClaim", "_claimOf", "_derivedClaimVerdict", "_claimVerdictOf", "_claimStateOf")
 
 
 def _extract_function(source: str, name: str) -> str:
@@ -304,3 +304,22 @@ def test_the_mark_a_paragraph_wears_agrees_with_the_bucket_it_is_counted_in(
         f"partial={server['partial']} unsupported={server['unsupported']} "
         f"unanchored={server['unanchored']}"
     )
+
+
+def test_a_meta_paragraph_is_a_note_on_both_sides() -> None:
+    """The memo's "missing items" / "confidence" paragraphs carry ``checks.kind ==
+    "meta"`` (verdict null, or UNSUPPORTED on an older row): neither side counts
+    them as claims, and the browser's mark reads "meta"."""
+    def meta_node(node_id, verdict):
+        node = _paragraph(node_id, quotes=[], verdict=None)
+        node["content"] = "The source does not provide the deductible for this policy year at all."
+        node["meta"] = {"provenance": {"claim": {"policy": "claim-v1", "verdict": verdict, "reason": "statement about the source, not a document fact",
+                                                  "quote": None, "checks": {"kind": "meta", "entailment": None}, "flags": []}}}
+        return node
+    doc = _document(meta_node("m1", None), meta_node("m2", "UNSUPPORTED"), _paragraph("p1", quotes=["The limit is five million dollars."], verdict="yes"))
+    server = _reported_stats(_provenance_counts(doc))
+    client = _client_counts([doc])[0]
+    assert {key: client[key] for key in CLIENT_KEYS} == {key: server[key] for key in CLIENT_KEYS}
+    assert client["eligible"] == 1 and client["meta"] == 2
+    states = dict(_client_states([doc])[0])
+    assert states["m1"] == "meta" and states["m2"] == "meta"

@@ -562,6 +562,10 @@ def _summary(report: dict[str, Any]) -> dict[str, Any]:
         "fields_found": review["fields_found"],
         "nothing_extracted": repo.nothing_extracted(report),
         "quality_summary": (report.get("quality_report") or {}).get("summary"),
+        # The shell's source rows and intake card lead with the unfilled-form
+        # sentence (2026-09-27): the flags and notes travel with the summary.
+        "quality_flags": [str(f) for f in (report.get("quality_flags") or [])],
+        "extraction_notes": [str(n) for n in (report.get("extraction_notes") or [])],
         "replay_eligible": bool((report.get("replay") or {}).get("eligible")),
         "conflicts": len(report.get("conflicts") or []),
         "redhat": repo.redhat_counts(report),

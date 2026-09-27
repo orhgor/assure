@@ -439,3 +439,49 @@ two are never mixed on one document (`_docHasClaims`).
   1 contradicted · …", the claim line replacing the tiles, the claim block per
   paragraph, "page not recorded"; no "Citation confidence", no "page 1"; zero
   console errors.
+
+## Form-aware refusal, notes about the draft, unfilled forms (2026-09-27)
+
+Measured on the customer's demo PDFs: two blank claim forms.
+
+* **Form-aware compile refusal** (`services/compile_guard.py`). `looks_like_form
+  (source_texts)` counts numbered captions (`^\s*\d{1,2}[a-z]?\.\s+[A-Z]`, ≥ 8,
+  as `v1_orchestrator.form_template_flag`) or ≥ 40 % of non-blank lines under
+  four words. `form_aware(outcome, source_texts)` rewrites the two grounding
+  refusals (`zero_anchored_claims`, `anchored_ratio_below_floor`) on such a
+  source to `FORM_SOURCE_MESSAGE` — "This source is a form: its text is field
+  captions, not sentences a draft can cite. The field report has what was
+  read." — and marks `outcome.form_source`; prose sources keep the ratio
+  sentence. `routers/draft.py:_refusal_frames(…, extra)` puts `form_source`,
+  `parsure_report_id` and `parsure_url: /parsing/<id>?project_id=` (from
+  `parsure_repository.get_latest_report`, when a report exists) on the error
+  and complete frames. The shell's refusal card shows the sentence and **Open
+  the field report** (Fields tab via `_viewReport`, plus a Full record link).
+* **Notes about the draft.** A claim block with `checks.kind == "meta"` —
+  verdict null (current) or UNSUPPORTED (older rows) — is a statement about
+  the draft or the source, not a claim. Shell: mark "Note about this draft"
+  (`anchor-meta`, muted, no verdict colour) with the reason as a caption under
+  the paragraph; the evidence pane shows the reason and no claim block;
+  `_derivedCounts` counts it in `meta` and out of `eligible` exactly as
+  `audit_summary._provenance_counts` does (parity test extended with
+  `_isMetaClaim`). Dossier / audit bundle: `collect_claim_notes` sets them
+  apart; the Claim Ledger prints a separate "Notes about this draft" table,
+  never among the claims, and `claim_summary.meta` carries the count.
+* **Unfilled-form lead on Parsure surfaces.** `parsure_view.form_sentence`
+  reads `quality_flags` `form_template` and the sentence in `extraction_notes`
+  ("This looks like an unfilled form: 14 numbered captions and 0 filled
+  values."). `/parsing` card: the sentence is the status line, the facts line
+  reads "14 captions, no filled values" (never "0 of N fields read"), primary
+  "Open record"; record page: `#form-notice` above the summary counts; shell
+  source row and intake card: "Unfilled form · 14 captions · View" / the
+  sentence first; the Fields tab's empty state says the sentence. The report
+  list summary now carries `quality_flags` and `extraction_notes` for that.
+* **Tests.** `tests/test_compile_guard.py` (form detection, form-aware
+  outcomes, prose unchanged), `tests/test_draft.py` (a refused form source's
+  frames carry the sentence, `form_source`, report id and URL; no `compiled`
+  frame), `tests/test_client_counters_parity.py` (meta parity, mark "meta"),
+  `tests/test_verification_dossier.py` (notes table), `tests/test_parsing_
+  page.py` (card, record, summary), `tests/test_workbench_safeguards.py`
+  (strings, `assure-112`). Headless smoke at 1280 / 390 px: meta mark and
+  caption, chip and claim line ignoring the note, the unfilled-form line on
+  the source row, intake card and Fields empty state; zero console errors.

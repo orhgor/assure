@@ -175,8 +175,20 @@ def test_no_anchor_is_unsupported() -> None:
     attach_claims_to_tree(doc, sources=[ROW])
     block = _claim(doc, "p1")
     assert block["verdict"] == UNSUPPORTED
-    assert block["reason"] == "no source sentence carries this claim"
+    # No citation: the lexical fallback searched the source for the sentence and
+    # its figure (sentence-level rule, 2026-09-27) and found neither — the
+    # reason names the missing figure rather than only the missing citation.
+    assert "$250,000" in block["reason"]
     assert block["quote"] is None and block["quote_verbatim"] is False
+
+
+def test_no_anchor_and_nothing_to_search_for_is_unsupported() -> None:
+    text = "The insurer will honour every reasonable request promptly."
+    doc = _document(_paragraph("p1", text, None))
+    attach_claims_to_tree(doc, sources=[ROW])
+    block = _claim(doc, "p1")
+    assert block["verdict"] == UNSUPPORTED
+    assert block["reason"] == "no source sentence carries this claim"
 
 
 def test_a_quote_that_is_not_verbatim_is_never_verified() -> None:
@@ -482,6 +494,7 @@ def test_an_unanchored_enumeration_is_still_assessed_against_the_supplied_source
         "evidence table\nThe source material provides the following evidence: policy number, named insured, agent.",
         "confidence\nThe confidence in the extracted information is high, as the source material is clear.",
         "confidence\nThe information extracted is based directly on the provided source material and is presented exactly as stated.",
+        "evidence table\nKey policy details are supported by the source document, including policy number, named insured and agent.",
         "missing items\nNo location, loss date or cause of loss appear anywhere.",
     ],
 )
@@ -635,6 +648,34 @@ def test_an_uncited_sentence_falls_back_to_the_source_text() -> None:
     assert "without a citation" in unit["reason"]
 
 
+def test_a_sentence_whose_windows_each_carry_half_is_judged_against_them_together() -> None:
+    """Live run 2026-09-27: "The vehicle covered is a 2003 Honda Accord with a VIN of
+    1HGCM…" cites "Vehicle: 2003 Honda Accord" and "VIN: 1HGCM…" — each window
+    alone says no. One more call against the joined windows decides."""
+    text = "The vehicle covered is a 2003 Honda Accord with a VIN of 1HGCM82633A004352."
+    node = _decl_paragraph("p1", text, "Vehicle: 2003 Honda Accord")
+    node["provenance"].append({**node["provenance"][0], "extracted_quote": "VIN: 1HGCM82633A004352"})
+    calls: list[str] = []
+
+    def check(claim: str, source: str) -> dict[str, Any]:
+        calls.append(source)
+        both = "Honda" in source and "1HGCM" in source
+        return {"verdict": "yes" if both else "no", "reasoning": "r", "model": "m", "checked_at": "t"}
+
+    # Two sentences so the per-sentence path runs (a one-sentence paragraph is
+    # judged whole against each window, then aggregated the same way).
+    node["content"] = f"{text} The agent is Mary Agent."
+    node["provenance"].append({**node["provenance"][0], "extracted_quote": "Agent: Mary Agent"})
+    doc = _document(node)
+    attach_entailment_to_tree(doc, checker=check)
+    record = doc["body"][0]["children"][0]["meta"]["provenance"]["entailment"]
+    assert record["sentences"][0]["verdict"] == "yes"
+    assert any(c.get("joined") for c in record["citations"])
+    assert "Vehicle: 2003 Honda Accord VIN: 1HGCM82633A004352" in calls
+    attach_claims_to_tree(doc, sources=[DECL_ROW])
+    assert _claim(doc, "p1")["checks"]["sub_claims"][0]["verdict"] == VERIFIED
+
+
 def test_citation_rows_are_assigned_to_the_sentence_they_end() -> None:
     from prompt_matrix.services.claim_policy import sentence_for_offset, sentence_units
 
@@ -772,6 +813,11 @@ def test_a_document_fact_is_not_mistaken_for_a_meta_statement() -> None:
     _judge(doc, {text: "yes"}, sources=[DECL_ROW])
     assert _claim(doc, "p1")["checks"]["kind"] == "fact"
     assert _claim(doc, "p1")["verdict"] == VERIFIED
+    # "The source states X" attributes a document fact; it is a claim, not meta.
+    attributed = "The source states that flood damage is excluded under this policy."
+    doc2 = _document(_decl_paragraph("p2", attributed, "Flood damage is excluded under this policy."))
+    _judge(doc2, {attributed: "yes"}, sources=[DECL_ROW])
+    assert _claim(doc2, "p2")["checks"]["kind"] == "fact"
 
 
 # --------------------------------------------------------------------------- #

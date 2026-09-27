@@ -1941,6 +1941,17 @@ EN = {
     'shell.run.done_claims': 'Drafted · {counts}',
     'shell.redhat.scheduled': 'Red-Hat is scheduled for this compile and has not finished.',
     'shell.redhat.scheduled_checking': 'Red-Hat is scheduled for this compile — checking its status…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'Open the field report',
+    'shell.claim.meta': 'Note about this draft',
+    'shell.claim.hint.meta': 'A statement about the source or the draft, not a document fact. Not counted as a claim.',
+    'shell.claim.meta_reason': 'statement about the source, not a document fact',
+    'shell.source.result.form': 'Unfilled form · {n} captions',
+    'shell.source.result.form_plain': 'Unfilled form',
+    'shell.doc.intake.form_tail': 'The field captions were read; there are no values to review.',
+    'parsing.form.note': 'The field captions were read; there are no filled values to review or to cite in a draft.',
+    'parsing.form.captions': 'captions',
+    'parsing.form.no_values': 'no filled values',
 }
 
 ES = {
@@ -3818,6 +3829,17 @@ ES = {
     'shell.run.done_claims': 'Redactado · {counts}',
     'shell.redhat.scheduled': 'Red-Hat está programado para esta compilación y no ha terminado.',
     'shell.redhat.scheduled_checking': 'Red-Hat está programado para esta compilación: comprobando su estado…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'Abrir el informe de campos',
+    'shell.claim.meta': 'Nota sobre este borrador',
+    'shell.claim.hint.meta': 'Una afirmación sobre la fuente o el borrador, no un hecho del documento. No se cuenta como declaración.',
+    'shell.claim.meta_reason': 'afirmación sobre la fuente, no un hecho del documento',
+    'shell.source.result.form': 'Formulario sin rellenar · {n} rótulos',
+    'shell.source.result.form_plain': 'Formulario sin rellenar',
+    'shell.doc.intake.form_tail': 'Se leyeron los rótulos de los campos; no hay valores que revisar.',
+    'parsing.form.note': 'Se leyeron los rótulos de los campos; no hay valores rellenados que revisar ni citar en un borrador.',
+    'parsing.form.captions': 'rótulos',
+    'parsing.form.no_values': 'sin valores rellenados',
 }
 
 ZH = {
@@ -5695,6 +5717,17 @@ ZH = {
     'shell.run.done_claims': '已起草 · {counts}',
     'shell.redhat.scheduled': 'Red-Hat 已为本次编译排期，尚未完成。',
     'shell.redhat.scheduled_checking': 'Red-Hat 已为本次编译排期——正在检查状态…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': '打开字段报告',
+    'shell.claim.meta': '关于此草稿的说明',
+    'shell.claim.hint.meta': '关于来源或草稿的陈述，不是文档事实。不计为声明。',
+    'shell.claim.meta_reason': '关于来源的陈述，不是文档事实',
+    'shell.source.result.form': '未填写表单 · {n} 个标题',
+    'shell.source.result.form_plain': '未填写表单',
+    'shell.doc.intake.form_tail': '已读取字段标题；没有可审核的值。',
+    'parsing.form.note': '已读取字段标题；没有可审核或可在草稿中引用的填写值。',
+    'parsing.form.captions': '个标题',
+    'parsing.form.no_values': '无填写值',
 }
 
 FR = {
@@ -7559,6 +7592,17 @@ FR = {
     'shell.run.done_claims': 'Rédigé · {counts}',
     'shell.redhat.scheduled': 'Red-Hat est planifié pour cette compilation et n’a pas terminé.',
     'shell.redhat.scheduled_checking': 'Red-Hat est planifié pour cette compilation — vérification de son état…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'Ouvrir le rapport des champs',
+    'shell.claim.meta': 'Note sur ce brouillon',
+    'shell.claim.hint.meta': 'Une remarque sur la source ou le brouillon, pas un fait du document. Non comptée comme affirmation.',
+    'shell.claim.meta_reason': 'remarque sur la source, pas un fait du document',
+    'shell.source.result.form': 'Formulaire vierge · {n} libellés',
+    'shell.source.result.form_plain': 'Formulaire vierge',
+    'shell.doc.intake.form_tail': 'Les libellés des champs ont été lus ; il n’y a aucune valeur à réviser.',
+    'parsing.form.note': 'Les libellés des champs ont été lus ; il n’y a aucune valeur saisie à réviser ni à citer dans un brouillon.',
+    'parsing.form.captions': 'libellés',
+    'parsing.form.no_values': 'aucune valeur saisie',
 }
 
 DE = {
@@ -9436,6 +9480,17 @@ DE = {
     'shell.run.done_claims': 'Entworfen · {counts}',
     'shell.redhat.scheduled': 'Red-Hat ist für diesen Lauf geplant und noch nicht fertig.',
     'shell.redhat.scheduled_checking': 'Red-Hat ist für diesen Lauf geplant – Status wird geprüft…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'Feldbericht öffnen',
+    'shell.claim.meta': 'Hinweis zu diesem Entwurf',
+    'shell.claim.hint.meta': 'Eine Aussage über die Quelle oder den Entwurf, kein Dokumentfakt. Zählt nicht als Aussage.',
+    'shell.claim.meta_reason': 'Aussage über die Quelle, kein Dokumentfakt',
+    'shell.source.result.form': 'Unausgefülltes Formular · {n} Feldbezeichnungen',
+    'shell.source.result.form_plain': 'Unausgefülltes Formular',
+    'shell.doc.intake.form_tail': 'Die Feldbezeichnungen wurden gelesen; es gibt keine Werte zu prüfen.',
+    'parsing.form.note': 'Die Feldbezeichnungen wurden gelesen; es gibt keine ausgefüllten Werte zu prüfen oder in einem Entwurf zu zitieren.',
+    'parsing.form.captions': 'Feldbezeichnungen',
+    'parsing.form.no_values': 'keine ausgefüllten Werte',
 }
 
 JA = {
@@ -11313,6 +11368,17 @@ JA = {
     'shell.run.done_claims': '作成済み · {counts}',
     'shell.redhat.scheduled': 'このコンパイルの Red-Hat は予定済みで、まだ完了していません。',
     'shell.redhat.scheduled_checking': 'このコンパイルの Red-Hat は予定済み — 状態を確認中…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'フィールドレポートを開く',
+    'shell.claim.meta': 'このドラフトに関する注記',
+    'shell.claim.hint.meta': '出典やドラフトについての記述であり、文書の事実ではありません。主張として数えません。',
+    'shell.claim.meta_reason': '出典についての記述で、文書の事実ではない',
+    'shell.source.result.form': '未記入のフォーム · {n} 件の項目名',
+    'shell.source.result.form_plain': '未記入のフォーム',
+    'shell.doc.intake.form_tail': '項目名は読み取られましたが、レビューする値はありません。',
+    'parsing.form.note': '項目名は読み取られましたが、レビューしたりドラフトで引用したりできる記入値はありません。',
+    'parsing.form.captions': '件の項目名',
+    'parsing.form.no_values': '記入値なし',
 }
 
 TR = {
@@ -13195,6 +13261,17 @@ TR = {
     'shell.run.done_claims': 'Taslak hazır · {counts}',
     'shell.redhat.scheduled': 'Red-Hat bu derleme için planlandı ve henüz bitmedi.',
     'shell.redhat.scheduled_checking': 'Red-Hat bu derleme için planlandı — durumu kontrol ediliyor…',
+    # Form-aware refusal, notes about the draft, unfilled-form lead (2026-09-27).
+    'shell.refusal.open_report': 'Alan raporunu aç',
+    'shell.claim.meta': 'Bu taslak hakkında not',
+    'shell.claim.hint.meta': 'Kaynak veya taslak hakkında bir ifade, belge olgusu değil. İddia olarak sayılmaz.',
+    'shell.claim.meta_reason': 'kaynak hakkında ifade, belge olgusu değil',
+    'shell.source.result.form': 'Doldurulmamış form · {n} başlık',
+    'shell.source.result.form_plain': 'Doldurulmamış form',
+    'shell.doc.intake.form_tail': 'Alan başlıkları okundu; incelenecek değer yok.',
+    'parsing.form.note': 'Alan başlıkları okundu; incelenecek veya taslakta alıntılanacak doldurulmuş değer yok.',
+    'parsing.form.captions': 'başlık',
+    'parsing.form.no_values': 'doldurulmuş değer yok',
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}

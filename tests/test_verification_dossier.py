@@ -505,7 +505,7 @@ def test_claim_ledger_rows_counts_and_page_not_recorded():
     assert [r["verdict"] for r in rows] == ["VERIFIED", "CONTRADICTED", "UNSUPPORTED", "INSUFFICIENT_EVIDENCE"]
     assert [r["verdict_words"] for r in rows] == ["Verified", "Contradicted", "Unsupported", "Insufficient evidence"]
     # Counted from the blocks when meta.claim_summary is absent; partial is never verified.
-    assert summary == {"total": 4, "verified": 1, "unsupported": 1, "contradicted": 1, "insufficient": 1, "flagged": 2, "inconsistencies": [], "policy": "claim-v1", "source": "counted from the claim blocks"}
+    assert summary == {"total": 4, "verified": 1, "unsupported": 1, "contradicted": 1, "insufficient": 1, "flagged": 2, "inconsistencies": [], "policy": "claim-v1", "source": "counted from the claim blocks", "meta": 0}
     assert rows[0]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · stated 1,550 ✓" and rows[0]["page"] == 2
     assert rows[1]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · expected 1,550, stated 1,450 ✗ mismatch" and rows[1]["page"] is None
     assert rows[2]["quote"] is None and rows[2]["unsupported_terms"] == ["guaranteed"] and rows[2]["wording_flags"] == ["high_risk_wording:guaranteed"]
@@ -595,3 +595,29 @@ def test_audit_bundle_counts_verified_over_total_and_never_partial(db, monkeypat
         {"id": "b", "type": "paragraph", "content": "second claim " * 8, "meta": {"provenance": {"entailment": {"verdict": "partial"}}}}]}]}
     html = ab.build_audit_bundle_html("qa-bundle", legacy)
     assert "Claims verified: 1 of 3 (legacy entailment check, verdict yes only; partial is not counted as verified" in html
+
+
+
+def test_meta_paragraphs_are_notes_not_claims_in_the_ledger():
+    """The memo's "missing items" / "confidence" paragraphs (``checks.kind == "meta"``,
+    verdict null — or UNSUPPORTED on an older row) are listed in a Notes table and
+    never counted among the claims."""
+    tree = _claim_tree([_claim("VERIFIED")])
+    body = tree["body"][0]["children"]
+    for i, verdict in enumerate((None, "UNSUPPORTED")):
+        body.append({"id": f"m{i}", "type": "paragraph", "content": "missing items: the source does not state the deductible for this policy year.",
+                     "meta": {"provenance": {"claim": {"policy": "claim-v1", "verdict": verdict, "reason": "statement about the source, not a document fact",
+                                                        "quote": None, "checks": {"kind": "meta", "entailment": None}, "flags": []}}}})
+    rows, summary = vd.collect_claim_ledger(tree)
+    notes = vd.collect_claim_notes(tree)
+    assert [r["verdict"] for r in rows] == ["VERIFIED"] and summary["total"] == 1 and summary["meta"] == 2
+    assert len(notes) == 2 and notes[0]["reason"] == "statement about the source, not a document fact"
+    html = vd._section_claim_ledger({"items": rows, "summary": summary, "notes": notes})
+    assert "Notes about this draft" in html and "2 paragraphs about the draft or the source" in html
+    assert html.count("<tr class='note'>") == 2 and "1 of 1 claims verified" in html
+    # A tree with only notes still lists them, and says there is no claim ledger.
+    only_notes = {"document_id": "d", "meta": {}, "body": [{"id": "s", "type": "section", "children": body[1:]}]}
+    rows2, summary2 = vd.collect_claim_ledger(only_notes)
+    assert rows2 == [] and summary2 is None
+    html2 = vd._section_claim_ledger({"items": rows2, "summary": summary2, "notes": vd.collect_claim_notes(only_notes), "reason": "no claim-v1 verdict is recorded"})
+    assert "No claim ledger" in html2 and "Notes about this draft" in html2

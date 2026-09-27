@@ -61,8 +61,8 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-111"
-    assert APP_JS == "assure-111"
+    assert APP_CSS == "assure-112"
+    assert APP_JS == "assure-112"
 
 
 # ---------------------------------------------------------------------------
@@ -241,3 +241,17 @@ def test_claim_strings_in_every_locale() -> None:
         for key in CLAIM_KEYS:
             assert key in cat, f"missing {locale} {key}"
             assert str(cat[key]).strip(), f"empty {locale} {key}"
+
+
+
+def test_form_refusal_and_note_strings_in_every_locale() -> None:
+    keys = ("shell.refusal.open_report", "shell.claim.meta", "shell.claim.hint.meta", "shell.claim.meta_reason",
+            "shell.source.result.form", "shell.source.result.form_plain", "shell.doc.intake.form_tail", "parsing.form.note")
+    for locale in LOCALES:
+        cat = CATALOGS[locale]
+        for key in keys:
+            assert key in cat and str(cat[key]).strip(), f"missing {locale} {key}"
+    js = (ROOT / "prototype" / "shell.js").read_text(encoding="utf-8")
+    assert "form_source" in js and "parsure_report_id" in js and "shell.refusal.open_report" in js
+    assert '_isMetaClaim' in js and 'return "meta"' in js and "claim-meta-caption" in js
+    assert "form_template" in js and "shell.source.result.form" in js

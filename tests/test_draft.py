@@ -213,19 +213,21 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     # entangled claim returns 'review' instead — see
     # test_run_draft_pipeline_verifies_anchored_claims.)
     assert verified["provenance_stats"]["anchored"] == 1
-    assert verified["provenance_stats"]["supported"] == 1
-    assert verified["provenance_stats"]["verified"] == 1
     # claim-v1 (2026-09-27): the draft's second paragraph, "Policy liability
-    # limit=5000000.", carries a figure and no anchor, so it is a claim and it is
-    # UNSUPPORTED ("no source sentence carries this claim"). One verified claim
-    # does not outvote it: the gate reads review and names it. Before the policy
-    # an unanchored paragraph was not counted against the gate and this read
-    # `pass` / `ok: True`.
+    # limit=5000000.", carries a figure and no anchor. It is a claim; with no
+    # citation the sentence-level lexical fallback searches the source and finds
+    # 5000000 under the label "liability limit" ("The policy liability limit is
+    # set at $5,000,000 …"), so it is VERIFIED without a provenance row —
+    # `unanchored` still counts the missing row, `verified` counts the claim.
     assert verified["provenance_stats"]["unanchored"] == 1
-    assert verified["claim_summary"]["unsupported"] == 1
-    assert verified["gate_status"] == "review"
-    assert verified["ok"] is False
-    assert "1 unsupported" in verified["unverified_reason"]
+    assert verified["provenance_stats"]["supported"] == 2
+    assert verified["provenance_stats"]["verified"] == 2
+    assert verified["claim_summary"] == {
+        "total": 2, "verified": 2, "unsupported": 0, "contradicted": 0, "insufficient": 0,
+        "flagged": 0, "paragraphs": 2, "meta": 0, "policy": "claim-v1", "inconsistencies": [],
+    }
+    assert verified["gate_status"] == "pass"
+    assert verified["ok"] is True
     assert "document" in verified
 
     assert any(f.strip() == "data: [DONE]" for f in frames)
@@ -300,6 +302,7 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
         "contradicted": 0,
         "insufficient": 0,
         "flagged": 0,
+        "meta": 0,
     }
     assert verified["claim_summary"]["unsupported"] == 1
     assert verified["gate_status"] == "review"
@@ -448,6 +451,7 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
         "contradicted": 0,
         "insufficient": 0,
         "flagged": 0,
+        "meta": 0,
     }
     assert verified["claim_summary"]["verified"] == 1
     assert verified["gate_status"] == "pass"
@@ -1138,3 +1142,40 @@ def test_force_recompiles_instead_of_replaying_the_cache(monkeypatch):
     # test_run_draft_pipeline_omp_cache_hit, which uses a cache entry whose document
     # actually grounds a claim; the entry here is only a marker that the cache was
     # consulted.
+
+
+
+def test_run_draft_pipeline_refuses_a_form_source_with_the_field_report(monkeypatch):
+    """A form-like source refused by the provenance gate: the error and complete
+    frames carry the form sentence (compile_guard.form_aware), ``form_source``
+    and the project's latest Parsure report id and URL (2026-09-27)."""
+    from prompt_matrix.services.compile_guard import FORM_SOURCE_MESSAGE, ValidationOutcome
+
+    form = "\n".join(f"{i}. INSURED'S NAME (Last, First)" for i in range(1, 15)) + "\nSIGNED\nDATE"
+    draft = "The insured's name is captured on the claim form.\n\nThe patient's birth date is also captured."
+
+    def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
+        yield 'event: token\ndata: {"type": "token", "delta": "The"}\n\n'
+        yield (draft, 10, 5, "anthropic/claude-3-5-sonnet-20241022")
+
+    monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
+    monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", lambda _text: ([], "stub/model"))
+    monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", lambda *_a, **_k: {"verdict": "no", "reasoning": "captions", "model": "stub", "checked_at": "x"})
+    monkeypatch.setattr("prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
+                        lambda _pid, _ids: [{"id": "sub-f", "filename": "cms1500.pdf", "extracted_text": form + SOURCE_FILLER}])
+    # The refusal the guard produces for this source, as the guard would word it.
+    monkeypatch.setattr("prompt_matrix.routers.draft.validate_compiled_draft",
+                        lambda **_k: ValidationOutcome(ok=False, reason="anchored_ratio_below_floor", detail="0/2 anchored · source reads as a form",
+                                                       message_override=FORM_SOURCE_MESSAGE, form_source=True))
+    monkeypatch.setattr("prompt_matrix.db.parsure_repository.get_latest_report", lambda pid: {"report_id": "rep-form-1", "project_id": pid})
+
+    frames = list(run_draft_pipeline("form-project", intent="Summarise the claim form.", substrate_file_ids=["sub-f"], governor=_FakeGovernor()))
+    events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
+    error = next(data for _ev, data in events if data.get("type") == "error")
+    assert error["http_status"] == 422 and error["reason"] == "anchored_ratio_below_floor"
+    assert error["error"] == FORM_SOURCE_MESSAGE and "upload additional sources" not in error["error"]
+    assert error["form_source"] is True and error["parsure_report_id"] == "rep-form-1"
+    assert error["parsure_url"] == "/parsing/rep-form-1?project_id=form-project"
+    complete = next(data for _ev, data in events if data.get("type") == "complete")
+    assert complete["ok"] is False and complete["parsure_report_id"] == "rep-form-1"
+    assert "compiled" not in [data.get("type") for _ev, data in events if isinstance(data, dict)]

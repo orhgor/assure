@@ -20,12 +20,34 @@ invented. Calculations are recomputed from the source's figures.
 
 ## The claim unit
 
-A paragraph node one level under a section is a claim when it has at least four
-content tokens (the lexical matcher's floor, `models/jdf._MIN_CLAIM_TOKENS`),
-**or** at least two content tokens and one of: a figure (money, percent, number,
-date), an exclusion word (*exclude/excluded/except/unless*), or a high-risk term.
-"Flood is excluded." is a claim. "Coverage summary" is not.
-(`claim_policy.is_claim_eligible`.)
+A paragraph node one level under a section is claim-bearing when it has at
+least four content tokens (the lexical matcher's floor,
+`models/jdf._MIN_CLAIM_TOKENS`), **or** at least two content tokens and one of: a
+figure (money, percent, number, date), an exclusion word
+(*exclude/excluded/except/unless*), or a high-risk term. "Flood is excluded." is
+a claim. "Coverage summary" is not. (`claim_policy.is_claim_eligible`.)
+
+**The unit is the sentence.** A paragraph of several sentences (the memo shape
+writes six sections of several facts each) is split (`claim_policy.split_sentences`
+— figures and initials protected, the draft's label line dropped) and each
+sentence is assessed on its own: a `[S<n>]` citation belongs to the sentence it
+ends (`attach_citations_to_tree` records `sentence_index` on the row), a lexical
+anchor row goes to the sentence its quote overlaps, and a sentence with no row
+is searched in the cited sources (the sentence verbatim, or its values under
+their labels). The entailment model is asked per sentence against that
+sentence's windows (`entailment.sentences[]`). The paragraph block has
+`checks.kind: "sentences"`, `checks.sub_claims[]` = one unit per sentence
+(`text, verdict, reason, quote, quote_verbatim, source_id, source_name, page,
+checks, flags`) and the aggregate verdict: VERIFIED only when every sentence
+is; CONTRADICTED when any is; else UNSUPPORTED (any sentence unsupported) or
+INSUFFICIENT_EVIDENCE. A one-sentence paragraph is the unit itself.
+
+**Meta paragraphs are not claims.** "The source does not provide…", "The
+information extracted is…", or anything under the template's `missing items` /
+`confidence` labels gets `checks.kind: "meta"`, `verdict: null`, reason
+"statement about the source, not a document fact". They are counted in
+`claim_summary.meta`, excluded from `total`/`unsupported`, and never hold the
+gate — a memo template must not make every document unreachable for `pass`.
 
 A paragraph that enumerates two or more `label: value` facts ("policy number
 AP-2025-0001, total premium $1,250, liability limit $100,000, …") and states no
@@ -204,8 +226,12 @@ money exact to the cent.
 readers), `partial` and `unverified` (the entailment layer's own detail).
 
 `claim_summary = {total, verified, unsupported, contradicted, insufficient,
-flagged, policy, inconsistencies}` is written on `document.meta`, in the
-`verified` SSE frame, and in `projects.last_compiled_json.gate`.
+flagged, paragraphs, meta, policy, inconsistencies}` is written on
+`document.meta`, in the `verified` SSE frame, and in
+`projects.last_compiled_json.gate`. `total` and the verdict counts are per
+sentence (claim units); `paragraphs` is the claim-bearing paragraphs behind
+them; `meta` the paragraphs that are not claims. `provenance_stats` stays per
+paragraph (plus `meta`).
 
 Gate: Z3 `VIOLATION` → `blocked`; any contradicted / unsupported / insufficient
 / flagged claim, or an open Red-Hat finding → `review` (the reason names the

@@ -1306,3 +1306,40 @@ def test_record_history_rows_show_actor_and_role(client):
     assert "Olga Owner" in text and ">owner<" in html
     assert "Policy number accepted" in text and "· Ana Reviewer (compliance reviewer)" in text
     assert 'id="replay-run"' in html  # owner may replay
+
+
+
+def test_unfilled_form_sentence_leads_the_card_and_the_record(client):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("p-form")
+    sentence = "This looks like an unfilled form: 14 numbered captions and 0 filled values."
+    fields = [_data_field(f"f{i}", f"Field {i}", None, state="not_found", routing="field_not_found", conf=0.0, reason="field not found", evidence_state="not_on_document") for i in range(3)]
+    repo.save_report("p-form", {
+        "report_id": "rep-form", "document_id": "doc-form", "filename": "cms1500-blank.pdf", "modality": "digital_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli", "page_count": 1, "document_quality_score": 0.97, "pages": [{"page": 1, "quality_score": 0.97, "flags": []}],
+        "quality_flags": ["form_template"], "extraction_notes": [sentence],
+        "classification": {"document_type": "medical_claim", "confidence": 0.7}, "fields": fields, "conflicts": [],
+        "review_summary": {"fields_total": 3, "fields_found": 0, "fields_review": 0, "fields_not_found": 3},
+        "quality_report": {"summary": "No quality issues detected on 1 page.", "flags": [], "signature": {}, "numbers": {"flagged": []}},
+        "replay": {"eligible": False}, "created_at": "2026-09-27 12:00:00", "_page_texts": ["1. INSURED'S NAME\n2. PATIENT'S BIRTH DATE"],
+    })
+    html = client.get("/parsing?project_id=p-form").get_data(as_text=True)
+    card = re.search(r'<article class="card"[^>]*data-report-id="rep-form">.*?</article>', html, re.S).group(0)
+    text = _visible_text(card)
+    # The sentence is the status line; the facts line says captions, never "0 of 3 fields read";
+    # no "need review" / "nothing extracted" reading anywhere on the row.
+    assert sentence in text and "Nothing extracted" not in text and "need review" not in text and "fields read" not in text
+    assert "14 captions, no filled values" in text
+    assert re.search(r'<span class="status status--notype">' + re.escape(sentence), card)
+    assert text.index(sentence) < text.index("Details")
+
+    html = client.get("/parsing/rep-form?project_id=p-form").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="form-notice" data-tone="partial" data-captions="14"' in html
+    assert text.index(sentence) < text.index("Fields:") and "no filled values to review" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+    # The summary the shell reads carries the flag and the sentence.
+    summary = client.get("/api/projects/p-form/parsure").get_json()["reports"][0]
+    assert summary["quality_flags"] == ["form_template"] and summary["extraction_notes"] == [sentence]

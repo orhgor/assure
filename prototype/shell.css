@@ -1587,6 +1587,18 @@ body.collapsed .pane-left {
 .evidence-verdict.anchor-contradicted { border-left: 3px solid var(--contradicted); }
 .evidence-verdict.anchor-contradicted .evidence-verdict-state { color: var(--contradicted); }
 .evidence-verdict.anchor-not_assessed { border-left: 3px dotted var(--unverified); }
+/* Notes about the draft (claim kind meta, 2026-09-27): muted in place, no
+   verdict colour, the reason as a caption under the paragraph. */
+.anchor-chip-meta { color: var(--muted); background: transparent; border-color: color-mix(in srgb, var(--muted) 35%, transparent); border-style: dotted; font-weight: 500; }
+.jdf-p.anchor-meta { color: var(--muted); }
+.claim-meta-caption { margin: var(--space-1) 0 0; font: italic var(--fs-sm)/1.45 var(--sans); color: var(--muted); }
+.evidence-verdict.anchor-meta { border-left: 3px dotted var(--muted); }
+.evidence-verdict.anchor-meta .evidence-verdict-state { color: var(--muted); }
+/* A refusal on a form-like source opens the field report. */
+.doc-refusal[data-form-source="1"] .doc-state-detail { color: var(--ink); }
+.doc-refusal .doc-state-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.source-result-text[data-tone="partial"] { color: var(--partial); }
+
 /* The claim block: reason, verbatim quote with source and page, numeric line,
    wording flags as text badges. */
 .claim-block { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) 0 var(--space-3); }

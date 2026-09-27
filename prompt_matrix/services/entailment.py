@@ -55,8 +55,8 @@ from typing import Any, Callable
 
 try:
     from ..cost_governance import CostGovernor, TaskType
-    from .entailment_cache import load_verdict, store_verdict, verdict_cache_key
     from .claim_policy import sentence_units
+    from .entailment_cache import load_verdict, store_verdict, verdict_cache_key
     from .llm_extraction import find_verbatim
     from .numeric_recompute import extract_figures
 except ImportError:
@@ -587,6 +587,42 @@ def attach_entailment_to_tree(
                         }
                     )
                 unit_verdict = _aggregate_verdicts(unit_verdicts)
+                if unit_verdict == "no" and len(unit["sources"]) > 1:
+                    # Every window alone says "not stated" and the sentence cites
+                    # several: each may carry half ("2003 Honda Accord" in one
+                    # line, the VIN in the next — live run 2026-09-27). One more
+                    # call judges the sentence against the windows together; a
+                    # "yes" there is the sentence's verdict, and the joined
+                    # citation is recorded so the reader sees what was asked.
+                    joined = " ".join(unit["sources"])
+                    key = (unit["text"], joined)
+                    record = seen.get(key)
+                    if record is None:
+                        try:
+                            record = check(unit["text"], joined)
+                        except Exception as exc:
+                            record = unverified(f"{type(exc).__name__}: {exc}")
+                        if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                            record = unverified(f"checker returned no usable verdict: {record!r}")
+                        record = enforce_contradiction_evidence(record, joined, claim=unit["text"])
+                        seen[key] = record
+                    joined_verdict = str(record.get("verdict") or "unverified")
+                    per_citation.append(
+                        {
+                            "source": joined,
+                            "verdict": joined_verdict,
+                            "reasoning": str(record.get("reasoning") or ""),
+                            "model": str(record.get("model") or ""),
+                            "checked_at": str(record.get("checked_at") or ""),
+                            "evidence": str(record.get("evidence") or ""),
+                            "downgraded_from": str(record.get("downgraded_from") or ""),
+                            "sentence_index": unit["index"],
+                            "joined": True,
+                        }
+                    )
+                    if joined_verdict in ("yes", "contradicts"):
+                        unit_verdicts.append(joined_verdict)
+                        unit_verdict = _aggregate_verdicts(unit_verdicts)
                 sentence_verdicts.append(unit_verdict)
                 sentences_out.append(
                     {

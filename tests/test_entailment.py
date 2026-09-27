@@ -310,6 +310,7 @@ def test_gate_counts_only_entailed_claims() -> None:
         "contradicted": 1,
         "insufficient": 2,
         "flagged": 0,
+        "meta": 0,
     }
     # The contradicted paragraph holds the gate: a verified claim does not
     # outvote one the source denies (until 2026-09-23 it did, and this
@@ -356,6 +357,7 @@ def test_gate_names_contradicted_and_unverified_when_nothing_is_supported() -> N
         "contradicted": 1,
         "insufficient": 1,
         "flagged": 0,
+        "meta": 0,
     }
     assert summary["gate_status"] == "review"
     assert summary["ok"] is False
@@ -401,6 +403,7 @@ def test_gate_treats_a_partly_carried_claim_as_unsupported() -> None:
         "contradicted": 0,
         "insufficient": 0,
         "flagged": 0,
+        "meta": 0,
     }
     node = doc["body"][0]["children"][0]
     assert node["meta"]["provenance"]["claim"]["reason"] == "a material qualifier is missing"
@@ -466,6 +469,7 @@ def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
         "contradicted": 0,
         "insufficient": 1,
         "flagged": 0,
+        "meta": 0,
     }
     assert summary["unverified_reason"] == (
         "0 of 1 claims verified (1 with insufficient evidence, 1 anchored but never checked)."

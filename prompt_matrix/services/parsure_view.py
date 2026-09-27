@@ -529,3 +529,28 @@ def graph_integrity_view(report: dict[str, Any]) -> dict[str, Any] | None:
         "orphans": [str(o) for o in orphans] if orphans is not None else None,
         "ok": gi.get("ok") if isinstance(gi.get("ok"), bool) else None,
     }
+
+
+def form_sentence(report: dict[str, Any]) -> str | None:
+    """The unfilled-form sentence for a report flagged ``form_template``
+    (``v1_orchestrator.form_template_flag``): the sentence the report recorded
+    in ``extraction_notes`` ("This looks like an unfilled form: 14 numbered
+    captions and 0 filled values."), else the flag's own words. None when the
+    report does not carry the flag — the sentence is never composed here."""
+    flags = {str(f) for f in (report.get("quality_flags") or [])}
+    if "form_template" not in flags:
+        return None
+    for note in report.get("extraction_notes") or []:
+        if isinstance(note, str) and "unfilled form" in note.lower():
+            return note.strip()
+    return "This looks like an unfilled form."
+
+
+def form_caption_count(sentence: str | None) -> int | None:
+    """The caption count named in the form sentence, or None."""
+    import re as _re
+
+    if not sentence:
+        return None
+    m = _re.search(r"(\d+) numbered caption", sentence)
+    return int(m.group(1)) if m else None

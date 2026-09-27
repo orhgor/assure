@@ -1034,6 +1034,10 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 # the document. None until a report answers — never 0.
                 "section_counts": None,
                 "suspect_count": 0,
+                # An unfilled form (quality_flags form_template): the report's own
+                # sentence leads the status line, before any field count.
+                "form_sentence": None,
+                "form_captions": None,
                 # snapshot integrity: True / False when the report carries a
                 # snapshot, None when it predates snapshots (nothing claimed).
                 "integrity_ok": None,
@@ -1174,7 +1178,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
             # review > ready. "Nothing extracted" is one amber fact about the
             # document (the type is the likely cause), not N red field failures.
             untyped_empty = not fields and card["doc_type_label"] == "Type uncertain"
-            if card["fields_rejected"] > 0 or card["conflicts"] > 0:
+            card["form_sentence"] = _view.form_sentence(report)
+            card["form_captions"] = _view.form_caption_count(card["form_sentence"])
+            if card["form_sentence"]:
+                card["status"] = "notype"
+                card["status_label"] = card["form_sentence"]
+                card["primary_label"] = "Open record"
+                card["primary_href"] = card["record_href"] or f"/?project_id={project_id}&report_id={card['report_id']}"
+                card["chips"] = [c for c in chips if c != "Document type is uncertain."]
+            elif card["fields_rejected"] > 0 or card["conflicts"] > 0:
                 card["status"] = "conflict"
                 card["status_label"] = (
                     "Conflict detected" if card["conflicts"] else _plural(card["fields_rejected"], "field") + " rejected"
@@ -1204,7 +1216,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 card["status"] = "ready"
                 card["status_label"] = "Ready for Assure"
                 card["primary_label"] = "Send to Assure"
-            if card["status"] != "notype":
+            if card["status"] != "notype" and not card["form_sentence"]:
                 card["primary_href"] = f"/?project_id={project_id}&report_id={card['report_id']}"
 
             attention = [
@@ -1728,7 +1740,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
             extraction_sentence = _orch.extraction_sentence(classification.get("document_type"), len(fields), found_n, text_chars)
         no_text = "no_text" in {str(fl) for fl in (report.get("quality_flags") or [])}
         current_type = classification.get("document_type")
-        show_notice = nothing_extracted or schema_mismatch or (not fields and _pv.doc_type_label(classification) == "Type uncertain")
+        form_sentence = _view.form_sentence(report)
+        show_notice = nothing_extracted or schema_mismatch or bool(form_sentence) or (not fields and _pv.doc_type_label(classification) == "Type uncertain")
         if schema_mismatch and extraction_sentence is None:
             extraction_sentence = mismatch_line
         if show_notice and extraction_sentence:
@@ -1839,6 +1852,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "replay": _view.replay_view(report),
             "replay_url": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/replay",
             "low_quality": _view.low_quality_pages(report),
+            "form_sentence": form_sentence,
+            "form_captions": _view.form_caption_count(form_sentence),
             "pages": page_rows,
             "has_page_text": any(p["text"] for p in page_rows),
             "history": history,

@@ -137,6 +137,7 @@ def test_build_audit_summary_shape():
         "contradicted": 0,
         "insufficient": 0,
         "flagged": 0,
+        "meta": 0,
     }
     assert summary["claim_summary"]["total"] == 0
     assert summary["gate_status"] == "review"
@@ -226,6 +227,7 @@ def test_gate_anchors_policy_restatement(claim):
         "contradicted": 0,
         "insufficient": 1,
         "flagged": 0,
+        "meta": 0,
     }
     block = summary["document"]["body"][0]["children"][0]["meta"]["provenance"]["claim"]
     assert block["quote_verbatim"] is True
@@ -269,6 +271,7 @@ def test_gate_refuses_unsupported_claim(claim):
         "contradicted": 0,
         "insufficient": 0,
         "flagged": 0,
+        "meta": 0,
     }
     assert summary["unverified"] is True
     assert summary["unverified_reason"] == "0 of 1 claims matched any source sentence."

@@ -256,6 +256,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .snap-integrity[data-ok="1"] { color: var(--verified); }
 .snap-integrity[data-ok="0"] { color: var(--contradicted); }
 .notice--quiet { font-size: var(--fs-md); }
+.notice--form b { color: var(--ink); }
 .uncertainty { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); margin: var(--space-3) 0 0; font-size: var(--fs-sm); }
 .uncertainty dt { color: var(--muted); }
 .uncertainty dd { margin: 0; overflow-wrap: anywhere; }
@@ -416,6 +417,12 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       </div>
     </div>
 
+    {% if record.form_sentence %}
+    {#- An unfilled form: the report's own sentence leads, before any field count. -#}
+    <div class="notice notice--form" id="form-notice" data-tone="partial" data-captions="{{ record.form_captions if record.form_captions is not none else '' }}">
+      <p><b>{{ record.form_sentence }}</b> {{ strings.get("parsing.form.note", "The field captions were read; there are no filled values to review or to cite in a draft.") }}</p>
+    </div>
+    {% endif %}
     <p class="record-summary">
       <span>Pages: <b>{{ record.page_count or "—" }}</b></span><span class="sep">·</span>
       <span>Fields: <b>{{ record.fields_total }}</b></span><span class="sep">·</span>

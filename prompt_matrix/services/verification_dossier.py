@@ -336,11 +336,23 @@ def _paragraph_nodes(tree: dict[str, Any] | None):
 
 
 def _claim_of(node: dict[str, Any]) -> dict[str, Any] | None:
+    """The persisted claim block: a verdict, or a meta block (``checks.kind ==
+    "meta"``) whose verdict is null (2026-09-27) or, on older rows, UNSUPPORTED."""
     prov = (node.get("meta") or {}).get("provenance") if isinstance(node.get("meta"), dict) else None
     if not isinstance(prov, dict):
         return None
     claim = prov.get("claim")
-    return claim if isinstance(claim, dict) and claim.get("verdict") else None
+    if not isinstance(claim, dict):
+        return None
+    if claim.get("verdict") or _is_meta_claim(claim):
+        return claim
+    return None
+
+
+def _is_meta_claim(claim: dict[str, Any] | None) -> bool:
+    """A statement about the draft or the source ("missing items", "confidence"
+    sections of the memo shape) — not a claim, whichever verdict shape it wears."""
+    return bool(claim) and str(((claim.get("checks") or {}).get("kind") or "")).lower() == "meta"
 
 
 def _numeric_words(numeric: Any) -> str:
@@ -375,9 +387,19 @@ def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, An
     nothing is invented). ``page`` stays None when the check did not record
     one; the renderer says "not recorded", never "1"."""
     rows: list[dict[str, Any]] = []
+    notes: list[dict[str, Any]] = []
     for node in _paragraph_nodes(tree):
         claim = _claim_of(node)
         if claim is None:
+            continue
+        if _is_meta_claim(claim):
+            text = str(node.get("content") or "").strip()
+            notes.append({
+                "node_id": node.get("id"),
+                "text": text if len(text) <= 400 else text[:399].rstrip() + "…",
+                "reason": str(claim.get("reason") or "statement about the source, not a document fact"),
+                "entailment": str(((claim.get("checks") or {}).get("entailment")) or "") or None,
+            })
             continue
         verdict = str(claim.get("verdict") or "").upper()
         checks = claim.get("checks") if isinstance(claim.get("checks"), dict) else {}
@@ -428,7 +450,16 @@ def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, An
                 summary[key] += 1
     else:
         summary = None
+    if summary is not None:
+        summary["meta"] = len(notes)
+    collect_claim_ledger.last_notes = notes  # type: ignore[attr-defined]
     return rows, summary
+
+
+def collect_claim_notes(tree: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The meta paragraphs (notes about the draft) the ledger sets aside."""
+    collect_claim_ledger(tree)
+    return list(getattr(collect_claim_ledger, "last_notes", []) or [])
 
 
 def claim_summary_words(summary: dict[str, Any] | None) -> str:
@@ -888,6 +919,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
     gate = compute_export_gate(project_id, tree)
     stats = dict(gate.get("provenance_stats") or {})
     claim_rows, claim_summary = collect_claim_ledger(tree)
+    claim_notes = collect_claim_notes(tree)
 
     runs = list_runs(workspace_id=project_id)
     run_ids = [r["id"] for r in runs]
@@ -1081,6 +1113,8 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
                 "policy": (claim_summary or {}).get("policy"),
                 "summary": claim_summary,
                 "items": claim_rows,
+                # Statements about the draft or the source: listed apart, never counted as claims.
+                "notes": claim_notes,
             },
             "review_required": {
                 "status": "not_run" if not intake_present else ("open" if review_items else "clear"),
@@ -1293,7 +1327,7 @@ def _section_claim_ledger(section: dict[str, Any]) -> str:
     items = section.get("items") or []
     summary = section.get("summary")
     if not items:
-        return f"<p class='empty'>No claim ledger — {_esc(section.get('reason') or 'no claim-v1 verdict is recorded')}.</p>"
+        return f"<p class='empty'>No claim ledger — {_esc(section.get('reason') or 'no claim-v1 verdict is recorded')}.</p>" + _notes_table(section.get("notes") or [])
     rows = []
     for r in items:
         checks = []
@@ -1323,11 +1357,25 @@ def _section_claim_ledger(section: dict[str, Any]) -> str:
             f"<td>{_esc(' · '.join(checks)) if checks else '—'}</td></tr>"
         )
     head = f"<p class='count'>{_esc(claim_summary_words(summary))}{(' · policy ' + _esc(str(summary.get('policy')))) if summary and summary.get('policy') else ''}</p>"
+    notes_html = _notes_table(section.get("notes") or [])
     inconsistencies = (summary or {}).get("inconsistencies") or []
     if inconsistencies:
         head += "<ul class='reasons'>" + "".join(f"<li>Inconsistency: {_esc(str(i.get('detail') if isinstance(i, dict) else i))}</li>" for i in inconsistencies) + "</ul>"
     return (head + "<table><thead><tr><th>Claim</th><th>Verdict</th><th>Verbatim quote</th><th>Source</th><th>Page</th><th>Checks</th></tr></thead>"
-            f"<tbody>{''.join(rows)}</tbody></table>")
+            f"<tbody>{''.join(rows)}</tbody></table>" + notes_html)
+
+
+def _notes_table(notes: list[dict[str, Any]]) -> str:
+    """The memo's meta paragraphs ("missing items", "confidence"): notes about
+    the draft, in their own table — no verdict, no colour, the reason as caption."""
+    if not notes:
+        return ""
+    body = "".join(
+        f"<tr class='note'><td>{_esc(n.get('text'))}</td><td class='meta'>{_esc(n.get('reason'))}</td></tr>" for n in notes
+    )
+    return (f"<h3>Notes about this draft</h3><p class='meta'>{len(notes)} paragraph{'s' if len(notes) != 1 else ''} about the draft or the source — "
+            "not claims, not counted.</p><table><thead><tr><th>Note</th><th>Why it is not a claim</th></tr></thead>"
+            f"<tbody>{body}</tbody></table>")
 
 
 def _section_locks(section: dict[str, Any]) -> str:

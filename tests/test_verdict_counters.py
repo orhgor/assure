@@ -282,6 +282,7 @@ def test_every_combination_lands_in_the_right_buckets(
         "contradicted": expected["contradicted"],
         "insufficient": expected["insufficient"],
         "flagged": 0,
+        "meta": 0,
     }
 
 

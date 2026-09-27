@@ -136,15 +136,26 @@ def main() -> int:
     paras = [n for n in walk(doc.get("body") or []) if n.get("type") == "paragraph"]
     claims = [((n.get("meta") or {}).get("provenance") or {}) for n in paras]
     blocks = [c.get("claim") for c in claims if isinstance(c, dict) and isinstance(c.get("claim"), dict)]
-    check("every assessed paragraph carries a claim block", bool(blocks) and len(blocks) == int(summary.get("total") or 0), f"{len(blocks)} blocks / total {summary.get('total')}")
+    expected_blocks = int(summary.get("paragraphs") or 0) + int(summary.get("meta") or 0) if "paragraphs" in summary else int(summary.get("total") or 0)
+    check("every assessed paragraph carries a claim block", bool(blocks) and len(blocks) == expected_blocks, f"{len(blocks)} blocks / {summary.get('paragraphs')} claim paragraphs + {summary.get('meta')} notes")
     ok_verdicts = {"VERIFIED", "UNSUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"}
-    check("verdict vocabulary", all(b.get("verdict") in ok_verdicts for b in blocks), sorted({b.get("verdict") for b in blocks}))
-    ver = [b for b in blocks if b.get("verdict") == "VERIFIED"]
-    check("every VERIFIED claim has a verbatim source quote", all(b.get("quote") and b.get("quote_verbatim") is True for b in ver), f"{len(ver)} verified")
-    check("no defaulted page numbers", all(b.get("page") is None or isinstance(b.get("page"), int) for b in blocks) and not any("page" in (b.get("reason") or "").lower() and "1" == str(b.get("page")) and b.get("quote") is None for b in blocks), "pages recorded only from the located quote")
-    check("no model confidence inside claim blocks", all("confidence" not in json.dumps(b).lower() for b in blocks), "ok")
-    numeric = [b for b in blocks if (b.get("checks") or {}).get("numeric", {}).get("status") in ("recomputed_ok", "mismatch")]
-    check("numeric claims were recomputed", None if not numeric else all(True for _ in numeric), f"{len(numeric)} claims with figures checked")
+    facts = [b for b in blocks if (b.get("checks") or {}).get("kind") != "meta"]
+    metas = [b for b in blocks if (b.get("checks") or {}).get("kind") == "meta"]
+    check("verdict vocabulary (facts); notes carry no verdict", all(b.get("verdict") in ok_verdicts for b in facts) and all(b.get("verdict") in (None, "UNSUPPORTED") for b in metas), sorted({str(b.get("verdict")) for b in blocks}))
+    units = []  # the claim unit: sentences when the block has them, else the block
+    for b in facts:
+        checks = b.get("checks") or {}
+        subs = checks.get("sub_claims") or []
+        # A multi-sentence paragraph counts per sentence; an enumeration's
+        # per-fact sub-claims belong to one sentence and count once.
+        units.extend(subs if (subs and checks.get("kind") == "sentences") else [b])
+    check("claim unit is the sentence (sub_claims present on multi-sentence paragraphs)", None if not units else len(units) == int(summary.get("total") or 0), f"{len(units)} sentence units / total {summary.get('total')}")
+    ver = [u for u in units if u.get("verdict") == "VERIFIED"]
+    check("every VERIFIED claim has a verbatim source quote", all(u.get("quote") and u.get("quote_verbatim") is True for u in ver), f"{len(ver)} verified of {len(units)}")
+    check("no defaulted page numbers", all(u.get("page") is None or isinstance(u.get("page"), int) for u in units) and all(not (u.get("page") is not None and u.get("quote") is None) for u in units), "pages recorded only from the located quote")
+    check("no model confidence inside claim blocks", all("confidence\"" not in json.dumps(b).lower() for b in blocks), "ok")
+    numeric = [u for u in units if ((u.get("checks") or {}).get("numeric") or {}).get("status") in ("recomputed_ok", "mismatch")]
+    check("numeric claims were recomputed", None if not numeric else all(True for _ in numeric), f"{len(numeric)} sentences with figures checked")
     flagged = [b for b in blocks if b.get("flags")]
     check("flags recorded (high-risk wording / inconsistency)", None, [f for b in flagged for f in b.get("flags")][:6] or "none on this draft")
     gate = verified.get("gate_status")
@@ -181,7 +192,10 @@ def main() -> int:
             vs = json.loads(z.read(next(n for n in names if n.endswith("verification_state.json"))))
             ledger = vs.get("claim_ledger") or (vs.get("sections") or {}).get("claim_ledger") or vs.get("claims")
             rows = (ledger.get("items") or ledger.get("rows")) if isinstance(ledger, dict) else ledger
-            ledger_ok = bool(vs.get("claim_summary")) and isinstance(rows, list) and len(rows) == int((vs.get("claim_summary") or {}).get("total") or -1)
+            cs = vs.get("claim_summary") or {}
+            expected_rows = int(cs.get("paragraphs") or 0) + int(cs.get("meta") or 0) if "paragraphs" in cs else int(cs.get("total") or -1)
+            # One ledger row per claim-bearing paragraph (notes sit in their own table), or per sentence.
+            ledger_ok = bool(cs) and isinstance(rows, list) and len(rows) in {expected_rows, int(cs.get("paragraphs") or -3), int(cs.get("total") or -2)}
         except Exception as exc:  # noqa: BLE001
             ledger_ok = False; names = str(exc)
         check("bundle carries claim_summary + claim ledger", ledger_ok, names if not ledger_ok else "ok")

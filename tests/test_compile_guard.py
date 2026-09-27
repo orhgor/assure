@@ -11,7 +11,10 @@ everything would pass every hostile case and break the product.
 from __future__ import annotations
 
 from prompt_matrix.services.compile_guard import (
+    FORM_SOURCE_MESSAGE,
     FLAG_PHRASES,
+    form_aware,
+    looks_like_form,
     REJECTION_MESSAGE,
     UNTRUSTED_CLOSE,
     UNTRUSTED_OPEN,
@@ -322,3 +325,45 @@ def test_a_citation_to_an_instruction_like_sentence_does_not_anchor_the_claim():
         rows,
     )
     assert _provenance_counts(grounded)["anchored"] == 1
+
+
+
+# --------------------------------------------------------------------------- #
+# Form-aware refusal (demo set, 2026-09-27): a blank claim form is not "a source
+# that may not cover the question"
+# --------------------------------------------------------------------------- #
+
+FORM_SOURCE = "\n".join(
+    [f"{i}. INSURED'S NAME (Last Name, First Name, Middle Initial)" if i % 3 else f"{i}a. PATIENT'S BIRTH DATE" for i in range(1, 15)]
+    + ["SIGNED", "DATE", "NUCC Instruction Manual available at: www.nucc.org"]
+)
+FORM_DRAFT = "The insured's name and the patient's birth date are captured on the claim form.\n\nThe form lists fourteen numbered captions."
+
+
+def test_looks_like_form_counts_numbered_captions_or_short_lines():
+    assert looks_like_form([FORM_SOURCE]) is True
+    assert looks_like_form([SOURCE]) is False
+    boxes = "\n".join(["Name:", "Date:", "Signed:", "Policy no.", "Agent", "City", "State", "Zip", "Phone", "Email"])
+    assert looks_like_form([boxes]) is True  # every line under four words
+    assert looks_like_form([]) is False and looks_like_form(["", "   "]) is False
+
+
+def test_grounding_refusals_on_a_form_say_the_form_sentence_and_mark_the_outcome():
+    ratio = _validate(FORM_DRAFT, sources=[FORM_SOURCE], provenance={"eligible": 6, "anchored": 2, "supported": 0})
+    assert not ratio.ok and ratio.reason == "anchored_ratio_below_floor"
+    assert ratio.message == FORM_SOURCE_MESSAGE and ratio.form_source is True
+    assert "Try a more specific ask" not in ratio.message and "upload additional sources" not in ratio.message
+    zero = _validate(FORM_DRAFT, sources=[FORM_SOURCE], provenance={"eligible": 2, "anchored": 0, "supported": 0})
+    assert not zero.ok and zero.reason == "zero_anchored_claims" and zero.message == FORM_SOURCE_MESSAGE and zero.form_source
+
+
+def test_grounding_refusals_on_prose_keep_the_ratio_sentence():
+    prose = _validate("Coverage is broad and generous in every respect.", sources=[SOURCE], provenance={"eligible": 6, "anchored": 2, "supported": 2})
+    assert not prose.ok and prose.reason == "anchored_ratio_below_floor" and prose.form_source is False
+    assert prose.message == "Only 2 of 6 claims could be grounded in the source. The source may not cover the question. Try a more specific ask, or upload additional sources."
+    # form_aware leaves every other refusal alone
+    from prompt_matrix.services.compile_guard import ValidationOutcome
+
+    other = ValidationOutcome(ok=False, reason="system_prompt_disclosure", detail="x")
+    assert form_aware(other, [FORM_SOURCE]) is other
+    assert form_aware(ValidationOutcome(ok=True), [FORM_SOURCE]).ok is True

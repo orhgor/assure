@@ -80,6 +80,38 @@ _RATIO_FLOOR_MESSAGE = (
     "additional sources."
 )
 
+# A refused source that is a *form* (demo set, 2026-09-27: two blank claim
+# forms were refused with the ratio sentence above — wrong advice, since a
+# form's text is field captions, not sentences a draft can cite, and Parsure
+# had already read the fields). Detected the way ``v1_orchestrator.
+# form_template_flag`` counts an unfilled form — numbered captions
+# ("4. INSURED'S NAME …") — or when at least 40 % of the non-blank lines are
+# shorter than four words (a captions-and-boxes page). The refusal then says so
+# and points at the field report instead of asking for more sources.
+FORM_SOURCE_MESSAGE = (
+    "This source is a form: its text is field captions, not sentences a draft "
+    "can cite. The field report has what was read."
+)
+FORM_MIN_CAPTIONS = 8
+FORM_SHORT_LINE_RATIO = 0.40
+_FORM_CAPTION_LINE = re.compile(r"^\s*\d{1,2}[a-z]?\.\s+[A-Z]", re.M)
+
+
+def looks_like_form(source_texts: Sequence[str]) -> bool:
+    """Whether the refused sources read as a form rather than prose."""
+    texts = [str(t or "") for t in source_texts if str(t or "").strip()]
+    if not texts:
+        return False
+    captions = sum(len(_FORM_CAPTION_LINE.findall(t)) for t in texts)
+    if captions >= FORM_MIN_CAPTIONS:
+        return True
+    lines = [ln.strip() for t in texts for ln in t.splitlines() if ln.strip()]
+    if len(lines) < 8:
+        return False
+    short = sum(1 for ln in lines if len(ln.split()) < 4)
+    return (short / len(lines)) >= FORM_SHORT_LINE_RATIO
+
+
 # SOURCES pane label for a flagged source (``substrate_list`` sends the flag and
 # hits; the shell renders this string and the hits as its hover detail).
 SOURCE_FLAG_LABEL = "contains instruction-like content — reviewed"
@@ -586,12 +618,31 @@ class ValidationOutcome:
     reason: str = ""
     detail: str = ""
     message_override: str = ""
+    #: The refused source is a form (``looks_like_form``): the route attaches the
+    #: field report's id and URL to the refusal frame.
+    form_source: bool = False
 
     @property
     def message(self) -> str:
         if self.ok:
             return ""
         return self.message_override or REJECTION_MESSAGE
+
+
+def form_aware(outcome: ValidationOutcome, source_texts: Sequence[str]) -> ValidationOutcome:
+    """A grounding refusal on a form-like source says the form sentence instead
+    of "try a more specific ask"; every other outcome is returned unchanged."""
+    if outcome.ok or outcome.reason not in ("zero_anchored_claims", "anchored_ratio_below_floor"):
+        return outcome
+    if not looks_like_form(source_texts):
+        return outcome
+    return ValidationOutcome(
+        ok=False,
+        reason=outcome.reason,
+        detail=outcome.detail + " · source reads as a form",
+        message_override=FORM_SOURCE_MESSAGE,
+        form_source=True,
+    )
 
 
 def validate_compiled_draft(
@@ -643,14 +694,14 @@ def validate_compiled_draft(
     # token so an invented opening that grounds nothing reads as the grounding
     # failure it is.
     if int(provenance.get("anchored") or 0) == 0:
-        return ValidationOutcome(
+        return form_aware(ValidationOutcome(
             ok=False,
             reason="zero_anchored_claims",
             detail=(
                 f"no paragraph anchored ({int(provenance.get('eligible') or 0)} eligible): "
                 f"{opening[:120]!r}"
             ),
-        )
+        ), source_texts)
 
     # Some claims grounded is not the same as the draft being grounded. A
     # document that anchors one paragraph in three reads as an answer while two
@@ -660,7 +711,7 @@ def validate_compiled_draft(
     _eligible = int(provenance.get("eligible") or 0)
     _anchored = int(provenance.get("anchored") or 0)
     if _eligible > 0 and (_anchored / _eligible) < _MIN_ANCHOR_RATIO:
-        return ValidationOutcome(
+        return form_aware(ValidationOutcome(
             ok=False,
             reason="anchored_ratio_below_floor",
             detail=(
@@ -670,7 +721,7 @@ def validate_compiled_draft(
             message_override=_RATIO_FLOOR_MESSAGE.format(
                 anchored=_anchored, eligible=_eligible
             ),
-        )
+        ), source_texts)
 
     # The opening token, and the one exemption left. Skipped for a draft that
     # opens with a question to the source: its first word is grammar, not the

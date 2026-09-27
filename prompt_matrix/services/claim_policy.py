@@ -163,10 +163,14 @@ _META_RE = re.compile(
     r"|(?:this|the) (?:summary|memo|document|response|answer|draft|note) (?:is|was|does|has|reflects|covers|summari[sz]es|provides)"
     r"|the (?:provided |supplied |attached |uploaded |cited |above )?(?:source|document|declarations? page|material|text|file|page)s?"
     r"(?: (?:material|document|text|page|file)s?)? "
-    r"(?:does not|do not|did not|doesn't|don't|provides?|states?|lists?|shows?|mentions?|includes?|contains?|is|are|was|were|indicates?|specif(?:y|ies)|"
-    r"confirms?|supports?|offers?|gives?|covers?|lacks?|omits?)"
+    # Negatives, evaluatives and "provides the following" only: "the source
+    # states the deductible is $500" attributes a document fact and is a claim.
+    r"(?:does not|do not|did not|doesn't|don't|is|are|was|were|lacks?|omits?|"
+    r"(?:provides?|lists?|gives?|offers?|contains?|includes?) the following)"
     r"|the (?:information|details?|data|facts?|figures?|values?) (?:extracted|summari[sz]ed|reported|presented|listed|quoted|drawn|taken|shown)"
     r"|(?:the |our |my )?confidence (?:in|of|level|for)"
+    r"|(?:key |the |all |these )?(?:policy |claim )?(?:details?|facts?|figures?|information|values?) (?:is|are) "
+    r"(?:supported|confirmed|corroborated|backed|drawn|taken|derived|quoted|sourced) (?:by|from) the (?:source|document|declarations)"
     r"|the extracted (?:information|data|values?|figures?|facts?)"
     r"|(?:the )?sentences? .{0,40}(?:are|is) (?:repetitive|redundant|duplicated|boilerplate)"
     r"|(?:this|the) (?:extraction|assessment|review|analysis|verification) (?:is|was|has|shows?)"
@@ -473,19 +477,44 @@ def _states_arithmetic(text: str) -> bool:
     return len(figures) >= 2 and bool(_ARITHMETIC_CUE_RE.search(text))
 
 
+_BOUNDARY_LEFT_RE = re.compile(r"[.;!?](?=\s)|\n")
+_BOUNDARY_RIGHT_RE = re.compile(r"[.;!?](?=\s|$)|\n")
+
+
 def _sentence_around(text: str, start: int, end: int) -> str:
-    left = max(text.rfind(".", 0, start), text.rfind(";", 0, start), text.rfind("\n", 0, start)) + 1
-    candidates = [pos for pos in (text.find(".", end), text.find(";", end), text.find("\n", end)) if pos >= 0]
-    right = min(candidates) if candidates else len(text)
-    return collapse_whitespace(text[left : right + 1 if right < len(text) and text[right] in ".;" else right])
+    """The sentence of ``text`` containing ``[start, end)``: bounded by a newline
+    or by ``.``/``;``/``!``/``?`` followed by whitespace — so the ``.`` inside
+    ``$1,250.00`` is not a boundary and a declarations line is one sentence."""
+    lefts = [m.end() for m in _BOUNDARY_LEFT_RE.finditer(text, 0, start)]
+    left = lefts[-1] if lefts else 0
+    right_match = _BOUNDARY_RIGHT_RE.search(text, end)
+    if right_match is None:
+        right = len(text)
+    else:
+        right = right_match.end() if text[right_match.start()] != "\n" else right_match.start()
+    return collapse_whitespace(text[left:right])
+
+
+def _line_form(text: str) -> str:
+    """``verbatim_form`` that keeps line breaks (a declarations page is one fact
+    per line, and the line is the sentence)."""
+    out = re.sub(r"[ \t]+", " ", str(text or ""))
+    out = re.sub(r" ?\n ?", "\n", out).strip()
+    return _INITIAL_PERIOD_RE.sub(r"\1", out)
 
 
 def _find_value(value: str, source_text: str) -> str | None:
     """The source sentence carrying ``value`` verbatim (whitespace-collapsed,
-    case-insensitive), or ``None``."""
+    case-insensitive), or ``None``. Searched first with line breaks kept, so the
+    quote is the line that carries the value; a value that spans a line break is
+    found in the fully collapsed text."""
     needle = verbatim_form(value).lower()
     if len(needle) < 2:
         return None
+    hay = _line_form(source_text)
+    pos = hay.lower().find(needle)
+    if pos >= 0:
+        return _sentence_around(hay, pos, pos + len(needle))
     hay = verbatim_form(source_text)
     pos = hay.lower().find(needle)
     if pos < 0:
@@ -514,6 +543,7 @@ def assess_sub_claim(segment: str, source_text: str) -> dict[str, Any]:
         if result["status"] == "mismatch":
             out.update(detail=result["detail"])
             return out
+        source_text = _line_form(source_text)
         source_figures = extract_figures(source_text)
         labels = dict(labelled(text, figures))
         evidence_parts: list[str] = []
@@ -872,13 +902,14 @@ def _assess_unit(
             quality = source_quality(source, quote=evidence_text, carry_plan=carry_plan)
             unit["checks"]["source_quality"] = quality
             unit["checks"]["numeric"] = recompute(content, evidence_text, source_text=str(source.get("extracted_text") or ""))
+            if fallback["status"] == "unsupported":
+                # Nothing found to judge: not in the source, whatever its quality.
+                return _finish(UNSUPPORTED, f"not found in the source: {fallback['detail']}")
             if quality["status"] != "ok":
                 return _finish(INSUFFICIENT_EVIDENCE, f"source quality is insufficient: {quality['basis']}")
             if fallback["status"] == "verified":
                 return _finish(VERIFIED, f"found in the source without a citation: {fallback['detail']}")
-            if fallback["status"] == "contradicted":
-                return _finish(CONTRADICTED, "the source states otherwise: " + fallback["detail"])
-            return _finish(UNSUPPORTED, f"not found in the source: {fallback['detail']}")
+            return _finish(CONTRADICTED, "the source states otherwise: " + fallback["detail"])
 
     # Rule 5 — an enumeration: every fact against the whole cited source.
     if sub_claims:

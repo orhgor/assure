@@ -449,7 +449,11 @@ def _oversized_source(substrate_rows: list[dict[str, Any]]) -> tuple[str, int] |
     return None
 
 
-def _refusal_frames(message: str, reason: str, request_id: str) -> Iterator[str]:
+def _refusal_frames(message: str, reason: str, request_id: str, extra: dict | None = None) -> Iterator[str]:
+    """The three frames of a refusal. ``extra`` (2026-09-27) rides on the error
+    and complete frames: a form-like source adds ``form_source`` and the field
+    report's ``parsure_report_id`` / ``parsure_url`` so the shell can open it."""
+    more = dict(extra or {})
     yield _typed_sse(
         "error",
         {
@@ -458,13 +462,35 @@ def _refusal_frames(message: str, reason: str, request_id: str) -> Iterator[str]
             "http_status": 422,
             "reason": reason,
             "request_id": request_id,
+            **more,
         },
     )
     yield _typed_sse(
         "complete",
-        {"ok": False, "error": message, "request_id": request_id, "http_status": 422},
+        {"ok": False, "error": message, "request_id": request_id, "http_status": 422, **more},
     )
     yield _done_sse()
+
+
+def _form_refusal_extra(project_id: str, outcome) -> dict:
+    """``{form_source, parsure_report_id, parsure_url}`` for a refusal whose
+    source reads as a form (``compile_guard.form_aware``); the report is the
+    project's latest Parsure report, when there is one — never invented."""
+    if not getattr(outcome, "form_source", False):
+        return {}
+    extra: dict = {"form_source": True}
+    try:
+        try:
+            from ..db import parsure_repository as _parsure
+        except ImportError:
+            from db import parsure_repository as _parsure  # type: ignore
+        report = _parsure.get_latest_report(project_id)
+    except Exception:  # noqa: BLE001 — no intake table: the sentence stands alone
+        report = None
+    if isinstance(report, dict) and report.get("report_id"):
+        extra["parsure_report_id"] = str(report["report_id"])
+        extra["parsure_url"] = f"/parsing/{report['report_id']}?project_id={project_id}"
+    return extra
 
 
 def _check_cancel(cancel_check: CancelCheck | None) -> None:
@@ -1884,7 +1910,7 @@ def _run_draft_pipeline(
                     "cache_key": cache_key,
                 },
             )
-            yield from _refusal_frames(_cached_outcome.message, _cached_outcome.reason, rid)
+            yield from _refusal_frames(_cached_outcome.message, _cached_outcome.reason, rid, _form_refusal_extra(project_id, _cached_outcome))
             return
         yield from _replay_cached_compile(
             project_id, cache_key, cached, rid, verified=_replay_verified
@@ -2175,7 +2201,7 @@ def _run_draft_pipeline(
                 "model": model_id,
             },
         )
-        yield from _refusal_frames(_outcome.message, _outcome.reason, rid)
+        yield from _refusal_frames(_outcome.message, _outcome.reason, rid, _form_refusal_extra(project_id, _outcome))
         return
 
     # The JDF tree is NOT persisted here: this is the pre-audit document. The

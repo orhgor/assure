@@ -931,6 +931,23 @@
       }
       return null;
     }
+    // The unfilled-form sentence of a report flagged `form_template`
+    // (v1_orchestrator.form_template_flag): the report's own words from
+    // extraction_notes, else the flag word. "" when the report is not a form.
+    function _formSentence(rep) {
+      if (!rep) return "";
+      var flags = Array.isArray(rep.quality_flags) ? rep.quality_flags.map(String) : [];
+      if (flags.indexOf("form_template") === -1) return "";
+      var notes = Array.isArray(rep.extraction_notes) ? rep.extraction_notes : [];
+      for (var i = 0; i < notes.length; i++) {
+        if (typeof notes[i] === "string" && /unfilled form/i.test(notes[i])) return notes[i].trim();
+      }
+      return _t("shell.source.result.form_plain", "Unfilled form");
+    }
+    function _formCaptions(sentence) {
+      var m = /(\d+) numbered caption/.exec(String(sentence || ""));
+      return m ? Number(m[1]) : null;
+    }
     function _paintSourceResult(rowEl, summary) {
       if (!rowEl) return;
       var line = rowEl.querySelector(".source-result");
@@ -954,7 +971,17 @@
       var found = (rs.fields_found === undefined || rs.fields_found === null) ? null : Number(rs.fields_found);
       var text = document.createElement("span");
       text.className = "source-result-text";
-      if (total > 0 && found === 0) {
+      var formSentence = _formSentence(summary);
+      if (formSentence) {
+        // "Unfilled form · 14 captions · View" — the form fact before any field count.
+        var caps = _formCaptions(formSentence);
+        text.setAttribute("data-tone", "partial");
+        text.title = formSentence;
+        text.textContent = caps != null
+          ? _tf("shell.source.result.form", "Unfilled form \u00b7 {n} captions", { n: caps })
+          : _t("shell.source.result.form_plain", "Unfilled form");
+        line.appendChild(text);
+      } else if (total > 0 && found === 0) {
         var dt0 = String(summary.document_type || "uncertain");
         text.setAttribute("data-tone", "partial");
         text.textContent = _tf("shell.source.result.none_as_type", "Nothing could be read as {type} \u2014 check the type",
@@ -2132,9 +2159,37 @@
       docSurface.appendChild(card);
       setShell("document.mode", mode);
     }
-    function _showRefusalCard(message) {
+    function _showRefusalCard(message, data) {
       _renderStateCard("doc-refusal", "doc.refusal.lead", REFUSAL_LEAD,
                        "doc.refusal.detail", REFUSAL_DETAIL, message, "refused");
+      // A form-like source (compile_guard.form_aware, 2026-09-27): the card
+      // says the server's sentence — the text is captions, the field report has
+      // what was read — and opens that report, never "upload more sources".
+      if (!(data && data.form_source) || !docSurface) return;
+      var card = docSurface.querySelector(".doc-refusal");
+      if (!card) return;
+      card.setAttribute("data-form-source", "1");
+      var detail = card.querySelector(".doc-state-detail");
+      if (detail) { detail.textContent = String(message || ""); detail.removeAttribute("data-i18n"); }
+      var reportId = data.parsure_report_id ? String(data.parsure_report_id) : "";
+      var url = data.parsure_url ? String(data.parsure_url) : "";
+      if (!reportId && !url) return;
+      var actions = document.createElement("div");
+      actions.className = "doc-state-actions";
+      var open = document.createElement(reportId ? "button" : "a");
+      open.className = "btn-secondary doc-refusal-report";
+      open.textContent = _t("shell.refusal.open_report", "Open the field report");
+      if (reportId) { open.type = "button"; open.addEventListener("click", function () { _viewReport(reportId); }); }
+      else { open.href = url; }
+      actions.appendChild(open);
+      if (reportId && url) {
+        var rec = document.createElement("a");
+        rec.className = "btn-tertiary";
+        rec.href = url;
+        rec.textContent = _t("shell.fields.full_record", "Full record");
+        actions.appendChild(rec);
+      }
+      card.appendChild(actions);
     }
     // A compile that stopped without a verdict: the stream ended, or failed,
     // before the server said the run was over. The streamed text goes with it —
@@ -2173,6 +2228,9 @@
           : (review > 0
               ? _tf("shell.doc.intake.detail_review", "{fields} fields extracted \u00b7 {review} need review. Ask for a draft below when you are ready.", { fields: fields, review: review })
               : _tf("shell.doc.intake.detail_ok", "{fields} fields extracted, nothing waiting on you. Ask for a draft below.", { fields: fields }));
+        // An unfilled form leads with its own sentence, before any count.
+        var formLead = _formSentence(latest);
+        if (formLead) detail = formLead + " " + _t("shell.doc.intake.form_tail", "The field captions were read; there are no values to review.");
         if (draftEl && draftEl.parentNode) draftEl.parentNode.removeChild(draftEl);
         draftEl = null;
         _clearStateCards();
@@ -2770,7 +2828,7 @@
       var counts = {
         eligible: 0, anchored: 0, supported: 0, partial: 0,
         unanchored: 0, unsupported: 0, unverified: 0,
-        verified: 0, contradicted: 0, insufficient: 0, flagged: 0,
+        verified: 0, contradicted: 0, insufficient: 0, flagged: 0, meta: 0,
       };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
@@ -2782,6 +2840,10 @@
           if (!node || typeof node !== "object") continue;
           if (String(node.type || "") !== "paragraph") continue;
           if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) continue;
+          // A meta block (a statement about the draft or the source) is a note,
+          // not a claim: counted apart, as the server does (`counts["meta"]`).
+          var metaBlock = _claimOf(node);
+          if (metaBlock && _isMetaClaim(metaBlock)) { counts.meta++; continue; }
           counts.eligible++;
           // Python treats [] as falsy; JS does not. Payloads carry
           // provenance: [] for unanchored paragraphs, so mirror
@@ -4462,6 +4524,10 @@
                       hintKey: "shell.claim.hint.insufficient", hint: "The source does not carry enough to decide.", tone: "partial" },
       not_assessed: { glyph: "\u00b7", key: "shell.claim.not_assessed", fallback: "Not assessed",
                       hintKey: "shell.claim.hint.not_assessed", hint: "No claim verdict is recorded for this paragraph.", tone: "none" },
+      // The memo's "missing items" / "confidence" paragraphs: notes about the
+      // draft, not claims — no verdict, no colour, the reason as caption.
+      meta:         { glyph: "\u00b7", key: "shell.claim.meta", fallback: "Note about this draft",
+                      hintKey: "shell.claim.hint.meta", hint: "A statement about the source or the draft, not a document fact. Not counted as a claim.", tone: "none" },
     };
     // claim-v1 verdict → the mark's state. A function with its own table so
     // tests/test_client_counters_parity.py can extract it whole.
@@ -4502,8 +4568,15 @@
       var mp = node && node.meta && node.meta.provenance;
       if (!mp || Array.isArray(mp) || typeof mp !== "object") return null;
       var c = mp.claim;
-      if (!c || typeof c !== "object" || !c.verdict) return null;
+      if (!c || typeof c !== "object") return null;
+      // A meta block (checks.kind "meta") is a statement about the draft or
+      // the source: its verdict is null (2026-09-27) or, on an older row,
+      // UNSUPPORTED — either way it is read as a note, not a claim.
+      if (!c.verdict && !_isMetaClaim(c)) return null;
       return c;
+    }
+    function _isMetaClaim(c) {
+      return Boolean(c && c.checks && typeof c.checks === "object" && String(c.checks.kind || "").toLowerCase() === "meta");
     }
     function _claimState(claim) { return claim ? _claimStateOf(claim.verdict) : null; }
     // Whether the document carries claim-v1 verdicts at all: a summary, or any
@@ -4611,6 +4684,9 @@
       // block's, or the one the server's counter derives for a paragraph
       // without a block (`_derivedClaimVerdict`). One rule for the mark and
       // the tile, in both languages (tests/test_client_counters_parity.py).
+      // A meta block is a note about the draft, not a claim.
+      var block = _claimOf(node);
+      if (block && _isMetaClaim(block)) return "meta";
       return _claimStateOf(_claimVerdictOf(node));
     }
     function applyAnchorStates(doc, targetEl) {
@@ -4634,6 +4710,14 @@
           // paragraph is in, and a class name is a styling detail.
           el.setAttribute("data-anchor-state", state);
           if (_ANCHOR_STATES[state] && _ANCHOR_STATES[state].tone) el.setAttribute("data-verdict-tone", _ANCHOR_STATES[state].tone);
+          if (state === "meta" && !el.querySelector(".claim-meta-caption")) {
+            var metaClaim = _claimOf(node);
+            var cap = document.createElement("p");
+            cap.className = "claim-meta-caption";
+            cap.textContent = _t("shell.claim.meta", "Note about this draft") + " \u2014 " +
+              String((metaClaim && metaClaim.reason) || _t("shell.claim.meta_reason", "statement about the source, not a document fact"));
+            el.appendChild(cap);
+          }
           if (el.querySelector(".anchor-chip")) continue;
           var chip = document.createElement("span");
           chip.className = "anchor-chip anchor-chip-" + state;
@@ -5051,7 +5135,7 @@
         // Any other failure (an empty draft, a model error, a parse failure) is a
         // halt: it gets the halt card, which discards the streamed text the same
         // way, so a failed run never leaves a draft standing as the document.
-        if (data && Number(data.http_status) === 422) _showRefusalCard(msg);
+        if (data && Number(data.http_status) === 422) _showRefusalCard(msg, data);
         else _showHaltCard(msg);
         try { console.error("[shell] error event:", msg); } catch (_) {}
       }
@@ -6735,7 +6819,8 @@
       // it had provenance. Nothing was matched to the claim, so there is nothing
       // to quote; the drawer says the claim is not traceable and, when a verdict
       // exists, names it.
-      if (!p0) {
+      var metaFirst = _claimOf(node);
+      if (!p0 && !(metaFirst && _isMetaClaim(metaFirst))) {
         // 2B/2C: unanchored is not "nothing to say". The drawer names the
         // state, the model names the gap, and the two ways to close it sit
         // under it — upload a document, or fetch an allowlisted page.
@@ -6763,11 +6848,15 @@
       var stateLabel = document.createElement("span");
       stateLabel.className = "evidence-verdict-label";
       var claim = _claimOf(node);
+      var isMeta = Boolean(claim && _isMetaClaim(claim));
       // Label from the claim verdict when there is one (claim-v1), else from
-      // the legacy entailment verdict — never from the anchor's presence.
-      stateLabel.textContent = claim
-        ? (_t("shell.claim.policy", "claim-v1") + (claim.policy && claim.policy !== "claim-v1" ? " " + claim.policy : "") + " \u00b7 " + _claimPageWords(claim.page))
-        : _entailmentLabel(node, p0, pageStr);
+      // the legacy entailment verdict — never from the anchor's presence. A
+      // meta block carries its reason: it is a note, not a claim.
+      stateLabel.textContent = isMeta
+        ? String(claim.reason || _t("shell.claim.meta_reason", "statement about the source, not a document fact"))
+        : claim
+          ? (_t("shell.claim.policy", "claim-v1") + (claim.policy && claim.policy !== "claim-v1" ? " " + claim.policy : "") + " \u00b7 " + _claimPageWords(claim.page))
+          : _entailmentLabel(node, p0, pageStr);
       headText.appendChild(stateName);
       headText.appendChild(stateLabel);
       header.appendChild(badge);
@@ -6775,7 +6864,8 @@
       whyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
-      if (claim) _renderClaimBlock(whyEl, claim);
+      if (claim && !isMeta) _renderClaimBlock(whyEl, claim);
+      if (isMeta) { evidenceBodyEl.appendChild(content); return; }
       // The check's one-sentence reason, directly under the label. Absent when
       // the check produced none — never filled in with a made-up justification.
       var reasoning = claim ? "" : _entailmentReasoning(node, p0);
@@ -9432,6 +9522,9 @@
       var metaEl = document.getElementById("fields-doc-meta");
       if (metaEl) {
         var bits = [];
+        // An unfilled form leads with the report's own sentence (2026-09-27).
+        var formHead = _formSentence(rep);
+        if (formHead) bits.push(formHead);
         var mod = _modalityWords(rep.modality || rep.material_type);
         if (mod) bits.push(mod);
         if (typeof rep.document_quality_score === "number") bits.push(_tf("shell.fields.quality", "Quality {pct}", { pct: _pct(rep.document_quality_score) }));
@@ -9853,9 +9946,12 @@
         if (emptyText) {
           if (rep) {
             var dt = String((rep.classification || {}).document_type || "uncertain");
-            emptyText.textContent = (dt === "uncertain")
-              ? _t("shell.source.result.none_uncertain", "Nothing extracted \u2014 type uncertain")
-              : _t("shell.source.result.none", "Nothing extracted");
+            var formEmpty = _formSentence(rep);
+            emptyText.textContent = formEmpty
+              ? formEmpty
+              : (dt === "uncertain")
+                ? _t("shell.source.result.none_uncertain", "Nothing extracted \u2014 type uncertain")
+                : _t("shell.source.result.none", "Nothing extracted");
           } else {
             emptyText.textContent = _t("shell.fields.empty", "No fields yet. Upload a document to begin.");
           }

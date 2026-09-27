@@ -86,7 +86,8 @@
               <span class="sep">·</span> Quality <b>{{ doc.quality_label }}</b>
               {%- if doc.details %}
               <span class="sep">·</span>
-              {%- if doc.schema_mismatch %} {% if doc.fields_total %}<b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} not applicable{% else %}no fields until the type is chosen{% endif %}
+              {%- if doc.form_sentence %} {% if doc.form_captions is not none %}<b>{{ doc.form_captions }}</b> {{ strings.get("parsing.form.captions", "captions") }}, {% endif %}{{ strings.get("parsing.form.no_values", "no filled values") }}
+              {%- elif doc.schema_mismatch %} {% if doc.fields_total %}<b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} not applicable{% else %}no fields until the type is chosen{% endif %}
               {%- elif doc.nothing_extracted %} <b>0</b> of {{ doc.fields_total }} field{{ "" if doc.fields_total == 1 else "s" }} read
               {%- elif doc.fields_total == 0 %} no fields until the type is chosen
               {%- elif doc.fields_review == 0 %} <b>{{ doc.fields_total }}</b> field{{ "" if doc.fields_total == 1 else "s" }} accepted
