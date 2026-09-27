@@ -13,6 +13,22 @@
 </head>
 <body class="right-hidden">
   <div id="modal-layer" class="modal-layer" hidden></div>
+  <!-- UPLOAD QUEUE (customer feedback 2026-09-27): a quiet drawer, one row per
+       file — name, size, a bar (determinate while bytes move, indeterminate
+       while the worker reads), the stage, the result or the server's error and
+       Retry. Not in #modal-layer: uploads keep running behind every other
+       dialog, and Close only hides it (the header chip reopens it). A bottom
+       sheet at 640px (shell.css). shell.js owns every row. -->
+  <aside id="upload-modal" class="upload-modal" role="dialog" aria-labelledby="upload-title" tabindex="-1" hidden>
+    <header class="upload-head">
+      <div class="upload-head-text">
+        <h2 id="upload-title" class="upload-title" data-i18n="shell.upload.title">Uploads</h2>
+        <p id="upload-overall" class="upload-overall" aria-live="polite"></p>
+      </div>
+      <button type="button" id="upload-close" class="btn-tertiary upload-close" data-i18n="shell.dialog.close">Close</button>
+    </header>
+    <ul id="upload-list" class="upload-list" role="list"></ul>
+  </aside>
 
   <!-- ============================================================= -->
   <!-- ABOUT — "About Assure" in the More menu opens the dialog below. -->
@@ -96,6 +112,9 @@
            review | prompt | upload, derived in shell.js (_syncUiMode). Quiet
            text, no colour block; field changes are refused outside review. -->
       <span id="shell-mode-chip" class="mode-chip" data-mode="upload" role="status" aria-live="polite" data-i18n="shell.mode.upload">Upload mode</span>
+      <!-- The upload queue's chip: "Uploading N…" while files move and the
+           drawer is closed; a click reopens the drawer (shell.js). -->
+      <button type="button" id="upload-chip" class="upload-chip" hidden>Uploading…</button>
     </div>
     <div class="app-header-right">
       <!-- The primary action. The label follows the document's state
@@ -247,7 +266,7 @@
           </div>
           <div id="source-list" class="source-list"></div>
           <button type="button" class="btn-secondary" id="source-upload-btn" data-i18n="shell.action.upload_evidence">Upload evidence</button>
-          <input type="file" id="source-file-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt,.md,.csv,.json" style="display:none;">
+          <input type="file" id="source-file-input" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt,.md,.csv,.json" style="display:none;">
         </div>
       </div>
 
@@ -283,7 +302,7 @@
                    is kept (the shell and the e2e specs address it). The label is
                    the user's verb; the tooltip carries the technical one. -->
               <button type="button" id="dock-ingest" class="btn-tertiary" title="Ingest a PDF into the figure index (jdf convert + chunk)" data-i18n="shell.action.upload_pdf">Upload PDF</button>
-              <input type="file" id="dock-ingest-file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" hidden>
+              <input type="file" id="dock-ingest-file" multiple accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" hidden>
             </div>
             <div id="source-manifest" class="manifest"></div>
           </section>

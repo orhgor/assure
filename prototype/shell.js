@@ -1075,112 +1075,441 @@
       var pair = _STAGE_WORDS[String(stage || "").toLowerCase()];
       return pair ? _t(pair[0], pair[1]) : String(stage || "");
     }
+    // The accepted names, one place: the file input's `accept` mirrors it.
+    var SOURCE_NAME_RE = /\.(pdf|png|jpe?g|tiff?|bmp|txt|md|csv|json)$/i;
+    var INGEST_NAME_RE = /\.(pdf|png|jpe?g|tiff?|bmp)$/i;
+    // The server's ceiling (upload_limits.MAX_FILE_SIZE_MB, 25 since 2026-09-26);
+    // checked here too so an oversize file fails in its row before any bytes move.
+    var MAX_UPLOAD_MB = 25;
+    var MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+    // One file, from the Sources input or a drop: a row in the upload queue.
+    // Kept under its old name for the callers that grew around it.
     function handleSourceFile(file) {
       if (!file) return;
-      var name = file.name || "source.txt";
-      if (!/\.(pdf|png|jpe?g|tiff?|bmp|txt|md|csv|json)$/i.test(name)) {
-        sourceUploadError(
-          "PDF, PNG, JPEG, TIFF, BMP, .txt, .md, .csv and .json are accepted here. DOCX is not wired."
-        );
-        var fi = document.getElementById("source-file-input");
-        if (fi) fi.value = "";
-        return;
+      _enqueueUploads([file], "source");
+    }
+    // The upload answered. 202 + task_id: the worker has it, poll the task and
+    // resolve to the vault entry it produced (the ingest_jobs row beats the
+    // Celery result, as the server itself does). Inline (PARSE_ASYNC=0): the
+    // body is the entry. `onStage` gets the job's stage words as they change.
+    function _sourceUploadAnswered(name, r, onStage) {
+      if (!r.ok || r.j.ok === false) {
+        return Promise.reject(new Error(r.j.error || ("HTTP " + r.status)));
       }
-      // Upload through the ownership-gated vault route, not /api/substrate:
-      // that one is the edge Worker's text ingest and is gated on a shared
-      // secret the browser cannot hold. The server reads .txt/.md directly.
+      if (r.status === 202 && r.j.task_id) {
+        // A queued file is an intake job: the rail badge counts it.
+        if (typeof _pollIngestJobs === "function") _pollIngestJobs();
+        return _awaitTask(r.j.task_id, function (body) {
+          var job = (body && body.job) || {};
+          if (typeof onStage === "function") onStage(job, body);
+        }).then(function (body) {
+          var res = (body && body.result) || {};
+          var entry = res.entry || {};
+          var job = (body && body.job) || {};
+          return { id: entry.id || job.substrate_file_id, entry: entry };
+        });
+      }
+      return Promise.resolve({ id: r.j.id, entry: r.j });
+    }
+    // The post-upload tail, once, for every path (queue row, retry): the
+    // source row, SHELL.sources, the quiet Parsure re-read that moves the chip,
+    // the badge and the row's result line, and the manifest re-read. The
+    // intake card is not touched here — _afterParsureChange → _syncDocState →
+    // _renderIntakeCard owns it, guarded by its own signature (the 2008-render
+    // loop of 2026-09-25 came from a second caller).
+    function _afterSourceUploaded(name, j) {
+      if (!j || !j.id) throw new Error("No file id returned.");
+      var newId = String(j.id);
+      var entry = j.entry || {};
+      setShell("sources", SHELL.sources.concat([newId]));
+      appendSourceItem(name, newId, entry);
+      var rid = entry.parsure_report_id ? String(entry.parsure_report_id) : "";
+      var read = rid
+        ? _loadParsure(_activeProjectId(), rid, { quiet: true }).then(_syncSourceResults)
+        : Promise.resolve(false);
+      // The task is terminal before the vault row is always visible to the
+      // manifest read (the worker commits after it reports); one re-read a
+      // second later closes that window without polling.
+      _refreshManifest().then(function () {
+        var listed = (manifestRows || []).some(function (f) {
+          return String(f && f.id) === newId;
+        });
+        if (!listed) setTimeout(_refreshManifest, 1000);
+      });
+      return read.then(function () { return { id: newId, entry: entry, reportId: rid }; });
+    }
+
+    // =================================================================
+    // The upload queue (customer feedback 2026-09-27: "while a file uploads
+    // there is no upload bar; I can upload multiple files, a modal has to
+    // show progress"). Every file from the Sources input or the dock's Upload
+    // PDF is a row: name, size, a determinate bar while bytes move (XHR
+    // upload.onprogress — the only honest percentage there is), then the
+    // ingest job's stage words with an indeterminate bar (parsing has no
+    // percentage and none is invented), then the same result line the
+    // Sources row shows, or the server's error verbatim with Retry. At most
+    // three uploads move at once; the rest wait. Cancel aborts the XHR.
+    // =================================================================
+    var UPLOAD_PARALLEL = 3;
+    var __uploads = [];            // rows, in the order they were queued
+    var __uploadSeq = 0;
+    var __uploadModalOpen = false;
+    var __uploadOpener = null;     // the element to hand focus back to
+    var __uploadRenderQueued = false;
+    function _uploadsActive() {
+      return __uploads.some(function (u) { return u.state === "waiting" || u.state === "uploading" || u.state === "processing"; });
+    }
+    function _uploadsMoving() {
+      return __uploads.filter(function (u) { return u.state === "uploading" || u.state === "processing"; }).length;
+    }
+    function _uploadsUploading() {
+      return __uploads.filter(function (u) { return u.state === "uploading"; }).length;
+    }
+    function _enqueueUploads(files, kind) {
+      var list = Array.prototype.slice.call(files || []).filter(Boolean);
+      if (!list.length) return;
+      list.forEach(function (file) {
+        var name = file.name || "source";
+        var row = { id: "u" + (++__uploadSeq), file: file, name: name, size: Number(file.size) || 0, kind: kind || "source",
+                    state: "waiting", sent: 0, total: Number(file.size) || 0, stage: "", stageMeta: "", error: "", xhr: null,
+                    taskId: "", resultEl: null, summary: null, done: false };
+        var re = row.kind === "ingest" ? INGEST_NAME_RE : SOURCE_NAME_RE;
+        if (!re.test(name)) {
+          row.state = "failed";
+          row.error = row.kind === "ingest"
+            ? _t("shell.upload.type_ingest", "PDF, PNG, JPEG, TIFF and BMP are accepted here.")
+            : _t("shell.upload.type_source", "PDF, PNG, JPEG, TIFF, BMP, .txt, .md, .csv and .json are accepted here. DOCX is not wired.");
+          row.retryable = false;
+        } else if (row.size > MAX_UPLOAD_BYTES) {
+          row.state = "failed";
+          row.error = _tf("shell.upload.too_large", "File exceeds {mb} MB limit. Please upload a smaller document.", { mb: MAX_UPLOAD_MB });
+          row.retryable = false;
+        } else {
+          row.retryable = true;
+        }
+        __uploads.push(row);
+      });
+      _openUploadModal(null);
+      _pumpUploads();
+      _syncUiMode();
+    }
+    function _pumpUploads() {
+      var moving = _uploadsUploading();
+      for (var i = 0; i < __uploads.length && moving < UPLOAD_PARALLEL; i++) {
+        var u = __uploads[i];
+        if (u.state !== "waiting") continue;
+        moving += 1;
+        _startUpload(u);
+      }
+      _renderUploadModal();
+    }
+    function _uploadUrl(kind, pid) {
+      var base = "/api/projects/" + encodeURIComponent(pid);
+      return kind === "ingest" ? base + "/jdf/ingest" : base + "/substrate/upload";
+    }
+    // The POST, over XMLHttpRequest so upload.onprogress reports the bytes
+    // sent. Same route, same multipart field, same credentials as the fetch it
+    // replaces (same-origin cookies travel by default); the answer is read the
+    // same way ({status, ok, j}).
+    function _xhrUpload(row, url) {
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        row.xhr = xhr;
+        xhr.open("POST", url, true);
+        xhr.withCredentials = true;
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.upload.onprogress = function (e) {
+          if (row.state !== "uploading") return;
+          if (e.lengthComputable) { row.sent = e.loaded; row.total = e.total; }
+          else { row.sent = e.loaded; }
+          _renderUploadModalSoon();
+        };
+        xhr.onload = function () {
+          row.xhr = null;
+          var j = {};
+          try { j = JSON.parse(xhr.responseText || "{}") || {}; } catch (_) { j = {}; }
+          resolve({ status: xhr.status, ok: xhr.status >= 200 && xhr.status < 300, j: j });
+        };
+        xhr.onerror = function () { row.xhr = null; reject(new Error(_t("shell.upload.network", "Upload failed. Check your connection and try again."))); };
+        xhr.onabort = function () { row.xhr = null; var err = new Error("aborted"); err.__aborted = true; reject(err); };
+        var fd = new FormData();
+        fd.append("file", row.file, row.name);
+        xhr.send(fd);
+      });
+    }
+    function _startUpload(row) {
+      row.state = "uploading"; row.sent = 0; row.error = ""; row.stage = ""; row.stageMeta = "";
+      _syncUiMode();
+      var pidUsed = "";
       ensureProjectId()
         .then(function (pid) {
-          var fd = new FormData();
-          fd.append("file", file, name);
-          return fetch("/api/projects/" + encodeURIComponent(pid) + "/substrate/upload", {
-            method: "POST",
-            body: fd,
-          }).then(function (resp) {
-            return resp.json().catch(function () { return {}; }).then(function (j) {
-              return { status: resp.status, ok: resp.ok, j: j || {} };
-            });
-          });
+          pidUsed = pid;
+          if (row.kind === "ingest" && typeof _pollIngestJobs === "function") _pollIngestJobs();
+          return _xhrUpload(row, _uploadUrl(row.kind, pid));
         })
         .then(function (r) {
-          if (!r.ok || r.j.ok === false) {
-            throw new Error(r.j.error || ("HTTP " + r.status));
-          }
-          if (r.status === 202 && r.j.task_id) {
-            // Queued: the row lands when the worker finishes. Show the file as
-            // processing meanwhile and resolve to the vault entry it produced.
-            var pending = _pendingSourceRow(name);
-            // A queued file is an intake job: the rail badge counts it.
-            if (typeof _pollIngestJobs === "function") _pollIngestJobs();
-            return _awaitTask(r.j.task_id, function (body) {
-              var stage = body && body.job && body.job.stage;
-              if (pending && stage) pending.textContent = name + " \u2014 " + _stageWord(stage) + "\u2026";
-            }).then(function (body) {
-              if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
-              var res = (body && body.result) || {};
-              var entry = res.entry || {};
-              var job = (body && body.job) || {};
-              return { id: entry.id || job.substrate_file_id, entry: entry };
-            }, function (err) {
-              // The row stays where the file was listed and turns into the
-              // failure, so the reader sees which upload failed and why in one
-              // place rather than a vanished row and a bare message below.
-              var msg = String(err && err.message ? err.message : err);
-              if (pending && pending.parentNode) {
-                pending.className = "source-item is-error";
-                pending.textContent = name + " \u2014 " + msg;
-                err = new Error(msg);
-                err.__shownInRow = true;
-              }
-              throw err;
-            });
-          }
-          // Inline (PARSE_ASYNC=0): the route's body is the entry.
-          return { id: r.j.id, entry: r.j };
-        })
-        .then(function (j) {
-          if (!j || !j.id) throw new Error("No file id returned.");
-          var newId = String(j.id);
-          var entry = j.entry || {};
-          setShell("sources", SHELL.sources.concat([newId]));
-          appendSourceItem(name, newId, entry);
-          // The upload produced an intake report: re-read the list so the
-          // chip, the primary action, the Fields badge and this row's result
-          // line all follow it without a reload. Quietly — the pane does not
-          // switch; the row's View is the door.
-          var rid = entry.parsure_report_id ? String(entry.parsure_report_id) : "";
-          if (rid) {
-            _loadParsure(_activeProjectId(), rid, { quiet: true }).then(_syncSourceResults);
-          }
-          // The task is terminal before the vault row is always visible to the
-          // manifest read (the worker commits after it reports); one re-read a
-          // second later closes that window without polling.
-          _refreshManifest().then(function () {
-            var listed = (manifestRows || []).some(function (f) {
-              return String(f && f.id) === newId;
-            });
-            if (!listed) setTimeout(_refreshManifest, 1000);
+          if (row.state !== "uploading") return null;   // cancelled meanwhile
+          row.sent = row.total;
+          row.state = "processing";
+          row.stage = row.kind === "ingest" ? _t("shell.upload.indexing", "indexing") : _stageWord("queued");
+          _renderUploadModal();
+          if (row.kind === "ingest") return _ingestAnswered(row, r, pidUsed);
+          // The Sources list shows the file where it will land while the
+          // worker reads it (as before the queue); the row leaves on success
+          // and turns into the failure otherwise.
+          var pending = (r.status === 202 && r.j && r.j.task_id) ? _pendingSourceRow(row.name) : null;
+          row.pendingEl = pending;
+          return _sourceUploadAnswered(row.name, r, function (job) {
+            if (row.state !== "processing") return;
+            row.stage = _stageWord(job.stage || job.status || "parsing");
+            if (pending) pending.textContent = row.name + " \u2014 " + row.stage + "\u2026";
+            var meta = [];
+            if (job.parser_name) meta.push(String(job.parser_name));
+            if (typeof job.ocr_confidence === "number") meta.push(_tf("shell.upload.ocr", "OCR {pct}", { pct: _pct(job.ocr_confidence) }));
+            row.stageMeta = meta.join(" · ");
+            _renderUploadModalSoon();
+          }).then(function (j) {
+            if (pending && pending.parentNode) pending.parentNode.removeChild(pending);
+            return _afterSourceUploaded(row.name, j);
+          }).then(function (out) {
+            if (row.state !== "processing") return null;
+            row.state = "done";
+            row.summary = out && out.reportId ? _reportSummaryForSource(out.id, out.entry) : _reportSummaryForSource(out && out.id, out && out.entry);
+            row.entryId = out && out.id;
+            row.entry = out && out.entry;
+            return null;
           });
         })
         .catch(function (err) {
-          if (err && err.__shownInRow) {
-            try { console.error("[shell] source upload:", err.message); } catch (_) {}
-            return;
+          if (err && err.__aborted) { row.state = "cancelled"; return; }
+          if (row.state === "cancelled") return;
+          row.state = "failed";
+          row.error = String(err && err.message ? err.message : err);
+          if (row.pendingEl && row.pendingEl.parentNode) {
+            row.pendingEl.className = "source-item is-error";
+            row.pendingEl.textContent = row.name + " \u2014 " + row.error;
           }
-          sourceUploadError(String(err && err.message ? err.message : err));
+          try { console.error("[shell] upload:", row.name, row.error); } catch (_) {}
         })
         .then(function () {
-          var fi = document.getElementById("source-file-input");
-          if (fi) fi.value = "";
+          _pumpUploads();
+          _syncUiMode();
         });
     }
+    // The dock's Upload PDF answered (jdf/ingest is synchronous): the figure
+    // count and the instruction flag in the dock panel, as before, and the
+    // project's sources re-read from the server.
+    function _ingestAnswered(row, r, pid) {
+      _jdfClearProgress();
+      if (r.ok && r.j && r.j.ok) {
+        row.resultText = _tf("shell.upload.figures", "{n} figures found", { n: Number(r.j.chunks_stored || 0) });
+        jdfMessage((r.j.chunks_stored || 0) + " figures found in " + row.name, false);
+        if (r.j.instruction_like) jdfMessage(row.name + " — " + (r.j.instruction_flag_label || ""), false);
+        _loadProjectSourceList(pid);
+        _syncGroundingNotices(null);
+        row.state = "done";
+        return null;
+      }
+      return Promise.reject(new Error(String((r.j && r.j.error) || ("Upload failed (HTTP " + r.status + ")"))));
+    }
+    function _cancelUpload(row) {
+      if (row.state === "uploading" && row.xhr) { try { row.xhr.abort(); } catch (_) {} row.state = "cancelled"; }
+      else if (row.state === "waiting") { row.state = "cancelled"; }
+      _pumpUploads();
+      _syncUiMode();
+    }
+    function _retryUpload(row) {
+      if (!row.retryable) return;
+      row.state = "waiting"; row.error = ""; row.sent = 0; row.stage = ""; row.stageMeta = "";
+      _pumpUploads();
+      _syncUiMode();
+    }
+
+    // ---- the modal (index.html #upload-modal): a quiet drawer, a bottom sheet at 640px ----
+    function _uploadModalEl() { return document.getElementById("upload-modal"); }
+    function _openUploadModal(opener) {
+      var el = _uploadModalEl();
+      if (!el) return;
+      var wasOpen = __uploadModalOpen;
+      __uploadModalOpen = true;
+      el.hidden = false;
+      if (opener) __uploadOpener = opener;
+      _renderUploadModal();
+      // Focus moves in when a person opened it (the chip, a keyboard user); an
+      // upload that auto-opens it announces itself without stealing the
+      // pointer's place — the dialog itself takes focus so it is read once.
+      if (!wasOpen) {
+        var target = opener ? el.querySelector("#upload-close") : el;
+        if (target && typeof target.focus === "function") { try { target.focus({ preventScroll: true }); } catch (_) { target.focus(); } }
+      }
+    }
+    function _closeUploadModal() {
+      var el = _uploadModalEl();
+      if (!el) return;
+      __uploadModalOpen = false;
+      el.hidden = true;
+      // Finished rows leave with the modal; what is still moving stays listed
+      // for the chip to reopen.
+      if (!_uploadsActive()) __uploads = [];
+      _renderUploadChip();
+      var back = __uploadOpener || document.getElementById("source-upload-btn");
+      __uploadOpener = null;
+      if (back && typeof back.focus === "function" && document.contains(back)) { try { back.focus({ preventScroll: true }); } catch (_) { back.focus(); } }
+    }
+    function _renderUploadModalSoon() {
+      if (__uploadRenderQueued) return;
+      __uploadRenderQueued = true;
+      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 40); };
+      raf(function () { __uploadRenderQueued = false; _renderUploadModal(); });
+    }
+    function _uploadOverallWords() {
+      var total = __uploads.length;
+      var done = __uploads.filter(function (u) { return u.state === "done"; }).length;
+      var failed = __uploads.filter(function (u) { return u.state === "failed"; }).length;
+      var cancelled = __uploads.filter(function (u) { return u.state === "cancelled"; }).length;
+      var parts = [_tf("shell.upload.overall", "{done} of {total} done", { done: done, total: total })];
+      if (failed) parts.push(_plural(failed, "shell.upload.failed_one", "1 failed", "shell.upload.failed_many", "{n} failed"));
+      if (cancelled) parts.push(_plural(cancelled, "shell.upload.cancelled_one", "1 cancelled", "shell.upload.cancelled_many", "{n} cancelled"));
+      return parts.join(" · ");
+    }
+    function _renderUploadChip() {
+      var chip = document.getElementById("upload-chip");
+      if (!chip) return;
+      var moving = __uploads.filter(function (u) { return u.state === "waiting" || u.state === "uploading" || u.state === "processing"; }).length;
+      var show = moving > 0 && !__uploadModalOpen;
+      chip.hidden = !show;
+      if (show) chip.textContent = _plural(moving, "shell.upload.chip_one", "Uploading 1…", "shell.upload.chip_many", "Uploading {n}…");
+    }
+    function _renderUploadRow(u) {
+      var li = _el("li", "upload-row");
+      li.setAttribute("data-upload-id", u.id);
+      li.setAttribute("data-state", u.state);
+      var head = _el("div", "upload-row-head");
+      var nameEl = _el("span", "upload-name", u.name);
+      nameEl.title = u.name;
+      head.appendChild(nameEl);
+      head.appendChild(_el("span", "upload-size", _manifestSize(u.size)));
+      li.appendChild(head);
+      // The bar: determinate while bytes move (the XHR's own figures),
+      // indeterminate while the worker reads (no percentage exists), full and
+      // still when done, empty when it never started.
+      var bar = _el("div", "upload-bar");
+      bar.setAttribute("role", "progressbar");
+      var fill = _el("span", "upload-bar-fill");
+      var pct = null;
+      if (u.state === "uploading" && u.total > 0) {
+        pct = Math.max(0, Math.min(100, Math.round(u.sent / u.total * 100)));
+        bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100"); bar.setAttribute("aria-valuenow", String(pct));
+        fill.style.width = pct + "%";
+      } else if (u.state === "processing") {
+        bar.setAttribute("data-indeterminate", "1");
+        bar.removeAttribute("aria-valuenow");
+      } else if (u.state === "done") {
+        bar.setAttribute("aria-valuenow", "100"); fill.style.width = "100%";
+      } else {
+        fill.style.width = "0%";
+      }
+      bar.appendChild(fill);
+      li.appendChild(bar);
+      var line = _el("p", "upload-line");
+      var stageEl = _el("span", "upload-stage");
+      if (u.state === "waiting") stageEl.textContent = _t("shell.upload.waiting", "waiting");
+      else if (u.state === "uploading") {
+        stageEl.textContent = pct === null
+          ? _tf("shell.upload.uploading_bytes", "uploading · {sent}", { sent: _manifestSize(u.sent) })
+          : _tf("shell.upload.uploading_pct", "uploading {pct}% · {sent} of {total}", { pct: pct, sent: _manifestSize(u.sent), total: _manifestSize(u.total) });
+      } else if (u.state === "processing") {
+        stageEl.textContent = (u.stage || _stageWord("parsing")) + (u.stageMeta ? " · " + u.stageMeta : "") + "…";
+      } else if (u.state === "done") {
+        stageEl.textContent = _t("shell.upload.done", "done");
+        stageEl.setAttribute("data-tone", "verified");
+      } else if (u.state === "failed") {
+        stageEl.textContent = _t("shell.upload.failed", "failed");
+        stageEl.setAttribute("data-tone", "contradicted");
+      } else if (u.state === "cancelled") {
+        stageEl.textContent = _t("shell.upload.cancelled", "Cancelled");
+      }
+      line.appendChild(stageEl);
+      li.appendChild(line);
+      if (u.state === "done") {
+        if (u.kind === "ingest" && u.resultText) {
+          li.appendChild(_el("p", "upload-result", u.resultText));
+        } else {
+          // The same result line the Sources row carries ("N fields extracted ·
+          // View"), painted by the same function from the same summary.
+          var summary = u.summary || _reportSummaryForSource(u.entryId, u.entry);
+          if (summary) _paintSourceResult(li, summary);
+          else li.appendChild(_el("p", "upload-result", _t("shell.upload.saved", "Saved to Sources")));
+        }
+      }
+      if (u.state === "failed" && u.error) {
+        // The server's sentence, verbatim.
+        li.appendChild(_el("p", "upload-error dialog-error", u.error));
+      }
+      var actions = _el("div", "upload-actions");
+      if (u.state === "uploading" || u.state === "waiting") {
+        var cancel = _btn("btn-tertiary upload-cancel", _t("shell.dialog.cancel", "Cancel"));
+        cancel.addEventListener("click", function () { _cancelUpload(u); });
+        actions.appendChild(cancel);
+      }
+      if ((u.state === "failed" && u.retryable) || u.state === "cancelled") {
+        var retry = _btn("btn-tertiary upload-retry", _t("shell.upload.retry", "Retry"));
+        retry.addEventListener("click", function () { _retryUpload(u); });
+        actions.appendChild(retry);
+      }
+      if (actions.firstChild) li.appendChild(actions);
+      return li;
+    }
+    function _renderUploadModal() {
+      _renderUploadChip();
+      var el = _uploadModalEl();
+      if (!el || !__uploadModalOpen) return;
+      var list = document.getElementById("upload-list");
+      var overall = document.getElementById("upload-overall");
+      if (overall) overall.textContent = __uploads.length ? _uploadOverallWords() : "";
+      if (!list) return;
+      // Which row's Cancel / Retry had focus survives the repaint.
+      var focused = document.activeElement && el.contains(document.activeElement) ? document.activeElement : null;
+      var focusRow = focused && focused.closest ? focused.closest(".upload-row") : null;
+      var focusKey = focusRow ? focusRow.getAttribute("data-upload-id") + ":" + (focused.className || "") : null;
+      while (list.firstChild) list.removeChild(list.firstChild);
+      __uploads.forEach(function (u) { list.appendChild(_renderUploadRow(u)); });
+      if (focusKey) {
+        var parts = focusKey.split(":");
+        var again = list.querySelector('.upload-row[data-upload-id="' + parts[0] + '"] button');
+        if (again) try { again.focus({ preventScroll: true }); } catch (_) {}
+      }
+    }
+    (function bindUploadModal() {
+      var el = _uploadModalEl();
+      if (!el) return;
+      var close = document.getElementById("upload-close");
+      if (close) close.addEventListener("click", _closeUploadModal);
+      var chip = document.getElementById("upload-chip");
+      if (chip) chip.addEventListener("click", function () { _openUploadModal(chip); });
+      // Escape inside the drawer closes it; the shell's own shortcuts do not
+      // fire behind it (the About dialog keeps the same rule).
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); _closeUploadModal(); }
+      });
+      // Escape anywhere else closes it too when no blocking modal is up.
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape" || !__uploadModalOpen || SHELL.ui.modal) return;
+        var t = e.target;
+        if (t && (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        _closeUploadModal();
+      });
+    })();
+
     var sourceUploadBtn = document.getElementById("source-upload-btn");
     var sourceFileInput = document.getElementById("source-file-input");
     if (sourceUploadBtn && sourceFileInput) {
       sourceUploadBtn.addEventListener("click", function () { sourceFileInput.click(); });
       sourceFileInput.addEventListener("change", function () {
-        var f = sourceFileInput.files && sourceFileInput.files[0];
-        if (f) handleSourceFile(f);
+        // Every chosen file is a row in the upload queue (the input is `multiple`).
+        var files = sourceFileInput.files ? Array.prototype.slice.call(sourceFileInput.files) : [];
+        sourceFileInput.value = "";
+        if (files.length) _enqueueUploads(files, "source");
       });
     }
 
@@ -1266,53 +1595,15 @@
     if (jdfIngestBtn && jdfIngestFile) {
       jdfIngestBtn.addEventListener("click", function () { jdfIngestFile.click(); });
       jdfIngestFile.addEventListener("change", function () {
-        var f = jdfIngestFile.files && jdfIngestFile.files[0];
-        if (!f) return;
+        // Several PDFs at once, each a row in the upload queue (jdf/ingest is
+        // synchronous, so the row's bar is the upload and then "indexing").
+        var files = jdfIngestFile.files ? Array.prototype.slice.call(jdfIngestFile.files) : [];
+        jdfIngestFile.value = "";
+        if (!files.length) return;
         var panel = document.getElementById("dock-search-results");
         if (panel) { panel.hidden = false; panel.innerHTML = ""; }
         jdfProgress(_t("shell.upload.reading", "Reading \u2192 Indexing\u2026"));
-        if (typeof _pollIngestJobs === "function") _pollIngestJobs();
-        var fd = new FormData();
-        fd.append("file", f);
-        var ingestPid = "";
-        jdfProject()
-          .then(function (p) {
-            ingestPid = p.pid;
-            return fetch(p.base + "/ingest", { method: "POST", body: fd });
-          })
-          .then(function (res) {
-            return res.json().catch(function () { return {}; }).then(function (j) {
-              return { ok: res.ok, status: res.status, j: j };
-            });
-          })
-          .then(function (r) {
-            // The ingest answered: the progress line is over, whatever it says.
-            _jdfClearProgress();
-            if (r.ok && r.j && r.j.ok) {
-              jdfMessage((r.j.chunks_stored || 0) + " figures found in " + f.name, false);
-              // The ingest scan flags instruction-like source content; the
-              // source still ingests, and the SOURCES manifest labels it.
-              if (r.j.instruction_like) {
-                jdfMessage(f.name + " \u2014 " + (r.j.instruction_flag_label || ""), false);
-              }
-              // The ingest also lands a substrate entry for this project, so
-              // re-read the project's sources from the server: SHELL.sources is
-              // what the next compile posts as substrate_file_ids and what the
-              // compiler summary counts. Ids come from /substrate verbatim.
-              _loadProjectSourceList(ingestPid);
-              // New sources change the grounding surface the counters speak
-              // about — re-derive it instead of leaving a stale snapshot.
-              _syncGroundingNotices(null);
-            } else {
-              jdfMessage(String((r.j && r.j.error) || ("Upload failed (HTTP " + r.status + ")")), true);
-            }
-            jdfIngestFile.value = "";
-          })
-          .catch(function (err) {
-            _jdfClearProgress();
-            jdfMessage(String(err && err.message ? err.message : err), true);
-            jdfIngestFile.value = "";
-          });
+        _enqueueUploads(files, "ingest");
       });
     }
     var jdfSearch = document.getElementById("dock-search");
@@ -8348,6 +8639,9 @@
     // to SHELL.ui.mode, the header's text chip and body[data-ui-mode]; read by
     // _fieldAction / _overrideType, which refuse outside "review".
     function _deriveUiMode() {
+      // An upload queue in flight is upload mode for its duration (2026-09-27),
+      // whatever pane is up; the derived mode returns when it drains.
+      if (typeof _uploadsActive === "function" && _uploadsActive()) return "upload";
       if (runInProgress) return "prompt";
       var dockText = document.getElementById("dock-text");
       if (dockText && document.activeElement === dockText) return "prompt";

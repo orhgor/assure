@@ -160,3 +160,54 @@ show_in_document`, `shell.fields.open_original`, `shell.fields.suspect`,
 (read through `strings.get(key, English)` in the templates). Visible copy on
 the server pages must not use the system verbs (`tests/test_parsing_page.py:
 FORBIDDEN_WORDS`). `ui_cache` is `assure-107`.
+
+## Upload queue (2026-09-27)
+
+Customer feedback of 2026-09-27: "while a file uploads there is no upload bar;
+also I can upload multiple files, so a modal has to show progress." Both shell
+file inputs (`#source-file-input` → `POST /api/projects/<id>/substrate/upload`,
+`#dock-ingest-file` → `POST /api/projects/<id>/jdf/ingest`) are `multiple`;
+every chosen file is a row in one queue (`_enqueueUploads` in `shell.js`).
+
+* **The drawer** `#upload-modal` (index.html, outside `#modal-layer` so other
+  dialogs never destroy it): file name, size, a bar, the stage line, the
+  result or the error, and the overall line "3 of 5 done · 1 failed · 1
+  cancelled". It auto-opens when an upload starts. **Close** hides it while
+  uploads continue and the header chip `#upload-chip` ("Uploading 2…")
+  reopens it; Escape closes it (inside the drawer, or anywhere when no
+  blocking modal is up); focus goes to Close when a person opened it and back
+  to the opener on close. At 640 px and below it is a bottom sheet.
+* **Real progress.** The POST moved from `fetch` to `XMLHttpRequest` so
+  `upload.onprogress` gives bytes sent / total: a determinate bar with
+  "uploading 73% · 2.2 MB of 3.0 MB". Same route, same multipart `file`
+  field, same-origin credentials, the same `{status, ok, j}` reading of the
+  answer; the 202 + `task_id` contract is polled by the existing
+  `_awaitTask`. At most **3** uploads move at once; the rest read "waiting".
+* **After the bytes.** The row shows the ingest job's stage words
+  (`_stageWord`: queued → fetching → reading → verifying → saving) from the
+  task payload's `job.stage` / `job.status`, with `parser_name` and
+  "OCR NN%" when the job carries them, over an **indeterminate** bar —
+  parsing has no honest percentage and none is invented. The Sources list
+  keeps its pending row meanwhile, as before.
+* **Done / failed / cancelled.** Success runs the one post-upload tail
+  (`_afterSourceUploaded`: source row, `SHELL.sources`, the quiet Parsure
+  re-read, the manifest re-read) and paints the same result line as the
+  Sources row ("N fields extracted · View", `_paintSourceResult`). The
+  intake card is not touched by the queue — `_afterParsureChange →
+  _syncDocState → _renderIntakeCard` owns it, guarded by its signature.
+  Failure shows the server's `error` verbatim and **Retry**; a network error
+  says so. **Cancel** aborts the XHR (or drops a waiting row); the row reads
+  "Cancelled" with Retry. The 25 MB ceiling (`upload_limits.MAX_FILE_SIZE_MB`)
+  and the accepted extensions are checked before any byte moves; the message
+  is the row's error, never an alert.
+* **Mode gate.** A queue in flight is `upload` mode for its duration
+  (`_deriveUiMode` checks `_uploadsActive()` first); the derived mode returns
+  when it drains.
+* **Tests.** `tests/test_workbench_safeguards.py` asserts the `multiple`
+  inputs, the XHR + `onprogress` upload on the unchanged routes, the cap, the
+  ceiling constant, the indeterminate bar, the mode rule, and the
+  `shell.upload.*` strings in all seven locales. Headless smoke (mock server
+  reading the body slowly) at 1280 and 390 px: progress values rendered, one
+  202 polled to "6 fields extracted · 2 need review · View", one 500 shown
+  verbatim with Retry, the cap at 3, chip reopen, cancel; zero console errors.
+  `ui_cache` is `assure-108`.
