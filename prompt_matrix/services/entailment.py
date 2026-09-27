@@ -219,6 +219,44 @@ def _figures_all_in_claim(evidence: str, claim: str, reasoning: str) -> bool:
     return all(any(fig.same_value(other) for other in claim_figures) for fig in evidence_figures)
 
 
+#: Polarity pairs a policy states its position with; either order, stem match.
+_POLARITY_PAIRS = (
+    ("cover", "exclu"), ("includ", "exclu"), ("approv", "den"), ("approv", "reject"), ("paid", "unpaid"),
+    ("active", "cancel"), ("valid", "expir"), ("insured", "uninsured"), ("eligible", "ineligible"), ("permit", "prohibit"),
+    # direction words a figure moves with (stems: grew/grow/growth vs declined/decline, rose vs fell …)
+    ("grew", "declin"), ("grow", "declin"), ("grow", "decreas"), ("grew", "fell"), ("rose", "fell"), ("increas", "decreas"),
+    ("increas", "declin"), ("increas", "fell"), ("higher", "lower"), ("above", "below"), ("exceed", "below"), ("gain", "loss"),
+    ("profit", "loss"), ("surplus", "deficit"),
+)
+_FIGURE_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _visible_opposition(claim: str, evidence: str) -> bool:
+    """Does the evidence visibly oppose the claim — a negation flip, an antonym or
+    polarity pair, or a figure that differs? ``evidence_assembly.
+    _has_explicit_opposition`` first; then the policy polarity pairs (it needs
+    topic overlap that a short window may not have: "Flood is covered under the
+    policy." vs "Flood is excluded." returned False); then differing figures."""
+    try:
+        try:
+            from .evidence_assembly import _has_explicit_opposition
+        except ImportError:
+            from evidence_assembly import _has_explicit_opposition  # type: ignore
+        if _has_explicit_opposition(claim, evidence):
+            return True
+    except Exception:  # noqa: BLE001 — the detector is a guard, never a blocker
+        return True
+    c, e = claim.lower(), evidence.lower()
+    for a, b in _POLARITY_PAIRS:
+        if (a in c and b in e and a not in e) or (b in c and a in e and b not in e):
+            return True
+    claim_figures = {f.replace(",", "") for f in _FIGURE_RE.findall(c)}
+    evidence_figures = {f.replace(",", "") for f in _FIGURE_RE.findall(e)}
+    if claim_figures and evidence_figures and not evidence_figures <= claim_figures:
+        return True
+    return False
+
+
 def enforce_contradiction_evidence(
     record: dict[str, Any], source: str, claim: str | None = None
 ) -> dict[str, Any]:
@@ -238,7 +276,18 @@ def enforce_contradiction_evidence(
     verbatim = bool(evidence) and evidence.lower() != "none" and find_verbatim(str(source or ""), evidence) is not None
     absence_only = bool(_ABSENCE_RE.search(reasoning)) and not _CONFLICT_RE.search(reasoning)
     refuted = claim is not None and verbatim and _figures_all_in_claim(evidence, claim, reasoning)
-    if verbatim and not absence_only and not refuted:
+    # Lexical opposition (2026-09-27, live: "The policy excludes flood damage …
+    # and the agent is Mary Agent" was called ``contradicts`` against the
+    # verbatim evidence "Flood damage is excluded under this policy" — the
+    # window merely lacks the second clause). A contradiction must show in the
+    # words: a negation flip, an antonym pair, or a differing figure between the
+    # claim and the evidence (``evidence_assembly._has_explicit_opposition``).
+    # Without one, the model's verdict is not a conflict the reader can see, so
+    # it is treated as "not fully stated" — never as contradicted.
+    opposed = True
+    if claim is not None and verbatim:
+        opposed = _visible_opposition(str(claim), evidence)
+    if verbatim and not absence_only and not refuted and opposed:
         return record
     out = dict(record)
     out["verdict"] = "no"
@@ -247,6 +296,8 @@ def enforce_contradiction_evidence(
         why = "contradiction claimed without verbatim source text; treated as not stated. "
     elif refuted:
         why = "contradiction claimed on figures the claim states identically; treated as not stated. "
+    elif not opposed:
+        why = "contradiction claimed but the evidence shows no negation flip, antonym or differing figure against the claim; treated as not stated. "
     else:
         why = "contradiction claimed on what the source does not mention; treated as not stated. "
     out["reasoning"] = _sanitize(why + reasoning)

@@ -492,3 +492,19 @@ def test_entailment_survives_the_summary_provenance_rebuild() -> None:
     prov = summary["document"]["body"][0]["children"][0]["meta"]["provenance"]
     assert prov["entailment"]["verdict"] == "yes"
     assert prov["excerpt"] == "The policy limit is five million dollars for liability."
+
+
+def test_contradiction_needs_visible_opposition_in_the_evidence():
+    """Live 2026-09-27: a compound sentence was called ``contradicts`` against a
+    verbatim window that merely lacked its second clause."""
+    from prompt_matrix.services.entailment import enforce_contradiction_evidence
+
+    source = "Flood damage is excluded under this policy. Agent: Mary Agent."
+    claim = "The policy excludes flood damage, and the agent is Mary Agent."
+    rec = {"verdict": "contradicts", "evidence": "Flood damage is excluded under this policy", "reasoning": "the source conflicts with the claim about the agent"}
+    out = enforce_contradiction_evidence(dict(rec), source, claim)
+    assert out["verdict"] == "no" and out["downgraded_from"] == "contradicts" and "no negation flip" in out["reasoning"]
+    # A real flip stands: the claim says covered, the source says excluded.
+    flipped = {"verdict": "contradicts", "evidence": "Flood damage is excluded under this policy", "reasoning": "the source says flood is excluded, the claim says it is covered"}
+    out2 = enforce_contradiction_evidence(dict(flipped), source, "Flood damage is covered under this policy.")
+    assert out2["verdict"] == "contradicts"
