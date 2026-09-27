@@ -68,6 +68,7 @@ never fail an ingest that already has its revision.
 from __future__ import annotations
 
 import contextvars
+import hashlib
 import logging
 import os
 import uuid
@@ -111,6 +112,12 @@ RECLASSIFY_BELOW_CONFIDENCE = 0.7
 RECLASSIFY_MIN_FOUND = 3
 #: … of which at least this many are type-specific (not in fx.SHARED_FIELD_NAMES).
 RECLASSIFY_MIN_TYPE_SPECIFIC = 1
+#: A weak keyword answer is promoted to a family's schema only when that schema
+#: finds at least this share of its fields (and FAMILY_FALLBACK_MIN_TYPE_SPECIFIC
+#: type-specific ones). Customer run 2026-09-27: 2 of 12 fields (0.167) forced
+#: ``auto_policy`` while the detected type said ``uncertain``; below this ratio
+#: the answer stays ``<family>_unknown`` with the schema as a suggestion.
+PROMOTION_MIN_RATIO = 0.25
 #: A family's schema is kept (family fallback) only when it finds this many
 #: type-specific fields; below it the document is ``<family>_unknown``.
 FAMILY_FALLBACK_MIN_TYPE_SPECIFIC = 2
@@ -137,7 +144,9 @@ _FLAG_SENTENCES = {
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    # Microseconds kept (2026-09-27): ``parsure_repository.list_reports`` orders
+    # by this value and second precision tied two saves of one document.
+    return datetime.now(timezone.utc).isoformat()
 
 
 def contract_parser_name(parser_name: str | None) -> str:
@@ -447,14 +456,111 @@ def review_summary(fields: list[dict], *, document_type: Any = None, schema_mism
         "fields_review": sum(1 for f in fields if fx.field_needs_review(f)),
         "fields_rejected": sum(1 for f in fields if f.get("field_state") == "rejected"),
         "fields_disputed": sum(1 for f in fields if f.get("field_state") == "disputed"),
+        # 2026-09-27: absences and debris counted apart from review items — the
+        # customer's summary "12 fields need review" was 9 absences + 3 fields.
+        "fields_not_found": sum(1 for f in fields if f.get("field_state") == "not_found"),
+        "fields_suspect": sum(1 for f in fields if f.get("evidence_state") == "found_suspect"),
         "evidence_states": states,
         "schema_mismatch": bool(schema_mismatch),
         "reasons": top,
     }
 
 
+#: Rerun bounds (handoff 2026-09-27, "Rerun Thrash"): a report is re-read at
+#: most this many times (classification overrides that re-extract, and
+#: replays), and never again after two consecutive reruns that did not raise
+#: ``fields_found``. Versioned with POLICY_VERSION; the history is append-only.
+RERUN_MAX_ATTEMPTS = 3
+RERUN_NO_IMPROVEMENT_RUNS = 2
+RERUN_TRIGGERS = ("classification_override", "replay")
+#: The four facts of a field a replay compares; ``value`` and ``element_id``
+#: say the same text was read from the same element, ``field_state`` says the
+#: policy decided the same.
+REPLAY_FIELD_KEYS = ("name", "value", "element_id", "field_state")
+
+
+def rerun_stop_rule(replay: dict | None) -> str | None:
+    """The rule that stops another rerun of this report, or ``None`` when one
+    may run. Read from the append-only ``replay.history``: the attempt count
+    is ``len(history)`` (``attempts`` mirrors it), so a caller cannot reset the
+    bound by editing a counter."""
+    replay = replay if isinstance(replay, dict) else {}
+    history = [h for h in (replay.get("history") or []) if isinstance(h, dict)]
+    attempts = max(int(replay.get("attempts") or 0), len(history))
+    if attempts >= RERUN_MAX_ATTEMPTS:
+        return f"max_attempts: {attempts} of {RERUN_MAX_ATTEMPTS} reruns used"
+    recent = [h for h in history if h.get("trigger") in RERUN_TRIGGERS][-RERUN_NO_IMPROVEMENT_RUNS:]
+    if len(recent) == RERUN_NO_IMPROVEMENT_RUNS and all(h.get("improved") is False for h in recent):
+        return f"no_improvement: the last {RERUN_NO_IMPROVEMENT_RUNS} reruns did not raise fields_found"
+    return None
+
+
+def record_rerun(report: dict[str, Any], *, trigger: str, before_found: int, after_found: int,
+                 snapshot_before: str | None, snapshot_after: str | None) -> dict[str, Any]:
+    """Append one entry to ``replay.history`` and count the attempt.
+
+    ``snapshot_after`` is the hash of the report as the rerun left it, before
+    this entry was appended — an entry cannot contain the hash of a report
+    that contains the entry. The row's own ``snapshot`` (stamped on save) is
+    the hash *with* the entry. Returns the entry."""
+    if trigger not in RERUN_TRIGGERS:
+        raise ValueError(f"unknown rerun trigger: {trigger}")
+    replay = report.setdefault("replay", {})
+    history = list(replay.get("history") or [])
+    redhat = report.get("redhat") if isinstance(report.get("redhat"), dict) else {}
+    entry = {
+        "at": _now(),
+        "trigger": trigger,
+        "policy_version": report.get("policy_version") or POLICY_VERSION,
+        "node_id_policy": report.get("node_id_policy"),
+        "redhat_policy": redhat.get("policy"),
+        "fields_found_before": int(before_found),
+        "fields_found_after": int(after_found),
+        "improved": int(after_found) > int(before_found),
+        "snapshot_before": snapshot_before,
+        "snapshot_after": snapshot_after,
+    }
+    history.append(entry)
+    replay["history"] = history
+    replay["attempts"] = len(history)
+    replay["max_attempts"] = RERUN_MAX_ATTEMPTS
+    replay["stop_rule"] = rerun_stop_rule(replay)
+    return entry
+
+
+def field_facts(fields: list[dict]) -> dict[str, tuple]:
+    """``{name: (value, element_id, field_state)}`` — what a replay compares."""
+    out: dict[str, tuple] = {}
+    for f in fields or []:
+        if not isinstance(f, dict):
+            continue
+        span = f.get("source_span") if isinstance(f.get("source_span"), dict) else {}
+        element_id = f.get("element_id") if f.get("element_id") is not None else span.get("element_id")
+        out[str(f.get("name"))] = (f.get("value"), element_id, f.get("field_state"))
+    return out
+
+
+def replay_proof(before: dict[str, tuple], after: dict[str, tuple], *, snapshot_before: str | None, snapshot_after: str | None) -> dict[str, Any]:
+    """Compare two ``field_facts`` maps. ``deterministic`` is true only when
+    every field name is present on both sides with identical facts."""
+    names = sorted(set(before) | set(after))
+    changed = [n for n in names if before.get(n) != after.get(n)]
+    return {
+        "deterministic": not changed,
+        "fields_identical": len(names) - len(changed),
+        "fields_total": len(names),
+        "changed": changed,
+        "compared": list(REPLAY_FIELD_KEYS),
+        "snapshot_before": snapshot_before,
+        "snapshot_after": snapshot_after,
+    }
+
+
 def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous: dict | None = None, *, document_type: Any = None) -> dict[str, Any]:
-    """Spec §7: eligibility is recorded, execution is not (no durable replay path yet)."""
+    """Spec §7 eligibility, plus the rerun ledger (2026-09-27): ``attempts`` /
+    ``max_attempts`` / ``stop_rule`` / ``last_proof`` / ``history`` are carried
+    from ``previous`` unchanged — the history is append-only and only
+    :func:`record_rerun` writes to it."""
     reasons: list[str] = []
     low = [f["name"] for f in fields if f.get("value") is not None and float(f.get("extraction_confidence") or 0) < REPLAY_LOW_CONFIDENCE]
     if low:
@@ -466,12 +572,19 @@ def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous
         reasons.append(f"no field was found as {document_type or 'this type'} — re-read after the document type is changed")
     if parser_name == "jdf-cli" and parser_ver != current_jdf_cli_version():
         reasons.append(f"parser_version {parser_ver} older than current {current_jdf_cli_version()}")
-    return {
+    prev = previous if isinstance(previous, dict) else {}
+    history = list(prev.get("history") or [])
+    state = {
         "eligible": bool(reasons),
         "reasons": reasons,
-        "replayed": False,
-        "history": list((previous or {}).get("history") or []),
+        "replayed": bool(prev.get("replayed")),
+        "history": history,
+        "attempts": max(int(prev.get("attempts") or 0), len(history)),
+        "max_attempts": RERUN_MAX_ATTEMPTS,
+        "last_proof": prev.get("last_proof"),
     }
+    state["stop_rule"] = rerun_stop_rule(state)
+    return state
 
 
 def _page_range(pages: list[int]) -> str:
@@ -696,7 +809,7 @@ def reclassify_by_evidence(document_type: Any, confidence: Any, texts: list[str]
         "document_type": best,
         "confidence": round(min(fx.CLASSIFICATION_CAP, best_found / best_total), 3),
         "basis": f"reclassified by extraction evidence: {best} {best_found}/{best_total} fields found{versus}{gate}",
-        "matched_keywords": [],
+        "matched_keywords": list(keyword_hits or []),
         "method": "extraction_evidence",
         "detected": {"document_type": doc_type, "confidence": confidence, "basis": None, "matched_keywords": list(keyword_hits or [])},
         "evidence": {"found": best_found, "total": best_total, "type_specific": len(specific[best]), "type_specific_fields": specific[best],
@@ -797,14 +910,15 @@ def family_fallback(document_type: Any, confidence: Any, texts: list[str], *, ke
     hits = len(keyword_hits or [])
     said = f"keywords said {doc_type}, {hits} hit{'s' if hits != 1 else ''}"
     detected = {"document_type": doc_type, "confidence": confidence, "basis": None, "matched_keywords": list(keyword_hits or [])}
-    if suggestion and suggestion["type_specific"] >= FAMILY_FALLBACK_MIN_TYPE_SPECIFIC:
+    ratio = (suggestion["found"] / suggestion["total"]) if suggestion and suggestion["total"] else 0.0
+    if suggestion and suggestion["type_specific"] >= FAMILY_FALLBACK_MIN_TYPE_SPECIFIC and ratio >= PROMOTION_MIN_RATIO:
         best = suggestion["document_type"]
         return {
             "document_type": best,
-            "confidence": round(min(FAMILY_FALLBACK_CAP, suggestion["found"] / suggestion["total"]), 3),
+            "confidence": round(min(FAMILY_FALLBACK_CAP, ratio), 3),
             "basis": (f"family {fam} ({family['basis']}); {best} finds {suggestion['found']}/{suggestion['total']} fields, "
                       f"{suggestion['type_specific']} type-specific ({', '.join(suggestion['type_specific_fields'][:6])}) ({said})"),
-            "matched_keywords": [],
+            "matched_keywords": list(keyword_hits or []),
             "method": "family_evidence",
             "detected": detected,
             "evidence": {k: suggestion[k] for k in ("found", "total", "type_specific", "type_specific_fields")},
@@ -817,8 +931,8 @@ def family_fallback(document_type: Any, confidence: Any, texts: list[str], *, ke
         "document_type": f"{fam}_unknown",
         "confidence": None,
         "basis": (f"family {fam} ({family['basis']}) but no {fam} schema fits: {tried}; below {FAMILY_FALLBACK_MIN_TYPE_SPECIFIC} type-specific fields "
-                  f"no schema is forced ({said})"),
-        "matched_keywords": [],
+                  f"or under {PROMOTION_MIN_RATIO:.0%} of the schema's fields no schema is forced ({said})"),
+        "matched_keywords": list(keyword_hits or []),
         "method": "family_fallback",
         "detected": detected,
         "evidence": {k: suggestion[k] for k in ("found", "total", "type_specific", "type_specific_fields")} if suggestion else None,
@@ -875,6 +989,86 @@ def settle_segment_type(seg: dict[str, Any], texts: list[str], *, completion: An
     if not seg["validation"]["agrees"] and seg["validation"]["type_specific"] < FAMILY_FALLBACK_MIN_TYPE_SPECIFIC:
         seg["schema_mismatch"] = True
         seg["suggestion"] = seg.get("suggestion") or family_suggestion(seg["validation"]["family"], texts)
+    seg["uncertainty"] = uncertainty_of(seg, texts)
+
+
+UNCERTAINTY_CODES = {
+    "no_text": "no readable text on the segment",
+    "too_few_keywords": "fewer than the minimum keyword matches for any type",
+    "keyword_tie": "two types matched the same keywords and found the same number of fields",
+    "family_without_schema": "the page names a family but no schema of that family finds enough fields",
+    "weak_promotion": "a schema found too few of its fields to be forced",
+    "family_disagrees": "the chosen type's family disagrees with the page's cues",
+}
+
+
+def uncertainty_of(seg: dict[str, Any], texts: list[str]) -> dict[str, Any] | None:
+    """Why a segment is ``uncertain`` / ``<family>_unknown``, with what was
+    tried — reason codes, the keywords that did match, the shared fields
+    searched and the ones found. ``None`` for a typed segment. Customer,
+    2026-09-27: "document_type = uncertain, fields = {}" was a dead end."""
+    doc_type = str(seg.get("document_type") or "uncertain")
+    if doc_type != "uncertain" and not family_of_unknown(doc_type):
+        return None
+    basis = str(seg.get("basis") or "")
+    codes: list[str] = []
+    text = "\n".join(t or "" for t in texts)
+    if not text.strip():
+        codes.append("no_text")
+    if "below minimum" in basis:
+        codes.append("too_few_keywords")
+    if basis.startswith("tie between"):
+        codes.append("keyword_tie")
+    if family_of_unknown(doc_type):
+        codes.append("family_without_schema")
+        if "under" in basis and "%" in basis:
+            codes.append("weak_promotion")
+    validation = seg.get("validation") or {}
+    if validation and validation.get("agrees") is False:
+        codes.append("family_disagrees")
+    found = fx.found_field_counts(texts) if text.strip() else {}
+    searched = sorted(fx.SHARED_FIELD_NAMES)
+    return {
+        "reason_codes": codes or ["too_few_keywords"],
+        "reasons": [UNCERTAINTY_CODES[c] for c in (codes or ["too_few_keywords"])],
+        "keywords_matched": list(seg.get("matched_keywords") or []),
+        "family": (seg.get("family") or {}).get("family") if isinstance(seg.get("family"), dict) else None,
+        "fields_searched": searched,
+        "fields_found": [name for name, n in sorted(found.items()) if n],
+        "suggestion": (seg.get("suggestion") or {}).get("document_type") if isinstance(seg.get("suggestion"), dict) else None,
+        "basis": basis or None,
+    }
+
+
+def page_coverage(documents: list[dict], fields: list[dict], texts: list[str], page_quality: list[float | None]) -> list[dict[str, Any]]:
+    """Per page: which segment/type read it, how many values came from it and
+    how readable it was — so a 54-page bundle says which pages were searched
+    and which yielded nothing (customer, 2026-09-27: "sparse extraction, no
+    way to see which pages were looked at")."""
+    readability = fx.page_readability(texts, page_quality)
+    seg_of_page: dict[int, dict] = {}
+    for seg in documents:
+        for p in seg.get("pages") or []:
+            seg_of_page[int(p)] = seg
+    per_page: dict[int, int] = {}
+    for f in fields:
+        page = (f.get("source_span") or {}).get("page") if f.get("value") is not None else None
+        if page:
+            per_page[int(page)] = per_page.get(int(page), 0) + 1
+    out = []
+    for i in range(len(texts)):
+        page = i + 1
+        seg = seg_of_page.get(page) or {}
+        out.append({
+            "page": page,
+            "segment": seg.get("index"),
+            "document_type": seg.get("document_type"),
+            "fields_found": per_page.get(page, 0),
+            "readability": readability[i] if i < len(readability) else None,
+            "quality_score": page_quality[i] if i < len(page_quality) else None,
+            "searched": bool(seg),
+        })
+    return out
 
 
 def extract_segment_fields(
@@ -930,6 +1124,7 @@ def decide_fields(fields: list[dict], *, verification: dict | None, document_typ
     z3 = (verification or {}).get("z3") if isinstance(verification, dict) else None
     violations = z3.get("violations") if isinstance(z3, dict) else None
     fx.attach_z3_violations(fields, violations if isinstance(violations, list) else None)
+    fx.attach_verification_confidence(fields, verification)
     for f in fields:
         fx.apply_decision_policy(f)
     return fields, rules
@@ -974,10 +1169,12 @@ def attach_tree_node_ids(fields: list[dict], tree: dict | None) -> int:
         # meta.chunk_id instead.
         nid = fsn if fsn in node_ids else by_chunk.get(fsn)
         evidence = f.get("evidence") if isinstance(f.get("evidence"), dict) else None
-        if nid is None and evidence and evidence.get("kind") == "absent" and root:
-            # An absent field with no layout anchor (flat text, no chunk ids)
-            # hangs off the document's first node so the graph has no orphan;
-            # the evidence says it is the root, not a paragraph it was read from.
+        if nid is None and evidence and (evidence.get("kind") == "absent" or evidence.get("anchor_kind")) and root:
+            # An absent field with no layout anchor (flat text, no chunk ids) —
+            # or a probe-found signature / suspect anchored to a layout node the
+            # tree does not carry — hangs off the document's first node so the
+            # graph has no orphan; the evidence says it is the root, not a
+            # paragraph it was read from.
             nid = root
             f["field_source_node_id"] = f["field_source_node_id"] or root
             evidence["anchor_node_id"] = evidence.get("anchor_node_id") or root
@@ -1148,6 +1345,7 @@ def _build_report_timed(
             r["segment"] = seg["index"]
         seg["fields_total"] = len(seg_fields)
         seg["fields_found"] = fields_found_count(seg_fields)
+        seg["pages_searched"] = list(seg["pages"])
         seg.pop("page_types", None)
         fields.extend(seg_fields)
         rules.extend(seg_rules)
@@ -1157,12 +1355,13 @@ def _build_report_timed(
         classification["validation"] = validate_classification("mixed_bundle", texts, family=classification["family"])
         classification["schema_mismatch"] = any(bool(seg.get("schema_mismatch")) for seg in documents)
         classification["suggestion"] = None
+        classification["uncertainty"] = None
     else:
         classification = {k: documents[0][k] for k in ("document_type", "confidence", "basis", "matched_keywords")}
         for key in ("method", "detected", "evidence"):
             if key in documents[0]:
                 classification[key] = documents[0][key]
-        for key in ("family", "validation", "schema_mismatch", "suggestion"):
+        for key in ("family", "validation", "schema_mismatch", "suggestion", "uncertainty"):
             classification[key] = documents[0].get(key)
     classification["override"] = None
     scored = [s for s in page_quality if s is not None]
@@ -1233,7 +1432,10 @@ def _build_report_timed(
             "flags": quality_flags,
             "signature": signature,
             "numbers": {"flagged": numbers_flagged},
+            "low_quality_pages": [p["page"] for p in pages if p.get("quality_score") is not None and float(p["quality_score"]) < fx.LOW_QUALITY_PAGE],
+            "low_quality_threshold": fx.LOW_QUALITY_PAGE,
         },
+        "page_coverage": page_coverage(documents, fields, texts, page_quality),
         "laya": (intake or {}).get("laya"),
         "replay": replay_state(fields, pname, pver, document_type=classification.get("document_type")),
         "created_at": _now(),
@@ -1258,9 +1460,37 @@ def _build_report_timed(
     return report
 
 
+def load_tree_for_report(report: dict[str, Any]) -> dict | None:
+    """The saved Assure tree the report's fields were addressed against
+    (``revision_version`` of the project), or None for a Sources-pane upload.
+
+    Replay determinism (2026-09-27, live compose stack): the worker run
+    addressed the signature to its tree paragraph and element (``p-…``,
+    ``p1e3:a2e2…``), the replay re-extracted without the tree and produced the
+    chunk-level id — the proof read "signature changed" for the same bytes.
+    Re-extraction now re-attaches the same tree."""
+    version = report.get("revision_version")
+    project_id = report.get("project_id")
+    if not project_id or version in (None, ""):
+        return None
+    try:
+        try:
+            from ..db import jdf_repository as jdf_repo
+        except ImportError:
+            from db import jdf_repository as jdf_repo  # type: ignore
+        tree = jdf_repo.fetch_jdf_at_version(str(project_id), int(version))
+    except Exception:
+        log.exception("parsure: could not load tree v%s for %s", version, project_id)
+        return None
+    return tree if isinstance(tree, dict) else None
+
+
 def refresh_report(report: dict[str, Any]) -> dict[str, Any]:
     """Recompute the derived blocks after a field changed (correct/dispute/override)."""
     fields = report.get("fields") or []
+    texts = report.get("_page_texts")
+    if isinstance(texts, list) and isinstance(report.get("documents"), list):
+        report["page_coverage"] = page_coverage(report["documents"], fields, texts, list(report.get("_page_quality") or []))
     classification = report.get("classification") if isinstance(report.get("classification"), dict) else {}
     document_type = classification.get("document_type")
     report["review_summary"] = review_summary(fields, document_type=document_type, schema_mismatch=bool(classification.get("schema_mismatch")))
@@ -1325,10 +1555,39 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
     report["fields"] = fields
     report["plausibility"] = rules
     report["extraction_notes"] = notes
-    report["documents"] = [{"index": 0, "pages": list(range(1, len(texts) + 1)), "document_type": document_type,
-                            "confidence": classification.get("confidence") if by_evidence else None, "basis": basis, "matched_keywords": [],
+    report["documents"] = [{"index": 0, "pages": list(range(1, len(texts) + 1)), "pages_searched": list(range(1, len(texts) + 1)),
+                            "document_type": document_type,
+                            "confidence": classification.get("confidence") if by_evidence else None, "basis": basis,
+                            # A reviewer's override has no keyword evidence of its own; only the
+                            # evidence path carries the hits it was decided on.
+                            "matched_keywords": list(classification.get("matched_keywords") or []) if by_evidence else [],
                             "fields_total": len(fields), "fields_found": fields_found_count(fields)}]
+    # Same tree as the first run, so element/tree ids match and a replay of
+    # the same bytes compares equal (see load_tree_for_report).
+    report["tree_nodes_addressed"] = attach_tree_node_ids(fields, load_tree_for_report(report))
     return refresh_report(report)
+
+
+def assign_document_id(report: dict[str, Any], *, result: dict | None, file_bytes: bytes | None) -> str:
+    """A ``document_id`` the report never lacks, and where it came from.
+
+    ``document_id_source``: ``ingest`` — the pipeline's id (a saved revision or
+    a Sources vault row); ``content_hash`` — ``doc-`` + SHA-256 of the bytes,
+    first 16 hex, so a re-upload of the same file is the same document across
+    reports and exports (``list_reports`` dedupes by it); ``generated`` — a
+    random id, only when neither is available (a caller that passed no bytes).
+    A random id is still an id: an export row never carries an empty one."""
+    given = (result or {}).get("document_id") if isinstance(result, dict) else None
+    if given:
+        report["document_id"] = str(given)
+        report["document_id_source"] = "ingest"
+    elif file_bytes:
+        report["document_id"] = "doc-" + hashlib.sha256(file_bytes).hexdigest()[:16]
+        report["document_id_source"] = "content_hash"
+    else:
+        report["document_id"] = "doc-" + uuid.uuid4().hex[:16]
+        report["document_id_source"] = "generated"
+    return report["document_id"]
 
 
 def attach_conflicts(project_id: str, report: dict[str, Any]) -> dict[str, Any]:
@@ -1357,10 +1616,12 @@ def run_after_parse(
 ) -> dict[str, Any] | None:
     """Build, save and log the intake report. Returns ``{"report_id", "report"}`` or None on error.
 
-    ``file_bytes`` is accepted for the contract but unused in V1: the visual
-    probe already ran in the intake router and its result arrives in
-    ``intake["visual_pages"]``; probing again here would be the duplicate
-    router spec §8 forbids.
+    ``file_bytes`` is not probed here (the visual probe already ran in the
+    intake router and arrives in ``intake["visual_pages"]``; probing again
+    would be the duplicate router spec §8 forbids). It has one use: when the
+    pipeline gave no ``document_id`` (handoff 2026-09-27, "document_id Is
+    Null" — the Sources-panel path and direct callers), the id is derived from
+    the bytes so the same file gets the same id on every upload and export.
     """
     try:
         from ..db import parsure_repository as repo
@@ -1371,6 +1632,7 @@ def run_after_parse(
             project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id, intake=intake,
             completion=completion, tree=tree,
         )
+        assign_document_id(report, result=result, file_bytes=file_bytes)
         attach_conflicts(project_id, report)
         # Automated Red-Hat over the intake evidence graph (plan P0, 2026-09-26):
         # rules first, a grounded model check second, never a manual label.

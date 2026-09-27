@@ -107,6 +107,22 @@ the rasterised ink stroke read `present: false`, because
 benchmark pages end their signature block at ~45 % of the height. The one
 hit is the blank line.
 
+### Second run — 2026-09-27, working tree after the field-contract round, LLM off
+
+| gate | value | status | change |
+|---|---|---|---|
+| routing ≥ 95 % | 82 % (96 % over existing schemas) | **FAIL** | unchanged — the four schema gaps are still the misses |
+| anchoring ≥ 90 % | 100 % | PASS | — |
+| Red-Hat recall ≥ 85 % | **100 %** (3/3) | **PASS** | 67 % → 100 %: `cross_document_conflicts` compares `insured_name` and `claimant_name` as one party-name key |
+| replay determinism 100 % | 100 % (`element_id`; saved-tree `p-…` ids still 0 %) | PASS | — |
+| latency P95 | 1.0 / 0.36 / 1.16 / 1.60 s | PASS ×4 | — |
+
+Extraction recall 84 % (224/266 → same), family accuracy 96 %, signature
+accuracy 54 % (the bottom-20 % heuristic, unchanged). The field-contract
+changes (`not_found`, `found_suspect`, `value_quality`, the 0.4 quality gate,
+`PROMOTION_MIN_RATIO`) moved no routing or anchoring number; the golden set
+stays 100 % over 64 fields. Result file: `bench/results/20260927T072440Z-*.json`.
+
 ### What the failures are
 
 - **Routing 82 %.** Four misses are schema gaps (endorsement, cancellation

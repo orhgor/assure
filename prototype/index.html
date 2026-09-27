@@ -92,6 +92,10 @@
            answers, from the Parsure review summary. Never a decorative colour:
            data-tone is "none" until the state means something. -->
       <span id="shell-status-chip" class="status-chip" data-tone="none" role="status" aria-live="polite">No document yet</span>
+      <!-- The mode gate, as text (handoff 2026-09-27, "Prompt Contamination"):
+           review | prompt | upload, derived in shell.js (_syncUiMode). Quiet
+           text, no colour block; field changes are refused outside review. -->
+      <span id="shell-mode-chip" class="mode-chip" data-mode="upload" role="status" aria-live="polite" data-i18n="shell.mode.upload">Upload mode</span>
     </div>
     <div class="app-header-right">
       <!-- The primary action. The label follows the document's state

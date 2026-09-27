@@ -50,7 +50,20 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 33
+_SCHEMA_VERSION = 34
+
+
+def _migrate_v34(db: sqlite3.Connection) -> None:
+    """``parsure_reports.created_at`` / ``updated_at`` at microsecond precision.
+
+    ``DATETIME`` translates to ``TIMESTAMP(0)`` (pg_compat), so two reports of
+    one document saved inside the same second tied on ``created_at`` and
+    ``list_reports``' tiebreak (``report_id DESC``, a random uuid) decided which
+    one was "current" — measured 2026-09-27: the re-upload test showed the
+    older report one run in three. The repository writes microsecond
+    timestamps; the column now keeps them."""
+    for column in ("created_at", "updated_at"):
+        db.execute(f"ALTER TABLE parsure_reports ALTER COLUMN {column} TYPE TIMESTAMP(6)")
 
 
 def _migrate_v33(db: sqlite3.Connection) -> None:
@@ -1344,6 +1357,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v32(db)
     if current < 33:
         _migrate_v33(db)
+    if current < 34:
+        _migrate_v34(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

@@ -23,6 +23,7 @@ be read in bulk.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -36,28 +37,36 @@ try:
     from ..db import parsure_repository as repo
     from ..middleware import project_ownership_required
     from ..services import field_extractor as fx
+    from ..services import snapshot as snap
     from ..services import v1_orchestrator as orch
 except ImportError:
     from db import parsure_repository as repo  # type: ignore
     from middleware import project_ownership_required  # type: ignore
     from services import field_extractor as fx  # type: ignore
+    from services import snapshot as snap  # type: ignore
     from services import v1_orchestrator as orch  # type: ignore
 
 log = logging.getLogger(__name__)
 
 _NOT_FOUND = "Report not found."
 _NO_REPORT_YET = "No intake report yet."
+_NO_PAGE_TEXT = "No stored page text to replay — the report was saved without it."
 
+#: Every CSV row carries the report's ``snapshot.content_hash`` (2026-09-27):
+#: a spreadsheet row can be traced to the exact stored report it came from.
 CSV_COLUMNS = (
     "name", "label", "value", "extraction_confidence", "confidence_basis", "verification_confidence",
-    "field_state", "routing_action", "review_required", "reason", "source_page",
+    "field_state", "routing_action", "review_required", "reason", "source_page", "snapshot_hash",
 )
 
 #: Project-wide CSV, long format: one row per document × field.
 PROJECT_CSV_COLUMNS = (
     "report_id", "document_id", "filename", "document_type", "field", "label", "value",
     "extraction_confidence", "field_state", "routing_action", "review_required", "reason", "source_page", "created_at",
+    "snapshot_hash",
 )
+#: Wide CSV fixed columns, before the one-per-field label columns.
+PROJECT_CSV_WIDE_FIXED = ("report_id", "filename", "document_type", "created_at", "needs_review", "snapshot_hash")
 
 #: ``state=`` filter values for the project export and the page's state select.
 #: ``needs_review`` is every field still asking for a person (routing not
@@ -398,9 +407,19 @@ def export_documents(project_id: str, *, document_type: str | None = None, state
     document_type, created_at, fields:[…]}`` with private keys stripped and the
     filters applied. A document whose fields all fall outside ``state`` is
     dropped; a document with no fields at all stays (it is data the reviewer
-    should see is missing) unless a state filter is set."""
+    should see is missing) unless a state filter is set.
+
+    Hash gate (2026-09-27): every report is checked against its stored
+    ``snapshot`` *before* anything is collected — the first mismatch raises
+    ``snapshot.SnapshotMismatch`` and the caller exports nothing, not a file
+    with one row missing. ``document_id`` is never empty on a row: a report
+    saved before ids were derived from content gets ``doc-`` + SHA-256 of its
+    report id so the column still keys the document."""
+    reports = repo.list_reports(project_id, limit=1000)
+    for report in reports:
+        repo.require_intact(report)
     out: list[dict[str, Any]] = []
-    for report in repo.list_reports(project_id, limit=1000):
+    for report in reports:
         type_key = document_type_key(report)
         if document_type and type_key != document_type:
             continue
@@ -411,14 +430,30 @@ def export_documents(project_id: str, *, document_type: str | None = None, state
                 continue
         out.append({
             "report_id": report.get("report_id"),
-            "document_id": report.get("document_id"),
+            "document_id": export_document_id(report),
             "filename": report.get("filename"),
             "document_type": type_key,
             "document_type_label": doc_type_label(type_key),
             "created_at": report.get("created_at"),
+            "snapshot_hash": snapshot_hash(report),
             "fields": fields,
         })
     return out
+
+
+def snapshot_hash(report: dict[str, Any]) -> str:
+    """The stored ``snapshot.content_hash`` (the export gate already proved it
+    matches the row)."""
+    block = report.get("snapshot") if isinstance(report.get("snapshot"), dict) else {}
+    return str(block.get("content_hash") or "")
+
+
+def export_document_id(report: dict[str, Any]) -> str:
+    """``document_id`` for an export row; never empty (see ``export_documents``)."""
+    given = report.get("document_id")
+    if given:
+        return str(given)
+    return "doc-" + hashlib.sha256(str(report.get("report_id") or "").encode("utf-8")).hexdigest()[:16]
 
 
 def project_csv_long(documents: list[dict[str, Any]]) -> str:
@@ -434,7 +469,7 @@ def project_csv_long(documents: list[dict[str, Any]]) -> str:
                 f.get("name"), f.get("label"), "" if f.get("value") is None else f.get("value"),
                 f.get("extraction_confidence"), f.get("field_state"), f.get("routing_action"),
                 "true" if f.get("review_required") else "false", f.get("reason") or "", span.get("page") or "",
-                d.get("created_at") or "",
+                d.get("created_at") or "", d.get("snapshot_hash") or "",
             ])
     return buf.getvalue()
 
@@ -467,12 +502,13 @@ def project_csv_wide(documents: list[dict[str, Any]]) -> str:
     headers = [c["label"] if label_counts[c["label"]] == 1 else f"{c['label']} ({c['name']})" for c in columns]
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["report_id", "filename", "document_type", "created_at", "needs_review", *headers])
+    writer.writerow([*PROJECT_CSV_WIDE_FIXED, *headers])
     for t in type_order:
         for d in by_type[t]:
             by_name = {str(f.get("name")): f for f in d["fields"]}
             needs = sum(1 for f in d["fields"] if repo._needs_attention(f))
-            row = [d.get("report_id"), d.get("filename") or "", d.get("document_type"), d.get("created_at") or "", needs]
+            row = [d.get("report_id"), d.get("filename") or "", d.get("document_type"), d.get("created_at") or "", needs,
+                   d.get("snapshot_hash") or ""]
             for col in columns:
                 f = by_name.get(col["name"])
                 row.append("" if f is None or f.get("value") is None else f.get("value"))
@@ -575,6 +611,7 @@ def _csv(report: dict[str, Any]) -> str:
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(CSV_COLUMNS)
+    digest = snapshot_hash(report)
     for f in report.get("fields") or []:
         span = f.get("source_span") or {}
         writer.writerow([
@@ -582,9 +619,19 @@ def _csv(report: dict[str, Any]) -> str:
             "" if f.get("value") is None else f.get("value"),
             f.get("extraction_confidence"), f.get("confidence_basis"), f.get("verification_confidence"),
             f.get("field_state"), f.get("routing_action"), "true" if f.get("review_required") else "false",
-            f.get("reason") or "", span.get("page") or "",
+            f.get("reason") or "", span.get("page") or "", digest,
         ])
     return buf.getvalue()
+
+
+def _rerun_refused(report: dict[str, Any], rule: str):
+    """409 for a rerun the bound stops; the error names the rule."""
+    return jsonify({
+        "ok": False,
+        "error": f"rerun refused — {rule}",
+        "stop_rule": rule,
+        "replay": (report.get("replay") or {}),
+    }), 409
 
 
 def register_parsure_routes(app) -> None:
@@ -658,7 +705,11 @@ def register_parsure_routes(app) -> None:
             return jsonify({"ok": False, "error": f"state must be one of {', '.join(STATE_FILTERS)}."}), 400
         document_type = (request.args.get("document_type") or "").strip().lower() or None
         wide = (request.args.get("wide") or "").strip().lower() in ("1", "true", "yes")
-        documents = export_documents(project_id, document_type=document_type, state=state)
+        try:
+            documents = export_documents(project_id, document_type=document_type, state=state)
+        except snap.SnapshotMismatch as exc:
+            log.warning("parsure export refused for project %s: %s", project_id, exc)
+            return jsonify(exc.payload()), 409
         fields_n = sum(len(d["fields"]) for d in documents)
         repo.log_event(project_id, "exported", payload={
             "scope": "project", "format": fmt, "wide": wide and fmt == "csv",
@@ -677,10 +728,15 @@ def register_parsure_routes(app) -> None:
                 "project_id": project_id,
                 "exported_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
                 "filters": {"document_type": document_type, "state": state},
+                "snapshot": {
+                    "algorithm": snap.ALGORITHM,
+                    "reports": [{"report_id": d["report_id"], "document_id": d["document_id"], "content_hash": d["snapshot_hash"]} for d in documents],
+                },
                 "documents": [
                     {
                         "report_id": d["report_id"], "document_id": d["document_id"], "filename": d["filename"],
                         "document_type": d["document_type"], "created_at": d["created_at"],
+                        "snapshot": {"algorithm": snap.ALGORITHM, "content_hash": d["snapshot_hash"]},
                         "fields": {str(f.get("name")): f for f in d["fields"]},
                     }
                     for d in documents
@@ -695,9 +751,13 @@ def register_parsure_routes(app) -> None:
         report = repo.get_report(project_id, report_id)
         if not report:
             return jsonify({"ok": False, "error": _NOT_FOUND}), 404
+        # The report is returned even when its hash does not match — the
+        # reviewer must be able to see what the row holds; ``integrity.ok``
+        # says whether an export of it would be refused.
         return jsonify({
             "ok": True,
             "report": repo.public_report(report),
+            "integrity": repo.verify_snapshot(report),
             "corrections": repo.list_corrections(project_id, report_id),
             "disputes": repo.list_disputes(project_id, report_id=report_id),
         })
@@ -870,18 +930,87 @@ def register_parsure_routes(app) -> None:
         reason = str(body.get("reason") or "").strip() or None
         classification = report.setdefault("classification", {})
         previous = classification.get("document_type")
+        reextracted = bool(report.get("_page_texts"))
+        # An override that re-extracts is a rerun and counts against the bound
+        # (handoff 2026-09-27, "Rerun Thrash"); one that only renames the type
+        # (no stored text) is not a rerun and is not counted.
+        if reextracted:
+            rule = orch.rerun_stop_rule(report.get("replay"))
+            if rule:
+                return _rerun_refused(report, rule)
+        snapshot_before = snap.content_hash(report)
+        before_found = orch.fields_found_count(report.get("fields") or [])
         classification["override"] = {
             "document_type": new_type, "previous": previous, "reason": reason, "actor": actor, "at": orch._now(),
             "detected": {k: classification.get(k) for k in ("confidence", "basis", "matched_keywords")},
         }
         classification["document_type"] = new_type
-        reextracted = bool(report.get("_page_texts"))
+        rerun = None
         if reextracted:
             orch.reextract_for_type(report, new_type)
+            rerun = orch.record_rerun(
+                report, trigger="classification_override", before_found=before_found,
+                after_found=orch.fields_found_count(report.get("fields") or []),
+                snapshot_before=snapshot_before, snapshot_after=snap.content_hash(report),
+            )
         repo.update_report(project_id, report_id, report)
         repo.log_event(project_id, "classification_overridden", report_id=report_id, actor=actor,
-                       payload={"previous": previous, "document_type": new_type, "reason": reason, "reextracted": reextracted})
+                       payload={"previous": previous, "document_type": new_type, "reason": reason, "reextracted": reextracted, "rerun": rerun})
         return jsonify({"ok": True, "report": repo.public_report(report), "reextracted": reextracted})
+
+    @app.post("/api/projects/<project_id>/parsure/<report_id>/replay")
+    @project_ownership_required
+    def parsure_replay(project_id: str, report_id: str):
+        """Bounded, audited replay (handoff 2026-09-27, "Rerun Thrash" and
+        "Replay validation"): re-run the label pass and the policy over the
+        stored page texts for the report's current type, by evidence and
+        without a model call, and compare every field's ``(value, element_id,
+        field_state)`` before and after. The proof is stored as
+        ``replay.last_proof``; the run is one ``replay.history`` entry and one
+        ``replayed`` audit event. Refused (409) when the stop rule fires:
+        ``max_attempts`` (3 reruns) or ``no_improvement`` (the last two reruns
+        did not raise ``fields_found``). The re-extracted fields replace the
+        report's fields — a replay is a rerun, and a reviewer's accepted or
+        corrected state that the rerun does not reproduce shows up in
+        ``changed`` rather than being silently kept."""
+        report = repo.get_report(project_id, report_id)
+        if not report:
+            return jsonify({"ok": False, "error": _NOT_FOUND}), 404
+        if not report.get("_page_texts"):
+            return jsonify({"ok": False, "error": _NO_PAGE_TEXT}), 409
+        rule = orch.rerun_stop_rule(report.get("replay"))
+        if rule:
+            return _rerun_refused(report, rule)
+        body = _body()
+        actor = _actor(body)
+        current_type = str((report.get("classification") or {}).get("document_type") or "uncertain")
+        snapshot_before = snap.content_hash(report)
+        before = orch.field_facts(report.get("fields") or [])
+        before_found = orch.fields_found_count(report.get("fields") or [])
+        # The policy runs on the same inputs the original run had: the stored
+        # verification summary (``z3_status``) says whether Z3 ran, so a field
+        # is not flipped to "not verified" merely because the replay did not
+        # re-run Z3 (the web tier must not). Per-node violations are not in the
+        # summary; a document that had them shows those fields in ``changed``.
+        orch.reextract_for_type(report, current_type, verification=report.get("verification"), by_evidence=True, llm=False)
+        after = orch.field_facts(report.get("fields") or [])
+        after_found = orch.fields_found_count(report.get("fields") or [])
+        snapshot_after = snap.content_hash(report)
+        proof = orch.replay_proof(before, after, snapshot_before=snapshot_before, snapshot_after=snapshot_after)
+        proof["at"] = orch._now()
+        proof["document_type"] = (report.get("classification") or {}).get("document_type")
+        rerun = orch.record_rerun(
+            report, trigger="replay", before_found=before_found, after_found=after_found,
+            snapshot_before=snapshot_before, snapshot_after=snapshot_after,
+        )
+        replay = report.setdefault("replay", {})
+        replay["last_proof"] = proof
+        replay["replayed"] = True
+        repo.update_report(project_id, report_id, report)
+        repo.log_event(project_id, "replayed", report_id=report_id, actor=actor,
+                       payload={"proof": proof, "rerun": rerun, "attempts": replay.get("attempts"), "max_attempts": replay.get("max_attempts"),
+                                "stop_rule": replay.get("stop_rule")})
+        return jsonify({"ok": True, "report": repo.public_report(report), "proof": proof})
 
     @app.get("/api/projects/<project_id>/parsure/<report_id>/export")
     @project_ownership_required
@@ -892,8 +1021,14 @@ def register_parsure_routes(app) -> None:
         fmt = (request.args.get("format") or "json").strip().lower()
         if fmt not in ("json", "csv"):
             return jsonify({"ok": False, "error": "format must be json or csv."}), 400
+        try:
+            repo.require_intact(report)
+        except snap.SnapshotMismatch as exc:
+            log.warning("parsure export refused for %s: %s", report_id, exc)
+            return jsonify(exc.payload()), 409
         public = repo.public_report(report)
-        repo.log_event(project_id, "exported", report_id=report_id, payload={"format": fmt, "fields": len(public.get("fields") or [])})
+        repo.log_event(project_id, "exported", report_id=report_id, payload={"format": fmt, "fields": len(public.get("fields") or []),
+                                                                             "snapshot_hash": snapshot_hash(report)})
         filename = f"parsure-{report_id}.{fmt}"
         if fmt == "csv":
             payload, mimetype = _csv(public), "text/csv; charset=utf-8"

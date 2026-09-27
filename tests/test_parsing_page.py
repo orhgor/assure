@@ -323,8 +323,11 @@ def test_needs_attention_table_renders_collapses_and_marks_overdue(client):
     html = res.get_data(as_text=True)
     text = _visible_text(html)
 
-    # Section order: summary line → Needs attention → cards → Analytics; one primary action.
-    assert text.index("Documents:") < text.index("Needs attention") < text.index("older-scan.pdf") < text.index("Analytics")
+    # Section order (list-first, handoff 2026-09-27): summary line → the document
+    # rows → Needs attention; analytics is a link to its own page. One primary action.
+    assert text.index("Documents:") < text.index("older-scan.pdf") < text.index("Needs attention")
+    assert 'id="analytics-link" href="/parsing/analytics?project_id=p-queue"' in html
+    assert 'id="analytics"' not in html
     assert html.count('class="btn-primary"') == 1
     assert "12 fields across 2 documents · 1 disputed · 1 overdue" in text
     assert "Document Field Value Why State Action" in text
@@ -349,7 +352,12 @@ def test_needs_attention_table_renders_collapses_and_marks_overdue(client):
     assert "Not found" in text and "Low confidence" in text
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
 
-    # Analytics: strong metrics, sparkline, histogram and issue list from real counts.
+    # Analytics (its own page): strong metrics, sparkline, histogram and issue list from real counts.
+    res = client.get("/parsing/analytics?project_id=p-queue")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'href="/parsing?project_id=p-queue"' in html  # back to the list
     assert "Avg quality 52%" in text  # (0.61 + 0.42) / 2 → 0.515 rounds to 0.52 at two decimals
     assert "Review rate 86%" in text  # 12 of 14 fields
     assert "12 of 14 fields" in text
@@ -371,6 +379,15 @@ def test_analytics_and_queue_empty_states_have_no_fabricated_numbers(client):
     html = res.get_data(as_text=True)
     text = _visible_text(html)
     assert "No review items. New intake will appear here." in text
+    assert 'id="analytics-link" href="/parsing/analytics?project_id=p-none"' in html
+    assert "%" not in text
+    assert not re.search(r"\b0\.\d\d\b", text)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    res = client.get("/parsing/analytics?project_id=p-none")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
     assert "Analytics" in text and "No intake yet." in text
     assert "Avg quality —" in text and "Review rate —" in text and "Open disputes —" in text and "Corrections —" in text
     assert 'class="spark"' not in html and "Quality distribution" not in text
@@ -451,8 +468,8 @@ def test_extracted_data_tables_are_grouped_by_type_with_quiet_state_marks(client
     html = res.get_data(as_text=True)
     text = _visible_text(html)
 
-    # Placement: after Needs attention, before the cards; still one page primary (Upload).
-    assert text.index("Needs attention") < text.index("Extracted data") < text.index(" Documents ", text.index("Extracted data"))
+    # Placement (list-first): the document rows, then Needs attention, then the data; one page primary (Upload).
+    assert text.index(" Documents ") < text.index("Needs attention") < text.index("Extracted data")
     assert html.count('class="btn-primary"') == 1
     assert 'id="data-export"' in html and ">Export all<" in html
     assert 'href="/api/projects/p-data/parsure/export?format=csv&amp;wide=1"' in html or 'href="/api/projects/p-data/parsure/export?format=csv&wide=1"' in html
@@ -808,7 +825,12 @@ def test_schema_mismatch_is_one_line_with_the_type_selector_and_absent_fields_sh
     rows = re.findall(r'<tr class="field[^"]*" data-field="([^"]+)"[^>]*>.*?</tr>', html, re.S)
     assert len(rows) == 13
     sig = re.search(r'<tr class="field[^"]*" data-field="signature"[^>]*>.*?</tr>', html, re.S).group(0)
-    assert re.search(r'<small class="node-id" title="JDF node the field was searched from">el-0 · searched</small>', sig)
+    sig_field = next(f for f in repo.get_report("p-mismatch", claim)["fields"] if f["name"] == "signature")
+    if (sig_field.get("evidence") or {}).get("kind") == "absent":
+        assert re.search(r'<small class="node-id" title="JDF node the field was searched from">el-0 · searched</small>', sig)
+        assert 'data-section="not_found"' in sig
+    else:  # the extractor reads the e-signature marker (2026-09-27): anchored on its node, not "searched"
+        assert re.search(r'<small class="node-id" title="JDF node">el-0</small>', sig) and "searched" not in sig
     npi = re.search(r'<tr class="field[^"]*" data-field="provider_npi"[^>]*>.*?</tr>', html, re.S).group(0)
     assert re.search(r'<small class="node-id" title="JDF node">el-17</small>', npi) and "searched" not in npi
     assert "Found, needs a look" in _visible_text(npi) and "Found, verified" in text
@@ -892,3 +914,196 @@ def test_card_shows_a_redhat_count_line_red_only_for_high(client):
     assert m and int(m.group(1)) == len(report["redhat"]["findings"]) and int(m.group(2)) == report["redhat"]["counts"]["high"] == 2
     assert re.search(r"(\d+) Red-Hat high", _visible_text(html))  # the queue header's count comes from the same block
     assert not FORBIDDEN_WORDS.search(_visible_text(html)), FORBIDDEN_WORDS.search(_visible_text(html))
+
+
+# ---------------------------------------------------------------------------
+# Handoff of 2026-09-27: list-first intake page, three field sections, the
+# uncertain type explained, snapshot + integrity, replay, page coverage.
+# ---------------------------------------------------------------------------
+
+
+def _contract_report(project, report_id="rep-c1", *, doc_type="auto_claim", uncertainty=None, filename="bundle.pdf"):
+    """A report in the 2026-09-27 contract: field_state not_found with negative
+    evidence, a suspect value, a next_check on the signature, verification
+    basis, page_coverage, replay attempts, low-quality pages."""
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project(project)
+    classification = {"document_type": doc_type, "confidence": 0.9 if doc_type != "uncertain" else 0.2, "basis": "keyword match", "family": "auto"}
+    if uncertainty is not None:
+        classification["uncertainty"] = uncertainty
+    fields = [
+        _data_field("claim_number", "Claim number", "CL-2026-0042", evidence_state="found_verified",
+                    verification_confidence=0.85, verification_basis="document-level Z3 PASS: no violation attached to this field",
+                    tree_node_id="n-12", evidence={"kind": "found", "page": 1, "node_id": "n-12", "method": "regex"}),
+        _data_field("policy_number", "Policy number", None, state="unverified", routing="manual_review", conf=0.31, reason="value failed shape validation",
+                    raw="POLICY NO.", evidence_state="found_suspect",
+                    value_quality={"quality": "header_or_label", "basis": "matched the label text, not a value after it"}),
+        _data_field("insured_signature", "Insured signature", "present", field_type="signature", state="partial", routing="compliance_review", conf=0.6,
+                    reason="compliance-bound field — human confirmation required", evidence_state="found_unverified",
+                    signature_quality={"quality": "present_ambiguous", "basis": "ink density 41%", "page": 2,
+                                       "next_check": "Compare the strokes with the printed name above the line.", "review_required": True}),
+        _data_field("vin", "VIN", None, field_type="vin", state="not_found", routing="field_not_found", conf=0.0, reason="field not found",
+                    evidence_state="not_on_document", verification_confidence=None, verification_basis=None,
+                    evidence={"kind": "absent", "searched_pages": [1, 2], "searched_node_ids": ["n-1", "n-2", "n-3"], "searched_chars": 1840, "readability": "ok"}),
+        _data_field("date_of_loss", "Date of loss", None, field_type="date", state="not_found", routing="retry_parsure", conf=0.0, reason="page unreadable",
+                    evidence_state="unreadable", evidence={"kind": "absent", "searched_pages": [3], "searched_node_ids": [], "readability": "low"}),
+    ]
+    if doc_type == "uncertain":
+        fields = []
+    report = {
+        "report_id": report_id, "document_id": f"doc-{report_id}", "filename": filename, "modality": "mixed", "material_type": "mixed_bundle",
+        "parser_name": "jdf-cli", "parser_version": "0.2.3", "page_count": 3, "document_quality_score": 0.71,
+        "pages": [{"page": 1, "quality_score": 0.9, "flags": []}, {"page": 2, "quality_score": 0.8, "flags": []}, {"page": 3, "quality_score": 0.2, "flags": ["blurry"]}],
+        "classification": classification,
+        "documents": [{"index": 0, "pages": [1, 2], "document_type": doc_type, "fields_total": 5, "fields_found": 3, "pages_searched": [1, 2]},
+                      {"index": 1, "pages": [3], "document_type": "uncertain", "fields_total": 0, "fields_found": 0, "pages_searched": [3]}],
+        "page_coverage": [{"page": 1, "segment": 0, "document_type": doc_type, "fields_found": 2, "readability": "ok"},
+                          {"page": 2, "segment": 0, "document_type": doc_type, "fields_found": 1, "readability": "ok"},
+                          {"page": 3, "segment": 1, "document_type": "uncertain", "fields_found": 0, "readability": "low"}],
+        "fields": fields, "conflicts": [],
+        "review_summary": {"fields_total": len(fields), "fields_found": 2, "fields_accepted": 1, "fields_review": 3, "fields_not_found": 2, "fields_rejected": 0, "fields_disputed": 0, "reasons": []},
+        "quality_report": {"summary": "Page 3 is blurry.", "flags": ["blurry"], "signature": {}, "numbers": {"flagged": []}, "low_quality_pages": [3], "low_quality_threshold": 0.4},
+        "replay": {"eligible": True, "reasons": ["policy v4 changed the VIN pattern"], "replayed": True, "attempts": 1, "max_attempts": 3,
+                   "stop_rule": "stop when the content hash repeats", "history": [{"at": "2026-09-27 08:00:00", "outcome": "no change", "policy_version": "v4"}],
+                   "last_proof": {"content_hash": "abc123", "policy_version": "v4"}},
+        "created_at": "2026-09-27 09:00:00",
+        "_page_texts": ["Claim Number: CL-2026-0042", "Signature: present", ""],
+    }
+    return repo.save_report(project, report)
+
+
+def test_record_page_has_three_sections_and_not_found_rows_offer_no_accept_or_dispute(client):
+    from prompt_matrix.db import parsure_repository as repo
+
+    _contract_report("p-sections")
+    res = client.get("/parsing/rep-c1?project_id=p-sections")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Three sections, in order, each counted from its own rows.
+    assert 'id="fields-review" data-section="review" data-count="2"' in html
+    assert 'id="fields-found" data-section="found" data-count="1"' in html
+    assert 'id="fields-not_found" data-section="not_found" data-count="2"' in html
+    assert text.index("Needs review 2") < text.index("Found 1") < text.index("Not on this document 2")
+    order = re.findall(r'<tr class="field[^"]*" data-field="([^"]+)"[^>]*data-section="([^"]+)"', html)
+    assert order == [("policy_number", "review"), ("insured_signature", "review"), ("claim_number", "found"), ("vin", "not_found"), ("date_of_loss", "not_found")]
+    assert "Need review: 3 · Found: 1 · Not on this document: 2" in text  # 3 by the queue rule (the unreadable page routes a rescan), 2 rows in the section
+    # The queue's rule and the section disagree only by the unreadable page that routes a rescan — and both numbers are shown.
+    assert repo.fields_found(repo.get_report("p-sections", "rep-c1")) == 2
+
+    # Not-found rows: what was searched, no accept / dispute anywhere on the record, the "enter it" note.
+    vin = re.search(r'<tr class="field[^"]*" data-field="vin"[^>]*>.*?</tr>', html, re.S).group(0)
+    assert "Searched 2 pages · 3 nodes · 1,840 characters · readability ok" in _visible_text(vin)
+    assert "Not on this document" in _visible_text(vin) and 'data-mark="missing"' in vin
+    dol = re.search(r'<tr class="field[^"]*" data-field="date_of_loss"[^>]*>.*?</tr>', html, re.S).group(0)
+    assert "Page unreadable" in _visible_text(dol) and "readability low" in _visible_text(dol)
+    assert 'data-act="accept"' not in html and 'data-act="dispute"' not in html
+    assert "Nothing to accept or dispute — enter the value if you have it." in text
+
+    # Per-field signals: suspect value with its basis, the signature's next check, the verification sentence.
+    pol = _visible_text(re.search(r'<tr class="field[^"]*" data-field="policy_number"[^>]*>.*?</tr>', html, re.S).group(0))
+    assert "A label, not a value — matched the label text, not a value after it" in pol and "POLICY NO." in pol
+    sig = _visible_text(re.search(r'<tr class="field[^"]*" data-field="insured_signature"[^>]*>.*?</tr>', html, re.S).group(0))
+    assert "Signature present, ambiguous — Compare the strokes with the printed name above the line." in sig
+    claim = _visible_text(re.search(r'<tr class="field[^"]*" data-field="claim_number"[^>]*>.*?</tr>', html, re.S).group(0))
+    assert "document-level Z3 PASS: no violation attached to this field" in claim
+    assert "not verified" in _visible_text(vin)  # verification_confidence null, no basis → said plainly, never a PASS
+
+    # The not-found field is not in the /parsing queue at all (not found ≠ needs review); the row shows the three counts.
+    listing = client.get("/parsing?project_id=p-sections").get_data(as_text=True)
+    assert not re.search(r'<tr class="queue-row"[^>]*data-field="vin"', listing)
+    assert 'data-review="2" data-found="1" data-not-found="2"' in listing
+    assert "2 need review · 1 found · 2 not on document" in _visible_text(listing)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_record_page_explains_why_a_type_is_uncertain(client):
+    _contract_report("p-uncertain", "rep-u1", doc_type="uncertain", filename="mystery.pdf", uncertainty={
+        "reason_codes": ["low_keyword_density", "no_schema_match"], "keywords_matched": ["policy", "premium"],
+        "family": "auto", "fields_searched": ["policy_number", "vin", "premium"], "fields_found": [],
+        "basis": "2 of 14 auto keywords; no schema reached the floor",
+    })
+    res = client.get("/parsing/rep-u1?project_id=p-uncertain")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="uncertainty" data-tone="partial"' in html
+    assert "Why the type is uncertain 2 of 14 auto keywords; no schema reached the floor" in text
+    assert "low_keyword_density" in text and "no_schema_match" in text
+    assert "Keywords matched policy, premium" in text
+    assert "Fields searched policy_number, vin, premium" in text
+    assert "Fields found none" in text
+    assert text.index("Why the type is uncertain") < text.index("Fields", text.index("Why the type is uncertain") + 30)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_record_page_shows_snapshot_integrity_replay_coverage_and_low_quality_pages(client):
+    from prompt_matrix.db import parsure_repository as repo
+
+    _contract_report("p-snap")
+    report = repo.get_report("p-snap", "rep-c1")
+    digest = report["snapshot"]["content_hash"]
+    res = client.get("/parsing/rep-c1?project_id=p-snap")
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # Snapshot: the full hash and the integrity verdict the row earned.
+    assert 'id="snapshot" data-ok="1"' in html and digest in html
+    assert f"Snapshot {digest} · Integrity ok" in text
+
+    # Replay: attempts / max, the stop rule, history, a button on the replay route.
+    assert 'id="replay" data-eligible="1" data-attempts="1" data-max="3"' in html
+    assert "Replay 1 of 3 attempts · stop when the content hash repeats" in text
+    assert "Replay available after policy update. policy v4 changed the VIN pattern" in text
+    assert 'id="replay-form" data-url="/api/projects/p-snap/parsure/rep-c1/replay"' in html
+    assert re.search(r'<button type="submit" class="btn-secondary" id="replay-run">Replay now</button>', html)
+    assert "1 earlier replay" in text and "no change · policy v4" in text
+    assert html.count('class="btn-primary"') == 1  # the replay button is not a second primary
+
+    # Page coverage for the mixed bundle: page → type → fields found → readability.
+    assert 'id="coverage"' in html and "Page coverage" in text and "3 pages · 2 documents in the bundle" in text
+    cov = re.findall(r'<tr data-page="(\d+)">\s*<td>\d+</td>\s*<td>(\d+)</td>\s*<td>([^<]+)</td>\s*<td class="num">(\d+)</td>\s*<td>([^<]+)</td>', html)
+    assert cov == [("1", "0", "auto_claim", "2", "ok"), ("2", "0", "auto_claim", "1", "ok"), ("3", "1", "uncertain", "0", "low")]
+
+    # Low-quality pages, with the threshold as a percentage.
+    assert 'id="low-quality"' in html and "Low-quality pages: 3 (quality below 40%)" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # A replay that the server refuses (409) is shown as its own sentence — the page only relays it.
+    assert "res.body.error" in html
+
+    # The list row carries the integrity chip and the short hash before any detail is opened.
+    listing = client.get("/parsing?project_id=p-snap").get_data(as_text=True)
+    card = re.search(r'<article class="card"[^>]*data-report-id="rep-c1">.*?</article>', listing, re.S).group(0)
+    assert f'class="chip chip--integrity" data-ok="1" title="{digest[:12]}"' in card and "Integrity ok" in _visible_text(card)
+    assert _visible_text(card).index("Integrity ok") < _visible_text(card).index("Details")
+
+
+def test_analytics_page_is_its_own_route_linked_from_the_list_and_never_on_it(client):
+    _seed_counts_project("p-an")
+    listing = client.get("/parsing?project_id=p-an")
+    assert listing.status_code == 200
+    html = listing.get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="analytics-link" href="/parsing/analytics?project_id=p-an"' in html
+    assert "Average quality per day" not in text and "Review rate" not in text
+    assert html.count('class="btn-primary"') == 1
+
+    res = client.get("/parsing/analytics?project_id=p-an")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'href="/parsing?project_id=p-an"' in html
+    assert "Analytics" in text and "Review rate" in text and "Average quality per day" in text
+    assert "Quality distribution" in text and "What needs attention, by reason" in text
+    assert "20 of 22 fields" in text  # 6+6+5+3 flagged of (7+7+5+3)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # A workspace the repository has never seen: dashes, no numbers.
+    res = client.get("/parsing/analytics?project_id=p-an-empty")
+    assert res.status_code == 200
+    text = _visible_text(res.get_data(as_text=True))
+    assert "No intake yet." in text and "%" not in text

@@ -53,10 +53,12 @@ layer; Parsure consumes its result and never re-verifies.
   "value": 1284.0, "raw": "$1,284.00",
   "extraction_confidence": 0.85,
   "confidence_basis": "parser_default[jdf-cli] (0.85) × page_quality (1.00) = 0.85",
-  "verification_confidence": 1.0,
+  "verification_confidence": 1.0, "verification_basis": "plausibility_rule result",
   "provenance_confidence": 1.0,
+  "value_quality": {"quality": "valid", "basis": "parses as money"},
   "source_span": {"page": 1, "span_type": "text_range", "start_char": 212, "end_char": 221},
   "number_quality": {"quality": "printed_good", "penalty": 1.0, "basis": "..."},
+  "low_quality_page": false,
   "field_state": "unverified", "routing_action": "manual_review",
   "review_required": true, "reason": "compliance-bound field — human confirmation required",
   "compliance_bound": true, "z3_violation": false, "plausibility_violation": false
@@ -68,20 +70,29 @@ penalty × Z3/plausibility penalty × signature penalty`. The basis string shows
 the exact multiplication. `parser_confidence (0.93)` is a measured figure (the
 OCR engine's own line confidence); `parser_default[...]` says no measurement
 existed and the spec default was used. A field the extractor did not find is
-`value: null, extraction_confidence: 0.0, review_required: true, reason:
-"field not found"` — never a guess.
+`value: null, extraction_confidence: 0.0, verification_confidence: null,
+field_state: not_found, routing_action: field_not_found, review_required:
+false` — never a guess, and never a review item (see below).
 
 **`field_state`** is what we know: `accepted`, `partial`, `unverified`,
-`disputed`, `rejected`. **`routing_action`** is what should happen: `none`,
-`manual_review`, `adjudicator_queue`, `compliance_review`, `retry_parsure`,
-`replay_later`. They never mix; "manual review" is never a state.
+`disputed`, `rejected`, `not_found`. **`routing_action`** is what should
+happen: `none`, `manual_review`, `adjudicator_queue`, `compliance_review`,
+`retry_parsure`, `replay_later`, `field_not_found`. They never mix; "manual
+review" is never a state.
 
-**Decision policy (v1, three rules).** Accepted when verification ≥ 0.8 and
-extraction ≥ 0.75 and the field is not compliance-bound and nothing was
-violated. Otherwise `unverified` + `manual_review`. A Z3 or plausibility
-violation or an invalid VIN check digit → `rejected` + `compliance_review`.
-Compliance-bound fields (policy number, VIN, premium, limits, signature)
-therefore always ask for a human even on a perfect page — by design.
+**Decision policy (v1).** Rule 0 (2026-09-27): no value → `not_found` /
+`field_not_found` (recorded, not queued) — `retry_parsure` when no searched
+page was readable; text under the label that fails its shape check
+(`found_suspect`) → `unverified` / `manual_review`; a signature field is
+always a review item. Rule 1: accepted when verification ≥ 0.8 **and a
+verification actually ran**, extraction ≥ 0.75, not compliance-bound, nothing
+violated, page quality ≥ 0.4. Rule 2: otherwise `unverified` +
+`manual_review` with the failing factor as the reason (`"not verified — no
+verification ran on this document"` when `verification_confidence` is
+null). Rule 3: a Z3 or plausibility violation or an invalid VIN check digit →
+`rejected` + `compliance_review`. Compliance-bound fields (policy number,
+VIN, premium, limits, signature) therefore always ask for a human even on a
+perfect page — by design.
 
 ## Acting on a report
 
@@ -99,7 +110,8 @@ therefore always ask for a human even on a perfect page — by design.
 Audit events (`parsure_audit_events`, PostgreSQL): `intake_received`,
 `quality_assessed`, `classified`, `fields_extracted`, `decision_applied`,
 `field_accepted`, `field_corrected`, `dispute_opened`, `dispute_resolved`,
-`classification_overridden`, `exported`.
+`classification_overridden`, `exported`, `replayed` (2026-09-27, see
+`docs/parsure-integrity.md`).
 
 ## Measured behaviour (2026-09-25, compose stack, local models)
 
@@ -444,12 +456,13 @@ The record page prints the anchor in the node column with the word
 "searched" (`el-0 · searched`) and the searched page range in the page
 column.
 
-### `evidence_state` — the five outcomes, apart from `field_state`
+### `evidence_state` — the six outcomes, apart from `field_state`
 
 | `evidence_state` | When | `reason` (plain words) |
 |---|---|---|
 | `found_verified` | value, policy accepted | — |
 | `found_unverified` | value, policy did not accept (unverified / rejected / disputed) | the policy's reason |
+| `found_suspect` | text under the label fails the field's shape check (`value_quality` ≠ valid); `raw` kept, `value` null, span real | "<quality> under the <label> label: '…' — <basis>" |
 | `not_on_document` | no value, and at least one searched page is *readable* (≥ 200 characters and page quality ≥ 0.5, or quality unknown) | "Not on this document type" |
 | `unreadable` | no value, and every searched page is *unreadable* (< 200 characters, or page quality < 0.3) | "Page could not be read" |
 | `schema_mismatch` | the type's family disagrees with the page and its fields are not there (override case) | "Wrong document type — fields not applicable" |
@@ -687,3 +700,97 @@ a line.
 `derive_trust_state(..., intake_redhat_high=N)`: a high intake finding is
 `review_required` ("N high Red-Hat finding(s) on the intake graph"), never
 `verified`.
+
+
+## Field states, value shape, verification evidence, signature taxonomy (2026-09-27)
+
+Customer handoff (`todos/assure_final_engineering_handoff.md`): the review
+queue listed absences as review items, `verification_confidence` read 0.85 on
+fields that were not found, a section header sat in `insured_name` with
+provenance 1.0, OCR debris passed as a policy number, a 0.28-quality page still
+produced accepted values, a weak family cue forced `auto_policy` at 0.167, and
+"questionable" told the reviewer nothing. Each is one rule now, and each rule
+says why in its docstring.
+
+### `not_found` is not review
+
+An absence is `field_state: not_found`, `routing_action: field_not_found`,
+`review_required: false`, `verification_confidence: null`
+(`field_extractor._empty_field`, `attach_absent_evidence`, policy rule 0).
+`field_needs_review` returns false for it, so the queue, the "Needs
+attention" header, `review_summary.fields_review`, the analytics column and
+the record page all stop counting it; `review_summary.fields_not_found` and
+`fields_suspect` count it apart. An absence on an *unreadable* page routes
+`retry_parsure` and does count — the next step (a rescan) is a person's.
+A signature field is never `not_found`: missing or unverifiable, it is a
+compliance question (`unverified` / `manual_review`).
+
+### `value_quality` — provenance is not correctness
+
+`field_extractor.value_shape(spec, raw, parsed)` → `{"quality": valid |
+invalid_format | garbage | header_or_label | address_fragment, "basis"}` on
+every located value. Names: 1–12 words, no digits, no street-address shape
+(a house number before a street word, or a unit/box token — a bare "Dr." is
+a title), not carried by header words ("MAILING ADDRESS"). Policy and claim
+numbers: 3–30 letters/digits/dashes with at least one digit. Typed fields:
+the parse is the shape. Under 50 % alphanumeric is garbage. `_find_field`
+takes the first anchor hit whose shape is valid (a header under the first
+label no longer blocks the real value under the second); when no hit is
+valid the first invalid one is reported as `evidence_state: found_suspect`
+with `value: null`, `raw` kept, `provenance_confidence: 1.0` (the span is
+real; the value is not), `number_quality.quality: invalid_format` for
+numeric/identifier fields, and `manual_review`. tests/golden stays 100 % over
+64 fields after the rule (the two long legal names were the calibration).
+
+### `verification_confidence` only from evidence
+
+`field_extractor.attach_verification_confidence(fields, verification)` runs
+before the policy (`v1_orchestrator.decide_fields`): a field a plausibility
+rule, VIN check or Z3 spoke about keeps that answer; a value on a document
+whose Z3 pass ran (`z3_status` PASS or VIOLATION) with nothing attached to
+this field gets the V1 document-level default 0.85 with `verification_basis`
+saying so; a value with no verification run gets `null` and rule 1 cannot
+accept it (`reason: "not verified — no verification ran on this document"`);
+no value → `null`, `"nothing to verify: no value"`. The 0.85 never appears
+without a basis that names the pass it came from.
+
+### Quality gate on the page
+
+`LOW_QUALITY_PAGE = 0.4`: a value read from a page under it carries
+`low_quality_page: true`, is never auto-accepted, and its reason names the
+score ("page quality 0.28 < 0.40 — value read from a poor scan; confirm
+against the image"). `quality_report.low_quality_pages` lists the pages,
+`low_quality_threshold` the constant.
+
+### Classification: no forced family, reasons for uncertainty
+
+`PROMOTION_MIN_RATIO = 0.25`: a weak keyword answer is promoted to a family's
+schema only when that schema finds ≥ 25 % of its fields and ≥ 2 type-specific
+ones; below that the document stays `<family>_unknown` with the schema as
+`suggestion`. `matched_keywords` is the keyword hits on every path (it was
+`[]` after a reclassification while the basis said "n hits").
+`classification.uncertainty` (present for `uncertain` / `<family>_unknown`):
+`reason_codes` (`no_text`, `too_few_keywords`, `keyword_tie`,
+`family_without_schema`, `weak_promotion`, `family_disagrees`), `reasons`,
+`keywords_matched`, `family`, `fields_searched` (the shared fields tried),
+`fields_found`, `suggestion`, `basis`. `documents[].pages_searched` and
+`page_coverage[]` (`page, segment, document_type, fields_found, readability,
+quality_score, searched`) say which pages a bundle was read on and what each
+yielded.
+
+### Signature taxonomy
+
+`signature_quality.quality` ∈ `present_clear` (explicit e-signature marker:
+/s/, "electronically signed", DocuSign — no review), `present_ambiguous` (a
+mark, ink cannot confirm a handwritten signature; the basis says when it is
+faint), `missing`, `stamp` (stamp/seal wording — not collapsed into a
+signature), `printed_name` (a typed name on the signature line; the field has
+no value), `unreadable` (no visual sample / page unreadable), `unknown` (no
+label). Every verdict carries `next_check`, the sentence that tells the
+reviewer what to look at (`field_extractor.SIGNATURE_NEXT_CHECK`). Older
+words (`clear`, `faint`, `incomplete`, `stamped`, `questionable`) stay in the
+penalty tables and label maps for reports saved before the change.
+
+Companion documents: `docs/parsure-integrity.md` (canonical snapshot, hash
+gate, stable `document_id`, bounded replay), `docs/parsure-ui.md` (review
+mode, three field sections, source context, analytics page).

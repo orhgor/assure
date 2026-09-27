@@ -3884,6 +3884,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
 }
 .field-value.is-missing { color: var(--muted); }
 .field-value.is-missing i { font-style: italic; }
+.field-value.is-suspect { color: var(--partial); text-decoration: underline dotted; text-underline-offset: 3px; }
 .field-chip {
   flex-shrink: 0;
   display: inline-flex;
@@ -3952,6 +3953,75 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .field-error { margin: 0; }
 .field-error[hidden] { display: none; }
 .field-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+/* The three sections of the Fields tab (2026-09-27): a quiet head per group,
+   the not-found rows greyed — a fact about the document, not a task. */
+.fields-section {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-4) 0 var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}
+.fields-section:first-child { padding-top: var(--space-2); }
+.fields-section-title {
+  font: 500 var(--fs-xs)/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.fields-section[data-section="review"] .fields-section-title { color: var(--partial); }
+.fields-section[data-section="not_found"] .fields-section-title { color: var(--muted); }
+.fields-section-count { font: 500 var(--fs-xs)/1.4 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+.fields-section-note { flex-basis: 100%; font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; }
+.field-row[data-section="not_found"] .field-label,
+.field-row[data-section="not_found"] .field-reason { color: var(--muted); }
+.field-chip[data-tone="none"] { color: var(--muted); background: var(--paper); }
+.field-verification { color: var(--muted); }
+.field-next-check { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
+
+/* Source context above a correction / dispute (2026-09-27): page, quote,
+   paragraph, the way to it. Wraps at any width; at 390px the pane is 294px. */
+.field-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0 0 var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  min-width: 0;
+}
+.field-source-line { margin: 0; font-size: var(--fs-sm); color: var(--muted); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); min-width: 0; }
+.field-source-quote { quotes: "\201C" "\201D"; color: var(--ink); font-style: normal; word-break: break-word; }
+.field-source-node {
+  margin: 0;
+  font: 13px/1.55 var(--serif, Georgia, serif);
+  color: var(--ink);
+  word-break: break-word;
+  max-height: 9.5em;
+  overflow: auto;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--rule);
+}
+.field-source-none { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.field-source-actions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-top: var(--space-1); }
+.field-source-actions .btn-tertiary { height: 24px; }
+
+/* The mode chip: text only, quiet, beside the status chip. */
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  margin-left: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+.mode-chip[data-mode="review"] { color: var(--ink); }
+
 .field-editor {
   display: flex;
   flex-direction: column;
@@ -4007,6 +4077,7 @@ body.collapsed.right-hidden #resize-right { display: none; }
   }
   .app-header-right { gap: var(--space-1); }
   .app-header-right .btn-primary { height: 32px; padding: 0 var(--space-3); font-size: var(--fs-sm); }
+  .mode-chip { margin-left: var(--space-2); font-size: var(--fs-xs); }
   .app-header-left .project-switcher-btn { max-width: 88px; }
 
   .assure-strip {

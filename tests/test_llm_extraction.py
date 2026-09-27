@@ -80,7 +80,8 @@ def test_plausible_value_not_in_text_is_rejected_field_stays_none(monkeypatch):
     for name in ("liability_limit", "agent_name", "comprehensive_deductible", "insured_name"):
         f = fields[name]
         assert f["value"] is None and f["raw"] is None, name
-        assert f["extraction_confidence"] == 0.0 and f["review_required"] is True
+        assert f["extraction_confidence"] == 0.0 and f["review_required"] is False  # not found is recorded, not queued (2026-09-27)
+        assert (f["field_state"], f["routing_action"], f["verification_confidence"]) == ("not_found", "field_not_found", None)
         assert f["reason"] == "field not found" and f["source_span"] is None and f["extraction_method"] is None
     assert sum("llm candidate rejected" in n for n in notes) == 4
     assert any("quote not found verbatim" in n for n in notes) and any("value not inside the quoted text" in n for n in notes)

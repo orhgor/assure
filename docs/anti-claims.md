@@ -120,3 +120,12 @@
 | "The model found an unsupported value" without a quote | the model check keeps a candidate only when its `quote` is found verbatim in the page text; the rest are dropped and counted in `report["redhat"]["notes"]` ("N dropped without a verbatim quote") | quote the finding's `quote` and `model` |
 | "A finding has no location" | every finding carries an anchor; when no field or page node exists it is the document root, `anchor.kind = document_root` with the note "no closer node on the graph; the document root is named" | "Document root · doc-…" |
 | "Identical confidence on every field means they were measured" | `confidence_flattening` flags ≥ 80 % of found fields sharing one extraction confidence (low) and extraction = verification = provenance with a default basis (medium): the number does not distinguish the fields | quote `confidence_basis` beside the finding |
+
+### Integrity and field states (2026-09-27)
+
+- No artifact (JSON, CSV, PDF, verification_state.json) is exported when the stored report's snapshot hash does not match — 409, nothing partial. (`services/snapshot.py`; the per-report and project exports, the dossier PDF and the bundle all recompute the hash first; a row with no `snapshot` block is refused the same way. `docs/parsure-integrity.md`.)
+- document_id is never null on an exported row. (`v1_orchestrator.assign_document_id`: pipeline id, else `doc-` + SHA-256 of the bytes, else generated; `export_documents` fills a legacy row from its report id.)
+- A rerun never runs more than 3 times or after two runs without improvement. (`rerun_stop_rule` over the append-only `replay.history`; the replay endpoint and a re-extracting classification override both answer 409 with the rule.)
+- A not-found field is not a review item: field_state not_found, routing_action field_not_found, verification_confidence null.
+- verification_confidence is null unless a verification actually ran; 0.85 is only reported with a document-level Z3 pass.
+- Provenance confidence is not value quality: a located value can still be invalid_format / garbage (value_quality).

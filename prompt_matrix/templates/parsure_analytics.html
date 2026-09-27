@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Analytics · Parsure · Assure</title>
+  {% if csrf_token is defined %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  {% include "_parsure_style.html" %}
+</head>
+<body data-project-id="{{ project_id }}">
+  <header class="app-header">
+    <div class="app-header-left">
+      <div class="app-brand">
+        <span class="app-brand-icon">
+          <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+            <rect x="1" y="1" width="34" height="34" rx="8" />
+            <path d="M10 18.5 15.2 23.5 26 12.5"/>
+          </svg>
+        </span>
+        <span class="app-brand-name">Assure</span>
+      </div>
+    </div>
+    <div class="app-header-center"></div>
+    <div class="app-header-right">
+      <a href="/?project_id={{ project_id }}" class="btn-tertiary">Back to Assure</a>
+    </div>
+  </header>
+
+  {#- The aggregate intake report for one workspace. Moved here from /parsing on
+      2026-09-27 (customer handoff: the intake page is a list of documents;
+      aggregate performance is its own window). Same view model, same rule: no
+      number the repository did not count. -#}
+  <main class="intake">
+    <a class="back" href="{{ back_href }}">← {{ strings.get("parsing.back_to_list", "Documents") }}</a>
+    <div class="intake-hero">
+      <div>
+        <h1>{{ strings.get("parsing.analytics_title", "Analytics") }}</h1>
+        <p class="intake-lede">{{ strings.get("parsing.analytics_lede", "How this workspace's intake is doing, in aggregate. One document at a time is the list.") }}</p>
+      </div>
+    </div>
+
+    {% if analytics is not none %}
+    <section class="section section--report" id="analytics" data-has-data="{{ 'true' if analytics.has_data else 'false' }}">
+      <div class="section-head">
+        <h2>Analytics</h2>
+        {% if analytics.has_data %}<span class="section-meta">{{ analytics.documents }} document{{ "" if analytics.documents == 1 else "s" }} · last {{ analytics.trend_days }} days shown</span>{% endif %}
+      </div>
+
+      <div class="report-metrics">
+        <div class="metric">
+          <p class="metric-label">Avg quality</p>
+          <p class="metric-value">{{ analytics.avg_quality_label }}</p>
+          {% if analytics.has_data and analytics.unscored %}<p class="metric-note">{{ analytics.unscored }} not scored</p>{% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Review rate</p>
+          <p class="metric-value">{{ analytics.review_rate_label }}</p>
+          {% if analytics.has_data %}<p class="metric-note">{{ analytics.fields_review }} of {{ analytics.fields_total }} fields</p>{% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Open disputes</p>
+          <p class="metric-value">{% if analytics.has_data %}{{ analytics.disputes_open }}{% else %}—{% endif %}</p>
+          {% if analytics.has_data %}
+          <p class="metric-note">
+            {%- if analytics.disputes_overdue %}<b>{{ analytics.disputes_overdue }} overdue</b>{% if analytics.disputes_due_24h %} · {% endif %}{% endif -%}
+            {%- if analytics.disputes_due_24h %}{{ analytics.disputes_due_24h }} due within 24 h{% endif -%}
+            {%- if not analytics.disputes_overdue and not analytics.disputes_due_24h %}{% if analytics.disputes_open %}all within 72 h{% else %}none open{% endif %}{% endif -%}
+          </p>
+          {% endif %}
+        </div>
+        <div class="metric">
+          <p class="metric-label">Corrections</p>
+          <p class="metric-value">{% if analytics.has_data %}{{ analytics.corrections }}{% else %}—{% endif %}</p>
+          {% if analytics.has_data %}<p class="metric-note">{{ analytics.correction_rate_label }} of fields · replay ready {{ analytics.replay_rate_label }}</p>{% endif %}
+        </div>
+      </div>
+
+      {% if analytics.has_data %}
+      <div class="report-grid">
+        <figure class="report-figure report-figure--wide" style="margin:0">
+          <h3>Average quality per day</h3>
+          <p class="figure-sub">Last {{ analytics.trend_days }} days · {% if analytics.spark %}{{ analytics.spark.days_with_intake }} day{{ "" if analytics.spark.days_with_intake == 1 else "s" }} with scored intake{% else %}no scored intake in this window{% endif %}</p>
+          {% if analytics.spark %}
+          <svg class="spark" viewBox="0 0 {{ analytics.spark.width }} {{ analytics.spark.height }}" role="img" aria-label="Average document quality per day over the last {{ analytics.trend_days }} days; latest {{ analytics.spark.last.label }}">
+            <line class="baseline" x1="6" x2="{{ analytics.spark.width - 6 }}" y1="{{ analytics.spark.height - 6 }}" y2="{{ analytics.spark.height - 6 }}"/>
+            {% if not analytics.spark.single %}<path class="line" d="{{ analytics.spark.path }}"/>{% endif %}
+            {% for pt in analytics.spark.points %}
+            <g>
+              <circle class="hit" cx="{{ pt.x }}" cy="{{ pt.y }}" r="12"><title>{{ pt.day }} · avg quality {{ pt.label }} · {{ pt.documents }} document{{ "" if pt.documents == 1 else "s" }}</title></circle>
+              <circle class="pt" cx="{{ pt.x }}" cy="{{ pt.y }}" r="4"/>
+            </g>
+            {% endfor %}
+            <circle class="end" cx="{{ analytics.spark.last.x }}" cy="{{ analytics.spark.last.y }}" r="4"/>
+          </svg>
+          <div class="spark-labels">
+            <span>{{ analytics.trend_start_label }}</span>
+            <span><span class="spark-end-label">Latest {{ analytics.spark.last.label }}</span> · {{ analytics.trend_end_label }}</span>
+          </div>
+          {% else %}
+          <p class="section-empty">No scored intake in the last {{ analytics.trend_days }} days.</p>
+          {% endif %}
+          <details class="tech">
+            <summary>Table view</summary>
+            <table class="report-table">
+              <thead><tr><th>Day</th><th>Documents</th><th>Avg quality</th><th>Fields needing review</th></tr></thead>
+              <tbody>
+              {% for d in analytics.trend_rows %}
+              <tr><td>{{ d.day }}</td><td>{{ d.documents }}</td><td>{{ (d.avg_quality * 100)|round|int ~ "%" if d.avg_quality is not none else "—" }}</td><td>{{ d.fields_review }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        </figure>
+
+        <figure class="report-figure" style="margin:0">
+          <h3>Quality distribution</h3>
+          <p class="figure-sub">Documents by quality score{% if analytics.unscored %} · {{ analytics.unscored }} not scored{% endif %}</p>
+          <div class="hist" role="img" aria-label="Documents by quality score band">
+            {% for h in analytics.histogram %}
+            <div class="hist-col">
+              <span class="hist-count">{{ h.count }}</span>
+              <div class="hist-bar" data-tone="{{ h.tone }}"{% if not h.count %} data-empty="1"{% endif %} style="height: {{ (h.pct * 0.7)|round(1) }}%" title="{{ h.bucket }}: {{ h.count }}"></div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="hist-labels">{% for h in analytics.histogram %}<span>{{ h.bucket }}</span>{% endfor %}</div>
+        </figure>
+
+        <figure class="report-figure" style="margin:0">
+          <h3>What needs attention, by reason</h3>
+          <p class="figure-sub">Fields still asking for a person, and page issues seen</p>
+          {% if analytics.issues %}
+          <ul class="issues">
+            {% for i in analytics.issues %}
+            <li>
+              <span class="issue-label">{{ i.label }}{% if i.kind == "page" %}<small>page</small>{% endif %}</span>
+              <span class="issue-track"><span class="issue-fill" style="width: {{ i.pct|round(1) }}%"></span></span>
+              <span class="issue-count">{{ i.count }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="section-empty">Nothing is waiting on a person.</p>
+          {% endif %}
+          {% if analytics.modality %}
+          <details class="tech">
+            <summary>By source</summary>
+            <table class="report-table">
+              <tbody>
+              {% for m in analytics.modality %}<tr><td>{{ m.label }}</td><td>{{ m.count }}</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </details>
+          {% endif %}
+        </figure>
+      </div>
+      {% else %}
+      <p class="section-empty report-empty">No intake yet.</p>
+      {% endif %}
+    </section>
+    {% else %}
+    <section class="section section--report" id="analytics" data-has-data="false">
+      <div class="section-head"><h2>Analytics</h2></div>
+      <div class="report-metrics">
+        <div class="metric"><p class="metric-label">Avg quality</p><p class="metric-value">—</p></div>
+        <div class="metric"><p class="metric-label">Review rate</p><p class="metric-value">—</p></div>
+        <div class="metric"><p class="metric-label">Open disputes</p><p class="metric-value">—</p></div>
+        <div class="metric"><p class="metric-label">Corrections</p><p class="metric-value">—</p></div>
+      </div>
+      <p class="section-empty report-empty">No intake yet.</p>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-copy">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span>Your data stays on your machine.</span>
+      </div>
+      <div class="footer-meta">
+        <strong>Assure</strong>. PEM engine. &copy; 2026 Assure. All rights reserved.
+        <a href="/about">About</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/pricing">Pricing</a>
+        <a href="mailto:feedback@getassureai.com">Help</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -110,7 +110,8 @@ def test_correct_then_history_then_export(client):
     assert {r["name"] for r in rows} == {f["name"] for f in exported["fields"]}
     premium_row = next(r for r in rows if r["name"] == "premium")
     assert premium_row["value"] == "1300.0" and premium_row["field_state"] == "accepted" and premium_row["source_page"] == "1"
-    assert set(rows[0]) == {"name", "label", "value", "extraction_confidence", "confidence_basis", "verification_confidence", "field_state", "routing_action", "review_required", "reason", "source_page"}
+    assert set(rows[0]) == {"name", "label", "value", "extraction_confidence", "confidence_basis", "verification_confidence", "field_state", "routing_action", "review_required", "reason", "source_page", "snapshot_hash"}
+    assert premium_row["snapshot_hash"] == exported["snapshot"]["content_hash"]  # every row names the stored report it came from
     events = [e["event_type"] for e in client.get(f"/api/projects/default/parsure/audit-log?report_id={rid}").get_json()["events"]]
     assert events[:2] == ["exported", "exported"]
     assert client.get(f"/api/projects/default/parsure/{rid}/export?format=xml").status_code == 400
@@ -129,8 +130,8 @@ def test_dispute_has_72h_due_and_resolve_paths(client):
     res = client.post(f"/api/projects/default/parsure/{rid}/fields/liability_limit/dispute", json={"reason": "limit disputed by insured", "actor": "bob"})
     assert res.status_code == 201, res.get_json()
     dispute = res.get_json()["dispute"]
-    opened = datetime.strptime(dispute["opened_at"], "%Y-%m-%d %H:%M:%S")
-    due = datetime.strptime(dispute["due_at"], "%Y-%m-%d %H:%M:%S")
+    opened = datetime.fromisoformat(dispute["opened_at"])  # microsecond timestamps since 2026-09-27
+    due = datetime.fromisoformat(dispute["due_at"])
     assert due - opened == timedelta(hours=72) and dispute["status"] == "open"
     f = res.get_json()["field"]
     assert (f["field_state"], f["routing_action"]) == ("disputed", "adjudicator_queue") and f["dispute_id"] == dispute["dispute_id"]
@@ -402,7 +403,7 @@ def test_project_export_csv_long_wide_json_and_filters(client):
     assert wide.status_code == 200
     table = list(csv.reader(io.StringIO(wide.get_data(as_text=True))))
     header, body = table[0], table[1:]
-    assert header[:5] == ["report_id", "filename", "document_type", "created_at", "needs_review"]
+    assert header[:6] == ["report_id", "filename", "document_type", "created_at", "needs_review", "snapshot_hash"]
     assert "Policy number" in header and "Premium" in header and "Claim number" in header
     assert header.index("Policy number") < header.index("Premium")  # taxonomy order
     assert len(set(header)) == len(header)  # no two columns read the same
@@ -417,7 +418,8 @@ def test_project_export_csv_long_wide_json_and_filters(client):
     body = js.get_json()
     assert body["ok"] and body["project_id"] == "default" and len(body["documents"]) == 2
     doc = next(d for d in body["documents"] if d["report_id"] == rid_policy)
-    assert set(doc) == {"report_id", "document_id", "filename", "document_type", "created_at", "fields"}
+    assert set(doc) == {"report_id", "document_id", "filename", "document_type", "created_at", "snapshot", "fields"}
+    assert doc["snapshot"]["content_hash"] and any(s["report_id"] == rid_policy and s["content_hash"] == doc["snapshot"]["content_hash"] for s in body["snapshot"]["reports"])
     assert doc["fields"]["premium"]["value"] == 1250.0 and doc["fields"]["premium"]["field_state"] == "accepted"
     assert "_page_texts" not in json_dumps(body)
 
@@ -468,7 +470,8 @@ def test_summaries_and_queue_carry_fields_found_and_document_counts(client, monk
     rid_ok = _seed()
     rid_empty = _seed(lines=CLAIM_PROSE_LINES, filename="loss-letter.pdf", result={"document_id": "doc-2", "revision_id": "rev-2", "version": 2})
     listing = {r["report_id"]: r for r in client.get("/api/projects/default/parsure").get_json()["reports"]}
-    assert listing[rid_ok]["fields_found"] == 11 and listing[rid_ok]["review_summary"]["fields_found"] == 11 and listing[rid_ok]["nothing_extracted"] is False
+    # 12 since 2026-09-27: "/s/ Mary Agent" is an explicit e-signature marker (present_clear), a found signature.
+    assert listing[rid_ok]["fields_found"] == 12 and listing[rid_ok]["review_summary"]["fields_found"] == 12 and listing[rid_ok]["nothing_extracted"] is False
     assert listing[rid_empty]["fields_found"] == 0 and listing[rid_empty]["nothing_extracted"] is True
     assert listing[rid_empty]["review_summary"]["reasons"][0]["reason"] == "document type may be wrong — change it and the fields are re-read"
     assert listing[rid_empty]["quality_summary"].startswith("No fields could be read as Auto claim.")
@@ -476,9 +479,11 @@ def test_summaries_and_queue_carry_fields_found_and_document_counts(client, monk
     queue = client.get("/api/projects/default/parsure/queue").get_json()
     attention = repo.attention_counts(repo.list_reports("default"))
     assert queue["total"] == attention["fields"] and queue["counts"]["documents"] == attention["documents"] == 2
-    assert queue["counts"]["nothing_extracted"] == 1 and queue["counts"]["fields_found"] == 11
+    assert queue["counts"]["nothing_extracted"] == 1 and queue["counts"]["fields_found"] == 12
     empty_items = [i for i in queue["items"] if i["report_id"] == rid_empty]
-    assert len(empty_items) == 10 and all(i["nothing_extracted"] is True and i["fields_total"] == 10 and i["fields_found"] == 0 for i in empty_items)
+    # 2026-09-27: the nine absences are not_found (recorded, not queued); the signature is the one review item,
+    # and it carries the document-level fact.
+    assert len(empty_items) == 1 and all(i["nothing_extracted"] is True and i["fields_total"] == 10 and i["fields_found"] == 0 for i in empty_items)
     assert all(i["nothing_extracted"] is False for i in queue["items"] if i["report_id"] == rid_ok)
     # The analytics column counts by the same rule as the queue.
     a = client.get("/api/projects/default/parsure/analytics").get_json()["analytics"]

@@ -404,7 +404,7 @@ def test_confident_or_productive_keyword_type_is_not_second_guessed(db, monkeypa
     assert {k: seg[k] for k in ("index", "pages", "document_type", "confidence", "basis", "matched_keywords", "fields_total", "fields_found")} == {
         "index": 0, "pages": [1], "document_type": "auto_policy", "confidence": r["classification"]["confidence"],
         "basis": r["classification"]["basis"], "matched_keywords": r["classification"]["matched_keywords"],
-        "fields_total": 12, "fields_found": 11}  # "/s/ Mary Agent" is a label hit, not measurable ink
+        "fields_total": 12, "fields_found": 12}  # "/s/ Mary Agent" is an explicit e-signature marker → present_clear (2026-09-27)
     assert seg["family"]["family"] == "auto" and seg["validation"]["agrees"] is True and seg["schema_mismatch"] is False and seg["suggestion"] is None
     assert r["classification"]["validation"] == seg["validation"] and r["classification"]["schema_mismatch"] is False
     # reclassify_by_evidence: the rule's three gates.
@@ -424,7 +424,9 @@ def test_nothing_extracted_is_one_document_level_fact(db, monkeypatch):
     r = _run(jdf_cli_bundle(CLAIM_PROSE_LINES), filename="loss-letter.pdf")["report"]
     assert r["classification"]["document_type"] == "auto_claim" and "method" not in r["classification"]  # nothing better on the page
     rs = r["review_summary"]
-    assert rs["fields_found"] == 0 and rs["fields_total"] == len(fx.FIELD_TAXONOMY["auto_claim"]) and rs["fields_review"] == rs["fields_total"]
+    # 2026-09-27: nine absences are recorded (not_found), the signature alone asks for a person.
+    assert rs["fields_found"] == 0 and rs["fields_total"] == len(fx.FIELD_TAXONOMY["auto_claim"])
+    assert rs["fields_not_found"] == rs["fields_total"] - 1 and rs["fields_review"] == 1
     assert rs["reasons"][0] == {"reason": orch.WRONG_TYPE_REASON, "count": rs["fields_total"]}
     assert rs["reasons"][0]["reason"] == "document type may be wrong — change it and the fields are re-read"
     assert r["quality_report"]["summary"].startswith("No fields could be read as Auto claim. ")
@@ -511,8 +513,8 @@ def test_reextract_for_type_can_defer_to_evidence(db, monkeypatch):
     report = orch.build_report("default", bundle=jdf_cli_bundle(REAL_ESTATE_LINES), verification=VERIFICATION, filename="re.pdf", result=RESULT, job_id=None, intake=None)
     # A reviewer's explicit choice is honoured even when it finds little …
     orch.reextract_for_type(report, "auto_claim")
-    assert report["documents"][0] == {"index": 0, "pages": [1], "document_type": "auto_claim", "confidence": None, "basis": "reviewer override",
-                                      "matched_keywords": [], "fields_total": 10, "fields_found": 1}
+    assert report["documents"][0] == {"index": 0, "pages": [1], "pages_searched": [1], "document_type": "auto_claim", "confidence": None,
+                                      "basis": "reviewer override", "matched_keywords": [], "fields_total": 10, "fields_found": 1}
     assert report["review_summary"]["fields_found"] == 1
     # … while a caller that asks for evidence gets the type the page supports.
     orch.reextract_for_type(report, "auto_claim", by_evidence=True)
@@ -623,9 +625,12 @@ def test_cms_1500_with_the_word_accident_becomes_a_medical_claim_not_an_auto_pol
     assert r["graph_integrity"]["orphans"] == 0 and r["graph_integrity"]["fields"] == r["graph_integrity"]["anchored"] == 13
     assert all(f["field_source_node_id"] for f in r["fields"])
     sig = fields["signature"]
-    assert sig["value"] is None and sig["evidence"]["kind"] == "absent" and sig["field_source_node_id"] == "el-0" and sig["tree_node_id"] == "sec-1"
-    assert sig["source_span"] == {"span_type": "absent", "pages": [1], "node_id": "sec-1"}
-    assert sig["evidence"]["searched_pages"] == [1] and sig["evidence"]["searched_node_ids"][:3] == ["el-0", "el-1", "el-2"] and sig["evidence"]["searched_chars"] > 500
+    # "31. Signature of Physician or Supplier: /s/ Alan Reyes, MD": the label
+    # pass has no anchor for the long label, the probe reads the /s/ marker →
+    # present_clear, anchored to the page's first node (2026-09-27).
+    assert sig["value"] == "present" and sig["signature_quality"]["quality"] == "present_clear" and sig["signature_quality"]["next_check"]
+    assert sig["evidence"]["kind"] == "found" and sig["evidence"]["method"] == "visual_probe" and sig["field_source_node_id"] == "el-0"
+    assert sig["source_span"]["span_type"] == "page" and sig["source_span"]["page"] == 1 and sig["tree_node_id"] == "sec-1"
     assert set(r["review_summary"]["evidence_states"]) <= set(fx.EVIDENCE_STATES)
     from prompt_matrix.db import parsure_repository as repo
 

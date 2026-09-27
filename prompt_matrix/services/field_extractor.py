@@ -61,8 +61,22 @@ from typing import Any
 # Vocabularies (spec §5) — the two never mix.
 # --------------------------------------------------------------------------
 
-FIELD_STATES = ("accepted", "partial", "unverified", "disputed", "rejected")
-ROUTING_ACTIONS = ("none", "manual_review", "adjudicator_queue", "compliance_review", "retry_parsure", "replay_later")
+#: ``not_found`` (2026-09-27): the extractor read the pages and the field is not
+#: there. Before this state an absent field was ``unverified`` / ``manual_review``
+#: and a customer's review queue listed nine "review items" that were nine
+#: absences — nothing for a person to look at. ``field_not_found`` is its routing:
+#: recorded, counted, not queued. An absence on an *unreadable* page routes to
+#: ``retry_parsure`` instead — a rescan, not a reviewer, is the next step.
+FIELD_STATES = ("accepted", "partial", "unverified", "disputed", "rejected", "not_found")
+ROUTING_ACTIONS = ("none", "manual_review", "adjudicator_queue", "compliance_review", "retry_parsure", "replay_later", "field_not_found")
+
+#: Page quality under which a value read from the page is never auto-accepted
+#: and a value that fails its shape check is dropped to ``found_suspect``
+#: (customer run 2026-09-27: page quality 0.28, low DPI + blur, and the fields
+#: still carried garbage as accepted values). Same scale as
+#: ``quality_probe.page_quality_score``; 0.4 sits between ``UNREADABLE_MAX_QUALITY``
+#: (0.3, the page says nothing) and ``READABLE_MIN_QUALITY`` (0.5).
+LOW_QUALITY_PAGE = 0.4
 
 #: Decision policy thresholds (spec §5, V1 rules 1–3).
 VERIFICATION_THRESHOLD = 0.8
@@ -557,7 +571,11 @@ def field_needs_review(field: dict[str, Any]) -> bool:
         # schema_mismatch``), never thirteen times.
         return False
     routing = str(field.get("routing_action") or "none").lower()
-    return routing != "none" or field.get("field_state") in ("disputed", "rejected")
+    # ``field_not_found`` (2026-09-27): an absence is recorded, not queued — a
+    # reviewer cannot act on a value that is not there. An absence on an
+    # unreadable page routes ``retry_parsure`` and does count: the next step
+    # (a rescan) is a person's decision.
+    return routing not in ("none", "field_not_found") or field.get("field_state") in ("disputed", "rejected")
 
 
 # --------------------------------------------------------------------------
@@ -706,13 +724,44 @@ def vin_model_years(vin: str) -> list[int]:
 #: Spec §6 "Unreadable Numbers" penalties; overridden by quality_probe when present.
 NUMBER_PENALTIES = {
     "clear": 1.0, "printed_good": 1.0, "handwritten": 0.7, "faded": 0.6, "typewritten_low_quality": 0.8,
-    "unreadable": 0.0, "unknown": 1.0,
+    "unreadable": 0.0, "unknown": 1.0, "invalid_format": 0.0,
 }
 #: Spec §6 "Faint Signatures": text-only signals cannot see ink, so every
-#: quality other than ``clear`` carries a penalty and forces review.
+#: quality other than a clear one carries a penalty and forces review.
+#: Vocabulary since 2026-09-27 (customer: "questionable" told the reviewer
+#: nothing): ``present_clear`` (an explicit e-signature marker), ``present_ambiguous``
+#: (a mark exists, ink cannot confirm a handwritten signature), ``missing``,
+#: ``stamp`` (stamp/seal wording — not a signature, not collapsed into one),
+#: ``printed_name`` (a typed name on the signature line), ``unreadable`` (the
+#: page cannot be judged). The older words stay in the table so reports saved
+#: before the change still score.
 SIGNATURE_PENALTIES = {
-    "clear": 1.0, "faint": 0.8, "incomplete": 0.7, "stamped": 0.7, "questionable": 0.6, "missing": 0.5, "unknown": 1.0,
+    "clear": 1.0, "present_clear": 1.0, "faint": 0.8, "incomplete": 0.7, "stamped": 0.7, "stamp": 0.7,
+    "questionable": 0.6, "present_ambiguous": 0.6, "printed_name": 0.6, "missing": 0.5, "unreadable": 0.4, "unknown": 1.0,
 }
+SIGNATURE_QUALITIES = ("present_clear", "present_ambiguous", "missing", "stamp", "printed_name", "unreadable", "unknown")
+#: What the reviewer looks at next, per verdict — the verdict alone was "too
+#: vague" (customer, 2026-09-27); every ``signature_quality`` carries one.
+SIGNATURE_NEXT_CHECK = {
+    "present_clear": "No check needed: an explicit electronic-signature marker is on the page.",
+    "present_ambiguous": "Open the page image and confirm the mark is a handwritten signature, not a stray mark or print.",
+    "missing": "Confirm the signature line is blank on the original; if so, request a signed copy.",
+    "stamp": "A stamp or seal sits at the signature line; confirm whether it is acceptable in place of a handwritten signature.",
+    "printed_name": "A typed name sits on the signature line; confirm whether a handwritten signature is required.",
+    "unreadable": "The page is not readable enough to judge the signature; view the original at full resolution.",
+    "unknown": "No signature label was found; check whether this document requires a signature at all.",
+    # legacy verdicts from reports saved before 2026-09-27
+    "clear": "No check needed.", "faint": "Open the page image and confirm the faint mark is a signature.",
+    "incomplete": "Open the page image; the mark looks incomplete.", "stamped": "Confirm whether a stamp is acceptable here.",
+    "questionable": "Open the page image and confirm the mark is a handwritten signature.",
+}
+
+
+def with_next_check(sig: dict[str, Any]) -> dict[str, Any]:
+    """Attach ``next_check`` to a signature verdict (quality_probe's or the fallback's)."""
+    if isinstance(sig, dict) and not sig.get("next_check"):
+        sig["next_check"] = SIGNATURE_NEXT_CHECK.get(str(sig.get("quality") or "unknown"), SIGNATURE_NEXT_CHECK["unknown"])
+    return sig
 
 
 def _quality_probe():
@@ -774,26 +823,26 @@ def assess_signature(page_text: str, *, visual: dict | None = None, ocr_lines: l
     qp = _quality_probe()
     if qp is not None and hasattr(qp, "assess_signature"):
         try:
-            return dict(qp.assess_signature(page_text, visual=visual, ocr_lines=ocr_lines, page=page))
+            return with_next_check(dict(qp.assess_signature(page_text, visual=visual, ocr_lines=ocr_lines, page=page)))
         except Exception:
             pass
     text = page_text or ""
     m = _SIG_LABEL_RE.search(text)
     if not m:
-        return {"present": False, "quality": "missing", "review_required": True, "basis": "no signature label on page", "page": page}
+        return with_next_check({"present": False, "quality": "missing", "review_required": True, "basis": "no signature label on page", "page": page})
     tail = text[m.end(): m.end() + 80]
     tail_line = tail.split("\n", 1)[0]
     after = re.sub(r"^[\s:\-–—]+", "", tail_line)
     lower_tail = tail.lower()
-    if re.search(r"stamp", lower_tail):
-        return {"present": True, "quality": "stamped", "review_required": True, "basis": "stamp wording after signature label", "page": page}
-    if re.search(r"/s/|electronically\s+signed|e-?signed|digitally\s+signed", text[max(0, m.start() - 40): m.end() + 80], re.I):
-        return {"present": True, "quality": "clear", "review_required": False, "basis": "explicit e-signature marker (/s/ or electronically signed)", "page": page}
+    if re.search(r"stamp|seal", lower_tail):
+        return with_next_check({"present": True, "quality": "stamp", "review_required": True, "basis": "stamp/seal wording after signature label", "page": page})
+    if re.search(r"/s/|electronically\s+signed|e-?signed|digitally\s+signed|docusign", text[max(0, m.start() - 40): m.end() + 80], re.I):
+        return with_next_check({"present": True, "quality": "present_clear", "review_required": False, "basis": "explicit e-signature marker (/s/ or electronically signed)", "page": page})
     if not after or re.fullmatch(r"[_\s.]*", after):
-        return {"present": False, "quality": "missing", "review_required": True, "basis": "signature line is blank", "page": page}
+        return with_next_check({"present": False, "quality": "missing", "review_required": True, "basis": "signature line is blank", "page": page})
     if re.fullmatch(r"[A-Za-z.'\- ]{2,}", after.strip()) and len(after.strip().split()) >= 2:
-        return {"present": True, "quality": "questionable", "review_required": True, "basis": "name text after signature label; ink quality not assessable from text", "page": page}
-    return {"present": True, "quality": "questionable", "review_required": True, "basis": "text after signature label; ink quality not assessable from text", "page": page}
+        return with_next_check({"present": True, "quality": "printed_name", "review_required": True, "basis": "typed name after the signature label; no ink measurement from text", "page": page})
+    return with_next_check({"present": True, "quality": "present_ambiguous", "review_required": True, "basis": "text after signature label; ink quality not assessable from text", "page": page})
 
 
 def _penalties():
@@ -1208,24 +1257,80 @@ def _value_pattern(field_type: str) -> str:
 _LABEL_LIKE = re.compile(r"^[A-Za-z][A-Za-z /]{1,30}:")
 
 
-def _find_field(spec: FieldSpec, text: str) -> tuple[str, int, int] | None:
-    """(raw value, start, end) of the first anchor+value hit in ``text``, or None.
+_HEADER_WORDS = frozenset({
+    "address", "information", "section", "declarations", "declaration", "coverage", "coverages", "page", "description",
+    "location", "mailing", "schedule", "summary", "statement", "details", "form", "notice", "certificate", "total",
+    "amount", "date", "number", "signature", "name", "policy", "insured", "applicant", "premium", "vehicle", "property",
+})
+#: A street address has a house number before a street word, or a unit/box
+#: token — a bare "Dr." or "St." is a title or a saint, not a street
+#: (tests/golden deeds and mortgages carry "Dr. …" names, 2026-09-27).
+_ADDRESS_RE = re.compile(
+    r"(?:^|\s)\d{1,6}\s+[A-Za-z0-9.'\- ]{1,40}?\b(?:st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|ct|court|hwy|highway|way|pl|place)\b\.?"
+    r"|\b(?:suite|ste|apt|unit)\b\.?\s*#?\s*\d|\bp\.?o\.?\s*box\b",
+    re.I,
+)
+#: Legal names run long ("Eleanor M. Bradford, of Plymouth, Plymouth County,
+#: Massachusetts"; "Samuel T. Okafor and Grace A. Okafor" — tests/golden):
+#: the cap is on nonsense, not on parties.
+NAME_MAX_WORDS = 12
+_ID_SHAPE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/. ]{2,29}$")
+_ID_FIELDS = frozenset({"policy_number", "claim_number"})
+VALUE_QUALITIES = ("valid", "invalid_format", "garbage", "header_or_label", "address_fragment")
 
-    The anchor must end at a word boundary (``(?!'|[a-z])`` — "Buyer's
-    Signature" is not the buyer's name) and the separator may cross at most
-    one line break, so a label whose value sits on the next line is read but a
-    label followed by *another* label is not.
 
-    A text/name capture with **no separator** after the label (only spaces)
-    that starts with a lowercase letter is prose running on from the word,
-    not a value: "the covered vehicle is a 2003 Honda…" is not
-    ``vehicle = "is a 2003 Honda…"``. Measured on tests/golden/prose
-    (2026-09-25): 12 of the 15 residual misses after the LLM pass were such
-    captures, and because the field then held a (wrong) value it was never
-    offered to the grounded pass. Form values start with a capital or a digit
-    ("Agent Mary Agent" with an OCR-dropped colon still reads), so labeled
-    documents are unaffected (tests/golden stays 52/52).
+def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str, Any]:
+    """``value_quality`` — does the text under the label have the *shape* of this
+    field's value? Provenance says where a value came from; this says whether
+    it is one. Added 2026-09-27 after a customer run in which ``insured_name``
+    held a section header ("MAILING ADDRESS") and ``policy_number`` held OCR
+    debris, both with provenance confidence 1.0 and no flag anywhere.
+
+    Names: words only, 1–6 of them, no digits, no street token, no header
+    word. Policy/claim numbers: 3–30 letters/digits/dashes with at least one
+    digit. Typed fields (money, number, date, VIN, codes): the parse is the
+    shape — ``parsed`` None is ``invalid_format``. Any value under 50 %
+    alphanumeric is ``garbage``. ``basis`` says which rule spoke.
     """
+    text = (raw or "").strip()
+    if not text:
+        return {"quality": "invalid_format", "basis": "empty value"}
+    alnum = sum(ch.isalnum() for ch in text)
+    ratio = alnum / len(text)
+    if ratio < 0.5:
+        return {"quality": "garbage", "basis": f"{ratio:.0%} of characters are letters or digits"}
+    if spec.field_type in ("money", "number", "date", "vin", "codes"):
+        if parsed is None:
+            return {"quality": "invalid_format", "basis": f"'{text[:40]}' does not parse as {spec.field_type}"}
+        return {"quality": "valid", "basis": f"parses as {spec.field_type}"}
+    words = re.findall(r"[A-Za-z][A-Za-z.'\-]*", text)
+    lowered = {w.lower().strip(".") for w in words}
+    if spec.field_type == "name":
+        if _ADDRESS_RE.search(text) or re.match(r"^\d", text):
+            return {"quality": "address_fragment", "basis": "street address shape in a name field"}
+        if re.search(r"\d", text):
+            return {"quality": "invalid_format", "basis": "digits in a name"}
+        if not 1 <= len(words) <= NAME_MAX_WORDS:
+            return {"quality": "invalid_format", "basis": f"{len(words)} words is not a name"}
+        hdr = lowered & _HEADER_WORDS
+        # Header when header words carry the value ("MAILING ADDRESS", "INSURED
+        # INFORMATION"), not when one sits inside a longer party name.
+        if hdr and (2 * len(hdr) >= len(words) or (text.isupper() and len(words) <= 4)):
+            return {"quality": "header_or_label", "basis": f"header/label words in a name field: {', '.join(sorted(hdr))}"}
+        return {"quality": "valid", "basis": f"{len(words)} name word{'s' if len(words) != 1 else ''}, no digits"}
+    if spec.name in _ID_FIELDS:
+        if not _ID_SHAPE_RE.match(text) or alnum < 3 or not re.search(r"\d", text):
+            return {"quality": "invalid_format", "basis": "expected 3–30 letters/digits with at least one digit"}
+        return {"quality": "valid", "basis": "letters/digits identifier shape"}
+    if words and lowered and lowered <= _HEADER_WORDS and len(words) <= 3:
+        return {"quality": "header_or_label", "basis": f"only header/label words: {text[:40]}"}
+    return {"quality": "valid", "basis": "text value"}
+
+
+def _find_candidates(spec: FieldSpec, text: str):
+    """Yield every (raw, start, end) the anchors of ``spec`` locate in ``text``, in
+    anchor order then position order — ``_find_field`` takes the first one whose
+    shape is valid, ``_find_suspect`` the first one that is not."""
     for anchor in spec.anchors:
         pattern = re.compile(
             r"(?<![a-z])" + anchor + r"(?!'|[a-z])" + r"(?P<sep>" + _SEP + r")(?P<val>" + _value_pattern(spec.field_type) + r")",
@@ -1251,7 +1356,45 @@ def _find_field(spec: FieldSpec, text: str) -> tuple[str, int, int] | None:
                 raw = raw.strip()
             if spec.field_type == "name" and (len(raw) > 80 or re.search(r"\d{3,}", raw)):
                 continue
-            return raw, start, end
+            yield raw, start, end
+
+
+def _find_suspect(spec: FieldSpec, text: str) -> tuple[str, int, int, dict[str, Any]] | None:
+    """The first anchor hit whose shape is *not* valid — what ``_find_field``
+    passed over. Surfaced as ``found_suspect`` when no valid hit exists, so a
+    label followed by debris is reported as debris, not as absence."""
+    for raw, start, end in _find_candidates(spec, text):
+        shape = value_shape(spec, raw) if spec.field_type in ("text", "name") else {"quality": "valid"}
+        if shape["quality"] != "valid":
+            return raw, start, end, shape
+    return None
+
+
+def _find_field(spec: FieldSpec, text: str) -> tuple[str, int, int] | None:
+    """(raw value, start, end) of the first anchor+value hit in ``text`` whose
+    shape is valid (``value_shape``), or None.
+
+    The anchor must end at a word boundary (``(?!'|[a-z])`` — "Buyer's
+    Signature" is not the buyer's name) and the separator may cross at most
+    one line break, so a label whose value sits on the next line is read but a
+    label followed by *another* label is not.
+
+    A text/name capture with **no separator** after the label (only spaces)
+    that starts with a lowercase letter is prose running on from the word,
+    not a value: "the covered vehicle is a 2003 Honda…" is not
+    ``vehicle = "is a 2003 Honda…"``. Measured on tests/golden/prose
+    (2026-09-25): 12 of the 15 residual misses after the LLM pass were such
+    captures, and because the field then held a (wrong) value it was never
+    offered to the grounded pass. Form values start with a capital or a digit
+    ("Agent Mary Agent" with an OCR-dropped colon still reads), so labeled
+    documents are unaffected (tests/golden stays 52/52).
+    """
+    for raw, start, end in _find_candidates(spec, text):
+        if spec.field_type in ("text", "name") and value_shape(spec, raw)["quality"] != "valid":
+            # A section header or address fragment under a name label is not
+            # the name; keep looking (the label may repeat with the real value).
+            continue
+        return raw, start, end
     return None
 
 
@@ -1264,16 +1407,21 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
         "raw": None,
         "extraction_confidence": 0.0,
         "confidence_basis": reason,
-        "verification_confidence": DEFAULT_VERIFICATION_CONFIDENCE,
+        # No value → nothing was verified: ``None``, never the 0.85 default
+        # (customer, 2026-09-27: "verification_confidence 0.85 on a field that
+        # was not found"). ``attach_verification_confidence`` fills found fields.
+        "verification_confidence": None,
+        "verification_basis": "nothing to verify: no value",
         "provenance_confidence": 0.0,
+        "value_quality": None,
         "signature_quality": None,
         "number_quality": None,
         "source_span": None,
         "field_source_node_id": None,
         "element_id": None,
-        "field_state": "unverified",
-        "routing_action": "manual_review",
-        "review_required": True,
+        "field_state": "not_found",
+        "routing_action": "field_not_found",
+        "review_required": False,
         "reason": reason,
         "z3_violation": False,
         "plausibility_violation": False,
@@ -1294,12 +1442,17 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
 #: ``not_on_document``: no value on pages that were readable;
 #: ``unreadable``: no value and no readable page to say it is absent;
 #: ``schema_mismatch``: the type is wrong for the page — the fields are not
-#: applicable, and the document, not the fields, asks for a person.
-EVIDENCE_STATES = ("found_verified", "found_unverified", "not_on_document", "unreadable", "schema_mismatch")
+#: applicable, and the document, not the fields, asks for a person;
+#: ``found_suspect`` (2026-09-27): a label was found and text sits under it,
+#: but the text fails the field's shape check (``value_shape``) — debris, a
+#: section header, an address fragment — so no value is taken and the reviewer
+#: is pointed at the span.
+EVIDENCE_STATES = ("found_verified", "found_unverified", "not_on_document", "unreadable", "schema_mismatch", "found_suspect")
 EVIDENCE_REASONS = {
     "not_on_document": "Not on this document type",
     "unreadable": "Page could not be read",
     "schema_mismatch": "Wrong document type — fields not applicable",
+    "found_suspect": "Text under the label is not a valid value",
 }
 #: A page is *readable* (its silence about a field means absence) at this many
 #: characters and this page quality; *unreadable* below the second pair.
@@ -1377,6 +1530,13 @@ def attach_absent_evidence(field: dict[str, Any], texts: list[str], layout: list
     field["evidence_state"] = state
     field["field_source_node_id"] = anchor
     field["source_span"] = {"span_type": "absent", "pages": pages}
+    if field.get("field_type") != "signature":
+        # Pre-policy routing of an absence (2026-09-27): recorded when the pages
+        # were readable, a rescan when none was — the policy (rule 0) repeats
+        # this, so a field read before the policy runs says the same.
+        field["field_state"] = "not_found"
+        field["routing_action"] = "retry_parsure" if state == "unreadable" else "field_not_found"
+        field["review_required"] = state == "unreadable"
     low = [str(p) for p, r in zip(pages, searched) if r == "low"]
     field["confidence_basis"] = (
         f"not found on {len(pages)} page{'s' if len(pages) != 1 else ''} ({chars} characters searched"
@@ -1420,6 +1580,38 @@ EXTRACTION_METHODS = ("label_anchor", "llm_grounded")
 LLM_GROUNDED_FACTOR = 0.85
 
 
+def _locate(field: dict[str, Any], spec: FieldSpec, *, page_index: int, start: int, end: int, layout: list[list[dict]], method: str) -> dict | None:
+    """Provenance for a value (or suspect) at ``[start, end)`` on a page:
+    ``source_span`` (bbox when the layout has one, text range otherwise),
+    ``field_source_node_id``, ``element_id``, ``evidence``, provenance 1.0.
+    Returns the layout segment. Element identity (``eid-v1``, 2026-09-26): the
+    segment's own id, or — when the segment is a tree paragraph carrying
+    ``meta.elements`` — the element whose character range holds the value,
+    with that element's bbox and the value's offsets inside the paragraph
+    (``node_offsets``), so a one-paragraph page still resolves to the line."""
+    segments = layout[page_index] if page_index < len(layout) else []
+    seg = _segment_at(segments, start)
+    span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
+    if seg and seg.get("bbox"):
+        span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
+    element_id = seg.get("element_id") if seg else None
+    if seg:
+        rel_start, rel_end = start - int(seg.get("start") or 0), end - int(seg.get("start") or 0)
+        el = _element_at(seg, rel_start)
+        if el:
+            element_id = el.get("element_id") or element_id
+            span["node_offsets"] = {"start_char": rel_start, "end_char": rel_end}
+            if isinstance(el.get("bbox"), list) and len(el["bbox"]) == 4:
+                span = {**span, "span_type": "bbox_relative", "bbox": el["bbox"]}
+    span["element_id"] = element_id
+    field["source_span"] = span
+    field["field_source_node_id"] = seg.get("node_id") if seg else None
+    field["element_id"] = element_id
+    field["provenance_confidence"] = 1.0
+    field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "element_id": element_id, "method": method}
+    return seg
+
+
 def build_found_field(
     spec: FieldSpec,
     *,
@@ -1448,6 +1640,10 @@ def build_found_field(
     """
     field = _empty_field(spec)
     field["raw"] = raw
+    # Something was read under the label: until the policy runs this is a
+    # review item, not an absence (``_empty_field`` is the absence record).
+    field["field_state"], field["routing_action"], field["review_required"] = "unverified", "manual_review", True
+    field["reason"] = None
     value: Any = raw
     if spec.field_type == "money":
         value = _parse_money(raw)
@@ -1459,40 +1655,27 @@ def build_found_field(
         value = raw.upper()
     elif spec.field_type == "codes":
         value = _parse_codes(raw)
+    shape = value_shape(spec, raw, value)
+    field["value_quality"] = shape
+    pq = page_quality[page_index] if page_index < len(page_quality) else None
+    if shape["quality"] != "valid":
+        value = None
     if value is None:
-        field["reason"] = f"{spec.field_type} value could not be parsed from '{raw[:40]}' — manual review required"
-        field["confidence_basis"] = field["reason"]
+        # ``found_suspect``: located, not usable. Provenance stays (the span is
+        # real) so the reviewer is taken to the debris; the value is not.
+        _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method=method)
+        if spec.field_type in ("money", "number", "vin") or spec.name in _ID_FIELDS:
+            field["number_quality"] = {"quality": "invalid_format", "penalty": NUMBER_PENALTIES["invalid_format"], "review_required": True, "basis": shape["basis"]}
+        field["evidence_state"] = "found_suspect"
+        field["reason"] = f"{shape['quality'].replace('_', ' ')} under the {spec.label} label: '{raw[:40]}' — {shape['basis']}"
+        field["confidence_basis"] = f"not computed: {shape['quality']} ({shape['basis']})"
+        field["extraction_method"] = method
         return field
     field["value"] = value
     field["extraction_method"] = method
-    pq = page_quality[page_index] if page_index < len(page_quality) else None
     visual = visual_pages[page_index] if page_index < len(visual_pages) else None
     handwritten = bool(visual and "handwritten" in (visual.get("flags") or []))
-    segments = layout[page_index] if page_index < len(layout) else []
-    seg = _segment_at(segments, start)
-    span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
-    if seg and seg.get("bbox"):
-        span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
-    # Element identity (``eid-v1``, 2026-09-26): the segment's own id, or —
-    # when the segment is a tree paragraph carrying ``meta.elements`` — the
-    # element inside it whose character range holds the value, with that
-    # element's bbox and the value's offsets inside the paragraph
-    # (``node_offsets``), so a one-paragraph page still resolves to the line.
-    element_id = seg.get("element_id") if seg else None
-    if seg:
-        rel_start, rel_end = start - int(seg.get("start") or 0), end - int(seg.get("start") or 0)
-        el = _element_at(seg, rel_start)
-        if el:
-            element_id = el.get("element_id") or element_id
-            span["node_offsets"] = {"start_char": rel_start, "end_char": rel_end}
-            if isinstance(el.get("bbox"), list) and len(el["bbox"]) == 4:
-                span = {**span, "span_type": "bbox_relative", "bbox": el["bbox"]}
-    span["element_id"] = element_id
-    field["source_span"] = span
-    field["field_source_node_id"] = seg.get("node_id") if seg else None
-    field["element_id"] = element_id
-    field["provenance_confidence"] = 1.0
-    field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "element_id": element_id, "method": method}
+    seg = _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method=method)
     # Field-level quality (2026-09-26): the OCR confidence of the line the
     # value sits on is a nearer measurement than the page-global score, so it
     # takes the quality factor's place when the segment carries one; the basis
@@ -1522,6 +1705,9 @@ def build_found_field(
         if not check["valid"]:
             field["plausibility_violation"] = True
             field["verification_source"] = "vin_check"
+            field["verification_confidence"] = 0.0
+            field["verification_basis"] = f"VIN check digit: {check['reason']}"
+            field["value_quality"] = {"quality": "invalid_format", "basis": f"VIN check failed: {check['reason']}"}
             field["reason"] = f"VIN rejected: {check['reason']}"
     if field["number_quality"] and field["number_quality"].get("review_required"):
         field["reason"] = field["reason"] or f"number_quality {field['number_quality']['quality']}: {field['number_quality'].get('basis', '')}"
@@ -1579,18 +1765,48 @@ def extract_fields(
             results.append(_signature_field(spec, texts, hit, parser_name=parser_name, parse_confidence=parse_confidence, page_quality=page_quality, visual_pages=visual_pages, layout=layout))
             continue
         if hit is None:
-            results.append(_empty_field(spec))
-            continue
+            suspect = None
+            for page_index, text in enumerate(texts):
+                suspect = _find_suspect(spec, text or "")
+                if suspect:
+                    hit = (page_index, *suspect[:3])
+                    break
+            if hit is None:
+                results.append(_empty_field(spec))
+                continue
         page_index, raw, start, end = hit
-        results.append(build_found_field(
+        field = build_found_field(
             spec, page_index=page_index, raw=raw, start=start, end=end, parser_name=parser_name,
             parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
             visual_pages=visual_pages, layout=layout,
-        ))
+        )
+        mark_low_quality_page(field, page_quality)
+        results.append(field)
     for f in results:
-        if f.get("value") is None:
+        if f.get("value") is None and f.get("evidence_state") != "found_suspect":
             attach_absent_evidence(f, texts, layout, page_quality)
+        elif f.get("evidence_state") == "found_suspect" and not f.get("field_source_node_id"):
+            # Flat text (no layout segment under the span): anchor the suspect
+            # like an absence so the graph has no orphan.
+            anchor = next((str(seg["node_id"]) for segs in layout or [] for seg in segs if seg.get("node_id")), None)
+            f["field_source_node_id"] = anchor
+            f["evidence"] = {**(f.get("evidence") or {}), "anchor_node_id": anchor, "anchor_kind": "layout_node" if anchor else None}
     return results
+
+
+def mark_low_quality_page(field: dict[str, Any], page_quality: list[float | None]) -> dict[str, Any]:
+    """Quality gate (2026-09-27): a value read from a page scored under
+    ``LOW_QUALITY_PAGE`` is never auto-accepted (``low_quality_page`` → policy
+    rule 2) and its reason names the score, so a reviewer confirms it against
+    the image instead of trusting a poor scan's text."""
+    page = ((field.get("source_span") or {}).get("page") or 0) - 1
+    pq = page_quality[page] if 0 <= page < len(page_quality) else None
+    if field.get("value") is None or pq is None or float(pq) >= LOW_QUALITY_PAGE:
+        field["low_quality_page"] = False
+        return field
+    field["low_quality_page"] = True
+    field["reason"] = field.get("reason") or f"page quality {float(pq):.2f} < {LOW_QUALITY_PAGE:.2f} — value read from a poor scan; confirm against the image"
+    return field
 
 
 def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, parse_confidence, page_quality, visual_pages, layout) -> dict[str, Any]:
@@ -1606,6 +1822,9 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
     visual = visual_pages[page_index] if page_index < len(visual_pages) else None
     sig = assess_signature(texts[page_index] if page_index < len(texts) else "", visual=visual, page=page_index + 1)
     field["signature_quality"] = sig
+    # A signature field is never ``not_found``: absent or unverifiable, it is a
+    # compliance question for a person (spec §6), so the policy sees ``unverified``.
+    field["field_state"], field["routing_action"], field["review_required"] = "unverified", "manual_review", True
     if sig.get("present") is None:
         # quality_probe could not measure ink (no visual sample): the label was
         # seen but presence is not a fact this code may state. Not found ≠
@@ -1617,25 +1836,38 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
         field["reason"] = "signature missing — manual review required"
         field["confidence_basis"] = f"signature {sig.get('quality')}: {sig.get('basis')}"
         return field
-    quality = str(sig.get("quality") or "questionable")
+    if sig.get("quality") == "printed_name":
+        # A typed name on the signature line is not a signature: no value, a
+        # compliance question (2026-09-27 taxonomy — stamps and typed names
+        # are not collapsed into "present").
+        field["reason"] = f"signature line holds a typed name — {sig.get('next_check') or 'confirm whether a handwritten signature is required'}"
+        field["confidence_basis"] = f"signature printed_name: {sig.get('basis')}"
+        return field
+    quality = str(sig.get("quality") or "present_ambiguous")
     field["value"] = "present"
     field["extraction_method"] = "label_anchor"
     field["raw"] = hit[1] if hit is not None else None
     pq = page_quality[page_index] if page_index < len(page_quality) else None
     if hit is not None:
         _, _, start, end = hit
-        segments = layout[page_index] if page_index < len(layout) else []
-        seg = _segment_at(segments, start)
-        span: dict[str, Any] = {"page": page_index + 1, "span_type": "text_range", "start_char": start, "end_char": end}
-        if seg and seg.get("bbox"):
-            span = {"page": page_index + 1, "span_type": "bbox_relative", "bbox": seg["bbox"], "start_char": start, "end_char": end}
-        field["source_span"] = span
-        field["field_source_node_id"] = seg.get("node_id") if seg else None
-        field["provenance_confidence"] = 1.0
-        field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "method": "label_anchor"}
+        # Same provenance path as every other found field (``_locate``): the
+        # element inside the paragraph, not the paragraph — so the worker run
+        # and a replay name the same element (2026-09-27).
+        seg = _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method="label_anchor")
         local = seg.get("local_quality") if seg else None
         if isinstance(local, (int, float)):
             pq, field["quality_source"], field["local_quality"] = float(local), "local_ocr", float(local)
+    else:
+        # The probe saw a signature marker the label pass did not anchor (its
+        # label regex is wider): the page is the provenance, its first layout
+        # node the anchor — never an orphan (graph_integrity, 2026-09-27).
+        segments = layout[page_index] if page_index < len(layout) else []
+        anchor = next((str(seg["node_id"]) for seg in segments if seg.get("node_id")), None)
+        field["source_span"] = {"page": page_index + 1, "span_type": "page", "element_id": None}
+        field["field_source_node_id"] = anchor
+        field["provenance_confidence"] = 0.5
+        field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": anchor, "anchor_node_id": anchor,
+                             "anchor_kind": "layout_node" if anchor else None, "method": "visual_probe"}
     conf, basis = quality_weighted_confidence(parser_confidence=parse_confidence, parser_name=parser_name, page_quality=pq, signature_quality=quality,
                                               quality_label=field.get("quality_source") or "page_quality")
     field["extraction_confidence"] = conf
@@ -1790,17 +2022,59 @@ def attach_z3_violations(fields: list[dict], violations: list[dict] | None) -> l
 # Decision policy (spec §5)
 # --------------------------------------------------------------------------
 
-def apply_decision_policy(field: dict) -> dict:
-    """The three V1 rules, in order, on one field dict (mutated and returned).
+def attach_verification_confidence(fields: list[dict], verification: dict | None) -> list[dict]:
+    """``verification_confidence`` only from evidence (customer, 2026-09-27:
+    "a fixed-looking verification score conceals uncertainty").
 
-    1. verification ≥ 0.8 and extraction ≥ 0.75 and not compliance-bound and
-       no violation → ``accepted`` / ``none``.
-    2. otherwise → ``unverified`` / ``manual_review``.
+    A field a rule or Z3 already spoke about (``verification_source`` set)
+    keeps that answer. Otherwise: a value on a document whose Z3 pass ran
+    (``z3_status`` PASS or VIOLATION) and attached nothing to this field gets
+    the spec's V1 document-level default (0.85) with a basis that says so;
+    a value with no verification run at all gets ``None`` — and rule 1 cannot
+    accept it; a field with no value gets ``None`` (nothing to verify).
+    """
+    status = ""
+    if isinstance(verification, dict):
+        z3 = verification.get("z3") if isinstance(verification.get("z3"), dict) else {}
+        status = str(verification.get("z3_status") or z3.get("z3_status") or "").upper()
+    ran = status in ("PASS", "VIOLATION")
+    for f in fields:
+        if f.get("evidence_state") == "schema_mismatch":
+            continue
+        if f.get("value") is None:
+            f["verification_confidence"] = None
+            f["verification_basis"] = "nothing to verify: no value"
+            continue
+        if f.get("verification_source"):
+            f.setdefault("verification_basis", f"{f['verification_source']} result")
+            continue
+        if ran:
+            f["verification_confidence"] = DEFAULT_VERIFICATION_CONFIDENCE
+            f["verification_basis"] = f"document-level Z3 {status}: no violation attached to this field (V1 default {DEFAULT_VERIFICATION_CONFIDENCE})"
+        else:
+            f["verification_confidence"] = None
+            f["verification_basis"] = f"no verification ran on this document (z3_status {status or 'none'})"
+    return fields
+
+
+def apply_decision_policy(field: dict) -> dict:
+    """The V1 rules, in order, on one field dict (mutated and returned).
+
+    0. no value: ``not_found`` / ``field_not_found`` (recorded, not queued) —
+       or ``retry_parsure`` when no searched page was readable; a
+       ``found_suspect`` (debris under the label) is ``unverified`` /
+       ``manual_review``; a signature field is always a review item.
+    1. verification ≥ 0.8 and extraction ≥ 0.75, not compliance-bound, no
+       violation, page quality not low → ``accepted`` / ``none``.
+    2. otherwise → ``unverified`` / ``manual_review`` (the reason names the
+       failing factor; ``verification_confidence`` None reads "not verified").
     3. a Z3 violation (or its plausibility/VIN equivalent) → ``rejected`` /
        ``compliance_review`` — checked first because it overrides both.
 
     A ``disputed`` field is left alone: the dispute workflow owns it until
     resolution. ``partial`` is in the vocabulary but no V1 rule produces it.
+    Rule 0 and the None handling date from 2026-09-27 (customer handoff:
+    not-found is not review; no default verification confidence).
     """
     if field.get("field_state") == "disputed":
         return field
@@ -1808,14 +2082,33 @@ def apply_decision_policy(field: dict) -> dict:
         # mark_schema_mismatch settled these: no confidence, no routing.
         return field
     violation = bool(field.get("z3_violation") or field.get("plausibility_violation"))
-    vc = float(field.get("verification_confidence") if field.get("verification_confidence") is not None else DEFAULT_VERIFICATION_CONFIDENCE)
+    raw_vc = field.get("verification_confidence")
+    vc = float(raw_vc) if raw_vc is not None else None
     ec = float(field.get("extraction_confidence") or 0.0)
     compliance = bool(field.get("compliance_bound"))
+    if field.get("value") is None and field.get("field_type") != "signature":
+        field["verification_confidence"] = None
+        field["verification_basis"] = "nothing to verify: no value"
+        if field.get("evidence_state") == "found_suspect":
+            field["field_state"], field["routing_action"] = "unverified", "manual_review"
+            field["review_required"], field["policy_rule"] = True, 2
+        elif field.get("evidence_state") == "unreadable":
+            field["field_state"], field["routing_action"] = "not_found", "retry_parsure"
+            field["review_required"], field["policy_rule"] = True, 0
+            field["reason"] = field.get("reason") or EVIDENCE_REASONS["unreadable"]
+        else:
+            field["field_state"], field["routing_action"] = "not_found", "field_not_found"
+            field["review_required"], field["policy_rule"] = False, 0
+            if field.get("reason") in (None, "field not found"):
+                field["reason"] = EVIDENCE_REASONS["not_on_document"]
+        assert field["field_state"] in FIELD_STATES and field["routing_action"] in ROUTING_ACTIONS
+        return field
+    low_page = bool(field.get("low_quality_page"))
     if violation:
         field["field_state"], field["routing_action"] = "rejected", "compliance_review"
         field["review_required"] = True
         field["policy_rule"] = 3
-    elif field.get("value") is not None and vc >= VERIFICATION_THRESHOLD and ec >= EXTRACTION_THRESHOLD and not compliance:
+    elif field.get("value") is not None and vc is not None and vc >= VERIFICATION_THRESHOLD and ec >= EXTRACTION_THRESHOLD and not compliance and not low_page:
         field["field_state"], field["routing_action"] = "accepted", "none"
         field["review_required"] = False
         field["policy_rule"] = 1
@@ -1825,9 +2118,13 @@ def apply_decision_policy(field: dict) -> dict:
         field["policy_rule"] = 2
         if not field.get("reason"):
             if field.get("value") is None:
-                field["reason"] = "field not found"
+                field["reason"] = "signature missing — manual review required"
             elif compliance:
                 field["reason"] = "compliance-bound field — human confirmation required"
+            elif low_page:
+                field["reason"] = f"page quality below {LOW_QUALITY_PAGE:.2f} — confirm against the image"
+            elif vc is None:
+                field["reason"] = "not verified — no verification ran on this document"
             elif ec < EXTRACTION_THRESHOLD:
                 field["reason"] = f"extraction_confidence {ec:.2f} < {EXTRACTION_THRESHOLD}"
             else:
@@ -1851,6 +2148,16 @@ def apply_decision_policy(field: dict) -> dict:
 # --------------------------------------------------------------------------
 
 SHARED_FIELDS = ("policy_number", "insured_name", "vin")
+#: One party-name key across document types (2026-09-27, Red-Hat conflict
+#: recall): a policy names the *insured*, a claim names the *claimant*; the
+#: customer's policy + claim pair disagreed on the person and no conflict was
+#: raised because ``insured_name`` was compared only with ``insured_name``.
+PARTY_NAME_FIELDS = ("insured_name", "claimant_name")
+#: The keys compared across a project's reports; each is the tuple of field
+#: names that carry the same fact. The conflict entry's ``field`` is the one
+#: name when every value came from the same field, else the key's first name,
+#: and ``fields`` lists every name that contributed.
+CONFLICT_KEYS: tuple[tuple[str, ...], ...] = (("policy_number",), PARTY_NAME_FIELDS, ("vin",))
 
 
 def _norm(value: Any) -> str:
@@ -1858,19 +2165,30 @@ def _norm(value: Any) -> str:
 
 
 def cross_document_conflicts(reports: list[dict]) -> list[dict[str, Any]]:
-    """Differing non-null values of a shared field across a project's reports.
+    """Differing non-null values of a shared key across a project's reports.
 
     Whitespace/hyphen/case differences are not conflicts. A conflict is
     reported for the reviewer; it never auto-disputes any field (spec §9 16).
+    ``insured_name`` and ``claimant_name`` are one key (``PARTY_NAME_FIELDS``):
+    the entry carries ``fields`` (every field name that contributed) and
+    ``report_ids`` (every report that contributed) beside ``values``.
     """
     conflicts: list[dict[str, Any]] = []
-    for name in SHARED_FIELDS:
+    for names in CONFLICT_KEYS:
         seen: list[dict[str, Any]] = []
         for report in reports:
             for f in report.get("fields") or []:
-                if f.get("name") == name and f.get("value") not in (None, "") and f.get("evidence_state") != "schema_mismatch":
-                    seen.append({"report_id": report.get("report_id"), "document_id": report.get("document_id"), "value": f["value"]})
+                if f.get("name") in names and f.get("value") not in (None, "") and f.get("evidence_state") != "schema_mismatch":
+                    seen.append({"report_id": report.get("report_id"), "document_id": report.get("document_id"),
+                                 "field": f.get("name"), "value": f["value"]})
         distinct = {_norm(s["value"]) for s in seen}
         if len(distinct) > 1:
-            conflicts.append({"field": name, "kind": "cross_document", "values": seen})
+            fields_seen = sorted({str(s["field"]) for s in seen})
+            conflicts.append({
+                "field": fields_seen[0] if len(fields_seen) == 1 else names[0],
+                "fields": fields_seen,
+                "kind": "cross_document",
+                "report_ids": sorted({str(s["report_id"]) for s in seen if s.get("report_id") is not None}),
+                "values": seen,
+            })
     return conflicts

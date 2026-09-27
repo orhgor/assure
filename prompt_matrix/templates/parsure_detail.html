@@ -232,6 +232,37 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .redhat-notes { margin-top: var(--space-3); }
 .redhat-notes .notes { margin: var(--space-2) 0 0; padding-left: var(--space-5); font-size: var(--fs-sm); color: var(--muted); }
 
+/* ---- three sections (2026-09-27) ---- */
+.field-section { margin-top: var(--space-4); }
+.field-section:first-of-type { margin-top: 0; }
+.field-section-title { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-4); font-size: var(--fs-md); font-weight: 600; border-bottom: 1px solid var(--rule); }
+.field-section-count { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.field-section-note { color: var(--muted); font-weight: 400; font-size: var(--fs-sm); margin-left: auto; }
+.field-section[data-section="review"] .field-section-title { color: var(--partial); }
+.field-section-empty { padding: var(--space-3) var(--space-4); }
+.fields .c-value .value-quality { color: var(--partial); font-family: var(--sans); }
+.fields .c-value .searched { color: var(--muted); font-family: var(--sans); }
+.fields .c-conf small.verification { display: block; color: var(--muted); font-size: var(--fs-xs); white-space: normal; }
+.fields .c-why .signature { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.fields .c-why .next-check { color: var(--ink); }
+.record-snapshot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: calc(-1 * var(--space-4)) 0 var(--space-6); font-size: var(--fs-sm); color: var(--muted); }
+.record-snapshot code { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink); overflow-wrap: anywhere; }
+.record-snapshot .sep { color: var(--rule); }
+.snap-integrity[data-ok="1"] { color: var(--verified); }
+.snap-integrity[data-ok="0"] { color: var(--contradicted); }
+.notice--quiet { font-size: var(--fs-md); }
+.uncertainty { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); margin: var(--space-3) 0 0; font-size: var(--fs-sm); }
+.uncertainty dt { color: var(--muted); }
+.uncertainty dd { margin: 0; overflow-wrap: anywhere; }
+.reason-code { display: inline-block; font-family: var(--mono); font-size: var(--fs-xs); background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 0 5px; margin: 0 4px 2px 0; }
+.coverage .num { text-align: right; font-variant-numeric: tabular-nums; }
+.replay-line { margin: 0 0 var(--space-3); }
+.replay-line .why { color: var(--muted); font-size: var(--fs-sm); margin-left: var(--space-2); }
+#replay-form { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+#replay-form .note { font-size: var(--fs-sm); color: var(--muted); }
+#replay-form .note[data-tone="error"] { color: var(--contradicted); }
+.replay-history { margin-top: var(--space-3); }
+
 /* ---- missing ---- */
 .missing { text-align: center; padding: 96px 24px 64px; }
 .missing h1 { font-size: 20px; font-weight: 600; margin: 0 0 var(--space-3); letter-spacing: -0.01em; }
@@ -316,15 +347,45 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
     <p class="record-summary">
       <span>Pages: <b>{{ record.page_count or "—" }}</b></span><span class="sep">·</span>
       <span>Fields: <b>{{ record.fields_total }}</b></span><span class="sep">·</span>
-      <span>Need review: <b>{{ record.fields_review }}</b></span>
+      <span>Need review: <b>{{ record.fields_review }}</b></span><span class="sep">·</span>
+      <span>{{ strings.get("parsing.section.found", "Found") }}: <b>{{ record.section_counts.found }}</b></span><span class="sep">·</span>
+      <span>{{ strings.get("parsing.section.not_found", "Not on this document") }}: <b>{{ record.section_counts.not_found }}</b></span>
       {%- if record.conflicts %}<span class="sep">·</span><span>Conflicts: <b>{{ record.conflicts|length }}</b></span>{% endif %}
     </p>
+    {% if record.snapshot %}
+    <p class="record-snapshot" id="snapshot" data-ok="{{ 'unknown' if record.snapshot.ok is none else (1 if record.snapshot.ok else 0) }}">
+      <span class="snap-label">{{ strings.get("parsing.snapshot", "Snapshot") }}</span>
+      <code class="snap-hash" title="{{ record.snapshot.algorithm or '' }}">{{ record.snapshot.content_hash }}</code>
+      {%- if record.snapshot.ok is not none %}<span class="sep">·</span>
+      <span class="snap-integrity" data-ok="{{ 1 if record.snapshot.ok else 0 }}">{% if record.snapshot.ok %}{{ strings.get("parsing.integrity.ok", "Integrity ok") }}{% else %}{{ strings.get("parsing.integrity.mismatch", "Integrity mismatch") }} — {{ strings.get("parsing.integrity.actual", "row hashes to") }} <code>{{ (record.snapshot.actual or "")[:12] }}</code>{% endif %}</span>{% endif %}
+      {%- if record.snapshot.stamped_at %}<span class="sep">·</span><span class="snap-when">{{ record.snapshot.stamped_at }}</span>{% endif %}
+    </p>
+    {% endif %}
+    {% if record.low_quality %}
+    <p class="notice notice--quiet" id="low-quality" data-tone="partial">
+      {{ strings.get("parsing.low_quality_pages", "Low-quality pages") }}: <b>{{ record.low_quality.pages|join(", ") }}</b>
+      {%- if record.low_quality.threshold is not none %} <small>({{ strings.get("parsing.low_quality_threshold", "quality below") }} {{ (record.low_quality.threshold * 100)|round|int }}%)</small>{% endif %}
+      — {{ strings.get("parsing.low_quality_note", "values read from these pages are not returned as reliable.") }}
+    </p>
+    {% endif %}
 
     <section class="section" id="fields">
       <div class="section-head">
         <h2>Fields</h2>
         {% if record.fields %}<span class="section-meta">{% if record.schema_mismatch %}{{ record.fields_total }} not applicable — wrong document type{% elif record.nothing_extracted %}none of {{ record.fields_total }} found{% elif record.fields_review %}{{ record.fields_review }} need{{ "s" if record.fields_review == 1 else "" }} review, listed first{% else %}all accepted{% endif %}</span>{% endif %}
       </div>
+      {% if record.uncertainty %}
+      <div class="notice notice--uncertainty" id="uncertainty" data-tone="partial">
+        <p><b>{{ strings.get("parsing.uncertainty.title", "Why the type is uncertain") }}</b>{% if record.uncertainty.basis %} {{ record.uncertainty.basis }}{% endif %}</p>
+        <dl class="uncertainty">
+          {% if record.uncertainty.reason_codes %}<dt>{{ strings.get("parsing.uncertainty.reasons", "Reasons") }}</dt><dd>{% for r in record.uncertainty.reason_codes %}<code class="reason-code">{{ r }}</code>{% endfor %}</dd>{% endif %}
+          {% if record.uncertainty.family %}<dt>{{ strings.get("parsing.uncertainty.family", "Family detected") }}</dt><dd>{{ record.uncertainty.family }}</dd>{% endif %}
+          <dt>{{ strings.get("parsing.uncertainty.keywords", "Keywords matched") }}</dt><dd>{% if record.uncertainty.keywords_matched %}{{ record.uncertainty.keywords_matched|join(", ") }}{% else %}{{ strings.get("parsing.none", "none") }}{% endif %}</dd>
+          <dt>{{ strings.get("parsing.uncertainty.fields_searched", "Fields searched") }}</dt><dd>{% if record.uncertainty.fields_searched %}{{ record.uncertainty.fields_searched|join(", ") }}{% else %}{{ strings.get("parsing.none", "none") }}{% endif %}</dd>
+          <dt>{{ strings.get("parsing.uncertainty.fields_found", "Fields found") }}</dt><dd>{% if record.uncertainty.fields_found %}{{ record.uncertainty.fields_found|join(", ") }}{% else %}{{ strings.get("parsing.none", "none") }}{% endif %}</dd>
+        </dl>
+      </div>
+      {% endif %}
       {% if record.schema_mismatch %}
       <div class="notice" id="type-notice" data-tone="partial" data-kind="schema_mismatch">
         <p>
@@ -361,25 +422,46 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       </div>
       {% endif %}
       {% if record.fields %}
-      <div class="frame">
+      {%- macro field_rows(rows, section) %}
+      <div class="frame field-section" id="fields-{{ section }}" data-section="{{ section }}" data-count="{{ rows|length }}">
+        <h3 class="field-section-title">
+          {%- if section == "review" %}{{ strings.get("parsing.section.review", "Needs review") }}
+          {%- elif section == "found" %}{{ strings.get("parsing.section.found", "Found") }}
+          {%- else %}{{ strings.get("parsing.section.not_found", "Not on this document") }}{% endif %}
+          <span class="field-section-count">{{ rows|length }}</span>
+          {%- if section == "not_found" %}<small class="field-section-note">{{ strings.get("parsing.section.not_found_note", "Nothing to accept or dispute — enter the value if you have it.") }}</small>{% endif %}
+        </h3>
+        {% if rows %}
         <table class="fields">
           <thead><tr><th>Field</th><th>Value</th><th>State</th><th>Confidence</th><th class="c-page">Page</th><th>Why</th></tr></thead>
           <tbody>
-          {% for f in record.fields %}
-            <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" data-mark="{{ f.mark }}">
+          {% for f in rows %}
+            <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" data-mark="{{ f.mark }}" data-section="{{ section }}">
               <td class="c-label">{{ f.label }}{% if f.corrected %}<small>corrected</small>{% endif %}</td>
-              <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}</td>
+              <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}{% if f.value_quality %}<small class="value-quality" data-quality="{{ f.value_quality.quality }}">{{ f.value_quality.words }}{% if f.value_quality.basis %} — {{ f.value_quality.basis }}{% endif %}</small>{% endif %}{% if f.searched %}<small class="searched">{{ strings.get("parsing.searched", "Searched") }}{% if f.searched.pages is not none %} {{ f.searched.pages }} page{{ "" if f.searched.pages == 1 else "s" }}{% endif %}{% if f.searched.nodes is not none %} · {{ f.searched.nodes }} node{{ "" if f.searched.nodes == 1 else "s" }}{% endif %}{% if f.searched.chars is not none %} · {{ "{:,}".format(f.searched.chars) }} characters{% endif %}{% if f.searched.readability %} · {{ strings.get("parsing.readability_lc", "readability") }} {{ f.searched.readability }}{% endif %}</small>{% endif %}</td>
               <td class="c-state"><span class="status status--{{ f.state }}">{{ f.state_label }}</span>{% if f.evidence_label %}<small class="evidence" data-evidence="{{ f.evidence_state }}">{{ f.evidence_label }}</small>{% endif %}</td>
-              <td class="c-conf">{{ f.confidence }}</td>
+              <td class="c-conf">{{ f.confidence }}{% if f.verification %}<small class="verification">{{ f.verification }}</small>{% endif %}</td>
               <td class="c-page">{{ f.page if f.page is not none else "—" }}{% if f.node_id %}<small class="node-id" title="{% if f.node_note %}JDF node the field was searched from{% else %}JDF node{% endif %}">{{ f.node_id }}{% if f.node_note %} · {{ f.node_note }}{% endif %}</small>{% endif %}</td>
-              <td class="c-why{% if not f.reason and not f.needs_person %} c-why--none{% endif %}">{% if f.reason %}{{ f.reason }}{% else %}—{% endif %}{% if f.needs_person %}<small>{{ f.action }}</small>{% endif %}
+              <td class="c-why{% if not f.reason and not f.needs_person and not f.signature %} c-why--none{% endif %}">{% if f.reason %}{{ f.reason }}{% else %}—{% endif %}{% if f.needs_person %}<small>{{ f.action }}</small>{% endif %}
+                {%- if f.signature %}<small class="signature" data-quality="{{ f.signature.quality }}">{{ f.signature.words }}{% if f.signature.next_check %} — <span class="next-check">{{ f.signature.next_check }}</span>{% endif %}</small>{% endif %}
                 <details class="why"><summary>Why this confidence</summary><p>{{ f.basis }}</p></details>
               </td>
             </tr>
           {% endfor %}
           </tbody>
         </table>
+        {% else %}
+        <p class="section-empty field-section-empty">
+          {%- if section == "review" %}{{ strings.get("parsing.section.review_empty", "Nothing is waiting on a person.") }}
+          {%- elif section == "found" %}{{ strings.get("parsing.section.found_empty", "No field was found on the document.") }}
+          {%- else %}{{ strings.get("parsing.section.not_found_empty", "Every field was found.") }}{% endif %}
+        </p>
+        {% endif %}
       </div>
+      {%- endmacro %}
+      {{ field_rows(record.sections.review, "review") }}
+      {{ field_rows(record.sections.found, "found") }}
+      {{ field_rows(record.sections.not_found, "not_found") }}
       {% else %}
       <p class="section-empty">No fields for this document{% if record.type_label == "Type uncertain" %} until its type is known{% endif %}.</p>
       {% endif %}
@@ -391,6 +473,66 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       {% for c in record.conflicts %}<p>{{ c }}</p>{% endfor %}
     </section>
     {% endif %}
+
+    {% if record.page_coverage %}
+    <section class="section" id="coverage">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.coverage.title", "Page coverage") }}</h2>
+        <span class="section-meta">{{ record.page_coverage|length }} page{{ "" if record.page_coverage|length == 1 else "s" }}{% if record.documents %} · {{ record.documents|length }} document{{ "" if record.documents|length == 1 else "s" }} in the bundle{% endif %}</span>
+      </div>
+      <div class="frame">
+        <table class="fields coverage">
+          <thead><tr><th>Page</th><th>{{ strings.get("parsing.coverage.segment", "Segment") }}</th><th>{{ strings.get("parsing.coverage.type", "Type") }}</th><th class="num">{{ strings.get("parsing.coverage.fields_found", "Fields found") }}</th><th>{{ strings.get("parsing.readability", "Readability") }}</th></tr></thead>
+          <tbody>
+          {% for c in record.page_coverage %}
+            <tr data-page="{{ c.page }}">
+              <td>{{ c.page if c.page is not none else "—" }}</td>
+              <td>{{ c.segment if c.segment is not none else "—" }}</td>
+              <td>{{ c.document_type or "—" }}</td>
+              <td class="num">{{ c.fields_found if c.fields_found is not none else "—" }}</td>
+              <td>{{ c.readability or "—" }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="section replay" id="replay" data-eligible="{{ 1 if record.replay.eligible else 0 }}" data-attempts="{{ record.replay.attempts if record.replay.attempts is not none else '' }}" data-max="{{ record.replay.max_attempts if record.replay.max_attempts is not none else '' }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.replay.title", "Replay") }}</h2>
+        <span class="section-meta">
+          {%- if record.replay.attempts is not none %}{{ record.replay.attempts }}{% if record.replay.max_attempts is not none %} of {{ record.replay.max_attempts }}{% endif %} {{ strings.get("parsing.replay.attempts", "attempts") }}
+          {%- else %}{{ strings.get("parsing.replay.no_attempts", "no attempts recorded") }}{% endif %}
+          {%- if record.replay.stop_rule %} · {{ record.replay.stop_rule }}{% endif %}
+        </span>
+      </div>
+      <p class="replay-line">
+        {% if record.replay.eligible %}{{ strings.get("parsing.replay.eligible", "Replay available after policy update.") }}{% else %}{{ strings.get("parsing.replay.not_eligible", "Not eligible for replay.") }}{% endif %}
+        {% if record.replay.reasons %}<span class="why">{{ record.replay.reasons|join("; ") }}</span>{% endif %}
+      </p>
+      <form id="replay-form" data-url="{{ record.replay_url }}">
+        <button type="submit" class="btn-secondary" id="replay-run"{% if not record.replay.eligible or record.replay.exhausted %} disabled{% endif %}>{{ strings.get("parsing.replay.run", "Replay now") }}</button>
+        <span class="note" id="replay-note" aria-live="polite">{% if record.replay.exhausted %}{{ strings.get("parsing.replay.exhausted", "The attempt limit is reached.") }}{% endif %}</span>
+      </form>
+      {% if record.replay.history %}
+      <details class="tech replay-history"><summary>{{ record.replay.history|length }} earlier replay{{ "" if record.replay.history|length == 1 else "s" }}</summary>
+        <ol class="timeline">
+          {% for h in record.replay.history %}
+          <li data-kind="event">
+            <div class="t-when">{{ h.at or h.replayed_at or h.created_at or "" }}</div>
+            <p class="t-title">{{ h.outcome or h.status or h.result or "replayed" }}{% if h.policy_version %} · policy {{ h.policy_version }}{% endif %}</p>
+            {% if h.proof or h.content_hash %}<p class="t-detail"><code>{{ (h.proof.content_hash if h.proof is mapping and h.proof.content_hash else h.content_hash or "") }}</code></p>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </details>
+      {% endif %}
+      {% if record.replay.last_proof %}
+      <details class="tech"><summary>{{ strings.get("parsing.replay.last_proof", "Last proof") }}</summary><dl>{% for k, v in record.replay.last_proof.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></details>
+      {% endif %}
+    </section>
 
     <section class="section redhat" id="redhat" data-ran="{{ 1 if record.redhat.ran else 0 }}" data-count="{{ record.redhat.count }}" data-high="{{ record.redhat.high }}">
       <div class="section-head">
@@ -482,6 +624,40 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
   {% endif %}
   </main>
 
+  <script>
+  (function () {
+    // Replay (2026-09-27): POST to the replay route; the answer is the report
+    // and its proof, so the page reloads to show the row as the server holds
+    // it. A 409 carries the server's sentence (attempt limit, not eligible,
+    // hash mismatch) and it is shown as written — nothing is paraphrased.
+    var form = document.getElementById("replay-form");
+    if (!form) return;
+    var button = document.getElementById("replay-run");
+    var note = document.getElementById("replay-note");
+    function say(text, tone) {
+      if (!note) return;
+      note.textContent = text || "";
+      if (tone) note.setAttribute("data-tone", tone); else note.removeAttribute("data-tone");
+    }
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (!button || button.disabled) return;
+      var headers = { "Content-Type": "application/json" };
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) headers["X-CSRFToken"] = meta.content;
+      button.disabled = true;
+      say({{ strings.get("parsing.replay.running", "Replaying…")|tojson }});
+      fetch(form.getAttribute("data-url"), { method: "POST", headers: headers, credentials: "same-origin", body: JSON.stringify({ actor: "reviewer" }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (b) { return { code: r.status, body: b || {} }; }); })
+        .then(function (res) {
+          if (res.code >= 200 && res.code < 300 && res.body.ok !== false) { window.location.reload(); return; }
+          button.disabled = res.code === 409 ? true : false;
+          say(res.body.error || {{ strings.get("parsing.replay.failed", "Replay did not run.")|tojson }}, "error");
+        })
+        .catch(function () { button.disabled = false; say({{ strings.get("parsing.replay.offline", "Replay did not run. Check your connection and try again.")|tojson }}, "error"); });
+    });
+  })();
+  </script>
   <script>
   (function () {
     // Type selector on a record that yielded nothing: POST the chosen type to

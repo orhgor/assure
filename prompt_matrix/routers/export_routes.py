@@ -43,7 +43,28 @@ except ImportError:
         verification_state_json,
     )
 
+try:
+    from ..services.snapshot import SnapshotMismatch
+except ImportError:
+    from services.snapshot import SnapshotMismatch  # type: ignore
+
 _SAFE_NAME = re.compile(r"[^\w\-]+")
+
+
+def _snapshot_mismatch(request_id: str, project_id: str, action: str, exc: SnapshotMismatch, start_time: float):
+    """409 for an export whose intake report does not match its stored snapshot
+    (``services/snapshot``, 2026-09-27): nothing is rendered or zipped."""
+    audit = get_audit_logger()
+    audit.log_audit(
+        request_id,
+        project_id,
+        action,
+        success=False,
+        duration_ms=int((time.perf_counter() - start_time) * 1000),
+        error_message=str(exc),
+        details={"report_id": exc.report_id, "expected": exc.expected, "actual": exc.actual},
+    )
+    return jsonify(exc.payload()), 409
 
 
 def _doc_title(tree: dict) -> str:
@@ -266,6 +287,8 @@ def register_export_routes(app) -> None:
                     details={"format": fmt, "renderers": exc.detail},
                 )
                 return _renderer_unavailable(exc)
+            except SnapshotMismatch as exc:
+                return _snapshot_mismatch(request_id, project_id, "EXPORT_DOSSIER_PDF", exc, start_time)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(
@@ -420,6 +443,8 @@ def register_export_routes(app) -> None:
                     filename = f"{dossier}.zip"
                     mimetype = "application/zip"
                     payload = _bundle_zip(*members)
+            except SnapshotMismatch as exc:
+                return _snapshot_mismatch(request_id, project_id, "EXPORT_BUNDLE", exc, start_time)
             except Exception as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 audit.log_exception(

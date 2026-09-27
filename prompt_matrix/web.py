@@ -743,6 +743,113 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def connect():
         return _page("connect.html", "connect")
 
+    def _parsure_analytics_view(project_id: str):
+        """The Analytics page's view model (``/parsing/analytics``), or ``None``
+        when the intake repository is absent. Shared shape with the former
+        ``/parsing`` block so the numbers did not change when the block moved
+        (2026-09-27)."""
+        try:
+            from .routers import parsure_routes as _pv
+        except ImportError:
+            from routers import parsure_routes as _pv  # type: ignore
+        try:
+            try:
+                from .db import parsure_repository as _parsure_repo
+            except ImportError:
+                from db import parsure_repository as _parsure_repo
+            analytics = _parsure_repo.analytics(project_id)
+        except Exception:  # noqa: BLE001 — module/table absent: the page says "No intake yet."
+            return None
+        _num, _score_label, _date_label, _words = _pv.num, _pv.score_label, _pv.date_label, _pv.words
+        _flag_words, _modality_words = _pv.FLAG_WORDS, _pv.MODALITY_WORDS
+
+        def _pct_label(rate):
+            n = _num(rate)
+            return f"{round(n * 100)}%" if n is not None else "—"
+
+        analytics_view = None
+        if analytics is not None:
+            documents_n = int(analytics.get("documents") or 0)
+            trend = list(analytics.get("trend") or [])
+            points = [(i, _num(d.get("avg_quality"))) for i, d in enumerate(trend)]
+            scored = [(i, q) for i, q in points if q is not None]
+            width, height, pad = 560.0, 64.0, 6.0
+            step = (width - 2 * pad) / max(1, len(trend) - 1)
+
+            def _xy(i, q):
+                return round(pad + i * step, 1), round(pad + (1.0 - max(0.0, min(1.0, q))) * (height - 2 * pad), 1)
+
+            spark = None
+            if scored:
+                coords = [_xy(i, q) for i, q in scored]
+                spark = {
+                    "width": int(width),
+                    "height": int(height),
+                    "path": " ".join(("M" if k == 0 else "L") + f"{x} {y}" for k, (x, y) in enumerate(coords)),
+                    "points": [
+                        {"x": x, "y": y, "day": trend[i]["day"], "label": f"{q:.2f}", "documents": trend[i]["documents"]}
+                        for (x, y), (i, q) in zip(coords, scored)
+                    ],
+                    "last": {"x": coords[-1][0], "y": coords[-1][1], "label": f"{scored[-1][1]:.2f}"},
+                    "days_with_intake": len(scored),
+                    "single": len(scored) == 1,
+                }
+            hist = list(analytics.get("quality_histogram") or [])
+            hist_max = max([int(h.get("count") or 0) for h in hist] or [0])
+            hist_view = [
+                {
+                    "bucket": h.get("bucket"),
+                    "count": int(h.get("count") or 0),
+                    "pct": (int(h.get("count") or 0) / hist_max * 100.0) if hist_max else 0.0,
+                    # Tone only where it means something: the top band is what
+                    # Assure accepts without a second look; the bottom two are
+                    # what the cards flag as "Page quality is low."
+                    "tone": "verified" if _num(h.get("low")) is not None and _num(h.get("low")) >= 0.8 else ("partial" if _num(h.get("high")) is not None and _num(h.get("high")) <= 0.4 else "neutral"),
+                }
+                for h in hist
+            ]
+            issues_src = (analytics.get("issue_distribution") or {})
+            issues = [
+                {"label": i.get("label") or i.get("key"), "count": int(i.get("count") or 0), "kind": "field"}
+                for i in (issues_src.get("field_reasons") or [])
+            ] + [
+                {"label": _words(i.get("key"), _flag_words) or i.get("label"), "count": int(i.get("count") or 0), "kind": "page"}
+                for i in (issues_src.get("quality_flags") or [])
+            ]
+            issues.sort(key=lambda i: (-i["count"], i["label"]))
+            issue_max = max([i["count"] for i in issues] or [0])
+            for i in issues:
+                i["pct"] = (i["count"] / issue_max * 100.0) if issue_max else 0.0
+            modality = [
+                {"label": _words(k, _modality_words) or k, "count": int(v or 0)}
+                for k, v in (analytics.get("by_modality") or {}).items()
+            ]
+            analytics_view = {
+                "has_data": documents_n > 0,
+                "documents": documents_n,
+                "avg_quality_label": _score_label(analytics.get("avg_document_quality")),
+                "review_rate_label": _pct_label(analytics.get("review_rate")),
+                "fields_review": int(analytics.get("fields_review") or 0),
+                "fields_total": int(analytics.get("fields_total") or 0),
+                "disputes_open": int(analytics.get("disputes_open") or 0),
+                "disputes_overdue": int(analytics.get("disputes_overdue") or 0),
+                "disputes_due_24h": int(analytics.get("disputes_due_24h") or 0),
+                "corrections": int(analytics.get("corrections") or 0),
+                "correction_rate_label": _pct_label(analytics.get("correction_rate")),
+                "replay_rate_label": _pct_label(analytics.get("replay_eligible_rate")),
+                "replay_eligible": int(analytics.get("replay_eligible") or 0),
+                "spark": spark,
+                "trend_rows": [d for d in trend if int(d.get("documents") or 0) > 0],
+                "trend_start_label": _date_label(trend[0]["day"]) if trend else "—",
+                "trend_end_label": _date_label(trend[-1]["day"]) if trend else "—",
+                "trend_days": int(analytics.get("trend_days") or 30),
+                "histogram": hist_view,
+                "unscored": int(analytics.get("quality_unscored") or 0),
+                "issues": issues[:8],
+                "modality": modality,
+            }
+        return analytics_view
+
     @app.get("/parsing")
     def parsing_page():
         """Parsure intake page: what came in, its quality, what needs attention.
@@ -785,6 +892,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             from routers import parsure_routes as _pv  # type: ignore
 
         _pv_redhat_counts = None
+        _rh_repo = None
         try:
             try:
                 from .db import parsure_repository as _rh_repo
@@ -793,6 +901,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
             _pv_redhat_counts = getattr(_rh_repo, "redhat_counts", None)
         except Exception:  # noqa: BLE001 — module absent: the card line is simply not shown
             _pv_redhat_counts = None
+
+        try:
+            from .services import parsure_view as _view
+        except ImportError:
+            from services import parsure_view as _view  # type: ignore
+        _verify_snapshot = getattr(_rh_repo, "verify_snapshot", None) if _rh_repo is not None else None
 
         _modality_words = _pv.MODALITY_WORDS
         _material_words = _pv.MATERIAL_WORDS
@@ -844,6 +958,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "fields_rejected": 0,
                 "fields_total": 0,
                 "fields_found": 0,
+                # The three sections of the record (services/parsure_view):
+                # what still asks for a person, what was found, what is not on
+                # the document. None until a report answers — never 0.
+                "section_counts": None,
+                # snapshot integrity: True / False when the report carries a
+                # snapshot, None when it predates snapshots (nothing claimed).
+                "integrity_ok": None,
+                "snapshot_short": None,
                 "nothing_extracted": False,
                 "schema_mismatch": False,
                 "mismatch_line": None,
@@ -894,6 +1016,19 @@ def create_app(*, require_auth: bool = True) -> Flask:
             card["mismatch_line"] = _pv.mismatch_line(report.get("classification")) if card["schema_mismatch"] else None
             card["nothing_extracted"] = bool(fields) and card["fields_found"] == 0 and not card["schema_mismatch"]
             card["record_href"] = f"/parsing/{card['report_id']}?project_id={project_id}" if card["report_id"] else None
+            # One fact for a document that yielded nothing ("Nothing extracted —
+            # check the type"), not N "not on document" rows: the counts are
+            # shown only when the type fits and something was read.
+            if fields and not card["schema_mismatch"] and not card["nothing_extracted"]:
+                card["section_counts"] = _view.section_counts(fields)
+            snap_block = report.get("snapshot") if isinstance(report.get("snapshot"), dict) else None
+            if snap_block and snap_block.get("content_hash"):
+                card["snapshot_short"] = str(snap_block["content_hash"])[:12]
+                if _verify_snapshot is not None:
+                    try:
+                        card["integrity_ok"] = bool((_verify_snapshot(report) or {}).get("ok"))
+                    except Exception:  # noqa: BLE001 — an unverifiable row is "unknown", not "ok"
+                        card["integrity_ok"] = None
             card["conflicts"] = len(conflicts)
             # Intake graph critique (services/redhat_graph): one count line,
             # red only when a high finding is open, amber for medium, quiet
@@ -936,6 +1071,12 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 chips.append("Signature is faint.")
             elif sig_quality == "incomplete":
                 chips.append("Signature is incomplete.")
+            elif sig_quality in ("present_ambiguous", "questionable"):
+                chips.append("Signature is ambiguous.")
+            elif sig_quality == "printed_name":
+                chips.append("Signature line holds a typed name.")
+            elif sig_quality in ("stamp", "stamped"):
+                chips.append("Signature line holds a stamp.")
             numbers = (quality_report.get("numbers") or {}) if isinstance(quality_report, dict) else {}
             flagged_numbers = numbers.get("flagged")
             flagged_count = len(flagged_numbers) if isinstance(flagged_numbers, (list, tuple)) else int(flagged_numbers or 0)
@@ -1088,7 +1229,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
         # same repository; when either is absent (older module, missing table)
         # the section is omitted or reads "—", never a default number.
         queue = None
-        analytics = None
         if reports_available:
             try:
                 try:
@@ -1098,10 +1238,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 queue = _parsure_repo.list_queue(project_id, limit=200)
             except Exception:  # noqa: BLE001 — queue must not break intake
                 queue = None
-            try:
-                analytics = _parsure_repo.analytics(project_id)
-            except Exception:  # noqa: BLE001
-                analytics = None
 
         def _value_label(value):
             return _pv.value_label(None, value)
@@ -1196,92 +1332,6 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "visible": 8,
             }
 
-        def _pct_label(rate):
-            n = _num(rate)
-            return f"{round(n * 100)}%" if n is not None else "—"
-
-        analytics_view = None
-        if analytics is not None:
-            documents_n = int(analytics.get("documents") or 0)
-            trend = list(analytics.get("trend") or [])
-            points = [(i, _num(d.get("avg_quality"))) for i, d in enumerate(trend)]
-            scored = [(i, q) for i, q in points if q is not None]
-            width, height, pad = 560.0, 64.0, 6.0
-            step = (width - 2 * pad) / max(1, len(trend) - 1)
-
-            def _xy(i, q):
-                return round(pad + i * step, 1), round(pad + (1.0 - max(0.0, min(1.0, q))) * (height - 2 * pad), 1)
-
-            spark = None
-            if scored:
-                coords = [_xy(i, q) for i, q in scored]
-                spark = {
-                    "width": int(width),
-                    "height": int(height),
-                    "path": " ".join(("M" if k == 0 else "L") + f"{x} {y}" for k, (x, y) in enumerate(coords)),
-                    "points": [
-                        {"x": x, "y": y, "day": trend[i]["day"], "label": f"{q:.2f}", "documents": trend[i]["documents"]}
-                        for (x, y), (i, q) in zip(coords, scored)
-                    ],
-                    "last": {"x": coords[-1][0], "y": coords[-1][1], "label": f"{scored[-1][1]:.2f}"},
-                    "days_with_intake": len(scored),
-                    "single": len(scored) == 1,
-                }
-            hist = list(analytics.get("quality_histogram") or [])
-            hist_max = max([int(h.get("count") or 0) for h in hist] or [0])
-            hist_view = [
-                {
-                    "bucket": h.get("bucket"),
-                    "count": int(h.get("count") or 0),
-                    "pct": (int(h.get("count") or 0) / hist_max * 100.0) if hist_max else 0.0,
-                    # Tone only where it means something: the top band is what
-                    # Assure accepts without a second look; the bottom two are
-                    # what the cards flag as "Page quality is low."
-                    "tone": "verified" if _num(h.get("low")) is not None and _num(h.get("low")) >= 0.8 else ("partial" if _num(h.get("high")) is not None and _num(h.get("high")) <= 0.4 else "neutral"),
-                }
-                for h in hist
-            ]
-            issues_src = (analytics.get("issue_distribution") or {})
-            issues = [
-                {"label": i.get("label") or i.get("key"), "count": int(i.get("count") or 0), "kind": "field"}
-                for i in (issues_src.get("field_reasons") or [])
-            ] + [
-                {"label": _words(i.get("key"), _flag_words) or i.get("label"), "count": int(i.get("count") or 0), "kind": "page"}
-                for i in (issues_src.get("quality_flags") or [])
-            ]
-            issues.sort(key=lambda i: (-i["count"], i["label"]))
-            issue_max = max([i["count"] for i in issues] or [0])
-            for i in issues:
-                i["pct"] = (i["count"] / issue_max * 100.0) if issue_max else 0.0
-            modality = [
-                {"label": _words(k, _modality_words) or k, "count": int(v or 0)}
-                for k, v in (analytics.get("by_modality") or {}).items()
-            ]
-            analytics_view = {
-                "has_data": documents_n > 0,
-                "documents": documents_n,
-                "avg_quality_label": _score_label(analytics.get("avg_document_quality")),
-                "review_rate_label": _pct_label(analytics.get("review_rate")),
-                "fields_review": int(analytics.get("fields_review") or 0),
-                "fields_total": int(analytics.get("fields_total") or 0),
-                "disputes_open": int(analytics.get("disputes_open") or 0),
-                "disputes_overdue": int(analytics.get("disputes_overdue") or 0),
-                "disputes_due_24h": int(analytics.get("disputes_due_24h") or 0),
-                "corrections": int(analytics.get("corrections") or 0),
-                "correction_rate_label": _pct_label(analytics.get("correction_rate")),
-                "replay_rate_label": _pct_label(analytics.get("replay_eligible_rate")),
-                "replay_eligible": int(analytics.get("replay_eligible") or 0),
-                "spark": spark,
-                "trend_rows": [d for d in trend if int(d.get("documents") or 0) > 0],
-                "trend_start_label": _date_label(trend[0]["day"]) if trend else "—",
-                "trend_end_label": _date_label(trend[-1]["day"]) if trend else "—",
-                "trend_days": int(analytics.get("trend_days") or 30),
-                "histogram": hist_view,
-                "unscored": int(analytics.get("quality_unscored") or 0),
-                "issues": issues[:8],
-                "modality": modality,
-            }
-
         # Extracted data: one table per document type, rows = documents, columns
         # = the type's fields in taxonomy order. This answers the client's
         # question of 2026-09-25 ("how do we access the parsed information …
@@ -1351,8 +1401,28 @@ def create_app(*, require_auth: bool = True) -> Flask:
             documents=cards,
             summary=summary,
             queue=queue_view,
-            analytics=analytics_view,
+            analytics_href=f"/parsing/analytics?project_id={project_id}",
             data=data_view,
+        )
+
+    @app.get("/parsing/analytics")
+    def parsing_analytics_page():
+        """Aggregate intake analytics for one workspace, on its own page.
+
+        Moved out of ``/parsing`` on 2026-09-27 (customer handoff, "Parsure UI
+        must be list-first": aggregate performance belongs in a separate
+        window, the intake page lists documents). Same numbers as before —
+        ``parsure_repository.analytics`` — and the same rule: when the module or
+        its table is absent the page says "No intake yet." and every metric
+        reads "—", never a default number (docs/anti-claims.md).
+        """
+        project_id = request.args.get("project_id") or "default"
+        return _page(
+            "parsure_analytics.html",
+            "parsing",
+            project_id=project_id,
+            analytics=_parsure_analytics_view(project_id),
+            back_href=f"/parsing?project_id={project_id}",
         )
 
 
@@ -1374,12 +1444,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
             from .db import parsure_repository as _repo
             from .middleware import check_project_ownership as _check_owner
             from .routers import parsure_routes as _pv
+            from .services import parsure_view as _view
             from .services import redhat_graph as _rg
             from .services import v1_orchestrator as _orch
         except ImportError:
             from db import parsure_repository as _repo  # type: ignore
             from middleware import check_project_ownership as _check_owner  # type: ignore
             from routers import parsure_routes as _pv  # type: ignore
+            from services import parsure_view as _view  # type: ignore
             from services import redhat_graph as _rg  # type: ignore
             from services import v1_orchestrator as _orch  # type: ignore
 
@@ -1438,11 +1510,30 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "action": _pv.ROUTING_WORDS.get(str(f.get("routing_action") or "none"), _pv.words(f.get("routing_action")) or "—"),
                 "needs_person": _pv.field_needs_review(f),
                 "corrected": bool(f.get("corrected")),
+                # The three sections and the per-field signals of 2026-09-27
+                # (services/parsure_view): a report saved before them yields
+                # None for each and the row shows nothing for it.
+                "section": _view.field_section(f),
+                "value_quality": _view.value_quality(f),
+                "signature": _view.signature_quality(f),
+                "verification": _view.verification_basis(f),
+                "searched": _view.searched_summary(f),
+                "quote": (str(f.get("raw")).strip() or None) if f.get("raw") not in (None, "") else None,
             }
 
         field_rows = [_field_row(f) for f in fields]
-        field_rows.sort(key=lambda r: 0 if r["needs_person"] else 1)  # stable: report order within each half
+        # Three sections, in this order: what asks for a person, what was found,
+        # what is not on the document (stable: report order within each).
+        _section_rank = {"review": 0, "found": 1, "not_found": 2}
+        field_rows.sort(key=lambda r: _section_rank.get(r["section"], 1))
+        sections = {
+            key: [r for r in field_rows if r["section"] == key] for key in ("review", "found", "not_found")
+        }
         review_n = sum(1 for r in field_rows if r["needs_person"])  # the queue's rule — same number as /parsing
+        try:
+            integrity = _repo.verify_snapshot(report) if hasattr(_repo, "verify_snapshot") else None
+        except Exception:  # noqa: BLE001 — an unverifiable row reads "unknown", never "ok"
+            integrity = None
         found_n = _repo.fields_found(report)
         schema_mismatch = bool(classification.get("schema_mismatch"))
         mismatch_line = _pv.mismatch_line(classification) if schema_mismatch else None
@@ -1643,6 +1734,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "type_override_url": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/classification",
             "pages_open": nothing_extracted or schema_mismatch or (not fields and _pv.doc_type_label(classification) == "Type uncertain"),
             "fields": field_rows,
+            "sections": sections,
+            "section_counts": {k: len(v) for k, v in sections.items()},
+            "uncertainty": _view.uncertainty_view(classification),
+            "page_coverage": _view.page_coverage_view(report),
+            "documents": [d for d in (report.get("documents") or []) if isinstance(d, dict)],
+            "snapshot": _view.snapshot_view(report, integrity),
+            "replay": _view.replay_view(report),
+            "replay_url": f"/api/projects/{project_id}/parsure/{report.get('report_id')}/replay",
+            "low_quality": _view.low_quality_pages(report),
             "pages": page_rows,
             "has_page_text": any(p["text"] for p in page_rows),
             "history": history,

@@ -92,7 +92,7 @@ COARSE_CHUNK_CHARS = 1500
 FLAT_SHARE = 0.8
 FLAT_MIN_FOUND = 3
 LOW_QUALITY_FLAGS = frozenset({"low_res", "blurry", "low_contrast", "no_text"})
-AMBIGUOUS_SIGNATURE = frozenset({"questionable", "faint", "incomplete", "stamped"})
+AMBIGUOUS_SIGNATURE = frozenset({"questionable", "faint", "incomplete", "stamped", "present_ambiguous", "stamp", "printed_name", "unreadable"})
 #: Export language that claims more than a non-verified state can carry
 #: (the customer's "Formal Verification Certificate" of 2026-09-26).
 CERTIFICATE_WORDS = re.compile(r"\b(certificate|certified|certif\w*|formally verified|guarantee[sd]?)\b", re.I)
@@ -415,6 +415,21 @@ def not_applicable_vs_not_found(ctx: Context) -> list[dict[str, Any]]:
         out.append(_finding("not_applicable_vs_not_found", "evidentiary", "medium", "Unreadable page counted as a missing value",
                             f"{len(unreadable_as_missing)} field{'s' if len(unreadable_as_missing) != 1 else ''} ({names}) are marked unreadable yet their reason says not found; an unreadable page proves nothing about absence.",
                             field_anchor(ctx, unreadable_as_missing[0])))
+    # 2026-09-27 (customer handoff, "Evidence-State Confusion"): an absence
+    # routed to a person, or debris under a label recorded as an absence.
+    queued_absence = [f for f in absent if f.get("evidence_state") in ("not_on_document", None)
+                      and str(f.get("routing_action") or "") in ("manual_review", "adjudicator_queue", "compliance_review")]
+    if queued_absence:
+        names = ", ".join(_words(f.get("name")) for f in queued_absence[:6])
+        out.append(_finding("not_applicable_vs_not_found", "evidentiary", "medium", "Absence queued as a review item",
+                            f"{len(queued_absence)} field{'s' if len(queued_absence) != 1 else ''} ({names}) have no value yet are queued for a reviewer; a not-found field is a fact to record (field_not_found), not work for a person.",
+                            field_anchor(ctx, queued_absence[0])))
+    suspect_as_absent = [f for f in absent if f.get("evidence_state") == "found_suspect" and f.get("field_state") == "not_found"]
+    if suspect_as_absent:
+        names = ", ".join(_words(f.get("name")) for f in suspect_as_absent[:6])
+        out.append(_finding("not_applicable_vs_not_found", "evidentiary", "medium", "Suspect text recorded as an absence",
+                            f"{len(suspect_as_absent)} field{'s' if len(suspect_as_absent) != 1 else ''} ({names}) have text under their label that failed the shape check, yet are recorded as not found; the debris deserves a look.",
+                            field_anchor(ctx, suspect_as_absent[0])))
     unqualified = [f for f in absent if not f.get("evidence_state")]
     if unqualified and ctx.fields:
         names = ", ".join(_words(f.get("name")) for f in unqualified[:6])

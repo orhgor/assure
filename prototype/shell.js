@@ -197,6 +197,11 @@
       leftTab: "sources",
       rightTab: "evidence",
       rightMode: "inspector",   // "inspector" | "fields" (the intake review queue)
+      // The explicit mode gate (handoff 2026-09-27, "Prompt Contamination"):
+      // "review" while the Fields tab is shown, "prompt" while a draft runs or
+      // the prompt has focus, "upload" while the intake card is the column.
+      // Derived by _syncUiMode; field mutations refuse outside "review".
+      mode: "upload",
       selection: { nodeId: null, evidence: null },
       modal: null,
       layout: { leftWidth: 280, rightWidth: 320, leftCollapsed: false, rightCollapsed: false },
@@ -1800,6 +1805,7 @@
       if (!docSurface) return;
       var stale = docSurface.querySelectorAll(".doc-refusal, .doc-halt, .doc-prereq, .doc-intake");
       for (var i = 0; i < stale.length; i++) stale[i].remove();
+      _syncUiMode();
     }
     // The streamed draft goes first, always: whatever the column is about to
     // say, it can never say it beside half a document.
@@ -1908,6 +1914,7 @@
       } finally {
         _intakeCardBusy = false;
       }
+      _syncUiMode();
     }
 
     function _syncDocState() {
@@ -6648,6 +6655,7 @@
       el.appendChild(wrap);
     }
     function _applyRightView() {
+      _syncUiMode();
       var insp = rightInspectorEl;
       var cmp = compareModeEl;
       // Phase F2 — which pane-mode is shown is this function's decision; HOW it
@@ -7273,8 +7281,24 @@
     // response, field_state the semantic result — both are read, neither alone).
     function _fieldNeedsAttention(f) {
       if (!f || typeof f !== "object") return false;
-      var ra = String(f.routing_action || "none");
-      return (ra !== "none") || f.review_required === true;
+      // Mirrors field_extractor.field_needs_review (2026-09-27): a schema
+      // mismatch asks once per document, and an absence (`field_not_found`)
+      // is recorded, not queued — "not found" is never "needs review".
+      if (String(f.evidence_state || "") === "schema_mismatch") return false;
+      var ra = String(f.routing_action || "none").toLowerCase();
+      var st = String(f.field_state || "");
+      return (ra !== "none" && ra !== "field_not_found") || st === "disputed" || st === "rejected";
+    }
+    // The three sections of the Fields tab (services/parsure_view.field_section
+    // is the server's copy of this rule; the record page groups the same way).
+    function _fieldSection(f) {
+      if (!f || typeof f !== "object") return "found";
+      if (String(f.field_state || "") === "not_found") return "not_found";
+      var ev = String(f.evidence_state || "");
+      if (ev === "not_on_document" || ev === "unreadable") return "not_found";
+      var needs = _fieldNeedsAttention(f);
+      if (f.value == null && !needs) return "not_found";
+      return needs ? "review" : "found";
     }
     function _parsureCounts() {
       var rep = __parsure;
@@ -7309,6 +7333,7 @@
       try { if (typeof _syncDocState === "function") _syncDocState(); } catch (_) {}
       _syncTrustState();
       _syncExportEnabled();
+      if (typeof _probeOriginal === "function") _probeOriginal();
       if (typeof _renderFieldsPanel === "function") _renderFieldsPanel();
       var sel = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
       var node = (sel && SHELL.document.current) ? findJdfNodeById(sel, SHELL.document.current) : null;
@@ -7468,6 +7493,7 @@
     // The header chip, the primary action, the strip and the idle inspector,
     // repainted from one model. Called on every write that can change it.
     function _syncTrustState() {
+      _syncUiMode();
       var m = _trustModel();
       var chip = document.getElementById("shell-status-chip");
       var primary = document.getElementById("shell-primary");
@@ -7754,10 +7780,12 @@
     function _syncRail() {
       // Analytics is the intake page for THIS workspace: a bare /parsing opened
       // the default project's data (seen 2026-09-26).
+      // The aggregate report moved to /parsing/analytics (2026-09-27); the
+      // intake list stays at /parsing and is reached from the Fields head.
       var an = document.getElementById("rail-analytics");
       if (an) {
         var apid = _activeProjectId();
-        an.setAttribute("href", apid ? "/parsing?project_id=" + encodeURIComponent(apid) : "/parsing");
+        an.setAttribute("href", apid ? "/parsing/analytics?project_id=" + encodeURIComponent(apid) : "/parsing/analytics");
       }
       var ws = document.getElementById("rail-workspaces");
       var src = document.getElementById("rail-sources");
@@ -8022,8 +8050,16 @@
       var sig = _qualityWord(f.signature_quality);
       if (sig === "faint") out.push(_t("shell.quality.signature_faint", "Signature is faint."));
       else if (sig === "incomplete") out.push(_t("shell.quality.signature_incomplete", "Signature is incomplete."));
-      else if (sig === "stamped") out.push(_t("shell.quality.signature_stamped", "Signature is a stamp, not handwritten."));
+      else if (sig === "stamped" || sig === "stamp") out.push(_t("shell.quality.signature_stamped", "Signature is a stamp, not handwritten."));
       else if (sig === "missing") out.push(_t("shell.quality.signature_missing", "An expected signature is missing."));
+      else if (sig === "present_ambiguous") out.push(_t("shell.quality.signature_ambiguous", "Signature is present but ambiguous."));
+      else if (sig === "printed_name") out.push(_t("shell.quality.signature_printed", "A printed name stands where a signature should be."));
+      else if (sig === "unreadable") out.push(_t("shell.quality.signature_unreadable", "The signature area could not be read."));
+      var vq = f.value_quality && typeof f.value_quality === "object" ? String(f.value_quality.quality || "").toLowerCase() : "";
+      if (vq && vq !== "valid") {
+        var vqWords = _t("shell.fields.value_quality." + vq, _humanize(vq));
+        out.push(f.value_quality.basis ? vqWords + " \u2014 " + String(f.value_quality.basis) : vqWords + ".");
+      }
       var num = _qualityWord(f.number_quality);
       if (num === "handwritten") out.push(_t("shell.quality.numbers_handwritten", "Numbers are handwritten."));
       else if (num === "faded") out.push(_t("shell.quality.numbers_faded", "Numbers are faded."));
@@ -8200,6 +8236,8 @@
       if (_fieldInConflict(f.name)) return { key: "conflict", tone: "contradicted", words: _t("shell.fields.state.conflict", "Conflict") };
       if (st === "rejected") return { key: "rejected", tone: "contradicted", words: _t("shell.fields.state.rejected", "Rejected") };
       if (st === "disputed") return { key: "disputed", tone: "partial", words: _t("shell.fields.state.disputed", "Disputed") };
+      // Not on the document: a grey fact, not an amber task (handoff 2026-09-27).
+      if (_fieldSection(f) === "not_found") return { key: "not_found", tone: "none", words: _t("shell.fields.state.not_found", "Not found") };
       if (st === "accepted" && !_fieldNeedsAttention(f)) return { key: "accepted", tone: "verified", words: _t("shell.fields.state.accepted", "Verified") };
       return { key: "review", tone: "partial", words: _t("shell.fields.state.review", "Review needed") };
     }
@@ -8217,11 +8255,31 @@
       if (st === "rejected") return _t("shell.fields.reason.rejected", "Rejected after dispute");
       var sig = _qualityWord(f.signature_quality);
       if (String(f.field_type || "") === "signature" || sig) {
-        if (sig === "missing" || (f.value == null && String(f.field_type || "") === "signature")) return _t("shell.fields.reason.signature_missing", "Signature is missing");
+        // The 2026-09-27 vocabulary (present_clear / present_ambiguous /
+        // missing / stamp / printed_name / unreadable) first; the earlier one
+        // (faint / incomplete / stamped / questionable) still reads.
+        if (sig === "missing" || (f.value == null && String(f.field_type || "") === "signature" && !sig)) return _t("shell.fields.reason.signature_missing", "Signature is missing");
+        if (sig === "present_ambiguous") return _t("shell.fields.reason.signature_ambiguous", "Signature is present but ambiguous");
+        if (sig === "stamp" || sig === "stamped") return _t("shell.fields.reason.signature_stamped", "Signature is a stamp, not handwritten");
+        if (sig === "printed_name") return _t("shell.fields.reason.signature_printed", "A printed name, not a signature");
+        if (sig === "unreadable") return _t("shell.fields.reason.signature_unreadable", "Signature area could not be read");
         if (sig === "faint") return _t("shell.fields.reason.signature_faint", "Signature is faint");
         if (sig === "incomplete") return _t("shell.fields.reason.signature_incomplete", "Signature is incomplete");
-        if (sig === "stamped") return _t("shell.fields.reason.signature_stamped", "Signature is a stamp, not handwritten");
         if (sig === "questionable") return _t("shell.fields.reason.signature_questionable", "Signature is hard to read");
+      }
+      if (_fieldSection(f) === "not_found") {
+        var ev = String(f.evidence_state || "");
+        var base = ev === "unreadable"
+          ? _t("shell.fields.reason.unreadable", "The page could not be read")
+          : _t("shell.fields.reason.not_found", "Not found in the document");
+        var searched = _searchedWords(f);
+        return searched ? base + " \u00b7 " + searched : base;
+      }
+      if (String(f.evidence_state || "") === "found_suspect") {
+        // Something was read under the label and failed shape validation: the
+        // reason is the shape failure, in the report's words when it has them.
+        var vq = f.value_quality && typeof f.value_quality === "object" ? String(f.value_quality.quality || "") : "";
+        return vq && vq !== "valid" ? _t("shell.fields.value_quality." + vq, _humanize(vq)) : _t("shell.fields.suspect", "Read under the label but failed shape validation");
       }
       if (f.value == null) return _t("shell.fields.reason.not_found", "Not found in the document");
       if (f.z3_violation === true) return _t("shell.fields.reason.z3", "The numbers do not agree with each other");
@@ -8281,6 +8339,135 @@
       b.type = "button";
       if (id) b.id = id;
       return b;
+    }
+
+    // ---- the mode gate (review | prompt | upload) --------------------------
+    // Derived, never set by a handler: a draft in flight or a focused prompt is
+    // "prompt"; the Fields tab on screen is "review"; the intake card or an
+    // upload in progress is "upload"; otherwise the last mode stands. Written
+    // to SHELL.ui.mode, the header's text chip and body[data-ui-mode]; read by
+    // _fieldAction / _overrideType, which refuse outside "review".
+    function _deriveUiMode() {
+      if (runInProgress) return "prompt";
+      var dockText = document.getElementById("dock-text");
+      if (dockText && document.activeElement === dockText) return "prompt";
+      if (SHELL.ui.rightMode === "fields" && !SHELL.ui.layout.rightCollapsed) return "review";
+      var intakeCard = docSurface ? docSurface.querySelector(".doc-intake") : null;
+      if (__activeJobs > 0 || intakeCard) return "upload";
+      // No literal table here: this runs from _applyRightView during boot,
+      // before the later `var`s of this scope are initialised.
+      var last = SHELL.ui.mode;
+      return (last === "review" || last === "prompt" || last === "upload") ? last : "review";
+    }
+    function _syncUiMode() {
+      var mode = _deriveUiMode();
+      SHELL.ui.mode = mode;
+      var chip = document.getElementById("shell-mode-chip");
+      if (chip) {
+        chip.setAttribute("data-mode", mode);
+        chip.textContent = mode === "review" ? _t("shell.mode.review", "Review mode")
+                         : mode === "prompt" ? _t("shell.mode.prompt", "Prompt mode")
+                         : _t("shell.mode.upload", "Upload mode");
+      }
+      document.body.setAttribute("data-ui-mode", mode);
+      return mode;
+    }
+
+    // ---- source context: what an absent field's search covered ---------------
+    function _searchedWords(f) {
+      var ev = f && f.evidence && typeof f.evidence === "object" ? f.evidence : null;
+      if (!ev || String(ev.kind || "") !== "absent") return "";
+      var bits = [];
+      if (Array.isArray(ev.searched_pages)) bits.push(_tf("shell.fields.searched_pages", "{n} pages searched", { n: ev.searched_pages.length }));
+      if (Array.isArray(ev.searched_node_ids)) bits.push(_tf("shell.fields.searched_nodes", "{n} nodes", { n: ev.searched_node_ids.length }));
+      if (typeof ev.searched_chars === "number") bits.push(_tf("shell.fields.searched_chars", "{n} characters", { n: ev.searched_chars }));
+      if (ev.readability) bits.push(_tf("shell.fields.readability", "readability {r}", { r: String(ev.readability) }));
+      return bits.join(" \u00b7 ");
+    }
+    function _verificationWords(f) {
+      if (typeof f.verification_basis === "string" && f.verification_basis.trim()) {
+        return _tf("shell.fields.verification", "Verification: {basis}", { basis: f.verification_basis.trim() });
+      }
+      if (typeof f.verification_confidence === "number") {
+        return _tf("shell.fields.verification_pct", "Verification {pct}", { pct: _pct(f.verification_confidence) });
+      }
+      if (f.verification_confidence === null && Object.prototype.hasOwnProperty.call(f, "verification_confidence")) {
+        return _t("shell.fields.not_verified", "Not verified");
+      }
+      return "";
+    }
+    function _fieldNodeId(f) {
+      return f.tree_node_id || f.field_source_node_id || f.node_id
+        || (f.source_span && f.source_span.node_id) || (f.evidence && f.evidence.node_id) || null;
+    }
+    function _fieldPage(f) {
+      if (f.source_span && f.source_span.page != null) return f.source_span.page;
+      if (f.evidence && f.evidence.page != null) return f.evidence.page;
+      return null;
+    }
+    // The source block above a correction / dispute input: page, the quote the
+    // value was read from (`raw`), the paragraph in the loaded tree when its id
+    // matches, "Show in document" (scroll + the shared is-located flash) and,
+    // for photos / scans, "Open original" when the probe found stored bytes.
+    function _renderFieldSource(f) {
+      var box = _el("div", "field-source");
+      box.appendChild(_el("span", "fields-label", _t("shell.fields.source", "Source")));
+      var page = _fieldPage(f);
+      var line = _el("p", "field-source-line");
+      if (page != null) line.appendChild(_el("span", "field-source-page", _tf("shell.fields.page", "Page {n}", { n: page })));
+      var quote = f.raw != null ? String(f.raw).trim() : "";
+      if (quote) line.appendChild(_el("q", "field-source-quote", quote));
+      if (line.firstChild) box.appendChild(line);
+      var nodeId = _fieldNodeId(f);
+      var node = (nodeId && SHELL.document.current) ? findJdfNodeById(String(nodeId), SHELL.document.current) : null;
+      var nodeText = node ? String(node.content || node.title || "").trim() : "";
+      if (nodeText) box.appendChild(_el("p", "field-source-node", nodeText.length > 400 ? nodeText.slice(0, 399) + "\u2026" : nodeText));
+      if (page == null && !quote && !nodeText) {
+        box.appendChild(_el("p", "field-source-none", _fieldSection(f) === "not_found"
+          ? (_searchedWords(f) || _t("shell.fields.source_absent", "The value was not on the document; nothing to quote."))
+          : _t("shell.fields.source_none", "No source location was recorded for this field.")));
+      }
+      var row = _el("div", "field-source-actions");
+      if (nodeId && _nodeWrapper(String(nodeId))) {
+        var show = _btn("btn-tertiary field-source-show", _t("shell.fields.show_in_document", "Show in document"));
+        show.addEventListener("click", function (e) { e.stopPropagation(); _locateNode(String(nodeId)); });
+        row.appendChild(show);
+      }
+      if (_originalAvailable()) {
+        var a = document.createElement("a");
+        a.className = "btn-tertiary field-source-original";
+        a.href = __original.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = _t("shell.fields.open_original", "Open original");
+        row.appendChild(a);
+      }
+      if (row.firstChild) box.appendChild(row);
+      return box;
+    }
+    // "Open original" is offered only after GET …/documents/<id>/original
+    // answered a HEAD with 200 — staged uploads are deleted after intake
+    // (tasks/parse_tasks.py), so most documents have no stored original and
+    // the link is simply absent. One probe per open report.
+    var PHOTO_MODALITIES = ["phone_photo", "scanned_pdf", "screenshot"];
+    var __original = { key: "", ok: false, url: "" };
+    function _originalAvailable() { return Boolean(__original.ok && __original.key === (__parsureReportId || "")); }
+    function _probeOriginal() {
+      var rep = __parsure, pid = _activeProjectId();
+      var key = __parsureReportId || "";
+      if (!rep || !pid || !key || __original.key === key) return;
+      __original = { key: key, ok: false, url: "" };
+      var mod = String(rep.modality || "");
+      var mat = String(rep.material_type || "");
+      var photo = PHOTO_MODALITIES.indexOf(mod) !== -1 || mat === "photo" || mat === "screenshot";
+      if (!photo || !rep.document_id) return;
+      var url = "/api/projects/" + encodeURIComponent(pid) + "/documents/" + encodeURIComponent(String(rep.document_id)) + "/original";
+      fetch(url, { method: "HEAD", credentials: "same-origin" }).then(function (r) {
+        if (__original.key !== key) return;
+        __original.ok = Boolean(r.ok);
+        __original.url = url;
+        if (r.ok && __fieldsEditor) _renderFieldsPanel();
+      }).catch(function () {});
     }
 
     // ---- the head: which document, what type ------------------------------
@@ -8365,6 +8552,12 @@
       var reason = document.getElementById("fields-type-reason");
       var save = document.getElementById("fields-type-save");
       if (!pid || !__parsureReportId || !sel || __fieldsBusy) return;
+      _syncUiMode();
+      if (SHELL.ui.mode !== "review") {
+        __fieldsErrors.__type = _t("shell.fields.mode_locked", "Switch to review mode to change fields");
+        _renderFieldsPanel();
+        return;
+      }
       __fieldsBusy = true;
       if (save) save.disabled = true;
       delete __fieldsErrors.__type;
@@ -8404,6 +8597,11 @@
           facts.appendChild(why);
         }
       }
+      // Verification is said in the report's own words (verification_basis);
+      // a null verification_confidence with no basis is "not verified" — never
+      // a PASS the code did not earn (docs/anti-claims.md).
+      var vwords = _verificationWords(f);
+      if (vwords) facts.appendChild(_el("span", "field-verification", vwords));
       var page = f.source_span && f.source_span.page;
       if (page != null) {
         // tree_node_id is the saved Assure paragraph (data-node-id in the column);
@@ -8430,6 +8628,10 @@
         warnings.forEach(function (w) { chips.appendChild(_qualityChip(w)); });
         detail.appendChild(chips);
       }
+      // An ambiguous signature tells the reviewer what to look at next
+      // (signature_quality.next_check, 2026-09-27).
+      var sq = f.signature_quality && typeof f.signature_quality === "object" ? f.signature_quality : null;
+      if (sq && sq.next_check) detail.appendChild(_el("p", "field-next-check", _tf("shell.fields.next_check", "Check next: {what}", { what: String(sq.next_check) })));
       var errText = __fieldsErrors[f.name];
       var err = _el("p", "field-error dialog-error", errText || "");
       err.hidden = !errText;
@@ -8447,6 +8649,12 @@
             resolve.addEventListener("click", function () { _openEditor(f.name, "resolve"); });
             actions.appendChild(resolve);
           }
+        } else if (_fieldSection(f) === "not_found") {
+          // Nothing to accept or dispute: the value is not there. The one
+          // action is to enter it (the correct route), with the source shown.
+          var enter = _btn("btn-primary field-correct", _t("shell.fields.enter_value", "Enter value"));
+          enter.addEventListener("click", function () { _openEditor(f.name, "correct"); });
+          actions.appendChild(enter);
         } else {
           var accepted = st === "accepted" && !_fieldNeedsAttention(f);
           if (hasValue && !accepted) {
@@ -8483,8 +8691,11 @@
         form.appendChild(lab);
         return input;
       }
+      // No correction without source context (handoff 2026-09-27): the page,
+      // the quote, the paragraph it sits in, and the way to it.
+      if (kind === "correct" || kind === "dispute") form.appendChild(_renderFieldSource(f));
       if (kind === "correct") {
-        valueInput = field(_t("shell.fields.correct_value", "Corrected value"), document.createElement("input"), "field-editor-value");
+        valueInput = field(_t(f.value == null ? "shell.fields.enter_value_label" : "shell.fields.correct_value", f.value == null ? "Value" : "Corrected value"), document.createElement("input"), "field-editor-value");
         valueInput.type = "text";
         valueInput.value = _fieldEditValue(f);
         reasonInput = field(_t("shell.fields.correct_reason", "Why (optional)"), document.createElement("input"), "field-editor-reason");
@@ -8602,40 +8813,70 @@
       if (empty) empty.hidden = true;
       list.hidden = false;
       if (__parsureFieldSel && !fields.some(function (f) { return f.name === __parsureFieldSel; })) __parsureFieldSel = null;
-      fields.forEach(function (f) {
-        var chip = _fieldChip(f);
-        var selected = f.name === __parsureFieldSel;
-        var li = _el("li", "field-row" + (selected ? " is-selected" : ""));
-        li.setAttribute("data-field", f.name);
-        li.setAttribute("data-state", chip.key);
-        li.setAttribute("data-attention", _fieldNeedsAttention(f) ? "1" : "0");
-        li.setAttribute("data-has-value", f.value == null ? "0" : "1");
-        var head = _btn("field-row-head");
-        head.setAttribute("aria-expanded", selected ? "true" : "false");
-        var main = _el("span", "field-main");
-        main.appendChild(_el("span", "field-label", f.label || _humanize(f.name)));
-        var vt = _fieldValueText(f);
-        if (vt) {
-          main.appendChild(_el("span", "field-value", vt));
-        } else {
-          var missing = _el("span", "field-value is-missing", "— ");
-          missing.appendChild(_el("i", null, _t("shell.fields.not_found", "not found")));
-          main.appendChild(missing);
-        }
-        head.appendChild(main);
-        var chipEl = _el("span", "field-chip", chip.words);
-        chipEl.setAttribute("data-tone", chip.tone);
-        head.appendChild(chipEl);
-        head.addEventListener("click", function () {
-          if (__parsureFieldSel === f.name) { __parsureFieldSel = null; __fieldsEditor = null; }
-          else { __parsureFieldSel = f.name; __fieldsEditor = null; }
-          _renderFieldsPanel();
-        });
-        li.appendChild(head);
-        li.appendChild(_el("p", "field-reason", _fieldReason(f)));
-        if (selected) _renderFieldDetail(f, li);
-        list.appendChild(li);
+      // Three sections (handoff 2026-09-27): what asks for a person, what was
+      // found, what is not on the document. The badge counts the first by the
+      // server's rule (_fieldNeedsAttention); each head shows its own rows.
+      var groups = { review: [], found: [], not_found: [] };
+      fields.forEach(function (f) { groups[_fieldSection(f)].push(f); });
+      ["review", "found", "not_found"].forEach(function (key) {
+        var rows = groups[key];
+        if (!rows.length) return;
+        var head = _el("li", "fields-section");
+        head.setAttribute("role", "presentation");
+        head.setAttribute("data-section", key);
+        head.appendChild(_el("span", "fields-section-title", _sectionWords(key)));
+        head.appendChild(_el("span", "fields-section-count", String(rows.length)));
+        if (key === "not_found") head.appendChild(_el("span", "fields-section-note", _t("shell.fields.section.not_found_note", "Nothing to accept or dispute \u2014 enter the value if you have it.")));
+        list.appendChild(head);
+        rows.forEach(function (f) { list.appendChild(_renderFieldRow(f, key)); });
       });
+    }
+    function _sectionWords(key) {
+      if (key === "review") return _t("shell.fields.section.review", "Needs review");
+      if (key === "not_found") return _t("shell.fields.section.not_found", "Not on this document");
+      return _t("shell.fields.section.found", "Found");
+    }
+    function _renderFieldRow(f, section) {
+      var chip = _fieldChip(f);
+      var selected = f.name === __parsureFieldSel;
+      var li = _el("li", "field-row" + (selected ? " is-selected" : ""));
+      li.setAttribute("data-field", f.name);
+      li.setAttribute("data-section", section);
+      li.setAttribute("data-state", chip.key);
+      li.setAttribute("data-attention", _fieldNeedsAttention(f) ? "1" : "0");
+      li.setAttribute("data-has-value", f.value == null ? "0" : "1");
+      var head = _btn("field-row-head");
+      head.setAttribute("aria-expanded", selected ? "true" : "false");
+      var main = _el("span", "field-main");
+      main.appendChild(_el("span", "field-label", f.label || _humanize(f.name)));
+      var vt = _fieldValueText(f);
+      if (vt) {
+        main.appendChild(_el("span", "field-value", vt));
+      } else if (f.raw != null && String(f.raw).trim() && String(f.evidence_state || "") === "found_suspect") {
+        // Something was read under the label but failed shape validation
+        // (found_suspect, 2026-09-27): the raw text is shown as suspect, not
+        // hidden behind "not found".
+        var suspect = _el("span", "field-value is-suspect", String(f.raw).trim());
+        suspect.title = _t("shell.fields.suspect", "Read under the label but failed shape validation");
+        main.appendChild(suspect);
+      } else {
+        var missing = _el("span", "field-value is-missing", "— ");
+        missing.appendChild(_el("i", null, _t("shell.fields.not_found", "not found")));
+        main.appendChild(missing);
+      }
+      head.appendChild(main);
+      var chipEl = _el("span", "field-chip", chip.words);
+      chipEl.setAttribute("data-tone", chip.tone);
+      head.appendChild(chipEl);
+      head.addEventListener("click", function () {
+        if (__parsureFieldSel === f.name) { __parsureFieldSel = null; __fieldsEditor = null; }
+        else { __parsureFieldSel = f.name; __fieldsEditor = null; }
+        _renderFieldsPanel();
+      });
+      li.appendChild(head);
+      li.appendChild(_el("p", "field-reason", _fieldReason(f)));
+      if (selected) _renderFieldDetail(f, li);
+      return li;
     }
 
     // ---- actions -----------------------------------------------------------
@@ -8647,6 +8888,14 @@
     function _fieldAction(name, kind, payload) {
       var pid = _activeProjectId();
       if (!pid || !__parsureReportId || __fieldsBusy) return;
+      // The mode gate: only review mode changes fields. A prompt in flight or
+      // an upload cannot mutate review state (handoff 2026-09-27).
+      _syncUiMode();
+      if (SHELL.ui.mode !== "review") {
+        __fieldsErrors[name] = _t("shell.fields.mode_locked", "Switch to review mode to change fields");
+        _renderFieldsPanel();
+        return;
+      }
       __fieldsBusy = true;
       var li = document.querySelector('#fields-list .field-row[data-field="' + name + '"]');
       if (li) li.classList.add("is-busy");
@@ -8735,6 +8984,10 @@
     }
     _syncDockSubmitFn = _syncDockSubmit;
     if (text) {
+      // The prompt has focus → prompt mode; leaving it → whatever the column
+      // and the pane say. The chip and the gate follow the same derivation.
+      text.addEventListener("focus", _syncUiMode);
+      text.addEventListener("blur", function () { setTimeout(_syncUiMode, 0); });
       text.addEventListener("input", _syncDockSubmit);
       text.addEventListener("keyup", _syncDockSubmit);
       text.addEventListener("keydown", function (e) {

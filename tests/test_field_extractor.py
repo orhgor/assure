@@ -53,12 +53,21 @@ def test_missing_field_is_none_zero_review_not_a_guess():
     assert missing["evidence"]["kind"] == "absent" and missing["evidence"]["searched_pages"] == [1]
     assert missing["evidence"]["searched_chars"] == len(short.strip()) and missing["evidence"]["anchor_node_id"] is None  # flat text: no node ids to anchor to
     fx.apply_decision_policy(missing)
-    assert (missing["field_state"], missing["routing_action"]) == ("unverified", "manual_review")
+    # 2026-09-27: an absence on an unreadable page is ``not_found`` routed to a
+    # rescan (retry_parsure), not to a reviewer; nothing was verified.
+    assert (missing["field_state"], missing["routing_action"]) == ("not_found", "retry_parsure")
+    assert missing["verification_confidence"] is None and missing["verification_basis"] == "nothing to verify: no value"
     assert missing["evidence_state"] == "unreadable"  # the policy does not overwrite an absent field's state
     # On a readable page (≥ 200 chars, quality ≥ 0.5) the same silence is a fact about the document.
     long_text = short + "Coverage notes. " * 20
     absent = _extract(long_text)["vin"]
     assert absent["evidence_state"] == "not_on_document" and absent["reason"] == "Not on this document type"
+    # …and a recorded fact is not a review item (customer handoff 2026-09-27:
+    # "never treat not found as needs review").
+    assert (absent["field_state"], absent["routing_action"], absent["review_required"]) == ("not_found", "field_not_found", False)
+    fx.apply_decision_policy(absent)
+    assert (absent["field_state"], absent["routing_action"], absent["review_required"]) == ("not_found", "field_not_found", False)
+    assert fx.field_needs_review(absent) is False and absent["verification_confidence"] is None
     assert absent["confidence_basis"].startswith("not found on 1 page (")
     low = _extract(long_text, page_quality=[0.28])["vin"]
     assert low["evidence_state"] == "unreadable" and low["reason"] == "Page could not be read"  # quality < 0.3
@@ -149,9 +158,70 @@ def test_three_rule_policy_and_vocabularies_never_cross():
     assert fields["premium"]["compliance_bound"] and fields["premium"]["verification_confidence"] == 1.0
     assert (fields["premium"]["field_state"], fields["premium"]["routing_action"]) == ("unverified", "manual_review")
     # No check applies → default 0.85 (spec item 10) and confident → accepted.
+    # No rule names agent_name and no verification ran: verification confidence
+    # is None (2026-09-27, no default) and rule 1 cannot fire.
     agent = fields["agent_name"]
+    assert agent["verification_confidence"] is None
+    assert (agent["field_state"], agent["routing_action"]) == ("unverified", "manual_review")
+    assert agent["reason"] == "not verified — no verification ran on this document"
+    # With a document-level Z3 pass the V1 default applies, with a basis that says so.
+    verified = _extract()
+    fx.attach_verification_confidence(list(verified.values()), {"z3_status": "PASS", "z3": {"violations": []}})
+    for f in verified.values():
+        fx.apply_decision_policy(f)
+    agent = verified["agent_name"]
     assert agent["verification_confidence"] == fx.DEFAULT_VERIFICATION_CONFIDENCE
+    assert agent["verification_basis"].startswith("document-level Z3 PASS")
     assert agent["field_state"] == "accepted"
+    assert verified["vin"]["verification_confidence"] is None and verified["vin"]["field_state"] == "not_found" if verified["vin"]["value"] is None else True
+
+
+def test_value_shape_rejects_headers_addresses_and_debris_as_found_suspect():
+    """Customer run 2026-09-27: insured_name held "MAILING ADDRESS" and
+    policy_number held OCR debris, both accepted with provenance 1.0."""
+    text = (
+        "AUTO POLICY DECLARATIONS\nPolicy Number: ~~-,;;\nNamed Insured: MAILING ADDRESS\n"
+        "Policy Period: 01/15/2025 to 01/15/2026\nAgent: 12 Main St\n" + "Coverage notes. " * 20
+    )
+    fields = _extract(text)
+    pol = fields["policy_number"]
+    assert pol["value"] is None and pol["raw"].startswith("~~")  # _clean_text_value trims the trailing punctuation
+    assert pol["evidence_state"] == "found_suspect" and pol["value_quality"]["quality"] == "garbage"
+    assert pol["number_quality"]["quality"] == "invalid_format" and pol["source_span"]["page"] == 1
+    assert pol["provenance_confidence"] == 1.0  # the span is real; the value is not
+    name = fields["insured_name"]
+    assert name["value"] is None and name["value_quality"]["quality"] == "header_or_label"
+    assert fields["agent_name"]["value_quality"]["quality"] == "address_fragment"
+    for f in (pol, name):
+        fx.apply_decision_policy(f)
+        assert (f["field_state"], f["routing_action"]) == ("unverified", "manual_review")
+        assert fx.field_needs_review(f) is True
+    # A valid second hit wins over a header under the first label.
+    two = _extract("Named Insured: MAILING ADDRESS\nNamed Insured: John Q. Sample\n" + "Coverage notes. " * 20)
+    assert two["insured_name"]["value"] == "John Q. Sample" and two["insured_name"]["value_quality"]["quality"] == "valid"
+    assert fx.value_shape(fx.FIELD_TAXONOMY["auto_policy"][0], "AP-2025-0001")["quality"] == "valid"
+    assert fx.value_shape(fx.FIELD_TAXONOMY["auto_policy"][0], "POLICY")["quality"] == "invalid_format"
+
+
+def test_low_quality_page_never_auto_accepts():
+    fields = _extract(page_quality=[0.28])
+    fx.attach_verification_confidence(list(fields.values()), {"z3_status": "PASS", "z3": {"violations": []}})
+    for f in fields.values():
+        fx.apply_decision_policy(f)
+    agent = fields["agent_name"]
+    assert agent["value"] == "Mary Agent" and agent["low_quality_page"] is True
+    assert (agent["field_state"], agent["routing_action"]) == ("unverified", "manual_review")
+    assert "page quality 0.28 < 0.40" in agent["reason"]
+    fine = _extract(page_quality=[0.9])
+    assert fine["agent_name"]["low_quality_page"] is False
+
+
+def test_signature_vocabulary_and_next_check():
+    sig = fx.assess_signature("Insured's Signature: John Q. Sample", visual=None)
+    assert sig["quality"] in ("printed_name", "unreadable") and sig["next_check"]
+    assert set(fx.SIGNATURE_NEXT_CHECK) >= set(fx.SIGNATURE_QUALITIES)
+    for q in fx.SIGNATURE_QUALITIES:
+        assert q in fx.SIGNATURE_PENALTIES
 
 
 def test_failed_plausibility_rule_is_a_violation_but_not_z3():

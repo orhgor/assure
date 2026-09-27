@@ -699,6 +699,62 @@ def register_jdf_routes(app) -> None:
             store.delete(object_key)
         return jsonify(result)
 
+    @app.get("/api/projects/<project_id>/documents/<document_id>/original")
+    @project_ownership_required
+    def document_original(project_id: str, document_id: str):
+        """Stream the stored original of one document (photo / scan) for the
+        reviewer's "Open original" (customer handoff 2026-09-27, "Modality-
+        specific viewers": keep original resolution in review mode).
+
+        The web tier streams bytes; it never parses them. The key is the ingest
+        job's ``object_key`` — reached from the intake report that names the
+        document (``parsure_repository.list_reports``, ``job_id``) or, failing
+        that, the job whose ``revision_id`` the report carries. Staged uploads
+        are deleted after a successful ingest (``tasks/parse_tasks.py``,
+        ``import-pdf``), so this answers 404 for most documents today; the shell
+        probes with HEAD and shows the link only on 200 — never a link to bytes
+        that are not there. A key from another project is refused.
+        """
+        try:
+            from ..db import ingest_jobs_repository as _jobs
+            from ..db import parsure_repository as _reports
+        except ImportError:
+            from db import ingest_jobs_repository as _jobs  # type: ignore
+            from db import parsure_repository as _reports  # type: ignore
+        from flask import Response
+
+        report = None
+        try:
+            for rep in _reports.list_reports(project_id, limit=200) or []:
+                if str(rep.get("document_id") or "") == document_id:
+                    report = rep
+                    break
+        except Exception:  # noqa: BLE001 — no intake table: nothing to serve
+            report = None
+        if report is None:
+            return jsonify({"ok": False, "error": "No intake report names this document."}), 404
+        job = None
+        if report.get("job_id"):
+            job = _jobs.get_job(str(report["job_id"]))
+        if job is None and report.get("revision_id"):
+            for j in _jobs.list_jobs(project_id, limit=500):
+                if str(j.get("revision_id") or "") == str(report["revision_id"]):
+                    job = j
+                    break
+        key = (job or {}).get("object_key")
+        if not key or not key_belongs_to_project(str(key), project_id):
+            return jsonify({"ok": False, "error": "No stored original for this document."}), 404
+        store = get_object_store()
+        if not store.exists(str(key)):
+            return jsonify({"ok": False, "error": "The original was not kept after intake."}), 404
+        filename = str(report.get("filename") or job.get("filename") or key.rsplit("/", 1)[-1])
+        data = store.get_bytes(str(key))
+        resp = Response(data, mimetype=guess_upload_content_type(filename))
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", filename) or "original"
+        resp.headers["Content-Disposition"] = f'inline; filename="{safe_name}"'
+        resp.headers["Cache-Control"] = "private, no-store"
+        return resp
+
     @app.get("/api/projects/<project_id>/nodes/<node_id>/history")
     @project_ownership_required
     def get_node_history(project_id: str, node_id: str):

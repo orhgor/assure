@@ -262,14 +262,10 @@ class TestScores:
             "unreadable": 0.0,
             "unknown": 1.0,
         }
+        # 2026-09-27 vocabulary + the legacy words for reports saved before it.
         assert SIGNATURE_PENALTIES == {
-            "clear": 1.0,
-            "faint": 0.8,
-            "incomplete": 0.7,
-            "stamped": 0.7,
-            "questionable": 0.6,
-            "missing": 0.5,
-            "unknown": 1.0,
+            "clear": 1.0, "present_clear": 1.0, "faint": 0.8, "incomplete": 0.7, "stamped": 0.7, "stamp": 0.7,
+            "questionable": 0.6, "present_ambiguous": 0.6, "printed_name": 0.6, "missing": 0.5, "unreadable": 0.4, "unknown": 1.0,
         }
 
     def test_page_quality_none_without_signal(self):
@@ -402,29 +398,35 @@ class TestAssessSignature:
             "page": 3,
         }
 
-    def test_label_without_visual_is_unknown_with_review(self):
+    def test_label_without_visual_is_unreadable_with_review(self):
         out = assess_signature("Signature: ______", visual=None, ocr_lines=None)
-        assert out["quality"] == "unknown" and out["present"] is None and out["review_required"] is True
+        assert out["quality"] == "unreadable" and out["present"] is None and out["review_required"] is True
+
+    def test_typed_name_on_the_signature_line_is_printed_name(self):
+        out = assess_signature("Insured's Signature: John Q. Sample\nDate: 01/01/2025", visual=None, ocr_lines=None)
+        assert out["quality"] == "printed_name" and out["present"] is True and out["review_required"] is True
 
     def test_ocr_lines_supply_the_text(self):
         out = assess_signature("", visual=None, ocr_lines=[{"text": "Signed by the insured"}])
         assert "Signed" in out["basis"]
 
-    def test_stamped(self):
-        out = assess_signature("Authorized signature: [SEAL] electronically signed", visual=None, ocr_lines=None)
-        assert out["quality"] == "stamped" and out["review_required"] is True and out["present"] is True
+    def test_stamp_and_esignature_are_not_one_verdict(self):
+        out = assess_signature("Authorized signature: [SEAL]", visual=None, ocr_lines=None)
+        assert out["quality"] == "stamp" and out["review_required"] is True and out["present"] is True
+        out = assess_signature("Authorized signature: electronically signed", visual=None, ocr_lines=None)
+        assert out["quality"] == "present_clear" and out["review_required"] is False and out["present"] is True
 
-    def test_signed_page_is_questionable_never_clear(self):
+    def test_signed_page_is_ambiguous_never_clear(self):
         pdf = signature_pdf()
         out = assess_signature(page_text(pdf), visual=probe_visual_quality(pdf, "s.pdf")[0], ocr_lines=None, page=1)
-        assert out["quality"] == "questionable" and out["present"] is True and out["review_required"] is True
+        assert out["quality"] == "present_ambiguous" and out["present"] is True and out["review_required"] is True
         assert "cannot confirm a handwritten signature" in out["basis"]
 
     def test_faint_signature(self):
         pdf = signature_pdf(faint=True)
         out = assess_signature(page_text(pdf), visual=probe_visual_quality(pdf, "s.pdf")[0], ocr_lines=None)
-        assert out["quality"] == "faint" and out["present"] is True and out["review_required"] is True
-        assert "30%" in out["basis"]
+        assert out["quality"] == "present_ambiguous" and out["present"] is True and out["review_required"] is True
+        assert "faint mark" in out["basis"] and "30%" in out["basis"]
 
     def test_missing_signature(self):
         pdf = signature_pdf(ink=False)

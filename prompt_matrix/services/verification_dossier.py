@@ -94,6 +94,11 @@ TRUST_SUBTITLES: dict[str, str] = {
 #: it is.
 _SIGNATURE_WORDS: dict[str, str] = {
     "questionable": "present but questionable",
+    "present_ambiguous": "present but ambiguous — a mark, not a confirmed handwritten signature",
+    "present_clear": "confirmed (electronic signature marker)",
+    "stamp": "a stamp or seal, not a handwritten signature",
+    "printed_name": "a typed name on the signature line, not a signature",
+    "unreadable": "not assessable — page unreadable",
     "faint": "present but faint",
     "incomplete": "present but incomplete",
     "missing": "missing",
@@ -327,6 +332,31 @@ def _read_reports(project_id: str) -> tuple[list[dict[str, Any]], str]:
         return [], f"intake reports not read: {type(exc).__name__}: {exc}"
 
 
+def _require_intact(reports: list[dict[str, Any]]) -> None:
+    """Artifact hash gate (2026-09-27): every intake report the dossier would
+    print is recomputed against its stored ``snapshot``; the first mismatch
+    raises ``snapshot.SnapshotMismatch`` and no dossier, JSON twin or bundle is
+    built. Deliberately outside ``_read_reports``'s "not read" guard — a
+    tampered row is a refusal, not a missing section."""
+    try:
+        from ..services import snapshot as snap
+    except ImportError:
+        from services import snapshot as snap  # type: ignore
+    for report in reports:
+        snap.require_intact(report)
+
+
+def _intake_snapshots(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``[{report_id, document_id, content_hash}]`` — the hash of each intake
+    report as stored, so a reader of the dossier can check the report the
+    dossier was built from is the one the API serves."""
+    out = []
+    for r in reports:
+        block = r.get("snapshot") if isinstance(r.get("snapshot"), dict) else {}
+        out.append({"report_id": r.get("report_id"), "document_id": r.get("document_id"), "content_hash": block.get("content_hash")})
+    return out
+
+
 def _read_disputes(project_id: str) -> tuple[list[dict[str, Any]], str]:
     try:
         try:
@@ -460,7 +490,7 @@ def _signature_view(reports: list[dict[str, Any]]) -> dict[str, Any]:
         words = _SIGNATURE_WORDS.get(quality, f"present, quality {quality}")
         if sig.get("present") is False:
             words = _SIGNATURE_WORDS["missing"]
-        unresolved = bool(sig.get("review_required")) or quality in ("questionable", "faint", "incomplete") or sig.get("present") is False
+        unresolved = bool(sig.get("review_required")) or quality in ("questionable", "faint", "incomplete", "present_ambiguous", "stamp", "printed_name", "unreadable") or sig.get("present") is False
         rows.append(
             {
                 "document": str(report.get("filename") or report.get("report_id") or ""),
@@ -534,12 +564,21 @@ def _replay_view(reports: list[dict[str, Any]]) -> dict[str, Any]:
     rows = []
     for report in reports:
         replay = report.get("replay") if isinstance(report.get("replay"), dict) else {}
+        proof = replay.get("last_proof") if isinstance(replay.get("last_proof"), dict) else None
         rows.append(
             {
                 "document": str(report.get("filename") or report.get("report_id") or ""),
                 "eligible": bool(replay.get("eligible")),
                 "reasons": [str(r) for r in replay.get("reasons") or []],
                 "replayed": bool(replay.get("replayed")),
+                # Rerun ledger (2026-09-27): how many reruns the report has had
+                # against the bound, the rule stopping the next one, and the
+                # last replay's determinism verdict — quoted, not summarised.
+                "attempts": int(replay.get("attempts") or 0),
+                "max_attempts": replay.get("max_attempts"),
+                "stop_rule": replay.get("stop_rule"),
+                "deterministic": proof.get("deterministic") if proof else None,
+                "changed": list(proof.get("changed") or []) if proof else [],
             }
         )
     if not rows:
@@ -750,6 +789,8 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
     redhat_open = sum(1 for i in redhat_items if str(i.get("status") or "open").lower() not in ("dismissed", "resolved", "fixed", "closed"))
 
     reports, reports_error = _read_reports(project_id)
+    _require_intact(reports)
+    intake_snapshots = _intake_snapshots(reports)
     intake_present = bool(reports)
     review_items = _review_items(reports)
     totals = _review_summary_totals(reports)
@@ -854,19 +895,23 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
             "provenance_stats": stats,
             "violations": list(gate.get("violations") or []),
         },
+        "intake_snapshots": intake_snapshots,
         "intake": {
             "present": intake_present,
             "reason": reports_error or ("" if intake_present else "no intake report is recorded for this project"),
+            "snapshots": intake_snapshots,
             "documents": [
                 {
                     "report_id": r.get("report_id"),
+                    "document_id": r.get("document_id"),
+                    "content_hash": s.get("content_hash"),
                     "filename": r.get("filename"),
                     "document_type": (r.get("classification") or {}).get("document_type") if isinstance(r.get("classification"), dict) else None,
                     "review_summary": r.get("review_summary") if isinstance(r.get("review_summary"), dict) else None,
                     "verification": r.get("verification") if isinstance(r.get("verification"), dict) else None,
                     "created_at": r.get("created_at"),
                 }
-                for r in reports
+                for r, s in zip(reports, intake_snapshots)
             ],
             "laya": laya,
         },
@@ -1177,13 +1222,40 @@ def _section_replay(section: dict[str, Any]) -> str:
     rows = ""
     for item in section.get("items") or []:
         reasons = "; ".join(item.get("reasons") or []) or "—"
+        if item.get("replayed"):
+            verdict = item.get("deterministic")
+            replayed = "yes — deterministic" if verdict is True else ("yes — " + (f"{len(item.get('changed') or [])} field(s) changed" if verdict is False else "no proof recorded"))
+        else:
+            replayed = "no"
+        attempts = f"{int(item.get('attempts') or 0)} of {item.get('max_attempts') or '—'}"
+        if item.get("stop_rule"):
+            attempts += f" · stopped: {item.get('stop_rule')}"
         rows += (
             f"<tr><td>{_esc(item.get('document'))}</td><td>{'eligible' if item.get('eligible') else 'not eligible'}</td>"
-            f"<td>{_esc(reasons)}</td><td>{'yes' if item.get('replayed') else 'no (V1 records eligibility only)'}</td></tr>"
+            f"<td>{_esc(reasons)}</td><td>{_esc(replayed)}</td><td>{_esc(attempts)}</td></tr>"
         )
     return (
         f"<p class='count'>{_plural(int(section.get('eligible') or 0), 'document is', 'documents are')} eligible for replay.</p>"
-        "<table><thead><tr><th>Document</th><th>Replay</th><th>Reasons</th><th>Replayed</th></tr></thead>"
+        "<table><thead><tr><th>Document</th><th>Replay</th><th>Reasons</th><th>Replayed</th><th>Reruns</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
+def _section_intake_snapshots(intake: dict[str, Any]) -> str:
+    """One row per intake report with its stored ``snapshot.content_hash`` —
+    the same hash the JSON API, the CSV and ``verification_state.json`` carry,
+    so the dossier can be matched to the reports it was built from."""
+    items = intake.get("snapshots") or []
+    if not items:
+        return ""
+    rows = "".join(
+        f"<tr><td>{_esc(d.get('filename') or s.get('report_id'))}</td><td><code>{_esc(s.get('report_id'))}</code></td>"
+        f"<td><code>{_esc(s.get('document_id') or '—')}</code></td><td><code>{_esc(s.get('content_hash') or 'unstamped')}</code></td></tr>"
+        for s, d in zip(items, intake.get("documents") or [{}] * len(items))
+    )
+    return (
+        "<p class='meta'>Intake report snapshots (SHA-256 of each stored report, canonical JSON; the export refused if any differed from its row):</p>"
+        "<table><thead><tr><th>Document</th><th>Report</th><th>Document id</th><th>Snapshot hash</th></tr></thead>"
         f"<tbody>{rows}</tbody></table>"
     )
 
@@ -1286,6 +1358,7 @@ def build_verification_dossier_html(state: dict[str, Any], tree: dict[str, Any] 
 <h2>1. Summary</h2>
 <table><tbody>{summary_html}</tbody></table>
 {f"<p class='meta'>{_esc(unverified_reason)}</p>" if unverified_reason else ""}
+{_section_intake_snapshots(state.get('intake') or {})}
 {_section_laya(state.get('intake') or {})}
 
 <h2>2. Review required</h2>

@@ -44,10 +44,12 @@ try:
     from ..db.connection import init_db
     from ..history import get_db
     from ..services import field_extractor as _fx
+    from ..services import snapshot as _snapshot
 except ImportError:
     from db.connection import init_db
     from history import get_db
     from services import field_extractor as _fx  # type: ignore
+    from services import snapshot as _snapshot  # type: ignore
 
 EVENT_TYPES = (
     "intake_received",
@@ -61,16 +63,23 @@ EVENT_TYPES = (
     "dispute_resolved",
     "classification_overridden",
     "exported",
+    #: A bounded, audited re-read of the stored page texts (2026-09-27,
+    #: ``POST …/parsure/<report_id>/replay``); payload carries the proof.
+    "replayed",
 )
 
 #: Spec §3: dispute workflow with a 72-hour SLA.
 DISPUTE_SLA = timedelta(hours=72)
 
-_TS = "%Y-%m-%d %H:%M:%S"
+#: Microseconds since 2026-09-27: two saves of the same document inside one
+#: second tied on ``created_at`` and ``ORDER BY … report_id DESC`` (a random
+#: uuid) then decided which one ``list_reports`` called the newest — the
+#: re-upload test showed the older report as current. ``_parse_dt`` reads both.
+_TS = "%Y-%m-%d %H:%M:%S.%f"
 
 
 def _now_dt() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+    return datetime.now(timezone.utc)
 
 
 def _now() -> str:
@@ -128,8 +137,22 @@ def _hours_words(due_at: Any, now: datetime | None = None) -> tuple[bool, str | 
 
 
 def public_report(report: dict[str, Any]) -> dict[str, Any]:
-    """The report without its private ``_``-prefixed working keys."""
+    """The report without its private ``_``-prefixed working keys.
+
+    ``snapshot`` is kept: it is the hash a reader of any artifact checks the
+    row against (``services/snapshot``)."""
     return {k: v for k, v in report.items() if not str(k).startswith("_")}
+
+
+def verify_snapshot(report: dict[str, Any]) -> dict[str, Any]:
+    """``snapshot.verify`` — ``{"ok", "expected", "actual"}`` for a loaded report."""
+    return _snapshot.verify(report)
+
+
+def require_intact(report: dict[str, Any]) -> dict[str, Any]:
+    """``snapshot.require_intact`` — raises ``snapshot.SnapshotMismatch`` so an
+    export can answer 409 and ship nothing."""
+    return _snapshot.require_intact(report)
 
 
 def _review_counts(report: dict[str, Any]) -> tuple[int, int, int]:
@@ -146,14 +169,25 @@ def _review_counts(report: dict[str, Any]) -> tuple[int, int, int]:
 # --------------------------------------------------------------------------
 
 def save_report(project_id: str, report: dict[str, Any]) -> str:
-    """Insert the report; a retry with the same ``report_id`` updates in place."""
+    """Insert the report; a retry with the same ``report_id`` updates in place.
+
+    The row is the canonical snapshot (``services/snapshot``, 2026-09-27):
+    ``report["snapshot"]`` is stamped here, after every id is final and before
+    serialisation, so the stored JSON carries the hash of itself and every
+    artifact derived from the row can be checked against it.
+    """
     init_db()
     db = get_db()
     report_id = str(report.get("report_id") or f"pr-{uuid.uuid4().hex[:16]}")
     report["report_id"] = report_id
     report["project_id"] = project_id
     now = _now()
+    # A seeded ``created_at`` (tests, imports) is kept; a report without one
+    # gets the save moment. Both are microsecond timestamps since 2026-09-27
+    # (``v1_orchestrator._now`` too): two saves of one document inside a
+    # second tied and the wrong one listed as current.
     report.setdefault("created_at", now)
+    _snapshot.stamp(report)
     total, review, rejected = _review_counts(report)
     db.execute(
         """
@@ -185,11 +219,13 @@ def save_report(project_id: str, report: dict[str, Any]) -> str:
 
 
 def update_report(project_id: str, report_id: str, report: dict[str, Any]) -> bool:
-    """Replace the stored report (after a correction, dispute, override)."""
+    """Replace the stored report (after a correction, dispute, override, replay);
+    re-stamps ``report["snapshot"]`` so the row stays its own proof."""
     init_db()
     db = get_db()
     report["report_id"] = report_id
     report["updated_at"] = _now()
+    _snapshot.stamp(report)
     total, review, rejected = _review_counts(report)
     cur = db.execute(
         """
@@ -571,7 +607,9 @@ def golden_accuracy() -> dict[str, Any] | None:
 # wrong category.
 REASON_CATEGORIES = (
     ("disputed", "Disputed"),
+    ("invalid_value", "Invalid value"),
     ("not_found", "Not found"),
+    ("low_quality_page", "Low page quality"),
     ("signature", "Signature"),
     ("number_quality", "Number quality"),
     ("plausibility", "Plausibility"),
@@ -599,8 +637,13 @@ def reason_category(field: dict[str, Any]) -> str:
         return "disputed"
     if field.get("field_type") == "signature" or reason.startswith("signature") or (field.get("signature_quality") or {}).get("review_required"):
         return "signature"
+    if field.get("evidence_state") == "found_suspect" or (field.get("value_quality") or {}).get("quality") not in (None, "valid"):
+        # 2026-09-27: debris under a label is an invalid value, not an absence.
+        return "invalid_value"
     if field.get("value") is None or "not found" in reason:
         return "not_found"
+    if field.get("low_quality_page") and "page quality" in reason:
+        return "low_quality_page"
     if "number_quality" in reason or (field.get("number_quality") or {}).get("review_required") or reason.startswith("vin rejected"):
         return "number_quality"
     if "plausibility" in reason or field.get("plausibility_violation"):

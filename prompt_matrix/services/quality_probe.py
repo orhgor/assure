@@ -145,13 +145,21 @@ NUMBER_PENALTIES: dict[str, float] = {
     "unknown": 1.0,
 }
 
+#: Vocabulary since 2026-09-27 (customer: "questionable" told the reviewer
+#: nothing): present_clear / present_ambiguous / missing / stamp / printed_name /
+#: unreadable; the older words stay so reports saved before the change still score.
 SIGNATURE_PENALTIES: dict[str, float] = {
     "clear": 1.0,
+    "present_clear": 1.0,
     "faint": 0.8,
     "incomplete": 0.7,
     "stamped": 0.7,
+    "stamp": 0.7,
     "questionable": 0.6,
+    "present_ambiguous": 0.6,
+    "printed_name": 0.6,
     "missing": 0.5,
+    "unreadable": 0.4,
     "unknown": 1.0,
 }
 
@@ -174,7 +182,11 @@ UNDETECTED_FLAGS = ("skewed", "glare", "noisy")
 _SIGNATURE_LABEL = re.compile(
     r"(authori[sz]ed\s+signature|signature|signed\s+by|signed|/s/)", re.IGNORECASE
 )
-_STAMP_WORDS = re.compile(r"\b(stamp(ed)?|seal|electronically\s+signed|e-?signed|docusign)\b", re.IGNORECASE)
+_STAMP_WORDS = re.compile(r"\b(stamp(ed)?|seal)\b", re.IGNORECASE)
+#: An electronic signature is a signature (``present_clear``), not a stamp —
+#: the two were one verdict ("stamped") until 2026-09-27.
+_ESIGN_WORDS = re.compile(r"\b(electronically\s+signed|e-?signed|docusign|digitally\s+signed)\b|/s/", re.IGNORECASE)
+_TYPED_NAME_AFTER_LABEL = re.compile(r"^[\s:\-–—_]*([A-Z][A-Za-z.'\-]+(?:\s+[A-Z][A-Za-z.'\-]+){1,3})\s*$")
 
 
 def _ext(filename: str | None) -> str:
@@ -560,7 +572,7 @@ TEXT_DENSITY_FLOOR = 0.05
 #: compliance facts about the signature field alone: measured 2026-09-25, an
 #: unsigned but crisp declarations PDF scored page quality 0.50 because the
 #: blank signature line halved it, and all 12 fields went to manual review.
-PAGE_SIGNATURE_QUALITIES = frozenset({"faint", "incomplete", "questionable"})
+PAGE_SIGNATURE_QUALITIES = frozenset({"faint", "incomplete", "questionable", "present_ambiguous", "unreadable"})
 
 
 def _visual_score(visual: dict[str, Any] | None) -> tuple[float | None, str]:
@@ -723,12 +735,15 @@ def assess_signature(
     mark ratios of the bottom 20 % of the page decide the rest. The label
     line's own print is estimated from its character share of the page text
     and subtracted; what remains is the candidate mark. No remaining mark →
-    ``missing``; a mark whose darkness (ink/marks) is under
-    ``SIGNATURE_FAINT_FRACTION`` of the body text's → ``faint``; a mark of
-    normal darkness → ``questionable`` — the heuristic cannot confirm a
-    handwritten signature, so it never answers ``clear``. STAMP/SEAL/
-    "electronically signed" next to the label → ``stamped``. Without a label
-    the answer is ``unknown`` and nothing is asserted.
+    ``missing`` (or ``printed_name`` when a typed name follows the label on
+    its line); any remaining mark → ``present_ambiguous`` (the basis says
+    whether it is faint) — the heuristic cannot confirm a handwritten
+    signature, so it never answers ``present_clear`` from ink alone. STAMP/SEAL
+    next to the label → ``stamp``; an electronic-signature marker (/s/,
+    "electronically signed", DocuSign) → ``present_clear``. No visual sample →
+    ``unreadable``. Without a label the answer is ``unknown`` and nothing is
+    asserted. Vocabulary of 2026-09-27; ``field_extractor.SIGNATURE_NEXT_CHECK``
+    adds the reviewer's next step.
     """
     text = page_text or ""
     if not text and ocr_lines:
@@ -742,24 +757,43 @@ def assess_signature(
     label_text = label.group(0)
 
     window = text[max(0, label.start() - 80): label.end() + 80]
+    if _ESIGN_WORDS.search(window):
+        result.update(
+            present=True,
+            quality="present_clear",
+            review_required=False,
+            basis=f"label '{label_text}' with an explicit electronic-signature marker nearby",
+        )
+        return result
     if _STAMP_WORDS.search(window):
         result.update(
             present=True,
-            quality="stamped",
+            quality="stamp",
             review_required=True,
-            basis=f"label '{label_text}' with stamp/seal/e-signed wording nearby; stamp is not a handwritten signature",
+            basis=f"label '{label_text}' with stamp/seal wording nearby; a stamp is not a handwritten signature",
         )
         return result
+    line_end_ = text.find("\n", label.end())
+    same_line = text[label.end(): len(text) if line_end_ < 0 else line_end_]
+    typed = _TYPED_NAME_AFTER_LABEL.match(same_line)
 
     v = visual or {}
     bottom_ink, bottom_mark = v.get("bottom_ink_ratio"), v.get("bottom_mark_ratio")
     body_ink, body_mark = v.get("body_ink_ratio"), v.get("body_mark_ratio")
     if None in (bottom_ink, bottom_mark, body_ink, body_mark):
+        if typed:
+            result.update(
+                present=True,
+                quality="printed_name",
+                review_required=True,
+                basis=f"label '{label_text}' followed by a typed name ('{typed.group(1)}') on the same line; no visual sample to see ink",
+            )
+            return result
         result.update(
             present=None,
-            quality="unknown",
+            quality="unreadable",
             review_required=True,
-            basis=f"label '{label_text}' found but no visual sample to measure ink; review to confirm",
+            basis=f"label '{label_text}' found but no visual sample to measure ink; view the original to confirm",
         )
         return result
 
@@ -785,6 +819,17 @@ def assess_signature(
     )
     extra_mark = bottom_mark - expected_mark
     if expected_mark > 0 and extra_mark <= SIGNATURE_LABEL_TOLERANCE * expected_mark:
+        if typed:
+            result.update(
+                present=True,
+                quality="printed_name",
+                review_required=True,
+                basis=(
+                    f"label '{label_text}' followed by a typed name ('{typed.group(1)}'); region marks {bottom_mark:.4f} ≈ "
+                    f"the printed line's own (expected {expected_mark:.4f}): print, no ink beyond it"
+                ),
+            )
+            return result
         result.update(
             present=False,
             quality="missing",
@@ -805,17 +850,17 @@ def assess_signature(
     if typical > 0 and darkness < SIGNATURE_FAINT_FRACTION * typical:
         result.update(
             present=True,
-            quality="faint",
+            quality="present_ambiguous",
             review_required=True,
             basis=(
-                f"label '{label_text}'; mark darkness {darkness:.2f} < {SIGNATURE_FAINT_FRACTION:.0%} of body text "
+                f"label '{label_text}'; faint mark: darkness {darkness:.2f} < {SIGNATURE_FAINT_FRACTION:.0%} of body text "
                 f"darkness {typical:.2f} (region ink {bottom_ink:.4f} / marks {bottom_mark:.4f}, label share removed)"
             ),
         )
         return result
     result.update(
         present=True,
-        quality="questionable",
+        quality="present_ambiguous",
         review_required=True,
         basis=(
             f"label '{label_text}'; a mark beyond the label exists (marks {bottom_mark:.4f} vs label "

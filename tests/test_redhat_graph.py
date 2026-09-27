@@ -168,7 +168,9 @@ def test_not_applicable_vs_not_found_three_signals():
     assert all(h["class"] == "evidentiary" for h in hits)
 
     # Negative: family agrees, unreadable field's reason says so, every absence qualified.
-    ok = [_field("vin", value=None, node="el-0", evidence_state="not_on_document"), _field("premium", value=None, node="el-0", evidence_state="unreadable", reason="Page could not be read")]
+    # (2026-09-27: an absence is not_found / field_not_found — routing it to a reviewer is itself a finding.)
+    ok = [_field("vin", value=None, node="el-0", evidence_state="not_on_document", state="not_found", routing="field_not_found"),
+          _field("premium", value=None, node="el-0", evidence_state="unreadable", reason="Page could not be read", state="not_found", routing="retry_parsure")]
     assert _rules(_run(_report(ok)), "not_applicable_vs_not_found") == []
 
 
@@ -406,3 +408,15 @@ def test_model_check_skips_with_a_reason(monkeypatch):
     monkeypatch.setattr(rg, "backend_available", lambda: (False, "no key"))
     out = rg.critique_report(_llm_report())
     assert any("skipped: no model backend (no key)" in n for n in out["notes"])
+
+
+def test_absence_routed_to_a_reviewer_and_suspect_recorded_as_absence_are_findings():
+    """Customer handoff 2026-09-27: not-found fields sat in the review queue."""
+    queued = _field("vin", value=None, node="el-0", evidence_state="not_on_document", state="unverified", routing="manual_review")
+    ok = _field("premium", value=None, node="el-0", evidence_state="not_on_document", state="not_found", routing="field_not_found")
+    suspect = _field("policy_number", value=None, node="el-1", evidence_state="found_suspect", state="not_found", routing="field_not_found", raw="~~-,;;")
+    findings = rg.critique_report(_report([queued, ok, suspect]), llm=False)["findings"]
+    titles = [f["title"] for f in findings if f["rule"] == "not_applicable_vs_not_found"]
+    assert "Absence queued as a review item" in titles and "Suspect text recorded as an absence" in titles
+    clean = rg.critique_report(_report([ok]), llm=False)["findings"]
+    assert not [f for f in clean if f["rule"] == "not_applicable_vs_not_found"]
