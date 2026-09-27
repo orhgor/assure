@@ -27,6 +27,7 @@
     </div>
     <div class="app-header-center"></div>
     <div class="app-header-right">
+      {% if me and me.user_id %}<span class="identity" id="page-identity" title="{{ me.email }}"><span class="identity-name">{{ me.display_name }}</span>{% if me.role_words %}<span class="identity-role">{{ me.role_words }}</span>{% endif %}</span>{% endif %}
       <a href="/?project_id={{ project_id }}" class="btn-tertiary">Back to Assure</a>
     </div>
   </header>

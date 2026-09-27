@@ -28,6 +28,7 @@ try:
     from ..lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from ..models.jdf import flatten_nodes
     from ..middleware import project_ownership_required
+    from ..rbac import requires
     from ..services.compile_guard import flag_fields, flag_response
     from ..services.jdf_memory import forget_jdf_document, remember_jdf_document
     from ..services.omp import (
@@ -52,6 +53,7 @@ except ImportError:
     from lib.textract import IMAGE_EXTENSIONS, TextractClient, TextractError
     from models.jdf import flatten_nodes
     from middleware import project_ownership_required
+    from rbac import requires
     from services.compile_guard import flag_fields, flag_response
     from services.jdf_memory import forget_jdf_document, remember_jdf_document
     from services.omp import (
@@ -649,6 +651,7 @@ def register_substrate_routes(app) -> None:
         from rate_limits import limiter
 
     @app.post("/api/projects/<project_id>/substrate/upload")
+    @requires("documents.upload")
     @project_ownership_required
     def substrate_upload(project_id: str):
         request_id = str(uuid.uuid4())
@@ -824,6 +827,7 @@ def register_substrate_routes(app) -> None:
         )
 
     @app.delete("/api/projects/<project_id>/substrate/<file_id>")
+    @requires("documents.delete")
     @project_ownership_required
     def substrate_delete(project_id: str, file_id: str):
         request_id = str(uuid.uuid4())

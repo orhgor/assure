@@ -61,10 +61,35 @@ def main() -> int:
     ap.add_argument("--pdf", default=None, help="a document to run; default: a generated debris declarations page")
     ap.add_argument("--tamper", action="store_true", help="edit the stored row and prove the export is refused (DATABASE_URL)")
     ap.add_argument("--timeout", type=int, default=240)
+    ap.add_argument("--email", default=None, help="local-auth account (or ASSURE_RUN_EMAIL)")
+    ap.add_argument("--password", default=None, help="local-auth password (or ASSURE_RUN_PASSWORD)")
+    ap.add_argument("--bootstrap-token", default=None, help="first run only: creates the owner (or ASSURE_BOOTSTRAP_TOKEN)")
     args = ap.parse_args()
     base = args.base.rstrip("/")
     pdf = args.pdf or make_pdf("/tmp/final_run_debris.pdf")
 
+    # Accounts (2026-09-27): in local auth mode the API needs a session. Sign in
+    # with --email/--password (or ASSURE_RUN_EMAIL / ASSURE_RUN_PASSWORD); on a
+    # fresh box pass --bootstrap-token to create the owner first.
+    http = requests.Session()
+    requests_get, requests_post = requests.get, requests.post
+    requests.get, requests.post = http.get, http.post  # every call below shares the session cookie
+    auth_status = http.get(f"{base}/api/auth/setup-status", timeout=10).json()
+    if auth_status.get("mode") == "local":
+        email = args.email or os.environ.get("ASSURE_RUN_EMAIL", "")
+        password = args.password or os.environ.get("ASSURE_RUN_PASSWORD", "")
+        if auth_status.get("needs_owner"):
+            token = args.bootstrap_token or os.environ.get("ASSURE_BOOTSTRAP_TOKEN", "")
+            r = http.post(f"{base}/api/auth/setup", json={"bootstrap_token": token, "org_name": "final-run", "email": email,
+                                                          "display_name": "Final Run", "password": password}, timeout=10)
+            check("first-run owner created", r.status_code == 200, r.status_code if r.ok else r.json())
+        else:
+            r = http.post(f"{base}/api/auth/login", json={"email": email, "password": password}, timeout=10)
+            check("signed in (local auth)", r.status_code == 200, r.status_code if r.ok else r.json())
+        me = http.get(f"{base}/api/auth/me", timeout=10).json()
+        check("session carries a role", bool(me.get("user_id")) and bool(me.get("role")), {k: me.get(k) for k in ("email", "role")})
+    else:
+        check("auth mode", None, auth_status.get("mode"))
     health = requests.get(f"{base}/health", timeout=10).json()
     check("stack healthy", health.get("status") == "healthy", {k: (v.get("status") if isinstance(v, dict) else v) for k, v in (health.get("checks") or {}).items() if k in ("db", "models", "pdf_renderer")})
     pid = requests.post(f"{base}/api/projects", json={"title": "final-run"}, timeout=10).json()["id"]
@@ -95,7 +120,7 @@ def main() -> int:
     check("Red-Hat graph critique ran", rg.get("status") == "completed" and rg.get("policy") == "rh-graph-v1", {k: rg.get(k) for k in ("status", "findings", "high", "medium", "low", "model_check")})
     llm = exe.get("llm_grounding") or {}
     llm_ok = llm.get("status") in ("ran", "not_needed") or (llm.get("status") in ("disabled", "skipped") and bool(llm.get("reason")))
-    check("grounded model pass ran or said why not", llm_ok, {k: llm.get(k) for k in ("status", "model", "fields_offered", "fields_grounded", "reason")})
+    check("grounded model pass ran or said why not", llm_ok, {k: llm.get(k) for k in ("status", "model", "model_path", "fields_offered", "fields_grounded", "reason")})
     fields = r.get("fields") or []
     found = [f for f in fields if f.get("value") is not None]
     check("every found field carries grounding (quote + span + model)", bool(found) and all(f.get("grounding_quote") and f.get("grounding_span") and f.get("grounding_model") for f in found), f"{len(found)} found fields")
@@ -105,7 +130,7 @@ def main() -> int:
     check("suspect values are quoted, not trusted (provenance < 1)", all(f.get("provenance_confidence", 1.0) < 1.0 and f.get("value_quality") for f in suspects), [(f["name"], f.get("provenance_confidence")) for f in suspects] or "no suspects on this document")
     targeted = exe.get("redhat_targeted") or {}
     if llm.get("status") == "ran":
-        check("Red-Hat-targeted pass ran when the critique named a field", targeted.get("status") in ("ran", "not_needed", "skipped", "failed"), {k: targeted.get(k) for k in ("status", "fields", "changed", "reason")})
+        check("Red-Hat-targeted pass ran when the critique named a field", targeted.get("status") in ("ran", "not_needed", "skipped", "failed"), {k: targeted.get(k) for k in ("status", "model_path", "fields", "changed", "reason")})
     else:
         check("Red-Hat-targeted pass", None, f"model path {llm.get('status')}: {targeted.get('reason') or llm.get('reason')}")
     rs = r.get("review_summary") or {}
@@ -141,6 +166,11 @@ def main() -> int:
                 conn.commit()
             refused = requests.get(f"{base}/api/projects/{pid}/parsure/{rid}/export?format=json", timeout=30)
             check("tampered row exports nothing (409)", refused.status_code == 409, refused.status_code)
+    if auth_status.get("mode") == "local":
+        ev = requests.get(f"{base}/api/audit?project_id={pid}&limit=20", timeout=10)
+        rows = (ev.json().get("events") or []) if ev.ok else []
+        check("audit rows carry actor id and role", bool(rows) and all(r.get("actor_id") and r.get("actor_role") for r in rows if r.get("source") == "parsure" and r.get("event_type") in ("replayed",)),
+              [(r.get("event_type"), r.get("actor_role"), r.get("ip")) for r in rows[:3]])
     failed = [c for c in CHECKS if c[1] == "FAIL"]
     print(f"\n{len(CHECKS) - len(failed)} of {len(CHECKS)} checks passed; project {pid}, report {rid}")
     return 1 if failed else 0

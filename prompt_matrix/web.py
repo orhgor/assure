@@ -460,6 +460,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from middleware import csrf_enabled, csrf_exempt_path, register_security_guards
     register_security_guards(app)
+    # Local accounts (docs/auth.md, 2026-09-27): resolves the session cookie into
+    # g.assure_user and closes /api/* to signed-out callers when the auth mode
+    # is `local`; a no-op in modes `off` and `clerk`.
+    try:
+        from .rbac import register_auth_guard
+    except ImportError:
+        from rbac import register_auth_guard
+    register_auth_guard(app)
     app.config["WTF_CSRF_ENABLED"] = csrf_enabled()
     app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken", "X-CSRF-TOKEN"]
     app.config["WTF_CSRF_TIME_LIMIT"] = None
@@ -662,6 +670,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 return None
             return jsonify({"error": "Missing or invalid service token."}), 401
 
+        try:
+            from .rbac import local_mode
+        except ImportError:
+            from rbac import local_mode
+        if local_mode():
+            # Local accounts are the door (rbac.register_auth_guard); Clerk keys
+            # left in .env must not add a second one.
+            return None
         if not is_self_hosted() and require_clerk_login():
             return protect_request()
         return None
@@ -682,10 +698,42 @@ def create_app(*, require_auth: bool = True) -> Flask:
 
         g.browser_api_keys = blob
 
+    def _current_user_view() -> dict:
+        """Who is looking at a server page, for the header identity and the
+        controls a role may not use. Reads the local-accounts middleware's
+        ``g.assure_user`` when it is there (contract of 2026-09-27: user_id,
+        email, display_name, role, permissions[]); otherwise the Clerk
+        session's id and e-mail with no role and ``permissions`` None — and
+        None means nothing is hidden, the server routes remain the judge."""
+        from flask import g
+
+        u = getattr(g, "assure_user", None)
+        if isinstance(u, dict):
+            get = u.get
+        elif u is not None:
+            get = lambda k, d=None: getattr(u, k, d)  # noqa: E731
+        else:
+            get = None
+        # rbac.user_payload names the id `id`; /api/auth/me names it `user_id`. Both read.
+        uid_local = (get("user_id") or get("id")) if get is not None else None
+        if uid_local:
+            perms = get("permissions")
+            perms = [str(p) for p in perms] if isinstance(perms, (list, tuple, set)) else None
+            me = {"user_id": str(uid_local), "email": str(get("email") or ""), "display_name": str(get("display_name") or get("email") or uid_local),
+                  "role": str(get("role") or ""), "permissions": perms, "mode": str(get("mode") or "local")}
+        else:
+            uid = session.get("clerk_user_id")
+            me = {"user_id": str(uid) if uid else "", "email": str(session.get("clerk_email") or ""), "display_name": str(session.get("clerk_email") or uid or ""),
+                  "role": "", "permissions": None, "mode": ""}
+        me["role_words"] = me["role"].replace("_", " ") if me["role"] else ""
+        me["can"] = (lambda perm: me["permissions"] is None or perm in me["permissions"])
+        return me
+
     def _page(template: str, active: str, **extra):
         lang = _locale()
         session["lang"] = lang
         include_pk = bool(extra.pop("include_pk", False))
+        extra.setdefault("me", _current_user_view())
         try:
             from .editions import snapshot as edition_snapshot
         except ImportError:
@@ -1604,6 +1652,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
         history = []
         for c in corrections:
             history.append({
+                "actor_role": str(c.get("actor_role") or "").replace("_", " ") or None,
                 "at": c.get("created_at"), "kind": "correction",
                 "title": f"{labels.get(c.get('field_name'), _pv.words(c.get('field_name')) or 'Field')} corrected",
                 "detail": f"{_pv.value_label(None, c.get('original_value'))} → {_pv.value_label(None, c.get('corrected_value'))}"
@@ -1655,6 +1704,9 @@ def create_app(*, require_auth: bool = True) -> Flask:
                     "accepted" if field_label and et == "field_accepted" else _pv.EVENT_WORDS.get(str(et), _pv.words(et) or "Event")
                 ),
                 "detail": detail, "actor": e.get("actor"),
+                # Local accounts (2026-09-27) stamp the row with who and in which role.
+                "actor_role": str(e.get("actor_role") or payload.get("actor_role") or "").replace("_", " ") or None,
+                "actor_id": e.get("actor_id") or payload.get("actor_id"),
             })
         history.sort(key=lambda h: str(h.get("at") or ""), reverse=True)
         for h in history:
@@ -1830,29 +1882,8 @@ def create_app(*, require_auth: bool = True) -> Flask:
         clear_user()
         return redirect("/signin")
 
-    @app.get("/api/auth/config")
-    def auth_config():
-        return jsonify(
-            {
-                "required": auth_required(),
-                "configured": clerk_configured(),
-                "self_hosted": is_self_hosted(),
-                "signed_in": bool(current_user_id()),
-                # The edge reads this to decide whether shell documents need a
-                # session, so the flag lives in the app's env only.
-                "clerk_only": clerk_only_enabled(),
-            }
-        )
-
-    @app.get("/api/auth/me")
-    def auth_me():
-        return jsonify(
-            {
-                "user_id": current_user_id() or "",
-                "email": session.get("clerk_email") or "",
-            }
-        )
-
+    # /api/auth/config and /api/auth/me: routers/auth_routes.py (2026-09-27), one
+    # handler per URL for the Clerk, local and off modes.
     @app.post("/api/auth/session")
     def auth_session():
         if is_self_hosted() or not clerk_configured():
@@ -1874,11 +1905,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             return jsonify({"error": string_catalog(_locale()).get("billing.missing")}), 503
         return jsonify({"ok": True, "user_id": user["id"], "email": user.get("email") or ""})
 
-    @app.post("/api/auth/logout")
-    def auth_logout():
-        clear_user()
-        return jsonify({"ok": True})
-
+    # /api/auth/logout: routers/auth_routes.py.
     VALID_ROLES = ("admin", "compliance", "developer", "executive")
 
     @app.get("/api/user/role")
@@ -2842,6 +2869,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.parsure_routes import register_parsure_routes
     register_parsure_routes(app)
+
+    try:
+        from .routers.auth_routes import register_auth_routes
+        from .routers.team_routes import register_team_routes
+    except ImportError:
+        from routers.auth_routes import register_auth_routes
+        from routers.team_routes import register_team_routes
+    register_auth_routes(app)
+    register_team_routes(app)
     try:
         from .routers.integrations_routes import register_integrations_routes
     except ImportError:

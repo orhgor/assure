@@ -1249,3 +1249,60 @@ def test_record_page_says_not_recorded_for_a_report_without_execution_blocks(cli
     assert 'class="provenance"' not in html and 'class="grounding"' not in html
     assert "Accept all" not in text
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+# ---------------------------------------------------------------------------
+# Accounts (2026-09-27): the header identity and the controls a role may not
+# use, read from the local-accounts middleware's g.assure_user.
+# ---------------------------------------------------------------------------
+
+
+def _as_user(client, user):
+    from flask import g
+
+    @client.application.before_request
+    def _inject():  # noqa: ANN202
+        g.assure_user = user
+
+
+def test_server_pages_show_identity_and_hide_replay_and_type_change_by_permission(client):
+    _seed_counts_project("p-auth")
+    _contract_report("p-auth", "rep-auth")
+    _as_user(client, {"user_id": "u-2", "email": "ana@example.com", "display_name": "Ana Reviewer", "role": "reviewer",
+                      "permissions": ["projects.read", "fields.accept", "fields.correct", "fields.dispute", "exports.read"], "mode": "local"})
+    html = client.get("/parsing?project_id=p-auth").get_data(as_text=True)
+    assert 'id="page-identity" title="ana@example.com"' in html and "Ana Reviewer" in html and ">reviewer<" in html
+    html = client.get("/parsing/analytics?project_id=p-auth").get_data(as_text=True)
+    assert 'id="page-identity"' in html and "Ana Reviewer" in html
+
+    html = client.get("/parsing/rep-auth?project_id=p-auth").get_data(as_text=True)
+    text = _visible_text(html)
+    assert "Ana Reviewer" in text
+    # No reports.replay: the button is gone and the reason names the permission and the role.
+    assert 'id="replay-run"' not in html and 'id="replay-denied"' in html and "Not allowed for your role (reviewer): reports.replay" in text
+    # No classification.override on a record that offers the type selector.
+    html2 = client.get("/parsing/rep-re?project_id=p-auth").get_data(as_text=True)
+    assert 'id="type-form"' not in html2 and "classification.override" in _visible_text(html2)
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_server_pages_without_a_local_user_hide_nothing_and_show_no_identity(client):
+    _seed_counts_project("p-anon")
+    html = client.get("/parsing/rep-re?project_id=p-anon").get_data(as_text=True)
+    assert 'id="page-identity"' not in html and 'id="type-form"' in html and 'id="replay-run"' in html
+    assert "Not allowed for your role" not in _visible_text(html)
+
+
+def test_record_history_rows_show_actor_and_role(client):
+    from prompt_matrix.db import parsure_repository as repo
+
+    _seed_data_project("p-roles")
+    repo.log_event("p-roles", "field_accepted", report_id="rep-pol-1", field_name="policy_number", actor="Ana Reviewer",
+                   payload={"value": "AP-2025-0001", "actor_role": "compliance_reviewer"})
+    # rbac.user_payload's shape: `id`, not `user_id`.
+    _as_user(client, {"id": "u-1", "email": "own@example.com", "display_name": "Olga Owner", "role": "owner", "permissions": ["projects.read", "reports.replay", "classification.override"], "must_change_password": False})
+    html = client.get("/parsing/rep-pol-1?project_id=p-roles").get_data(as_text=True)
+    text = _visible_text(html)
+    assert "Olga Owner" in text and ">owner<" in html
+    assert "Policy number accepted" in text and "· Ana Reviewer (compliance reviewer)" in text
+    assert 'id="replay-run"' in html  # owner may replay

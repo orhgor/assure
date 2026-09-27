@@ -150,7 +150,11 @@
         // where the reader goes, never what their code sees.
         if (refusedByGate(resp)) { leaveFor("/auth"); return resp; }
         return askSession().then(function (state) {
-          if (state === "none" || state === "gate") { leaveFor("/signin"); return resp; }
+          if (state === "none" || state === "gate") {
+            var here = window.location.pathname + window.location.search;
+            leaveFor("/signin" + (here && here !== "/" ? "?next=" + encodeURIComponent(here) : ""));
+            return resp;
+          }
           surface(state === "session"
             ? "This request was refused (401) while your session is live, so it is not a sign-in problem. Retry; if it persists the app logs carry the reason."
             : "This request was refused (401) and the sign-in state could not be checked. Retry; if it persists the app logs carry the reason.");
@@ -1755,6 +1759,7 @@
                 || t.tagName === "TEXTAREA")) return;
       if (SHELL.ui.modal) {
         e.preventDefault();
+        if (SHELL.ui.modal === "password" && __me && __me.must_change_password) return;
         setShell("ui.modal", null);
       }
     });
@@ -5401,6 +5406,10 @@
     if (!initId) {
       try { initId = window.localStorage.getItem(STORAGE_KEY); } catch (_) { initId = null; }
     }
+    // Who is signed in: read before anything else and whatever the project
+    // state — a fresh owner has no workspace yet and still has a name, a role
+    // and, on a temporary password, a change to make.
+    _loadMe();
     if (initId) {
       _loadProjectSourceList(initId);
       // Reload: the server still holds the document, the version list and the
@@ -7951,6 +7960,10 @@
     }
     function _download(format) {
       var fmt = format || "bundle";
+      if (typeof _can === "function" && !_can(fmt === "dossier-pdf" ? "exports.dossier" : "exports.read")) {
+        try { console.warn("[auth] " + _permReason(fmt === "dossier-pdf" ? "exports.dossier" : "exports.read")); } catch (_) {}
+        return;
+      }
       if (fmt.indexOf("parsure-") === 0) {
         if (!_canExportReportNow()) { _syncExportEnabled(); return; }
         _fetchDownload(_reportExportUrl(fmt.slice("parsure-".length)));
@@ -8077,6 +8090,11 @@
       if (an) {
         var apid = _activeProjectId();
         an.setAttribute("href", apid ? "/parsing/analytics?project_id=" + encodeURIComponent(apid) : "/parsing/analytics");
+      }
+      var au = document.getElementById("rail-audit");
+      if (au) {
+        var aupid = _activeProjectId();
+        au.setAttribute("href", aupid ? "/audit.html?project_id=" + encodeURIComponent(aupid) : "/audit.html");
       }
       var ws = document.getElementById("rail-workspaces");
       var src = document.getElementById("rail-sources");
@@ -8642,6 +8660,160 @@
       });
       return attention.concat(rest);
     }
+    // =================================================================
+    // The account (local user management, 2026-09-27). `GET /api/auth/me`
+    // answers {user_id, email, display_name, role, permissions[], mode,
+    // must_change_password}; signed out it answers user_id "" and the gate
+    // (dev-server.py) has already sent the reader to /signin, so here the
+    // answer is read for what the reader may do. No permissions list (mode
+    // off / clerk, or an older app) means nothing is hidden — the server is
+    // the judge either way; this only keeps the UI honest about it.
+    // =================================================================
+    var __me = null;
+    var PERM_ATTRS = {
+      "documents.upload": "data-can-upload", "documents.delete": "data-can-delete",
+      "documents.download_original": "data-can-original", "exports.read": "data-can-export",
+      "exports.dossier": "data-can-dossier", "classification.override": "data-can-override",
+      "compile.run": "data-can-compile", "team.manage": "data-can-team", "audit.read": "data-can-audit",
+      "reports.replay": "data-can-replay", "sources.manage": "data-can-sources",
+    };
+    function _can(perm) {
+      if (!__me || !Array.isArray(__me.permissions)) return true;
+      return __me.permissions.indexOf(perm) !== -1;
+    }
+    function _permReason(perm) {
+      return _tf("shell.auth.not_allowed", "Not allowed for your role ({role}): {perm}. An owner can change it.",
+                 { role: _roleWords((__me || {}).role), perm: perm });
+    }
+    function _roleWords(role) {
+      var r = String(role || "");
+      if (!r) return _t("shell.auth.role.none", "no role");
+      return _t("shell.auth.role." + r, r.replace(/_/g, " "));
+    }
+    // A button the role may not use: kept visible, marked, its reason on
+    // hover (title) and on tap (the row's error line via onDenied).
+    function _gateButton(btn, perm, onDenied) {
+      if (_can(perm)) return btn;
+      btn.classList.add("is-denied");
+      btn.setAttribute("aria-disabled", "true");
+      btn.title = _permReason(perm);
+      var reason = _permReason(perm);
+      var blocked = function (e) { e.preventDefault(); e.stopImmediatePropagation(); if (typeof onDenied === "function") onDenied(reason); };
+      btn.addEventListener("click", blocked, true);
+      return btn;
+    }
+    function _loadMe() {
+      return fetch("/api/auth/me", { cache: "no-store", headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .catch(function () { return {}; })
+        .then(function (j) {
+          __me = (j && typeof j === "object") ? j : {};
+          if (__me.email || __me.user_id) __actor = String(__me.email || __me.user_id);
+          _syncIdentity();
+          _applyPermissions();
+          if (__me.must_change_password) setShell("ui.modal", "password");
+          return __me;
+        });
+    }
+    function _syncIdentity() {
+      var signedIn = Boolean(__me && __me.user_id);
+      var name = signedIn ? String(__me.display_name || __me.email || __me.user_id) : "";
+      var role = signedIn ? _roleWords(__me.role) : "";
+      var id = document.getElementById("shell-identity");
+      if (id) {
+        id.hidden = !signedIn;
+        var n = document.getElementById("identity-name"); if (n) n.textContent = name;
+        var r = document.getElementById("identity-role"); if (r) r.textContent = role;
+        id.title = signedIn ? (name + (__me.email && __me.email !== name ? " · " + __me.email : "") + " · " + role) : "";
+      }
+      var mi = document.getElementById("menu-identity");
+      if (mi) { mi.hidden = !signedIn; mi.textContent = signedIn ? name + " · " + role : ""; }
+      var so = document.getElementById("menu-signout");
+      if (so) so.hidden = !signedIn;
+    }
+    function _applyPermissions() {
+      var body = document.body;
+      Object.keys(PERM_ATTRS).forEach(function (perm) { body.setAttribute(PERM_ATTRS[perm], _can(perm) ? "1" : "0"); });
+      // Rail: Team (team.manage) and Audit (audit.read) are links to their pages.
+      var team = document.getElementById("rail-team");
+      if (team) team.hidden = !(__me && __me.user_id && _can("team.manage") && Array.isArray(__me.permissions));
+      var audit = document.getElementById("rail-audit");
+      if (audit) {
+        audit.hidden = !(__me && __me.user_id && _can("audit.read") && Array.isArray(__me.permissions));
+        var apid = _activeProjectId();
+        audit.setAttribute("href", apid ? "/audit.html?project_id=" + encodeURIComponent(apid) : "/audit.html");
+      }
+      var hist = document.getElementById("history-audit-link");
+      if (hist) {
+        hist.hidden = !(__me && __me.user_id && _can("audit.read") && Array.isArray(__me.permissions));
+        var hpid = _activeProjectId();
+        hist.setAttribute("href", hpid ? "/audit.html?project_id=" + encodeURIComponent(hpid) : "/audit.html");
+      }
+      if (typeof _syncDockSubmit === "function") _syncDockSubmit();
+      if (typeof _renderFieldsPanel === "function") _renderFieldsPanel();
+    }
+    function _signOut() {
+      jsonPost("/api/auth/logout", {}).catch(function () {}).then(function () {
+        try { window.location.replace("/signin"); } catch (_) {}
+      });
+    }
+    var menuSignout = document.getElementById("menu-signout");
+    if (menuSignout) menuSignout.addEventListener("click", function () { _signOut(); });
+    // The forced password change: a dialog with no close, no scrim click and
+    // no Escape until POST /api/auth/password answers ok.
+    _shellModalRenderers.password = function (layer) {
+      var modal = _modalShell(layer, "shell.auth.password_title", "Choose a new password");
+      var forced = Boolean(__me && __me.must_change_password);
+      if (forced) {
+        var closeBtn = modal.querySelector(".modal-close");
+        if (closeBtn) closeBtn.remove();
+        layer.onclick = null;
+      }
+      modal.appendChild(_el("p", "dialog-lede", forced
+        ? _t("shell.auth.password_forced", "Your account was created with a temporary password. Choose your own before you continue.")
+        : _t("shell.auth.password_lede", "Choose a new password for your account.")));
+      var form = document.createElement("form");
+      form.className = "password-form";
+      function field(labelText, id, autocomplete) {
+        var lab = _el("label", "dialog-field");
+        lab.appendChild(_el("span", null, labelText));
+        var input = document.createElement("input");
+        input.type = "password"; input.id = id; input.autocomplete = autocomplete; input.required = true;
+        lab.appendChild(input);
+        form.appendChild(lab);
+        return input;
+      }
+      var current = field(_t("shell.auth.password_current", "Current password"), "pw-current", "current-password");
+      var next = field(_t("shell.auth.password_new", "New password"), "pw-new", "new-password");
+      next.minLength = 12;
+      var again = field(_t("shell.auth.password_again", "New password, again"), "pw-again", "new-password");
+      var err = _el("p", "dialog-error"); err.id = "pw-error"; err.hidden = true;
+      form.appendChild(err);
+      var row = _el("div", "fields-editor-actions");
+      var save = _btn("btn-primary", _t("shell.auth.password_save", "Save password"));
+      save.type = "submit";
+      row.appendChild(save);
+      form.appendChild(row);
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        err.hidden = true;
+        if (next.value !== again.value) { err.textContent = _t("shell.auth.password_mismatch", "The two passwords differ."); err.hidden = false; again.focus(); return; }
+        save.disabled = true;
+        jsonPost("/api/auth/password", { current_password: current.value, new_password: next.value })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status)); }); })
+          .then(function () {
+            if (__me) __me.must_change_password = false;
+            setShell("ui.modal", null);
+            return _loadMe();
+          })
+          .catch(function (ex) { err.textContent = String(ex && ex.message ? ex.message : ex); err.hidden = false; save.disabled = false; });
+      });
+      modal.appendChild(form);
+      setTimeout(function () { current.focus(); }, 0);
+    };
+    var menuPassword = document.getElementById("menu-password");
+    if (menuPassword) menuPassword.addEventListener("click", function () { setShell("ui.modal", "password"); });
+
     function _ensureActor() {
       if (__actor) return Promise.resolve(__actor);
       return fetch("/api/auth/me", { cache: "no-store", headers: { Accept: "application/json" } })
@@ -9094,6 +9266,11 @@
         _renderFieldsPanel();
         return;
       }
+      if (!_can("classification.override")) {
+        __fieldsErrors.__type = _permReason("classification.override");
+        _renderFieldsPanel();
+        return;
+      }
       __fieldsBusy = true;
       if (save) save.disabled = true;
       delete __fieldsErrors.__type;
@@ -9203,28 +9380,30 @@
           if (open) {
             var resolve = _btn("btn-primary field-resolve", _t("shell.fields.resolve", "Resolve"));
             resolve.addEventListener("click", function () { _openEditor(f.name, "resolve"); });
-            actions.appendChild(resolve);
+            actions.appendChild(_gateButton(resolve, "disputes.resolve", function (reason) { __fieldsErrors[f.name] = reason; _renderFieldsPanel(); }));
           }
         } else if (_fieldSection(f) === "not_found") {
           // Nothing to accept or dispute: the value is not there. The one
           // action is to enter it (the correct route), with the source shown.
           var enter = _btn("btn-primary field-correct", _t("shell.fields.enter_value", "Enter value"));
           enter.addEventListener("click", function () { _openEditor(f.name, "correct"); });
-          actions.appendChild(enter);
+          actions.appendChild(_gateButton(enter, "fields.correct", function (reason) { __fieldsErrors[f.name] = reason; _renderFieldsPanel(); }));
         } else {
           var accepted = st === "accepted" && !_fieldNeedsAttention(f);
+          var denied = function (reason) { __fieldsErrors[f.name] = reason; _renderFieldsPanel(); };
           if (hasValue && !accepted) {
             var accept = _btn("btn-primary field-accept", _t("shell.fields.accept", "Accept"));
             accept.addEventListener("click", function () { _fieldAction(f.name, "accept", {}); });
-            actions.appendChild(accept);
+            // A compliance-bound field takes the compliance permission (plan: fields.accept_compliance).
+            actions.appendChild(_gateButton(accept, f.compliance_bound === true ? "fields.accept_compliance" : "fields.accept", denied));
           }
           // Correct is the filled action when there is nothing to accept.
           var correct = _btn((hasValue || accepted ? "btn-tertiary" : "btn-primary") + " field-correct", _t("shell.fields.correct", "Correct"));
           correct.addEventListener("click", function () { _openEditor(f.name, "correct"); });
-          actions.appendChild(correct);
+          actions.appendChild(_gateButton(correct, "fields.correct", denied));
           var dispute = _btn("btn-tertiary field-dispute", _t("shell.fields.dispute", "Dispute"));
           dispute.addEventListener("click", function () { _openEditor(f.name, "dispute"); });
-          actions.appendChild(dispute);
+          actions.appendChild(_gateButton(dispute, "fields.dispute", denied));
         }
         if (actions.firstChild) detail.appendChild(actions);
       } else {
@@ -9452,6 +9631,16 @@
         _renderFieldsPanel();
         return;
       }
+      var permFor = { accept: "fields.accept", correct: "fields.correct", dispute: "fields.dispute", resolve: "disputes.resolve" }[kind];
+      if (kind === "accept") {
+        var fld = (__parsure && Array.isArray(__parsure.fields) ? __parsure.fields : []).filter(function (x) { return x && x.name === name; })[0];
+        if (fld && fld.compliance_bound === true) permFor = "fields.accept_compliance";
+      }
+      if (permFor && !_can(permFor)) {
+        __fieldsErrors[name] = _permReason(permFor);
+        _renderFieldsPanel();
+        return;
+      }
       __fieldsBusy = true;
       var li = document.querySelector('#fields-list .field-row[data-field="' + name + '"]');
       if (li) li.classList.add("is-busy");
@@ -9529,8 +9718,12 @@
       if (runInProgress) submit.setAttribute("aria-busy", "true");
       else               submit.removeAttribute("aria-busy");
       var hasSource = Boolean((SHELL.sources || []).length);
-      submit.disabled = !String(text.value || "").trim() || !hasSource;
-      if (hasSource) {
+      var mayCompile = (typeof _can === "function") ? _can("compile.run") : true;
+      submit.disabled = !String(text.value || "").trim() || !hasSource || !mayCompile;
+      if (!mayCompile) {
+        submit.title = _permReason("compile.run");
+        submit.setAttribute("aria-label", submit.title);
+      } else if (hasSource) {
         submit.title = _t("shell.dock.submit_title", "Draft and verify against your sources");
         submit.setAttribute("aria-label", _t("shell.dock.submit", "Draft"));
       } else {

@@ -1,0 +1,47 @@
+/* Team and Audit pages (2026-09-27): shell.css gives the variables, header,
+   buttons and identity; this adds the page column, forms and tables. */
+body[data-page] { display: block; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+.page-header .app-brand { text-decoration: none; color: inherit; }
+.page-title { font-size: var(--fs-md); color: var(--muted); margin-left: var(--space-3); }
+.page-main { max-width: 1080px; margin: 0 auto; padding: var(--space-6) var(--space-4) 64px; }
+.page-section { margin-bottom: var(--space-8); }
+.page-section .section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-3); }
+.page-section h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.page-section .section-meta { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+.inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.inline-form input, .inline-form select { height: 30px; padding: 0 var(--space-2); border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: 450 var(--fs-md)/1 var(--sans); min-width: 180px; }
+.inline-form input:focus, .inline-form select:focus { outline: none; border-color: var(--ink); }
+.note { font-size: var(--fs-sm); color: var(--muted); }
+.note[data-tone="error"], [data-tone="error"] { color: var(--contradicted); }
+.frame { overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--radius-lg); background: var(--surface); }
+.page-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.page-table th { text-align: left; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.page-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); vertical-align: top; }
+.page-table tbody tr:last-child td { border-bottom: none; }
+.page-table small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.page-table .c-when, .page-table .c-ip { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
+.page-table .c-act { text-align: right; white-space: nowrap; }
+.page-table .c-payload { color: var(--muted); font-size: var(--fs-sm); max-width: 360px; overflow-wrap: anywhere; }
+.page-table .note-row td { color: var(--muted); }
+.row-note { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+.role-select { height: 26px; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: var(--surface); font: inherit; font-size: var(--fs-sm); }
+.status-word { font-size: var(--fs-sm); margin-right: var(--space-2); }
+.status--active { color: var(--verified); }
+.status--disabled { color: var(--contradicted); }
+.once-box, .once { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--rule); border-left: 2px solid var(--partial); border-radius: var(--radius-sm); background: var(--surface); font-size: var(--fs-sm); }
+.once-box[hidden], .once[hidden] { display: none; }
+.once-label { margin: 0 0 var(--space-2); color: var(--ink); }
+.once-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+.once-key { color: var(--muted); }
+.once-value { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.once-mail { margin: var(--space-1) 0 0; color: var(--muted); }
+.copy-btn { height: 22px; }
+.page-denied { padding: var(--space-6) 0; color: var(--muted); }
+.event-word { text-transform: capitalize; }
+@media (max-width: 640px) {
+  .page-header .page-title { display: none; }
+  .inline-form input, .inline-form select { min-width: 0; width: 100%; }
+  .inline-form label { width: 100%; }
+  .page-table th:nth-child(3), .page-table td:nth-child(3) { display: none; }
+}

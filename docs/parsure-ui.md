@@ -280,3 +280,80 @@ five for the Fields tab.
   with counts and "not recorded", the grounding highlight over a
   markdown-rendered paragraph (exact span and quote search), Review all
   flagged, an older report's panel; zero console errors.
+
+## Accounts (local user management, 2026-09-27)
+
+Built against the backend contract of 2026-09-27 (`GET /api/auth/setup-status`,
+`/api/auth/me`, `/api/auth/{setup,login,logout,accept-invitation,password}`,
+`/api/team/*`, `/api/audit`) and mocked in the smoke; the shell and the pages
+read whatever the app answers and hide nothing when there is no permissions
+list (mode `off` / `clerk`, or an older app) — the server routes stay the
+judge, this keeps the UI honest about them.
+
+* **The gate** (`prototype/dev-server.py`). When `setup-status.mode ==
+  "local"`, the shared `SHELL_ACCESS_KEY` is no longer the door: the gate
+  serves `/setup` (while `needs_owner`: organisation, owner e-mail, display
+  name, password twice, bootstrap token — the token is the one in the server's
+  `.env`, which `scripts/gen-env.sh` prints once when it writes the file),
+  `/signin` (e-mail + password, honours `?next=`, refuses an open redirect)
+  and `/accept?token=` (display name + password). The forms post JSON to the
+  proxied API with the session cookie; the app's `Set-Cookie` flows back
+  because `_proxy` copies every upstream header except the hop-by-hop ones
+  (the key cookie's own `Secure` logic is untouched). Documents (the shell,
+  `team.html`, `audit.html`, the Flask pages) are served only when
+  `/api/auth/me` knows the cookie; otherwise 302 to `/setup` or
+  `/signin?next=`. `/auth` redirects to `/signin`. The gate forwards
+  `X-Forwarded-For` (client IP appended to any chain) and `X-Forwarded-Proto`
+  so audit rows carry the visitor's address. An unreachable app or one without
+  the route reads as mode `off`: the key gate exactly as before; the cached
+  status is dropped the moment a setup / login / logout answers 2xx.
+* **Identity.** The header shows display name and role word as text
+  (`#shell-identity`, hidden at ≤640 px; the More menu repeats it), with
+  **Change password** and **Sign out** in More. `must_change_password` opens a
+  password dialog with no close, no scrim click and no Escape until
+  `POST /api/auth/password` answers ok.
+* **Permissions.** `shell.js` writes `body[data-can-*]` from `me.permissions`
+  and CSS hides Upload (`documents.upload`), delete source
+  (`documents.delete`), Open original (`documents.download_original`), the
+  export items (`exports.read`, dossier `exports.dossier`) and the type change
+  (`classification.override`); the dock's Draft needs `compile.run`. Field
+  actions stay visible but marked (`.is-denied`, `aria-disabled`) with the
+  reason on hover and, on tap, in the row's error line: Accept →
+  `fields.accept` (or `fields.accept_compliance` on a compliance-bound field),
+  Correct / Enter value → `fields.correct`, Dispute → `fields.dispute`, Resolve
+  → `disputes.resolve`. A 401 anywhere goes to `/signin?next=…`; a 403's
+  sentence is shown where the action was. Nothing in the shell touches
+  Sources credentials — there is no such panel in the prototype.
+* **Team** (`team.html` + `account-pages.js`, rail item with `team.manage`):
+  accounts (role select → `PATCH`, disable / enable, reset password → the
+  temporary password shown once with Copy), invite form (e-mail + role → the
+  token and accept link shown once with Copy, "E-mailed" / "Not e-mailed"),
+  pending invitations with Revoke, active sessions with Revoke (the current one
+  disabled). One's own row cannot change its role or status here (the server
+  answers 409 too). Nothing shown once is stored anywhere.
+* **Audit** (`audit.html`, rail item with `audit.read`): filters (workspace,
+  actor, event type, since), rows of time · actor (name, role) · IP · event ·
+  workspace / record / field · payload summary; the record id links to
+  `/parsing/<report_id>`. The shell's Versions tab links here ("Full audit
+  log") when the role may read it.
+* **Server pages.** `web.py:_current_user_view` reads `g.assure_user` when the
+  middleware sets it (else the Clerk session with no role) into every page as
+  `me`; the header shows the identity, the record page hides **Replay now**
+  without `reports.replay` and the type selector without
+  `classification.override` (each replaced by the one-line reason), and
+  history rows print the actor's role from the event's `actor_role` (or its
+  payload).
+* **Tests.** `tests/test_shell_gate.py` (pages, mode reading, routing rules,
+  header forwarding), `tests/test_workbench_safeguards.py` (markup, gating
+  code, Team/Audit pages, strings, `assure-110`), `tests/test_parsing_page.py`
+  (identity and hidden controls with a fake `g.assure_user`; actor role on
+  history rows). Headless smoke through the real gate against a mock app at
+  1280 / 390 px: first run → `/setup`, bad token → server sentence, owner
+  created → shell with identity; sign out; protected page → `/signin?next=`;
+  423 and 401 sentences; temporary password → forced dialog (Escape kept it,
+  mismatch named, change closed it); reviewer: uploads / exports / type change
+  hidden, compliance Accept denied with the reason on tap, server 403 inline,
+  Team page denied; owner: users, invite shown once, temporary password shown
+  once, invitations / sessions, audit rows with record links, rail items.
+  Zero script errors (the only console line is the browser logging the 423
+  response itself).

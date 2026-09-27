@@ -10,8 +10,10 @@ from flask import jsonify, request
 
 try:
     from ..middleware import project_ownership_required
+    from ..rbac import requires
 except ImportError:
     from middleware import project_ownership_required
+    from rbac import requires
 
 try:
     from ..db.jdf_repository import ensure_project
@@ -229,6 +231,7 @@ def _store_grounding_source(
 
 def register_jdf_memory_routes(app) -> None:
     @app.post("/api/projects/<project_id>/jdf/ingest")
+    @requires("documents.upload")
     @project_ownership_required
     def jdf_ingest(project_id: str):
         # FIX 3: size cap before reading body bytes.

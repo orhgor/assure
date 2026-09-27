@@ -72,6 +72,12 @@ def test_generator_runs_nothing_and_writes_the_file(tmp_path: Path, target: str)
     assert re.fullmatch(r"[A-Za-z0-9_-]{43}=", values["ENCRYPTION_KEY"]), values["ENCRYPTION_KEY"]
     assert values["ASSURE_S3_BUCKET"] == "" and values["AWS_ACCESS_KEY_ID"] == ""
     assert "SHELL_ACCESS_KEY" in values and values["SHELL_ACCESS_KEY"]
+    # Local accounts (2026-09-27): a server asks for an owner on first open, a
+    # laptop stays open; the bootstrap token is generated for both and printed.
+    assert values["ASSURE_AUTH_MODE"] == ("local" if target == "ec2" else "off")
+    assert len(values["ASSURE_BOOTSTRAP_TOKEN"]) == 32 and values["ASSURE_SESSION_HOURS"] == "12"
+    assert f"bootstrap:  {values['ASSURE_BOOTSTRAP_TOKEN']}" in proc.stdout
+    assert ("first-run owner screen" in proc.stdout) == (target == "ec2")
     assert oct(out.stat().st_mode & 0o777) == "0o600"
     assert "next:       docker compose up -d" in proc.stdout
 

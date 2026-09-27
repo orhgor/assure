@@ -801,8 +801,13 @@ def llm_fill_missing(
     missing = [specs[f["name"]] for f in fields
                if f.get("value") is None and f["name"] in specs and specs[f["name"]].field_type != "signature"
                and (only is None or f["name"] in only)]
-    stats: dict[str, Any] = {"status": "not_needed", "model": None, "fields_offered": len(missing), "fields_grounded": 0,
-                             "fields_filled": [], "candidates_rejected": 0, "ms": 0.0, "reason": None}
+    # ``model_path`` says which model answered: ``injected`` (a test's or a
+    # caller's completion) or ``app:<model>`` — the application's own model
+    # path (``llm_extraction.default_completion`` on the configured backend).
+    # A reviewer read ``completion=None`` in the production callers as "no
+    # model" (2026-09-27); None means the app path, and the ledger now says so.
+    stats: dict[str, Any] = {"status": "not_needed", "model": None, "model_path": "injected" if completion is not None else "app",
+                             "fields_offered": len(missing), "fields_grounded": 0, "fields_filled": [], "candidates_rejected": 0, "ms": 0.0, "reason": None}
     if execution is not None:
         execution["llm_grounding"] = stats
     if not missing:
@@ -831,6 +836,7 @@ def llm_fill_missing(
     stats["fields_filled"] = sorted(by_name)
     stats["model"] = next((f.get("grounding_model") for f in by_name.values() if f.get("grounding_model")), None) or (
         "injected" if completion is not None else (lx.current_model_id() if lx.llm_extraction_enabled() else None))
+    stats["model_path"] = "injected" if completion is not None else f"app:{stats['model']}"
     if skipped:
         stats["status"] = "disabled" if "PARSURE_LLM_EXTRACTION is off" in skipped else "skipped"
         stats["reason"] = skipped.split(":", 1)[1].strip() if ":" in skipped else skipped

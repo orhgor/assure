@@ -61,8 +61,8 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-109"
-    assert APP_JS == "assure-109"
+    assert APP_CSS == "assure-110"
+    assert APP_JS == "assure-110"
 
 
 # ---------------------------------------------------------------------------
@@ -130,3 +130,73 @@ def test_upload_queue_strings_in_every_locale() -> None:
             assert str(cat[key]).strip(), f"empty {locale} {key}"
     assert "{mb}" in CATALOGS["en"]["shell.upload.too_large"]
     assert "{pct}" in CATALOGS["en"]["shell.upload.uploading_pct"] and "{sent}" in CATALOGS["en"]["shell.upload.uploading_pct"]
+
+
+# ---------------------------------------------------------------------------
+# Accounts (local user management, 2026-09-27): identity in the header, the
+# forced password change, permission-driven hiding, Team and Audit pages.
+# ---------------------------------------------------------------------------
+
+ACCOUNT_KEYS = (
+    "shell.auth.not_allowed", "shell.auth.sign_in_required", "shell.auth.role.owner", "shell.auth.role.compliance_reviewer",
+    "shell.auth.role.reviewer", "shell.auth.role.intake", "shell.auth.role.auditor", "shell.auth.change_password", "shell.auth.sign_out",
+    "shell.auth.password_title", "shell.auth.password_forced", "shell.auth.password_current", "shell.auth.password_new",
+    "shell.auth.password_again", "shell.auth.password_save", "shell.auth.password_mismatch", "shell.rail.team", "shell.rail.audit",
+    "shell.audit.open", "shell.team.title", "shell.team.invite", "shell.team.users", "shell.team.pending", "shell.team.sessions",
+    "shell.team.reset_password", "shell.team.temporary_password", "shell.team.revoke", "shell.team.copy", "shell.team.emailed",
+    "shell.team.not_emailed", "shell.audit.title", "shell.audit.project", "shell.audit.actor", "shell.audit.event_type",
+    "shell.audit.since", "shell.audit.time", "shell.audit.payload", "parsing.not_allowed",
+)
+
+
+def test_shell_markup_carries_identity_account_menu_and_rail_pages() -> None:
+    html = (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+    assert 'id="shell-identity"' in html and 'id="identity-name"' in html and 'id="identity-role"' in html
+    assert 'id="menu-signout"' in html and 'id="menu-password"' in html and 'id="menu-identity"' in html
+    assert 'id="rail-team"' in html and 'href="/team.html"' in html and 'id="rail-audit"' in html and 'href="/audit.html"' in html
+    assert 'id="history-audit-link"' in html
+    # No colour block in the header: the identity is text.
+    css = (ROOT / "prototype" / "shell.css").read_text(encoding="utf-8")
+    identity_css = css.split(".identity {", 1)[1].split("}", 1)[0]
+    assert "background" not in identity_css
+    # Permission-driven hiding by body attributes shell.js writes from /api/auth/me.
+    for attr in ("data-can-upload", "data-can-delete", "data-can-original", "data-can-export", "data-can-dossier", "data-can-override"):
+        assert 'body[%s="0"]' % attr in css, attr
+
+
+def test_shell_reads_me_and_gates_actions_by_permission() -> None:
+    js = (ROOT / "prototype" / "shell.js").read_text(encoding="utf-8")
+    assert 'fetch("/api/auth/me"' in js and "must_change_password" in js and '_shellModalRenderers.password' in js
+    for perm in ("fields.accept", "fields.accept_compliance", "fields.correct", "fields.dispute", "disputes.resolve",
+                 "classification.override", "documents.upload", "documents.delete", "documents.download_original",
+                 "exports.read", "exports.dossier", "compile.run", "team.manage", "audit.read", "reports.replay"):
+        assert '"%s"' % perm in js, perm
+    assert 'jsonPost("/api/auth/logout"' in js and 'jsonPost("/api/auth/password"' in js
+    # A 401 sends the reader to /signin and keeps where they were.
+    assert 'leaveFor("/signin" + (here' in js
+    # The forced change cannot be escaped.
+    assert 'SHELL.ui.modal === "password" && __me && __me.must_change_password' in js
+
+
+def test_team_and_audit_pages_exist_with_their_controls() -> None:
+    team = (ROOT / "prototype" / "team.html").read_text(encoding="utf-8")
+    for needle in ('data-page="team"', 'id="invite-form"', 'id="invite-role"', 'id="users-body"', 'id="invitations-body"', 'id="sessions-body"', 'id="page-signout"'):
+        assert needle in team, needle
+    audit = (ROOT / "prototype" / "audit.html").read_text(encoding="utf-8")
+    for needle in ('data-page="audit"', 'id="audit-filters"', 'id="f-project"', 'id="f-actor"', 'id="f-type"', 'id="f-since"', 'id="audit-body"'):
+        assert needle in audit, needle
+    js = (ROOT / "prototype" / "account-pages.js").read_text(encoding="utf-8")
+    for route in ("/api/team/users", "/api/team/invitations", "/api/team/sessions", "/api/audit?", "/api/auth/logout", "/reset-password"):
+        assert route in js, route
+    assert "temporary_password" in js and "accept_url" in js and "emailed" in js and 'window.location.replace("/signin?next="' in js
+    # Nothing shown once is stored: no localStorage / sessionStorage in the account pages.
+    assert "localStorage" not in js and "sessionStorage" not in js
+
+
+def test_account_strings_in_every_locale() -> None:
+    for locale in LOCALES:
+        cat = CATALOGS[locale]
+        for key in ACCOUNT_KEYS:
+            assert key in cat, f"missing {locale} {key}"
+            assert str(cat[key]).strip(), f"empty {locale} {key}"
+    assert "{role}" in CATALOGS["en"]["shell.auth.not_allowed"] and "{perm}" in CATALOGS["en"]["shell.auth.not_allowed"]

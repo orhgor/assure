@@ -37,6 +37,12 @@ def pytest_configure(config):
     # inject a completion and set these themselves.
     os.environ.setdefault("PARSURE_LLM_EXTRACTION", "0")
     os.environ.setdefault("PARSURE_REDHAT_LLM", "0")
+    # Accounts (2026-09-27): the developer's .env may switch the box to local
+    # sign-in (ASSURE_AUTH_MODE=local + a bootstrap token) and create_app reads
+    # .env; the suite's routes are exercised without a session unless a test
+    # opts in with monkeypatch.setenv("ASSURE_AUTH_MODE", "local").
+    os.environ.setdefault("ASSURE_AUTH_MODE", "off")
+    os.environ.pop("ASSURE_BOOTSTRAP_TOKEN", None)
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None

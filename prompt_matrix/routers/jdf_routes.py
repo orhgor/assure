@@ -37,6 +37,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..lib.sanitize import sanitize_jdf_node
     from ..middleware import project_ownership_required
+    from ..rbac import requires
     from ..models.jdf import (
         insert_node_after_anchor,
         parse_document,
@@ -79,6 +80,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from lib.sanitize import sanitize_jdf_node
     from middleware import project_ownership_required
+    from rbac import requires
     from models.jdf import (
         insert_node_after_anchor,
         parse_document,
@@ -588,6 +590,7 @@ def register_jdf_routes(app) -> None:
         )
 
     @app.post("/api/projects/<project_id>/import-pdf")
+    @requires("documents.upload")
     @project_ownership_required
     def import_project_pdf(project_id: str):
         """Import a document (PDF, image or text file) as the project's next revision.
@@ -700,6 +703,7 @@ def register_jdf_routes(app) -> None:
         return jsonify(result)
 
     @app.get("/api/projects/<project_id>/documents/<document_id>/original")
+    @requires("documents.download_original")
     @project_ownership_required
     def document_original(project_id: str, document_id: str):
         """Stream the stored original of one document (photo / scan) for the

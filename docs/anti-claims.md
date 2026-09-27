@@ -158,3 +158,13 @@
 | "Any document type is supported — just add a schema" | A schema needs a family the cue gate can name (`DOCUMENT_FAMILIES` is fixed), ≥ 3 keywords the document actually carries, and anchors on its own labels; a skipped file is listed under `rejected` on `/api/parsure/schemas` | "types are data (`prompt_matrix/schemas`, `ASSURE_SCHEMA_DIR`); the registry lists what loaded and what was rejected and why" |
 | "The export name identifies the document" (when nothing was found) | `export_names.build_export_filename` writes only data points that were found; a document with no found policy/insured/date is named by type, id and time alone — never `policy-unknown` | the name shows what was found; the report shows what was not |
 
+### Accounts (2026-09-27)
+
+- "Every request is attributed to a person" is true only in `ASSURE_AUTH_MODE=local`: in `off` and `clerk` modes `actor_id` / `actor_role` / `ip` on `parsure_audit_events` are NULL and the free-text `actor` is whatever the body said. (`rbac.auth_mode`, `parsure_repository._request_actor`; `docs/auth.md`.)
+- A pipeline-written event (worker, CLI — no request) has no actor; it is not "the system user". `actor_id` is NULL, never a placeholder account.
+- `ip` is the first `X-Forwarded-For` hop when a proxy is trusted; the shell gate on the same box does not add that header yet, so rows written through it read `127.0.0.1`. Do not present that address as the reviewer's.
+- A permission the matrix defines is not a permission that is enforced: `projects.read`, `projects.create`, `sources.manage`, `settings.schemas`, `settings.models` have no route attached yet (`docs/auth.md`, "Where each permission bites"). Say "defined", not "enforced", for those.
+- Mode `off` is not "everyone is signed in": `/api/team/*` answers with empty lists and the decorator passes every caller; `/api/auth/me` says `user_id: ""`. It is the pre-2026-09-27 behaviour, kept for laptops and tests.
+- Lockout is per account after five failures, not per address; a distributed guess against many addresses is not slowed by it. Rate limits are the existing `rate_limits.py` buckets.
+- An invitation e-mail "was sent" only when the response says `emailed: true`; without `RESEND_API_KEY` the link exists and nothing was mailed.
+- Nothing recovers a password, an invitation token or a temporary password from the database: only hashes are stored (`auth_repository`). "Resend the invitation" means a new token.

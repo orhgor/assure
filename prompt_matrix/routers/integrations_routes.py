@@ -15,9 +15,11 @@ from flask import jsonify, request
 
 try:
     from ..cloud_auth import login_required, role_required
+    from ..rbac import requires
     from ..services import aws_integration
 except ImportError:
     from cloud_auth import login_required, role_required
+    from rbac import requires
     from services import aws_integration
 
 log = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ def register_integrations_routes(app) -> None:
             return jsonify({"ok": False, "error": f"{exc.__class__.__name__}: {str(exc).splitlines()[0][:200]}"}), 500
 
     @app.put("/api/integrations/aws")
+    @requires("settings.integrations")
     @login_required
     @role_required("admin")
     def aws_integration_save():
@@ -72,6 +75,7 @@ def register_integrations_routes(app) -> None:
         return jsonify({"ok": True, **result}), code
 
     @app.delete("/api/integrations/aws")
+    @requires("settings.integrations")
     @login_required
     @role_required("admin")
     def aws_integration_clear():

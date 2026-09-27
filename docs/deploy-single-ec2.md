@@ -166,6 +166,21 @@ the `SHELL_ACCESS_KEY` the script generated (`grep SHELL_ACCESS_KEY .env`);
 security group: inbound 80 (and 22 from your IP). For TLS put a Cloudflare
 tunnel or caddy on 443 in front. The API port 8765 stays on 127.0.0.1.
 
+**Accounts (since 2026-09-27, `docs/auth.md`).** `gen-env.sh ec2` writes
+`ASSURE_AUTH_MODE=local` and generates `ASSURE_BOOTSTRAP_TOKEN` (printed at the
+end; `grep ASSURE_BOOTSTRAP_TOKEN .env` later). The first open of
+`http://<host>/` is the owner setup screen: company name, your e-mail, a
+password of 12+ characters and that token, once. From then on every `/api`
+call needs a signed-in account; the owner invites colleagues from the Team page
+(`POST /api/team/invitations` — the link is shown once and mailed only when
+`RESEND_API_KEY` is set; set `ASSURE_PUBLIC_URL=https://<host>` so the mailed
+link points at the gate, not at 127.0.0.1:8765), assigns roles (`owner`,
+`compliance_reviewer`, `reviewer`, `intake`, `auditor`), resets passwords and
+revokes sessions. Passwords and invitation tokens are stored only as hashes; the
+bootstrap token is refused once any account exists. Lost the only owner
+password? There is no recovery route by design; the escape hatch is the box:
+`docker compose exec assure-app python -c "from prompt_matrix.db import auth_repository as r; r.set_password(r.get_user_by_email('owner@example.com')['id'], 'a-new-password-12', must_change=True)"`.
+
 ## 6. Checks
 
 - `docker compose ps`: `ollama-pull` is `Exited (0)`, the other six services are `healthy`/`running`.

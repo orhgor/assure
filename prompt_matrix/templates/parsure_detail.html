@@ -202,6 +202,11 @@ details.text pre {
 .timeline .t-title { font-size: var(--fs-md); font-weight: 500; margin: 2px 0 0; }
 .timeline .t-detail { font-size: var(--fs-md); color: var(--muted); margin: 2px 0 0; overflow-wrap: anywhere; }
 .timeline .t-actor { color: var(--muted); font-size: var(--fs-sm); }
+.timeline .t-role { color: var(--muted); }
+.identity { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.2; margin-right: var(--space-4); }
+.identity-name { font-size: var(--fs-sm); color: var(--ink); }
+.identity-role { font-size: var(--fs-xs); color: var(--muted); font-variant: small-caps; }
+.not-allowed { color: var(--muted); font-size: var(--fs-sm); margin: 0; }
 
 /* ---- technical (collapsed) ---- */
 details.tech > summary { cursor: pointer; font-size: var(--fs-md); color: var(--muted); list-style: none; display: inline-block; border-bottom: 1px solid transparent; }
@@ -378,6 +383,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
     </div>
     <div class="app-header-center"></div>
     <div class="app-header-right">
+      {% if me and me.user_id %}<span class="identity" id="page-identity" title="{{ me.email }}"><span class="identity-name">{{ me.display_name }}</span>{% if me.role_words %}<span class="identity-role">{{ me.role_words }}</span>{% endif %}</span>{% endif %}
       <a href="/?project_id={{ project_id }}" class="btn-tertiary">Back to Assure</a>
     </div>
   </header>
@@ -478,7 +484,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           {% if record.type_hint %}The page carries {{ record.type_hint.found }} of {{ record.type_hint.total }} {{ record.type_hint.label }} fields — re-read it as that type.{% endif %}
           {% if record.fields %}<small>The {{ record.fields_total }} {{ record.type_label }} fields are not applicable to this page and are not counted as needing review.</small>{% endif %}
         </p>
-        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
+        {% if me.can("classification.override") %}        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
           <label for="type-select">Document type</label>
           <select id="type-select" name="document_type">
             {% for o in record.type_options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
@@ -486,6 +492,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           <button type="submit" class="btn-secondary" id="type-apply">Re-read as this type</button>
           <span class="note" id="type-note" aria-live="polite"></span>
         </form>
+        {% else %}<p class="note not-allowed type-denied">{{ strings.get("parsing.not_allowed", "Not allowed for your role") }} ({{ me.role_words or "—" }}): classification.override</p>{% endif %}
       </div>
       {% elif record.nothing_extracted or record.untyped %}
       <div class="notice" id="type-notice" data-tone="partial">
@@ -496,7 +503,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           {% elif record.nothing_extracted %}The document type may be wrong — choose the right one and the fields are re-read.{% else %}Choose the document type and the fields are read.{% endif %}
           {% if record.no_text %}<small>The pages could not be read{% if record.text_chars is not none %} ({{ "{:,}".format(record.text_chars) }} character{{ "" if record.text_chars == 1 else "s" }} of text){% endif %}; a scan the OCR could not read looks like this. Changing the type will not add text.</small>{% endif %}
         </p>
-        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
+        {% if me.can("classification.override") %}        <form id="type-form" data-url="{{ record.type_override_url }}" data-type-url="{{ record.type_override_url }}">
           <label for="type-select">Document type</label>
           <select id="type-select" name="document_type">
             {% for o in record.type_options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
@@ -504,6 +511,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           <button type="submit" class="btn-secondary" id="type-apply">Re-read as this type</button>
           <span class="note" id="type-note" aria-live="polite"></span>
         </form>
+        {% else %}<p class="note not-allowed type-denied">{{ strings.get("parsing.not_allowed", "Not allowed for your role") }} ({{ me.role_words or "—" }}): classification.override</p>{% endif %}
       </div>
       {% endif %}
       {% if record.fields %}
@@ -700,10 +708,14 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
         {% if record.replay.eligible %}{{ strings.get("parsing.replay.eligible", "Replay available after policy update.") }}{% else %}{{ strings.get("parsing.replay.not_eligible", "Not eligible for replay.") }}{% endif %}
         {% if record.replay.reasons %}<span class="why">{{ record.replay.reasons|join("; ") }}</span>{% endif %}
       </p>
+      {% if me.can("reports.replay") %}
       <form id="replay-form" data-url="{{ record.replay_url }}">
         <button type="submit" class="btn-secondary" id="replay-run"{% if not record.replay.eligible or record.replay.exhausted %} disabled{% endif %}>{{ strings.get("parsing.replay.run", "Replay now") }}</button>
         <span class="note" id="replay-note" aria-live="polite">{% if record.replay.exhausted %}{{ strings.get("parsing.replay.exhausted", "The attempt limit is reached.") }}{% endif %}</span>
       </form>
+      {% else %}
+      <p class="note not-allowed" id="replay-denied">{{ strings.get("parsing.not_allowed", "Not allowed for your role") }} ({{ me.role_words or "—" }}): reports.replay</p>
+      {% endif %}
       {% if record.rerun.rows %}
       <div class="frame" id="rerun-history" data-passes="{{ record.rerun.passes or '' }}">
         <table class="fields rerun">
@@ -796,7 +808,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       <ol class="timeline">
         {% for h in record.history %}
         <li data-kind="{{ h.kind }}"{% if h.overdue %} data-overdue="1"{% endif %}>
-          <div class="t-when">{{ h.at_label }}{% if h.actor %} <span class="t-actor">· {{ h.actor }}</span>{% endif %}</div>
+          <div class="t-when">{{ h.at_label }}{% if h.actor %} <span class="t-actor">· {{ h.actor }}{% if h.actor_role %} <span class="t-role">({{ h.actor_role }})</span>{% endif %}</span>{% endif %}</div>
           <p class="t-title">{{ h.title }}{% if h.overdue %} · overdue{% endif %}</p>
           {% if h.detail %}<p class="t-detail">{{ h.detail }}</p>{% endif %}
         </li>

@@ -4145,6 +4145,29 @@ mark.grounding-mark { background: color-mix(in srgb, var(--partial) 28%, transpa
   .upload-chip { margin-left: var(--space-1); font-size: var(--fs-xs); height: 24px; }
 }
 
+/* The account (local user management, 2026-09-27): identity as text in the
+   header, denied controls kept visible with their reason, permission-driven
+   hiding by body attributes shell.js writes from /api/auth/me. */
+.identity { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.2; min-width: 0; max-width: 160px; }
+.identity[hidden] { display: none; }
+.identity-name { font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.identity-role { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-variant: small-caps; letter-spacing: 0.02em; }
+.menu-identity { margin: 0; padding: var(--space-2) var(--space-3) var(--space-1); font-size: var(--fs-xs); color: var(--muted); }
+.menu-identity[hidden] { display: none; }
+.is-denied { opacity: 0.45; cursor: not-allowed; }
+.history-audit-link { display: inline-block; margin-top: var(--space-3); }
+.history-audit-link[hidden] { display: none; }
+body[data-can-upload="0"] #source-upload-btn, body[data-can-upload="0"] #source-empty-upload, body[data-can-upload="0"] #dock-ingest,
+body[data-can-upload="0"] #fields-empty-upload, body[data-can-upload="0"] .doc-prereq-upload { display: none !important; }
+body[data-can-delete="0"] .source-remove { display: none !important; }
+body[data-can-original="0"] .field-source-original { display: none !important; }
+body[data-can-export="0"] #export-btn, body[data-can-export="0"] #export-variants-btn, body[data-can-export="0"] [data-export-format] { display: none !important; }
+body[data-can-dossier="0"] [data-export-format="dossier-pdf"] { display: none !important; }
+body[data-can-override="0"] #fields-type-change { display: none !important; }
+@media (max-width: 640px) {
+  .identity { display: none; }
+}
+
 /* The mode chip: text only, quiet, beside the status chip. */
 .mode-chip {
   display: inline-flex;

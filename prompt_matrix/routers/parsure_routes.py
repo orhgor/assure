@@ -34,16 +34,20 @@ from typing import Any
 from flask import Response, jsonify, request
 
 try:
+    from .. import rbac
     from ..db import parsure_repository as repo
     from ..middleware import project_ownership_required
+    from ..rbac import requires
     from ..services import export_names
     from ..services import field_extractor as fx
     from ..services import schema_registry
     from ..services import snapshot as snap
     from ..services import v1_orchestrator as orch
 except ImportError:
+    import rbac  # type: ignore
     from db import parsure_repository as repo  # type: ignore
     from middleware import project_ownership_required  # type: ignore
+    from rbac import requires  # type: ignore
     from services import export_names  # type: ignore
     from services import field_extractor as fx  # type: ignore
     from services import schema_registry  # type: ignore
@@ -579,14 +583,23 @@ def _body() -> dict[str, Any]:
 
 
 def _actor(body: dict[str, Any]) -> str | None:
+    """The actor text for a review event: the body's ``actor`` when given, else
+    the signed-in account's display name or e-mail (local auth, 2026-09-27),
+    else the legacy session keys. The account id/role/ip are recorded by
+    ``parsure_repository.log_event`` itself, not from this string."""
     actor = body.get("actor")
     if isinstance(actor, str) and actor.strip():
         return actor.strip()[:120]
+    user = rbac.current_user()
+    if user:
+        name = user.get("display_name") or user.get("email")
+        if name:
+            return str(name)[:120]
     try:
         from flask import session
 
-        user = session.get("user_id") or session.get("email")
-        return str(user)[:120] if user else None
+        legacy = session.get("user_id") or session.get("email")
+        return str(legacy)[:120] if legacy else None
     except Exception:
         return None
 
@@ -710,6 +723,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "events": events, "event_types": list(repo.EVENT_TYPES)})
 
     @app.get("/api/projects/<project_id>/parsure/export")
+    @requires("exports.read")
     @project_ownership_required
     def parsure_export_project(project_id: str):
         """Every extracted value of the project in one file (the client's
@@ -786,6 +800,7 @@ def register_parsure_routes(app) -> None:
         })
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/fields/<field_name>/accept")
+    @requires("fields.accept")
     @project_ownership_required
     def parsure_accept(project_id: str, report_id: str, field_name: str):
         report = repo.get_report(project_id, report_id)
@@ -796,6 +811,10 @@ def register_parsure_routes(app) -> None:
             return jsonify({"ok": False, "error": f"Unknown field '{field_name}'."}), 404
         if field.get("value") is None:
             return jsonify({"ok": False, "error": "A field with no extracted value cannot be accepted; correct it with a value instead."}), 409
+        # Spec §5 rule 2: a compliance-bound field never auto-accepts; accepting
+        # it by hand is the compliance reviewer's call (docs/auth.md).
+        if field.get("compliance_bound") and not rbac.has_permission("fields.accept_compliance"):
+            return rbac.deny("fields.accept_compliance")
         body = _body()
         actor = _actor(body)
         previous = {"field_state": field.get("field_state"), "routing_action": field.get("routing_action")}
@@ -810,6 +829,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "field": field, "review_summary": report["review_summary"]})
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/fields/<field_name>/correct")
+    @requires("fields.correct")
     @project_ownership_required
     def parsure_correct(project_id: str, report_id: str, field_name: str):
         report = repo.get_report(project_id, report_id)
@@ -848,6 +868,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "field": field, "review_summary": report["review_summary"], "replay": report["replay"]})
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/fields/<field_name>/dispute")
+    @requires("fields.dispute")
     @project_ownership_required
     def parsure_dispute(project_id: str, report_id: str, field_name: str):
         report = repo.get_report(project_id, report_id)
@@ -875,6 +896,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "dispute": dispute, "field": field}), 201
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/disputes/<dispute_id>/resolve")
+    @requires("disputes.resolve")
     @project_ownership_required
     def parsure_resolve(project_id: str, report_id: str, dispute_id: str):
         report = repo.get_report(project_id, report_id)
@@ -940,6 +962,7 @@ def register_parsure_routes(app) -> None:
         })
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/classification")
+    @requires("classification.override")
     @project_ownership_required
     def parsure_override_classification(project_id: str, report_id: str):
         report = repo.get_report(project_id, report_id)
@@ -982,6 +1005,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "report": repo.public_report(report), "reextracted": reextracted})
 
     @app.post("/api/projects/<project_id>/parsure/<report_id>/replay")
+    @requires("reports.replay")
     @project_ownership_required
     def parsure_replay(project_id: str, report_id: str):
         """Bounded, audited replay (handoff 2026-09-27, "Rerun Thrash" and
@@ -1036,6 +1060,7 @@ def register_parsure_routes(app) -> None:
         return jsonify({"ok": True, "report": repo.public_report(report), "proof": proof})
 
     @app.get("/api/projects/<project_id>/parsure/<report_id>/export")
+    @requires("exports.read")
     @project_ownership_required
     def parsure_export(project_id: str, report_id: str):
         report = repo.get_report(project_id, report_id)

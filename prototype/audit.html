@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit · Assure</title>
+  <link rel="stylesheet" href="shell.css">
+  <link rel="stylesheet" href="account-pages.css">
+</head>
+<body data-page="audit">
+  <header class="app-header page-header">
+    <div class="app-header-left"><a class="app-brand" href="/"><span class="app-brand-name">Assure</span></a><span class="page-title" data-i18n="shell.audit.title">Audit log</span></div>
+    <div class="app-header-center"></div>
+    <div class="app-header-right">
+      <span id="page-identity" class="identity" hidden><span id="identity-name" class="identity-name"></span><span id="identity-role" class="identity-role"></span></span>
+      <a class="btn-tertiary" href="/" data-i18n="shell.team.back">Back to Assure</a>
+      <button type="button" class="btn-tertiary" id="page-signout" data-i18n="shell.auth.sign_out">Sign out</button>
+    </div>
+  </header>
+  <main class="page-main" id="page-main">
+    <form id="audit-filters" class="inline-form filters">
+      <label><span data-i18n="shell.audit.project">Workspace</span><select id="f-project"><option value="" data-i18n="shell.audit.all_projects">All workspaces</option></select></label>
+      <label><span data-i18n="shell.audit.actor">Actor</span><input type="text" id="f-actor" autocomplete="off" data-i18n-placeholder="shell.audit.actor_hint" placeholder="user id or e-mail"></label>
+      <label><span data-i18n="shell.audit.event_type">Event</span><input type="text" id="f-type" autocomplete="off" list="event-types" placeholder="field_accepted"></label>
+      <datalist id="event-types">
+        <option value="field_accepted"></option><option value="field_corrected"></option><option value="dispute_opened"></option><option value="dispute_resolved"></option>
+        <option value="classification_overridden"></option><option value="exported"></option><option value="replayed"></option><option value="login"></option><option value="logout"></option>
+        <option value="login_failed"></option><option value="invitation_created"></option><option value="invitation_accepted"></option><option value="password_changed"></option><option value="user_updated"></option>
+      </datalist>
+      <label><span data-i18n="shell.audit.since">Since</span><input type="date" id="f-since"></label>
+      <button type="submit" class="btn-secondary" data-i18n="shell.audit.apply">Apply</button>
+      <span class="note" id="audit-meta" aria-live="polite"></span>
+    </form>
+    <div class="frame"><table class="page-table audit-table" id="audit-table">
+      <thead><tr><th data-i18n="shell.audit.time">Time</th><th data-i18n="shell.audit.actor">Actor</th><th>IP</th><th data-i18n="shell.audit.event">Event</th><th data-i18n="shell.audit.where">Workspace / record / field</th><th data-i18n="shell.audit.payload">Details</th></tr></thead>
+      <tbody id="audit-body"></tbody>
+    </table></div>
+  </main>
+  <script src="account-pages.js"></script>
+</body>
+</html>

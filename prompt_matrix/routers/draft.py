@@ -2489,11 +2489,14 @@ def register_draft_routes(app) -> None:
 
     try:
         from ..middleware import project_ownership_required
+        from ..rbac import requires
     except ImportError:
         from middleware import project_ownership_required
+        from rbac import requires
 
     @app.post("/api/projects/<project_id>/draft/stream")
     @limiter.limit("30 per minute")
+    @requires("compile.run")
     @project_ownership_required
     def draft_stream(project_id: str):
         data = request.get_json(silent=True) or {}
@@ -2600,6 +2603,7 @@ def register_draft_routes(app) -> None:
 
     @app.post("/api/projects/<project_id>/draft/redhat/stream")
     @limiter.limit("30 per minute")
+    @requires("compile.run")
     @project_ownership_required
     def draft_redhat_stream(project_id: str):
         """Opt-in Stress Test — continuing an already-verified compile, not

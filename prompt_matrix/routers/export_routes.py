@@ -19,6 +19,7 @@ try:
     from ..exporters.text_ast import jdf_to_html, jdf_to_markdown
     from ..lib.logger import get_audit_logger
     from ..middleware import project_ownership_required
+    from ..rbac import deny, has_permission, requires
     from ..services.jdf_sidecar import build_jdf_sidecar
     from ..services.verification_dossier import (
         PdfRendererUnavailable,
@@ -34,6 +35,7 @@ except ImportError:
     from exporters.text_ast import jdf_to_html, jdf_to_markdown
     from lib.logger import get_audit_logger
     from middleware import project_ownership_required
+    from rbac import deny, has_permission, requires
     from services.jdf_sidecar import build_jdf_sidecar
     from services.verification_dossier import (
         PdfRendererUnavailable,
@@ -145,6 +147,10 @@ def _require_pdf_renderer() -> None:
         raise PdfRendererUnavailable(status)
 
 
+#: Export formats that are audit artifacts rather than the document itself.
+DOSSIER_FORMATS = frozenset({"dossier-pdf", "audit-pdf", "bundle"})
+
+
 def register_export_routes(app) -> None:
     try:
         from ..rate_limits import limiter
@@ -153,11 +159,17 @@ def register_export_routes(app) -> None:
 
     @app.get("/api/projects/<project_id>/export")
     @limiter.limit("10 per minute")
+    @requires("exports.read")
     @project_ownership_required
     def export_project_document(project_id: str):
         """
         Sync endpoint: Gunicorn/Flask executes this in a worker thread.
         Keeps synchronous SQLite I/O and python-docx CPU work off concurrent SSE streams.
+
+        ``exports.read`` opens the document formats; the verification dossier,
+        the audit PDF and the bundle (``DOSSIER_FORMATS``) also need
+        ``exports.dossier`` — the auditor's and compliance reviewer's artifacts,
+        not the reviewer's (docs/auth.md, 2026-09-27).
         """
         from flask import request
 
@@ -165,6 +177,8 @@ def register_export_routes(app) -> None:
         start_time = time.perf_counter()
         audit = get_audit_logger()
         fmt = (request.args.get("format") or "docx").strip().lower()
+        if fmt in DOSSIER_FORMATS and not has_permission("exports.dossier"):
+            return deny("exports.dossier")
         include_citations_raw = (request.args.get("include_citations") or "true").strip().lower()
         include_citations = include_citations_raw not in ("0", "false", "no")
         if fmt == "json":

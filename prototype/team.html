@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team · Assure</title>
+  <link rel="stylesheet" href="shell.css">
+  <link rel="stylesheet" href="account-pages.css">
+</head>
+<body data-page="team">
+  <header class="app-header page-header">
+    <div class="app-header-left"><a class="app-brand" href="/"><span class="app-brand-name">Assure</span></a><span class="page-title" data-i18n="shell.team.title">Team</span></div>
+    <div class="app-header-center"></div>
+    <div class="app-header-right">
+      <span id="page-identity" class="identity" hidden><span id="identity-name" class="identity-name"></span><span id="identity-role" class="identity-role"></span></span>
+      <a class="btn-tertiary" href="/" data-i18n="shell.team.back">Back to Assure</a>
+      <button type="button" class="btn-tertiary" id="page-signout" data-i18n="shell.auth.sign_out">Sign out</button>
+    </div>
+  </header>
+  <main class="page-main" id="page-main">
+    <section class="page-section" id="invite">
+      <div class="section-head"><h2 data-i18n="shell.team.invite">Invite someone</h2><p class="section-meta" data-i18n="shell.team.invite_note">The invitation link and token are shown once; they are not stored here.</p></div>
+      <form id="invite-form" class="inline-form">
+        <label><span data-i18n="shell.team.email">E-mail</span><input type="email" id="invite-email" autocomplete="off" required></label>
+        <label><span data-i18n="shell.team.role">Role</span><select id="invite-role"></select></label>
+        <button type="submit" class="btn-secondary" id="invite-submit" data-i18n="shell.team.send_invite">Create invitation</button>
+        <span class="note" id="invite-note" aria-live="polite"></span>
+      </form>
+      <div class="once-box" id="invite-result" hidden></div>
+    </section>
+    <section class="page-section" id="users">
+      <div class="section-head"><h2 data-i18n="shell.team.users">Accounts</h2></div>
+      <div class="frame"><table class="page-table" id="users-table">
+        <thead><tr><th data-i18n="shell.team.who">Who</th><th data-i18n="shell.team.role">Role</th><th data-i18n="shell.team.status">Status</th><th data-i18n="shell.team.last_login">Last sign-in</th><th data-i18n="shell.team.created">Created</th><th></th></tr></thead>
+        <tbody id="users-body"></tbody>
+      </table></div>
+    </section>
+    <section class="page-section" id="invitations">
+      <div class="section-head"><h2 data-i18n="shell.team.pending">Pending invitations</h2></div>
+      <div class="frame"><table class="page-table" id="invitations-table">
+        <thead><tr><th data-i18n="shell.team.email">E-mail</th><th data-i18n="shell.team.role">Role</th><th data-i18n="shell.team.expires_at">Expires</th><th></th></tr></thead>
+        <tbody id="invitations-body"></tbody>
+      </table></div>
+    </section>
+    <section class="page-section" id="sessions">
+      <div class="section-head"><h2 data-i18n="shell.team.sessions">Active sessions</h2><span class="note" id="sessions-note" aria-live="polite"></span></div>
+      <div class="frame"><table class="page-table" id="sessions-table">
+        <thead><tr><th data-i18n="shell.team.who">Who</th><th>IP</th><th data-i18n="shell.team.started">Started</th><th data-i18n="shell.team.last_seen">Last seen</th><th></th></tr></thead>
+        <tbody id="sessions-body"></tbody>
+      </table></div>
+    </section>
+  </main>
+  <script src="account-pages.js"></script>
+</body>
+</html>

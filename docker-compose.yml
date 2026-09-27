@@ -34,6 +34,12 @@ x-app-env: &app-env
   ASSURE_REQUIRE_LOGIN: ${ASSURE_REQUIRE_LOGIN:-false}
   # Clerk is not configured locally; without this the shell sends every page to /signin.
   ASSURE_CLERK_ONLY: ${ASSURE_CLERK_ONLY:-0}
+  # Local accounts (docs/auth.md): local | clerk | off. Empty = local once a
+  # bootstrap token is set or an owner exists, else off. gen-env.sh writes
+  # local for ec2 and generates the token the first-run owner screen asks for.
+  ASSURE_AUTH_MODE: ${ASSURE_AUTH_MODE:-}
+  ASSURE_BOOTSTRAP_TOKEN: ${ASSURE_BOOTSTRAP_TOKEN:-}
+  ASSURE_SESSION_HOURS: ${ASSURE_SESSION_HOURS:-12}
   WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-0}
   PARSE_ASYNC: ${PARSE_ASYNC:-1}
   SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-1}

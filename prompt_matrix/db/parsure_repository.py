@@ -525,6 +525,32 @@ def list_disputes(project_id: str, report_id: str | None = None, status: str | N
 # Audit events
 # --------------------------------------------------------------------------
 
+def _request_actor() -> dict[str, Any]:
+    """Who is making this write, from the request when there is one.
+
+    ``actor_id`` / ``actor_role`` come from ``g.assure_user`` (set by the local
+    sign-in guard, ``rbac.register_auth_guard``); ``ip`` from the first
+    ``X-Forwarded-For`` hop when a proxy is trusted, else the peer. Outside a
+    request (worker, CLI) every value is None — nothing is guessed."""
+    try:
+        from flask import g, has_request_context
+    except ImportError:  # pragma: no cover
+        return {"actor_id": None, "actor_role": None, "ip": None, "name": None}
+    if not has_request_context():
+        return {"actor_id": None, "actor_role": None, "ip": None, "name": None}
+    user = g.get("assure_user") or {}
+    try:
+        from ..rbac import client_ip
+    except ImportError:
+        from rbac import client_ip
+    return {
+        "actor_id": user.get("id"),
+        "actor_role": user.get("role"),
+        "ip": client_ip(),
+        "name": (user.get("display_name") or user.get("email") or None) if user else None,
+    }
+
+
 def log_event(
     project_id: str,
     event_type: str,
@@ -534,23 +560,47 @@ def log_event(
     actor: str | None = None,
     payload: dict[str, Any] | None = None,
 ) -> int:
+    """Append one review event. The free-text ``actor`` stays (a body may name
+    one); the signed-in account's id, role and address are recorded beside it
+    (schema v35, 2026-09-27), and when no name was given the account's display
+    name or e-mail is the actor text."""
     if event_type not in EVENT_TYPES:
         raise ValueError(f"unknown parsure event type: {event_type}")
+    who = _request_actor()
+    if not actor and who.get("name"):
+        actor = str(who["name"])[:120]
+    if not actor and who.get("actor_id") is None and who.get("ip") is None:
+        # No request and no named actor: the pipeline itself (worker, CLI)
+        # wrote this row — a role word the audit page can show, nothing
+        # invented (2026-09-27). A caller that names an actor keeps its own.
+        actor, who = "pipeline", {**who, "actor_role": "pipeline"}
     init_db()
     db = get_db()
     cur = db.execute(
-        "INSERT INTO parsure_audit_events (project_id, report_id, event_type, field_name, actor, payload_json, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (project_id, report_id, event_type, field_name, actor, _dumps(payload or {}), _now()),
+        "INSERT INTO parsure_audit_events (project_id, report_id, event_type, field_name, actor, actor_id, actor_role, ip, "
+        "payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (project_id, report_id, event_type, field_name, actor, who["actor_id"], who["actor_role"], who["ip"],
+         _dumps(payload or {}), _now()),
     )
     db.commit()
     return int(cur.lastrowid or 0)
 
 
+_EVENT_COLUMNS = "id, project_id, report_id, event_type, field_name, actor, actor_id, actor_role, ip, payload_json, created_at"
+
+
+def _event_row(r: Any) -> dict[str, Any]:
+    return {
+        "id": r[0], "project_id": r[1], "report_id": r[2], "event_type": r[3], "field_name": r[4],
+        "actor": r[5], "actor_id": r[6], "actor_role": r[7], "ip": r[8], "payload": _loads(r[9]) or {},
+        "created_at": _ts(r[10]),
+    }
+
+
 def list_events(project_id: str, *, report_id: str | None = None, field_name: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
     init_db()
     limit = max(1, min(int(limit), 2000))
-    sql = "SELECT id, project_id, report_id, event_type, field_name, actor, payload_json, created_at FROM parsure_audit_events WHERE project_id = ?"
+    sql = f"SELECT {_EVENT_COLUMNS} FROM parsure_audit_events WHERE project_id = ?"
     params: list[Any] = [project_id]
     if report_id:
         sql += " AND report_id = ?"
@@ -561,13 +611,42 @@ def list_events(project_id: str, *, report_id: str | None = None, field_name: st
     sql += " ORDER BY created_at DESC, id DESC LIMIT ?"
     params.append(limit)
     rows = get_db().execute(sql, tuple(params)).fetchall()
-    return [
-        {
-            "id": r[0], "project_id": r[1], "report_id": r[2], "event_type": r[3], "field_name": r[4],
-            "actor": r[5], "payload": _loads(r[6]) or {}, "created_at": _ts(r[7]),
-        }
-        for r in rows
-    ]
+    return [_event_row(r) for r in rows]
+
+
+def query_events(
+    *,
+    project_id: str | None = None,
+    actor_id: str | None = None,
+    event_type: str | None = None,
+    since: str | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Review events across projects for the audit feed (``GET /api/audit``,
+    2026-09-27): every filter optional, newest first."""
+    init_db()
+    limit = max(1, min(int(limit), 2000))
+    sql = f"SELECT {_EVENT_COLUMNS} FROM parsure_audit_events"
+    where: list[str] = []
+    params: list[Any] = []
+    if project_id:
+        where.append("project_id = ?")
+        params.append(project_id)
+    if actor_id:
+        where.append("actor_id = ?")
+        params.append(actor_id)
+    if event_type:
+        where.append("event_type = ?")
+        params.append(event_type)
+    if since:
+        where.append("created_at >= ?")
+        params.append(since)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY created_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    rows = get_db().execute(sql, tuple(params)).fetchall()
+    return [_event_row(r) for r in rows]
 
 
 # --------------------------------------------------------------------------

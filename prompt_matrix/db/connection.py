@@ -50,7 +50,122 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 34
+_SCHEMA_VERSION = 35
+
+
+def _migrate_v35(db: sqlite3.Connection) -> None:
+    """Local user management (2026-09-27): accounts, invitations, sessions and
+    the account audit log, plus actor columns on the review audit log.
+
+    One EC2 per company and no SSO (docs/auth.md), so the identity lives in
+    PostgreSQL next to the data it protects. ``auth_users.email`` is stored
+    lower-cased and unique; only ``password_hash`` (werkzeug scrypt) is kept,
+    never the password. ``auth_invitations.token_hash`` is the SHA-256 of the
+    invitation token — the token itself is shown once to the inviter and is
+    not recoverable from the row. ``auth_sessions`` is the server-side record
+    behind the signed Flask cookie (``auth_session_id``) so a session can be
+    revoked without waiting for the cookie to expire. ``org_settings`` is a
+    key → JSON store for the company name and ``setup_completed_at``.
+
+    ``parsure_audit_events`` gains ``actor_id`` / ``actor_role`` / ``ip``: the
+    free-text ``actor`` stays (the body may still name one) and the signed-in
+    account is recorded beside it, so "who accepted this field" is an account,
+    not a string.
+
+    Timestamps: written by the repository at microsecond precision
+    (``%Y-%m-%d %H:%M:%S.%f``); ``DATETIME`` translates to ``TIMESTAMP(0)`` and
+    two logins inside one second would tie, so the columns are declared
+    DATETIME (portable dialect) and widened to ``TIMESTAMP(6)`` right after, the
+    way ``_migrate_v34`` did for ``parsure_reports``."""
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_users (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            password_hash TEXT,
+            role TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            must_change_password INTEGER DEFAULT 0,
+            failed_logins INTEGER DEFAULT 0,
+            locked_until DATETIME,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login_at DATETIME
+        )
+        """
+    )
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_invitations (
+            id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            role TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME,
+            accepted_at DATETIME,
+            accepted_user_id TEXT
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_auth_invitations_token ON auth_invitations (token_hash)")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at DATETIME,
+            expires_at DATETIME,
+            revoked_at DATETIME,
+            ip TEXT,
+            user_agent TEXT
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions (user_id, created_at)")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_audit_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            actor_id TEXT,
+            actor_role TEXT,
+            subject_user_id TEXT,
+            ip TEXT,
+            user_agent TEXT,
+            payload_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_auth_audit_created ON auth_audit_events (created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_auth_audit_actor ON auth_audit_events (actor_id, created_at)")
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS org_settings (
+            key TEXT PRIMARY KEY,
+            value_json TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    for table, columns in (
+        ("auth_users", ("locked_until", "created_at", "updated_at", "last_login_at")),
+        ("auth_invitations", ("created_at", "expires_at", "accepted_at")),
+        ("auth_sessions", ("created_at", "last_seen_at", "expires_at", "revoked_at")),
+        ("auth_audit_events", ("created_at",)),
+        ("org_settings", ("updated_at",)),
+    ):
+        for column in columns:
+            db.execute(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE TIMESTAMP(6)")
+    for column in ("actor_id", "actor_role", "ip"):
+        if not _column_exists(db, "parsure_audit_events", column):
+            db.execute(f"ALTER TABLE parsure_audit_events ADD COLUMN {column} TEXT")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_parsure_audit_actor ON parsure_audit_events (actor_id, created_at)")
 
 
 def _migrate_v34(db: sqlite3.Connection) -> None:
@@ -1359,6 +1474,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v33(db)
     if current < 34:
         _migrate_v34(db)
+    if current < 35:
+        _migrate_v35(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
