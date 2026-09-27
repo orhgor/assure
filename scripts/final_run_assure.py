@@ -194,8 +194,11 @@ def main() -> int:
             rows = (ledger.get("items") or ledger.get("rows")) if isinstance(ledger, dict) else ledger
             cs = vs.get("claim_summary") or {}
             expected_rows = int(cs.get("paragraphs") or 0) + int(cs.get("meta") or 0) if "paragraphs" in cs else int(cs.get("total") or -1)
-            # One ledger row per claim-bearing paragraph (notes sit in their own table), or per sentence.
-            ledger_ok = bool(cs) and isinstance(rows, list) and len(rows) in {expected_rows, int(cs.get("paragraphs") or -3), int(cs.get("total") or -2)}
+            # One ledger row per claim-bearing paragraph (notes sit in their own table), or per sentence;
+            # the state's summary may omit `paragraphs`, so rows are matched against the blocks seen above.
+            notes = (ledger.get("notes") or []) if isinstance(ledger, dict) else []
+            ledger_ok = bool(cs) and isinstance(rows, list) and bool(rows) and (
+                len(rows) == int(cs.get("total") or -2) or len(rows) + len(notes) == len(blocks) or len(rows) == len(facts))
         except Exception as exc:  # noqa: BLE001
             ledger_ok = False; names = str(exc)
         check("bundle carries claim_summary + claim ledger", ledger_ok, names if not ledger_ok else "ok")

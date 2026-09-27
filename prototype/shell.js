@@ -4608,22 +4608,53 @@
       if (m && typeof m === "object" && m.total != null) {
         return { total: Number(m.total) || 0, verified: Number(m.verified) || 0, unsupported: Number(m.unsupported) || 0,
                  contradicted: Number(m.contradicted) || 0, insufficient: Number(m.insufficient) || 0, flagged: Number(m.flagged) || 0,
-                 inconsistencies: Array.isArray(m.inconsistencies) ? m.inconsistencies : [], policy: m.policy || "" };
+                 inconsistencies: Array.isArray(m.inconsistencies) ? m.inconsistencies : [], policy: m.policy || "",
+                 paragraphs: typeof m.paragraphs === "number" ? m.paragraphs : null, meta: typeof m.meta === "number" ? m.meta : null };
       }
       // No summary on the tree: the same counts the tiles read (`_derivedCounts`,
       // the mirror of the server's counter — persisted blocks, else the derived
       // verdict), so the chip, the bar and the tiles cannot disagree.
       var c = _derivedCounts(doc);
       if (!c.eligible) return null;
-      var policy = "";
-      _eachParagraph(doc, function (node) { var cl = _claimOf(node); if (!policy && cl && cl.policy) policy = String(cl.policy); });
-      return { total: c.eligible, verified: c.verified, unsupported: c.unsupported, contradicted: c.contradicted,
-               insufficient: c.insufficient, flagged: c.flagged, inconsistencies: [], policy: policy };
+      // Sentences, as claim_summary.total counts them: a persisted block's
+      // sub-claims each count once; a block without them, or a derived
+      // verdict, counts as one unit.
+      var out = { total: 0, verified: 0, unsupported: 0, contradicted: 0, insufficient: 0, flagged: 0, inconsistencies: [], policy: "", paragraphs: c.eligible, meta: c.meta };
+      _eachParagraph(doc, function (node) {
+        if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) return;
+        var cl = _claimOf(node);
+        if (cl && _isMetaClaim(cl)) return;
+        if (cl && !out.policy && cl.policy) out.policy = String(cl.policy);
+        var units = cl ? _claimUnits(cl) : [{ verdict: _derivedClaimVerdict(node), flags: [] }];
+        units.forEach(function (u) {
+          out.total++;
+          var st = _claimStateOf(u.verdict);
+          if (st === "verified") out.verified++;
+          else if (st === "contradicted") out.contradicted++;
+          else if (st === "insufficient") out.insufficient++;
+          else out.unsupported++;
+          if (Array.isArray(u.flags) && u.flags.length) out.flagged++;
+        });
+      });
+      return out;
+    }
+    // The units a block counts as (claim_policy.claim_units): its sentences for
+    // checks.kind "sentences" (checks.sub_claims), else the block itself.
+    function _claimUnits(c) {
+      var checks = c && c.checks && typeof c.checks === "object" ? c.checks : {};
+      if (String(checks.kind || "") === "sentences" && Array.isArray(checks.sub_claims)) {
+        var units = checks.sub_claims.filter(function (u) { return u && typeof u === "object"; });
+        if (units.length) return units;
+      }
+      return c ? [c] : [];
     }
     function _claimAllVerified(cs) { return Boolean(cs && cs.total > 0 && cs.verified === cs.total && cs.flagged === 0 && cs.contradicted === 0); }
     // "N of M claims verified · c contradicted · u unsupported · i insufficient · f flagged" — contradicted first.
     function _claimCountWords(cs) {
       var bits = [_tf("shell.claim.count", "{n} of {total} claims verified", { n: cs.verified, total: cs.total })];
+      if (typeof cs.paragraphs === "number" && cs.paragraphs > 0 && cs.paragraphs !== cs.total) {
+        bits.push(_plural(cs.paragraphs, "shell.claim.count_paragraph_one", "in 1 paragraph", "shell.claim.count_paragraphs", "in {n} paragraphs"));
+      }
       if (cs.contradicted) bits.push(_tf("shell.claim.count_contradicted", "{n} contradicted", { n: cs.contradicted }));
       if (cs.unsupported) bits.push(_tf("shell.claim.count_unsupported", "{n} unsupported", { n: cs.unsupported }));
       if (cs.insufficient) bits.push(_tf("shell.claim.count_insufficient", "{n} insufficient evidence", { n: cs.insufficient }));
@@ -7036,6 +7067,49 @@
         sqEl.className = "claim-check";
         sqEl.textContent = _t("shell.claim.source_quality", "Source quality") + ": " + String(sq.status) + (sq.basis ? " \u2014 " + String(sq.basis) : "");
         box.appendChild(sqEl);
+      }
+      // Per-sentence rows (checks.kind "sentences"): each sub-claim with its
+      // verdict word, reason, quote and page — the ledger's rows, in the pane.
+      var units = _claimUnits(claim);
+      if (units.length > 1 || units[0] !== claim) {
+        var list = document.createElement("ol");
+        list.className = "claim-sentences";
+        units.forEach(function (u) {
+          var li = document.createElement("li");
+          li.className = "claim-sentence claim-" + _claimStateOf(u.verdict);
+          li.setAttribute("data-verdict", String(u.verdict || ""));
+          var head = document.createElement("div");
+          head.className = "claim-sentence-head";
+          var badge = document.createElement("span");
+          badge.className = "anchor-chip anchor-chip-" + _claimStateOf(u.verdict);
+          badge.textContent = _anchorStateName(_claimStateOf(u.verdict));
+          head.appendChild(badge);
+          head.appendChild(_el("span", "claim-sentence-text", String(u.text || "")));
+          li.appendChild(head);
+          if (u.reason) li.appendChild(_el("p", "claim-sentence-reason", String(u.reason)));
+          if (u.quote) {
+            var sq = document.createElement("blockquote");
+            sq.className = "citation-quote evidence-blockquote claim-quote";
+            sq.textContent = "\u201C" + String(u.quote) + "\u201D";
+            li.appendChild(sq);
+          }
+          var whereBits = [];
+          if (u.source_name || u.source_id) whereBits.push(String(u.source_name || u.source_id));
+          whereBits.push(_claimPageWords(u.page));
+          if (u.quote && u.quote_verbatim !== true) whereBits.push(_t("shell.claim.not_verbatim", "not verbatim"));
+          li.appendChild(_el("p", "claim-where", whereBits.join(" \u00b7 ")));
+          var un = _claimNumericWords(u.checks && u.checks.numeric);
+          if (un) li.appendChild(_el("p", "claim-numeric", un));
+          var uflags = Array.isArray(u.flags) ? u.flags : [];
+          if (uflags.length) {
+            var frow = document.createElement("div"); frow.className = "claim-flags";
+            uflags.forEach(function (f) { frow.appendChild(_el("span", "claim-flag", _claimFlagWords(f))); });
+            li.appendChild(frow);
+          }
+          list.appendChild(li);
+        });
+        box.appendChild(_el("p", "claim-check", _tf("shell.claim.sentences", "{n} sentences assessed", { n: units.length })));
+        box.appendChild(list);
       }
       var badges = [];
       var wording = checks.wording && typeof checks.wording === "object" ? checks.wording : {};

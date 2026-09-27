@@ -1952,6 +1952,9 @@ EN = {
     'parsing.form.note': 'The field captions were read; there are no filled values to review or to cite in a draft.',
     'parsing.form.captions': 'captions',
     'parsing.form.no_values': 'no filled values',
+    'shell.claim.sentences': '{n} sentences assessed',
+    'shell.claim.count_paragraphs': 'in {n} paragraphs',
+    'shell.claim.count_paragraph_one': 'in 1 paragraph',
 }
 
 ES = {
@@ -3840,6 +3843,9 @@ ES = {
     'parsing.form.note': 'Se leyeron los rótulos de los campos; no hay valores rellenados que revisar ni citar en un borrador.',
     'parsing.form.captions': 'rótulos',
     'parsing.form.no_values': 'sin valores rellenados',
+    'shell.claim.sentences': '{n} frases evaluadas',
+    'shell.claim.count_paragraphs': 'en {n} párrafos',
+    'shell.claim.count_paragraph_one': 'en 1 párrafo',
 }
 
 ZH = {
@@ -5728,6 +5734,9 @@ ZH = {
     'parsing.form.note': '已读取字段标题；没有可审核或可在草稿中引用的填写值。',
     'parsing.form.captions': '个标题',
     'parsing.form.no_values': '无填写值',
+    'shell.claim.sentences': '已评估 {n} 个句子',
+    'shell.claim.count_paragraphs': '分布于 {n} 个段落',
+    'shell.claim.count_paragraph_one': '分布于 1 个段落',
 }
 
 FR = {
@@ -7603,6 +7612,9 @@ FR = {
     'parsing.form.note': 'Les libellés des champs ont été lus ; il n’y a aucune valeur saisie à réviser ni à citer dans un brouillon.',
     'parsing.form.captions': 'libellés',
     'parsing.form.no_values': 'aucune valeur saisie',
+    'shell.claim.sentences': '{n} phrases évaluées',
+    'shell.claim.count_paragraphs': 'dans {n} paragraphes',
+    'shell.claim.count_paragraph_one': 'dans 1 paragraphe',
 }
 
 DE = {
@@ -9491,6 +9503,9 @@ DE = {
     'parsing.form.note': 'Die Feldbezeichnungen wurden gelesen; es gibt keine ausgefüllten Werte zu prüfen oder in einem Entwurf zu zitieren.',
     'parsing.form.captions': 'Feldbezeichnungen',
     'parsing.form.no_values': 'keine ausgefüllten Werte',
+    'shell.claim.sentences': '{n} Sätze bewertet',
+    'shell.claim.count_paragraphs': 'in {n} Absätzen',
+    'shell.claim.count_paragraph_one': 'in 1 Absatz',
 }
 
 JA = {
@@ -11379,6 +11394,9 @@ JA = {
     'parsing.form.note': '項目名は読み取られましたが、レビューしたりドラフトで引用したりできる記入値はありません。',
     'parsing.form.captions': '件の項目名',
     'parsing.form.no_values': '記入値なし',
+    'shell.claim.sentences': '{n} 文を評価',
+    'shell.claim.count_paragraphs': '{n} 段落中',
+    'shell.claim.count_paragraph_one': '1 段落中',
 }
 
 TR = {
@@ -13272,6 +13290,9 @@ TR = {
     'parsing.form.note': 'Alan başlıkları okundu; incelenecek veya taslakta alıntılanacak doldurulmuş değer yok.',
     'parsing.form.captions': 'başlık',
     'parsing.form.no_values': 'doldurulmuş değer yok',
+    'shell.claim.sentences': '{n} cümle değerlendirildi',
+    'shell.claim.count_paragraphs': '{n} paragrafta',
+    'shell.claim.count_paragraph_one': '1 paragrafta',
 }
 
 CATALOGS = {"en": EN, "es": ES, "zh": ZH, "fr": FR, "de": DE, "ja": JA, "tr": TR}

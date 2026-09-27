@@ -485,3 +485,15 @@ Measured on the customer's demo PDFs: two blank claim forms.
   (strings, `assure-112`). Headless smoke at 1280 / 390 px: meta mark and
   caption, chip and claim line ignoring the note, the unfilled-form line on
   the source row, intake card and Fields empty state; zero console errors.
+
+**Per-sentence ledger (2026-09-27, later the same day).** claim-v1 assesses
+per sentence: a block with `checks.kind == "sentences"` carries
+`checks.sub_claims[]`. `collect_claim_ledger` lists one row per sentence
+(`paragraph`, `paragraph_index`, `sentence_index`, `sentences_in_paragraph`),
+falling back to the paragraph as its one unit; the table shows a Paragraph
+column ("1.1", "1.2") with a grouped header row for multi-sentence paragraphs;
+counts by verdict come from the sentences (what `claim_summary.total` counts)
+and the state's `claim_summary` carries `paragraphs` and `meta`. The shell's
+evidence pane lists the sentences under the claim block (verdict chip, text,
+reason, quote, page, numeric line, flags) and its summary counts sentences,
+naming the paragraph count when it differs ("… in N paragraphs").

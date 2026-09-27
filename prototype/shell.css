@@ -1609,6 +1609,14 @@ body.collapsed .pane-left {
 .claim-numeric.is-mismatch { color: var(--contradicted); }
 .claim-check { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
 .claim-flags { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.claim-sentences { margin: 0; padding: 0 0 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.claim-sentence { padding: var(--space-1) 0; border-left: 2px solid var(--rule); padding-left: var(--space-2); }
+.claim-sentence.claim-verified { border-left-color: var(--verified); }
+.claim-sentence.claim-contradicted { border-left-color: var(--contradicted); }
+.claim-sentence.claim-unsupported_claim, .claim-sentence.claim-insufficient { border-left-color: var(--partial); }
+.claim-sentence-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.claim-sentence-text { font-size: var(--fs-md); color: var(--ink); }
+.claim-sentence-reason { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); }
 .claim-flag { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 11px; border: 1px solid color-mix(in srgb, var(--partial) 45%, var(--rule)); color: var(--partial); font-size: var(--fs-xs); font-weight: 500; }
 .claim-summary-line { margin: 0 0 var(--space-3); font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
 .claim-summary-line[hidden] { display: none; }

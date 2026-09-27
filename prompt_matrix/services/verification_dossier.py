@@ -380,6 +380,17 @@ def _numeric_words(numeric: Any) -> str:
     return f"Numbers: {status}" + (f" — {detail}" if detail else "")
 
 
+def _claim_units(claim: dict[str, Any]) -> list[dict[str, Any]]:
+    """The units a block counts as (``claim_policy.claim_units``): its
+    ``checks.sub_claims`` for kind ``sentences``, else the block itself."""
+    checks = claim.get("checks") if isinstance(claim.get("checks"), dict) else {}
+    if str(checks.get("kind") or "") == "sentences":
+        units = [u for u in (checks.get("sub_claims") or []) if isinstance(u, dict)]
+        if units:
+            return units
+    return [claim]
+
+
 def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """One row per assessed claim (a paragraph whose ``meta.provenance.claim``
     carries a claim-v1 verdict) and the summary: ``meta.claim_summary`` when the
@@ -388,6 +399,7 @@ def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, An
     one; the renderer says "not recorded", never "1"."""
     rows: list[dict[str, Any]] = []
     notes: list[dict[str, Any]] = []
+    paragraphs = 0
     for node in _paragraph_nodes(tree):
         claim = _claim_of(node)
         if claim is None:
@@ -401,33 +413,46 @@ def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, An
                 "entailment": str(((claim.get("checks") or {}).get("entailment")) or "") or None,
             })
             continue
-        verdict = str(claim.get("verdict") or "").upper()
-        checks = claim.get("checks") if isinstance(claim.get("checks"), dict) else {}
-        wording = checks.get("wording") if isinstance(checks.get("wording"), dict) else {}
-        source_quality = checks.get("source_quality") if isinstance(checks.get("source_quality"), dict) else {}
-        flags = [str(f) for f in (claim.get("flags") or []) if f]
-        page = claim.get("page")
+        paragraphs += 1
         text = str(node.get("content") or "").strip()
-        rows.append({
-            "node_id": node.get("id"),
-            "claim": text if len(text) <= 240 else text[:239].rstrip() + "…",
-            "verdict": verdict,
-            "verdict_words": CLAIM_VERDICT_WORDS.get(verdict, verdict.replace("_", " ").capitalize()),
-            "reason": str(claim.get("reason") or ""),
-            "quote": str(claim["quote"]) if claim.get("quote") else None,
-            "quote_verbatim": bool(claim.get("quote_verbatim")),
-            "source_id": claim.get("source_id"),
-            "source": str(claim.get("source_name") or claim.get("source_id") or "") or None,
-            "page": int(page) if isinstance(page, (int, float)) else None,
-            "entailment": str(checks.get("entailment") or "") or None,
-            "numeric": _numeric_words(checks.get("numeric")),
-            "numeric_status": str((checks.get("numeric") or {}).get("status") or "") if isinstance(checks.get("numeric"), dict) else None,
-            "wording_flags": [str(f) for f in (wording.get("flags") or [])],
-            "unsupported_terms": [str(t) for t in (wording.get("unsupported_terms") or [])],
-            "source_quality": str(source_quality.get("status") or "") or None,
-            "flags": flags,
-            "policy": claim.get("policy"),
-        })
+        para_text = text if len(text) <= 240 else text[:239].rstrip() + "…"
+        # claim-v1 assesses per sentence: a block of kind "sentences" carries
+        # its units in checks.sub_claims and the ledger lists every one of them
+        # (claim_summary.total counts sentences). A block without sub-claims is
+        # its own single unit.
+        units = _claim_units(claim)
+        for index, unit in enumerate(units, 1):
+            verdict = str(unit.get("verdict") or "").upper()
+            checks = unit.get("checks") if isinstance(unit.get("checks"), dict) else {}
+            wording = checks.get("wording") if isinstance(checks.get("wording"), dict) else {}
+            source_quality = checks.get("source_quality") if isinstance(checks.get("source_quality"), dict) else {}
+            flags = [str(f) for f in (unit.get("flags") or []) if f]
+            page = unit.get("page")
+            unit_text = str(unit.get("text") or "").strip() if unit is not claim else text
+            rows.append({
+                "node_id": node.get("id"),
+                "paragraph": para_text,
+                "paragraph_index": paragraphs,
+                "sentence_index": index,
+                "sentences_in_paragraph": len(units),
+                "claim": (unit_text if len(unit_text) <= 240 else unit_text[:239].rstrip() + "…") or para_text,
+                "verdict": verdict,
+                "verdict_words": CLAIM_VERDICT_WORDS.get(verdict, verdict.replace("_", " ").capitalize()),
+                "reason": str(unit.get("reason") or ""),
+                "quote": str(unit["quote"]) if unit.get("quote") else None,
+                "quote_verbatim": bool(unit.get("quote_verbatim")),
+                "source_id": unit.get("source_id") or claim.get("source_id"),
+                "source": str(unit.get("source_name") or unit.get("source_id") or claim.get("source_name") or claim.get("source_id") or "") or None,
+                "page": int(page) if isinstance(page, (int, float)) else None,
+                "entailment": str(checks.get("entailment") or "") or None,
+                "numeric": _numeric_words(checks.get("numeric")),
+                "numeric_status": str((checks.get("numeric") or {}).get("status") or "") if isinstance(checks.get("numeric"), dict) else None,
+                "wording_flags": [str(f) for f in (wording.get("flags") or [])],
+                "unsupported_terms": [str(t) for t in (wording.get("unsupported_terms") or [])],
+                "source_quality": str(source_quality.get("status") or "") or None,
+                "flags": flags,
+                "policy": claim.get("policy"),
+            })
     meta_summary = (tree or {}).get("meta", {}).get("claim_summary") if isinstance((tree or {}).get("meta"), dict) else None
     if isinstance(meta_summary, dict) and meta_summary.get("total") is not None:
         summary = {
@@ -439,19 +464,22 @@ def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, An
             "flagged": int(meta_summary.get("flagged") or 0),
             "inconsistencies": list(meta_summary.get("inconsistencies") or []),
             "policy": meta_summary.get("policy"),
+            # `paragraphs` and `meta` ride along (the live state lacked them, 2026-09-27).
+            "paragraphs": int(meta_summary["paragraphs"]) if isinstance(meta_summary.get("paragraphs"), (int, float)) else paragraphs,
+            "meta": int(meta_summary["meta"]) if isinstance(meta_summary.get("meta"), (int, float)) else len(notes),
             "source": "meta.claim_summary",
         }
     elif rows:
+        # Counted from the sentences (one row each), as claim_summary.total does.
         summary = {"total": len(rows), "verified": 0, "unsupported": 0, "contradicted": 0, "insufficient": 0,
-                   "flagged": sum(1 for r in rows if r["flags"]), "inconsistencies": [], "policy": rows[0].get("policy"), "source": "counted from the claim blocks"}
+                   "flagged": sum(1 for r in rows if r["flags"]), "inconsistencies": [], "policy": rows[0].get("policy"),
+                   "paragraphs": paragraphs, "meta": len(notes), "source": "counted from the claim blocks"}
         for r in rows:
             key = _CLAIM_COUNT_KEYS.get(r["verdict"])
             if key:
                 summary[key] += 1
     else:
         summary = None
-    if summary is not None:
-        summary["meta"] = len(notes)
     collect_claim_ledger.last_notes = notes  # type: ignore[attr-defined]
     return rows, summary
 
@@ -466,8 +494,11 @@ def claim_summary_words(summary: dict[str, Any] | None) -> str:
     """"3 of 5 claims verified · 1 contradicted · 1 unsupported · 0 insufficient · 2 flagged"."""
     if not summary:
         return "not assessed (no claim-v1 verdicts on this document)"
-    return (f"{summary['verified']} of {summary['total']} claims verified · {summary['contradicted']} contradicted · "
-            f"{summary['unsupported']} unsupported · {summary['insufficient']} insufficient evidence · {summary['flagged']} flagged")
+    words = (f"{summary['verified']} of {summary['total']} claims verified · {summary['contradicted']} contradicted · "
+             f"{summary['unsupported']} unsupported · {summary['insufficient']} insufficient evidence · {summary['flagged']} flagged")
+    if isinstance(summary.get("paragraphs"), int) and summary["paragraphs"] and summary["paragraphs"] != summary["total"]:
+        words += f" · {summary['total']} sentences in {summary['paragraphs']} paragraphs"
+    return words
 
 
 def _collect_lock_ledger(draft: dict[str, Any], runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1329,7 +1360,16 @@ def _section_claim_ledger(section: dict[str, Any]) -> str:
     if not items:
         return f"<p class='empty'>No claim ledger — {_esc(section.get('reason') or 'no claim-v1 verdict is recorded')}.</p>" + _notes_table(section.get("notes") or [])
     rows = []
+    last_paragraph = None
     for r in items:
+        # A paragraph of several sentences gets one grouped header row; each
+        # sentence then names its number in the Paragraph column.
+        if r.get("sentences_in_paragraph", 1) > 1 and r.get("node_id") != last_paragraph:
+            rows.append(
+                f"<tr class='paragraph-head'><th colspan='7'>Paragraph {_esc(str(r.get('paragraph_index')))} · "
+                f"{_esc(str(r.get('sentences_in_paragraph')))} sentences · <span class='meta'>{_esc(r.get('paragraph'))}</span></th></tr>"
+            )
+        last_paragraph = r.get("node_id")
         checks = []
         if r.get("entailment"):
             checks.append(f"entailment {r['entailment']}")
@@ -1347,8 +1387,10 @@ def _section_claim_ledger(section: dict[str, Any]) -> str:
         quote = r.get("quote")
         quote_html = (f"<q>{_esc(quote)}</q>" + ("" if r.get("quote_verbatim") else " <span class='meta'>(not verbatim)</span>")) if quote else "<span class='meta'>no verbatim quote recorded</span>"
         page = r.get("page")
+        where = (f"{r.get('paragraph_index')}.{r.get('sentence_index')}" if r.get("sentences_in_paragraph", 1) > 1 else str(r.get("paragraph_index") or ""))
         rows.append(
-            f"<tr class='claim claim-{_esc(str(r.get('verdict') or '').lower())}'>"
+            f"<tr class='claim claim-{_esc(str(r.get('verdict') or '').lower())}' data-node-id='{_esc(r.get('node_id'))}'>"
+            f"<td class='meta'>{_esc(where)}</td>"
             f"<td>{_esc(r.get('claim'))}<br><span class='meta'>{_esc(r.get('reason') or '')}</span></td>"
             f"<td class='verdict'>{_esc(r.get('verdict_words'))}</td>"
             f"<td>{quote_html}</td>"
@@ -1361,7 +1403,7 @@ def _section_claim_ledger(section: dict[str, Any]) -> str:
     inconsistencies = (summary or {}).get("inconsistencies") or []
     if inconsistencies:
         head += "<ul class='reasons'>" + "".join(f"<li>Inconsistency: {_esc(str(i.get('detail') if isinstance(i, dict) else i))}</li>" for i in inconsistencies) + "</ul>"
-    return (head + "<table><thead><tr><th>Claim</th><th>Verdict</th><th>Verbatim quote</th><th>Source</th><th>Page</th><th>Checks</th></tr></thead>"
+    return (head + "<table><thead><tr><th>Paragraph</th><th>Claim (sentence)</th><th>Verdict</th><th>Verbatim quote</th><th>Source</th><th>Page</th><th>Checks</th></tr></thead>"
             f"<tbody>{''.join(rows)}</tbody></table>" + notes_html)
 
 

@@ -505,7 +505,7 @@ def test_claim_ledger_rows_counts_and_page_not_recorded():
     assert [r["verdict"] for r in rows] == ["VERIFIED", "CONTRADICTED", "UNSUPPORTED", "INSUFFICIENT_EVIDENCE"]
     assert [r["verdict_words"] for r in rows] == ["Verified", "Contradicted", "Unsupported", "Insufficient evidence"]
     # Counted from the blocks when meta.claim_summary is absent; partial is never verified.
-    assert summary == {"total": 4, "verified": 1, "unsupported": 1, "contradicted": 1, "insufficient": 1, "flagged": 2, "inconsistencies": [], "policy": "claim-v1", "source": "counted from the claim blocks", "meta": 0}
+    assert summary == {"total": 4, "verified": 1, "unsupported": 1, "contradicted": 1, "insufficient": 1, "flagged": 2, "inconsistencies": [], "policy": "claim-v1", "source": "counted from the claim blocks", "meta": 0, "paragraphs": 4}
     assert rows[0]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · stated 1,550 ✓" and rows[0]["page"] == 2
     assert rows[1]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · expected 1,550, stated 1,450 ✗ mismatch" and rows[1]["page"] is None
     assert rows[2]["quote"] is None and rows[2]["unsupported_terms"] == ["guaranteed"] and rows[2]["wording_flags"] == ["high_risk_wording:guaranteed"]
@@ -621,3 +621,35 @@ def test_meta_paragraphs_are_notes_not_claims_in_the_ledger():
     assert rows2 == [] and summary2 is None
     html2 = vd._section_claim_ledger({"items": rows2, "summary": summary2, "notes": vd.collect_claim_notes(only_notes), "reason": "no claim-v1 verdict is recorded"})
     assert "No claim ledger" in html2 and "Notes about this draft" in html2
+
+
+
+def test_claim_ledger_lists_every_sentence_of_a_sentences_block():
+    """claim-v1 assesses per sentence: a block of ``checks.kind == "sentences"``
+    carries ``checks.sub_claims``; the ledger lists one row per sentence under a
+    grouped paragraph header, counts by verdict from the sentences (what
+    ``claim_summary.total`` counts), and copies ``paragraphs`` / ``meta``."""
+    para = _claim("UNSUPPORTED", quote="Total premium is $1,550.", reason="1 of 2 sentences verified")
+    para["checks"]["kind"] = "sentences"
+    para["checks"]["sub_claims"] = [
+        {"text": "The total premium is $1,550.", "verdict": "VERIFIED", "reason": "the source states it", "quote": "Total premium is $1,550.", "quote_verbatim": True,
+         "source_id": "src-1", "source_name": "policy.pdf", "page": 2, "checks": {"entailment": "yes", "numeric": {"status": "recomputed_ok", "detail": "1,250 + 300 = 1,550", "stated": "1,550"}}, "flags": []},
+        {"text": "Coverage is guaranteed for every driver.", "verdict": "UNSUPPORTED", "reason": "no source sentence carries it", "quote": None, "quote_verbatim": False,
+         "source_id": "", "source_name": "", "page": None, "checks": {"entailment": "no", "wording": {"unsupported_terms": ["guaranteed"]}}, "flags": ["high_risk_wording:guaranteed"]},
+    ]
+    single = _claim("VERIFIED")
+    tree = _claim_tree([para, single])
+    rows, summary = vd.collect_claim_ledger(tree)
+    assert [(r["paragraph_index"], r["sentence_index"], r["verdict"]) for r in rows] == [(1, 1, "VERIFIED"), (1, 2, "UNSUPPORTED"), (2, 1, "VERIFIED")]
+    assert rows[0]["claim"] == "The total premium is $1,550." and rows[0]["sentences_in_paragraph"] == 2 and rows[0]["numeric"].startswith("Recomputed: 1,250 + 300 = 1,550")
+    assert rows[1]["page"] is None and rows[1]["unsupported_terms"] == ["guaranteed"] and rows[1]["flags"] == ["high_risk_wording:guaranteed"]
+    assert rows[2]["paragraph"].startswith("Claim number 2") and rows[2]["sentences_in_paragraph"] == 1
+    assert summary["total"] == 3 and summary["verified"] == 2 and summary["unsupported"] == 1 and summary["paragraphs"] == 2 and summary["meta"] == 0 and summary["flagged"] == 1
+    html = vd._section_claim_ledger({"items": rows, "summary": summary, "notes": []})
+    assert "Paragraph 1 · 2 sentences" in html and html.count("<tr class='claim ") == 3
+    assert "<td class='meta'>1.1</td>" in html and "<td class='meta'>1.2</td>" in html and "<td class='meta'>2</td>" in html
+    assert "2 of 3 claims verified" in html and "3 sentences in 2 paragraphs" in html and html.count("not recorded") == 1
+    # meta.claim_summary wins and its paragraphs / meta are copied into the state's summary.
+    tree["meta"]["claim_summary"] = {"total": 3, "verified": 2, "unsupported": 1, "contradicted": 0, "insufficient": 0, "flagged": 1, "paragraphs": 2, "meta": 1, "policy": "claim-v1", "inconsistencies": []}
+    _rows, summary2 = vd.collect_claim_ledger(tree)
+    assert summary2["paragraphs"] == 2 and summary2["meta"] == 1 and summary2["source"] == "meta.claim_summary"
