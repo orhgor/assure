@@ -357,3 +357,85 @@ judge, this keeps the UI honest about them.
   once, invitations / sessions, audit rows with record links, rail items.
   Zero script errors (the only console line is the browser logging the 423
   response itself).
+
+## Claim verdicts in the shell and dossier (claim-v1, 2026-09-27)
+
+Contract: `node.meta.provenance.claim = {policy, verdict: VERIFIED | UNSUPPORTED
+| CONTRADICTED | INSUFFICIENT_EVIDENCE, reason, quote, quote_verbatim,
+source_id, source_name, page, checks: {entailment, numeric, wording,
+source_quality}, flags[]}`, `meta.claim_summary`, `confidenceSpans[].
+numeric_consistency`; the Red-Hat compile frame may say `scheduled`. Older
+trees carry none of it and keep the legacy entailment surfaces unchanged — the
+two are never mixed on one document (`_docHasClaims`).
+
+* **Anchor chips and colour.** The margin chip is the claim verdict word
+  (Verified / Unsupported / Contradicted / Insufficient evidence): the
+  persisted block's, or — for a paragraph without one — the verdict the
+  server's own counter derives (`claim_policy.derive_claim(sources=None)`:
+  nothing cited → Unsupported; cited with entailment `contradicts` →
+  Contradicted, `partial`/`no` → Unsupported, else Insufficient evidence),
+  so mark and tile agree in both languages (`tests/test_client_counters_
+  parity.py` runs `_derivedCounts`, `_claimOf`, `_derivedClaimVerdict`,
+  `_claimVerdictOf`, `_claimStateOf`, `_anchorStateOf` from `shell.js` in
+  node against `audit_summary._provenance_counts`). `_derivedCounts` mirrors
+  the server bucket for bucket: `supported == verified`, partial is never
+  verified, `flagged` reads persisted blocks only (the wording term list is
+  server-side). "Not assessed" remains only as the legend's no-colour entry. The `.jdf-p` carries `data-anchor-state` and
+  `data-verdict-tone` (verified quiet green, contradicted red, unsupported /
+  insufficient amber, none). Confidence spans are coloured from the same
+  verdict (`.conf-verified` / `.conf-partial` / `.conf-contradicted`) — never
+  from `score`, which is null now and was a numeric-lock figure before; the
+  span's accessible name is "Claim: <verdict> · <numeric_consistency in
+  words>". The legend names the verdicts. The 📎 cite chip appears only for a
+  verbatim quote (`claim.quote` with `quote_verbatim: true`, or a citation
+  row's own `extracted_quote`); `excerpt` is never read.
+* **Evidence panel.** Header: verdict word · `claim-v1` · page (or "page not
+  recorded" — never "page 1"); then the reason sentence, the quote in quotation
+  marks with source name and page ("not verbatim" when so, "No verbatim quote
+  recorded" when null), the numeric line ("Recomputed: 1,250 + 300 = 1,550 ·
+  stated 1,550 ✓" or "… expected 1,550, stated 1,450 ✗ mismatch"), entailment
+  and source-quality words, and wording / inconsistency flags as text badges
+  ("guaranteed — not in the source", "Figure inconsistent with another
+  claim"). The legacy citation rows follow.
+* **Inspector confidence pane.** No "Citation confidence" or "Figures checked"
+  numbers: the claim verdict with its reason, the numeric line, the entailment
+  word, and each figure span's `numeric_consistency` in words.
+* **Counts, bar, chip.** With a summary the 2×2 tiles hide and one line reads
+  "N of M claims verified · c contradicted · u unsupported · i insufficient
+  evidence · f flagged (· k inconsistencies)". The complete bar reads
+  "Drafted · <that line>", and "✓ Drafted and verified against your sources"
+  only when verified == total and flagged == 0. The header chip says
+  "Verified" under the same condition, else "Review · <counts>" (contradicted
+  first, red when any).
+* **Red-Hat.** A compile frame with `status: "scheduled"` (or `pending`)
+  polls `GET /api/projects/<id>/redhat/status` every 3 s (5 min ceiling) until
+  `status.complete` (or a terminal word), then re-reads the tree so the
+  findings land on their paragraphs; the panel says "scheduled — checking…"
+  meanwhile. Each finding shows its `quote` verbatim (marked when
+  `quote_verbatim` is not true).
+* **Dossier and audit bundle** (`services/verification_dossier.py`,
+  `services/audit_bundle.py`). `collect_claim_ledger(tree)` → one row per
+  assessed claim (text, verdict, verbatim quote, source, page or "not
+  recorded", entailment word, numeric detail, wording flags, unsupported terms,
+  source quality, flags) and the summary (`meta.claim_summary`, else counted
+  from the blocks, else None). `derive_trust_state(..., claim_summary=)`:
+  any CONTRADICTED → not verified; verified < total or flagged > 0 → review
+  required; only VERIFIED counts — a partial / INSUFFICIENT_EVIDENCE verdict is
+  never verified (the legacy `supported` counter no longer feeds
+  `accepted_total` when a summary exists). The dossier's summary row reads the
+  counts by verdict, section "2. Claim ledger" is the table, and
+  `verification_state.json` carries `claim_summary` and
+  `sections.claim_ledger`. The audit bundle prints "Claims verified: V of T"
+  (or, on an older tree, the legacy check's `yes`-only count named as such)
+  and a "2b. Claim Ledger" table. Renderer policy unchanged (503 when none).
+* **Tests.** `tests/test_verification_dossier.py` (ledger rows, numeric words,
+  page not recorded, summary source, trust table from the summary, the dossier
+  title from claims, the bundle's verified/total), `tests/test_workbench_
+  safeguards.py` (no confidence-score words or classes, verdict words, no
+  defaulted page, `/redhat/status`, `assure-111`, strings in every locale).
+  Headless smoke at 1280 / 390 px: five paragraphs (one per verdict + one
+  unassessed) → chips, tones, verdict-coloured spans with consistency words,
+  cite chips only on verbatim quotes, chip "Review · 1 of 4 claims verified ·
+  1 contradicted · …", the claim line replacing the tiles, the claim block per
+  paragraph, "page not recorded"; no "Citation confidence", no "page 1"; zero
+  console errors.

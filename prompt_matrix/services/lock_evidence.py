@@ -1,4 +1,10 @@
-"""Resolve lock pill evidence from runs + substrate vault."""
+"""Resolve lock pill evidence from runs + substrate vault.
+
+Evidence rules (2026-09-27, ``docs/evidence-honesty.md``): ``page_number`` is
+the page the excerpt was found on or null; ``excerpt`` is verbatim source text
+located by search or null; ``z3_proof`` is a real solver's output or
+``{"status": "not_run", "reason"}``. None of the three is ever defaulted.
+"""
 
 from __future__ import annotations
 
@@ -23,53 +29,92 @@ def _source_name(run: dict[str, Any], source_id: str) -> str:
     return source_id or "Unknown source"
 
 
-def _excerpt_from_text(text: str, lock: dict[str, Any], *, window: int = 240) -> str:
+_PAGE_MARKER = re.compile(r"--- Page (\d+) ---")
+
+
+def _page_at_offset(text: str, offset: int) -> int | None:
+    """The page whose ``--- Page N ---`` marker last precedes ``offset``; None
+    when the text carries no markers (a plain extraction has no page layout to
+    read, and guessing one is what this function replaced)."""
+    page: int | None = None
+    for match in _PAGE_MARKER.finditer(text):
+        if match.start() > offset:
+            break
+        page = int(match.group(1))
+    return page
+
+
+def _excerpt_from_text(
+    text: str, lock: dict[str, Any], *, window: int = 240
+) -> tuple[str | None, int | None]:
+    """``(excerpt, page)`` located by searching the source for the lock's value
+    or name, or ``(None, None)``.
+
+    The excerpt is verbatim source text around the hit. There is no fallback:
+    until 2026-09-27 this returned the first 240 characters of the file when
+    nothing matched, and the inspector showed a document's title block as the
+    evidence for a figure that was not in it.
+    """
     raw = (text or "").strip()
     if not raw:
-        return ""
+        return None, None
     needles: list[str] = []
+    value = lock.get("value")
+    if value is not None:
+        needles.append(str(value))
+        if isinstance(value, (int, float)):
+            if float(value).is_integer():
+                needles.append(f"{int(value):,}")
+            if value >= 1_000_000:
+                needles.append(f"${value / 1_000_000:.0f}M")
     for key in ("metric", "canonical_key"):
         val = lock.get(key)
         if val:
             needles.append(str(val))
-    value = lock.get("value")
-    if value is not None:
-        needles.append(str(value))
-        if isinstance(value, (int, float)) and value >= 1_000_000:
-            needles.append(f"${value / 1_000_000:.0f}M")
+    lowered = raw.lower()
     for needle in needles:
         if not needle:
             continue
-        idx = raw.lower().find(needle.lower())
-        if idx >= 0:
-            start = max(0, idx - window // 2)
-            end = min(len(raw), idx + len(needle) + window // 2)
-            snippet = raw[start:end].strip()
-            if start > 0:
-                snippet = "…" + snippet
-            if end < len(raw):
-                snippet = snippet + "…"
-            return snippet
-    return raw[:window] + ("…" if len(raw) > window else "")
+        idx = lowered.find(needle.lower())
+        if idx < 0:
+            continue
+        start = max(0, idx - window // 2)
+        end = min(len(raw), idx + len(needle) + window // 2)
+        snippet = raw[start:end].strip()
+        if start > 0:
+            snippet = "…" + snippet
+        if end < len(raw):
+            snippet = snippet + "…"
+        return snippet, _page_at_offset(raw, idx)
+    return None, None
 
 
-def _z3_proof_for_lock(lock: dict[str, Any], run: dict[str, Any]) -> str:
+def _z3_proof_for_lock(lock: dict[str, Any], run: dict[str, Any]) -> Any:
+    """A real Z3 run's output, or ``{"status": "not_run", "reason"}``.
+
+    Until 2026-09-27 this wrote an SMT-LIB fragment ending in ``; status: SAT``
+    without ever calling Z3 — a proof log for a check that did not happen. The
+    only figure available here is the run's own truth ledger, which was built
+    from these locks, so comparing the lock to it proves nothing; the honest
+    answer is that no solver ran for this lock.
+    """
     if lock.get("z3_proof"):
-        return str(lock["z3_proof"])
-    key = str(lock.get("canonical_key") or lock.get("metric") or "claim")
-    value = lock.get("value")
+        return lock["z3_proof"]
+    key = str(lock.get("canonical_key") or lock.get("metric") or "").strip()
     ledger = (run.get("content") or {}).get("truth_ledger") or {}
-    ledger_val = ledger.get(key)
-    lines = [
-        f"; Z3 verification log for lock {lock.get('lock_hash') or ''}",
-        f"(declare-const {re.sub(r'[^a-zA-Z0-9_]', '_', key)} Real)",
-        f"(assert (= {re.sub(r'[^a-zA-Z0-9_]', '_', key)} {value!r}))",
-    ]
-    if ledger_val is not None and ledger_val != value:
-        lines.append(f"; truth_ledger[{key!r}] = {ledger_val!r} (mismatch flagged)")
-    else:
-        lines.append("; status: SAT — lock consistent with truth ledger")
-    return "\n".join(lines)
+    if key and key in ledger and ledger.get(key) != lock.get("value"):
+        return {
+            "status": "not_run",
+            "reason": (
+                f"no solver ran for this lock; note the run's truth_ledger[{key!r}] = "
+                f"{ledger.get(key)!r} differs from the lock value {lock.get('value')!r}"
+            ),
+        }
+    return {
+        "status": "not_run",
+        "reason": "no solver ran for this lock; the run's truth ledger is built from the "
+        "locks themselves, so there is no independent figure to check against",
+    }
 
 
 def find_lock_evidence(lock_hash: str) -> dict[str, Any] | None:
@@ -82,21 +127,32 @@ def find_lock_evidence(lock_hash: str) -> dict[str, Any] | None:
             if str(lock.get("lock_hash") or "") != target:
                 continue
             source_id = str(lock.get("source_id") or "")
-            page = int((lock.get("page_coordinates") or {}).get("page") or 1)
-            excerpt = ""
+            coords = lock.get("page_coordinates") or {}
+            page = coords.get("page") if isinstance(coords, dict) else None
+            excerpt: str | None = None
             entry = (
                 fetch_substrate_entry(run.get("workspace_id") or "founder", source_id)
                 if source_id
                 else None
             )
             if entry:
-                excerpt = _excerpt_from_text(str(entry.get("extracted_text") or ""), lock)
+                excerpt, found_page = _excerpt_from_text(
+                    str(entry.get("extracted_text") or ""), lock
+                )
+                # The page is the page the excerpt was found on; a lock that was
+                # located by its producer keeps that page.
+                if page in (None, "", 0):
+                    page = found_page
+            try:
+                page = int(page) if page not in (None, "", 0) else None
+            except (TypeError, ValueError):
+                page = None
             return {
                 "lock_hash": target,
                 "source_id": source_id,
                 "source_name": _source_name(run, source_id),
                 "page_number": page,
-                "excerpt": excerpt or str(lock.get("metric") or lock.get("canonical_key") or ""),
+                "excerpt": excerpt,
                 "z3_proof": _z3_proof_for_lock(lock, run),
                 "run_id": run.get("id"),
                 "verdict": _lock_verdict(lock, entry),

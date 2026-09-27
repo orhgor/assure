@@ -129,10 +129,22 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     result_expires=int(os.environ.get("CELERY_RESULT_EXPIRES", "86400")),
+    # Every task the worker must see is routed to a queue the compose worker
+    # consumes (``-Q parse,default``). Measured 2026-09-27: the Red-Hat
+    # multipass had no route, so it went to Celery's built-in ``celery`` queue,
+    # which no worker in this deployment consumes — ``redhat/status`` stayed
+    # ``pending`` forever, on the auto-run after compile and on the button.
+    task_default_queue="default",
     task_routes={
         "assure.process_substrate_upload": {"queue": "parse"},
         "assure.import_project_pdf": {"queue": "parse"},
         "assure.safe_compile_and_verify": {"queue": "default"},
+        "assure.run_redhat_multipass": {"queue": "default"},
+        "assure.run_redhat_pass1": {"queue": "default"},
+        "assure.run_redhat_pass2": {"queue": "default"},
+        "assure.compile_preview": {"queue": "default"},
+        "assure.run_workflow": {"queue": "default"},
+        "assure.check_and_trigger_automations": {"queue": "default"},
     },
 )
 

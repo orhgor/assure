@@ -144,6 +144,9 @@ def test_a_no_figure_answer_reports_no_locks(monkeypatch) -> None:
     other half of this behaviour lives in tests/test_draft.py, which asserts the
     status rather than the extraction.
     """
+    # The model follows the app's backend since 2026-09-27 (an OpenRouter key in
+    # .env resolves the anchor-stage model); the legacy id is the cloud default.
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
     monkeypatch.setattr(lock_inference, "call_model", lambda *_a, **_k: _answer())
     monkeypatch.setattr(lock_inference, "load_keys", lambda: None)
     monkeypatch.setattr(lock_inference, "key_present", lambda _name: True)

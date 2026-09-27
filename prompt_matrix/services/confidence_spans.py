@@ -1,7 +1,15 @@
-"""Z3 / ledger confidence spans for the workbench overlay.
+"""Z3 / ledger consistency spans for the workbench overlay.
 
 Offsets are character indexes into that node's visible text (paragraph
-content, callout content, or section title). Scores are 0.0–1.0.
+content, callout content, or section title).
+
+Each span carries ``numeric_consistency`` — ``matches_lock`` / ``no_lock`` /
+``contradicts_lock`` — and ``score: None``. Until 2026-09-27 ``score`` was
+0.92 / 0.5 / 0.25 (fixed values from ``ledger/truth_engine``) and the shell
+painted them green / yellow / red as "confidence"; a fixed number is not a
+measurement, and a sentence with no figure to check is not "50 % confident".
+The ``score`` key stays, null, so a reader that looks for it finds an
+explicit absence (shell contract: ``docs/evidence-honesty.md``).
 """
 
 from __future__ import annotations
@@ -75,38 +83,42 @@ def _score_unit(
     lock_keys: set[str],
     ledger: dict[str, Any] | None = None,
     context: str = "",
-) -> tuple[float, str, str]:
+) -> tuple[str, str, str]:
+    """``(numeric_consistency, source, reason)`` for one claim unit."""
     try:
+        from ..ledger.truth_engine import NUMERIC_CONTRADICTS_LOCK
         from ..ledger.z3_ledger import check_claim
     except ImportError:
+        from ledger.truth_engine import NUMERIC_CONTRADICTS_LOCK
         from ledger.z3_ledger import check_claim
     checked = check_claim(
         chunk,
-        context=context or chunk,
+        context=context,
         ledger=ledger,
         source_label=_source_label(node),
         source_id=_source_id(node),
     )
+    consistency = str(checked.get("numeric_consistency") or "no_lock")
     lowered = chunk.lower()
     for key in violation_keys:
         if key.lower() in lowered:
-            return 0.25, "z3", checked["reason"]
+            return NUMERIC_CONTRADICTS_LOCK, "z3", checked["reason"]
     annotations = (node.get("annotations") or {}).get("z3") or []
     for ann in annotations:
         if str(ann.get("status") or "") != "violation":
             continue
         canonical = str(ann.get("canonical_key") or "")
         if canonical and canonical.lower() in lowered:
-            return 0.25, "z3", checked["reason"]
+            return NUMERIC_CONTRADICTS_LOCK, "z3", checked["reason"]
     provenance = node.get("provenance") or []
     if provenance:
         first = provenance[0] if isinstance(provenance[0], dict) else {}
         source = str(first.get("source_name") or first.get("source_id") or "substrate")
-        return float(checked["confidence"]), source, checked["reason"]
+        return consistency, source, checked["reason"]
     for key in lock_keys:
         if key.lower() in lowered:
-            return float(checked["confidence"]), "z3", checked["reason"]
-    return float(checked["confidence"]), "ledger", checked["reason"]
+            return consistency, "z3", checked["reason"]
+    return consistency, "ledger", checked["reason"]
 
 
 def _source_label(node: dict[str, Any]) -> str:
@@ -122,6 +134,23 @@ def _source_label(node: dict[str, Any]) -> str:
                 bits.append(section)
             return ", ".join(bits)
     return "source text"
+
+
+def _node_source_text(node: dict[str, Any]) -> str:
+    """The anchored source sentences (window, else quote) of every provenance
+    row, joined — the only text a claim may be searched in. Until 2026-09-27
+    the node's own content was the context, so every unit "matched 100 % of
+    source phrase" — itself."""
+    parts: list[str] = []
+    for prov in node.get("provenance") or []:
+        if not isinstance(prov, dict):
+            continue
+        text = str(prov.get("anchor_window") or "").strip() or str(
+            prov.get("extracted_quote") or ""
+        ).strip()
+        if text and text not in parts:
+            parts.append(text)
+    return "\n".join(parts)
 
 
 def _source_id(node: dict[str, Any]) -> str:
@@ -146,7 +175,8 @@ def build_confidence_spans(
     document: dict[str, Any] | None,
     z3_results: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Return ``{ startChar, endChar, score, source, nodeId }`` for each claim unit."""
+    """Return ``{ startChar, endChar, numeric_consistency, score: None, source,
+    nodeId, reason }`` for each claim unit."""
     if not document:
         return []
     ledger = document.get("truth_ledger") or {}
@@ -157,19 +187,21 @@ def build_confidence_spans(
     for node in _walk_nodes(document):
         text = _node_text(node)
         node_id = str(node.get("id") or "")
+        source_text = _node_source_text(node)
         for start, end, chunk in _iter_units(text):
-            score, source, reason = _score_unit(
+            consistency, source, reason = _score_unit(
                 chunk,
                 node,
                 violation_keys=violation_keys,
                 lock_keys=lock_keys,
                 ledger=ledger if isinstance(ledger, dict) else {},
-                context=text,
+                context=source_text,
             )
             span = {
                 "startChar": start,
                 "endChar": end,
-                "score": score,
+                "score": None,
+                "numeric_consistency": consistency,
                 "source": source,
                 "nodeId": node_id,
                 "reason": reason,
@@ -236,7 +268,10 @@ def build_macro_appendix(
     redhat_critiques: list[dict[str, Any]] | None = None,
     confidence_spans: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """One row per claim: visible text, Z3 score, and Red-Hat critique."""
+    """One row per claim: visible text, Z3 numeric consistency, and Red-Hat critique.
+
+    ``z3Score`` / ``z3_score`` are always ``None`` (2026-09-27); the verdict
+    word is ``numeric_consistency``."""
     if not document:
         return []
     spans = (
@@ -265,13 +300,14 @@ def build_macro_appendix(
             continue
         for start, end, chunk in units:
             span = span_by_key.get((nid, start, end))
-            score = span.get("score") if span else None
+            consistency = span.get("numeric_consistency") if span else None
             rows.append(
                 {
                     "claim": chunk.strip(),
                     "nodeId": nid,
-                    "z3Score": score,
-                    "z3_score": score,
+                    "z3Score": None,
+                    "z3_score": None,
+                    "numeric_consistency": consistency,
                     "redhatCritique": critique,
                     "redhat_critique": critique,
                 }

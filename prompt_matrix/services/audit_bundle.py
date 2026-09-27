@@ -247,6 +247,28 @@ def compute_export_gate(
     }
 
 
+def _count_entailed_yes(tree: dict[str, Any] | None) -> int:
+    """Paragraphs whose legacy entailment verdict is ``yes`` — the only legacy
+    verdict that may be called verified (``partial`` is support in part)."""
+    n = 0
+    for node in _walk_nodes(tree or {}):
+        if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
+            continue
+        prov = (node.get("meta") or {}).get("provenance") if isinstance(node.get("meta"), dict) else None
+        ent = prov.get("entailment") if isinstance(prov, dict) else None
+        if isinstance(ent, dict) and str(ent.get("verdict") or "").lower() == "yes":
+            n += 1
+    return n
+
+
+def _claim_ledger_html(rows: list[dict[str, Any]], summary: dict[str, Any] | None) -> str:
+    try:
+        from .verification_dossier import _section_claim_ledger
+    except ImportError:
+        from services.verification_dossier import _section_claim_ledger
+    return _section_claim_ledger({"items": rows, "summary": summary, "reason": "no claim-v1 verdict is recorded on this document"})
+
+
 def _node_label(node: dict[str, Any], limit: int = 60) -> str:
     raw = str(node.get("title") or node.get("content") or "").strip()
     return raw[:limit]
@@ -597,14 +619,29 @@ def build_audit_bundle_html(
     # is not — a pre-fix revision still reports its gate and its counts.
     gate_status = gate.get("gate_status") or "review"
     anchored = gate.get("anchored", 0)
-    supported = gate.get("supported", 0)
     eligible = gate.get("eligible", 0)
+    # claim-v1 (2026-09-27): verified / total from the claim ledger; only a
+    # VERIFIED verdict counts. Without claim blocks the legacy entailment check
+    # is named for what it is, and `partial` is never counted as verified.
+    try:
+        from .verification_dossier import claim_summary_words, collect_claim_ledger
+    except ImportError:
+        from services.verification_dossier import claim_summary_words, collect_claim_ledger
+    claim_rows, claim_summary = collect_claim_ledger(tree)
+    if claim_summary:
+        claims_line = f"<p>Claims verified: {_esc(str(claim_summary['verified']))} of {_esc(str(claim_summary['total']))} — {_esc(claim_summary_words(claim_summary))}</p>"
+    else:
+        yes_only = _count_entailed_yes(tree)
+        claims_line = (
+            f"<p>Claims verified: {_esc(str(yes_only))} of {_esc(str(eligible))} "
+            "(legacy entailment check, verdict yes only; partial is not counted as verified; "
+            "no claim-v1 verdict is recorded on this document)</p>"
+        )
     gate_html = (
         "<h1>0. Verification Gate</h1>\n"
         f"<p><strong>Gate: {_esc(str(gate_status))}</strong></p>\n"
         f"<p>Claims anchored: {_esc(str(anchored))} of {_esc(str(eligible))}</p>\n"
-        f"<p>Claims verified against their source: {_esc(str(supported))} "
-        f"of {_esc(str(eligible))}</p>"
+        + claims_line
     )
     reason = gate.get("unverified_reason") or ""
     if reason:
@@ -784,6 +821,9 @@ Sign-offs: <strong>{len(sign_offs)}</strong>.</p>
 
 <h1>2. Document Body</h1>
 {doc_html}
+
+<h1>2b. Claim Ledger</h1>
+{_claim_ledger_html(claim_rows, claim_summary)}
 
 <h1>3. Z3 Verification Results</h1>
 {z3_render}

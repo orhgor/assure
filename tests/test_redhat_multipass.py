@@ -222,3 +222,37 @@ def test_run_redhat_multipass_orchestration(founder_run):
     assert result["deltas"] >= 1
     titles = {f["title"] for f in result["findings"]}
     assert "P1" in titles or "P2" in titles
+
+
+def test_pass1_findings_carry_evidence_kind(founder_run):
+    """Every finding says what it stands on: ``quoted`` with a verbatim source
+    quote, ``observation`` without one (2026-09-27)."""
+    node = _paragraph("p-kind", "The premium is 35%.")
+    node["provenance"] = [
+        {"source_id": "s1", "source_name": "renewal.pdf", "extracted_quote": "The renewal policy carries a 35% minimum earned premium."}
+    ]
+    delta = get_ast_deltas(_doc(node), None)[0]
+    answer = json.dumps(
+        [
+            {"title": "Q", "content": "figure", "severity": "low", "quote": "The renewal policy carries a 35% minimum earned premium."},
+            {"title": "O", "content": "style", "severity": "low", "quote": ""},
+        ]
+    )
+    with patch("prompt_matrix.tasks.redhat._invoke_model", return_value=(answer, PASS1_MODEL)):
+        result = run_redhat_pass1([delta], "founder", run_id=founder_run)
+    kinds = {f["title"]: f["evidence_kind"] for f in result["findings"]}
+    assert kinds == {"Q": "quoted", "O": "observation"}
+    assert any("returned no quote" in n for n in result["notes"])
+
+
+def test_cached_findings_without_the_label_are_observations(founder_run):
+    delta = get_ast_deltas(_doc(_paragraph("p-old", "Old cached clause.")), None)[0]
+    save_cache(
+        delta["block_hash"],
+        [{"title": "Legacy", "content": "written before evidence_kind", "severity": "medium"}],
+        pass1_model=PASS1_MODEL,
+    )
+    with patch("prompt_matrix.tasks.redhat._invoke_model") as llm:
+        result = run_redhat_pass1([delta], "founder", run_id=founder_run)
+        llm.assert_not_called()
+    assert result["findings"][0]["evidence_kind"] == "observation"

@@ -26,7 +26,9 @@ def test_z3_explanation_returns_reason() -> None:
         ledger={"revenue": 100},
         source_label="CMS Bulletin p.4, section 2.1",
     )
-    assert 0.0 <= result["confidence"] <= 1.0
+    # No confidence number since 2026-09-27: the check answers with a status word.
+    assert result["confidence"] is None
+    assert result["numeric_consistency"] == "matches_lock"
     assert result["reason"]
     assert "CMS Bulletin" in result["reason"]
 

@@ -2571,14 +2571,13 @@
     function renderConfidenceLegend() {
       var legend = document.createElement("div");
       legend.className = "conf-legend";
+      // The dot colour is the claim verdict (claim-v1, 2026-09-27) and nothing
+      // else; a paragraph without a verdict wears no colour.
       var items = [
-        // The dot colour tracks the span score, which comes from the numeric
-        // truth-ledger check (0.92 = the figure matches a locked value,
-        // 0.5 = nothing numeric was checkable, 0.25/0.15 = contradicts the
-        // locked value). It is not source verification.
-        { dot: "green",  label: "Figure matches ledger lock" },
-        { dot: "yellow", label: "Not numerically checked" },
-        { dot: "red",    label: "Contradicts ledger lock" },
+        { dot: "green",  label: _t("shell.claim.verified", "Verified") },
+        { dot: "yellow", label: _t("shell.claim.legend_review", "Unsupported or insufficient evidence") },
+        { dot: "red",    label: _t("shell.claim.contradicted", "Contradicted") },
+        { dot: "none",   label: _t("shell.claim.not_assessed", "Not assessed") },
       ];
       for (var i = 0; i < items.length; i++) {
         var item = document.createElement("span");
@@ -2759,9 +2758,19 @@
     // `unchecked`). The four displayed values are therefore a breakdown, not a
     // partition — see `_renderCounters`.
     function _derivedCounts(doc) {
+      // Mirrors services/audit_summary._provenance_counts (claim-v1, 2026-09-27),
+      // bucket for bucket: grounding (anchored / unanchored — a provenance row
+      // with an extracted_quote), the claim verdict (verified / unsupported /
+      // contradicted / insufficient, from the persisted block or the derived
+      // one), `flagged` (a persisted block with flags), and the entailment
+      // layer's own detail buckets (partial / unverified). `supported` is
+      // `verified` — since 2026-09-27 a partial verdict is not verified.
+      // tests/test_client_counters_parity.py runs this function against the
+      // server's on the same documents.
       var counts = {
         eligible: 0, anchored: 0, supported: 0, partial: 0,
         unanchored: 0, unsupported: 0, unverified: 0,
+        verified: 0, contradicted: 0, insufficient: 0, flagged: 0,
       };
       var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
       for (var s = 0; s < sections.length; s++) {
@@ -2777,8 +2786,7 @@
           // Python treats [] as falsy; JS does not. Payloads carry
           // provenance: [] for unanchored paragraphs, so mirror
           // audit_summary._anchoring_quote: a row carrying the matched source
-          // sentence. meta.provenance.excerpt is NOT that — it falls back to
-          // the claim text itself.
+          // sentence. meta.provenance.excerpt is NOT that.
           var prov = node.provenance;
           if (!Array.isArray(prov)) prov = prov ? [prov] : [];
           var isAnchored = false;
@@ -2789,29 +2797,25 @@
           }
           if (isAnchored) counts.anchored++;
           else counts.unanchored++;
-          // The verdict is read for every eligible paragraph, anchored or not:
-          // the server counts it that way, and the verdict lives at
-          // node.meta.provenance.entailment, which a payload carrying no anchor
-          // row still carries. Read raw rather than through `_entailmentVerdict`,
-          // whose label fallback turns "never checked" into "unverified" — that
-          // is the server's unreported `unchecked`, not a failed check.
-          var ent = _entailmentFor(node, prov[0] || null);
-          var verdict = ent ? String(ent.verdict || "").toLowerCase() : "";
-          var contradicted = !!(ent && ent.contradicted);
-          if (verdict === "yes" || verdict === "partial") counts.supported++;
+          // The entailment layer's detail buckets, read where the server reads
+          // them (meta.provenance.entailment.verdict), raw — never through a
+          // label fallback.
+          var mp = node.meta && node.meta.provenance;
+          var rec = (mp && !Array.isArray(mp) && typeof mp === "object" && mp.entailment && typeof mp.entailment === "object") ? mp.entailment : null;
+          var verdict = rec ? String(rec.verdict || "").toLowerCase() : "";
           if (verdict === "partial") counts.partial++;
-          // The server counts a paragraph unsupported when the verdict is "no" OR
-          // when any citation of it was contradicted (audit_summary
-          // _is_contradicted), because a paragraph can be carried in part AND
-          // contain a contradiction. This mirror counted only the verdict, so the
-          // same document showed a lower "not supported" number once derived in
-          // the browser - and the derived path is what a first paint, a cold shell
-          // or a version jump takes. The number that went missing is the one the
-          // page promises.
-          if (verdict === "no" || contradicted) counts.unsupported++;
           else if (verdict === "unverified") counts.unverified++;
+          // The claim verdict: the persisted block, else the derived one.
+          var block = _claimOf(node);
+          var claimVerdict = block ? String(block.verdict || "").toUpperCase() : _derivedClaimVerdict(node);
+          if (claimVerdict === "VERIFIED") counts.verified++;
+          else if (claimVerdict === "CONTRADICTED") counts.contradicted++;
+          else if (claimVerdict === "INSUFFICIENT_EVIDENCE") counts.insufficient++;
+          else counts.unsupported++;
+          if (block && Array.isArray(block.flags) && block.flags.length) counts.flagged++;
         }
       }
+      counts.supported = counts.verified;
       return counts;
     }
     // Claims the entailment check did not support (the verdict "no" — a source
@@ -3021,6 +3025,18 @@
     }
     function _renderCounters(stats, derived) {
       var b = _counterBuckets(stats, derived);
+      // claim-v1: one line of counts by verdict; the legacy tiles step aside.
+      var claimLine = document.getElementById("claim-summary-line");
+      var tiles = document.getElementById("counter-grid");
+      var csum = _claimSummary(SHELL.document.current);
+      if (claimLine) {
+        claimLine.hidden = !csum;
+        if (csum) {
+          claimLine.textContent = _claimCountWords(csum) + (csum.inconsistencies.length ? " \u00b7 " + _tf("shell.claim.count_inconsistencies", "{n} inconsistencies", { n: csum.inconsistencies.length }) : "");
+          claimLine.setAttribute("data-tone", _claimAllVerified(csum) ? "verified" : (csum.contradicted ? "contradicted" : "partial"));
+        }
+      }
+      if (tiles) tiles.hidden = Boolean(csum);
       _setCounter("count-anchored",    b.anchored);
       _setCounter("count-supported",   b.supported);
       _setCounter("count-unsupported", b.unsupported);
@@ -4045,6 +4061,52 @@
       }
     }
 
+    // Red-Hat scheduled by the compile: GET /api/projects/<id>/redhat/status
+    // every 3 s (up to 5 min) until `status.complete` (or a terminal word);
+    // the tree is then re-hydrated so annotations.redhat is current. The panel
+    // says "scheduled … checking" meanwhile and never invents a finding.
+    var __redhatPollTimer = null;
+    var __redhatPollStarted = 0;
+    var __redhatScheduledTask = "";
+    function _pollRedhatStatus(taskId) {
+      var pid = _activeProjectId();
+      if (!pid) return;
+      if (__redhatPollTimer) { clearTimeout(__redhatPollTimer); __redhatPollTimer = null; }
+      __redhatScheduledTask = taskId || __redhatScheduledTask;
+      __redhatPollStarted = __redhatPollStarted || Date.now();
+      __lastRunRedhat = "pending";
+      _rerenderRedhatSelection();
+      function tick() {
+        fetch("/api/projects/" + encodeURIComponent(pid) + "/redhat/status" + (__redhatScheduledTask ? "?task_id=" + encodeURIComponent(__redhatScheduledTask) : ""),
+              { headers: { Accept: "application/json" }, cache: "no-store" })
+          .then(function (r) { return r.ok ? r.json().catch(function () { return {}; }) : {}; })
+          .then(function (j) {
+            var st = (j && j.status && typeof j.status === "object") ? j.status : (j || {});
+            var word = String(st.status || j.state || "").toLowerCase();
+            var done = st.complete === true || word === "complete" || word === "completed" || word === "failed" || word === "error";
+            if (done) {
+              __lastRunRedhat = (word === "failed" || word === "error") ? "failed" : "ran";
+              __redhatPollTimer = null; __redhatPollStarted = 0; __redhatScheduledTask = "";
+              _renderCompilerRoute();
+              return _restoreProjectDocument(pid).then(function () { _rerenderRedhatSelection(); });
+            }
+            if (Date.now() - __redhatPollStarted > 5 * 60 * 1000) {
+              __lastRunRedhat = "pending"; __redhatPollTimer = null; __redhatPollStarted = 0;
+              _rerenderRedhatSelection();
+              return null;
+            }
+            __redhatPollTimer = setTimeout(tick, 3000);
+            return null;
+          })
+          .catch(function () { __redhatPollTimer = setTimeout(tick, 5000); });
+      }
+      tick();
+    }
+    function _rerenderRedhatSelection() {
+      var selNodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
+      var selNode = (selNodeId && SHELL.document.current) ? findJdfNodeById(selNodeId, SHELL.document.current) : null;
+      renderRedhatPanel(selNode || null);
+    }
     function _runRedhatAudit(nodeId) {
       // One run at a time: while a run is in flight every node's button is
       // disabled, so this guard is unreachable from the UI.
@@ -4271,7 +4333,19 @@
         // live SSE payload (NOT a list on node.provenance). Emit one cite
         // chip 📎 per node when an excerpt is present.
         var metaProv = (node.meta && node.meta.provenance) || null;
-        if (metaProv && typeof metaProv === "object" && metaProv.excerpt) {
+        // The chip stands for a verbatim source quote (2026-09-27): the claim
+        // block's quote when it is marked verbatim, else a citation row's own
+        // extracted sentence. `excerpt` is not read — it fell back to the
+        // claim's own text and would put a chip on an unquoted paragraph.
+        var citeClaim = _claimOf(node);
+        var hasVerbatim = citeClaim
+          ? Boolean(citeClaim.quote && citeClaim.quote_verbatim === true)
+          : (function () {
+              var rows = Array.isArray(node.provenance) ? node.provenance : (node.provenance ? [node.provenance] : []);
+              for (var q = 0; q < rows.length; q++) { if (rows[q] && String(rows[q].extracted_quote || "").trim()) return true; }
+              return false;
+            })();
+        if (metaProv && typeof metaProv === "object" && hasVerbatim) {
           var chip = document.createElement("button");
           chip.className = "chip chip-cite";
           chip.setAttribute("data-node-id", node.id);
@@ -4375,7 +4449,149 @@
                      fallback: "No source",
                      hintKey: "state.hint.unanchored",
                      hint: "No source sentence was matched to this paragraph." },
+      // claim-v1 (2026-09-27): the four verdicts of meta.provenance.claim, and
+      // "not assessed" for a paragraph the check never reached. These outrank
+      // the legacy entailment states above whenever a claim block exists.
+      verified:     { glyph: "\u2713", key: "shell.claim.verified", fallback: "Verified",
+                      hintKey: "shell.claim.hint.verified", hint: "The source states this claim, verbatim quote recorded.", tone: "verified" },
+      unsupported_claim: { glyph: "?", key: "shell.claim.unsupported", fallback: "Unsupported",
+                      hintKey: "shell.claim.hint.unsupported", hint: "No source sentence carries this claim.", tone: "partial" },
+      contradicted: { glyph: "\u2717", key: "shell.claim.contradicted", fallback: "Contradicted",
+                      hintKey: "shell.claim.hint.contradicted", hint: "The source says otherwise.", tone: "contradicted" },
+      insufficient: { glyph: "~", key: "shell.claim.insufficient", fallback: "Insufficient evidence",
+                      hintKey: "shell.claim.hint.insufficient", hint: "The source does not carry enough to decide.", tone: "partial" },
+      not_assessed: { glyph: "\u00b7", key: "shell.claim.not_assessed", fallback: "Not assessed",
+                      hintKey: "shell.claim.hint.not_assessed", hint: "No claim verdict is recorded for this paragraph.", tone: "none" },
     };
+    // claim-v1 verdict → the mark's state. A function with its own table so
+    // tests/test_client_counters_parity.py can extract it whole.
+    function _claimStateOf(verdict) {
+      var table = { VERIFIED: "verified", UNSUPPORTED: "unsupported_claim", CONTRADICTED: "contradicted", INSUFFICIENT_EVIDENCE: "insufficient" };
+      return table[String(verdict || "").toUpperCase()] || "not_assessed";
+    }
+    // The verdict a paragraph without a persisted block would get from the
+    // server's own counter (services/audit_summary._claim_for_count →
+    // claim_policy.derive_claim(sources=None)): nothing cited → UNSUPPORTED;
+    // cited, entailment "contradicts" → CONTRADICTED, "partial" / "no" →
+    // UNSUPPORTED, anything else → INSUFFICIENT_EVIDENCE (the source was not
+    // supplied to the verifier). Meta-statement detection is server-only.
+    function _derivedClaimVerdict(node) {
+      var rows = Array.isArray(node && node.provenance) ? node.provenance : (node && node.provenance ? [node.provenance] : []);
+      var cited = false;
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (row && typeof row === "object" && (String(row.extracted_quote || "").trim() || String(row.anchor_window || "").trim())) { cited = true; break; }
+      }
+      if (!cited) return "UNSUPPORTED";
+      var mp = node && node.meta && node.meta.provenance;
+      var rec = (mp && !Array.isArray(mp) && typeof mp === "object" && mp.entailment && typeof mp.entailment === "object") ? mp.entailment : null;
+      var label = rec ? String(rec.verdict || "").trim().toLowerCase() : "";
+      if (label === "contradicts") return "CONTRADICTED";
+      if (label === "partial" || label === "no") return "UNSUPPORTED";
+      return "INSUFFICIENT_EVIDENCE";
+    }
+    // The verdict the counters and the mark read: the persisted block's, else
+    // the derived one — the same two steps as the server's `_claim_for_count`.
+    function _claimVerdictOf(node) {
+      var c = _claimOf(node);
+      return c ? String(c.verdict || "").toUpperCase() : _derivedClaimVerdict(node);
+    }
+    // The claim block of a paragraph (meta.provenance.claim, policy claim-v1),
+    // or null on an older tree. Read defensively: every key may be missing.
+    function _claimOf(node) {
+      var mp = node && node.meta && node.meta.provenance;
+      if (!mp || Array.isArray(mp) || typeof mp !== "object") return null;
+      var c = mp.claim;
+      if (!c || typeof c !== "object" || !c.verdict) return null;
+      return c;
+    }
+    function _claimState(claim) { return claim ? _claimStateOf(claim.verdict) : null; }
+    // Whether the document carries claim-v1 verdicts at all: a summary, or any
+    // paragraph with a claim block. Decides between the verdict surfaces and
+    // the legacy entailment ones — never mixed on one document.
+    function _docHasClaims(doc) {
+      if (!doc) return false;
+      if (doc.meta && doc.meta.claim_summary && typeof doc.meta.claim_summary === "object") return true;
+      var found = false;
+      _eachParagraph(doc, function (node) { if (!found && _claimOf(node)) found = true; });
+      return found;
+    }
+    function _eachParagraph(doc, fn) {
+      var sections = (doc && Array.isArray(doc.body)) ? doc.body : [];
+      for (var i = 0; i < sections.length; i++) {
+        var sec = sections[i];
+        if (!sec || typeof sec !== "object") continue;
+        var group = [sec].concat(Array.isArray(sec.children) ? sec.children : []);
+        for (var g = 0; g < group.length; g++) {
+          if (group[g] && typeof group[g] === "object" && String(group[g].type || "") === "paragraph") fn(group[g]);
+        }
+      }
+    }
+    // meta.claim_summary when the document carries it, else counted from the
+    // claim blocks, else null — an older tree has no claim numbers.
+    function _claimSummary(doc) {
+      if (!doc) return null;
+      var m = doc.meta && doc.meta.claim_summary;
+      if (m && typeof m === "object" && m.total != null) {
+        return { total: Number(m.total) || 0, verified: Number(m.verified) || 0, unsupported: Number(m.unsupported) || 0,
+                 contradicted: Number(m.contradicted) || 0, insufficient: Number(m.insufficient) || 0, flagged: Number(m.flagged) || 0,
+                 inconsistencies: Array.isArray(m.inconsistencies) ? m.inconsistencies : [], policy: m.policy || "" };
+      }
+      // No summary on the tree: the same counts the tiles read (`_derivedCounts`,
+      // the mirror of the server's counter — persisted blocks, else the derived
+      // verdict), so the chip, the bar and the tiles cannot disagree.
+      var c = _derivedCounts(doc);
+      if (!c.eligible) return null;
+      var policy = "";
+      _eachParagraph(doc, function (node) { var cl = _claimOf(node); if (!policy && cl && cl.policy) policy = String(cl.policy); });
+      return { total: c.eligible, verified: c.verified, unsupported: c.unsupported, contradicted: c.contradicted,
+               insufficient: c.insufficient, flagged: c.flagged, inconsistencies: [], policy: policy };
+    }
+    function _claimAllVerified(cs) { return Boolean(cs && cs.total > 0 && cs.verified === cs.total && cs.flagged === 0 && cs.contradicted === 0); }
+    // "N of M claims verified · c contradicted · u unsupported · i insufficient · f flagged" — contradicted first.
+    function _claimCountWords(cs) {
+      var bits = [_tf("shell.claim.count", "{n} of {total} claims verified", { n: cs.verified, total: cs.total })];
+      if (cs.contradicted) bits.push(_tf("shell.claim.count_contradicted", "{n} contradicted", { n: cs.contradicted }));
+      if (cs.unsupported) bits.push(_tf("shell.claim.count_unsupported", "{n} unsupported", { n: cs.unsupported }));
+      if (cs.insufficient) bits.push(_tf("shell.claim.count_insufficient", "{n} insufficient evidence", { n: cs.insufficient }));
+      if (cs.flagged) bits.push(_tf("shell.claim.count_flagged", "{n} flagged", { n: cs.flagged }));
+      return bits.join(" \u00b7 ");
+    }
+    function _claimPageWords(page) {
+      return (page == null || page === "") ? _t("shell.claim.page_unrecorded", "page not recorded") : _tf("evidence.page", "page {page}", { page: page });
+    }
+    // "guaranteed — not in the source" from a wording flag or an unsupported term.
+    function _claimFlagWords(flag) {
+      var f = String(flag || "");
+      var m = f.match(/^high_risk_wording:(.+)$/);
+      if (m) return _tf("shell.claim.flag_wording", "{term} \u2014 not in the source", { term: m[1] });
+      if (f === "inconsistent_figure") return _t("shell.claim.flag_inconsistent", "Figure inconsistent with another claim");
+      return _t("shell.claim.flag." + f, f.replace(/_/g, " "));
+    }
+    // "Recomputed: 1,250 + 300 = 1,550 · stated 1,550 ✓" or the mismatch; "" when not applicable.
+    function _claimNumericWords(numeric) {
+      if (!numeric || typeof numeric !== "object") return "";
+      var st = String(numeric.status || "").toLowerCase();
+      if (!st || st === "not_applicable") return "";
+      var detail = String(numeric.detail || "").trim();
+      var base = detail ? _tf("shell.claim.recomputed", "Recomputed: {detail}", { detail: detail }) : _t("shell.claim.recomputed_plain", "Recomputed");
+      if (st === "recomputed_ok") return base + (numeric.stated != null && numeric.stated !== "" ? " \u00b7 " + _tf("shell.claim.stated", "stated {v}", { v: numeric.stated }) : "") + " \u2713";
+      if (st === "mismatch") {
+        var tail = "";
+        if (numeric.expected != null || numeric.stated != null) tail = " \u00b7 " + _tf("shell.claim.mismatch_detail", "expected {e}, stated {s}", { e: numeric.expected != null ? numeric.expected : "\u2014", s: numeric.stated != null ? numeric.stated : "\u2014" });
+        return base + tail + " \u2717 " + _t("shell.claim.mismatch", "mismatch");
+      }
+      if (st === "insufficient") return _t("shell.claim.numeric_insufficient", "Numbers: insufficient to recompute") + (detail ? " \u2014 " + detail : "");
+      return _t("shell.claim.numbers", "Numbers") + ": " + st.replace(/_/g, " ") + (detail ? " \u2014 " + detail : "");
+    }
+    // meta.confidenceSpans[].numeric_consistency in words (2026-09-27).
+    function _consistencyWords(v) {
+      var k = String(v || "").toLowerCase();
+      if (k === "matches_lock") return _t("shell.claim.consistency.matches_lock", "figure matches the locked value");
+      if (k === "no_lock") return _t("shell.claim.consistency.no_lock", "figure has no locked value to compare");
+      if (k === "contradicts_lock") return _t("shell.claim.consistency.contradicts_lock", "figure contradicts the locked value");
+      return k.replace(/_/g, " ");
+    }
     function _anchorStateName(state) {
       var spec = _ANCHOR_STATES[state];
       return spec ? _t(spec.key, spec.fallback) : "";
@@ -4391,27 +4607,11 @@
     function _anchorStateOf(node) {
       if (!node || String(node.type || "") !== "paragraph") return null;
       if (_anchorContentTokens(node.content) < _ANCHOR_WORD_FLOOR) return null;
-      var prov = node.provenance;
-      if (!Array.isArray(prov)) prov = prov ? [prov] : [];
-      var anchored = false;
-      for (var p = 0; p < prov.length; p++) {
-        var row = prov[p];
-        if (row && typeof row === "object" &&
-            String(row.extracted_quote || "").trim()) { anchored = true; break; }
-      }
-      if (!anchored) return "unanchored";
-      // The raw verdict, not `_entailmentVerdict`'s label fallback: the two
-      // fields the server's own counter reads (audit_summary._is_contradicted)
-      // are the verdict string and the citation's contradicted flag, and this
-      // mirror has to read the same two or the margin would disagree with the
-      // tile beside it.
-      var ent = _entailmentFor(node, prov[0] || null);
-      var verdict = ent ? String(ent.verdict || "").toLowerCase() : "";
-      var contradicted = Boolean(ent && ent.contradicted);
-      if (verdict === "no" || contradicted) return "unsupported";
-      if (verdict === "yes") return "supported";
-      if (verdict === "partial") return "partial";
-      return "anchored";
+      // claim-v1 (2026-09-27): the mark is the claim verdict — the persisted
+      // block's, or the one the server's counter derives for a paragraph
+      // without a block (`_derivedClaimVerdict`). One rule for the mark and
+      // the tile, in both languages (tests/test_client_counters_parity.py).
+      return _claimStateOf(_claimVerdictOf(node));
     }
     function applyAnchorStates(doc, targetEl) {
       if (!doc || !Array.isArray(doc.body)) return;
@@ -4433,6 +4633,7 @@
           // a test and the export's own reading of the DOM ask what state this
           // paragraph is in, and a class name is a styling detail.
           el.setAttribute("data-anchor-state", state);
+          if (_ANCHOR_STATES[state] && _ANCHOR_STATES[state].tone) el.setAttribute("data-verdict-tone", _ANCHOR_STATES[state].tone);
           if (el.querySelector(".anchor-chip")) continue;
           var chip = document.createElement("span");
           chip.className = "anchor-chip anchor-chip-" + state;
@@ -4473,7 +4674,7 @@
       for (var i = 0; i < spans.length; i++) {
         var span = spans[i];
         if (!span || !span.nodeId) continue;
-        if (span.startChar === undefined || span.endChar === undefined || span.score === undefined) continue;
+        if (span.startChar === undefined || span.endChar === undefined) continue;
         if (!byNode[span.nodeId]) byNode[span.nodeId] = [];
         byNode[span.nodeId].push(span);
       }
@@ -4484,11 +4685,13 @@
       // node. `wrap` builds the span element: the same classes, the same
       // accessible name and the same two handlers the tail-built markup used
       // to carry.
-      function spanChannel(nodeId, nodeSpans, prov0) {
+      function spanChannel(nodeId, nodeSpans, prov0, verdictState) {
         var cursor = 0;
-        function bandOf(score) {
-          return (score > 0.8) ? "high" : (score >= 0.4) ? "medium" : "low";
-        }
+        // The span's colour is the paragraph's claim verdict (2026-09-27) —
+        // verified quiet green, contradicted red, unsupported / insufficient
+        // amber — and nothing when no claim block exists. `score` is null now
+        // and was a numeric-lock figure before; it never coloured verification.
+        var tone = verdictState && _ANCHOR_STATES[verdictState] ? _ANCHOR_STATES[verdictState].tone : "";
         return {
           covering: function (src) {
             while (cursor < nodeSpans.length && nodeSpans[cursor].end <= src) cursor++;
@@ -4498,20 +4701,15 @@
           wrap: function (sp) {
             var el = document.createElement("span");
             el.className = "conf-span";
-            if (prov0) {
-              if (sp.score > 0.8) el.className += " conf-green";
-              else if (sp.score >= 0.4) el.className += " conf-yellow";
-              else el.className += " conf-red";
-            }
+            if (tone && tone !== "none") el.className += " conf-" + tone;
             el.setAttribute("data-node-id", nodeId);
-            el.setAttribute("data-score", String(sp.score));
+            if (sp.consistency) el.setAttribute("data-consistency", sp.consistency);
             el.setAttribute("role", "button");
             el.setAttribute("tabindex", "0");
             // §4 A7: the span is a click target, so it is authored as a control —
-            // role, tab stop and a name that states its confidence band. The
-            // neutral wording is deliberate; persuasive phrasing goes to the
-            // voice pass.
-            el.setAttribute("aria-label", "Confidence span: " + (prov0 ? bandOf(sp.score) : "no source matched"));
+            // role, tab stop and a name that states the verdict in words.
+            var words = verdictState ? _anchorStateName(verdictState) : _t("shell.claim.not_assessed", "Not assessed");
+            el.setAttribute("aria-label", _t("shell.claim.span", "Claim") + ": " + words + (sp.consistency ? " \u00b7 " + _consistencyWords(sp.consistency) : ""));
             el.addEventListener("click", handleConfidenceClick);
             el.addEventListener("keydown", _confSpanKeydown);   // §4 A7
             return el;
@@ -4552,7 +4750,7 @@
           var cs = parseInt(cand.startChar, 10);
           var ce = parseInt(cand.endChar, 10);
           if (isNaN(cs) || isNaN(ce) || cs < 0 || ce > text.length || cs >= ce) continue;
-          nodeSpans.push({ start: cs, end: ce, score: cand.score });
+          nodeSpans.push({ start: cs, end: ce, consistency: cand.numeric_consistency ? String(cand.numeric_consistency) : "" });
         }
         if (nodeSpans.length === 0) continue;
         nodeSpans.sort(function (a, b) { return a.start - b.start; });
@@ -4563,7 +4761,7 @@
         // crosses a block boundary comes out as one wrapper per block — never
         // an inline box dragged around a list.
         textEl.textContent = "";
-        var channel = spanChannel(nodeId, nodeSpans, prov0);
+        var channel = spanChannel(nodeId, nodeSpans, prov0, provNode ? _anchorStateOf(provNode) : null);
         if (String((provNode || {}).type || "") === "paragraph") {
           textEl.appendChild(_renderFindingMarkdown(text, channel));
         } else {
@@ -4705,6 +4903,10 @@
         var _rh = (data && data.redhat && typeof data.redhat === "object") ? data.redhat : data;
         __lastRunRedhat = _rh.status ? String(_rh.status) : "";
         _renderCompilerRoute();
+        // "scheduled" (2026-09-27): the audit runs after the compile; poll
+        // /redhat/status until it reports complete, then re-read the tree so
+        // the findings land on their paragraphs.
+        if (__lastRunRedhat === "scheduled" || __lastRunRedhat === "pending") _pollRedhatStatus(_rh.task_id ? String(_rh.task_id) : "");
         var selNodeId = SHELL.ui.selection ? SHELL.ui.selection.nodeId : null;
         var selNode = (selNodeId && SHELL.document.current) ?
           findJdfNodeById(selNodeId, SHELL.document.current) : null;
@@ -4802,10 +5004,19 @@
           // is what the bucket holds (verdict "no"), stated no more specifically
           // than the frame's own aggregation distinguishes.
           if (intentSummaryTextEl) {
-            intentSummaryTextEl.textContent = verifiedContradictions > 0
-              ? _tf("shell.run.done_unsupported", "Drafted \u2014 {n} claims not supported",
-                    { n: verifiedContradictions })
-              : _t("shell.run.done", "\u2713 Drafted and verified against your sources");
+            // claim-v1: "Drafted · N of M claims verified"; "verified against
+            // your sources" only when every claim is VERIFIED with no flag.
+            var cs = _claimSummary(SHELL.document.current);
+            if (cs) {
+              intentSummaryTextEl.textContent = _claimAllVerified(cs)
+                ? _t("shell.run.done", "\u2713 Drafted and verified against your sources")
+                : _tf("shell.run.done_claims", "Drafted \u00b7 {counts}", { counts: _claimCountWords(cs) });
+            } else {
+              intentSummaryTextEl.textContent = verifiedContradictions > 0
+                ? _tf("shell.run.done_unsupported", "Drafted \u2014 {n} claims not supported",
+                      { n: verifiedContradictions })
+                : _t("shell.run.done", "\u2713 Drafted and verified against your sources");
+            }
           }
         }
         _endProgress();
@@ -6551,8 +6762,12 @@
       stateName.textContent = state ? _anchorStateName(state) : "";
       var stateLabel = document.createElement("span");
       stateLabel.className = "evidence-verdict-label";
-      // Label from the entailment verdict, not from the anchor's presence.
-      stateLabel.textContent = _entailmentLabel(node, p0, pageStr);
+      var claim = _claimOf(node);
+      // Label from the claim verdict when there is one (claim-v1), else from
+      // the legacy entailment verdict — never from the anchor's presence.
+      stateLabel.textContent = claim
+        ? (_t("shell.claim.policy", "claim-v1") + (claim.policy && claim.policy !== "claim-v1" ? " " + claim.policy : "") + " \u00b7 " + _claimPageWords(claim.page))
+        : _entailmentLabel(node, p0, pageStr);
       headText.appendChild(stateName);
       headText.appendChild(stateLabel);
       header.appendChild(badge);
@@ -6560,9 +6775,10 @@
       whyEl.appendChild(header);
       var content = document.createElement("div");
       content.className = "evidence-content";
+      if (claim) _renderClaimBlock(whyEl, claim);
       // The check's one-sentence reason, directly under the label. Absent when
       // the check produced none — never filled in with a made-up justification.
-      var reasoning = _entailmentReasoning(node, p0);
+      var reasoning = claim ? "" : _entailmentReasoning(node, p0);
       if (reasoning) {
         var reasonEl = document.createElement("p");
         reasonEl.className = "evidence-value evidence-reason";
@@ -6678,6 +6894,71 @@
         content.appendChild(card);
       }
       evidenceBodyEl.appendChild(content);
+    }
+    // The claim block (claim-v1, 2026-09-27): the reason sentence, the verbatim
+    // quote with its source and page ("page not recorded" when none), the
+    // numeric recompute line, wording flags as text badges, inconsistencies.
+    function _renderClaimBlock(host, claim) {
+      var box = document.createElement("div");
+      box.className = "claim-block claim-" + _claimState(claim);
+      if (claim.reason) {
+        var reason = document.createElement("p");
+        reason.className = "evidence-value evidence-reason claim-reason";
+        reason.textContent = String(claim.reason);
+        box.appendChild(reason);
+      }
+      if (claim.quote) {
+        var q = document.createElement("blockquote");
+        q.className = "citation-quote evidence-blockquote claim-quote";
+        q.textContent = "\u201C" + String(claim.quote) + "\u201D";
+        box.appendChild(q);
+        var where = document.createElement("p");
+        where.className = "claim-where";
+        var bits = [];
+        if (claim.source_name || claim.source_id) bits.push(String(claim.source_name || claim.source_id));
+        bits.push(_claimPageWords(claim.page));
+        if (claim.quote_verbatim !== true) bits.push(_t("shell.claim.not_verbatim", "not verbatim"));
+        where.textContent = bits.join(" \u00b7 ");
+        box.appendChild(where);
+      } else {
+        var noq = document.createElement("p");
+        noq.className = "claim-where";
+        noq.textContent = _t("shell.claim.no_quote", "No verbatim quote recorded") + " \u00b7 " + _claimPageWords(claim.page);
+        box.appendChild(noq);
+      }
+      var checks = claim.checks && typeof claim.checks === "object" ? claim.checks : {};
+      var numeric = _claimNumericWords(checks.numeric);
+      if (numeric) {
+        var num = document.createElement("p");
+        num.className = "claim-numeric" + (String((checks.numeric || {}).status || "") === "mismatch" ? " is-mismatch" : "");
+        num.textContent = numeric;
+        box.appendChild(num);
+      }
+      if (checks.entailment) {
+        var ent = document.createElement("p");
+        ent.className = "claim-check";
+        ent.textContent = _t("shell.claim.entailment", "Entailment") + ": " + _t("shell.claim.entailment." + String(checks.entailment).toLowerCase(), String(checks.entailment));
+        box.appendChild(ent);
+      }
+      var sq = checks.source_quality && typeof checks.source_quality === "object" ? checks.source_quality : null;
+      if (sq && sq.status && String(sq.status).toLowerCase() !== "ok") {
+        var sqEl = document.createElement("p");
+        sqEl.className = "claim-check";
+        sqEl.textContent = _t("shell.claim.source_quality", "Source quality") + ": " + String(sq.status) + (sq.basis ? " \u2014 " + String(sq.basis) : "");
+        box.appendChild(sqEl);
+      }
+      var badges = [];
+      var wording = checks.wording && typeof checks.wording === "object" ? checks.wording : {};
+      (Array.isArray(wording.unsupported_terms) ? wording.unsupported_terms : []).forEach(function (t) { badges.push(_tf("shell.claim.flag_wording", "{term} \u2014 not in the source", { term: String(t) })); });
+      (Array.isArray(wording.flags) ? wording.flags : []).forEach(function (f) { var w = _claimFlagWords(f); if (badges.indexOf(w) === -1) badges.push(w); });
+      (Array.isArray(claim.flags) ? claim.flags : []).forEach(function (f) { var w = _claimFlagWords(f); if (badges.indexOf(w) === -1) badges.push(w); });
+      if (badges.length) {
+        var row = document.createElement("div");
+        row.className = "claim-flags";
+        badges.forEach(function (b) { var chip = document.createElement("span"); chip.className = "claim-flag"; chip.textContent = b; row.appendChild(chip); });
+        box.appendChild(row);
+      }
+      host.appendChild(box);
     }
     // The pane's count of what it is about to show. Every number is read off the
     // rows: citations the compile resolved to a sentence, citations it could not
@@ -6818,6 +7099,16 @@
         if (node && node.id) _runRedhatAudit(node.id);
       });
       wrap.appendChild(runBtn);
+      // The compile scheduled an audit that has not finished: say so, once.
+      if (__lastRunRedhat === "scheduled" || __lastRunRedhat === "pending") {
+        var sched = document.createElement("p");
+        sched.className = "evidence-value redhat-scheduled";
+        sched.setAttribute("aria-live", "polite");
+        sched.textContent = __redhatPollTimer
+          ? _t("shell.redhat.scheduled_checking", "Red-Hat is scheduled for this compile \u2014 checking its status\u2026")
+          : _t("shell.redhat.scheduled", "Red-Hat is scheduled for this compile and has not finished.");
+        wrap.appendChild(sched);
+      }
       if (!node) {
         var selectEl = document.createElement("p");
         selectEl.className = "evidence-value redhat-unavailable";
@@ -6857,6 +7148,15 @@
           bodyEl.className = "redhat-finding-body";
           if (text) bodyEl.appendChild(_renderFindingMarkdown(text));
           li.appendChild(bodyEl);
+          // The sentence the finding is about, verbatim from the source
+          // (findings carry {quote, quote_verbatim} since 2026-09-27).
+          if (r.quote) {
+            var fq = document.createElement("blockquote");
+            fq.className = "citation-quote evidence-blockquote redhat-finding-quote";
+            fq.textContent = "\u201C" + String(r.quote) + "\u201D";
+            if (r.quote_verbatim !== true) fq.setAttribute("data-not-verbatim", "1");
+            li.appendChild(fq);
+          }
           // A finding a revision answered says so, on the finding, and the
           // paragraph it was raised on no longer shows it any other way: that
           // paragraph has been rewritten, so what remains of the warning is this
@@ -7773,10 +8073,19 @@
       var review = paraReview + pc.review;
       var pending = mode === "streaming" || Boolean(runInProgress) || __activeJobs > 0;
       var signed = SHELL.document.signoff && SHELL.document.signoff.status === "signed";
-      var docVerified = hasDoc ? (b.eligible > 0 && b.supported > 0) : true;
+      // claim-v1 (2026-09-27): with a claim summary the document is verified
+      // only when every claim is VERIFIED and none is flagged; contradicted
+      // claims are conflicts, the rest of the shortfall is review.
+      var cs = hasDoc ? _claimSummary(doc) : null;
+      if (cs) {
+        paraReview = (cs.total - cs.verified - cs.contradicted) + cs.flagged;
+        conflicts = cs.contradicted + pc.conflicts;
+        review = paraReview + pc.review;
+      }
+      var docVerified = hasDoc ? (cs ? _claimAllVerified(cs) : (b.eligible > 0 && b.supported > 0)) : true;
       var verified = (hasDoc || hasReport) && docVerified && conflicts === 0 && review === 0;
       return {
-        hasDoc: hasDoc, hasReport: hasReport, present: hasDoc || hasReport,
+        hasDoc: hasDoc, hasReport: hasReport, present: hasDoc || hasReport, claims: cs,
         buckets: b, conflicts: conflicts, review: review,
         paraReview: paraReview, fieldReview: pc.review,
         pending: pending, signed: Boolean(signed), verified: verified,
@@ -7806,6 +8115,10 @@
                              : _t("shell.status.no_document", "No document yet");
       } else if (m.pending) {
         chipText = _t("shell.status.pending", "Pending");
+      } else if (m.claims && !_claimAllVerified(m.claims) && (m.claims.contradicted > 0 || m.review > 0 || m.conflicts > 0)) {
+        // The claim counts, contradicted first, under the word "Review".
+        chipText = _t("shell.primary.review", "Review") + " \u00b7 " + _claimCountWords(m.claims);
+        chipTone = m.claims.contradicted > 0 || m.conflicts > 0 ? "contradicted" : "partial";
       } else if (m.conflicts > 0) {
         chipText = _plural(m.conflicts, "shell.status.conflict_one", "1 conflict",
                            "shell.status.conflict_many", "{n} conflicts");
@@ -8437,21 +8750,26 @@
       } else {
         // No intake field for this paragraph: the document's own numbers, and
         // only those. Nothing is invented for a paragraph the report never saw.
-        var prov = node && node.provenance;
-        if (!Array.isArray(prov)) prov = prov ? [prov] : [];
-        var confs = prov.map(function (r) { return r && r.confidence; })
-          .filter(function (c) { return c != null && c !== ""; });
-        if (confs.length) {
-          _confField(wrap, _t("shell.confidence.citation", "Citation confidence"),
-            confs.map(function (c) { return typeof c === "number" ? _pct(c) : String(c); }).join(" · "));
+        // No citation-confidence figures (2026-09-27): a number here read as a
+        // verification score. The paragraph's claim verdict in words, and the
+        // numeric-consistency word of each figure span, are what the check
+        // actually produced.
+        var claim = _claimOf(node);
+        var state = _anchorStateOf(node);
+        if (claim) {
+          _confField(wrap, _t("shell.claim.verdict", "Claim verdict"), _anchorStateName(state) + (claim.reason ? " \u2014 " + String(claim.reason) : ""));
+          var checks = claim.checks && typeof claim.checks === "object" ? claim.checks : {};
+          var numWords = _claimNumericWords(checks.numeric);
+          if (numWords) _confField(wrap, _t("shell.claim.numbers", "Numbers"), numWords);
+          if (checks.entailment) _confField(wrap, _t("shell.claim.entailment", "Entailment"), _t("shell.claim.entailment." + String(checks.entailment).toLowerCase(), String(checks.entailment)));
+        } else if (state) {
+          _confField(wrap, _t("shell.confidence.source_check", "Source check"), _anchorStateName(state));
         }
         var spans = (node && node.meta && Array.isArray(node.meta.confidenceSpans)) ? node.meta.confidenceSpans : [];
-        if (spans.length) {
-          _confField(wrap, _t("shell.confidence.figures", "Figures checked"),
-            _tf("shell.confidence.figures_n", "{n} numeric spans", { n: spans.length }));
-        }
-        var state = _anchorStateOf(node);
-        if (state) _confField(wrap, _t("shell.confidence.source_check", "Source check"), _anchorStateName(state));
+        var words = [];
+        spans.forEach(function (sp) { if (sp && sp.numeric_consistency) { var w = _consistencyWords(sp.numeric_consistency); if (words.indexOf(w) === -1) words.push(w); } });
+        if (words.length) _confField(wrap, _t("shell.claim.figures", "Figures"), words.join(" \u00b7 "));
+        else if (spans.length) _confField(wrap, _t("shell.claim.figures", "Figures"), _t("shell.claim.consistency.unrecorded", "numeric consistency not recorded"));
         if (!wrap.firstChild) {
           var none = document.createElement("p");
           none.className = "empty-hint";

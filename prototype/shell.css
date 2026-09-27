@@ -1461,9 +1461,13 @@ body.collapsed .pane-left {
 .conf-span:hover {
   border-bottom-width: 2px;
 }
-.conf-green  { border-bottom-color: var(--verified); }
-.conf-yellow { border-bottom-color: var(--partial); }
-.conf-red    { border-bottom-color: var(--contradicted); }
+/* The underline is the claim verdict (claim-v1, 2026-09-27): verified quiet
+   green, contradicted red, unsupported / insufficient amber. A span on a
+   paragraph without a verdict keeps the neutral rule — no colour is borrowed
+   from a score. The legacy conf-green/yellow/red classes are gone. */
+.conf-verified     { border-bottom-color: var(--verified); }
+.conf-partial      { border-bottom-color: var(--partial); }
+.conf-contradicted { border-bottom-color: var(--contradicted); }
 
 /* A5 — the paragraph's own evidence state, sized to be read at conversational
    distance rather than at the caret, and off a projector in a compliance
@@ -1566,6 +1570,43 @@ body.collapsed .pane-left {
   border-color: color-mix(in srgb, var(--unverified) 45%, transparent);
   border-style: dashed;
 }
+/* claim-v1 verdict chips: the same four tones the rest of the shell uses. */
+.anchor-chip-verified { color: var(--verified); background: color-mix(in srgb, var(--verified) 12%, transparent); }
+.anchor-chip-unsupported_claim, .anchor-chip-insufficient {
+  color: var(--partial);
+  background: color-mix(in srgb, var(--partial) 12%, transparent);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--partial) 45%, transparent);
+}
+.anchor-chip-contradicted { color: var(--surface); background: var(--contradicted); border-color: var(--contradicted); font-weight: 700; }
+.anchor-chip-not_assessed { color: var(--unverified); background: transparent; border-color: color-mix(in srgb, var(--unverified) 45%, transparent); border-style: dotted; font-weight: 500; }
+.evidence-verdict.anchor-verified { border-left: 3px solid var(--verified); }
+.evidence-verdict.anchor-verified .evidence-verdict-state { color: var(--verified); }
+.evidence-verdict.anchor-unsupported_claim, .evidence-verdict.anchor-insufficient { border-left: 3px dashed var(--partial); }
+.evidence-verdict.anchor-unsupported_claim .evidence-verdict-state, .evidence-verdict.anchor-insufficient .evidence-verdict-state { color: var(--partial); }
+.evidence-verdict.anchor-contradicted { border-left: 3px solid var(--contradicted); }
+.evidence-verdict.anchor-contradicted .evidence-verdict-state { color: var(--contradicted); }
+.evidence-verdict.anchor-not_assessed { border-left: 3px dotted var(--unverified); }
+/* The claim block: reason, verbatim quote with source and page, numeric line,
+   wording flags as text badges. */
+.claim-block { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) 0 var(--space-3); }
+.claim-reason { margin: 0; }
+.claim-quote { margin: 0; }
+.claim-where { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.claim-numeric { margin: 0; font: 12px/1.5 var(--mono); color: var(--ink); word-break: break-word; }
+.claim-numeric.is-mismatch { color: var(--contradicted); }
+.claim-check { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.claim-flags { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+.claim-flag { display: inline-flex; align-items: center; min-height: 22px; padding: 2px 8px; border-radius: 11px; border: 1px solid color-mix(in srgb, var(--partial) 45%, var(--rule)); color: var(--partial); font-size: var(--fs-xs); font-weight: 500; }
+.claim-summary-line { margin: 0 0 var(--space-3); font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.claim-summary-line[hidden] { display: none; }
+.claim-summary-line[data-tone="verified"] { color: var(--verified); }
+.claim-summary-line[data-tone="partial"] { color: var(--partial); }
+.claim-summary-line[data-tone="contradicted"] { color: var(--contradicted); }
+.counters[hidden] { display: none; }
+.redhat-scheduled { color: var(--muted); }
+.redhat-finding-quote { margin: var(--space-2) 0 0; }
+.redhat-finding-quote[data-not-verbatim="1"]::after { content: " (not verbatim)"; color: var(--muted); font-size: var(--fs-xs); }
 
 /* The state key, in the pane header that reports the states. Each item wears the
    state's own rule pattern and glyph, so the key is a specimen of the mark
@@ -2000,6 +2041,7 @@ body.collapsed .pane-left {
 /* The fourth swatch is the unverified band: the same four colours the
    counters and the confidence underlines use, named once. */
 .conf-legend-dot.grey   { background: var(--unverified); }
+.conf-legend-dot.none   { background: transparent; border: 1px dotted var(--unverified); }
 
 /* B3: the same three colours, named once, in the right pane's header. It reads
    the .conf-legend row/dot rules; only the document-side spacing is dropped. */

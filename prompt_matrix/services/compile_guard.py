@@ -458,6 +458,12 @@ def opening_token(draft: str) -> str:
     check is about the word the document opens on, not its markup.
     """
     for raw_line in (draft or "").splitlines():
+        if raw_line.strip().startswith("#"):
+            # A heading is the section's name, not a claim: the ICP shapes open
+            # on "## claim_snapshot" and that token is in no source (measured
+            # 2026-09-27 on OpenRouter/Llama 3.3 70B: a fully cited draft was
+            # refused as "opening token ungrounded" on its own heading).
+            continue
         line = _HEADING_MARKUP.sub("", raw_line.strip())
         if not line:
             continue

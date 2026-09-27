@@ -47,7 +47,7 @@ quoting "$100 billion" transcribed as 100000000 contradicts the sentence it
 quotes, so it is caught before the queries run and left unchecked with the reason
 rather than listed as a violated cap.
 
-VERIFIED means "consistent with the locked source value", which is a weaker
+VERIFIED means "consistent with the value locked from the draft", which is a weaker
 statement for an inequality claim than for an ``eq`` claim: ``ARR > 10M`` is
 consistent with a locked 12M, but so is a claim the source merely fails to
 contradict. The verdict text says which one was checked.
@@ -202,7 +202,7 @@ def _lock_names(lock: dict[str, Any]) -> list[str]:
 
 
 def facts_from_locks(locks: Iterable[dict[str, Any]]) -> dict[str, float]:
-    """``{normalized name: value}`` — the locked source values, both names a lock carries.
+    """``{normalized name: value}`` — the values locked from the draft, both names a lock carries.
 
     A lock records ``canonical_key`` and often a shorter ``metric`` alias
     (``Revenue`` / ``ARR``); either may be the name a claim uses, so both are
@@ -434,7 +434,7 @@ def check_relation(
             )
         return _verdict(
             UNKNOWN,
-            f"no locked source value for {operand_name or '(unnamed operand)'}"
+            f"no value locked from the draft for {operand_name or '(unnamed operand)'}"
             + (f" or {metric}" if metric and metric != operand_name else ""),
         )
 
@@ -459,7 +459,7 @@ def check_relation(
         "claimed_sentence": str(primary.get("source_sentence") or ""),
     }
 
-    # Query 1 — does the draft's figure contradict the locked source value?
+    # Query 1 — does the draft's figure contradict the value locked from the draft?
     # A translation whose own numbers do not satisfy its own relation is not a
     # faithful encoding of the sentence (measured on a real fixture: "gravitational
     # forces exceeding 9G" came back as value 9, expected 9, relation gt — the
@@ -488,7 +488,7 @@ def check_relation(
     value_model = _model_text(solver) if value_result == sat else ""
     solver.pop()
 
-    # Query 2 — does the locked source value satisfy the asserted relation?
+    # Query 2 — does the value locked from the draft satisfy the asserted relation?
     solver.push()
     solver.add(Not(_OPS[relation](primary_var, expected)))
     relation_result = solver.check()
@@ -501,7 +501,7 @@ def check_relation(
     if value_result == sat:
         return _verdict(
             VIOLATED,
-            f"draft claims {_fmt(claimed)}{_unit_text(detail)}, locked source value is "
+            f"draft claims {_fmt(claimed)}{_unit_text(detail)}, value locked from the draft is "
             f"{_fmt(source)}{_unit_text(detail)} — the figure does not match the source",
             detail,
             evidence=value_model,
@@ -509,14 +509,14 @@ def check_relation(
     if relation_result == sat:
         return _verdict(
             VIOLATED,
-            f"locked source value {_fmt(source)}{_unit_text(detail)} does not satisfy the "
+            f"value locked from the draft {_fmt(source)}{_unit_text(detail)} does not satisfy the "
             f"claim's relation ({_RELATION_TEXT[relation]} {_fmt(expected)})",
             detail,
             evidence=relation_model,
         )
     return _verdict(
         VERIFIED,
-        f"locked source value {_fmt(source)}{_unit_text(detail)} matches the draft's figure "
+        f"value locked from the draft {_fmt(source)}{_unit_text(detail)} matches the draft's figure "
         f"and satisfies the claim's relation ({_RELATION_TEXT[relation]} {_fmt(expected)})",
         detail,
     )
@@ -568,7 +568,7 @@ def violation_text(result: dict[str, Any]) -> str:
     tail = f" (z3: {evidence})" if evidence else ""
     return (
         f"Metric '{key}' (relational): draft claims {claimed}{unit}, "
-        f"locked source value is {source}{unit}{tail}."
+        f"value locked from the draft is {source}{unit}{tail}."
     )
 
 

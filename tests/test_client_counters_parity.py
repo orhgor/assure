@@ -8,11 +8,16 @@ one the page promises — a paragraph citing ``[yes, no]`` counted unsupported o
 server and not in the browser, because the mirror had no contradicted branch
 (SEC-COUNTER-04).
 
-This test runs the *shipped* function: it extracts ``_derivedCounts`` and
-``_entailmentFor`` from ``prototype/shell.js`` (brace-balanced, no rewriting) and
-executes them in node against the same documents the Python counters see. The two
-leaf helpers the function calls are supplied here because they are unrelated to the
-rule under test: ``_anchorContentTokens`` as a word count over the fixture text (all
+This test runs the *shipped* functions: it extracts ``_derivedCounts`` and the
+helpers it calls — ``_claimOf`` (the persisted ``meta.provenance.claim`` block),
+``_derivedClaimVerdict`` (the verdict the server's counter derives for a paragraph
+without a block, ``claim_policy.derive_claim(sources=None)``), ``_claimVerdictOf``
+and ``_entailmentFor`` — from ``prototype/shell.js`` (brace-balanced, no
+rewriting) and executes them in node against the same documents the Python
+counters see. Since claim-v1 (2026-09-27) ``supported == verified`` and the
+verdict buckets (verified / unsupported / contradicted / insufficient) are
+compared too. The two leaf helpers unrelated to the rule under test are supplied
+here: ``_anchorContentTokens`` as a word count over the fixture text (all
 fixtures are far above the floor either way) and ``_ANCHOR_WORD_FLOOR`` as the
 server's ``_MIN_CLAIM_TOKENS``.
 
@@ -47,7 +52,13 @@ CLIENT_KEYS = (
     "unanchored",
     "unsupported",
     "unverified",
+    "verified",
+    "contradicted",
+    "insufficient",
 )
+
+#: The shell helpers the counter and the mark call, in dependency order.
+_COUNTER_HELPERS = ("_entailmentFor", "_claimOf", "_derivedClaimVerdict", "_claimVerdictOf", "_claimStateOf")
 
 
 def _extract_function(source: str, name: str) -> str:
@@ -115,7 +126,7 @@ def _client_counts(documents: list[dict[str, Any]]) -> list[dict[str, int]]:
             "function _anchorContentTokens(content) {",
             "  return String(content == null ? '' : content).split(/\\s+/).filter(Boolean).length;",
             "}",
-            _extract_function(source, "_entailmentFor"),
+            *[_extract_function(source, name) for name in _COUNTER_HELPERS],
             _extract_function(source, "_derivedCounts"),
             f"var docs = {json.dumps(documents)};",
             "process.stdout.write(JSON.stringify(docs.map(function (d) { return _derivedCounts(d); })));",
@@ -191,9 +202,12 @@ def test_the_browser_counts_a_contradicted_partial_paragraph_as_unsupported() ->
         _paragraph("p1", quotes=["a", "b"], verdict="partial", contradicted=True)
     )
     client = _client_counts([doc])[0]
-    assert client["partial"] == 1
-    assert client["supported"] == 1
-    assert client["unsupported"] == 1, "the browser dropped the contradicted citation"
+    server = _reported_stats(_provenance_counts(doc))
+    assert client["partial"] == 1 == server["partial"]
+    # claim-v1: a partial verdict is not verified, so it is not supported either;
+    # the paragraph is counted unsupported on both sides.
+    assert client["supported"] == 0 == server["supported"]
+    assert client["unsupported"] == 1 == server["unsupported"], "the browser dropped the contradicted citation"
 
 
 def _client_states(documents: list[dict[str, Any]]) -> list[list[Any]]:
@@ -208,7 +222,7 @@ def _client_states(documents: list[dict[str, Any]]) -> list[list[Any]]:
             "function _anchorContentTokens(content) {",
             "  return String(content == null ? '' : content).split(/\\s+/).filter(Boolean).length;",
             "}",
-            _extract_function(source, "_entailmentFor"),
+            *[_extract_function(source, name) for name in _COUNTER_HELPERS],
             _extract_function(source, "_anchorStateOf"),
             f"var docs = {json.dumps(documents)};",
             "var out = docs.map(function (d) {",
@@ -226,6 +240,12 @@ def _client_states(documents: list[dict[str, Any]]) -> list[list[Any]]:
 #: reader who sees the mark and the tile reads one document state twice, so the two
 #: have to agree; a state that a bucket contradicts is a mark that lies.
 _STATE_BUCKET = {
+    # claim-v1 marks (2026-09-27): the verdict bucket the paragraph is counted in.
+    "verified": lambda s: s["verified"] == 1 and s["supported"] == 1 and s["unsupported"] == 0,
+    "unsupported_claim": lambda s: s["unsupported"] == 1 and s["verified"] == 0,
+    "contradicted": lambda s: s["contradicted"] == 1,
+    "insufficient": lambda s: s["insufficient"] == 1 and s["anchored"] == 1,
+    # legacy marks, kept so an older shell build still reads against the buckets
     "supported": lambda s: s["supported"] == 1 and s["unsupported"] == 0,
     "partial": lambda s: s["partial"] == 1 and s["supported"] == 1,
     "unsupported": lambda s: s["unsupported"] == 1,

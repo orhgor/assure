@@ -30,7 +30,7 @@ try:
     from ..ledger.truth_engine import TruthLedgerEngine
     from ..ledger.truth_engine import Z3Timeout as _Z3Timeout
     from ..lib.logger import get_audit_logger
-    from ..keys import PROVIDER_PIN
+    from ..keys import PROVIDER_PIN, provider_pin_for
     from ..models.jdf import (
         _merge_short_sentences,
         _split_sentences,
@@ -62,7 +62,16 @@ try:
         validate_compiled_draft,
         wrap_untrusted_source,
     )
-    from ..services.entailment import attach_entailment_to_tree, check_entailment
+    from ..services.claim_policy import (
+        CLAIM_POLICY_ID,
+        attach_claims_to_tree,
+        sentence_for_offset,
+    )
+    from ..services.entailment import (
+        ENTAILMENT_PROMPT_VERSION,
+        attach_entailment_to_tree,
+        check_entailment,
+    )
     from ..services.lock_inference import infer_lock_candidates
     from ..services.source_carry import (
         SUBSTRATE_CONTEXT_CHARS_PER_FILE,
@@ -104,7 +113,7 @@ except ImportError:
     from ledger.truth_engine import TruthLedgerEngine
     from ledger.truth_engine import Z3Timeout as _Z3Timeout
     from lib.logger import get_audit_logger
-    from keys import PROVIDER_PIN
+    from keys import PROVIDER_PIN, provider_pin_for
     from models.jdf import (
         _merge_short_sentences,
         _split_sentences,
@@ -136,7 +145,16 @@ except ImportError:
         validate_compiled_draft,
         wrap_untrusted_source,
     )
-    from services.entailment import attach_entailment_to_tree, check_entailment
+    from services.claim_policy import (
+        CLAIM_POLICY_ID,
+        attach_claims_to_tree,
+        sentence_for_offset,
+    )
+    from services.entailment import (
+        ENTAILMENT_PROMPT_VERSION,
+        attach_entailment_to_tree,
+        check_entailment,
+    )
     from services.lock_inference import infer_lock_candidates
     from services.source_carry import (
         SUBSTRATE_CONTEXT_CHARS_PER_FILE,
@@ -491,9 +509,14 @@ def frozen_cold_compile_blocked(*, project_id: str, cached_hit: bool, force: boo
 def _prompt_key_material(project_id: str) -> str:
     """The prompt's place in this project's cache key — "" for a frozen artifact.
 
-    ``"<PROMPT_VERSION>:<prompt_fingerprint()>"``: the fingerprint is what makes a
-    prompt edit move the key with nobody remembering anything, and the version rides
-    in front of it for readability.
+    ``"<PROMPT_VERSION>:<prompt_fingerprint()>:<claim policy>:e<entailment prompt
+    version>"``: the fingerprint is what makes a prompt edit move the key with
+    nobody remembering anything, and the version rides in front of it for
+    readability. The verifier's rule is key material too (2026-09-27): a warm
+    compile replays the ``verified`` frame's tree, whose entailment records were
+    judged under the prompt of the time, so a change to the entailment labels or
+    the claim policy must miss and re-verify rather than replay verdicts made
+    under the old rule.
 
     A frozen project gets "". Its document is a pinned artifact — the runbook's demo
     path replays it and the guard refuses a cold compile so the pin cannot move — so
@@ -503,7 +526,7 @@ def _prompt_key_material(project_id: str) -> str:
     """
     if project_id in frozen_projects():
         return ""
-    return f"{PROMPT_VERSION}:{prompt_fingerprint()}"
+    return f"{PROMPT_VERSION}:{prompt_fingerprint()}:{CLAIM_POLICY_ID}:e{ENTAILMENT_PROMPT_VERSION}"
 
 
 def _compile_cache_key(
@@ -692,6 +715,15 @@ def attach_citations_to_tree(
             ids = _CITED_ID_RE.findall(content)
             if not ids:
                 continue
+            # The sentence each marker ends, before the markers are stripped: a
+            # citation belongs to the sentence it closes, and the claim policy
+            # (``claim_policy.sentence_units``) judges each sentence against its
+            # own citations (2026-09-27). Markers are blanked, not removed, so
+            # the offsets are those of the text whose sentences are counted.
+            blanked = _CITED_ID_RE.sub(lambda m: " " * len(m.group(0)), content)
+            marker_sentences = [
+                sentence_for_offset(blanked, m.start()) for m in _CITED_ID_RE.finditer(content)
+            ]
             stripped = _CITED_ID_RE.sub("", content)
             stripped = re.sub(r"[ \t]{2,}", " ", stripped)
             stripped = re.sub(r"\s+([.,;:])", r"\1", stripped)
@@ -699,7 +731,7 @@ def attach_citations_to_tree(
             rows = node.get("provenance")
             if not isinstance(rows, list):
                 rows = node["provenance"] = []
-            for n in ids:
+            for position, n in enumerate(ids):
                 entry = sentence_map.get(f"S{n}")
                 if not entry:
                     continue
@@ -727,6 +759,7 @@ def attach_citations_to_tree(
                         "source_name": entry["filename"],
                         "page": entry["page"],
                         "cited_id": f"S{n}",
+                        "sentence_index": marker_sentences[position],
                     }
                 )
     return tree
@@ -1003,6 +1036,39 @@ def verify_locks(
     }
 
 
+_UNENFORCED_UNITS = frozenset({"count", "counts", "items", "item", "lines", "line", "documents", "document", "pages", "page", "words", "sentences", "number"})
+
+
+def _relation_is_enforceable(translation: dict, claim_text: str) -> bool:
+    """A Tier 2 relation may raise a VIOLATION only when (a) its unit is not a
+    count the translator derived (list lengths, line numbers) and (b) every
+    figure it compares is literally written in the claim's text."""
+    units = {str((translation or {}).get("unit") or "").strip().lower()}
+    for op in (translation or {}).get("operands") or []:
+        if isinstance(op, dict):
+            units.add(str(op.get("unit") or "").strip().lower())
+    units.discard("")
+    if units & _UNENFORCED_UNITS:
+        return False
+    if units & {"usd", "$", "%", "percent", "ratio", "eur", "gbp"}:
+        # A money / percent / ratio figure is what Tier 2 exists for; the
+        # translator's scale normalisation ("$14M" → 14000000) is legitimate.
+        return True
+    text = re.sub(r"[,$%\s]", "", str(claim_text or ""))
+    figures: list[str] = []
+    for key in ("expected", "value", "operands"):
+        val = (translation or {}).get(key)
+        vals = val if isinstance(val, (list, tuple)) else [val]
+        for v in vals:
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                figures.append(f"{v:g}")
+            elif isinstance(v, str) and re.search(r"\d", v):
+                figures.append(re.sub(r"[,$%\s]", "", v))
+    if not figures:
+        return False
+    return all(any(f.rstrip("0").rstrip(".") in text or f in text for _ in [0]) for f in figures)
+
+
 def _check_claim(
     claim: str,
     facts: dict[str, float],
@@ -1050,6 +1116,18 @@ def _check_claim(
                 "translation_sha256": outcome.get("json_sha256") or "",
             }
         )
+        if decision["verdict"] == RELATIONAL_VIOLATED and not _relation_is_enforceable(outcome["claim"], claim):
+            # Measured on the demo set 2026-09-27: "Metric 'documents': draft
+            # claims 1 count, locked 2 count", "'coverage_and_exclusions': 38
+            # count vs 7" — counts the translator inferred from prose (a list's
+            # length, a line number) blocked two compiles. A relation is
+            # enforced only when its figures are written in the claim and carry
+            # a unit a document states (money, percent, a labelled figure);
+            # anything else is reported as understood-but-unchecked.
+            result["tier"] = "unverified"
+            result["verdict"] = RELATIONAL_UNKNOWN
+            result["reason"] = "relation not enforced: its figure is a count or a value the translator inferred rather than one the draft states"
+            return {"verdict": RELATIONAL_UNKNOWN, "reason": result["reason"], "model": model, "result": result}
         if decision["verdict"] == RELATIONAL_VIOLATED:
             result["violation"] = relational_violation_text(decision)
             return {"verdict": RELATIONAL_VIOLATED, "violation": result["violation"],
@@ -1139,8 +1217,9 @@ def _anchoring_provenance_row(node: dict[str, Any] | None) -> dict[str, Any] | N
     This is the *cited* sentence — the one the Evidence pane shows. The entailment
     check reads the same row's ``anchor_window`` instead (entailment._claim_source),
     because it judges the claim against the evidence the matcher used rather than
-    the sentence quoted out of it; Red-Hat's prompt names a source *sentence*, so a
-    sentence is what it gets.
+    the sentence quoted out of it. Red-Hat's prompt lists every anchored quote
+    (``redhat_verbatim.anchored_quotes``); this returns the first for the callers
+    that name one origin.
     """
     for row in (node or {}).get("provenance") or []:
         if isinstance(row, dict) and str(row.get("extracted_quote") or "").strip():
@@ -1153,6 +1232,55 @@ def _source_ref(row: dict[str, Any] | None) -> str:
     name = str((row or {}).get("source_name") or "").strip() or "substrate"
     page = str((row or {}).get("page_number") or "").strip()
     return f"{name} p.{page}" if page else name
+
+
+def _redhat_auto_frame(
+    project_id: str,
+    full_text: str,
+    ledger: dict[str, float],
+    shape: str,
+) -> dict[str, Any]:
+    """The ``redhat`` SSE payload for a compile: ``status: "scheduled"`` with the
+    task id when the multipass audit was enqueued over the compiled tree,
+    otherwise ``status: "skipped"`` with the reason (``ASSURE_REDHAT_AUTO`` off,
+    nothing to audit, or no task broker). Never ``ran``: nothing ran here.
+    """
+    payload: dict[str, Any] = {
+        "status": "skipped",
+        "findings_count": 0,
+        "error": None,
+        "skip_reason": None,
+        "task_id": None,
+    }
+    try:
+        from .redhat_routes import redhat_auto_enabled, schedule_redhat_after_compile
+    except ImportError:
+        from routers.redhat_routes import redhat_auto_enabled, schedule_redhat_after_compile
+    if not redhat_auto_enabled():
+        payload["skip_reason"] = "ASSURE_REDHAT_AUTO is off; use the Red-Hat button to audit"
+        return payload
+    if not (full_text or "").strip():
+        payload["skip_reason"] = "empty draft; nothing to audit"
+        return payload
+    try:
+        if shape == ANSWER_SHAPE_DIRECT:
+            pre_audit = build_direct_document(project_id, full_text, truth_ledger=ledger)
+        else:
+            pre_audit = build_document_from_draft(project_id, full_text, truth_ledger=ledger)
+        task_id = schedule_redhat_after_compile(
+            project_id, None, current_jdf=document_to_dict(pre_audit)
+        )
+    except Exception as exc:  # noqa: BLE001 — the compile must not fail on the audit
+        _log.warning("[redhat-auto] scheduling failed for %s: %s", project_id, exc)
+        payload["error"] = str(exc)[:240]
+        payload["skip_reason"] = "scheduling the Red-Hat audit failed"
+        return payload
+    if not task_id:
+        payload["skip_reason"] = "no task broker configured for the Red-Hat audit"
+        return payload
+    payload["status"] = "scheduled"
+    payload["task_id"] = task_id
+    return payload
 
 
 def run_redhat_audit(
@@ -1168,31 +1296,58 @@ def run_redhat_audit(
     """DeepSeek-V3 adversarial critique (Stage 4 — heavy).
 
     Node-scoped audits (``target_node_id``) are source-aware: the prompt carries
-    the provenance quote the gate attached to that node, or states that no quote
-    is attached. Whole-document audits (no ``target_node_id``) get no source at
-    all, so their prompt is a risk review and never claims a grounding verdict.
+    every provenance quote the gate attached to that node (not only the first —
+    a paragraph anchored to three sentences is supported by the three together),
+    or states that no quote is attached. Whole-document audits (no
+    ``target_node_id``) get no source at all, so their prompt is a risk review
+    and never claims a grounding verdict.
+
+    A finding that quotes the source is kept only when the quote is re-found
+    verbatim in the anchored sentences (``services/redhat_verbatim``); a finding
+    whose quote is not there is dropped and reported as an error entry with
+    ``code: "redhat_quote_not_verbatim"``. Kept findings carry ``quote`` and
+    ``quote_verbatim``.
 
     Returns at most one entry. An entry with ``status == "error"`` is not a
-    finding: it is a refusal (the answer was cut off at the output ceiling) or a
-    model failure, and callers must not attach it to the document.
+    finding: it is a refusal (the answer was cut off at the output ceiling), a
+    model failure, or a dropped finding, and callers must not attach it to the
+    document.
     """
+    try:
+        from ..services.redhat_verbatim import (
+            anchored_quotes,
+            anchored_source_texts,
+            format_source_block,
+            verbatim_gate,
+        )
+    except ImportError:
+        from services.redhat_verbatim import (
+            anchored_quotes,
+            anchored_source_texts,
+            format_source_block,
+            verbatim_gate,
+        )
+
     _check_cancel(cancel_check)
     content = (draft_text or "").strip()[:8000]
     if not content:
         return [], {"input_tokens": 0, "output_tokens": 0, "model_id": ""}
 
+    source_texts: list[str] = []
     if target_node_id:
         node = get_node_by_id(document, target_node_id) if document else None
-        row = _anchoring_provenance_row(node)
-        source_quote = str((row or {}).get("extracted_quote") or "").strip()
-        if source_quote:
+        quotes = anchored_quotes(node)
+        source_texts = anchored_source_texts(quotes)
+        if quotes:
             prompt_parts = [
                 f"{_REDHAT_CLAIM_PREAMBLE}\n\n"
                 f"Claim:\n{content}\n\n"
-                f"Source sentence the provenance gate attached to this claim "
-                f"({_source_ref(row)}) — the only source available:\n"
-                f"{source_quote}\n\n"
-                f"{_REDHAT_SOURCE_CHECK_INSTRUCTION}"
+                f"Source sentences the provenance gate attached to this claim "
+                f"({len(quotes)}) — the only source available:\n"
+                f"{format_source_block(quotes)}\n\n"
+                f"{_REDHAT_SOURCE_CHECK_INSTRUCTION}\n"
+                f"When you quote the source, copy the sentence exactly as listed above, "
+                f"inside “ ” quotes; a quote that is not verbatim will be discarded."
             ]
         else:
             # No quote attached — including the case where ``document`` does not
@@ -1256,13 +1411,37 @@ def run_redhat_audit(
             }
         )
     elif text:
-        critiques.append(
-            {
-                "title": "Red-hat review",
-                "content": text,
-                "model": red.model_id,
-            }
-        )
+        finding = {
+            "title": "Red-hat review",
+            "content": text,
+            "model": red.model_id,
+        }
+        if target_node_id:
+            kept, notes = verbatim_gate([finding], source_texts)
+            if kept:
+                critiques.append(kept[0])
+            else:
+                critiques.append(
+                    {
+                        "title": "Red-hat review",
+                        "content": (
+                            "Red-Hat finding dropped: it quoted text that is not in the "
+                            "source verbatim. " + "; ".join(notes)
+                        ),
+                        "model": red.model_id or "",
+                        "status": "error",
+                        "code": "redhat_quote_not_verbatim",
+                        "dropped_findings": 1,
+                        "notes": notes,
+                    }
+                )
+        else:
+            # No source was supplied: nothing the review quotes can be a source
+            # quote, and the entry says so.
+            finding["quote"] = None
+            finding["quote_verbatim"] = False
+            finding["evidence_kind"] = "observation"
+            critiques.append(finding)
     elif red.output_tokens > 0:
         critiques.append(
             {
@@ -1304,7 +1483,12 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256((value or "").encode("utf-8")).hexdigest()
 
 
-def _recount_cached_verified(cached: dict[str, Any], *, has_substrate: bool) -> dict[str, Any]:
+def _recount_cached_verified(
+    cached: dict[str, Any],
+    *,
+    has_substrate: bool,
+    sources: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """The `verified` payload to replay, with its provenance layer recounted.
 
     A cache hit replays the frame as it was written, but the document inside it
@@ -1312,9 +1496,14 @@ def _recount_cached_verified(cached: dict[str, Any], *, has_substrate: bool) -> 
     document by the one counter (`services.audit_summary.provenance_gate_fields`,
     over `_provenance_counts`) rather than trusted as written. A cache entry made
     before the counting rule changed would otherwise report its numbers forever,
-    and the refusal gate below reads the same stats. `supported` there counts a
-    verdict of `yes` OR `partial`: a claim the sentences it cites carry in part,
-    with nothing contradicting it, is grounded.
+    and the refusal gate below reads the same stats.
+
+    Since 2026-09-27 the recount is from the claim blocks
+    (``meta.provenance.claim``), re-derived against ``sources`` — the substrate
+    rows of this ask — so a replayed tree is judged under the current policy:
+    verbatim quote, source quality, four-label entailment, recomputed figures.
+    Without ``sources`` the persisted blocks are kept and a node with none is
+    "source not supplied", never verified.
     """
     payload = dict(cached.get("verified") or {})
     document = payload.get("document")
@@ -1326,6 +1515,8 @@ def _recount_cached_verified(cached: dict[str, Any], *, has_substrate: bool) -> 
         z3_status=str(payload.get("z3_status") or z3.get("status") or "SKIPPED"),
         redhat_count=int(payload.get("redhat_count") or 0),
         has_substrate=has_substrate,
+        sources=sources,
+        carry_plan=carry_plan(sources) if sources else None,
     )
     # Clear the cached refusal before writing the new verdict: an entry that read
     # "unverified" under the old counting must not keep refusing once the recount
@@ -1411,7 +1602,9 @@ def _stream_model(
             # `extra_body` is the carrier: litellm passes a caller's extra_body
             # through to the OpenRouter request body (verified by capturing the
             # outgoing JSON), and a named kwarg has no route to this field.
-            _api_kwargs["extra_body"] = {"provider": dict(_COMPILE_PROVIDER_PIN)}
+            _pin = provider_pin_for(model)
+            if _pin:
+                _api_kwargs["extra_body"] = {"provider": _pin}
         try:
             from ..services.pricing import compute_usd
         except ImportError:
@@ -1667,7 +1860,7 @@ def _run_draft_pipeline(
         # below-floor compile cached yesterday would still reach the canvas
         # today, and the refusal would look like it worked only sometimes.
         _replay_verified = _recount_cached_verified(
-            cached, has_substrate=bool(substrate_rows)
+            cached, has_substrate=bool(substrate_rows), sources=substrate_rows
         )
         _cached_outcome = validate_compiled_draft(
             draft=str((cached.get("compiled") or {}).get("draft_text") or ""),
@@ -1876,6 +2069,10 @@ def _run_draft_pipeline(
     try:
         locks, lock_model = run_lock_inference(full_text)
         for lock in locks:
+            # The locks are read from the draft text the model just wrote, not
+            # from a source: relational_z3's verdicts say "value locked from
+            # the draft" and this records where the figure came from.
+            lock["origin"] = "draft"
             key = str(lock.get("canonical_key") or lock.get("metric") or "").strip()
             if key:
                 try:
@@ -1904,21 +2101,15 @@ def _run_draft_pipeline(
     except RuntimeError as exc:
         yield _typed_sse("status", {"stage": "locks_skipped", "message": str(exc)})
 
-    # Red-Hat pipeline stage state (ran | skipped | failed). The heavy adversarial
-    # audit is opt-in (run_redhat_pipeline / POST /draft/redhat/stream) and this
-    # stream never calls it, so the honest state for every compile is "skipped":
-    # nothing was executed here, and reporting "ran" claimed a pass no audit
-    # backed. Findings are never invented, so they stay empty.
-    redhat_status = "skipped"
-    redhat_skip = "no Red-Hat audit was requested for this compile"
-    redhat_findings: list[dict[str, Any]] = []
-    redhat_error: str | None = None
-    redhat_payload: dict[str, Any] = {
-        "status": redhat_status,
-        "findings_count": len(redhat_findings),
-        "error": redhat_error,
-        "skip_reason": redhat_skip,
-    }
+    # Red-Hat pipeline stage state (scheduled | skipped). The heavy adversarial
+    # audit is not run inside this stream; since 2026-09-27 it is scheduled
+    # after the compile (ASSURE_REDHAT_AUTO, default on) over the compiled tree,
+    # so `redhat/status` moves idle → pending → complete without a click. The
+    # tree the audit receives here is the pre-persist build of the same draft
+    # text; the persist step may re-schedule with the persisted tree
+    # (redhat_routes.schedule_redhat_after_compile supersedes the earlier
+    # task). Findings are never invented, so they stay empty in this frame.
+    redhat_payload = _redhat_auto_frame(project_id, full_text, ledger, _shape)
     yield _typed_sse(
         "redhat",
         {"redhat": redhat_payload, **redhat_payload},
@@ -2069,13 +2260,6 @@ def _run_draft_pipeline(
         project_id=project_id,
         checker=lambda claim, source: check_entailment(claim, source, project_id=project_id),
     )
-
-    verified_payload = build_audit_summary(
-        z3_results=z3_results,
-        redhat_critiques=[],
-        document=verified_doc,
-        has_substrate=bool(substrate_rows),
-    )
     # What this compile carried of the sources it was handed, by the same walk that
     # numbered the prompt (`services/source_carry`). The prompt cannot hold every
     # attached source — the walk stops at the first block that would pass
@@ -2083,8 +2267,32 @@ def _run_draft_pipeline(
     # behind, so the export's manifest listed every attached file as included
     # (measured: 24 attached, 18 carried, all 24 reported). One plan is written in
     # three places the reader already looks: the `verified` frame, the gate block
-    # the export reads, and this compile's audit row.
+    # the export reads, and this compile's audit row — and, since 2026-09-27, it
+    # is read by the claim policy: a claim cited from a source the prompt dropped
+    # or truncated before the cited region is INSUFFICIENT_EVIDENCE.
     _carry = carry_plan(substrate_rows)
+
+    # Stage 3c: claim verdicts (policy claim-v1, `services/claim_policy`). Every
+    # claim-eligible paragraph — including a short "Flood is excluded." — gets a
+    # VERIFIED / UNSUPPORTED / CONTRADICTED / INSUFFICIENT_EVIDENCE block derived
+    # from: a quote verbatim in the cited substrate row, that row's parse
+    # confidence and carry status, the four-label entailment above, and a
+    # deterministic recomputation of the claim's figures. The counters and the
+    # gate read these blocks, not the entailment verdict.
+    yield _typed_sse(
+        "status",
+        {"stage": "claims", "message": "Deriving claim verdicts against the sources…"},
+    )
+    verified_doc = attach_claims_to_tree(verified_doc, sources=substrate_rows, carry_plan=_carry)
+
+    verified_payload = build_audit_summary(
+        z3_results=z3_results,
+        redhat_critiques=[],
+        document=verified_doc,
+        has_substrate=bool(substrate_rows),
+        sources=substrate_rows,
+        carry_plan=_carry,
+    )
     verified_payload["sources"] = _carry
     # Persist the AUDITED jdf tree — the exact document streamed in `verified` —
     # so export/history/versions read a real document that carries
@@ -2105,14 +2313,38 @@ def _run_draft_pipeline(
             current_document_version,
             save_jdf_revision,
         )
+    _persisted_tree = verified_payload.get("document") or verified_doc
     try:
         save_jdf_revision(
             project_id,
-            verified_payload.get("document") or verified_doc,
+            _persisted_tree,
             mutation_type="compile",
         )
     except Exception as exc:
         _log.warning("[jdf-persist] failed for %s: %s", project_id, exc)
+    # Re-schedule the Red-Hat audit over the PERSISTED tree — the one carrying the
+    # entailment records and the claim blocks — so the audit reads the verdicts
+    # the reader sees. The earlier schedule in `_redhat_auto_frame` ran on the
+    # pre-persist build of the same text; `schedule_redhat_after_compile` bumps
+    # the audit generation and revokes that task, so this call supersedes it.
+    _rescheduled_over_persisted = False
+    if str(redhat_payload.get("status") or "") == "scheduled":
+        try:
+            try:
+                from .redhat_routes import schedule_redhat_after_compile
+            except ImportError:
+                from routers.redhat_routes import schedule_redhat_after_compile
+            # ``run_id`` is None, as in ``_redhat_auto_frame``: the audit's
+            # findings carry ``redhat_findings.run_id → runs.id``, and the
+            # stream's request id is not a ``runs`` row — passing it made every
+            # insert fail on the foreign key (live run 2026-09-27, worker log:
+            # ``Key (run_id)=(…) is not present in table "runs"``).
+            _superseding = schedule_redhat_after_compile(project_id, None, current_jdf=_persisted_tree)
+            if _superseding:
+                redhat_payload["task_id"] = _superseding
+                _rescheduled_over_persisted = True
+        except Exception as exc:  # noqa: BLE001 — the compile must not fail on the audit
+            _log.warning("[redhat-auto] re-scheduling over the persisted tree failed for %s: %s", project_id, exc)
     # Persist the gate block with the project's stored compile so exports can
     # read it (projects.last_compiled_json — no new table). A node-scoped
     # Red-Hat audit IS reflected, but through the JDF tree saved below, not
@@ -2139,6 +2371,7 @@ def _run_draft_pipeline(
             "unverified": verified_payload.get("unverified"),
             "unverified_reason": verified_payload.get("unverified_reason"),
             "provenance_stats": verified_payload.get("provenance_stats") or {},
+            "claim_summary": verified_payload.get("claim_summary") or {},
             "measure": _measure,
             "redhat": redhat_payload,
             "sources": _carry,
@@ -2167,18 +2400,26 @@ def _run_draft_pipeline(
     except Exception as exc:
         _log.warning("[gate-persist] failed for %s: %s", project_id, exc)
     yield _typed_sse("verified", verified_payload)
-    try:
-        from ..db.jdf_repository import fetch_latest_jdf
-        from ..signals import z3_verified
-    except ImportError:
-        from db.jdf_repository import fetch_latest_jdf
-        from signals import z3_verified
-    z3_verified.send(
-        "draft_stream",
-        project_id=project_id,
-        current_jdf=verified_doc,
-        previous_jdf=fetch_latest_jdf(project_id),
-    )
+    # ``z3_verified``'s only receiver (``signals._on_z3_verified``) enqueues the
+    # same Red-Hat multipass with a fresh generation. When the persist step above
+    # already scheduled it over the persisted tree, sending the signal too would
+    # be a third enqueue that retires the second as stale — measured on the live
+    # stack 2026-09-27: telemetry ended ``error: stale_generation`` because the
+    # retired run wrote its exit over the newer generation's ``pending``. One
+    # post-persist enqueue, over the tree that carries the claim blocks.
+    if not _rescheduled_over_persisted:
+        try:
+            from ..db.jdf_repository import fetch_latest_jdf
+            from ..signals import z3_verified
+        except ImportError:
+            from db.jdf_repository import fetch_latest_jdf
+            from signals import z3_verified
+        z3_verified.send(
+            "draft_stream",
+            project_id=project_id,
+            current_jdf=_persisted_tree,
+            previous_jdf=fetch_latest_jdf(project_id),
+        )
 
     compiled_payload = {
         "document": doc_dict,

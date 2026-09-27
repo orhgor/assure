@@ -397,12 +397,17 @@ def run_auto_compiler_pipeline(
         except (TypeError, ValueError):
             continue
 
+    # The locks are inferred from the draft's own text and the Z3 pass checks
+    # the draft's ``key: value`` pairs against them, so a PASS says the draft
+    # does not contradict itself — not that a source carries it. A run is
+    # therefore never "stamped" here (2026-09-27): a self-contradiction is
+    # reported, anything else stays "unverified".
     status = "draft"
     if sources_used:
         z3 = _verify_locks(locks, full_text)
-        status = "contradiction" if z3.get("status") == "VIOLATION" else "stamped"
+        status = "contradiction" if z3.get("status") == "VIOLATION" else "unverified"
     elif use_web:
-        status = "stamped" if locks else "draft"
+        status = "unverified" if locks else "draft"
 
     doc = build_document_from_draft(ws, full_text or text, truth_ledger=truth_ledger)
     content = document_to_dict(doc)

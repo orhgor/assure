@@ -24,6 +24,19 @@ def _disable_omp_cache_for_draft_tests(monkeypatch, request):
     monkeypatch.setenv("PEM_OMP_CACHE", "0")
 
 
+#: Padding for the substrate text the fixtures hand the compile. claim-v1
+#: (2026-09-27) reads a source under 200 characters as a stub
+#: (INSUFFICIENT_EVIDENCE, "the source carries N characters of text"), and the
+#: one-sentence fixtures here are ~76 characters. The padding goes on the
+#: ``extracted_text`` only — never on the draft — so the claims under test stay
+#: exactly what they were and the source is simply long enough to be a document.
+SOURCE_FILLER = (
+    " Declarations continue. Other coverages are not subject to the liability limit. "
+    "Conditions and definitions apply as stated in the policy forms attached to this "
+    "declarations page and made part of the contract."
+)
+
+
 def test_draft_text_to_sections_headings():
     body = draft_text_to_sections(
         "## Revenue\n\nQ3 ARR reached $12M.\n\n## Growth\n\nYoY growth was 45%."
@@ -154,7 +167,9 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
-        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}],
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source + SOURCE_FILLER}
+        ],
     )
 
     frames = list(
@@ -199,8 +214,18 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     # test_run_draft_pipeline_verifies_anchored_claims.)
     assert verified["provenance_stats"]["anchored"] == 1
     assert verified["provenance_stats"]["supported"] == 1
-    assert verified["gate_status"] == "pass"
-    assert verified["ok"] is True
+    assert verified["provenance_stats"]["verified"] == 1
+    # claim-v1 (2026-09-27): the draft's second paragraph, "Policy liability
+    # limit=5000000.", carries a figure and no anchor, so it is a claim and it is
+    # UNSUPPORTED ("no source sentence carries this claim"). One verified claim
+    # does not outvote it: the gate reads review and names it. Before the policy
+    # an unanchored paragraph was not counted against the gate and this read
+    # `pass` / `ok: True`.
+    assert verified["provenance_stats"]["unanchored"] == 1
+    assert verified["claim_summary"]["unsupported"] == 1
+    assert verified["gate_status"] == "review"
+    assert verified["ok"] is False
+    assert "1 unsupported" in verified["unverified_reason"]
     assert "document" in verified
 
     assert any(f.strip() == "data: [DONE]" for f in frames)
@@ -236,7 +261,9 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
-        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}],
+        lambda _pid, _ids: [
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source + SOURCE_FILLER}
+        ],
     )
 
     frames = list(
@@ -255,26 +282,29 @@ def test_run_draft_pipeline_verifies_anchored_claims(monkeypatch):
     assert calls == [(claim, claim.rstrip("."))]
 
     verified = next(d for d in frames_by_type if d.get("type") == "verified")
-    # `supported` is the grounded count: the paragraph is anchored (it carries a
-    # matched source sentence — `node["provenance"]` below) and the verdict on
-    # that anchor is "partial" — the source states the limit, so it carries the
-    # claim in part and contradicts nothing. `partial` is reported beside it as
-    # the verdict detail, so neither number stands in for the other.
+    # The paragraph is anchored (it carries a matched source sentence —
+    # `node["provenance"]` below) and the verdict on that anchor is "partial".
+    # Until 2026-09-27 that counted as `supported`; under claim-v1 a claim whose
+    # source carries it only in part is UNSUPPORTED ("a material qualifier is
+    # missing") and `supported` equals `verified`. `partial` is still reported
+    # beside it as the entailment layer's own detail.
     assert verified["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
-        "supported": 1,
+        "supported": 0,
         "partial": 1,
-        "unsupported": 0,
+        "unsupported": 1,
         "unanchored": 0,
         "unverified": 0,
+        "verified": 0,
+        "contradicted": 0,
+        "insufficient": 0,
+        "flagged": 0,
     }
-    # The provenance layer is earned and nothing is refused; the gate is still
-    # Z3's to decide, and this fixture's draft yields no locks, so Math Check
-    # reports SKIPPED and the gate reads "review" rather than "pass".
+    assert verified["claim_summary"]["unsupported"] == 1
     assert verified["gate_status"] == "review"
     assert verified["ok"] is False
-    assert not verified.get("unverified_reason")
+    assert verified["unverified_reason"] == "0 of 1 claims verified (1 unsupported)."
     node = verified["document"]["body"][0]["children"][0]
     assert node["meta"]["provenance"]["entailment"]["verdict"] == "partial"
     assert node["provenance"], "the paragraph is still lexically anchored"
@@ -365,7 +395,7 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
         lambda _pid, _ids: [
-            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source + SOURCE_FILLER}
         ],
     )
     wrapped = {
@@ -404,6 +434,8 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
     # A cache hit replays the frames but not the counters: they are recounted
     # from the document in the entry (and the refusal they used to carry is
     # dropped with them), so the replayed frame reports the tree it renders.
+    # claim-v1 (2026-09-27): the recount re-derives the claim blocks against
+    # this ask's sources, so the replayed frame also carries the claim buckets.
     assert verified["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
@@ -412,7 +444,12 @@ def test_run_draft_pipeline_omp_cache_hit(monkeypatch):
         "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
+        "verified": 1,
+        "contradicted": 0,
+        "insufficient": 0,
+        "flagged": 0,
     }
+    assert verified["claim_summary"]["verified"] == 1
     assert verified["gate_status"] == "pass"
     assert not verified.get("unverified_reason")
     assert remember_calls == []
@@ -1012,7 +1049,7 @@ def _grounded_compile(monkeypatch, project_id: str = "default", **kwargs):
     monkeypatch.setattr(
         "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
         lambda _pid, _ids: [
-            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source}
+            {"id": "sub-1", "filename": "policy.pdf", "extracted_text": source + SOURCE_FILLER}
         ],
     )
     frames = list(

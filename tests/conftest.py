@@ -43,6 +43,10 @@ def pytest_configure(config):
     # opts in with monkeypatch.setenv("ASSURE_AUTH_MODE", "local").
     os.environ.setdefault("ASSURE_AUTH_MODE", "off")
     os.environ.pop("ASSURE_BOOTSTRAP_TOKEN", None)
+    # The developer's .env may say ENVIRONMENT=staging (create_app then refuses
+    # to start without REDIS_URL); the suite runs as development unless a test
+    # says otherwise. load_dotenv fills only missing keys, so set it here.
+    os.environ.setdefault("ENVIRONMENT", "development")
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None

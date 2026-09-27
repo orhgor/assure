@@ -1,4 +1,16 @@
-"""Zero-click Z3 lock candidate extraction from substrate text."""
+"""Zero-click Z3 lock candidate extraction from draft / substrate text.
+
+Backend routing (2026-09-27): the model follows ``cost_governance.llm_backend``
+like every other stage — ``resolve_model(..., role="anchor")`` gives the local
+Ollama tag, the Bedrock analysis model or the OpenRouter stage model, and the
+call goes through ``CostGovernor._default_executor`` (the executor
+``llm_extraction.default_completion``, entailment and Red-Hat use). Until then
+``_ensure_provider_key`` accepted only ``gemini/`` and ``openrouter/`` ids and
+raised "OpenRouter API key not configured for lock inference." on an Ollama or
+Bedrock box, so every compile there skipped its locks and the Math Check had
+nothing to check. The hosted providers keep their key check; a key is not
+needed for the local or IAM-authenticated backends.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +22,12 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
+    from ..cost_governance import llm_backend, resolve_model
     from ..keys import key_present, load_keys
     from ..litellm_runner import call_model
     from ..upload_limits import pdf_has_visual_content
 except ImportError:
+    from cost_governance import llm_backend, resolve_model
     from keys import key_present, load_keys
     from litellm_runner import call_model
     from upload_limits import pdf_has_visual_content
@@ -59,8 +73,26 @@ class LockInferenceResult:
     has_visual_content: bool
 
 
+#: Prefixes of the hosted providers whose key must be present before a call.
+HOSTED_PREFIXES = ("gemini/", "openrouter/")
+
+
 def resolve_lock_inference_model(has_visual_content: bool) -> str:
+    """The model lock inference calls on this box.
+
+    On the cloud backend (no ``ASSURE_LLM_BACKEND``, no OpenRouter key) the
+    legacy ids stand: Gemini for a PDF with charts, the OpenRouter Qwen for
+    text. On ``ollama`` / ``bedrock`` / ``openrouter`` the anchor-stage model of
+    that backend is used for both — none of them takes a PDF as an image here,
+    so a visual document is read from its extracted text.
+    """
+    if llm_backend() in ("ollama", "bedrock", "openrouter"):
+        return resolve_model(TEXT_MODEL, role="anchor")
     return VISION_MODEL if has_visual_content else TEXT_MODEL
+
+
+def is_hosted_model(model: str) -> bool:
+    return str(model or "").startswith(HOSTED_PREFIXES)
 
 
 def _canonical_key(candidate: dict[str, Any]) -> str:
@@ -276,17 +308,45 @@ def _parse_model_json(content: str) -> list[dict[str, Any]]:
 
 
 def _ensure_provider_key(model: str) -> None:
+    """Refuse a hosted call whose key is missing; any other model (``ollama/…``,
+    ``bedrock/…``, ``anthropic.…``) is served by the backend executor and needs
+    no key here."""
     if model.startswith("gemini/"):
         if not key_present("gemini"):
             raise RuntimeError("Gemini API key not configured for visual lock inference.")
     elif model.startswith("openrouter/"):
         if not key_present("openrouter"):
             raise RuntimeError("OpenRouter API key not configured for lock inference.")
-    else:
-        raise RuntimeError(f"Unsupported lock inference model: {model}")
+
+
+def _backend_completion(model: str, messages: list[dict[str, Any]]) -> str:
+    """One call through ``CostGovernor._default_executor`` — Bedrock Converse
+    for ``anthropic.``/``bedrock/`` ids, litellm with the backend's api_base
+    for the rest — under the anchor policy's output cap. Returns the text;
+    raises ``RuntimeError`` on the executor's ``"ERROR: …"`` answer so the
+    caller reports the locks as skipped with the reason."""
+    try:
+        from ..cost_governance import CostGovernor, TaskType
+    except ImportError:
+        from cost_governance import CostGovernor, TaskType
+    gov = CostGovernor()
+    policy = gov.policy_for(TaskType.SUMMARIZE_NODE)
+    executor = gov.executor or gov._default_executor  # noqa: SLF001
+    text, _in_tok, _out_tok = executor(model, messages, max(2048, int(policy.max_output_tokens or 0)), False)
+    if not isinstance(text, str):
+        raise RuntimeError(f"{model}: empty answer")
+    if text.startswith("ERROR:"):
+        raise RuntimeError(f"{model}: {text[len('ERROR:'):].strip()[:200] or 'empty answer'}")
+    return text
 
 
 def _call_text_model(model: str, prompt: str) -> str:
+    messages = [
+        {"role": "system", "content": _SYSTEM},
+        {"role": "user", "content": prompt},
+    ]
+    if not is_hosted_model(model):
+        return _backend_completion(model, messages)
     return call_model(
         model,
         [
@@ -349,7 +409,7 @@ def infer_lock_candidates(
     load_keys()
     _ensure_provider_key(chosen)
 
-    if visual and pdf_bytes:
+    if visual and pdf_bytes and chosen.startswith("gemini/"):
         prompt = _VISION_USER_TEMPLATE.format(
             text=substrate[:8000] if substrate else "(see attached PDF)"
         )

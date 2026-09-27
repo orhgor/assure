@@ -237,16 +237,16 @@ def pinned_request_body(model: str, prompt: str) -> dict[str, Any]:
     upstream swap cannot silently change what the check was run against.
     """
     try:
-        from ..keys import PROVIDER_PIN
+        from ..keys import provider_pin_for
     except ImportError:  # pragma: no cover
-        from keys import PROVIDER_PIN
+        from keys import provider_pin_for
 
     return {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.0,
         "max_tokens": MAX_OUTPUT_TOKENS,
-        "provider": dict(PROVIDER_PIN),
+        "provider": provider_pin_for(model),
     }
 
 
@@ -275,11 +275,13 @@ def _pinned_caller(prompt: str, model: str) -> str:
             kwargs = {}
     if slug == "openrouter":
         try:
-            from ..keys import PROVIDER_PIN
+            from ..keys import provider_pin_for
         except ImportError:  # pragma: no cover
-            from keys import PROVIDER_PIN
+            from keys import provider_pin_for
 
-        kwargs["extra_body"] = {"provider": dict(PROVIDER_PIN)}
+        pin = provider_pin_for(model)
+        if pin:
+            kwargs["extra_body"] = {"provider": pin}
 
     response = litellm.completion(
         model=model,

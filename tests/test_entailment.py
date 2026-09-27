@@ -23,7 +23,27 @@ from prompt_matrix.services.entailment import (
 #: so. The other four are the contract the module documents — an aggregate that
 #: dropped ``model`` and ``checked_at`` read as the frozen shape while carrying
 #: neither, and left the failure reason only inside ``citations``.
-SCHEMA_KEYS = {"verdict", "contradicted", "reasoning", "model", "checked_at", "citations"}
+SCHEMA_KEYS = {
+    "verdict",
+    "contradicted",
+    "reasoning",
+    "model",
+    "checked_at",
+    "citations",
+    # 2026-09-27: the prompt version the verdict was judged under (four labels).
+    "prompt_version",
+}
+
+#: A source long enough to clear claim-v1's 200-character floor, carrying the
+#: sentence the gate fixtures quote. Since 2026-09-27 nothing is VERIFIED without
+#: its quote verbatim in a supplied source, so the gate tests hand this in.
+FILING_TEXT = (
+    "ANNUAL REPORT. Management discussion and analysis. Net income grew twelve "
+    "percent in fiscal 2025. The policy limit is five million dollars for liability. "
+    "Operating expenses were held flat across the year and the board declared no "
+    "special dividend. Liquidity remained adequate through fiscal 2026."
+)
+FILING_ROWS = [{"id": "sub-filing", "filename": "policy.pdf", "extracted_text": FILING_TEXT}]
 
 
 def _stub(verdicts: dict[str, str], calls: list[tuple[str, str]] | None = None):
@@ -33,12 +53,17 @@ def _stub(verdicts: dict[str, str], calls: list[tuple[str, str]] | None = None):
         verdict = verdicts.get(claim)
         if verdict is None:
             raise AssertionError(f"unexpected claim: {claim}")
-        return {
+        record = {
             "verdict": verdict,
             "reasoning": f"{verdict} because reasons",
             "model": "stub/model",
             "checked_at": "2026-09-18T00:00:00+00:00",
         }
+        if verdict == "contradicts":
+            # A contradiction stands only on conflicting source text found
+            # verbatim in the window (2026-09-27); the stub quotes the window.
+            record["evidence"] = source
+        return record
 
     return check
 
@@ -95,7 +120,9 @@ def _document(*paragraphs: dict[str, Any]) -> dict[str, Any]:
     ("raw", "expected"),
     [
         ("VERDICT: yes\nREASON: The source states the figure.", "yes"),
-        ("VERDICT: no\nREASON: The source carries a different figure.", "no"),
+        ("VERDICT: no\nREASON: The source does not carry the figure.", "no"),
+        ("VERDICT: contradicts\nREASON: The source carries a different figure.", "contradicts"),
+        ("**VERDICT:** Contradicted\n**REASON:** The source says excluded.", "contradicts"),
         ("verdict: partial\nreason: The source omits the broker.", "partial"),
         ("**VERDICT:** Yes\n**REASON:** Identical sentences.", "yes"),
     ],
@@ -218,11 +245,16 @@ def test_attach_falls_back_to_the_quote_when_a_row_carries_no_window() -> None:
 
 
 def _four_verdict_document() -> dict[str, Any]:
-    """One paragraph per verdict path, each lexically anchored to the same quote."""
+    """One paragraph per verdict path, each lexically anchored to the same quote.
+
+    Five since 2026-09-27: ``contradicts`` ("the source says otherwise") is split
+    out of ``no`` ("not stated").
+    """
     claims = {
         "yes": "Net income grew twelve percent in fiscal 2025.",
-        "no": "Net income declined twelve percent in fiscal 2025.",
-        "partial": "Net income grew twelve percent in fiscal 2025 across all regions.",
+        "no": "Net income grew twelve percent in fiscal 2025 in the Americas segment.",
+        "contradicts": "Net income declined twelve percent in fiscal 2025.",
+        "partial": "Net income grew twelve percent in fiscal 2025 across every region.",
         "unverified": "Net income grew twelve percent in fiscal 2025 per the filing.",
     }
     doc = _document(
@@ -255,32 +287,40 @@ def test_gate_counts_only_entailed_claims() -> None:
         redhat_critiques=[],
         document=doc,
         has_substrate=True,
+        sources=FILING_ROWS,
     )
 
-    # Grounding: all five paragraphs carry the quote they were anchored to.
-    # Verdicts: one yes, one partial, one no, one unverified, one never checked
-    # (`p-lexical`). `supported` is the grounded count — yes OR partial, a claim
-    # its citations carry in whole or in part with nothing contradicting it —
-    # reported beside `partial` as the verdict detail, and beside `anchored` as
-    # the grounding, so no number stands in for another.
+    # Grounding: all six paragraphs carry the quote they were anchored to.
+    # Verdicts: one yes, one partial, one no, one contradicts, one unverified, one
+    # never checked (`p-lexical`). Under claim-v1 (2026-09-27) `supported` equals
+    # `verified` — only the yes-claim with its verbatim quote; `partial` is
+    # UNSUPPORTED ("a material qualifier is missing"), `no` is UNSUPPORTED,
+    # `contradicts` is CONTRADICTED, and a claim the verifier did not answer
+    # (`unverified`) or never checked (`p-lexical`) is INSUFFICIENT_EVIDENCE.
+    # `partial` / `unverified` stay as the entailment layer's own detail.
     assert summary["provenance_stats"] == {
-        "eligible": 5,
-        "anchored": 5,
-        "supported": 2,
+        "eligible": 6,
+        "anchored": 6,
+        "supported": 1,
         "partial": 1,
-        "unsupported": 1,
+        "unsupported": 2,
         "unanchored": 0,
         "unverified": 1,
+        "verified": 1,
+        "contradicted": 1,
+        "insufficient": 2,
+        "flagged": 0,
     }
-    # The contradicted paragraph holds the gate: two entailed claims do not
-    # outvote one the source denies (until 2026-09-23 they did, and this
-    # document read `pass` / `ok: True`). The count is named, so the reader is
+    # The contradicted paragraph holds the gate: a verified claim does not
+    # outvote one the source denies (until 2026-09-23 it did, and this
+    # document read `pass` / `ok: True`). The counts are named, so the reader is
     # not sent looking for a missing source when the source is there and
     # disagrees.
     assert summary["gate_status"] == "review"
     assert summary["ok"] is False
     assert summary["unverified_reason"] == (
-        "1 of 5 claims are contradicted by their source (2 entailed)."
+        "1 of 6 claims verified (1 claims contradicted by their source, 2 unsupported, "
+        "2 with insufficient evidence, 1 anchored but never checked)."
     )
 
 
@@ -298,34 +338,43 @@ def test_gate_names_contradicted_and_unverified_when_nothing_is_supported() -> N
         redhat_critiques=[],
         document=doc,
         has_substrate=True,
+        sources=FILING_ROWS,
     )
 
+    # claim-v1 (2026-09-27): `no` (not stated) is UNSUPPORTED, `contradicts` is
+    # CONTRADICTED, `unverified` is INSUFFICIENT_EVIDENCE — three states, three
+    # numbers, and the reason names each.
     assert summary["provenance_stats"] == {
-        "eligible": 2,
-        "anchored": 2,
+        "eligible": 3,
+        "anchored": 3,
         "supported": 0,
         "partial": 0,
         "unsupported": 1,
         "unanchored": 0,
         "unverified": 1,
+        "verified": 0,
+        "contradicted": 1,
+        "insufficient": 1,
+        "flagged": 0,
     }
     assert summary["gate_status"] == "review"
     assert summary["ok"] is False
     assert summary["unverified"] is True
     assert summary["unverified_reason"] == (
-        "0 of 2 claims were entailed by their matched source sentence "
-        "(1 contradicted by their source, 1 could not be checked)."
+        "0 of 3 claims verified (1 claims contradicted by their source, 1 unsupported, "
+        "1 with insufficient evidence)."
     )
 
 
-def test_gate_treats_a_partly_carried_claim_as_supported() -> None:
-    """A verdict of `partial` is grounded, so it earns the gate.
+def test_gate_treats_a_partly_carried_claim_as_unsupported() -> None:
+    """A verdict of `partial` is NOT verified (rule change, 2026-09-27).
 
-    `partial` is what the auditor answers for a claim its cited sentences carry
-    without any one of them stating every element, and for a claim the source
-    restates only in part — in both cases something carries it and nothing
-    contradicts it. Counting only `yes` reported such a document as `supported 0`
-    and refused it with a reason built for documents no source matched.
+    `partial` is what the auditor answers for a claim whose cited sentences carry
+    its central assertion but not a material element it also asserts. Until
+    2026-09-27 that counted as `supported` and earned the gate; under the
+    customer's claim policy a claim with a missing qualifier is UNSUPPORTED
+    ("a material qualifier is missing") and holds the gate at review. `partial`
+    is still reported as the entailment layer's own detail bucket.
     """
     doc = _four_verdict_document()
     doc["body"][0]["children"] = [
@@ -337,21 +386,28 @@ def test_gate_treats_a_partly_carried_claim_as_supported() -> None:
         redhat_critiques=[],
         document=doc,
         has_substrate=True,
+        sources=FILING_ROWS,
     )
 
     assert summary["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
-        "supported": 1,
+        "supported": 0,
         "partial": 1,
-        "unsupported": 0,
+        "unsupported": 1,
         "unanchored": 0,
         "unverified": 0,
+        "verified": 0,
+        "contradicted": 0,
+        "insufficient": 0,
+        "flagged": 0,
     }
-    assert summary["gate_status"] == "pass"
-    assert summary["ok"] is True
-    assert not summary.get("unverified")
-    assert not summary.get("unverified_reason")
+    node = doc["body"][0]["children"][0]
+    assert node["meta"]["provenance"]["claim"]["reason"] == "a material qualifier is missing"
+    assert summary["gate_status"] == "review"
+    assert summary["ok"] is False
+    assert summary["unverified"] is True
+    assert summary["unverified_reason"] == "0 of 1 claims verified (1 unsupported)."
 
 
 def test_gate_passes_only_on_an_entailed_claim() -> None:
@@ -365,9 +421,11 @@ def test_gate_passes_only_on_an_entailed_claim() -> None:
         redhat_critiques=[],
         document=doc,
         has_substrate=True,
+        sources=FILING_ROWS,
     )
     assert summary["provenance_stats"]["anchored"] == 1
     assert summary["provenance_stats"]["unanchored"] == 0
+    assert summary["provenance_stats"]["verified"] == 1
     assert summary["ok"] is True
     assert not summary.get("unverified")
 
@@ -379,7 +437,7 @@ def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
     verified on token overlap alone. `anchored` reports the anchor it has (1);
     `supported` reports what the missing verdict is worth (0).
     """
-    from tests.test_audit_summary import _passing_z3, _policy_document
+    from tests.test_audit_summary import _passing_z3, _policy_document, _policy_rows
 
     doc = _policy_document(
         "The policy liability limit is set at $5,000,000 for combined single limit."
@@ -388,8 +446,14 @@ def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
     assert node["provenance"], "fixture must anchor lexically for this test to mean anything"
 
     summary = build_audit_summary(
-        z3_results=_passing_z3(), redhat_critiques=[], document=doc, has_substrate=True
+        z3_results=_passing_z3(),
+        redhat_critiques=[],
+        document=doc,
+        has_substrate=True,
+        sources=_policy_rows(),
     )
+    # claim-v1 (2026-09-27): anchored but never entailment-checked is
+    # INSUFFICIENT_EVIDENCE ("no entailment check ran for this claim").
     assert summary["provenance_stats"] == {
         "eligible": 1,
         "anchored": 1,
@@ -398,10 +462,13 @@ def test_gate_treats_a_lexical_anchor_as_unverified() -> None:
         "unsupported": 0,
         "unanchored": 0,
         "unverified": 0,
+        "verified": 0,
+        "contradicted": 0,
+        "insufficient": 1,
+        "flagged": 0,
     }
     assert summary["unverified_reason"] == (
-        "0 of 1 claims were entailment-checked against their matched source sentence "
-        "(1 anchored but never checked)."
+        "0 of 1 claims verified (1 with insufficient evidence, 1 anchored but never checked)."
     )
     assert summary["ok"] is False
     assert summary["gate_status"] == "review"

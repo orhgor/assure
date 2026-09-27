@@ -6,13 +6,13 @@ Three layers, each of which was wrong at least once:
   first (a paragraph citing three is supported by the three together).
 * ``entailment._aggregate_verdicts`` / ``_contradicted`` — one verdict per
   paragraph, plus the separate fact that a citation of it was contradicted.
-* ``audit_summary._provenance_counts`` — the buckets. ``supported`` counts a
-  ``yes`` OR a ``partial``; ``unsupported`` counts a ``no`` verdict OR any
-  contradicted citation, so ``[yes, no]`` appears in BOTH — the paragraph is
-  carried by some of what it cites and simultaneously contains a claim its own
-  source contradicts. Counting only the verdict left the ``no`` unreported
-  everywhere; counting only ``yes`` as supported reported a renewal memo whose
-  every paragraph is carried as ``supported 0``.
+* ``audit_summary._provenance_counts`` — the buckets. Since 2026-09-27 they are
+  read from the claim block (``services/claim_policy``, policy claim-v1):
+  ``supported`` equals ``verified`` (entailment ``yes`` with a verbatim quote in a
+  supplied source), ``partial`` and ``no`` are ``unsupported``, ``contradicts`` is
+  ``contradicted``, ``unverified`` / never checked is ``insufficient``. The
+  expectations pinned before that date (``partial`` counted supported; ``[yes,
+  no]`` counted both supported and unsupported) were updated for the rule change.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from prompt_matrix.services.audit_summary import (
     _reported_stats,
     provenance_gate_fields,
 )
+from prompt_matrix.services.claim_policy import attach_claims_to_tree
 from prompt_matrix.services.entailment import (
     _aggregate_verdicts,
     _claim_sources,
@@ -34,6 +35,22 @@ from prompt_matrix.services.entailment import (
 )
 
 CLAIM = "The policy liability limit is five million dollars per occurrence."
+
+#: The source the fixtures cite (``source_name: policy.pdf``), long enough for
+#: claim-v1's 200-character floor and carrying every quote the tests use, so a
+#: ``yes`` can be VERIFIED. Handed to ``attach_claims_to_tree`` / the gate.
+SOURCE_TEXT = (
+    "COMMERCIAL PROPERTY POLICY. Declarations. The limit is five million dollars. "
+    + " ".join(f"The limit is five million dollars ({n})." for n in range(4))
+    + " Something else entirely. The policy liability limit is five million dollars "
+    "per occurrence. Flood is excluded. Limits apply. The deductible is $25,000."
+)
+SOURCE_ROWS = [{"id": "sub-policy", "filename": "policy.pdf", "extracted_text": SOURCE_TEXT}]
+
+
+def _judged(doc: dict[str, Any]) -> dict[str, Any]:
+    """Derive the claim blocks against the fixture source (what the compile does)."""
+    return attach_claims_to_tree(doc, sources=SOURCE_ROWS)
 
 
 def _paragraph(
@@ -98,13 +115,21 @@ def _document(*nodes: dict[str, Any]) -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("verdicts", "expected_verdict", "expected_contradicted"),
     [
+        # Rule of 2026-09-27: any contradicts → contradicts; else all yes → yes;
+        # else yes beside only no → yes (a window that does not mention the claim
+        # does not take away from one that states it); else any yes/partial →
+        # partial; else any no → no. ``no`` is "not stated" and no longer sets
+        # ``contradicted``; only a verbatim-backed ``contradicts`` does.
         (["yes", "yes"], "yes", False),
         (["yes", "partial"], "partial", False),
-        (["yes", "no"], "partial", True),
-        (["no", "no"], "no", True),
-        (["partial", "no"], "partial", True),
+        (["yes", "no"], "yes", False),
+        (["no", "no"], "no", False),
+        (["partial", "no"], "partial", False),
+        (["yes", "contradicts"], "contradicts", True),
+        (["no", "contradicts"], "contradicts", True),
         (["unverified"], "unverified", False),
         (["yes", "unverified"], "partial", False),
+        (["no", "unverified"], "no", False),
         ([], "unverified", False),
     ],
 )
@@ -184,18 +209,23 @@ def test_a_paragraph_with_no_provenance_is_never_judged():
 @pytest.mark.parametrize(
     ("verdicts", "expected"),
     [
-        (["yes", "yes"], {"supported": 1, "partial": 0, "unsupported": 0, "unverified": 0}),
-        (["yes", "partial"], {"supported": 1, "partial": 1, "unsupported": 0, "unverified": 0}),
-        (["yes", "no"], {"supported": 1, "partial": 1, "unsupported": 1, "unverified": 0}),
-        (["no", "no"], {"supported": 0, "partial": 0, "unsupported": 1, "unverified": 0}),
-        (["partial", "no"], {"supported": 1, "partial": 1, "unsupported": 1, "unverified": 0}),
-        (["unverified"], {"supported": 0, "partial": 0, "unsupported": 0, "unverified": 1}),
+        # claim-v1 (2026-09-27): only ``yes`` verifies; ``partial`` and ``no`` are
+        # unsupported; ``contradicts`` is contradicted; ``unverified`` is
+        # insufficient evidence. ``supported`` == ``verified`` throughout.
+        (["yes", "yes"], {"supported": 1, "verified": 1, "partial": 0, "unsupported": 0, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        (["yes", "partial"], {"supported": 0, "verified": 0, "partial": 1, "unsupported": 1, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        (["yes", "no"], {"supported": 1, "verified": 1, "partial": 0, "unsupported": 0, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        (["no", "no"], {"supported": 0, "verified": 0, "partial": 0, "unsupported": 1, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        (["partial", "no"], {"supported": 0, "verified": 0, "partial": 1, "unsupported": 1, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        (["yes", "contradicts"], {"supported": 0, "verified": 0, "partial": 0, "unsupported": 0, "contradicted": 1, "insufficient": 0, "unverified": 0}),
+        (["unverified"], {"supported": 0, "verified": 0, "partial": 0, "unsupported": 0, "contradicted": 0, "insufficient": 1, "unverified": 1}),
         # One citation verifies and another could not be checked: the paragraph
         # aggregates to ``partial``, so the unverified citation leaves no counter
         # of its own — the per-citation state is visible only in the record's
-        # ``citations``. Reported in the run notes as a gap, not fixed here.
-        (["yes", "unverified"], {"supported": 1, "partial": 1, "unsupported": 0, "unverified": 0}),
-        ([], {"supported": 0, "partial": 0, "unsupported": 0, "unverified": 1}),
+        # ``citations``. Under claim-v1 the paragraph is unsupported (a qualifier
+        # the verifier could not confirm), never verified.
+        (["yes", "unverified"], {"supported": 0, "verified": 0, "partial": 1, "unsupported": 1, "contradicted": 0, "insufficient": 0, "unverified": 0}),
+        ([], {"supported": 0, "verified": 0, "partial": 0, "unsupported": 0, "contradicted": 0, "insufficient": 1, "unverified": 1}),
     ],
 )
 def test_every_combination_lands_in_the_right_buckets(
@@ -222,6 +252,8 @@ def test_every_combination_lands_in_the_right_buckets(
                 "verdict": _aggregate_verdicts(verdicts),
                 "contradicted": _contradicted(verdicts),
                 "reasoning": "stubbed",
+                # A contradiction is backed by the source text it conflicts with.
+                "evidence": "The limit is five million dollars (1)." if "contradicts" in verdicts else "",
             }
         }
     else:
@@ -231,7 +263,7 @@ def test_every_combination_lands_in_the_right_buckets(
             "entailment": {"verdict": _aggregate_verdicts([]), "reasoning": "stubbed"}
         }
 
-    counts = _provenance_counts(doc)
+    counts = _provenance_counts(_judged(doc))
     assert counts["eligible"] == 1
     assert counts["anchored"] == 1
     assert counts["unanchored"] == 0
@@ -246,6 +278,10 @@ def test_every_combination_lands_in_the_right_buckets(
         "unsupported": expected["unsupported"],
         "unanchored": 0,
         "unverified": expected["unverified"],
+        "verified": expected["verified"],
+        "contradicted": expected["contradicted"],
+        "insufficient": expected["insufficient"],
+        "flagged": 0,
     }
 
 
@@ -256,40 +292,44 @@ def test_a_contradiction_reaches_the_reported_reason():
     contradiction as its reason; if the counter misses it, the reason reads "0 of
     N claims matched any source sentence", which is a different (and false) story.
     """
-    doc = _document(_paragraph("p1", quotes=["Something else entirely."], verdict="no", contradicted=True))
+    # 2026-09-27: a denial is the ``contradicts`` verdict (``no`` = not stated).
+    doc = _document(_paragraph("p1", quotes=["Something else entirely."], verdict="contradicts", contradicted=True))
     fields = provenance_gate_fields(
-        document=doc, z3_status="SKIPPED", redhat_count=0, has_substrate=True
+        document=doc, z3_status="SKIPPED", redhat_count=0, has_substrate=True, sources=SOURCE_ROWS
     )
-    assert fields["provenance_stats"]["unsupported"] == 1
+    assert fields["provenance_stats"]["contradicted"] == 1
+    assert fields["claim_summary"]["contradicted"] == 1
     assert fields["gate_status"] == "review"
     assert fields["unverified"] is True
     assert "contradicted by their source" in fields["unverified_reason"]
 
 
-def test_a_partly_carried_paragraph_is_supported_and_reported_as_partial():
+def test_a_partly_carried_paragraph_is_unsupported_and_reported_as_partial():
+    """Rule change 2026-09-27: ``partial`` is reported but is not verified."""
     doc = _document(
         _paragraph("p1", quotes=["The limit is five million dollars."], verdict="partial", contradicted=False)
     )
-    counts = _provenance_counts(doc)
-    assert counts["supported"] == 1
+    counts = _provenance_counts(_judged(doc))
+    assert counts["supported"] == 0
     assert counts["partial"] == 1
-    assert counts["unsupported"] == 0
+    assert counts["unsupported"] == 1
     fields = provenance_gate_fields(
-        document=doc, z3_status="PASS", redhat_count=0, has_substrate=True
+        document=doc, z3_status="PASS", redhat_count=0, has_substrate=True, sources=SOURCE_ROWS
     )
-    # Supported, so nothing is left to report as unverified.
-    assert fields["provenance_stats"]["supported"] == 1
-    assert "unverified_reason" not in fields
+    assert fields["provenance_stats"]["supported"] == 0
+    assert fields["unverified_reason"] == "0 of 1 claims verified (1 unsupported)."
 
 
 def test_an_anchored_paragraph_with_no_verdict_is_unchecked_not_unsupported():
     """Anchored but never checked is its own state: not a pass, not a refusal."""
     doc = _document(_paragraph("p1", quotes=["The limit is five million dollars."]))
-    counts = _provenance_counts(doc)
+    counts = _provenance_counts(_judged(doc))
     assert counts["anchored"] == 1
     assert counts["unchecked"] == 1
     assert counts["supported"] == 0
     assert counts["unsupported"] == 0
+    # claim-v1: never checked is insufficient evidence, not a refusal.
+    assert counts["insufficient"] == 1
     # ``unchecked`` is a detail of the reason text, never a reported number.
     assert "unchecked" not in _reported_stats(counts)
 
@@ -308,7 +348,10 @@ def test_an_unanchored_paragraph_is_counted_apart_from_an_unsupported_one():
     assert counts["eligible"] == 2
     assert counts["anchored"] == 0
     assert counts["unanchored"] == 2
-    assert counts["unsupported"] == 0
+    # claim-v1 (2026-09-27): a claim with no anchor is UNSUPPORTED ("no source
+    # sentence carries this claim"), so the two are counted apart AND both count.
+    assert counts["unsupported"] == 2
+    assert counts["contradicted"] == 0
 
 
 def test_the_record_carries_the_judgement_it_was_given():

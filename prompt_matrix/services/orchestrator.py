@@ -1,4 +1,11 @@
-"""Orchestrator — stream LLM tokens, parse [claim: N], verify via groundrails, SSE to UI."""
+"""Orchestrator — stream LLM tokens, parse [claim: N], verify via groundrails, SSE to UI.
+
+Legacy founder-workbench path (``POST /api/runs/execute``); the shell does not
+call it. Its verdicts follow ``services/verifier``: a lock is ``grounded`` only
+on a verbatim match or a groundrails verdict, otherwise ``unverified`` with the
+reason; no confidence number, no invented page; a run is never ``stamped``
+(2026-09-27, ``docs/evidence-honesty.md``).
+"""
 
 from __future__ import annotations
 
@@ -86,8 +93,15 @@ def _locks_from_verdicts(
         locks.append(
             {
                 "claim_id": claim_meta.get("claim_id") or f"claim_{i + 1}",
-                "status": "grounded" if verdict.get("grounded") else "amber",
-                "confidence_score": float(verdict.get("score") or 0.0),
+                "status": "grounded" if verdict.get("grounded") else "unverified",
+                "verdict": str(
+                    verdict.get("verdict")
+                    or ("grounded" if verdict.get("grounded") else "INSUFFICIENT_EVIDENCE")
+                ),
+                "reason": str(verdict.get("reason") or ""),
+                # Kept as a key, always null: the old value was the heuristic's
+                # word-overlap ratio, which the drawer read as a confidence.
+                "confidence_score": None,
                 "engine": verdict.get("engine") or "unknown",
                 "evidence": verdict.get("support") or {},
                 "text": str(verdict.get("claim") or claim_meta.get("text") or ""),
@@ -203,11 +217,13 @@ def orchestrate_sourced_run(
             "canonical_key": text[:64],
             "metric": text[:64],
             "value": 1,
-            "confidence": float(lock.get("confidence_score") or 0.0),
+            "confidence": None,
+            "verdict": lock.get("verdict"),
+            "reason": lock.get("reason"),
             "source_id": default_source_id,
             "claim_id": lock.get("claim_id"),
             "verification_engine": lock.get("engine") or "groundrails",
-            "page_coordinates": {"page": 1, "x": 0, "y": 0, "width": 100, "height": 24},
+            "page_coordinates": None,
         }
         evidence = lock.get("evidence") or {}
         if isinstance(evidence, dict):
@@ -241,7 +257,10 @@ def orchestrate_sourced_run(
         workspace_id, full_output_text or directive, truth_ledger=truth_ledger
     )
     content = document_to_dict(doc)
-    status = "stamped" if extracted_locks else "draft"
+    # "anchored": every lock here is a claim found in the source text; nothing
+    # was checked semantically, so the run is not "stamped" (a stamp is a
+    # verdict this path never earned).
+    status = "anchored" if extracted_locks else "draft"
 
     run = insert_run(
         directive=directive,

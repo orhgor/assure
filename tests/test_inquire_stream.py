@@ -490,8 +490,12 @@ async def test_the_counters_say_a_finding_was_remediated(client, temp_db):
         redhat_count=0,
         has_substrate=True,
     )
-    # The paragraph lost its anchor and that is not hidden.
-    assert after["provenance_stats"]["unsupported"] == 0
+    # The paragraph lost its anchor and that is not hidden. Under claim-v1
+    # (2026-09-27) an unanchored claim is UNSUPPORTED ("no source sentence
+    # carries this claim"), so `unsupported` stays 1 — the remediation is told by
+    # `findings`, not by a falling counter.
+    assert after["provenance_stats"]["unsupported"] == 1
+    assert after["provenance_stats"]["verified"] == 0
     assert after["provenance_stats"]["anchored"] == 0
     assert after["provenance_stats"]["unanchored"] == 1
     # Nor is the finding that was answered.

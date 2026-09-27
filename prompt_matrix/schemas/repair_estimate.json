@@ -6,23 +6,21 @@
   "description": "Body-shop repair estimate for an auto claim. Anchored on bench/cases/texts.py REPAIR_ESTIMATE (2026-09-27): 'REPAIR ESTIMATE', 'Claim Number', 'Insured', 'Estimate Date', 'Parts subtotal', 'Labor subtotal', 'Tax (6.25% on parts)', 'Sublet and misc', 'Estimated Damage (parts + labor + tax)'. The line-item table (Part / Operation, Op, Hours, Parts $, Labor $) is a jdf-cli table element and is read by services/table_extraction, not by these anchors.",
   "keywords": [
     "repair estimate",
-    "estimate",
     "estimate date",
-    "parts subtotal",
-    "labor subtotal",
+    "estimated damage",
     "parts",
     "labor",
-    "sublet",
-    "refinish",
     "hours",
-    "tax",
-    "estimated damage",
+    "refinish",
+    "sublet",
+    "paint materials",
     "body shop",
     "collision",
-    "paint",
     "replace",
-    "claim number",
-    "vin"
+    "repair",
+    "operation",
+    "parts subtotal",
+    "labor subtotal"
   ],
   "fields": [
     {
@@ -105,5 +103,8 @@
       "name": "signature",
       "use": "auto_policy.signature"
     }
+  ],
+  "notes": [
+    "2026-09-27: keywords are the estimate's own labels and shop operations (parts, labor, hours, refinish, sublet, replace, repair, operation); 'estimate', 'tax', 'vin', 'claim number' removed — a 10-page government claims packet was routed here on them"
   ]
 }

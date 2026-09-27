@@ -1,9 +1,25 @@
-"""Multi-pass Red-Hat adversarial audit — cache-first Celery pipeline."""
+"""Multi-pass Red-Hat adversarial audit — cache-first Celery pipeline.
+
+Source handling (2026-09-27, ``docs/evidence-honesty.md``): both passes are
+handed every source sentence the compile anchored to the block
+(``node.provenance[].extracted_quote`` — all of them, not the first), and a
+finding that quotes the source is kept only when its ``quote`` is re-found
+verbatim in those sentences (``services/redhat_verbatim.verbatim_gate``). What
+was dropped is counted in the pass result's ``notes``; kept findings carry
+``quote`` / ``quote_verbatim`` / ``evidence_kind`` (``quoted`` | ``observation``).
+
+Generations: a task superseded by a newer compile (``signals._enqueue_multipass``
+bumped the generation) no longer owns the project's telemetry. Every telemetry
+write compares its generation first and drops silently with a log line when
+stale — until 2026-09-27 a superseded pass finishing late wrote
+``error: stale_generation`` over the newer generation's ``pending``.
+"""
 
 from __future__ import annotations
 
 import html
 import json
+import logging
 import os
 import re
 import uuid
@@ -19,6 +35,13 @@ try:
     from prompt_matrix.db.runs_repository import list_runs
     from prompt_matrix.lib.ast_diff import get_ast_deltas, hash_block
     from prompt_matrix.services.founder_redhat import _parse_findings
+    from prompt_matrix.services.redhat_verbatim import (
+        anchored_quotes,
+        anchored_source_texts,
+        format_source_block,
+        verbatim_gate,
+        with_evidence_kind,
+    )
 except ImportError:
     from cost_governance import CostGovernor, ModelPolicy, TaskType, resolve_model
     from db.redhat_audit_lock_repository import is_stale, set_active_task
@@ -27,6 +50,13 @@ except ImportError:
     from db.runs_repository import list_runs
     from lib.ast_diff import get_ast_deltas, hash_block
     from services.founder_redhat import _parse_findings
+    from services.redhat_verbatim import (
+        anchored_quotes,
+        anchored_source_texts,
+        format_source_block,
+        verbatim_gate,
+        with_evidence_kind,
+    )
 
 #: Pass 1 (bulk critique) and Pass 2 (adversarial stress-test) models. Both
 #: follow the backend switch through ``resolve_model(role="redhat")`` — Ollama
@@ -43,6 +73,7 @@ PASS2_MODEL = os.environ.get("ASSURE_REDHAT_PASS2_MODEL") or resolve_model(
     "anthropic/claude-sonnet-4-5", role="redhat"
 )
 HIGH_LIABILITY_KEYWORDS = ("liability", "indemnify", "termination", "$")
+_log = logging.getLogger(__name__)
 SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
 
 
@@ -71,7 +102,17 @@ def _telemetry_finding(
     return payload
 
 
-def _telemetry_update(project_id: str, **kwargs: Any) -> None:
+def _telemetry_update(project_id: str, *, generation: int | None = None, **kwargs: Any) -> None:
+    """Write telemetry only while ``generation`` is still the project's current
+    audit generation; a stale pass logs and writes nothing."""
+    if generation is not None and is_stale(project_id, generation):
+        _log.info(
+            "[redhat] generation %s for %s is superseded; telemetry write (%s) dropped",
+            generation,
+            project_id,
+            kwargs.get("status") or ",".join(sorted(kwargs)),
+        )
+        return
     try:
         from prompt_matrix.db.redhat_telemetry_repository import upsert_telemetry
     except ImportError:
@@ -90,28 +131,71 @@ def _resolve_run_id(project_id: str, run_id: str | None) -> str | None:
     return runs[0]["id"] if runs else None
 
 
+_QUOTE_RULE = (
+    'Every object MUST include a "quote" key. When the finding rests on the source, '
+    '"quote" is one source sentence copied exactly as listed — a quote that is not '
+    'verbatim is discarded. When the finding is an observation about the text with no '
+    'source behind it, "quote" is the empty string "" (never a paraphrase, never text '
+    "from the draft)."
+)
+
+
+def _source_section(node: dict[str, Any] | None) -> tuple[str, list[str]]:
+    """``(prompt text, source texts)`` for a block: the anchored sentences the
+    compile attached, or a statement that none is attached (so the model is not
+    invited to invent one)."""
+    quotes = anchored_quotes(node)
+    if not quotes:
+        return (
+            "No source sentence is anchored to this block; do not report \"no source\" "
+            "as a finding, and quote nothing as the source.",
+            [],
+        )
+    return (
+        f"Source sentences anchored to this block ({len(quotes)}) — the only source "
+        f"available:\n{format_source_block(quotes)}",
+        anchored_source_texts(quotes),
+    )
+
+
 def _scrutinizer_prompt(delta: dict[str, Any]) -> str:
     parent = delta.get("parent") or {}
     node = delta.get("node") or {}
+    source_text, _ = _source_section(node)
     return (
         "Pass 1 Scrutinizer. Scan for surface contradictions, numeric discrepancies, "
         "and missing citations. Return ONLY a JSON array. Each object: "
-        'title, content, severity (high|medium|low), suggested_fix, highlight.\n\n'
+        'title, content, severity (high|medium|low), suggested_fix, highlight, quote (required).\n'
+        f"{_QUOTE_RULE}\n\n"
         f"Change: {delta.get('change')}\n"
         f"Section: {parent.get('section_title') or parent.get('section_id') or 'unknown'}\n"
         f"Block type: {node.get('type')}\n\n"
+        f"{source_text}\n\n"
         f"Text:\n{(delta.get('text') or '')[:6000]}"
     )
 
 
 def _adversarial_prompt(
-    block_hash: str, pass1_findings: list[dict[str, Any]], block_text: str
+    block_hash: str,
+    pass1_findings: list[dict[str, Any]],
+    block_text: str,
+    source_texts: list[str] | None = None,
 ) -> str:
+    sources = [t for t in (source_texts or []) if t]
+    if sources:
+        source_block = "Source sentences anchored to this block — the only source available:\n" + "\n".join(
+            f"[{i}] {t}" for i, t in enumerate(sources, start=1)
+        )
+    else:
+        source_block = "No source sentence is anchored to this block; quote nothing as the source."
     return (
         "Pass 2 Adversarial Stress-Test. Cross-examine Pass 1 findings for legal and "
-        "logical gaps. Return ONLY a JSON array with the same schema.\n\n"
+        "logical gaps. Return ONLY a JSON array with the same schema "
+        "(title, content, severity, suggested_fix, highlight, quote — quote is required).\n"
+        f"{_QUOTE_RULE}\n\n"
         f"Block hash: {block_hash}\n\n"
         f"Pass 1 findings:\n{json.dumps(pass1_findings, indent=2)[:4000]}\n\n"
+        f"{source_block}\n\n"
         f"Block text:\n{block_text[:6000]}"
     )
 
@@ -195,6 +279,7 @@ def run_redhat_pass1(
     resolved_run = _resolve_run_id(project_id, run_id)
     block_results: list[dict[str, Any]] = []
     all_findings: list[dict[str, Any]] = []
+    all_notes: list[str] = []
 
     for delta in delta_nodes:
         if delta.get("change") == "deleted":
@@ -203,7 +288,10 @@ def run_redhat_pass1(
         node_id = str(delta.get("node_id") or "")
         cached = fetch_cache(block_hash)
         if cached:
-            findings = list(cached.get("findings") or [])
+            findings = [
+                with_evidence_kind(f) for f in cached.get("findings") or [] if isinstance(f, dict)
+            ]
+            _, cached_sources = _source_section(delta.get("node") or {})
             block_results.append(
                 {
                     "block_hash": block_hash,
@@ -212,6 +300,8 @@ def run_redhat_pass1(
                     "pass1_model": cached.get("pass1_model") or PASS1_MODEL,
                     "cached": True,
                     "text": delta.get("text") or "",
+                    "source_texts": cached_sources,
+                    "notes": [],
                 }
             )
             all_findings.extend(findings)
@@ -227,7 +317,9 @@ def run_redhat_pass1(
             task_type=TaskType.SEMANTIC_VALIDATION,
             max_output=1200,
         )
-        findings = _parse_findings(raw)
+        _, source_texts = _source_section(delta.get("node") or {})
+        findings, notes = verbatim_gate(_parse_findings(raw), source_texts)
+        all_notes.extend(notes)
         save_cache(block_hash, findings, pass1_model=model_used, pass2_model="")
         block_results.append(
             {
@@ -237,6 +329,8 @@ def run_redhat_pass1(
                 "pass1_model": model_used,
                 "cached": False,
                 "text": delta.get("text") or "",
+                "source_texts": source_texts,
+                "notes": notes,
             }
         )
         all_findings.extend(findings)
@@ -252,6 +346,7 @@ def run_redhat_pass1(
         "findings": all_findings,
         "blocks": block_results,
         "persisted": persisted,
+        "notes": all_notes,
     }
 
 
@@ -264,26 +359,30 @@ def run_redhat_pass2(
     run_id: str | None = None,
     pass1_model: str = PASS1_MODEL,
     generation: int | None = None,
+    source_texts: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Pass 2 Adversarial Stress-Test — conditionally gated deep reasoning."""
+    """Pass 2 Adversarial Stress-Test — conditionally gated deep reasoning.
+
+    ``source_texts`` are the block's anchored source sentences; findings that
+    quote anything else are dropped (``notes`` says which)."""
     if generation is not None and is_stale(project_id, generation):
         return {"ok": False, "stale": True, "findings": [], "skipped": True}
 
     if not should_run_pass2(pass1_findings, block_text):
-        return {"ok": True, "skipped": True, "findings": [], "pass2_model": ""}
+        return {"ok": True, "skipped": True, "findings": [], "pass2_model": "", "notes": []}
 
     raw, model_used = _invoke_model(
         project_id,
         PASS2_MODEL,
-        _adversarial_prompt(block_hash, pass1_findings, block_text),
+        _adversarial_prompt(block_hash, pass1_findings, block_text, source_texts),
         task_type=TaskType.REDHAT,
         max_output=2048,
     )
-    findings = _parse_findings(raw)
+    findings, notes = verbatim_gate(_parse_findings(raw), list(source_texts or []))
 
     cached = fetch_cache(block_hash)
     merged_cache = synthesize_redhat_findings(
-        (cached or {}).get("findings") or pass1_findings,
+        [with_evidence_kind(f) for f in ((cached or {}).get("findings") or pass1_findings) if isinstance(f, dict)],
         findings,
     )
     save_cache(
@@ -304,6 +403,7 @@ def run_redhat_pass2(
         "findings": findings,
         "pass2_model": model_used,
         "persisted": persisted,
+        "notes": notes,
     }
 
 
@@ -346,6 +446,7 @@ def run_redhat_multipass_audit(
     if not deltas:
         _telemetry_update(
             project_id,
+            generation=generation,
             status="complete",
             pass1_complete=True,
             pass2_running=False,
@@ -355,6 +456,7 @@ def run_redhat_multipass_audit(
 
     _telemetry_update(
         project_id,
+        generation=generation,
         status="pass1_running",
         pass1_complete=False,
         pass2_running=False,
@@ -368,7 +470,8 @@ def run_redhat_multipass_audit(
         generation=generation,
     )
     if pass1.get("stale"):
-        _telemetry_update(project_id, status="error", error="stale_generation", pass2_running=False)
+        # The telemetry now belongs to the newer generation; nothing is written.
+        _log.info("[redhat] pass 1 for %s stopped: generation %s superseded", project_id, generation)
         return {"ok": False, "stale": True}
 
     pass1_feed: list[dict[str, Any]] = []
@@ -391,6 +494,7 @@ def run_redhat_multipass_audit(
 
     _telemetry_update(
         project_id,
+        generation=generation,
         status="pass1_complete",
         pass1_complete=True,
         pass2_running=False,
@@ -403,7 +507,11 @@ def run_redhat_multipass_audit(
     )
     if needs_pass2:
         _telemetry_update(
-            project_id, status="pass2_running", pass2_running=True, pass1_complete=True
+            project_id,
+            generation=generation,
+            status="pass2_running",
+            pass2_running=True,
+            pass1_complete=True,
         )
 
     pass2_results: list[dict[str, Any]] = []
@@ -417,8 +525,12 @@ def run_redhat_multipass_audit(
             run_id=pass1.get("run_id") or run_id,
             pass1_model=str(block.get("pass1_model") or PASS1_MODEL),
             generation=generation,
+            source_texts=list(block.get("source_texts") or []),
         )
         pass2_results.append(pass2_result)
+        if pass2_result.get("stale"):
+            _log.info("[redhat] pass 2 for %s stopped: generation %s superseded", project_id, generation)
+            return {"ok": False, "stale": True}
         if pass2_result.get("skipped"):
             continue
         for finding in pass2_result.get("findings") or []:
@@ -436,6 +548,7 @@ def run_redhat_multipass_audit(
         if pass2_feed != pass1_feed:
             _telemetry_update(
                 project_id,
+                generation=generation,
                 status="pass2_running" if needs_pass2 else "pass1_complete",
                 pass1_complete=True,
                 pass2_running=needs_pass2,
@@ -448,15 +561,19 @@ def run_redhat_multipass_audit(
         run_id=pass1.get("run_id") or run_id,
     )
 
+    notes = list(pass1.get("notes") or [])
+    for result in pass2_results:
+        notes.extend(result.get("notes") or [])
+
     _telemetry_update(
         project_id,
+        generation=generation,
         status="complete",
         pass1_complete=True,
         pass2_running=False,
         findings=pass2_feed,
         run_id=str(pass1.get("run_id") or run_id or ""),
     )
-
     return {
         "ok": True,
         "stale": False,
@@ -464,6 +581,7 @@ def run_redhat_multipass_audit(
         "pass1": pass1,
         "pass2": pass2_results,
         "findings": final,
+        "notes": notes,
     }
 
 
@@ -490,6 +608,7 @@ def run_redhat_pass2_task(
     run_id: str | None = None,
     pass1_model: str = PASS1_MODEL,
     generation: int | None = None,
+    source_texts: list[str] | None = None,
 ) -> dict[str, Any]:
     return run_redhat_pass2(
         block_hash,
@@ -499,6 +618,7 @@ def run_redhat_pass2_task(
         run_id=run_id,
         pass1_model=pass1_model,
         generation=generation,
+        source_texts=source_texts,
     )
 
 

@@ -492,7 +492,10 @@
           <details class="insp-section insp-counts" id="insp-counts">
             <summary><span data-i18n="shell.inspector.counts">Claim counts</span></summary>
             <section class="insp-body" id="counters-section" aria-label="Claim counters">
-              <table class="counters">
+              <!-- claim-v1 (2026-09-27): one line of counts by verdict; the legacy
+                   tiles below are hidden when the document carries a claim summary. -->
+              <p class="claim-summary-line" id="claim-summary-line" data-tone="none" hidden></p>
+              <table class="counters" id="counter-grid">
                 <tbody>
                   <tr>
                     <td>

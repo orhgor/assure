@@ -1,4 +1,14 @@
-"""Claim verification — groundrails subprocess (optional) or native heuristic fallback."""
+"""Claim verification — groundrails subprocess (optional) or native fallback.
+
+The native fallback is not a verifier (2026-09-27, ``docs/evidence-honesty.md``).
+Until then it reported ``grounded: True`` with the reason "Source explicitly
+carries the claim" whenever 40 % of the claim's words appeared anywhere in the
+source, and quoted ``source_text[:100]`` — the file's first line — as the
+supporting passage. Word overlap is not verification. The fallback now grounds
+a claim only when the claim's sentence is found verbatim in the source (that
+match is the passage, at its real offset); everything else is
+``INSUFFICIENT_EVIDENCE`` with the reason stated.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +24,7 @@ try:
         groundrails_service_enabled,
         verify_claim_with_groundrails,
     )
+    from .llm_extraction import find_verbatim
     from .text_normalizer import normalize_text
 except ImportError:
     from services.groundrails_subprocess import (
@@ -22,6 +33,7 @@ except ImportError:
         groundrails_service_enabled,
         verify_claim_with_groundrails,
     )
+    from services.llm_extraction import find_verbatim
     from services.lock_metadata import enrich_extracted_locks
     from services.text_normalizer import normalize_text
 
@@ -32,18 +44,45 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 GROUNDRAILS_AVAILABLE = bool(groundrails_python())
 
 
-def native_heuristic_verify(claim: str, source_text: str) -> dict[str, Any]:
-    """Deterministic Python-native fallback when groundrails subprocess is unavailable."""
-    words = [w for w in claim.lower().split() if len(w) > 3]
-    matches = sum(1 for w in words if w in source_text.lower())
-    match_ratio = (matches / len(words)) if words else 0.0
-    is_grounded = match_ratio >= 0.4
+INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+VERBATIM_MATCH = "VERBATIM_MATCH"
+_HEURISTIC_REASON = "heuristic overlap is not verification"
 
+
+def native_heuristic_verify(claim: str, source_text: str) -> dict[str, Any]:
+    """Python-native fallback when the groundrails subprocess is unavailable.
+
+    ``grounded`` is True only when the claim is found verbatim in the source
+    (whitespace collapsed, case folded — ``llm_extraction.find_verbatim``);
+    the passage is then the source's own text at that offset. Otherwise the
+    verdict is ``INSUFFICIENT_EVIDENCE``: the word-overlap ratio is reported
+    as ``overlap_ratio`` for transparency and is never a score.
+    """
+    text = (claim or "").strip()
+    source = source_text or ""
+    words = [w for w in text.lower().split() if len(w) > 3]
+    matches = sum(1 for w in words if w in source.lower())
+    overlap = (matches / len(words)) if words else 0.0
+    hit = find_verbatim(source, text.rstrip(".!?")) if text else None
+    if hit:
+        return {
+            "claim": claim,
+            "grounded": True,
+            "verdict": VERBATIM_MATCH,
+            "reason": "claim found verbatim in the source",
+            "score": None,
+            "overlap_ratio": round(overlap, 2),
+            "support": {"passage": source[hit[0] : hit[1]], "offset": hit[0]},
+            "engine": "native-verbatim-fallback",
+        }
     return {
         "claim": claim,
-        "grounded": is_grounded,
-        "score": round(match_ratio, 2),
-        "support": {"passage": source_text[:100] if is_grounded else None, "offset": 0},
+        "grounded": False,
+        "verdict": INSUFFICIENT_EVIDENCE,
+        "reason": _HEURISTIC_REASON,
+        "score": None,
+        "overlap_ratio": round(overlap, 2),
+        "support": {"passage": None, "offset": None},
         "engine": "native-heuristic-fallback",
     }
 
@@ -92,9 +131,16 @@ def _verdict_to_lock(
         "canonical_key": claim[:64],
         "metric": claim[:64],
         "value": 1,
-        "confidence": float(verdict.get("score") or 0.85),
+        # No confidence number: a verbatim match is a fact about the text, not a
+        # probability, and the groundrails score is the engine's, reported as such.
+        "confidence": None,
+        "verdict": str(verdict.get("verdict") or ("grounded" if verdict.get("grounded") else INSUFFICIENT_EVIDENCE)),
+        "reason": str(verdict.get("reason") or ""),
+        "engine_score": verdict.get("score"),
         "source_id": source_id,
-        "page_coordinates": {"page": 1, "x": 0, "y": 0, "width": 100, "height": 24},
+        # The page is unknown here: the sources are joined into one text with
+        # no page layout, and no page is invented for it.
+        "page_coordinates": None,
         "quoted": quoted,
         "verification_engine": engine,
     }

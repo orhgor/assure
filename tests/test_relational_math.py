@@ -384,7 +384,7 @@ def test_a_claim_with_no_locked_fact_is_unknown_never_verified():
         FACTS,
     )
     assert verdict["verdict"] == rz.UNKNOWN
-    assert "no locked source value" in verdict["reason"]
+    assert "no value locked from the draft" in verdict["reason"]  # reworded 2026-09-27: locks are read from the draft, not the source
     assert verdict["counterexample"] is None
 
 

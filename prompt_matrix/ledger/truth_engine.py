@@ -266,15 +266,75 @@ class TruthLedgerEngine:
         self._released = True
 
 
+#: The three words a numeric consistency check can answer with. They replace
+#: the fixed scores 0.92 / 0.5 / 0.15 that this function returned until
+#: 2026-09-27 and that the shell painted green / yellow / red as "confidence":
+#: a figure either matches a locked value, contradicts one, or names no lock —
+#: there is no degree to it, and a number here was read as one.
+NUMERIC_MATCHES_LOCK = "matches_lock"
+NUMERIC_NO_LOCK = "no_lock"
+NUMERIC_CONTRADICTS_LOCK = "contradicts_lock"
+
+
+_SCALE = {
+    "thousand": 1e3, "k": 1e3,
+    "million": 1e6, "m": 1e6, "mn": 1e6, "mm": 1e6,
+    "billion": 1e9, "b": 1e9, "bn": 1e9,
+}
+_FIGURE = __import__("re").compile(
+    r"(-?\d[\d,]*(?:\.\d+)?)\s*(thousand|million|billion|mn|mm|bn|[kKmMbB])?\b"
+)
+
+
+def claim_numbers(text: str) -> list[float]:
+    """Every figure a claim states, as written and scaled by its suffix.
+
+    "12 million" and "$12M" are 12,000,000 to the ledger; reading them as 12
+    made a claim that agrees with its lock read as contradicting it (the
+    confidence-overlay case, 2026-09-27). The unscaled value is kept too, so a
+    lock recorded as 12 still matches "12".
+    """
+    out: list[float] = []
+    for raw, suffix in _FIGURE.findall(text or ""):
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        if value not in out:
+            out.append(value)
+        scale = _SCALE.get((suffix or "").lower())
+        if scale and value * scale not in out:
+            out.append(value * scale)
+    return out
+
+
+def _lock_named_in(claim: str, key: str) -> bool:
+    """Does the claim name this lock? A lock key is ``Entity_Metric_Period`` or a
+    plain metric; the claim names it when one of its content words (≥ 3 chars)
+    appears in the claim. Without this every lock was compared with every number
+    in the claim, so "headcount is 50" contradicted a locked revenue of 100."""
+    import re
+
+    words = [w for w in re.split(r"[^A-Za-z0-9%$]+", key or "") if len(w) >= 3]
+    lowered = (claim or "").lower()
+    return any(w.lower() in lowered for w in words)
+
+
 def run_z3_verification(
     claim: str,
     context: str = "",
     ledger: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Score a claim against a numeric truth ledger via Z3.
+    """Check a claim's figures against a numeric truth ledger via Z3.
 
-    Natural-language claims with no extractable metric stay ``uncertain``
-    (score 0.5). This does not call an LLM.
+    Returns ``numeric_consistency`` — ``matches_lock`` when a figure in the claim
+    equals the value locked for a metric the claim names, ``contradicts_lock``
+    when the claim names a locked metric and states a different figure,
+    ``no_lock`` when the claim names no locked metric or carries no figure.
+    ``score`` is always ``None``: this is a consistency check, not a
+    confidence, and the legacy key is kept so readers find an explicit null.
+    Natural-language claims with no extractable metric are ``no_lock``. This
+    does not call an LLM.
     """
     import re
 
@@ -289,23 +349,46 @@ def run_z3_verification(
                 engine.lock_metric(str(key), float(val))
             except (TypeError, ValueError):
                 continue
-        numbers = [float(n) for n in re.findall(r"-?\d+(?:\.\d+)?", claim or "")]
+        numbers = claim_numbers(claim)
         if not locks or not numbers:
-            return {"status": "uncertain", "score": 0.5, "detail": "no numeric lock to check"}
-        matched = False
-        contradicted = False
-        for key, locked in list(engine.snapshot().items()):
+            return {
+                "status": "uncertain",
+                "numeric_consistency": NUMERIC_NO_LOCK,
+                "score": None,
+                "detail": "no numeric lock to check",
+            }
+        named = {k: v for k, v in engine.snapshot().items() if _lock_named_in(claim, k)}
+        if not named:
+            return {
+                "status": "uncertain",
+                "numeric_consistency": NUMERIC_NO_LOCK,
+                "score": None,
+                "detail": "the claim names no locked metric",
+            }
+        matched: list[str] = []
+        contradicted: list[str] = []
+        for key, locked in named.items():
             locked_val = float(locked[0])
+            hit = False
             for num in numbers:
                 ok, _msg = engine.verify_metric(key, num)
-                if abs(num - locked_val) < 1e-9:
-                    matched = True
-                if not ok:
-                    contradicted = True
-        if contradicted and not matched:
-            return {"status": "false", "score": 0.15, "detail": "contradicts ledger"}
+                if ok and abs(num - locked_val) < 1e-9:
+                    hit = True
+            (matched if hit else contradicted).append(key)
         if matched:
-            return {"status": "true", "score": 0.92, "detail": "consistent with ledger"}
-        return {"status": "uncertain", "score": 0.5, "detail": "numbers did not bind to locks"}
+            return {
+                "status": "true",
+                "numeric_consistency": NUMERIC_MATCHES_LOCK,
+                "score": None,
+                "detail": f"figure matches the locked value of {', '.join(matched)}",
+                "keys": matched,
+            }
+        return {
+            "status": "false",
+            "numeric_consistency": NUMERIC_CONTRADICTS_LOCK,
+            "score": None,
+            "detail": f"no figure in the claim equals the locked value of {', '.join(contradicted)}",
+            "keys": contradicted,
+        }
     finally:
         engine.close()

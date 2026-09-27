@@ -252,6 +252,34 @@ ORCHESTRATOR_ENV_MAP_KEYS = frozenset(ORCHESTRATOR_ENV_MAP)
 PROVIDER_PIN: dict = {"order": ["Alibaba"], "allow_fallbacks": False}
 
 
+def provider_pin_for(model: str | None) -> dict:
+    """The OpenRouter ``provider`` block for ``model``.
+
+    The Alibaba pin above was measured on Qwen: Alibaba does not serve
+    ``meta-llama/llama-3.3-70b-instruct`` and OpenRouter answered "No endpoints
+    found … every candidate endpoint was removed during routing" — every
+    compile on a Llama-configured box failed at once (measured 2026-09-27).
+    So: ``ASSURE_OPENROUTER_PROVIDER_ORDER`` (comma list) pins any model
+    explicitly; a Qwen model keeps the measured Alibaba pin; any other model
+    gets no provider block: OpenRouter routes and falls back as it does by
+    default. Measured 2026-09-27 with ``allow_fallbacks: False`` alone:
+    OpenRouter chose Novita, Novita answered 429 (shared upstream pool) and the
+    compile died at once — a pinless "no fallback" buys no determinism (the
+    provider is chosen per call anyway) and costs every compile that lands on
+    a throttled provider. Byte-stable output needs a real pin; set the env
+    var for that.
+    """
+    import os
+
+    explicit = [p.strip() for p in os.environ.get("ASSURE_OPENROUTER_PROVIDER_ORDER", "").split(",") if p.strip()]
+    if explicit:
+        return {"order": explicit, "allow_fallbacks": False}
+    name = str(model or "").lower()
+    if "/qwen" in name or name.startswith("qwen") or "openrouter/qwen" in name:
+        return dict(PROVIDER_PIN)
+    return {}
+
+
 def provider_slug_for_litellm(model: str | None) -> str | None:
     """Map a LiteLLM model id to the slug recognized by api_key_for / save_provider_key
     (and by orchestrator's provider env_map). Returns None for unknown models — never

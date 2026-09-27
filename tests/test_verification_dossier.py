@@ -464,3 +464,134 @@ def test_intake_critique_not_run_is_said_not_counted_as_zero(db):
     assert "Not run — No critique is recorded on the 2 intake reports." in html
     assert derive_trust_state(**_BASE, intake_redhat_high=1) == ("review_required", ["1 high Red-Hat finding on the intake graph"])
     assert derive_trust_state(**_BASE, intake_redhat_high=0) == ("verified", [])
+
+
+# ---------------------------------------------------------------------------
+# claim-v1 (2026-09-27): the Claim Ledger and the trust state it drives
+# ---------------------------------------------------------------------------
+
+
+def _claim(verdict, *, quote="Total premium is $1,550.", page=2, reason="the source states it", flags=(), numeric=None, entailment="yes", verbatim=True, source="policy.pdf"):
+    return {
+        "policy": "claim-v1", "verdict": verdict, "reason": reason, "quote": quote, "quote_verbatim": verbatim,
+        "source_id": "src-1", "source_name": source, "page": page,
+        "checks": {"entailment": entailment, "numeric": numeric or {"status": "not_applicable"},
+                   "wording": {"flags": [f for f in flags if f.startswith("high_risk")], "unsupported_terms": ["guaranteed"] if any("guaranteed" in f for f in flags) else []},
+                   "source_quality": {"status": "ok", "basis": "text layer"}},
+        "flags": list(flags),
+    }
+
+
+def _claim_tree(claims, *, summary=None):
+    body = [{"id": "sec-1", "type": "section", "title": "Memo", "children": [
+        {"id": f"p{i}", "type": "paragraph", "content": f"Claim number {i} states a figure of one thousand five hundred and fifty dollars in total.",
+         "meta": {"provenance": {"claim": c, "confidence": None, "excerpt": None}}}
+        for i, c in enumerate(claims, 1)]}]
+    meta = {"title": "Renewal memo"}
+    if summary is not None:
+        meta["claim_summary"] = summary
+    return {"document_id": "doc-claims", "meta": meta, "body": body}
+
+
+def test_claim_ledger_rows_counts_and_page_not_recorded():
+    tree = _claim_tree([
+        _claim("VERIFIED", numeric={"status": "recomputed_ok", "detail": "1,250 + 300 = 1,550", "expected": "1,550", "stated": "1,550"}),
+        _claim("CONTRADICTED", quote="Total premium is $1,450.", page=None, reason="the source states 1,450", entailment="contradicts",
+               numeric={"status": "mismatch", "detail": "1,250 + 300 = 1,550", "expected": "1,550", "stated": "1,450"}, flags=["inconsistent_figure"]),
+        _claim("UNSUPPORTED", quote=None, page=None, reason="no source sentence carries it", entailment="no", flags=["high_risk_wording:guaranteed"]),
+        _claim("INSUFFICIENT_EVIDENCE", quote="Coverage applies.", verbatim=False, entailment="partial", reason="the source is not specific enough"),
+    ])
+    rows, summary = vd.collect_claim_ledger(tree)
+    assert [r["verdict"] for r in rows] == ["VERIFIED", "CONTRADICTED", "UNSUPPORTED", "INSUFFICIENT_EVIDENCE"]
+    assert [r["verdict_words"] for r in rows] == ["Verified", "Contradicted", "Unsupported", "Insufficient evidence"]
+    # Counted from the blocks when meta.claim_summary is absent; partial is never verified.
+    assert summary == {"total": 4, "verified": 1, "unsupported": 1, "contradicted": 1, "insufficient": 1, "flagged": 2, "inconsistencies": [], "policy": "claim-v1", "source": "counted from the claim blocks"}
+    assert rows[0]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · stated 1,550 ✓" and rows[0]["page"] == 2
+    assert rows[1]["numeric"] == "Recomputed: 1,250 + 300 = 1,550 · expected 1,550, stated 1,450 ✗ mismatch" and rows[1]["page"] is None
+    assert rows[2]["quote"] is None and rows[2]["unsupported_terms"] == ["guaranteed"] and rows[2]["wording_flags"] == ["high_risk_wording:guaranteed"]
+    assert rows[3]["quote_verbatim"] is False and rows[3]["entailment"] == "partial"
+
+    html = vd._section_claim_ledger({"items": rows, "summary": summary})
+    assert "<h2>" not in html and "1 of 4 claims verified · 1 contradicted · 1 unsupported · 1 insufficient evidence · 2 flagged" in html
+    assert "<td>2</td>" in html and html.count("not recorded") == 2  # two rows without a page — never "1"
+    assert "“guaranteed” — not in the source" in html and "no verbatim quote recorded" in html and "(not verbatim)" in html
+    assert "page 1" not in html.lower()
+    # The summary line prefers meta.claim_summary when the tree carries it.
+    rows2, summary2 = vd.collect_claim_ledger(_claim_tree([_claim("VERIFIED")], summary={"total": 3, "verified": 3, "unsupported": 0, "contradicted": 0, "insufficient": 0, "flagged": 0, "policy": "claim-v1", "inconsistencies": []}))
+    assert summary2["total"] == 3 and summary2["source"] == "meta.claim_summary" and len(rows2) == 1
+    assert vd.collect_claim_ledger({"body": [{"id": "s", "type": "section", "children": [{"id": "p", "type": "paragraph", "content": "old tree " * 8}]}]}) == ([], None)
+
+
+@pytest.mark.parametrize(
+    "summary, expected, reason_fragment",
+    [
+        ({"total": 3, "verified": 3, "contradicted": 0, "unsupported": 0, "insufficient": 0, "flagged": 0}, "verified", ""),
+        ({"total": 3, "verified": 2, "contradicted": 0, "unsupported": 1, "insufficient": 0, "flagged": 0}, "review_required", "2 of 3 claims verified"),
+        ({"total": 3, "verified": 2, "contradicted": 0, "unsupported": 0, "insufficient": 1, "flagged": 0}, "review_required", "2 of 3 claims verified"),
+        ({"total": 3, "verified": 3, "contradicted": 0, "unsupported": 0, "insufficient": 0, "flagged": 1}, "review_required", "wording or consistency flag"),
+        ({"total": 3, "verified": 2, "contradicted": 1, "unsupported": 0, "insufficient": 0, "flagged": 0}, "not_verified", "contradicted by their source"),
+        ({"total": 0, "verified": 0, "contradicted": 0, "unsupported": 0, "insufficient": 0, "flagged": 0}, "review_required", "no claim was assessed"),
+    ],
+)
+def test_trust_state_reads_the_claim_summary(summary, expected, reason_fragment):
+    state, reasons = derive_trust_state(**{**_BASE, "claims_unsupported": 0}, claim_summary=summary)
+    assert state == expected, reasons
+    if reason_fragment:
+        assert reason_fragment in " ".join(reasons)
+    # The legacy counter does not outvote the summary: a stale `unsupported` with a clean summary stays verified.
+    if expected == "verified":
+        state2, _ = derive_trust_state(**{**_BASE, "claims_unsupported": 2}, claim_summary=summary)
+        assert state2 == "verified"
+
+
+def test_dossier_carries_the_ledger_and_derives_the_title_from_it(db, monkeypatch):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project("qa-claims", "Claims")
+    fields = [_field(f"f{i}", state="accepted", routing="none", reason="", confidence=0.95) for i in range(2)]
+    stamped = {"present": True, "quality": "stamped", "review_required": False, "page": 1, "basis": "STAMP"}
+    repo.save_report("qa-claims", _report("pr-c", "clean.pdf", fields=fields, insured="x", signature=stamped, accepted=2, flags=(), quality=1.0))
+    passing = {"gate_status": "pass", "z3_status": "PASS", "redhat_count": 0, "unverified": False, "unverified_reason": "",
+               "provenance_stats": {"eligible": 2, "anchored": 2, "supported": 2, "partial": 1, "unsupported": 0, "unanchored": 0, "unverified": 0}}
+    monkeypatch.setattr(vd, "compute_export_gate", lambda pid, tree: passing)
+    monkeypatch.setattr(vd, "project_redhat_findings", lambda pid, tree: {"items": [], "count": 0, "ran": True, "reason": "", "other_revisions": [], "in_export": False})
+
+    # One claim carried only in part: the legacy counter calls it supported; claim-v1 does not, so the title is Review required.
+    tree = _claim_tree([_claim("VERIFIED"), _claim("INSUFFICIENT_EVIDENCE", entailment="partial", page=None, quote=None)])
+    built = build_dossier("qa-claims", tree)
+    state = built["state"]
+    assert state["trust_state"] == "review_required" and "1 of 2 claims verified" in " ".join(state["reasons"])
+    assert state["claim_summary"]["verified"] == 1 and state["counts"]["claims_verified"] == 1 and state["counts"]["claims_total"] == 2
+    ledger = state["sections"]["claim_ledger"]
+    assert ledger["status"] == "recorded" and ledger["count"] == 2 and ledger["items"][1]["page"] is None
+    assert "Claim ledger" in built["html"] and "not recorded" in built["html"] and "Certificate" not in built["html"]
+    assert "1 of 2 claims verified · 0 contradicted · 0 unsupported · 1 insufficient evidence · 0 flagged" in built["html"]
+    twin = json.loads(verification_state_json(state))
+    assert twin["claim_summary"]["total"] == 2 and twin["sections"]["claim_ledger"]["items"][0]["verdict"] == "VERIFIED"
+
+    # Every claim VERIFIED, nothing flagged → verified; a flag alone breaks it.
+    state = build_dossier("qa-claims", _claim_tree([_claim("VERIFIED"), _claim("VERIFIED")]))["state"]
+    assert state["trust_state"] == "verified"
+    state = build_dossier("qa-claims", _claim_tree([_claim("VERIFIED"), _claim("VERIFIED", flags=["high_risk_wording:guaranteed"])]))["state"]
+    assert state["trust_state"] == "review_required" and "flag" in " ".join(state["reasons"])
+    state = build_dossier("qa-claims", _claim_tree([_claim("VERIFIED"), _claim("CONTRADICTED")]))["state"]
+    assert state["trust_state"] == "not_verified"
+
+
+def test_audit_bundle_counts_verified_over_total_and_never_partial(db, monkeypatch):
+    from prompt_matrix.services import audit_bundle as ab
+
+    monkeypatch.setattr(ab, "_read_persisted_gate", lambda pid, tree: None)
+    monkeypatch.setattr(ab, "compute_export_gate", lambda pid, tree, **kw: {"gate_status": "review", "z3_status": "SKIPPED", "anchored": 2, "eligible": 3, "supported": 2, "unsupported": 0, "provenance_stats": {}})
+    monkeypatch.setattr(ab, "project_redhat_findings", lambda pid, tree: {"items": [], "count": 0, "ran": False, "reason": ""})
+    monkeypatch.setattr(ab, "source_carry_for", lambda pid: {}, raising=False)
+    html = ab.build_audit_bundle_html("qa-bundle", _claim_tree([_claim("VERIFIED"), _claim("INSUFFICIENT_EVIDENCE", entailment="partial", page=None, quote=None), _claim("UNSUPPORTED", quote=None, page=None)]))
+    assert "Claims verified: 1 of 3" in html and "Claims verified against their source" not in html
+    assert "Claim Ledger" in html and html.count("not recorded") == 2
+    # An older tree: the legacy entailment check is named as such and partial is not verified.
+    legacy = {"document_id": "d", "meta": {}, "body": [{"id": "s", "type": "section", "children": [
+        {"id": "a", "type": "paragraph", "content": "first claim " * 8, "meta": {"provenance": {"entailment": {"verdict": "yes"}}}},
+        {"id": "b", "type": "paragraph", "content": "second claim " * 8, "meta": {"provenance": {"entailment": {"verdict": "partial"}}}}]}]}
+    html = ab.build_audit_bundle_html("qa-bundle", legacy)
+    assert "Claims verified: 1 of 3 (legacy entailment check, verdict yes only; partial is not counted as verified" in html

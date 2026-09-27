@@ -232,7 +232,12 @@ def test_the_ask_is_the_instruction_and_the_source_is_the_data():
 
 
 def test_opening_token_skips_a_leading_heading():
-    assert opening_token("## Coverage limits\n\nThe policy limit is set.") == "coverage"
+    # 2026-09-27: the heading is the section's name, not the document's first
+    # claim — the ICP shapes open on "## claim_snapshot", a token no source
+    # carries, and a fully cited draft was refused on it. The body's first
+    # word is what the gate reads.
+    assert opening_token("## Coverage limits\n\nThe policy limit is set.") == "the"
+    assert opening_token("## claim_snapshot\nPolicy AP-1 is in force.") == "policy"
 
 
 def test_prompt_echo_ignores_the_users_own_ask_but_not_the_prompts_own_text():

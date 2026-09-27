@@ -63,9 +63,12 @@ def test_lock_evidence_endpoint(founder_client) -> None:
     payload = res.get_json()
     assert payload.get("ok") is True
     assert payload.get("source_name") == "NAIC_Underwriting_Policy_2025.pdf"
-    assert payload.get("page_number") == 1
-    assert "Revenue" in (payload.get("excerpt") or "")
-    assert "z3_proof" in payload
+    # Evidence honesty (2026-09-27): the extracted text carries no page markers,
+    # so no page is known — null, not the old hard-coded 1. The excerpt is the
+    # source text the search located, and the proof says no solver ran.
+    assert payload.get("page_number") is None
+    assert "Revenue reached $12M" in (payload.get("excerpt") or "")
+    assert payload.get("z3_proof", {}).get("status") == "not_run"
 
 
 def test_lock_evidence_not_found(founder_client) -> None:

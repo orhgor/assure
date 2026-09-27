@@ -1347,9 +1347,13 @@ def attach_substrate_provenance_to_tree(
         if any(isinstance(p, dict) and p.get("source_id") == source_id for p in existing):
             continue
 
-        page_val = best_page if best_page is not None else best_row.get("page_count")
+        # The page the anchored sentence was read from — or "" when the source
+        # carried no page layout. ``row["page_count"]`` used to stand in here,
+        # which named the LAST page of the document for a sentence whose page was
+        # unknown: an invented page. The claim block reads "" as ``page: null``
+        # (``services/claim_policy.page_of``) — never a default (2026-09-27).
         try:
-            page_str = str(int(page_val)) if page_val else ""
+            page_str = str(int(best_page)) if best_page else ""
         except (TypeError, ValueError):
             page_str = ""
 

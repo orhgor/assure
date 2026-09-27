@@ -10,15 +10,33 @@ is not judged against half of them.
 
 Verdicts (frozen contract, persisted at ``node.meta.provenance.entailment``):
 
-    {"verdict": "yes" | "no" | "partial" | "unverified",
+    {"verdict": "yes" | "partial" | "no" | "contradicts" | "unverified",
+     "contradicted": bool,
      "reasoning": "<one sentence>",
      "model": "qwen/qwen3-next-80b-a3b-instruct",
-     "checked_at": "<ISO8601>"}
+     "checked_at": "<ISO8601>",
+     "prompt_version": ENTAILMENT_PROMPT_VERSION}
 
-``yes`` is the only verdict that means verified. ``no``/``partial`` are real
-judgements; ``unverified`` is the visible failure of a call that could not be
+``yes`` is the only verdict that means verified. ``partial`` and ``no`` are real
+judgements — ``no`` is "the source does not state this" (absent figure, unrelated
+source); ``contradicts`` (added 2026-09-27, prompt version 2) is "the source says
+otherwise", which the customer policy reports as CONTRADICTED and which was
+folded into ``no`` before, so a fabricated figure and a denied claim were the
+same bucket. ``unverified`` is the visible failure of a call that could not be
 made or could not be parsed — never a silent pass, and never a fallback to the
-lexical anchor alone.
+lexical anchor alone. ``contradicted`` is ``True`` iff the verdict is
+``contradicts`` (readers written for the older record keep working).
+
+A ``contradicts`` must be backed by the conflicting source text: the prompt asks
+for it on an ``EVIDENCE:`` line and ``enforce_contradiction_evidence`` re-finds it
+verbatim in the window (``llm_extraction.find_verbatim``); when it is not there —
+or when the model's own REASON describes an absence ("does not mention") and no
+conflict — the verdict is downgraded to ``no``. Measured on the live stack 2026-09-27 (Llama
+3.3 70B drafting, mistral-small-24b judging): the four-label prompt without this
+answered ``contradicts`` for "The policy in question is an auto policy with the
+number AP-2025-0001" against "Policy Number: AP-2025-0001" — a fact merely absent
+from a one-sentence window is not a contradiction, and the model's own quote is
+what tells the two apart.
 
 One model call per anchored paragraph, reused within a compile and — through
 ``services/entailment_cache``, keyed on the claim, the evidence window, the
@@ -28,24 +46,37 @@ re-stated paragraph costs no second judgement. A failed call is never cached.
 
 from __future__ import annotations
 
-import os
-from concurrent.futures import ThreadPoolExecutor
-
 import logging
+import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any, Callable
 
 try:
     from ..cost_governance import CostGovernor, TaskType
     from .entailment_cache import load_verdict, store_verdict, verdict_cache_key
+    from .claim_policy import sentence_units
+    from .llm_extraction import find_verbatim
+    from .numeric_recompute import extract_figures
 except ImportError:
+    from claim_policy import sentence_units
     from cost_governance import CostGovernor, TaskType
     from entailment_cache import load_verdict, store_verdict, verdict_cache_key
+    from llm_extraction import find_verbatim
+    from numeric_recompute import extract_figures
 
 _log = logging.getLogger(__name__)
 
-VERDICTS = ("yes", "no", "partial", "unverified")
+#: Bumped whenever the prompt's labels or rules change. Part of the entailment
+#: cache key and of the compile cache key (``routers/draft._prompt_key_material``),
+#: so a verdict judged under an older rule is re-asked, not replayed. 2 = the
+#: four-label prompt of 2026-09-27 (``contradicts`` split out of ``no``); 3 = the
+#: EVIDENCE line and the explicit "absence is no" rule, same day, after the live
+#: run showed ``contradicts`` answered for facts a one-line window did not mention.
+ENTAILMENT_PROMPT_VERSION = 3
+
+VERDICTS = ("yes", "no", "partial", "contradicts", "unverified")
 
 #: ``checker(claim, source) -> entailment record``. Injected so callers (routes,
 #: tests) can swap the transport without touching the prompt or the persistence.
@@ -53,9 +84,37 @@ EntailmentChecker = Callable[[str, str], dict[str, Any]]
 
 _MAX_REASON_CHARS = 240
 _SECRET_RE = re.compile(r"(sk-[A-Za-z0-9_\-]{6,}|Bearer\s+\S+)", re.IGNORECASE)
-_VERDICT_RE = re.compile(r"verdict\s*[:\-]\s*\**\s*(yes|no|partial)\b", re.IGNORECASE)
-_BARE_VERDICT_RE = re.compile(r"\b(yes|no|partial)\b", re.IGNORECASE)
-_REASON_RE = re.compile(r"reason\s*[:\-]\s*(.+)", re.IGNORECASE | re.DOTALL)
+_VERDICT_RE = re.compile(
+    r"verdict\s*[:\-]\s*\**\s*(yes|no|partial|contradicts|contradicted|contradiction)\b",
+    re.IGNORECASE,
+)
+_BARE_VERDICT_RE = re.compile(
+    r"\b(yes|no|partial|contradicts|contradicted|contradiction)\b", re.IGNORECASE
+)
+_REASON_RE = re.compile(
+    r"reason\s*[:\-]\s*(.+?)(?=\n\s*\**\s*evidence\s*[:\-]|\Z)", re.IGNORECASE | re.DOTALL
+)
+_EVIDENCE_RE = re.compile(r"evidence\s*[:\-]\s*\**\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
+_MAX_EVIDENCE_CHARS = 400
+#: A REASON that describes absence, not conflict. A ``contradicts`` whose own
+#: reasoning is one of these is an absence the model mislabelled (live run
+#: 2026-09-27: "The SOURCE does not mention the VIN, total premium, …" came back
+#: ``contradicts`` with the whole one-line window as EVIDENCE).
+_ABSENCE_RE = re.compile(
+    r"\b(?:does not|doesn't|do not|don't|did not|didn't|never|not) (?:mention|contain|state|include|"
+    r"provide|specify|refer|address|cover|list|name|say|discuss|indicate|describe|confirm|support)"
+    r"|\bno (?:mention|reference|information) (?:of|to|about|on)|\bis silent\b|\bnot (?:mentioned|stated|"
+    r"included|present|found|specified|provided|contained)\b|\babsent\b|\bomits?\b|\blacks?\b",
+    re.IGNORECASE,
+)
+_CONFLICT_RE = re.compile(
+    r"\b(?:different|differs?|instead|rather than|whereas|contrary|conflicts?|contradicts?|opposite|"
+    r"reverses?|negates?|denies|excluded?s?\b.{0,40}\bcover|cover.{0,40}\bexclud|not \$|is \$|"
+    r"states? (?:that )?(?:it|the [a-z ]+) (?:is|was|are|were) (?:not )?[\w$]|but the source|"
+    r"the source (?:says|states|gives|lists|shows) [\w$]+ (?:as|is|of)|higher|lower|later|earlier|"
+    r"more than|less than|greater|smaller|another|other than|mismatch|inconsistent|incorrect|wrong)",
+    re.IGNORECASE,
+)
 
 _PROMPT = """\
 You are an adversarial claim-entailment auditor. SOURCE is a verbatim extract \
@@ -63,7 +122,9 @@ from a document the author cited. CLAIM is a sentence the author wrote and \
 attributed to that document.
 
 Decide whether the SOURCE supports the CLAIM. Do not be charitable. Wording that \
-merely overlaps is not support: ask what the SOURCE actually asserts. Do not \
+merely overlaps is not support: ask what the SOURCE actually asserts. Phrases in \
+the CLAIM such as "as stated in sentence", "according to line", "as per lines and" \
+are citation remnants, not assertions: ignore them. Do not \
 assume facts the SOURCE does not state, and do not give the CLAIM the benefit of \
 the doubt about numbers, parties, obligations, direction, negation, modality, or \
 scope. A paraphrase that preserves the substance of the source — numbers, \
@@ -72,19 +133,28 @@ gap. Supporting detail that names the entities the user's question asked about \
 is supported, not partial.
 
 Apply these rules in priority order and stop at the first that matches:
-1. no — the SOURCE contradicts a material element of the CLAIM.
-2. no — the CLAIM states a number, date, percentage, or amount that the SOURCE \
-does not contain. A figure the SOURCE lacks is fabricated, never partial.
+1. contradicts — the SOURCE states a DIFFERENT value, date, amount, party, \
+direction or negation FOR THE SAME ITEM the CLAIM names (the CLAIM says the \
+deductible is $500 and the SOURCE says the deductible is $250; the CLAIM says \
+covered and the SOURCE says excluded). A fact the SOURCE simply does not mention \
+is NEVER a contradiction. You must copy the conflicting SOURCE text exactly on \
+the EVIDENCE line. If your REASON would say that the SOURCE "does not mention" \
+or "does not contain" something, the VERDICT is no, not contradicts.
+2. no — the CLAIM states a number, date, percentage, amount, party or \
+conclusion that the SOURCE does not contain and does not contradict. A figure \
+the SOURCE lacks is not found, never partial. If the SOURCE is unrelated to the \
+CLAIM, or covers only part of what the CLAIM says and conflicts with none of it, \
+answer no.
 3. partial — the SOURCE supports the CLAIM's central assertion, but the CLAIM \
 also asserts another material element (party, obligation, scope, or modality) \
 that the SOURCE neither states nor contradicts.
 4. yes — the SOURCE states or directly entails every material element of the CLAIM.
 
-If the SOURCE is unrelated to the CLAIM, answer no.
-
-Answer with exactly these two lines and nothing else:
-VERDICT: yes|no|partial
+Answer with exactly these three lines and nothing else:
+VERDICT: yes|partial|no|contradicts
 REASON: one sentence
+EVIDENCE: the exact SOURCE text that conflicts with the CLAIM, copied verbatim, \
+only when VERDICT is contradicts; otherwise the single word none
 
 SOURCE:
 {source}
@@ -105,13 +175,82 @@ def _sanitize(text: str) -> str:
     return cleaned[:_MAX_REASON_CHARS]
 
 
-def _record(verdict: str, reasoning: str, model: str) -> dict[str, Any]:
-    return {
+def _record(verdict: str, reasoning: str, model: str, evidence: str = "") -> dict[str, Any]:
+    out = {
         "verdict": verdict,
         "reasoning": _sanitize(reasoning),
         "model": model,
         "checked_at": datetime.now(UTC).isoformat(),
     }
+    if evidence:
+        out["evidence"] = _SECRET_RE.sub("[redacted]", str(evidence).strip())[:_MAX_EVIDENCE_CHARS]
+    return out
+
+
+_NUMERIC_CONFLICT_RE = re.compile(
+    r"\$|\d|\b(?:amount|value|figure|number|sum|total|deductible|premium|limit|rate|percent|"
+    r"price|cost|fee|balance|payment)s?\b",
+    re.IGNORECASE,
+)
+
+
+def _is_year(fig: Any) -> bool:
+    return fig.kind == "number" and 1900 <= fig.value <= 2100
+
+
+def _figures_all_in_claim(evidence: str, claim: str, reasoning: str) -> bool:
+    """True when the model's reason claims a numeric difference, the evidence
+    carries at least one value (money, percent, number — years and dates aside)
+    and every one of them also appears in the claim. A "different value" reported
+    for such an evidence line is refuted by the two texts themselves (live run
+    2026-09-27: EVIDENCE "Comprehensive Deductible: $250" against a claim stating
+    "the comprehensive deductible is $250" came back ``contradicts`` — "the
+    deductible for comprehensive coverage is different"). A textual conflict
+    ("declined" against "grew", both "in fiscal 2025") is not touched: the shared
+    year is context, and the reason names no amount."""
+    if not _NUMERIC_CONFLICT_RE.search(reasoning or ""):
+        return False
+    evidence_figures = [
+        fig for fig in extract_figures(evidence) if fig.kind != "date" and not _is_year(fig)
+    ]
+    if not evidence_figures:
+        return False
+    claim_figures = extract_figures(claim or "")
+    return all(any(fig.same_value(other) for other in claim_figures) for fig in evidence_figures)
+
+
+def enforce_contradiction_evidence(
+    record: dict[str, Any], source: str, claim: str | None = None
+) -> dict[str, Any]:
+    """A ``contradicts`` verdict stands only on conflicting text found verbatim in
+    ``source`` whose figures do not all reappear in the claim, and whose reason
+    names a conflict rather than an absence; otherwise it is downgraded to ``no``
+    with the reason kept.
+
+    The comparison is ``llm_extraction.find_verbatim`` (whitespace-collapsed,
+    case-insensitive). ``downgraded_from`` records what the model said, so the
+    Evidence pane can show that a contradiction was claimed and not backed.
+    """
+    if not isinstance(record, dict) or record.get("verdict") != "contradicts":
+        return record
+    evidence = str(record.get("evidence") or "").strip()
+    reasoning = str(record.get("reasoning") or "")
+    verbatim = bool(evidence) and evidence.lower() != "none" and find_verbatim(str(source or ""), evidence) is not None
+    absence_only = bool(_ABSENCE_RE.search(reasoning)) and not _CONFLICT_RE.search(reasoning)
+    refuted = claim is not None and verbatim and _figures_all_in_claim(evidence, claim, reasoning)
+    if verbatim and not absence_only and not refuted:
+        return record
+    out = dict(record)
+    out["verdict"] = "no"
+    out["downgraded_from"] = "contradicts"
+    if not verbatim:
+        why = "contradiction claimed without verbatim source text; treated as not stated. "
+    elif refuted:
+        why = "contradiction claimed on figures the claim states identically; treated as not stated. "
+    else:
+        why = "contradiction claimed on what the source does not mention; treated as not stated. "
+    out["reasoning"] = _sanitize(why + reasoning)
+    return out
 
 
 def unverified(reason: str, model: str = "") -> dict[str, Any]:
@@ -141,12 +280,18 @@ def parse_entailment_verdict(raw: str, model: str) -> dict[str, Any]:
         return unverified(f"unparseable verdict: {_sanitize(text)}", model)
 
     verdict = match.group(1).lower()
+    if verdict.startswith("contradict"):
+        verdict = "contradicts"
     reason_match = _REASON_RE.search(text)
     if reason_match is not None:
         reasoning = reason_match.group(1)
     else:
         reasoning = text[match.end() :]
-    return _record(verdict, reasoning or "(no reasoning given)", model)
+    evidence_match = _EVIDENCE_RE.search(text)
+    evidence = evidence_match.group(1).strip().strip('"').strip() if evidence_match else ""
+    if evidence.lower() == "none":
+        evidence = ""
+    return _record(verdict, reasoning or "(no reasoning given)", model, evidence)
 
 
 def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[str, Any]:
@@ -171,7 +316,15 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
         pass
 
     prompt = build_entailment_prompt(claim, source)
-    cache_key = verdict_cache_key(claim, source, prompt, model_id) if model_id else ""
+    # The prompt version rides in the key beside the prompt's own hash: the hash
+    # already moves when the text changes, and the version names the rule the
+    # verdict was judged under, so a record cached under the three-label prompt
+    # is never replayed as a four-label one.
+    cache_key = (
+        verdict_cache_key(claim, source, f"v{ENTAILMENT_PROMPT_VERSION}\n{prompt}", model_id)
+        if model_id
+        else ""
+    )
     cached = load_verdict(cache_key)
     if cached is not None:
         _log.info("[entailment-cache] hit %s", cache_key)
@@ -203,7 +356,9 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
         # Accounting must never change a verdict; the call already happened.
         pass
 
-    record = parse_entailment_verdict(raw, policy.model_id)
+    record = enforce_contradiction_evidence(
+        parse_entailment_verdict(raw, policy.model_id), source, claim=claim
+    )
     if record.get("verdict") != "unverified":
         store_verdict(cache_key, project_id, record)
     return record
@@ -238,56 +393,50 @@ def _claim_sources(node: dict[str, Any]) -> list[str]:
 
 
 def _aggregate_verdicts(verdicts: list[str]) -> str:
-    """Per-citation verdicts -> the paragraph's verdict.
+    """Per-citation verdicts -> the paragraph's verdict (rule of 2026-09-27).
 
-    A synthesis paragraph cites several sentences and each carries part of it, so
-    a strict entailment reader answers ``no`` to a citation that covers one clause
-    of a four-clause claim. Judging the whole SET in one call hides that: the
-    joined evidence is compared against the whole paragraph and ``no`` comes back
-    for the set, which is what shipped for a while and made a real two-policy
-    renewal memo read ``anchored 4, supported 0, unsupported 4`` - every
-    paragraph judged contradicted. Counting ``no`` alone also reports a summary as
-    a contradiction, which it is not.
+    * any ``contradicts`` (verbatim-backed, see
+      ``enforce_contradiction_evidence``)   -> ``contradicts``;
+    * else all ``yes``                       -> ``yes``;
+    * else ``yes`` beside only ``no``        -> ``yes`` — a window that does not
+                                                mention the claim does not take
+                                                away from one that states it;
+                                                absence is not disagreement;
+    * else any ``yes`` or ``partial``        -> ``partial`` (mixed with a missing
+                                                qualifier or an unanswered call);
+    * else any ``no``                        -> ``no``;
+    * else                                   -> ``unverified``.
 
-    Per citation the mixture is visible: all citations support -> ``supported``;
-    all fail -> ``unsupported``; support mixed with failure -> ``partial``,
-    because the paragraph is carried by some of what it cites.
+    An empty list is ``unverified``: ``all([])`` is vacuously True, so the all-yes
+    test would otherwise return ``yes`` for a paragraph that carries citations but
+    received no per-citation verdict.
     """
     if not verdicts:
-        # An empty list is not "everything passed" - ``all([])`` is vacuously
-        # True, so the all-yes test below would return ``yes`` and count the
-        # paragraph grounded. Reachable whenever a paragraph carries citations but
-        # no per-citation verdict was produced.
         return "unverified"
+    if any(verdict == "contradicts" for verdict in verdicts):
+        return "contradicts"
     if all(verdict == "yes" for verdict in verdicts):
         return "yes"
-    if all(verdict == "no" for verdict in verdicts):
-        return "no"
-    if any(verdict == "no" for verdict in verdicts):
-        # Some citations support the paragraph and at least one is contradicted by
-        # its source. The paragraph is genuinely partial - a summary is carried by
-        # some of what it cites - but it must ALSO be reported as contradicted.
-        # Returning a bare ``partial`` here was a real defect: the counter counts
-        # ``partial`` as grounded and leaves ``unsupported`` at zero, so a
-        # paragraph citing ``[S1]=yes, [S2]=no`` was counted supported and the
-        # ``no`` was never reported anywhere. ``_contradicted`` carries that fact
-        # to the counters, which count both.
-        return "partial"
+    if any(verdict == "yes" for verdict in verdicts) and all(
+        verdict in ("yes", "no") for verdict in verdicts
+    ):
+        return "yes"
     if any(verdict in ("yes", "partial") for verdict in verdicts):
         return "partial"
+    if any(verdict == "no" for verdict in verdicts):
+        return "no"
     return "unverified"
 
 
 def _contradicted(verdicts: list[str]) -> bool:
     """True when any citation of the paragraph was contradicted by its source.
 
-    Separate from the aggregate verdict because the two answer different
-    questions and the counters need both: the paragraph is ``partial`` if some
-    citations carry it, and simultaneously ``unsupported`` if any citation
-    contradicts it. Folding the second into the first is how a contradicted claim
-    became invisible.
+    Kept beside the verdict for readers of the older record, where it carried the
+    ``no`` that the ``partial`` aggregate hid. Since 2026-09-27 ``no`` means "not
+    stated" and only ``contradicts`` means the source says otherwise, so this is
+    ``True`` exactly when the aggregate is ``contradicts``.
     """
-    return any(verdict == "no" for verdict in verdicts)
+    return any(verdict == "contradicts" for verdict in verdicts)
 
 
 def _aggregate_reasoning(verdicts: list[str], citations: list[dict[str, Any]]) -> str:
@@ -313,6 +462,17 @@ def _aggregate_reasoning(verdicts: list[str], citations: list[dict[str, Any]]) -
     return _sanitize(f"{detail} ({summary})" if detail else summary)
 
 
+def _unit_sources(rows: list[dict[str, Any]]) -> list[str]:
+    out: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        evidence = str(row.get("anchor_window") or "").strip() or str(row.get("extracted_quote") or "").strip()
+        if evidence and evidence not in out:
+            out.append(evidence)
+    return out
+
+
 def attach_entailment_to_tree(
     document: dict[str, Any],
     *,
@@ -320,18 +480,27 @@ def attach_entailment_to_tree(
     checker: EntailmentChecker | None = None,
     cache: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Entailment-verify every anchored paragraph in ``document``, in place.
+    """Entailment-verify every anchored claim in ``document``, in place.
 
     Runs after lexical anchoring (``models/jdf.py``) and writes the verdict at
-    ``node.meta.provenance.entailment``. Pass ``cache`` to share verdicts within
-    one compile; a verdict for the same (claim, evidence) already judged under the
-    same prompt and model is reused from ``entailment_cache`` across compiles, so a
-    compile that re-states a paragraph costs no model call for it.
+    ``node.meta.provenance.entailment``. The claim unit is the sentence
+    (``claim_policy.sentence_units``, 2026-09-27): a paragraph of several
+    sentences is judged sentence by sentence, each against the windows its own
+    citations name, and the record carries ``sentences[]`` beside the paragraph
+    aggregate — a whole memo section used to read ``no`` because no one-line
+    window carried all of its facts. A one-sentence paragraph is judged whole, as
+    before. Pass ``cache`` to share verdicts within one compile; a verdict for the
+    same (claim, evidence) already judged under the same prompt and model is
+    reused from ``entailment_cache`` across compiles.
     """
     if not document:
         return document
     check = checker or check_entailment
     seen = cache if cache is not None else {}
+
+    def _units(node: dict[str, Any]) -> list[dict[str, Any]]:
+        units = sentence_units(node)
+        return [dict(unit, sources=_unit_sources(unit["rows"])) for unit in units]
 
     # Prefetch the misses in parallel. The verdicts are independent (one model
     # call per (claim, source) pair) but were made strictly one after another:
@@ -345,11 +514,11 @@ def attach_entailment_to_tree(
         for node in [section, *(section.get("children") or [])]:
             if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
                 continue
-            claim = str(node.get("content") or "").strip()
-            for source in _claim_sources(node) if claim else []:
-                key = (claim, source)
-                if key not in seen and key not in pending:
-                    pending.append(key)
+            for unit in _units(node):
+                for source in unit["sources"]:
+                    key = (unit["text"], source)
+                    if key not in seen and key not in pending:
+                        pending.append(key)
     if len(pending) > 1:
         workers = max(1, min(len(pending), int(os.environ.get("ASSURE_ENTAILMENT_WORKERS", "6") or 6)))
 
@@ -360,7 +529,7 @@ def attach_entailment_to_tree(
                 rec = unverified(f"{type(exc).__name__}: {exc}")
             if not isinstance(rec, dict) or rec.get("verdict") not in VERDICTS:
                 rec = unverified(f"checker returned no usable verdict: {rec!r}")
-            return key, rec
+            return key, enforce_contradiction_evidence(rec, key[1], claim=key[0])
 
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for key, rec in pool.map(_one, pending):
@@ -372,44 +541,62 @@ def attach_entailment_to_tree(
         for node in [section, *(section.get("children") or [])]:
             if not isinstance(node, dict) or str(node.get("type") or "") != "paragraph":
                 continue
-            claim = str(node.get("content") or "").strip()
-            sources = _claim_sources(node)
-            if not claim or not sources:
+            units = _units(node)
+            if not any(unit["sources"] for unit in units):
                 # Anchored nodes always carry a quote. A node that does not is not
                 # checked and gets no verdict — the gate counts it as unanchored.
                 continue
-            # One entailment call per citation, then aggregate. The joined-evidence
-            # form is wrong for a summary: no single sentence states every element
-            # of a paragraph that aggregates a dozen, and neither does the set when
-            # the reader is strict, so every paragraph landed ``no``.
             per_citation: list[dict[str, Any]] = []
-            verdicts: list[str] = []
-            for source in sources:
-                key = (claim, source)
-                record = seen.get(key)
-                if record is None:
-                    try:
-                        record = check(claim, source)
-                    except Exception as exc:
-                        record = unverified(f"{type(exc).__name__}: {exc}")
-                    if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
-                        record = unverified(f"checker returned no usable verdict: {record!r}")
-                    seen[key] = record
-                verdict = str(record.get("verdict") or "unverified")
-                verdicts.append(verdict)
-                per_citation.append(
+            sentences_out: list[dict[str, Any]] = []
+            sentence_verdicts: list[str] = []
+            for unit in units:
+                if not unit["sources"]:
+                    continue
+                unit_verdicts: list[str] = []
+                for source in unit["sources"]:
+                    key = (unit["text"], source)
+                    record = seen.get(key)
+                    if record is None:
+                        try:
+                            record = check(unit["text"], source)
+                        except Exception as exc:
+                            record = unverified(f"{type(exc).__name__}: {exc}")
+                        if not isinstance(record, dict) or record.get("verdict") not in VERDICTS:
+                            record = unverified(f"checker returned no usable verdict: {record!r}")
+                        record = enforce_contradiction_evidence(record, source, claim=unit["text"])
+                        seen[key] = record
+                    verdict = str(record.get("verdict") or "unverified")
+                    unit_verdicts.append(verdict)
+                    per_citation.append(
+                        {
+                            "source": source,
+                            "verdict": verdict,
+                            "reasoning": str(record.get("reasoning") or ""),
+                            # The judgement's own provenance, carried up from the
+                            # citation: the record's frozen shape is
+                            # ``{verdict, reasoning, model, checked_at}`` and the
+                            # aggregate is what a reader finds on the node.
+                            "model": str(record.get("model") or ""),
+                            "checked_at": str(record.get("checked_at") or ""),
+                            # The conflicting source text behind a ``contradicts``
+                            # (verbatim-checked), and what the model said when a
+                            # contradiction was downgraded for lack of it.
+                            "evidence": str(record.get("evidence") or ""),
+                            "downgraded_from": str(record.get("downgraded_from") or ""),
+                            "sentence_index": unit["index"],
+                        }
+                    )
+                unit_verdict = _aggregate_verdicts(unit_verdicts)
+                sentence_verdicts.append(unit_verdict)
+                sentences_out.append(
                     {
-                        "source": source,
-                        "verdict": verdict,
-                        "reasoning": str(record.get("reasoning") or ""),
-                        # The judgement's own provenance, carried up from the
-                        # citation: the record's frozen shape is
-                        # ``{verdict, reasoning, model, checked_at}`` and the
-                        # aggregate is what a reader finds on the node.
-                        "model": str(record.get("model") or ""),
-                        "checked_at": str(record.get("checked_at") or ""),
+                        "index": unit["index"],
+                        "text": unit["text"],
+                        "verdict": unit_verdict,
+                        "contradicted": _contradicted(unit_verdicts),
                     }
                 )
+            verdicts = [c["verdict"] for c in per_citation]
             # The judgements behind this paragraph, as the node reports them: one
             # model when they agree (they are the same checker under the same
             # prompt), the set when they do not, and the latest check time. An ISO
@@ -417,13 +604,19 @@ def attach_entailment_to_tree(
             models = sorted({c["model"] for c in per_citation if c["model"]})
             checked_times = sorted({c["checked_at"] for c in per_citation if c["checked_at"]})
             record_out: dict[str, Any] = {
-                "verdict": _aggregate_verdicts(verdicts),
+                # The paragraph aggregate is over its sentences, each of which
+                # aggregates its own citations: a sentence one window carries is
+                # ``yes`` even when the other sentences' windows do not mention it.
+                "verdict": _aggregate_verdicts(sentence_verdicts) if len(units) > 1 else _aggregate_verdicts(verdicts),
                 "contradicted": _contradicted(verdicts),
                 "reasoning": _aggregate_reasoning(verdicts, per_citation),
                 "model": ", ".join(models),
                 "checked_at": checked_times[-1] if checked_times else "",
+                "prompt_version": ENTAILMENT_PROMPT_VERSION,
                 "citations": per_citation,
             }
+            if len(units) > 1:
+                record_out["sentences"] = sentences_out
             meta = dict(node.get("meta") or {})
             prov = dict(meta.get("provenance") or {})
             prov["entailment"] = record_out
@@ -434,11 +627,13 @@ def attach_entailment_to_tree(
 
 
 __all__ = [
+    "ENTAILMENT_PROMPT_VERSION",
     "EntailmentChecker",
     "VERDICTS",
     "attach_entailment_to_tree",
     "build_entailment_prompt",
     "check_entailment",
+    "enforce_contradiction_evidence",
     "parse_entailment_verdict",
     "unverified",
 ]

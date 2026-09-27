@@ -61,8 +61,8 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-110"
-    assert APP_JS == "assure-110"
+    assert APP_CSS == "assure-111"
+    assert APP_JS == "assure-111"
 
 
 # ---------------------------------------------------------------------------
@@ -200,3 +200,44 @@ def test_account_strings_in_every_locale() -> None:
             assert key in cat, f"missing {locale} {key}"
             assert str(cat[key]).strip(), f"empty {locale} {key}"
     assert "{role}" in CATALOGS["en"]["shell.auth.not_allowed"] and "{perm}" in CATALOGS["en"]["shell.auth.not_allowed"]
+
+
+# ---------------------------------------------------------------------------
+# Claim verdicts (claim-v1, 2026-09-27): the shell speaks the four verdicts and
+# never a confidence figure or a default page.
+# ---------------------------------------------------------------------------
+
+CLAIM_KEYS = (
+    "shell.claim.verified", "shell.claim.unsupported", "shell.claim.contradicted", "shell.claim.insufficient", "shell.claim.not_assessed",
+    "shell.claim.page_unrecorded", "shell.claim.no_quote", "shell.claim.recomputed", "shell.claim.mismatch", "shell.claim.flag_wording",
+    "shell.claim.count", "shell.claim.count_contradicted", "shell.claim.count_flagged", "shell.run.done_claims",
+    "shell.claim.consistency.matches_lock", "shell.claim.consistency.no_lock", "shell.claim.consistency.contradicts_lock",
+    "shell.redhat.scheduled", "shell.redhat.scheduled_checking",
+)
+
+
+def test_shell_speaks_claim_verdicts_not_confidence_scores() -> None:
+    js = (ROOT / "prototype" / "shell.js").read_text(encoding="utf-8")
+    assert "Citation confidence" not in js and "Figure matches ledger lock" not in js
+    assert "conf-green" not in js and "conf-yellow" not in js and "conf-red" not in js
+    assert "sp.score > 0.8" not in js and "bandOf(" not in js
+    for verdict in ("VERIFIED", "UNSUPPORTED", "CONTRADICTED", "INSUFFICIENT_EVIDENCE"):
+        assert verdict in js, verdict
+    assert "meta.provenance.claim" in js and "claim_summary" in js and "quote_verbatim" in js
+    # No page is ever defaulted: the only place "page 1" could come from is the report itself.
+    assert '"page 1"' not in js and "page: 1" not in js and "|| 1" not in js.replace("|| 1000", "").replace("|| 10", "").replace("|| 1)", "").replace("|| 1;", "")
+    assert "shell.claim.page_unrecorded" in js
+    # The complete bar and the chip read the summary; the "verified against your sources" sentence is gated.
+    assert "_claimAllVerified(cs)" in js and "shell.run.done_claims" in js
+    # Red-Hat: scheduled state and the status poll.
+    assert "/redhat/status" in js and '"scheduled"' in js
+    css = (ROOT / "prototype" / "shell.css").read_text(encoding="utf-8")
+    assert ".conf-verified" in css and ".conf-contradicted" in css and ".conf-green" not in css
+
+
+def test_claim_strings_in_every_locale() -> None:
+    for locale in LOCALES:
+        cat = CATALOGS[locale]
+        for key in CLAIM_KEYS:
+            assert key in cat, f"missing {locale} {key}"
+            assert str(cat[key]).strip(), f"empty {locale} {key}"

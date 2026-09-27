@@ -70,6 +70,7 @@ from __future__ import annotations
 import contextvars
 import hashlib
 import logging
+import re
 import os
 import uuid
 from contextlib import contextmanager
@@ -144,7 +145,25 @@ _FLAG_SENTENCES = {
     "no_text": "No readable text",
     "photo": "Photo capture",
     "handwritten": "Handwriting",
+    "form_template": "Unfilled form",
 }
+
+#: A page whose text is mostly numbered captions ("4. INSURED'S NAME …") with
+#: nothing found under them is an unfilled form, not a document with missing
+#: fields (demo set, 2026-09-27: a blank CMS-1500 read as a claim with 7 garbage
+#: values). Flagged when this many numbered captions appear and ≤ 2 fields
+#: carry values.
+FORM_TEMPLATE_MIN_CAPTIONS = 8
+_FORM_CAPTION_LINE = re.compile(r"^\s*\d{1,2}[a-z]?\.\s+[A-Z]", re.M)
+
+
+def form_template_flag(texts: list[str], fields: list[dict]) -> dict[str, Any] | None:
+    captions = sum(len(_FORM_CAPTION_LINE.findall(t or "")) for t in texts)
+    found = fields_found_count(fields)
+    if captions >= FORM_TEMPLATE_MIN_CAPTIONS and found <= 2:
+        return {"flag": "form_template", "captions": captions, "fields_found": found,
+                "sentence": f"This looks like an unfilled form: {captions} numbered captions and {found} filled value{'s' if found != 1 else ''}."}
+    return None
 
 
 def _now() -> str:
@@ -1506,10 +1525,14 @@ def _build_report_timed(
     scored = [s for s in page_quality if s is not None]
     doc_quality = round(sum(scored) / len(scored), 3) if scored else None
     text_chars = sum(len((t or "").strip()) for t in texts)
+    form_template = form_template_flag(texts, fields)
+    if form_template:
+        notes.append(form_template["sentence"])
     quality_flags = sorted(
         {flag for p in pages for flag in p.get("flags") or []}
         | ({"mixed_bundle"} if mixed else set())
         | ({"no_text"} if text_chars < NO_TEXT_MIN_CHARS else set())
+        | ({"form_template"} if form_template else set())
     )
     sig_field = next((f for f in fields if f.get("field_type") == "signature"), None)
     signature = (sig_field or {}).get("signature_quality") if sig_field else next((s for s in signatures if s.get("present") is not None), None)

@@ -248,6 +248,12 @@ def type_allowed(document_type: Any, family: Any) -> bool:
 #: Two types whose keyword counts differ by at most this are a near-tie; the
 #: label pass over both decides (``classify_document``).
 NEAR_TIE_MARGIN = 1
+#: A keyword near-tie is settled by the label pass only when the winner finds
+#: at least this many of its fields; below it neither type is evidenced and
+#: the answer is ``uncertain`` (a 10-page government claims packet was routed
+#: ``auto_claim`` on 2 of 10 fields against ``repair_estimate`` 1 of 12 —
+#: demo set, 2026-09-27).
+NEAR_TIE_MIN_FOUND = 3
 
 
 def classify_document(text: str) -> dict[str, Any]:
@@ -311,6 +317,19 @@ def classify_document(text: str) -> dict[str, Any]:
     if second_type is not None and len(best_hits) - len(second_hits) <= NEAR_TIE_MARGIN:
         best_found = count_found_fields(best_type, [text])
         second_found = count_found_fields(second_type, [text])
+        if max(best_found, second_found) < NEAR_TIE_MIN_FOUND and len(text_lower.strip()) >= READABLE_MIN_CHARS:
+            # Only a readable page can fail to evidence a type; a scrap of text
+            # (an unreadable scan) keeps the keyword lead and its fields read
+            # ``unreadable`` — the reviewer sees what could not be read.
+            return {
+                "document_type": "uncertain",
+                "confidence": confidence,
+                "basis": (f"keyword near-tie ({best_type} {len(best_hits)}, {second_type} {len(second_hits)}) and the label pass finds too few fields "
+                          f"to decide ({best_type} {best_found}/{len(FIELD_TAXONOMY[best_type])}, {second_type} {second_found}/{len(FIELD_TAXONOMY[second_type])}; "
+                          f"minimum {NEAR_TIE_MIN_FOUND}){gate_note}"),
+                "matched_keywords": best_hits,
+                "family": family,
+            }
         if best_found != second_found:
             winner, loser = (best_type, second_type) if best_found > second_found else (second_type, best_type)
             winner_hits = best_hits if winner == best_type else second_hits
@@ -665,7 +684,7 @@ def _clean_text_value(raw: str) -> str:
     or more letters ("County of Plymouth." → "Plymouth"; "Inc." and "Jr."
     keep theirs) — prose golden set, 2026-09-25."""
     value = re.split(r"\s{2,}|\t|\s\|\s", raw.strip(), maxsplit=1)[0]
-    value = re.sub(r"\s+", " ", value).strip(" :;,-–—")
+    value = re.sub(r"\s+", " ", value).strip(" :;,-–—|")
     value = re.sub(r"(?<=[A-Za-z]{4})\.$", "", value)
     return value
 
@@ -1269,7 +1288,28 @@ _HEADER_WORDS = frozenset({
     "address", "information", "section", "declarations", "declaration", "coverage", "coverages", "page", "description",
     "location", "mailing", "schedule", "summary", "statement", "details", "form", "notice", "certificate", "total",
     "amount", "date", "number", "signature", "name", "policy", "insured", "applicant", "premium", "vehicle", "property",
+    # form captions (CMS-1500 / claim forms in the demo set, 2026-09-27)
+    "no", "id", "ssn", "ein", "patient", "patients", "provider", "account", "program", "item", "city", "state", "zip",
+    "phone", "telephone", "place", "service", "employer", "plan", "group", "feca", "blk", "lung", "medicare", "medicaid",
+    "champva", "tricare", "health", "charge", "charges", "paid", "balance", "due", "degrees", "credentials", "including",
+    "last", "first", "middle", "initial", "birth", "sex", "relationship", "self", "spouse", "child", "code", "codes",
 })
+#: A caption's item number ("4. INSURED'S NAME", "1a. INSURED'S I.D. NUMBER") at
+#: the start of, or inside, a captured value: the capture ran into the next box.
+#: Function words a person's or party's name does not contain; a capture that
+#: carries them is a clause of the sentence around the label.
+#: Not "the", "of", "and", "insurance", "agency": "Bank of the West", "Costa
+#: Insurance Agency" are parties (tests/golden auto_policy_1 carries the latter).
+_NAME_PROSE_WORDS = frozenset({"with", "at", "under", "for", "from", "by", "to", "is", "are", "was", "were", "that",
+                               "this", "must", "will", "shall", "may"})
+_FORM_ITEM_RE = re.compile(r"(?:^|\s)\d{1,2}[a-z]?\.\s+[A-Z(]")
+_FORM_ITEM_AFTER_RE = re.compile(r"^\s*[a-z]?\.\s+[A-Z][A-Z' .]{2,}")
+#: Instruction text a form prints where the value goes.
+_INSTRUCTION_RE = re.compile(
+    r"^\(|\b(?:from health plan|may be|if any|see instructions|see reverse|see item|attach|copy of|must be|to be filled|"
+    r"for program|if applicable|please|leave blank|do not|enter the|as shown|fill in|check (?:one|box)|yyyy|mm/?dd)\b",
+    re.I,
+)
 #: A street address has a house number before a street word, or a unit/box
 #: token — a bare "Dr." or "St." is a title or a saint, not a street
 #: (tests/golden deeds and mortgages carry "Dr. …" names, 2026-09-27).
@@ -1344,6 +1384,24 @@ def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str
         return {"quality": "valid", "basis": f"reads as a {spec.field_type} value"}
     words = re.findall(r"[A-Za-z][A-Za-z.'\-]*", text)
     lowered = {w.lower().strip(".") for w in words}
+    if spec.field_type in ("name", "text"):
+        # Blank-form reads (demo set, 2026-09-27): the capture after a label is
+        # the next box's caption, the printed instruction, or a tick mark.
+        if _FORM_ITEM_RE.search(text):
+            return {"quality": "header_or_label", "basis": "runs into the next form item's caption"}
+        if re.match(r"^[’']S\b", text) or (text.isupper() and re.match(r"^(?:OR|AND|OF)\b", text)):
+            # The tail of a caption the anchor cut in half: "INSURED'S POLICY OR
+            # GROUP NUMBER" → "'S POLICY OR GROUP N", "PHYSICIAN OR SUPPLIER" →
+            # "OR SUPPLIER" (blank/sample CMS-1500, demo set 2026-09-27).
+            return {"quality": "header_or_label", "basis": "the tail of a caption cut at the label"}
+        if _INSTRUCTION_RE.search(text):
+            return {"quality": "garbage", "basis": "printed instruction text, not a value"}
+        if sum(ch.isalpha() for ch in text) < 2 and not re.search(r"\d{3,}", text):
+            return {"quality": "garbage", "basis": "a mark or a single character, not a value"}
+        caps_words = [w for w in words if len(w) > 1 and w.isupper()]
+        hdr_all = lowered & _HEADER_WORDS
+        if len(caps_words) >= 2 and len(caps_words) >= len(words) - 1 and hdr_all:
+            return {"quality": "header_or_label", "basis": f"upper-case caption words: {', '.join(sorted(hdr_all)[:4])}"}
     if spec.field_type == "name":
         if _ADDRESS_RE.search(text) or re.match(r"^\d", text):
             return {"quality": "address_fragment", "basis": "street address shape in a name field"}
@@ -1351,6 +1409,13 @@ def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str
             return {"quality": "invalid_format", "basis": "digits in a name"}
         if not 1 <= len(words) <= NAME_MAX_WORDS:
             return {"quality": "invalid_format", "basis": f"{len(words)} words is not a name"}
+        if not any(len(re.sub(r"[^A-Za-z]", "", w)) >= 3 for w in words):
+            return {"quality": "invalid_format", "basis": "no word of three or more letters"}
+        prose = lowered & _NAME_PROSE_WORDS
+        if prose and len(words) >= 3:
+            # "WITH renter's insurance at" under a claimant label: a clause of
+            # the surrounding sentence, not a party (demo set, 2026-09-27).
+            return {"quality": "invalid_format", "basis": f"reads as prose, not a name: {', '.join(sorted(prose)[:3])}"}
         hdr = lowered & _HEADER_WORDS
         # Header when header words carry the value ("MAILING ADDRESS", "INSURED
         # INFORMATION"), not when one sits inside a longer party name.
@@ -1393,6 +1458,12 @@ def _find_candidates(spec: FieldSpec, text: str):
                 end = start + len(raw)
             else:
                 raw = raw.strip()
+                # A form item number is not a figure: "29. TOTAL CHARGE" read
+                # as total_charge = 29 on a blank CMS-1500 (demo set, 2026-09-27).
+                if _FORM_ITEM_AFTER_RE.match(text[end:end + 40]) or (
+                    not re.search(r"[$.,]", raw) and len(re.sub(r"\D", "", raw)) <= 2 and re.match(r"\s*[a-z]?\.", text[end:end + 3])
+                ):
+                    continue
             if spec.field_type == "name" and (len(raw) > 80 or re.search(r"\d{3,}", raw)):
                 continue
             yield raw, start, end

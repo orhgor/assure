@@ -59,12 +59,15 @@ def test_build_confidence_spans_scores_from_z3() -> None:
     }
     rev = next(s for t, s in by_text.items() if "Revenue" in t)
     moon = next(s for t, s in by_text.items() if "moon" in t)
-    # v1.3 scoring uses phrase-overlap, thresholds are lower
-    assert rev["score"] > 0.1
-    if 0.1 < rev["score"] < 0.8:
-        assert rev.get("reason")
+    # Since 2026-09-27 a span carries a status word, not a score (the fixed
+    # 0.92 / 0.5 / 0.25 were painted as confidence). ``score`` stays as a key,
+    # always null.
+    assert rev["score"] is None
+    assert rev["numeric_consistency"] == "matches_lock"
+    assert rev.get("reason")
     assert rev["source"] == "z3"
-    assert moon["score"] < 0.4
+    assert moon["score"] is None
+    assert moon["numeric_consistency"] == "contradicts_lock"
     assert moon["source"] == "z3"
 
 

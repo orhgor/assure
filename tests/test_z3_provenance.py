@@ -19,7 +19,10 @@ def test_z3_returns_provenance_fields() -> None:
     assert prov.get("page_number") == 4
     assert prov.get("excerpt")
     assert "revenue" in str(prov.get("rule") or "").lower()
-    assert 0.0 <= float(prov.get("confidence") or 0) <= 1.0
+    # No confidence number since 2026-09-27; verified_at is set because a figure
+    # was checked against the ledger (matches_lock).
+    assert prov.get("confidence") is None
+    assert prov.get("numeric_consistency") == "matches_lock"
     assert prov.get("verified_at")
 
 

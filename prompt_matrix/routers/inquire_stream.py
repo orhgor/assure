@@ -34,6 +34,7 @@ try:
     from ..lib.logger import get_audit_logger
     from ..models.jdf import (
         JDFDocumentTree,
+        attach_substrate_provenance_to_tree,
         document_to_dict,
         empty_annotations,
         get_node_by_id,
@@ -41,6 +42,14 @@ try:
         node_text,
         parse_document,
         splice_node,
+    )
+    from ..services.entailment import attach_entailment_to_tree
+    from ..services.provenance_meta import build_node_provenance_meta
+    from ..services.redhat_verbatim import (
+        anchored_quotes,
+        anchored_source_texts,
+        format_source_block,
+        verbatim_gate,
     )
 except ImportError:
     from compiler.aperture import build_aperture_context
@@ -58,6 +67,7 @@ except ImportError:
     from lib.logger import get_audit_logger
     from models.jdf import (
         JDFDocumentTree,
+        attach_substrate_provenance_to_tree,
         document_to_dict,
         empty_annotations,
         get_node_by_id,
@@ -65,6 +75,14 @@ except ImportError:
         node_text,
         parse_document,
         splice_node,
+    )
+    from services.entailment import attach_entailment_to_tree
+    from services.provenance_meta import build_node_provenance_meta
+    from services.redhat_verbatim import (
+        anchored_quotes,
+        anchored_source_texts,
+        format_source_block,
+        verbatim_gate,
     )
 
 _METRIC_RE = re.compile(
@@ -367,6 +385,112 @@ def _paragraph_node(
     return node
 
 
+def _substrate_rows(project_id: str) -> list[dict[str, Any]]:
+    """The project's Sources rows with text, for anchoring a rewrite. Never
+    raises: a vault that cannot be read leaves the node unanchored, which the
+    node then says (``provenance: []``)."""
+    try:
+        from ..db.substrate_repository import list_substrate_for_project
+    except ImportError:
+        from db.substrate_repository import list_substrate_for_project
+    try:
+        rows = list_substrate_for_project(project_id, with_text=True)
+    except Exception:  # noqa: BLE001
+        return []
+    return [r for r in rows if isinstance(r, dict) and str(r.get("extracted_text") or "").strip()]
+
+
+def verify_rewritten_node(
+    project_id: str,
+    node: dict[str, Any],
+    *,
+    truth_ledger: dict[str, Any] | None = None,
+    substrate_rows: list[dict[str, Any]] | None = None,
+    entailment_checker: Callable[..., dict[str, Any]] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Anchor and entail a surgically rewritten paragraph before it is shown.
+
+    Until 2026-09-27 a rewrite persisted with ``provenance: []`` and no
+    entailment verdict: the compile's anchoring ran on the original text only,
+    so the replacement — the text the reader actually keeps — was the one
+    paragraph in the document nothing had checked. This runs the same lexical
+    anchoring the compile runs (``models/jdf.attach_substrate_provenance_to_tree``
+    against the project's Sources rows) and the same entailment pass
+    (``services/entailment.attach_entailment_to_tree``) on the rewritten node
+    alone, then writes ``meta.provenance`` the way the compile does. When
+    ``services/claim_policy.derive_claim`` exists it is called for the ``claim``
+    block; its absence is not an error.
+
+    Returns ``(node, info)``; ``info`` reports what happened (``anchored``,
+    ``entailment``, ``sources``) and never claims a check that did not run.
+    """
+    info: dict[str, Any] = {"anchored": False, "citations": 0, "entailment": None, "sources": 0}
+    if str(node.get("type") or "") != "paragraph" or not str(node.get("content") or "").strip():
+        info["reason"] = "not a paragraph"
+        return node, info
+    rows = substrate_rows if substrate_rows is not None else _substrate_rows(project_id)
+    info["sources"] = len(rows)
+    node = dict(node)
+    node["provenance"] = []
+    if not rows:
+        info["reason"] = "no source text in the project's Sources"
+        return node, info
+    mini = {
+        "document_id": f"rewrite-{node.get('id') or 'node'}",
+        "meta": {},
+        "truth_ledger": dict(truth_ledger or {}),
+        "body": [{"type": "section", "id": "rewrite-scope", "title": "", "children": [node]}],
+    }
+    try:
+        mini = attach_substrate_provenance_to_tree(mini, [], rows)
+    except Exception as exc:  # noqa: BLE001
+        info["reason"] = f"anchoring failed: {type(exc).__name__}"
+        return node, info
+    anchored = (mini.get("body") or [{}])[0].get("children") or [node]
+    node = anchored[0] if isinstance(anchored[0], dict) else node
+    rows_with_quote = [
+        r for r in node.get("provenance") or []
+        if isinstance(r, dict) and str(r.get("extracted_quote") or "").strip()
+    ]
+    info["citations"] = len(rows_with_quote)
+    info["anchored"] = bool(rows_with_quote)
+    if rows_with_quote:
+        try:
+            attach_entailment_to_tree(mini, project_id=project_id, checker=entailment_checker)
+        except Exception as exc:  # noqa: BLE001
+            info["entailment_error"] = f"{type(exc).__name__}: {exc}"[:200]
+        verdict = ((node.get("meta") or {}).get("provenance") or {}).get("entailment")
+        if isinstance(verdict, dict):
+            info["entailment"] = verdict.get("verdict")
+    summary = build_node_provenance_meta(node, ledger=truth_ledger or {})
+    meta = dict(node.get("meta") or {})
+    if summary:
+        meta["provenance"] = summary
+    else:
+        meta.pop("provenance", None)
+    node["meta"] = meta
+    # The claim policy (services/claim_policy.derive_claim) writes the ``claim``
+    # block at meta.provenance.claim from the node's evidence and the rows the
+    # rewrite was anchored against; it runs after meta.provenance is rebuilt so
+    # the block is not replaced. Imported defensively: its absence is not an
+    # error, and nothing here asserts a claim verdict of its own.
+    try:
+        try:
+            from ..services.claim_policy import derive_claim  # type: ignore
+        except ImportError:
+            from services.claim_policy import derive_claim  # type: ignore
+    except ImportError:
+        derive_claim = None  # type: ignore
+    if derive_claim is not None and rows_with_quote:
+        try:
+            claim = derive_claim(node, sources=rows)
+            if isinstance(claim, dict):
+                info["claim"] = claim.get("verdict")
+        except Exception as exc:  # noqa: BLE001
+            info["claim_error"] = f"{type(exc).__name__}: {exc}"[:200]
+    return node, info
+
+
 def _record_llm_usage(
     governor: CostGovernor,
     project_id: str,
@@ -431,8 +555,13 @@ def run_inquire_pipeline(
     governor: CostGovernor | None = None,
     ledger: TruthLedgerEngine | None = None,
     request_id: str | None = None,
+    entailment_checker: Callable[..., dict[str, Any]] | None = None,
 ) -> Iterator[str]:
     """Yield SSE frames for the inquire pipeline. No blocking sleep.
+
+    ``entailment_checker`` replaces ``services.entailment.check_entailment`` for
+    the rewritten node's verification (tests inject one; production uses the
+    SEMANTIC_VALIDATION policy model).
 
     `ledger` is owned by the caller (`_open_ledger`): it has to stay reachable for the
     whole stream and be closed from a plain finally, never from a GC finalizer.
@@ -617,31 +746,45 @@ def run_inquire_pipeline(
         )
     else:
         metrics = _parse_metrics(text)
-        z3_timed_out = False
-        try:
-            ok, viol = truth.validate_entities(metrics) if metrics else (True, [])
-        except _Z3Timeout as exc:
-            # `unknown` from the solver is not a verdict; it was reported as
-            # PASS before 2026-09-23.
-            ok, viol, z3_timed_out = False, [str(exc)], True
-        if not ok and not z3_timed_out:
-            audit.log_audit(
-                rid,
-                project_id,
-                "Z3_VIOLATION",
-                target_node_id=target_node_id,
-                success=False,
-                duration_ms=_duration_ms(),
-                details={"violations": viol},
+        if not metrics:
+            # No ``key: value`` figure in the text means Z3 had nothing to check.
+            # Until 2026-09-27 this case was reported as PASS / "Z3 Verified" — a
+            # verdict for a check that never ran. SKIPPED says what happened.
+            yield _sse(
+                "truth_check",
+                {"status": "SKIPPED", "violations": [], "detail": "no figures to check"},
             )
-        yield _sse(
-            "truth_check",
-            {
-                "status": "TIMEOUT" if z3_timed_out else ("PASS" if ok else "VIOLATION"),
-                "violations": [] if z3_timed_out else viol,
-                "detail": "Z3 timed out — not verified" if z3_timed_out else ("Z3 Conflict" if viol else "Z3 Verified"),
-            },
-        )
+        else:
+            z3_timed_out = False
+            try:
+                ok, viol = truth.validate_entities(metrics)
+            except _Z3Timeout as exc:
+                # `unknown` from the solver is not a verdict; it was reported as
+                # PASS before 2026-09-23.
+                ok, viol, z3_timed_out = False, [str(exc)], True
+            if not ok and not z3_timed_out:
+                audit.log_audit(
+                    rid,
+                    project_id,
+                    "Z3_VIOLATION",
+                    target_node_id=target_node_id,
+                    success=False,
+                    duration_ms=_duration_ms(),
+                    details={"violations": viol},
+                )
+            yield _sse(
+                "truth_check",
+                {
+                    "status": "TIMEOUT" if z3_timed_out else ("PASS" if ok else "VIOLATION"),
+                    "violations": [] if z3_timed_out else viol,
+                    "detail": (
+                        "Z3 timed out — not verified"
+                        if z3_timed_out
+                        else ("Z3 Conflict" if viol else f"Z3: {len(metrics)} figure(s) consistent with the ledger")
+                    ),
+                    "checked": len(metrics),
+                },
+            )
 
     node = result.node or _paragraph_node(
         node_id,
@@ -650,12 +793,44 @@ def run_inquire_pipeline(
         z3_error=result.error,
     )
 
+    # The rewritten text is verified against the project's sources the way the
+    # compile verifies every paragraph: lexical anchoring, then entailment on the
+    # anchored sentences. Runs before Red-Hat so the critique sees the same
+    # quotes, and before the persist so what is written is what was checked.
+    anchor_info: dict[str, Any] = {}
+    if result.ok:
+        yield _sse("status", _status_payload("anchor"))
+        node, anchor_info = verify_rewritten_node(
+            project_id,
+            node,
+            truth_ledger=tree.truth_ledger if hasattr(tree, "truth_ledger") else {},
+            entailment_checker=entailment_checker,
+        )
+        yield _sse("anchoring", {"node_id": node_id, **anchor_info})
+
     if run_redhat and result.ok:
         yield _sse("status", _status_payload("redhat"))
+        quotes = anchored_quotes(node)
+        source_texts = anchored_source_texts(quotes)
+        if quotes:
+            source_part = (
+                f"Source sentences anchored to this node ({len(quotes)}) — the only source "
+                f"available:\n{format_source_block(quotes)}\n\n"
+                "When you quote the source, copy the sentence exactly as listed, inside “ ” "
+                "quotes; a quote that is not verbatim will be discarded."
+            )
+        else:
+            source_part = (
+                "No source sentence is anchored to this node; do not report \"no source\" as "
+                "a finding, and quote nothing as the source."
+            )
         red_messages = [
             {
                 "role": "user",
-                "content": f"Red-hat critique this node:\n\n{node.get('content', '')}\n\nIntent: {user_intent}",
+                "content": (
+                    f"Red-hat critique this node:\n\n{node.get('content', '')}\n\n"
+                    f"{source_part}\n\nIntent: {user_intent}"
+                ),
             }
         ]
         red = yield from _blocking_with_keepalive(
@@ -680,18 +855,33 @@ def run_inquire_pipeline(
                 file=sys.stderr,
             )
         elif critique_text and not critique_text.startswith("ERROR:"):
-            node = _ensure_node_annotations(dict(node))
-            annotation = {
-                "id": new_node_id("crit"),
-                "node_id": node_id,
-                "text": critique_text,
-                "status": "open",
-            }
-            node["annotations"]["redhat"].append(annotation)
-            yield _sse(
-                "redhat_annotation",
-                {"node_id": node_id, "annotation": annotation},
+            # A critique that quotes the source is kept only when the quote is
+            # in the anchored sentences verbatim; otherwise it is dropped and
+            # the drop is reported, not the critique.
+            kept, notes = verbatim_gate(
+                [{"title": "Red-hat critique", "content": critique_text}], source_texts
             )
+            if not kept:
+                yield _sse(
+                    "redhat_dropped",
+                    {"node_id": node_id, "reason": "quote not verbatim in the source", "notes": notes},
+                )
+            else:
+                node = _ensure_node_annotations(dict(node))
+                annotation = {
+                    "id": new_node_id("crit"),
+                    "node_id": node_id,
+                    "text": critique_text,
+                    "status": "open",
+                    "quote": kept[0].get("quote"),
+                    "quote_verbatim": bool(kept[0].get("quote_verbatim")),
+                    "evidence_kind": kept[0].get("evidence_kind") or "observation",
+                }
+                node["annotations"]["redhat"].append(annotation)
+                yield _sse(
+                    "redhat_annotation",
+                    {"node_id": node_id, "annotation": annotation},
+                )
         _record_llm_usage(
             gov,
             project_id,

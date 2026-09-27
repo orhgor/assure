@@ -64,6 +64,7 @@ def main() -> int:
     ap.add_argument("--email", default=None, help="local-auth account (or ASSURE_RUN_EMAIL)")
     ap.add_argument("--password", default=None, help="local-auth password (or ASSURE_RUN_PASSWORD)")
     ap.add_argument("--bootstrap-token", default=None, help="first run only: creates the owner (or ASSURE_BOOTSTRAP_TOKEN)")
+    ap.add_argument("--gate-key", default=os.environ.get("SHELL_ACCESS_KEY"), help="SHELL_ACCESS_KEY when --base is the :80 shell gate instead of the API port")
     args = ap.parse_args()
     base = args.base.rstrip("/")
     pdf = args.pdf or make_pdf("/tmp/final_run_debris.pdf")
@@ -74,6 +75,11 @@ def main() -> int:
     http = requests.Session()
     requests_get, requests_post = requests.get, requests.post
     requests.get, requests.post = http.get, http.post  # every call below shares the session cookie
+    if args.gate_key:
+        # Through the shell gate on :80 (the API itself binds 127.0.0.1 on the
+        # box): the gate's /auth sets its cookie and proxies /api/* upstream.
+        g = http.post(f"{base}/auth", data={"key": args.gate_key}, allow_redirects=False, timeout=10)
+        check("shell gate accepted the access key", g.status_code in (302, 303) and "Set-Cookie" in g.headers, g.status_code)
     auth_status = http.get(f"{base}/api/auth/setup-status", timeout=10).json()
     if auth_status.get("mode") == "local":
         email = args.email or os.environ.get("ASSURE_RUN_EMAIL", "")

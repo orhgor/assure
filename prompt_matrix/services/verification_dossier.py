@@ -235,8 +235,15 @@ def derive_trust_state(
     redhat_open: int,
     gate_unverified: bool = False,
     intake_redhat_high: int = 0,
+    claim_summary: dict[str, Any] | None = None,
 ) -> tuple[str, list[str]]:
     """The one rule behind the title. Returns ``(state, reasons)``.
+
+    ``claim_summary`` (2026-09-27, ``meta.claim_summary`` of the claim-v1
+    verdicts) outranks the legacy entailment counters when it is there: a
+    CONTRADICTED claim is ``not_verified``; anything short of *every* claim
+    VERIFIED with no flag is ``review_required`` — a partial or an
+    INSUFFICIENT_EVIDENCE verdict is never counted as verified.
 
     ``not_verified`` — the gate is ``blocked``, Z3 reports a violation, a claim is
     contradicted by its own source (``provenance_stats.unsupported``), or nothing
@@ -257,11 +264,16 @@ def derive_trust_state(
     reasons: list[str] = []
     status = str(gate_status or "review").lower()
     z3 = str(z3_status or "").upper()
+    cs = claim_summary if isinstance(claim_summary, dict) else None
     if status == "blocked":
         reasons.append("the export gate is blocked")
     if z3 == "VIOLATION":
         reasons.append("Z3 reports a violation")
-    if int(claims_unsupported or 0) > 0:
+    if cs is not None:
+        contradicted = int(cs.get("contradicted") or 0)
+        if contradicted > 0:
+            reasons.append(f"{_plural(contradicted, 'claim is', 'claims are')} contradicted by their source")
+    elif int(claims_unsupported or 0) > 0:
         reasons.append(
             f"{_plural(int(claims_unsupported), 'claim is', 'claims are')} contradicted by their source"
         )
@@ -273,6 +285,16 @@ def derive_trust_state(
         reasons.append(f"the export gate reads {status}")
     if gate_unverified:
         reasons.append("the gate marks the document unverified")
+    if cs is not None:
+        total = int(cs.get("total") or 0)
+        verified = int(cs.get("verified") or 0)
+        flagged = int(cs.get("flagged") or 0)
+        if total == 0:
+            reasons.append("no claim was assessed")
+        elif verified < total:
+            reasons.append(f"{verified} of {total} claims verified")
+        if flagged > 0:
+            reasons.append(f"{_plural(flagged, 'claim carries', 'claims carry')} a wording or consistency flag")
     if int(open_review or 0) > 0:
         reasons.append(f"{_plural(int(open_review), 'field needs', 'fields need')} review")
     if int(open_disputes or 0) > 0:
@@ -291,6 +313,130 @@ def derive_trust_state(
 # ---------------------------------------------------------------------------
 # Readers — each returns a dict that says what it found or why it could not read.
 # ---------------------------------------------------------------------------
+
+
+#: claim-v1 verdicts (``meta.provenance.claim.verdict``) in the dossier's words.
+CLAIM_VERDICT_WORDS: dict[str, str] = {
+    "VERIFIED": "Verified",
+    "UNSUPPORTED": "Unsupported",
+    "CONTRADICTED": "Contradicted",
+    "INSUFFICIENT_EVIDENCE": "Insufficient evidence",
+}
+_CLAIM_COUNT_KEYS = {"VERIFIED": "verified", "UNSUPPORTED": "unsupported", "CONTRADICTED": "contradicted", "INSUFFICIENT_EVIDENCE": "insufficient"}
+
+
+def _paragraph_nodes(tree: dict[str, Any] | None):
+    for section in (tree or {}).get("body") or []:
+        if not isinstance(section, dict):
+            continue
+        group = [section] + [c for c in (section.get("children") or []) if isinstance(c, dict)]
+        for node in group:
+            if str(node.get("type") or "") == "paragraph":
+                yield node
+
+
+def _claim_of(node: dict[str, Any]) -> dict[str, Any] | None:
+    prov = (node.get("meta") or {}).get("provenance") if isinstance(node.get("meta"), dict) else None
+    if not isinstance(prov, dict):
+        return None
+    claim = prov.get("claim")
+    return claim if isinstance(claim, dict) and claim.get("verdict") else None
+
+
+def _numeric_words(numeric: Any) -> str:
+    """"Recomputed: 1,250 + 300 = 1,550 · stated 1,550 ✓" from the check's own
+    ``detail`` / ``expected`` / ``stated``; the mismatch says so; "" when the
+    check was not applicable or absent."""
+    if not isinstance(numeric, dict):
+        return ""
+    status = str(numeric.get("status") or "").lower()
+    if not status or status == "not_applicable":
+        return ""
+    detail = str(numeric.get("detail") or "").strip()
+    expected, stated = numeric.get("expected"), numeric.get("stated")
+    if status == "recomputed_ok":
+        base = f"Recomputed: {detail}" if detail else "Recomputed"
+        return base + (f" · stated {stated} ✓" if stated not in (None, "") else " ✓")
+    if status == "mismatch":
+        base = f"Recomputed: {detail}" if detail else "Recomputed"
+        tail = ""
+        if expected not in (None, "") or stated not in (None, ""):
+            tail = f" · expected {expected if expected not in (None, '') else '—'}, stated {stated if stated not in (None, '') else '—'}"
+        return base + tail + " ✗ mismatch"
+    if status == "insufficient":
+        return "Numbers: insufficient to recompute" + (f" — {detail}" if detail else "")
+    return f"Numbers: {status}" + (f" — {detail}" if detail else "")
+
+
+def collect_claim_ledger(tree: dict[str, Any] | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """One row per assessed claim (a paragraph whose ``meta.provenance.claim``
+    carries a claim-v1 verdict) and the summary: ``meta.claim_summary`` when the
+    tree carries it, else counted from the rows, else None (an older tree —
+    nothing is invented). ``page`` stays None when the check did not record
+    one; the renderer says "not recorded", never "1"."""
+    rows: list[dict[str, Any]] = []
+    for node in _paragraph_nodes(tree):
+        claim = _claim_of(node)
+        if claim is None:
+            continue
+        verdict = str(claim.get("verdict") or "").upper()
+        checks = claim.get("checks") if isinstance(claim.get("checks"), dict) else {}
+        wording = checks.get("wording") if isinstance(checks.get("wording"), dict) else {}
+        source_quality = checks.get("source_quality") if isinstance(checks.get("source_quality"), dict) else {}
+        flags = [str(f) for f in (claim.get("flags") or []) if f]
+        page = claim.get("page")
+        text = str(node.get("content") or "").strip()
+        rows.append({
+            "node_id": node.get("id"),
+            "claim": text if len(text) <= 240 else text[:239].rstrip() + "…",
+            "verdict": verdict,
+            "verdict_words": CLAIM_VERDICT_WORDS.get(verdict, verdict.replace("_", " ").capitalize()),
+            "reason": str(claim.get("reason") or ""),
+            "quote": str(claim["quote"]) if claim.get("quote") else None,
+            "quote_verbatim": bool(claim.get("quote_verbatim")),
+            "source_id": claim.get("source_id"),
+            "source": str(claim.get("source_name") or claim.get("source_id") or "") or None,
+            "page": int(page) if isinstance(page, (int, float)) else None,
+            "entailment": str(checks.get("entailment") or "") or None,
+            "numeric": _numeric_words(checks.get("numeric")),
+            "numeric_status": str((checks.get("numeric") or {}).get("status") or "") if isinstance(checks.get("numeric"), dict) else None,
+            "wording_flags": [str(f) for f in (wording.get("flags") or [])],
+            "unsupported_terms": [str(t) for t in (wording.get("unsupported_terms") or [])],
+            "source_quality": str(source_quality.get("status") or "") or None,
+            "flags": flags,
+            "policy": claim.get("policy"),
+        })
+    meta_summary = (tree or {}).get("meta", {}).get("claim_summary") if isinstance((tree or {}).get("meta"), dict) else None
+    if isinstance(meta_summary, dict) and meta_summary.get("total") is not None:
+        summary = {
+            "total": int(meta_summary.get("total") or 0),
+            "verified": int(meta_summary.get("verified") or 0),
+            "unsupported": int(meta_summary.get("unsupported") or 0),
+            "contradicted": int(meta_summary.get("contradicted") or 0),
+            "insufficient": int(meta_summary.get("insufficient") or 0),
+            "flagged": int(meta_summary.get("flagged") or 0),
+            "inconsistencies": list(meta_summary.get("inconsistencies") or []),
+            "policy": meta_summary.get("policy"),
+            "source": "meta.claim_summary",
+        }
+    elif rows:
+        summary = {"total": len(rows), "verified": 0, "unsupported": 0, "contradicted": 0, "insufficient": 0,
+                   "flagged": sum(1 for r in rows if r["flags"]), "inconsistencies": [], "policy": rows[0].get("policy"), "source": "counted from the claim blocks"}
+        for r in rows:
+            key = _CLAIM_COUNT_KEYS.get(r["verdict"])
+            if key:
+                summary[key] += 1
+    else:
+        summary = None
+    return rows, summary
+
+
+def claim_summary_words(summary: dict[str, Any] | None) -> str:
+    """"3 of 5 claims verified · 1 contradicted · 1 unsupported · 0 insufficient · 2 flagged"."""
+    if not summary:
+        return "not assessed (no claim-v1 verdicts on this document)"
+    return (f"{summary['verified']} of {summary['total']} claims verified · {summary['contradicted']} contradicted · "
+            f"{summary['unsupported']} unsupported · {summary['insufficient']} insufficient evidence · {summary['flagged']} flagged")
 
 
 def _collect_lock_ledger(draft: dict[str, Any], runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -741,6 +887,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
 
     gate = compute_export_gate(project_id, tree)
     stats = dict(gate.get("provenance_stats") or {})
+    claim_rows, claim_summary = collect_claim_ledger(tree)
 
     runs = list_runs(workspace_id=project_id)
     run_ids = [r["id"] for r in runs]
@@ -809,7 +956,10 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
     else:
         conflicts_status = "not_run"
 
-    accepted_total = len(ledger) + int(stats.get("supported") or 0) + int(totals["fields_accepted"])
+    # Under claim-v1 only a VERIFIED claim is accepted evidence; the legacy
+    # `supported` (yes OR partial) counts only for trees without claim verdicts.
+    accepted_claims = int(claim_summary["verified"]) if claim_summary else int(stats.get("supported") or 0)
+    accepted_total = len(ledger) + accepted_claims + int(totals["fields_accepted"])
     open_review = len(review_items)
     trust_state, reasons = derive_trust_state(
         gate_status=str(gate.get("gate_status") or "review"),
@@ -822,6 +972,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
         redhat_open=redhat_open,
         gate_unverified=bool(gate.get("unverified")),
         intake_redhat_high=int(intake_redhat.get("high") or 0),
+        claim_summary=claim_summary,
     )
     if signature.get("status") == "unresolved" and trust_state == "verified":
         # A questionable signature is a review item even when the field rows do
@@ -846,6 +997,12 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
         "claims_anchored": int(stats.get("anchored") or 0),
         "claims_supported": int(stats.get("supported") or 0),
         "claims_unsupported": int(stats.get("unsupported") or 0),
+        # claim-v1 (2026-09-27): what the title is derived from when present.
+        "claims_total": int(claim_summary["total"]) if claim_summary else None,
+        "claims_verified": int(claim_summary["verified"]) if claim_summary else None,
+        "claims_contradicted": int(claim_summary["contradicted"]) if claim_summary else None,
+        "claims_insufficient": int(claim_summary["insufficient"]) if claim_summary else None,
+        "claims_flagged": int(claim_summary["flagged"]) if claim_summary else None,
         "disputes_open": len(disputes),
         "disputes_overdue": overdue,
         "documents": len(reports),
@@ -886,6 +1043,7 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
         ),
         "reasons": reasons,
         "counts": counts,
+        "claim_summary": claim_summary,
         "gate": {
             "gate_status": gate.get("gate_status"),
             "z3_status": gate.get("z3_status"),
@@ -916,6 +1074,14 @@ def build_verification_state(project_id: str, tree: dict[str, Any] | None = None
             "laya": laya,
         },
         "sections": {
+            "claim_ledger": {
+                "status": "recorded" if claim_rows else "not_assessed",
+                "reason": "" if claim_rows else "no claim-v1 verdict is recorded on this document",
+                "count": len(claim_rows),
+                "policy": (claim_summary or {}).get("policy"),
+                "summary": claim_summary,
+                "items": claim_rows,
+            },
             "review_required": {
                 "status": "not_run" if not intake_present else ("open" if review_items else "clear"),
                 "reason": reports_error or ("no intake report; there are no fields to review" if not intake_present else ""),
@@ -1121,6 +1287,49 @@ def _section_redhat(section: dict[str, Any]) -> str:
     )
 
 
+def _section_claim_ledger(section: dict[str, Any]) -> str:
+    """One row per assessed claim: text, verdict, verbatim quote, source, page
+    (or "not recorded"), checks (entailment word, numeric detail, flags)."""
+    items = section.get("items") or []
+    summary = section.get("summary")
+    if not items:
+        return f"<p class='empty'>No claim ledger — {_esc(section.get('reason') or 'no claim-v1 verdict is recorded')}.</p>"
+    rows = []
+    for r in items:
+        checks = []
+        if r.get("entailment"):
+            checks.append(f"entailment {r['entailment']}")
+        if r.get("numeric"):
+            checks.append(r["numeric"])
+        for f in r.get("wording_flags") or []:
+            checks.append(f"wording: {f}")
+        for t in r.get("unsupported_terms") or []:
+            checks.append(f"“{t}” — not in the source")
+        if r.get("source_quality") and r["source_quality"] != "ok":
+            checks.append(f"source quality {r['source_quality']}")
+        for f in r.get("flags") or []:
+            if f not in checks:
+                checks.append(f)
+        quote = r.get("quote")
+        quote_html = (f"<q>{_esc(quote)}</q>" + ("" if r.get("quote_verbatim") else " <span class='meta'>(not verbatim)</span>")) if quote else "<span class='meta'>no verbatim quote recorded</span>"
+        page = r.get("page")
+        rows.append(
+            f"<tr class='claim claim-{_esc(str(r.get('verdict') or '').lower())}'>"
+            f"<td>{_esc(r.get('claim'))}<br><span class='meta'>{_esc(r.get('reason') or '')}</span></td>"
+            f"<td class='verdict'>{_esc(r.get('verdict_words'))}</td>"
+            f"<td>{quote_html}</td>"
+            f"<td>{_esc(r.get('source') or '—')}</td>"
+            f"<td>{_esc(str(page)) if page is not None else 'not recorded'}</td>"
+            f"<td>{_esc(' · '.join(checks)) if checks else '—'}</td></tr>"
+        )
+    head = f"<p class='count'>{_esc(claim_summary_words(summary))}{(' · policy ' + _esc(str(summary.get('policy')))) if summary and summary.get('policy') else ''}</p>"
+    inconsistencies = (summary or {}).get("inconsistencies") or []
+    if inconsistencies:
+        head += "<ul class='reasons'>" + "".join(f"<li>Inconsistency: {_esc(str(i.get('detail') if isinstance(i, dict) else i))}</li>" for i in inconsistencies) + "</ul>"
+    return (head + "<table><thead><tr><th>Claim</th><th>Verdict</th><th>Verbatim quote</th><th>Source</th><th>Page</th><th>Checks</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table>")
+
+
 def _section_locks(section: dict[str, Any]) -> str:
     rows = ""
     for row in section.get("items") or []:
@@ -1321,7 +1530,8 @@ def build_verification_dossier_html(state: dict[str, Any], tree: dict[str, Any] 
     summary_rows = [
         ("Trust state", trust.replace("_", " ")),
         ("Export gate", f"{gate.get('gate_status')} · Z3 {gate.get('z3_status')}"),
-        ("Claims", f"{int(stats.get('supported') or 0)} supported · {int(stats.get('unsupported') or 0)} contradicted · {int(stats.get('anchored') or 0)} of {int(stats.get('eligible') or 0)} anchored"),
+        ("Claims", claim_summary_words(state.get("claim_summary")) if state.get("claim_summary")
+                   else f"not assessed under claim-v1 · legacy source check: {int(stats.get('supported') or 0)} of {int(stats.get('eligible') or 0)} entailed (partial counted, not verified) · {int(stats.get('unsupported') or 0)} contradicted"),
         ("Locked claims", str(counts.get("locked_claims", 0))),
         (
             "Intake fields",
@@ -1361,31 +1571,34 @@ def build_verification_dossier_html(state: dict[str, Any], tree: dict[str, Any] 
 {_section_intake_snapshots(state.get('intake') or {})}
 {_section_laya(state.get('intake') or {})}
 
-<h2>2. Review required</h2>
+<h2>2. Claim ledger</h2>
+{_section_claim_ledger(sections.get('claim_ledger') or {})}
+
+<h2>3. Review required</h2>
 {_section_review(sections.get('review_required') or {})}
 
-<h2>3. Conflicts</h2>
+<h2>4. Conflicts</h2>
 {_section_conflicts(sections.get('conflicts') or {})}
 
-<h2>4. Red-Hat findings</h2>
+<h2>5. Red-Hat findings</h2>
 {_section_redhat(sections.get('redhat') or {})}
 
-<h2>5. Locked claims</h2>
+<h2>6. Locked claims</h2>
 {_section_locks(sections.get('locked_claims') or {})}
 
-<h2>6. Signature</h2>
+<h2>7. Signature</h2>
 {_section_signature(sections.get('signature') or {})}
 
-<h2>7. Disputes</h2>
+<h2>8. Disputes</h2>
 {_section_disputes(sections.get('disputes') or {})}
 
-<h2>8. Quality</h2>
+<h2>9. Quality</h2>
 {_section_quality(sections.get('quality') or {})}
 
-<h2>9. Replay eligibility</h2>
+<h2>10. Replay eligibility</h2>
 {_section_replay(sections.get('replay') or {})}
 
-<h2>10. Document</h2>
+<h2>11. Document</h2>
 <div class="doc">{body_html}</div>
 </body>
 </html>"""
