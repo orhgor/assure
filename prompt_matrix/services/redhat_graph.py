@@ -608,8 +608,27 @@ def fallback_rendering(ctx: Context) -> list[dict[str, Any]]:
     return []
 
 
+def suspect_values(ctx: Context) -> list[dict[str, Any]]:
+    """Reads ``evidence_state == found_suspect`` and ``value_quality``: text
+    was read under the label and failed the field's shape check (a header, an
+    address fragment, OCR debris). One finding per field, anchored at the span,
+    so the targeted second read (``v1_orchestrator.redhat_targeted_pass``) has
+    the field and the reason. Customer handoff 2026-09-27, "Semantic
+    Misbinding": ``insured_name`` held "MAILING ADDRESS" with nothing said."""
+    out: list[dict[str, Any]] = []
+    for f in ctx.fields:
+        if f.get("evidence_state") != "found_suspect":
+            continue
+        vq = f.get("value_quality") if isinstance(f.get("value_quality"), dict) else {}
+        out.append(_finding("suspect_value", "evidentiary", "medium", "Text under the label is not a valid value",
+                            f"{_words(f.get('name'))}: '{str(f.get('raw') or '')[:40]}' read as {vq.get('quality') or 'suspect'} — {vq.get('basis') or 'shape check failed'}; no value was taken.",
+                            field_anchor(ctx, f)))
+    return out
+
+
 RULES: tuple[Callable[[Context], list[dict[str, Any]]], ...] = (
     wrong_document_family,
+    suspect_values,
     coarse_chunking,
     unstable_or_missing_ids,
     broken_connectivity,

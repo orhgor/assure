@@ -48,7 +48,31 @@ try:
 except ImportError:
     from services.snapshot import SnapshotMismatch  # type: ignore
 
+try:
+    from ..services import export_names
+except ImportError:
+    from services import export_names  # type: ignore
+
 _SAFE_NAME = re.compile(r"[^\w\-]+")
+
+
+def _parsure_export_name(project_id: str, fallback: str, ext: str, *, suffix: str) -> str:
+    """Plan Part 8.5 (2026-09-27): when the project has an intake report, the
+    dossier / JDF export is named by what was parsed (type, document id, the
+    key data points found — ``export_names.build_export_filename``); without
+    one, or if the lookup fails, the historical ``<project>-<version>`` name
+    stands. A naming lookup must never turn an export into a 500."""
+    try:
+        try:
+            from ..db import parsure_repository as repo
+        except ImportError:
+            from db import parsure_repository as repo  # type: ignore
+        report = repo.get_latest_report(project_id)
+    except Exception:  # noqa: BLE001 — naming is cosmetic
+        report = None
+    if not isinstance(report, dict):
+        return fallback
+    return export_names.build_export_filename(report, ext, suffix=suffix)
 
 
 def _snapshot_mismatch(request_id: str, project_id: str, action: str, exc: SnapshotMismatch, start_time: float):
@@ -300,7 +324,7 @@ def register_export_routes(app) -> None:
                 )
                 return jsonify({"ok": False, "error": str(exc)}), 500
             state = built["state"]
-            filename = f"{filename_base}-verification-dossier.pdf"
+            filename = _parsure_export_name(project_id, f"{filename_base}-verification-dossier.pdf", "pdf", suffix="verification-dossier")
             duration_ms = int((time.perf_counter() - start_time) * 1000)
             audit.log_audit(
                 request_id,
@@ -392,7 +416,7 @@ def register_export_routes(app) -> None:
                 sidecar_bytes = json.dumps(sidecar, indent=2, ensure_ascii=False).encode("utf-8")
                 if fmt == "jdf":
                     action = "EXPORT_JDF"
-                    filename = jdf_name
+                    filename = _parsure_export_name(project_id, jdf_name, "json", suffix="jdf")
                     mimetype = "application/vnd.assure.jdf+json"
                     payload = sidecar_bytes
                 else:
@@ -440,7 +464,7 @@ def register_export_routes(app) -> None:
                         ("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False).encode("utf-8"))
                     )
                     action = "EXPORT_BUNDLE"
-                    filename = f"{dossier}.zip"
+                    filename = _parsure_export_name(project_id, f"{dossier}.zip", "zip", suffix="dossier")
                     mimetype = "application/zip"
                     payload = _bundle_zip(*members)
             except SnapshotMismatch as exc:

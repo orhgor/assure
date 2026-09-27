@@ -103,6 +103,7 @@
             <span class="count count--review">{{ doc.section_counts.review }} {{ strings.get("parsing.count.review", "need review") }}</span><span class="sep">·</span>
             <span class="count count--found">{{ doc.section_counts.found }} {{ strings.get("parsing.count.found", "found") }}</span><span class="sep">·</span>
             <span class="count count--not-found">{{ doc.section_counts.not_found }} {{ strings.get("parsing.count.not_found", "not on document") }}</span>
+            {%- if doc.suspect_count %}<span class="sep">·</span><span class="count count--suspect">{{ doc.suspect_count }} {{ strings.get("parsing.count.suspect", "suspect") }}</span>{% endif %}
           </span>
           {% endif %}
           {% if doc.integrity_ok is not none %}<span class="chip chip--integrity" data-ok="{{ 1 if doc.integrity_ok else 0 }}" title="{{ doc.snapshot_short }}">{% if doc.integrity_ok %}{{ strings.get("parsing.integrity.ok", "Integrity ok") }}{% else %}{{ strings.get("parsing.integrity.mismatch", "Integrity mismatch") }}{% endif %}</span>{% endif %}

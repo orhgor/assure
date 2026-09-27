@@ -263,6 +263,66 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 #replay-form .note[data-tone="error"] { color: var(--contradicted); }
 .replay-history { margin-top: var(--space-3); }
 
+/* ---- execution model surfaces (plan Part 6, 2026-09-27) ---- */
+.breakdown { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-3) var(--space-6); margin: calc(-1 * var(--space-4)) 0 var(--space-6); padding: var(--space-4); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-card); }
+.breakdown-counts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0; }
+.breakdown-counts div { display: flex; flex-direction: column; gap: 2px; }
+.breakdown-counts dt { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.breakdown-counts dd { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.breakdown-counts div[data-key="review"] dd { color: var(--partial); }
+.breakdown-counts div[data-key="suspect"] dd { color: var(--partial); }
+.breakdown-counts div[data-key="not_found"] dd { color: var(--muted); }
+.breakdown-counts div[data-key="accepted"] dd { color: var(--verified); }
+.breakdown-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
+.breakdown-none { font-size: var(--fs-sm); color: var(--muted); }
+.badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--rule); font-size: var(--fs-xs); font-weight: 500; color: var(--muted); white-space: nowrap; }
+.badge--accepted { color: var(--verified); border-color: color-mix(in srgb, var(--verified) 40%, var(--rule)); }
+.badge--review, .badge--suspect, .badge--disputed { color: var(--partial); border-color: color-mix(in srgb, var(--partial) 45%, var(--rule)); }
+.badge--rejected { color: var(--contradicted); border-color: color-mix(in srgb, var(--contradicted) 45%, var(--rule)); }
+.badge--not_found { color: var(--muted); background: var(--paper); }
+.fields .c-state .status { display: block; margin-top: 3px; font-size: var(--fs-xs); font-weight: 400; }
+.conf-bar { display: block; width: 64px; height: 3px; margin-top: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.conf-bar-fill { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
+.fields .c-conf small.provenance { display: block; color: var(--muted); font-size: var(--fs-xs); white-space: normal; }
+.fields .c-value .grounding { display: block; margin-top: 4px; color: var(--muted); font-family: var(--sans); font-size: var(--fs-sm); }
+.grounding-quote { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; font-style: italic; }
+.grounding-quote:hover { text-decoration-color: var(--ink); }
+.grounding-where, .grounding-model { color: var(--muted); }
+.exec-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--surface); }
+.exec-step { display: grid; grid-template-columns: 140px 110px 1fr; gap: var(--space-2) var(--space-4); align-items: baseline; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--rule); font-size: var(--fs-md); }
+.exec-step:last-child { border-bottom: none; }
+.exec-label { font-weight: 500; }
+.exec-status { font-variant-numeric: tabular-nums; }
+.exec-step[data-status="completed"] .exec-status, .exec-step[data-status="ran"] .exec-status, .exec-step[data-status="pass"] .exec-status { color: var(--verified); }
+.exec-step[data-status="violation"] .exec-status, .exec-step[data-status="failed"] .exec-status, .exec-step[data-status="error"] .exec-status { color: var(--contradicted); }
+.exec-step[data-status="skipped"] .exec-status, .exec-step[data-status="disabled"] .exec-status { color: var(--partial); }
+.exec-step[data-status="not_run"] .exec-status, .exec-step[data-status="not_recorded"] .exec-status { color: var(--muted); }
+.exec-counts { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--ink); font-variant-numeric: tabular-nums; }
+.exec-counts .exec-meta { color: var(--muted); }
+.exec-reason { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
+.section-note { margin: 0 0 var(--space-3); font-size: var(--fs-md); color: var(--muted); }
+.table-figure { margin: 0 0 var(--space-4); }
+.table-caption { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--space-2); }
+.table-caption b { color: var(--ink); font-weight: 600; }
+.table-quality[data-status="poor"], .table-quality[data-status="irregular"] { color: var(--partial); }
+.table-frame { overflow-x: auto; }
+.grid { border-collapse: collapse; font-size: var(--fs-md); min-width: 100%; }
+.grid th, .grid td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); text-align: left; white-space: nowrap; }
+.grid th { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); background: var(--paper); }
+.grid th:last-child, .grid td:last-child { border-right: none; }
+.grid tbody tr:last-child td { border-bottom: none; }
+.grid td.cell--extracted { position: relative; background: color-mix(in srgb, var(--verified) 8%, transparent); font-weight: 500; }
+.grid td.cell--extracted::after { content: attr(data-field); position: absolute; right: 4px; top: 2px; font-size: 9px; color: var(--verified); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+.vision-page { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-card); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.vision-quality[data-status="poor"], .vision-quality[data-status="low"] { color: var(--contradicted); }
+.vision-quality[data-status="acceptable"], .vision-quality[data-status="fair"] { color: var(--partial); }
+.vision-quality[data-status="good"] { color: var(--verified); }
+.vision-image { position: relative; display: inline-block; max-width: 100%; margin: var(--space-3) 0; }
+.vision-image img { display: block; max-width: 100%; height: auto; border: 1px solid var(--rule); border-radius: var(--radius-card); }
+.vision-box { position: absolute; border: 2px solid var(--partial); border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,0.6); pointer-events: none; }
+.facts { margin-top: var(--space-3); }
+.rerun .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 /* ---- missing ---- */
 .missing { text-align: center; padding: 96px 24px 64px; }
 .missing h1 { font-size: 20px; font-weight: 600; margin: 0 0 var(--space-3); letter-spacing: -0.01em; }
@@ -292,6 +352,12 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
   .fields .c-page { text-align: left; }
   .fields .c-page::before { content: "Page "; color: var(--muted); }
   .fields .c-conf::before { content: "Confidence "; color: var(--muted); }
+  .breakdown { flex-direction: column; align-items: stretch; }
+  .breakdown-counts { justify-content: space-between; }
+  .exec-step { grid-template-columns: 1fr 1fr; }
+  .exec-counts { grid-column: 1 / -1; }
+  .exec-reason { grid-column: 1 / -1; }
+  .conf-bar { display: inline-block; vertical-align: middle; margin: 0 0 0 var(--space-2); }
   .footer-inner { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .footer-inner a { margin-left: 0; margin-right: 12px; }
 }
@@ -352,6 +418,21 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       <span>{{ strings.get("parsing.section.not_found", "Not on this document") }}: <b>{{ record.section_counts.not_found }}</b></span>
       {%- if record.conflicts %}<span class="sep">·</span><span>Conflicts: <b>{{ record.conflicts|length }}</b></span>{% endif %}
     </p>
+    <div class="breakdown" id="breakdown" data-total="{{ record.breakdown.total }}" data-review="{{ record.breakdown.review }}" data-suspect="{{ record.breakdown.suspect }}" data-not-found="{{ record.breakdown.not_found }}" data-accepted="{{ record.breakdown.accepted }}">
+      <dl class="breakdown-counts">
+        <div><dt>{{ strings.get("parsing.breakdown.total", "Total fields") }}</dt><dd>{{ record.breakdown.total }}</dd></div>
+        <div data-key="accepted"><dt>{{ strings.get("parsing.breakdown.accepted", "Found & accepted") }}</dt><dd>{{ record.breakdown.accepted }}</dd></div>
+        <div data-key="review"><dt>{{ strings.get("parsing.breakdown.review", "Needs review") }}</dt><dd>{{ record.breakdown.review }}</dd></div>
+        <div data-key="suspect"><dt>{{ strings.get("parsing.breakdown.suspect", "Suspect") }}</dt><dd>{{ record.breakdown.suspect }}</dd></div>
+        <div data-key="not_found"><dt>{{ strings.get("parsing.breakdown.not_found", "Not found") }}</dt><dd>{{ record.breakdown.not_found }}</dd></div>
+      </dl>
+      <div class="breakdown-actions">
+        {% if record.first_flagged %}<a class="btn-secondary" id="review-all-flagged" href="#field-{{ record.first_flagged }}">{{ strings.get("parsing.review_all", "Review all flagged") }}</a>
+        {%- else %}<span class="breakdown-none">{{ strings.get("parsing.section.review_empty", "Nothing is waiting on a person.") }}</span>{% endif %}
+        <a class="btn-tertiary" href="{{ record.export_json_href }}">{{ strings.get("parsing.export_json", "Export JSON") }}</a>
+        <a class="btn-tertiary" href="{{ record.export_csv_href }}">{{ strings.get("parsing.export_csv", "Export CSV") }}</a>
+      </div>
+    </div>
     {% if record.snapshot %}
     <p class="record-snapshot" id="snapshot" data-ok="{{ 'unknown' if record.snapshot.ok is none else (1 if record.snapshot.ok else 0) }}">
       <span class="snap-label">{{ strings.get("parsing.snapshot", "Snapshot") }}</span>
@@ -359,6 +440,10 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       {%- if record.snapshot.ok is not none %}<span class="sep">·</span>
       <span class="snap-integrity" data-ok="{{ 1 if record.snapshot.ok else 0 }}">{% if record.snapshot.ok %}{{ strings.get("parsing.integrity.ok", "Integrity ok") }}{% else %}{{ strings.get("parsing.integrity.mismatch", "Integrity mismatch") }} — {{ strings.get("parsing.integrity.actual", "row hashes to") }} <code>{{ (record.snapshot.actual or "")[:12] }}</code>{% endif %}</span>{% endif %}
       {%- if record.snapshot.stamped_at %}<span class="sep">·</span><span class="snap-when">{{ record.snapshot.stamped_at }}</span>{% endif %}
+      {%- if record.graph_integrity %}<span class="sep">·</span><span class="graph-integrity" id="graph-integrity">{{ strings.get("parsing.graph.score", "Graph integrity") }}
+        {%- if record.graph_integrity.score is not none %} <b>{{ (record.graph_integrity.score * 100)|round|int }}%</b>{% else %} —{% endif %}
+        {%- if record.graph_integrity.negative_evidence is not none %} · {{ record.graph_integrity.negative_evidence }} {{ strings.get("parsing.graph.negative", "negative evidence nodes") }}{% endif %}
+        {%- if record.graph_integrity.orphans is not none %} · {{ record.graph_integrity.orphans|length }} {{ strings.get("parsing.graph.orphans", "orphans") }}{% endif %}</span>{% endif %}
     </p>
     {% endif %}
     {% if record.low_quality %}
@@ -436,11 +521,18 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
           <thead><tr><th>Field</th><th>Value</th><th>State</th><th>Confidence</th><th class="c-page">Page</th><th>Why</th></tr></thead>
           <tbody>
           {% for f in rows %}
-            <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" data-mark="{{ f.mark }}" data-section="{{ section }}">
+            <tr class="field{% if not f.needs_person %} field--done{% endif %}" data-field="{{ f.name }}" id="field-{{ f.name }}" data-mark="{{ f.mark }}" data-section="{{ section }}" data-badge="{{ f.badge.key }}">
               <td class="c-label">{{ f.label }}{% if f.corrected %}<small>corrected</small>{% endif %}</td>
-              <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}{% if f.value_quality %}<small class="value-quality" data-quality="{{ f.value_quality.quality }}">{{ f.value_quality.words }}{% if f.value_quality.basis %} — {{ f.value_quality.basis }}{% endif %}</small>{% endif %}{% if f.searched %}<small class="searched">{{ strings.get("parsing.searched", "Searched") }}{% if f.searched.pages is not none %} {{ f.searched.pages }} page{{ "" if f.searched.pages == 1 else "s" }}{% endif %}{% if f.searched.nodes is not none %} · {{ f.searched.nodes }} node{{ "" if f.searched.nodes == 1 else "s" }}{% endif %}{% if f.searched.chars is not none %} · {{ "{:,}".format(f.searched.chars) }} characters{% endif %}{% if f.searched.readability %} · {{ strings.get("parsing.readability_lc", "readability") }} {{ f.searched.readability }}{% endif %}</small>{% endif %}</td>
-              <td class="c-state"><span class="status status--{{ f.state }}">{{ f.state_label }}</span>{% if f.evidence_label %}<small class="evidence" data-evidence="{{ f.evidence_state }}">{{ f.evidence_label }}</small>{% endif %}</td>
-              <td class="c-conf">{{ f.confidence }}{% if f.verification %}<small class="verification">{{ f.verification }}</small>{% endif %}</td>
+              <td class="c-value" data-mark="{{ f.mark }}">{{ f.value }}{% if f.raw %}<small>{{ f.raw }}</small>{% endif %}{% if f.value_quality %}<small class="value-quality" data-quality="{{ f.value_quality.quality }}">{{ f.value_quality.words }}{% if f.value_quality.basis %} — {{ f.value_quality.basis }}{% endif %}</small>{% endif %}{% if f.searched %}<small class="searched">{{ strings.get("parsing.searched", "Searched") }}{% if f.searched.pages is not none %} {{ f.searched.pages }} page{{ "" if f.searched.pages == 1 else "s" }}{% endif %}{% if f.searched.nodes is not none %} · {{ f.searched.nodes }} node{{ "" if f.searched.nodes == 1 else "s" }}{% endif %}{% if f.searched.chars is not none %} · {{ "{:,}".format(f.searched.chars) }} characters{% endif %}{% if f.searched.readability %} · {{ strings.get("parsing.readability_lc", "readability") }} {{ f.searched.readability }}{% endif %}</small>{% endif %}
+                {%- if f.grounding %}<small class="grounding" data-source="{{ f.grounding.source or '' }}">{{ strings.get("parsing.grounding.label", "Evidence") }}:
+                  {%- if f.grounding.quote %} <a class="grounding-quote"{% if f.grounding.page is not none %} href="#page-{{ f.grounding.page }}"{% endif %} title="{{ strings.get("parsing.grounding.open", "Show the page this was read from") }}">“{{ f.grounding.quote }}”</a>{% endif %}
+                  {%- if f.grounding.page is not none %} <span class="grounding-where">{{ strings.get("parsing.grounding.page", "page") }} {{ f.grounding.page }}{% if f.grounding.start_char is not none and f.grounding.end_char is not none %} · {{ strings.get("parsing.grounding.chars", "chars") }} {{ f.grounding.start_char }}–{{ f.grounding.end_char }}{% endif %}</span>{% endif %}
+                  {%- if f.grounding.table_id %} <span class="grounding-where">{{ strings.get("parsing.grounding.table", "table") }} {{ f.grounding.table_id }}{% if f.grounding.row is not none %} r{{ f.grounding.row }}{% endif %}{% if f.grounding.col is not none %} c{{ f.grounding.col }}{% endif %}</span>{% endif %}
+                  {%- if f.grounding.model %} <span class="grounding-model">· {{ f.grounding.model }}</span>{% endif %}</small>{% endif %}</td>
+              <td class="c-state"><span class="badge badge--{{ f.badge.key }}">{{ strings.get("parsing.badge." ~ f.badge.key, f.badge.words) }}</span><small class="status status--{{ f.state }}">{{ f.state_label }}</small>{% if f.evidence_label %}<small class="evidence" data-evidence="{{ f.evidence_state }}">{{ f.evidence_label }}</small>{% endif %}</td>
+              <td class="c-conf">{{ f.confidence }}{% if f.conf_pct is not none %}<span class="conf-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ f.conf_pct }}"><span class="conf-bar-fill" style="width: {{ f.conf_pct }}%"></span></span>{% endif %}
+                {%- if f.provenance %}<small class="provenance" data-kind="{{ f.provenance.kind }}">{{ f.provenance.words }}{% if f.provenance_confidence %} · {{ strings.get("parsing.provenance_conf", "provenance") }} {{ f.provenance_confidence }}{% endif %}</small>{% elif f.provenance_confidence %}<small class="provenance">{{ strings.get("parsing.provenance_conf", "provenance") }} {{ f.provenance_confidence }}</small>{% endif %}
+                {%- if f.verification %}<small class="verification">{{ f.verification }}</small>{% endif %}</td>
               <td class="c-page">{{ f.page if f.page is not none else "—" }}{% if f.node_id %}<small class="node-id" title="{% if f.node_note %}JDF node the field was searched from{% else %}JDF node{% endif %}">{{ f.node_id }}{% if f.node_note %} · {{ f.node_note }}{% endif %}</small>{% endif %}</td>
               <td class="c-why{% if not f.reason and not f.needs_person and not f.signature %} c-why--none{% endif %}">{% if f.reason %}{{ f.reason }}{% else %}—{% endif %}{% if f.needs_person %}<small>{{ f.action }}</small>{% endif %}
                 {%- if f.signature %}<small class="signature" data-quality="{{ f.signature.quality }}">{{ f.signature.words }}{% if f.signature.next_check %} — <span class="next-check">{{ f.signature.next_check }}</span>{% endif %}</small>{% endif %}
@@ -467,10 +559,106 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       {% endif %}
     </section>
 
+    {% if record.discovered %}
+    <section class="section" id="discovered">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.discovered.title", "Discovered fields") }}</h2>
+        <span class="section-meta">{{ strings.get("parsing.discovered.note", "read from the page, not in the schema") }}</span>
+      </div>
+      <div class="frame">
+        <table class="fields">
+          <thead><tr><th>Field</th><th>Value</th><th class="c-page">Page</th></tr></thead>
+          <tbody>{% for d in record.discovered %}<tr data-discovered="{{ d.name }}"><td class="c-label">{{ d.name }}</td><td class="c-value">{{ d.value if d.value is not none else "—" }}</td><td class="c-page">{{ d.page if d.page is not none else "—" }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
     {% if record.conflicts %}
     <section class="section conflicts" id="conflicts">
       <div class="section-head"><h2>Conflicts with other documents</h2></div>
       {% for c in record.conflicts %}<p>{{ c }}</p>{% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="section execution" id="execution" data-recorded="{{ 1 if record.execution.recorded else 0 }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.execution.title", "Execution") }}</h2>
+        <span class="section-meta">{% if record.execution.ran_at %}{{ record.execution.ran_at }}{% else %}{{ strings.get("parsing.execution.no_time", "no timestamp recorded") }}{% endif %}</span>
+      </div>
+      {% if not record.execution.recorded %}<p class="section-empty" id="execution-empty">{{ strings.get("parsing.execution.not_recorded_all", "This report did not record its execution steps.") }}</p>{% endif %}
+      <ul class="exec-list">
+        {% for st in record.execution.steps %}
+        <li class="exec-step" data-step="{{ st.key }}" data-status="{{ st.status_key }}">
+          <span class="exec-label">{{ st.label }}</span>
+          <span class="exec-status">{{ strings.get("parsing.execution.status." ~ st.status_key, st.status) }}</span>
+          <span class="exec-counts">{% for c in st.counts %}<span>{{ c }}</span>{% endfor %}{% for m in st.meta %}<span class="exec-meta">{{ m }}</span>{% endfor %}</span>
+          {% if st.reason %}<span class="exec-reason">{{ st.reason }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    {% if record.tables %}
+    <section class="section" id="tables" data-count="{{ record.tables|length }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.tables.title", "Tables") }}</h2>
+        <span class="section-meta">{{ record.tables|length }} table{{ "" if record.tables|length == 1 else "s" }} · {{ strings.get("parsing.tables.note", "marked cells became field values") }}</span>
+      </div>
+      {% for t in record.tables %}
+      <figure class="table-figure" data-table-id="{{ t.table_id }}" style="margin:0">
+        <figcaption class="table-caption">
+          <b>{{ t.caption or t.table_id or "Table" }}</b>{% if t.page is not none %} · {{ strings.get("parsing.grounding.page", "page") }} {{ t.page }}{% endif %}
+          {%- if t.quality %} · <span class="table-quality" data-status="{{ t.quality.status or '' }}">{{ strings.get("parsing.tables.quality", "quality") }} {{ t.quality.status or "—" }}{% if t.quality.basis %} — {{ t.quality.basis }}{% endif %}</span>{% endif %}
+          {%- if t.fields_extracted %} · {{ t.fields_extracted|length }} field{{ "" if t.fields_extracted|length == 1 else "s" }}: {{ t.fields_extracted|join(", ") }}{% endif %}
+        </figcaption>
+        <div class="frame table-frame">
+          <table class="grid">
+            {% if t.headers %}<thead><tr>{% for h in t.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>{% endif %}
+            <tbody>
+            {% for row in t.grid %}
+            <tr>{% for cell in row %}<td{% if cell.field %} class="cell--extracted" data-field="{{ cell.field }}" title="{{ strings.get("parsing.tables.cell_field", "Read as field") }} {{ cell.field }}"{% endif %}>{{ cell.text }}</td>{% endfor %}</tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </figure>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if record.vision %}
+    <section class="section" id="vision" data-status="{{ record.vision.status or '' }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.vision.title", "Picture analysis") }}</h2>
+        <span class="section-meta">{{ strings.get("parsing.execution.status." ~ (record.vision.status or "not_recorded"), record.vision.status or "not recorded") }}{% if record.vision.model %} · {{ record.vision.model }}{% endif %}{% if record.vision.pages %} · {{ record.vision.pages|length }} page{{ "" if record.vision.pages|length == 1 else "s" }}{% endif %}</span>
+      </div>
+      {% if record.vision.reason %}<p class="section-note" id="vision-reason">{{ record.vision.reason }}</p>{% endif %}
+      {% if not record.vision.pages %}<p class="section-empty">{{ strings.get("parsing.vision.none", "No page was analyzed.") }}</p>{% endif %}
+      {% for vp in record.vision.pages %}
+      <article class="vision-page" data-page="{{ vp.page }}" data-quality="{{ vp.quality.status or '' }}">
+        <div class="page-line">
+          <b>{{ strings.get("parsing.grounding.page", "page")|capitalize }} {{ vp.page }}</b>{% if vp.kind %} · {{ vp.kind }}{% endif %}
+          <span class="vision-quality" data-status="{{ vp.quality.status or '' }}">{{ strings.get("parsing.tables.quality", "quality") }} {{ vp.quality.status or "—" }}{% if vp.quality.flags %} · {{ vp.quality.flags|join(", ") }}{% endif %}{% if vp.quality.basis %} — {{ vp.quality.basis }}{% endif %}</span>
+        </div>
+        {% if record.original_href and record.page_count == 1 %}
+        <div class="vision-image">
+          <img src="{{ record.original_href }}" alt="{{ record.filename }}">
+          {% for fact in vp.facts if fact.bbox %}<span class="vision-box" style="left: {{ (fact.bbox[0] * 100)|round(2) }}%; top: {{ (fact.bbox[1] * 100)|round(2) }}%; width: {{ ((fact.bbox[2] - fact.bbox[0]) * 100)|round(2) }}%; height: {{ ((fact.bbox[3] - fact.bbox[1]) * 100)|round(2) }}%" title="{{ fact.name }}"></span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if vp.facts %}
+        <table class="fields facts">
+          <thead><tr><th>{{ strings.get("parsing.vision.fact", "Fact") }}</th><th>Value</th><th>Confidence</th><th>{{ strings.get("parsing.grounding.label", "Evidence") }}</th><th>{{ strings.get("parsing.vision.model", "Model") }}</th></tr></thead>
+          <tbody>
+          {% for fact in vp.facts %}
+          <tr data-fact="{{ fact.name }}"><td class="c-label">{{ fact.name }}</td><td class="c-value">{{ fact.value if fact.value is not none else "—" }}</td><td class="c-conf">{% if fact.confidence is not none %}{{ (fact.confidence * 100)|round|int }}%{% else %}—{% endif %}</td><td class="c-why">{{ fact.evidence or "—" }}{% if fact.bbox %}<small>bbox {{ fact.bbox|join(", ") }}</small>{% endif %}</td><td>{{ fact.model or "—" }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="section-empty">{{ strings.get("parsing.vision.no_facts", "No facts were read from this page.") }}</p>{% endif %}
+      </article>
+      {% endfor %}
     </section>
     {% endif %}
 
@@ -503,7 +691,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       <div class="section-head">
         <h2>{{ strings.get("parsing.replay.title", "Replay") }}</h2>
         <span class="section-meta">
-          {%- if record.replay.attempts is not none %}{{ record.replay.attempts }}{% if record.replay.max_attempts is not none %} of {{ record.replay.max_attempts }}{% endif %} {{ strings.get("parsing.replay.attempts", "attempts") }}
+          {%- if record.replay.attempts is not none %}{{ record.replay.attempts }}{% if record.replay.max_attempts is not none %} of {{ record.replay.max_attempts }}{% endif %} {{ strings.get("parsing.replay.attempts", "attempts") }}{% if record.rerun.passes %} · {{ record.rerun.passes }} {{ strings.get("parsing.rerun.passes", "passes") }}{% endif %}
           {%- else %}{{ strings.get("parsing.replay.no_attempts", "no attempts recorded") }}{% endif %}
           {%- if record.replay.stop_rule %} · {{ record.replay.stop_rule }}{% endif %}
         </span>
@@ -516,18 +704,24 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
         <button type="submit" class="btn-secondary" id="replay-run"{% if not record.replay.eligible or record.replay.exhausted %} disabled{% endif %}>{{ strings.get("parsing.replay.run", "Replay now") }}</button>
         <span class="note" id="replay-note" aria-live="polite">{% if record.replay.exhausted %}{{ strings.get("parsing.replay.exhausted", "The attempt limit is reached.") }}{% endif %}</span>
       </form>
-      {% if record.replay.history %}
-      <details class="tech replay-history"><summary>{{ record.replay.history|length }} earlier replay{{ "" if record.replay.history|length == 1 else "s" }}</summary>
-        <ol class="timeline">
-          {% for h in record.replay.history %}
-          <li data-kind="event">
-            <div class="t-when">{{ h.at or h.replayed_at or h.created_at or "" }}</div>
-            <p class="t-title">{{ h.outcome or h.status or h.result or "replayed" }}{% if h.policy_version %} · policy {{ h.policy_version }}{% endif %}</p>
-            {% if h.proof or h.content_hash %}<p class="t-detail"><code>{{ (h.proof.content_hash if h.proof is mapping and h.proof.content_hash else h.content_hash or "") }}</code></p>{% endif %}
-          </li>
+      {% if record.rerun.rows %}
+      <div class="frame" id="rerun-history" data-passes="{{ record.rerun.passes or '' }}">
+        <table class="fields rerun">
+          <thead><tr><th>#</th><th>{{ strings.get("parsing.rerun.when", "When") }}</th><th>{{ strings.get("parsing.rerun.trigger", "Trigger") }}</th><th>{{ strings.get("parsing.rerun.changed", "Fields changed") }}</th><th class="num">{{ strings.get("parsing.rerun.found", "Found before → after") }}</th><th>{{ strings.get("parsing.rerun.improved", "Improved") }}</th></tr></thead>
+          <tbody>
+          {% for r in record.rerun.rows %}
+          <tr data-trigger="{{ r.trigger or '' }}">
+            <td class="num">{{ r.n }}</td>
+            <td>{{ r.at or "—" }}</td>
+            <td>{{ r.trigger_words or r.outcome or "—" }}</td>
+            <td class="c-why">{% if r.fields_changed %}{{ r.fields_changed|join(", ") }}{% else %}—{% endif %}</td>
+            <td class="num">{% if r.before is not none or r.after is not none %}{{ r.before if r.before is not none else "—" }} → {{ r.after if r.after is not none else "—" }}{% else %}—{% endif %}</td>
+            <td>{% if r.improved is true %}{{ strings.get("parsing.yes", "yes") }}{% elif r.improved is false %}{{ strings.get("parsing.no", "no") }}{% else %}—{% endif %}</td>
+          </tr>
           {% endfor %}
-        </ol>
-      </details>
+          </tbody>
+        </table>
+      </div>
       {% endif %}
       {% if record.replay.last_proof %}
       <details class="tech"><summary>{{ strings.get("parsing.replay.last_proof", "Last proof") }}</summary><dl>{% for k, v in record.replay.last_proof.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl></details>
@@ -570,7 +764,7 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
       {% if record.pages %}
       <div class="pages">
         {% for p in record.pages %}
-        <article class="page" data-page="{{ p.page }}">
+        <article class="page" id="page-{{ p.page }}" data-page="{{ p.page }}">
           <div class="page-line">
             <b>Page {{ p.page }}</b>
             <span class="q">Quality {{ p.score }}</span>

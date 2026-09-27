@@ -129,3 +129,32 @@
 - A not-found field is not a review item: field_state not_found, routing_action field_not_found, verification_confidence null.
 - verification_confidence is null unless a verification actually ran; 0.85 is only reported with a document-level Z3 pass.
 - Provenance confidence is not value quality: a located value can still be invalid_format / garbage (value_quality).
+
+### Vision (2026-09-27)
+
+- No visual fact without a model answer that names its evidence; an empty answer is an empty list, never a default. (`services/vision.normalise_facts` keeps a fact only with an allowed `name`, a `value` and a non-empty `evidence`; what was dropped is counted in `vision.pages[].dropped`.)
+- Vision facts never enter `fields[]` or any count. (`report["vision"]` and `execution.vision` are the only places they live; `fields`, `review_summary`, `fields_found` are untouched — `tests/test_vision.py` compares them before and after.)
+- A poor-quality picture is not analyzed; the report says why. (`picture_quality` from `quality_probe`'s measured blur / contrast / pixel size: `too_small` under 480 px, or `blurry` + `low_contrast`; the page entry is `skipped` with the measurement in `reason`.)
+- `vision.status: disabled` is not "no pictures": `disabled` = the flag or the backend (no vision model; Ollama without `ASSURE_OLLAMA_MODEL_VISION`), `not_run` = enabled but no picture page or no bytes, `failed` = the model was asked and did not answer usably (exception class in `reason`), `completed` = every picture was processed (some may be `skipped` or `failed` per page).
+- A `bbox` is the model's own claim about where it looked, scaled to 0–1; it is not measured by Assure and is `null` when the model gave none or gave one that does not fit.
+- A text-only model is never handed a picture: on Ollama the tag's `/api/show` capabilities must list `vision` (`model_cannot_see`); a tag without it is `failed` with the capability list in `reason` before anything is rendered. Every "fact" such a model produced would be prompt-driven invention.
+
+
+### Execution ledger (2026-09-27)
+
+- `report.execution` never says a step ran unless that step wrote its own entry; a missing step reads `not_run` with a reason, never "pending".
+- `grounding_quote` is verbatim page text or null; no paraphrase, no model summary, no quote on an absent field.
+- A pipeline pass (`replay.history` trigger `pipeline:*`) does not spend the reviewer's rerun budget; `attempts` counts reviewers' reruns only.
+- `provenance_confidence` under 1.0 on a located value means the value's shape disproves the place; it is not a measure of OCR quality (that is `extraction_confidence`) nor of the value (that is `value_quality`).
+- The proof run (`scripts/final_run.py`) reads the stack's artifacts; a green run on the code alone is not claimed anywhere.
+
+### Schemas, tables, discovery, export names (2026-09-27)
+
+| Claim we must not make | Why | What to say instead |
+|---|---|---|
+| "The value was read from the table, so it is correct" | `services/table_extraction` matches a header or row label to the field's anchor and takes a cell; a `first_row` pick among rows that disagree is a stated guess (confidence × 0.85, never auto-accepted) and the grid itself was repaired from jdf-cli's phantom columns (`layout_repair` says how). Verification still comes from Z3/rules | "read from table `tbl-…` row r / column 'Limit' (pick: row_label)" — `extraction_method: table`, `evidence.pick`, `grounding_quote` |
+| "Every table on the page was read" | Only jdf-cli `type: "table"` page elements (or tree table nodes with rows) are tables; a table rendered as text lines is not one, and a `quality.status = unreadable` table fills nothing | `report.tables[]` with `quality`, `execution.tables` with `fields_offered` / `fields_from_tables` and a `reason` |
+| "The unknown document has N fields" | `discovered_fields[]` are label/value pairs, not taxonomy fields: no state, no routing, no confidence, `taxonomy_field: false`; `fields_total` stays 0 for a `<family>_unknown` document | "no schema fits; N labelled facts listed for review" |
+| "Any document type is supported — just add a schema" | A schema needs a family the cue gate can name (`DOCUMENT_FAMILIES` is fixed), ≥ 3 keywords the document actually carries, and anchors on its own labels; a skipped file is listed under `rejected` on `/api/parsure/schemas` | "types are data (`prompt_matrix/schemas`, `ASSURE_SCHEMA_DIR`); the registry lists what loaded and what was rejected and why" |
+| "The export name identifies the document" (when nothing was found) | `export_names.build_export_filename` writes only data points that were found; a document with no found policy/insured/date is named by type, id and time alone — never `policy-unknown` | the name shows what was found; the report shows what was not |
+

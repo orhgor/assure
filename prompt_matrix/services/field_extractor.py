@@ -1178,8 +1178,16 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 if not isinstance(node, dict):
                     continue
                 if node.get("type") == "table":
+                    # The caption is jdf-cli's own ``Header: cell | …`` text of the
+                    # chunk (jdf_converter), and it is what the page text carried
+                    # before tree table nodes gained their grid (2026-09-27); it
+                    # stays the page text so anchors and replay ids do not move.
+                    # Table *values* are read by services/table_extraction, not
+                    # from this text. The grid is flattened only for a node
+                    # without a caption (hand-built trees).
                     cells = [str(c) for row in node.get("rows") or [] for c in row]
-                    text = "\n".join([" | ".join(str(h) for h in node.get("headers") or [])] + [" | ".join(str(c) for c in row) for row in node.get("rows") or []]) if cells else str(node.get("caption") or "")
+                    caption = str(node.get("caption") or "")
+                    text = caption if caption.strip() else ("\n".join([" | ".join(str(h) for h in node.get("headers") or [])] + [" | ".join(str(c) for c in row) for row in node.get("rows") or []]) if cells else "")
                 else:
                     text = str(node.get("content") or node.get("title") or node.get("alt") or "")
                 if text.strip():
@@ -1277,6 +1285,37 @@ NAME_MAX_WORDS = 12
 _ID_SHAPE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/. ]{2,29}$")
 _ID_FIELDS = frozenset({"policy_number", "claim_number"})
 VALUE_QUALITIES = ("valid", "invalid_format", "garbage", "header_or_label", "address_fragment")
+#: ``provenance_confidence`` by value shape (plan Part 1.1, 2026-09-27): the
+#: span of a header or of OCR debris is a real span, but "the right place for
+#: this value" is exactly what a header under the label disproves — so the
+#: figure drops with the shape instead of reading 1.0 beside garbage. Value
+#: quality itself stays a separate signal (``value_quality``).
+PROVENANCE_BY_SHAPE = {"valid": 1.0, "invalid_format": 0.7, "address_fragment": 0.6, "garbage": 0.3, "header_or_label": 0.3}
+GROUNDING_QUOTE_MAX = 240
+
+
+def line_quote(page_text: str | None, start: int, end: int) -> str | None:
+    """The verbatim line(s) of ``page_text`` holding ``[start, end)`` — the
+    label-pass grounding quote (secondary grounding, plan Part 2.9)."""
+    if not page_text or start is None or end is None or start < 0 or end > len(page_text) or start >= end:
+        return None
+    a = page_text.rfind("\n", 0, start) + 1
+    b = page_text.find("\n", end)
+    b = len(page_text) if b < 0 else b
+    quote = page_text[a:b].strip()
+    return quote[:GROUNDING_QUOTE_MAX] if quote else None
+
+
+def attach_grounding(field: dict[str, Any], *, page_text: str | None, page_index: int, start: int, end: int, source: str, model: str | None) -> None:
+    """``grounding_quote`` / ``grounding_span`` / ``grounding_model`` /
+    ``grounding_source`` for a located value. The span repeats the provenance
+    (page, offsets, element, node) so an export can carry the grounding alone."""
+    span = field.get("source_span") if isinstance(field.get("source_span"), dict) else {}
+    field["grounding_quote"] = line_quote(page_text, start, end)
+    field["grounding_span"] = {"page": page_index + 1, "start_char": start, "end_char": end,
+                               "element_id": span.get("element_id") or field.get("element_id"), "node_id": field.get("field_source_node_id")}
+    field["grounding_model"] = model
+    field["grounding_source"] = source
 
 
 def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str, Any]:
@@ -1301,8 +1340,8 @@ def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str
         return {"quality": "garbage", "basis": f"{ratio:.0%} of characters are letters or digits"}
     if spec.field_type in ("money", "number", "date", "vin", "codes"):
         if parsed is None:
-            return {"quality": "invalid_format", "basis": f"'{text[:40]}' does not parse as {spec.field_type}"}
-        return {"quality": "valid", "basis": f"parses as {spec.field_type}"}
+            return {"quality": "invalid_format", "basis": f"'{text[:40]}' is not a {spec.field_type} value"}
+        return {"quality": "valid", "basis": f"reads as a {spec.field_type} value"}
     words = re.findall(r"[A-Za-z][A-Za-z.'\-]*", text)
     lowered = {w.lower().strip(".") for w in words}
     if spec.field_type == "name":
@@ -1414,6 +1453,14 @@ def _empty_field(spec: FieldSpec, reason: str = "field not found") -> dict[str, 
         "verification_basis": "nothing to verify: no value",
         "provenance_confidence": 0.0,
         "value_quality": None,
+        # Grounding (plan Part 2.9 / 11, 2026-09-27): the verbatim text that
+        # supports the value, where it sits, and who located it — None until
+        # something did.
+        "grounding_quote": None,
+        "grounding_span": None,
+        "grounding_model": None,
+        "grounding_source": None,
+        "field_uid": None,
         "signature_quality": None,
         "number_quality": None,
         "source_span": None,
@@ -1569,7 +1616,12 @@ def mark_schema_mismatch(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
 #: quote and the quote (and the value inside it) was re-found in the page text
 #: before the value was taken (spec §8 item 6 — the model never supplies the
 #: value, only the place to look).
-EXTRACTION_METHODS = ("label_anchor", "llm_grounded")
+#: ``table`` (2026-09-27, plan Part 3): the value is a cell of a jdf-cli table
+#: element matched by header/row label (``services/table_extraction``); the
+#: label pass never sees table cells because jdf-cli 0.2.3 emits a table as
+#: one ``type: "table"`` element with ``headers``/``rows`` and no text
+#: (measured on bench/cases repair_estimate.pdf and coverage_schedule.pdf).
+EXTRACTION_METHODS = ("label_anchor", "llm_grounded", "table")
 #: A grounded LLM find is a real, located value, but the *locating* step was a
 #: model's reading rather than a label match, and the model can quote the
 #: neighbouring sentence (qwen2.5:1.5b returned the property-damage figure
@@ -1626,6 +1678,7 @@ def build_found_field(
     visual_pages: list[dict],
     layout: list[list[dict]],
     method: str = "label_anchor",
+    page_text: str | None = None,
 ) -> dict[str, Any]:
     """The contract record for a value located at ``[start, end)`` on a page.
 
@@ -1664,6 +1717,9 @@ def build_found_field(
         # ``found_suspect``: located, not usable. Provenance stays (the span is
         # real) so the reviewer is taken to the debris; the value is not.
         _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method=method)
+        field["provenance_confidence"] = PROVENANCE_BY_SHAPE.get(shape["quality"], 0.5)
+        attach_grounding(field, page_text=page_text, page_index=page_index, start=start, end=end,
+                         source="llm" if method == "llm_grounded" else "label_anchor", model=None if method == "llm_grounded" else "label_anchor")
         if spec.field_type in ("money", "number", "vin") or spec.name in _ID_FIELDS:
             field["number_quality"] = {"quality": "invalid_format", "penalty": NUMBER_PENALTIES["invalid_format"], "review_required": True, "basis": shape["basis"]}
         field["evidence_state"] = "found_suspect"
@@ -1676,6 +1732,9 @@ def build_found_field(
     visual = visual_pages[page_index] if page_index < len(visual_pages) else None
     handwritten = bool(visual and "handwritten" in (visual.get("flags") or []))
     seg = _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method=method)
+    field["provenance_confidence"] = PROVENANCE_BY_SHAPE["valid"]
+    attach_grounding(field, page_text=page_text, page_index=page_index, start=start, end=end,
+                     source="llm" if method == "llm_grounded" else "label_anchor", model=None if method == "llm_grounded" else "label_anchor")
     # Field-level quality (2026-09-26): the OCR confidence of the line the
     # value sits on is a nearer measurement than the page-global score, so it
     # takes the quality factor's place when the segment carries one; the basis
@@ -1778,7 +1837,7 @@ def extract_fields(
         field = build_found_field(
             spec, page_index=page_index, raw=raw, start=start, end=end, parser_name=parser_name,
             parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
-            visual_pages=visual_pages, layout=layout,
+            visual_pages=visual_pages, layout=layout, page_text=texts[page_index] if page_index < len(texts) else None,
         )
         mark_low_quality_page(field, page_quality)
         results.append(field)
@@ -1854,6 +1913,8 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
         # element inside the paragraph, not the paragraph — so the worker run
         # and a replay name the same element (2026-09-27).
         seg = _locate(field, spec, page_index=page_index, start=start, end=end, layout=layout, method="label_anchor")
+        attach_grounding(field, page_text=texts[page_index] if page_index < len(texts) else None, page_index=page_index, start=start, end=end,
+                         source="label_anchor", model="label_anchor")
         local = seg.get("local_quality") if seg else None
         if isinstance(local, (int, float)):
             pq, field["quality_source"], field["local_quality"] = float(local), "local_ocr", float(local)
@@ -2192,3 +2253,39 @@ def cross_document_conflicts(reports: list[dict]) -> list[dict[str, Any]]:
                 "values": seen,
             })
     return conflicts
+
+
+# --------------------------------------------------------------------------
+# Schema registry bootstrap (2026-09-27, plan Part 4.1)
+# --------------------------------------------------------------------------
+
+#: Snapshots of the static ``_f()`` taxonomy above, taken before
+#: ``schema_registry.reload`` rebinds the public names. The registry reads the
+#: built-ins from these, so a ``reload()`` after a runtime schema was dropped
+#: into ``ASSURE_SCHEMA_DIR`` (or removed) always starts from the same base.
+_BUILTIN_DOCUMENT_TYPES: tuple[str, ...] = tuple(DOCUMENT_TYPES)
+_BUILTIN_TYPE_FAMILY: dict[str, str] = dict(TYPE_FAMILY)
+_BUILTIN_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {t: tuple(k) for t, k in TYPE_KEYWORDS.items()}
+_BUILTIN_FIELD_TAXONOMY: dict[str, list[FieldSpec]] = {t: list(specs) for t, specs in FIELD_TAXONOMY.items()}
+
+
+def _bootstrap_schema_registry() -> None:
+    """Merge the runtime schemas (``prompt_matrix/schemas/*.json``,
+    ``ASSURE_SCHEMA_DIR``) into ``DOCUMENT_TYPES`` / ``TYPE_FAMILY`` /
+    ``TYPE_KEYWORDS`` / ``FIELD_TAXONOMY`` at import. The registry never
+    raises on a bad schema file (it logs and skips), and this guard makes
+    sure a bug in the registry itself leaves the static taxonomy bound
+    rather than failing the import of the extractor."""
+    try:
+        try:
+            from . import schema_registry
+        except ImportError:  # pragma: no cover - flat-import fallback
+            import schema_registry  # type: ignore
+        schema_registry.reload()
+    except Exception:  # noqa: BLE001 — the static taxonomy is the fallback
+        import logging
+
+        logging.getLogger(__name__).exception("schema registry bootstrap failed; static taxonomy in effect")
+
+
+_bootstrap_schema_registry()

@@ -1,0 +1,84 @@
+{
+  "format": "parsure-schema-v1",
+  "document_type": "schedule_of_forms",
+  "family": "property",
+  "label": "Schedule of forms",
+  "description": "Schedule of coverages and forms (homeowners). Anchored on bench/cases/texts.py COVERAGE_SCHEDULE_* (2026-09-27): 'SCHEDULE OF COVERAGES AND FORMS', 'Total Annual Premium', 'Forms and endorsements made part of this policy'. Keywords are the schedule's own words only — 'homeowners', 'deductible', 'coverage' are shared with property_policy declarations and would put the two schemas in a keyword near-tie on every declarations page. The per-coverage limits, deductibles and premiums sit in a table (Coverage, Form, Limit, Deductible, Premium) read by services/table_extraction.",
+  "keywords": [
+    "schedule of coverages",
+    "schedule of coverages and forms",
+    "schedule of forms",
+    "forms and endorsements",
+    "made part of this policy",
+    "schedule",
+    "forms",
+    "coverages",
+    "endorsements",
+    "total annual premium",
+    "coverage schedule",
+    "forms schedule"
+  ],
+  "fields": [
+    {
+      "name": "policy_number",
+      "use": "property_policy.policy_number"
+    },
+    {
+      "name": "insured_name",
+      "use": "property_policy.insured_name"
+    },
+    {
+      "name": "property_address",
+      "use": "property_policy.property_address"
+    },
+    {
+      "name": "effective_date",
+      "use": "property_policy.effective_date"
+    },
+    {
+      "name": "expiration_date",
+      "use": "property_policy.expiration_date"
+    },
+    {
+      "name": "dwelling_coverage",
+      "use": "property_policy.dwelling_coverage"
+    },
+    {
+      "name": "personal_property_coverage",
+      "use": "property_policy.personal_property_coverage"
+    },
+    {
+      "name": "premium",
+      "label": "Total premium",
+      "field_type": "money",
+      "compliance_bound": true,
+      "anchors": [
+        "total\\s+(?:annual\\s+)?(?:policy\\s+)?premium",
+        "(?:total\\s+|annual\\s+|policy\\s+)?premium"
+      ]
+    },
+    {
+      "name": "deductible",
+      "use": "property_policy.deductible"
+    },
+    {
+      "name": "forms_list",
+      "label": "Forms and endorsements",
+      "field_type": "text",
+      "anchors": [
+        "forms\\s+and\\s+endorsements(?:\\s+made\\s+part\\s+of\\s+this\\s+policy)?",
+        "applicable\\s+forms",
+        "forms\\s+applicable",
+        "policy\\s+forms"
+      ]
+    },
+    {
+      "name": "agent_name",
+      "use": "property_policy.agent_name"
+    },
+    {
+      "name": "signature",
+      "use": "property_policy.signature"
+    }
+  ]
+}

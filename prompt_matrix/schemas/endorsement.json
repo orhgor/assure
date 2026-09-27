@@ -1,0 +1,112 @@
+{
+  "format": "parsure-schema-v1",
+  "document_type": "endorsement",
+  "family": "auto",
+  "label": "Endorsement",
+  "description": "Policy change endorsement (personal auto). Anchored on ISO endorsement wording as it appears in bench/cases/texts.py AUTO_ENDORSEMENT (2026-09-27): 'This endorsement changes the policy', 'Endorsement Effective Date', 'Vehicle removed / Vehicle added', 'Additional Premium for the remainder of the term', 'All other terms and conditions ... remain unchanged'. The VIN and vehicle anchors read the *added* vehicle first: on a replacement endorsement the page names two vehicles and the truth is the one added (bench case pol-auto-endorsement-typed).",
+  "keywords": [
+    "endorsement",
+    "policy change",
+    "endorsement number",
+    "endorsement effective date",
+    "this endorsement changes the policy",
+    "changes the policy",
+    "remain unchanged",
+    "all other terms",
+    "additional premium",
+    "return premium",
+    "vehicle added",
+    "vehicle removed",
+    "replacement",
+    "amended",
+    "policy number",
+    "named insured"
+  ],
+  "fields": [
+    {
+      "name": "policy_number",
+      "use": "auto_policy.policy_number"
+    },
+    {
+      "name": "insured_name",
+      "use": "auto_policy.insured_name"
+    },
+    {
+      "name": "endorsement_number",
+      "label": "Endorsement number",
+      "field_type": "text",
+      "anchors": [
+        "endorsement\\s*(?:no\\.?|number|num\\.?|#)",
+        "form\\s*(?:no\\.?|number)"
+      ]
+    },
+    {
+      "name": "effective_date",
+      "label": "Effective date",
+      "field_type": "date",
+      "anchors": [
+        "endorsement\\s+effective\\s+date",
+        "effective\\s+date\\s+of\\s+(?:change|endorsement)",
+        "change\\s+effective(?:\\s+date)?",
+        "effective(?:\\s+date)?"
+      ]
+    },
+    {
+      "name": "expiration_date",
+      "use": "auto_policy.expiration_date"
+    },
+    {
+      "name": "vin",
+      "label": "VIN",
+      "field_type": "vin",
+      "compliance_bound": true,
+      "anchors": [
+        "vehicle\\s+added[^\\n]*\\n[ \\t]*vin",
+        "(?:added|new|replacement)\\s+vehicle[^\\n]*\\n[ \\t]*vin",
+        "vin",
+        "vehicle\\s+identification\\s+(?:no\\.?|number)"
+      ]
+    },
+    {
+      "name": "vehicle_year_make_model",
+      "label": "Vehicle (year make model)",
+      "field_type": "text",
+      "anchors": [
+        "vehicle\\s+added",
+        "(?:added|new|replacement)\\s+vehicle",
+        "vehicle(?:\\s+description)?",
+        "year\\s*/\\s*make\\s*/\\s*model"
+      ]
+    },
+    {
+      "name": "premium",
+      "label": "Premium",
+      "field_type": "money",
+      "compliance_bound": true,
+      "anchors": [
+        "additional\\s+premium(?:\\s+(?:for|due)\\s+[^\\n:$]{0,60})?",
+        "return\\s+premium(?:\\s+[^\\n:$]{0,60})?",
+        "premium\\s+(?:change|adjustment)",
+        "(?:total\\s+|annual\\s+|policy\\s+)?premium"
+      ]
+    },
+    {
+      "name": "change_description",
+      "label": "Change",
+      "field_type": "text",
+      "anchors": [
+        "changes?(?:\\s+description)?(?=[ \\t]*:)",
+        "description\\s+of\\s+change",
+        "endorsement\\s+description"
+      ]
+    },
+    {
+      "name": "agent_name",
+      "use": "auto_policy.agent_name"
+    },
+    {
+      "name": "signature",
+      "use": "auto_policy.signature"
+    }
+  ]
+}

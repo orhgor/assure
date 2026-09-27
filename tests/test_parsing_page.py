@@ -748,7 +748,7 @@ def test_record_page_notice_offers_the_type_and_reloads_with_fields(client):
     assert ">Re-read as this type<" in html and html.count('class="btn-primary"') == 1  # the selector is not a second primary
     # The page text is open so the reader sees what was read.
     assert '<details class="text" open>' in html and "Policy Number: RE-500697" in text
-    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+    assert not FORBIDDEN_WORDS.search(text), text[max(0, FORBIDDEN_WORDS.search(text).start() - 200): FORBIDDEN_WORDS.search(text).end() + 80]
 
     # The blank scan says the pages could not be read, with the count, and does not invent a confidence.
     blank = _visible_text(client.get("/parsing/rep-blank?project_id=p-notice").get_data(as_text=True))
@@ -1060,7 +1060,7 @@ def test_record_page_shows_snapshot_integrity_replay_coverage_and_low_quality_pa
     assert "Replay available after policy update. policy v4 changed the VIN pattern" in text
     assert 'id="replay-form" data-url="/api/projects/p-snap/parsure/rep-c1/replay"' in html
     assert re.search(r'<button type="submit" class="btn-secondary" id="replay-run">Replay now</button>', html)
-    assert "1 earlier replay" in text and "no change · policy v4" in text
+    assert 'id="rerun-history"' in html and "no change" in text  # the history row: its outcome, no trigger recorded
     assert html.count('class="btn-primary"') == 1  # the replay button is not a second primary
 
     # Page coverage for the mixed bundle: page → type → fields found → readability.
@@ -1107,3 +1107,145 @@ def test_analytics_page_is_its_own_route_linked_from_the_list_and_never_on_it(cl
     assert res.status_code == 200
     text = _visible_text(res.get_data(as_text=True))
     assert "No intake yet." in text and "%" not in text
+
+
+# ---------------------------------------------------------------------------
+# Execution-model surfaces (customer plan Part 6, 2026-09-27): badges,
+# provenance, grounding, breakdown, execution panel, tables, vision, rerun
+# history. Every block may be absent on an older report.
+# ---------------------------------------------------------------------------
+
+
+def _execution_report(project, report_id="rep-x1"):
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project(project)
+    fields = [
+        _data_field("policy_number", "Policy number", "AP-77", evidence_state="found_verified", grounding_quote="Policy Number: AP-77",
+                    grounding_span={"page": 1, "start_char": 0, "end_char": 20, "node_id": "n-1"}, grounding_model="label_anchor",
+                    grounding_source="label_anchor", provenance_confidence=1.0, verification_confidence=0.85, verification_basis="Z3 PASS"),
+        _data_field("premium", "Premium", 1284.0, field_type="money", extraction_method="table", grounding_source="table", grounding_model="table",
+                    grounding_quote="1,284.00", grounding_span={"page": 2, "table_id": "t-1", "row": 1, "col": 2}, provenance_confidence=0.9),
+        _data_field("insured_name", "Insured name", None, state="unverified", routing="manual_review", conf=0.4, reason="value failed shape validation",
+                    raw="123 Main Street", evidence_state="found_suspect", value_quality={"quality": "address_fragment", "basis": "looks like an address"},
+                    grounding_quote="Named Insured: 123 Main Street", grounding_span={"page": 1, "start_char": 40, "end_char": 70, "node_id": "n-2"},
+                    grounding_model="claude-sonnet-4", grounding_source="llm", provenance_confidence=0.3),
+        _data_field("vin", "VIN", None, field_type="vin", state="not_found", routing="field_not_found", conf=0.0, reason="field not found",
+                    evidence_state="not_on_document", evidence={"kind": "absent", "searched_pages": [1, 2], "searched_node_ids": ["n-1"]}),
+        _data_field("damage", "Damage", "front bumper", grounding_source="vision", grounding_model="vision", provenance_confidence=0.7),
+    ]
+    report = {
+        "report_id": report_id, "document_id": f"doc-{report_id}", "filename": "policy-with-tables.pdf", "modality": "digital_pdf", "material_type": "pdf",
+        "parser_name": "jdf-cli", "page_count": 2, "document_quality_score": 0.88,
+        "pages": [{"page": 1, "quality_score": 0.9, "flags": []}, {"page": 2, "quality_score": 0.86, "flags": []}],
+        "classification": {"document_type": "auto_policy", "confidence": 0.92, "basis": "keyword match"},
+        "fields": fields, "conflicts": [],
+        "review_summary": {"fields_total": 5, "fields_found": 4, "fields_review": 1, "fields_not_found": 1, "fields_suspect": 1},
+        "execution": {
+            "ran_at": "2026-09-27 10:15:00",
+            "laya": {"status": "completed", "policy": "v3", "escalate": False, "human_review": True, "reasons": ["compliance field present"]},
+            "z3": {"status": "PASS", "violations": 0},
+            "redhat_draft": {"status": "not_run", "reason": "no draft yet"},
+            "redhat_graph": {"status": "completed", "policy": "v3", "findings": 2, "high": 0, "model_check": "skipped"},
+            "llm_grounding": {"status": "ran", "model": "claude-sonnet-4", "fields_offered": 3, "fields_grounded": 2, "candidates_rejected": 1, "ms": 812},
+            "rerun": {"passes": 2, "improved": True, "stop_rule": "no field changed"},
+            "vision": {"status": "skipped", "reason": "no image pages"},
+        },
+        "tables": [{"table_id": "t-1", "node_id": "n-9", "page": 2, "headers": ["Coverage", "Limit", "Premium"],
+                    "rows": [["Liability", "100,000", "980.00"], ["Collision", "50,000", "1,284.00"]], "caption": "Premium schedule",
+                    "quality": {"status": "good", "basis": "3 regular columns"}, "fields_extracted": [{"field": "premium", "row": 1, "col": 2}]}],
+        "vision": {"status": "ran", "model": "vision-1", "pages": [
+            {"page": 2, "kind": "photo", "quality": {"status": "poor", "flags": ["blurry"], "basis": "laplacian variance 9"},
+             "facts": [{"name": "vehicle_damage", "value": "front bumper", "confidence": 0.71, "evidence": "crumpled bumper visible", "bbox": [0.1, 0.2, 0.5, 0.6], "model": "vision-1"}]}]},
+        "discovered_fields": [{"name": "agent_code", "value": "AG-9", "span": {"page": 1}}],
+        "graph_integrity": {"ok": True, "integrity_score": 0.96, "negative_evidence": ["vin"], "orphan_list": []},
+        "replay": {"eligible": True, "reasons": ["policy v4"], "attempts": 1, "max_attempts": 3, "passes": 2, "history": [
+            {"at": "2026-09-27 10:14:00", "trigger": "pipeline:llm_grounded", "fields_changed": ["insured_name"], "fields_found_before": 3, "fields_found_after": 4, "improved": True},
+            {"at": "2026-09-27 10:15:00", "trigger": "pipeline:redhat_targeted", "fields_changed": [], "fields_found_before": 4, "fields_found_after": 4, "improved": False}]},
+        "created_at": "2026-09-27 10:10:00", "_page_texts": ["Policy Number: AP-77 …", "Coverage table page"],
+    }
+    return repo.save_report(project, report)
+
+
+def test_record_page_execution_panel_grounding_tables_vision_and_rerun(client):
+    _execution_report("p-exec")
+    res = client.get("/parsing/rep-x1?project_id=p-exec")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    text = _visible_text(html)
+
+    # 6.2 breakdown, "Review all flagged" to the first flagged row, exports — and no bulk accept.
+    assert 'id="breakdown" data-total="5" data-review="1" data-suspect="1" data-not-found="1" data-accepted="3"' in html
+    assert 'id="review-all-flagged" href="#field-insured_name"' in html and 'id="field-insured_name"' in html
+    assert "Accept all" not in text and "bulk" not in text.lower()
+
+    # 6.1 badges as-is, the confidence bar, the provenance label.
+    pol = re.search(r'<tr class="field[^"]*" data-field="policy_number".*?</tr>', html, re.S).group(0)
+    assert 'class="badge badge--accepted">Accepted<' in pol and 'aria-valuenow="90"' in pol and "from label" in _visible_text(pol)
+    prem = re.search(r'<tr class="field[^"]*" data-field="premium".*?</tr>', html, re.S).group(0)
+    assert "from table" in _visible_text(prem) and "table t-1 r1 c2" in _visible_text(prem)
+    ins = re.search(r'<tr class="field[^"]*" data-field="insured_name".*?</tr>', html, re.S).group(0)
+    assert 'badge badge--suspect">Suspect<' in ins and "from model claude-sonnet-4" in _visible_text(ins) and "provenance 30%" in _visible_text(ins)
+    vin = re.search(r'<tr class="field[^"]*" data-field="vin".*?</tr>', html, re.S).group(0)
+    assert 'badge badge--not_found">Not found<' in vin
+    dmg = re.search(r'<tr class="field[^"]*" data-field="damage".*?</tr>', html, re.S).group(0)
+    assert "from image" in _visible_text(dmg)
+
+    # 6.4 grounding: quote, page, chars, model; the quote links to the page it was read from.
+    assert 'class="grounding-quote" href="#page-1"' in pol and "“Policy Number: AP-77”" in _visible_text(pol) and "page 1 · chars 0–20" in _visible_text(pol)
+    assert "· claude-sonnet-4" in _visible_text(ins) and 'id="page-1"' in html
+
+    # 6.3 execution panel: one row per step, status words, counts, reasons, the block's own time.
+    assert 'id="execution" data-recorded="1"' in html and "2026-09-27 10:15:00" in text
+    steps = re.findall(r'<li class="exec-step" data-step="([^"]+)" data-status="([^"]+)">', html)
+    assert steps == [("laya", "completed"), ("z3", "pass"), ("redhat_draft", "not_run"), ("redhat_graph", "completed"),
+                     ("llm_grounding", "ran"), ("rerun", "not_recorded"), ("vision", "skipped"), ("tables", "not_recorded")]
+    assert "LAYA completed" in text and "escalate no" in text and "human review yes" in text and "compliance field present" in text
+    assert "Z3 verification pass 0 violations" in text
+    assert "Red-Hat draft not run" in text and "no draft yet" in text
+    assert "LLM grounding ran 3 offered 2 grounded 1 rejected model claude-sonnet-4 812 ms" in text
+    assert "Tables not recorded" in text
+
+    # 6.6 tables as a grid; the extracted cell carries the field's name.
+    assert 'id="tables" data-count="1"' in html and "Premium schedule" in text and "quality good — 3 regular columns" in text
+    assert re.search(r'<td class="cell--extracted" data-field="premium" title="Read as field premium">1,284.00</td>', html)
+    assert html.count('class="cell--extracted"') == 1
+
+    # 6.5 vision: the analyzed page, its poor-quality reason, the facts list; no image (no original stored) → no box.
+    assert 'id="vision" data-status="ran"' in html and "Picture analysis" in text
+    assert 'class="vision-page" data-page="2" data-quality="poor"' in html and "quality poor · blurry — laplacian variance 9" in text
+    assert "vehicle_damage front bumper 71% crumpled bumper visible" in text and "vision-1" in text
+    assert 'class="vision-image"' not in html and 'class="vision-box"' not in html
+
+    # 6.7 rerun history: passes, trigger words, fields changed, found before → after, improved.
+    assert 'id="rerun-history" data-passes="2"' in html and "1 of 3 attempts · 2 passes" in text
+    rows = re.findall(r'<tr data-trigger="([^"]*)">', html)
+    assert rows == ["pipeline:llm_grounded", "pipeline:redhat_targeted"]
+    assert "LLM grounding pass insured_name 3 → 4 yes" in text and "Red-Hat targeted pass — 4 → 4 no" in text
+    assert 'id="replay-run"' in html
+
+    # Discovered fields and graph integrity, when present.
+    assert 'id="discovered"' in html and "agent_code AG-9 1" in text
+    assert 'id="graph-integrity"' in html and "Graph integrity 96% · 1 negative evidence nodes · 0 orphans" in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+    # The list row shows the suspect count beside the three sections.
+    listing = _visible_text(client.get("/parsing?project_id=p-exec").get_data(as_text=True))
+    assert "1 need review · 3 found · 1 not on document · 1 suspect" in listing
+
+
+def test_record_page_says_not_recorded_for_a_report_without_execution_blocks(client):
+    _seed_data_project("p-old")
+    html = client.get("/parsing/rep-pol-1?project_id=p-old").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="execution" data-recorded="0"' in html
+    assert "This report did not record its execution steps." in text
+    steps = re.findall(r'<li class="exec-step" data-step="([^"]+)" data-status="not_recorded">', html)
+    assert len(steps) == 8 and text.count("not recorded") >= 8
+    assert 'id="tables"' not in html and 'id="vision"' not in html and 'id="rerun-history"' not in html and 'id="discovered"' not in html
+    # Badges still render from the state alone (an older report's not-found vin was routed, so it reads Review); no provenance line is invented.
+    assert 'badge badge--review">Review<' in html and 'badge badge--disputed">Disputed<' in html and 'badge badge--accepted">Accepted<' in html
+    assert 'class="provenance"' not in html and 'class="grounding"' not in html
+    assert "Accept all" not in text
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)

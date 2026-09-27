@@ -166,6 +166,12 @@ ASSURE_OPENROUTER_MODEL_COMPARE=${OR_COMPARE:-mistralai/mistral-small-24b-instru
 ASSURE_BEDROCK_MODEL_DRAFT=${BEDROCK_DRAFT:-anthropic.claude-sonnet-5}
 ASSURE_BEDROCK_MODEL_ANALYSIS=${BEDROCK_ANALYSIS:-anthropic.claude-opus-5}
 ASSURE_BEDROCK_MODEL_B=anthropic.claude-opus-5
+# Vision model per backend (Parsure picture pages, docs/parsure-vision.md). On Ollama the
+# default tag is not pulled by ollama-pull: pull it (ollama pull qwen2.5vl:3b) and set
+# PARSURE_VISION=1, or leave vision off on the local backend.
+ASSURE_OPENROUTER_MODEL_VISION=amazon/nova-lite-v1
+ASSURE_BEDROCK_MODEL_VISION=anthropic.claude-sonnet-5
+ASSURE_OLLAMA_MODEL_VISION=qwen2.5vl:3b
 # Ollama, one open model per stage (see the table in docs/deploy-single-ec2.md):
 ASSURE_OLLAMA_MODEL_PARSE=${MODEL_PARSE}
 ASSURE_OLLAMA_MODEL_DRAFT=${MODEL_DRAFT}

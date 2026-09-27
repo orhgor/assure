@@ -131,9 +131,49 @@ def verify(report: dict[str, Any]) -> dict[str, Any]:
     return {"ok": bool(expected) and expected == actual, "expected": expected, "actual": actual}
 
 
+#: Plan Part 2.6 (2026-09-27): an export is also refused when the field graph
+#: is not whole — ``graph_integrity.integrity_score`` (anchored / fields)
+#: under this, i.e. a field the report cannot point at in the document.
+GRAPH_INTEGRITY_MIN = 0.9
+
+
+class GraphIntegrityRefused(SnapshotMismatch):
+    """The report's fields are not all anchored to the document graph."""
+
+    error = "artifact integrity: field graph below the integrity floor"
+
+    def __init__(self, report_id: Any, score: Any, orphans: Any) -> None:
+        self.report_id = report_id
+        self.expected = f">= {GRAPH_INTEGRITY_MIN}"
+        self.actual = score
+        self.orphans = orphans
+        Exception.__init__(self, f"{self.error} ({report_id}: integrity_score {score}, orphans {orphans})")
+
+    def payload(self) -> dict[str, Any]:
+        return {"ok": False, "error": self.error, "report_id": self.report_id, "expected": self.expected, "actual": self.actual,
+                "orphans": self.orphans}
+
+
+def graph_check(report: dict[str, Any]) -> dict[str, Any]:
+    """``{"ok", "score", "orphans"}`` from ``graph_integrity``; a report without
+    the block (saved before it existed) is ok — nothing is known against it."""
+    gi = report.get("graph_integrity") if isinstance(report.get("graph_integrity"), dict) else None
+    if not gi:
+        return {"ok": True, "score": None, "orphans": None}
+    score = gi.get("integrity_score")
+    if score is None:
+        total, anchored = int(gi.get("fields") or 0), int(gi.get("anchored") or 0)
+        score = round(anchored / total, 4) if total else 1.0
+    return {"ok": float(score) >= GRAPH_INTEGRITY_MIN, "score": score, "orphans": gi.get("orphan_list") or gi.get("orphans")}
+
+
 def require_intact(report: dict[str, Any]) -> dict[str, Any]:
-    """:func:`verify`, raising :class:`SnapshotMismatch` when not ok."""
+    """:func:`verify`, raising :class:`SnapshotMismatch` when not ok, then
+    :func:`graph_check`, raising :class:`GraphIntegrityRefused`."""
     check = verify(report)
     if not check["ok"]:
         raise SnapshotMismatch(report.get("report_id"), check["expected"], check["actual"])
-    return check
+    graph = graph_check(report)
+    if not graph["ok"]:
+        raise GraphIntegrityRefused(report.get("report_id"), graph["score"], graph["orphans"])
+    return {**check, "graph": graph}

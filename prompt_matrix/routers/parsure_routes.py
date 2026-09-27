@@ -36,13 +36,17 @@ from flask import Response, jsonify, request
 try:
     from ..db import parsure_repository as repo
     from ..middleware import project_ownership_required
+    from ..services import export_names
     from ..services import field_extractor as fx
+    from ..services import schema_registry
     from ..services import snapshot as snap
     from ..services import v1_orchestrator as orch
 except ImportError:
     from db import parsure_repository as repo  # type: ignore
     from middleware import project_ownership_required  # type: ignore
+    from services import export_names  # type: ignore
     from services import field_extractor as fx  # type: ignore
+    from services import schema_registry  # type: ignore
     from services import snapshot as snap  # type: ignore
     from services import v1_orchestrator as orch  # type: ignore
 
@@ -635,6 +639,26 @@ def _rerun_refused(report: dict[str, Any], rule: str):
 
 
 def register_parsure_routes(app) -> None:
+    @app.get("/api/parsure/schemas")
+    def parsure_schemas():
+        """The document-type registry (plan Part 4.1, 2026-09-27): every schema
+        the extractor is running with — built-in and runtime JSON — with its
+        family, keywords and fields, plus the files that were skipped and why.
+        ``anchors=1`` includes the label regexes. Not project-scoped: the
+        taxonomy is process-wide."""
+        with_anchors = (request.args.get("anchors") or "").strip().lower() in ("1", "true", "yes")
+        reg = schema_registry.registry()
+        return jsonify({
+            "ok": True,
+            "format": schema_registry.SCHEMA_FORMAT,
+            "loaded_at": reg.loaded_at,
+            "dirs": list(reg.dirs),
+            "families": list(fx.DOCUMENT_FAMILIES),
+            "field_types": list(fx.FIELD_TYPES),
+            "schemas": schema_registry.list_schemas(anchors=with_anchors),
+            "rejected": list(reg.rejected),
+        })
+
     @app.get("/api/projects/<project_id>/parsure")
     @project_ownership_required
     def parsure_list(project_id: str):
@@ -716,9 +740,8 @@ def register_parsure_routes(app) -> None:
             "documents": len(documents), "fields": fields_n,
             "filters": {"document_type": document_type, "state": state},
         })
-        stamp = datetime.utcnow().strftime("%Y-%m-%d")
-        safe_project = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(project_id))[:64] or "project"
-        filename = f"parsure-{safe_project}-{stamp}.{fmt}"
+        # Plan Part 8.5 (2026-09-27): the name says what the file holds.
+        filename = export_names.build_project_export_filename(project_id, documents, fmt, document_type=document_type, state=state)
         if fmt == "csv":
             payload = project_csv_wide(documents) if wide else project_csv_long(documents)
             mimetype = "text/csv; charset=utf-8"
@@ -1029,7 +1052,9 @@ def register_parsure_routes(app) -> None:
         public = repo.public_report(report)
         repo.log_event(project_id, "exported", report_id=report_id, payload={"format": fmt, "fields": len(public.get("fields") or []),
                                                                              "snapshot_hash": snapshot_hash(report)})
-        filename = f"parsure-{report_id}.{fmt}"
+        # Plan Part 8.5 (2026-09-27): type, document id and the key data points
+        # that were actually found — never a placeholder.
+        filename = export_names.build_export_filename(public, fmt)
         if fmt == "csv":
             payload, mimetype = _csv(public), "text/csv; charset=utf-8"
         else:

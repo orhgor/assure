@@ -564,6 +564,19 @@
                 <button type="submit" class="btn-secondary" id="fields-type-save" data-i18n="shell.fields.type_save">Save type</button>
               </div>
             </form>
+            <!-- The review summary (plan 6.2): five counts by the badge rule and
+                 "Review all flagged" to the first flagged row. No bulk-accept
+                 button, on purpose: accepting unseen values is forbidden. -->
+            <div class="fields-summary" id="fields-summary" hidden>
+              <div class="fields-summary-counts" id="fields-summary-counts"></div>
+              <button type="button" class="btn-tertiary fields-review-all" id="fields-review-all" data-i18n="shell.fields.review_all" hidden>Review all flagged</button>
+            </div>
+            <!-- The execution panel (plan 6.3): one row per step from
+                 report.execution; "not recorded" for a missing step. -->
+            <details class="fields-execution" id="fields-execution" data-recorded="0" hidden>
+              <summary><span data-i18n="shell.fields.exec.title">Execution</span> <span class="fields-execution-when" id="fields-execution-when"></span></summary>
+              <ul class="exec-list" id="fields-execution-list" role="list"></ul>
+            </details>
           </header>
           <div id="fields-empty" class="empty-state">
             <p id="fields-empty-text" class="empty-state-text" data-i18n="shell.fields.empty">No fields yet. Upload a document to begin.</p>

@@ -114,10 +114,9 @@
        "premium": 212.0,
        "agent_name": "Marianne Costa, Costa Insurance Agency"
       },
-      "target_type": "endorsement",
-      "schema_exists": false
+      "target_type": "endorsement"
      },
-     "note": "No endorsement schema in DOCUMENT_TYPES; the page names two VINs (removed / added) and the truth is the added one."
+     "note": "No endorsement schema in DOCUMENT_TYPES; the page names two VINs (removed / added) and the truth is the added one. Schema `endorsement` landed 2026-09-27 (prompt_matrix/schemas/endorsement.json); no longer a schema gap."
     }
    ],
    "seeded_conflicts": [],
@@ -144,9 +143,9 @@
        "vin": "1HGCM82633A004352",
        "vehicle_year_make_model": "2003 Honda Accord EX Sedan"
       },
-      "target_type": "cancellation_notice",
-      "schema_exists": false
-     }
+      "target_type": "cancellation_notice"
+     },
+     "note": "Schema `cancellation_notice` landed 2026-09-27 (prompt_matrix/schemas/cancellation_notice.json); no longer a schema gap."
     }
    ],
    "seeded_conflicts": [],
@@ -334,9 +333,9 @@
        "vehicle_year_make_model": "2003 Honda Accord EX Sedan",
        "estimated_damage": 4275.0
       },
-      "target_type": "repair_estimate",
-      "schema_exists": false
-     }
+      "target_type": "repair_estimate"
+     },
+     "note": "Schema `repair_estimate` landed 2026-09-27 (prompt_matrix/schemas/repair_estimate.json); no longer a schema gap."
     }
    ],
    "seeded_conflicts": [],
@@ -855,9 +854,9 @@
        "premium": 2140.0,
        "deductible": 2500.0
       },
-      "target_type": "schedule_of_forms",
-      "schema_exists": false
-     }
+      "target_type": "schedule_of_forms"
+     },
+     "note": "Schema `schedule_of_forms` landed 2026-09-27 (prompt_matrix/schemas/schedule_of_forms.json); no longer a schema gap."
     }
    ],
    "seeded_conflicts": [],

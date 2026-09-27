@@ -421,6 +421,26 @@ def chunk_elements(jdf_dict: dict, chunk: dict, content: str) -> list[dict[str, 
     return out
 
 
+def table_grids_by_page(jdf_dict: dict) -> dict[int, list[tuple[list, list]]]:
+    """``{page_no: [(headers, rows), …]}`` for every ``type: "table"`` page
+    element of a jdf-cli document, in element order; ``{}`` for a tree or a
+    document without tables."""
+    out: dict[int, list[tuple[list, list]]] = {}
+    pages = jdf_dict.get("pages") if isinstance(jdf_dict, dict) else None
+    if not isinstance(pages, list):
+        return out
+    for idx, page in enumerate(pages):
+        if not isinstance(page, dict):
+            continue
+        for el in _walk_elements(page.get("elements")):
+            if str(el.get("type") or "").lower() != "table":
+                continue
+            headers = el.get("headers") if isinstance(el.get("headers"), list) else []
+            rows = [list(r) if isinstance(r, (list, tuple)) else [r] for r in (el.get("rows") if isinstance(el.get("rows"), list) else [])]
+            out.setdefault(idx + 1, []).append((list(headers), rows))
+    return out
+
+
 def jdf_to_document_tree(
     jdf_dict: dict,
     chunks: list[dict],
@@ -490,13 +510,33 @@ def jdf_to_document_tree(
             "annotations": empty_annotations(),
         }
 
+    # jdf-cli 0.2.3's ``jdf chunk`` flattens a table to ``Header: cell | …`` text
+    # and carries no headers/rows (measured 2026-09-27 on bench/cases
+    # coverage_schedule.pdf), while the page element (``type: "table"``) has the
+    # grid. The k-th table chunk of a page is the k-th table element of that
+    # page, so the tree's table node gets the real grid (plan Part 9.5).
+    grids_by_page = table_grids_by_page(jdf_dict)
+    grids_taken: dict[int, int] = {}
+
     def _table_node(chunk: dict) -> dict:
+        headers = list(chunk.get("headers") or [])
+        rows = [list(r) for r in (chunk.get("rows") or [])]
+        if not rows:
+            try:
+                page_no = int(chunk.get("page") or 0)
+            except (TypeError, ValueError):
+                page_no = 0
+            grids = grids_by_page.get(page_no) or []
+            k = grids_taken.get(page_no, 0)
+            if k < len(grids):
+                headers, rows = grids[k]
+            grids_taken[page_no] = k + 1
         return {
             "type": "table",
             "id": new_node_id("tbl"),
             "caption": str(chunk.get("text") or "").strip()[:200],
-            "headers": list(chunk.get("headers") or []),
-            "rows": [list(r) for r in (chunk.get("rows") or [])],
+            "headers": [str(h) for h in headers],
+            "rows": [[str(c) for c in r] for r in rows],
             "bound_entities": [],
             "annotations": empty_annotations(),
         }

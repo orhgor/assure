@@ -78,11 +78,15 @@ from time import perf_counter
 from typing import Any
 
 try:
+    from ..services import field_discovery as _discovery
     from ..services import field_extractor as fx
     from ..services import llm_extraction as lx
+    from ..services import table_extraction as _tables
 except ImportError:
+    from services import field_discovery as _discovery  # type: ignore
     from services import field_extractor as fx  # type: ignore
     from services import llm_extraction as lx  # type: ignore
+    from services import table_extraction as _tables  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -297,7 +301,7 @@ def quality_summary(pages: list[dict], signature: dict | None, numbers_flagged: 
     """One calm sentence a reviewer can read at a glance."""
     total = len(pages)
     if not total:
-        return "No pages were parsed."
+        return "No pages were read."
     parts: list[str] = []
     if documents and len(documents) > 1:
         parts.append(f"{len(documents)} documents detected in one upload (" + ", ".join(
@@ -486,7 +490,10 @@ def rerun_stop_rule(replay: dict | None) -> str | None:
     bound by editing a counter."""
     replay = replay if isinstance(replay, dict) else {}
     history = [h for h in (replay.get("history") or []) if isinstance(h, dict)]
-    attempts = max(int(replay.get("attempts") or 0), len(history))
+    # Pipeline passes (``trigger`` "pipeline:…", 2026-09-27) are the run's own
+    # second looks and do not spend the reviewer's rerun budget.
+    manual = [h for h in history if h.get("trigger") in RERUN_TRIGGERS]
+    attempts = max(int(replay.get("attempts") or 0), len(manual))
     if attempts >= RERUN_MAX_ATTEMPTS:
         return f"max_attempts: {attempts} of {RERUN_MAX_ATTEMPTS} reruns used"
     recent = [h for h in history if h.get("trigger") in RERUN_TRIGGERS][-RERUN_NO_IMPROVEMENT_RUNS:]
@@ -522,7 +529,48 @@ def record_rerun(report: dict[str, Any], *, trigger: str, before_found: int, aft
     }
     history.append(entry)
     replay["history"] = history
-    replay["attempts"] = len(history)
+    replay["attempts"] = sum(1 for h in history if h.get("trigger") in RERUN_TRIGGERS)
+    replay["passes"] = sum(1 for h in history if str(h.get("trigger") or "").startswith("pipeline:"))
+    replay["max_attempts"] = RERUN_MAX_ATTEMPTS
+    replay["stop_rule"] = rerun_stop_rule(replay)
+    return entry
+
+
+PIPELINE_TRIGGERS = ("pipeline:llm_grounded", "pipeline:redhat_targeted")
+
+
+def record_pipeline_pass(report: dict[str, Any], *, trigger: str, fields_changed: list[str], before_found: int, after_found: int,
+                         basis: str | None = None) -> dict[str, Any]:
+    """Append the run's own second look to ``replay.history`` (plan Part 2.4,
+    2026-09-27): the grounded model pass after the label pass, and the pass
+    the Red-Hat critique asked for. Same append-only ledger as a reviewer's
+    rerun, a different trigger, and it does not count toward ``attempts``
+    (``replay.passes`` counts these) — the reviewer's three reruns stay theirs.
+    ``improved`` is "a field changed", not only "more fields found": a debris
+    value replaced by a grounded one is the improvement the pass is for."""
+    if trigger not in PIPELINE_TRIGGERS:
+        raise ValueError(f"unknown pipeline trigger: {trigger}")
+    replay = report.setdefault("replay", {})
+    history = list(replay.get("history") or [])
+    redhat = report.get("redhat") if isinstance(report.get("redhat"), dict) else {}
+    entry = {
+        "at": _now(),
+        "trigger": trigger,
+        "policy_version": report.get("policy_version") or POLICY_VERSION,
+        "node_id_policy": report.get("node_id_policy"),
+        "redhat_policy": redhat.get("policy"),
+        "fields_found_before": int(before_found),
+        "fields_found_after": int(after_found),
+        "fields_changed": sorted(fields_changed),
+        "improved": bool(fields_changed),
+        "basis": basis,
+        "snapshot_before": None,
+        "snapshot_after": None,
+    }
+    history.append(entry)
+    replay["history"] = history
+    replay["attempts"] = sum(1 for h in history if h.get("trigger") in RERUN_TRIGGERS)
+    replay["passes"] = sum(1 for h in history if str(h.get("trigger") or "").startswith("pipeline:"))
     replay["max_attempts"] = RERUN_MAX_ATTEMPTS
     replay["stop_rule"] = rerun_stop_rule(replay)
     return entry
@@ -579,7 +627,8 @@ def replay_state(fields: list[dict], parser_name: str, parser_ver: str, previous
         "reasons": reasons,
         "replayed": bool(prev.get("replayed")),
         "history": history,
-        "attempts": max(int(prev.get("attempts") or 0), len(history)),
+        "attempts": max(int(prev.get("attempts") or 0), sum(1 for h in history if isinstance(h, dict) and h.get("trigger") in RERUN_TRIGGERS)),
+        "passes": sum(1 for h in history if isinstance(h, dict) and str(h.get("trigger") or "").startswith("pipeline:")),
         "max_attempts": RERUN_MAX_ATTEMPTS,
         "last_proof": prev.get("last_proof"),
     }
@@ -732,27 +781,61 @@ def llm_fill_missing(
     visual_pages: list[dict] | None,
     layout: list[list[dict]] | None,
     project_id: str | None = None,
+    execution: dict | None = None,
+    hints: dict[str, str] | None = None,
+    only: list[str] | None = None,
 ) -> list[dict]:
     """Offer the label pass's empty fields to the grounded LLM pass and merge
     what it can prove. The signature field is never offered; a field the pass
     cannot ground stays exactly as it was. Never raises (the pass itself
-    does not); ``notes`` collects its skip/reject lines."""
+    does not); ``notes`` collects its skip/reject lines.
+
+    ``execution`` (2026-09-27, plan Part 2.1/7.1 — "did the model run?")
+    receives ``llm_grounding = {status, model, fields_offered, fields_grounded,
+    fields_filled, candidates_rejected, ms, reason}``: ``ran`` when the model
+    answered, ``skipped`` with the pass's own reason (off, no text, unparsable
+    answer, exception), ``not_needed`` when nothing was missing. ``only``
+    restricts the offer to named fields and ``hints`` adds per-field notes to
+    the prompt (the Red-Hat-targeted second pass)."""
     specs = {s.name: s for s in fx.FIELD_TAXONOMY.get(document_type) or []}
-    missing = [specs[f["name"]] for f in fields if f.get("value") is None and f["name"] in specs and specs[f["name"]].field_type != "signature"]
+    missing = [specs[f["name"]] for f in fields
+               if f.get("value") is None and f["name"] in specs and specs[f["name"]].field_type != "signature"
+               and (only is None or f["name"] in only)]
+    stats: dict[str, Any] = {"status": "not_needed", "model": None, "fields_offered": len(missing), "fields_grounded": 0,
+                             "fields_filled": [], "candidates_rejected": 0, "ms": 0.0, "reason": None}
+    if execution is not None:
+        execution["llm_grounding"] = stats
     if not missing:
+        stats["reason"] = "every offered field already had a value"
         return fields
+    before_notes = len(notes)
+    started = perf_counter()
     try:
         with _timed("llm_extract"):
             filled = lx.extract_missing_fields(
                 document_type, texts, missing, completion=completion, notes=notes, parser_name=parser_name,
                 parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
-                visual_pages=visual_pages, layout=layout, project_id=project_id,
+                visual_pages=visual_pages, layout=layout, project_id=project_id, hints=hints,
             )
     except Exception as exc:  # noqa: BLE001 — advisory pass
         log.exception("llm_fill_missing failed")
         notes.append(f"llm extraction skipped: {type(exc).__name__}: {exc}")
+        stats.update(status="failed", reason=f"{type(exc).__name__}: {exc}"[:200], ms=round((perf_counter() - started) * 1000.0, 3))
         return fields
+    stats["ms"] = round((perf_counter() - started) * 1000.0, 3)
+    new_notes = notes[before_notes:]
+    skipped = next((n for n in new_notes if n.startswith("llm extraction skipped")), None)
+    stats["candidates_rejected"] = sum(1 for n in new_notes if n.startswith("llm candidate rejected"))
     by_name = {f["name"]: f for f in filled if f.get("value") is not None}
+    stats["fields_grounded"] = len(by_name)
+    stats["fields_filled"] = sorted(by_name)
+    stats["model"] = next((f.get("grounding_model") for f in by_name.values() if f.get("grounding_model")), None) or (
+        "injected" if completion is not None else (lx.current_model_id() if lx.llm_extraction_enabled() else None))
+    if skipped:
+        stats["status"] = "disabled" if "PARSURE_LLM_EXTRACTION is off" in skipped else "skipped"
+        stats["reason"] = skipped.split(":", 1)[1].strip() if ":" in skipped else skipped
+    else:
+        stats["status"] = "ran"
     return [by_name.get(f["name"], f) for f in fields]
 
 
@@ -1087,6 +1170,7 @@ def extract_segment_fields(
     project_id: str | None = None,
     llm: bool = True,
     schema_mismatch: bool = False,
+    execution: dict | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """Label pass → grounded LLM fill (``llm=True``) → plausibility/Z3 → 3-rule
     policy, for one document (segment). ``llm=False`` leaves a note instead.
@@ -1098,6 +1182,17 @@ def extract_segment_fields(
         document_type, texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
         ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
     )
+    # Table pass (plan Part 3, 2026-09-27) — between the label pass and the
+    # model: fills the money/number/date fields the labels left empty from
+    # the bundle's table elements (``services/table_extraction``), so the
+    # model is asked about fewer fields. Then, for a segment no schema fits,
+    # discovery lists the page's label/value pairs (``services/field_discovery``)
+    # as ``discovered_fields`` — not taxonomy fields, so counts stay honest.
+    fields = _tables.run_table_pass(
+        document_type, fields, texts=texts, execution=execution, notes=notes, parser_name=parser_name,
+        parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
+    )
+    _discovery.run_discovery(document_type, texts, layout, completion=completion, project_id=project_id, notes=notes, llm=llm, execution=execution)
     if schema_mismatch:
         if fields:
             notes.append(f"llm extraction skipped: schema mismatch — {document_type} fields are not applicable to this page")
@@ -1105,10 +1200,13 @@ def extract_segment_fields(
         fields = llm_fill_missing(
             document_type, texts, fields, completion=completion, notes=notes, parser_name=parser_name,
             parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
-            visual_pages=visual_pages, layout=layout, project_id=project_id,
+            visual_pages=visual_pages, layout=layout, project_id=project_id, execution=execution,
         )
     elif any(f.get("value") is None and f.get("field_type") != "signature" for f in fields):
         notes.append("llm extraction skipped: not run on this path (label pass only)")
+        if execution is not None:
+            execution["llm_grounding"] = {"status": "skipped", "model": None, "fields_offered": 0, "fields_grounded": 0, "fields_filled": [],
+                                          "candidates_rejected": 0, "ms": 0.0, "reason": "not run on this path (label pass only)"}
     fields, rules = decide_fields(fields, verification=verification, document_type=document_type)
     if schema_mismatch:
         fx.mark_schema_mismatch(fields)
@@ -1261,9 +1359,16 @@ def graph_integrity(fields: list[dict]) -> dict[str, Any]:
     elif orphans == 0:
         basis = "every field names a JDF node (found: the node its value sits on; absent: the anchor it was searched from)"
     else:
-        basis = f"{orphans} field{'s' if orphans != 1 else ''} without a node: the parse produced no node ids to anchor to"
+        basis = f"{orphans} field{'s' if orphans != 1 else ''} without a node: the document yielded no node ids to anchor to"
+    # Plan Part 2.7 / 9.2 (2026-09-27): one number an export gate can read
+    # (``integrity_score`` = anchored / fields, 1.0 when there is no field),
+    # the negative-evidence count (absent fields anchored to what was searched)
+    # and the orphans by name — never a bare count a reviewer cannot act on.
     return {"fields": total, "anchored": anchored, "orphans": orphans, "absent_anchored": absent_anchored,
-            "element_ids": element_ids, "policy": fx.NODE_ID_POLICY, "checked_at": _now(), "basis": basis}
+            "element_ids": element_ids, "integrity_score": round(anchored / total, 4) if total else 1.0,
+            "negative_evidence": sum(1 for f in fields if f.get("value") is None and isinstance(f.get("evidence"), dict) and f["evidence"].get("kind") == "absent"),
+            "orphan_list": [str(f.get("name")) for f in fields if not (f.get("field_source_node_id") or f.get("tree_node_id"))],
+            "policy": fx.NODE_ID_POLICY, "checked_at": _now(), "basis": basis}
 
 
 def build_report(
@@ -1288,12 +1393,39 @@ def build_report(
     t_start = perf_counter()
     token = _TIMINGS.set(timings)
     try:
-        return _build_report_timed(
-            project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id,
-            intake=intake, completion=completion, tree=tree, timings=timings, t_start=t_start,
-        )
+        # Tables are collected from the bundle here (plan Part 3, 2026-09-27)
+        # and handed to the extraction segments through an ``extraction_scope``
+        # — ``extract_segment_fields`` sees texts and layout, not the bundle,
+        # and jdf-cli's table elements are not layout segments.
+        tables = _tables.collect_tables(bundle)
+        with _tables.extraction_scope(tables) as scope:
+            report = _build_report_timed(
+                project_id, bundle=bundle, verification=verification, filename=filename, result=result, job_id=job_id,
+                intake=intake, completion=completion, tree=tree, timings=timings, t_start=t_start,
+            )
+        _tables.annotate_report(report, scope)
+        report["intake_extra"] = intake_extra(intake)
+        return report
     finally:
         _TIMINGS.reset(token)
+
+
+#: Intake keys the report build reads (2026-09-27, grep over v1_orchestrator,
+#: vision, pdf_ingest): the router's parser choice, material/modality/source
+#: kind, the visual probe pages and the LAYA triage block. Anything else the
+#: caller put on ``intake`` is recorded verbatim in ``report["intake_extra"]``
+#: (plan Part 4.3) — an audit trail for parameters the pipeline does not use
+#: yet (``claim_context``, ``adjuster_notes`` …) so they are neither lost nor
+#: silently ignored.
+CONSUMED_INTAKE_KEYS = frozenset({"parser", "parser_name", "material_type", "modality", "source_kind", "visual_pages", "laya"})
+
+
+def intake_extra(intake: dict | None) -> dict[str, Any] | None:
+    """The ``intake`` entries no report key consumed, or None when there are none."""
+    if not isinstance(intake, dict):
+        return None
+    extra = {str(k): v for k, v in intake.items() if str(k) not in CONSUMED_INTAKE_KEYS}
+    return extra or None
 
 
 def _build_report_timed(
@@ -1325,6 +1457,7 @@ def _build_report_timed(
     notes: list[str] = []
     fields: list[dict] = []
     rules: list[dict] = []
+    execution: dict[str, Any] = {}
     for seg in documents:
         seg_texts = segment_texts(texts, seg["pages"]) if mixed else texts
         # Classification by evidence before any extraction (module docstring):
@@ -1337,7 +1470,7 @@ def _build_report_timed(
                 seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
                 ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
                 verification=verification, notes=notes, completion=completion, project_id=project_id,
-                schema_mismatch=bool(seg.get("schema_mismatch")),
+                schema_mismatch=bool(seg.get("schema_mismatch")), execution=execution,
             )
         for f in seg_fields:
             f["segment"] = seg["index"]
@@ -1457,7 +1590,68 @@ def _build_report_timed(
     timings["extract"] = round(max(0.0, timings.get("extract", 0.0) - timings.get("llm_extract", 0.0)), 3)
     timings["total"] = round((perf_counter() - t_start) * 1000.0, 3)
     report["timings_ms"] = {stage: float(timings.get(stage, 0.0)) for stage in TIMING_STAGES}
+    # The run's own ledger (plan Part 2 / 7.1, 2026-09-27): what ran, what did
+    # not, and why — read by the UI's execution panel and the proof run.
+    report["execution"] = build_execution(report, execution, intake=intake, verification=verification)
+    llm = report["execution"].get("llm_grounding") or {}
+    if llm.get("fields_filled"):
+        found_after = fields_found_count(fields)
+        record_pipeline_pass(report, trigger="pipeline:llm_grounded", fields_changed=list(llm["fields_filled"]),
+                             before_found=found_after - len(llm["fields_filled"]), after_found=found_after,
+                             basis=f"grounded model pass ({llm.get('model')}) filled what the label pass left empty")
+        report["execution"]["rerun"] = rerun_summary(report)
     return report
+
+
+EXECUTION_STEPS = ("laya", "z3", "redhat_draft", "redhat_graph", "llm_grounding", "rerun", "tables", "vision")
+
+
+def rerun_summary(report: dict[str, Any]) -> dict[str, Any]:
+    replay = report.get("replay") if isinstance(report.get("replay"), dict) else {}
+    history = [h for h in (replay.get("history") or []) if isinstance(h, dict)]
+    passes = [h for h in history if str(h.get("trigger") or "").startswith("pipeline:")]
+    return {"passes": len(passes), "attempts": int(replay.get("attempts") or 0), "improved": any(h.get("improved") for h in passes),
+            "fields_changed": sorted({n for h in passes for n in (h.get("fields_changed") or [])}), "stop_rule": replay.get("stop_rule")}
+
+
+def build_execution(report: dict[str, Any], collected: dict[str, Any], *, intake: dict | None, verification: dict | None) -> dict[str, Any]:
+    """``report["execution"]``: one entry per pipeline step with a status word
+    and the counts that prove it, ``not_run`` with a reason when a step did
+    not happen. Customer plan 2026-09-27 ("the system is not lying — it is
+    not executing"): a report in which LAYA, Z3, the critique and the model
+    pass leave no trace reads as if they never ran. Nothing here is computed
+    from a default: LAYA from the router's block, Z3 from the verification
+    summary, the model pass from ``llm_fill_missing``'s own counts."""
+    laya = report.get("laya") if isinstance(report.get("laya"), dict) else None
+    if laya:
+        laya_block = {"status": "completed", "policy": laya.get("model") or laya.get("policy_version"), "escalate": laya.get("escalate"),
+                      "human_review": laya.get("human_review"), "flagged_pages": laya.get("flagged_pages"), "probed_pages": laya.get("probed_pages"),
+                      "suggested_route": laya.get("suggested_route"), "reasons": list(laya.get("reasons") or [])}
+    else:
+        laya_block = {"status": "not_run", "reason": "no intake triage block on this path (the router did not run: text or direct call)"}
+    ver = report.get("verification") if isinstance(report.get("verification"), dict) else {}
+    z3_status = ver.get("z3_status")
+    z3_block = {"status": str(z3_status) if z3_status else "not_run", "violations": ver.get("z3_violation_count"),
+                "reason": None if z3_status else "no verification summary was passed to the report"}
+    rd = ver.get("redhat_status")
+    redhat_draft = {"status": str(rd) if rd else "not_run", "reason": None if rd else "no draft critique on this path"}
+    llm = collected.get("llm_grounding") or {"status": "not_run", "model": None, "fields_offered": 0, "fields_grounded": 0, "fields_filled": [],
+                                             "candidates_rejected": 0, "ms": 0.0, "reason": "no extraction segment offered fields"}
+    out = {
+        "laya": laya_block,
+        "z3": z3_block,
+        "redhat_draft": redhat_draft,
+        "redhat_graph": {"status": "not_run", "reason": "critique runs after the report is built (run_after_parse)"},
+        "llm_grounding": llm,
+        "rerun": rerun_summary(report),
+        "tables": collected.get("tables") or {"status": "not_run", "reason": "no table pass on this run"},
+        "vision": collected.get("vision") or {"status": "not_run", "reason": "vision runs after the report is built (run_after_parse)"},
+        "ran_at": _now(),
+    }
+    for key, value in collected.items():
+        if key not in out and isinstance(value, dict):
+            out[key] = value
+    return out
 
 
 def load_tree_for_report(report: dict[str, Any]) -> dict | None:
@@ -1485,9 +1679,24 @@ def load_tree_for_report(report: dict[str, Any]) -> dict | None:
     return tree if isinstance(tree, dict) else None
 
 
+def stamp_field_uids(report: dict[str, Any]) -> None:
+    """``field_uid`` = ``field-<document_id>-<name>[-<segment>]`` on every field
+    (plan Part 2.7 invariant 2, 2026-09-27): a pointer that survives reruns,
+    revisions and exports even when the value moves to another node. Set once
+    the report has a ``document_id``; a report without one keeps None."""
+    doc = report.get("document_id")
+    if not doc:
+        return
+    for f in report.get("fields") or []:
+        if isinstance(f, dict) and f.get("name"):
+            seg = f.get("segment")
+            f["field_uid"] = f"field-{doc}-{f['name']}" + (f"-{seg}" if seg not in (None, 0) else "")
+
+
 def refresh_report(report: dict[str, Any]) -> dict[str, Any]:
     """Recompute the derived blocks after a field changed (correct/dispute/override)."""
     fields = report.get("fields") or []
+    stamp_field_uids(report)
     texts = report.get("_page_texts")
     if isinstance(texts, list) and isinstance(report.get("documents"), list):
         report["page_coverage"] = page_coverage(report["documents"], fields, texts, list(report.get("_page_quality") or []))
@@ -1540,14 +1749,23 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
     classification["validation"] = validation
     classification["schema_mismatch"] = mismatch
     classification["suggestion"] = family_suggestion(validation["family"], texts) if mismatch else None
-    fields, rules = extract_segment_fields(
-        document_type, texts, layout=layout if isinstance(layout, list) else None,
-        parser_name=report.get("parser_name"), parse_confidence=None,
-        ocr_confidence=None, page_quality=list(report.get("_page_quality") or []),
-        visual_pages=[p.get("visual") for p in report.get("pages") or []],
-        verification=verification, notes=notes, completion=completion, project_id=report.get("project_id"), llm=llm,
-        schema_mismatch=mismatch,
-    )
+    prior_grounded = {f["name"]: f for f in (report.get("fields") or [])
+                      if isinstance(f, dict) and f.get("extraction_method") == "llm_grounded" and f.get("grounding_quote") and f.get("value") is not None}
+    # Same tables as the first run (``report["tables"]``), so a re-read for
+    # another type can fill its table-borne fields too (2026-09-27).
+    with _tables.extraction_scope(report.get("tables") or []) as scope:
+        fields, rules = extract_segment_fields(
+            document_type, texts, layout=layout if isinstance(layout, list) else None,
+            parser_name=report.get("parser_name"), parse_confidence=None,
+            ocr_confidence=None, page_quality=list(report.get("_page_quality") or []),
+            visual_pages=[p.get("visual") for p in report.get("pages") or []],
+            verification=verification, notes=notes, completion=completion, project_id=report.get("project_id"), llm=llm,
+            schema_mismatch=mismatch,
+        )
+    _tables.annotate_report(report, scope, replace=True)
+    if prior_grounded and not mismatch:
+        fields = carry_grounded_values(document_type, fields, prior_grounded, texts=texts, layout=layout if isinstance(layout, list) else None,
+                                       report=report, verification=verification, notes=notes)
     for f in fields:
         f["segment"] = 0
     for r in rules:
@@ -1588,6 +1806,151 @@ def assign_document_id(report: dict[str, Any], *, result: dict | None, file_byte
         report["document_id"] = "doc-" + uuid.uuid4().hex[:16]
         report["document_id_source"] = "generated"
     return report["document_id"]
+
+
+def redhat_graph_summary(report: dict[str, Any], critique: dict | list | None) -> dict[str, Any]:
+    block = report.get("redhat") if isinstance(report.get("redhat"), dict) else {}
+    counts = block.get("counts") if isinstance(block.get("counts"), dict) else {}
+    notes = list((critique or {}).get("notes") or []) if isinstance(critique, dict) else list(block.get("notes") or [])
+    if any(n.startswith("unsupported-claim check ran") for n in notes):
+        model_check = "ran"
+    elif any("unsupported-claim check skipped" in n or "unsupported-claim check did not run" in n for n in notes):
+        model_check = "skipped"
+    else:
+        model_check = "not_recorded"
+    return {"status": "completed", "policy": block.get("policy") or "rh-graph-v1", "findings": len(block.get("findings") or []),
+            "high": int(counts.get("high") or 0), "medium": int(counts.get("medium") or 0), "low": int(counts.get("low") or 0),
+            "model_check": model_check, "notes": notes[:6]}
+
+
+#: Findings whose anchored field is worth a second, hinted read: the rule read
+#: the value as debris/unsupported, or the field holds a suspect.
+TARGETED_RULES = ("suspect_value", "unsupported_claim")
+
+
+def redhat_targeted_pass(report: dict[str, Any], *, tree: dict | None, completion: Any, llm: bool, rg: Any, model_check: bool = False) -> dict[str, Any] | None:
+    """One hinted grounded pass over the fields the critique points at.
+
+    Candidates: fields named by a finding's anchor that have no usable value
+    (``found_suspect`` — debris under the label) or whose finding's rule is
+    in ``TARGETED_RULES``. Each gets the finding's rationale as the prompt
+    hint. A grounded answer replaces the field, the policy re-runs on it, the
+    tree ids are re-attached, the critique runs again over the changed graph
+    (``redhat.previous_counts`` keeps the first run's counts) and
+    ``replay.history`` gets a ``pipeline:redhat_targeted`` entry. Bounded to
+    one pass per report; nothing happens when the model path is off (the
+    ledger says so). Returns the ledger entry or None."""
+    exe = report.setdefault("execution", {})
+    block = report.get("redhat") if isinstance(report.get("redhat"), dict) else {}
+    fields = report.get("fields") or []
+    by_name = {f.get("name"): f for f in fields if isinstance(f, dict)}
+    hints: dict[str, str] = {}
+    for finding in block.get("findings") or []:
+        if not isinstance(finding, dict):
+            continue
+        name = (finding.get("anchor") or {}).get("field") if isinstance(finding.get("anchor"), dict) else None
+        f = by_name.get(name)
+        if not f or f.get("field_type") == "signature":
+            continue
+        rule = str(finding.get("rule") or "")
+        if f.get("evidence_state") == "found_suspect" or any(rule.startswith(r) for r in TARGETED_RULES):
+            hints.setdefault(name, f"{finding.get('title')}: {finding.get('rationale')}"[:300])
+    if not hints:
+        exe["redhat_targeted"] = {"status": "not_needed", "fields": [], "reason": "no finding names a field worth a second read"}
+        return None
+    if not llm and completion is None:
+        exe["redhat_targeted"] = {"status": "disabled", "fields": sorted(hints), "reason": "PARSURE_LLM_EXTRACTION is off"}
+        return None
+    texts = list(report.get("_page_texts") or [])
+    layout = report.get("_layout") if isinstance(report.get("_layout"), list) else None
+    doc_type = str((report.get("classification") or {}).get("document_type") or "")
+    notes: list[str] = []
+    stats: dict[str, Any] = {}
+    before = field_facts(fields)
+    before_found = fields_found_count(fields)
+    # Suspects hold ``value None`` already; the pass offers exactly the hinted names.
+    new_fields = llm_fill_missing(
+        doc_type, texts, fields, completion=completion, notes=notes, parser_name=report.get("parser_name"), parse_confidence=None,
+        ocr_confidence=None, page_quality=list(report.get("_page_quality") or []), visual_pages=[p.get("visual") for p in report.get("pages") or []],
+        layout=layout, project_id=report.get("project_id"), execution=stats, hints=hints, only=sorted(hints),
+    )
+    changed = [n for n, f in ((f.get("name"), f) for f in new_fields) if n in hints and (f.get("value"), f.get("element_id")) != (before.get(n, (None, None, None))[0], before.get(n, (None, None, None))[1])]
+    exe["redhat_targeted"] = {**(stats.get("llm_grounding") or {}), "fields": sorted(hints), "changed": sorted(changed), "hints": hints}
+    if not changed:
+        report["extraction_notes"] = list(report.get("extraction_notes") or []) + notes
+        return None
+    seg_of = {f.get("name"): f.get("segment") for f in fields if isinstance(f, dict)}
+    for f in new_fields:
+        if f.get("name") in changed:
+            f["segment"] = seg_of.get(f.get("name"), 0)
+            # The document-level Z3 summary is on the report; give the policy the same facts the first run had.
+            status = (report.get("verification") or {}).get("z3_status")
+            if f.get("value") is not None and not f.get("verification_source") and status in ("PASS", "VIOLATION"):
+                f["verification_confidence"] = fx.DEFAULT_VERIFICATION_CONFIDENCE
+                f["verification_basis"] = f"document-level Z3 {status}: no violation attached to this field (V1 default {fx.DEFAULT_VERIFICATION_CONFIDENCE})"
+            fx.mark_low_quality_page(f, list(report.get("_page_quality") or []))
+            fx.apply_decision_policy(f)
+    report["fields"] = new_fields
+    report["extraction_notes"] = list(report.get("extraction_notes") or []) + notes
+    report["tree_nodes_addressed"] = attach_tree_node_ids(report["fields"], tree if tree is not None else load_tree_for_report(report))
+    refresh_report(report)
+    previous_counts = dict(block.get("counts") or {})
+    critique = rg.critique_report(report, tree=tree, completion=None, llm=model_check)
+    rg.attach_findings(report, critique)
+    report["redhat"]["previous_counts"] = previous_counts
+    report["redhat"]["targeted_pass"] = {"fields": sorted(hints), "changed": sorted(changed)}
+    exe["redhat_graph"] = redhat_graph_summary(report, critique)
+    entry = record_pipeline_pass(report, trigger="pipeline:redhat_targeted", fields_changed=changed, before_found=before_found,
+                                 after_found=fields_found_count(report["fields"]),
+                                 basis=f"critique named {len(hints)} field(s); the hinted grounded pass replaced {len(changed)}")
+    exe["rerun"] = rerun_summary(report)
+    return entry
+
+
+def carry_grounded_values(document_type: str, fields: list[dict], prior: dict[str, dict], *, texts: list[str], layout: list | None,
+                          report: dict[str, Any], verification: dict | None, notes: list[str]) -> list[dict]:
+    """Re-verify, without a model, the values the first run grounded with the
+    model: a prior ``llm_grounded`` field whose ``grounding_quote`` is still
+    verbatim on the page with the value inside it is rebuilt at that span
+    (same contract record, same element id); one that no longer re-grounds
+    is left as the label pass found it. Measured live 2026-09-27: the replay
+    (label pass only) dropped ``insured_name`` that the worker's grounded pass
+    had found in the footer, and the determinism proof read "changed" for the
+    same bytes — the proof was comparing two different pipelines."""
+    specs = {s.name: s for s in fx.FIELD_TAXONOMY.get(document_type) or []}
+    carried: list[str] = []
+    out = []
+    for f in fields:
+        old = prior.get(f.get("name"))
+        spec = specs.get(f.get("name"))
+        if not old or not spec or f.get("value") is not None:
+            out.append(f)
+            continue
+        grounded = lx.ground_candidate(spec, texts, old.get("grounding_quote"), old.get("raw") if old.get("raw") is not None else old.get("value"))
+        if grounded is None:
+            out.append(f)
+            continue
+        page_index, raw, start, end = grounded
+        new = fx.build_found_field(
+            spec, page_index=page_index, raw=raw, start=start, end=end, parser_name=report.get("parser_name"), parse_confidence=None,
+            ocr_confidence=None, page_quality=list(report.get("_page_quality") or []), visual_pages=[p.get("visual") for p in report.get("pages") or []],
+            layout=list(layout or []), method="llm_grounded", page_text=texts[page_index],
+        )
+        if new.get("value") is None:
+            out.append(f)
+            continue
+        new["grounding_quote"] = old.get("grounding_quote")
+        new["grounding_model"] = old.get("grounding_model")
+        new["grounding_source"] = old.get("grounding_source") or "llm"
+        new["grounding"] = old.get("grounding")
+        new["carried_from"] = {"pass": "llm_grounded", "reverified": "quote found verbatim on the page, value inside it"}
+        fx.mark_low_quality_page(new, list(report.get("_page_quality") or []))
+        out.append(new)
+        carried.append(str(f.get("name")))
+    if carried:
+        decide_fields(out, verification=verification, document_type=document_type)
+        notes.append(f"carried {len(carried)} grounded value(s) re-verified verbatim without a model call: {', '.join(carried)}")
+    return out
 
 
 def attach_conflicts(project_id: str, report: dict[str, Any]) -> dict[str, Any]:
@@ -1651,11 +2014,42 @@ def run_after_parse(
             # The critique's model check uses the app's own model path (not the
             # extraction's injected completion): the extraction call budget and
             # its tests stay one call per document.
-            rg.attach_findings(report, rg.critique_report(report, tree=tree, completion=None, llm=_llm_on()))
+            # Both gates: PARSURE_LLM_EXTRACTION (no model calls on intake) and
+            # PARSURE_REDHAT_LLM (the critique's own switch) — the proof test
+            # runs with the first on and the second off and must not reach a model.
+            model_check = _llm_on() and rg.llm_enabled()
+            critique = rg.critique_report(report, tree=tree, completion=None, llm=model_check)
+            rg.attach_findings(report, critique)
+            report.setdefault("execution", {})["redhat_graph"] = redhat_graph_summary(report, critique)
+            # Red-Hat-targeted second look (plan Part 2.4 / 2.8, 2026-09-27):
+            # the fields the critique names as suspect or unsupported are
+            # offered once more to the grounded model pass with the finding as
+            # the hint; a grounded answer replaces the debris, the critique
+            # runs again over the changed graph, and the ledger records both.
+            redhat_targeted_pass(report, tree=tree, completion=completion, llm=_llm_on(), rg=rg, model_check=model_check)
         except Exception as exc:
             log.exception("parsure: red-hat graph critique failed for %s", filename)
             report.setdefault("redhat", {"policy": "rh-graph-v1", "findings": [], "counts": {}, "classes": {},
                                          "notes": [f"critique failed: {exc.__class__.__name__}"]})
+            report.setdefault("execution", {})["redhat_graph"] = {"status": "failed", "policy": "rh-graph-v1", "findings": 0, "high": 0,
+                                                                  "reason": f"{exc.__class__.__name__}: {exc}"[:200]}
+        report.setdefault("execution", {})["rerun"] = rerun_summary(report)
+        stamp_field_uids(report)
+        # Pictures (plan Part 5, 2026-09-27): services/vision decides whether a
+        # page is a photo worth a multimodal read; disabled or absent, it says
+        # so in report["vision"] / execution.vision. Never a failed ingest.
+        try:
+            try:
+                from ..services import vision as _vision
+            except ImportError:
+                from services import vision as _vision  # type: ignore
+            _vision.attach_vision(report, file_bytes=file_bytes, intake=intake)
+        except ImportError:
+            report.setdefault("execution", {})["vision"] = {"status": "not_run", "reason": "vision module not present"}
+        except Exception as exc:  # noqa: BLE001 — advisory
+            log.exception("parsure: vision pass failed for %s", filename)
+            report.setdefault("execution", {})["vision"] = {"status": "failed", "reason": f"{exc.__class__.__name__}: {exc}"[:200]}
+        report["execution"]["ran_at"] = _now()
         report_id = repo.save_report(project_id, report)
         rid = report_id
         repo.log_event(project_id, "intake_received", report_id=rid, payload={

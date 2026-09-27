@@ -1,0 +1,109 @@
+{
+  "format": "parsure-schema-v1",
+  "document_type": "repair_estimate",
+  "family": "auto",
+  "label": "Repair estimate",
+  "description": "Body-shop repair estimate for an auto claim. Anchored on bench/cases/texts.py REPAIR_ESTIMATE (2026-09-27): 'REPAIR ESTIMATE', 'Claim Number', 'Insured', 'Estimate Date', 'Parts subtotal', 'Labor subtotal', 'Tax (6.25% on parts)', 'Sublet and misc', 'Estimated Damage (parts + labor + tax)'. The line-item table (Part / Operation, Op, Hours, Parts $, Labor $) is a jdf-cli table element and is read by services/table_extraction, not by these anchors.",
+  "keywords": [
+    "repair estimate",
+    "estimate",
+    "estimate date",
+    "parts subtotal",
+    "labor subtotal",
+    "parts",
+    "labor",
+    "sublet",
+    "refinish",
+    "hours",
+    "tax",
+    "estimated damage",
+    "body shop",
+    "collision",
+    "paint",
+    "replace",
+    "claim number",
+    "vin"
+  ],
+  "fields": [
+    {
+      "name": "claim_number",
+      "use": "auto_claim.claim_number"
+    },
+    {
+      "name": "policy_number",
+      "use": "auto_policy.policy_number"
+    },
+    {
+      "name": "insured_name",
+      "use": "auto_policy.insured_name"
+    },
+    {
+      "name": "vin",
+      "use": "auto_policy.vin"
+    },
+    {
+      "name": "vehicle_year_make_model",
+      "use": "auto_policy.vehicle_year_make_model"
+    },
+    {
+      "name": "estimate_date",
+      "label": "Estimate date",
+      "field_type": "date",
+      "anchors": [
+        "estimate\\s+date",
+        "date\\s+of\\s+estimate",
+        "date\\s+(?:written|prepared)"
+      ]
+    },
+    {
+      "name": "shop_name",
+      "label": "Repair shop",
+      "field_type": "name",
+      "anchors": [
+        "(?:repair\\s+)?(?:shop|facility)(?:\\s+name)?",
+        "body\\s+shop"
+      ]
+    },
+    {
+      "name": "parts_total",
+      "label": "Parts total",
+      "field_type": "money",
+      "anchors": [
+        "parts\\s+(?:sub)?total",
+        "total\\s+parts"
+      ]
+    },
+    {
+      "name": "labor_total",
+      "label": "Labor total",
+      "field_type": "money",
+      "anchors": [
+        "labor\\s+(?:sub)?total",
+        "total\\s+labor"
+      ]
+    },
+    {
+      "name": "tax",
+      "label": "Tax",
+      "field_type": "money",
+      "anchors": [
+        "(?:sales\\s+)?tax(?:\\s*\\([^)\\n]*\\))?"
+      ]
+    },
+    {
+      "name": "estimated_damage",
+      "label": "Estimated damage",
+      "field_type": "money",
+      "anchors": [
+        "estimated\\s+(?:damage|repair\\s+cost|loss)(?:\\s*\\([^)\\n]*\\))?",
+        "(?:grand\\s+|estimate\\s+|net\\s+)total(?:\\s+estimate)?",
+        "damage\\s+estimate",
+        "repair\\s+estimate\\s+total"
+      ]
+    },
+    {
+      "name": "signature",
+      "use": "auto_policy.signature"
+    }
+  ]
+}

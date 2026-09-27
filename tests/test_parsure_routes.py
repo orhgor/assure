@@ -374,7 +374,8 @@ def test_project_export_csv_long_wide_json_and_filters(client):
     res = client.get("/api/projects/default/parsure/export?format=csv")
     assert res.status_code == 200 and res.mimetype == "text/csv"
     import re as _re
-    assert _re.fullmatch(r'attachment; filename="parsure-default-\d{4}-\d{2}-\d{2}\.csv"', res.headers["Content-Disposition"])
+    # Plan Part 8.5 (2026-09-27): the project export is named by what it holds (services/export_names).
+    assert _re.fullmatch(r'attachment; filename="parsure_default_2-docs_\d{8}T\d{6}Z\.csv"', res.headers["Content-Disposition"])
     rows = list(csv.DictReader(io.StringIO(res.get_data(as_text=True))))
     assert tuple(rows[0].keys()) == PROJECT_CSV_COLUMNS
     reports = {r["report_id"]: r for r in client.get("/api/projects/default/parsure").get_json()["reports"]}

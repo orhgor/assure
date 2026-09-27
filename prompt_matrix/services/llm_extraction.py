@@ -252,10 +252,13 @@ _TYPE_HINT = {
 }
 
 
-def build_prompt(document_type: str, specs: list[fx.FieldSpec], pages: list[tuple[int, str]]) -> str:
+def build_prompt(document_type: str, specs: list[fx.FieldSpec], pages: list[tuple[int, str]], hints: dict[str, str] | None = None) -> str:
     """The extraction prompt: page-tagged text, the field list with type hints,
     and the strict-JSON answer shape. The instruction insists on verbatim
-    quotes because the grounding step will discard anything paraphrased."""
+    quotes because the grounding step will discard anything paraphrased.
+    ``hints`` (2026-09-27, the Red-Hat-targeted pass) adds one sentence per
+    field saying why the first read was rejected, so the second read looks
+    elsewhere instead of repeating it."""
     lines = [
         f"You are reading a {document_type.replace('_', ' ')} document. For each field below, find the value in the document text.",
         "Answer with ONE JSON object and nothing else. Keys are the field names. Each value is either null (not in the text)",
@@ -267,7 +270,8 @@ def build_prompt(document_type: str, specs: list[fx.FieldSpec], pages: list[tupl
         "Fields:",
     ]
     for spec in specs:
-        lines.append(f'- "{spec.name}": {spec.label} — {_TYPE_HINT.get(spec.field_type, "a short text value")}')
+        hint = (hints or {}).get(spec.name)
+        lines.append(f'- "{spec.name}": {spec.label} — {_TYPE_HINT.get(spec.field_type, "a short text value")}' + (f" (note: {hint})" if hint else ""))
     lines.append("")
     lines.append("Document text:")
     for page_no, text in pages:
@@ -477,6 +481,7 @@ def extract_missing_fields(
     visual_pages: list[dict] | None = None,
     layout: list[list[dict]] | None = None,
     project_id: str | None = None,
+    hints: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Grounded field records for ``missing_specs``, one per spec, in order.
 
@@ -525,7 +530,7 @@ def extract_missing_fields(
         for chunk in chunks:
             if not pending:
                 break
-            prompt = build_prompt(document_type, pending, chunk)
+            prompt = build_prompt(document_type, pending, chunk, hints=hints)
             data = None
             for attempt in range(JSON_RETRIES + 1):
                 calls += 1
@@ -575,16 +580,27 @@ def extract_missing_fields(
                     spec, page_index=page_index, raw=raw, start=start, end=end, parser_name=parser_name,
                     parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=list(page_quality or []),
                     visual_pages=list(visual_pages or []), layout=list(layout or []), method="llm_grounded",
+                    page_text=texts[page_index],
                 )
                 if field.get("value") is None:
                     still_pending.append(spec)
                     continue
                 qs = find_verbatim(texts[page_index], quote) if isinstance(quote, str) else None
+                verbatim = texts[page_index][qs[0]:qs[1]][:240] if qs else None
                 field["grounding"] = {
-                    "quote": texts[page_index][qs[0]:qs[1]][:240] if qs else None,
+                    "quote": verbatim,
                     "model_value": str(value)[:120],
                     "page": page_index + 1,
                 }
+                # First-class grounding (plan Part 2.9, 2026-09-27): the model's
+                # verbatim quote is the primary grounding; the label-pass line
+                # quote stays only when the model's could not be re-found.
+                if verbatim:
+                    field["grounding_quote"] = verbatim
+                    if isinstance(field.get("grounding_span"), dict) and qs:
+                        field["grounding_span"]["quote_start_char"], field["grounding_span"]["quote_end_char"] = qs[0], qs[1]
+                field["grounding_model"] = model_id
+                field["grounding_source"] = "llm"
                 results[spec.name] = field
                 accepted += 1
             pending = still_pending

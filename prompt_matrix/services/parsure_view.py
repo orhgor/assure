@@ -225,3 +225,307 @@ def low_quality_pages(report: dict[str, Any]) -> dict[str, Any] | None:
         return None
     thr = qr.get("low_quality_threshold")
     return {"pages": [p for p in pages if isinstance(p, (int, float))], "threshold": float(thr) if isinstance(thr, (int, float)) else None}
+
+
+# ---------------------------------------------------------------------------
+# Execution model surfaces (customer plan todos/fable_execution_plan.md Part 6,
+# 2026-09-27). Every block here may be absent on an older report: each helper
+# returns None / "not recorded" for a missing key and never a default number.
+# ---------------------------------------------------------------------------
+
+#: The field badge vocabulary, as the plan names it (6.1): Not found / Suspect /
+#: Unverified / Accepted / Review — plus the two states a person produced.
+BADGE_WORDS = {
+    "not_found": "Not found",
+    "suspect": "Suspect",
+    "unverified": "Unverified",
+    "accepted": "Accepted",
+    "review": "Review",
+    "disputed": "Disputed",
+    "rejected": "Rejected",
+}
+
+
+def field_badge(field: dict[str, Any]) -> dict[str, str]:
+    """``{key, words}`` from ``field_state`` / ``evidence_state`` /
+    ``review_required``: a person's verdict first (disputed / rejected), then
+    the extractor's (not found, suspect), then whether anyone must look."""
+    state = str(field.get("field_state") or "")
+    if state in ("disputed", "rejected"):
+        return {"key": state, "words": BADGE_WORDS[state]}
+    section = field_section(field)
+    if section == "not_found":
+        return {"key": "not_found", "words": BADGE_WORDS["not_found"]}
+    if str(field.get("evidence_state") or "") == "found_suspect":
+        return {"key": "suspect", "words": BADGE_WORDS["suspect"]}
+    if section == "review" or field.get("review_required") is True:
+        return {"key": "review", "words": BADGE_WORDS["review"]}
+    if state == "accepted":
+        return {"key": "accepted", "words": BADGE_WORDS["accepted"]}
+    return {"key": "unverified", "words": BADGE_WORDS["unverified"]}
+
+
+def provenance_label(field: dict[str, Any]) -> dict[str, str] | None:
+    """``{kind, words}`` — "from label" / "from table" / "from model <id>" /
+    "from image" — read from ``grounding_source``, then ``grounding_model``,
+    then ``extraction_method``. None when the report says nothing about it."""
+    source = str(field.get("grounding_source") or "").lower()
+    model = str(field.get("grounding_model") or "")
+    method = str(field.get("extraction_method") or "").lower()
+    kind = None
+    if source in ("label_anchor", "label"):
+        kind = "label"
+    elif source == "table" or method == "table" or model == "table":
+        kind = "table"
+    elif source == "vision" or model == "vision":
+        kind = "image"
+    elif source in ("llm", "model") or (model and model not in ("label_anchor", "table", "vision")):
+        kind = "model"
+    elif model == "label_anchor":
+        kind = "label"
+    if kind is None:
+        return None
+    if kind == "model":
+        return {"kind": "model", "words": f"from model {model}" if model and model not in ("llm", "model") else "from model", "model": model}
+    return {"kind": kind, "words": {"label": "from label", "table": "from table", "image": "from image"}[kind]}
+
+
+def grounding_view(field: dict[str, Any]) -> dict[str, Any] | None:
+    """The grounding block for one field: the verbatim quote (≤240 chars as
+    stored), where it sits (page, chars, node / element, or table cell) and
+    which model offered it. None when the field carries no quote and no span."""
+    quote = field.get("grounding_quote")
+    span = field.get("grounding_span") if isinstance(field.get("grounding_span"), dict) else {}
+    if not (isinstance(quote, str) and quote.strip()) and not span:
+        return None
+    start, end = span.get("start_char"), span.get("end_char")
+    return {
+        "quote": quote.strip() if isinstance(quote, str) else None,
+        "page": span.get("page"),
+        "start_char": int(start) if isinstance(start, (int, float)) else None,
+        "end_char": int(end) if isinstance(end, (int, float)) else None,
+        "node_id": span.get("node_id") or field.get("tree_node_id") or field.get("field_source_node_id"),
+        "element_id": span.get("element_id"),
+        "table_id": span.get("table_id"),
+        "row": span.get("row"),
+        "col": span.get("col"),
+        "model": str(field.get("grounding_model")) if field.get("grounding_model") else None,
+        "source": str(field.get("grounding_source")) if field.get("grounding_source") else None,
+    }
+
+
+#: The execution steps in the order the pipeline runs them (plan 2.x), with
+#: the words a reviewer reads. ``counts`` names the payload keys shown as
+#: "label N"; ``reason`` is printed when the step did not run.
+EXECUTION_STEPS = (
+    ("laya", "LAYA", (("escalate", "escalate"), ("human_review", "human review")), ("policy",)),
+    ("z3", "Z3 verification", (("violations", "violations"),), ()),
+    ("redhat_draft", "Red-Hat draft", (), ()),
+    ("redhat_graph", "Red-Hat graph", (("findings", "findings"), ("high", "high")), ("policy", "model_check")),
+    ("llm_grounding", "LLM grounding", (("fields_offered", "offered"), ("fields_grounded", "grounded"), ("candidates_rejected", "rejected")), ("model", "ms")),
+    ("rerun", "Rerun", (("passes", "passes"),), ("improved", "stop_rule")),
+    ("vision", "Vision", (("pages_analyzed", "pages"), ("facts", "facts")), ("model", "ms")),
+    ("tables", "Tables", (("tables", "tables"), ("fields_from_tables", "fields from tables")), ()),
+)
+
+STATUS_WORDS = {
+    "completed": "completed", "ran": "ran", "pass": "pass", "violation": "violation", "skipped": "skipped",
+    "error": "error", "not_run": "not run", "disabled": "disabled", "failed": "failed",
+}
+
+
+def _yes_no(value: Any) -> str:
+    return "yes" if value is True else ("no" if value is False else str(value))
+
+
+def execution_view(report: dict[str, Any]) -> dict[str, Any]:
+    """``{recorded, ran_at, steps: [{key, label, recorded, status, status_key,
+    counts: [str], meta: [str], reason}]}``. A report without ``execution``
+    yields every step as "not recorded" — the panel says so rather than
+    guessing from other blocks. ``ran_at`` is the block's own timestamp, else
+    ``snapshot.stamped_at``, else None: no time is invented."""
+    ex = report.get("execution") if isinstance(report.get("execution"), dict) else None
+    snap = report.get("snapshot") if isinstance(report.get("snapshot"), dict) else {}
+    ran_at = (ex or {}).get("ran_at") or snap.get("stamped_at") or None
+    steps = []
+    for key, label, counts, meta_keys in EXECUTION_STEPS:
+        block = (ex or {}).get(key) if ex else None
+        if not isinstance(block, dict):
+            steps.append({"key": key, "label": label, "recorded": False, "status": "not recorded", "status_key": "not_recorded", "counts": [], "meta": [], "reason": None})
+            continue
+        status_raw = str(block.get("status") or "").lower()
+        status_key = status_raw or "not_recorded"
+        status = STATUS_WORDS.get(status_raw, status_raw.replace("_", " ") or "not recorded")
+        count_words = []
+        for k, words in counts:
+            v = block.get(k)
+            if isinstance(v, bool):
+                count_words.append(f"{words} {_yes_no(v)}")
+            elif isinstance(v, (int, float)):
+                count_words.append(f"{int(v)} {words}")
+            elif isinstance(v, (list, tuple)):
+                count_words.append(f"{len(v)} {words}")
+        meta_words = []
+        for k in meta_keys:
+            v = block.get(k)
+            if v in (None, ""):
+                continue
+            if k == "ms" and isinstance(v, (int, float)):
+                meta_words.append(f"{int(v)} ms")
+            elif k in ("improved", "escalate", "human_review"):
+                meta_words.append(f"{k.replace('_', ' ')} {_yes_no(v)}")
+            else:
+                meta_words.append(f"{k.replace('_', ' ')} {v}")
+        reasons = block.get("reasons") if isinstance(block.get("reasons"), list) else []
+        reason = block.get("reason") or ("; ".join(str(r) for r in reasons) if reasons else None)
+        steps.append({"key": key, "label": label, "recorded": True, "status": status, "status_key": status_key,
+                      "counts": count_words, "meta": meta_words, "reason": str(reason) if reason else None})
+    return {"recorded": ex is not None, "ran_at": str(ran_at) if ran_at else None, "steps": steps}
+
+
+def summary_breakdown(fields: list[dict[str, Any]]) -> dict[str, int]:
+    """total / accepted / review / suspect / not_found, counted from the fields
+    by the same rules the sections use (suspect is the subset of review whose
+    evidence is ``found_suspect``)."""
+    out = {"total": 0, "accepted": 0, "review": 0, "suspect": 0, "not_found": 0}
+    for f in fields:
+        if not isinstance(f, dict):
+            continue
+        out["total"] += 1
+        badge = field_badge(f)["key"]
+        if badge == "not_found":
+            out["not_found"] += 1
+        elif badge == "suspect":
+            out["suspect"] += 1
+            out["review"] += 1
+        elif badge in ("review", "disputed", "rejected"):
+            out["review"] += 1
+        elif badge == "accepted":
+            out["accepted"] += 1
+    return out
+
+
+def tables_view(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """``report.tables[]`` as grids: headers, rows, caption, quality words and
+    ``marks`` — ``{"r,c": field_name}`` for the cells ``fields_extracted``
+    names (dicts with row/col; bare names mark nothing but are listed)."""
+    tables = report.get("tables") if isinstance(report.get("tables"), list) else []
+    out = []
+    for t in tables:
+        if not isinstance(t, dict):
+            continue
+        headers = [str(h) for h in (t.get("headers") or [])]
+        rows = [[("" if c is None else str(c)) for c in r] for r in (t.get("rows") or []) if isinstance(r, (list, tuple))]
+        marks: dict[str, str] = {}
+        names: list[str] = []
+        for fe in t.get("fields_extracted") or []:
+            if isinstance(fe, dict):
+                name = str(fe.get("field") or fe.get("name") or "")
+                r, c = fe.get("row"), fe.get("col")
+                if name:
+                    names.append(name)
+                if isinstance(r, int) and isinstance(c, int) and name:
+                    marks[f"{r},{c}"] = name
+            elif isinstance(fe, str):
+                names.append(fe)
+        q = t.get("quality") if isinstance(t.get("quality"), dict) else {}
+        grid = [[{"text": cell, "field": marks.get(f"{ri},{ci}")} for ci, cell in enumerate(row)] for ri, row in enumerate(rows)]
+        out.append({
+            "table_id": t.get("table_id"), "node_id": t.get("node_id"), "page": t.get("page"),
+            "headers": headers, "rows": rows, "grid": grid, "caption": t.get("caption"),
+            "quality": {"status": str(q.get("status") or "") or None, "basis": str(q.get("basis") or "") or None} if q else None,
+            "marks": marks, "fields_extracted": names,
+        })
+    return out
+
+
+def vision_view(report: dict[str, Any]) -> dict[str, Any] | None:
+    """``report.vision`` for the panel: status, model, reason and one entry per
+    analyzed page with quality words and its facts. None when absent."""
+    v = report.get("vision") if isinstance(report.get("vision"), dict) else None
+    if not v:
+        return None
+    pages = []
+    for p in v.get("pages") or []:
+        if not isinstance(p, dict):
+            continue
+        q = p.get("quality") if isinstance(p.get("quality"), dict) else {}
+        facts = []
+        for fact in p.get("facts") or []:
+            if not isinstance(fact, dict):
+                continue
+            g = fact.get("grounding") if isinstance(fact.get("grounding"), dict) else {}
+            bbox = fact.get("bbox") or g.get("bbox")
+            facts.append({
+                "name": str(fact.get("name") or ""), "value": fact.get("value"),
+                "confidence": fact.get("confidence") if isinstance(fact.get("confidence"), (int, float)) else None,
+                "evidence": str(fact.get("evidence")) if fact.get("evidence") else None,
+                "model": str(fact.get("model")) if fact.get("model") else None,
+                "bbox": [float(x) for x in bbox] if isinstance(bbox, (list, tuple)) and len(bbox) == 4 else None,
+            })
+        pages.append({
+            "page": p.get("page"), "kind": p.get("kind"),
+            "quality": {"status": str(q.get("status") or "") or None, "flags": [str(f) for f in (q.get("flags") or [])], "basis": str(q.get("basis") or "") or None},
+            "facts": facts,
+        })
+    return {"status": str(v.get("status") or "") or None, "model": str(v.get("model") or "") or None,
+            "reason": str(v.get("reason") or "") or None, "pages": pages}
+
+
+TRIGGER_WORDS = {
+    "pipeline:llm_grounded": "LLM grounding pass",
+    "pipeline:redhat_targeted": "Red-Hat targeted pass",
+    "replay": "Replay",
+    "classification_override": "Type changed by reviewer",
+}
+
+
+def rerun_history_view(report: dict[str, Any]) -> dict[str, Any]:
+    """The passes in ``replay.history`` (pipeline passes and replays alike):
+    when, what triggered it, which fields changed, found before → after,
+    improved. ``passes`` from ``replay.passes`` else the row count."""
+    rp = report.get("replay") if isinstance(report.get("replay"), dict) else {}
+    history = rp.get("history") if isinstance(rp.get("history"), list) else []
+    rows = []
+    for i, h in enumerate(history, 1):
+        if not isinstance(h, dict):
+            continue
+        trigger = str(h.get("trigger") or "") or None
+        changed = h.get("fields_changed") if isinstance(h.get("fields_changed"), list) else []
+        rows.append({
+            "n": i,
+            "at": str(h.get("at") or h.get("replayed_at") or h.get("created_at") or "") or None,
+            "trigger": trigger,
+            "trigger_words": TRIGGER_WORDS.get(trigger or "", (trigger or "").replace("pipeline:", "").replace("_", " ") or None),
+            "fields_changed": [str(c) for c in changed],
+            "before": h.get("fields_found_before") if isinstance(h.get("fields_found_before"), (int, float)) else None,
+            "after": h.get("fields_found_after") if isinstance(h.get("fields_found_after"), (int, float)) else None,
+            "improved": h.get("improved") if isinstance(h.get("improved"), bool) else None,
+            "outcome": h.get("outcome") or h.get("status") or h.get("result"),
+        })
+    passes = rp.get("passes")   # only the report's own count; the row count is not a pass count
+    return {"rows": rows, "passes": int(passes) if isinstance(passes, (int, float)) else None}
+
+
+def discovered_fields_view(report: dict[str, Any]) -> list[dict[str, Any]]:
+    out = []
+    for d in report.get("discovered_fields") or []:
+        if isinstance(d, dict) and d.get("name"):
+            span = d.get("span") if isinstance(d.get("span"), dict) else {}
+            out.append({"name": str(d["name"]), "value": d.get("value"), "page": span.get("page")})
+    return out
+
+
+def graph_integrity_view(report: dict[str, Any]) -> dict[str, Any] | None:
+    gi = report.get("graph_integrity") if isinstance(report.get("graph_integrity"), dict) else None
+    if not gi:
+        return None
+    score = gi.get("integrity_score")
+    neg = gi.get("negative_evidence")
+    orphans = gi.get("orphan_list") if isinstance(gi.get("orphan_list"), list) else None
+    return {
+        "score": float(score) if isinstance(score, (int, float)) else None,
+        "negative_evidence": (len(neg) if isinstance(neg, list) else (int(neg) if isinstance(neg, (int, float)) else None)),
+        "orphans": [str(o) for o in orphans] if orphans is not None else None,
+        "ok": gi.get("ok") if isinstance(gi.get("ok"), bool) else None,
+    }

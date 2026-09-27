@@ -57,10 +57,12 @@ Unit tests for the harness and the set: `tests/test_benchmark_harness.py`
 A metric with no inputs prints `n/a` and its gate is `n/a` — never 100 %.
 
 Inputs whose expected type has **no schema yet** (`expected.schema_exists:
-false` — endorsement, cancellation notice, repair estimate, schedule of
-forms in `bench-v1`) count as routing misses, as the plan intends, and are
-flagged `schema-gap` in the table; the notes also give routing over existing
-schemas so a classifier regression is not hidden behind a taxonomy gap.
+false`) count as routing misses, as the plan intends, and are flagged
+`schema-gap` in the table; the notes also give routing over existing schemas
+so a classifier regression is not hidden behind a taxonomy gap. In `bench-v1`
+this was endorsement, cancellation notice, repair estimate and schedule of
+forms until 2026-09-27, when the four landed as runtime schemas
+(`docs/parsure-schemas.md`); no input is flagged today.
 
 ## Gates (plan §8)
 
@@ -122,6 +124,33 @@ accuracy 54 % (the bottom-20 % heuristic, unchanged). The field-contract
 changes (`not_found`, `found_suspect`, `value_quality`, the 0.4 quality gate,
 `PROMOTION_MIN_RATIO`) moved no routing or anchoring number; the golden set
 stays 100 % over 64 fields. Result file: `bench/results/20260927T072440Z-*.json`.
+
+### Third run — 2026-09-27, working tree after the schema registry and the table pass, LLM off
+
+`bench/results/20260927T145330Z-b04f49f.json`. Same 25 cases / 28 inputs; the
+four schema gaps are closed by runtime schemas (`prompt_matrix/schemas/
+endorsement.json`, `cancellation_notice.json`, `repair_estimate.json`,
+`schedule_of_forms.json` — `docs/parsure-schemas.md`) and in-table values are
+read by `services/table_extraction`.
+
+| gate | value | status | change |
+|---|---|---|---|
+| routing ≥ 95 % | **96 %** (27/28; 0 schema gaps) | **PASS** | 82 % → 96 %: endorsement, cancellation notice, repair estimate and schedule of forms now route to their own types; the one miss left is the 90° rotated scan (`uncertain`) |
+| anchoring ≥ 90 % | 100 % (284/284) | PASS | — (table fields anchor to the table chunk, `p1e2`) |
+| Red-Hat recall ≥ 85 % | 100 % (3/3) | PASS | — |
+| replay determinism 100 % | 100 % (`element_id`, incl. the `eid-v1` table ids; saved-tree node ids still 0 %) | PASS | — |
+| latency P95 | 0.53 / 0.34 / 1.29 / 1.81 s | PASS ×4 | — |
+
+Extraction recall 84 % → **87 %** (232/266): the coverage schedule goes 6/9 →
+9/9 — `dwelling_coverage`, `personal_property_coverage` and `deductible` are
+read from the table (`extraction_method: table`; the deductible is a
+`first_row` pick among rows that disagree and stays in review); the
+endorsement reads the *added* VIN; the repair estimate's `estimated_damage`
+matches with its parenthetical. Per class: policies 100 % (56/56), claims
+96 % (50/52), mixed 81 % → 85 %. The photo, handwriting, rotated-scan and
+`federal_tax_id` / `cause_of_loss` misses are unchanged. `bench/manifest.json`
+drops `schema_exists: false` on the four inputs (a taxonomy fact, not an
+expected value; the cases, wording and expected values are untouched).
 
 ### What the failures are
 

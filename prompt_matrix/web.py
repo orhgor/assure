@@ -743,6 +743,29 @@ def create_app(*, require_auth: bool = True) -> Flask:
     def connect():
         return _page("connect.html", "connect")
 
+    def _original_available(project_id: str, report: dict) -> bool:
+        """True only when the stored original of a one-page image is still in
+        the object store (same resolution as GET …/documents/<id>/original in
+        routers/jdf_routes.py). Staged uploads are deleted after intake, so
+        this is usually False; the vision panel then lists facts without an
+        image and draws no box over nothing."""
+        try:
+            if str(report.get("modality") or "") not in ("phone_photo", "screenshot") and str(report.get("material_type") or "") not in ("photo", "screenshot"):
+                return False
+            try:
+                from .db import ingest_jobs_repository as _jobs
+                from .services.object_store import get_object_store, key_belongs_to_project
+            except ImportError:
+                from db import ingest_jobs_repository as _jobs  # type: ignore
+                from services.object_store import get_object_store, key_belongs_to_project  # type: ignore
+            job = _jobs.get_job(str(report["job_id"])) if report.get("job_id") else None
+            key = (job or {}).get("object_key")
+            if not key or not key_belongs_to_project(str(key), project_id):
+                return False
+            return bool(get_object_store().exists(str(key)))
+        except Exception:  # noqa: BLE001 — unknown is "no image", never a broken picture
+            return False
+
     def _parsure_analytics_view(project_id: str):
         """The Analytics page's view model (``/parsing/analytics``), or ``None``
         when the intake repository is absent. Shared shape with the former
@@ -962,6 +985,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 # what still asks for a person, what was found, what is not on
                 # the document. None until a report answers — never 0.
                 "section_counts": None,
+                "suspect_count": 0,
                 # snapshot integrity: True / False when the report carries a
                 # snapshot, None when it predates snapshots (nothing claimed).
                 "integrity_ok": None,
@@ -1021,6 +1045,7 @@ def create_app(*, require_auth: bool = True) -> Flask:
             # shown only when the type fits and something was read.
             if fields and not card["schema_mismatch"] and not card["nothing_extracted"]:
                 card["section_counts"] = _view.section_counts(fields)
+                card["suspect_count"] = _view.summary_breakdown(fields)["suspect"]
             snap_block = report.get("snapshot") if isinstance(report.get("snapshot"), dict) else None
             if snap_block and snap_block.get("content_hash"):
                 card["snapshot_short"] = str(snap_block["content_hash"])[:12]
@@ -1519,6 +1544,15 @@ def create_app(*, require_auth: bool = True) -> Flask:
                 "verification": _view.verification_basis(f),
                 "searched": _view.searched_summary(f),
                 "quote": (str(f.get("raw")).strip() or None) if f.get("raw") not in (None, "") else None,
+                # Execution-model surfaces (plan Part 6, 2026-09-27): the badge
+                # vocabulary, a 0–100 figure for the confidence bar, where the
+                # value came from, and the grounding quote + span. Each is None
+                # on a report that predates it.
+                "badge": _view.field_badge(f),
+                "conf_pct": int(round(float(f["extraction_confidence"]) * 100)) if isinstance(f.get("extraction_confidence"), (int, float)) else None,
+                "provenance": _view.provenance_label(f),
+                "provenance_confidence": _pv.score_label(f.get("provenance_confidence")) if isinstance(f.get("provenance_confidence"), (int, float)) else None,
+                "grounding": _view.grounding_view(f),
             }
 
         field_rows = [_field_row(f) for f in fields]
@@ -1736,6 +1770,16 @@ def create_app(*, require_auth: bool = True) -> Flask:
             "fields": field_rows,
             "sections": sections,
             "section_counts": {k: len(v) for k, v in sections.items()},
+            "breakdown": _view.summary_breakdown(fields),
+            "first_flagged": next((r["name"] for r in field_rows if r["section"] == "review"), None),
+            "execution": _view.execution_view(report),
+            "tables": _view.tables_view(report),
+            "vision": _view.vision_view(report),
+            "rerun": _view.rerun_history_view(report),
+            "discovered": _view.discovered_fields_view(report),
+            "graph_integrity": _view.graph_integrity_view(report),
+            "original_href": (f"/api/projects/{project_id}/documents/{report.get('document_id')}/original"
+                              if _original_available(project_id, report) else None),
             "uncertainty": _view.uncertainty_view(classification),
             "page_coverage": _view.page_coverage_view(report),
             "documents": [d for d in (report.get("documents") or []) if isinstance(d, dict)],

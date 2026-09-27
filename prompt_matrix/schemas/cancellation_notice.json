@@ -1,0 +1,102 @@
+{
+  "format": "parsure-schema-v1",
+  "document_type": "cancellation_notice",
+  "family": "auto",
+  "label": "Cancellation notice",
+  "description": "Notice of cancellation (personal auto). Anchored on bench/cases/texts.py AUTO_CANCELLATION (2026-09-27): 'NOTICE OF CANCELLATION', 'You are hereby notified that the above policy is cancelled', 'Cancellation Effective Date', 'Reason for Cancellation: Non-payment of premium. Amount past due', 'Unearned Premium to be returned', 'this notice is void', 'Reinstatement'. Family is auto because the benchmark's notice is an auto notice and the family gate admits one family per type; a property cancellation notice needs its own schema (property family) — recorded in docs/parsure-schemas.md.",
+  "keywords": [
+    "notice of cancellation",
+    "cancellation",
+    "cancelled",
+    "canceled",
+    "cancellation effective date",
+    "reason for cancellation",
+    "non-payment",
+    "nonpayment",
+    "hereby notified",
+    "unearned premium",
+    "reinstatement",
+    "lapse in coverage",
+    "notice is void",
+    "past due",
+    "coverage continues",
+    "policy number",
+    "named insured"
+  ],
+  "fields": [
+    {
+      "name": "policy_number",
+      "use": "auto_policy.policy_number"
+    },
+    {
+      "name": "insured_name",
+      "use": "auto_policy.insured_name"
+    },
+    {
+      "name": "mailing_address",
+      "label": "Mailing address",
+      "field_type": "text",
+      "anchors": [
+        "mailing\\s+address",
+        "address\\s+of\\s+(?:the\\s+)?(?:named\\s+)?insured"
+      ]
+    },
+    {
+      "name": "vin",
+      "use": "auto_policy.vin"
+    },
+    {
+      "name": "vehicle_year_make_model",
+      "use": "auto_policy.vehicle_year_make_model"
+    },
+    {
+      "name": "effective_date",
+      "label": "Cancellation effective date",
+      "field_type": "date",
+      "anchors": [
+        "cancellation\\s+effective\\s+date",
+        "effective\\s+date\\s+of\\s+cancellation",
+        "cancel(?:led|lation)?\\s+effective(?:\\s+date)?",
+        "effective(?:\\s+date)?"
+      ]
+    },
+    {
+      "name": "cancellation_reason",
+      "label": "Reason for cancellation",
+      "field_type": "text",
+      "anchors": [
+        "reason\\s+for\\s+cancellation",
+        "cancellation\\s+reason",
+        "reason(?:\\s+code)?"
+      ]
+    },
+    {
+      "name": "amount_due",
+      "label": "Amount past due",
+      "field_type": "money",
+      "anchors": [
+        "amount\\s+(?:past\\s+)?due",
+        "past\\s+due\\s+amount",
+        "balance\\s+due"
+      ]
+    },
+    {
+      "name": "unearned_premium",
+      "label": "Unearned premium",
+      "field_type": "money",
+      "anchors": [
+        "unearned\\s+premium(?:\\s+to\\s+be\\s+returned)?",
+        "return(?:ed)?\\s+premium",
+        "refund"
+      ]
+    },
+    {
+      "name": "agent_name",
+      "use": "auto_policy.agent_name"
+    },
+    {
+      "name": "signature",
+      "use": "auto_policy.signature"
+    }
+  ]
+}

@@ -211,3 +211,72 @@ every chosen file is a row in one queue (`_enqueueUploads` in `shell.js`).
   202 polled to "6 fields extracted · 2 need review · View", one 500 shown
   verbatim with Retry, the cap at 3, chip reopen, cancel; zero console errors.
   `ui_cache` is `assure-108`.
+
+## Execution-model surfaces (plan Part 6, 2026-09-27)
+
+`todos/fable_execution_plan.md` Part 6 / 11.4. The backend is adding
+`report.execution`, per-field grounding, `report.tables[]`, `report.vision`,
+`report.discovered_fields[]`, `graph_integrity.integrity_score` and pipeline
+passes in `replay.history[]`; every surface below renders them when present and
+says "not recorded" when absent. `services/parsure_view.py` holds the rules
+(`field_badge`, `provenance_label`, `grounding_view`, `execution_view`,
+`summary_breakdown`, `tables_view`, `vision_view`, `rerun_history_view`,
+`discovered_fields_view`, `graph_integrity_view`); `shell.js` mirrors the first
+five for the Fields tab.
+
+* **6.1 Badges.** The row chip / record cell reads the plan's vocabulary as-is:
+  Not found / Suspect / Unverified / Accepted / Review (plus Disputed / Rejected
+  / Conflict when a person produced them). Order: a person's verdict, then not
+  found, then `evidence_state == found_suspect`, then anything a person must
+  look at, then accepted, else unverified. A small bar beside the confidence
+  figure (`.conf-bar`, `aria-valuenow`) shows `extraction_confidence`; a
+  provenance label reads `grounding_source` / `grounding_model` /
+  `extraction_method` as "from label" / "from table" / "from model <id>" /
+  "from image", with `provenance_confidence` beside it when the report has it.
+* **6.2 Review summary.** Total / accepted / needs review / suspect / not found,
+  counted by the badge rule (suspect is inside review). Actions: **Review all
+  flagged** (selects / scrolls to the first row of the review section) and the
+  existing exports. **There is no bulk-accept button, on purpose**: accepting a
+  value nobody looked at is what the customer forbids; every acceptance is one
+  row, one click, with its source shown.
+* **6.3 Execution panel.** One row per step — LAYA, Z3 verification, Red-Hat
+  draft, Red-Hat graph, LLM grounding, Rerun, Vision, Tables — with the status
+  word, the block's counts (violations, findings, offered / grounded /
+  rejected, passes, pages, facts…), its policy / model / ms and its `reason`.
+  A step the report does not carry reads **not recorded**; a report without
+  `execution` says so once and lists every step as not recorded — nothing is
+  inferred from other blocks. The only timestamp is `execution.ran_at`, else
+  `snapshot.stamped_at`, else "no timestamp recorded".
+* **6.4 Grounding.** Each field with `grounding_quote` / `grounding_span` shows
+  "Evidence: “quote” · Page N · chars a–b · <model>" (or the table cell). In
+  the shell the quote is a button: the paragraph flashes (`_locateNode`) and
+  the range is painted with the CSS Custom Highlight API
+  (`::highlight(assure-grounding)`) over the rendered text runs — the span's
+  chars when they read the quote back, else the quote's own position, else the
+  span alone; without the API a single-text-node range is wrapped in `<mark>`
+  and restored, a cross-element range keeps the flash. On the record page the
+  quote links to the page's text block (`#page-N`).
+* **6.6 Tables.** `report.tables[]` render as grids on the record page:
+  caption, page, quality words and basis, the fields read from them; cells
+  named in `fields_extracted` (row/col) carry the field's name as a mark and
+  title. Bare field names without a cell are listed in the caption only.
+* **6.5 Vision.** A panel per analyzed page: kind, quality status / flags /
+  basis (poor quality reads red), and the facts table (name, value,
+  confidence, evidence, model, bbox figures). Boxes are drawn over the image
+  only when the stored original is still in the object store and the document
+  is one page (`_original_available` in `web.py`); otherwise the list stands
+  alone. `vision.reason` is printed when it did not run.
+* **6.7 Rerun history.** `replay.history[]` as a table: when, trigger words
+  ("LLM grounding pass", "Red-Hat targeted pass", "Replay", "Type changed by
+  reviewer"), fields changed, found before → after, improved; `replay.passes`
+  beside the attempts when the report records it. The Replay button stays.
+* **Also:** discovered fields (unknown types) as their own small table; graph
+  integrity (score, negative-evidence nodes, orphans) on the snapshot line;
+  the list row shows a suspect count beside the three sections.
+* **Tests.** `tests/test_parsing_page.py` (a report with every block, and an
+  older one that must read "not recorded" everywhere and invent no
+  provenance); `tests/test_workbench_safeguards.py` guards `assure-109`.
+  Headless smoke at 1280 / 390 px: breakdown counts, badges, execution rows
+  with counts and "not recorded", the grounding highlight over a
+  markdown-rendered paragraph (exact span and quote search), Review all
+  flagged, an older report's panel; zero console errors.

@@ -8408,6 +8408,10 @@
         if (typeof f.verification_confidence === "number") {
           _confField(wrap, _t("shell.confidence.verification", "Verification confidence"), _pct(f.verification_confidence));
         }
+        var provWords = _provenanceWords(f);
+        if (provWords) _confField(wrap, _t("shell.confidence.provenance", "Provenance"), provWords + (typeof f.provenance_confidence === "number" ? " \u00b7 " + _pct(f.provenance_confidence) : ""));
+        var gq = _groundingOf(f);
+        if (gq && gq.quote) _confField(wrap, _t("shell.fields.grounding", "Evidence"), "\u201C" + gq.quote + "\u201D" + (gq.span.page != null ? " \u00b7 " + _tf("shell.fields.page", "Page {n}", { n: gq.span.page }) : ""));
         if (f.modality || f.source_kind) {
           _confField(wrap, _t("shell.confidence.modality", "Evidence type"),
             [f.source_kind, f.modality].filter(Boolean).join(" · "));
@@ -8522,15 +8526,44 @@
     // The state chip: the semantic result in words, in the four tones the
     // document's own marks use. Amber for everything a reader still decides;
     // red only for rejected and conflict (brief §3F).
+    // The badge vocabulary of the customer plan (Part 6.1, 2026-09-27), as-is:
+    // Not found / Suspect / Unverified / Accepted / Review — a person's verdict
+    // (disputed / rejected / conflict) first. services/parsure_view.field_badge
+    // is the server's copy.
     function _fieldChip(f) {
       var st = String(f.field_state || "");
       if (_fieldInConflict(f.name)) return { key: "conflict", tone: "contradicted", words: _t("shell.fields.state.conflict", "Conflict") };
-      if (st === "rejected") return { key: "rejected", tone: "contradicted", words: _t("shell.fields.state.rejected", "Rejected") };
-      if (st === "disputed") return { key: "disputed", tone: "partial", words: _t("shell.fields.state.disputed", "Disputed") };
+      if (st === "rejected") return { key: "rejected", tone: "contradicted", words: _t("shell.fields.badge.rejected", "Rejected") };
+      if (st === "disputed") return { key: "disputed", tone: "partial", words: _t("shell.fields.badge.disputed", "Disputed") };
       // Not on the document: a grey fact, not an amber task (handoff 2026-09-27).
-      if (_fieldSection(f) === "not_found") return { key: "not_found", tone: "none", words: _t("shell.fields.state.not_found", "Not found") };
-      if (st === "accepted" && !_fieldNeedsAttention(f)) return { key: "accepted", tone: "verified", words: _t("shell.fields.state.accepted", "Verified") };
-      return { key: "review", tone: "partial", words: _t("shell.fields.state.review", "Review needed") };
+      if (_fieldSection(f) === "not_found") return { key: "not_found", tone: "none", words: _t("shell.fields.badge.not_found", "Not found") };
+      if (String(f.evidence_state || "") === "found_suspect") return { key: "suspect", tone: "partial", words: _t("shell.fields.badge.suspect", "Suspect") };
+      if (_fieldNeedsAttention(f) || f.review_required === true) return { key: "review", tone: "partial", words: _t("shell.fields.badge.review", "Review") };
+      if (st === "accepted") return { key: "accepted", tone: "verified", words: _t("shell.fields.badge.accepted", "Accepted") };
+      return { key: "unverified", tone: "none", words: _t("shell.fields.badge.unverified", "Unverified") };
+    }
+    // Where the value came from (grounding_source / grounding_model /
+    // extraction_method): "from label" / "from table" / "from model <id>" /
+    // "from image". Empty when the report says nothing about it.
+    function _provenanceWords(f) {
+      var source = String(f.grounding_source || "").toLowerCase();
+      var model = String(f.grounding_model || "");
+      var method = String(f.extraction_method || "").toLowerCase();
+      if (source === "label_anchor" || source === "label" || model === "label_anchor") return _t("shell.fields.provenance.label", "from label");
+      if (source === "table" || method === "table" || model === "table") return _t("shell.fields.provenance.table", "from table");
+      if (source === "vision" || model === "vision") return _t("shell.fields.provenance.image", "from image");
+      if (source === "llm" || source === "model" || model) {
+        return (model && model !== "llm" && model !== "model")
+          ? _tf("shell.fields.provenance.model", "from model {model}", { model: model })
+          : _t("shell.fields.provenance.model_plain", "from model");
+      }
+      return "";
+    }
+    function _groundingOf(f) {
+      var quote = typeof f.grounding_quote === "string" ? f.grounding_quote.trim() : "";
+      var span = f.grounding_span && typeof f.grounding_span === "object" ? f.grounding_span : null;
+      if (!quote && !span) return null;
+      return { quote: quote, span: span || {}, model: f.grounding_model ? String(f.grounding_model) : "" };
     }
     function _actorWords(a) { return a ? String(a) : _t("shell.fields.reviewer", "a reviewer"); }
     // One calm reason line per row, from the field's own facts — the server's
@@ -8699,6 +8732,108 @@
       if (f.evidence && f.evidence.page != null) return f.evidence.page;
       return null;
     }
+    // The grounding block (plan 6.4 / 11.4): the verbatim quote, the page and
+    // the model that offered it. Clicking the quote shows it in the document:
+    // the paragraph flashes (the same mark the audit findings use) and, when
+    // the span's chars fall inside the paragraph's own text — or the quote is
+    // found in it — only that range is marked.
+    function _renderGrounding(f, g) {
+      var box = _el("div", "field-grounding");
+      box.appendChild(_el("span", "field-grounding-label", _t("shell.fields.grounding", "Evidence")));
+      var nodeId = g.span.node_id || _fieldNodeId(f);
+      if (g.quote) {
+        var q;
+        if (nodeId && _nodeWrapper(String(nodeId))) {
+          q = _btn("field-grounding-quote", "\u201C" + g.quote + "\u201D");
+          q.title = _t("shell.fields.grounding_open", "Show this in the document");
+          q.addEventListener("click", function (e) { e.stopPropagation(); _highlightGrounding(String(nodeId), g); });
+        } else {
+          q = _el("q", "field-grounding-quote is-static", g.quote);
+        }
+        box.appendChild(q);
+      }
+      var where = [];
+      if (g.span.page != null) where.push(_tf("shell.fields.page", "Page {n}", { n: g.span.page }));
+      if (typeof g.span.start_char === "number" && typeof g.span.end_char === "number") where.push(_tf("shell.fields.grounding_chars", "chars {a}–{b}", { a: g.span.start_char, b: g.span.end_char }));
+      if (g.span.table_id) where.push(_tf("shell.fields.grounding_table", "table {id}", { id: String(g.span.table_id) }) + (g.span.row != null ? " r" + g.span.row : "") + (g.span.col != null ? " c" + g.span.col : ""));
+      if (g.model) where.push(g.model);
+      if (where.length) box.appendChild(_el("span", "field-grounding-where", where.join(" \u00b7 ")));
+      return box;
+    }
+    // The range mark. A paragraph is markdown-rendered and wrapped in
+    // confidence spans, so its text is spread over many text nodes: offsets
+    // are mapped over the concatenated text nodes and painted with the CSS
+    // Custom Highlight API (no DOM change, nothing to restore). Where that
+    // API is missing, a range inside one text node is wrapped in <mark> and
+    // restored afterwards; a range across nodes keeps the whole-node flash.
+    var GROUNDING_HIGHLIGHT = "assure-grounding";
+    var __groundingMark = null;
+    var __groundingTimer = null;
+    function _clearGroundingMark() {
+      if (__groundingTimer) { clearTimeout(__groundingTimer); __groundingTimer = null; }
+      try { if (window.CSS && CSS.highlights) CSS.highlights.delete(GROUNDING_HIGHLIGHT); } catch (_) {}
+      if (!__groundingMark) return;
+      var m = __groundingMark; __groundingMark = null;
+      if (m.el && m.el.parentNode) m.el.parentNode.replaceChild(document.createTextNode(m.el.textContent), m.el);
+      if (m.host) m.host.normalize();
+    }
+    function _textRunsOf(host) {
+      var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, null);
+      var runs = [], text = "", n;
+      while ((n = walker.nextNode())) {
+        var v = n.nodeValue || "";
+        runs.push({ node: n, start: text.length, end: text.length + v.length });
+        text += v;
+      }
+      return { runs: runs, text: text };
+    }
+    function _rangeOver(runs, a, b) {
+      var range = document.createRange();
+      var startSet = false;
+      for (var i = 0; i < runs.length; i++) {
+        var r = runs[i];
+        if (!startSet && a >= r.start && a < r.end) { range.setStart(r.node, a - r.start); startSet = true; }
+        if (startSet && b > r.start && b <= r.end) { range.setEnd(r.node, b - r.start); return range; }
+      }
+      return null;
+    }
+    function _highlightGrounding(nodeId, g) {
+      _locateNode(nodeId);
+      _clearGroundingMark();
+      var wrapper = _nodeWrapper(nodeId);
+      var host = wrapper ? (wrapper.querySelector(".jdf-p") || wrapper) : null;
+      if (!host) return;
+      var runs = _textRunsOf(host);
+      var text = runs.text;
+      var a = -1, b = -1;
+      var sc = g.span.start_char, ec = g.span.end_char;
+      var spanOk = typeof sc === "number" && typeof ec === "number" && ec > sc && ec <= text.length;
+      // The span's chars are trusted when they read the quote back out of the
+      // rendered text; otherwise the quote itself is searched; otherwise the
+      // span alone is used (a paragraph the report measured before rendering).
+      if (spanOk && g.quote && text.slice(sc, ec) === g.quote) { a = sc; b = ec; }
+      else if (g.quote && text.indexOf(g.quote) !== -1) { a = text.indexOf(g.quote); b = a + g.quote.length; }
+      else if (spanOk) { a = sc; b = ec; }
+      if (a < 0) return;
+      var range = _rangeOver(runs.runs, a, b);
+      if (!range) return;
+      if (window.Highlight && window.CSS && CSS.highlights) {
+        try { CSS.highlights.set(GROUNDING_HIGHLIGHT, new Highlight(range)); } catch (_) { return; }
+      } else if (range.startContainer === range.endContainer && range.startContainer.nodeType === 3) {
+        var node = range.startContainer;
+        var tail = node.splitText(range.startOffset);
+        tail.splitText(range.endOffset - range.startOffset);
+        var mark = document.createElement("mark");
+        mark.className = "grounding-mark";
+        mark.textContent = tail.nodeValue;
+        tail.parentNode.replaceChild(mark, tail);
+        __groundingMark = { el: mark, host: host };
+      } else {
+        return;   // across elements without the Highlight API: the flash alone
+      }
+      __groundingTimer = setTimeout(_clearGroundingMark, LOCATE_MARK_MS);
+    }
+
     // The source block above a correction / dispute input: page, the quote the
     // value was read from (`raw`), the paragraph in the loaded tree when its id
     // matches, "Show in document" (scroll + the shared is-located flash) and,
@@ -8821,6 +8956,8 @@
         note.hidden = !(ov && ov.previous && ov.previous !== cls.document_type);
         if (!note.hidden) note.textContent = _tf("shell.fields.type_changed", "Changed from {previous}", { previous: _docTypeWords(ov.previous) });
       }
+      _renderFieldsBreakdown(rep);
+      _renderFieldsExecution(rep);
       var form = document.getElementById("fields-type-form");
       var typeRow = document.getElementById("fields-type");
       var editing = Boolean(__fieldsEditor && __fieldsEditor.kind === "type");
@@ -8839,6 +8976,111 @@
         var err = document.getElementById("fields-type-error");
         if (err) { err.hidden = !__fieldsErrors.__type; err.textContent = __fieldsErrors.__type || ""; }
       }
+    }
+    // The review summary (plan 6.2): total / accepted / needs review / suspect /
+    // not found, counted from the rows by the badge rule, and "Review all
+    // flagged" to the first flagged row. There is no bulk-accept: accepting a
+    // value nobody looked at is what the customer forbids (docs/parsure-ui.md).
+    function _fieldsBreakdown(fields) {
+      var out = { total: 0, accepted: 0, review: 0, suspect: 0, not_found: 0 };
+      fields.forEach(function (f) {
+        if (!f || !f.name) return;
+        out.total += 1;
+        var k = _fieldChip(f).key;
+        if (k === "not_found") out.not_found += 1;
+        else if (k === "suspect") { out.suspect += 1; out.review += 1; }
+        else if (k === "review" || k === "disputed" || k === "rejected" || k === "conflict") out.review += 1;
+        else if (k === "accepted") out.accepted += 1;
+      });
+      return out;
+    }
+    function _renderFieldsBreakdown(rep) {
+      var host = document.getElementById("fields-summary");
+      if (!host) return;
+      var fields = rep && Array.isArray(rep.fields) ? rep.fields : [];
+      host.hidden = !fields.length;
+      if (!fields.length) return;
+      var b = _fieldsBreakdown(fields);
+      var counts = document.getElementById("fields-summary-counts");
+      if (counts) {
+        while (counts.firstChild) counts.removeChild(counts.firstChild);
+        [["total", _t("shell.fields.breakdown.total", "Total")], ["accepted", _t("shell.fields.breakdown.accepted", "Accepted")],
+         ["review", _t("shell.fields.breakdown.review", "Needs review")], ["suspect", _t("shell.fields.breakdown.suspect", "Suspect")],
+         ["not_found", _t("shell.fields.breakdown.not_found", "Not found")]].forEach(function (pair) {
+          var cell = _el("span", "fields-summary-cell");
+          cell.setAttribute("data-key", pair[0]);
+          cell.appendChild(_el("b", null, String(b[pair[0]])));
+          cell.appendChild(_el("span", null, pair[1]));
+          counts.appendChild(cell);
+        });
+      }
+      var btn = document.getElementById("fields-review-all");
+      if (btn) {
+        var first = fields.filter(function (f) { return f && f.name && _fieldSection(f) === "review"; })[0];
+        btn.hidden = !first;
+        btn.onclick = first ? function () { _showFieldsPanel(first.name); } : null;
+      }
+    }
+    // The execution panel (plan 6.3): one row per step from report.execution,
+    // status words and counts; "not recorded" for a step the report does not
+    // carry — never inferred from other blocks. The time is the block's own
+    // ran_at, else the snapshot's stamp, else nothing.
+    var EXECUTION_STEPS = [
+      ["laya", "shell.fields.exec.laya", "LAYA", ["escalate", "human_review"], ["policy"]],
+      ["z3", "shell.fields.exec.z3", "Z3 verification", ["violations"], []],
+      ["redhat_draft", "shell.fields.exec.redhat_draft", "Red-Hat draft", [], []],
+      ["redhat_graph", "shell.fields.exec.redhat_graph", "Red-Hat graph", ["findings", "high"], ["policy", "model_check"]],
+      ["llm_grounding", "shell.fields.exec.llm_grounding", "LLM grounding", ["fields_offered", "fields_grounded", "candidates_rejected"], ["model", "ms"]],
+      ["rerun", "shell.fields.exec.rerun", "Rerun", ["passes"], ["improved", "stop_rule"]],
+      ["vision", "shell.fields.exec.vision", "Vision", ["pages_analyzed", "facts"], ["model", "ms"]],
+      ["tables", "shell.fields.exec.tables", "Tables", ["tables", "fields_from_tables"], []],
+    ];
+    function _execStatusWords(status) {
+      var k = String(status || "").toLowerCase();
+      if (!k) return _t("shell.fields.exec.not_recorded", "not recorded");
+      return _t("shell.fields.exec.status." + k, k.replace(/_/g, " "));
+    }
+    function _renderFieldsExecution(rep) {
+      var host = document.getElementById("fields-execution");
+      var list = document.getElementById("fields-execution-list");
+      var when = document.getElementById("fields-execution-when");
+      if (!host || !list) return;
+      host.hidden = !rep;
+      if (!rep) return;
+      var ex = rep.execution && typeof rep.execution === "object" ? rep.execution : null;
+      var snap = rep.snapshot && typeof rep.snapshot === "object" ? rep.snapshot : {};
+      var ranAt = (ex && ex.ran_at) || snap.stamped_at || "";
+      if (when) when.textContent = ranAt ? _whenWords(ranAt) : _t("shell.fields.exec.no_time", "no timestamp recorded");
+      host.setAttribute("data-recorded", ex ? "1" : "0");
+      while (list.firstChild) list.removeChild(list.firstChild);
+      EXECUTION_STEPS.forEach(function (step) {
+        var block = ex && ex[step[0]] && typeof ex[step[0]] === "object" ? ex[step[0]] : null;
+        var li = _el("li", "exec-step");
+        li.setAttribute("data-step", step[0]);
+        li.setAttribute("data-status", block ? String(block.status || "not_recorded").toLowerCase() : "not_recorded");
+        li.appendChild(_el("span", "exec-label", _t(step[1], step[2])));
+        li.appendChild(_el("span", "exec-status", block ? _execStatusWords(block.status) : _t("shell.fields.exec.not_recorded", "not recorded")));
+        if (block) {
+          var bits = [];
+          step[3].forEach(function (k) {
+            var v = block[k];
+            if (typeof v === "boolean") bits.push(_t("shell.fields.exec.key." + k, k.replace(/_/g, " ")) + " " + (v ? _t("shell.fields.exec.yes", "yes") : _t("shell.fields.exec.no", "no")));
+            else if (typeof v === "number") bits.push(v + " " + _t("shell.fields.exec.key." + k, k.replace(/_/g, " ")));
+            else if (Array.isArray(v)) bits.push(v.length + " " + _t("shell.fields.exec.key." + k, k.replace(/_/g, " ")));
+          });
+          step[4].forEach(function (k) {
+            var v = block[k];
+            if (v == null || v === "") return;
+            if (k === "ms" && typeof v === "number") bits.push(v + " ms");
+            else if (typeof v === "boolean") bits.push(_t("shell.fields.exec.key." + k, k.replace(/_/g, " ")) + " " + (v ? _t("shell.fields.exec.yes", "yes") : _t("shell.fields.exec.no", "no")));
+            else bits.push(_t("shell.fields.exec.key." + k, k.replace(/_/g, " ")) + " " + String(v));
+          });
+          if (bits.length) li.appendChild(_el("span", "exec-counts", bits.join(" \u00b7 ")));
+          var reason = block.reason || (Array.isArray(block.reasons) && block.reasons.length ? block.reasons.join("; ") : "");
+          if (reason) li.appendChild(_el("span", "exec-reason", String(reason)));
+        }
+        list.appendChild(li);
+      });
     }
     function _overrideType() {
       var pid = _activeProjectId();
@@ -8881,7 +9123,17 @@
       var detail = _el("div", "field-detail");
       var facts = _el("div", "field-facts");
       if (typeof f.extraction_confidence === "number") {
-        facts.appendChild(_el("span", "field-conf", _tf("shell.fields.confidence", "Confidence {pct}", { pct: _pct(f.extraction_confidence) })));
+        var confWrap = _el("span", "field-conf", _tf("shell.fields.confidence", "Confidence {pct}", { pct: _pct(f.extraction_confidence) }));
+        // A small bar beside the figure (plan 6.1): the same number, at a glance.
+        var bar = _el("span", "conf-bar");
+        bar.setAttribute("role", "progressbar");
+        bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "100");
+        var pctN = Math.max(0, Math.min(100, Math.round(Number(f.extraction_confidence) * (Number(f.extraction_confidence) <= 1 ? 100 : 1))));
+        bar.setAttribute("aria-valuenow", String(pctN));
+        var fill = _el("span", "conf-bar-fill"); fill.style.width = pctN + "%";
+        bar.appendChild(fill);
+        confWrap.appendChild(bar);
+        facts.appendChild(confWrap);
         if (f.confidence_basis) {
           var why = document.createElement("details");
           why.className = "field-why";
@@ -8896,6 +9148,14 @@
       // a PASS the code did not earn (docs/anti-claims.md).
       var vwords = _verificationWords(f);
       if (vwords) facts.appendChild(_el("span", "field-verification", vwords));
+      var prov = _provenanceWords(f);
+      if (prov) {
+        var provEl = _el("span", "field-provenance", prov);
+        if (typeof f.provenance_confidence === "number") provEl.textContent += " · " + _tf("shell.fields.provenance_conf", "provenance {pct}", { pct: _pct(f.provenance_confidence) });
+        facts.appendChild(provEl);
+      } else if (typeof f.provenance_confidence === "number") {
+        facts.appendChild(_el("span", "field-provenance", _tf("shell.fields.provenance_conf", "provenance {pct}", { pct: _pct(f.provenance_confidence) })));
+      }
       var page = f.source_span && f.source_span.page;
       if (page != null) {
         // tree_node_id is the saved Assure paragraph (data-node-id in the column);
@@ -8916,6 +9176,8 @@
         }
       }
       if (facts.firstChild) detail.appendChild(facts);
+      var grounding = _groundingOf(f);
+      if (grounding) detail.appendChild(_renderGrounding(f, grounding));
       var warnings = _qualityWarnings(f, { skipReview: true });
       if (warnings.length) {
         var chips = _el("div", "quality-chips");

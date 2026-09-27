@@ -794,3 +794,91 @@ penalty tables and label maps for reports saved before the change.
 Companion documents: `docs/parsure-integrity.md` (canonical snapshot, hash
 gate, stable `document_id`, bounded replay), `docs/parsure-ui.md` (review
 mode, three field sections, source context, analytics page).
+
+
+## Execution ledger, grounding, in-pipeline passes, proof run (2026-09-27)
+
+Customer plan (`todos/fable_execution_plan.md`): "the system is not lying —
+it is not executing." Measured on the compose stack the same day: LAYA
+(rules-v1), Z3, the draft Red-Hat and the grounded model pass *did* run on
+every intake, but a report in which none of them leaves a trace reads as if
+they never did. So the run now records itself, and a runnable proof checks
+the record against the artifacts.
+
+### `report.execution`
+
+One entry per step, a status word and the counts that prove it, `not_run`
+with a reason when the step did not happen (`v1_orchestrator.build_execution`;
+the critique, the targeted pass and vision write their own entries later in
+`run_after_parse`): `laya` (from the router's triage block), `z3` (from the
+verification summary: PASS / VIOLATION / skipped / ERROR / not_run),
+`redhat_draft`, `redhat_graph` (rh-graph-v1 counts, whether the model check
+ran), `llm_grounding` (`ran` / `skipped` / `disabled` / `failed` /
+`not_needed`, the model, fields offered / grounded / filled, candidates
+rejected, ms), `redhat_targeted`, `rerun` (passes, attempts, fields changed),
+`tables`, `vision`, `ran_at`. Nothing here comes from a default: the model
+pass reports its own counts, the critique its own findings.
+
+### Grounding on every located value
+
+`grounding_quote` (verbatim, ≤ 240 chars), `grounding_span` (page, offsets,
+element, node — and the quote's own offsets when a model supplied it),
+`grounding_model` (`label_anchor`, or the model id), `grounding_source`
+(`label_anchor` / `llm` / `table` / `vision`). The label pass quotes the line
+the value sits on (`field_extractor.line_quote`); the grounded model pass
+keeps the model's verbatim quote as the primary grounding. Absent fields
+carry none. `provenance_confidence` now follows the value's shape
+(`PROVENANCE_BY_SHAPE`: valid 1.0, invalid_format 0.7, address_fragment 0.6,
+garbage / header_or_label 0.3) — the span of a header is real, "the right
+place for this value" is what the header disproves; `value_quality` stays the
+separate signal.
+
+### The run's own second looks (`replay.history`, `pipeline:*`)
+
+`record_pipeline_pass` appends to the same append-only ledger a reviewer's
+rerun uses, with triggers `pipeline:llm_grounded` (the grounded pass after the
+label pass filled something) and `pipeline:redhat_targeted`: the critique's
+`suspect_value` / `unsupported_claim` findings name fields, those fields are
+offered once more with the finding as the prompt hint
+(`llm_extraction.build_prompt(hints=)`), a grounded answer replaces the
+debris, the policy re-runs on it, the critique runs again over the changed
+graph (`redhat.previous_counts`, `redhat.targeted_pass`). Pipeline passes
+count in `replay.passes`, not in `attempts` — the reviewer's three reruns
+stay theirs (`rerun_stop_rule` reads manual triggers only). `improved` is "a
+field changed", not only "more fields found".
+
+### Replay determinism with grounded values
+
+A replay re-extracts without a model. Values the first run grounded with the
+model are carried when their `grounding_quote` is still verbatim on the page
+with the value inside it (`carry_grounded_values`, no model call,
+`carried_from` on the field); measured live before the change, the replay
+dropped a footer-grounded `insured_name` and the proof read "changed" for
+the same bytes.
+
+### Export gate on the field graph
+
+`snapshot.require_intact` also refuses (409, `GraphIntegrityRefused`) when
+`graph_integrity.integrity_score` (anchored / fields) is under 0.9;
+`graph_integrity` gained `integrity_score`, `negative_evidence`,
+`orphan_list`. Every field carries `field_uid = field-<document_id>-<name>`
+— a pointer that survives reruns and exports.
+
+### Proof
+
+`tests/test_end_to_end_proof.py` (plan Parts 2.8 / 16): an injected model
+answers nothing on the blanket prompt and a verbatim quote on the hinted one
+— the critique's finding is what changed the field; Z3 violation → rejected;
+the first grounded pass is a recorded pipeline pass; orphaned graph → 409.
+`scripts/final_run.py` (Part 2.10) drives a real document through the
+running stack over HTTP and prints one PASS/FAIL line per check (ledger
+present, LAYA/Z3/critique/model pass ran or said why not, grounding on every
+found value, no verification confidence on absences, suspects quoted not
+trusted, counts consistent, graph whole, snapshot intact, replay
+deterministic, export carries the hash, record page renders; `--tamper`
+proves the 409). Exit code 0 only when everything passes. Run against an
+image that predates this section it fails 11 of 21 checks — which is the
+point.
+
+Companion documents: `docs/parsure-schemas.md` (tables, schema registry,
+export filenames), `docs/parsure-vision.md`, `docs/parsure-ui.md`.

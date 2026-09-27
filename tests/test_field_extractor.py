@@ -188,7 +188,8 @@ def test_value_shape_rejects_headers_addresses_and_debris_as_found_suspect():
     assert pol["value"] is None and pol["raw"].startswith("~~")  # _clean_text_value trims the trailing punctuation
     assert pol["evidence_state"] == "found_suspect" and pol["value_quality"]["quality"] == "garbage"
     assert pol["number_quality"]["quality"] == "invalid_format" and pol["source_span"]["page"] == 1
-    assert pol["provenance_confidence"] == 1.0  # the span is real; the value is not
+    assert pol["provenance_confidence"] == fx.PROVENANCE_BY_SHAPE["garbage"] == 0.3  # the span is real, the place is not proven (plan 1.1)
+    assert pol["grounding_quote"].startswith("Policy Number:") and pol["grounding_model"] == "label_anchor" and pol["grounding_span"]["page"] == 1
     name = fields["insured_name"]
     assert name["value"] is None and name["value_quality"]["quality"] == "header_or_label"
     assert fields["agent_name"]["value_quality"]["quality"] == "address_fragment"

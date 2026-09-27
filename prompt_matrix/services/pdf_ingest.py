@@ -270,6 +270,14 @@ def ingest_pdf_for_project(
         # Shared verification hook: Z3 + Red-Hat run here and only here
         # (services/verification). Never raises by contract; guarded anyway
         # because a revision must not fail on verification.
+        # The raw jdf-cli document stays on the bundle as ``jdf_source``
+        # (2026-09-27, plan Part 3): its ``type: "table"`` page elements carry
+        # the headers/rows the table pass reads (``services/table_extraction.
+        # collect_tables``); the tree keeps the grid too, but the element is
+        # the measured source. In-memory only — OMP and the revision do not
+        # read this key.
+        if isinstance(bundle.get("jdf"), dict) and isinstance(bundle["jdf"].get("pages"), list):
+            bundle["jdf_source"] = bundle["jdf"]
         bundle["jdf"] = tree
         try:
             verification = run_verification_after_parse(bundle)
