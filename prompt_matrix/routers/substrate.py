@@ -36,7 +36,7 @@ try:
         build_omp_artifact_from_parse,
     )
     from ..services.omp_memory import remember_vault_file
-    from ..services.source_jdf import content_revision, is_source_jdf, persist_source_jdf
+    from ..services.source_jdf import content_revision, is_source_jdf, pages_are_ocr, persist_source_jdf, store_page_rasters
     from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -62,7 +62,7 @@ except ImportError:
         build_omp_artifact_from_parse,
     )
     from services.omp_memory import remember_vault_file
-    from services.source_jdf import content_revision, is_source_jdf, persist_source_jdf
+    from services.source_jdf import content_revision, is_source_jdf, pages_are_ocr, persist_source_jdf, store_page_rasters
     from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -466,14 +466,26 @@ def ingest_substrate_file(
     # and text uploads leave ``source_jdf`` None and the route answers 404.
     source_jdf = None
     if is_source_jdf(extracted.get("jdf")):
+        source_revision = job_id or content_revision(file_bytes)
+        # Page rasters for an OCR document (services/source_jdf, 2026-09-28),
+        # mirroring services/pdf_ingest: the OCR text is not the page, so the
+        # page is rendered once here and stored beside the source JDF. The
+        # parser name (``jdf-cli+tesseract``) and the source kind decide; the
+        # router's intake dict is only computed further down on this path.
+        rasters: list[dict] = []
+        if pages_are_ocr(extracted.get("parser_name"), source_kind=extracted.get("source_kind")):
+            rasters = store_page_rasters(
+                project_id, str(entry["id"]), source_revision, file_bytes, filename, page_count
+            )
         source_jdf = persist_source_jdf(
             project_id,
             str(entry["id"]),
-            job_id or content_revision(file_bytes),
+            source_revision,
             extracted["jdf"],
             chunks=extracted.get("chunks") or [],
             job_id=job_id,
             filename=filename,
+            rasters=rasters,
         )
 
     _job_advance(

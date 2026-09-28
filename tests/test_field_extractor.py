@@ -575,3 +575,98 @@ def test_found_field_resolves_to_the_element_inside_a_paragraph_with_meta_elemen
     assert vin["field_source_node_id"] == "p-1"  # the paragraph stays the node address
     assert fields["agent_name"]["value"] is None and fields["agent_name"]["element_id"] is None
     assert fx._element_at(layout[0][0], 68) is None and fx._element_at(None, 0) is None
+
+
+# --------------------------------------------------------------------------
+# OCR block sub-elements and the signature band by the label (2026-09-28)
+# --------------------------------------------------------------------------
+
+def _scan_page(blocks, *, frame=None):
+    """A jdf-cli ``--ocr tesseract`` page: one image element carrying the OCR
+    blocks, drawn over ``frame`` (mm) or the whole 200 × 100 mm page."""
+    x, y, w, h = frame or (0, 0, 200, 100)
+    el = {"type": "image", "id": "scan-1", "position": {"x": x, "y": y}, "width": w, "height": h,
+          "ocr": {"language": "eng", "blocks": [{"text": t, "confidence": c, "bbox": {"x": bx, "y": by, "w": bw, "h": bh}} for t, c, (bx, by, bw, bh) in blocks]}}
+    return {"pageSize": {"width": 200, "height": 100}, "elements": [el]}, el
+
+
+def test_ocr_block_elements_map_blocks_into_page_coordinates_with_offsets():
+    page, el = _scan_page([("Policy Number: PA-1", 0.9, (0.1, 0.2, 0.5, 0.1)), ("Authorized Signature: —l", 0.8, (0.1, 0.6, 0.4, 0.05))],
+                          frame=(0, 0, 100, 50))  # image over the top-left quarter of the page
+    text = fx._element_text(el)
+    entries = fx.ocr_block_elements(el, page, text)
+    assert [e["kind"] for e in entries] == ["ocr_block", "ocr_block"]
+    # frame [0, 0, 0.5, 0.5] of the page; block x 0.1 → 0.05, y 0.2 → 0.1, w 0.5 → 0.25
+    assert entries[0]["bbox"] == [0.05, 0.1, 0.3, 0.15]
+    assert text[entries[0]["start_char"]:entries[0]["end_char"]] == "Policy Number: PA-1"
+    assert text[entries[1]["start_char"]:entries[1]["end_char"]] == "Authorized Signature: —l"
+    assert entries[1]["ocr_confidence"] == 0.8 and "element_id" not in entries[0]
+    # with a chunk address the entries get eid-v1 ids and the page
+    addressed = fx.ocr_block_elements(el, page, text, chunk_id="scan-1", page_no=1, offset=10)
+    assert addressed[0]["start_char"] == 10 and addressed[0]["page"] == 1
+    assert addressed[0]["element_id"] == fx.derive_element_id("scan-1", 1, addressed[0]["bbox"], "Policy Number: PA-1")
+    assert fx.ocr_block_elements({"type": "text", "content": "x"}, page) == []
+
+
+def test_page_layout_lists_the_element_first_then_its_ocr_blocks():
+    page, el = _scan_page([("Policy Number: PA-1", 0.9, (0.1, 0.2, 0.5, 0.1)), ("Authorized Signature: ____", 0.8, (0.1, 0.6, 0.4, 0.05))])
+    layout = fx.page_layout({"jdf": {"pages": [page]}, "chunks": [{"id": "scan-1", "page": 1, "text": fx._element_text(el), "types": ["image"]}]})
+    seg = layout[0][0]
+    assert seg["bbox"] == [0.0, 0.0, 1.0, 1.0] and seg["ocr_confidence"] == 0.85
+    kinds = [e["kind"] for e in seg["elements"]]
+    assert kinds == ["element", "ocr_block", "ocr_block"]
+    # first match is still the element itself: provenance and ids do not move
+    assert fx._element_at(seg, 0)["kind"] == "element" and fx._element_at(seg, 25)["kind"] == "element"
+    assert seg["elements"][2]["bbox"] == [0.1, 0.6, 0.5, 0.65]
+
+
+def _pt_page_to_jdf_bundle(pdf: bytes) -> dict:
+    """A jdf-cli-shaped bundle built from a PyMuPDF text page (one text element
+    per block, mm coordinates), so the layout carries real bboxes."""
+    import fitz
+    doc = fitz.open(stream=pdf, filetype="pdf")
+    page = doc[0]
+    to_mm = 25.4 / 72.0
+    elements = []
+    for x0, y0, x1, y1, text, *_ in page.get_text("blocks"):
+        text = text.rstrip("\n")
+        if text.strip():
+            elements.append({"type": "text", "content": text, "position": {"x": round(x0 * to_mm, 2), "y": round(y0 * to_mm, 2)},
+                             "width": round((x1 - x0) * to_mm, 2), "height": round((y1 - y0) * to_mm, 2), "style": {"fontSize": 10}})
+    jdf = {"pages": [{"pageSize": {"width": round(page.rect.width * to_mm, 2), "height": round(page.rect.height * to_mm, 2)}, "elements": elements}]}
+    text = "\n".join(e["content"] for e in elements)
+    doc.close()
+    return {"jdf": jdf, "chunks": [{"id": "p1e0", "page": 1, "text": text, "types": ["text"]}], "text": text}
+
+
+def test_signature_field_measures_the_band_by_the_label_element():
+    """The bench gap: a wet signature beside a label at 45 % of the page was
+    "missing" because only the bottom 20 % was measured (2026-09-28)."""
+    import fitz
+    from prompt_matrix.services.quality_probe import probe_visual_quality
+    doc = fitz.open()
+    page = doc.new_page()
+    y = 72
+    for line in AUTO_POLICY.strip().split("\n")[:-1]:
+        page.insert_text((54, y), line, fontsize=10)
+        y += 13.5
+    page.insert_text((54, y), "Authorized Signature: ______________________________", fontsize=10)
+    rect = page.search_for("Authorized Signature")[0]
+    x0, base = rect.x1 + 6, rect.y1 - 1
+    page.draw_line((x0, base), (x0 + 220, base), color=(0, 0, 0), width=0.6)
+    page.draw_polyline([(x0 + 8 + t * 4.5, base - 4 - 9 * abs(((t / 40 * 6) % 2) - 1)) for t in range(41)], color=(0.05, 0.05, 0.25), width=1.6)
+    pdf = doc.tobytes()
+    bundle = _pt_page_to_jdf_bundle(pdf)
+    layout, texts = fx.page_layout(bundle), fx.page_texts(bundle)
+    visual = probe_visual_quality(pdf, "signed.pdf")
+    fields = {f["name"]: f for f in fx.extract_fields("auto_policy", texts, layout=layout, visual_pages=visual, parser_name="jdf-cli",
+                                                        parse_confidence=None, ocr_confidence=None, page_quality=[1.0])}
+    sig = fields["signature"]
+    assert sig["value"] == "present" and sig["signature_quality"]["quality"] == "present_ambiguous"
+    assert sig["signature_quality"]["region"]["basis"] == "label element"
+    assert sig["signature_quality"]["region"]["bbox"][1] < 0.6  # the label line, well above the bottom band
+    assert sig["signature_quality"]["next_check"].startswith("Open the page image")
+    # without a layout the same page falls back to the bottom band and is judged blank
+    blind = {f["name"]: f for f in fx.extract_fields("auto_policy", texts, layout=None, visual_pages=visual, parser_name="jdf-cli",
+                                                       parse_confidence=None, ocr_confidence=None, page_quality=[1.0])}
+    assert blind["signature"]["signature_quality"]["region"]["basis"] == "bottom band"

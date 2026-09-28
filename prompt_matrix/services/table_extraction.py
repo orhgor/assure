@@ -291,7 +291,9 @@ def _make_table(*, headers: list, rows: list, page: int, chunk_id: str | None, n
 def collect_tables(bundle: dict, layout: list[list[dict]] | None = None) -> list[dict[str, Any]]:
     """Every table of a parse bundle, in page order, in the shape the report
     publishes (``report["tables"]``). Reads the jdf-cli page elements
-    (``type: "table"``) first, else the Assure tree's table nodes (``type:
+    (``type: "table"``) plus the grids rebuilt from a page's shape rules and
+    text positions (``grid_tables_from_shapes`` — jdf-cli 0.2.5 emits no
+    table elements for forms), else the Assure tree's table nodes (``type:
     "table"`` under ``body[].children``). ``layout`` is accepted for symmetry
     with the other passes; nothing here depends on it (the table element is
     not a layout segment — that is the reason this module exists)."""
@@ -326,6 +328,9 @@ def collect_tables(bundle: dict, layout: list[list[dict]] | None = None) -> list
                 bbox, basis = _table_bbox(el, page, len(rows))
                 tables.append(_make_table(headers=headers, rows=rows, page=page_no, chunk_id=chunk_id, node_id=node_id, bbox=bbox,
                                           bbox_basis=basis, caption=el.get("caption"), source="jdf_element"))
+            # jdf-cli 0.2.5 emits cells as text + shape rules and no table
+            # element; the same grids are rebuilt from the rules (2026-09-28).
+            tables.extend(grid_tables_from_shapes(page, page_no, bundle=bundle, existing=[t for t in tables if t["page"] == page_no]))
         return tables
     if isinstance(jdf.get("body"), list):
         for section in jdf["body"]:
@@ -348,6 +353,216 @@ def collect_tables(bundle: dict, layout: list[list[dict]] | None = None) -> list
                                               chunk_id=chunk_id, node_id=str(node.get("id")) if node.get("id") else chunk_id,
                                               bbox=None, bbox_basis=None, caption=node.get("caption"), source="tree_node"))
                 stack = list(node.get("children") or []) + stack
+    return tables
+
+
+# --------------------------------------------------------------------------
+# Grids reconstructed from shape rules (jdf-cli 0.2.5)
+# --------------------------------------------------------------------------
+
+#: Rule edges closer than this (mm) are the same rule; jdf-cli 0.2.5 places
+#: the HCFA-1500's cell rules within 0.1 mm of each other (2026-09-28).
+GRID_EDGE_TOL_MM = 0.8
+#: A cell narrower or shorter than this (mm) is a checkbox tick or a rule
+#: artefact, not a table cell (the HCFA checkboxes are 2.97 × 3.88 mm rects).
+GRID_MIN_CELL_MM = 4.0
+GRID_MIN_ROWS = 2   # header + one row
+GRID_MIN_COLS = 2
+#: A reconstructed grid overlapping a table element's bbox by more than this
+#: share of its own area is that table (jdf-cli 0.2.3 emits both the table
+#: element and the rules it was drawn with) and is not reported twice.
+GRID_DUPLICATE_OVERLAP = 0.5
+
+
+def _num(v: Any) -> float | None:
+    return float(v) if isinstance(v, (int, float)) else None
+
+
+def _shape_rules(page: dict) -> tuple[list[tuple[float, float, float]], list[tuple[float, float, float]]]:
+    """Horizontal ``(y, x0, x1)`` and vertical ``(x, y0, y1)`` rule segments
+    (mm) from a page's ``shape`` elements: the four edges of every ``rect`` at
+    least ``GRID_MIN_CELL_MM`` on both sides, and every ``line`` that is
+    straight along one axis (jdf-cli 0.2.5 draws the HCFA-1500's column rules
+    as ``line`` shapes of width 0.1 mm, its checkboxes as small rects)."""
+    horizontal: list[tuple[float, float, float]] = []
+    vertical: list[tuple[float, float, float]] = []
+    for el in fx._walk_elements(page.get("elements")):
+        if str(el.get("type") or "").lower() != "shape":
+            continue
+        pos = el.get("position") if isinstance(el.get("position"), dict) else {}
+        x, y, w, h = _num(pos.get("x")), _num(pos.get("y")), _num(el.get("width")), _num(el.get("height"))
+        if x is None or y is None or w is None or h is None:
+            continue
+        kind = str(el.get("shape") or "").lower()
+        if kind == "rect":
+            if w < GRID_MIN_CELL_MM or h < GRID_MIN_CELL_MM:
+                continue
+            horizontal += [(y, x, x + w), (y + h, x, x + w)]
+            vertical += [(x, y, y + h), (x + w, y, y + h)]
+        elif kind == "line":
+            if h <= GRID_EDGE_TOL_MM and w > GRID_EDGE_TOL_MM:
+                horizontal.append((y + h / 2.0, x, x + w))
+            elif w <= GRID_EDGE_TOL_MM and h > GRID_EDGE_TOL_MM:
+                vertical.append((x + w / 2.0, y, y + h))
+    return horizontal, vertical
+
+
+def _merge_rules(segments: list[tuple[float, float, float]]) -> list[tuple[float, float, float]]:
+    """Cluster segments by their fixed coordinate (within ``GRID_EDGE_TOL_MM``)
+    and merge the spans that touch or overlap, so a rule drawn in pieces is one
+    run ``(coordinate, span start, span end)``."""
+    runs: list[tuple[float, float, float]] = []
+    for seg in sorted(segments):
+        c, a, b = seg
+        if runs and abs(runs[-1][0] - c) <= GRID_EDGE_TOL_MM and a <= runs[-1][2] + GRID_EDGE_TOL_MM and b >= runs[-1][1] - GRID_EDGE_TOL_MM:
+            pc, pa, pb = runs[-1]
+            runs[-1] = ((pc + c) / 2.0, min(pa, a), max(pb, b))
+        else:
+            runs.append((c, a, b))
+    return runs
+
+
+def _row_bands(horizontal: list[tuple[float, float, float]], vertical: list[tuple[float, float, float]]) -> list[dict[str, Any]]:
+    """One band per pair of vertically adjacent horizontal rules that overlap
+    in x, with the vertical rules that span both as its column boundaries;
+    bands with fewer than ``GRID_MIN_COLS`` cells are dropped."""
+    bands: list[dict[str, Any]] = []
+    hs = sorted(horizontal)
+    for i, (ya, ax0, ax1) in enumerate(hs):
+        below = None
+        for yb, bx0, bx1 in hs[i + 1:]:
+            if yb - ya < GRID_MIN_CELL_MM:
+                continue
+            ox0, ox1 = max(ax0, bx0), min(ax1, bx1)
+            if ox1 - ox0 >= GRID_MIN_CELL_MM * GRID_MIN_COLS:
+                below = (yb, ox0, ox1)
+                break
+        if below is None:
+            continue
+        yb, ox0, ox1 = below
+        xs = sorted(x for x, vy0, vy1 in vertical
+                    if ox0 - GRID_EDGE_TOL_MM <= x <= ox1 + GRID_EDGE_TOL_MM and vy0 <= ya + GRID_EDGE_TOL_MM and vy1 >= yb - GRID_EDGE_TOL_MM)
+        cols: list[float] = []
+        for x in xs:
+            if not cols or x - cols[-1] >= GRID_MIN_CELL_MM:
+                cols.append(x)
+        if len(cols) - 1 >= GRID_MIN_COLS:
+            bands.append({"y0": ya, "y1": yb, "cols": cols})
+    return bands
+
+
+def _same_columns(a: list[float], b: list[float]) -> bool:
+    return len(a) == len(b) and all(abs(p - q) <= GRID_EDGE_TOL_MM for p, q in zip(a, b))
+
+
+def _text_anchors(page: dict) -> list[tuple[float, float, str]]:
+    """``(x, y, text)`` of every text element: the top-left corner nudged
+    into the glyphs (0.5 mm right, half a line down) — the point that lies
+    in the cell the text starts in, whatever the element's width."""
+    out: list[tuple[float, float, str]] = []
+    for el in fx._walk_elements(page.get("elements")):
+        if str(el.get("type") or "").lower() not in ("text", "richtext"):
+            continue
+        text = fx._element_text(el).strip()
+        pos = el.get("position") if isinstance(el.get("position"), dict) else {}
+        x, y = _num(pos.get("x")), _num(pos.get("y"))
+        if not text or x is None or y is None:
+            continue
+        font = (el.get("style") or {}).get("fontSize") if isinstance(el.get("style"), dict) else None
+        line_mm = (float(font) if isinstance(font, (int, float)) else 11.0) * 0.3528
+        out.append((x + 0.5, y + line_mm / 2.0, text))
+    return out
+
+
+def _chunk_id_for_text(bundle: dict, page_no: int, needle: str) -> str | None:
+    """The page's chunk whose text carries ``needle`` — the grid table's node
+    address (there is no table chunk for a grid jdf-cli did not see)."""
+    needle = " ".join(needle.split())
+    if not needle:
+        return None
+    for chunk in bundle.get("chunks") or []:
+        if not isinstance(chunk, dict):
+            continue
+        try:
+            if int(chunk.get("page") or 0) != page_no:
+                continue
+        except (TypeError, ValueError):
+            continue
+        text = " ".join(str(chunk.get("text") or chunk.get("content") or "").split())
+        if needle in text and chunk.get("id"):
+            return str(chunk["id"])
+    return None
+
+
+def _overlap_share(a: list[float], b: list[float]) -> float:
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    area = max(1e-9, (a[2] - a[0]) * (a[3] - a[1]))
+    return ix * iy / area
+
+
+def grid_tables_from_shapes(page: dict, page_no: int, *, bundle: dict | None = None, existing: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Tables rebuilt from a page's shape rules and text positions.
+
+    jdf-cli 0.2.5 emits no ``table`` element for a form (measured 2026-09-28
+    on the HCFA-1500 demo form: 0.2.3 gave 16 table elements, 0.2.5 gave 402
+    ``text`` + 242 ``shape`` elements — 186 lines, 35 rects — and no table),
+    so the cells exist only as rules and free text. Adjacent horizontal rules
+    that overlap in x form a row band; the vertical rules spanning the band
+    are its column boundaries (``_row_bands``); consecutive bands with the
+    same boundaries are one table (``GRID_MIN_ROWS`` × ``GRID_MIN_COLS`` at
+    least); the header is the first row; a cell's text is the text elements
+    whose anchor (``_text_anchors``) lies inside it, in reading order. Rows
+    whose column set differs (merged cells) end the table rather than being
+    guessed. A grid that lies on a table element jdf-cli did emit
+    (``existing``, overlap > ``GRID_DUPLICATE_OVERLAP``) is skipped. Same
+    ``tables[]`` shape as the element path, ``source: "grid_from_shapes"``;
+    ``quality.basis`` and ``bbox_basis`` name the reconstruction.
+    """
+    horizontal, vertical = _shape_rules(page)
+    if not horizontal or not vertical:
+        return []
+    h_runs, v_runs = _merge_rules(horizontal), _merge_rules(vertical)
+    bands = sorted(_row_bands(h_runs, v_runs), key=lambda b: (b["y0"], b["cols"][0]))
+    size = page.get("pageSize") or page.get("size") or {}
+    pw, ph = _num(size.get("width")), _num(size.get("height"))
+    anchors = _text_anchors(page)
+    groups: list[list[dict[str, Any]]] = []
+    for band in bands:
+        if groups and _same_columns(groups[-1][-1]["cols"], band["cols"]) and abs(groups[-1][-1]["y1"] - band["y0"]) <= GRID_EDGE_TOL_MM:
+            groups[-1].append(band)
+        else:
+            groups.append([band])
+    tables: list[dict[str, Any]] = []
+    for group in groups:
+        if len(group) < GRID_MIN_ROWS:
+            continue
+        cols = group[0]["cols"]
+        grid: list[list[str]] = []
+        for band in group:
+            row: list[str] = []
+            for cx0, cx1 in zip(cols, cols[1:]):
+                inside = sorted((ay, ax, t) for ax, ay, t in anchors if cx0 <= ax < cx1 and band["y0"] <= ay < band["y1"])
+                row.append(" ".join(t for _, _, t in inside))
+            grid.append(row)
+        if not any(c.strip() for r in grid for c in r):
+            continue  # ruled but empty boxes: a blank form section, not a table
+        bbox = None
+        if pw and ph and pw > 0 and ph > 0:
+            bbox = [round(cols[0] / pw, 4), round(group[0]["y0"] / ph, 4), round(cols[-1] / pw, 4), round(group[-1]["y1"] / ph, 4)]
+        if bbox and any(isinstance(t.get("bbox"), list) and _overlap_share(bbox, t["bbox"]) > GRID_DUPLICATE_OVERLAP for t in existing or []):
+            continue
+        headers, rows = grid[0], grid[1:]
+        first_text = next((c for r in grid for c in r if c.strip()), "")
+        chunk_id = _chunk_id_for_text(bundle or {}, page_no, first_text)
+        basis = (f"grid reconstructed from {len(h_runs)} horizontal and {len(v_runs)} vertical shape rules "
+                 f"(edge tolerance {GRID_EDGE_TOL_MM} mm); {len(group)} row bands × {len(cols) - 1} columns; cell text by text-element position")
+        table = _make_table(headers=headers, rows=rows, page=page_no, chunk_id=chunk_id, node_id=None, bbox=bbox,
+                            bbox_basis="rule positions of the reconstructed grid (jdf-cli shape elements)", caption=None, source="grid_from_shapes")
+        table["quality"]["basis"] = f"{table['quality']['basis']}; {basis}"
+        table["grid"] = {"horizontal_rules": len(h_runs), "vertical_rules": len(v_runs), "tolerance_mm": GRID_EDGE_TOL_MM,
+                         "row_bands": len(group), "columns": len(cols) - 1}
+        tables.append(table)
     return tables
 
 

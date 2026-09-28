@@ -286,3 +286,99 @@ def test_real_jdf_cli_bundle_of_the_bench_coverage_schedule():
     by = {f["name"]: f["value"] for f in filled}
     assert by["dwelling_coverage"] == 425000.0 and by["personal_property_coverage"] == 212500.0 and by["deductible"] == 2500.0 and by["premium"] == 2140.0
     assert stats["fields_from_tables"] == 3
+
+
+# --------------------------------------------------------------------------
+# Grids reconstructed from shape rules (jdf-cli 0.2.5 emits no table element)
+# --------------------------------------------------------------------------
+
+def _rect(x, y, w, h):
+    return {"type": "shape", "shape": "rect", "position": {"x": x, "y": y}, "width": w, "height": h, "stroke": {"color": "#000", "width": 0.2}}
+
+
+def _line(x, y, w, h):
+    return {"type": "shape", "shape": "line", "position": {"x": x, "y": y}, "width": w, "height": h, "stroke": {"color": "#000", "width": 0.2}}
+
+
+def _text(x, y, content, size=8):
+    return {"type": "text", "content": content, "position": {"x": x, "y": y}, "width": 30, "style": {"fontSize": size}}
+
+
+GRID_CELLS = [["Coverage", "Limit", "Premium"], ["Dwelling", "$425,000", "$1,412.00"], ["Other Structures", "$42,500", "$96.00"]]
+
+
+def _rect_grid_page(*, x0=20.0, y0=50.0, cw=45.0, rh=8.0):
+    elements = []
+    for r, row in enumerate(GRID_CELLS):
+        for c, cell in enumerate(row):
+            elements.append(_rect(x0 + c * cw, y0 + r * rh, cw, rh))
+            elements.append(_text(x0 + c * cw + 1.5, y0 + r * rh + 1.0, cell))
+    elements.append(_text(x0, y0 - 6, "SCHEDULE OF COVERAGES"))  # a caption above the grid, outside it
+    return {"pageSize": {"width": 210, "height": 297}, "elements": elements}
+
+
+def test_grid_from_rect_shapes_is_a_table_with_the_first_row_as_header():
+    page = _rect_grid_page()
+    bundle = {"jdf": {"pages": [page]}, "chunks": [{"id": "p1e0", "page": 1, "text": "SCHEDULE OF COVERAGES\nCoverage Limit Premium\nDwelling $425,000 $1,412.00", "types": ["text"]}]}
+    tables = te.collect_tables(bundle)
+    assert len(tables) == 1
+    t = tables[0]
+    assert t["source"] == "grid_from_shapes" and t["headers"] == GRID_CELLS[0] and t["rows"] == GRID_CELLS[1:]
+    assert t["page"] == 1 and t["chunk_id"] == "p1e0" and t["table_id"].startswith("tbl-p1e0:")
+    assert t["bbox"] == [round(20 / 210, 4), round(50 / 297, 4), round(155 / 210, 4), round(74 / 297, 4)]
+    assert "reconstructed grid" in t["bbox_basis"]
+    assert t["quality"]["status"] == "ok" and "grid reconstructed from 4 horizontal and 4 vertical shape rules" in t["quality"]["basis"]
+    assert "cell text by text-element position" in t["quality"]["basis"]
+    assert t["grid"] == {"horizontal_rules": 4, "vertical_rules": 4, "tolerance_mm": te.GRID_EDGE_TOL_MM, "row_bands": 3, "columns": 3}
+    # the same grid twice names the same table
+    assert te.collect_tables(bundle)[0]["table_id"] == t["table_id"]
+
+
+def test_grid_from_line_shapes_like_jdf_cli_0_2_5():
+    # rules drawn as hairline ``line`` shapes: 3 horizontal (y 50/58/66) × 3 vertical (x 20/65/110), cells hold text
+    elements = [_line(20, y, 90, 0.1) for y in (50, 58, 66)] + [_line(x, 50, 0.1, 16) for x in (20, 65, 110)]
+    for r, row in enumerate([["Item", "Amount"], ["Deductible", "$500"]]):
+        for c, cell in enumerate(row):
+            elements.append(_text(20 + c * 45 + 1.5, 50 + r * 8 + 1.0, cell))
+    page = {"pageSize": {"width": 210, "height": 297}, "elements": elements}
+    tables = te.collect_tables({"jdf": {"pages": [page]}, "chunks": []})
+    assert len(tables) == 1
+    assert tables[0]["headers"] == ["Item", "Amount"] and tables[0]["rows"] == [["Deductible", "$500"]]
+    assert tables[0]["source"] == "grid_from_shapes" and tables[0]["chunk_id"] is None and tables[0]["table_id"].startswith("tbl-p1:")
+
+
+def test_grid_on_top_of_a_table_element_is_not_reported_twice():
+    page = _rect_grid_page()
+    page["elements"].append(table_element(GRID_CELLS[0], GRID_CELLS[1:], y=50.0) if "y" in table_element.__code__.co_varnames else table_element(GRID_CELLS[0], GRID_CELLS[1:]))
+    page["elements"][-1]["position"] = {"x": 20.0, "y": 50.0}
+    page["elements"][-1]["width"] = 135.0
+    tables = te.collect_tables({"jdf": {"pages": [page]}, "chunks": []})
+    assert [t["source"] for t in tables] == ["jdf_element"]
+
+
+def test_checkboxes_ruled_blank_boxes_and_pages_without_rules_make_no_table():
+    boxes = {"pageSize": {"width": 210, "height": 297}, "elements": [_rect(10 + i * 4, 30, 2.97, 3.88) for i in range(6)] + [_text(10, 40, "MEDICARE MEDICAID")]}
+    assert te.collect_tables({"jdf": {"pages": [boxes]}, "chunks": []}) == []
+    blank = _rect_grid_page()
+    blank["elements"] = [e for e in blank["elements"] if e["type"] != "text"]
+    assert te.collect_tables({"jdf": {"pages": [blank]}, "chunks": []}) == []
+    assert te.grid_tables_from_shapes({"pageSize": {"width": 210, "height": 297}, "elements": [_text(10, 10, "no rules here")]}, 1) == []
+
+
+HCFA_0_2_5 = Path("/tmp/jdfcli/432938035-HCFA1500-10-Arial-Blue-1155-1-0.2.5.jdf")
+HCFA_0_2_3 = Path("/tmp/jdfcli/432938035-HCFA1500-10-Arial-Blue-1155-1-0.2.3.jdf")
+
+
+@pytest.mark.skipif(not (HCFA_0_2_5.exists() and HCFA_0_2_3.exists()), reason="converted HCFA-1500 demo form not present under /tmp/jdfcli")
+def test_hcfa_form_cells_are_read_from_0_2_5_shapes_as_from_0_2_3_table_elements():
+    """The demo HCFA-1500 converted by both jdf-cli versions (2026-09-28): 0.2.3
+    emits 16 table elements, 0.2.5 none — the patient box must still come out
+    as a grid cell holding the patient's name and address."""
+    new = te.collect_tables({"jdf": json.loads(HCFA_0_2_5.read_text()), "chunks": []})
+    old = te.collect_tables({"jdf": json.loads(HCFA_0_2_3.read_text()), "chunks": []})
+    assert new and all(t["source"] == "grid_from_shapes" for t in new)
+    assert sum(1 for t in old if t["source"] == "jdf_element") == 16
+    cells_new = [c for t in new for row in [t["headers"]] + t["rows"] for c in row]
+    cells_old = [c for t in old if t["source"] == "jdf_element" for row in t["rows"] for c in row]
+    assert any("Martinez Gail D." in c for c in cells_new) and any("Martinez Gail D." in c for c in cells_old)
+    assert any("8794 Main Street" in c for c in cells_new)

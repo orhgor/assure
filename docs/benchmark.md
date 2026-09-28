@@ -152,7 +152,71 @@ matches with its parenthetical. Per class: policies 100 % (56/56), claims
 drops `schema_exists: false` on the four inputs (a taxonomy fact, not an
 expected value; the cases, wording and expected values are untouched).
 
+### Fourth run — 2026-09-28, working tree after signature region, page orientation and shape grids, LLM off
+
+`bench/results/20260928T070340Z-35d9bd8.json` (baseline for the diff:
+`20260928T060613Z-00e72c1.json`, the same tree that morning: routing 96 %,
+signature accuracy 54 %). Same 25 cases / 28 inputs. Three gaps were worked:
+the signature verdict is measured in a band by the **label element**
+(`quality_probe.assess_signature`, `region.basis: "label element"`; the
+bench pages end their signature block at 45 % of the page and the old
+bottom-20 % band saw paper), scanned pages get their **orientation measured
+and corrected before OCR** (`jdf_converter.detect_orientation`), and tables
+are **rebuilt from shape rules + text positions** when jdf-cli emits none
+(`table_extraction.grid_tables_from_shapes`, for jdf-cli 0.2.5; not
+exercised by this set, which still runs 0.2.3).
+
+| gate | value | status | change |
+|---|---|---|---|
+| routing ≥ 95 % | **100 %** (28/28) | **PASS** | 96 % → 100 %: the 90° rotated scan now reads upright (detected 90°, correction 270°, OCR 0.53 → 0.95) and routes `auto_policy` with 11/11 fields |
+| anchoring ≥ 90 % | 100 % (298/298) | PASS | — |
+| Red-Hat recall ≥ 85 % | 100 % (3/3) | PASS | — |
+| replay determinism 100 % | 100 % (`element_id`; values 100 %; saved-tree node ids still 0 %) | PASS | — (the ink map and the orientation record travel in the report, so replay measures the same band) |
+| latency P95 | 3.07 / 2.98 / 8.71 / 8.95 s | PASS ×4 | scan classes pay for the orientation pass — see below |
+
+**Signature accuracy 54 % → 100 % (13/13)** (reported, no gate). The six
+misses were all the same measurement error: `clm-auto-fnol-typed`,
+`clm-property-loss-notice-typed`, both FNOL inputs of the conflict pairs
+(typed name after the label → now `printed_name`, present), and the two
+ink-stroke pages (`sig-…-ink-stroke-scan`, `sig-…-ink-stroke-typed` → now
+`present_ambiguous`, present, band marks 0.0086 / 0.0082 against a blank
+threshold of 0.004). The blank line stays `missing` (band marks 0.0000 — the
+ruled line and the underscores are erased as rules before measuring). On the
+scan the band comes from the OCR line's bbox (`region.grain: ocr_block`):
+the OCR paragraph of a scan now carries `meta.elements` with one entry per
+OCR block, and the chunk id it never had.
+
+Extraction recall 87 % → **92 %** (244/266): +11 from the rotated scan; the
+diff against the 06:06 baseline also lists the coverage schedule's three
+table fields as newly found — that baseline run had them missing, the
+third run (`20260927T145330Z`) had them; nothing in this round touched the
+0.2.3 table-element path. Unchanged misses: the 72-dpi phone photo (1/11),
+the handwriting cases, `federal_tax_id` / `cause_of_loss`, the VIN on the
+two signature scans.
+
+Latency: every scanned page now costs one extra `jdf convert --ocr` pass on
+a 100-dpi render to confirm it is upright (`method:
+ocr-upright-accepted`; accepted at ≥ 20 confident words and mean block
+confidence ≥ 0.60 — measured: upright bench pages read 33–99 confident words
+at 0.71–0.94, turned renders 0–5 at 0.34–0.53), and a turned page costs up
+to four. Per class P95: signatures 4.69 → 6.56 s, handwritten 4.44 → 5.83 s,
+photos 8.53 → 8.71 s (the 72-dpi photo tried all four rotations in the
+first run of the day at 9.49 s, before the accept rule was widened from mean
+0.80 to 0.60), mixed 4.84 → 8.95 s (the rotated scan: four probes + the
+re-render). `photo_signature` P95 8.71 s is 1.3 s under its 10 s ceiling; a
+second turned page in a photo would breach it. `JDF_ORIENTATION=0` turns the
+measurement off; `JDF_ORIENTATION_MAX_PAGES` (50) caps the pages measured.
+
+What this run does **not** show: the shape-grid reconstruction (jdf-cli
+0.2.3 emits table elements for the bench tables; the 0.2.5 case is the
+converted HCFA-1500 demo form under `/tmp/jdfcli`, covered by
+`tests/test_table_extraction.py`), tesseract's OSD path (no `tesseract`
+binary on this machine or in the image — the four-rotation OCR path ran),
+and any real carrier document (the `s3` placeholders are still empty).
+
 ### What the failures are
+
+(As of the third run; the rotated-scan routing miss and the signature misses below were closed by the fourth run.)
 
 - **Routing 82 %.** Four misses are schema gaps (endorsement, cancellation
   notice, repair estimate, schedule of forms → read as `auto_policy` /

@@ -38,7 +38,9 @@ upload keys. A document id alone is a client string.
 The stored document is jdf-cli's, plus two additions:
 
 * `meta.assure` — `{project_id, document_id, revision, filename, stored_at,
-  element_id_policy: "eid-v1", element_id_derivation, elements_stamped}`.
+  element_id_policy: "eid-v1", element_id_derivation, elements_stamped,
+  rasters}` (`rasters` since 2026-09-28: how many pages carry a page raster
+  element, see below).
 * `element.assure.element_id` on every text element — the `eid-v1` id
   (`field_extractor.derive_element_id`), derived through
   `field_extractor.page_layout` with the parse's chunk list, i.e. exactly the id
@@ -51,9 +53,9 @@ The stored document is jdf-cli's, plus two additions:
 The in-memory bundle is deep-copied before stamping; the pipeline keeps reading
 jdf-cli's document as produced.
 
-No page images are rendered or stored. `services/vision.render_page_png` renders
-one page for the multimodal read on demand and keeps nothing; adding a render
-step to the ingest was out of scope.
+For an OCR document the stored pages also carry a page raster element — see
+"Page rasters" below. A digital PDF's stored document is jdf-cli's plus the two
+additions above and nothing else.
 
 ## Where the key is recorded
 
@@ -96,7 +98,18 @@ and reads JSON it already stored; nothing is parsed here.
   404 body: `{"ok": false, "error": "no source document is stored for this document"}`.
 
 `GET …/source.json`
-: `{ok, url, key, pages, elements, stored_at, revision, element_id_policy}`.
+: `{ok, url, key, pages, elements, rasters, stored_at, revision, element_id_policy}`.
+
+`GET …/documents/<doc>/pages/<n>.png[?revision=<rev>]`
+: The page raster the worker stored for page `n` (1-based) of an OCR document
+  (next section). `Content-Type: image/png`, `Cache-Control: private,
+  max-age=3600`, `ETag: "<raster key>"` (304 on `If-None-Match`),
+  `X-Source-Jdf-Key`. The document is resolved exactly as `source.jdf` is, and
+  the raster key is derived from that key (`page_raster_key`), so a raster is
+  only ever served for the requesting project's own document and revision.
+  404 `{"ok": false, "error": "no page raster is stored for this page"}` for a
+  digital PDF, a page that did not render, or a page past the end; `n < 1` is
+  400. Nothing is rendered on the web tier to answer a miss.
 
 `GET …/source.json?text=<selection>[&page=<n>]`
 : `{ok, key, url, element_ids, page, bbox_rel, found, matched_by}`. The page
@@ -116,6 +129,75 @@ and reads JSON it already stored; nothing is parsed here.
   are searched in order. Not found: `found: false`, `element_ids: []`,
   `bbox_rel: null`, `matched_by: null` — never the nearest element. `text`
   longer than 4000 characters or a non-integer `page` is 400.
+
+## Page rasters (OCR documents, 2026-09-28)
+
+**Why.** A scanned or photographed page has only OCR text in its source JDF, so
+jdf.js drew the OCR's reading of the page and not the page: no signature, stamp,
+handwriting or layout a reviewer could check the reading against. Round 5's
+signature taxonomy and the handwriting gap (`docs/parsure.md`) both need the page
+itself in front of the reviewer.
+
+**When.** `source_jdf.pages_are_ocr(parser_name, modality=, source_kind=)`: the
+parser name carries an OCR engine (`jdf-cli+tesseract`, `jdf-cli+openai`,
+`textract`), or the router's modality is `scanned_pdf` / `phone_photo` /
+`screenshot`, or the source kind is `scanned` / `photo` / `image`. A digital PDF
+(`jdf-cli`, `digital_pdf`, `pdf`) is unchanged — its text layer is the page. On
+the import path (`services/pdf_ingest`) the parser name and the router's
+modality decide; on the Sources path (`routers/substrate.ingest_substrate_file`)
+the parser name and the source kind, because that path computes the router's
+intake dict later. Rasters are stored only when a source JDF is stored: a
+Textract document has no jdf-cli document to put the element into, so it gets
+neither (the route answers 404 for it as before).
+
+**What.** `store_page_rasters` renders every page once, on the worker, with the
+same PyMuPDF render the visual probe and the vision pass use
+(`services/vision.render_page_png` → `quality_probe._open_document`): PNG, long
+side ≤ `RASTER_LONG_SIDE_PX` = 1600 px (~190 dpi on a letter page; an uploaded
+image is rendered at its native pixels and never upscaled), at most
+`RASTER_MAX_PAGES` = 200 pages, into the object store under
+
+```
+documents/<project_id>/<document_id>/<revision>/pages/<n>.png
+```
+
+beside the `.jdf` of the same revision. Measured 2026-09-28 on the compose
+stack: a 595×842 pt page rendered from `final_run_debris.pdf` → 1109×1568 px,
+100 KB PNG. The original upload bytes are rendered, not the PDF the image was
+wrapped in for jdf-cli.
+
+`persist_source_jdf(..., rasters=)` then puts one `image` element **first** on
+each rastered page (`add_page_rasters`), so the text elements paint over it:
+
+```jsonc
+{"type": "image",
+ "src": "/api/projects/<pid>/documents/<doc>/pages/<n>.png",
+ "alt": "Page <n> as scanned",
+ "position": {"x": 0, "y": 0},
+ "width": <pageSize.width mm>, "height": <pageSize.height mm>,
+ "fit": "contain",
+ "assure": {"kind": "page_raster", "page": <n>, "key": "<raster key>", "width_px": 1109, "height_px": 1568}}
+```
+
+`width`/`height` follow jdf.js's own fallback (`page.pageSize`, else
+`meta.pageSize`, else A4; a named size such as `"Letter"` is resolved to
+millimetres), so the box is exactly the page jdf.js lays out; jdf.js draws a
+`src` that starts with `/` or `http` as-is and letter-boxes the bitmap (`fit:
+contain`). The element carries no text, so `page_layout`, the element index,
+the stamped ids and `?text=` lookups skip it; `elements` on the descriptor still
+counts text elements only.
+
+**Recorded.** `descriptor["rasters"]` (import payload, `ingest_jobs` via the
+descriptor on the report, `report.source_jdf.rasters`, `tree.meta.source_jdf.
+rasters`, `source.json`) is the number of pages that carry a raster element —
+the pages the reader can actually see. A page that did not render is logged
+and absent: no element, not counted, its route 404. `meta.assure.rasters` on the
+stored document says the same.
+
+**Not claimed.** A raster is the page the worker rendered from the uploaded
+bytes; none is synthesised, none is rendered on request, and a document with
+`rasters: 0` shows the OCR text alone as before. The raster is a picture of the
+page, not evidence of anything on it: no field, claim or verdict reads it.
 
 ## Selection anchors on the compile and inquire streams
 
@@ -182,6 +264,15 @@ a different figure, a non-wrap hyphen), `matched_by` on the route,
 `descriptor_for_document`, `meta.source_jdf`/`source_jdfs` on a compile, the
 cache key per selection, a replay carrying the request's selection and dropping
 a stale one, selection passthrough on both streams and their 400s.
+
+`tests/test_page_rasters.py`: the OCR decision, the raster key beside the source
+key, an OCR import storing a ≤1600 px PNG per page with the image element first
+(full page, `fit: contain`, `assure.kind: page_raster`) and `rasters` on the
+payload / report / `source.json`, the route (PNG, ETag/304, private cache,
+`?revision=`, 404 for a missing page or another project, 400 for page 0), a
+digital PDF storing none and answering 404, a page that fails to render being
+absent and uncounted, idempotent element insertion, named page sizes, and the
+Sources upload path.
 
 Note for test authors: pin `ASSURE_S3_BUCKET` to `""` rather than `delenv` —
 `cloud_billing` runs `load_dotenv(override=False)` on app import and restores a

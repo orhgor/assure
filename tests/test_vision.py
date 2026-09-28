@@ -276,11 +276,66 @@ def test_attach_never_raises_even_when_the_report_is_odd():
 # ----------------------------------------------------------------- pages ---
 
 def test_digital_pdf_without_photo_flags_is_not_run():
+    """The rule, stated on the block (2026-09-28): a digital PDF with no page
+    flagged ``photo`` is ``not_run`` / "no picture pages" and ``rule`` says which
+    test decided — the correct answer for a text PDF, legible as such."""
     report = _report(filename="policy.pdf", material_type="pdf", modality="digital_pdf")
     vz.attach_vision(report, file_bytes=_pdf(1), intake=INTAKE_PDF, completion=_never)
     assert report["vision"]["status"] == "not_run" and report["vision"]["pages"] == []
-    assert report["vision"]["reason"] == "no picture pages (modality 'digital_pdf', no page flagged photo)"
-    assert report["execution"]["vision"]["status"] == "not_run"
+    assert report["vision"]["reason"] == "no picture pages"
+    rule = report["vision"]["rule"]
+    assert rule["modality"] == "digital_pdf" and rule["every_page_is_a_picture"] is False
+    assert rule["pages_flagged_photo"] == 0 and rule["picture_pages"] == 0
+    assert "phone_photo" in rule["picture_modalities"] and "image" in rule["picture_materials"]
+    assert "are not picture kinds" in rule["basis"]
+    assert report["execution"]["vision"] == {"status": "not_run", "model": "injected", "pages_analyzed": 0, "facts": 0,
+                                             "ms": report["vision"]["ms"], "reason": "no picture pages"}
+
+
+def test_a_photo_runs_the_configured_model_and_an_empty_answer_says_so():
+    """A photo is analysed; when the model answers and names no fact, the page
+    entry says what came back (``note``) instead of a bare ``facts: []`` —
+    live 2026-09-28: Nova Lite answered a rendered text page in 2 calls and
+    named nothing, and the report read as if it had not been asked."""
+    calls: list[str] = []
+
+    def answers_nothing(prompt: str, png: bytes) -> str:
+        calls.append(prompt)
+        return "Sure — here is what I see." if len(calls) == 1 else '{"facts": []}'
+
+    report = _report()
+    vz.attach_vision(report, file_bytes=_png(800, 600), intake=INTAKE_PHOTO, completion=answers_nothing)
+    block = report["vision"]
+    assert block["status"] == "completed" and block["rule"]["every_page_is_a_picture"] is True
+    (page,) = block["pages"]
+    assert page["status"] == "completed" and page["facts"] == [] and page["calls"] == 2
+    assert page["note"].startswith("the model answered and named no fact (0 offered, 0 dropped)")
+    assert "first answer was not JSON, asked 2 times" in page["note"]
+    assert "answer starts: '{\"facts\": []}'" in page["note"]
+    assert report["execution"]["vision"]["pages_analyzed"] == 1 and report["execution"]["vision"]["facts"] == 0
+
+    # A page that named facts carries no note — the facts are the answer.
+    report = _report()
+    vz.attach_vision(report, file_bytes=_png(800, 600), intake=INTAKE_PHOTO,
+                     completion=lambda p, b: json.dumps({"facts": [{"name": "scene_summary", "value": "a page", "evidence": "printed text"}]}))
+    assert "note" not in report["vision"]["pages"][0] and len(report["vision"]["pages"][0]["facts"]) == 1
+
+
+def test_no_vision_model_names_the_model_table(monkeypatch):
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "cloud")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    model, why = vz.vision_model()
+    assert model is None
+    assert "vision models: ollama=ASSURE_OLLAMA_MODEL_VISION (default qwen2.5vl:3b, off until set)" in why
+    assert "openrouter=ASSURE_OPENROUTER_MODEL_VISION (default amazon/nova-lite-v1)" in why
+    assert "bedrock=ASSURE_BEDROCK_MODEL_VISION" in why
+    report = _report()
+    vz.attach_vision(report, file_bytes=_png(800, 600), intake=INTAKE_PHOTO)
+    assert report["vision"]["status"] == "disabled" and "vision models:" in report["vision"]["reason"]
+    monkeypatch.setenv("ASSURE_LLM_BACKEND", "ollama")
+    monkeypatch.delenv(vz.OLLAMA_VISION_ENV, raising=False)
+    enabled, _model, reason = vz.vision_enabled()
+    assert enabled is False and "vision models:" in reason
 
 
 def test_photo_flagged_pages_of_a_pdf_are_selected_and_max_pages_bounds_them(monkeypatch):

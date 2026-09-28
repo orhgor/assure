@@ -169,7 +169,18 @@ def vision_model(backend: str | None = None) -> tuple[str | None, str | None]:
     if backend == "openrouter" or (backend == "" and os.environ.get("OPENROUTER_API_KEY", "").strip()):
         raw = os.environ.get(OPENROUTER_VISION_ENV, "").strip() or OPENROUTER_VISION_DEFAULT
         return (raw if raw.startswith("openrouter/") else f"openrouter/{raw}"), None
-    return None, f"no vision model for backend {backend or 'cloud'!r} (no OpenRouter key; set ASSURE_LLM_BACKEND)"
+    return None, f"no vision model for backend {backend or 'cloud'!r} (no OpenRouter key; set ASSURE_LLM_BACKEND); {model_table()}"
+
+
+def model_table() -> str:
+    """The backend → variable → default table, in one line, for a reason string:
+    a report that says ``disabled`` must say what would enable it."""
+    return (
+        "vision models: "
+        f"ollama={OLLAMA_VISION_ENV} (default {OLLAMA_VISION_DEFAULT}, off until set), "
+        f"openrouter={OPENROUTER_VISION_ENV} (default {OPENROUTER_VISION_DEFAULT}), "
+        f"bedrock={BEDROCK_VISION_ENV} (default ASSURE_BEDROCK_MODEL_DRAFT)"
+    )
 
 
 def vision_enabled() -> tuple[bool, str | None, str | None]:
@@ -194,7 +205,7 @@ def vision_enabled() -> tuple[bool, str | None, str | None]:
     if raw in ("1", "true", "yes", "on"):
         return True, model, None
     if backend == "ollama" and not os.environ.get(OLLAMA_VISION_ENV, "").strip():
-        return False, model, f"no vision model configured for backend ollama (set {OLLAMA_VISION_ENV}, or PARSURE_VISION=1 to use {model})"
+        return False, model, f"no vision model configured for backend ollama (set {OLLAMA_VISION_ENV}, or PARSURE_VISION=1 to use {model}); {model_table()}"
     return True, model, None
 
 
@@ -338,6 +349,36 @@ def build_prompt(analysis_type: str, context: str | None) -> str:
     return "\n".join(lines)
 
 
+def _balance_brackets(text: str) -> str:
+    """Drop closing brackets/braces that have no opener (outside strings)."""
+    out: list[str] = []
+    stack: list[str] = []
+    in_str = False
+    escape = False
+    for ch in text:
+        if in_str:
+            out.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "[{":
+            stack.append(ch)
+        elif ch in "]}":
+            want = "[" if ch == "]" else "{"
+            if stack and stack[-1] == want:
+                stack.pop()
+            else:
+                continue  # unmatched closer: the stray bracket, dropped
+        out.append(ch)
+    return "".join(out)
+
+
 def _parse_answer(text: str) -> list[Any] | None:
     """The ``facts`` list in a model answer (code fences and prose around the
     JSON tolerated; a bare list accepted), or None when there is no JSON."""
@@ -351,6 +392,11 @@ def _parse_answer(text: str) -> list[Any] | None:
     start, end = body.find("["), body.rfind("]")
     if 0 <= start < end:
         candidates.append(body[start:end + 1])
+    # Syntactic repair only (measured live 2026-09-28: Nova Lite closed a
+    # bbox list with a stray "]" in about one answer in two — valid facts,
+    # invalid JSON). Unmatched closing brackets outside strings are dropped;
+    # nothing inside a string is touched and no value is invented.
+    candidates.extend(_balance_brackets(c) for c in list(candidates))
     for candidate in candidates:
         try:
             parsed = json.loads(candidate)
@@ -623,17 +669,39 @@ def analyze_page(
         log.warning("vision: %s failed (%s) after %d ms", model, reason, ms)
         return {"status": "failed", "model": model, "facts": [], "dropped": {}, "calls": calls, "ms": ms, "reason": reason}
     if raw_facts is None:
-        head = re.sub(r"\s+", " ", str(answer))[:80]
+        # Head and tail, not the head alone: live 2026-09-28 Nova Lite answered
+        # a well-formed object except for one stray ``]`` in ``bbox`` at the
+        # very end (``[165, 181, 355, 195]]}]}``), and an 80-character head
+        # showed a valid-looking answer with no hint of why it failed.
+        flat = re.sub(r"\s+", " ", str(answer))
+        head, tail = flat[:80], flat[-60:] if len(flat) > 140 else ""
         log.warning("vision: unparsable answer from %s: %r", model, str(answer)[:400])
         return {
             "status": "failed", "model": model, "facts": [], "dropped": {}, "calls": calls, "ms": ms,
-            "reason": f"ValueError: model answer was not JSON after {calls} call(s) (starts: {head!r})",
+            "reason": (
+                f"ValueError: model answer was not JSON after {calls} call(s) "
+                f"({len(flat)} chars; starts: {head!r}" + (f"; ends: {tail!r}" if tail else "") + ")"
+            ),
         }
     facts, dropped = normalise_facts(raw_facts, allowed=FACT_NAMES.get(analysis_type) or FACT_NAMES["generic"])
     for fact in facts:
         fact["model"] = model
     log.info("vision: %s %s → %d fact(s), dropped %s, %d call(s), %d ms", model, analysis_type, len(facts), dropped or "none", calls, ms)
-    return {"status": "completed", "model": model, "facts": facts, "dropped": dropped, "calls": calls, "ms": ms, "reason": None}
+    # What the model answered when no fact survived, so an empty page entry
+    # says "the model answered and named nothing" rather than nothing at all
+    # (live 2026-09-28: Nova Lite answered a rendered text page in 2 calls —
+    # the first without JSON — and named no fact; the report showed ``facts:
+    # []`` and ``reason: null``, which reads as "not asked").
+    answer_note = None
+    if not facts:
+        head = re.sub(r"\s+", " ", str(answer)).strip()[:160]
+        parts = [f"the model answered and named no fact ({len(raw_facts)} offered, {sum(dropped.values())} dropped)"]
+        if calls > 1:
+            parts.append(f"first answer was not JSON, asked {calls} times")
+        if head:
+            parts.append(f"answer starts: {head!r}")
+        answer_note = "; ".join(parts)
+    return {"status": "completed", "model": model, "facts": facts, "dropped": dropped, "calls": calls, "ms": ms, "reason": None, "note": answer_note}
 
 
 # --------------------------------------------------------------------------
@@ -692,6 +760,43 @@ def analysis_type_for(kind: str, document_type: str | None) -> str:
 # Entry point
 # --------------------------------------------------------------------------
 
+def picture_rule(intake: dict | None, report: dict | None, pages: list[tuple[int, str]]) -> dict[str, Any]:
+    """Why ``picture_pages`` answered as it did — recorded on the block so a
+    ``not_run`` is legible without reading this module: the modality and
+    material type read, whether they make every page a picture, how many
+    pages the visual probe flagged ``photo``, and the resulting count.
+
+    Live reports of 2026-09-28 all said ``not_run`` with the modality in the
+    reason; every one was a digital PDF, which is the correct answer, but a
+    reader could not tell the rule from a failure to configure the model.
+    """
+    intake = intake or {}
+    report = report or {}
+    modality = str(intake.get("modality") or report.get("modality") or "").lower() or None
+    material = str(intake.get("material_type") or report.get("material_type") or "").lower() or None
+    visual_pages = [v for v in (intake.get("visual_pages") or []) if isinstance(v, dict)]
+    if not visual_pages:
+        visual_pages = [p.get("visual") for p in (report.get("pages") or []) if isinstance(p, dict) and isinstance(p.get("visual"), dict)]
+    flagged = sum(1 for v in visual_pages if "photo" in (v.get("flags") or []))
+    whole = bool(_PICTURE_MODALITIES.get(modality or "") or _PICTURE_MATERIALS.get(material or ""))
+    return {
+        "modality": modality,
+        "material_type": material,
+        "picture_modalities": sorted(_PICTURE_MODALITIES),
+        "picture_materials": sorted(_PICTURE_MATERIALS),
+        "every_page_is_a_picture": whole,
+        "pages_probed": len(visual_pages),
+        "pages_flagged_photo": flagged,
+        "picture_pages": len(pages),
+        "basis": (
+            f"modality {modality!r} / material {material!r} make every page a picture"
+            if whole
+            else f"modality {modality!r} / material {material!r} are not picture kinds; "
+            f"{flagged} of {len(visual_pages)} probed page(s) flagged photo"
+        ),
+    }
+
+
 def _execution(report: dict[str, Any], block: dict[str, Any]) -> None:
     report.setdefault("execution", {})["vision"] = {
         "status": block["status"],
@@ -716,9 +821,24 @@ def attach_vision(
     Never raises: a failure anywhere is ``status: failed`` with the exception
     class in ``reason``. Never touches ``fields``, ``review_summary`` or any
     count. Fast no-op (no render, no model) when disabled or when the intake
-    has no picture pages — ``status`` ``disabled`` / ``not_run`` with the
-    reason. ``filename`` defaults to ``report["filename"]``; ``completion``
-    is the test injection (``(prompt, png_bytes) -> text``).
+    has no picture pages. The rule, stated once (2026-09-28, after the live
+    reports read ``not_run`` on every upload and the operator could not tell
+    why):
+
+    * ``PARSURE_VISION`` off, or no vision model for the backend →
+      ``status: disabled``; ``reason`` names the switch or the backend and
+      carries the model table (``model_table``).
+    * a digital or scanned PDF with no page the visual probe flagged ``photo``
+      → ``status: not_run``, ``reason: "no picture pages"``, ``rule`` saying
+      which test decided (``picture_rule``). This is the correct answer for a
+      text PDF, not a failure.
+    * a photo, screenshot or image upload, or a PDF page flagged ``photo`` →
+      the configured model is asked; ``completed`` with the facts it named
+      (possibly none — the page entry's ``note`` then says what it answered),
+      ``failed`` with the provider's error when it did not answer usably.
+
+    ``filename`` defaults to ``report["filename"]``; ``completion`` is the
+    test injection (``(prompt, png_bytes) -> text``).
     """
     started = time.monotonic()
     block: dict[str, Any] = {"status": "not_run", "model": None, "reason": None, "pages": [], "ms": 0}
@@ -734,11 +854,11 @@ def attach_vision(
             block.update(status="disabled", reason=reason)
             return report
         pages = picture_pages(intake, report)
+        block["rule"] = picture_rule(intake, report, pages)
         if not pages:
-            block["reason"] = (
-                f"no picture pages (modality {((intake or {}).get('modality') or report.get('modality') or 'unknown')!r}, "
-                "no page flagged photo)"
-            )
+            # The honest answer for a digital PDF: nothing on it is a picture, so
+            # the model was not asked. ``rule`` says which test decided.
+            block["reason"] = "no picture pages"
             return report
         if not file_bytes:
             block["reason"] = f"{len(pages)} picture page(s) but no file bytes to render"
@@ -770,6 +890,8 @@ def attach_vision(
                     entry["reason"] = result["reason"]
                     entry["dropped"] = result["dropped"]
                     entry["calls"] = result["calls"]
+                    if result.get("note"):
+                        entry["note"] = result["note"]
                     entry["facts"] = [
                         dict(f, grounding={"kind": "image", "page": page_no, "bbox": f.get("bbox")}) for f in result["facts"]
                     ]

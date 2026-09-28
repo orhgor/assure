@@ -485,3 +485,132 @@ class TestDetectMaterial:
             out = detect_material(data, name)
             assert out["material_type"] not in ("handwritten_image", "table", "mixed_bundle")
             assert out["modality"] not in ("handwritten", "table_image", "mixed")
+
+
+# --------------------------------------------------------------------------- #
+# ink map and the signature band by the label element (2026-09-28)
+# --------------------------------------------------------------------------- #
+
+
+def mid_page_signature_pdf(*, ink: bool, typed: str | None = None) -> bytes:
+    """The bench declarations shape: body text, a "Countersigned …" line, then
+    ``Authorized Signature: ____`` at ≈ 45 % of the page height with, when
+    ``ink``, a vector stroke over the ruled line — nothing in the bottom 20 %."""
+    doc = fitz.open()
+    page = doc.new_page()  # 612 × 792
+    y = 72
+    for _ in range(18):
+        page.insert_text((54, y), TEXT[:90], fontsize=10)
+        y += 13.5
+    page.insert_text((54, y), "Countersigned this 20th day of February, 2025.", fontsize=10)
+    y += 13.5
+    label = "Authorized Signature: " + (typed if typed else "______________________________")
+    page.insert_text((54, y), label, fontsize=10)
+    rect = page.search_for("Authorized Signature")[0]
+    x0, base = rect.x1 + 6, rect.y1 - 1
+    if not typed:
+        page.draw_line((x0, base), (x0 + 220, base), color=(0, 0, 0), width=0.6)
+    if ink:
+        pts = [(x0 + 8 + t * 4.5, base - 4 - 9 * abs(((t / 40 * 6) % 2) - 1)) for t in range(41)]
+        page.draw_polyline(pts, color=(0.05, 0.05, 0.25), width=1.6)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def text_and_layout(pdf: bytes) -> tuple[str, list[dict]]:
+    """Page text and a ``page_layout``-shaped segment list from PyMuPDF's text
+    blocks (one segment per block, relative bbox) — what the extractor would
+    hand ``assess_signature`` for a text-layer page."""
+    doc = fitz.open(stream=pdf, filetype="pdf")
+    page = doc[0]
+    w, h = page.rect.width, page.rect.height
+    segments, texts, cursor = [], [], 0
+    for x0, y0, x1, y1, text, *_ in page.get_text("blocks"):
+        text = text.rstrip("\n")
+        if not text.strip():
+            continue
+        segments.append({"start": cursor, "end": cursor + len(text), "text": text, "node_id": None, "chunk_id": None,
+                         "bbox": [round(x0 / w, 4), round(y0 / h, 4), round(x1 / w, 4), round(y1 / h, 4)], "elements": None})
+        texts.append(text)
+        cursor += len(text) + 1
+    doc.close()
+    return "\n".join(texts), segments
+
+
+class TestInkMap:
+    def test_ink_map_is_measured_and_decodes(self):
+        visual = probe_visual_quality(crisp_pdf(lines=30), "c.pdf")[0]
+        m = visual["ink_map"]
+        assert m["cols"] == qp.INK_MAP_COLS and m["rows"] > 0 and m["cell_px"] > 0 and m["dpi"] == qp.HIRES_DPI
+        assert len(m["ink"]) == len(m["mark"]) == 2 * m["cols"] * m["rows"]
+        whole = qp.ink_map_region(visual, [0.0, 0.0, 1.0, 1.0])
+        assert whole["cells"] == m["cols"] * m["rows"]
+        # the text sits in the upper part of the page; the bottom fifth is paper
+        assert whole["mark"] > 0.005 and whole["ink"] <= whole["mark"]
+        assert qp.ink_map_region(visual, [0.0, 0.85, 1.0, 1.0])["mark"] == 0.0
+        assert qp.ink_map_region(visual, [0.0, 0.0, 0.001, 0.001]) is None  # no cell centre inside
+        assert qp.ink_map_region({"ink_map": None}, [0, 0, 1, 1]) is None
+        assert qp.ink_map_region(None, [0, 0, 1, 1]) is None
+
+    def test_straight_rules_are_erased_from_the_map_but_not_from_the_page_ratios(self):
+        doc = fitz.open()
+        page = doc.new_page()
+        page.draw_line((72, 396), (540, 396), color=(0, 0, 0), width=1.0)   # horizontal rule across the middle
+        page.draw_line((306, 100), (306, 700), color=(0, 0, 0), width=1.0)  # vertical rule
+        visual = probe_visual_quality(doc.tobytes(), "rules.pdf")[0]
+        assert visual["mark_ratio"] > 0.0  # the page ratios still see the rules
+        m = visual["ink_map"]
+        assert m["rules_erased"]["horizontal"] >= 1 and m["rules_erased"]["vertical"] >= 1
+        assert qp.ink_map_region(visual, [0.0, 0.0, 1.0, 1.0])["mark"] == 0.0
+
+
+class TestSignatureBand:
+    def test_stroke_beside_a_mid_page_label_is_found_by_the_label_element(self):
+        pdf = mid_page_signature_pdf(ink=True)
+        text, layout = text_and_layout(pdf)
+        visual = probe_visual_quality(pdf, "s.pdf")[0]
+        out = assess_signature(text, visual=visual, ocr_lines=None, page=1, layout=layout)
+        assert out["quality"] == "present_ambiguous" and out["present"] is True and out["review_required"] is True
+        region = out["region"]
+        assert region["basis"] == "label element" and region["page"] == 1 and region["cells"] > 0
+        x0, y0, x1, y1 = region["bbox"]
+        # the label line (≈ 41 % of the page height; PyMuPDF's block may fold the
+        # line above into the same block), never the bottom band
+        assert 0.25 < x0 < 0.45 and 0.33 < y0 < 0.50 and y1 < 0.60 and x1 > x0
+        assert "band right of the label" in out["basis"] and "cannot confirm a handwritten signature" in out["basis"]
+        # the same page judged by the bottom band alone: blank paper, "missing" — the gap the band closes
+        old = assess_signature(text, visual=visual, ocr_lines=None, page=1, layout=None)
+        assert old["quality"] == "missing" and old["region"]["basis"] == "bottom band"
+        assert old["region"]["bbox"] == [0.0, 0.8, 1.0, 1.0] and "no layout bbox" in old["region"]["reason"]
+
+    def test_blank_mid_page_line_is_missing_and_the_ruled_line_is_not_a_mark(self):
+        pdf = mid_page_signature_pdf(ink=False)
+        text, layout = text_and_layout(pdf)
+        out = assess_signature(text, visual=probe_visual_quality(pdf, "s.pdf")[0], ocr_lines=None, page=1, layout=layout)
+        assert out["quality"] == "missing" and out["present"] is False and out["review_required"] is True
+        assert out["region"]["basis"] == "label element" and out["region"]["mark_ratio"] < qp.SIGNATURE_BAND_BLANK_MARK
+        assert "no mark beyond the label" in out["basis"]
+
+    def test_typed_name_on_a_mid_page_line_is_printed_name(self):
+        pdf = mid_page_signature_pdf(ink=False, typed="Marianne Costa")
+        text, layout = text_and_layout(pdf)
+        out = assess_signature(text, visual=probe_visual_quality(pdf, "s.pdf")[0], ocr_lines=None, page=1, layout=layout)
+        assert out["quality"] == "printed_name" and out["present"] is True
+        assert out["region"]["basis"] == "label element" and "after the typed name" in out["region"]["band"]
+
+    def test_label_picker_prefers_the_signature_line_over_countersigned(self):
+        text = "Countersigned this 20th day of February, 2025.\nAuthorized Signature: ______"
+        picked = qp._pick_label(text)
+        assert picked.group(0) == "Authorized Signature"
+        assert qp._pick_label("Signed by the insured").group(0) == "Signed by"
+        assert qp._pick_label("Countersigned today") is None  # word-bounded: not a bare "signed"
+
+    def test_bottom_band_fallback_still_reports_its_region(self):
+        for pdf, quality in ((signature_pdf(), "present_ambiguous"), (signature_pdf(ink=False), "missing")):
+            out = assess_signature(page_text(pdf), visual=probe_visual_quality(pdf, "s.pdf")[0], ocr_lines=None, page=1)
+            assert out["quality"] == quality and out["region"]["basis"] == "bottom band"
+
+    def test_verdicts_without_a_visual_have_no_region(self):
+        out = assess_signature("Authorized signature: electronically signed", visual=None, ocr_lines=None)
+        assert out["quality"] == "present_clear" and "region" not in out

@@ -544,6 +544,13 @@ def verbatim_prompt_echo(draft: str, system_prompt: str, *, user_text: str = "")
     an ordinary heading ("## Compare the deductibles in the current policy to the
     renewal"). Windows that are prompt text alone are still scanned.
     """
+    # Heading lines the prompt tells the model to write ("## claim_snapshot",
+    # "## policy_snapshot" …) are the document's skeleton, not the prompt's
+    # secret: a draft whose empty sections leave two headings adjacent matched
+    # the prompt's heading list as a 40-char run and was refused as a
+    # disclosure (live, OpenRouter/Llama 3.3 70B, 2026-09-28). They are blanked
+    # (same length) before the scan; instruction sentences are still scanned.
+    system_prompt = re.sub(r"(?m)^[ \t]*#{1,6}[ \t]+\S[^\n]*$", lambda m: " " * len(m.group(0)), system_prompt or "")
     prompt = _collapse(system_prompt)
     body = _collapse(draft)
     user = _collapse(user_text)
@@ -685,7 +692,7 @@ def validate_compiled_draft(
         return ValidationOutcome(
             ok=False,
             reason="system_prompt_disclosure",
-            detail=f"draft carries {len(echo)} chars of the compiled system prompt verbatim",
+            detail=f"draft carries {len(echo)} chars of the compiled system prompt verbatim: {echo!r}",
         )
 
     opening = first_sentence(draft)

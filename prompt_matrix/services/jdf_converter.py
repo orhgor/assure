@@ -1,18 +1,32 @@
 """PDF → JDF → chunks via @uurtech/jdf-cli."""
 import json
+import logging
 import os
+import re
+import shutil
 import subprocess
 import tempfile
-import shutil
-import logging
-import re
 from pathlib import Path
 from typing import Any
 
 try:
-    from .field_extractor import NODE_ID_POLICY, _element_bbox, _element_text, _walk_elements, derive_element_id
+    from .field_extractor import (
+        NODE_ID_POLICY,
+        _element_bbox,
+        _element_text,
+        _walk_elements,
+        derive_element_id,
+        ocr_block_elements,
+    )
 except ImportError:  # pragma: no cover - flat-import fallback
-    from services.field_extractor import NODE_ID_POLICY, _element_bbox, _element_text, _walk_elements, derive_element_id  # type: ignore
+    from services.field_extractor import (  # type: ignore
+        NODE_ID_POLICY,
+        _element_bbox,
+        _element_text,
+        _walk_elements,
+        derive_element_id,
+        ocr_block_elements,
+    )
 
 log = logging.getLogger(__name__)
 JDF_BIN = shutil.which("jdf") or "/opt/node-v24.11.1-linux-arm64/bin/jdf"
@@ -85,6 +99,274 @@ def pdf_to_jdf(pdf_bytes: bytes, *, ocr: str | None = None) -> dict:
                 os.unlink(p)
             except FileNotFoundError:
                 pass
+
+
+# --------------------------------------------------------------------------- #
+# Orientation of scanned pages (2026-09-28)
+# --------------------------------------------------------------------------- #
+
+#: DPI of the probe renders the orientation is measured on. tesseract.js on a
+#: 100-dpi US-Letter page takes 0.6–1.0 s per rotation (measured 2026-09-28,
+#: M-series laptop) against 1.3 s for the 200-dpi page.
+ORIENTATION_DPI = 100
+#: An OCR block (line) at or above this confidence counts its words as
+#: "confident". On the bench rotated scan the four rotations read 5 / 0 / 2 /
+#: 99 confident words (0° / 90° / 180° / 270°), while raw word counts were
+#: 165 / 43 / 60 / 99 — tesseract reads sideways text as many low-confidence
+#: fragments, so word count alone picks the wrong rotation.
+ORIENTATION_CONFIDENT_BLOCK = 0.70
+#: The upright render is accepted without trying the other rotations when
+#: it reads at least this many confident words at at least this mean block
+#: confidence. Measured 2026-09-28 on the bench: upright scans read 33–99
+#: confident words at mean 0.84–0.94, the 72-dpi phone photo 64 at 0.71;
+#: sideways or upside-down renders read 0–5 confident words at mean
+#: 0.34–0.53. 0.6 / 20 accepts every upright bench page after one pass and
+#: none of the turned ones.
+ORIENTATION_ACCEPT_MEAN = 0.60
+ORIENTATION_ACCEPT_WORDS = 20
+#: A rotation replaces 0° only when it reads at least this many confident
+#: words and at least this multiple of the 0° render's; otherwise the page is
+#: left as scanned and the record says the measurement was inconclusive.
+ORIENTATION_MIN_WORDS = 10
+ORIENTATION_MIN_GAIN = 2.0
+ORIENTATION_ROTATIONS = (0, 90, 180, 270)
+#: Pages beyond this many measured scan pages are left as scanned and recorded
+#: as not measured (each measured page costs 1–4 OCR passes).
+ORIENTATION_MAX_PAGES = int(os.environ.get("JDF_ORIENTATION_MAX_PAGES", "50") or 50)
+
+_OSD_ROTATE = re.compile(r"^Rotate:\s*(\d+)", re.M)
+_OSD_CONFIDENCE = re.compile(r"^Orientation confidence:\s*([\d.]+)", re.M)
+
+
+def orientation_enabled() -> bool:
+    """``JDF_ORIENTATION`` (default on) — off skips the measurement entirely."""
+    return os.environ.get("JDF_ORIENTATION", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def _fitz():
+    import fitz  # PyMuPDF, already a dependency (quality_probe, pdf_import)
+
+    return fitz
+
+
+def ocr_reading(jdf_dict: dict) -> dict[str, Any]:
+    """What one OCR pass read: blocks, words, words in confident blocks, mean
+    block confidence — the numbers an orientation decision is made from."""
+    confs: list[float] = []
+    words = confident = 0
+    for page in (jdf_dict.get("pages") or []) if isinstance(jdf_dict, dict) else []:
+        if not isinstance(page, dict):
+            continue
+        for el in _walk_elements(page.get("elements")):
+            ocr = el.get("ocr")
+            if not isinstance(ocr, dict):
+                continue
+            for block in ocr.get("blocks") or []:
+                if not isinstance(block, dict):
+                    continue
+                n = len(str(block.get("text") or "").split())
+                conf = block.get("confidence")
+                words += n
+                if isinstance(conf, (int, float)):
+                    confs.append(float(conf))
+                    if float(conf) >= ORIENTATION_CONFIDENT_BLOCK:
+                        confident += n
+    return {
+        "blocks": len(confs),
+        "words": words,
+        "confident_words": confident,
+        "mean_confidence": round(sum(confs) / len(confs), 4) if confs else None,
+    }
+
+
+def _image_only_pdf(png: bytes, width_pt: float, height_pt: float) -> bytes:
+    fitz = _fitz()
+    doc = fitz.open()
+    try:
+        page = doc.new_page(width=width_pt, height=height_pt)
+        page.insert_image(page.rect, stream=png)
+        return doc.tobytes()
+    finally:
+        doc.close()
+
+
+def _ocr_probe(page, rotation: int, *, ocr: str) -> dict[str, Any]:
+    """OCR one page rendered at ``ORIENTATION_DPI`` and rotated ``rotation``
+    degrees clockwise (``fitz.Matrix.prerotate``; verified 2026-09-28: text at
+    the top of a page lands on the right after ``prerotate(90)``)."""
+    fitz = _fitz()
+    zoom = ORIENTATION_DPI / 72.0
+    pm = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom).prerotate(rotation), colorspace=fitz.csGRAY, alpha=False)
+    pdf = _image_only_pdf(pm.tobytes("png"), pm.width * 72.0 / ORIENTATION_DPI, pm.height * 72.0 / ORIENTATION_DPI)
+    return ocr_reading(pdf_to_jdf(pdf, ocr=ocr))
+
+
+def _osd_rotation(page) -> dict[str, Any] | None:
+    """Tesseract's orientation-and-script detection (``--psm 0``) when the
+    ``tesseract`` binary is installed; None otherwise (the image ships
+    tesseract.js through jdf-cli, not the binary, so this is None there).
+    ``rotate`` is tesseract's clockwise correction, verified by an OCR pass
+    before it is applied (:func:`detect_orientation`)."""
+    binary = shutil.which("tesseract")
+    if not binary:
+        return None
+    fitz = _fitz()
+    zoom = ORIENTATION_DPI / 72.0
+    pm = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csGRAY, alpha=False)
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+        f.write(pm.tobytes("png"))
+        path = f.name
+    try:
+        r = _run([binary, path, "-", "--psm", "0"], timeout=60)
+    except JdfConversionError:
+        return None
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+    if r.returncode != 0:
+        return None
+    out = (r.stdout or "") + (r.stderr or "")
+    rot, conf = _OSD_ROTATE.search(out), _OSD_CONFIDENCE.search(out)
+    if not rot:
+        return None
+    return {"rotate": int(rot.group(1)) % 360, "confidence": float(conf.group(1)) if conf else None}
+
+
+def _reads_well(reading: dict[str, Any]) -> bool:
+    mean = reading.get("mean_confidence")
+    return isinstance(mean, (int, float)) and mean >= ORIENTATION_ACCEPT_MEAN and int(reading.get("confident_words") or 0) >= ORIENTATION_ACCEPT_WORDS
+
+
+def _native_dpi(doc, page) -> int:
+    """Pixel width of the page's largest embedded image over the page width in
+    inches — the resolution the rotated page is re-rendered at, so nothing is
+    lost that the scan had (clamped to 150–300; 200 when no image is found)."""
+    best = 0
+    try:
+        for info in page.get_images(full=True):
+            xref = info[0]
+            width = doc.extract_image(xref).get("width") or 0
+            best = max(best, int(width))
+    except Exception:  # pragma: no cover - PyMuPDF quirks on odd files
+        best = 0
+    if best <= 0 or page.rect.width <= 0:
+        return 200
+    return int(max(150, min(300, round(best / (page.rect.width / 72.0)))))
+
+
+def detect_orientation(pdf_bytes: bytes, *, ocr: str) -> tuple[bytes, dict[str, Any]]:
+    """Measure the orientation of every page without a text layer and return
+    the PDF with those pages rotated upright, plus the record of what was
+    measured.
+
+    Method, per scan page: OCR the ``ORIENTATION_DPI`` render as scanned
+    (0°); if it reads well (``ORIENTATION_ACCEPT_MEAN`` / ``_WORDS``) the page
+    is upright and nothing else is tried. Otherwise the rotation the previous
+    pages needed (a scanner batch is rotated as a whole) and tesseract's OSD
+    suggestion (when the binary exists) are OCR'd next and accepted when they
+    read well; failing that, the remaining rotations are OCR'd and the one
+    with the most confident words wins, provided it beats 0° by
+    ``ORIENTATION_MIN_GAIN`` with at least ``ORIENTATION_MIN_WORDS`` — else the
+    page stays as scanned and the record says ``inconclusive``. Every record
+    lists the measurements the decision rests on; a page that was not
+    measured (text layer, page cap) says so and is never rotated.
+
+    Rotation is done by re-rendering the page at its native DPI with
+    ``Matrix.prerotate(correction)`` into a fresh image-only page: jdf-cli
+    ignores ``/Rotate`` (measured 2026-09-28: ``page.set_rotation(270)`` on
+    the bench rotated scan changed nothing in its OCR), so the pixels have
+    to move. Pages that need no correction are copied untouched.
+
+    ``detected_degrees`` is how far clockwise the scanned content is turned
+    from upright (the bench generator's ``rotate=90`` case reads 90);
+    ``correction_degrees`` is the clockwise rotation applied to fix it
+    (``(360 − detected) % 360``).
+    """
+    fitz = _fitz()
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    records: list[dict[str, Any]] = []
+    corrections: dict[int, int] = {}
+    preferred: int | None = None
+    measured_pages = 0
+    try:
+        for index, page in enumerate(doc):
+            page_no = index + 1
+            if page.get_text("text").strip():
+                records.append({"page": page_no, "detected_degrees": None, "correction_degrees": 0, "method": "not measured",
+                                "basis": "page has a text layer; orientation is measured on scanned pages only"})
+                continue
+            if measured_pages >= ORIENTATION_MAX_PAGES:
+                records.append({"page": page_no, "detected_degrees": None, "correction_degrees": 0, "method": "not measured",
+                                "basis": f"beyond the {ORIENTATION_MAX_PAGES}-page measurement cap (JDF_ORIENTATION_MAX_PAGES); left as scanned"})
+                continue
+            measured_pages += 1
+            measurements: dict[int, dict[str, Any]] = {}
+
+            def measure(rotation: int) -> dict[str, Any]:
+                if rotation not in measurements:
+                    measurements[rotation] = _ocr_probe(page, rotation, ocr=ocr)
+                return measurements[rotation]
+
+            method = "ocr-4-rotations"
+            chosen: int | None = None
+            if _reads_well(measure(0)):
+                chosen, method = 0, "ocr-upright-accepted"
+            else:
+                osd = _osd_rotation(page)
+                shortlist = [r for r in (preferred, (osd or {}).get("rotate")) if isinstance(r, int) and r % 360 not in (0,)]
+                for rotation in shortlist:
+                    if _reads_well(measure(rotation % 360)):
+                        chosen = rotation % 360
+                        method = "tesseract-osd+ocr" if osd and rotation == osd.get("rotate") else "ocr-batch-rotation"
+                        break
+                if chosen is None:
+                    for rotation in ORIENTATION_ROTATIONS:
+                        measure(rotation)
+                    upright = int(measurements[0]["confident_words"])
+                    best = max(ORIENTATION_ROTATIONS, key=lambda r: (measurements[r]["confident_words"], measurements[r]["mean_confidence"] or 0.0))
+                    best_words = int(measurements[best]["confident_words"])
+                    if best != 0 and best_words >= ORIENTATION_MIN_WORDS and best_words >= ORIENTATION_MIN_GAIN * max(1, upright):
+                        chosen = best
+                    else:
+                        chosen, method = 0, "inconclusive"
+            summary = ", ".join(
+                f"{r}°: {m['confident_words']} confident words of {m['words']} (mean {m['mean_confidence'] if m['mean_confidence'] is not None else 'n/a'})"
+                for r, m in sorted(measurements.items())
+            )
+            detected = (360 - chosen) % 360
+            if method == "inconclusive":
+                basis = f"no rotation read clearly better than the scan as given ({summary}); left as scanned"
+            elif method == "ocr-upright-accepted":
+                basis = f"the page as scanned reads well ({summary}); other rotations not tried"
+            else:
+                basis = f"best OCR reading after rotating {chosen}° clockwise ({summary})"
+            records.append({"page": page_no, "detected_degrees": detected, "correction_degrees": chosen, "method": method,
+                            "basis": basis, "measurements": {str(r): m for r, m in sorted(measurements.items())}, "dpi": ORIENTATION_DPI})
+            if chosen:
+                corrections[index] = chosen
+                preferred = chosen
+        if not corrections:
+            return pdf_bytes, {"pages": records, "rotated_pages": [], "dpi": ORIENTATION_DPI}
+        out = fitz.open()
+        try:
+            for index, page in enumerate(doc):
+                correction = corrections.get(index)
+                if not correction:
+                    out.insert_pdf(doc, from_page=index, to_page=index)
+                    continue
+                dpi = _native_dpi(doc, page)
+                zoom = dpi / 72.0
+                pm = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom).prerotate(correction), colorspace=fitz.csRGB, alpha=False)
+                new_page = out.new_page(width=pm.width * 72.0 / dpi, height=pm.height * 72.0 / dpi)
+                new_page.insert_image(new_page.rect, stream=pm.tobytes("png"))
+                records[index]["rerendered_dpi"] = dpi
+            return out.tobytes(deflate=True, garbage=3), {"pages": records, "rotated_pages": [i + 1 for i in sorted(corrections)], "dpi": ORIENTATION_DPI}
+        finally:
+            out.close()
+    finally:
+        doc.close()
 
 
 def _ocr_confidence_from_blocks(jdf_dict: dict) -> tuple[float | None, int]:
@@ -311,6 +593,17 @@ def pdf_to_parse_bundle(
     ``JdfConversionError`` carrying that step's stderr.
     """
     strategy = strategy or chunk_strategy()
+    orientation: dict[str, Any] | None = None
+    if ocr and ocr != "none" and orientation_enabled():
+        # Scanned pages first get their orientation measured and corrected
+        # (2026-09-28: the bench 90° scan routed ``uncertain`` with 0 fields
+        # because tesseract read sideways text as fragments). A failure here
+        # is recorded, never fatal: the page is then OCR'd as scanned.
+        try:
+            pdf_bytes, orientation = detect_orientation(pdf_bytes, ocr=ocr)
+        except Exception as exc:  # noqa: BLE001 - the parse must go on
+            log.warning("orientation detection failed; OCR runs on the pages as scanned: %s", exc)
+            orientation = {"pages": [], "rotated_pages": [], "error": f"{type(exc).__name__}: {exc}"[:300]}
     # pdf_to_jdf/jdf_to_chunks already raise JdfConversionError carrying the
     # failing step's stderr (`_run`'s stdout/stderr, truncated) — nothing to
     # translate here, just let it propagate as the one clean error type.
@@ -337,6 +630,7 @@ def pdf_to_parse_bundle(
         "ocr_confidence": ocr_confidence,
         "ocr_line_count": ocr_lines,
         "ocr_engine": ocr if (ocr and ocr != "none") else None,
+        "orientation": orientation,
         "tables": assets["tables"],
         "images": assets["images"],
         "figures": assets["figures"],
@@ -417,6 +711,10 @@ def chunk_elements(jdf_dict: dict, chunk: dict, content: str) -> list[dict[str, 
                     "text_preview": text[:ELEMENT_PREVIEW_CHARS],
                 }
             )
+            # A scanned page's OCR lines, after the image element that carries
+            # them (first match keeps resolving to the element; the signature
+            # band reads the smallest covering entry — field_extractor.ocr_block_elements).
+            out.extend(ocr_block_elements(el, page, text, chunk_id=chunk_id, page_no=page_no, offset=start))
             cursor = end
     return out
 
@@ -581,8 +879,14 @@ def jdf_to_document_tree(
                 # citable text at all.
                 ocr_text = str(chunk.get("text") or chunk.get("content") or "").strip()
                 if ocr_text:
-                    para = _paragraph(ocr_text)
-                    para["meta"] = {"ocr": True, "page": chunk.get("page")}
+                    # Built from the chunk (not the bare string) since 2026-09-28
+                    # so the OCR paragraph carries the chunk id and
+                    # ``meta.elements`` — the image element plus one
+                    # ``ocr_block`` entry per OCR line with its bbox — like
+                    # every other paragraph; until then a scan's fields had no
+                    # chunk address and the signature band had no line bbox.
+                    para = _paragraph(chunk)
+                    para["meta"].update({"ocr": True, "page": chunk.get("page")})
                     children.append(para)
             else:
                 children.append(_paragraph(chunk))

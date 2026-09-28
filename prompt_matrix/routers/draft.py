@@ -77,6 +77,7 @@ try:
     from ..services.source_carry import (
         SUBSTRATE_CONTEXT_CHARS_PER_FILE,
         SUBSTRATE_CONTEXT_CHARS_TOTAL,
+        attach_form_fields,
         carry_plan,
         numbered_source_blocks,
     )
@@ -161,6 +162,7 @@ except ImportError:
     from services.source_carry import (
         SUBSTRATE_CONTEXT_CHARS_PER_FILE,
         SUBSTRATE_CONTEXT_CHARS_TOTAL,
+        attach_form_fields,
         carry_plan,
         numbered_source_blocks,
     )
@@ -690,18 +692,24 @@ def _compiled_prompt_text(messages: list[dict[str, Any]]) -> str:
 
 
 def build_sentence_map(substrate_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """``{id: {"text", "filename", "page"}}`` for exactly what the prompt showed.
+    """``{id: {"text", "filename", "page"[, "provenance"]}}`` for exactly what the prompt showed.
 
     Read from ``numbered_source_blocks`` (services/source_carry), so the map and the
     prompt are the same
     walk and a cited id cannot drift. Threaded to the parser, the validator, the
-    counters, the Evidence pane and the JDF serializer.
+    counters, the Evidence pane and the JDF serializer. ``provenance`` is present
+    only on a field sentence appended to a form-like source (2026-09-28).
     """
-    return {
-        sid: {"text": text, "filename": filename, "page": page}
-        for _block, entries in numbered_source_blocks(substrate_rows)
-        for sid, text, filename, page in entries
-    }
+    out: dict[str, dict[str, Any]] = {}
+    for _block, entries in numbered_source_blocks(substrate_rows):
+        for sid, text, filename, page, provenance in entries:
+            entry: dict[str, Any] = {"text": text, "filename": filename, "page": page}
+            if provenance:
+                # A field sentence of a form-like source (``source_carry.
+                # form_field_sentence``): the citation row will carry the field.
+                entry["provenance"] = provenance
+            out[sid] = entry
+    return out
 
 
 _CITED_ID_RE = re.compile(r"\[S(\d+)\]")
@@ -732,6 +740,11 @@ def attach_citations_to_tree(
     A citation that resolves to an instruction-like sentence anchors nothing: an
     order inside a source is content to report, never evidence, and the sentence
     still keeps its id because the prompt showed it under that number.
+
+    A citation to a form field sentence (``source_carry.form_field_sentence``)
+    writes the field on the row — ``grounding_source: "parsure_field"``,
+    ``field``, ``element_id``, ``bbox``, ``field_quote`` — so the claim block's
+    quote and page are the field's (2026-09-28).
     """
     sentence_map = build_sentence_map(substrate_rows)
     if not sentence_map:
@@ -793,15 +806,30 @@ def attach_citations_to_tree(
                 # opening token.
                 if not may_be_evidence(str(entry.get("text") or "")):
                     continue
-                rows.append(
-                    {
-                        "extracted_quote": entry["text"],
-                        "source_name": entry["filename"],
-                        "page": entry["page"],
-                        "cited_id": f"S{n}",
-                        "sentence_index": marker_sentences[position],
-                    }
-                )
+                row: dict[str, Any] = {
+                    "extracted_quote": entry["text"],
+                    "source_name": entry["filename"],
+                    "page": entry["page"],
+                    "cited_id": f"S{n}",
+                    "sentence_index": marker_sentences[position],
+                }
+                field = entry.get("provenance")
+                if isinstance(field, dict) and field.get("kind") == "parsure_field":
+                    # The sentence is a form field Parsure read; the row names the
+                    # field so the claim policy tests the field's verbatim page
+                    # quote (``field_quote``) rather than the "Label: value" line,
+                    # which is not itself on the page.
+                    row.update(
+                        {
+                            "grounding_source": "parsure_field",
+                            "field": field.get("field"),
+                            "element_id": field.get("element_id"),
+                            "bbox": field.get("bbox"),
+                            "field_quote": field.get("quote"),
+                            "parsure_report_id": field.get("report_id"),
+                        }
+                    )
+                rows.append(row)
     return tree
 
 
@@ -1929,6 +1957,13 @@ def _run_draft_pipeline(
     # what decides which material survives the budget and which [S<N>] ids the
     # claim-relevant sources get.
     substrate_rows = _rank_substrate_rows(substrate_rows, icp_profile)
+    # A form-like source carries its Parsure fields into the numbering as
+    # sentences of their own (services/source_carry, 2026-09-28): a filled
+    # CMS-1500's text is captions the guard rightly refuses to ground on, while
+    # its field report holds verbatim, page-anchored values. Marked here, before
+    # the prompt is numbered, so the prompt, the sentence map, the carry plan
+    # and the cache key all read the same rows.
+    substrate_rows = attach_form_fields(project_id, substrate_rows)
     # Pre-flight: a compile with no source attached has nothing to ground on, so
     # it is refused before the first stage runs — no model call, no tokens
     # painted into the document pane, no revision and no cache entry. The
@@ -2332,6 +2367,20 @@ def _run_draft_pipeline(
         yield from _refusal_frames(_outcome.message, _outcome.reason, rid, _form_refusal_extra(project_id, _outcome))
         return
 
+    # What this compile carried of the sources it was handed, by the same walk that
+    # numbered the prompt (`services/source_carry`). The prompt cannot hold every
+    # attached source — the walk stops at the first block that would pass
+    # SUBSTRATE_CONTEXT_CHARS_TOTAL — and nothing recorded which sources that left
+    # behind, so the export's manifest listed every attached file as included
+    # (measured: 24 attached, 18 carried, all 24 reported). One plan is written in
+    # the places the reader already looks: the `compiled` and `verified` frames,
+    # the gate block the export reads, and this compile's audit row — and, since
+    # 2026-09-27, it is read by the claim policy: a claim cited from a source the
+    # prompt dropped or truncated before the cited region is INSUFFICIENT_EVIDENCE.
+    # Since 2026-09-28 each source entry also says how many Parsure field
+    # sentences it carried (`parsure_fields`, forms as sources).
+    _carry = carry_plan(substrate_rows)
+
     # The JDF tree is NOT persisted here: this is the pre-audit document. The
     # single compile revision is saved further down, once Math Check and the
     # confidence audit have attached their metadata (see "[jdf-persist]").
@@ -2344,6 +2393,7 @@ def _run_draft_pipeline(
             "node_count": len(doc_dict.get("body") or []),
             "lock_count": len(locks),
             "draft_text": full_text,
+            "sources": _carry,
         },
     )
 
@@ -2414,17 +2464,8 @@ def _run_draft_pipeline(
         project_id=project_id,
         checker=lambda claim, source: check_entailment(claim, source, project_id=project_id),
     )
-    # What this compile carried of the sources it was handed, by the same walk that
-    # numbered the prompt (`services/source_carry`). The prompt cannot hold every
-    # attached source — the walk stops at the first block that would pass
-    # SUBSTRATE_CONTEXT_CHARS_TOTAL — and nothing recorded which sources that left
-    # behind, so the export's manifest listed every attached file as included
-    # (measured: 24 attached, 18 carried, all 24 reported). One plan is written in
-    # three places the reader already looks: the `verified` frame, the gate block
-    # the export reads, and this compile's audit row — and, since 2026-09-27, it
-    # is read by the claim policy: a claim cited from a source the prompt dropped
-    # or truncated before the cited region is INSUFFICIENT_EVIDENCE.
-    _carry = carry_plan(substrate_rows)
+    # `_carry` (computed before the `compiled` frame) is read here by the claim
+    # policy and written to the `verified` frame, the gate and the audit row.
 
     # Stage 3c: claim verdicts (policy claim-v1, `services/claim_policy`). Every
     # claim-eligible paragraph — including a short "Flood is excluded." — gets a
@@ -2940,6 +2981,7 @@ def register_draft_routes(app) -> None:
                 if payload.substrate_file_ids
                 else []
             )
+            rows = attach_form_fields(project_id, rows)
             peek_key = _compile_cache_key(
                 project_id,
                 intent,

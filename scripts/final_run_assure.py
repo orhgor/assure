@@ -121,11 +121,11 @@ def main() -> int:
     with http.post(f"{base}/api/projects/{pid}/draft/stream", json={"intent": ask, "source_ids": [sid], "compileType": "full", "force": True}, stream=True, timeout=args.timeout) as r:
         events = sse(r)
     elapsed = round(time.time() - t0, 1)
-    err = (events.get("error") or [None])[-1]
+    err = next((p for p in events.get("error") or [] if isinstance(p, dict)), None)
     verified = next((p for p in reversed(events.get("verified") or []) if isinstance(p, dict)), None)
     usage = next((p for p in events.get("usage") or [] if isinstance(p, dict) and p.get("task_type") == "draft_compile"), {})
     check("compile produced a grounded draft (no refusal)", verified is not None and err is None,
-          {"elapsed_s": elapsed, "model": usage.get("model_id"), "refusal": (err or {}).get("reason") if isinstance(err, dict) else err})
+          {"elapsed_s": elapsed, "model": usage.get("model_id"), "refusal": (err or {}).get("reason"), "error": str((err or {}).get("error") or "")[:240]})
     if verified is None:
         print(f"\n{sum(1 for c in CHECKS if c[1] == 'PASS')} of {len(CHECKS)} checks passed; project {pid}")
         return 1

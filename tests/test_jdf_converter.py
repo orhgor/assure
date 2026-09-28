@@ -1,6 +1,13 @@
 """Tests for JDF converter (PDF -> JDF -> chunks via jdf-cli)."""
 import json
+import shutil
 import subprocess
+from pathlib import Path
+
+import fitz
+import pytest
+
+from prompt_matrix.services import jdf_converter as jc
 
 from prompt_matrix.services.jdf_converter import (
     JdfConversionError,
@@ -363,7 +370,11 @@ def test_document_tree_keeps_ocr_text_as_paragraphs():
     children = tree["body"][0]["children"]
     assert [c["type"] for c in children] == ["image", "paragraph"]
     assert children[1]["content"] == "COMMERCIAL PROPERTY CP 10 30"
-    assert children[1]["meta"] == {"ocr": True, "page": 1}
+    # Since 2026-09-28 the OCR paragraph is built from the chunk like any other
+    # paragraph, so it carries the chunk address too (a scan's fields had none).
+    assert children[1]["meta"]["ocr"] is True and children[1]["meta"]["page"] == 1
+    assert children[1]["meta"]["chunk_id"] == "scan-1" and children[1]["meta"]["source_page"] == 1
+    assert "elements" not in children[1]["meta"]  # no page element carried this text
 
 
 def test_document_tree_paragraph_lists_its_elements_with_offsets_and_eids():
@@ -397,6 +408,169 @@ def test_document_tree_paragraph_lists_its_elements_with_offsets_and_eids():
     rewrapped = [{"id": "p1e0", "page": 1, "text": "Policy Number:\nPA-1", "types": ["text"]}]
     els2 = jdf_to_document_tree({"pages": [{"elements": [{"type": "text", "content": "Policy Number: PA-1"}]}]}, rewrapped, document_id="d", title="t")["body"][0]["children"][0]["meta"]["elements"]
     assert len(els2) == 1 and (els2[0]["start_char"], els2[0]["end_char"]) == (0, 19) and els2[0]["bbox"] is None
-    # the OCR paragraph of an image chunk keeps its exact meta (no elements key)
+    # the OCR paragraph of an image chunk is addressed like any paragraph
+    # (chunk id; no elements key when no page element carried the text) and
+    # still says it is OCR text
     scan = jdf_to_document_tree({"pages": [{"elements": []}]}, [{"id": "s", "text": "CP 10 30", "page": 1, "types": ["image"]}], document_id="d", title="t")
-    assert scan["body"][0]["children"][1]["meta"] == {"ocr": True, "page": 1}
+    assert scan["body"][0]["children"][1]["meta"] == {"ocr": True, "page": 1, "chunk_id": "s", "source_page": 1}
+
+
+# --------------------------------------------------------------------------
+# Orientation of scanned pages (2026-09-28)
+# --------------------------------------------------------------------------
+
+
+
+def _text_page_pdf() -> bytes:
+    doc = fitz.open()
+    page = doc.new_page()  # portrait Letter
+    y = 72
+    for _ in range(12):
+        page.insert_text((54, y), "Policy Number: NAP-4471-2025  Named Insured: Daniel R. Whitfield", fontsize=11)
+        y += 15
+    return doc.tobytes()
+
+
+def rotated_scan_pdf(rotate: int) -> bytes:
+    """A text page rasterised at 100 dpi, turned ``rotate`` degrees clockwise the
+    way a scanner turns a page, wrapped in an image-only PDF (no text layer)."""
+    src = fitz.open(stream=_text_page_pdf(), filetype="pdf")
+    pm = src[0].get_pixmap(matrix=fitz.Matrix(100 / 72, 100 / 72).prerotate(rotate), alpha=False)
+    out = fitz.open()
+    page = out.new_page(width=pm.width * 72 / 100, height=pm.height * 72 / 100)
+    page.insert_image(page.rect, stream=pm.tobytes("png"))
+    return out.tobytes()
+
+
+def _looks_upright(pdf_bytes: bytes) -> bool:
+    """A stand-in for OCR: the text lines of ``_text_page_pdf`` fill the top
+    third of a portrait page, so a render is upright when the page is portrait
+    and its ink lies in the top third."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    page = doc[0]
+    pm = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY, alpha=False)
+    s, w, h = bytes(pm.samples), pm.width, pm.height
+    rows = [sum(1 for x in range(w) if s[y * w + x] < 128) for y in range(h)]
+    top, rest = sum(rows[: h // 3]), sum(rows[h // 3:])
+    return h > w and top > 0 and rest == 0
+
+
+def fake_ocr(pdf_bytes: bytes, ocr=None) -> dict:
+    """``pdf_to_jdf`` stand-in: confident, wordy blocks for an upright render,
+    a few low-confidence fragments otherwise (the pattern tesseract.js showed
+    on the bench scan: 99 confident words upright, 0–5 sideways)."""
+    if _looks_upright(pdf_bytes):
+        blocks = [{"text": "Policy Number: NAP-4471-2025 Named Insured Daniel", "confidence": 0.93, "bbox": {"x": 0.1, "y": 0.1 + i * 0.02, "w": 0.6, "h": 0.015}} for i in range(12)]
+    else:
+        blocks = [{"text": "—l |i", "confidence": 0.38, "bbox": {"x": 0.1, "y": 0.1 + i * 0.05, "w": 0.2, "h": 0.02}} for i in range(4)]
+    return {"$jdf": "1.0", "meta": {}, "pages": [{"id": "page-1", "pageSize": {"width": 215.9, "height": 279.4},
+                                                   "elements": [{"type": "image", "id": "scan-1", "position": {"x": 0, "y": 0}, "width": 215.9, "height": 279.4,
+                                                                 "ocr": {"language": "eng", "blocks": blocks}}]}]}
+
+
+def test_ocr_reading_counts_confident_words_and_mean_confidence():
+    reading = jc.ocr_reading(fake_ocr(rotated_scan_pdf(0)))
+    assert reading == {"blocks": 12, "words": 72, "confident_words": 72, "mean_confidence": 0.93}
+    sideways = jc.ocr_reading(fake_ocr(rotated_scan_pdf(90)))
+    assert sideways["confident_words"] == 0 and sideways["words"] == 8 and sideways["mean_confidence"] == 0.38
+    assert jc.ocr_reading({"pages": []}) == {"blocks": 0, "words": 0, "confident_words": 0, "mean_confidence": None}
+
+
+def test_detect_orientation_turns_a_sideways_scan_upright(monkeypatch):
+    monkeypatch.setattr(jc, "pdf_to_jdf", fake_ocr)
+    monkeypatch.setattr(jc.shutil, "which", lambda name: None)  # no tesseract binary: the four-rotation path
+    scan = rotated_scan_pdf(90)
+    assert not _looks_upright(scan)
+    fixed, record = jc.detect_orientation(scan, ocr="tesseract")
+    page = record["pages"][0]
+    assert page["detected_degrees"] == 90 and page["correction_degrees"] == 270 and page["method"] == "ocr-4-rotations"
+    assert sorted(page["measurements"]) == ["0", "180", "270", "90"] and page["measurements"]["270"]["confident_words"] == 72
+    assert "rotating 270° clockwise" in page["basis"] and "0°: 0 confident words" in page["basis"]
+    # re-rendered at the scan's own resolution, floored at 150 dpi for the OCR (``_native_dpi``)
+    assert record["rotated_pages"] == [1] and page["rerendered_dpi"] == 150 and page["dpi"] == jc.ORIENTATION_DPI
+    assert _looks_upright(fixed)  # the bytes handed to the real OCR are upright
+    with fitz.open(stream=fixed, filetype="pdf") as doc:
+        assert doc[0].rect.width < doc[0].rect.height
+
+
+def test_detect_orientation_accepts_an_upright_scan_after_one_pass(monkeypatch):
+    calls = []
+
+    def counting(pdf_bytes, ocr=None):
+        calls.append(ocr)
+        return fake_ocr(pdf_bytes, ocr)
+
+    monkeypatch.setattr(jc, "pdf_to_jdf", counting)
+    scan = rotated_scan_pdf(0)
+    fixed, record = jc.detect_orientation(scan, ocr="tesseract")
+    page = record["pages"][0]
+    assert page["method"] == "ocr-upright-accepted" and page["detected_degrees"] == 0 and page["correction_degrees"] == 0
+    assert list(page["measurements"]) == ["0"] and calls == ["tesseract"]
+    assert fixed is scan and record["rotated_pages"] == []
+
+
+def test_detect_orientation_never_measures_text_layer_pages(monkeypatch):
+    monkeypatch.setattr(jc, "pdf_to_jdf", lambda *a, **k: pytest.fail("OCR must not run on a text-layer page"))
+    text_pdf = _text_page_pdf()
+    fixed, record = jc.detect_orientation(text_pdf, ocr="tesseract")
+    assert fixed is text_pdf
+    assert record["pages"][0]["method"] == "not measured" and record["pages"][0]["detected_degrees"] is None
+    assert "text layer" in record["pages"][0]["basis"]
+
+
+def test_detect_orientation_leaves_an_inconclusive_page_as_scanned(monkeypatch):
+    # every rotation reads the same little: no claim, no rotation
+    monkeypatch.setattr(jc, "pdf_to_jdf", lambda b, ocr=None: {"pages": [{"elements": [{"type": "image", "ocr": {"blocks": [{"text": "ab cd", "confidence": 0.5}]}}]}]})
+    monkeypatch.setattr(jc.shutil, "which", lambda name: None)
+    scan = rotated_scan_pdf(90)
+    fixed, record = jc.detect_orientation(scan, ocr="tesseract")
+    page = record["pages"][0]
+    assert fixed is scan and page["method"] == "inconclusive" and page["correction_degrees"] == 0 and page["detected_degrees"] == 0
+    assert "left as scanned" in page["basis"] and len(page["measurements"]) == 4
+
+
+def test_bundle_carries_the_orientation_record_and_the_env_switch(monkeypatch):
+    monkeypatch.setattr(jc, "pdf_to_jdf", fake_ocr)
+    monkeypatch.setattr(jc, "jdf_to_chunks", lambda jdf, strategy="section": [{"id": "scan-1", "page": 1, "text": "Policy Number: NAP-4471-2025", "types": ["image"]}])
+    monkeypatch.setattr(jc.shutil, "which", lambda name: None)
+    monkeypatch.delenv("JDF_ORIENTATION", raising=False)
+    bundle = jc.pdf_to_parse_bundle(rotated_scan_pdf(90), ocr="tesseract")
+    assert bundle["orientation"]["rotated_pages"] == [1] and bundle["orientation"]["pages"][0]["detected_degrees"] == 90
+    assert bundle["parser_name"] == "jdf-cli+tesseract" and bundle["ocr_confidence"] == 0.93
+    monkeypatch.setenv("JDF_ORIENTATION", "0")
+    assert jc.pdf_to_parse_bundle(rotated_scan_pdf(90), ocr="tesseract")["orientation"] is None
+    monkeypatch.delenv("JDF_ORIENTATION")
+    assert jc.pdf_to_parse_bundle(rotated_scan_pdf(0), ocr=None)["orientation"] is None  # text-layer parse: not measured
+
+
+def test_bundle_survives_an_orientation_failure(monkeypatch):
+    monkeypatch.setattr(jc, "pdf_to_jdf", fake_ocr)
+    monkeypatch.setattr(jc, "jdf_to_chunks", lambda jdf, strategy="section": [])
+    monkeypatch.setattr(jc, "detect_orientation", lambda b, ocr: (_ for _ in ()).throw(RuntimeError("boom")))
+    bundle = jc.pdf_to_parse_bundle(rotated_scan_pdf(0), ocr="tesseract")
+    assert bundle["orientation"]["pages"] == [] and bundle["orientation"]["error"].startswith("RuntimeError")
+
+
+def test_report_pages_carry_the_orientation_record():
+    from prompt_matrix.services import v1_orchestrator as orch
+    bundle = {"orientation": {"pages": [{"page": 1, "detected_degrees": 90, "correction_degrees": 270, "method": "ocr-4-rotations", "basis": "b", "measurements": {}}]},
+              "ocr_confidence": 0.9, "jdf": {"pages": []}, "chunks": []}
+    pages, _ = orch.score_pages(bundle, ["Policy Number: 1", "second page"], None)
+    assert pages[0]["orientation"] == {"detected_degrees": 90, "correction_degrees": 270, "method": "ocr-4-rotations", "basis": "b"}
+    assert pages[1]["orientation"] is None
+    assert orch.score_pages({"jdf": {"pages": []}}, ["x"], None)[0][0]["orientation"] is None
+
+
+@pytest.mark.skipif(shutil.which("jdf") is None, reason="jdf-cli not installed locally")
+def test_real_jdf_cli_reads_the_rotated_bench_scan_after_orientation():
+    """bench case ``mix-auto-declarations-rotated-90-scan``: routed ``uncertain`` with
+    0 fields until the OCR step measured the orientation (2026-09-28)."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from bench.cases import generators as G
+    _, data, meta = G.build("auto_declarations_rotated_scan_90")
+    assert meta["rotation"] == 90
+    bundle = jc.pdf_to_parse_bundle(data, filename="rotated.pdf", ocr="tesseract")
+    page = bundle["orientation"]["pages"][0]
+    assert page["detected_degrees"] == 90 and page["correction_degrees"] == 270 and bundle["orientation"]["rotated_pages"] == [1]
+    assert "NAP-4471-2025" in bundle["text"] and bundle["ocr_confidence"] > 0.85

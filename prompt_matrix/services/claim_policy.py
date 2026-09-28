@@ -56,6 +56,16 @@ source — rule 3 sits above every rule that can verify, so no path reaches
 VERIFIED without one; an enumeration's quote is the source sentence carrying its
 first sub-claim, and each sub-claim carries its own.
 
+Form fields (2026-09-28). A citation row that names a Parsure field
+(``grounding_source: "parsure_field"``, written by ``routers/draft.
+attach_citations_to_tree`` for the field sentences ``services/source_carry``
+appends to a form-like source) is tested on the field's verbatim page quote
+(``field_quote``), not on the "Label: value" sentence, which is not itself a line
+of the page. Such a unit carries ``grounding_source``, ``field`` and ``element_id``,
+its ``quote`` is the field's page quote, and ``checks.source_quality.basis`` says
+"from the field report". The rules above are unchanged: the quote still has to be
+verbatim in the supplied source text.
+
 High-risk wording (``HIGH_RISK_TERMS``) found in the claim whose stem is absent
 from the verbatim evidence is flagged ``high_risk_wording:<term>``. A flag does
 not change the verdict; the gate (``services/audit_summary``) routes a document
@@ -756,6 +766,32 @@ def _row_quote(row: dict[str, Any]) -> str:
     return str(row.get("extracted_quote") or "").strip() or str(row.get("anchor_window") or "").strip()
 
 
+def _field_quote(row: dict[str, Any]) -> str:
+    """The verbatim page quote of a citation row that names a Parsure field
+    (``grounding_source: "parsure_field"``), else ``""``. The row's
+    ``extracted_quote`` is the "Label: value" sentence the model was shown; the
+    page carries the field's quote, so that is what the verbatim test reads."""
+    if str(row.get("grounding_source") or "") != "parsure_field":
+        return ""
+    return str(row.get("field_quote") or "").strip()
+
+
+def _mark_field(unit: dict[str, Any], row: dict[str, Any]) -> None:
+    unit["grounding_source"] = "parsure_field"
+    unit["field"] = str(row.get("field") or "") or None
+    unit["element_id"] = row.get("element_id")
+
+
+def _field_basis(quality: dict[str, str], row: dict[str, Any]) -> dict[str, str]:
+    """``source_quality`` with the field report named, when the citation is a field."""
+    if not _field_quote(row):
+        return quality
+    page = page_of(row)
+    note = f"from the field report (Parsure field {str(row.get('field') or '?')!r}"
+    note += f", verbatim on page {page})" if page else ", verbatim in the source)"
+    return {**quality, "basis": f"{quality.get('basis') or ''}; {note}".lstrip("; ")}
+
+
 def _empty_numeric(detail: str) -> dict[str, Any]:
     return {"status": "not_applicable", "kind": None, "detail": detail, "expected": None, "stated": None, "missing": [], "checks": []}
 
@@ -868,7 +904,9 @@ def _assess_unit(
         if source not in found_sources:
             found_sources.append(source)
         source_text = str(source.get("extracted_text") or "")
-        quote = _row_quote(row)
+        # A field citation is tested on the field's page quote (module docstring,
+        # "Form fields"); every other row on the sentence the model cited.
+        quote = _field_quote(row) or _row_quote(row)
         if not quote_is_verbatim(quote, source_text):
             continue
         if chosen_row is None:
@@ -928,8 +966,10 @@ def _assess_unit(
         unit["checks"]["sub_claims"] = best
         if chosen_row is not None and chosen_source is best_source:
             _cite(chosen_row, chosen_source)
-            unit["quote"] = _row_quote(chosen_row)
+            unit["quote"] = _field_quote(chosen_row) or _row_quote(chosen_row)
             unit["quote_verbatim"] = True
+            if _field_quote(chosen_row):
+                _mark_field(unit, chosen_row)
         else:
             row = cited[0] if cited else {}
             _cite(row, best_source)
@@ -938,6 +978,8 @@ def _assess_unit(
             unit["quote_verbatim"] = bool(first_evidence)
         evidence_text = " ".join(a["evidence"] for a in best if a.get("evidence"))
         quality = source_quality(best_source, quote=unit["quote"] or "", carry_plan=carry_plan)
+        if chosen_row is not None and chosen_source is best_source:
+            quality = _field_basis(quality, chosen_row)
         unit["checks"]["source_quality"] = quality
         if quality["status"] != "ok":
             return _finish(INSUFFICIENT_EVIDENCE, f"source quality is insufficient: {quality['basis']}")
@@ -965,10 +1007,12 @@ def _assess_unit(
         unit["checks"]["source_quality"] = {"status": "ok", "basis": "source supplied; cited text not found in it"}
         return _finish(UNSUPPORTED, "the cited text is not verbatim in the source")
 
-    quote = _row_quote(chosen_row)
+    quote = _field_quote(chosen_row) or _row_quote(chosen_row)
     unit["quote"] = quote
     unit["quote_verbatim"] = True
     _cite(chosen_row, chosen_source)
+    if _field_quote(chosen_row):
+        _mark_field(unit, chosen_row)
     source_text = str(chosen_source.get("extracted_text") or "")
     unit["checks"]["wording"] = wording if wording is not None else wording_check(content, evidence_text)
     unit["checks"]["numeric"] = (
@@ -976,7 +1020,7 @@ def _assess_unit(
     )
 
     # Rule 4 — source quality.
-    quality = source_quality(chosen_source, quote=quote, carry_plan=carry_plan)
+    quality = _field_basis(source_quality(chosen_source, quote=quote, carry_plan=carry_plan), chosen_row)
     unit["checks"]["source_quality"] = quality
     if quality["status"] != "ok":
         return _finish(INSUFFICIENT_EVIDENCE, f"source quality is insufficient: {quality['basis']}")

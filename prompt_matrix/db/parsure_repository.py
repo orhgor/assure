@@ -140,8 +140,18 @@ def public_report(report: dict[str, Any]) -> dict[str, Any]:
     """The report without its private ``_``-prefixed working keys.
 
     ``snapshot`` is kept: it is the hash a reader of any artifact checks the
-    row against (``services/snapshot``)."""
-    return {k: v for k, v in report.items() if not str(k).startswith("_")}
+    row against (``services/snapshot``). The per-page ``visual.ink_map`` (the
+    signature assessor's 48-column ink grid, ≈ 12 KB a page, 2026-09-28) stays
+    in the stored row for replay and leaves the API/UI payload: no reader
+    needs it and a 200-page report would carry 2.5 MB of hex."""
+    out = {k: v for k, v in report.items() if not str(k).startswith("_")}
+    pages = out.get("pages")
+    if isinstance(pages, list) and any(isinstance(p, dict) and isinstance(p.get("visual"), dict) and "ink_map" in p["visual"] for p in pages):
+        out["pages"] = [
+            {**p, "visual": {k: v for k, v in p["visual"].items() if k != "ink_map"}} if isinstance(p, dict) and isinstance(p.get("visual"), dict) else p
+            for p in pages
+        ]
+    return out
 
 
 def verify_snapshot(report: dict[str, Any]) -> dict[str, Any]:

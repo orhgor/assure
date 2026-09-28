@@ -7,7 +7,8 @@ no numpy — neither is a dependency of the image), so the sample is capped at
 ``SAMPLE_LONG_SIDE_PX``, ratios are counted with a single C pass
 (``bytes.translate`` + ``count``) and the Laplacian runs on a small 150-dpi
 crop, every other row. Measured 2026-09-25 on an M-series laptop: 50 text
-pages ≈ 0.7 s, 50 raster pages ≈ 0.9 s.
+pages ≈ 0.7 s, 50 raster pages ≈ 0.9 s; with the ``ink_map`` (rule erase
++ grid, 2026-09-28) 50 text pages ≈ 1.35 s.
 
 What is measured in V1:
 
@@ -27,7 +28,18 @@ What is measured in V1:
   72/96, otherwise the long side divided by 11 in, i.e. *assuming a
   letter/A4 page* — the basis string says which.
 - ``ink_ratio`` / ``bottom_ink_ratio`` — fraction of dark pixels on the page
-  and in its bottom 20 %, the inputs :func:`assess_signature` uses.
+  and in its bottom 20 %, the inputs :func:`assess_signature` uses when no
+  label element locates the signature line.
+- ``ink_map`` — a coarse grid (``INK_MAP_COLS`` columns of square cells,
+  ``cell_px`` at ``HIRES_DPI``) of per-cell ink and mark fractions, measured
+  on the 100-dpi render **after long straight rules are erased**
+  (``RULE_MIN_PX``: ruled lines, underscores, box borders). It lets
+  :func:`assess_signature` measure marks in any band of the page — the band
+  right of the signature label — without re-rendering, so the same verdict
+  is reachable from a saved report (replay has the visual, not the bytes).
+  Added 2026-09-28 after the benchmark's signature accuracy stalled at 54 %:
+  the bench pages end their signature block around 45 % of the page height,
+  so the bottom-20 % band measured blank paper.
 
 What is NOT detected in V1 (never emitted, so a consumer can trust that the
 absence of the flag is not a claim of quality): ``skewed``, ``glare``,
@@ -114,8 +126,46 @@ MARK_THRESHOLD = 200
 SAMPLE_LONG_SIDE_PX = 320
 
 #: Fraction of the page height (from the bottom) treated as the signature
-#: region by :func:`assess_signature`.
+#: region by :func:`assess_signature` when no label element locates the line.
 SIGNATURE_REGION_FRACTION = 0.20
+
+#: Columns of the per-page ``ink_map`` grid; cells are square, so a US-Letter
+#: page at 100 dpi is 48 × 62 cells of 18 px (4.6 mm) — about one 10-pt text
+#: line per cell row. 48 keeps the two hex-encoded maps under 13 KB per page
+#: in the saved report (measured 2026-09-28: 6.0 KB each).
+INK_MAP_COLS = 48
+
+#: A run of marked pixels at least this long (px at ``HIRES_DPI``; 40 px =
+#: 10 mm) in one pixel row or column is a straight rule — a ruled signature
+#: line, a row of underscores, a form box border — and is erased before the
+#: ``ink_map`` is built. Glyphs do not make 10 mm straight runs; a cursive
+#: stroke that is straight for 10 mm in one pixel row would be erased too,
+#: which the basis says.
+RULE_MIN_PX = 40
+
+#: Mark fraction of the label band under which the band is blank paper. The
+#: band is small (≈ 60 cells / 20 k px on the bench pages), so this is ≈ 80
+#: marked pixels: less than two 10-pt letters (proportional-width estimate of
+#: where the label's print ends can leak a letter into the band), far under a
+#: stroke (the bench stroke measured 0.05–0.09, 2026-09-28).
+SIGNATURE_BAND_BLANK_MARK = 0.004
+
+#: The label band's vertical extent in line heights: this far above the label
+#: line's top (signatures ride above the baseline; more would reach the
+#: previous line's descenders) and this far below its bottom (the line under
+#: the label, where a signature written low lands).
+SIGNATURE_BAND_ABOVE_LINES = 0.35
+SIGNATURE_BAND_BELOW_LINES = 1.0
+
+#: Typical 10-pt text at 100 dpi is one 18-px cell tall; a bbox this short
+#: (relative page units, ≈ 6 pt on Letter) cannot be a whole text line, so a
+#: multi-line element with a shorter per-line share is treated as carrying
+#: jdf-cli's one-line fallback height rather than its true height.
+MIN_LINE_HEIGHT_REL = 0.008
+
+#: A band narrower than this share of the page width (≈ 2.6 cm on Letter, 5
+#: ink-map cells) is no room to sign in; the band moves under the label.
+MIN_BAND_WIDTH_REL = 0.12
 
 #: Signature "faint" rule (spec §6: ink density under 30 % of typical).
 #: Measured as *darkness* — the share of marked pixels that are ink
@@ -179,9 +229,33 @@ TEXT_EXTENSIONS = frozenset({"txt", "md", "json", "csv", "rst", "yaml", "yml"})
 DETECTED_FLAGS = ("low_res", "blurry", "low_contrast")
 UNDETECTED_FLAGS = ("skewed", "glare", "noisy")
 
+#: Word-bounded since 2026-09-28: without ``\b`` the bench declarations page
+#: matched "signed" inside "Countersigned this 20th day…" two lines above the
+#: real "Authorized Signature:" line, and the band was measured on the wrong
+#: line. :func:`_pick_label` prefers a "signature" label over a bare "signed".
 _SIGNATURE_LABEL = re.compile(
-    r"(authori[sz]ed\s+signature|signature|signed\s+by|signed|/s/)", re.IGNORECASE
+    r"\b(authori[sz]ed\s+signature|signature|signed\s+by|signed)\b|/s/", re.IGNORECASE
 )
+_LABEL_RANK = ("signature", "signed by", "/s/", "signed")
+
+
+def _pick_label(text: str) -> "re.Match[str] | None":
+    """The signature label to measure against: the first match of the
+    highest-ranked kind (a "signature" label beats "signed by", which beats
+    "/s/" and a bare "signed"), so a page that says both "Countersigned …" and
+    "Authorized Signature:" is judged at the signature line."""
+    matches = list(_SIGNATURE_LABEL.finditer(text))
+    if not matches:
+        return None
+
+    def rank(m: "re.Match[str]") -> int:
+        word = " ".join(m.group(0).lower().split())
+        for i, kind in enumerate(_LABEL_RANK):
+            if kind in word:
+                return i
+        return len(_LABEL_RANK)
+
+    return min(matches, key=lambda m: (rank(m), m.start()))
 _STAMP_WORDS = re.compile(r"\b(stamp(ed)?|seal)\b", re.IGNORECASE)
 #: An electronic signature is a signature (``present_clear``), not a stamp —
 #: the two were one verdict ("stamped") until 2026-09-27.
@@ -343,6 +417,109 @@ def _region_ratios(samples: bytes, width: int, height: int) -> dict[str, float]:
     }
 
 
+_RULE_RUN = re.compile(rb"\x01{%d,}" % RULE_MIN_PX)
+#: One translate table for the ink map: ink → 1, faint mark → 2, paper → 0.
+_INK_MAP_TABLE = bytes(1 if v <= INK_THRESHOLD else (2 if v <= MARK_THRESHOLD else 0) for v in range(256))
+
+
+def _erase_rules(buf: bytearray, width: int, height: int) -> tuple[int, int]:
+    """Blank (to white) every horizontal and vertical run of ≥ ``RULE_MIN_PX``
+    marked pixels in place; returns ``(horizontal runs, vertical runs)``.
+
+    Rows and columns are scanned as byte strings (``translate`` + one regex
+    per row/column, C speed): 8.9 ms for a 850 × 1100 px page, 2026-09-28.
+    Column slices ``buf[x::width]`` and the strided assignment back are the
+    reason the raster is a ``bytearray``.
+    """
+    table = _MASK_TABLES.get(MARK_THRESHOLD)
+    if table is None:
+        table = bytes(1 if v <= MARK_THRESHOLD else 0 for v in range(256))
+        _MASK_TABLES[MARK_THRESHOLD] = table
+    horizontal = vertical = 0
+    for y in range(height):
+        base = y * width
+        row = bytes(buf[base:base + width]).translate(table)
+        for m in _RULE_RUN.finditer(row):
+            buf[base + m.start():base + m.end()] = b"\xff" * (m.end() - m.start())
+            horizontal += 1
+    for x in range(width):
+        col = bytes(buf[x::width]).translate(table)
+        for m in _RULE_RUN.finditer(col):
+            buf[x + width * m.start():x + width * m.end():width] = b"\xff" * (m.end() - m.start())
+            vertical += 1
+    return horizontal, vertical
+
+
+def _ink_map(buf: bytes | bytearray, width: int, height: int, *, rules: tuple[int, int]) -> dict[str, Any]:
+    """Per-cell ink / mark fractions of a rule-erased raster, hex-encoded.
+
+    ``ink`` and ``mark`` are strings of two hex digits per cell (row-major,
+    ``rows × cols``), each ``round(fraction × 255)``; :func:`ink_map_region`
+    decodes them. 11 ms for 48 × 62 cells at 100 dpi (2026-09-28).
+    """
+    cols = INK_MAP_COLS
+    cell = max(1, -(-width // cols))
+    rows = max(1, -(-height // cell))
+    ink = [0] * (cols * rows)
+    mark = [0] * (cols * rows)
+    for y in range(height):
+        row = bytes(buf[y * width:(y + 1) * width]).translate(_INK_MAP_TABLE)
+        base = (y // cell) * cols
+        for c in range(cols):
+            seg = row[c * cell:(c + 1) * cell]
+            a = seg.count(b"\x01")
+            ink[base + c] += a
+            mark[base + c] += a + seg.count(b"\x02")
+    area = float(cell * cell)
+    return {
+        "cols": cols,
+        "rows": rows,
+        "cell_px": cell,
+        "dpi": HIRES_DPI,
+        "ink": "".join(f"{min(255, round(255 * v / area)):02x}" for v in ink),
+        "mark": "".join(f"{min(255, round(255 * v / area)):02x}" for v in mark),
+        "rules_erased": {"horizontal": rules[0], "vertical": rules[1], "min_px": RULE_MIN_PX},
+    }
+
+
+def ink_map_region(visual: dict[str, Any] | None, bbox: list[float] | tuple[float, ...]) -> dict[str, Any] | None:
+    """Mean ink and mark fractions of the ``ink_map`` cells whose centre lies in
+    the relative ``bbox`` ``[x0, y0, x1, y1]``; None when the visual has no
+    map or the bbox covers no cell centre. ``cells`` says how many cells were
+    read so a caller can state the measurement's grain.
+    """
+    m = (visual or {}).get("ink_map") if isinstance(visual, dict) else None
+    if not isinstance(m, dict):
+        return None
+    try:
+        cols, rows = int(m["cols"]), int(m["rows"])
+        ink_hex, mark_hex = str(m["ink"]), str(m["mark"])
+        x0, y0, x1, y1 = (float(v) for v in bbox)
+    except (KeyError, TypeError, ValueError):
+        return None
+    if len(ink_hex) < 2 * cols * rows or len(mark_hex) < 2 * cols * rows:
+        return None
+    c0, c1 = max(0, int(x0 * cols)), min(cols, int(x1 * cols) + 1)
+    r0, r1 = max(0, int(y0 * rows)), min(rows, int(y1 * rows) + 1)
+    ink_sum = mark_sum = 0
+    n = 0
+    for r in range(r0, r1):
+        cy = (r + 0.5) / rows
+        if not (y0 <= cy <= y1):
+            continue
+        for c in range(c0, c1):
+            cx = (c + 0.5) / cols
+            if not (x0 <= cx <= x1):
+                continue
+            i = 2 * (r * cols + c)
+            ink_sum += int(ink_hex[i:i + 2], 16)
+            mark_sum += int(mark_hex[i:i + 2], 16)
+            n += 1
+    if n == 0:
+        return None
+    return {"ink": ink_sum / (255.0 * n), "mark": mark_sum / (255.0 * n), "cells": n}
+
+
 def _densest_window(samples: bytes, width: int, height: int, win_w: int, win_h: int) -> tuple[int, int] | None:
     """Top-left (x, y) of the ``win_w × win_h`` sample window with most ink, or None if no ink."""
     win_h = max(1, min(win_h, height))
@@ -479,6 +656,11 @@ def _probe_page(page, page_no: int, *, is_pdf: bool, file_bytes: bytes) -> dict[
     ratios = _region_ratios(hires, hi.width, hi.height)
     mark_ratio = ratios["mark"]
     blank = mark_ratio < BLANK_MARK_RATIO
+    # Ink map on a copy with the straight rules erased; the page ratios above
+    # keep counting the rules (a ruled form is not blank paper).
+    erased = bytearray(hires)
+    rules = _erase_rules(erased, hi.width, hi.height) if not blank else (0, 0)
+    ink_map = _ink_map(erased, hi.width, hi.height, rules=rules)
     if blank:
         contrast_range = 0.0
         ink_level = background
@@ -523,6 +705,7 @@ def _probe_page(page, page_no: int, *, is_pdf: bool, file_bytes: bytes) -> dict[
         "bottom_mark_ratio": round(ratios["bottom_mark"], 5),
         "body_ink_ratio": round(ratios["body_ink"], 5),
         "body_mark_ratio": round(ratios["body_mark"], 5),
+        "ink_map": ink_map,
         "flags": flags,
         "basis": "; ".join(basis_parts),
     }
@@ -721,34 +904,218 @@ def quality_weighted_confidence(
 # --------------------------------------------------------------------------- #
 
 
+#: Punctuation between a label and what follows it. Underscores and dots
+#: are *not* separators: they are the ruled space the signature goes on.
+_SIGNATURE_SEPARATOR = re.compile(r"^[\s:\-–—]*")
+#: A "print token" in the text right of the label on its line: two or more
+#: word characters. OCR reads an ink stroke as one or two stray glyphs
+#: ("—l" for the bench stroke, 2026-09-28); those are not print.
+_PRINT_TOKEN = re.compile(r"[A-Za-z0-9]{2,}")
+#: A ruled gap on the line: three or more underscores/dots, or a run of
+#: spaces wide enough to sign in.
+_RULE_GAP = re.compile(r"[_.]{3,}|\s{4,}")
+
+
+def _label_band(
+    text: str, label: "re.Match[str]", typed: "re.Match[str] | None", layout: list[dict] | None
+) -> tuple[list[float], dict[str, Any]] | None:
+    """:func:`_band_for_match` for the chosen label, then for every other
+    occurrence of the same label wording on the page. A scan's tree carries
+    the OCR text twice — on the image node (no bbox, no elements) and on the
+    OCR paragraph (with ``ocr_block`` entries) — and the first occurrence is
+    the one without geometry (measured 2026-09-28 on the bench stroke scan)."""
+    if not layout:
+        return None
+    band = _band_for_match(text, label, typed, layout)
+    if band is not None:
+        return band
+    wording = label.group(0).lower()
+    for other in _SIGNATURE_LABEL.finditer(text):
+        if other.start() == label.start() or other.group(0).lower() != wording:
+            continue
+        band = _band_for_match(text, other, typed, layout)
+        if band is not None:
+            return band
+    return None
+
+
+def _band_for_match(
+    text: str, label: "re.Match[str]", typed: "re.Match[str] | None", layout: list[dict]
+) -> tuple[list[float], dict[str, Any]] | None:
+    """The band right of (or under) the signature label, in relative page
+    coordinates, from the layout segment (and its finest ``elements`` entry)
+    that carries the label; None when the layout has no bbox for it.
+
+    Where the label's print ends is estimated proportionally by character
+    offset inside the element's line (jdf-cli gives one ``width`` per
+    element, no per-glyph metrics), so the estimate can be off by a glyph or
+    two — the basis says so. The band starts after the label and its
+    separator, or after a typed name when one follows the label; it stops at
+    the next real print token after a ruled gap (a "Date:" caption), at the
+    left edge of another segment on the same line, or at the page's right
+    margin. Vertically it spans ``SIGNATURE_BAND_ABOVE_LINES`` above the
+    label line to ``SIGNATURE_BAND_BELOW_LINES`` below it, clipped at the top
+    of the next segment underneath. When the caption simply continues after
+    the label ("SIGNATURE OF PHYSICIAN OR SUPPLIER …", a form box) the space
+    to sign is *under* the caption, so the band is the line below it, from
+    the label's left edge.
+    """
+    seg = next(
+        (s for s in layout if isinstance(s, dict) and isinstance(s.get("start"), int) and isinstance(s.get("end"), int)
+         and s["start"] <= label.start() <= s["end"]),
+        None,
+    )
+    if seg is None:
+        return None
+    rel = label.start() - int(seg["start"])
+    seg_text = str(seg.get("text") or "")
+    box = seg.get("bbox")
+    el_text, el_offset, grain = seg_text, 0, "segment"
+    best: tuple[float, dict] | None = None
+    for el in seg.get("elements") or []:
+        if not isinstance(el, dict):
+            continue
+        s, e, bb = el.get("start_char"), el.get("end_char"), el.get("bbox")
+        if not (isinstance(s, int) and isinstance(e, int) and s <= rel < max(e, s + 1)):
+            continue
+        if not (isinstance(bb, (list, tuple)) and len(bb) == 4 and all(isinstance(v, (int, float)) for v in bb)):
+            continue
+        area = max(0.0, (bb[2] - bb[0]) * (bb[3] - bb[1]))
+        if best is None or area < best[0]:
+            best = (area, el)
+    if best is not None:
+        el = best[1]
+        box = list(el["bbox"])
+        el_offset = int(el["start_char"])
+        el_text = seg_text[el_offset:int(el["end_char"])]
+        grain = str(el.get("kind") or "element")
+    if not (isinstance(box, (list, tuple)) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box)):
+        return None
+    x0, y0, x1, y1 = (float(v) for v in box)
+    if x1 <= x0 or y1 <= y0:
+        return None
+    rel_el = rel - el_offset
+    lines = el_text.split("\n")
+    line_index, consumed = 0, 0
+    for i, line in enumerate(lines):
+        if consumed + len(line) >= rel_el:
+            line_index = i
+            break
+        consumed += len(line) + 1
+    line_text = lines[line_index] if line_index < len(lines) else el_text
+    n_lines = max(1, len(lines))
+    per_line = (y1 - y0) / n_lines
+    if n_lines > 1 and per_line < MIN_LINE_HEIGHT_REL:
+        # jdf-cli emits no height; field_extractor's fallback is one line tall.
+        line_h, line_y0 = (y1 - y0), y0 + line_index * (y1 - y0)
+    else:
+        line_h, line_y0 = per_line, y0 + line_index * per_line
+    # Character offsets inside the line: label end (+ separator), typed name end, next print token.
+    in_line = rel_el - consumed
+    label_end = in_line + (label.end() - label.start())
+    tail = line_text[label_end:]
+    sep = _SIGNATURE_SEPARATOR.match(tail)
+    start_chars = label_end + (sep.end() if sep else 0)
+    stop_chars = len(line_text)
+    start_kind = "after the label"
+    if typed is not None:
+        start_chars, start_kind = label_end + typed.end(), "after the typed name"
+    else:
+        after_sep = tail[(sep.end() if sep else 0):]
+        tok = _PRINT_TOKEN.search(after_sep)
+        if tok is not None:
+            if _RULE_GAP.search(after_sep[:tok.start()]):
+                # "Signature: ______ Date: ____": the ruled gap before the
+                # next caption is the signature space.
+                stop_chars = start_chars + tok.start()
+            else:
+                # "SIGNATURE OF PHYSICIAN OR SUPPLIER …": the caption goes
+                # on; the space to sign is right of the whole printed line.
+                start_chars, start_kind = len(line_text), "after the printed caption"
+    width = x1 - x0
+    n_chars = max(1, len(line_text))
+    if start_kind == "after the label" and (1.0 - 0.03) - (x0 + width * min(1.0, start_chars / n_chars)) < MIN_BAND_WIDTH_REL:
+        # The label sits at the right edge ("…            Signature" as a
+        # column caption): there is no room to sign beside it, so the
+        # space is under it, as with a continuing caption.
+        start_kind = "after the printed caption"
+    if start_kind == "after the printed caption":
+        band_x0 = x0 + width * min(1.0, in_line / n_chars)
+        band_x1 = 1.0 - 0.03
+        band_y0 = line_y0 + line_h
+        band_y1 = min(1.0, line_y0 + line_h + (SIGNATURE_BAND_BELOW_LINES + SIGNATURE_BAND_ABOVE_LINES) * line_h)
+    else:
+        band_x0 = x0 + width * min(1.0, start_chars / n_chars)
+        band_x1 = 1.0 - 0.03 if stop_chars >= len(line_text) else x0 + width * (stop_chars / n_chars)
+        band_y0 = max(0.0, line_y0 - SIGNATURE_BAND_ABOVE_LINES * line_h)
+        band_y1 = min(1.0, line_y0 + line_h + SIGNATURE_BAND_BELOW_LINES * line_h)
+    clipped: list[str] = []
+    for other in layout:
+        if other is seg or not isinstance(other, dict):
+            continue
+        ob = other.get("bbox")
+        if not (isinstance(ob, (list, tuple)) and len(ob) == 4 and all(isinstance(v, (int, float)) for v in ob)):
+            continue
+        ox0, oy0, ox1, oy1 = (float(v) for v in ob)
+        if ox1 <= band_x0 or ox0 >= band_x1:
+            continue
+        if oy0 < line_y0 + line_h and oy1 > line_y0 and ox0 > band_x0 and start_kind != "after the printed caption":
+            band_x1 = min(band_x1, ox0)
+            clipped.append("a segment on the same line")
+        elif line_y0 + line_h <= oy0 < band_y1 and oy0 > band_y0:
+            band_y1 = min(band_y1, oy0)
+            clipped.append("the segment below")
+    if band_x1 <= band_x0 or band_y1 <= band_y0:
+        return None
+    info = {
+        "grain": grain,
+        "line_height": round(line_h, 4),
+        "start": start_kind,
+        "stop": ("at a print token on the line" if stop_chars < len(line_text) else "at the page margin"),
+        "under_caption": start_kind == "after the printed caption",
+        "clipped": sorted(set(clipped)),
+    }
+    return [round(band_x0, 4), round(band_y0, 4), round(band_x1, 4), round(band_y1, 4)], info
+
+
 def assess_signature(
     page_text: str,
     *,
     visual: dict[str, Any] | None,
     ocr_lines: list[dict[str, Any]] | None,
     page: int | None = None,
+    layout: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Signature presence/quality from a label in the text and bottom-region ink.
+    """Signature presence/quality from a label in the text and the ink around it.
 
     V1 heuristic, and it says so in ``basis``: a label ("Signature", "Signed",
-    "Authorized signature", "/s/") locates the expectation; the probe's ink and
-    mark ratios of the bottom 20 % of the page decide the rest. The label
-    line's own print is estimated from its character share of the page text
-    and subtracted; what remains is the candidate mark. No remaining mark →
-    ``missing`` (or ``printed_name`` when a typed name follows the label on
-    its line); any remaining mark → ``present_ambiguous`` (the basis says
-    whether it is faint) — the heuristic cannot confirm a handwritten
-    signature, so it never answers ``present_clear`` from ink alone. STAMP/SEAL
-    next to the label → ``stamp``; an electronic-signature marker (/s/,
-    "electronically signed", DocuSign) → ``present_clear``. No visual sample →
-    ``unreadable``. Without a label the answer is ``unknown`` and nothing is
-    asserted. Vocabulary of 2026-09-27; ``field_extractor.SIGNATURE_NEXT_CHECK``
-    adds the reviewer's next step.
+    "Authorized signature", "/s/") locates the expectation. Since 2026-09-28
+    the ink is measured where the label *is*: ``layout`` (the page's
+    ``field_extractor.page_layout`` segments) gives the label's element bbox,
+    :func:`_label_band` the band right of and one line under it, and the
+    probe's rule-erased ``ink_map`` the marks in that band — ruled lines and
+    underscores are not marks, print left of the band is not in it. The
+    benchmark's signature pages end their signature block near 45 % of the
+    page height, where the old bottom-20 % band saw blank paper (accuracy
+    54 %, 7/13). Without a layout bbox for the label, or with a visual from
+    before the ink map existed, the bottom 20 % of the page is the region
+    (the label line's own print estimated from its character share and
+    subtracted) — ``region.basis`` says which of the two was used.
+
+    Verdicts: no mark in the region → ``missing`` (or ``printed_name`` when
+    a typed name follows the label on its line); a mark → ``present_ambiguous``
+    (the basis says whether it is faint) — the heuristic cannot confirm a
+    handwritten signature, so it never answers ``present_clear`` from ink
+    alone. STAMP/SEAL next to the label → ``stamp``; an electronic-signature
+    marker (/s/, "electronically signed", DocuSign) → ``present_clear``. No
+    visual sample → ``unreadable``. Without a label the answer is ``unknown``
+    and nothing is asserted. Vocabulary of 2026-09-27;
+    ``field_extractor.SIGNATURE_NEXT_CHECK`` adds the reviewer's next step.
     """
     text = page_text or ""
     if not text and ocr_lines:
         text = "\n".join(str(line.get("text") or "") for line in ocr_lines if isinstance(line, dict))
-    label = _SIGNATURE_LABEL.search(text)
+    label = _pick_label(text)
     result: dict[str, Any] = {"present": None, "quality": "unknown", "review_required": False, "basis": "", "page": page}
 
     if label is None:
@@ -797,6 +1164,17 @@ def assess_signature(
         )
         return result
 
+    band = _label_band(text, label, typed, layout)
+    measured = ink_map_region(v, band[0]) if band is not None else None
+    if band is not None and measured is not None:
+        return _verdict_from_band(result, label_text=label_text, typed=typed, band=band, measured=measured, body_ink=body_ink, body_mark=body_mark, page=page)
+
+    result["region"] = {
+        "page": page,
+        "bbox": [0.0, round(1.0 - SIGNATURE_REGION_FRACTION, 4), 1.0, 1.0],
+        "basis": "bottom band",
+        "reason": ("no ink map on the visual sample" if band is not None else "no layout bbox for the label element"),
+    }
     if bottom_mark < BLANK_MARK_RATIO:
         result.update(
             present=False,
@@ -869,6 +1247,68 @@ def assess_signature(
     )
     return result
 
+
+def _verdict_from_band(
+    result: dict[str, Any], *, label_text: str, typed: "re.Match[str] | None", band: tuple[list[float], dict[str, Any]],
+    measured: dict[str, Any], body_ink: float, body_mark: float, page: int | None,
+) -> dict[str, Any]:
+    """The verdict when the label band could be located and measured."""
+    bbox, info = band
+    mark, ink, cells = float(measured["mark"]), float(measured["ink"]), int(measured["cells"])
+    result["region"] = {
+        "page": page,
+        "bbox": bbox,
+        "basis": "label element",
+        "grain": info["grain"],
+        "cells": cells,
+        "mark_ratio": round(mark, 5),
+        "ink_ratio": round(ink, 5),
+        "band": f"{info['start']}, {info['stop']}, {SIGNATURE_BAND_ABOVE_LINES:g} line above to {SIGNATURE_BAND_BELOW_LINES:g} line below"
+                + (f"; clipped at {', '.join(info['clipped'])}" if info["clipped"] else ""),
+    }
+    where = f"band right of the label ({cells} cells of the rule-erased ink map, label print end estimated by character share)"
+    if mark < SIGNATURE_BAND_BLANK_MARK:
+        if typed:
+            result.update(
+                present=True,
+                quality="printed_name",
+                review_required=True,
+                basis=(
+                    f"label '{label_text}' followed by a typed name ('{typed.group(1)}'); {where} is blank "
+                    f"(marks {mark:.4f} < {SIGNATURE_BAND_BLANK_MARK}): print, no ink beyond it"
+                ),
+            )
+            return result
+        result.update(
+            present=False,
+            quality="missing",
+            review_required=True,
+            basis=f"label '{label_text}'; {where} is blank (marks {mark:.4f} < {SIGNATURE_BAND_BLANK_MARK}): no mark beyond the label",
+        )
+        return result
+    darkness = ink / mark if mark > 0 else 0.0
+    typical = body_ink / body_mark if body_mark > 0 else darkness
+    if typical > 0 and darkness < SIGNATURE_FAINT_FRACTION * typical:
+        result.update(
+            present=True,
+            quality="present_ambiguous",
+            review_required=True,
+            basis=(
+                f"label '{label_text}'; faint mark in the {where}: darkness {darkness:.2f} < {SIGNATURE_FAINT_FRACTION:.0%} of body text "
+                f"darkness {typical:.2f} (band ink {ink:.4f} / marks {mark:.4f})"
+            ),
+        )
+        return result
+    result.update(
+        present=True,
+        quality="present_ambiguous",
+        review_required=True,
+        basis=(
+            f"label '{label_text}'; a mark exists in the {where} (marks {mark:.4f}, darkness {darkness:.2f}) "
+            f"but the V1 heuristic cannot confirm a handwritten signature"
+        ),
+    )
+    return result
 
 def assess_number(
     value_text: str | None,

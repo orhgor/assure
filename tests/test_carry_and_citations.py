@@ -180,7 +180,7 @@ def test_the_carried_hash_is_over_the_text_the_prompt_carried():
     assert entry["full_text_sha256"] == hashlib.sha256(SENTENCE_ONE.encode()).hexdigest()
     assert entry["text_sha256"] != entry["full_text_sha256"]
     _block, sentences = numbered_source_blocks(rows)[0]
-    carried = "\n".join(text for _sid, text, _fn, _pg in sentences)
+    carried = "\n".join(text for _sid, text, _fn, _pg, _prov in sentences)
     assert entry["text_sha256"] == hashlib.sha256(carried.encode()).hexdigest()
 
 
@@ -236,7 +236,7 @@ def test_the_fence_is_not_part_of_a_numbered_sentence():
     sentence.
     """
     block, sentences = numbered_source_blocks([_row("sub-1", SENTENCE_ONE)])[0]
-    for _sid, text, _filename, _page in sentences:
+    for _sid, text, _filename, _page, _prov in sentences:
         assert UNTRUSTED_OPEN not in text
         assert UNTRUSTED_CLOSE not in text
         assert "SOURCE MATERIAL" not in text

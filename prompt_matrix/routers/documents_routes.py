@@ -4,8 +4,11 @@
 ingest stored (``services/source_jdf.persist_source_jdf``) so the browser can
 render it with ``@uurtech/jdf`` (``<jdf src="…/source.jdf">``);
 ``…/source.json`` describes it, and with ``?text=`` maps a selection made on
-the rendered page back to element ids and a bbox. The web tier streams bytes
-and reads the JSON it already stored — it parses no document here.
+the rendered page back to element ids and a bbox. ``…/pages/<n>.png`` streams
+the page raster the worker stored for an OCR document (2026-09-28; the
+``image`` element the stored JDF puts first on such a page names this URL as
+its ``src``). The web tier streams bytes and reads the JSON it already
+stored — it parses and renders nothing here.
 
 Resolution is by the project's ingest jobs (``source_jdf_key``, newest first),
 then the project's intake reports; every key is checked against the project
@@ -28,6 +31,7 @@ try:
         find_elements_for_text,
         key_in_project,
         load_source_jdf,
+        page_raster_key,
         resolve_source_jdf_key,
         source_jdf_url,
     )
@@ -40,6 +44,7 @@ except ImportError:
         find_elements_for_text,
         key_in_project,
         load_source_jdf,
+        page_raster_key,
         resolve_source_jdf_key,
         source_jdf_url,
     )
@@ -47,6 +52,7 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 _NOT_STORED = "no source document is stored for this document"
+_NO_RASTER = "no page raster is stored for this page"
 
 
 def _resolve(project_id: str, document_id: str) -> str | None:
@@ -120,3 +126,40 @@ def register_documents_routes(app) -> None:
             return jsonify({"ok": True, "key": key, "url": source_jdf_url(project_id, document_id), **hit})
         info = describe_source_jdf(key, doc)
         return jsonify({"ok": True, "url": source_jdf_url(project_id, document_id), **info})
+
+    @app.get("/api/projects/<project_id>/documents/<document_id>/pages/<int:page_no>.png")
+    @requires("projects.read")
+    @project_ownership_required
+    def document_page_raster(project_id: str, document_id: str, page_no: int):
+        """Stream the stored raster of page ``page_no`` (1-based) of the
+        document's latest source JDF (``?revision=`` selects one). 404 when
+        the document has no source JDF or the page was not rastered — a
+        digital PDF, a page that did not render, a page number past the end;
+        no page is rendered here to fill the gap. Private, cacheable for an
+        hour, ETag = the object key (a stored raster never changes under it),
+        so a matching ``If-None-Match`` is a 304 without a store read."""
+        if page_no < 1:
+            return jsonify({"ok": False, "error": "page must be 1 or greater"}), 400
+        key = _resolve(project_id, document_id)
+        if not key:
+            return jsonify({"ok": False, "error": _NOT_STORED}), 404
+        raster_key = page_raster_key(key, page_no)
+        etag = f'"{raster_key}"'
+        if etag in [t.strip() for t in (request.headers.get("If-None-Match") or "").split(",")]:
+            resp = Response(status=304)
+            resp.headers["ETag"] = etag
+            resp.headers["Cache-Control"] = "private, max-age=3600"
+            return resp
+        store = get_object_store()
+        try:
+            if not store.exists(raster_key):
+                return jsonify({"ok": False, "error": _NO_RASTER}), 404
+            data = store.get_bytes(raster_key)
+        except Exception:  # noqa: BLE001 — a store that cannot be read is "not stored", logged
+            log.exception("page raster %s could not be read", raster_key)
+            return jsonify({"ok": False, "error": _NO_RASTER}), 404
+        resp = Response(data, mimetype="image/png")
+        resp.headers["Cache-Control"] = "private, max-age=3600"
+        resp.headers["ETag"] = etag
+        resp.headers["X-Source-Jdf-Key"] = key
+        return resp

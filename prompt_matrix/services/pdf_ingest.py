@@ -99,7 +99,7 @@ def ingest_pdf_for_project(
         from ..services.parser_router import is_image_filename, route_intake
         from ..services.pdf_import import pdf_bytes_to_jdf
         from ..services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from ..services.source_jdf import persist_source_jdf
+        from ..services.source_jdf import pages_are_ocr, persist_source_jdf, store_page_rasters
         from ..services.verification import run_verification_after_parse
     except ImportError:
         from db.jdf_repository import new_revision_id, save_jdf_revision
@@ -117,7 +117,7 @@ def ingest_pdf_for_project(
         from services.parser_router import is_image_filename, route_intake
         from services.pdf_import import pdf_bytes_to_jdf
         from services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
-        from services.source_jdf import persist_source_jdf
+        from services.source_jdf import pages_are_ocr, persist_source_jdf, store_page_rasters
         from services.verification import run_verification_after_parse
 
     # Parsure's post-parse report hook (another module, may be absent in a
@@ -304,14 +304,36 @@ def ingest_pdf_for_project(
         # revision does not depend on it.
         revision_id = new_revision_id()
         if bundle.get("jdf_source") is not None:
+            source_document_id = str(tree.get("document_id") or f"doc-{project_id}")
+            # Page rasters for an OCR document (services/source_jdf, 2026-09-28):
+            # the source JDF of a scan or photo holds only the OCR's reading, so
+            # the page itself — signature, stamp, handwriting — is rendered once
+            # here, on the worker, and stored beside the document. Decided by
+            # the parser name and the router's modality; a digital PDF stores
+            # none. The original bytes are rendered (an image upload renders
+            # at its native pixels, never the wrapped PDF), and a page that
+            # does not render is simply absent from ``rasters``.
+            rasters: list[dict[str, Any]] = []
+            if pages_are_ocr(
+                bundle["parser_name"], modality=intake.get("modality"), source_kind=bundle["source_kind"]
+            ):
+                rasters = store_page_rasters(
+                    project_id,
+                    source_document_id,
+                    revision_id,
+                    file_bytes,
+                    filename,
+                    int(bundle["page_count"] or 0),
+                )
             source_jdf = persist_source_jdf(
                 project_id,
-                str(tree.get("document_id") or f"doc-{project_id}"),
+                source_document_id,
                 revision_id,
                 bundle["jdf_source"],
                 chunks=bundle.get("chunks") or [],
                 job_id=job_id,
                 filename=filename,
+                rasters=rasters,
             )
             if source_jdf:
                 if not isinstance(tree.get("meta"), dict):

@@ -40,9 +40,36 @@ vision.picture_quality(png_bytes)
 | anything else | only pages whose visual probe entry carries the flag `photo` | `photo` |
 
 A digital or scanned PDF with no `photo` flag has no picture pages and the
-block is `not_run` with that reason. Embedded figures inside text PDFs are
-not analysed in V1. At most `PARSURE_VISION_MAX_PAGES` (default 4) pages
-are analysed; the rest are listed as `skipped` with the bound in `reason`.
+block is `not_run` with `reason: "no picture pages"`. Embedded figures inside
+text PDFs are not analysed in V1. At most `PARSURE_VISION_MAX_PAGES` (default
+4) pages are analysed; the rest are listed as `skipped` with the bound in
+`reason`.
+
+### The enable rule, stated once (2026-09-28)
+
+Every live report of 2026-09-27/28 read `execution.vision.status: not_run`
+and the operator could not tell a rule from a misconfiguration. All of them
+were digital PDFs — the correct answer — and the model had resolved
+(`openrouter/amazon/nova-lite-v1`). The block now says which test decided:
+
+| Situation | `status` | `reason` | Also on the block |
+|---|---|---|---|
+| `PARSURE_VISION` off | `disabled` | `PARSURE_VISION is off` | — |
+| no vision model for the backend (`cloud` without an OpenRouter key; Ollama without `ASSURE_OLLAMA_MODEL_VISION`) | `disabled` | `no vision model … ; vision models: ollama=ASSURE_OLLAMA_MODEL_VISION (default qwen2.5vl:3b, off until set), openrouter=ASSURE_OPENROUTER_MODEL_VISION (default amazon/nova-lite-v1), bedrock=ASSURE_BEDROCK_MODEL_VISION (default ASSURE_BEDROCK_MODEL_DRAFT)` | `model` |
+| digital or scanned PDF, no page flagged `photo` | `not_run` | `no picture pages` | `rule` (below) |
+| picture pages but no file bytes | `not_run` | `N picture page(s) but no file bytes to render` | `rule` |
+| photo / screenshot / image upload, or a `photo`-flagged page | `completed` / `failed` | `null`, or the provider's error class | `rule`, `pages[]` |
+
+`vision.rule` (`picture_rule`) is `{modality, material_type, picture_modalities,
+picture_materials, every_page_is_a_picture, pages_probed, pages_flagged_photo,
+picture_pages, basis}` — the inputs and the outcome of `picture_pages`, so a
+`not_run` is legible without this document.
+
+When the model answers and names **no** fact, the page entry carries a `note`
+saying so — how many facts it offered and how many were dropped, whether the
+first answer was not JSON and it was asked again, and the first 160
+characters of its answer — instead of a bare `facts: []` that reads as "not
+asked". A page with facts carries no note.
 
 The question asked depends on the kind and the classified document type
 (`analysis_type_for`): a `screenshot` or `image` is a **picture of a
@@ -142,7 +169,10 @@ otherwise `null`.
 report["vision"] = {
   "status": "completed" | "not_run" | "failed" | "disabled",
   "model": "openrouter/amazon/nova-lite-v1" | null,
-  "reason": null | "PARSURE_VISION is off" | "no picture pages (modality 'digital_pdf', no page flagged photo)" | "ConnectionError: …",
+  "reason": null | "PARSURE_VISION is off" | "no picture pages" | "ConnectionError: …",
+  "rule": {"modality": "phone_photo", "material_type": "photo", "picture_modalities": ["phone_photo", "screenshot"],
+           "picture_materials": ["image", "photo", "screenshot"], "every_page_is_a_picture": true,
+           "pages_probed": 1, "pages_flagged_photo": 0, "picture_pages": 1, "basis": "modality 'phone_photo' / material 'photo' make every page a picture"},
   "ms": 4210,
   "pages": [
     {
@@ -158,6 +188,7 @@ report["vision"] = {
          "model": "openrouter/amazon/nova-lite-v1"}
       ],
       "dropped": {"unknown_name": 1}, "calls": 1, "reason": null, "ms": 4100
+      // "note": "the model answered and named no fact (0 offered, 0 dropped); first answer was not JSON, asked 2 times; answer starts: '{\"facts\": []}'"  — only when facts is empty
     }
   ]
 }
@@ -189,8 +220,10 @@ failed; `not_run` when nothing was a picture or there were no bytes;
   not detected (the visual probe does not flag them in V1).
 - On the local Ollama backend nothing runs until a vision tag is pulled and
   named; the stack's `ollama-pull` does not download one.
-- The 45 s per-call timeout is a bound, not a measurement: no live vision
-  model has been timed yet.
+- The 45 s per-call timeout is a bound; one live call has been timed (below:
+  3.4 s for two Nova Lite calls on one page).
+- An empty `facts` list is the model's answer, not Assure's: the `note` quotes
+  what came back. Assure never fills a fact the model did not name.
 
 ## Measured on 2026-09-27 (this machine, compose stack)
 
@@ -202,9 +235,68 @@ failed; `not_run` when nothing was a picture or there were no bytes;
 | `analyze_page` inside the app container (`ollama/qwen2.5vl:3b`, tag not pulled) | `failed`, `NotFoundError: … model 'qwen2.5vl:3b' not found`, 79 ms; `attach_vision` end to end 96 ms, `execution.vision.status: failed`, no exception |
 | `/api/show` on `qwen2.5:1.5b` | `['completion', 'tools']` → refused by the blind-model guard |
 
-Not measured: a real multimodal answer. The compose `.env` has an empty
-`OPENROUTER_API_KEY` and the local Ollama holds only `qwen2.5:1.5b` and
-`llama3.2:1b`; no multi-GB vision tag was pulled for this check. The prompt,
-JSON handling, grounding and count invariants are covered by
-`tests/test_vision.py` with an injected completion. `docs/anti-claims.md`
-"Vision (2026-09-27)" lists the sentences the code must not say.
+On 2026-09-27 no real multimodal answer had been measured (empty
+`OPENROUTER_API_KEY`, no vision tag on the local Ollama). The prompt, JSON
+handling, grounding and count invariants are covered by `tests/test_vision.py`
+with an injected completion. `docs/anti-claims.md` "Vision (2026-09-27)" lists
+the sentences the code must not say.
+
+## Measured on 2026-09-28 (compose stack, `ASSURE_LLM_BACKEND=openrouter`)
+
+Why every live report said `not_run`: the eight newest `parsure_reports` rows
+were all `modality: digital_pdf`, `parser_name: jdf-cli`, with
+`execution.vision = {status: not_run, model: "openrouter/amazon/nova-lite-v1",
+reason: "no picture pages (…)"}` — the model had resolved and the rule had
+answered correctly; only the wording hid it. No report was `disabled`.
+
+Then a picture was uploaded: page 1 of `/tmp/final_run_debris.pdf` rendered
+with PyMuPDF to a 1130×1600 PNG (100 KB) and posted to
+`POST /api/projects/vision-live-089ccb/import-pdf` (202, task `545fee4c…`,
+worker job `job-289c2b2b82404c1f`):
+
+| Step | Figure |
+|---|---|
+| ingest end to end (`jdf-cli+tesseract`, OCR confidence 0.944, 1 page) | 22.2 s worker time, 25.5 s to task `success` |
+| router | `material_type: image`, `modality: scanned_pdf` (a PNG of a letter page is not screen-shaped, so not `screenshot`; not a JPEG, so not `phone_photo`) → every page a picture, `kind: image`, `analysis_type: document_photo` |
+| `picture_quality` | `good` — 1109×1568 px, sharpness 1780.6, contrast range 192, flag `low_res` (the DPI estimate, not used for the status) |
+| `analyze_page` with `openrouter/amazon/nova-lite-v1` | `status: completed`, **2 calls** (the first answer was not JSON; the retry was), **3395 ms** for both, `facts: []`, `dropped: {}` |
+| `execution.vision` | `{status: completed, model: openrouter/amazon/nova-lite-v1, pages_analyzed: 1, facts: 0, ms: 3395, reason: null}` |
+
+So the model answered and named no fact. Before this change the page entry
+showed only `facts: []` and `reason: null`; the `note` added on 2026-09-28
+records the empty answer and the retry.
+
+**Second run, same PNG, rebuilt image** (project `photo-cb3791`, report
+`pr-edb8a1692fea44b5`): ingest 56.8 s worker time (the worker was also
+rastering and the stack was busy), `execution.vision = {status: failed,
+pages_analyzed: 0, facts: 0, ms: 4194, reason: "ValueError: model answer was
+not JSON after 2 call(s) (starts: '{"facts": [{"name": "vin_plate_visual",
+"value": "1HGCM82633A004352", "confidenc')"}` — both answers unparsable this
+time. `vision.rule` on the block: `every_page_is_a_picture: true`, basis
+"modality 'scanned_pdf' / material 'image' make every page a picture".
+
+**Why not JSON** (probe inside the app container, `vz.default_completion` on
+the same PNG, two calls): call 1, 2492 ms, 201 characters —
+
+```
+{"facts": [{"name": "vin_plate_visual", "value": "1HGCM82633A004352", "confidence": 1,
+  "evidence": "The VIN is clearly printed on the document as '1HGCM82633A004352'.",
+  "bbox": [165, 181, 355, 195]]}]}
+```
+
+— a well-formed answer except for one stray `]` closing `bbox`, which makes
+the whole object invalid JSON; call 2, 1410 ms, `{"facts": []}`. So Nova Lite
+does read the page (that VIN is the one printed on the debris PDF and the one
+Parsure's field pass extracts) but roughly one answer in two carries a
+bracket error, and the run's outcome depends on which of the two attempts the
+retry lands on: `completed` with no facts (run 1) or `failed` (run 2). Assure
+does not repair the JSON — a bracket "fix" would be Assure's guess at the
+model's answer — and reports the failure with the answer's head **and tail**
+(the tail was added after this probe so the bracket is visible in `reason`).
+A model that returns the object correctly will have its VIN fact kept, with
+the model's own `evidence` sentence and `bbox` (Nova Lite answered in pixel
+units, which `_clean_bbox` rejects unless the values fit a 0–1000 grid — they
+did here, so it would have been scaled).
+
+No claim is made about what Nova Lite would name on a real damage photo:
+none was uploaded.

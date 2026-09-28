@@ -51,11 +51,14 @@ Boundaries, so this does not become a second router or verifier (spec §8):
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from datetime import date
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
 # Vocabularies (spec §5) — the two never mix.
@@ -830,21 +833,25 @@ _SIG_LABEL_RE = re.compile(
 )
 
 
-def assess_signature(page_text: str, *, visual: dict | None = None, ocr_lines: list | None = None, page: int | None = None) -> dict[str, Any]:
+def assess_signature(page_text: str, *, visual: dict | None = None, ocr_lines: list | None = None, page: int | None = None,
+                     layout: list[dict] | None = None) -> dict[str, Any]:
     """Signature presence and quality for one page (spec §6 "Faint Signatures").
 
-    Delegates to ``quality_probe.assess_signature`` when present. The fallback
-    is text-only: it can tell a label followed by an e-signature marker
-    (``/s/``, "electronically signed"), a stamp, or an empty signature line —
-    it cannot see ink density, so a signature it cannot prove is
-    ``questionable`` with ``review_required=True``, never ``clear``.
+    Delegates to ``quality_probe.assess_signature`` when present; ``layout`` is
+    that page's ``page_layout`` segments, which let the probe measure ink in
+    the band right of the label element instead of the page's bottom 20 %
+    (2026-09-28). The fallback is text-only: it can tell a label followed by
+    an e-signature marker (``/s/``, "electronically signed"), a stamp, or an
+    empty signature line — it cannot see ink density, so a signature it
+    cannot prove is ``questionable`` with ``review_required=True``, never
+    ``clear``.
     """
     qp = _quality_probe()
     if qp is not None and hasattr(qp, "assess_signature"):
         try:
-            return with_next_check(dict(qp.assess_signature(page_text, visual=visual, ocr_lines=ocr_lines, page=page)))
+            return with_next_check(dict(qp.assess_signature(page_text, visual=visual, ocr_lines=ocr_lines, page=page, layout=layout)))
         except Exception:
-            pass
+            log.exception("quality_probe.assess_signature failed; text-only fallback")
     text = page_text or ""
     m = _SIG_LABEL_RE.search(text)
     if not m:
@@ -966,6 +973,64 @@ def _element_ocr_confidence(el: dict) -> float | None:
         return None
     confs = [float(b["confidence"]) for b in ocr.get("blocks") or [] if isinstance(b, dict) and isinstance(b.get("confidence"), (int, float))]
     return round(sum(confs) / len(confs), 4) if confs else None
+
+
+def ocr_block_elements(el: dict, page: dict, text: str | None = None, *, chunk_id: str | None = None,
+                       page_no: int | None = None, offset: int = 0) -> list[dict]:
+    """Sub-element entries for the OCR blocks (lines) of a scanned page image.
+
+    jdf-cli's ``--ocr tesseract`` puts a whole page's text on one ``image``
+    element as ``ocr.blocks[] {text, confidence, bbox {x, y, w, h}}`` with the
+    bbox relative to the image (measured 2026-09-28: 19 blocks on the bench
+    declarations scan, the image drawn over the full page), so the layout
+    segment for a scan is the page and a field's bbox was the page. Each block
+    becomes an entry ``{"kind": "ocr_block", "bbox", "start_char", "end_char",
+    "text_preview"}`` in page-relative coordinates with its character range
+    inside ``text`` (the element's text as ``_element_text`` joins it, ``\\n``
+    between blocks; ``offset`` shifts the range into a paragraph's content).
+    Entries are appended *after* the element's own entry, so ``_element_at``
+    (first match) still resolves to the element and field ids do not move;
+    ``quality_probe.assess_signature`` picks the smallest covering entry to
+    place the signature band. Empty list when the element has no OCR blocks.
+    """
+    ocr = el.get("ocr")
+    blocks = ocr.get("blocks") if isinstance(ocr, dict) else None
+    if not isinstance(blocks, list) or not blocks:
+        return []
+    frame = _element_bbox(el, page) or [0.0, 0.0, 1.0, 1.0]
+    fx0, fy0, fx1, fy1 = frame
+    fw, fh = max(1e-6, fx1 - fx0), max(1e-6, fy1 - fy0)
+    text = text if text is not None else _element_text(el)
+    out: list[dict] = []
+    cursor = 0
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        btext = str(block.get("text") or "")
+        if not btext.strip():
+            continue
+        start = text.find(btext, cursor)
+        if start < 0:
+            continue
+        end = start + len(btext)
+        cursor = end
+        bb = block.get("bbox")
+        bbox = None
+        if isinstance(bb, dict) and all(isinstance(bb.get(k), (int, float)) for k in ("x", "y", "w", "h")):
+            bbox = [
+                round(fx0 + fw * float(bb["x"]), 4), round(fy0 + fh * float(bb["y"]), 4),
+                round(fx0 + fw * (float(bb["x"]) + float(bb["w"])), 4), round(fy0 + fh * (float(bb["y"]) + float(bb["h"])), 4),
+            ]
+        entry: dict[str, Any] = {"kind": "ocr_block", "bbox": bbox, "start_char": offset + start, "end_char": offset + end,
+                                 "text_preview": btext[:40]}
+        if chunk_id is not None or page_no is not None:
+            entry["element_id"] = derive_element_id(chunk_id, page_no, bbox, btext)
+            entry["page"] = page_no
+        conf = block.get("confidence")
+        if isinstance(conf, (int, float)):
+            entry["ocr_confidence"] = round(float(conf), 4)
+        out.append(entry)
+    return out
 
 
 def _element_bbox(el: dict, page: dict) -> list[float] | None:
@@ -1178,7 +1243,13 @@ def page_layout(bundle: dict) -> list[list[dict]]:
                 if not text.strip():
                     continue
                 node_id = el.get("id")
-                items.append((text, str(node_id) if node_id else None, _element_bbox(el, page), _element_ocr_confidence(el)))
+                bbox = _element_bbox(el, page)
+                blocks = ocr_block_elements(el, page, text)
+                # Same list shape as a tree paragraph's ``meta.elements``: the
+                # element itself first (first match keeps the element's bbox and
+                # id), then its OCR lines for the signature band (2026-09-28).
+                elements = ([{"kind": "element", "bbox": bbox, "start_char": 0, "end_char": len(text.rstrip("\n")), "text_preview": text[:40]}] + blocks) if blocks else None
+                items.append((text, str(node_id) if node_id else None, bbox, _element_ocr_confidence(el), None, elements))
             _append(_segments_from(items))
         if any(layouts):
             _attach_chunk_ids(layouts, bundle.get("chunks"))
@@ -1950,7 +2021,8 @@ def _signature_field(spec: FieldSpec, texts: list[str], hit, *, parser_name, par
         field["signature_quality"] = {"present": False, "quality": "missing", "review_required": True, "basis": "no pages", "page": None}
         return field
     visual = visual_pages[page_index] if page_index < len(visual_pages) else None
-    sig = assess_signature(texts[page_index] if page_index < len(texts) else "", visual=visual, page=page_index + 1)
+    page_segments = layout[page_index] if isinstance(layout, list) and page_index < len(layout) else None
+    sig = assess_signature(texts[page_index] if page_index < len(texts) else "", visual=visual, page=page_index + 1, layout=page_segments)
     field["signature_quality"] = sig
     # A signature field is never ``not_found``: absent or unverifiable, it is a
     # compliance question for a person (spec §6), so the policy sees ``unverified``.

@@ -88,6 +88,14 @@ Written at `node.meta.provenance.claim`:
 when the row has none. It is never defaulted; `models/jdf.py` no longer
 substitutes the document's page count for an unknown page.
 
+A unit whose citation is a Parsure field sentence (forms as sources,
+`docs/forms-as-sources.md`, 2026-09-28) additionally carries
+`grounding_source: "parsure_field"`, `field` and `element_id`; its `quote` is
+the field's verbatim page quote, and `checks.source_quality.basis` ends with
+"from the field report (Parsure field '<name>', verbatim on page <n>)". The
+verbatim test (rule 3) runs on that page quote, not on the "Label: value"
+sentence the model was shown.
+
 ## Rules, in order (first match decides)
 
 0. A statement about the draft or the source itself ("The source does not

@@ -256,7 +256,22 @@ def _page_image_ratio(bundle: dict, page_no: int) -> float | None:
     return round(len(images) / max(1, len(chunks) + len(images)), 3)
 
 
-def score_pages(bundle: dict, texts: list[str], intake: dict | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _page_orientation(bundle: dict, page_no: int) -> dict[str, Any] | None:
+    """The OCR step's orientation record for one page (``jdf_converter.
+    detect_orientation``: ``detected_degrees``, ``method``, ``basis``), or
+    None when the parse made none (text-layer parse, Textract, detection off).
+    Never synthesised: a page without a measurement has no record."""
+    orientation = bundle.get("orientation") if isinstance(bundle, dict) else None
+    pages = orientation.get("pages") if isinstance(orientation, dict) else None
+    if not isinstance(pages, list):
+        return None
+    for entry in pages:
+        if isinstance(entry, dict) and entry.get("page") == page_no:
+            return {k: entry.get(k) for k in ("detected_degrees", "correction_degrees", "method", "basis") if k in entry}
+    return None
+
+
+def score_pages(bundle: dict, texts: list[str], intake: dict | None, layout: list[list[dict]] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Per-page quality records and the signature assessment per page.
 
     Signals: the intake router's visual probe (``intake["visual_pages"]``),
@@ -264,7 +279,9 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None) -> tuple[li
     density (chars / ``TEXT_DENSITY_FULL_CHARS``), parse coverage (1.0 when
     the page yielded text, 0.0 when not — the only coverage fact a text
     bundle carries), image ratio (informative), signature quality on that
-    page. Combination is ``quality_probe.page_quality_score``.
+    page (``layout`` — ``page_layout`` — lets the probe measure the band by
+    the label element, 2026-09-28), and the OCR step's orientation record
+    when the page was a scan. Combination is ``quality_probe.page_quality_score``.
     """
     qp = _quality_probe()
     visual_pages = list((intake or {}).get("visual_pages") or [])
@@ -283,7 +300,8 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None) -> tuple[li
         text_density = round(min(1.0, chars / TEXT_DENSITY_FULL_CHARS), 3) if chars else 0.0
         parse_coverage = 1.0 if chars else 0.0
         image_ratio = _page_image_ratio(bundle, page_no)
-        sig = fx.assess_signature(text or "", visual=visual, ocr_lines=None, page=page_no)
+        page_segments = layout[i] if isinstance(layout, list) and i < len(layout) else None
+        sig = fx.assess_signature(text or "", visual=visual, ocr_lines=None, page=page_no, layout=page_segments)
         signatures.append(sig)
         sig_quality = sig.get("quality") if sig.get("present") is not None else None
         flags = list((visual or {}).get("flags") or [])
@@ -310,6 +328,7 @@ def score_pages(bundle: dict, texts: list[str], intake: dict | None) -> tuple[li
                 "text_density": text_density,
                 "parse_coverage": parse_coverage,
                 "image_ratio": image_ratio,
+                "orientation": _page_orientation(bundle, page_no),
                 "visual": visual,
             }
         )
@@ -1479,7 +1498,7 @@ def _build_report_timed(
     pname = contract_parser_name(bundle.get("parser_name") or (intake or {}).get("parser"))
     pver = parser_version(pname, bundle.get("jdf"))
     with _timed("quality"):
-        pages, signatures = score_pages(bundle, texts, intake)
+        pages, signatures = score_pages(bundle, texts, intake, layout=layout)
     page_quality = [p["quality_score"] for p in pages]
     visual_pages = [p.get("visual") for p in pages]
     documents = segment_pages(texts)

@@ -30,6 +30,20 @@ first-class artifact:
   inquire streams accept and the ``meta.selection_anchor`` they write, with
   ``verbatim`` true only when the selection text was re-found in the cited
   sources' ``extracted_text`` — never assumed from the browser's word.
+
+Page rasters (2026-09-28). A scanned or photographed page has only OCR text in
+its source JDF, so the rendered page showed a reader the OCR's reading and not
+the page — no signature, stamp or handwriting. For a document whose text came
+from OCR (``pages_are_ocr``: parser ``jdf-cli+tesseract`` / ``textract``, or a
+scan / photo / screenshot modality) the worker renders every page once
+(``store_page_rasters``: the same PyMuPDF render ``services/vision`` uses, PNG,
+long side ≤ ``RASTER_LONG_SIDE_PX``) into the object store under
+``documents/<project>/<doc>/<revision>/pages/<n>.png`` and
+``persist_source_jdf`` puts an ``image`` element first on each such page —
+full-page, ``src`` = ``GET …/documents/<doc>/pages/<n>.png`` — so jdf.js draws
+the page under the text. A digital PDF gets none: its text layer is the page.
+Nothing is synthesised: a page that did not render has no element and the
+descriptor's ``rasters`` count says how many did.
 """
 
 from __future__ import annotations
@@ -38,6 +52,8 @@ import copy
 import hashlib
 import json
 import logging
+import struct
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -61,6 +77,29 @@ SELECTION_TEXT_MAX_CHARS = 4000
 #: Up to this many jobs are scanned for a project when resolving a document's
 #: latest source JDF (the shell shows 50; 500 is the list route's own cap).
 _JOB_SCAN_LIMIT = 500
+
+#: Longest side of a stored page raster. 1600 px on a letter page is ~190 dpi:
+#: a signature stroke and a stamp are legible, and a page is ~100–250 KB of PNG
+#: (measured 2026-09-28 on the debris PDF: 100 KB at 1109×1568). The vision
+#: render uses 1568 for the same reason; rasters are a separate render because
+#: the vision pass only runs on picture pages.
+RASTER_LONG_SIDE_PX = 1600
+#: Pages rastered per document at most; a 200-page scan is the upload cap
+#: (``limits.max_pages``) and 200 PNGs of ≤250 KB is 50 MB, which the store
+#: holds but the worker should not spend on a single ingest without a bound.
+RASTER_MAX_PAGES = 200
+#: Substrings of a parser name that mean the text is an OCR reading
+#: (``jdf_converter`` names the OCR path ``jdf-cli+<engine>``; Textract is OCR).
+OCR_PARSER_MARKERS = ("tesseract", "textract", "openai")
+#: Modalities (``quality_probe.detect_material``) and source kinds whose page is
+#: a picture, whatever the parser name says.
+PICTURE_MODALITIES = ("scanned_pdf", "phone_photo", "screenshot")
+PICTURE_SOURCE_KINDS = ("scanned", "photo", "image")
+#: jdf.js named page sizes, in mm, for a page whose ``pageSize`` is a name.
+_PAGE_SIZES_MM = {
+    "A3": (297.0, 420.0), "A4": (210.0, 297.0), "A5": (148.0, 210.0),
+    "Letter": (215.9, 279.4), "Legal": (215.9, 355.6), "Tabloid": (279.4, 431.8),
+}
 
 
 def _now() -> str:
@@ -103,6 +142,35 @@ def key_in_project(key: str, project_id: str) -> bool:
 
 def source_jdf_url(project_id: str, document_id: str) -> str:
     return f"/api/projects/{project_id}/documents/{document_id}/source.jdf"
+
+
+def page_raster_key(source_key: str, page_no: int) -> str:
+    """``documents/<project>/<doc>/<revision>/pages/<n>.png`` beside the
+    ``.jdf`` key of the same revision — derived from it, so the route that
+    resolved a document's source key can name its rasters without a second
+    lookup, and a raster can never belong to another revision's document."""
+    if not source_key.endswith(".jdf"):
+        raise ValueError(f"not a source JDF key: {source_key!r}")
+    return f"{source_key[:-len('.jdf')]}/pages/{int(page_no)}.png"
+
+
+def page_raster_url(project_id: str, document_id: str, page_no: int) -> str:
+    return f"/api/projects/{project_id}/documents/{document_id}/pages/{int(page_no)}.png"
+
+
+def pages_are_ocr(parser_name: str | None, *, modality: str | None = None, source_kind: str | None = None) -> bool:
+    """Whether the document's text is an OCR reading of a picture — the case in
+    which the reader needs the page itself, not only its text. True for an OCR
+    parser (``jdf-cli+tesseract``, ``textract``), a picture modality
+    (``scanned_pdf``, ``phone_photo``, ``screenshot``) or a picture source kind
+    (``scanned``, ``photo``, ``image``). A digital PDF (``jdf-cli``,
+    ``digital_pdf``, ``pdf``) is False: its text layer is the page."""
+    name = str(parser_name or "").lower()
+    if any(marker in name for marker in OCR_PARSER_MARKERS):
+        return True
+    if str(modality or "").lower() in PICTURE_MODALITIES:
+        return True
+    return str(source_kind or "").lower() in PICTURE_SOURCE_KINDS
 
 
 def content_revision(file_bytes: bytes | None) -> str:
@@ -339,6 +407,151 @@ def find_elements_for_text(
 
 
 # --------------------------------------------------------------------------
+# Page rasters (OCR documents)
+# --------------------------------------------------------------------------
+
+def _png_size(png: bytes) -> tuple[int | None, int | None]:
+    """Width and height from the PNG header (IHDR at byte 16), no decode."""
+    if len(png) >= 24 and png[:8] == b"\x89PNG\r\n\x1a\n":
+        w, h = struct.unpack(">II", png[16:24])
+        return int(w), int(h)
+    return None, None
+
+
+def store_page_rasters(
+    project_id: str,
+    document_id: str,
+    revision: str,
+    file_bytes: bytes | None,
+    filename: str | None,
+    page_count: int,
+    *,
+    long_side_px: int = RASTER_LONG_SIDE_PX,
+    max_pages: int = RASTER_MAX_PAGES,
+) -> list[dict[str, Any]]:
+    """Render and store one PNG per page of an OCR document; return what was stored.
+
+    Each entry is ``{"page", "key", "url", "width", "height", "bytes", "ms"}``.
+    The render is ``services/vision.render_page_png`` — the one PyMuPDF path
+    (``quality_probe._open_document``) the visual probe and the vision pass
+    already use, so a PDF page and an uploaded image render the same way and
+    an image is never upscaled. Never raises: a page that does not render is
+    logged and absent from the result, so the caller's ``rasters`` count is
+    the number of pages the reader can actually see. Worker-side only: the
+    web tier renders nothing (``docs/scale_architecture.md``).
+    """
+    if not file_bytes or page_count < 1:
+        return []
+    try:
+        from .vision import render_page_png
+    except ImportError:
+        from vision import render_page_png  # type: ignore
+    source_key = source_jdf_key(project_id, document_id, revision)
+    store = get_object_store()
+    out: list[dict[str, Any]] = []
+    for page_no in range(1, min(int(page_count), max_pages) + 1):
+        t0 = time.monotonic()
+        try:
+            png = render_page_png(file_bytes, filename or "", page_no, long_side_px=long_side_px)
+            key = page_raster_key(source_key, page_no)
+            store.put_bytes(key, png, content_type="image/png")
+        except Exception:  # noqa: BLE001 — a page that does not render is reported by its absence
+            log.exception("page raster %s/%s page %s could not be stored", project_id, document_id, page_no)
+            continue
+        width, height = _png_size(png)
+        out.append({
+            "page": page_no,
+            "key": key,
+            "url": page_raster_url(project_id, document_id, page_no),
+            "width": width,
+            "height": height,
+            "bytes": len(png),
+            "ms": int((time.monotonic() - t0) * 1000),
+        })
+    return out
+
+
+def _page_size_mm(page: dict, doc: dict) -> tuple[float, float]:
+    """The page's size in mm as jdf.js will lay it out: the page's
+    ``pageSize``, else the document's, else A4 — the same fallback chain
+    ``renderPage`` applies, so the raster covers exactly the drawn page."""
+    meta = doc.get("meta") if isinstance(doc.get("meta"), dict) else {}
+    for size in (page.get("pageSize"), meta.get("pageSize")):
+        if isinstance(size, dict):
+            try:
+                w, h = float(size.get("width")), float(size.get("height"))
+            except (TypeError, ValueError):
+                continue
+            if w > 0 and h > 0:
+                return w, h
+        if isinstance(size, str) and size in _PAGE_SIZES_MM:
+            w, h = _PAGE_SIZES_MM[size]
+            orientation = str(page.get("pageOrientation") or meta.get("pageOrientation") or "portrait")
+            return (h, w) if orientation == "landscape" else (w, h)
+    return _PAGE_SIZES_MM["A4"]
+
+
+def is_page_raster(el: Any) -> bool:
+    return (
+        isinstance(el, dict)
+        and el.get("type") == "image"
+        and isinstance(el.get("assure"), dict)
+        and el["assure"].get("kind") == "page_raster"
+    )
+
+
+def add_page_rasters(doc: dict, rasters: list[dict[str, Any]] | None) -> int:
+    """Put a full-page ``image`` element first on each rastered page, in place.
+
+    ``position {x: 0, y: 0}``, ``width``/``height`` = the page size in mm,
+    ``src`` = the raster route, ``fit: contain`` (jdf.js draws ``src`` URLs
+    as-is and letter-boxes the bitmap into the box), ``assure: {kind:
+    "page_raster", page, key, width_px, height_px}``. First so the text
+    elements paint over it. Returns the number added; a page with no raster
+    entry gets nothing, and an element already there is not duplicated.
+    """
+    if not rasters or not is_source_jdf(doc):
+        return 0
+    by_page = {int(r["page"]): r for r in rasters if isinstance(r, dict) and r.get("page") and r.get("url")}
+    pages = [p for p in doc["pages"] if isinstance(p, dict)]
+    added = 0
+    for page_no, page in enumerate(pages, start=1):
+        raster = by_page.get(page_no)
+        if not raster:
+            continue
+        elements = page.get("elements")
+        if not isinstance(elements, list):
+            elements = page["elements"] = []
+        if any(is_page_raster(el) for el in elements):
+            continue
+        width_mm, height_mm = _page_size_mm(page, doc)
+        elements.insert(0, {
+            "type": "image",
+            "src": raster["url"],
+            "alt": f"Page {page_no} as scanned",
+            "position": {"x": 0, "y": 0},
+            "width": width_mm,
+            "height": height_mm,
+            "fit": "contain",
+            "assure": {
+                "kind": "page_raster",
+                "page": page_no,
+                "key": raster.get("key"),
+                "width_px": raster.get("width"),
+                "height_px": raster.get("height"),
+            },
+        })
+        added += 1
+    return added
+
+
+def count_page_rasters(doc: dict) -> int:
+    if not is_source_jdf(doc):
+        return 0
+    return sum(1 for p in doc["pages"] if isinstance(p, dict) for el in (p.get("elements") or []) if is_page_raster(el))
+
+
+# --------------------------------------------------------------------------
 # Persistence
 # --------------------------------------------------------------------------
 
@@ -351,13 +564,17 @@ def persist_source_jdf(
     chunks: list[dict] | None = None,
     job_id: str | None = None,
     filename: str | None = None,
+    rasters: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Store the raw jdf-cli document and return its descriptor, or None.
 
-    The descriptor — ``{"key", "url", "pages", "elements", "stored_at",
-    "revision", "document_id"}`` — is what the ingest job row, the Parsure
-    report (``report["source_jdf"]``) and the Assure tree (``meta.source_jdf``)
-    record. Never raises: the revision is the deliverable and a store that is
+    The descriptor — ``{"key", "url", "pages", "elements", "rasters",
+    "stored_at", "revision", "document_id"}`` — is what the ingest job row, the
+    Parsure report (``report["source_jdf"]``) and the Assure tree
+    (``meta.source_jdf``) record. ``rasters`` is what ``store_page_rasters``
+    returned for an OCR document; each becomes a full-page ``image`` element
+    (``add_page_rasters``) and ``descriptor["rasters"]`` counts them — 0 for a
+    digital PDF, which gets none. Never raises: the revision is the deliverable and a store that is
     not reachable is logged and leaves ``source_jdf`` absent, which the UI
     reads as "no source document is stored". The document is copied before the
     ids are stamped so the in-memory bundle the rest of the pipeline reads is
@@ -368,6 +585,10 @@ def persist_source_jdf(
     try:
         doc = copy.deepcopy(jdf)
         stamped = stamp_element_ids(doc, chunks)
+        # After stamping: the stamp walks text elements only, and the image
+        # element carries no text, so the order does not matter for ids — but
+        # stamping first keeps ``elements_stamped`` the count of text elements.
+        rastered = add_page_rasters(doc, rasters)
         meta = doc.get("meta") if isinstance(doc.get("meta"), dict) else {}
         stored_at = _now()
         meta["assure"] = {
@@ -379,6 +600,7 @@ def persist_source_jdf(
             "element_id_policy": fx.NODE_ID_POLICY,
             "element_id_derivation": fx.NODE_ID_DERIVATION,
             "elements_stamped": stamped,
+            "rasters": rastered,
         }
         doc["meta"] = meta
         key = source_jdf_key(project_id, document_id, revision)
@@ -390,6 +612,7 @@ def persist_source_jdf(
             "url": source_jdf_url(project_id, document_id),
             "pages": len(pages),
             "elements": sum(len(_text_elements(p)) for p in pages),
+            "rasters": rastered,
             "stored_at": stored_at,
             "revision": revision,
             "document_id": document_id,
@@ -482,6 +705,7 @@ def describe_source_jdf(key: str, doc: dict) -> dict[str, Any]:
         "key": key,
         "pages": len(pages),
         "elements": sum(len(_text_elements(p)) for p in pages),
+        "rasters": count_page_rasters(doc),
         "stored_at": assure.get("stored_at"),
         "revision": assure.get("revision"),
         "element_id_policy": assure.get("element_id_policy"),

@@ -52,6 +52,9 @@ def pytest_configure(config):
     # test wrote an object to S3 before this pin (2026-09-28). An empty value is
     # present, so dotenv leaves it alone; a test that wants S3 sets it itself.
     os.environ["ASSURE_S3_BUCKET"] = ""
+    # Same leak for the hosted-model key: with it present the vision/backend
+    # tests see a configured OpenRouter and a laptop .env decides the suite.
+    os.environ.setdefault("OPENROUTER_API_KEY", "")
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None
