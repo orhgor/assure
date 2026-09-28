@@ -43,7 +43,7 @@ try:
         parse_document,
     )
     from ..routers.inquire_stream import _METRIC_RE, _parse_metrics
-    from ..services.source_jdf import SelectionAnchor, selection_anchor_meta
+    from ..services.source_jdf import SelectionAnchor, descriptors_for_rows, selection_anchor_meta
     from ..services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         MEMO as ANSWER_SHAPE_MEMO,
@@ -127,7 +127,7 @@ except ImportError:
         parse_document,
     )
     from routers.inquire_stream import _METRIC_RE, _parse_metrics
-    from services.source_jdf import SelectionAnchor, selection_anchor_meta
+    from services.source_jdf import SelectionAnchor, descriptors_for_rows, selection_anchor_meta
     from services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         MEMO as ANSWER_SHAPE_MEMO,
@@ -568,6 +568,7 @@ def _compile_cache_key(
     context: str | None,
     substrate_context: str,
     model: str,
+    selection_text: str | None = None,
 ) -> str:
     """The compile cache key for one ask — the single composition both callers use.
 
@@ -585,6 +586,12 @@ def _compile_cache_key(
     text = _compile_source_text(intent, context, substrate_context)
     if choose_shape(intent) == ANSWER_SHAPE_DIRECT:
         text = f"{text}\n[answer_shape:{ANSWER_SHAPE_DIRECT}]"
+    # A selection anchor is a fact of the compile that produced the document, so
+    # two asks that differ only in the selected text never share an entry
+    # (2026-09-28). Appended only when a selection is present: a compile with
+    # none composes the key it always did, so a warm compile stays warm.
+    if selection_text and selection_text.strip():
+        text = f"{text}\n[selection:{hashlib.sha256(selection_text.strip().encode('utf-8')).hexdigest()}]"
     return compile_cache_key(
         project_id,
         text,
@@ -1560,6 +1567,58 @@ def _recount_cached_verified(
     return payload
 
 
+def _refresh_replayed_meta(
+    cached: dict[str, Any],
+    *,
+    project_id: str,
+    selection: dict[str, Any] | None,
+    substrate_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """The cached entry with the document meta a replay must not inherit.
+
+    ``meta.selection_anchor`` belongs to the request, not the entry: it is
+    rewritten from the current selection (verbatim re-checked against this
+    ask's sources) or removed when the request has none — an entry written by
+    an earlier selection of the same text carried that selection's page and
+    element ids onto every replay (2026-09-28). ``meta.source_jdf`` /
+    ``meta.source_jdfs`` are resolved again the same way the fresh path does,
+    so an entry cached before the source JDF existed gains it on replay and
+    one whose document was since removed says None. Both the ``compiled`` and
+    the ``verified`` frames carry a document; both are refreshed. Copies: the
+    stored entry is left as written.
+    """
+    out = dict(cached)
+    source_texts = [str(row.get("extracted_text") or "") for row in substrate_rows]
+    anchor = selection_anchor_meta(selection, source_texts) if selection else None
+    sources = _source_jdf_meta(project_id, substrate_rows)
+    for frame in ("compiled", "verified"):
+        payload = cached.get(frame)
+        if not isinstance(payload, dict) or not isinstance(payload.get("document"), dict):
+            continue
+        document = dict(payload["document"])
+        meta = dict(document.get("meta") or {})
+        if anchor is not None:
+            meta["selection_anchor"] = anchor
+        else:
+            meta.pop("selection_anchor", None)
+        meta.update(sources)
+        document["meta"] = meta
+        out[frame] = {**payload, "document": document}
+    return out
+
+
+def _source_jdf_meta(project_id: str, substrate_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """``{"source_jdf": first or None}`` plus ``"source_jdfs": [...]`` when more
+    than one of the ask's sources has a stored source JDF. The rows are the
+    ranked sources the compile ran with; a row without a stored document is
+    skipped, and none at all is ``source_jdf: None`` — never a guessed URL."""
+    descriptors = descriptors_for_rows(project_id, substrate_rows) if substrate_rows else []
+    meta: dict[str, Any] = {"source_jdf": descriptors[0] if descriptors else None}
+    if len(descriptors) > 1:
+        meta["source_jdfs"] = descriptors
+    return meta
+
+
 def _replay_cached_compile(
     project_id: str,
     cache_key: str,
@@ -1874,7 +1933,8 @@ def _run_draft_pipeline(
     # it did not call.
     _draft_model = _draft_route_model(target_ai)
     cache_key = _compile_cache_key(
-        project_id, intent, context, substrate_context, _draft_model
+        project_id, intent, context, substrate_context, _draft_model,
+        selection_text=str((selection or {}).get("text") or "") or None,
     )
     cached: dict[str, Any] | None = None
     # ``force`` has to mean "do the work again". The probe below ignored it, so the
@@ -1895,6 +1955,9 @@ def _run_draft_pipeline(
         # be the one path that renders what the gate refuses — otherwise a
         # below-floor compile cached yesterday would still reach the canvas
         # today, and the refusal would look like it worked only sometimes.
+        cached = _refresh_replayed_meta(
+            cached, project_id=project_id, selection=selection, substrate_rows=substrate_rows
+        )
         _replay_verified = _recount_cached_verified(
             cached, has_substrate=bool(substrate_rows), sources=substrate_rows
         )
@@ -2170,6 +2233,11 @@ def _run_draft_pipeline(
         document.meta["selection_anchor"] = selection_anchor_meta(
             selection, [str(row.get("extracted_text") or "") for row in substrate_rows]
         )
+    # The stored source JDF of the ask's sources (services/source_jdf): the
+    # first under ``source_jdf`` (None when none is stored), all of them under
+    # ``source_jdfs`` when there are several, so the shell can open the page a
+    # citation points at.
+    document.meta.update(_source_jdf_meta(project_id, substrate_rows))
     doc_dict = document_to_dict(document)
     if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
@@ -2835,6 +2903,7 @@ def register_draft_routes(app) -> None:
                 payload.context,
                 _build_substrate_context(rows),
                 _draft_route_model(payload.target_ai),
+                selection_text=payload.selection.text if payload.selection else None,
             )
             peek = load_ast_cache(peek_key)
             cached_hit = bool(isinstance(peek, dict) and peek.get("compiled"))

@@ -313,9 +313,88 @@ def test_find_elements_for_text_spans_elements_and_refuses_the_absent(client):
 
     assert sj.find_elements_for_text(jdf, "Total Premium", page=2, chunks=chunks)["found"] is False
     assert sj.find_elements_for_text(jdf, "premium of $9,999", chunks=chunks) == {
-        "element_ids": [], "page": None, "bbox_rel": None, "found": False,
+        "element_ids": [], "page": None, "bbox_rel": None, "found": False, "matched_by": None,
     }
+    assert one["matched_by"] == "verbatim"
     assert sj.find_elements_for_text(jdf, "   ", chunks=chunks)["found"] is False
+
+
+_WRAPPED_LINES = [
+    "NOTICE OF RENEWAL",
+    "The insur-",
+    "ance premium is due on the \u201ceffective\u201d date.",
+    "\ufb01nal notice \u2013 pre\u00admium of $1,250.00",
+    "Total\u00a0Premium: $1,250.00",
+    "Insured\u2019s address on \ufb02oor 2",
+    "Office of the insurer",
+]
+
+
+def _lookup(text, page=None):
+    bundle = jdf_cli_bundle(_WRAPPED_LINES)
+    jdf, chunks = bundle["jdf"], bundle["chunks"]
+    index = sj.element_index(jdf, chunks)
+    by_text = {e["text"]: eid for eid, e in index.items()}
+    return sj.find_elements_for_text(jdf, text, page=page, chunks=chunks), by_text, index
+
+
+def test_verbatim_match_is_reported_as_verbatim(client):
+    hit, by_text, _ = _lookup("NOTICE   of renewal")
+    assert hit["found"] and hit["matched_by"] == "verbatim" and hit["element_ids"] == [by_text["NOTICE OF RENEWAL"]]
+
+
+@pytest.mark.parametrize(
+    "selection, texts, how",
+    [
+        # line-wrap hyphen across two elements: "insur-\nance" → "insurance"
+        ("insurance premium is due", ["The insur-", "ance premium is due on the \u201ceffective\u201d date."], "normalised"),
+        # curly quotes in the page, straight quotes in the selection
+        ('on the "effective" date', ["ance premium is due on the \u201ceffective\u201d date."], "normalised"),
+        # the same curly quotes on both sides: nothing to repair, verbatim
+        ("on the \u201ceffective\u201d date.", ["ance premium is due on the \u201ceffective\u201d date."], "verbatim"),
+        # ligature ﬁ in the page, plain "fi" in the selection; en dash vs hyphen; soft hyphen removed
+        ("final notice - premium of $1,250.00", ["\ufb01nal notice \u2013 pre\u00admium of $1,250.00"], "normalised"),
+        # ligature in the selection, plain letters in the page (the reverse direction)
+        ("O\ufb03ce of the insurer", ["Office of the insurer"], "normalised"),
+        # the same ligature on both sides is verbatim
+        ("\ufb01nal notice", ["\ufb01nal notice \u2013 pre\u00admium of $1,250.00"], "verbatim"),
+        # a non-breaking space is whitespace to the verbatim comparison already
+        ("Total Premium: $1,250.00", ["Total\u00a0Premium: $1,250.00"], "verbatim"),
+        # curly apostrophe and ligature ﬂ
+        ("Insured's address on floor 2", ["Insured\u2019s address on \ufb02oor 2"], "normalised"),
+    ],
+)
+def test_normalised_matches_are_exact_on_ids_and_say_so(client, selection, texts, how):
+    hit, by_text, index = _lookup(selection)
+    assert hit["found"] is True and hit["page"] == 1, (selection, hit)
+    assert hit["matched_by"] == how
+    assert hit["element_ids"] == [by_text[t] for t in texts]
+    boxes = [index[e]["bbox_rel"] for e in hit["element_ids"]]
+    assert hit["bbox_rel"] == [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
+
+
+def test_normalisation_never_invents_a_match(client):
+    for wrong in ("insurence premium", "premium is due tomorrow", "Total Premium: $1,250.01", "well-known"):
+        hit, _, _ = _lookup(wrong)
+        assert hit == {"element_ids": [], "page": None, "bbox_rel": None, "found": False, "matched_by": None}, wrong
+    # A hyphen that is not a line wrap (space before it, capital after) is kept.
+    assert sj.normalise_text("Policy - Auto and X-\nRay") == "policy - auto and x- ray"
+    assert sj.normalise_text("insur-\nance, insur- ance, pre\u00admium") == "insurance, insurance, premium"
+
+
+def test_source_json_reports_how_the_selection_matched(client, monkeypatch):
+    import prompt_matrix.services.jdf_converter as conv
+
+    monkeypatch.setattr(conv, "pdf_to_parse_bundle", lambda data, **kw: jdf_cli_bundle(_WRAPPED_LINES))
+    from prompt_matrix.db.ingest_jobs_repository import create_job
+    from prompt_matrix.services.pdf_ingest import ingest_pdf_for_project
+
+    ingest_pdf_for_project("srcjdf", "renewal.pdf", crisp_pdf(), job_id=create_job("srcjdf", kind="import_pdf", filename="renewal.pdf"))
+    url = "/api/projects/srcjdf/documents/doc-srcjdf/source.json"
+    assert client.get(url, query_string={"text": "NOTICE OF RENEWAL"}).get_json()["matched_by"] == "verbatim"
+    fixed = client.get(url, query_string={"text": "insurance premium is due"}).get_json()
+    assert fixed["found"] is True and fixed["matched_by"] == "normalised" and len(fixed["element_ids"]) == 2
+    assert client.get(url, query_string={"text": "insurence"}).get_json()["matched_by"] is None
 
 
 # --------------------------------------------------------------------------
@@ -325,9 +404,13 @@ def test_find_elements_for_text_spans_elements_and_refuses_the_absent(client):
 _SOURCE = "The policy liability limit is set at $5,000,000 for combined single limit."
 
 
-def _draft_frames(monkeypatch, selection):
+_ROWS = [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": _SOURCE + SOURCE_FILLER}]
+
+
+def _draft_frames(monkeypatch, selection, *, rows=None, intent="Restate the limit."):
     from prompt_matrix.routers.draft import run_draft_pipeline
 
+    rows = _ROWS if rows is None else rows
     draft = _SOURCE + "\n\nPolicy liability limit=5000000."
 
     def fake_stream(_gov, _messages, *, target_ai=None, cancel_check=None):
@@ -345,12 +428,9 @@ def _draft_frames(monkeypatch, selection):
     monkeypatch.setattr("prompt_matrix.routers.draft._stream_model", fake_stream)
     monkeypatch.setattr("prompt_matrix.routers.draft.run_lock_inference", fake_locks)
     monkeypatch.setattr("prompt_matrix.routers.draft.check_entailment", stub_check)
-    monkeypatch.setattr(
-        "prompt_matrix.routers.draft.fetch_substrate_entries_by_ids",
-        lambda _pid, _ids: [{"id": "sub-1", "filename": "policy.pdf", "extracted_text": _SOURCE + SOURCE_FILLER}],
-    )
+    monkeypatch.setattr("prompt_matrix.routers.draft.fetch_substrate_entries_by_ids", lambda _pid, _ids: rows)
     frames = list(
-        run_draft_pipeline("default", intent="Restate the limit.", substrate_file_ids=["sub-1"], governor=_FakeGovernor(), selection=selection)
+        run_draft_pipeline("default", intent=intent, substrate_file_ids=[str(r["id"]) for r in rows], governor=_FakeGovernor(), selection=selection)
     )
     events = [_parse_sse(f) for f in frames if f.startswith("event:") or f.startswith("data:")]
     return next(data for _ev, data in events if isinstance(data, dict) and data.get("type") == "compiled")
@@ -377,6 +457,104 @@ def test_compile_records_the_selection_anchor_and_says_verbatim_only_when_refoun
 
     plain = _draft_frames(monkeypatch, None)
     assert "selection_anchor" not in plain["document"]["meta"]
+    assert plain["document"]["meta"]["source_jdf"] is None, "no stored document for sub-1: None, not a guessed URL"
+    assert "source_jdfs" not in plain["document"]["meta"]
+
+
+def _upload_source(client, monkeypatch, filename, project="default"):
+    _fake_converter(monkeypatch)
+    res = client.post(
+        f"/api/projects/{project}/substrate/upload",
+        data={"file": (io.BytesIO(crisp_pdf()), filename)},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 200, res.get_data(as_text=True)
+    return res.get_json()
+
+
+def test_descriptor_for_document_reads_the_report_and_says_none_otherwise(client, monkeypatch):
+    body = _upload_source(client, monkeypatch, "a.pdf")
+    desc = sj.descriptor_for_document("default", str(body["id"]))
+    assert desc == body["source_jdf"], "the descriptor the intake report recorded, verbatim"
+    assert desc["key"].startswith(f"documents/default/{body['id']}/") and desc["pages"] == 1
+    assert sj.descriptor_for_document("default", "doc-nothing") is None
+    assert sj.descriptor_for_document("other", str(body["id"])) is None
+    # A key no report carries: the descriptor is read from the stored document itself.
+    stored = sj.persist_source_jdf("default", "doc-bare", "rev-bare", jdf_cli_bundle()["jdf"], chunks=jdf_cli_bundle()["chunks"])
+    from prompt_matrix.db.ingest_jobs_repository import create_job, set_source_jdf_key
+
+    set_source_jdf_key(create_job("default", kind="import_pdf", filename="bare.pdf"), stored["key"])
+    bare = sj.descriptor_for_document("default", "doc-bare")
+    assert bare["key"] == stored["key"] and bare["url"] == stored["url"]
+    assert bare["pages"] == 1 and bare["elements"] == len(POLICY_LINES) and bare["stored_at"] == stored["stored_at"]
+
+
+def test_compile_carries_the_source_jdf_of_its_sources(client, monkeypatch):
+    a = _upload_source(client, monkeypatch, "a.pdf")
+    b = _upload_source(client, monkeypatch, "b.pdf")
+    row = lambda body: {"id": body["id"], "filename": body["filename"], "extracted_text": _SOURCE + SOURCE_FILLER}  # noqa: E731
+
+    one = _draft_frames(monkeypatch, None, rows=[row(a)])
+    meta = one["document"]["meta"]
+    assert meta["source_jdf"] == a["source_jdf"] and "source_jdfs" not in meta
+
+    two = _draft_frames(monkeypatch, None, rows=[row(b), row(a)], intent="Restate the limit again.")
+    meta = two["document"]["meta"]
+    assert meta["source_jdf"] == b["source_jdf"], "the first cited source is the primary"
+    assert meta["source_jdfs"] == [b["source_jdf"], a["source_jdf"]]
+
+    mixed = _draft_frames(monkeypatch, None, rows=[_ROWS[0], row(a)], intent="Restate the limit once more.")
+    meta = mixed["document"]["meta"]
+    assert meta["source_jdf"] == a["source_jdf"] and "source_jdfs" not in meta, "a source with nothing stored is skipped, never invented"
+
+
+def test_cache_key_separates_selections_and_keeps_a_plain_compile_warm(client):
+    from prompt_matrix.routers import draft
+
+    plain = draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x")
+    assert plain == draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x", selection_text=None)
+    assert plain == draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x", selection_text="   ")
+    s1 = draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x", selection_text="Liability Limit: $100,000")
+    s2 = draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x", selection_text="Total Premium: $1,250.00")
+    assert len({plain, s1, s2}) == 3
+    assert s1 == draft._compile_cache_key("default", "Restate.", None, "ctx", "model/x", selection_text="Liability Limit: $100,000")
+
+
+def test_a_cache_replay_carries_the_current_selection_not_the_cached_one(client, monkeypatch):
+    monkeypatch.setenv("PEM_OMP_CACHE", "1")
+    text = "liability limit is set at $5,000,000"
+    first = _draft_frames(monkeypatch, {"text": text, "page": 1, "element_ids": ["c1:aaaaaaaaaaaa"]})
+    assert not first.get("cache_hit") and first["document"]["meta"]["selection_anchor"]["element_ids"] == ["c1:aaaaaaaaaaaa"]
+
+    replay = _draft_frames(monkeypatch, {"text": text, "page": 2, "element_ids": ["c1:bbbbbbbbbbbb"]})
+    assert replay.get("cache_hit") is True, "same ask, same selection text: served from the cache"
+    anchor = replay["document"]["meta"]["selection_anchor"]
+    assert anchor["element_ids"] == ["c1:bbbbbbbbbbbb"] and anchor["page"] == 2, "the request's selection, not the entry's"
+    assert anchor["verbatim"] is True and anchor["checked_against"] == 1, "verbatim re-checked on replay"
+
+    other = _draft_frames(monkeypatch, {"text": "combined single limit", "page": 1, "element_ids": []})
+    assert not other.get("cache_hit"), "a different selection text is a different cache entry"
+
+
+def test_a_cache_replay_drops_a_stale_anchor_when_the_request_has_none(client, monkeypatch):
+    monkeypatch.setenv("PEM_OMP_CACHE", "1")
+    from prompt_matrix.routers import draft
+    from prompt_matrix.services.omp_memory import load_ast_cache, save_ast_cache
+
+    first = _draft_frames(monkeypatch, None)
+    assert not first.get("cache_hit") and "selection_anchor" not in first["document"]["meta"]
+    key = draft._compile_cache_key("default", "Restate the limit.", None, draft._build_substrate_context(_ROWS), draft._draft_route_model(None))
+    entry = load_ast_cache(key)
+    assert entry and entry.get("compiled"), "the compile wrote its entry under the composed key"
+    # An entry written by earlier code that carried a selection onto every replay.
+    for frame in ("compiled", "verified"):
+        entry[frame]["document"]["meta"]["selection_anchor"] = {"text": "stale", "element_ids": ["c1:dead"], "verbatim": True}
+    save_ast_cache(key, "default", entry)
+
+    replay = _draft_frames(monkeypatch, None)
+    assert replay.get("cache_hit") is True
+    assert "selection_anchor" not in replay["document"]["meta"]
+    assert replay["document"]["meta"]["source_jdf"] is None, "source_jdf is resolved again on replay too"
 
 
 def test_draft_stream_accepts_a_selection_and_uses_its_text_as_the_excerpt(client, monkeypatch):

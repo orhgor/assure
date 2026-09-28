@@ -99,15 +99,23 @@ and reads JSON it already stored; nothing is parsed here.
 : `{ok, url, key, pages, elements, stored_at, revision, element_id_policy}`.
 
 `GET …/source.json?text=<selection>[&page=<n>]`
-: `{ok, key, url, element_ids, page, bbox_rel, found}`. The page text is the
-  elements joined by newlines (`page_layout`'s own page text); the selection is
-  found verbatim under `llm_extraction.find_verbatim` (whitespace-collapsed,
-  case-insensitive); the elements whose character range overlaps the match are
-  the answer and `bbox_rel` is the union of their relative boxes
-  `[x0, y0, x1, y1]` in page fractions. Without `page` the pages are searched in
-  order. Not found: `found: false`, `element_ids: []`, `bbox_rel: null` — never
-  the nearest element. `text` longer than 4000 characters or a non-integer
-  `page` is 400.
+: `{ok, key, url, element_ids, page, bbox_rel, found, matched_by}`. The page
+  text is the elements joined by newlines (`page_layout`'s own page text). The
+  selection is looked up verbatim first (`llm_extraction.find_verbatim`:
+  whitespace-collapsed, case-insensitive → `matched_by: "verbatim"`), then under
+  `source_jdf.find_normalised` → `matched_by: "normalised"`, which additionally
+  removes soft hyphens, joins the line-wrap hyphen (`insur-\nance` / `insur- ance`
+  → `insurance`: a hyphen after a letter, followed by whitespace and a
+  lower-case letter — `Policy - Auto` and `X-\nRay` are left alone), expands the
+  ligatures ﬀ ﬁ ﬂ ﬃ ﬄ ﬅ ﬆ, straightens curly quotes/apostrophes and dashes, and
+  makes non-breaking/thin spaces plain. Both sides are normalised; the match is
+  an exact substring of the normalised page text — no edit distance, no token
+  overlap. `element_ids` and `bbox_rel` are exact (the offsets map back to the
+  page text; the boxes are the stored positions), so the UI can show that a
+  repair happened without the repair moving anything. Without `page` the pages
+  are searched in order. Not found: `found: false`, `element_ids: []`,
+  `bbox_rel: null`, `matched_by: null` — never the nearest element. `text`
+  longer than 4000 characters or a non-integer `page` is 400.
 
 ## Selection anchors on the compile and inquire streams
 
@@ -132,10 +140,35 @@ set before the persist in `routers/inquire_stream.py`) carry the dict plus
   compile, the project's Sources rows (`_substrate_rows`) for a rewrite;
 * `checked_against` — how many source texts were searched.
 
-No verdict logic reads the anchor. A compile replayed from the OMP cache yields
-the cached document; the anchor is a fact of the compile that produced it, so a
-replay for a different selection of the same excerpt text carries the earlier
-anchor (`PEM_OMP_CACHE`, off under test).
+No verdict logic reads the anchor.
+
+**Cache.** `_compile_cache_key` appends `[selection:<sha256 of the selection
+text>]` when a selection is present, so two asks that differ only in the
+selected text never share an entry; a compile with no selection composes the key
+it always did (a warm compile stays warm). On a replay
+(`routers/draft._refresh_replayed_meta`, before `_recount_cached_verified`) the
+document in both the `compiled` and the `verified` frames gets
+`meta.selection_anchor` rewritten from the current request (verbatim re-checked
+against this ask's sources) or removed when the request has none, and
+`meta.source_jdf` / `meta.source_jdfs` resolved again. The stored entry is not
+modified.
+
+## `meta.source_jdf` on a compiled document
+
+`routers/draft.py` sets, beside `meta.answer_shape`:
+
+* `meta.source_jdf` — the descriptor of the first (primary, ranked) source of the
+  ask that has a stored source JDF, or `null` when none has;
+* `meta.source_jdfs` — the list of all such descriptors, present only when there
+  are two or more.
+
+Resolution is `services/source_jdf.descriptors_for_rows(project_id, rows)` →
+`descriptor_for_document(project_id, row["id"])`: the key from
+`resolve_source_jdf_key` (ingest jobs, then reports), the descriptor from the
+intake report that recorded that key, else from the stored document's own
+`meta.assure`. A row with nothing stored is skipped; nothing is invented. The
+Sources upload stores under the vault row id, which is the row `id` the compile
+receives, so the lookup is by that id.
 
 ## Tests
 
@@ -144,7 +177,11 @@ anchor (`PEM_OMP_CACHE`, off under test).
 ETag/304, `?revision=`, latest-wins, 404, cross-project refusal (including a
 job row in another project pointing at the key), element-id equality with
 `page_layout` and with the Parsure fields, round trip without the chunk list,
-text lookup, selection passthrough on both streams and their 400s.
+text lookup (verbatim and each normalisation, plus the refusals: misspellings,
+a different figure, a non-wrap hyphen), `matched_by` on the route,
+`descriptor_for_document`, `meta.source_jdf`/`source_jdfs` on a compile, the
+cache key per selection, a replay carrying the request's selection and dropping
+a stale one, selection passthrough on both streams and their 400s.
 
 Note for test authors: pin `ASSURE_S3_BUCKET` to `""` rather than `delenv` —
 `cloud_billing` runs `load_dotenv(override=False)` on app import and restores a

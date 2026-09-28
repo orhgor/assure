@@ -196,21 +196,108 @@ def _union_bbox(boxes: list[list[float] | None]) -> list[float] | None:
     ]
 
 
+#: Characters the normalised comparison rewrites (2026-09-28). Ligatures are
+#: what a PDF text layer often carries for "fi"/"fl"; curly quotes and the
+#: non-breaking spaces are what a browser selection often carries instead of
+#: the straight ASCII the page text has (or the reverse). Nothing here changes
+#: a letter into a different letter: a repair is never a guess.
+_NORMALISE_CHARS = {
+    "\ufb00": "ff", "\ufb01": "fi", "\ufb02": "fl", "\ufb03": "ffi", "\ufb04": "ffl", "\ufb05": "st", "\ufb06": "st",
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'", "\u2032": "'",
+    "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"', "\u2033": '"',
+    "\u00a0": " ", "\u202f": " ", "\u2007": " ", "\u2009": " ", "\u200a": " ", "\u3000": " ",
+    "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-", "\u2014": "-",
+}
+_SOFT_HYPHEN = "\u00ad"
+
+
+def _normalise_with_map(text: str) -> tuple[str, list[int]]:
+    """Lower-cased text with whitespace collapsed, soft hyphens removed, the
+    line-wrap hyphen joined (``insur-\\nance`` / ``insur- ance`` → ``insurance``:
+    a hyphen between a letter and a following whitespace + lower-case letter),
+    ligatures expanded, curly quotes and dashes straightened and non-breaking
+    spaces made plain — plus, for every kept character, the offset of the
+    original character it came from, so a match maps back to an exact range
+    in the page text (``_collapse_with_map`` in ``llm_extraction`` is the
+    verbatim-only sibling)."""
+    out: list[str] = []
+    offsets: list[int] = []
+    prev_space = True
+    n = len(text)
+    i = 0
+    while i < n:
+        ch = text[i]
+        if ch == _SOFT_HYPHEN:
+            i += 1
+            continue
+        if ch == "-" and out and out[-1].isalpha():
+            # Line-wrap join: hyphen, whitespace, then a lower-case letter.
+            j = i + 1
+            while j < n and text[j].isspace():
+                j += 1
+            if j > i + 1 and j < n and text[j].isalpha() and text[j].islower():
+                i = j
+                continue
+        rep = _NORMALISE_CHARS.get(ch)
+        if rep is not None:
+            ch = rep
+        if ch.isspace() or ch == " ":
+            if prev_space:
+                i += 1
+                continue
+            out.append(" ")
+            offsets.append(i)
+            prev_space = True
+            i += 1
+            continue
+        for c in ch:
+            out.append(c.lower())
+            offsets.append(i)
+        prev_space = False
+        i += 1
+    if out and out[-1] == " ":
+        out.pop()
+        offsets.pop()
+    return "".join(out), offsets
+
+
+def normalise_text(text: str) -> str:
+    return _normalise_with_map(str(text or ""))[0]
+
+
+def find_normalised(page_text: str, needle: str) -> tuple[int, int] | None:
+    """``(start, end)`` in ``page_text`` of ``needle`` under the normalised
+    comparison, or None. Exact substring search on the normalised forms —
+    no edit distance, no token overlap: a text that is not there is not found."""
+    needle_n = normalise_text(needle)
+    if not needle_n:
+        return None
+    hay, offsets = _normalise_with_map(page_text or "")
+    pos = hay.find(needle_n)
+    if pos < 0:
+        return None
+    return offsets[pos], offsets[pos + len(needle_n) - 1] + 1
+
+
 def find_elements_for_text(
     jdf: dict, text: str, page: int | None = None, chunks: list[dict] | None = None
 ) -> dict[str, Any]:
-    """The elements a text selection covers: ``{"element_ids", "page", "bbox_rel", "found"}``.
+    """The elements a text selection covers:
+    ``{"element_ids", "page", "bbox_rel", "found", "matched_by"}``.
 
     The page text is the elements joined by newlines (``page_layout``'s own
-    page text) and the selection is looked up in it verbatim under the
-    whitespace-collapsed, case-insensitive comparison of ``find_verbatim``; the
-    elements whose character range overlaps the match are the answer, the
-    union of their relative boxes the bbox. ``page`` restricts the search to
+    page text). The selection is looked up verbatim first (``find_verbatim``:
+    whitespace-collapsed, case-insensitive → ``matched_by: "verbatim"``), then
+    under ``find_normalised`` (soft hyphens, line-wrap hyphens, ligatures,
+    curly quotes, non-breaking spaces → ``matched_by: "normalised"``) so the
+    UI can say a repair happened. The elements whose character range overlaps
+    the match are the answer, the union of their relative boxes the bbox —
+    both exact, from the stored positions. ``page`` restricts the search to
     one page (1-based); without it pages are searched in order and the first
-    hit wins. A selection not found anywhere is ``found: False`` with no ids —
-    never the nearest element.
+    hit wins. Not found anywhere: ``found: False``, ``matched_by: None``, no
+    ids — never the nearest element, never an edit-distance guess.
     """
-    empty = {"element_ids": [], "page": page, "bbox_rel": None, "found": False}
+    empty = {"element_ids": [], "page": page, "bbox_rel": None, "found": False, "matched_by": None}
     needle = " ".join(str(text or "").split())
     if not needle or not is_source_jdf(jdf):
         return empty
@@ -227,7 +314,11 @@ def find_elements_for_text(
             continue
         entries.sort(key=lambda item: int(item[1].get("start") or 0))
         page_text = "\n".join(str(info["text"]) for _eid, info in entries)
+        matched_by = "verbatim"
         span = find_verbatim(page_text, needle)
+        if span is None:
+            matched_by = "normalised"
+            span = find_normalised(page_text, needle)
         if span is None:
             continue
         start, end = span
@@ -242,6 +333,7 @@ def find_elements_for_text(
             "page": page_no,
             "bbox_rel": _union_bbox([info.get("bbox_rel") for _eid, info in hits]),
             "found": True,
+            "matched_by": matched_by,
         }
     return empty
 
@@ -395,6 +487,56 @@ def describe_source_jdf(key: str, doc: dict) -> dict[str, Any]:
         "element_id_policy": assure.get("element_id_policy"),
     }
 
+
+
+def descriptor_for_document(project_id: str, document_id: str) -> dict[str, Any] | None:
+    """The stored descriptor (``{key, url, pages, elements, stored_at, …}``) of
+    a document's latest source JDF, or None when none is stored.
+
+    The key comes from ``resolve_source_jdf_key`` (ingest jobs, then reports);
+    the descriptor is the one the intake report recorded for that key
+    (``report["source_jdf"]``), and, for a key no report carries, is read from
+    the stored document's own ``meta.assure`` — the JSON this service wrote,
+    not a parse. None is never replaced by a guessed URL.
+    """
+    key = resolve_source_jdf_key(project_id, document_id)
+    if not key:
+        return None
+    try:
+        try:
+            from ..db.parsure_repository import list_reports
+        except ImportError:
+            from db.parsure_repository import list_reports  # type: ignore
+        for report in list_reports(project_id, limit=_JOB_SCAN_LIMIT, current_only=False) or []:
+            src = report.get("source_jdf")
+            if isinstance(src, dict) and str(src.get("key") or "") == key:
+                return dict(src)
+    except Exception:
+        log.exception("source JDF: report lookup failed for %s/%s", project_id, document_id)
+    doc = load_source_jdf(key)
+    if doc is None:
+        return None
+    info = describe_source_jdf(key, doc)
+    return {"url": source_jdf_url(project_id, document_id), "document_id": document_id, **info}
+
+
+def descriptors_for_rows(project_id: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The stored descriptors of the Sources rows a compile ran with, in the
+    rows' order (the ranked, cited order), skipping rows with none. A row's
+    ``id`` is the ``document_id`` the Sources upload stored under
+    (``routers/substrate.ingest_substrate_file``)."""
+    out: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict) or row.get("id") in (None, ""):
+            continue
+        try:
+            desc = descriptor_for_document(project_id, str(row["id"]))
+        except Exception:  # noqa: BLE001 — a lookup failure is "none stored", logged
+            log.exception("source JDF: descriptor lookup failed for row %s", row.get("id"))
+            desc = None
+        if desc:
+            out.append(desc)
+    return out
 
 # --------------------------------------------------------------------------
 # Selection anchors (compile / inquire passthrough)
