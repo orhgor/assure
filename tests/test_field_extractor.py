@@ -426,7 +426,7 @@ def test_document_family_names_the_dominant_family_or_none():
     assert {"cms-1500", "patient", "icd", "cpt", "npi"} <= set(fam["cues"])
     # The lender-facing property page: auto 3 (exclusions), property 2 — no family dominates, the gate stays open.
     fam = fx.document_family("\n".join(REAL_ESTATE_LINES))
-    assert fam["family"] == "unknown" and fam["counts"] == {"auto": 3, "property": 2, "real_estate_transaction": 0, "medical": 0}
+    assert fam["family"] == "unknown" and fam["counts"] == {"auto": 3, "property": 2, "real_estate_transaction": 0, "medical": 0, "field_report": 0}
     assert fam["basis"].startswith("no family dominates (auto 3, property 2; margin over property is 1 < 2)")
     assert fx.document_family("")["family"] == "unknown"
     assert fx.document_family("Dear diary, today was fine.")["basis"] == "no family cue on the page"

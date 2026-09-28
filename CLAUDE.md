@@ -53,7 +53,7 @@ compile engine is PEM.
 |---|---|
 | `prompt_matrix/web.py` | Flask app factory `create_app`; gunicorn entry `prompt_matrix.web:app`; `register_*_routes(app)` calls near the end |
 | `prompt_matrix/routers/` | Route registrars (not blueprints, except `health.py`). `jdf_routes.py` (import-pdf, presign, JDF save/history), `substrate.py` (Sources vault), `jdf_memory_routes.py` (`/jdf/ingest`), `async_tasks_routes.py` (`/api/tasks/<id>`), `draft.py` / `inquire_stream.py` (SSE compile) |
-| `prompt_matrix/services/` | Business logic. `pdf_ingest.py` (the parse pipeline, shared by route and worker), `parser_router.py`, `jdf_converter.py` (jdf-cli + OCR), `verification.py` (Z3 + Red-Hat hook), `omp.py` (artifacts), `object_store.py`, `redis_client.py` |
+| `prompt_matrix/services/` | Business logic. `pdf_ingest.py` (the parse pipeline, shared by route and worker), `parser_router.py`, `jdf_converter.py` (jdf-cli + OCR), `verification.py` (Z3 + Red-Hat hook), `omp.py` (artifacts), `object_store.py`, `redis_client.py`; Parsure: `v1_orchestrator.py` (report build, `run_after_parse`), `field_extractor.py` (taxonomy, label pass), `raw_candidates.py` (schema-agnostic facts pool + projection), `field_discovery.py`, `quality_probe.py` |
 | `prompt_matrix/db/` | `pg_compat.py` (PostgreSQL backend), `connection.py` (migrations, `_SCHEMA_VERSION`), `pool.py` (facade), `*_repository.py` (plain functions) |
 | `prompt_matrix/history.py` | `get_db()` (request-scoped) / `db_scope()` (standalone unit of work) / `borrowed_connection()`. Always use these; never open connections yourself |
 | `prompt_matrix/tasks/` | Celery: `parse_tasks.py` (queue `parse`), `substrate_tasks.py`, `redhat.py`, `compile_tasks.py`, `llm_tasks.py` |

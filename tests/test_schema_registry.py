@@ -218,7 +218,11 @@ def test_unknown_family_report_carries_discovered_fields_and_honest_counts(monke
     assert report["fields"] == [] and report["review_summary"]["fields_total"] == 0
     names = {p["name"] for p in report["discovered_fields"]}
     assert {"inspector", "roof_condition", "recommended_action"} <= names
-    assert all(p["taxonomy_field"] is False and p["span"]["node_id"] for p in report["discovered_fields"])
+    # every row is anchored; heuristic rows are not taxonomy fields, while a schema-label scan row
+    # (``taxonomy_scan`` — here site_report reads "Inspector: Lee Park", 2026-09-28) says which schemas would take it
+    assert all(p["span"]["node_id"] for p in report["discovered_fields"])
+    assert all(p["taxonomy_field"] is False for p in report["discovered_fields"] if p["method"] != "taxonomy_scan")
+    assert all(p["schema_candidates"] for p in report["discovered_fields"] if p["method"] == "taxonomy_scan")
     assert report["execution"]["discovery"]["status"] == "completed" and report["execution"]["discovery"]["pairs"] == len(report["discovered_fields"])
     assert report["execution"]["discovery"]["llm_grounded"] == 0
     assert any(n.startswith("field discovery:") for n in report["extraction_notes"])

@@ -786,6 +786,31 @@ def _visual_score(visual: dict[str, Any] | None) -> tuple[float | None, str]:
     return round(score, 3), f"visual {score:.2f}" + (f" [{', '.join(parts)}]" if parts else "")
 
 
+def grounding_floor(*, grounding_success: float | None, ocr_confidence: float | None) -> tuple[float | None, str | None]:
+    """The readability the extraction itself proved: ``grounding_success`` (the
+    share of located reads on the page that had a usable value shape,
+    ``raw_candidates.grounding_success_by_page``) times the page's OCR
+    word-confidence mean. Both are required: without an OCR figure there is
+    no measurement that the *reader* saw the page (a text-layer page with a
+    poor visual probe keeps the probe's score — tests/test_v1_orchestrator
+    ``test_evidence_states_separate_absent_from_unreadable``). Returns
+    ``(floor, basis)`` or ``(None, None)`` when either signal is missing.
+
+    Why (plan V4 Part 4, measured 2026-09-28 on the customer's site-report
+    photo): the visual probe's low-resolution and contrast factors multiplied
+    the page to 0.07 while tesseract read it at 0.80 and the label pass and the
+    model quoted its lines verbatim — a page that was read cannot be
+    unreadable. The floor never lifts a page nothing was read from (a debris
+    scan keeps its low score: its located reads are suspects, so the share is
+    0.0 and the floor is 0.0)."""
+    if grounding_success is None or ocr_confidence is None:
+        return None, None
+    share = max(0.0, min(1.0, float(grounding_success)))
+    ocr = max(0.0, min(1.0, float(ocr_confidence)))
+    floor = round(share * ocr, 3)
+    return floor, f"grounded reads {share:.2f} × ocr {ocr:.2f} = floor {floor:.2f}"
+
+
 def page_quality_score(
     *,
     visual: dict[str, Any] | None,
@@ -794,6 +819,7 @@ def page_quality_score(
     parse_coverage: float | None,
     image_ratio: float | None,
     signature_quality: str | None,
+    grounding_success: float | None = None,
 ) -> tuple[float | None, str]:
     """Combine the page's real signals into one 0–1 score, or ``None``.
 
@@ -811,6 +837,11 @@ def page_quality_score(
     compose stack: with density as a raw factor a crisp one-paragraph auto
     policy declarations PDF scored 0.146 and every one of its 12 fields went
     to manual review — a page-fullness figure was being read as quality.
+
+    ``grounding_success`` (plan V4 Part 4, 2026-09-28) is the extraction's own
+    readability evidence, known only after the fields were read; when given,
+    the score is at least :func:`grounding_floor` and the basis says so. The
+    probe factors are otherwise unchanged.
     """
     factors: list[tuple[str, float]] = []
     vis, vis_basis = _visual_score(visual)
@@ -831,7 +862,10 @@ def page_quality_score(
         # field, not a statement about how legible the page is. It still
         # reaches the signature field through quality_weighted_confidence.
         pass
+    floor, floor_basis = grounding_floor(grounding_success=grounding_success, ocr_confidence=ocr_confidence)
     if not factors:
+        if floor is not None:
+            return floor, f"no probe signal; {floor_basis}"
         return None, "no_signal"
     score = 1.0
     for _, value in factors:
@@ -839,7 +873,13 @@ def page_quality_score(
     basis = " × ".join(label for label, _ in factors)
     if image_ratio is not None:
         basis += f" (image_ratio {float(image_ratio):.2f}, informative)"
-    return round(score, 3), basis
+    score = round(score, 3)
+    if floor is not None and floor > score:
+        basis += f"; lifted to {floor_basis}"
+        score = floor
+    elif floor is not None:
+        basis += f"; {floor_basis} (below the probe score)"
+    return score, basis
 
 
 def quality_weighted_confidence(

@@ -84,7 +84,9 @@ def test_redhat_finding_triggers_a_hinted_pass_that_changes_the_field_and_every_
     r = out["report"]
     exe = r["execution"]
     # 1. every step left a trace — nothing "pending", nothing "not_started"
-    assert exe["z3"]["status"] == "PASS" and exe["redhat_draft"]["status"] == "complete"
+    # ``redhat_draft`` left the ledger 2026-09-28 (plan V4 Part 3): the draft critique's status stays on the verification block.
+    assert exe["z3"]["status"] == "PASS" and "redhat_draft" not in exe and r["verification"]["redhat_status"] == "complete"
+    assert exe["z3"]["async_deferred"] is False and isinstance(r["raw_candidates"], list) and r["raw_candidates"]
     assert exe["redhat_graph"]["status"] == "completed" and exe["redhat_graph"]["policy"] == "rh-graph-v1"
     assert exe["llm_grounding"]["status"] == "ran" and exe["llm_grounding"]["model"] == "injected"
     assert exe["laya"]["status"] == "not_run" and "router" in exe["laya"]["reason"]  # honest: no router on a direct call
@@ -154,7 +156,7 @@ def test_z3_violation_changes_the_output_and_the_ledger_says_so(client):
     premium = next(f for f in r["fields"] if f["name"] == "premium")
     assert premium["z3_violation"] is True and premium["field_state"] == "rejected" and premium["routing_action"] == "compliance_review"
     assert premium["verification_confidence"] == 0.0 and premium["verification_source"] == "z3"
-    assert r["execution"]["z3"] == {"status": "VIOLATION", "violations": 1, "reason": None}
+    assert r["execution"]["z3"] == {"status": "VIOLATION", "violations": 1, "reason": None, "async_deferred": False}
     assert r["verification"]["z3_violation_count"] == 1 and r["review_summary"]["fields_rejected"] >= 1
     # the same document with a passing verification is not rejected: the verifier, not a default, decided
     out2 = run_after_parse("default", bundle=jdf_cli_bundle(), verification=VERIFICATION, filename="z3b.pdf", file_bytes=b"z3b", result=RESULT,

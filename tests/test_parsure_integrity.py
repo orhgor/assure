@@ -302,8 +302,12 @@ def test_replay_writes_a_proof_and_stops_after_two_runs_without_improvement(clie
     replay = body["report"]["replay"]
     assert replay["replayed"] is True and replay["last_proof"] == proof and replay["attempts"] == 1 and replay["max_attempts"] == 3
     entry = replay["history"][0]
-    assert set(entry) == {"at", "trigger", "policy_version", "node_id_policy", "redhat_policy", "fields_found_before", "fields_found_after",
+    assert set(entry) >= {"at", "trigger", "policy_version", "node_id_policy", "redhat_policy", "fields_found_before", "fields_found_after",
                           "improved", "snapshot_before", "snapshot_after"}
+    # additive since 2026-09-28 (plan V4): what changed, what the remap mapped, and that no model ran on the web tier
+    assert set(entry) - {"at", "trigger", "policy_version", "node_id_policy", "redhat_policy", "fields_found_before", "fields_found_after",
+                         "improved", "snapshot_before", "snapshot_after"} <= {"fields_changed", "mapping_changed", "grounded", "grounded_reason"}
+    assert entry["grounded"] is False and entry["fields_changed"] == []
     assert entry["trigger"] == "replay" and entry["policy_version"] == orch.POLICY_VERSION and entry["node_id_policy"] == "eid-v1"
     assert entry["redhat_policy"] == "rh-graph-v1" and entry["improved"] is False and entry["fields_found_before"] == entry["fields_found_after"]
     assert entry["snapshot_before"] == stored_hash and entry["snapshot_after"] == proof["snapshot_after"]

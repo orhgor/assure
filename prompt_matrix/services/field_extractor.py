@@ -119,7 +119,10 @@ TYPE_FAMILY: dict[str, str] = {
     "title": "real_estate_transaction", "closing": "real_estate_transaction",
     "medical_claim": "medical",
 }
-DOCUMENT_FAMILIES = ("auto", "property", "real_estate_transaction", "medical")
+#: ``field_report`` (2026-09-28): site / progress / inspection / incident
+#: reports — the customer's site-report photo named no insurance family and
+#: stayed ``uncertain`` with no schema to project onto (``schemas/site_report.json``).
+DOCUMENT_FAMILIES = ("auto", "property", "real_estate_transaction", "medical", "field_report")
 
 #: Keyword lists per ICP type. Matched case-insensitively as whole phrases.
 #: The first few of each list are the discriminating phrases; the rest are
@@ -186,6 +189,12 @@ FAMILY_CUES: dict[str, tuple[str, ...]] = {
         "settlement statement", "title commitment", "legal description", "parcel", "escrow",
     ),
     "medical": TYPE_KEYWORDS["medical_claim"],
+    # The report's own furniture, not the subject it reports on (a site report
+    # about a damaged car says "vehicle" too — one auto cue against these).
+    # "contractor" stays out: property claims name contractors and a single
+    # cue here would eat the property family's margin.
+    "field_report": ("site update", "project report", "site report", "progress report", "inspection report", "incident report",
+                     "field report", "site visit", "captured", "exif", "gps"),
 }
 #: A family is named when its cue count reaches this …
 FAMILY_MIN_CUES = 2
@@ -373,7 +382,9 @@ def classify_document(text: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 
 #: ``codes``: a list of ICD-10 / CPT / HCPCS codes as written (CMS-1500 boxes 21 and 24d).
-FIELD_TYPES = ("text", "number", "money", "date", "vin", "name", "signature", "codes")
+#: ``coordinates`` (2026-09-28): a "lat, lon" decimal pair as designed reports
+#: print the photo's GPS ("GPS · -27.55344, 152.88712"); parsed to ``[lat, lon]``.
+FIELD_TYPES = ("text", "number", "money", "date", "vin", "name", "signature", "codes", "coordinates")
 
 
 @dataclass(frozen=True)
@@ -604,7 +615,13 @@ def field_needs_review(field: dict[str, Any]) -> bool:
 # Value parsing
 # --------------------------------------------------------------------------
 
-_SEP = r"[ \t]*[:#\-–—]?[ \t]*\n?[ \t]*"
+#: Label/value separator. The middle dot and bullet joined the class 2026-09-28:
+#: designed reports print "REPORT ID · RPT-…", "CAPTURED · 8 JUL 2026", "GPS ·
+#: -27.55, 152.88" (customer's site report and its paraphrase in
+#: tests/golden/proof_suite_v1) and the anchor stopped at the dot, reading
+#: "· RPT-…" as debris. OCR substitutes for the dot ("+", "-") are not here;
+#: those reach the field through the raw-candidate projection.
+_SEP = r"[ \t]*[:#\-–—·•]?[ \t]*\n?[ \t]*"
 _MONEY_RE = r"(?:USD\s*|\$\s*)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?"
 _NUMBER_RE = r"([-+]?\d[\d,]*(?:\.\d+)?)\s*(%|miles|mi\.?)?"
 _DATE_RE = (
@@ -614,6 +631,7 @@ _DATE_RE = (
     r"|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?,?\s+\d{4})"
 )
 _VIN_RE = r"([A-Za-z0-9]{17})"
+_COORDS_RE = r"([-+]?\d{1,3}\.\d{2,8}\s*,\s*[-+]?\d{1,3}\.\d{2,8})"
 _TEXT_RE = r"([^\n]{1,160})"
 #: One ICD-10-CM code (letter, two digits, optional .1–4 alphanumerics: S13.4XXA)
 #: or one CPT/HCPCS code (five digits, optional -modifier: 99213-25), each
@@ -672,6 +690,21 @@ def _parse_number(raw: str) -> float | None:
         return float(m.group(0).replace(",", ""))
     except ValueError:
         return None
+
+
+def _parse_coordinates(raw: str) -> list[float] | None:
+    """``[lat, lon]`` from a decimal pair, or None when the pair is not on Earth."""
+    m = re.search(_COORDS_RE, raw or "")
+    if not m:
+        return None
+    lat_s, lon_s = [p.strip() for p in m.group(1).split(",", 1)]
+    try:
+        lat, lon = float(lat_s), float(lon_s)
+    except ValueError:
+        return None
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None
+    return [lat, lon]
 
 
 def _parse_codes(raw: str) -> list[str] | None:
@@ -1348,7 +1381,7 @@ def _segment_at(segments: list[dict], start: int) -> dict | None:
 
 def _value_pattern(field_type: str) -> str:
     return {
-        "money": _MONEY_RE, "number": _NUMBER_RE, "date": _DATE_RE, "vin": _VIN_RE, "codes": _CODES_RE,
+        "money": _MONEY_RE, "number": _NUMBER_RE, "date": _DATE_RE, "vin": _VIN_RE, "codes": _CODES_RE, "coordinates": _COORDS_RE,
     }.get(field_type, _TEXT_RE)
 
 
@@ -1364,6 +1397,10 @@ _HEADER_WORDS = frozenset({
     "phone", "telephone", "place", "service", "employer", "plan", "group", "feca", "blk", "lung", "medicare", "medicaid",
     "champva", "tricare", "health", "charge", "charges", "paid", "balance", "due", "degrees", "credentials", "including",
     "last", "first", "middle", "initial", "birth", "sex", "relationship", "self", "spouse", "child", "code", "codes",
+    # signature-block captions of site / inspection reports ("CONTRACTOR CLIENT /
+    # Signature & Date", customer photo 2026-09-28): "CLIENT" after the
+    # contractor label is the next caption, not the contractor's name.
+    "contractor", "client", "inspector", "witness",
 })
 #: A caption's item number ("4. INSURED'S NAME", "1a. INSURED'S I.D. NUMBER") at
 #: the start of, or inside, a captured value: the capture ran into the next box.
@@ -1394,7 +1431,9 @@ _ADDRESS_RE = re.compile(
 #: the cap is on nonsense, not on parties.
 NAME_MAX_WORDS = 12
 _ID_SHAPE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9\-/. ]{2,29}$")
-_ID_FIELDS = frozenset({"policy_number", "claim_number"})
+#: ``report_id`` (2026-09-28): "REPORT ID + RPT-260708-E7BE23" — tesseract's
+#: "+" for the middle dot must read as debris under the label, not as the id.
+_ID_FIELDS = frozenset({"policy_number", "claim_number", "report_id"})
 VALUE_QUALITIES = ("valid", "invalid_format", "garbage", "header_or_label", "address_fragment")
 #: ``provenance_confidence`` by value shape (plan Part 1.1, 2026-09-27): the
 #: span of a header or of OCR debris is a real span, but "the right place for
@@ -1449,7 +1488,7 @@ def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str
     ratio = alnum / len(text)
     if ratio < 0.5:
         return {"quality": "garbage", "basis": f"{ratio:.0%} of characters are letters or digits"}
-    if spec.field_type in ("money", "number", "date", "vin", "codes"):
+    if spec.field_type in ("money", "number", "date", "vin", "codes", "coordinates"):
         if parsed is None:
             return {"quality": "invalid_format", "basis": f"'{text[:40]}' is not a {spec.field_type} value"}
         return {"quality": "valid", "basis": f"reads as a {spec.field_type} value"}
@@ -1768,7 +1807,11 @@ def mark_schema_mismatch(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
 #: label pass never sees table cells because jdf-cli 0.2.3 emits a table as
 #: one ``type: "table"`` element with ``headers``/``rows`` and no text
 #: (measured on bench/cases repair_estimate.pdf and coverage_schedule.pdf).
-EXTRACTION_METHODS = ("label_anchor", "llm_grounded", "table")
+#: ``raw_candidate`` (plan V4 Part 1.3, 2026-09-28): the value is a raw
+#: candidate (``services/raw_candidates``) whose label an anchor of the spec
+#: names, rebuilt at its span with this same builder; ``candidate_source`` on
+#: the field says which source kind produced it.
+EXTRACTION_METHODS = ("label_anchor", "llm_grounded", "table", "raw_candidate")
 #: A grounded LLM find is a real, located value, but the *locating* step was a
 #: model's reading rather than a label match, and the model can quote the
 #: neighbouring sentence (qwen2.5:1.5b returned the property-damage figure
@@ -1858,6 +1901,8 @@ def build_found_field(
         value = raw.upper()
     elif spec.field_type == "codes":
         value = _parse_codes(raw)
+    elif spec.field_type == "coordinates":
+        value = _parse_coordinates(raw)
     shape = value_shape(spec, raw, value)
     field["value_quality"] = shape
     pq = page_quality[page_index] if page_index < len(page_quality) else None
