@@ -1,0 +1,358 @@
+{
+ "jdf": {
+  "$jdf": "1.0.0",
+  "meta": {
+   "title": "tmppvegajvm",
+   "pageSize": {
+    "width": 285.75,
+    "height": 400.31
+   },
+   "unit": "mm",
+   "margins": {
+    "top": 0,
+    "right": 0,
+    "bottom": 0,
+    "left": 0
+   }
+  },
+  "pages": [
+   {
+    "id": "page-1",
+    "pageSize": {
+     "width": 285.75,
+     "height": 400.31
+    },
+    "margins": {
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "left": 0
+    },
+    "elements": [
+     {
+      "type": "image",
+      "resource": "img0",
+      "position": {
+       "x": 0,
+       "y": 0
+      },
+      "width": 285.75,
+      "height": 400.31,
+      "fit": "fill",
+      "id": "scan-1",
+      "ocr": {
+       "language": "eng",
+       "source": "tesseract.js:eng",
+       "created": "2026-09-28T14:58:30.500Z",
+       "blocks": [
+        {
+         "text": "PROJECT REPORT GENERATED - 8 JULY 2026",
+         "confidence": 0.9,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.0344,
+          "w": 0.8343,
+          "h": 0.0073
+         }
+        },
+        {
+         "text": "REPORT ID + RPT-260708-E7BE23",
+         "confidence": 0.78,
+         "bbox": {
+          "x": 0.6435,
+          "y": 0.0482,
+          "w": 0.2722,
+          "h": 0.0073
+         }
+        },
+        {
+         "text": ".",
+         "confidence": 0.43,
+         "bbox": {
+          "x": 0.1167,
+          "y": 0.0595,
+          "w": 0.0083,
+          "h": 0.0053
+         }
+        },
+        {
+         "text": "Site Update — 8 Jul",
+         "confidence": 0.94,
+         "bbox": {
+          "x": 0.0824,
+          "y": 0.0601,
+          "w": 0.4731,
+          "h": 0.0344
+         }
+        },
+        {
+         "text": "— SUMMARY",
+         "confidence": 0.75,
+         "bbox": {
+          "x": 0.0806,
+          "y": 0.1494,
+          "w": 0.1435,
+          "h": 0.0079
+         }
+        },
+        {
+         "text": "PROGRESS — Vehicle sustained heavy impact damage to the front bonnet, bumper, and",
+         "confidence": 0.95,
+         "bbox": {
+          "x": 0.0824,
+          "y": 0.1725,
+          "w": 0.8,
+          "h": 0.0139
+         }
+        },
+        {
+         "text": "windscreen. Full mechanical and structural damage assessment is required to determine",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.1937,
+          "w": 0.8056,
+          "h": 0.0139
+         }
+        },
+        {
+         "text": "the repair path. Recommend engaging a smash repairer to quote on the necessary parts",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0806,
+          "y": 0.2148,
+          "w": 0.8019,
+          "h": 0.0139
+         }
+        },
+        {
+         "text": "and strip-down.",
+         "confidence": 0.91,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.2366,
+          "w": 0.1426,
+          "h": 0.0139
+         }
+        },
+        {
+         "text": "= a",
+         "confidence": 0.51,
+         "bbox": {
+          "x": 0.5796,
+          "y": 0.3919,
+          "w": 0.1315,
+          "h": 0.0132
+         }
+        },
+        {
+         "text": "~~ - AT w",
+         "confidence": 0.33,
+         "bbox": {
+          "x": 0.3167,
+          "y": 0.4488,
+          "w": 0.237,
+          "h": 0.0311
+         }
+        },
+        {
+         "text": "© fr,",
+         "confidence": 0.34,
+         "bbox": {
+          "x": 0.2843,
+          "y": 0.4587,
+          "w": 0.2704,
+          "h": 0.0264
+         }
+        },
+        {
+         "text": "mi",
+         "confidence": 0.33,
+         "bbox": {
+          "x": 0.4435,
+          "y": 0.5426,
+          "w": 0.0852,
+          "h": 0.0093
+         }
+        },
+        {
+         "text": "VEHICLE FRONTAGE",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.6134,
+          "w": 0.1574,
+          "h": 0.0066
+         }
+        },
+        {
+         "text": "Front bonnet, bumper assembly and windscreen damaged following vehicle impact, currently awaiting",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.6239,
+          "w": 0.7685,
+          "h": 0.0119
+         }
+        },
+        {
+         "text": "assessment for repair or replacement.",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.6404,
+          "w": 0.2852,
+          "h": 0.0112
+         }
+        },
+        {
+         "text": "NEXT Request an inspection from a smash repair specialist.",
+         "confidence": 0.95,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.6722,
+          "w": 0.4287,
+          "h": 0.0106
+         }
+        },
+        {
+         "text": "CAPTURED - 8 JUL 2026 - 0:44 GMT+10 - GPS - -27.55344, 152.88712 - EXIF VERIFIED",
+         "confidence": 0.78,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.7032,
+          "w": 0.663,
+          "h": 0.0079
+         }
+        },
+        {
+         "text": "By signing below, the parties acknowledge that the conditions documented above accurately reflect the state of the",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.8123,
+          "w": 0.825,
+          "h": 0.0112
+         }
+        },
+        {
+         "text": "site at the time of capture.",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.8288,
+          "w": 0.1852,
+          "h": 0.0106
+         }
+        },
+        {
+         "text": "CONTRACTOR CLIENT",
+         "confidence": 0.96,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.9035,
+          "w": 0.5176,
+          "h": 0.0066
+         }
+        },
+        {
+         "text": "Signature & Date Signature & Date",
+         "confidence": 0.92,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.9174,
+          "w": 0.5574,
+          "h": 0.0086
+         }
+        },
+        {
+         "text": "RPT-260708-E7BE23",
+         "confidence": 0.9,
+         "bbox": {
+          "x": 0.0815,
+          "y": 0.9775,
+          "w": 0.1574,
+          "h": 0.0066
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "resources": {}
+ },
+ "chunks": [
+  {
+   "id": "scan-1",
+   "text": "PROJECT REPORT GENERATED - 8 JULY 2026\nREPORT ID + RPT-260708-E7BE23\n.\nSite Update — 8 Jul\n— SUMMARY\nPROGRESS — Vehicle sustained heavy impact damage to the front bonnet, bumper, and\nwindscreen. Full mechanical and structural damage assessment is required to determine\nthe repair path. Recommend engaging a smash repairer to quote on the necessary parts\nand strip-down.\n= a\n~~ - AT w\n© fr,\nmi\nVEHICLE FRONTAGE\nFront bonnet, bumper assembly and windscreen damaged following vehicle impact, currently awaiting\nassessment for repair or replacement.\nNEXT Request an inspection from a smash repair specialist.\nCAPTURED - 8 JUL 2026 - 0:44 GMT+10 - GPS - -27.55344, 152.88712 - EXIF VERIFIED\nBy signing below, the parties acknowledge that the conditions documented above accurately reflect the state of the\nsite at the time of capture.\nCONTRACTOR CLIENT\nSignature & Date Signature & Date\nRPT-260708-E7BE23",
+   "path": [],
+   "page": 1,
+   "types": [
+    "image"
+   ],
+   "tokens": 225,
+   "hash": "d3daa58ef85a"
+  }
+ ],
+ "text": "PROJECT REPORT GENERATED - 8 JULY 2026\nREPORT ID + RPT-260708-E7BE23\n.\nSite Update — 8 Jul\n— SUMMARY\nPROGRESS — Vehicle sustained heavy impact damage to the front bonnet, bumper, and\nwindscreen. Full mechanical and structural damage assessment is required to determine\nthe repair path. Recommend engaging a smash repairer to quote on the necessary parts\nand strip-down.\n= a\n~~ - AT w\n© fr,\nmi\nVEHICLE FRONTAGE\nFront bonnet, bumper assembly and windscreen damaged following vehicle impact, currently awaiting\nassessment for repair or replacement.\nNEXT Request an inspection from a smash repair specialist.\nCAPTURED - 8 JUL 2026 - 0:44 GMT+10 - GPS - -27.55344, 152.88712 - EXIF VERIFIED\nBy signing below, the parties acknowledge that the conditions documented above accurately reflect the state of the\nsite at the time of capture.\nCONTRACTOR CLIENT\nSignature & Date Signature & Date\nRPT-260708-E7BE23",
+ "page_count": 1,
+ "parser_name": "jdf-cli+tesseract",
+ "source_kind": "scanned",
+ "parse_confidence": null,
+ "ocr_confidence": 0.8,
+ "ocr_line_count": 23,
+ "ocr_engine": "tesseract",
+ "orientation": {
+  "pages": [
+   {
+    "page": 1,
+    "detected_degrees": 0,
+    "correction_degrees": 0,
+    "method": "ocr-upright-accepted",
+    "basis": "the page as scanned reads well (0°: 114 confident words of 153 (mean 0.7314)); other rotations not tried",
+    "measurements": {
+     "0": {
+      "blocks": 29,
+      "words": 153,
+      "confident_words": 114,
+      "mean_confidence": 0.7314
+     }
+    },
+    "dpi": 100
+   }
+  ],
+  "rotated_pages": [],
+  "dpi": 100
+ },
+ "wrapped_image": true,
+ "tables": [],
+ "images": [
+  {
+   "id": "scan-1",
+   "text": "PROJECT REPORT GENERATED - 8 JULY 2026\nREPORT ID + RPT-260708-E7BE23\n.\nSite Update — 8 Jul\n— SUMMARY\nPROGRESS — Vehicle sustained heavy impact damage to the front bonnet, bumper, and\nwindscreen. Full mechanical and structural damage assessment is required to determine\nthe repair path. Recommend engaging a smash repairer to quote on the necessary parts\nand strip-down.\n= a\n~~ - AT w\n© fr,\nmi\nVEHICLE FRONTAGE\nFront bonnet, bumper assembly and windscreen damaged following vehicle impact, currently awaiting\nassessment for repair or replacement.\nNEXT Request an inspection from a smash repair specialist.\nCAPTURED - 8 JUL 2026 - 0:44 GMT+10 - GPS - -27.55344, 152.88712 - EXIF VERIFIED\nBy signing below, the parties acknowledge that the conditions documented above accurately reflect the state of the\nsite at the time of capture.\nCONTRACTOR CLIENT\nSignature & Date Signature & Date\nRPT-260708-E7BE23",
+   "page": 1
+  }
+ ],
+ "figures": [],
+ "table_count": 0,
+ "image_count": 1,
+ "figure_count": 0,
+ "asset_summary": {
+  "tables": 0,
+  "images": 1,
+  "figures": 0
+ },
+ "filename": "site_report_photo.jpg",
+ "_fixture": {
+  "tool": "scripts/make_proof_fixtures.py",
+  "parser": "jdf-cli+tesseract",
+  "ocr": "tesseract",
+  "jdf_cli_version": "0.2.3",
+  "recorded_at": "2026-09-28T14:58:30+00:00",
+  "source_sha256": "72d7e31adcbd5609e30e2b2ece4a0b639ae110b05d17d8cf51a41ac4e2b2294c",
+  "source_bytes": 149105,
+  "note": "jdf.resources (base64 raster) removed; everything else is the parser's own output"
+ }
+}

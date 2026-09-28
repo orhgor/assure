@@ -1,0 +1,226 @@
+{
+ "jdf": {
+  "$jdf": "1.0.0",
+  "meta": {
+   "title": "tmp_3h7sl_6",
+   "pageSize": {
+    "width": 209.9,
+    "height": 297.04
+   },
+   "unit": "mm",
+   "margins": {
+    "top": 0,
+    "right": 0,
+    "bottom": 0,
+    "left": 0
+   }
+  },
+  "pages": [
+   {
+    "id": "page-1",
+    "pageSize": {
+     "width": 209.9,
+     "height": 297.04
+    },
+    "margins": {
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "left": 0
+    },
+    "elements": [
+     {
+      "type": "image",
+      "resource": "img0",
+      "position": {
+       "x": 0,
+       "y": 0.04
+      },
+      "width": 209.9,
+      "height": 296.96,
+      "fit": "fill",
+      "id": "scan-1",
+      "ocr": {
+       "language": "eng",
+       "source": "tesseract.js:eng",
+       "created": "2026-09-28T14:58:34.923Z",
+       "blocks": [
+        {
+         "text": "* “AUTO POLICY DECLARATIONS ~~ et : a",
+         "confidence": 0.44,
+         "bbox": {
+          "x": 0.0677,
+          "y": 0.065,
+          "w": 0.9226,
+          "h": 0.0239
+         }
+        },
+        {
+         "text": "\"Named Insured: Priya N. Raman i ERA. 5 B The",
+         "confidence": 0.41,
+         "bbox": {
+          "x": 0.0375,
+          "y": 0.1265,
+          "w": 0.9359,
+          "h": 0.0248
+         }
+        },
+        {
+         "text": ". Policy Period: 03/01/2026 to 03/01/2027: a LiF ES",
+         "confidence": 0.43,
+         "bbox": {
+          "x": 0.023,
+          "y": 0.1538,
+          "w": 0.948,
+          "h": 0.0239
+         }
+        },
+        {
+         "text": ": Liability Limit: $250,000 ~~ SE : Dl",
+         "confidence": 0.41,
+         "bbox": {
+          "x": 0,
+          "y": 0.2564,
+          "w": 0.9565,
+          "h": 0.0231
+         }
+        },
+        {
+         "text": "\"772 Collision Deductible: $500 FE Ea -",
+         "confidence": 0.47,
+         "bbox": {
+          "x": 0.0399,
+          "y": 0.2821,
+          "w": 0.9299,
+          "h": 0.0256
+         }
+        },
+        {
+         "text": "©.\" Comprehersive Deductible: $250 Co : 5 - :",
+         "confidence": 0.34,
+         "bbox": {
+          "x": 0.0447,
+          "y": 0.3085,
+          "w": 0.9299,
+          "h": 0.0239
+         }
+        },
+        {
+         "text": "© Authorized Signature: /s/ Daria Whitfield. + + -. wT",
+         "confidence": 0.33,
+         "bbox": {
+          "x": 0.0387,
+          "y": 0.3564,
+          "w": 0.9021,
+          "h": 0.0316
+         }
+        },
+        {
+         "text": ". Ref DG-4471-2026 (solicy) issued to Priya N. Raman, the hamed insured. © ~~ So -",
+         "confidence": 0.46,
+         "bbox": {
+          "x": 0.0302,
+          "y": 0.3872,
+          "w": 0.9141,
+          "h": 0.0291
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ],
+  "resources": {}
+ },
+ "chunks": [
+  {
+   "id": "scan-1",
+   "text": "* “AUTO POLICY DECLARATIONS ~~ et : a\n\"Named Insured: Priya N. Raman i ERA. 5 B The\n. Policy Period: 03/01/2026 to 03/01/2027: a LiF ES\n: Liability Limit: $250,000 ~~ SE : Dl\n\"772 Collision Deductible: $500 FE Ea -\n©.\" Comprehersive Deductible: $250 Co : 5 - :\n© Authorized Signature: /s/ Daria Whitfield. + + -. wT\n. Ref DG-4471-2026 (solicy) issued to Priya N. Raman, the hamed insured. © ~~ So -",
+   "path": [],
+   "page": 1,
+   "types": [
+    "image"
+   ],
+   "tokens": 100,
+   "hash": "b981381c4ddb"
+  }
+ ],
+ "text": "* “AUTO POLICY DECLARATIONS ~~ et : a\n\"Named Insured: Priya N. Raman i ERA. 5 B The\n. Policy Period: 03/01/2026 to 03/01/2027: a LiF ES\n: Liability Limit: $250,000 ~~ SE : Dl\n\"772 Collision Deductible: $500 FE Ea -\n©.\" Comprehersive Deductible: $250 Co : 5 - :\n© Authorized Signature: /s/ Daria Whitfield. + + -. wT\n. Ref DG-4471-2026 (solicy) issued to Priya N. Raman, the hamed insured. © ~~ So -",
+ "page_count": 1,
+ "parser_name": "jdf-cli+tesseract",
+ "source_kind": "pdf",
+ "parse_confidence": null,
+ "ocr_confidence": 0.4113,
+ "ocr_line_count": 8,
+ "ocr_engine": "tesseract",
+ "orientation": {
+  "pages": [
+   {
+    "page": 1,
+    "detected_degrees": 0,
+    "correction_degrees": 0,
+    "method": "inconclusive",
+    "basis": "no rotation read clearly better than the scan as given (0°: 0 confident words of 77 (mean 0.4113), 90°: 0 confident words of 33 (mean 0.37), 180°: 0 confident words of 116 (mean n/a), 270°: 0 confident words of 5 (mean 0.3)); left as scanned",
+    "measurements": {
+     "0": {
+      "blocks": 8,
+      "words": 77,
+      "confident_words": 0,
+      "mean_confidence": 0.4113
+     },
+     "90": {
+      "blocks": 4,
+      "words": 33,
+      "confident_words": 0,
+      "mean_confidence": 0.37
+     },
+     "180": {
+      "blocks": 0,
+      "words": 116,
+      "confident_words": 0,
+      "mean_confidence": null
+     },
+     "270": {
+      "blocks": 1,
+      "words": 5,
+      "confident_words": 0,
+      "mean_confidence": 0.3
+     }
+    },
+    "dpi": 100
+   }
+  ],
+  "rotated_pages": [],
+  "dpi": 100
+ },
+ "wrapped_image": false,
+ "tables": [],
+ "images": [
+  {
+   "id": "scan-1",
+   "text": "* “AUTO POLICY DECLARATIONS ~~ et : a\n\"Named Insured: Priya N. Raman i ERA. 5 B The\n. Policy Period: 03/01/2026 to 03/01/2027: a LiF ES\n: Liability Limit: $250,000 ~~ SE : Dl\n\"772 Collision Deductible: $500 FE Ea -\n©.\" Comprehersive Deductible: $250 Co : 5 - :\n© Authorized Signature: /s/ Daria Whitfield. + + -. wT\n. Ref DG-4471-2026 (solicy) issued to Priya N. Raman, the hamed insured. © ~~ So -",
+   "page": 1
+  }
+ ],
+ "figures": [],
+ "table_count": 0,
+ "image_count": 1,
+ "figure_count": 0,
+ "asset_summary": {
+  "tables": 0,
+  "images": 1,
+  "figures": 0
+ },
+ "filename": "ocr_degraded_policy.pdf",
+ "_fixture": {
+  "tool": "scripts/make_proof_fixtures.py",
+  "parser": "jdf-cli+tesseract",
+  "ocr": "tesseract",
+  "jdf_cli_version": "0.2.3",
+  "recorded_at": "2026-09-28T14:58:35+00:00",
+  "source_sha256": "e8bafa2c5e7dc016837ed99f1978b00257eb66b686fe432cdb584ddcacef2c2d",
+  "source_bytes": 47677,
+  "note": "jdf.resources (base64 raster) removed; everything else is the parser's own output"
+ }
+}

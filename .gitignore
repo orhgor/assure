@@ -38,6 +38,7 @@ build/
 *.iml
 
 # Test artifacts
+proof_diff.json
 # Temporary files
 *.tmp
 *.temp
