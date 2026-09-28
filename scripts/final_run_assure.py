@@ -165,8 +165,11 @@ def main() -> int:
     check("Assure tree names its source JDF", None if not sj else bool(sj.get("url")), sj.get("url") or "meta.source_jdf absent (Sources-path compile; the report carries it)")
     rh = (events.get("redhat") or [{}])[-1]
     check("Red-Hat scheduled after compile", rh.get("status") in ("scheduled", "ran", "complete", "pending"), {k: rh.get(k) for k in ("status", "skip_reason", "task_id")})
+    # Wait budget: the audit is 10+ calls to the Red-Hat model; on OpenRouter
+    # llama-3.3-70b measured 133 s (2026-09-28 morning) and 245 s (same day,
+    # evening) for the same fixture — the window covers the slow hour.
     t0 = time.time(); rstat = {}
-    while time.time() - t0 < 240:
+    while time.time() - t0 < 420:
         rstat = http.get(f"{base}/api/projects/{pid}/redhat/status", timeout=10).json()
         state = ((rstat.get("status") or {}).get("state") or "")
         if (rstat.get("status") or {}).get("complete") or state in ("complete", "error"):
