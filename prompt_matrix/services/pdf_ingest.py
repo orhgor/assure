@@ -125,11 +125,14 @@ def ingest_pdf_for_project(
     # never depends on it.
     try:
         try:
+            from ..services.llm_extraction import app_completion
             from ..services.v1_orchestrator import run_after_parse
         except ImportError:
+            from services.llm_extraction import app_completion
             from services.v1_orchestrator import run_after_parse
     except ImportError:
         run_after_parse = None
+        app_completion = None
 
     import uuid
 
@@ -359,6 +362,9 @@ def ingest_pdf_for_project(
     parsure = None
     if run_after_parse is not None:
         try:
+            # The grounded passes run on the app's own model path, named
+            # explicitly (plan V4 Part 3, 2026-09-28): ``completion=None`` read as
+            # "no model" and the targeted pass's guard could not tell the two apart.
             parsure = run_after_parse(
                 project_id,
                 bundle=bundle,
@@ -368,6 +374,7 @@ def ingest_pdf_for_project(
                 result=result,
                 job_id=job_id,
                 intake=intake,
+                completion=app_completion(project_id) if app_completion is not None else None,
                 tree=tree,
             )
         except Exception:

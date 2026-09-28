@@ -67,6 +67,10 @@ def run_verification_after_parse(bundle: dict[str, Any]) -> dict[str, Any]:
 
     tree = _resolve_tree(bundle)
     verification = _run_verification_sync(tree)
+    # The report's ledger says whether the >limit branch was taken (it still
+    # ran inline): ``execution.z3.async_deferred`` (plan V4 Part 3, 2026-09-28).
+    verification["async_deferred"] = page_count > SYNC_VERIFICATION_PAGE_LIMIT
+    verification["sync_page_limit"] = SYNC_VERIFICATION_PAGE_LIMIT
     bundle["verification"] = verification
     return verification
 

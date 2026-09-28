@@ -121,7 +121,9 @@ def main() -> int:
     check("execution ledger present", bool(exe) and bool(exe.get("ran_at")), sorted(exe))
     check("LAYA ran", (exe.get("laya") or {}).get("status") == "completed", exe.get("laya"))
     check("Z3 ran", (exe.get("z3") or {}).get("status") in ("PASS", "VIOLATION"), exe.get("z3"))
-    check("Red-Hat draft critique ran", (exe.get("redhat_draft") or {}).get("status") not in (None, "not_run"), exe.get("redhat_draft"))
+    ver = r.get("verification") or {}
+    check("Red-Hat draft critique ran", ver.get("redhat_status") not in (None, "not_run"), ver.get("redhat_status"))
+    check("raw candidates on the report", isinstance(r.get("raw_candidates"), list), (exe.get("raw_candidates") or {}).get("candidates"))
     rg = exe.get("redhat_graph") or {}
     check("Red-Hat graph critique ran", rg.get("status") == "completed" and rg.get("policy") == "rh-graph-v1", {k: rg.get(k) for k in ("status", "findings", "high", "medium", "low", "model_check")})
     llm = exe.get("llm_grounding") or {}

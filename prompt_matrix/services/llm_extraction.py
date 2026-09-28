@@ -426,6 +426,52 @@ def default_completion(prompt: str, *, project_id: str | None = None) -> str:
     return text
 
 
+class AppCompletion:
+    """The application's own model path as an explicit callable.
+
+    Plan V4 Part 3 (2026-09-28): ``pdf_ingest`` and ``routers/substrate`` used to
+    call ``run_after_parse`` without ``completion``; ``None`` meant "the app's
+    model" but read as "no model", and the guard ``if not llm and completion is
+    None`` in the targeted pass made the two indistinguishable. Both callers now
+    pass ``app_completion(project_id)``. The ledger stays honest: this object is
+    the app path, so ``model_path`` reports ``app:<model>`` exactly as ``None``
+    did, never ``injected``. ``default_completion`` is looked up on the module at
+    call time (a test that stubs the seam still intercepts the call)."""
+
+    is_app_model = True
+
+    def __init__(self, project_id: str | None = None) -> None:
+        self.project_id = project_id
+
+    def __call__(self, prompt: str) -> str:
+        return default_completion(prompt, project_id=self.project_id)
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"AppCompletion(project_id={self.project_id!r})"
+
+
+def app_completion(project_id: str | None = None) -> AppCompletion:
+    return AppCompletion(project_id)
+
+
+def is_app_completion(completion: Any) -> bool:
+    """``None`` (legacy) and ``AppCompletion`` both mean the app's model path."""
+    return completion is None or bool(getattr(completion, "is_app_model", False))
+
+
+def model_id_for(completion: Any) -> str:
+    """The model name a pass records: the configured model on the app path,
+    ``injected`` for a caller's or test's callable."""
+    return current_model_id() if is_app_completion(completion) else "injected"
+
+
+def model_path_for(completion: Any, model: str | None = None) -> str:
+    """``app:<model>`` or ``injected`` — the ``model_path`` word of the execution ledger."""
+    if is_app_completion(completion):
+        return f"app:{model or current_model_id()}"
+    return "injected"
+
+
 def current_model_id() -> str:
     try:
         cg = _governor()
@@ -516,7 +562,7 @@ def extract_missing_fields(
         return ordered()
 
     try:
-        model_id = current_model_id() if completion is None else "injected"
+        model_id = model_id_for(completion)
         budget = _input_cap() - PROMPT_OVERHEAD_TOKENS
         chunks = chunk_pages(texts, budget)
         if not chunks:
@@ -688,7 +734,7 @@ def classify_with_model(
     text = "\n".join((t or "").strip() for t in (page_texts or []) if (t or "").strip())
     if not text:
         return {"document_type": None, "basis": "no page text", "model": None}
-    model_id = current_model_id() if completion is None else "injected"
+    model_id = model_id_for(completion)
     try:
         call = completion if completion is not None else (lambda p: default_completion(p, project_id=project_id))
         prompt = classify_prompt(text[:CLASSIFY_TEXT_CHARS])

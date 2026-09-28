@@ -270,6 +270,9 @@ def _textract_parse_bundle(file_bytes: bytes, filename: str) -> dict[str, Any]:
         "parse_confidence": None,
         "ocr_confidence": None,
         "tables": extracted.get("tables") or [],
+        # Textract's KEY_VALUE_SET pairs (``analyze`` mode): a source of raw
+        # candidates (services/raw_candidates, ``textract``), 2026-09-28.
+        "forms": extracted.get("forms") or [],
         "images": [],
         "figures": [],
         "table_count": len(extracted.get("tables") or []),
