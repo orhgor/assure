@@ -61,9 +61,18 @@ ENV PYTHONPATH=/app \
 # named the missing engines on page 1). services/verification_dossier.render_pdf
 # now refuses to render without an engine, so the runtime must carry one.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils curl ca-certificates \
+    && apt-get install -y --no-install-recommends poppler-utils curl ca-certificates gnupg \
         libpango-1.0-0 libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 libffi8 \
         shared-mime-info fonts-dejavu-core \
+    # pg_dump 16 for scripts/backup_db.py: the compose database is postgres:16
+    # and Debian's own client may be older or newer than the server (pg_dump
+    # refuses "server version mismatch" when older) — PGDG repo pinned to the
+    # base image's release (python:3.11-slim moved to trixie, 2026-09-28).
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 # tesseract.js language data for jdf-cli's OCR (`jdf convert --ocr tesseract`).

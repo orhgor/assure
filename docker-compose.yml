@@ -224,6 +224,30 @@ services:
         max-file: "3"
 
 
+  # Nightly PostgreSQL backup to the object store (S3 when ASSURE_S3_BUCKET is
+  # set, else ASSURE_DATA_DIR/objects). /health read "backup: never_run" on
+  # every box until this service existed (2026-09-28). One dump a day
+  # (BACKUP_INTERVAL_S), recorded in audit_log so /health shows freshness.
+  assure-backup:
+    image: ${APP_IMAGE:-assure-app:local}
+    pull_policy: never
+    command: ["python", "scripts/backup_db.py", "--loop"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-env
+      BACKUP_INTERVAL_S: ${BACKUP_INTERVAL_S:-86400}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
   assure-worker:
     image: ${APP_IMAGE:-assure-app:local}
     # Same image as assure-app, built once there. Without this, compose tries

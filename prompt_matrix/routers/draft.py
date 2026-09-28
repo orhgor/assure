@@ -1653,6 +1653,27 @@ def _replay_cached_compile(
     yield _done_sse()
 
 
+def _open_model_stream(litellm: Any, model: str, messages: list, max_out: int, api_kwargs: dict) -> Any:
+    """The compile's model call, with the parameters the documented call site
+    below explains (greedy decoding, pinned sampling, usage on the last chunk)."""
+    return litellm.completion(
+        model=model, messages=messages, max_tokens=max_out, temperature=0.0, top_p=1.0, seed=0,
+        stream=True, stream_options={"include_usage": True}, **api_kwargs,
+    )
+
+
+def _is_rate_limited(exc: BaseException) -> bool:
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    return "ratelimit" in name or "429" in text or "rate-limited" in text or "rate limited" in text
+
+
+def _chain_first(first: Any, iterator: Any):
+    if first is not None:
+        yield first
+    yield from iterator
+
+
 def _stream_model(
     gov: CostGovernor,
     messages: list[dict[str, str]],
@@ -1727,7 +1748,28 @@ def _stream_model(
                 )
                 return
         _measure_t0 = time.time()
-        stream = litellm.completion(
+        # One retry on a provider rate limit, only before the first token
+        # (OpenRouter answered 429 "temporarily rate-limited upstream" on a
+        # first call and the same call succeeded 20 s later — live, 2026-09-27).
+        # A retry after tokens were streamed would duplicate them, so a
+        # mid-stream failure still surfaces as the error it is.
+        _attempt = 0
+        while True:
+            try:
+                stream = _open_model_stream(litellm, model, guarded, max_out, _api_kwargs)
+                _iterator = iter(stream)
+                _first = next(_iterator, None)
+                break
+            except Exception as _exc:  # noqa: BLE001 — classified below, re-raised otherwise
+                if _attempt < 1 and _is_rate_limited(_exc):
+                    _attempt += 1
+                    yield _typed_sse("status", {"stage": "model_retry", "message": "The model provider is rate-limited; retrying in 3 s…", "model": model})
+                    time.sleep(3)
+                    continue
+                raise
+        stream = _chain_first(_first, _iterator)
+        if False:  # the original call site is kept below for its documented parameters
+          stream = litellm.completion(
             model=model,
             messages=guarded,
             max_tokens=max_out,
@@ -1754,8 +1796,9 @@ def _stream_model(
             stream_options={"include_usage": True},
             # Fallback handled at the provider layer (OpenRouter) later.
             **_api_kwargs,
-        )
+          )
         full = ""
+        chunk = _first
         for chunk in stream:
             _check_cancel(cancel_check)
             choice = chunk.choices[0] if chunk.choices else None

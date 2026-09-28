@@ -24,6 +24,20 @@ be closed from inside it and the sentences the map holds are the sentences the m
 was shown. A compile persists it beside its gate;
 the export reads it, and falls back to recomputing it (flagged ``derived``) for
 documents compiled before the record existed.
+
+Forms (2026-09-28). A filled form's text is field captions, not sentences a draft
+can cite, so the compile guard refused every CMS-1500 even when Parsure had read
+its fields with verbatim grounding quotes (demo measurement 2026-09-27: two forms
+refused, both with a field report). ``attach_form_fields`` looks the source's
+report up and, when the report or ``compile_guard.looks_like_form`` says form,
+the walk appends one synthetic sentence per found field — ``"<Label>: <value as
+written>"``, built only from the field's ``raw`` / ``grounding_quote`` — after the
+source's own sentences, under the header ``FORM_FIELDS_HEADER`` and inside the same
+fence. Each carries its own ``[S<n>]`` id and a ``parsure_field`` provenance
+(field, element id, page, bbox, the verbatim quote), so a citation to it anchors
+to the field and the claim block's quote and page are the field's. The parsed or
+normalised value is never used: ``"2025-01-15"`` is Parsure's reading, and only
+``"01/15/2025"`` is on the page.
 """
 
 from __future__ import annotations
@@ -57,6 +71,18 @@ _TOTAL_CAP_REASON = (
     "source, and the compile stops there"
 )
 NOT_ATTACHED_REASON = "not attached to the compile this document came from"
+
+#: The line that opens the field sentences inside a form-like source's block. It
+#: does not begin with ``[S`` — that prefix is the citation namespace.
+FORM_FIELDS_HEADER = "Fields read from the form (Parsure):"
+
+#: Parsure evidence states whose value was located on the page. ``found_suspect``
+#: is excluded on purpose: its ``raw`` is debris the extractor flagged
+#: ("~~" under "Policy Number" on the 2026-09-28 live report), not a value.
+FORM_FIELD_FOUND_STATES = ("found_verified", "found_unverified")
+
+#: Parsure report flag that names an (un)filled form (``v1_orchestrator.form_template_flag``).
+FORM_TEMPLATE_FLAG = "form_template"
 
 
 def _sha256(text: str) -> str:
@@ -124,6 +150,156 @@ def _defused_text(text: str) -> str:
     return _defuse_delimiter(text)
 
 
+def _field_label(field: dict[str, Any]) -> str:
+    label = str(field.get("label") or "").strip()
+    if label:
+        return label
+    return str(field.get("name") or "field").replace("_", " ").strip().capitalize()
+
+
+def form_field_sentence(field: dict[str, Any], report_id: str | None = None) -> tuple[str, dict[str, Any]] | None:
+    """``(sentence, provenance)`` for one found Parsure field, or None.
+
+    The sentence is ``"<Label>: <value as written>"``; the value is the field's
+    ``raw`` (the text read under the label) or, failing that, its
+    ``grounding_quote`` (the page line the value was found on). Both are
+    verbatim page text by Parsure's contract (``field_extractor.attach_grounding``,
+    ``llm_extraction`` quote gate). ``value`` — the parsed, normalised reading —
+    is never used, so a date reads ``01/15/2025`` as the page has it and not
+    ``2025-01-15``. A field whose evidence state is not a found state, or that
+    carries neither text, yields nothing.
+    """
+    if not isinstance(field, dict):
+        return None
+    if str(field.get("evidence_state") or "") not in FORM_FIELD_FOUND_STATES:
+        return None
+    raw = str(field.get("raw") or "").strip()
+    quote = str(field.get("grounding_quote") or "").strip()
+    as_written = raw or quote
+    if not as_written:
+        return None
+    span = field.get("source_span") if isinstance(field.get("source_span"), dict) else {}
+    gspan = field.get("grounding_span") if isinstance(field.get("grounding_span"), dict) else {}
+    page = span.get("page") or gspan.get("page")
+    provenance = {
+        "kind": "parsure_field",
+        "field": str(field.get("name") or ""),
+        "element_id": field.get("element_id") or span.get("element_id") or gspan.get("element_id"),
+        "page": int(page) if isinstance(page, (int, float)) and page > 0 else None,
+        "bbox": span.get("bbox") if isinstance(span.get("bbox"), list) else None,
+        "quote": quote or raw,
+        "report_id": report_id,
+    }
+    return f"{_field_label(field)}: {as_written}", provenance
+
+
+def form_field_sentences(row: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The field sentences of a row ``attach_form_fields`` marked (``parsure_fields``)."""
+    fields = row.get("parsure_fields")
+    if not isinstance(fields, list) or not fields:
+        return []
+    report_id = str(row.get("parsure_report_id") or "") or None
+    out: list[tuple[str, dict[str, Any]]] = []
+    for field in fields:
+        item = form_field_sentence(field, report_id)
+        if item:
+            out.append(item)
+    return out
+
+
+def _report_for_row(row: dict[str, Any], reports: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The newest report of this Sources row: by ``document_id`` (the vault row id
+    on the Sources path, ``routers/substrate.ingest_substrate_file``), else by
+    filename. ``reports`` is newest first."""
+    row_id = str(row.get("id") or row.get("source_id") or "")
+    if row_id:
+        for report in reports:
+            if str(report.get("document_id") or "") == row_id:
+                return report
+    filename = str(row.get("filename") or "")
+    if filename:
+        for report in reports:
+            if str(report.get("filename") or "") == filename:
+                return report
+    return None
+
+
+def attach_form_fields(project_id: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Mark the form-like rows with their Parsure fields, in place; return ``rows``.
+
+    A row is a form when its report's ``quality_flags`` carries
+    ``form_template`` or ``compile_guard.looks_like_form`` says so of its text.
+    Such a row gets ``parsure_fields`` (the report's fields, filtered by
+    ``form_field_sentence`` at numbering time), ``parsure_report_id`` and
+    ``parsure_form: True``; a prose row is left untouched, and a form without a
+    report keeps only ``parsure_form`` — nothing is invented for it, and the
+    guard refuses it as before. One report query per compile, not per row.
+    Never raises: a lookup failure leaves the rows as they were, logged.
+    """
+    if not rows:
+        return rows
+    try:
+        from .compile_guard import looks_like_form
+    except ImportError:
+        from compile_guard import looks_like_form  # type: ignore
+    reports: list[dict[str, Any]] | None = None
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("extracted_text") or "")
+        if reports is None:
+            try:
+                try:
+                    from ..db import parsure_repository as _parsure
+                except ImportError:
+                    from db import parsure_repository as _parsure  # type: ignore
+                reports = _parsure.list_reports(project_id, limit=500, current_only=False) or []
+            except Exception:  # noqa: BLE001 — no intake table: the text alone decides
+                import logging
+
+                logging.getLogger(__name__).exception("form fields: report lookup failed for %s", project_id)
+                reports = []
+        report = _report_for_row(row, reports)
+        flags = report.get("quality_flags") if isinstance(report, dict) else None
+        is_form = (isinstance(flags, list) and FORM_TEMPLATE_FLAG in flags) or looks_like_form([text])
+        if not is_form:
+            continue
+        row["parsure_form"] = True
+        if isinstance(report, dict):
+            row["parsure_report_id"] = str(report.get("report_id") or "") or None
+            row["parsure_fields"] = [f for f in (report.get("fields") or []) if isinstance(f, dict)]
+    return rows
+
+
+def _number_field_lines(
+    row: dict[str, Any], n: int, used: int
+) -> tuple[list[str], list[tuple[str, str, str, Any, dict[str, Any] | None]], int, int]:
+    """The header and ``[S<n>]`` lines for a row's field sentences, within the
+    per-file cap. Returns ``(lines, entries, next n, used)``; empty when the row
+    carries no field sentence. The sentence is defused like any source text."""
+    sentences = form_field_sentences(row)
+    if not sentences:
+        return [], [], n, used
+    filename = str(row.get("filename") or "substrate")
+    lines: list[str] = []
+    entries: list[tuple[str, str, str, Any, dict[str, Any] | None]] = []
+    header_used = used + len(FORM_FIELDS_HEADER) + 1
+    for sentence, provenance in sentences:
+        clean = _defused_text(sentence).strip()
+        if not clean:
+            continue
+        line = f"[S{n}] {clean}"
+        if header_used + len(line) > SUBSTRATE_CONTEXT_CHARS_PER_FILE:
+            break
+        lines.append(line)
+        entries.append((f"S{n}", clean, filename, provenance.get("page"), provenance))
+        header_used += len(line) + 1
+        n += 1
+    if not lines:
+        return [], [], n, used
+    return ["", FORM_FIELDS_HEADER, *lines], entries, n, header_used
+
+
 def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
     """One pass over the rows, in order, yielding what the prompt carries of each.
 
@@ -154,6 +330,7 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
             "truncated": False,
             "dropped_reason": "",
             "text_sha256": "",
+            "parsure_fields": 0,
         }
         if stopped:
             entry["dropped_reason"] = _TOTAL_CAP_REASON
@@ -185,6 +362,9 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
             entry["dropped_reason"] = _PER_FILE_REASON if full_text else _NO_TEXT_REASON
             yield entry
             continue
+        field_lines, field_entries, n, used = _number_field_lines(row, n, used)
+        lines.extend(field_lines)
+        numbered.extend(text for _sid, text, _fn, _pg, _prov in field_entries)
 
         block = _source_block(filename, lines)
         if total + len(block) > SUBSTRATE_CONTEXT_CHARS_TOTAL:
@@ -204,6 +384,7 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
             truncated=truncated,
             dropped_reason=_PER_FILE_REASON if truncated else "",
             text_sha256=_sha256(carried_text),
+            parsure_fields=len(field_entries),
         )
         total += len(block)
         yield entry
@@ -211,12 +392,14 @@ def _walk(substrate_rows: Iterable[dict[str, Any]]) -> Iterator[dict[str, Any]]:
 
 def numbered_source_blocks(
     substrate_rows: list[dict[str, Any]],
-) -> list[tuple[str, list[tuple[str, str, str, Any]]]]:
+) -> list[tuple[str, list[tuple[str, str, str, Any, dict[str, Any] | None]]]]:
     """The one place the source is numbered.
 
-    Returns ``[(prompt block, [(id, sentence, filename, page), …]), …]``, the
-    block already carrying its ``[S<N>]`` prefixes and already bounded by the
-    per-file and total budgets. ``_build_substrate_context`` writes the blocks;
+    Returns ``[(prompt block, [(id, sentence, filename, page, provenance), …]), …]``,
+    the block already carrying its ``[S<N>]`` prefixes and already bounded by the
+    per-file and total budgets. ``provenance`` is None for a sentence of the
+    source's own text and a ``parsure_field`` record (``form_field_sentence``)
+    for a field sentence appended to a form-like source. ``_build_substrate_context`` writes the blocks;
     ``build_sentence_map`` reads the entries. Both walk this function, so an id
     the model cites resolves to the sentence it was shown — numbering the whole
     document while the prompt truncates is how a citation lands on the wrong
@@ -227,7 +410,7 @@ def numbered_source_blocks(
     Ids are assigned in document order and advance across files, so ``S<n>`` is
     stable for a given set of rows.
     """
-    out: list[tuple[str, list[tuple[str, str, str, Any]]]] = []
+    out: list[tuple[str, list[tuple[str, str, str, Any, dict[str, Any] | None]]]] = []
     total = 0
     n = 1
     for row in substrate_rows:
@@ -241,7 +424,7 @@ def numbered_source_blocks(
         original_length = len(text)
         text = _defused_text(text)
         lines: list[str] = []
-        entries: list[tuple[str, str, str, Any]] = []
+        entries: list[tuple[str, str, str, Any, dict[str, Any] | None]] = []
         used = 0
         cut_at_per_file_cap = False
         # ``_merge_short_sentences`` joins fragments into their neighbours, which is
@@ -259,11 +442,16 @@ def numbered_source_blocks(
                 cut_at_per_file_cap = True
                 break
             lines.append(line)
-            entries.append((f"S{n}", clean, filename, page if page else page_no))
+            entries.append((f"S{n}", clean, filename, page if page else page_no, None))
             used += len(line) + 1
             n += 1
         if not lines:
             continue
+        # A form-like source's found fields, as sentences of their own, after
+        # the text and inside the same fence (module docstring, "Forms").
+        field_lines, field_entries, n, used = _number_field_lines(row, n, used)
+        lines.extend(field_lines)
+        entries.extend(field_entries)
         block = _source_block(
             filename,
             lines,

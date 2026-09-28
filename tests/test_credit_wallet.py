@@ -173,7 +173,7 @@ class WebUsageTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         # Current brand hero (i18n.py brand.hero_title) — the marketing copy
         # was rebranded; the tests assert the copy that actually ships.
-        self.assertIn(b"Zero hallucination. Absolute verification.", res.data)
+        self.assertIn(b"Every claim checked against its source. Nothing verified without a quote.", res.data)
         self.assertIn(b"Request Enterprise Pilot", res.data)
         self.assertNotIn(b"logo-tagline", res.data)
 
@@ -190,9 +190,9 @@ class WebUsageTests(unittest.TestCase):
                 res = client.get("/?lang=tr")
         self.assertEqual(res.status_code, 200)
         # Turkish brand copy follows the same rebrand as the English page:
-        # hero is now "Sıfır halüsinasyon. Mutlak doğrulama." and the pilot
+        # hero is now "Her iddia kaynağıyla karşılaştırılır. Alıntısı olmayan hiçbir şey doğrulanmış sayılmaz." and the pilot
         # CTA carries the English label on the localized page.
-        self.assertIn("Sıfır halüsinasyon. Mutlak doğrulama.".encode(), res.data)
+        self.assertIn("Her iddia kaynağıyla karşılaştırılır. Alıntısı olmayan hiçbir şey doğrulanmış sayılmaz.".encode(), res.data)
         self.assertIn(b"Request Enterprise Pilot", res.data)
         self.assertNotIn(b"The Intellectual Compiler", res.data)
         self.assertNotIn(b"Deterministic Truth Engine", res.data)

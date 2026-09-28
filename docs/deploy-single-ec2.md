@@ -219,3 +219,16 @@ git pull && docker compose up -d --build
 ```
 PostgreSQL data lives in the `pgdata` volume; back it up with `pg_dump` from the
 `postgres` container or move to RDS by setting `DATABASE_URL` in `.env`.
+
+
+## Backups (2026-09-28)
+
+`assure-backup` (same image) runs `scripts/backup_db.py --loop`: one
+`pg_dump --format=custom` a day (`BACKUP_INTERVAL_S`, default 86400) written to
+the object store under `backups/postgres/<UTC stamp>.dump` — S3 when
+`ASSURE_S3_BUCKET` is set, else `./data/objects/` on the box — and an
+`audit_log` row (action `BACKUP`) that `/health` reports as
+`checks.backup` (`ok` under 24 h, `stale` after). Local dumps older than
+`BACKUP_KEEP_DAYS` (14) are pruned; in S3, retention is the bucket lifecycle
+rule. Restore: `pg_restore --clean --no-owner -d "$DATABASE_URL" <file>.dump`.
+Run one now: `docker compose run --rm assure-backup python scripts/backup_db.py`.

@@ -214,3 +214,10 @@ Policy `claim-v1` — `services/claim_policy.py`, `services/numeric_recompute.py
 - `meta.source_jdf` on a compiled document names a stored document of one of the ask's sources or is `null`; a replayed compile re-resolves it and rewrites `meta.selection_anchor` from the current request — a cached anchor is never shown as this request's.
 - Element ids on the stored document (`element.assure.element_id`) equal the Parsure field ids only because both come from `field_extractor.page_layout` with the same chunk list (`eid-v1`); a document without stamped ids and without its chunks derives `p<page>:` ids, which are a different id space and are not compared to field ids.
 - No page image exists for a stored document: nothing in the pipeline renders pages (`services/vision.render_page_png` renders one page for a multimodal read on demand and stores nothing). The browser renders the JDF itself.
+
+
+### Operations (2026-09-28)
+
+- `/health checks.backup` says `ok` only when a `pg_dump` actually completed and was written to the object store inside 24 h; a failed run is recorded as failed, never as a backup.
+- The compile stream retries a provider rate limit once, before the first token only; a failure after tokens streamed is reported as the error it is, never silently restarted.
+- The brand line no longer promises "zero hallucination / absolute verification"; it states the rule: every claim checked against its source, nothing verified without a quote.

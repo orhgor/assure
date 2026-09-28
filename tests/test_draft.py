@@ -1179,3 +1179,18 @@ def test_run_draft_pipeline_refuses_a_form_source_with_the_field_report(monkeypa
     complete = next(data for _ev, data in events if data.get("type") == "complete")
     assert complete["ok"] is False and complete["parsure_report_id"] == "rep-form-1"
     assert "compiled" not in [data.get("type") for _ev, data in events if isinstance(data, dict)]
+
+
+def test_rate_limit_classifier_and_first_chunk_chain():
+    """Compile stream retry (2026-09-28): only provider rate limits qualify,
+    and the first chunk fetched during the probe is not lost."""
+    from prompt_matrix.routers.draft import _chain_first, _is_rate_limited
+
+    class RateLimitError(Exception):
+        pass
+
+    assert _is_rate_limited(RateLimitError("Provider returned error"))
+    assert _is_rate_limited(Exception("OpenrouterException - 429 temporarily rate-limited upstream"))
+    assert not _is_rate_limited(Exception("AuthenticationError: invalid key"))
+    assert list(_chain_first("a", iter(["b", "c"]))) == ["a", "b", "c"]
+    assert list(_chain_first(None, iter(["b"]))) == ["b"]

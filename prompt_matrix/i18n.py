@@ -255,11 +255,11 @@ EN = {
     "hero": "Assure",
     "brand.category": "The Intellectual Compiler",
     "brand.eyebrow": "Compile. Verify. Trust what you ship.",
-    "brand.hero_title": "Zero hallucination. Absolute verification.",
+    "brand.hero_title": "Every claim checked against its source. Nothing verified without a quote.",
     "brand.tagline": "Compile. Verify. Trust what you ship.",
     "tagline_html": 'The right question produces a <span class="trust">trusted</span> answer.',
     "brand.tagline_html": "The Intellectual Compiler",
-    "brand.page_title": "Assure AI — Zero hallucination. Absolute verification.",
+    "brand.page_title": "Assure AI — Every claim checked against its source. Nothing verified without a quote.",
     "brand.meta_description": (
         "The enterprise document platform that proves every word, number, and clause before you ship."
     ),
@@ -2255,11 +2255,11 @@ ES = {
     "hero": "Assure",
     "brand.category": "El Compilador Intelectual",
     "brand.eyebrow": "Compila. Verifica. Confía en lo que envías.",
-    "brand.hero_title": "Cero alucinación. Verificación absoluta.",
+    "brand.hero_title": "Cada afirmación cotejada con su fuente. Nada se verifica sin una cita.",
     "brand.tagline": "Compila. Verifica. Confía en lo que envías.",
     "tagline_html": 'La pregunta correcta produce una respuesta de <span class="trust">confianza</span>.',
     "brand.tagline_html": "El Compilador Intelectual",
-    "brand.page_title": "Assure AI — Cero alucinación. Verificación absoluta.",
+    "brand.page_title": "Assure AI — Cada afirmación cotejada con su fuente. Nada se verifica sin una cita.",
     "brand.meta_description": (
         "Assure es el primer Compilador Intelectual: convierte la intención en bruto, "
         "documentos desordenados y datos no estructurados en entregables verificables y auditables."
@@ -4171,11 +4171,11 @@ ZH = {
     "hero": "Assure",
     "brand.category": "智能编译器",
     "brand.eyebrow": "编译。验证。信任所交付的内容。",
-    "brand.hero_title": "零幻觉。绝对核验。",
+    "brand.hero_title": "每一条主张都对照来源核对。没有引文，就没有“已验证”。",
     "brand.tagline": "编译。验证。信任所交付的内容。",
     "tagline_html": '正确的问题产生<span class="trust">可信</span>的答案。',
     "brand.tagline_html": "智能编译器",
-    "brand.page_title": "Assure AI — 零幻觉。绝对核验。",
+    "brand.page_title": "Assure AI — 每一条主张都对照来源核对。没有引文，就没有“已验证”。",
     "brand.meta_description": (
         "Assure 是首个智能编译器——将原始意图、杂乱的文档和非结构化数据"
         "转化为经数学验证、可审计的交付成果。"
@@ -6087,11 +6087,11 @@ FR = {
     "hero": "Assure",
     "brand.category": "Le Compilateur Intellectuel",
     "brand.eyebrow": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
-    "brand.hero_title": "Zéro hallucination. Vérification absolue.",
+    "brand.hero_title": "Chaque affirmation confrontée à sa source. Rien n'est vérifié sans citation.",
     "brand.tagline": "Compilez. Vérifiez. Faites confiance à ce que vous livrez.",
     "tagline_html": 'La bonne question produit une réponse de <span class="trust">confiance</span>.',
     "brand.tagline_html": "Le Compilateur Intellectuel",
-    "brand.page_title": "Assure AI — Zéro hallucination. Vérification absolue.",
+    "brand.page_title": "Assure AI — Chaque affirmation confrontée à sa source. Rien n'est vérifié sans citation.",
     "brand.meta_description": (
         "Assure est le premier Compilateur Intellectuel — transformant l'intention brute, "
         "les documents désordonnés et les données non structurées en livrables vérifiables et auditables."
@@ -7990,11 +7990,11 @@ DE = {
     "hero": "Assure",
     "brand.category": "Der Intellektuelle Compiler",
     "brand.eyebrow": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
-    "brand.hero_title": "Null Halluzination. Absolute Prüfung.",
+    "brand.hero_title": "Jede Aussage an ihrer Quelle geprüft. Nichts gilt ohne Zitat als verifiziert.",
     "brand.tagline": "Kompilieren. Prüfen. Vertrauen, was Sie liefern.",
     "tagline_html": 'Die richtige Frage erzeugt eine <span class="trust">vertrauenswürdige</span> Antwort.',
     "brand.tagline_html": "Der Intellektuelle Compiler",
-    "brand.page_title": "Assure AI — Null Halluzination. Absolute Prüfung.",
+    "brand.page_title": "Assure AI — Jede Aussage an ihrer Quelle geprüft. Nichts gilt ohne Zitat als verifiziert.",
     "brand.meta_description": (
         "Assure ist der erste Intellektuelle Compiler — er verwandelt rohe Absicht, "
         "unordentliche Dokumente und unstrukturierte Daten in mathematisch verifizierte, auditierbare Lieferungen."
@@ -9906,11 +9906,11 @@ JA = {
     "hero": "Assure",
     "brand.category": "インテレクチュアル・コンパイラー",
     "brand.eyebrow": "コンパイル。検証。出荷するものを信頼する。",
-    "brand.hero_title": "幻覚ゼロ。絶対検証。",
+    "brand.hero_title": "すべての主張を出典と照合。引用なしに「検証済み」とはしません。",
     "brand.tagline": "コンパイル。検証。出荷するものを信頼する。",
     "tagline_html": '正しい問いが<span class="trust">信頼</span>できる答えを生む。',
     "brand.tagline_html": "インテレクチュアル・コンパイラー",
-    "brand.page_title": "Assure AI — 幻覚ゼロ。絶対検証。",
+    "brand.page_title": "Assure AI — すべての主張を出典と照合。引用なしに「検証済み」とはしません。",
     "brand.meta_description": (
         "Assure は最初のインテレクチュアル・コンパイラーです。生の意図、乱雑な文書、"
         "非構造化データを数学的に検証可能で監査可能な成果物に変換します。"
@@ -11822,12 +11822,12 @@ TR = {
     "hero": "Assure",
     "brand.category": "Zihinsel Derleyici",
     "brand.eyebrow": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
-    "brand.hero_title": "Sıfır halüsinasyon. Mutlak doğrulama.",
+    "brand.hero_title": "Her iddia kaynağıyla karşılaştırılır. Alıntısı olmayan hiçbir şey doğrulanmış sayılmaz.",
     "brand.tagline": "Derleyin. Doğrulayın. Gönderdiğinize güvenin.",
     "how.restructure": "Bir soru yazarsın. Assure, seçtiğin yapay zeka için promptu yeniden yazar. Aşağıdaki panel, yazdıkça promptu gösterir. Yanıtla onu o sağlayıcıya gönderir. Kopya bu bilgisayarda kalır.",
     "tagline_html": 'Doğru soru <span class="trust">güvenilir</span> yanıt üretir.',
     "brand.tagline_html": "Zihinsel Derleyici",
-    "brand.page_title": "Assure AI — Sıfır halüsinasyon. Mutlak doğrulama.",
+    "brand.page_title": "Assure AI — Her iddia kaynağıyla karşılaştırılır. Alıntısı olmayan hiçbir şey doğrulanmış sayılmaz.",
     "brand.meta_description": (
         "Assure, ham niyet, dağınık belgeler ve yapılandırılmamış verileri "
         "matematiksel olarak doğrulanmış, denetlenebilir teslimatlara dönüştüren ilk Zihinsel Derleyicidir."
