@@ -1047,7 +1047,11 @@ def _split_sentences(text):
         if m:
             current_page = int(m.group(1))
             continue
-        for sent in re.split(r"[.!?\n]+", piece):
+        # A period between digits is a decimal point, not a sentence end:
+        # "$910.00" used to split into "$910" and "00", so the anchored quote
+        # read "Total charge: $910 00 …" and a claim's cents never matched
+        # (measured 2026-09-28).
+        for sent in re.split(r"[!?\n]+|\.(?!\d)", piece):
             s = sent.strip()
             if not s:
                 continue
@@ -1207,10 +1211,55 @@ def _first_page(pending):
     return None
 
 
+#: Clause boundaries for the fallback: sentence ends and commas (a form
+#: summary is "X is A, Y is B, and Z is C" — every comma is a fact boundary).
+_CLAUSE_SPLIT = re.compile(r"(?<=[.;!?])\s+|,\s+(?:and\s+|but\s+|while\s+|whereas\s+)?", re.I)
+#: A clause is short by nature; it anchors on fewer shared tokens than a
+#: paragraph — two when it carries a figure the window also carries (the
+#: figure guard already ties them), three otherwise.
+_MIN_CLAUSE_OVERLAP_WITH_FIGURE = 2
+_MIN_CLAUSE_OVERLAP = 3
+
+
+def _best_window(content_toks: set, claim_numbers: set, source_sentences: list, min_overlap: int = _MIN_ANCHOR_OVERLAP,
+                 claim_denominator: bool = False) -> tuple:
+    """The highest-coefficient source window for one token set — the loop the
+    paragraph matcher runs, factored so a clause can run it too (2026-09-28).
+    ``claim_denominator`` scores against the claim's own tokens (a clause must
+    be mostly present in the window): with the shorter side as denominator a
+    three-token clause matched a two-token caption ("PATIENT'S NAME") at 0.67
+    and a blank form anchored its own captions."""
+    best_score, best_row, best_window, best_page, best_window_sentences, best_span = 0.0, None, "", None, [], ""
+    for row, window, window_toks, window_page, window_numbers, span in source_sentences:
+        if claim_numbers - window_numbers:
+            continue
+        inter = len(content_toks & window_toks)
+        if inter < min_overlap:
+            continue
+        score = inter / (len(content_toks) if claim_denominator else min(len(content_toks), len(window_toks)))
+        if score > best_score or (score == best_score and len(window) < len(best_window_sentences)):
+            best_score, best_row, best_page, best_window_sentences, best_span = score, row, window_page, window, span
+            best_window = " ".join(entry[0] for entry in window)
+    return best_score, best_row, best_window, best_page, best_window_sentences, best_span
+
+
+def _best_sentence(content_toks: set, window_sentences: list, fallback: str, min_overlap: int = _MIN_ANCHOR_OVERLAP) -> str:
+    best_sent, best_sent_score = "", 0.0
+    for sent, sent_toks, _p, _n, _i in window_sentences:
+        inter = len(content_toks & sent_toks)
+        if inter < min_overlap:
+            continue
+        score = inter / min(len(content_toks), len(sent_toks))
+        if score > best_sent_score:
+            best_sent_score, best_sent = score, sent
+    return best_sent or fallback
+
+
 def attach_substrate_provenance_to_tree(
     tree: dict[str, Any],
     locks: list[dict[str, Any]],
     substrate_rows: list[dict[str, Any]],
+    clause_fallback: bool = True,
 ) -> dict[str, Any]:
     # Lexical overlap anchors provenance by wording similarity, not claim
     # truthfulness — so this is the *candidate* anchor, not a verdict. Numbers are
@@ -1315,7 +1364,54 @@ def attach_substrate_provenance_to_tree(
                 best_window_sentences = window
                 best_span = span
 
+        if (best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None) and not clause_fallback:
+            continue
         if best_score < _MIN_ANCHOR_COEFFICIENT or best_row is None:
+            # Clause fallback (2026-09-28, measured on a filled CMS-1500): the
+            # model wrote "The patient name is X, the insured id is Y, the
+            # provider is Z, and the total charge is $910.00" — four facts on
+            # four source lines apart from each other; no window carries the
+            # paragraph's figures together, so a fully grounded sentence
+            # anchored nothing and the compile was refused. Each clause is
+            # matched on its own; the paragraph is anchored by its clauses,
+            # one provenance row per clause, and the claim policy then judges
+            # sentence by sentence. A clause that anchors nothing adds no row.
+            clause_rows = []
+            for c_index, clause in enumerate(c for c in _CLAUSE_SPLIT.split(content) if c and c.strip()):
+                c_toks = _tokenize(clause)
+                c_numbers = _numbers(clause)
+                if len(c_toks) < 2:
+                    continue
+                min_overlap = _MIN_CLAUSE_OVERLAP_WITH_FIGURE if c_numbers else _MIN_CLAUSE_OVERLAP
+                c_score, c_row, c_window, c_page, c_sents, c_span = _best_window(c_toks, c_numbers, source_sentences, min_overlap=min_overlap, claim_denominator=True)
+                if c_score < _MIN_ANCHOR_COEFFICIENT or c_row is None:
+                    continue
+                clause_rows.append((c_index, clause.strip(), c_row, c_window, c_page, c_sents, c_span, c_toks))
+            if not clause_rows:
+                continue
+            node_id = str(node.get("id") or "")
+            if not node_id:
+                continue
+            node_copy = copy.deepcopy(node)
+            existing = node_copy.get("provenance") or []
+            for c_index, clause, c_row, c_window, c_page, c_sents, c_span, c_toks in clause_rows:
+                quote = _best_sentence(c_toks, c_sents, c_window, min_overlap=_MIN_CLAUSE_OVERLAP_WITH_FIGURE if _numbers(clause) else _MIN_CLAUSE_OVERLAP)[:280].strip()
+                source_id = str(c_row.get("id") or "")
+                if any(isinstance(p, dict) and p.get("source_id") == source_id and p.get("extracted_quote") == quote for p in existing):
+                    continue
+                try:
+                    page_str = str(int(c_page)) if c_page else ""
+                except (TypeError, ValueError):
+                    page_str = ""
+                existing.append({
+                    "source_type": "internal_doc", "source_name": c_row.get("filename") or "", "url_or_doi": "",
+                    "source_id": source_id, "page_number": page_str, "extracted_quote": quote, "accessed_date": "",
+                    "anchor_window": c_window.strip(), "anchor_window_span": c_span,
+                    "anchor_kind": "clause", "clause_index": c_index, "clause": clause[:280],
+                })
+            if existing:
+                node_copy["provenance"] = existing
+                mutated, _ = splice_node(mutated, node_id, node_copy)
             continue
 
         # The cited sentence is the best-matching sentence *inside* the anchor

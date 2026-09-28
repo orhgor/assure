@@ -470,17 +470,43 @@ def test_model_type_suggestion_is_used_only_when_its_fields_are_found(db, monkey
         completion.calls = calls
         return completion
 
-    # Suggested deed, one deed field (grantor) on the page → deed at ≤ 0.6.
+    # Suggested deed, one deed field (grantor) on the page: since 2026-09-28 a
+    # model's word is held to the same evidence bar as every other promotion
+    # (3 found, 2 type-specific, 25 %) — one field is not evidence. The type
+    # stays uncertain, the suggestion is recorded for the grounded pass.
     say_deed = fake("deed")
     r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=say_deed)["report"]
     assert say_deed.calls and "Types: auto_policy, auto_claim" in say_deed.calls[0] and say_deed.calls[0].rstrip().endswith("Type:")
     cls = r["classification"]
-    assert cls["document_type"] == "deed" and cls["method"] == "model_suggestion"
-    assert cls["basis"] == "model suggestion (injected), confirmed by 1 field found (1/9)"
-    assert cls["confidence"] == round(1 / 9, 3) <= orch.MODEL_CLASSIFICATION_CAP
-    assert cls["detected"]["document_type"] == "uncertain" and cls["detected"]["basis"].startswith("only 1 keyword(s) matched")
-    assert next(f for f in r["fields"] if f["name"] == "grantor")["value"] == "John Q. Sample"
-    assert "model type suggestion accepted: deed (1/9 fields found)" in r["extraction_notes"]
+    assert cls["document_type"] == "uncertain" and "method" not in cls
+    assert cls["suggestion"] == {"document_type": "deed", "found": 1, "total": 9, "type_specific": 1, "type_specific_fields": ["grantor"], "source": "model"}
+    assert any(n.startswith("model suggested deed but only 1/9 field(s) were found") for n in r["extraction_notes"])
+    assert r["fields"] == []
+
+    # The grounded pass over the suggested schema IS evidence: three deed fields quoted verbatim → deed.
+    # Prose without the deed keywords (no "conveys", "parcel", "grantee", "recorded"), so the labels still say uncertain.
+    deed_lines = UNCERTAIN_LINES + ["The property passes to Jane R. Buyer for $250,000; the papers were filed in Plymouth County on 03/01/2025."]
+    assert fx.classify_document("\n".join(deed_lines))["document_type"] == "uncertain"
+
+    def grounded(prompt):
+        if "Which one of these document types" in prompt:
+            return "deed"
+        import json as _json
+        return _json.dumps({
+            "grantee": {"quote": "passes to Jane R. Buyer for", "value": "Jane R. Buyer", "page": 1},
+            "consideration": {"quote": "for $250,000;", "value": "$250,000", "page": 1},
+            "county": {"quote": "filed in Plymouth County on", "value": "Plymouth County", "page": 1},
+            "recording_date": {"quote": "on 03/01/2025.", "value": "03/01/2025", "page": 1},
+        })
+
+    r = _run(jdf_cli_bundle(deed_lines), completion=grounded, result={"document_id": "d1b", "revision_id": "r1b", "version": 1})["report"]
+    cls = r["classification"]
+    assert cls["document_type"] == "deed" and cls["method"] == "llm_grounded_evidence" and cls["schema_mismatch"] is False
+    assert cls["basis"].startswith("grounded model pass over the suggested schema: deed")
+    assert cls["detected"]["document_type"] == "uncertain"
+    values = {f["name"]: f["value"] for f in r["fields"] if f["value"] is not None}
+    assert values["grantor"] == "John Q. Sample" and values["grantee"] == "Jane R. Buyer" and values["consideration"] == 250000.0
+    assert r["execution"]["grounded_promotion"]["promoted"] is True and r["execution"]["grounded_promotion"]["found"] >= 3
 
     # Suggested type whose fields are not on the page → stays uncertain, with the note.
     r = _run(jdf_cli_bundle(UNCERTAIN_LINES), completion=fake("auto_claim"), result={"document_id": "d2", "revision_id": "r2", "version": 1})["report"]

@@ -151,3 +151,29 @@ def test_a_citation_stamped_on_the_tree_survives_being_parsed():
     assert row["cited_id"] == "S3"
     assert row["page"] == 7
     assert row["extracted_quote"] == "The deductible for direct physical loss is twenty five thousand dollars"
+
+
+def test_a_paragraph_of_several_facts_anchors_by_its_clauses():
+    """Live 2026-09-28: a filled CMS-1500's four facts in one sentence anchored
+    nothing as a whole and the compile was refused; each clause anchors to its
+    own source line now, one provenance row per clause, nothing invented."""
+    from prompt_matrix.models.jdf import attach_substrate_provenance_to_tree
+
+    filler = "Instructions for completing this section appear on the reverse side of the form.\n"
+    rows = [{"id": "sub-1", "filename": "cms1500.pdf", "extracted_text": (
+        "Patient name: Martinez Gail D.\n" + filler * 3 + "Insured's ID number: 6543 7285-A\n" + filler * 3
+        + "Provider: Abbott Northwestern Hospital\n" + filler * 3 + "Total charge: $910.00\n" + filler * 3 + "Amount paid: $10.00\n")}]
+    tree = {"body": [{"type": "section", "id": "s1", "children": [{"type": "paragraph", "id": "p1", "content":
+            "The patient name is Martinez Gail D, the insured id is 6543 7285-A, the provider is Abbott Northwestern Hospital, and the total charge is $910.00."}]}]}
+    out = attach_substrate_provenance_to_tree(tree, [], rows)
+    para = out["body"][0]["children"][0]
+    prov = para.get("provenance") or []
+    assert len(prov) >= 3 and all(p.get("anchor_kind") == "clause" for p in prov)
+    quotes = [p["extracted_quote"] for p in prov]
+    assert any("Martinez Gail D" in q for q in quotes) and any("910" in q for q in quotes)
+    assert all(p["source_id"] == "sub-1" and p["clause"] for p in prov)
+    # A clause about a figure the source does not carry anchors nothing.
+    tree2 = {"body": [{"type": "section", "id": "s1", "children": [{"type": "paragraph", "id": "p1", "content":
+             "The patient name is Martinez Gail D, and the total charge is $999.00."}]}]}
+    prov2 = attach_substrate_provenance_to_tree(tree2, [], rows)["body"][0]["children"][0].get("provenance") or []
+    assert [p["clause"] for p in prov2] and all("$999" not in p["extracted_quote"] for p in prov2)

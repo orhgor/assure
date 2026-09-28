@@ -212,14 +212,12 @@ def test_run_draft_pipeline_progressive(monkeypatch):
     # gate is earned: Z3 PASS over a verified claim. (A compile with no
     # entangled claim returns 'review' instead — see
     # test_run_draft_pipeline_verifies_anchored_claims.)
-    assert verified["provenance_stats"]["anchored"] == 1
-    # claim-v1 (2026-09-27): the draft's second paragraph, "Policy liability
-    # limit=5000000.", carries a figure and no anchor. It is a claim; with no
-    # citation the sentence-level lexical fallback searches the source and finds
-    # 5000000 under the label "liability limit" ("The policy liability limit is
-    # set at $5,000,000 …"), so it is VERIFIED without a provenance row —
-    # `unanchored` still counts the missing row, `verified` counts the claim.
-    assert verified["provenance_stats"]["unanchored"] == 1
+    # 2026-09-28: the second paragraph, "Policy liability limit=5000000.", now
+    # anchors by the clause fallback — its tokens and its figure sit in one
+    # source sentence ("The policy liability limit is set at $5,000,000 …") —
+    # so it carries a provenance row like the first; nothing is unanchored.
+    assert verified["provenance_stats"]["anchored"] == 2
+    assert verified["provenance_stats"]["unanchored"] == 0
     assert verified["provenance_stats"]["supported"] == 2
     assert verified["provenance_stats"]["verified"] == 2
     assert verified["claim_summary"] == {

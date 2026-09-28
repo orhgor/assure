@@ -1476,6 +1476,11 @@ def value_shape(spec: FieldSpec, raw: str | None, parsed: Any = ...) -> dict[str
     if spec.field_type == "name":
         if _ADDRESS_RE.search(text) or re.match(r"^\d", text):
             return {"quality": "address_fragment", "basis": "street address shape in a name field"}
+        if not re.match(r"^[\"'“‘(]?[A-Za-zÀ-ÿ]", text):
+            # ". The Military Personnel and Civilian Em…" under a claimant label
+            # (demo set, 2026-09-28): a capture that begins with punctuation is
+            # the tail of the sentence before it, not a name.
+            return {"quality": "invalid_format", "basis": "does not begin with a letter"}
         if re.search(r"\d", text):
             return {"quality": "invalid_format", "basis": "digits in a name"}
         if not 1 <= len(words) <= NAME_MAX_WORDS:

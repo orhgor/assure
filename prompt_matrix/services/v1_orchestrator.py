@@ -978,6 +978,13 @@ def classify_with_model_if_uncertain(texts: list[str], *, completion: Any, proje
     if not specific:
         notes.append(f"model suggested {suggested} but only shared fields were found ({', '.join(names)}); type stays uncertain")
         return None
+    if found < RECLASSIFY_MIN_FOUND or len(specific) < FAMILY_FALLBACK_MIN_TYPE_SPECIFIC or found / max(1, total) < PROMOTION_MIN_RATIO:
+        # Same bar as every other promotion (2026-09-28, demo set: a 10-page
+        # claims packet became property_claim on 1 of 9 fields because the
+        # model said so). The suggestion is kept for the grounded pass.
+        notes.append(f"model suggested {suggested} but only {found}/{total} field(s) were found ({len(specific)} type-specific); "
+                     f"below the evidence bar ({RECLASSIFY_MIN_FOUND} found, {FAMILY_FALLBACK_MIN_TYPE_SPECIFIC} type-specific, {PROMOTION_MIN_RATIO:.0%}); type stays uncertain")
+        return {"_suggestion_only": {"document_type": suggested, "found": found, "total": total, "type_specific": len(specific), "type_specific_fields": specific, "source": "model"}}
     model = out.get("model") or "model"
     notes.append(f"model type suggestion accepted: {suggested} ({found}/{total} fields found)")
     return {
@@ -1103,6 +1110,9 @@ def settle_segment_type(seg: dict[str, Any], texts: list[str], *, completion: An
     evidence = reclassify_by_evidence(seg.get("document_type"), seg.get("confidence"), texts, keyword_hits=seg.get("matched_keywords"))
     if evidence is None and seg.get("document_type") == "uncertain" and llm and any((t or "").strip() for t in texts):
         evidence = classify_with_model_if_uncertain(texts, completion=completion, project_id=project_id, notes=notes, detected=detected)
+        if isinstance(evidence, dict) and "_suggestion_only" in evidence:
+            seg["suggestion"] = evidence["_suggestion_only"]
+            evidence = None
     if evidence is None and any((t or "").strip() for t in texts):
         evidence = family_fallback(seg.get("document_type"), seg.get("confidence"), texts, keyword_hits=seg.get("matched_keywords"))
         if evidence is not None:
@@ -1196,6 +1206,61 @@ def page_coverage(documents: list[dict], fields: list[dict], texts: list[str], p
             "searched": bool(seg),
         })
     return out
+
+
+def promote_with_grounded_pass(seg: dict[str, Any], texts: list[str], *, layout, parser_name, parse_confidence, ocr_confidence,
+                               page_quality, visual_pages, completion: Any, project_id: str | None, notes: list[str],
+                               execution: dict | None = None) -> bool:
+    """A segment no schema fits by its labels (``<family>_unknown``, or
+    ``uncertain`` with a model suggestion below the bar) gets one grounded
+    model pass over the suggested schema's fields *before* extraction. Filled
+    forms print values in boxes the label pass cannot read as "label: value"
+    (demo set 2026-09-28: a CMS-1500 with a patient name, member id and tax id
+    read as an unfilled ``medical_unknown`` because its captions were rightly
+    rejected as values), while the grounded pass finds them verbatim. The type
+    is promoted only on that evidence — ``RECLASSIFY_MIN_FOUND`` grounded
+    fields, ``FAMILY_FALLBACK_MIN_TYPE_SPECIFIC`` type-specific — and the
+    report says so (``method: llm_grounded_evidence``). Returns True when the
+    segment was promoted."""
+    doc_type = str(seg.get("document_type") or "")
+    suggestion = seg.get("suggestion") if isinstance(seg.get("suggestion"), dict) else None
+    if not suggestion or not (family_of_unknown(doc_type) or doc_type == "uncertain"):
+        return False
+    target = suggestion.get("document_type")
+    if target not in fx.FIELD_TAXONOMY or not lx.llm_extraction_enabled():
+        return False
+    fields = fx.extract_fields(target, texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
+                               ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages)
+    stats: dict[str, Any] = {}
+    fields = llm_fill_missing(target, texts, fields, completion=completion, notes=notes, parser_name=parser_name,
+                              parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
+                              visual_pages=visual_pages, layout=layout, project_id=project_id, execution=stats)
+    found = [f["name"] for f in fields if f.get("value") is not None and f.get("field_type") != "signature"]
+    specific = [n for n in found if n not in fx.SHARED_FIELD_NAMES]
+    total = len(fx.FIELD_TAXONOMY[target])
+    if execution is not None:
+        execution["grounded_promotion"] = {"tried": target, "found": len(found), "type_specific": len(specific), "total": total,
+                                           "promoted": False, "llm": stats.get("llm_grounding")}
+    if len(found) < RECLASSIFY_MIN_FOUND or len(specific) < FAMILY_FALLBACK_MIN_TYPE_SPECIFIC:
+        notes.append(f"grounded pass over {target}: {len(found)}/{total} field(s) found ({len(specific)} type-specific); below the evidence bar, type stays {doc_type}")
+        return False
+    detected = {k: seg.get(k) for k in ("document_type", "confidence", "basis", "matched_keywords")}
+    seg.update({
+        "document_type": target,
+        "confidence": round(min(fx.CLASSIFICATION_CAP, len(found) / total), 3),
+        "basis": f"grounded model pass over the suggested schema: {target} {len(found)}/{total} fields found verbatim, {len(specific)} type-specific ({', '.join(specific[:6])}); labels alone said {doc_type}",
+        "method": "llm_grounded_evidence",
+        "detected": detected,
+        "evidence": {"found": len(found), "total": total, "type_specific": len(specific), "type_specific_fields": specific},
+        "schema_mismatch": False,
+        "suggestion": None,
+    })
+    seg["validation"] = validate_classification(target, texts, family=seg.get("family"))
+    seg["uncertainty"] = None
+    if execution is not None:
+        execution["grounded_promotion"]["promoted"] = True
+    notes.append(f"type promoted by grounded evidence: {target} ({len(found)}/{total} fields found, {len(specific)} type-specific)")
+    return True
 
 
 def extract_segment_fields(
@@ -1514,6 +1579,13 @@ def _build_report_timed(
         # the type is settled first and the model is asked once, for one type.
         with _timed("classify"):
             settle_segment_type(seg, seg_texts, completion=completion, project_id=project_id, notes=notes)
+        # (llm_fill_missing times its own model call under "llm_extract"; a
+        # segment that needs no pass costs no measured time.)
+        promote_with_grounded_pass(
+            seg, seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),
+            ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
+            completion=completion, project_id=project_id, notes=notes, execution=execution,
+        )
         with _timed("extract"):
             seg_fields, seg_rules = extract_segment_fields(
                 seg["document_type"], seg_texts, layout=layout, parser_name=pname, parse_confidence=bundle.get("parse_confidence"),

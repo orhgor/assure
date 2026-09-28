@@ -59,6 +59,7 @@ try:
         provenance_gate_fields,
     )
     from ..services.compile_guard import (
+        looks_like_form,
         may_be_evidence,
         validate_compiled_draft,
         wrap_untrusted_source,
@@ -144,6 +145,7 @@ except ImportError:
         provenance_gate_fields,
     )
     from services.compile_guard import (
+        looks_like_form,
         may_be_evidence,
         validate_compiled_draft,
         wrap_untrusted_source,
@@ -2318,7 +2320,12 @@ def _run_draft_pipeline(
     document.meta.update(_source_jdf_meta(project_id, substrate_rows))
     doc_dict = document_to_dict(document)
     if substrate_rows:
-        doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
+        # Clause-level anchoring is for prose sources and for forms whose
+        # fields the report read: a blank form's captions must not anchor a
+        # sentence that merely repeats their words (2026-09-28).
+        _clause_ok = (not looks_like_form([str(r.get("extracted_text") or "") for r in substrate_rows])
+                      or any(r.get("parsure_fields") for r in substrate_rows))
+        doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows, clause_fallback=_clause_ok)
     # Citations before the counters: the draft carries [S<N>] ids, and this turns
     # each one into a provenance row so _provenance_counts counts a cited
     # paragraph as anchored instead of asking the lexical matcher, which reads a
