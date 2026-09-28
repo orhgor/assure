@@ -200,9 +200,24 @@ no confidence, not counted in `review_summary`/`fields_total`,
 "discovered_fields": [{"name": "roof_condition", "label": "Roof Condition", "value": "Fair, curling shingles", "page": 1,
                        "span": {"page": 1, "span_type": "bbox_relative", "start_char": 74, "end_char": 96, "bbox": ["…"], "node_id": "c1", "element_id": "c1:…"},
                        "method": "heuristic_label_value", "taxonomy_field": false, "grounding_source": "text"}],
-"execution": {"discovery": {"status": "completed", "pairs": 6, "heuristic": 6, "llm_grounded": 0, "model": null,
+"execution": {"discovery": {"status": "completed", "pairs": 6, "taxonomy_scan": 0, "heuristic": 6, "llm_grounded": 0, "model": null,
                             "model_status": "skipped", "reason": "PARSURE_LLM_EXTRACTION is off"}}
 ```
+
+**Schema-agnostic candidate pool (2026-09-28).** A customer review read the
+pipeline as "resolve the type first, then extract only that schema's fields",
+so an `uncertain` page reported `fields 0/0` while its labels were legible.
+Discovery now begins with `field_discovery.taxonomy_candidates`: the label pass
+of *every* schema in `FIELD_TAXONOMY` runs over the page and each value that was
+read becomes a discovered row with `method: "taxonomy_scan"`,
+`taxonomy_field: true`, the typed value, its span and `schema_candidates` (the
+schemas whose label read it). They are still not the report's fields — no
+state, no routing, not counted — but they are the raw material a type override
+(`reextract_for_type`) or a later projection reuses, and the reviewer sees what
+the page holds before a type is settled. Signature specs are skipped (their
+bottom-of-page fallback would report a row for every schema). Designed reports
+write labels in small caps with a middle dot (`REPORT ID · RPT-…`) that OCR
+reads as `.` or `-` or drops; `_CAPS_PAIR_RE` lists those pairs too.
 
 `heuristic_label_value`: a line regex (label ≤ 48 chars, colon, value on the
 line), labels and blanks skipped, ≤ 40 pairs. `llm_grounded_discovery` only

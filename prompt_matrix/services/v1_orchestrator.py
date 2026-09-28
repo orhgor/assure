@@ -1301,7 +1301,9 @@ def extract_segment_fields(
         document_type, fields, texts=texts, execution=execution, notes=notes, parser_name=parser_name,
         parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
     )
-    _discovery.run_discovery(document_type, texts, layout, completion=completion, project_id=project_id, notes=notes, llm=llm, execution=execution)
+    _discovery.run_discovery(document_type, texts, layout, completion=completion, project_id=project_id, notes=notes, llm=llm, execution=execution,
+                             parser_name=parser_name, parse_confidence=parse_confidence, ocr_confidence=ocr_confidence,
+                             page_quality=page_quality, visual_pages=visual_pages)
     if schema_mismatch:
         if fields:
             notes.append(f"llm extraction skipped: schema mismatch — {document_type} fields are not applicable to this page")

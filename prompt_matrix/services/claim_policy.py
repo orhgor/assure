@@ -186,6 +186,12 @@ _META_RE = re.compile(
     r"|(?:this|the) (?:extraction|assessment|review|analysis|verification) (?:is|was|has|shows?)"
     r"|based on the (?:source|document|information|provided)"
     r"|no (?:further |additional |other )?(?:information|details?) (?:is|was|are|were) (?:provided|available|given|found)"
+    # "No policy information is provided in the source document." / "No coverage
+    # or exclusions are mentioned in the source document." (live run on a site
+    # report, 2026-09-28): the draft reporting an absence in the source is a
+    # note about the source, not a document fact — the subject may be anything.
+    r"|no [a-z][a-z ,'/-]{0,60}? (?:is|was|are|were) (?:provided|available|given|found|mentioned|stated|listed|included|specified|present|documented|noted|recorded|shown|indicated) "
+    r"(?:in|by|on|within) (?:the|this) (?:provided |supplied |attached |uploaded |cited )?(?:source|document|declarations?|material|text|file|report|page)s?"
     r"|(?:there is|there are|there was) no (?:information|mention|detail)"
     r"|all (?:information|figures|details) (?:is|are) (?:taken|drawn|quoted) (?:directly )?from"
     r")",
@@ -616,9 +622,11 @@ _ABBREVIATION_RE = re.compile(
 )
 #: Citation remnants the compile leaves after stripping ``[S<n>]`` markers.
 _REMNANT_RE = re.compile(
-    r"\s*,?\s*(?:as (?:stated|shown|noted|indicated|per|described|listed|given|documented) in "
-    r"(?:the )?(?:sentences?|lines?|source|document|the source(?: document| material)?)(?: and)?|"
-    r"according to (?:the )?(?:sentences?|lines?|source|document)(?: and)?|as per (?:sentences?|lines?)(?: and)?|"
+    # "according to the report" / "as recommended in the report" (live run on a
+    # site report, 2026-09-28): the draft's attribution, not a fact of the page.
+    r"\s*,?\s*(?:as (?:stated|shown|noted|indicated|per|described|listed|given|documented|recommended|reported|mentioned|recorded|captured) in "
+    r"(?:the )?(?:sentences?|lines?|source|document|report|the source(?: document| material)?)(?: and)?|"
+    r"according to (?:the )?(?:sentences?|lines?|source|document|report)(?: and)?|as per (?:sentences?|lines?)(?: and)?|"
     r"in (?:sentences?|lines?)(?: and)?)(?: of the source(?: document| material)?)?\s*,?",
     re.IGNORECASE,
 )
@@ -796,16 +804,25 @@ def _empty_numeric(detail: str) -> dict[str, Any]:
     return {"status": "not_applicable", "kind": None, "detail": detail, "expected": None, "stated": None, "missing": [], "checks": []}
 
 
+_LEADING_DETERMINER_RE = re.compile(r"^(?:the|a|an|this|that|these|those)\s+", re.IGNORECASE)
+
+
 def _lexical_fallback(text: str, sources: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """A sentence with no citation, searched in the supplied sources: the sentence
     itself verbatim (remnants stripped), else its values under their labels
     (``assess_sub_claim``). Returns ``(sub_claim, source)`` or ``(None, None)``
     when no source carries anything checkable."""
     clean = strip_remnants(text).rstrip(".")
+    # The draft writes a full sentence where the source has a fragment under a
+    # label ("PROGRESS - Vehicle sustained heavy impact damage…" became "The
+    # vehicle sustained heavy impact damage…", live run 2026-09-28): a leading
+    # determiner is orthography, not a different fact, so it is tried without.
+    bare = _LEADING_DETERMINER_RE.sub("", clean)
+    needles = [clean] + ([bare] if bare != clean and len(bare) >= 12 else [])
     best: tuple[dict[str, Any], dict[str, Any]] | None = None
     for source in sources:
         source_text = str(source.get("extracted_text") or "")
-        sentence = _find_value(clean, source_text) if len(clean) >= 12 else None
+        sentence = next((hit for n in needles if len(n) >= 12 and (hit := _find_value(n, source_text))), None)
         if sentence:
             return {"text": text, "status": "verified", "detail": "sentence verbatim in the source", "evidence": sentence}, source
         assessed = assess_sub_claim(clean, source_text)
@@ -1001,8 +1018,29 @@ def _assess_unit(
             return _finish(INSUFFICIENT_EVIDENCE, "no enumerated fact could be checked against the source")
         return _finish(VERIFIED, f"all {len(checked)} enumerated facts are verbatim in the source")
 
-    # Rule 3 — the cited text is not in the source.
+    # Rule 3 — the cited text is not in the source. Before that verdict the
+    # sentence itself is searched (rule 1's fallback): a sentence the model
+    # cited with a mangled quote but that stands verbatim on the page is a
+    # verified fact, not an unsupported one ("A full mechanical and structural
+    # damage assessment is required to determine the repair path" cited a quote
+    # that was not on the page while the sentence was, live run 2026-09-28).
     if chosen_row is None or chosen_source is None:
+        fallback, source = _lexical_fallback(content, sources) if not sub_claims else (None, None)
+        # Only the sentence itself, verbatim — a value found under its label is
+        # not enough to rescue a citation whose quote was wrong.
+        if fallback is not None and source is not None and fallback["status"] == "verified" and fallback.get("evidence") \
+                and fallback.get("detail") == "sentence verbatim in the source":
+            _cite(cited[0], source)
+            unit["checks"]["kind"] = "fact"
+            unit["quote"] = fallback["evidence"]
+            unit["quote_verbatim"] = True
+            evidence_text = str(fallback["evidence"])
+            quality = source_quality(source, quote=evidence_text, carry_plan=carry_plan)
+            unit["checks"]["source_quality"] = quality
+            unit["checks"]["numeric"] = recompute(content, evidence_text, source_text=str(source.get("extracted_text") or ""))
+            if quality["status"] != "ok":
+                return _finish(INSUFFICIENT_EVIDENCE, f"source quality is insufficient: {quality['basis']}")
+            return _finish(VERIFIED, f"found in the source; the citation's quote was not: {fallback['detail']}")
         _cite(cited[0])
         unit["checks"]["source_quality"] = {"status": "ok", "basis": "source supplied; cited text not found in it"}
         return _finish(UNSUPPORTED, "the cited text is not verbatim in the source")

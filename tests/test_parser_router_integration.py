@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 
 import pytest
 
@@ -219,7 +220,9 @@ def test_router_is_the_single_routing_decision():
         # format check compares a serialization format on a query param.
         if '== "textract"' in text:
             offenders.append(str(path))
-        elif '== "jdf"' in text and ("parse" in text.lower() or "Textract" in text):
+        elif re.search(r'\b(?!fmt\b|format\b|export_format\b)\w+ == "jdf"', text) and ("parse" in text.lower() or "Textract" in text):
+            # ``fmt == "jdf"`` / ``format == "jdf"`` pick a serialization; any
+            # other left-hand name comparing to the backend's name is routing.
             offenders.append(str(path))
     assert not offenders, f"inline parser routing found in {offenders}"
 

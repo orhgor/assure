@@ -17,6 +17,7 @@ from prompt_matrix.services.audit_summary import (
     provenance_gate_fields,
 )
 from prompt_matrix.services.claim_policy import (
+    strip_remnants,
     CLAIM_POLICY_ID,
     CONTRADICTED,
     INSUFFICIENT_EVIDENCE,
@@ -192,7 +193,10 @@ def test_no_anchor_and_nothing_to_search_for_is_unsupported() -> None:
 
 
 def test_a_quote_that_is_not_verbatim_is_never_verified() -> None:
-    """The entailment model says yes; the cited text is not in the source. UNSUPPORTED."""
+    """The entailment model says yes; the cited text is not in the source, and
+    neither is the sentence (the page says "set at $5,000,000 for"). UNSUPPORTED,
+    no quote — a value under its label does not rescue a wrong citation (rule 3
+    searches only for the sentence itself, 2026-09-28)."""
     text = "The policy liability limit is $5,000,000 combined single limit."
     doc = _document(_paragraph("p1", text, "The policy liability limit is $5,000,000 (combined single limit)."))
     _judge(doc, {text: "yes"})
@@ -496,6 +500,9 @@ def test_an_unanchored_enumeration_is_still_assessed_against_the_supplied_source
         "confidence\nThe information extracted is based directly on the provided source material and is presented exactly as stated.",
         "evidence table\nKey policy details are supported by the source document, including policy number, named insured and agent.",
         "missing items\nNo location, loss date or cause of loss appear anywhere.",
+        # Live run on a site report, 2026-09-28: both read as UNSUPPORTED claims.
+        "policy snapshot\nNo policy information is provided in the source document.",
+        "coverage and exclusions\nNo coverage or exclusions are mentioned in the source document.",
     ],
 )
 def test_meta_statements_are_not_claims(text: str) -> None:
@@ -1020,3 +1027,51 @@ def test_recount_of_a_cached_compile_reads_the_claim_blocks(monkeypatch) -> None
     payload2 = _recount_cached_verified({"verified": {"document": doc2, "z3_status": "PASS"}}, has_substrate=True)
     assert payload2["claim_summary"]["insufficient"] == 1
     assert payload2["ok"] is False
+
+
+SITE_REPORT = (
+    "PROJECT REPORT\nGENERATED 8 JULY 2026\nREPORT ID . . RPT-260708-E7BE23\n"
+    "PROGRESS - Vehicle sustained heavy impact damage to the front bonnet, bumper, and\n"
+    "windscreen. Full mechanical and structural damage assessment is required.\n"
+    + "By signing below, the parties acknowledge the conditions documented above.\n" * 3
+)
+SITE_ROW = {"id": "sub-site", "filename": "review.jpeg", "extracted_text": SITE_REPORT, "parse_confidence": 0.9}
+
+
+def test_an_uncited_sentence_is_found_without_its_leading_determiner() -> None:
+    """Live run 2026-09-28 (customer's site report): the draft wrote "The vehicle
+    sustained heavy impact damage…" for the source's "PROGRESS - Vehicle sustained
+    heavy impact damage…" and, with no citation on the sentence, the lexical
+    fallback found nothing — UNSUPPORTED for orthography."""
+    text = "The vehicle sustained heavy impact damage to the front bonnet, bumper, and windscreen."
+    doc = _document(_paragraph("p1", text, None))
+    _judge(doc, {text: "yes"}, sources=[SITE_ROW])
+    block = _claim(doc, "p1")
+    assert block["verdict"] == VERIFIED, block
+    assert "Vehicle sustained heavy impact damage" in block["quote"]
+    assert "without a citation" in block["reason"]
+    # The same with the draft's attribution tail: "according to the report" and
+    # "as recommended in the report" are remnants, not facts (same live run).
+    tail = "A full mechanical and structural damage assessment is required, as recommended in the report."
+    doc = _document(_paragraph("p2", tail, None))
+    _judge(doc, {tail: "yes"}, sources=[SITE_ROW])
+    assert _claim(doc, "p2")["verdict"] == VERIFIED, _claim(doc, "p2")
+    assert strip_remnants("The vehicle sustained damage, according to the report.") == "The vehicle sustained damage."
+
+
+def test_a_sentence_cited_with_a_wrong_quote_is_still_found_verbatim() -> None:
+    """Live run 2026-09-28: the draft cited a quote that was not on the page for a
+    sentence that stood there verbatim — rule 3 said UNSUPPORTED before looking."""
+    text = "A full mechanical and structural damage assessment is required."
+    node = {**_paragraph("p1", text, "this quote is not on the page", source_id="sub-site"), }
+    doc = _document(node)
+    _judge(doc, {text: "no"}, sources=[SITE_ROW])
+    block = _claim(doc, "p1")
+    assert block["verdict"] == VERIFIED, block
+    assert "Full mechanical and structural damage assessment is required" in block["quote"]
+    assert "the citation's quote was not" in block["reason"]
+    # A sentence that is genuinely not on the page keeps rule 3's verdict.
+    other = "The report recommends a full repaint of the vehicle."
+    doc = _document(_paragraph("p2", other, "this quote is not on the page", source_id="sub-site"))
+    _judge(doc, {other: "no"}, sources=[SITE_ROW])
+    assert _claim(doc, "p2")["verdict"] == UNSUPPORTED and "not verbatim" in _claim(doc, "p2")["reason"]

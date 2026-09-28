@@ -564,6 +564,25 @@ def chunk_strategy() -> str:
     return raw if raw in ("element", "section", "fixed") else CHUNK_STRATEGY_DEFAULT
 
 
+def _looks_like_pdf(data: bytes) -> bool:
+    """PDF readers accept the header anywhere in the first 1024 bytes."""
+    return b"%PDF" in bytes(data or b"")[:1024]
+
+
+_IMAGE_MAGIC = (b"\x89PNG", b"\xff\xd8\xff", b"II*\x00", b"MM\x00*", b"BM", b"RIFF")
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp")
+
+
+def _looks_like_image(data: bytes, filename: str | None) -> bool:
+    """Raster bytes by magic number, or an image file name on non-PDF bytes."""
+    head = bytes(data or b"")[:16]
+    if _looks_like_pdf(data):
+        return False
+    if any(head.startswith(m) for m in _IMAGE_MAGIC):
+        return True
+    return bool(filename) and str(filename).lower().endswith(_IMAGE_SUFFIXES)
+
+
 def pdf_to_parse_bundle(
     pdf_bytes: bytes,
     *,
@@ -594,6 +613,26 @@ def pdf_to_parse_bundle(
     """
     strategy = strategy or chunk_strategy()
     orientation: dict[str, Any] | None = None
+    wrapped_image = False
+    if _looks_like_image(pdf_bytes, filename):
+        # An image (phone photo, screenshot) reaches every ingest path — the
+        # import route wrapped it into a one-page PDF, the Sources upload and
+        # the legacy /jdf/ingest route did not, so jdf-cli answered "Invalid
+        # PDF structure" and the upload failed wherever Textract was not
+        # configured (customer's review.jpeg, 2026-09-28). The wrap lives here
+        # so every caller gets it; an image has no text layer, so OCR is on.
+        try:
+            from .quality_probe import image_to_pdf_bytes
+        except ImportError:  # pragma: no cover - flat-import fallback
+            from services.quality_probe import image_to_pdf_bytes  # type: ignore
+        try:
+            pdf_bytes = image_to_pdf_bytes(pdf_bytes, filename or "upload")
+        except Exception as exc:  # noqa: BLE001 — MuPDF raises its own FzError types for bad bytes
+            raise JdfConversionError(f"image could not be decoded: {exc}") from exc
+        wrapped_image = True
+        source_kind = "scanned"
+        if not ocr or ocr == "none":
+            ocr = ocr_engine()
     if ocr and ocr != "none" and orientation_enabled():
         # Scanned pages first get their orientation measured and corrected
         # (2026-09-28: the bench 90° scan routed ``uncertain`` with 0 fields
@@ -631,6 +670,7 @@ def pdf_to_parse_bundle(
         "ocr_line_count": ocr_lines,
         "ocr_engine": ocr if (ocr and ocr != "none") else None,
         "orientation": orientation,
+        "wrapped_image": wrapped_image,
         "tables": assets["tables"],
         "images": assets["images"],
         "figures": assets["figures"],

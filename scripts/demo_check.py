@@ -79,7 +79,7 @@ def main() -> int:
             print("sign-in failed:", r.status_code, r.text[:200]); return 2
     models = ((http.get(f"{base}/health", timeout=10).json().get("checks") or {}).get("models") or {})
     print(f"stack: backend {models.get('backend')} · stages {models.get('stages')}\n")
-    files = sorted(glob.glob(os.path.join(args.folder, "*.pdf")) + glob.glob(os.path.join(args.folder, "*.png")) + glob.glob(os.path.join(args.folder, "*.jpg")))
+    files = sorted(glob.glob(os.path.join(args.folder, "*.pdf")) + glob.glob(os.path.join(args.folder, "*.png")) + glob.glob(os.path.join(args.folder, "*.jpg")) + glob.glob(os.path.join(args.folder, "*.jpeg")) + glob.glob(os.path.join(args.folder, "*.tif")) + glob.glob(os.path.join(args.folder, "*.tiff")))
     if not files:
         print("no documents in", args.folder); return 2
     for path in files:

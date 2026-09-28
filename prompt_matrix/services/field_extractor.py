@@ -1806,7 +1806,10 @@ def _locate(field: dict[str, Any], spec: FieldSpec, *, page_index: int, start: i
     field["source_span"] = span
     field["field_source_node_id"] = seg.get("node_id") if seg else None
     field["element_id"] = element_id
-    field["provenance_confidence"] = 1.0
+    # Default for a located span; ``build_found_field`` replaces it with the
+    # value-shape figure (``PROVENANCE_BY_SHAPE``) once the value is judged, so
+    # a suspect keeps its span at 0.3–0.7 and only a valid value stays at 1.0.
+    field["provenance_confidence"] = PROVENANCE_BY_SHAPE["valid"]
     field["evidence"] = {"kind": "found", "page": page_index + 1, "node_id": field["field_source_node_id"], "element_id": element_id, "method": method}
     return seg
 

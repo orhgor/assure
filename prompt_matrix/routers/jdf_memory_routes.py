@@ -24,7 +24,7 @@ try:
     )
     from ..lib.textract import TextractClient
     from ..services.compile_guard import flag_fields, flag_response
-    from ..services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
+    from ..services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, ocr_engine, pdf_to_parse_bundle
     from ..services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from ..services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from ..services.omp_memory import remember_vault_file
@@ -39,7 +39,7 @@ except ImportError:
     )
     from lib.textract import TextractClient
     from services.compile_guard import flag_fields, flag_response
-    from services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, pdf_to_parse_bundle
+    from services.jdf_converter import JDF_BIN, JdfConversionError, chunks_to_text, ocr_engine, pdf_to_parse_bundle
     from services.jdf_memory import OmpUnavailable, remember_jdf_document, search_jdf_chunks
     from services.omp import build_omp_artifact_from_parse, store_omp_artifact
     from services.parser_router import select_parser

@@ -228,3 +228,39 @@ def test_intake_extra_records_unconsumed_keys_only():
     assert orch.intake_extra(None) is None
     assert orch.intake_extra({"parser": "jdf", "material_type": "pdf", "modality": "digital_pdf", "visual_pages": [], "laya": None}) is None
     assert orch.intake_extra({"parser": "jdf", "claim_context": "subrogation", "adjuster_notes": ["late"]}) == {"claim_context": "subrogation", "adjuster_notes": ["late"]}
+
+
+def test_caps_label_pairs_from_a_designed_report_are_listed():
+    """Customer's site report (2026-09-28): labels in small caps with a middle dot
+    that OCR reads as "." or "-", or drops. Four pairs, none listed before."""
+    texts = ["PROJECT REPORT\nGENERATED 8 JULY 2026\nREPORT ID . . RPT-260708-E7BE23\nSite Update - — 8 Jul\n"
+             "PROGRESS - Vehicle sustained heavy impact damage to the front bonnet, bumper, and\n"
+             "CAPTURED . 8 JUL 2026 . 0:44 GMT+10 - GPS -27.55344, 152.88712 . EXIF VERIFIED\n"
+             "CONTRACTOR\nCLIENT\nSignature & Date\nRPT-260708-E7BE23\n1/1\n"]
+    pairs = {p["name"]: p["value"] for p in fd.discover_heuristic(texts)}
+    assert pairs["generated"] == "8 JULY 2026" and pairs["report_id"] == "RPT-260708-E7BE23"
+    assert pairs["progress"].startswith("Vehicle sustained heavy impact damage")
+    assert pairs["captured"].startswith("8 JUL 2026")
+    assert "rpt" not in pairs and "contractor" not in pairs and "client" not in pairs  # ids and headings are not pairs
+
+
+def test_taxonomy_scan_pools_every_schemas_labels_for_an_uncertain_page():
+    """The schema-agnostic candidate pool (customer review 2026-09-28): an
+    uncertain page keeps what any schema's labels read, as discovered rows that
+    name the schemas which would take them — never as the report's fields."""
+    texts = ["DECLARATIONS\nPolicy Number: AP-2025-0001\nNamed Insured: John Q. Sample\nVIN: 1HGCM82633A004352\n"
+             "Total Premium: $1,250.00\nAuthorized Signature: /s/ Mary Agent\n"]
+    rows = {p["name"]: p for p in fd.taxonomy_candidates(texts, None, parser_name="jdf-cli", parse_confidence=0.9,
+                                                          ocr_confidence=None, page_quality=[0.9])}
+    assert "policy_number" in rows and rows["policy_number"]["value"] == "AP-2025-0001"
+    assert "auto_policy" in rows["policy_number"]["schema_candidates"] and len(rows["policy_number"]["schema_candidates"]) > 1
+    assert rows["policy_number"]["method"] == "taxonomy_scan" and rows["policy_number"]["taxonomy_field"] is True
+    assert rows["vin"]["typed_value"] == "1HGCM82633A004352" and rows["vin"]["span"]["page"] == 1
+    assert "signature" not in rows  # its bottom-of-page fallback would report a row for every schema
+    notes: list[str] = []
+    execution: dict = {}
+    pairs = fd.run_discovery("uncertain", texts, None, notes=notes, llm=False, execution=execution,
+                             parser_name="jdf-cli", parse_confidence=0.9, page_quality=[0.9])
+    assert execution["discovery"]["taxonomy_scan"] >= 3 and execution["discovery"]["status"] == "completed"
+    assert {p["name"] for p in pairs} >= {"policy_number", "vin"} and len({p["name"] for p in pairs}) == len(pairs)
+    assert fd.run_discovery("auto_policy", texts, None, notes=[], llm=False, execution={}) == []

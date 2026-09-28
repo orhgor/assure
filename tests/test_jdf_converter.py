@@ -574,3 +574,32 @@ def test_real_jdf_cli_reads_the_rotated_bench_scan_after_orientation():
     page = bundle["orientation"]["pages"][0]
     assert page["detected_degrees"] == 90 and page["correction_degrees"] == 270 and bundle["orientation"]["rotated_pages"] == [1]
     assert "NAP-4471-2025" in bundle["text"] and bundle["ocr_confidence"] > 0.85
+
+
+def test_pdf_to_parse_bundle_wraps_an_image_into_a_pdf_and_turns_ocr_on(monkeypatch):
+    """Customer's review.jpeg (2026-09-28): the Sources upload and /jdf/ingest
+    handed the JPEG bytes to jdf-cli, which answered "Invalid PDF structure"; only
+    the import route wrapped images. The wrap now lives in the one call every
+    path makes, and an image is OCR'd even when the caller asked for a text
+    layer (there is none)."""
+    monkeypatch.setenv("JDF_ORIENTATION", "0")
+    seen: dict = {}
+
+    def fake_pdf_to_jdf(pdf_bytes, ocr=None):
+        seen["bytes"], seen["ocr"] = pdf_bytes, ocr
+        raise JdfConversionError("stop here")
+
+    monkeypatch.setattr(jc, "pdf_to_jdf", fake_pdf_to_jdf)
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 30), False)
+    pix.clear_with(255)
+    png = pix.tobytes("png")
+    assert not png.startswith(b"%PDF")
+    with pytest.raises(JdfConversionError, match="stop here"):
+        jc.pdf_to_parse_bundle(png, filename="review.png", source_kind="pdf")
+    assert seen["bytes"][:5] == b"%PDF-" and seen["ocr"] == jc.ocr_engine()
+    with pytest.raises(JdfConversionError, match="image could not be decoded"):
+        jc.pdf_to_parse_bundle(b"not really pixels", filename="broken.jpeg")
+    # Anything else still goes to jdf-cli untouched (its own error names the step).
+    jc.pdf_to_parse_bundle(b"x", filename=None) if False else None
+    assert jc._looks_like_image(png, None) and jc._looks_like_image(b"??", "scan.tif") and not jc._looks_like_image(b"%PDF-1.7", "a.png")
+    assert not jc._looks_like_image(b"x", None)

@@ -53,12 +53,27 @@ MAX_LABEL_WORDS = 6
 #: Characters of page text offered to the model (first pages first).
 DISCOVERY_TEXT_CHARS = 6000
 DISCOVERY_TIMEOUT_S = 45.0
-DISCOVERY_METHODS = ("heuristic_label_value", "llm_grounded_discovery")
+DISCOVERY_METHODS = ("taxonomy_scan", "heuristic_label_value", "llm_grounded_discovery")
 
 _PAIR_RE = re.compile(
     r"^[ \t]*(?P<label>[A-Za-z][A-Za-z0-9 .'/&()#\-]{1,48}?)[ \t]*:[ \t]+(?P<value>\S[^\n]{0,159}?)[ \t]*$",
     re.M,
 )
+#: Designed reports write their labels in small caps with a dot or dash
+#: separator ("REPORT ID · RPT-260708-E7BE23", "CAPTURED · 8 JUL 2026"); OCR
+#: reads the middle dot as "." or "-" and sometimes drops it ("GENERATED 8 JULY
+#: 2026"). Customer's site report, 2026-09-28: four such pairs, none listed.
+#: The label is upper-case words; the value follows a separator run, or starts
+#: with a digit when there is none, and is not itself a shouted heading.
+_CAPS_PAIR_RE = re.compile(
+    r"^[ \t]*(?P<label>[A-Z][A-Z0-9&/#]*(?:[ \t]+[A-Z][A-Z0-9&/#]*){0,4})"
+    # The separator run needs a space on a side (or a colon / middle dot):
+    # "RPT-260708-E7BE23" is one token, not a "RPT" label with a value.
+    r"(?:(?:[ \t]*:[ \t]*|[ \t]*[·•]+[ \t]*|[ \t]+[:·•.\-–—|]+(?:[ \t]+[:·•.\-–—|]+)*[ \t]+|[ \t]*[:·•.\-–—|]+[ \t]+)(?P<value>[A-Za-z0-9$€£+\-][^\n]{1,159}?)"
+    r"|[ \t]+(?P<value2>\d[^\n]{1,159}?))[ \t]*$",
+    re.M,
+)
+_CAPS_NOISE_RE = re.compile(r"^(?:[A-Z]{1,2}|PAGE|SIGNATURE|DATE|TOTAL|SUMMARY|NOTES?|REPORT|CLIENT|CONTRACTOR)$")
 _BLANK_VALUE_RE = re.compile(r"^[_\s.\-–—:]*$")
 
 
@@ -105,22 +120,92 @@ def discover_heuristic(texts: list[str], layout: list[list[dict]] | None = None,
     """``Label: value`` pairs per page, first occurrence of each label wins."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
+    header_words = {w.upper() for w in fx._HEADER_WORDS}
     for page_index, text in enumerate(texts or []):
-        for m in _PAIR_RE.finditer(text or ""):
+        matches = [(m, "value") for m in _PAIR_RE.finditer(text or "")]
+        for m in _CAPS_PAIR_RE.finditer(text or ""):
+            group = "value" if m.group("value") is not None else "value2"
             label = " ".join(m.group("label").split())
-            value = m.group("value").strip()
+            value = (m.group(group) or "").strip(" .·•-–—|")
+            # A heading followed by another heading is layout, not a pair; a
+            # value that is only capitals and letters is a heading too.
+            if _CAPS_NOISE_RE.match(label) or not value or (value.upper() == value and not re.search(r"\d", value)):
+                continue
+            matches.append((m, group))
+        matches.sort(key=lambda mg: mg[0].start())
+        for m, group in matches:
+            label = " ".join(m.group("label").split())
+            value = m.group(group).strip(" .·•-–—|")
             if len(label.split()) > MAX_LABEL_WORDS or _BLANK_VALUE_RE.match(value) or fx._LABEL_LIKE.match(value):
                 continue
-            if value.upper() == value and len(value.split()) <= 3 and value.rstrip(":").upper() in {w.upper() for w in fx._HEADER_WORDS}:
+            if value.upper() == value and len(value.split()) <= 3 and value.rstrip(":").upper() in header_words:
                 continue
             name = slug_name(label)
             if name in seen:
                 continue
             seen.add(name)
-            out.append(_pair(name, label, value, _locate(layout, page_index, m.start("value"), m.end("value")), "heuristic_label_value"))
+            out.append(_pair(name, label, value, _locate(layout, page_index, m.start(group), m.end(group)), "heuristic_label_value"))
             if len(out) >= limit:
                 return out
     return out
+
+
+def taxonomy_candidates(
+    texts: list[str],
+    layout: list[list[dict]] | None,
+    *,
+    parser_name: str | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    page_quality: list[float | None] | None = None,
+    visual_pages: list[dict] | None = None,
+    limit: int = MAX_DISCOVERED,
+) -> list[dict[str, Any]]:
+    """The schema-agnostic candidate pool: the label pass of *every* schema in
+    ``FIELD_TAXONOMY`` run over the page, keeping each value that was read.
+
+    Why (customer review, 2026-09-28): the pipeline resolves the type first and
+    extracts only that schema's fields, so a page left ``uncertain`` reported
+    ``fields 0/0`` although its labels were legible — the CMS-1500 lost its
+    patient and charge lines that way until grounded promotion. This pass keeps
+    what any schema's labels can read, as ``discovered_fields`` rows (never
+    taxonomy fields of the report, so counts stay honest) with the schemas that
+    would take them in ``schema_candidates`` — the material a later projection
+    or a type override reuses. Signature specs are skipped: their bottom-of-page
+    fallback reports a row for every schema whether or not a signature exists.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for document_type, specs in fx.FIELD_TAXONOMY.items():
+        try:
+            fields = fx.extract_fields(
+                document_type, texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
+                ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
+            )
+        except Exception:  # noqa: BLE001 — one schema's failure must not empty the pool
+            log.exception("taxonomy scan failed for %s", document_type)
+            continue
+        by_name = {s.name: s for s in specs}
+        for field in fields:
+            spec = by_name.get(field.get("name"))
+            if spec is None or spec.field_type == "signature" or field.get("value") is None:
+                continue
+            key = field["name"]
+            existing = out.get(key)
+            if existing is not None:
+                existing["schema_candidates"].append(document_type)
+                if (field.get("extraction_confidence") or 0) > (existing.get("extraction_confidence") or 0):
+                    existing.update(extraction_confidence=field.get("extraction_confidence"))
+                continue
+            span = dict(field.get("source_span") or {})
+            span.setdefault("page", (field.get("evidence") or {}).get("page"))
+            row = _pair(key, spec.label, str(field.get("raw") if field.get("raw") is not None else field.get("value")), span, "taxonomy_scan",
+                        typed_value=field.get("value"), field_type=spec.field_type, schema_candidates=[document_type],
+                        extraction_confidence=field.get("extraction_confidence"), grounding_quote=field.get("grounding_quote"))
+            row["taxonomy_field"] = True
+            out[key] = row
+            if len(out) >= limit:
+                return list(out.values())
+    return list(out.values())
 
 
 def discovery_prompt(texts: list[str]) -> str:
@@ -133,7 +218,7 @@ def discovery_prompt(texts: list[str]) -> str:
         parts.append(f"=== PAGE {i + 1} ===\n{t[:budget]}")
         budget -= len(t[:budget])
     return "\n".join([
-        "You are reading an insurance document whose type is not known. List the labelled facts the document states.",
+        "You are reading a business document whose type is not known (it may be an insurance form, a report, an invoice, a letter). List the labelled facts the document states.",
         "Answer with ONE JSON array and nothing else. Each item is an object",
         '{"label": "<the label as written>", "value": "<the value exactly as written>", "quote": "<a verbatim fragment copied from the document that contains the value>", "page": <page number>}.',
         "Copy quotes and values character for character. Do not invent, infer, normalise or compute values. At most 40 items.",
@@ -239,20 +324,29 @@ def run_discovery(
     notes: list[str],
     llm: bool = True,
     execution: dict[str, Any] | None = None,
+    parser_name: str | None = None,
+    parse_confidence: float | None = None,
+    ocr_confidence: float | None = None,
+    page_quality: list[float | None] | None = None,
+    visual_pages: list[dict] | None = None,
 ) -> list[dict[str, Any]]:
     """The hook ``v1_orchestrator.extract_segment_fields`` calls for a segment
     with no schema. Appends the pairs to the current ``extraction_scope`` (so
     ``build_report`` can put them on the report) and records
     ``execution["discovery"] = {status, pairs, heuristic, llm_grounded, model,
     reason}``. Returns the pairs. Never raises."""
-    stats: dict[str, Any] = {"status": "not_run", "pairs": 0, "heuristic": 0, "llm_grounded": 0, "model": None, "reason": None}
+    stats: dict[str, Any] = {"status": "not_run", "pairs": 0, "taxonomy_scan": 0, "heuristic": 0, "llm_grounded": 0, "model": None, "reason": None}
     pairs: list[dict[str, Any]] = []
     try:
         if not applies_to(document_type):
             stats["reason"] = "typed document — taxonomy fields apply"
         else:
-            pairs = discover_heuristic(texts, layout)
-            stats["heuristic"] = len(pairs)
+            pairs = taxonomy_candidates(texts, layout, parser_name=parser_name, parse_confidence=parse_confidence,
+                                        ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages)
+            stats["taxonomy_scan"] = len(pairs)
+            taken = {p["name"] for p in pairs}
+            pairs.extend(p for p in discover_heuristic(texts, layout) if p["name"] not in taken)
+            stats["heuristic"] = len(pairs) - stats["taxonomy_scan"]
             if llm:
                 more, model_stats = discover_with_model(texts, layout, completion=completion, project_id=project_id, notes=notes,
                                                         exclude={p["name"] for p in pairs}, limit=max(0, MAX_DISCOVERED - len(pairs)))
@@ -268,7 +362,7 @@ def run_discovery(
             stats["status"] = "completed"
             stats["pairs"] = len(pairs)
             if pairs:
-                notes.append(f"field discovery: {len(pairs)} label/value pair(s) listed for {document_type} ({stats['heuristic']} heuristic, {stats['llm_grounded']} model-grounded)")
+                notes.append(f"field discovery: {len(pairs)} label/value pair(s) listed for {document_type} ({stats['taxonomy_scan']} from schema labels, {stats['heuristic']} heuristic, {stats['llm_grounded']} model-grounded)")
     except Exception as exc:  # noqa: BLE001 — advisory pass
         log.exception("field discovery failed")
         stats.update(status="failed", reason=f"{type(exc).__name__}: {exc}"[:200])

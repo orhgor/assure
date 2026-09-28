@@ -17,7 +17,7 @@ benchmark set that exercises these families is `bench/manifest.json`
 | Input | Decision | Then |
 |---|---|---|
 | extension in `txt md json csv rst yaml yml`, or `source_kind="text"` | `jdf` | the caller wraps the text as a JDF document; no binary parse |
-| extension in `png jpg jpeg tif tiff bmp` | `scan_backend()` | `pdf_ingest` wraps the image in a one-page PDF for jdf-cli (BMP → PNG for Textract) |
+| extension in `png jpg jpeg tif tiff bmp` | `scan_backend()` | `jdf_converter.pdf_to_parse_bundle` wraps the image in a one-page PDF for jdf-cli itself (magic bytes or image file name; OCR forced; `bundle.wrapped_image`), so the Sources upload and `/jdf/ingest` take photos too — until 2026-09-28 only `pdf_ingest` wrapped and the other two routes failed with "Invalid PDF structure" (BMP → PNG for Textract) |
 | `.pdf` | probe the first 3 pages for a text layer (`_probe_pdf_for_parser`) | text → `jdf`; none → `scan_backend()`; probe error → `jdf` |
 | `source_kind="scanned"` | `scan_backend()` | client says the file is image-only |
 | anything else | `jdf` | |
