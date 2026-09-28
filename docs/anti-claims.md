@@ -238,6 +238,22 @@ Policy `claim-v1` — `services/claim_policy.py`, `services/numeric_recompute.py
 - The compile stream retries a provider rate limit once, before the first token only; a failure after tokens streamed is reported as the error it is, never silently restarted.
 - The brand line no longer promises "zero hallucination / absolute verification"; it states the rule: every claim checked against its source, nothing verified without a quote.
 
+### Raw candidates, projection, page-quality floor (2026-09-28)
+
+`services/raw_candidates.py`, `v1_orchestrator.recalibrate_page_quality`, `quality_probe.grounding_floor`, `schemas/site_report.json`.
+
+- A raw candidate is provenance, not a decision: it has no `confidence`, no `evidence_state`, no `field_state`. Never present the pool as "N fields found"; it is "what the page says" before any schema was chosen, capped at 60 per segment, and a candidate stays in the pool whether or not a field took it.
+- `corroborated: false` on an `image_vision` candidate means the model's value text was **not** found on the stored page text; it ranks below every OCR/regex read and is never projected into a field. Do not call it a fact the picture proved.
+- Precedence is one documented key (`SORT_KEY`), not judgement: `textract > table_cell > layout_text > discovery > image_vision`, corroborated vision above all, then page, offset, source kind, text. Two runs over the same input produce byte-identical pools; a difference is a bug.
+- The pool is append-only. A rerun, an override or a replay may add candidates; nothing stored is rewritten or removed — the stored `preferred` flags stay as they were even when a later run would rank them differently.
+- `extraction_method: raw_candidate` means the value was rebuilt at the candidate's span by the same builder the label pass uses (`build_found_field`) and passed the field's value shape; `candidate_source` names the source kind. It is not a model answer and carries no model.
+- `mapped` / `unmapped` / `conflicting` / `review_needed` are words of the projection log (`report.projection`, `execution.projection`) only. `review_needed` is the label for a mapped field the policy left `unverified` + `manual_review` below the thresholds; it is never a `field_state`, never a `routing_action`.
+- A `candidate_conflict` in `report.conflicts` keeps both values (`values[]`, `dropped_value`); the field says which was kept (`candidate_conflict.kept`). It is not resolved, it is reported.
+- The page-quality floor (`pages[i].basis: "lifted to grounded reads … × ocr … = floor …"`) applies only when the page has an OCR word-confidence mean **and** at least one located read; it never lowers a score, and a page whose reads were suspects gets share 0.0 and stays where the probe put it. Never say "the model read the page" from the floor alone — `pages[i].grounding_success` and `quality_score_probe` show what was measured.
+- `execution.z3.async_deferred: true` records that the >50-page branch was taken; the verification still ran inline. It is not "verification pending".
+- `redhat_draft` is no longer an execution step; the draft critique's status is `verification.redhat_status`. A renderer that still lists the step shows "not recorded", which is the truth for a report saved after 2026-09-28.
+- `site_report` classifies designed field / site / inspection reports by their own furniture (`field_report` family cues: site update, project report, captured, exif, gps …). A vehicle photo on such a report is not an auto document; "vehicle" is one auto cue against five field-report cues, and the family gate says so in `classification.basis`.
+
 ### Signature region and page orientation (2026-09-28)
 
 `services/quality_probe.py` (`assess_signature`, `ink_map`), `services/jdf_converter.py` (`detect_orientation`), `services/table_extraction.py` (`grid_tables_from_shapes`).

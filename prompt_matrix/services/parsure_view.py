@@ -319,13 +319,16 @@ def grounding_view(field: dict[str, Any]) -> dict[str, Any] | None:
 #: "label N"; ``reason`` is printed when the step did not run.
 EXECUTION_STEPS = (
     ("laya", "LAYA", (("escalate", "escalate"), ("human_review", "human review")), ("policy",)),
-    ("z3", "Z3 verification", (("violations", "violations"),), ()),
-    ("redhat_draft", "Red-Hat draft", (), ()),
+    ("z3", "Z3 verification", (("violations", "violations"),), ("async_deferred",)),
     ("redhat_graph", "Red-Hat graph", (("findings", "findings"), ("high", "high")), ("policy", "model_check")),
     ("llm_grounding", "LLM grounding", (("fields_offered", "offered"), ("fields_grounded", "grounded"), ("candidates_rejected", "rejected")), ("model", "ms")),
     ("rerun", "Rerun", (("passes", "passes"),), ("improved", "stop_rule")),
     ("vision", "Vision", (("pages_analyzed", "pages"), ("facts", "facts")), ("model", "ms")),
     ("tables", "Tables", (("tables", "tables"), ("fields_from_tables", "fields from tables")), ()),
+    # Plan V4 (2026-09-28): the schema-agnostic pool and its projection onto the type.
+    ("raw_candidates", "Raw candidates", (("candidates", "candidates"), ("corroborated_vision", "vision corroborated")), ()),
+    ("projection", "Projection", (("mapped", "mapped"), ("conflicting", "conflicting"), ("review_needed", "review needed")), ("document_type",)),
+    ("page_quality", "Page quality", (), ("pages_lifted",)),
 )
 
 STATUS_WORDS = {

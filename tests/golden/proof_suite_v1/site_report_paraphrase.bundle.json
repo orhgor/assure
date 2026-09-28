@@ -1,0 +1,485 @@
+{
+ "jdf": {
+  "$jdf": "1.0.0",
+  "meta": {
+   "title": "tmp4dfcqfmf",
+   "pageSize": {
+    "width": 209.9,
+    "height": 297.04
+   },
+   "unit": "mm",
+   "margins": {
+    "top": 0,
+    "right": 0,
+    "bottom": 0,
+    "left": 0
+   }
+  },
+  "pages": [
+   {
+    "id": "page-1",
+    "pageSize": {
+     "width": 209.9,
+     "height": 297.04
+    },
+    "margins": {
+     "top": 0,
+     "right": 0,
+     "bottom": 0,
+     "left": 0
+    },
+    "elements": [
+     {
+      "type": "text",
+      "content": "INSPECTION REPORT",
+      "position": {
+       "x": 19.76,
+       "y": 18.97
+      },
+      "width": 36.88,
+      "style": {
+       "fontSize": 8,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#3366cc"
+      }
+     },
+     {
+      "type": "text",
+      "content": "LOGGED · 14 MARCH 2026 REF · SR-2026-0314-A1",
+      "position": {
+       "x": 19.76,
+       "y": 24.88
+      },
+      "width": 74.11,
+      "style": {
+       "fontSize": 7,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#666666"
+      }
+     },
+     {
+      "type": "text",
+      "content": "Roof Works · 14 Mar",
+      "position": {
+       "x": 19.76,
+       "y": 26.4
+      },
+      "width": 88.5,
+      "style": {
+       "fontSize": 22,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "FINDINGS",
+      "position": {
+       "x": 19.76,
+       "y": 46.55
+      },
+      "width": 17.31,
+      "style": {
+       "fontSize": 8,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#3366cc"
+      }
+     },
+     {
+      "type": "text",
+      "content": "STATUS · Roofing membrane lifted along the north parapet after the storm; two flashings",
+      "position": {
+       "x": 19.76,
+       "y": 51.65
+      },
+      "width": 168,
+      "style": {
+       "fontSize": 10,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "are loose and the gutter outlet is blocked. A licensed roofer should re-seal the membrane",
+      "position": {
+       "x": 19.76,
+       "y": 58.35
+      },
+      "width": 168,
+      "style": {
+       "fontSize": 10,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "before the next rainfall to stop water entering the plant room below.",
+      "position": {
+       "x": 19.76,
+       "y": 65.05
+      },
+      "width": 126.83,
+      "style": {
+       "fontSize": 10,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "NORTH PARAPET",
+      "position": {
+       "x": 19.76,
+       "y": 72.58
+      },
+      "width": 26.18,
+      "style": {
+       "fontSize": 7,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#3366cc"
+      }
+     },
+     {
+      "type": "text",
+      "content": "Membrane edge lifted over roughly four metres; ponding visible at the outlet.",
+      "position": {
+       "x": 19.76,
+       "y": 77.67
+      },
+      "width": 129.81,
+      "style": {
+       "fontSize": 9,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "NEXT STEPS Book a roofing contractor to re-seal the membrane and clear the outlet.",
+      "position": {
+       "x": 19.76,
+       "y": 83.71
+      },
+      "width": 146.75,
+      "style": {
+       "fontSize": 9,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "CAPTURED · 14 MAR 2026 · 09:12 GMT+1 · GPS · 51.50740, -0.12780 · EXIF VERIFIED",
+      "position": {
+       "x": 19.76,
+       "y": 90.29
+      },
+      "width": 125.59,
+      "style": {
+       "fontSize": 7,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#666666"
+      }
+     },
+     {
+      "type": "text",
+      "content": "SITE LOCATION: 12 Harbour Quay, Plant Room Roof",
+      "position": {
+       "x": 19.76,
+       "y": 95.38
+      },
+      "width": 92.74,
+      "style": {
+       "fontSize": 9,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "By signing below the parties confirm the observations above describe the site as found.",
+      "position": {
+       "x": 19.76,
+       "y": 101.69
+      },
+      "width": 131.77,
+      "style": {
+       "fontSize": 8,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "CONTRACTOR: Northgate Roofing Ltd",
+      "position": {
+       "x": 19.76,
+       "y": 107.06
+      },
+      "width": 67.54,
+      "style": {
+       "fontSize": 9,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "CLIENT: Harbour Estates Management",
+      "position": {
+       "x": 19.76,
+       "y": 113.09
+      },
+      "width": 67.76,
+      "style": {
+       "fontSize": 9,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif"
+      }
+     },
+     {
+      "type": "text",
+      "content": "Signature & Date ______________________ Signature & Date ______________________",
+      "position": {
+       "x": 19.76,
+       "y": 119.4
+      },
+      "width": 144.97,
+      "style": {
+       "fontSize": 8,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#666666"
+      }
+     },
+     {
+      "type": "text",
+      "content": "SR-2026-0314-A1",
+      "position": {
+       "x": 19.76,
+       "y": 125.32
+      },
+      "width": 24.87,
+      "style": {
+       "fontSize": 7,
+       "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+       "color": "#666666"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "chunks": [
+  {
+   "id": "p1e0",
+   "text": "INSPECTION REPORT",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 5,
+   "hash": "a48398692a54"
+  },
+  {
+   "id": "p1e1",
+   "text": "LOGGED · 14 MARCH 2026 REF · SR-2026-0314-A1",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 11,
+   "hash": "001f79f94506"
+  },
+  {
+   "id": "p1e2",
+   "text": "Roof Works · 14 Mar",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 5,
+   "hash": "3316d65053cc"
+  },
+  {
+   "id": "p1e3",
+   "text": "FINDINGS",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 2,
+   "hash": "a628d0e473bf"
+  },
+  {
+   "id": "p1e4",
+   "text": "STATUS · Roofing membrane lifted along the north parapet after the storm; two flashings",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 22,
+   "hash": "158edeb1e464"
+  },
+  {
+   "id": "p1e5",
+   "text": "are loose and the gutter outlet is blocked. A licensed roofer should re-seal the membrane",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 23,
+   "hash": "88c53c99c91f"
+  },
+  {
+   "id": "p1e6",
+   "text": "before the next rainfall to stop water entering the plant room below.",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 18,
+   "hash": "da8713fdd6e0"
+  },
+  {
+   "id": "p1e7",
+   "text": "NORTH PARAPET",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 4,
+   "hash": "13f7387f17d0"
+  },
+  {
+   "id": "p1e8",
+   "text": "Membrane edge lifted over roughly four metres; ponding visible at the outlet.",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 20,
+   "hash": "4ab40cae8e5c"
+  },
+  {
+   "id": "p1e9",
+   "text": "NEXT STEPS Book a roofing contractor to re-seal the membrane and clear the outlet.",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 21,
+   "hash": "3e83cdd8ceee"
+  },
+  {
+   "id": "p1e10",
+   "text": "CAPTURED · 14 MAR 2026 · 09:12 GMT+1 · GPS · 51.50740, -0.12780 · EXIF VERIFIED",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 20,
+   "hash": "2d52c7a0e53a"
+  },
+  {
+   "id": "p1e11",
+   "text": "SITE LOCATION: 12 Harbour Quay, Plant Room Roof",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 12,
+   "hash": "079be5e5debe"
+  },
+  {
+   "id": "p1e12",
+   "text": "By signing below the parties confirm the observations above describe the site as found.",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 22,
+   "hash": "2cdea9067dde"
+  },
+  {
+   "id": "p1e13",
+   "text": "CONTRACTOR: Northgate Roofing Ltd",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 9,
+   "hash": "23afb8575fcf"
+  },
+  {
+   "id": "p1e14",
+   "text": "CLIENT: Harbour Estates Management",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 9,
+   "hash": "1b76fb8fbd80"
+  },
+  {
+   "id": "p1e15",
+   "text": "Signature & Date ______________________ Signature & Date ______________________",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 20,
+   "hash": "77ac35aae374"
+  },
+  {
+   "id": "p1e16",
+   "text": "SR-2026-0314-A1",
+   "path": [],
+   "page": 1,
+   "types": [
+    "text"
+   ],
+   "tokens": 4,
+   "hash": "91b66a8f30c8"
+  }
+ ],
+ "text": "INSPECTION REPORT\n\nLOGGED · 14 MARCH 2026 REF · SR-2026-0314-A1\n\nRoof Works · 14 Mar\n\nFINDINGS\n\nSTATUS · Roofing membrane lifted along the north parapet after the storm; two flashings\n\nare loose and the gutter outlet is blocked. A licensed roofer should re-seal the membrane\n\nbefore the next rainfall to stop water entering the plant room below.\n\nNORTH PARAPET\n\nMembrane edge lifted over roughly four metres; ponding visible at the outlet.\n\nNEXT STEPS Book a roofing contractor to re-seal the membrane and clear the outlet.\n\nCAPTURED · 14 MAR 2026 · 09:12 GMT+1 · GPS · 51.50740, -0.12780 · EXIF VERIFIED\n\nSITE LOCATION: 12 Harbour Quay, Plant Room Roof\n\nBy signing below the parties confirm the observations above describe the site as found.\n\nCONTRACTOR: Northgate Roofing Ltd\n\nCLIENT: Harbour Estates Management\n\nSignature & Date ______________________ Signature & Date ______________________\n\nSR-2026-0314-A1",
+ "page_count": 1,
+ "parser_name": "jdf-cli",
+ "source_kind": "pdf",
+ "parse_confidence": null,
+ "ocr_confidence": null,
+ "ocr_line_count": 0,
+ "ocr_engine": null,
+ "orientation": null,
+ "wrapped_image": false,
+ "tables": [],
+ "images": [],
+ "figures": [],
+ "table_count": 0,
+ "image_count": 0,
+ "figure_count": 0,
+ "asset_summary": {
+  "tables": 0,
+  "images": 0,
+  "figures": 0
+ },
+ "filename": "site_report_paraphrase.pdf",
+ "_fixture": {
+  "tool": "scripts/make_proof_fixtures.py",
+  "parser": "jdf-cli",
+  "ocr": null,
+  "jdf_cli_version": "0.2.3",
+  "recorded_at": "2026-09-28T14:58:30+00:00",
+  "source_sha256": "bd93437884f712253bb6d973d12a4fd1f818692d729cb0b11a32929d81bdb9bf",
+  "source_bytes": 4475,
+  "note": "jdf.resources (base64 raster) removed; everything else is the parser's own output"
+ }
+}

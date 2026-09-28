@@ -1199,11 +1199,14 @@ def test_record_page_execution_panel_grounding_tables_vision_and_rerun(client):
     # 6.3 execution panel: one row per step, status words, counts, reasons, the block's own time.
     assert 'id="execution" data-recorded="1"' in html and "2026-09-27 10:15:00" in text
     steps = re.findall(r'<li class="exec-step" data-step="([^"]+)" data-status="([^"]+)">', html)
-    assert steps == [("laya", "completed"), ("z3", "pass"), ("redhat_draft", "not_run"), ("redhat_graph", "completed"),
-                     ("llm_grounding", "ran"), ("rerun", "not_recorded"), ("vision", "skipped"), ("tables", "not_recorded")]
+    # ``redhat_draft`` is no longer a step (2026-09-28); the raw-candidate pool, its projection and the
+    # page-quality floor are, and a report that did not record them says "not recorded".
+    assert steps == [("laya", "completed"), ("z3", "pass"), ("redhat_graph", "completed"),
+                     ("llm_grounding", "ran"), ("rerun", "not_recorded"), ("vision", "skipped"), ("tables", "not_recorded"),
+                     ("raw_candidates", "not_recorded"), ("projection", "not_recorded"), ("page_quality", "not_recorded")]
     assert "LAYA completed" in text and "escalate no" in text and "human review yes" in text and "compliance field present" in text
     assert "Z3 verification pass 0 violations" in text
-    assert "Red-Hat draft not run" in text and "no draft yet" in text
+    assert "Red-Hat draft" not in text and "Raw candidates not recorded" in text
     assert "LLM grounding ran 3 offered 2 grounded 1 rejected model claude-sonnet-4 812 ms" in text
     assert "Tables not recorded" in text
 
@@ -1242,7 +1245,7 @@ def test_record_page_says_not_recorded_for_a_report_without_execution_blocks(cli
     assert 'id="execution" data-recorded="0"' in html
     assert "This report did not record its execution steps." in text
     steps = re.findall(r'<li class="exec-step" data-step="([^"]+)" data-status="not_recorded">', html)
-    assert len(steps) == 8 and text.count("not recorded") >= 8
+    assert len(steps) == 10 and text.count("not recorded") >= 10  # raw_candidates, projection, page_quality joined the steps 2026-09-28
     assert 'id="tables"' not in html and 'id="vision"' not in html and 'id="rerun-history"' not in html and 'id="discovered"' not in html
     # Badges still render from the state alone (an older report's not-found vin was routed, so it reads Review); no provenance line is invented.
     assert 'badge badge--review">Review<' in html and 'badge badge--disputed">Disputed<' in html and 'badge badge--accepted">Accepted<' in html

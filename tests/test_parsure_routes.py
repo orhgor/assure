@@ -419,7 +419,10 @@ def test_project_export_csv_long_wide_json_and_filters(client):
     body = js.get_json()
     assert body["ok"] and body["project_id"] == "default" and len(body["documents"]) == 2
     doc = next(d for d in body["documents"] if d["report_id"] == rid_policy)
-    assert set(doc) == {"report_id", "document_id", "filename", "document_type", "created_at", "snapshot", "fields"}
+    # Both layers and the ledgers travel with every row since 2026-09-28 (plan V4 Part 1.5); the original keys keep their meaning.
+    assert set(doc) >= {"report_id", "document_id", "filename", "document_type", "created_at", "snapshot", "fields", "raw_candidates", "execution",
+                        "graph_integrity", "replay", "redhat", "classification", "projection"}
+    assert isinstance(doc["raw_candidates"], list) and doc["document_id"]
     assert doc["snapshot"]["content_hash"] and any(s["report_id"] == rid_policy and s["content_hash"] == doc["snapshot"]["content_hash"] for s in body["snapshot"]["reports"])
     assert doc["fields"]["premium"]["value"] == 1250.0 and doc["fields"]["premium"]["field_state"] == "accepted"
     assert "_page_texts" not in json_dumps(body)

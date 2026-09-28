@@ -139,7 +139,8 @@ EVIDENCE_WORDS = {
     "unreadable": "Page unreadable",
     "schema_mismatch": "Wrong document type",
 }
-FAMILY_WORDS = {"auto": "Auto", "property": "Property", "real_estate_transaction": "Real estate transaction", "medical": "Medical"}
+FAMILY_WORDS = {"auto": "Auto", "property": "Property", "real_estate_transaction": "Real estate transaction", "medical": "Medical",
+                "field_report": "Field report"}
 ROUTING_WORDS = {
     "manual_review": "Needs a reviewer",
     "adjudicator_queue": "With an adjudicator",
@@ -436,17 +437,41 @@ def export_documents(project_id: str, *, document_type: str | None = None, state
             fields = [f for f in fields if _matches_state(f, state)]
             if not fields:
                 continue
-        out.append({
-            "report_id": report.get("report_id"),
-            "document_id": export_document_id(report),
-            "filename": report.get("filename"),
-            "document_type": type_key,
-            "document_type_label": doc_type_label(type_key),
-            "created_at": report.get("created_at"),
-            "snapshot_hash": snapshot_hash(report),
-            "fields": fields,
-        })
+        out.append(export_row(report, fields=fields))
     return out
+
+
+EXPORT_ROW_KEYS = ("report_id", "document_id", "filename", "document_type", "document_type_label", "created_at", "snapshot_hash",
+                   "classification", "fields", "raw_candidates", "execution", "graph_integrity", "replay", "redhat", "projection")
+
+
+def export_row(report: dict[str, Any], *, fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The one export shape (plan V4 Parts 1.5 / 3, 2026-09-28): both layers —
+    the schema fields and the raw candidates — beside ``classification``,
+    ``execution``, ``graph_integrity``, ``replay``, the Red-Hat counts and the
+    projection log, keyed by a ``document_id`` that is never empty
+    (``export_document_id``). The project export, the per-report JSON export
+    and the CSV writers all start from this row so no artifact can drop a
+    layer the others carry; ``fields`` lets a state filter narrow the field
+    list without touching the rest."""
+    type_key = document_type_key(report)
+    return {
+        "report_id": report.get("report_id"),
+        "document_id": export_document_id(report),
+        "filename": report.get("filename"),
+        "document_type": type_key,
+        "document_type_label": doc_type_label(type_key),
+        "created_at": report.get("created_at"),
+        "snapshot_hash": snapshot_hash(report),
+        "classification": repo.public_report(report.get("classification")) if isinstance(report.get("classification"), dict) else report.get("classification"),
+        "fields": fields if fields is not None else [repo.public_report(f) if isinstance(f, dict) else f for f in (report.get("fields") or [])],
+        "raw_candidates": [c for c in (report.get("raw_candidates") or []) if isinstance(c, dict)],
+        "execution": report.get("execution"),
+        "graph_integrity": report.get("graph_integrity"),
+        "replay": report.get("replay"),
+        "redhat": repo.redhat_counts(report),
+        "projection": report.get("projection"),
+    }
 
 
 def snapshot_hash(report: dict[str, Any]) -> str:
@@ -568,6 +593,7 @@ def _summary(report: dict[str, Any]) -> dict[str, Any]:
         "extraction_notes": [str(n) for n in (report.get("extraction_notes") or [])],
         "replay_eligible": bool((report.get("replay") or {}).get("eligible")),
         "conflicts": len(report.get("conflicts") or []),
+        "raw_candidates": len(report.get("raw_candidates") or []),
         "redhat": repo.redhat_counts(report),
         "created_at": report.get("created_at"),
         "updated_at": report.get("updated_at"),
@@ -643,6 +669,16 @@ def _csv(report: dict[str, Any]) -> str:
             f.get("reason") or "", span.get("page") or "", digest,
         ])
     return buf.getvalue()
+
+
+def _mapping_changed(report: dict[str, Any]) -> dict[str, Any] | None:
+    """The remap's projection counts for a rerun entry (``raw_candidates.
+    project_candidates`` log), or None when no projection ran."""
+    projection = report.get("projection") if isinstance(report.get("projection"), dict) else None
+    if not projection or projection.get("status") != "completed":
+        return None
+    return {"document_type": projection.get("document_type"), "candidates": projection.get("candidates"),
+            **{k: int((projection.get("counts") or {}).get(k, 0)) for k in ("mapped", "conflicting", "review_needed", "unmapped")}}
 
 
 def _rerun_refused(report: dict[str, Any], rule: str):
@@ -779,6 +815,8 @@ def register_parsure_routes(app) -> None:
                         "document_type": d["document_type"], "created_at": d["created_at"],
                         "snapshot": {"algorithm": snap.ALGORITHM, "content_hash": d["snapshot_hash"]},
                         "fields": {str(f.get("name")): f for f in d["fields"]},
+                        # Both layers and the ledgers travel with every row (plan V4 Part 1.5).
+                        **{k: d.get(k) for k in ("classification", "raw_candidates", "execution", "graph_integrity", "replay", "redhat", "projection")},
                     }
                     for d in documents
                 ],
@@ -990,6 +1028,7 @@ def register_parsure_routes(app) -> None:
                 return _rerun_refused(report, rule)
         snapshot_before = snap.content_hash(report)
         before_found = orch.fields_found_count(report.get("fields") or [])
+        before_facts = orch.field_facts(report.get("fields") or [])
         classification["override"] = {
             "document_type": new_type, "previous": previous, "reason": reason, "actor": actor, "at": orch._now(),
             "detected": {k: classification.get(k) for k in ("confidence", "basis", "matched_keywords")},
@@ -998,10 +1037,14 @@ def register_parsure_routes(app) -> None:
         rerun = None
         if reextracted:
             orch.reextract_for_type(report, new_type)
+            after_facts = orch.field_facts(report.get("fields") or [])
             rerun = orch.record_rerun(
                 report, trigger="classification_override", before_found=before_found,
                 after_found=orch.fields_found_count(report.get("fields") or []),
                 snapshot_before=snapshot_before, snapshot_after=snap.content_hash(report),
+                fields_changed=[n for n in sorted(set(before_facts) | set(after_facts)) if before_facts.get(n) != after_facts.get(n)],
+                mapping_changed=_mapping_changed(report), grounded=False,
+                grounded_reason="override re-reads on the web tier: label pass, candidate projection and policy only — no model call",
             )
         repo.update_report(project_id, report_id, report)
         repo.log_event(project_id, "classification_overridden", report_id=report_id, actor=actor,
@@ -1050,9 +1093,16 @@ def register_parsure_routes(app) -> None:
         proof = orch.replay_proof(before, after, snapshot_before=snapshot_before, snapshot_after=snapshot_after)
         proof["at"] = orch._now()
         proof["document_type"] = (report.get("classification") or {}).get("document_type")
+        # A manual replay never reaches a model (the web tier must not); the
+        # proof and the ledger entry say so (plan V4 Part 3, 2026-09-28).
+        grounded_reason = "manual replay runs the label pass, the candidate projection and the policy only — no model call on the web tier"
+        proof["grounded"] = False
+        proof["grounded_reason"] = grounded_reason
         rerun = orch.record_rerun(
             report, trigger="replay", before_found=before_found, after_found=after_found,
             snapshot_before=snapshot_before, snapshot_after=snapshot_after,
+            fields_changed=list(proof.get("changed") or []), mapping_changed=_mapping_changed(report),
+            grounded=False, grounded_reason=grounded_reason,
         )
         replay = report.setdefault("replay", {})
         replay["last_proof"] = proof
@@ -1087,5 +1137,7 @@ def register_parsure_routes(app) -> None:
         if fmt == "csv":
             payload, mimetype = _csv(public), "text/csv; charset=utf-8"
         else:
-            payload, mimetype = json.dumps(public, ensure_ascii=False, indent=2, default=str), "application/json"
+            # The public report plus the export row (same helper as the project
+            # export): ``document_id`` never null, both layers present.
+            payload, mimetype = json.dumps({**public, **export_row(report)}, ensure_ascii=False, indent=2, default=str), "application/json"
         return Response(payload, mimetype=mimetype, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

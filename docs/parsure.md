@@ -811,13 +811,18 @@ One entry per step, a status word and the counts that prove it, `not_run`
 with a reason when the step did not happen (`v1_orchestrator.build_execution`;
 the critique, the targeted pass and vision write their own entries later in
 `run_after_parse`): `laya` (from the router's triage block), `z3` (from the
-verification summary: PASS / VIOLATION / skipped / ERROR / not_run),
-`redhat_draft`, `redhat_graph` (rh-graph-v1 counts, whether the model check
-ran), `llm_grounding` (`ran` / `skipped` / `disabled` / `failed` /
+verification summary: PASS / VIOLATION / skipped / ERROR / not_run;
+`async_deferred` when the >50-page branch was taken), `redhat_graph`
+(rh-graph-v1 counts, whether the model check ran), `llm_grounding` (`ran` / `skipped` / `disabled` / `failed` /
 `not_needed`, the model, fields offered / grounded / filled, candidates
 rejected, ms), `redhat_targeted`, `rerun` (passes, attempts, fields changed),
-`tables`, `vision`, `ran_at`. Nothing here comes from a default: the model
-pass reports its own counts, the critique its own findings.
+`tables`, `vision`, `raw_candidates` (the schema-agnostic pool's counts by
+source), `projection` (mapped / conflicting / review_needed / unmapped),
+`page_quality` (pages the grounding floor lifted), `ran_at`. Nothing here
+comes from a default: the model pass reports its own counts, the critique its
+own findings. `redhat_draft` was removed 2026-09-28: it mirrored
+`verification.redhat_status` (the Assure draft critique), which stays on the
+report.
 
 ### Grounding on every located value
 
@@ -879,6 +884,71 @@ deterministic, export carries the hash, record page renders; `--tamper`
 proves the 409). Exit code 0 only when everything passes. Run against an
 image that predates this section it fails 11 of 21 checks — which is the
 point.
+
+## Raw-first facts layer (2026-09-28)
+
+Customer plan V4 (`todos/fable_execution_prompt_v4.md`): the pipeline must
+never depend on the document type to produce raw facts. Facts first, schema
+second, projection third, remap without loss.
+
+### `report.raw_candidates` — `services/raw_candidates.py`
+
+Built for every segment before any type decision, from every readable source
+the bundle already carries — `layout_text` (the discovery pair regexes over
+each layout element's own text), `discovery` (`field_discovery.
+discover_heuristic` over the page text), `table_cell` (the collected tables'
+cells), `textract` (`bundle.forms`, Textract KEY_VALUE_SET pairs), and
+`image_vision` (`report.vision` facts, appended after the vision pass and
+**corroborated** against the page text: verbatim → outranks everything, else
+`corroborated: false` and last). No model call of its own. Each candidate is
+provenance only (`name_hint`, `raw_text`, `label_anchor`, `page`, `node_id`,
+`element_id`, `source_span`, `source_kind`, `source_priority`, `corroborated`,
+`preferred`, `trace`, `candidate_id`); no confidence, no state. Duplicates
+(folded label + page + folded value) collapse to the candidate that sorts
+first under the one key `(source_priority desc, corroborated desc, page,
+start_char, source_kind, raw_text)`; overlapping different texts both stay,
+the first `preferred`; 60 per segment. The pool is append-only
+(`merge_pool`): a rerun adds, never rewrites. Measured on the customer's
+site-report photo (jdf-cli + tesseract, `tests/golden/proof_suite_v1`):
+tesseract wrote `REPORT ID + RPT-260708-E7BE23` for the middle dot, the label
+pass read `+ RPT-…` as debris, the pool holds `REPORT ID → RPT-260708-E7BE23`.
+
+### Projection — `raw_candidates.project_candidates`
+
+After the label and table passes and before the model: each `FieldSpec`
+anchor is matched against candidate labels; the first candidate (in key
+order) whose text has the field's value shape fills an empty or suspect field
+(`extraction_method: raw_candidate`, `candidate_source`), agrees with a found
+one (`mapped`), or disagrees (`conflicting`: both kept, the pair in
+`report.conflicts` as `candidate_conflict`; Textract / table / corroborated
+vision outrank the text regex). Table cells map only when every matching cell
+agrees. `report.projection` / `execution.projection` log the outcome per field
+and per candidate with the words `mapped` / `unmapped` / `conflicting` /
+`review_needed` (a label for `unverified` + `manual_review` below the
+thresholds — never a state). `reextract_for_type` projects the stored pool
+first and rebuilds the deterministic sources only to append; the rerun entry
+carries `fields_changed`, `mapping_changed`, `grounded: false` + reason.
+
+### Page-quality floor — `quality_probe.grounding_floor`
+
+`pages[i].grounding_success` = valid located reads / (valid + suspects) on the
+page (fields, discovery pairs, corroborated vision reads; debris counts
+against). With an OCR word-confidence mean on the page the score is at least
+`share × ocr` (`quality_score_probe` keeps the probe's figure; `basis` says
+"lifted to …"). The photo: probe 0.11 (blurry 0.20 × low_res 0.69 × ocr 0.80)
+→ 0.60 (6 of 8 reads valid × 0.80); the degraded scan in the same fixture
+directory stays under 0.5. Absences and `low_quality_page` flags on a lifted
+page are re-judged so the field states agree with the page.
+
+### Proof suite V1
+
+`tests/test_proof_suite_v1.py` (offline, injected model, PostgreSQL) over
+`tests/golden/proof_suite_v1/` — the customer's photo with its recorded OCR
+bundle, a paraphrased synthetic report of the same class, a degraded scan —
+plus `tests/test_prompt_gates.py` (source gates) and `tests/test_raw_candidates.py`;
+`scripts/run_proof_suite.sh` is the one-command transcript and writes
+`proof_diff.json` (CI job `proof-suite` uploads it). Fixtures are rebuilt by
+`scripts/make_proof_fixtures.py --photo <jpeg>` (needs jdf-cli + tesseract).
 
 Companion documents: `docs/parsure-schemas.md` (tables, schema registry,
 export filenames), `docs/parsure-vision.md`, `docs/parsure-ui.md`.

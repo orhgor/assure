@@ -1,0 +1,130 @@
+{
+  "format": "parsure-schema-v1",
+  "document_type": "site_report",
+  "family": "field_report",
+  "label": "Site report",
+  "description": "Field / site / incident report: a generated, dated, referenced page with a summary or progress note, a next-step line, a capture time and GPS for the photo, and contractor / client signature blocks. Anchored on the customer's site-report photo (demo/review/review.jpeg, OCR'd with jdf-cli 0.2.3 + tesseract on 2026-09-28: 'PROJECT REPORT GENERATED - 8 JULY 2026', 'REPORT ID + RPT-260708-E7BE23', 'SUMMARY / PROGRESS — Vehicle sustained ...', 'NEXT Request an inspection ...', 'CAPTURED - 8 JUL 2026 - 0:44 GMT+10 - GPS - -27.55344, 152.88712 - EXIF VERIFIED', 'CONTRACTOR CLIENT / Signature & Date'). Without this schema the page stayed uncertain and every claim about it was a manufactured 'field not found'.",
+  "keywords": [
+    "project report",
+    "site report",
+    "site update",
+    "progress report",
+    "inspection report",
+    "incident report",
+    "field report",
+    "site visit",
+    "captured",
+    "gps",
+    "exif",
+    "report id",
+    "generated",
+    "scan to verify",
+    "signature & date",
+    "contractor",
+    "observations",
+    "next steps"
+  ],
+  "fields": [
+    {
+      "name": "report_id",
+      "label": "Report ID",
+      "field_type": "text",
+      "anchors": [
+        "report\\s*(?:id|no\\.?|number|#|ref(?:erence)?(?:\\s*(?:no\\.?|number|#))?)",
+        "ref(?:erence)?\\.?(?:\\s*(?:id|no\\.?|number|#))?"
+      ]
+    },
+    {
+      "name": "report_date",
+      "label": "Report date",
+      "field_type": "date",
+      "anchors": [
+        "generated(?:\\s+(?:on|at))?",
+        "report\\s+date",
+        "date\\s+of\\s+(?:report|inspection|visit)",
+        "logged(?:\\s+(?:on|at))?",
+        "dated"
+      ]
+    },
+    {
+      "name": "summary",
+      "label": "Summary",
+      "field_type": "text",
+      "anchors": [
+        "summary",
+        "progress(?:\\s+(?:note|update|summary))?",
+        "status(?:\\s+(?:note|update|summary))?",
+        "observations?",
+        "findings?"
+      ]
+    },
+    {
+      "name": "next_action",
+      "label": "Next action",
+      "field_type": "text",
+      "anchors": [
+        "next(?:\\s+(?:steps?|actions?))?",
+        "recommend(?:ed|ation)s?",
+        "action\\s+required"
+      ]
+    },
+    {
+      "name": "capture_date",
+      "label": "Capture date",
+      "field_type": "date",
+      "anchors": [
+        "captured(?:\\s+(?:on|at))?",
+        "capture\\s+(?:date|time)",
+        "photo\\s+(?:date|taken)",
+        "taken(?:\\s+on)?"
+      ]
+    },
+    {
+      "name": "gps",
+      "label": "GPS",
+      "field_type": "coordinates",
+      "anchors": [
+        "gps(?:\\s+(?:coordinates?|location|position))?",
+        "coordinates?",
+        "lat(?:itude)?\\s*/\\s*long?(?:itude)?"
+      ]
+    },
+    {
+      "name": "site",
+      "label": "Site",
+      "field_type": "text",
+      "anchors": [
+        "site\\s+(?:name|address|location)",
+        "project\\s+(?:name|site|address)",
+        "location"
+      ]
+    },
+    {
+      "name": "contractor",
+      "label": "Contractor",
+      "field_type": "name",
+      "anchors": [
+        "contractor(?:\\s+name)?",
+        "(?:prepared|inspected|reported)\\s+by",
+        "inspector(?:\\s+name)?"
+      ]
+    },
+    {
+      "name": "client",
+      "label": "Client",
+      "field_type": "name",
+      "anchors": [
+        "client(?:\\s+name)?",
+        "customer(?:\\s+name)?",
+        "(?:site\\s+)?owner(?:\\s+name)?"
+      ]
+    },
+    {
+      "name": "signature",
+      "use": "auto_policy.signature"
+    }
+  ],
+  "notes": [
+    "2026-09-28: keywords are the report's own furniture (project/site/progress/inspection/incident report, captured, gps, exif, report id, scan to verify, signature & date); generic words (summary, next, client alone) were kept out of the family cues so a policy's 'summary of coverage' does not pull it here. The middle-dot separators of designed reports ('REPORT ID · RPT-…') reach these anchors through the raw-candidate projection (services/raw_candidates): tesseract read the dot as '+' and '-' on the customer's photo, and the label pass alone read '+ RPT-…' as debris."
+  ]
+}

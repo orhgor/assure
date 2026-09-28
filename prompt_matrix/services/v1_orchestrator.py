@@ -82,11 +82,13 @@ try:
     from ..services import field_discovery as _discovery
     from ..services import field_extractor as fx
     from ..services import llm_extraction as lx
+    from ..services import raw_candidates as _raw
     from ..services import table_extraction as _tables
 except ImportError:
     from services import field_discovery as _discovery  # type: ignore
     from services import field_extractor as fx  # type: ignore
     from services import llm_extraction as lx  # type: ignore
+    from services import raw_candidates as _raw  # type: ignore
     from services import table_extraction as _tables  # type: ignore
 
 log = logging.getLogger(__name__)
@@ -129,7 +131,8 @@ FAMILY_FALLBACK_MIN_TYPE_SPECIFIC = 2
 #: The family's confidence ceiling when the family fallback names a type: the
 #: found ratio, and never above the keyword cap.
 FAMILY_FALLBACK_CAP = fx.CLASSIFICATION_CAP
-FAMILY_WORDS = {"auto": "Auto", "property": "Property", "real_estate_transaction": "Real estate transaction", "medical": "Medical"}
+FAMILY_WORDS = {"auto": "Auto", "property": "Property", "real_estate_transaction": "Real estate transaction", "medical": "Medical",
+                "field_report": "Field report"}
 #: A model's type suggestion cannot earn more than this (spec §4: no fabricated
 #: confidence; the number is the found ratio, and the cap says a model guess is
 #: worth less than a keyword match, which is itself capped at 0.9).
@@ -541,13 +544,23 @@ def rerun_stop_rule(replay: dict | None) -> str | None:
 
 
 def record_rerun(report: dict[str, Any], *, trigger: str, before_found: int, after_found: int,
-                 snapshot_before: str | None, snapshot_after: str | None) -> dict[str, Any]:
+                 snapshot_before: str | None, snapshot_after: str | None, fields_changed: list[str] | None = None,
+                 mapping_changed: dict[str, Any] | None = None, grounded: bool | None = None, grounded_reason: str | None = None) -> dict[str, Any]:
     """Append one entry to ``replay.history`` and count the attempt.
 
     ``snapshot_after`` is the hash of the report as the rerun left it, before
     this entry was appended — an entry cannot contain the hash of a report
     that contains the entry. The row's own ``snapshot`` (stamped on save) is
-    the hash *with* the entry. Returns the entry."""
+    the hash *with* the entry. Returns the entry.
+
+    Additive keys (plan V4 Parts 1.4 / 3, 2026-09-28; the entry's existing
+    keys keep their meaning): ``fields_changed`` — the names whose
+    ``(value, element_id, field_state)`` differ after the rerun;
+    ``mapping_changed`` — the raw-candidate projection's counts for the
+    remap (``raw_candidates.project_candidates``); ``grounded`` /
+    ``grounded_reason`` — whether this rerun reached a model (a manual replay
+    on the web tier declares ``False`` and why). Each is written only when the
+    caller supplies it."""
     if trigger not in RERUN_TRIGGERS:
         raise ValueError(f"unknown rerun trigger: {trigger}")
     replay = report.setdefault("replay", {})
@@ -565,6 +578,13 @@ def record_rerun(report: dict[str, Any], *, trigger: str, before_found: int, aft
         "snapshot_before": snapshot_before,
         "snapshot_after": snapshot_after,
     }
+    if fields_changed is not None:
+        entry["fields_changed"] = sorted(str(n) for n in fields_changed)
+    if mapping_changed is not None:
+        entry["mapping_changed"] = mapping_changed
+    if grounded is not None:
+        entry["grounded"] = bool(grounded)
+        entry["grounded_reason"] = grounded_reason
     history.append(entry)
     replay["history"] = history
     replay["attempts"] = sum(1 for h in history if h.get("trigger") in RERUN_TRIGGERS)
@@ -844,7 +864,7 @@ def llm_fill_missing(
     # path (``llm_extraction.default_completion`` on the configured backend).
     # A reviewer read ``completion=None`` in the production callers as "no
     # model" (2026-09-27); None means the app path, and the ledger now says so.
-    stats: dict[str, Any] = {"status": "not_needed", "model": None, "model_path": "injected" if completion is not None else "app",
+    stats: dict[str, Any] = {"status": "not_needed", "model": None, "model_path": "app" if lx.is_app_completion(completion) else "injected",
                              "fields_offered": len(missing), "fields_grounded": 0, "fields_filled": [], "candidates_rejected": 0, "ms": 0.0, "reason": None}
     if execution is not None:
         execution["llm_grounding"] = stats
@@ -873,8 +893,8 @@ def llm_fill_missing(
     stats["fields_grounded"] = len(by_name)
     stats["fields_filled"] = sorted(by_name)
     stats["model"] = next((f.get("grounding_model") for f in by_name.values() if f.get("grounding_model")), None) or (
-        "injected" if completion is not None else (lx.current_model_id() if lx.llm_extraction_enabled() else None))
-    stats["model_path"] = "injected" if completion is not None else f"app:{stats['model']}"
+        (lx.current_model_id() if lx.llm_extraction_enabled() else None) if lx.is_app_completion(completion) else "injected")
+    stats["model_path"] = lx.model_path_for(completion, stats["model"])
     if skipped:
         stats["status"] = "disabled" if "PARSURE_LLM_EXTRACTION is off" in skipped else "skipped"
         stats["reason"] = skipped.split(":", 1)[1].strip() if ":" in skipped else skipped
@@ -1280,13 +1300,20 @@ def extract_segment_fields(
     llm: bool = True,
     schema_mismatch: bool = False,
     execution: dict | None = None,
+    candidates: list[dict] | None = None,
 ) -> tuple[list[dict], list[dict]]:
-    """Label pass → grounded LLM fill (``llm=True``) → plausibility/Z3 → 3-rule
-    policy, for one document (segment). ``llm=False`` leaves a note instead.
-    ``schema_mismatch=True`` (the type's family disagrees with the page and
-    its fields are not there) skips the model — no grounded value can make a
-    wrong schema right — and marks every field ``schema_mismatch`` after the
-    policy ran."""
+    """Label pass → table pass → raw-candidate projection → grounded LLM fill
+    (``llm=True``) → plausibility/Z3 → 3-rule policy, for one document
+    (segment). ``llm=False`` leaves a note instead. ``schema_mismatch=True``
+    (the type's family disagrees with the page and its fields are not there)
+    skips the model — no grounded value can make a wrong schema right — and
+    marks every field ``schema_mismatch`` after the policy ran.
+
+    ``candidates`` (plan V4 Part 1.3, 2026-09-28) is the segment's slice of the
+    raw pool; ``raw_candidates.project_candidates`` maps them onto the schema
+    before the model is asked, so a fact the page states under a label the
+    regex separator did not read ("REPORT ID · RPT-…") becomes a field
+    without a model call, and the model is offered fewer fields."""
     fields = fx.extract_fields(
         document_type, texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
         ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
@@ -1304,6 +1331,28 @@ def extract_segment_fields(
     _discovery.run_discovery(document_type, texts, layout, completion=completion, project_id=project_id, notes=notes, llm=llm, execution=execution,
                              parser_name=parser_name, parse_confidence=parse_confidence, ocr_confidence=ocr_confidence,
                              page_quality=page_quality, visual_pages=visual_pages)
+    projection: dict[str, Any] | None = None
+    if candidates and not schema_mismatch and document_type in fx.FIELD_TAXONOMY:
+        try:
+            fields, projection = _raw.project_candidates(
+                document_type, candidates, fields, texts=texts, layout=layout, parser_name=parser_name, parse_confidence=parse_confidence,
+                ocr_confidence=ocr_confidence, page_quality=page_quality, visual_pages=visual_pages,
+            )
+            mapped = [n for n, e in projection["fields"].items() if e.get("outcome") == "mapped" and e.get("replaced")]
+            if mapped:
+                notes.append(f"raw candidates projected onto {document_type}: {len(mapped)} field(s) filled from the pool ({', '.join(mapped[:6])})")
+            if projection["conflicts"]:
+                notes.append(f"raw candidates disagree with the label pass on {len(projection['conflicts'])} field(s): "
+                             f"{', '.join(c['field'] for c in projection['conflicts'][:6])} — both kept, see conflicts")
+        except Exception as exc:  # noqa: BLE001 — the projection is additive; a failure must not empty the fields
+            log.exception("raw candidate projection failed for %s", document_type)
+            projection = {"status": "failed", "document_type": document_type, "reason": f"{type(exc).__name__}: {exc}"[:200],
+                          "candidates": len(candidates), "counts": {}, "fields": {}, "candidates_log": {}, "conflicts": []}
+    elif execution is not None and "projection" not in execution:
+        reason = ("schema mismatch — nothing to project onto" if schema_mismatch else
+                  "no schema for this type" if document_type not in fx.FIELD_TAXONOMY else "empty candidate pool for this segment")
+        projection = {"status": "not_run", "document_type": document_type, "reason": reason, "candidates": len(candidates or []),
+                      "counts": {}, "fields": {}, "candidates_log": {}, "conflicts": []}
     if schema_mismatch:
         if fields:
             notes.append(f"llm extraction skipped: schema mismatch — {document_type} fields are not applicable to this page")
@@ -1321,6 +1370,10 @@ def extract_segment_fields(
     fields, rules = decide_fields(fields, verification=verification, document_type=document_type)
     if schema_mismatch:
         fx.mark_schema_mismatch(fields)
+    if projection is not None:
+        _raw.finalize_projection(projection, fields)
+        if execution is not None:
+            execution["projection"] = _raw.merge_projection_logs(execution.get("projection") if execution.get("projection", {}).get("status") == "completed" else None, projection)
     return fields, rules
 
 
@@ -1574,6 +1627,11 @@ def _build_report_timed(
     fields: list[dict] = []
     rules: list[dict] = []
     execution: dict[str, Any] = {}
+    # Raw facts before any type decision (plan V4 Part 1, 2026-09-28): the
+    # pool is built once from every readable source the bundle carries and each
+    # segment projects its slice onto whatever schema it settles on.
+    raw_pool, raw_stats = _raw.build_pool(texts, layout, tables=_tables.current_tables(), forms=bundle.get("forms"), documents=documents)
+    execution["raw_candidates"] = raw_stats
     for seg in documents:
         seg_texts = segment_texts(texts, seg["pages"]) if mixed else texts
         # Classification by evidence before any extraction (module docstring):
@@ -1594,6 +1652,7 @@ def _build_report_timed(
                 ocr_confidence=bundle.get("ocr_confidence"), page_quality=page_quality, visual_pages=visual_pages,
                 verification=verification, notes=notes, completion=completion, project_id=project_id,
                 schema_mismatch=bool(seg.get("schema_mismatch")), execution=execution,
+                candidates=_raw.candidates_for_pages(raw_pool, seg["pages"]),
             )
         for f in seg_fields:
             f["segment"] = seg["index"]
@@ -1605,6 +1664,9 @@ def _build_report_timed(
         seg.pop("page_types", None)
         fields.extend(seg_fields)
         rules.extend(seg_rules)
+    scope = _tables.current_scope()
+    execution["page_quality"] = recalibrate_page_quality(pages, page_quality, fields, texts=texts, layout=layout,
+                                                        discovered=scope.discovered if scope is not None else None, candidates=raw_pool)
     if mixed:
         classification = bundle_classification(documents)
         classification["family"] = fx.document_family("\n".join(texts))
@@ -1681,6 +1743,10 @@ def _build_report_timed(
             "z3_status": (verification or {}).get("z3_status") if isinstance(verification, dict) else None,
             "redhat_status": (verification or {}).get("redhat_status") if isinstance(verification, dict) else None,
             "z3_violation_count": len(z3.get("violations") or []) if isinstance(z3, dict) else None,
+            # ``run_verification_after_parse`` runs a >50-page document synchronously
+            # while the async hand-off is deferred (docs/deferred.md); the report says
+            # whether that branch was taken (plan V4 Part 3, 2026-09-28).
+            "async_deferred": bool((verification or {}).get("async_deferred")) if isinstance(verification, dict) else False,
         },
         "review_summary": review_summary(fields, document_type=classification.get("document_type"),
                                          schema_mismatch=bool(classification.get("schema_mismatch"))),
@@ -1698,6 +1764,8 @@ def _build_report_timed(
         "page_coverage": page_coverage(documents, fields, texts, page_quality),
         "laya": (intake or {}).get("laya"),
         "replay": replay_state(fields, pname, pver, document_type=classification.get("document_type")),
+        "raw_candidates": raw_pool,
+        "projection": execution.get("projection"),
         "created_at": _now(),
         "_page_texts": texts,
         "_page_quality": page_quality,
@@ -1730,7 +1798,67 @@ def _build_report_timed(
     return report
 
 
-EXECUTION_STEPS = ("laya", "z3", "redhat_draft", "redhat_graph", "llm_grounding", "rerun", "tables", "vision")
+def recalibrate_page_quality(pages: list[dict], page_quality: list[float | None], fields: list[dict], *, texts: list[str], layout: list | None,
+                             discovered: list[dict] | None = None, candidates: list[dict] | None = None) -> dict[str, Any]:
+    """Plan V4 Part 4 (2026-09-28): the extraction's own readability evidence
+    joins the page score. ``raw_candidates.grounding_success_by_page`` counts,
+    per page, the located reads that had a usable value shape against the
+    suspects; ``quality_probe.grounding_floor`` turns that share and the page's
+    OCR word-confidence mean into a floor the probe score cannot fall under.
+    Measured on the customer's site-report photo: probe 0.07 (low_res ×
+    low_contrast × ocr 0.80) while six of the page's labels were read verbatim
+    — lifted to 0.80; a debris scan whose reads are suspects keeps its score.
+    Pages the floor lifted are re-judged: ``low_quality_page`` flags, the
+    readability of absences and the decision policy, so a field's state and
+    the page score never disagree. Records ``quality_score_probe`` beside the
+    lifted score. Returns the ``execution.page_quality`` block."""
+    qp = _quality_probe()
+    success = _raw.grounding_success_by_page(fields, discovered=discovered, candidates=candidates, page_count=len(pages))
+    lifted: list[int] = []
+    for i, page in enumerate(pages):
+        g = success[i] if i < len(success) else None
+        page["grounding_success"] = g
+        if g is None or qp is None or not hasattr(qp, "grounding_floor"):
+            continue
+        floor, basis = qp.grounding_floor(grounding_success=g, ocr_confidence=page.get("ocr_confidence"))
+        if floor is None:
+            continue
+        old = page.get("quality_score")
+        if old is None or floor > float(old):
+            page["quality_score_probe"] = old
+            page["quality_score"] = floor
+            page["basis"] = f"{page.get('basis')}; lifted to {basis}"
+            if i < len(page_quality):
+                page_quality[i] = floor
+            lifted.append(i + 1)
+        else:
+            page["basis"] = f"{page.get('basis')}; {basis} (below the probe score)"
+    if lifted:
+        layout_list = layout if isinstance(layout, list) else []
+        for f in fields:
+            if not isinstance(f, dict) or f.get("field_type") == "signature" or f.get("evidence_state") == "schema_mismatch":
+                continue
+            if f.get("value") is None and f.get("evidence_state") in ("not_on_document", "unreadable"):
+                if f.get("reason") in fx.EVIDENCE_REASONS.values():
+                    f["reason"] = None
+                fx.attach_absent_evidence(f, texts, layout_list, page_quality)
+                fx.apply_decision_policy(f)
+            elif f.get("value") is not None and f.get("low_quality_page"):
+                f["low_quality_page"] = False
+                if str(f.get("reason") or "").startswith("page quality"):
+                    f["reason"] = None
+                fx.mark_low_quality_page(f, page_quality)
+                fx.apply_decision_policy(f)
+    return {"status": "completed", "pages_lifted": lifted, "grounding_success": success,
+            "reason": None if any(s is not None for s in success) else "no located read on any page — probe scores stand",
+            "rule": "floor = grounded-read share × OCR word-confidence mean; both required; never lowers a score"}
+
+
+#: ``redhat_draft`` left this tuple 2026-09-28 (plan V4 Part 3): it mirrored
+#: ``verification.redhat_status`` — the draft critique of the Assure side, not a
+#: step of this pipeline — and read as a step that "did not run". The fact stays
+#: on ``report["verification"]["redhat_status"]``.
+EXECUTION_STEPS = ("laya", "z3", "redhat_graph", "llm_grounding", "rerun", "tables", "vision", "raw_candidates", "projection", "page_quality")
 
 
 def rerun_summary(report: dict[str, Any]) -> dict[str, Any]:
@@ -1759,15 +1887,13 @@ def build_execution(report: dict[str, Any], collected: dict[str, Any], *, intake
     ver = report.get("verification") if isinstance(report.get("verification"), dict) else {}
     z3_status = ver.get("z3_status")
     z3_block = {"status": str(z3_status) if z3_status else "not_run", "violations": ver.get("z3_violation_count"),
-                "reason": None if z3_status else "no verification summary was passed to the report"}
-    rd = ver.get("redhat_status")
-    redhat_draft = {"status": str(rd) if rd else "not_run", "reason": None if rd else "no draft critique on this path"}
+                "reason": None if z3_status else "no verification summary was passed to the report",
+                "async_deferred": bool(ver.get("async_deferred"))}
     llm = collected.get("llm_grounding") or {"status": "not_run", "model": None, "fields_offered": 0, "fields_grounded": 0, "fields_filled": [],
                                              "candidates_rejected": 0, "ms": 0.0, "reason": "no extraction segment offered fields"}
     out = {
         "laya": laya_block,
         "z3": z3_block,
-        "redhat_draft": redhat_draft,
         "redhat_graph": {"status": "not_run", "reason": "critique runs after the report is built (run_after_parse)"},
         "llm_grounding": llm,
         "rerun": rerun_summary(report),
@@ -1860,6 +1986,15 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
     notes: list[str] = []
     basis = "reviewer override"
     classification = report.setdefault("classification", {})
+    # Remap before re-read (plan V4 Part 1.4): the stored pool is projected
+    # onto the new schema first; the deterministic sources are rebuilt from the
+    # stored texts and only *appended* (a report saved before the pool existed
+    # gets one; nothing stored is rewritten or dropped).
+    fresh_pool, raw_stats = _raw.build_pool(texts, layout if isinstance(layout, list) else None, tables=report.get("tables") or [],
+                                             forms=None, vision=report.get("vision"), documents=None)
+    raw_pool, added = _raw.merge_pool(report.get("raw_candidates"), fresh_pool)
+    report["raw_candidates"] = raw_pool
+    raw_stats.update(candidates=len(raw_pool), added=added, remap=True)
     if by_evidence:
         evidence = reclassify_by_evidence(document_type, None, texts)
         if evidence is not None:
@@ -1880,6 +2015,7 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
                       if isinstance(f, dict) and f.get("extraction_method") == "llm_grounded" and f.get("grounding_quote") and f.get("value") is not None}
     # Same tables as the first run (``report["tables"]``), so a re-read for
     # another type can fill its table-borne fields too (2026-09-27).
+    execution_remap: dict[str, Any] = {}
     with _tables.extraction_scope(report.get("tables") or []) as scope:
         fields, rules = extract_segment_fields(
             document_type, texts, layout=layout if isinstance(layout, list) else None,
@@ -1887,9 +2023,18 @@ def reextract_for_type(report: dict[str, Any], document_type: str, *, verificati
             ocr_confidence=None, page_quality=list(report.get("_page_quality") or []),
             visual_pages=[p.get("visual") for p in report.get("pages") or []],
             verification=verification, notes=notes, completion=completion, project_id=report.get("project_id"), llm=llm,
-            schema_mismatch=mismatch,
+            schema_mismatch=mismatch, execution=execution_remap, candidates=raw_pool,
         )
     _tables.annotate_report(report, scope, replace=True)
+    exe = report.setdefault("execution", {})
+    exe["raw_candidates"] = raw_stats
+    exe["projection"] = execution_remap.get("projection") or {"status": "not_run", "document_type": document_type, "reason": "no projection ran"}
+    report["projection"] = exe["projection"]
+    if isinstance(report.get("pages"), list) and report.get("_page_quality") is not None:
+        pq = list(report.get("_page_quality") or [])
+        exe["page_quality"] = recalibrate_page_quality(report["pages"], pq, fields, texts=texts, layout=layout if isinstance(layout, list) else None,
+                                                     discovered=list(scope.discovered), candidates=raw_pool)
+        report["_page_quality"] = pq
     if prior_grounded and not mismatch:
         fields = carry_grounded_values(document_type, fields, prior_grounded, texts=texts, layout=layout if isinstance(layout, list) else None,
                                        report=report, verification=verification, notes=notes)
@@ -1985,7 +2130,7 @@ def redhat_targeted_pass(report: dict[str, Any], *, tree: dict | None, completio
     if not hints:
         exe["redhat_targeted"] = {"status": "not_needed", "fields": [], "reason": "no finding names a field worth a second read"}
         return None
-    if not llm and completion is None:
+    if not llm and lx.is_app_completion(completion):
         exe["redhat_targeted"] = {"status": "disabled", "fields": sorted(hints), "reason": "PARSURE_LLM_EXTRACTION is off"}
         return None
     texts = list(report.get("_page_texts") or [])
@@ -2013,8 +2158,12 @@ def redhat_targeted_pass(report: dict[str, Any], *, tree: dict | None, completio
             # The document-level Z3 summary is on the report; give the policy the same facts the first run had.
             status = (report.get("verification") or {}).get("z3_status")
             if f.get("value") is not None and not f.get("verification_source") and status in ("PASS", "VIOLATION"):
+                # Z3 ran over the document before this value existed; the
+                # document-level figure is carried, and the basis says the new
+                # value itself was not re-verified (plan V4 Part 3, 2026-09-28).
                 f["verification_confidence"] = fx.DEFAULT_VERIFICATION_CONFIDENCE
-                f["verification_basis"] = f"document-level Z3 {status}: no violation attached to this field (V1 default {fx.DEFAULT_VERIFICATION_CONFIDENCE})"
+                f["verification_basis"] = (f"not re-verified after grounded change: document-level Z3 {status} predates this value; "
+                                           f"no violation attached to this field (V1 default {fx.DEFAULT_VERIFICATION_CONFIDENCE})")
             fx.mark_low_quality_page(f, list(report.get("_page_quality") or []))
             fx.apply_decision_policy(f)
     report["fields"] = new_fields
@@ -2080,6 +2229,31 @@ def carry_grounded_values(document_type: str, fields: list[dict], prior: dict[st
     return out
 
 
+def attach_vision_candidates(report: dict[str, Any]) -> int:
+    """Vision facts into the raw pool (plan V4 Part 1.1, ``image_vision``
+    source): appended after ``services/vision`` ran, corroborated against the
+    stored page texts, never rewriting what the build already pooled. Returns
+    the number appended; a failure is a ledger note, not a lost report."""
+    exe = report.setdefault("execution", {})
+    stats = exe.get("raw_candidates") if isinstance(exe.get("raw_candidates"), dict) else {}
+    try:
+        texts = list(report.get("_page_texts") or [])
+        layout = report.get("_layout") if isinstance(report.get("_layout"), list) else None
+        new, _counts = _raw.merge_new(list(_raw.vision_candidates(report.get("vision"), texts, layout)), documents=report.get("documents"))
+        pool, added = _raw.merge_pool(report.get("raw_candidates"), new)
+        report["raw_candidates"] = pool
+        stats.update(candidates=len(pool), vision_added=added,
+                     corroborated_vision=sum(1 for c in pool if c.get("source_kind") == "image_vision" and c.get("corroborated")),
+                     uncorroborated_vision=sum(1 for c in pool if c.get("source_kind") == "image_vision" and not c.get("corroborated")))
+        exe["raw_candidates"] = stats
+        return added
+    except Exception as exc:  # noqa: BLE001 — additive layer
+        log.exception("parsure: vision candidates failed for %s", report.get("filename"))
+        stats["vision_error"] = f"{type(exc).__name__}: {exc}"[:200]
+        exe["raw_candidates"] = stats
+        return 0
+
+
 def attach_conflicts(project_id: str, report: dict[str, Any]) -> dict[str, Any]:
     """Cross-document conflicts over the project's saved reports plus this one."""
     try:
@@ -2087,7 +2261,11 @@ def attach_conflicts(project_id: str, report: dict[str, Any]) -> dict[str, Any]:
     except ImportError:
         from db import parsure_repository as repo  # type: ignore
     others = [r for r in repo.list_reports(project_id) if r.get("report_id") != report.get("report_id")]
-    report["conflicts"] = fx.cross_document_conflicts(others + [report])
+    # The projection's own conflicts (a raw candidate disagreeing with the label
+    # pass, plan V4 Part 1.2) stay beside the cross-document ones.
+    projection = report.get("projection") if isinstance(report.get("projection"), dict) else {}
+    own = [c for c in (projection.get("conflicts") or []) if isinstance(c, dict)]
+    report["conflicts"] = own + fx.cross_document_conflicts(others + [report])
     return report
 
 
@@ -2176,6 +2354,7 @@ def run_after_parse(
         except Exception as exc:  # noqa: BLE001 — advisory
             log.exception("parsure: vision pass failed for %s", filename)
             report.setdefault("execution", {})["vision"] = {"status": "failed", "reason": f"{exc.__class__.__name__}: {exc}"[:200]}
+        attach_vision_candidates(report)
         report["execution"]["ran_at"] = _now()
         report_id = repo.save_report(project_id, report)
         rid = report_id

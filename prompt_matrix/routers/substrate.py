@@ -615,9 +615,11 @@ def ingest_substrate_file(
     parsure_report_id = None
     try:
         try:
+            from ..services.llm_extraction import app_completion
             from ..services.parser_router import route_intake
             from ..services.v1_orchestrator import run_after_parse
         except ImportError:
+            from services.llm_extraction import app_completion
             from services.parser_router import route_intake
             from services.v1_orchestrator import run_after_parse
         try:
@@ -636,6 +638,7 @@ def ingest_substrate_file(
             "parser_name": extracted.get("parser_name"),
             "source_kind": extracted.get("source_kind"),
         }
+        # Same explicit app model path as services/pdf_ingest (plan V4 Part 3).
         parsure = run_after_parse(
             project_id,
             bundle=parsure_bundle,
@@ -645,6 +648,7 @@ def ingest_substrate_file(
             result={"document_id": str(entry["id"]), "revision_id": None, "version": None},
             job_id=job_id,
             intake=intake,
+            completion=app_completion(project_id),
         )
         parsure_report_id = (parsure or {}).get("report_id") if isinstance(parsure, dict) else None
     except Exception:

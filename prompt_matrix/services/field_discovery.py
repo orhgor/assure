@@ -35,15 +35,17 @@ import json
 import logging
 import re
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 try:
     from . import field_extractor as fx
     from . import llm_extraction as lx
+    from . import model_calls as _mc
     from . import table_extraction as te
 except ImportError:  # pragma: no cover - flat-import fallback
     import field_extractor as fx  # type: ignore
     import llm_extraction as lx  # type: ignore
+    import model_calls as _mc  # type: ignore
     import table_extraction as te  # type: ignore
 
 log = logging.getLogger(__name__)
@@ -55,8 +57,13 @@ DISCOVERY_TEXT_CHARS = 6000
 DISCOVERY_TIMEOUT_S = 45.0
 DISCOVERY_METHODS = ("taxonomy_scan", "heuristic_label_value", "llm_grounded_discovery")
 
+#: OCR debris before a label — ``"772 Collision Deductible: $500``, ``©." Comprehersive
+#: Deductible: $250`` (tests/golden/proof_suite_v1/ocr_degraded_policy, tesseract at
+#: 100 dpi, 2026-09-28): up to six non-letter characters are skipped so the label
+#: still anchors the pair and the raw pool keeps the fact a poor scan states.
+_DEBRIS_PREFIX = r"(?:[^A-Za-z\n]{0,6})"
 _PAIR_RE = re.compile(
-    r"^[ \t]*(?P<label>[A-Za-z][A-Za-z0-9 .'/&()#\-]{1,48}?)[ \t]*:[ \t]+(?P<value>\S[^\n]{0,159}?)[ \t]*$",
+    r"^[ \t]*" + _DEBRIS_PREFIX + r"(?P<label>[A-Za-z][A-Za-z0-9 .'/&()#\-]{1,48}?)[ \t]*:[ \t]+(?P<value>\S[^\n]{0,159}?)[ \t]*$",
     re.M,
 )
 #: Designed reports write their labels in small caps with a dot or dash
@@ -66,10 +73,12 @@ _PAIR_RE = re.compile(
 #: The label is upper-case words; the value follows a separator run, or starts
 #: with a digit when there is none, and is not itself a shouted heading.
 _CAPS_PAIR_RE = re.compile(
-    r"^[ \t]*(?P<label>[A-Z][A-Z0-9&/#]*(?:[ \t]+[A-Z][A-Z0-9&/#]*){0,4})"
+    r"^[ \t]*" + _DEBRIS_PREFIX + r"(?P<label>[A-Z][A-Z0-9&/#]*(?:[ \t]+[A-Z][A-Z0-9&/#]*){0,4})"
     # The separator run needs a space on a side (or a colon / middle dot):
     # "RPT-260708-E7BE23" is one token, not a "RPT" label with a value.
-    r"(?:(?:[ \t]*:[ \t]*|[ \t]*[·•]+[ \t]*|[ \t]+[:·•.\-–—|]+(?:[ \t]+[:·•.\-–—|]+)*[ \t]+|[ \t]*[:·•.\-–—|]+[ \t]+)(?P<value>[A-Za-z0-9$€£+\-][^\n]{1,159}?)"
+    # ``+`` and ``*`` are what tesseract made of the middle dot on the
+    # customer's photo ("REPORT ID + RPT-260708-E7BE23", jdf-cli 0.2.3, 2026-09-28).
+    r"(?:(?:[ \t]*:[ \t]*|[ \t]*[·•]+[ \t]*|[ \t]+[:·•.\-–—|+*]+(?:[ \t]+[:·•.\-–—|+*]+)*[ \t]+|[ \t]*[:·•.\-–—|+*]+[ \t]+)(?P<value>[A-Za-z0-9$€£+\-][^\n]{1,159}?)"
     r"|[ \t]+(?P<value2>\d[^\n]{1,159}?))[ \t]*$",
     re.M,
 )
@@ -116,35 +125,52 @@ def _pair(name: str, label: str, value: str, span: dict[str, Any], method: str, 
             "taxonomy_field": False, "grounding_source": "text", **extra}
 
 
+_VALUE_STRIP = " .·•-–—|+*"
+
+
+def iter_pairs(text: str) -> Iterator[tuple[str, str, int, int]]:
+    """Every ``(label, value, value_start, value_end)`` the two pair regexes
+    read in ``text``, in position order, with the label/value filters the
+    discovery pass applies (label length, blank or label-like values,
+    shouted headings). Shared by ``discover_heuristic`` and the raw-candidate
+    layer (``services/raw_candidates``, 2026-09-28) so both read the page with
+    one regex discipline. Offsets are the value's, after the separator run is
+    stripped, so ``text[start:end] == value``."""
+    header_words = {w.upper() for w in fx._HEADER_WORDS}
+    matches = [(m, "value") for m in _PAIR_RE.finditer(text or "")]
+    for m in _CAPS_PAIR_RE.finditer(text or ""):
+        group = "value" if m.group("value") is not None else "value2"
+        label = " ".join(m.group("label").split())
+        value = (m.group(group) or "").strip(_VALUE_STRIP)
+        # A heading followed by another heading is layout, not a pair; a
+        # value that is only capitals and letters is a heading too.
+        if _CAPS_NOISE_RE.match(label) or not value or (value.upper() == value and not re.search(r"\d", value)):
+            continue
+        matches.append((m, group))
+    matches.sort(key=lambda mg: mg[0].start())
+    for m, group in matches:
+        label = " ".join(m.group("label").split())
+        raw = m.group(group)
+        value = raw.strip(_VALUE_STRIP)
+        if len(label.split()) > MAX_LABEL_WORDS or _BLANK_VALUE_RE.match(value) or fx._LABEL_LIKE.match(value):
+            continue
+        if value.upper() == value and len(value.split()) <= 3 and value.rstrip(":").upper() in header_words:
+            continue
+        start = m.start(group) + (len(raw) - len(raw.lstrip(_VALUE_STRIP)))
+        yield label, value, start, start + len(value)
+
+
 def discover_heuristic(texts: list[str], layout: list[list[dict]] | None = None, *, limit: int = MAX_DISCOVERED) -> list[dict[str, Any]]:
     """``Label: value`` pairs per page, first occurrence of each label wins."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
-    header_words = {w.upper() for w in fx._HEADER_WORDS}
     for page_index, text in enumerate(texts or []):
-        matches = [(m, "value") for m in _PAIR_RE.finditer(text or "")]
-        for m in _CAPS_PAIR_RE.finditer(text or ""):
-            group = "value" if m.group("value") is not None else "value2"
-            label = " ".join(m.group("label").split())
-            value = (m.group(group) or "").strip(" .·•-–—|")
-            # A heading followed by another heading is layout, not a pair; a
-            # value that is only capitals and letters is a heading too.
-            if _CAPS_NOISE_RE.match(label) or not value or (value.upper() == value and not re.search(r"\d", value)):
-                continue
-            matches.append((m, group))
-        matches.sort(key=lambda mg: mg[0].start())
-        for m, group in matches:
-            label = " ".join(m.group("label").split())
-            value = m.group(group).strip(" .·•-–—|")
-            if len(label.split()) > MAX_LABEL_WORDS or _BLANK_VALUE_RE.match(value) or fx._LABEL_LIKE.match(value):
-                continue
-            if value.upper() == value and len(value.split()) <= 3 and value.rstrip(":").upper() in header_words:
-                continue
+        for label, value, start, end in iter_pairs(text or ""):
             name = slug_name(label)
             if name in seen:
                 continue
             seen.add(name)
-            out.append(_pair(name, label, value, _locate(layout, page_index, m.start(group), m.end(group)), "heuristic_label_value"))
+            out.append(_pair(name, label, value, _locate(layout, page_index, start, end), "heuristic_label_value"))
             if len(out) >= limit:
                 return out
     return out
@@ -198,6 +224,10 @@ def taxonomy_candidates(
                 continue
             span = dict(field.get("source_span") or {})
             span.setdefault("page", (field.get("evidence") or {}).get("page"))
+            # The field keeps its node beside the span (``field_source_node_id``); a
+            # discovered row carries it inside ``span`` like the heuristic rows do.
+            span.setdefault("node_id", field.get("field_source_node_id"))
+            span.setdefault("element_id", field.get("element_id"))
             row = _pair(key, spec.label, str(field.get("raw") if field.get("raw") is not None else field.get("value")), span, "taxonomy_scan",
                         typed_value=field.get("value"), field_type=spec.field_type, schema_candidates=[document_type],
                         extraction_confidence=field.get("extraction_confidence"), grounding_quote=field.get("grounding_quote"))
@@ -267,9 +297,12 @@ def discover_with_model(
         return [], stats
     started = time.monotonic()
     try:
-        model_id = lx.current_model_id() if completion is None else "injected"
-        call = completion if completion is not None else (lambda p: lx.default_completion(p, project_id=project_id, stage="discovery"))
-        answer = lx._call_with_timeout(lambda: call(discovery_prompt(pages)), timeout_s)
+        model_id = lx.model_id_for(completion)
+        call = completion if completion is not None else (lambda p: lx.default_completion(p, project_id=project_id))
+        # Named for the model-call ledger whichever callable answers (the app's
+        # own ``AppCompletion`` reads the ambient stage).
+        with _mc.stage_context("discovery", project_id=project_id):
+            answer = lx._call_with_timeout(lambda: call(discovery_prompt(pages)), timeout_s)
     except Exception as exc:  # noqa: BLE001 — advisory pass
         stats.update(status="failed", reason=f"{type(exc).__name__}: {exc}"[:200], ms=round((time.monotonic() - started) * 1000.0, 3))
         notes_out.append(f"field discovery (model) skipped: {stats['reason']}")

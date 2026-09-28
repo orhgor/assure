@@ -85,6 +85,53 @@ jobs:
       - name: Z3 accuracy benchmark
         run: pytest tests/test_z3_benchmark.py -v
 
+  # Customer plan V4 Part 5 (2026-09-28): the unskippable proof. F821 gate, then the
+  # pure behaviour tests, then the PostgreSQL-backed proof suite with the existing
+  # end-to-end proof; proof_diff.json (written by the last proof test) is uploaded.
+  # Make this job a required branch check in the repository settings.
+  proof-suite:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: assure
+          POSTGRES_USER: assure
+          POSTGRES_PASSWORD: assure
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assure -d assure"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://assure:assure@localhost:5432/assure
+      PROOF_DIFF_PATH: ${{ github.workspace }}/proof_diff.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pymupdf ruff
+
+      - name: Hard-bug gate (ruff F821), pure tests, proof suite
+        run: bash scripts/run_proof_suite.sh
+
+      - name: Upload proof_diff.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof_diff
+          path: proof_diff.json
+          if-no-files-found: error
+
   playwright-tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest

@@ -10574,7 +10574,6 @@
     var EXECUTION_STEPS = [
       ["laya", "shell.fields.exec.laya", "LAYA", ["escalate", "human_review"], ["policy"]],
       ["z3", "shell.fields.exec.z3", "Z3 verification", ["violations"], []],
-      ["redhat_draft", "shell.fields.exec.redhat_draft", "Red-Hat draft", [], []],
       ["redhat_graph", "shell.fields.exec.redhat_graph", "Red-Hat graph", ["findings", "high"], ["policy", "model_check"]],
       ["llm_grounding", "shell.fields.exec.llm_grounding", "LLM grounding", ["fields_offered", "fields_grounded", "candidates_rejected"], ["model", "ms"]],
       ["rerun", "shell.fields.exec.rerun", "Rerun", ["passes"], ["improved", "stop_rule"]],
