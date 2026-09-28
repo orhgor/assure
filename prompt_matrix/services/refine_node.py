@@ -6,6 +6,11 @@ import copy
 from typing import Any
 
 try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
+try:
     from ..compiler.aperture import build_aperture_context
     from ..cost_governance import CostGovernor, TaskType
     from ..db.project_files import save_last_compiled
@@ -243,18 +248,19 @@ def run_refine_node(
         from ..llm.orchestrator import orchestrate_node_compilation_sync
     except ImportError:
         from llm.orchestrator import orchestrate_node_compilation_sync
-    try:
-        text = orchestrate_node_compilation_sync(node_type, messages).strip()
-    except Exception:
-        text = ""
-    if not text:
-        result = governor.execute_with_retry_budget(
-            project_id,
-            TaskType.SURGICAL_EDIT,
-            messages,
-            defer_budget_record=True,
-        )
-        text = (result.text or "").strip()
+    with _mc.stage_context("edit", project_id=project_id):
+        try:
+            text = orchestrate_node_compilation_sync(node_type, messages).strip()
+        except Exception:
+            text = ""
+        if not text:
+            result = governor.execute_with_retry_budget(
+                project_id,
+                TaskType.SURGICAL_EDIT,
+                messages,
+                defer_budget_record=True,
+            )
+            text = (result.text or "").strip()
     if not text or text.startswith("ERROR:"):
         raise RuntimeError(text or "Refine failed.")
 

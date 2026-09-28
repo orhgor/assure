@@ -162,12 +162,17 @@ def call_model(
         payload = guard_messages(messages, locale=locale, skip=skip_guard)
 
         def _complete() -> Any:
+            try:
+                from .services import model_calls as _mc
+            except ImportError:  # pragma: no cover - flat-import fallback
+                from services import model_calls as _mc  # type: ignore
             return litellm.completion(
                 model=model,
                 messages=payload,
                 max_tokens=_max_tokens,
                 timeout=_timeout,
                 stream=False,
+                metadata=_mc.litellm_metadata(extra.pop("metadata", None)),
                 **extra,
             )
 

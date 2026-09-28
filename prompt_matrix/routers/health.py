@@ -306,6 +306,26 @@ def health_check():
         status["checks"]["pdf_renderer"] = {"status": "unknown", "error": exc.__class__.__name__}
     models = _local_models_check()
     status["checks"]["models"] = models
+    try:
+        try:
+            from ..services import model_calls as _mc
+        except ImportError:
+            from services import model_calls as _mc  # type: ignore
+        # Can a request leave this server, and has one recently? (customer
+        # report 2026-09-28: "requests are not reaching OpenRouter")
+        status["checks"]["llm"] = _mc.llm_status(probe=True, timeout_s=3.0)
+        # A hosted backend whose key the provider rejects, or that cannot be
+        # reached, degrades the box: a request was attempted and failed. A
+        # missing key is reported (``checks.llm.probe.status = no_key``,
+        # ``checks.models.key = missing``) as it always was, without degrading —
+        # the box may legitimately run without hosted models.
+        if status["checks"]["llm"].get("backend") == "openrouter" and \
+                status["checks"]["llm"].get("probe", {}).get("status") in ("unauthorized", "unreachable"):
+            status["degraded"] = True
+            if status["status"] == "healthy":
+                status["status"] = "degraded"
+    except Exception as exc:  # observability only
+        status["checks"]["llm"] = {"status": "unknown", "error": exc.__class__.__name__}
     if models.get("status") in ("missing", "unreachable"):
         # The box was asked to run without provider keys (2026-09-25): a compile
         # with the model absent fails at the first token, so the daemon being up

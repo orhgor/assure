@@ -2889,6 +2889,14 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.documents_routes import register_documents_routes
     register_documents_routes(app)
+    try:
+        from .routers.pipeline_activity_routes import register_pipeline_activity_routes
+        from .services import model_calls as _model_calls
+    except ImportError:
+        from routers.pipeline_activity_routes import register_pipeline_activity_routes
+        from services import model_calls as _model_calls
+    register_pipeline_activity_routes(app)
+    _model_calls.install()
 
     try:
         from .routers.auth_routes import register_auth_routes

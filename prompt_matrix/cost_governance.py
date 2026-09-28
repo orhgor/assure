@@ -47,6 +47,16 @@ def _litellm_api_kwargs(model: str) -> dict:
         return {}
 
 
+def _model_calls():
+    """``services.model_calls`` (lazy: it imports the db layer; this module is
+    imported by everything, so the ledger is fetched at call time)."""
+    try:
+        from .services import model_calls
+    except ImportError:  # pragma: no cover - flat-import fallback
+        from services import model_calls  # type: ignore
+    return model_calls
+
+
 DEFAULT_LITELLM_TIMEOUT_SECONDS = 60
 MIN_LITELLM_TIMEOUT_SECONDS = 10
 MAX_LITELLM_TIMEOUT_SECONDS = 80
@@ -780,6 +790,8 @@ class CostGovernor:
             if model.startswith("bedrock/") or model.startswith("anthropic."):
                 bedrock_model = model.split("/", 1)[-1]
                 client = boto3.client("bedrock-runtime")
+                _mc = _model_calls()
+                _started = __import__("time").monotonic()
                 converse_messages = []
                 for msg in payload:
                     role = msg.get("role", "user")
@@ -795,11 +807,17 @@ class CostGovernor:
                         converse_messages.append(
                             {"role": role, "content": [{"text": str(content or "")}]}
                         )
-                resp = client.converse(
-                    modelId=bedrock_model,
-                    messages=converse_messages,
-                    inferenceConfig={"maxTokens": max_output},
-                )
+                try:
+                    resp = client.converse(
+                        modelId=bedrock_model,
+                        messages=converse_messages,
+                        inferenceConfig={"maxTokens": max_output},
+                    )
+                except Exception as exc:
+                    # Converse bypasses litellm, so its ledger row is written here.
+                    _mc.record(model=model, status="error", ms=(__import__("time").monotonic() - _started) * 1000,
+                               prompt_chars=_mc._prompt_chars(payload), error=f"{type(exc).__name__}: {exc}", path="bedrock_converse")
+                    raise
                 out = resp.get("output", {}).get("message", {}).get("content", [])
                 text = "".join(part.get("text", "") for part in out if isinstance(part, dict))
                 usage = resp.get("usage") or {}
@@ -807,6 +825,10 @@ class CostGovernor:
                 # Converse spells the ceiling "max_tokens", which the one
                 # reading in litellm_runner already counts as truncation.
                 _completion_meta.set(completion_meta(resp.get("stopReason"), max_output))
+                _mc.record(model=model, status="ok", ms=(__import__("time").monotonic() - _started) * 1000,
+                           prompt_chars=_mc._prompt_chars(payload), completion_chars=len(text),
+                           input_tokens=usage.get("inputTokens"), output_tokens=usage.get("outputTokens"),
+                           http_status=200, path="bedrock_converse")
                 return (
                     text,
                     int(usage.get("inputTokens") or self.accountant.count_messages(messages)),
@@ -828,6 +850,7 @@ class CostGovernor:
                     max_tokens=max_output,
                     stream=False,
                     timeout=_timeout,
+                    metadata=_model_calls().litellm_metadata(_api_kwargs.pop("metadata", None)),
                     **_api_kwargs,
                 )
 

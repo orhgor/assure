@@ -91,3 +91,6 @@ bench/results/
 
 # customer demo documents (never commit)
 demo/
+
+# Claude Code session state and agent worktrees
+.claude/

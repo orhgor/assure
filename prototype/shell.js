@@ -249,6 +249,7 @@
   var _syncTrustStateFn = null;
   var _syncRailFn = null;
   var _syncSourceEmptyFn = null;
+  var _syncPipelineActivityFn = null;
   // Dialogs the DOMContentLoaded scope owns (sign-off, settings): registered by
   // name so `ui.modal` can open them without the renderer living up here.
   var _shellModalRenderers = {};
@@ -317,6 +318,8 @@
         // is in hand.
         if (_syncCountersFn) _syncCountersFn();
         if (_syncTrustStateFn) _syncTrustStateFn();
+        // The pipeline panel composes every string from keys too.
+        if (_syncPipelineActivityFn) _syncPipelineActivityFn();
       })
       .catch(function () {});
   }
@@ -1337,6 +1340,8 @@
         .then(function () {
           _pumpUploads();
           _syncUiMode();
+          // The upload settled: the parse record (or its absence) is news.
+          _pipelineActivityChanged();
         });
     }
     // The dock's Upload PDF answered (jdf/ingest is synchronous): the figure
@@ -5195,6 +5200,458 @@
     }
 
     // ---------------------------------------------------------------
+    // Pipeline activity (customer complaint 2026-09-28: "requests are not
+    // reaching OpenRouter and I cannot see whether the pipeline ran").
+    // GET /api/projects/<id>/pipeline-activity is the one source: the LLM
+    // backend's probe and 24 h counters (`llm`), one row per stage
+    // (`stages`), the recent model calls (`calls`). The panel repeats what
+    // that record says and nothing else — a stage the record lacks reads "no
+    // record", a status word the shell does not know is shown as the server
+    // wrote it (never mapped to a tone), a non-200 answer is named with its
+    // code and the previous snapshot is dropped rather than shown as current.
+    // Painted into every [data-pipeline-host] (the compiler pane, the
+    // Inspector, the Fields pane) from one state; re-read on project open,
+    // after every run / upload / field action, and every PIPELINE_POLL_MS
+    // while a run or an ingest job is active — otherwise never on its own.
+    // Declared before the bootstrap below because that code reads this state
+    // synchronously on DOMContentLoaded (a hoisted `var` is undefined until
+    // its line runs).
+    // ---------------------------------------------------------------
+    var PIPELINE_STAGES = [
+      ["parse", "Parse"],
+      ["intake", "Intake & routing (LAYA)"],
+      ["z3", "Z3 verification"],
+      ["llm_grounding", "Grounded field pass"],
+      ["discovery", "Field discovery"],
+      ["vision", "Vision"],
+      ["redhat_graph", "Red-Hat graph critique"],
+      ["redhat_targeted", "Red-Hat targeted re-read"],
+      ["compile_draft", "Compile draft"],
+      ["anchor", "Claim anchoring"],
+      ["entailment", "Entailment"],
+      ["edit", "Surgical edit"],
+      ["redhat_multipass", "Red-Hat audit"],
+      ["compare", "Compare"],
+    ];
+    var PIPELINE_STATUSES = ["ran", "failed", "skipped", "pending", "no_record"];
+    var PIPELINE_POLL_MS = 10000;
+    var __pipeline = { project: "", state: "idle", http: 0, data: null, fetchedAt: 0, error: "" };
+    var __pipelineToken = 0;
+    var __pipelineTimer = null;
+    var __pipelineOpenErrors = {};
+    var __pipelineCallsOpen = false;
+
+    function _pipelineStatusKey(status) {
+      var k = String(status == null ? "" : status).trim().toLowerCase();
+      if (!k) return "no_record";
+      return PIPELINE_STATUSES.indexOf(k) >= 0 ? k : "unknown";
+    }
+    function _pipelineRow(stage, label, s) {
+      var rec = Boolean(s && typeof s === "object");
+      return {
+        stage: stage, label: label, recorded: rec,
+        status: rec ? _pipelineStatusKey(s.status) : "no_record",
+        status_raw: rec && s.status != null ? String(s.status) : "",
+        model: rec && s.model ? String(s.model) : "",
+        calls: rec && typeof s.calls === "number" ? s.calls : null,
+        ok: rec && typeof s.ok === "number" ? s.ok : null,
+        failed: rec && typeof s.failed === "number" ? s.failed : null,
+        last_at: rec && s.last_at ? String(s.last_at) : "",
+        last_ms: rec && typeof s.last_ms === "number" ? s.last_ms : null,
+        last_http_status: rec && s.last_http_status != null ? s.last_http_status : null,
+        last_error: rec && s.last_error ? String(s.last_error) : "",
+        detail: rec && s.detail ? String(s.detail) : "",
+        source: rec && s.source ? String(s.source) : "",
+      };
+    }
+    // The fixed stage order, one row each; a stage the payload lacks is "no
+    // record" (recorded:false). A stage the server names that this list does
+    // not know is kept after the known ones, under the server's label.
+    function _pipelineStageRows(payload) {
+      var sent = (payload && Array.isArray(payload.stages)) ? payload.stages : [];
+      var byStage = {};
+      sent.forEach(function (s) {
+        if (s && typeof s === "object" && s.stage && !byStage[String(s.stage)]) byStage[String(s.stage)] = s;
+      });
+      var known = {};
+      var rows = PIPELINE_STAGES.map(function (pair) {
+        known[pair[0]] = true;
+        return _pipelineRow(pair[0], pair[1], byStage[pair[0]] || null);
+      });
+      sent.forEach(function (s) {
+        if (!s || typeof s !== "object" || !s.stage || known[String(s.stage)]) return;
+        known[String(s.stage)] = true;
+        rows.push(_pipelineRow(String(s.stage), String(s.label || s.stage), s));
+      });
+      return rows;
+    }
+    // What the panel must say before anything else: a probe that proves no
+    // request can leave (blocked), a backend that recorded no call in 24 h
+    // (silent). A local Ollama that is idle is not a silence worth a line.
+    function _pipelineWarnings(llm) {
+      var out = [];
+      if (!llm || typeof llm !== "object") return out;
+      var probe = llm.probe && typeof llm.probe === "object" ? llm.probe : {};
+      var ps = String(probe.status || "").toLowerCase();
+      if (ps === "unauthorized" || ps === "unreachable" || ps === "no_key") {
+        out.push({ kind: "blocked", status: ps, detail: String(probe.detail || ps) });
+      }
+      var backend = String(llm.backend || "").toLowerCase();
+      if (typeof llm.calls_24h === "number" && llm.calls_24h === 0 && backend !== "ollama") {
+        out.push({ kind: "silent", status: "", detail: "" });
+      }
+      return out;
+    }
+    // Newest first; a call without a readable created_at sinks to the end.
+    function _pipelineCallsNewestFirst(payload) {
+      var calls = (payload && Array.isArray(payload.calls)) ? payload.calls.filter(function (c) { return c && typeof c === "object"; }) : [];
+      return calls.slice().sort(function (a, b) {
+        var ta = _parseServerTs(a.created_at), tb = _parseServerTs(b.created_at);
+        return (isNaN(tb) ? -Infinity : tb) - (isNaN(ta) ? -Infinity : ta);
+      });
+    }
+    function _pipelineAgo(ts) {
+      var ms = _parseServerTs(ts);
+      if (isNaN(ms)) return "";
+      var s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+      if (s < 60) return _t("shell.pipeline.ago.now", "just now");
+      var m = Math.floor(s / 60);
+      if (m < 60) return _tf("shell.pipeline.ago.min", "{n} min ago", { n: m });
+      var h = Math.floor(m / 60);
+      if (h < 48) return _tf("shell.pipeline.ago.hour", "{n} h ago", { n: h });
+      return _tf("shell.pipeline.ago.day", "{n} d ago", { n: Math.floor(h / 24) });
+    }
+    // Relative in the text, absolute in the title — both, always.
+    function _pipelineWhen(ts, text) {
+      var el = _el("time", "pipe-when", text != null ? text : _pipelineAgo(ts));
+      var ms = _parseServerTs(ts);
+      if (!isNaN(ms)) {
+        el.setAttribute("datetime", new Date(ms).toISOString());
+        el.title = _whenWords(ts);
+      }
+      return el;
+    }
+    function _pipelineMs(ms) {
+      if (typeof ms !== "number" || isNaN(ms)) return "";
+      return ms >= 1000 ? (Math.round(ms / 100) / 10) + " s" : Math.round(ms) + " ms";
+    }
+    function _pipelineActive() {
+      return Boolean(runInProgress) || SHELL.document.mode === "streaming" || __activeJobs > 0;
+    }
+    function _refreshPipelineActivity(pid) {
+      pid = pid || _activeProjectId();
+      if (__pipelineTimer) { clearTimeout(__pipelineTimer); __pipelineTimer = null; }
+      if (!pid) {
+        __pipeline = { project: "", state: "idle", http: 0, data: null, fetchedAt: 0, error: "" };
+        _renderPipelineActivity();
+        return Promise.resolve(false);
+      }
+      if (pid !== __pipeline.project) {
+        __pipeline = { project: pid, state: "loading", http: 0, data: null, fetchedAt: 0, error: "" };
+        __pipelineOpenErrors = {};
+      } else {
+        __pipeline.state = __pipeline.data ? "refreshing" : "loading";
+      }
+      _renderPipelineActivity();
+      var token = ++__pipelineToken;
+      return window.fetch("/api/projects/" + encodeURIComponent(pid) + "/pipeline-activity?limit=50",
+                          { headers: { Accept: "application/json" }, cache: "no-store" })
+        .then(function (r) {
+          return r.json().catch(function () { return null; }).then(function (j) { return { status: r.status, body: j }; });
+        }, function () { return { status: 0, body: null }; })
+        .then(function (res) {
+          if (token !== __pipelineToken || __pipeline.project !== pid) return false;
+          if (res.status !== 200 || !res.body || typeof res.body !== "object" || res.body.ok === false) {
+            // Named with its code; the previous snapshot is not shown as current.
+            __pipeline.state = "error";
+            __pipeline.http = res.status;
+            __pipeline.data = null;
+            __pipeline.error = res.body && res.body.error ? String(res.body.error) : "";
+          } else {
+            __pipeline.state = "ok";
+            __pipeline.http = 200;
+            __pipeline.data = res.body;
+            __pipeline.fetchedAt = Date.now();
+            __pipeline.error = "";
+          }
+          _renderPipelineActivity();
+          _schedulePipelineActivityPoll();
+          return __pipeline.state === "ok";
+        });
+    }
+    function _schedulePipelineActivityPoll() {
+      if (__pipelineTimer) { clearTimeout(__pipelineTimer); __pipelineTimer = null; }
+      if (!__pipeline.project || !_pipelineActive()) return;
+      __pipelineTimer = setTimeout(function () {
+        __pipelineTimer = null;
+        _refreshPipelineActivity(__pipeline.project);
+      }, PIPELINE_POLL_MS);
+    }
+    // Called wherever the shell learns a run, an upload, a job or a field
+    // action started or ended: one read now, and the poll follows the flags.
+    function _pipelineActivityChanged() {
+      var pid = _activeProjectId();
+      if (!pid) return;
+      _refreshPipelineActivity(pid);
+    }
+
+    function _renderPipelineActivity() {
+      var hosts = document.querySelectorAll("[data-pipeline-host]");
+      if (!hosts.length) return;
+      Array.prototype.forEach.call(hosts, function (host) {
+        while (host.firstChild) host.removeChild(host.firstChild);
+        host.setAttribute("data-state", __pipeline.state);
+        host.setAttribute("aria-busy", __pipeline.state === "loading" || __pipeline.state === "refreshing" ? "true" : "false");
+        host.appendChild(_buildPipelineActivity());
+      });
+    }
+    function _buildPipelineActivity() {
+      var frag = document.createDocumentFragment();
+      var p = __pipeline;
+      var head = _el("div", "pipe-head");
+      var updated = _el("span", "pipe-updated");
+      if (p.state === "loading") updated.textContent = _t("shell.pipeline.loading", "Reading the activity record…");
+      else if (p.fetchedAt) {
+        var iso = new Date(p.fetchedAt).toISOString();
+        updated.appendChild(_pipelineWhen(iso, _t("shell.pipeline.updated", "Updated") + " " + _pipelineAgo(iso)));
+      }
+      head.appendChild(updated);
+      var btn = _btn("btn-tertiary pipe-refresh", _t("shell.pipeline.refresh", "Refresh"));
+      btn.setAttribute("data-pipeline-refresh", "1");
+      btn.disabled = p.state === "loading" || p.state === "refreshing" || !p.project;
+      btn.onclick = function () { _refreshPipelineActivity(p.project); };
+      head.appendChild(btn);
+      frag.appendChild(head);
+      if (!p.project) {
+        frag.appendChild(_el("p", "pipe-note", _t("shell.pipeline.no_project", "Open a project to see its pipeline activity.")));
+        return frag;
+      }
+      if (p.state === "error") {
+        var errLine = _el("p", "pipe-alert", _tf("shell.pipeline.unavailable", "activity endpoint unavailable (HTTP {code})", { code: p.http }) + (p.error ? " · " + p.error : ""));
+        errLine.setAttribute("data-tone", "contradicted");
+        errLine.setAttribute("role", "alert");
+        frag.appendChild(errLine);
+        return frag;
+      }
+      var data = p.data;
+      if (!data) {
+        if (p.state !== "loading") frag.appendChild(_el("p", "pipe-note", _t("shell.pipeline.nothing", "No activity record yet.")));
+        return frag;
+      }
+      var llm = data.llm && typeof data.llm === "object" ? data.llm : {};
+      _pipelineWarnings(llm).forEach(function (w) {
+        var line = _el("p", "pipe-alert");
+        line.setAttribute("data-kind", w.kind);
+        if (w.kind === "blocked") {
+          line.setAttribute("data-tone", "contradicted");
+          line.setAttribute("role", "alert");
+          line.textContent = _tf("shell.pipeline.blocked", "No request can leave this server: {detail}", { detail: w.detail });
+        } else {
+          line.setAttribute("data-tone", "partial");
+          line.textContent = _t("shell.pipeline.silent", "No model request has been recorded in the last 24 h.");
+        }
+        frag.appendChild(line);
+      });
+      // The route names the reads it could not make (`sources.ledger_error`)
+      // and the calls it could not place in a stage (`unattributed_calls`):
+      // both are said, or a zero below would read as a fact it is not.
+      var sources = data.sources && typeof data.sources === "object" ? data.sources : {};
+      if (sources.ledger_error) {
+        var ledger = _el("p", "pipe-alert", _tf("shell.pipeline.ledger_error", "Call ledger unreadable: {detail}", { detail: String(sources.ledger_error) }));
+        ledger.setAttribute("data-kind", "ledger_error");
+        ledger.setAttribute("data-tone", "partial");
+        frag.appendChild(ledger);
+      }
+      frag.appendChild(_buildPipelineBadge(llm));
+      frag.appendChild(_buildPipelineStages(data));
+      if (typeof data.unattributed_calls === "number" && data.unattributed_calls > 0) {
+        frag.appendChild(_el("p", "pipe-note", _tf("shell.pipeline.unattributed", "{n} calls could not be attributed to a stage", { n: data.unattributed_calls })));
+      }
+      frag.appendChild(_buildPipelineCalls(data));
+      return frag;
+    }
+    function _pipelineProbeWords(ps) {
+      var k = ps || "not_probed";
+      var fallback = { reachable: "reachable", unauthorized: "unauthorized", unreachable: "unreachable", no_key: "no key", not_probed: "not probed" }[k];
+      return _t("shell.pipeline.probe." + k, fallback || k.replace(/_/g, " "));
+    }
+    // The header badge: backend and provider, the key hint, the probe with its
+    // detail (green reachable / red unauthorized or unreachable / grey no_key
+    // or not probed), the last request and the 24 h counters.
+    function _buildPipelineBadge(llm) {
+      var box = _el("div", "pipe-llm");
+      var row1 = _el("div", "pipe-llm-row");
+      var backend = llm.backend ? String(llm.backend) : "";
+      var provider = llm.provider ? String(llm.provider) : "";
+      var who = backend && provider && backend !== provider ? backend + " · " + provider
+              : (backend || provider || _t("shell.pipeline.backend_unknown", "backend not reported"));
+      var whoEl = _el("span", "pipe-llm-backend mono", who);
+      whoEl.title = _t("shell.pipeline.backend", "LLM backend");
+      row1.appendChild(whoEl);
+      var key = _el("span", "pipe-llm-key mono");
+      if (llm.key_present === true) key.textContent = llm.key_hint ? String(llm.key_hint) : _t("shell.pipeline.key_present", "key present");
+      else if (llm.key_present === false) { key.textContent = _t("shell.pipeline.key_missing", "no API key"); key.setAttribute("data-tone", "contradicted"); }
+      else key.textContent = _t("shell.pipeline.key_unknown", "key not reported");
+      row1.appendChild(key);
+      box.appendChild(row1);
+
+      var probe = llm.probe && typeof llm.probe === "object" ? llm.probe : null;
+      var ps = probe ? String(probe.status || "").toLowerCase() : "";
+      var chip = _el("span", "pipe-chip pipe-probe", _pipelineProbeWords(ps));
+      chip.setAttribute("data-tone", ps === "reachable" ? "verified" : (ps === "unauthorized" || ps === "unreachable") ? "contradicted" : "none");
+      chip.setAttribute("data-probe", ps || "not_probed");
+      var row2 = _el("div", "pipe-llm-row");
+      row2.appendChild(chip);
+      if (probe && probe.detail) row2.appendChild(_el("span", "pipe-probe-detail", String(probe.detail)));
+      if (probe && probe.checked_at) {
+        var probedText = _t("shell.pipeline.probed", "probed") + " " + _pipelineAgo(probe.checked_at) +
+                         (typeof probe.ms === "number" ? " · " + _pipelineMs(probe.ms) : "");
+        row2.appendChild(_pipelineWhen(probe.checked_at, probedText));
+      }
+      box.appendChild(row2);
+
+      var row3 = _el("div", "pipe-llm-row pipe-llm-counts");
+      if (llm.last_call_at) {
+        row3.appendChild(_pipelineWhen(llm.last_call_at, _tf("shell.pipeline.last_request", "last request {when}", { when: _pipelineAgo(llm.last_call_at) })));
+      } else {
+        row3.appendChild(_el("span", "pipe-when", _t("shell.pipeline.no_last_request", "no request recorded")));
+      }
+      if (typeof llm.calls_24h === "number") {
+        var counts = _el("span", "pipe-calls-24h");
+        if (typeof llm.failed_24h === "number") {
+          counts.textContent = _tf("shell.pipeline.calls_24h", "{n} calls in 24 h, {m} failed", { n: llm.calls_24h, m: llm.failed_24h });
+          if (llm.failed_24h > 0) counts.setAttribute("data-tone", "contradicted");
+        } else {
+          counts.textContent = _tf("shell.pipeline.calls_24h_only", "{n} calls in 24 h", { n: llm.calls_24h });
+        }
+        row3.appendChild(counts);
+      }
+      box.appendChild(row3);
+      return box;
+    }
+    function _pipelineStatusWords(row) {
+      if (row.status === "unknown") return row.status_raw.toLowerCase().replace(/_/g, " ");
+      var fb = { ran: "ran", failed: "failed", skipped: "skipped", pending: "pending", no_record: "no record" }[row.status];
+      return _t("shell.pipeline.status." + row.status, fb || row.status);
+    }
+    function _pipelineStatusTone(status) {
+      if (status === "ran") return "verified";
+      if (status === "failed") return "contradicted";
+      if (status === "skipped" || status === "pending") return "partial";
+      return "none";
+    }
+    function _pipelineStageLabel(stage) {
+      var hit = PIPELINE_STAGES.filter(function (p) { return p[0] === stage; })[0];
+      return _t("shell.pipeline.stage." + stage, hit ? hit[1] : String(stage).replace(/_/g, " "));
+    }
+    // One row per stage in the fixed order: label, status chip, then the
+    // model · calls (ok / failed) · latency · HTTP · when, the server's detail
+    // sentence, and the last error behind a button.
+    function _buildPipelineStages(data) {
+      var list = _el("ul", "pipe-stages");
+      list.setAttribute("role", "list");
+      _pipelineStageRows(data).forEach(function (row) {
+        var li = _el("li", "pipe-stage");
+        li.setAttribute("data-stage", row.stage);
+        li.setAttribute("data-status", row.status);
+        li.setAttribute("data-recorded", row.recorded ? "1" : "0");
+        var top = _el("div", "pipe-stage-top");
+        top.appendChild(_el("span", "pipe-stage-label", _t("shell.pipeline.stage." + row.stage, row.label)));
+        var chip = _el("span", "pipe-chip", _pipelineStatusWords(row));
+        chip.setAttribute("data-tone", _pipelineStatusTone(row.status));
+        top.appendChild(chip);
+        li.appendChild(top);
+        if (!row.recorded) { list.appendChild(li); return; }
+        var bits = [];
+        if (row.model) bits.push(row.model);
+        if (row.calls != null) {
+          var callsText = _tf("shell.pipeline.calls", "{n} calls", { n: row.calls });
+          if (row.ok != null || row.failed != null) {
+            callsText += " (" + _tf("shell.pipeline.ok_failed", "{ok} ok / {failed} failed",
+              { ok: row.ok == null ? "–" : row.ok, failed: row.failed == null ? "–" : row.failed }) + ")";
+          }
+          bits.push(callsText);
+        }
+        if (row.last_ms != null) bits.push(_pipelineMs(row.last_ms));
+        if (row.last_http_status != null) bits.push("HTTP " + row.last_http_status);
+        if (bits.length || row.last_at) {
+          var meta = _el("div", "pipe-stage-meta mono", bits.join(" · "));
+          if (row.last_at) {
+            if (bits.length) meta.appendChild(document.createTextNode(" · "));
+            meta.appendChild(_pipelineWhen(row.last_at));
+          }
+          li.appendChild(meta);
+        }
+        if (row.detail) li.appendChild(_el("div", "pipe-stage-detail", row.detail));
+        if (row.source) {
+          var src = _el("div", "pipe-stage-source", _tf("shell.pipeline.source", "source: {source}", { source: row.source }));
+          li.appendChild(src);
+        }
+        if (row.last_error) {
+          var open = Boolean(__pipelineOpenErrors[row.stage]);
+          var eb = _btn("btn-tertiary pipe-stage-errbtn", open ? _t("shell.pipeline.hide_error", "Hide error") : _t("shell.pipeline.show_error", "Show error"));
+          eb.setAttribute("aria-expanded", open ? "true" : "false");
+          eb.onclick = function () { __pipelineOpenErrors[row.stage] = !open; _renderPipelineActivity(); };
+          li.appendChild(eb);
+          if (open) li.appendChild(_el("pre", "pipe-error mono", row.last_error));
+        }
+        list.appendChild(li);
+      });
+      return list;
+    }
+    // The recent requests, newest first, folded: model, stage, status, HTTP,
+    // latency, tokens, when, and the error in full.
+    function _buildPipelineCalls(data) {
+      var calls = _pipelineCallsNewestFirst(data);
+      var det = document.createElement("details");
+      det.className = "pipe-calls";
+      det.id = "pipe-calls";
+      det.open = __pipelineCallsOpen;
+      det.addEventListener("toggle", function () { __pipelineCallsOpen = det.open; });
+      det.appendChild(_el("summary", null, _tf("shell.pipeline.recent", "Recent requests ({n})", { n: calls.length })));
+      if (!calls.length) {
+        det.appendChild(_el("p", "pipe-note", _t("shell.pipeline.no_calls", "No model request recorded for this project.")));
+        return det;
+      }
+      var ul = _el("ul", "pipe-call-list");
+      ul.setAttribute("role", "list");
+      calls.forEach(function (c) {
+        var li = _el("li", "pipe-call");
+        var st = String(c.status || "").toLowerCase();
+        li.setAttribute("data-status", st || "no_record");
+        if (c.id) li.setAttribute("data-call-id", String(c.id));
+        var top = _el("div", "pipe-call-top");
+        var modelEl = _el("span", "pipe-call-model mono", c.model ? String(c.model) : _t("shell.pipeline.model_unknown", "model not recorded"));
+        if (c.model) modelEl.title = String(c.model);
+        top.appendChild(modelEl);
+        var chip = _el("span", "pipe-chip", st === "ok" ? _t("shell.pipeline.call_ok", "ok")
+                                          : st === "error" ? _t("shell.pipeline.call_error", "error")
+                                          : (st || _t("shell.pipeline.status.no_record", "no record")));
+        chip.setAttribute("data-tone", st === "ok" ? "verified" : st === "error" ? "contradicted" : "none");
+        top.appendChild(chip);
+        li.appendChild(top);
+        var bits = [];
+        if (c.stage) bits.push(_pipelineStageLabel(String(c.stage)));
+        if (c.http_status != null) bits.push("HTTP " + c.http_status);
+        if (typeof c.ms === "number") bits.push(_pipelineMs(c.ms));
+        if (typeof c.input_tokens === "number" || typeof c.output_tokens === "number") {
+          bits.push(_tf("shell.pipeline.tokens", "{i} in / {o} out tokens",
+            { i: typeof c.input_tokens === "number" ? c.input_tokens : "–", o: typeof c.output_tokens === "number" ? c.output_tokens : "–" }));
+        }
+        var meta = _el("div", "pipe-call-meta", bits.join(" · "));
+        if (c.created_at) {
+          if (bits.length) meta.appendChild(document.createTextNode(" · "));
+          meta.appendChild(_pipelineWhen(c.created_at));
+        }
+        li.appendChild(meta);
+        if (c.error) li.appendChild(_el("div", "pipe-error", String(c.error)));
+        ul.appendChild(li);
+      });
+      det.appendChild(ul);
+      return det;
+    }
+
+    // ---------------------------------------------------------------
     // Project bootstrap + stream execution
     // ---------------------------------------------------------------
     function jsonPost(url, bodyObj, extraHeaders, signal) {
@@ -5693,6 +6150,8 @@
       // F) the intake report and the job queue are per project too.
       if (typeof _loadParsureLatest === "function") _loadParsureLatest(id);
       if (typeof _pollIngestJobs === "function") _pollIngestJobs(id);
+      // G) the pipeline record is per project too.
+      _refreshPipelineActivity(id);
     }
     function _createNewProject() {
       var name = window.prompt("New project name", "workspace");
@@ -5758,6 +6217,10 @@
     // state — a fresh owner has no workspace yet and still has a name, a role
     // and, on a temporary password, a change to make.
     _loadMe();
+    // The pipeline panel paints its idle state before the first read, and
+    // repaints when the catalog lands.
+    _syncPipelineActivityFn = _renderPipelineActivity;
+    _renderPipelineActivity();
     if (initId) {
       _loadProjectSourceList(initId);
       // Reload: the server still holds the document, the version list and the
@@ -5766,6 +6229,7 @@
       _restoreProjectDocument(initId);
       _loadParsureLatest(initId);
       _pollIngestJobs(initId);
+      _refreshPipelineActivity(initId);
     } else {
       // No project yet, so no source list to wait for: the empty state is a
       // fact, not a pending answer, and the column says so from first paint.
@@ -5950,10 +6414,13 @@
     // §5 row 3: the dock's running state follows the draft flag, so every
     // write to it goes through here and the surface cannot drift.
     function _setRunInProgress(v) {
+      var changed = runInProgress !== Boolean(v);
       runInProgress = Boolean(v);
       _syncDockSubmit();
       // A run in flight is the header's "Pending".
       if (_syncTrustStateFn) _syncTrustStateFn();
+      // The pipeline panel reads once at each edge of a run and polls between.
+      if (changed) _pipelineActivityChanged();
     }
 
     function submitIntent() {
@@ -8244,9 +8711,12 @@
           var jobs = (j && Array.isArray(j.jobs)) ? j.jobs : [];
           var active = jobs.filter(function (job) { return job && job.active !== false; }).length;
           var wasActive = __activeJobs > 0;
+          var countChanged = __activeJobs !== active;
           __activeJobs = active;
           _setSourcesBadge(active);
           _syncTrustState();
+          // A job that appeared or finished is a pipeline record that changed.
+          if (countChanged) _pipelineActivityChanged();
           if (active > 0) {
             __jobsTimer = setTimeout(function () { _pollIngestJobs(pid); }, 4000);
           } else if (wasActive) {
@@ -10189,6 +10659,7 @@
         __fieldsEditor = null;
         if (reason) reason.value = "";
         // The fields were re-extracted for the new type: read the whole report.
+        _pipelineActivityChanged();
         return _openParsureReport(pid, __parsureReportId);
       }).catch(function (err) {
         __fieldsErrors.__type = _tf("shell.fields.failed", "That did not go through: {error}", { error: String(err && err.message ? err.message : err) });
@@ -10575,6 +11046,7 @@
         // The mutation routes answer with the field and the review summary,
         // not the report (parsure_routes.py, 2026-09-25); the report is read
         // back whole so corrections, disputes and the summary are the server's.
+        _pipelineActivityChanged();
         return _openParsureReport(pid, __parsureReportId);
       }).catch(function (err) {
         __fieldsErrors[name] = _tf("shell.fields.failed", "That did not go through: {error}", { error: String(err && err.message ? err.message : err) });

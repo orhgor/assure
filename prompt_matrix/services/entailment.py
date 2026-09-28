@@ -66,6 +66,11 @@ except ImportError:
     from llm_extraction import find_verbatim
     from numeric_recompute import extract_figures
 
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
 _log = logging.getLogger(__name__)
 
 #: Bumped whenever the prompt's labels or rules change. Part of the entailment
@@ -385,12 +390,13 @@ def check_entailment(claim: str, source: str, *, project_id: str = "") -> dict[s
     try:
         policy = gov.preflight(project_id or "entailment", TaskType.SEMANTIC_VALIDATION, messages)
         executor = gov.executor or gov._default_executor  # noqa: SLF001
-        raw, in_tok, out_tok = executor(
-            policy.litellm_model,
-            messages,
-            policy.max_output_tokens,
-            policy.caching,
-        )
+        with _mc.stage_context("entailment", project_id=project_id or None):
+            raw, in_tok, out_tok = executor(
+                policy.litellm_model,
+                messages,
+                policy.max_output_tokens,
+                policy.caching,
+            )
     except Exception as exc:  # budget, hard cap, transport, missing key
         return unverified(f"{type(exc).__name__}: {exc}", model_id)
 

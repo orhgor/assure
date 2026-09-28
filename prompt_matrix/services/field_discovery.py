@@ -268,7 +268,7 @@ def discover_with_model(
     started = time.monotonic()
     try:
         model_id = lx.current_model_id() if completion is None else "injected"
-        call = completion if completion is not None else (lambda p: lx.default_completion(p, project_id=project_id))
+        call = completion if completion is not None else (lambda p: lx.default_completion(p, project_id=project_id, stage="discovery"))
         answer = lx._call_with_timeout(lambda: call(discovery_prompt(pages)), timeout_s)
     except Exception as exc:  # noqa: BLE001 — advisory pass
         stats.update(status="failed", reason=f"{type(exc).__name__}: {exc}"[:200], ms=round((time.monotonic() - started) * 1000.0, 3))

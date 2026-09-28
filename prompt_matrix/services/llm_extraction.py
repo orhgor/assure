@@ -66,6 +66,7 @@ import json
 import logging
 import os
 import re
+import contextvars
 import threading
 import time
 from typing import Any, Callable
@@ -74,6 +75,11 @@ try:
     from . import field_extractor as fx
 except ImportError:
     import field_extractor as fx  # type: ignore
+
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -398,7 +404,7 @@ def _governor():
     return cg
 
 
-def default_completion(prompt: str, *, project_id: str | None = None) -> str:
+def default_completion(prompt: str, *, project_id: str | None = None, stage: str = "llm_grounding") -> str:
     """One call through ``cost_governance``: the ``FIELD_EXTRACTION`` policy's
     model (resolved for the backend) via ``CostGovernor._default_executor``,
     the same executor entailment and Red-Hat use. Usage is recorded against
@@ -412,7 +418,11 @@ def default_completion(prompt: str, *, project_id: str | None = None) -> str:
     executor = gov.executor or gov._default_executor  # noqa: SLF001
     messages = [{"role": "user", "content": prompt}]
     started = time.monotonic()
-    text, in_tok, out_tok = executor(model, messages, policy.max_output_tokens, policy.caching)
+    # The ledger row this call produces names the stage and project
+    # (``services/model_calls``): discovery passes ``stage="discovery"``, the
+    # field pass keeps the default.
+    with _mc.stage_context(stage, project_id=project_id):
+        text, in_tok, out_tok = executor(model, messages, policy.max_output_tokens, policy.caching)
     elapsed = time.monotonic() - started
     log.info("llm_extraction: model=%s in=%s out=%s elapsed=%.1fs", model, in_tok, out_tok, elapsed)
     if not isinstance(text, str) or text.startswith("ERROR:"):
@@ -442,10 +452,13 @@ def _call_with_timeout(fn: Callable[[], str], timeout_s: float) -> str:
     ingest worker; a thread left behind after a timeout finishes on its own
     and its answer is discarded."""
     box: dict[str, Any] = {}
+    # The worker thread runs in a copy of the caller's context so the stage and
+    # project the model-call ledger records (contextvars) travel with the call.
+    ctx = contextvars.copy_context()
 
     def _run() -> None:
         try:
-            box["value"] = fn()
+            box["value"] = ctx.run(fn)
         except BaseException as exc:  # noqa: BLE001 — reported to the caller as unavailable
             box["error"] = exc
 

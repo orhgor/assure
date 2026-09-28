@@ -36,6 +36,11 @@ except ImportError:
     )
     from litellm_runner import call_model
 
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
 log = logging.getLogger(__name__)
 _POOL = ThreadPoolExecutor(max_workers=2)
 
@@ -51,6 +56,16 @@ def _intent_messages(intent: str, source_ids: list[str] | None) -> list[dict[str
 
 
 def run_single_model(
+    model: str,
+    intent: str,
+    source_ids: list[str] | None = None,
+):
+    """Compare's second-column call, named for the model-call ledger."""
+    with _mc.stage_context("compare"):
+        return _run_single_model_inner(model=model, intent=intent, source_ids=source_ids)
+
+
+def _run_single_model_inner(
     model: str,
     intent: str,
     source_ids: list[str] | None = None,

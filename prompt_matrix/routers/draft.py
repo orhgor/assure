@@ -16,6 +16,11 @@ from flask import Response, request, stream_with_context
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
 try:
+    from ..services import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    from services import model_calls as _mc  # type: ignore
+
+try:
     from ..cost_governance import (
         BudgetExhaustedError,
         CostGovernor,
@@ -1688,7 +1693,8 @@ def _open_model_stream(litellm: Any, model: str, messages: list, max_out: int, a
     below explains (greedy decoding, pinned sampling, usage on the last chunk)."""
     return litellm.completion(
         model=model, messages=messages, max_tokens=max_out, temperature=0.0, top_p=1.0, seed=0,
-        stream=True, stream_options={"include_usage": True}, **api_kwargs,
+        stream=True, stream_options={"include_usage": True},
+        metadata=_mc.litellm_metadata(api_kwargs.pop("metadata", None)), **api_kwargs,
     )
 
 
@@ -1711,7 +1717,6 @@ def _stream_model(
     target_ai: str | None = None,
     cancel_check: CancelCheck | None = None,
 ) -> Iterator[str | tuple[str, int, int, str]]:
-    """Yield typed token SSE frames, then (full_text, in_tok, out_tok, model_id)."""
     policy = gov.policy_for(TaskType.DRAFT_COMPILE)
     model = _draft_route_model(target_ai)
     max_out = policy.max_output_tokens
@@ -2183,11 +2188,15 @@ def _run_draft_pipeline(
     _measure: dict[str, Any] = {}
 
     try:
-        for item in _stream_model(
-            gov,
-            messages,
-            target_ai=target_ai,
-            cancel_check=cancel_check,
+        for item in _mc.iter_in_stage(
+            _stream_model(
+                gov,
+                messages,
+                target_ai=target_ai,
+                cancel_check=cancel_check,
+            ),
+            "compile_draft",
+            project_id=project_id,
         ):
             if isinstance(item, str):
                 if '"type": "error"' in item:

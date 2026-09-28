@@ -28,6 +28,11 @@ from typing import Any
 from prompt_matrix.celery_app import celery_app
 
 try:
+    from ..services import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    from services import model_calls as _mc  # type: ignore
+
+try:
     from prompt_matrix.cost_governance import CostGovernor, ModelPolicy, TaskType, resolve_model
     from prompt_matrix.db.redhat_audit_lock_repository import is_stale, set_active_task
     from prompt_matrix.db.redhat_cache_repository import fetch_cache, save_cache
@@ -220,12 +225,13 @@ def _invoke_model(
             litellm_model=model,
         )
     executor = gov.executor or gov._default_executor  # noqa: SLF001
-    raw, _in_t, _out_t = executor(
-        model or policy.model_id,
-        messages,
-        policy.max_output_tokens,
-        policy.caching,
-    )
+    with _mc.stage_context("redhat_multipass", project_id=project_id):
+        raw, _in_t, _out_t = executor(
+            model or policy.model_id,
+            messages,
+            policy.max_output_tokens,
+            policy.caching,
+        )
     return raw or "", model or policy.model_id
 
 

@@ -36,6 +36,11 @@ MIN_CONFIDENCE = 0.7
 TEXT_MODEL = "openrouter/qwen/qwen3-next-80b-a3b-instruct"
 VISION_MODEL = "gemini/gemini-3.6-flash"
 
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
 _log = logging.getLogger(__name__)
 
 _SYSTEM = (
@@ -341,6 +346,12 @@ def _backend_completion(model: str, messages: list[dict[str, Any]]) -> str:
 
 
 def _call_text_model(model: str, prompt: str) -> str:
+    """The anchor stage's one model call, named for the model-call ledger."""
+    with _mc.stage_context("anchor"):
+        return _call_text_model_inner(model, prompt)
+
+
+def _call_text_model_inner(model: str, prompt: str) -> str:
     messages = [
         {"role": "system", "content": _SYSTEM},
         {"role": "user", "content": prompt},

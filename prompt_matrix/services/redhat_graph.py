@@ -69,6 +69,11 @@ try:
 except ImportError:
     import llm_extraction as lx  # type: ignore
 
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
 log = logging.getLogger(__name__)
 
 POLICY = "rh-graph-v1"
@@ -682,7 +687,8 @@ def default_completion(prompt: str, *, project_id: str | None = None) -> str:
     model = policy.litellm_model or policy.model_id
     executor = gov.executor or gov._default_executor  # noqa: SLF001
     started = time.monotonic()
-    text, in_tok, out_tok = executor(model, [{"role": "user", "content": prompt}], policy.max_output_tokens, policy.caching)
+    with _mc.stage_context("redhat_graph", project_id=project_id):
+        text, in_tok, out_tok = executor(model, [{"role": "user", "content": prompt}], policy.max_output_tokens, policy.caching)
     log.info("redhat_graph: model=%s in=%s out=%s elapsed=%.1fs", model, in_tok, out_tok, time.monotonic() - started)
     if not isinstance(text, str) or text.startswith("ERROR:"):
         raise lx.LLMUnavailable(f"{model}: {str(text)[7:].strip()[:200] or 'empty answer'}")

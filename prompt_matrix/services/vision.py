@@ -46,6 +46,11 @@ import threading
 import time
 from typing import Any, Callable
 
+try:
+    from . import model_calls as _mc
+except ImportError:  # pragma: no cover - flat-import fallback
+    import model_calls as _mc  # type: ignore
+
 log = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
@@ -522,10 +527,11 @@ def default_completion(prompt: str, image_png_bytes: bytes, *, model: str) -> st
         ],
     }]
     try:
-        resp = litellm.completion(
-            model=model, messages=messages, max_tokens=MAX_OUTPUT_TOKENS, stream=False,
-            timeout=int(_timeout_s()), **kwargs,
-        )
+        with _mc.stage_context("vision"):
+            resp = litellm.completion(
+                model=model, messages=messages, max_tokens=MAX_OUTPUT_TOKENS, stream=False,
+                timeout=int(_timeout_s()), metadata=_mc.litellm_metadata(kwargs.pop("metadata", None)), **kwargs,
+            )
     except Exception as exc:  # noqa: BLE001 — the class name is what the report records
         raise VisionUnavailable(_one_line(exc)) from exc
     try:

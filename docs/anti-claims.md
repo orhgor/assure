@@ -149,6 +149,12 @@
 - `provenance_confidence` under 1.0 on a located value means the value's shape disproves the place; it is not a measure of OCR quality (that is `extraction_confidence`) nor of the value (that is `value_quality`).
 - The proof run (`scripts/final_run.py`) reads the stack's artifacts; a green run on the code alone is not claimed anywhere.
 
+### Pipeline activity (2026-09-28)
+
+| Claim | Why it is not true | Say instead |
+|---|---|---|
+| "The pipeline ran" (a green stage summary) | a stage's summary records its conclusion, not that its request left the server; the model-call ledger (`model_calls`, `docs/pipeline-activity.md`) records the requests — a stage with no ledger row and no execution entry is `no_record`, never "ok" | "stage X ran: N requests to <model>, last HTTP 200 in 1.2 s" or "no record" |
+
 ### Schemas, tables, discovery, export names (2026-09-27)
 
 | Claim we must not make | Why | What to say instead |

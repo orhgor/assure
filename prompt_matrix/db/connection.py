@@ -50,7 +50,7 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 36
+_SCHEMA_VERSION = 37
 
 
 def _migrate_v36(db: sqlite3.Connection) -> None:
@@ -66,6 +66,16 @@ def _migrate_v36(db: sqlite3.Connection) -> None:
     failed and was logged — and the route answers 404, never a substitute."""
     if not _column_exists(db, "ingest_jobs", "source_jdf_key"):
         db.execute("ALTER TABLE ingest_jobs ADD COLUMN source_jdf_key TEXT")
+
+def _migrate_v37(db: sqlite3.Connection) -> None:
+    """``model_calls`` (2026-09-28): one row per model request the application
+    makes — stage, model, HTTP status, latency, tokens, error — written from
+    litellm's callbacks (``services/model_calls``). A customer reported that
+    requests were not reaching OpenRouter and nothing in the UI could show
+    whether a stage's request had left the server; the stage summaries record
+    outcomes, this table records the requests. The table is created in the
+    base block above; this migration exists so the schema version names it."""
+    db.execute("SELECT 1 FROM model_calls LIMIT 1")
 
 
 def _migrate_v35(db: sqlite3.Connection) -> None:
@@ -1405,6 +1415,35 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         )
         """
     )
+
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS model_calls (
+            id TEXT PRIMARY KEY,
+            project_id TEXT,
+            stage TEXT,
+            stage_source TEXT,
+            task TEXT,
+            backend TEXT,
+            provider TEXT,
+            model TEXT NOT NULL,
+            status TEXT NOT NULL,
+            http_status INTEGER,
+            ms INTEGER,
+            prompt_chars INTEGER,
+            completion_chars INTEGER,
+            input_tokens INTEGER,
+            output_tokens INTEGER,
+            error TEXT,
+            stream INTEGER NOT NULL DEFAULT 0,
+            path TEXT,
+            worker TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_model_calls_proj ON model_calls(project_id, created_at DESC)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_model_calls_created ON model_calls(created_at DESC)")
     db.execute("CREATE INDEX IF NOT EXISTS idx_audit_req ON audit_log(request_id)")
     db.execute(
         "CREATE INDEX IF NOT EXISTS idx_audit_proj ON audit_log(project_id, created_at DESC)"
@@ -1493,6 +1532,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v35(db)
     if current < 36:
         _migrate_v36(db)
+    if current < 37:
+        _migrate_v37(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

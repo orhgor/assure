@@ -325,6 +325,21 @@
               <li class="stage-row" data-stage="Verify"><span class="stage-dot" aria-hidden="true"></span><span class="stage-name" data-i18n="shell.stage.verify">Verify</span></li>
             </ul>
           </section>
+          <!-- Pipeline activity (customer complaint 2026-09-28: "requests are
+               not reaching OpenRouter and I cannot see whether the pipeline
+               ran"). One record per stage — ran / failed / skipped / pending /
+               no record — the model called, whether the request left the
+               server and what came back. Painted by shell.js
+               (_renderPipelineActivity) into every [data-pipeline-host] from
+               GET /api/projects/<id>/pipeline-activity; the Inspector and the
+               Fields pane carry the same panel. Nothing here is inferred: a
+               stage the record lacks reads "no record", never "ok". -->
+          <section class="pane-section pipeline-section" id="section-pipeline">
+            <div class="pane-section-head">
+              <h3 data-i18n="shell.pipeline.title">Pipeline activity</h3>
+            </div>
+            <div class="pipeline-activity" id="pipeline-activity-compiler" data-pipeline-host="compiler" data-state="idle"></div>
+          </section>
           <section class="pane-section" id="section-manifest">
             <div class="pane-section-head">
               <h3 data-i18n="shell.rail.sources">Sources</h3>
@@ -584,6 +599,14 @@
               </div>
             </section>
           </details>
+          <!-- Pipeline activity, the same panel as the compiler pane's
+               (#section-pipeline); folded like the counts above. -->
+          <details class="insp-section insp-pipeline" id="insp-pipeline">
+            <summary><span data-i18n="shell.pipeline.title">Pipeline activity</span></summary>
+            <section class="insp-body" aria-label="Pipeline activity">
+              <div class="pipeline-activity" id="pipeline-activity-inspector" data-pipeline-host="inspector" data-state="idle"></div>
+            </section>
+          </details>
         </div>
       </div>
       <div id="right-compare" class="pane-mode" style="display:none;">
@@ -655,6 +678,13 @@
               <ul class="exec-list" id="fields-execution-list" role="list"></ul>
             </details>
           </header>
+          <!-- Pipeline activity (2026-09-28): the sibling of the execution
+               panel above, outside the header so it shows with no report too —
+               a parse that never ran is exactly what it must say. -->
+          <details class="fields-execution fields-pipeline" id="fields-pipeline" open>
+            <summary><span data-i18n="shell.pipeline.title">Pipeline activity</span></summary>
+            <div class="pipeline-activity" id="pipeline-activity-fields" data-pipeline-host="fields" data-state="idle"></div>
+          </details>
           <div id="fields-empty" class="empty-state">
             <p id="fields-empty-text" class="empty-state-text" data-i18n="shell.fields.empty">No fields yet. Upload a document to begin.</p>
             <button type="button" class="btn-secondary" id="fields-empty-upload" data-i18n="shell.action.upload">Upload</button>

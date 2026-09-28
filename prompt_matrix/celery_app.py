@@ -213,11 +213,27 @@ def _apply_aws_integration_in_parent(**kwargs):
         logging.getLogger("assure").exception("celeryd_init: could not close the parent's PostgreSQL pools")
 
 
+# The model-call ledger (``services/model_calls``) hooks litellm in every worker
+# process too: most model requests are made here, not on the web tier.
+def _install_model_call_ledger(**_kwargs):
+    try:
+        try:
+            from .services import model_calls
+        except ImportError:
+            from services import model_calls  # type: ignore
+        model_calls.install()
+    except Exception:  # noqa: BLE001 — observability never blocks the worker
+        pass
+
+
+_install_model_call_ledger()
+
 try:
     from celery.signals import beat_init, celeryd_init, worker_process_init
 
     celeryd_init.connect(_apply_aws_integration_in_parent, weak=False)
     beat_init.connect(_apply_aws_integration, weak=False)
     worker_process_init.connect(_apply_aws_integration, weak=False)
+    worker_process_init.connect(_install_model_call_ledger, weak=False)
 except ImportError:  # pragma: no cover
     pass
