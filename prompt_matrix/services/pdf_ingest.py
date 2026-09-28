@@ -84,7 +84,7 @@ def ingest_pdf_for_project(
     ``ingest_jobs`` row as it happens.
     """
     try:
-        from ..db.jdf_repository import save_jdf_revision
+        from ..db.jdf_repository import new_revision_id, save_jdf_revision
         from ..lib.logger import get_audit_logger
         from ..lib.sanitize import sanitize_jdf_node
         from ..models.jdf import parse_document
@@ -99,9 +99,10 @@ def ingest_pdf_for_project(
         from ..services.parser_router import is_image_filename, route_intake
         from ..services.pdf_import import pdf_bytes_to_jdf
         from ..services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
+        from ..services.source_jdf import persist_source_jdf
         from ..services.verification import run_verification_after_parse
     except ImportError:
-        from db.jdf_repository import save_jdf_revision
+        from db.jdf_repository import new_revision_id, save_jdf_revision
         from lib.logger import get_audit_logger
         from lib.sanitize import sanitize_jdf_node
         from models.jdf import parse_document
@@ -116,6 +117,7 @@ def ingest_pdf_for_project(
         from services.parser_router import is_image_filename, route_intake
         from services.pdf_import import pdf_bytes_to_jdf
         from services.quality_probe import image_to_pdf_bytes, image_to_png_bytes
+        from services.source_jdf import persist_source_jdf
         from services.verification import run_verification_after_parse
 
     # Parsure's post-parse report hook (another module, may be absent in a
@@ -144,6 +146,7 @@ def ingest_pdf_for_project(
     # a second router.
     intake = route_intake(file_bytes, filename)
     _parser = intake["parser"]
+    source_jdf: dict[str, Any] | None = None
     is_image = is_image_filename(filename)
     _job_advance(job_id, "parsing", parser_name=_parser, size_bytes=len(file_bytes))
 
@@ -292,11 +295,35 @@ def ingest_pdf_for_project(
             z3_violation_count=len(z3.get("violations") or []) if isinstance(z3, dict) else None,
             redhat_status=(verification or {}).get("redhat_status"),
         )
+        # The raw jdf-cli document becomes a stored artifact (services/
+        # source_jdf, 2026-09-28): written under the revision id this save is
+        # about to use, so ``meta.source_jdf`` on the saved tree names a key
+        # that already exists when the revision is first read. The descriptor
+        # rides on ``intake`` to the Parsure report and on the job row. A store
+        # failure is logged inside and leaves ``source_jdf`` None — the
+        # revision does not depend on it.
+        revision_id = new_revision_id()
+        if bundle.get("jdf_source") is not None:
+            source_jdf = persist_source_jdf(
+                project_id,
+                str(tree.get("document_id") or f"doc-{project_id}"),
+                revision_id,
+                bundle["jdf_source"],
+                chunks=bundle.get("chunks") or [],
+                job_id=job_id,
+                filename=filename,
+            )
+            if source_jdf:
+                if not isinstance(tree.get("meta"), dict):
+                    tree["meta"] = {}
+                tree["meta"]["source_jdf"] = source_jdf
+                intake["source_jdf"] = source_jdf
         result = save_jdf_revision(
             project_id,
             tree,
             mutation_type="PDF_IMPORT",
             change_summary=f"Imported {filename}",
+            revision_id=revision_id,
         )
     except Exception as exc:
         duration_ms = int((time.perf_counter() - start_time) * 1000)
@@ -406,4 +433,5 @@ def ingest_pdf_for_project(
         "modality": intake.get("modality"),
         "laya": intake.get("laya"),
         "parsure_report_id": (parsure or {}).get("report_id") if isinstance(parsure, dict) else None,
+        "source_jdf": source_jdf,
     }

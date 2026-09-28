@@ -4334,3 +4334,178 @@ body[data-can-override="0"] #fields-type-change { display: none !important; }
      the first rail item */
   .app-header-left .project-switcher { display: none; }
 }
+
+/* Source view (jdf.js 0.2.5, 2026-09-28). The uploaded document over the
+   document column: a drawer inside .center (which is position: relative),
+   leaving the dock below it; a full-width sheet at 640px. source-view.js
+   builds .sv-root / .sv-nav / .sv-stage inside #source-sheet-body and the
+   overlay layer inside each page wrapper; the wrapper must be the overlay's
+   containing block, hence position: relative on it here. */
+.source-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: var(--dock-h);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+}
+.source-sheet[hidden] { display: none; }
+.source-sheet:focus { outline: none; }
+.source-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.source-sheet-text { min-width: 0; }
+.source-sheet-title { margin: 0; font: 600 var(--fs-md)/1.3 var(--sans); letter-spacing: -0.01em; color: var(--ink); }
+.source-sheet-name { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.source-sheet-ocr { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--partial); }
+.source-sheet-ocr[hidden] { display: none; }
+.source-sheet-close { height: 24px; flex-shrink: 0; }
+.source-sheet-body { flex: 1 1 auto; min-height: 0; position: relative; }
+.source-sheet-status {
+  margin: 0;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  border-top: 1px solid var(--rule);
+}
+.source-sheet-status[hidden] { display: none; }
+
+/* source-view.js: nav + stage. The stage is the jdf.js host; its own frame
+   (border, radius, min-height) is dropped so the pages sit flush. */
+.sv-root { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.sv-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.sv-btn {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 500 var(--fs-md)/1 var(--sans);
+  cursor: pointer;
+}
+.sv-btn:hover:not([disabled]) { background: var(--hover-wash); }
+.sv-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sv-btn[disabled] { opacity: 0.4; cursor: default; }
+.sv-page-label { padding: 0 var(--space-1); font-variant-numeric: tabular-nums; min-width: 92px; text-align: center; }
+.sv-nav-sep { width: 1px; height: 14px; background: var(--rule); margin: 0 var(--space-2); }
+.sv-stage { flex: 1 1 auto; min-height: 0; }
+.sv-stage.jdfjs { border: none; border-radius: 0; min-height: 0; height: 100%; background: var(--paper); }
+.sv-stage .jdfjs-page-wrapper { position: relative; }
+.sv-stage .jdfjs-page-content, .sv-stage .jdfjs-text, .sv-stage .jdfjs-richtext { user-select: text; -webkit-user-select: text; }
+
+/* The overlay: one layer per page, boxes placed by bboxToPx. A 2.4 s flash,
+   then a thin outline until clear(). Pointer events pass through so the text
+   under the box can still be selected. */
+.sv-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.sv-mark {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--partial);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--partial) 12%, transparent);
+  transition: background-color 400ms var(--ease), border-color 400ms var(--ease);
+}
+.sv-mark.is-flash {
+  border-color: var(--partial);
+  background: color-mix(in srgb, var(--partial) 28%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--partial) 25%, transparent);
+  animation: sv-flash 1.2s var(--ease) 2;
+}
+.sv-mark.is-outline { background: transparent; border-color: color-mix(in srgb, var(--partial) 70%, var(--rule)); box-shadow: none; }
+.sv-mark[hidden] { display: none; }
+@keyframes sv-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .sv-mark.is-flash { animation: none; } }
+
+/* The ask bar: quiet, floating at the foot of the sheet. */
+.source-ask-bar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 2 * var(--space-4)));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+  z-index: 5;
+}
+.source-ask-bar[hidden] { display: none; }
+.source-ask-text { flex: 1 1 200px; min-width: 0; display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--fs-sm); color: var(--muted); }
+.source-ask-quote { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.source-ask-quote::before { content: "\201C"; }
+.source-ask-quote::after { content: "\201D"; }
+.source-ask-page { white-space: nowrap; }
+.source-ask-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.source-ask-actions .btn-secondary, .source-ask-actions .btn-tertiary { height: 26px; }
+.source-ask-dismiss { min-width: 26px; padding: 0 6px; }
+.source-ask-note { flex-basis: 100%; margin: 0; font-size: var(--fs-xs); color: var(--partial); }
+.source-ask-note[hidden] { display: none; }
+
+/* "Show in source" everywhere it appears, and the anchor chip on a node
+   compiled from a selection. */
+.show-in-source { height: 22px; font-size: var(--fs-xs); }
+.selection-anchor-chip { display: inline-flex; margin: 2px 0 8px; font: 500 var(--fs-xs)/1 var(--sans); white-space: normal; }
+.selection-anchor-chip.is-document { margin-bottom: var(--space-4); }
+.source-open-source { margin-left: var(--space-1); }
+.dock-selection-chip {
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: 11px;
+  background: var(--soft-wash);
+  color: var(--muted);
+  font: 500 var(--fs-xs)/1 var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dock-selection-chip[hidden] { display: none; }
+.dock-selection-chip:hover { color: var(--ink); }
+.fields-filter-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+}
+.fields-filter-note .btn-tertiary { height: 22px; }
+.field-row[hidden], .fields-section[hidden] { display: none; }
+
+@media (max-width: 640px) {
+  /* A full-width sheet over everything, the rails included: at 390px the
+     page needs the whole viewport, and the dock is reached by closing it. */
+  .source-sheet { position: fixed; inset: 0; bottom: 0; z-index: 160; border-bottom: none; }
+  .source-ask-bar { width: calc(100% - 2 * var(--space-3)); bottom: var(--space-3); }
+  .source-ask-text { flex-basis: 100%; }
+}

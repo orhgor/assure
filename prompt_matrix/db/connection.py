@@ -50,7 +50,22 @@ except ImportError:
 # SQLite cannot add a foreign key to an existing table, so there is no migration
 # step to write and the version stays where it is: bumping it would either do
 # nothing or record a step that never ran.
-_SCHEMA_VERSION = 35
+_SCHEMA_VERSION = 36
+
+
+def _migrate_v36(db: sqlite3.Connection) -> None:
+    """``ingest_jobs.source_jdf_key`` (2026-09-28): the object-store key of the
+    raw jdf-cli document the job's parse produced (``services/source_jdf``,
+    ``documents/<project>/<document_id>/<revision or job id>.jdf``).
+
+    Until now that document was in memory only and the browser could render
+    just the Assure tree; the key on the job row is how ``GET /api/projects/
+    <id>/documents/<doc>/source.jdf`` finds the latest stored document for a
+    document id (jobs ordered by ``created_at``). NULL means the parse stored
+    none — a Textract/PyMuPDF fallback, a text upload, or a store write that
+    failed and was logged — and the route answers 404, never a substitute."""
+    if not _column_exists(db, "ingest_jobs", "source_jdf_key"):
+        db.execute("ALTER TABLE ingest_jobs ADD COLUMN source_jdf_key TEXT")
 
 
 def _migrate_v35(db: sqlite3.Connection) -> None:
@@ -1476,6 +1491,8 @@ def _migrate_db(db: sqlite3.Connection) -> None:
         _migrate_v34(db)
     if current < 35:
         _migrate_v35(db)
+    if current < 36:
+        _migrate_v36(db)
 
     if current < _SCHEMA_VERSION:
         for version in range(current + 1, _SCHEMA_VERSION + 1):

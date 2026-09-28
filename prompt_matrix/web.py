@@ -2884,6 +2884,11 @@ def create_app(*, require_auth: bool = True) -> Flask:
     except ImportError:
         from routers.parsure_routes import register_parsure_routes
     register_parsure_routes(app)
+    try:
+        from .routers.documents_routes import register_documents_routes
+    except ImportError:
+        from routers.documents_routes import register_documents_routes
+    register_documents_routes(app)
 
     try:
         from .routers.auth_routes import register_auth_routes

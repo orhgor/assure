@@ -203,3 +203,13 @@ Policy `claim-v1` — `services/claim_policy.py`, `services/numeric_recompute.py
 - The prototype shell's counter port (`prototype/shell.js`) still reads `entailment.verdict`; until it reads `meta.provenance.claim` the browser's numbers can differ from the server's `provenance_stats` (`tests/test_client_counters_parity.py`). The server's numbers are the gate's.
 - Every Red-Hat finding says what it stands on: `evidence_kind: "quoted"` only with a verbatim `quote`, otherwise `"observation"` — an observation is never rendered as evidence (live run 2026-09-27: 3 of 18 findings quoted). The multipass prompts make `quote` a required key; empty quotes are counted in `notes`.
 - A superseded Red-Hat pass (older audit generation) writes nothing to telemetry — not `error: stale_generation`, not findings; `tasks/redhat._telemetry_update` compares the generation before every write and logs the drop.
+
+### Source JDF and selection anchors (2026-09-28)
+
+`services/source_jdf.py`, `routers/documents_routes.py`; contract in `docs/source-jdf.md`.
+
+- A selection anchor says `verbatim` only when the text was re-found in the source. `meta.selection_anchor.verbatim` is true only when `find_verbatim` finds the selection text (whitespace-collapsed, case-insensitive) in the `extracted_text` of the sources the compile or rewrite cited; the browser's statement that the text came from the page is recorded (`text`, `page`, `element_ids`) but never taken as the verdict. No claim verdict reads the anchor.
+- `GET …/documents/<doc>/source.jdf` streams only a document the ingest stored; when none was stored (Textract, PyMuPDF fallback, text upload, a store write that failed and was logged) it is 404 "no source document is stored for this document" — never a tree rendered as the source, never a substitute revision.
+- `?text=` maps a selection to the elements whose text carries it verbatim; a selection that is not in the page text answers `found: false` with no ids — the nearest element is never substituted.
+- Element ids on the stored document (`element.assure.element_id`) equal the Parsure field ids only because both come from `field_extractor.page_layout` with the same chunk list (`eid-v1`); a document without stamped ids and without its chunks derives `p<page>:` ids, which are a different id space and are not compared to field ids.
+- No page image exists for a stored document: nothing in the pipeline renders pages (`services/vision.render_page_png` renders one page for a multimodal read on demand and stores nothing). The browser renders the JDF itself.

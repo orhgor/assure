@@ -43,6 +43,7 @@ try:
         parse_document,
     )
     from ..routers.inquire_stream import _METRIC_RE, _parse_metrics
+    from ..services.source_jdf import SelectionAnchor, selection_anchor_meta
     from ..services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         MEMO as ANSWER_SHAPE_MEMO,
@@ -126,6 +127,7 @@ except ImportError:
         parse_document,
     )
     from routers.inquire_stream import _METRIC_RE, _parse_metrics
+    from services.source_jdf import SelectionAnchor, selection_anchor_meta
     from services.answer_shape import (
         DIRECT as ANSWER_SHAPE_DIRECT,
         MEMO as ANSWER_SHAPE_MEMO,
@@ -376,6 +378,11 @@ class DraftPayload(BaseModel):
         default=None,
         validation_alias=AliasChoices("icpProfile", "icp_profile"),
     )
+    #: A text selection made on the rendered source JDF (services/source_jdf,
+    #: 2026-09-28). Recorded on the compiled document as
+    #: ``meta.selection_anchor``; for a ``selection`` compile its text is the
+    #: excerpt when ``content`` is absent.
+    selection: SelectionAnchor | None = None
 
 
 def _typed_sse(event_type: str, payload: dict[str, Any] | None = None) -> str:
@@ -1763,6 +1770,7 @@ def run_draft_pipeline(
     cancel_check: CancelCheck | None = None,
     force: bool = False,
     icp_profile: str | None = None,
+    selection: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """The compile pipeline, on one connection for its whole run.
 
@@ -1788,6 +1796,7 @@ def run_draft_pipeline(
             cancel_check=cancel_check,
             force=force,
             icp_profile=icp_profile,
+            selection=selection,
         )
 
 
@@ -1803,6 +1812,7 @@ def _run_draft_pipeline(
     cancel_check: CancelCheck | None = None,
     force: bool = False,
     icp_profile: str | None = None,
+    selection: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     rid = request_id or str(uuid.uuid4())
     start = time.perf_counter()
@@ -2153,6 +2163,13 @@ def _run_draft_pipeline(
     # sidecar and the reader of it can then see which contract the compile ran
     # under, and a restored document does not have to guess from its headings.
     document.meta["answer_shape"] = _shape
+    # The selection the compile was asked from, as the browser sent it, plus
+    # ``verbatim`` — re-found in this ask's sources or not. Recorded, never
+    # judged: the claim verdicts below are unchanged by it.
+    if selection:
+        document.meta["selection_anchor"] = selection_anchor_meta(
+            selection, [str(row.get("extracted_text") or "") for row in substrate_rows]
+        )
     doc_dict = document_to_dict(document)
     if substrate_rows:
         doc_dict = attach_substrate_provenance_to_tree(doc_dict, locks, substrate_rows)
@@ -2784,14 +2801,17 @@ def register_draft_routes(app) -> None:
                     "content": data.get("content"),
                     "target_ai": data.get("target_ai"),
                     "force": bool(data.get("force")),
+                    "icpProfile": data.get("icpProfile") or data.get("icp_profile"),
+                    "selection": data.get("selection"),
                 }
             )
         except Exception as exc:
             return {"error": str(exc)}, 400
 
         intent = (payload.intent or payload.directive or "").strip()
+        selection_text = (payload.selection.text if payload.selection else "").strip()
         if payload.compile_type == "selection":
-            excerpt = (payload.content or intent).strip()
+            excerpt = (payload.content or selection_text or intent).strip()
             if not excerpt:
                 return {"error": "content required for selection compile"}, 400
             intent = (
@@ -2850,6 +2870,7 @@ def register_draft_routes(app) -> None:
                     cancel_check=cancel_check,
                     force=payload.force,
                     icp_profile=payload.icp_profile,
+                    selection=payload.selection.model_dump() if payload.selection else None,
                 )
             except GeneratorExit:
                 return

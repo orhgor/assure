@@ -39,12 +39,13 @@ _COLUMNS = (
     "ocr_confidence", "z3_status", "z3_violation_count", "redhat_status", "revision_id",
     "revision_version", "omp_artifact_id", "substrate_file_id", "error", "worker",
     "size_bytes", "duration_ms", "created_at", "started_at", "finished_at", "updated_at",
+    "source_jdf_key",
 )
 _UPDATABLE = {
     "task_id", "object_key", "parser_name", "source_kind", "page_count", "parse_confidence",
     "ocr_confidence", "z3_status", "z3_violation_count", "redhat_status", "revision_id",
     "revision_version", "omp_artifact_id", "substrate_file_id", "error", "worker",
-    "size_bytes", "duration_ms",
+    "size_bytes", "duration_ms", "source_jdf_key",
 }
 
 
@@ -170,6 +171,46 @@ def advance(job_id: str, stage: str, **fields: Any) -> None:
     params.append(job_id)
     db.execute(f"UPDATE ingest_jobs SET {', '.join(sets)} WHERE job_id = ?", tuple(params))
     db.commit()
+
+
+def set_source_jdf_key(job_id: str, key: str | None) -> None:
+    """Record the stored source JDF's object key on the job (schema v36).
+
+    Its own statement rather than a field of ``advance``: the document is
+    stored between the ``persisting`` and ``done`` stages and the key is a fact
+    about the artifact, not a stage transition — writing it must not move the
+    job, and a finished job may still receive it.
+    """
+    init_db()
+    db = get_db()
+    db.execute(
+        "UPDATE ingest_jobs SET source_jdf_key = ?, updated_at = ? WHERE job_id = ?",
+        (key, _now(), job_id),
+    )
+    db.commit()
+
+
+def list_source_jdf_keys(project_id: str, *, limit: int = 500) -> list[str]:
+    """This project's stored source JDF keys, newest job first. The caller
+    (``services/source_jdf.resolve_source_jdf_key``) filters by document
+    prefix in Python: a ``LIKE`` on an id that may contain ``_`` would match
+    more than the document.
+
+    ``created_at`` is second-precision, so two imports of one document inside
+    a second tie (measured in the test-suite, 2026-09-28); the revision
+    version the import path records breaks the tie — it is the document's own
+    monotonic counter. Sources-panel jobs carry no version and fall back to
+    the job id, which is arbitrary; two vault uploads of the same file inside
+    one second are the same document re-parsed, so either key is that
+    document."""
+    init_db()
+    db = get_db()
+    rows = db.execute(
+        "SELECT source_jdf_key FROM ingest_jobs WHERE project_id = ? AND source_jdf_key IS NOT NULL "
+        "ORDER BY created_at DESC, COALESCE(revision_version, 0) DESC, job_id DESC LIMIT ?",
+        (project_id, max(1, min(int(limit), 1000))),
+    ).fetchall()
+    return [str(r[0]) for r in rows if r[0]]
 
 
 def get_job(job_id: str) -> dict[str, Any] | None:

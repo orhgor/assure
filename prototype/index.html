@@ -10,6 +10,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shell.css">
+  <!-- Source view (2026-09-28): jdf.js renders the uploaded document from its
+       jdf-cli JDF. Auto-init is off — the shell embeds programmatically
+       (source-view.js); the module tag at the foot exposes the API. -->
+  <script>window.JDFjsAutoInit = false;</script>
+  <link rel="stylesheet" href="./vendor/jdfjs/jdfjs.css">
 </head>
 <body class="right-hidden">
   <div id="modal-layer" class="modal-layer" hidden></div>
@@ -379,8 +384,49 @@
       <section id="intent-panel-slot" aria-label="Draft progress"></section>
       <section class="doc-surface" aria-label="Document"></section>
 
+      <!-- SOURCE VIEW (jdf.js, 2026-09-28): the uploaded document itself,
+           rendered from its jdf-cli JDF over the document column. Opened by
+           "Source" on a Sources row or the Fields head and by every "Show in
+           source" (field rows, evidence pane, claim quotes, Red-Hat quotes).
+           A drawer here; a full-width sheet at 640px (shell.css).
+           source-view.js owns the pages, the nav and the overlay box;
+           shell.js owns this head, the ask bar and every request. -->
+      <section id="source-sheet" class="source-sheet" role="dialog" aria-labelledby="source-sheet-title" tabindex="-1" hidden>
+        <header class="source-sheet-head">
+          <div class="source-sheet-text">
+            <h2 id="source-sheet-title" class="source-sheet-title" data-i18n="shell.source_view.title">Source</h2>
+            <p id="source-sheet-name" class="source-sheet-name"></p>
+            <!-- Shown when the report's parser_name is jdf-cli+tesseract or textract:
+                 the text under the cursor is OCR output, not the page's own text. -->
+            <p id="source-sheet-ocr" class="source-sheet-ocr" data-i18n="shell.source_view.ocr_note" hidden>OCR text — check against the page</p>
+          </div>
+          <button type="button" id="source-sheet-close" class="btn-tertiary source-sheet-close" data-i18n="shell.dialog.close">Close</button>
+        </header>
+        <div id="source-sheet-body" class="source-sheet-body"></div>
+        <p id="source-sheet-status" class="source-sheet-status" aria-live="polite" hidden></p>
+        <!-- Selection → ask bar: appears when a selection lies within one page.
+             Ask / Compile are gated by compile.run (disabled with the reason);
+             "Extract fields here" only when a Parsure report exists. Escape hides. -->
+        <div id="source-ask-bar" class="source-ask-bar" role="toolbar" aria-label="Selected text" data-i18n-aria="shell.source_view.bar_label" hidden>
+          <div class="source-ask-text">
+            <q id="source-ask-quote" class="source-ask-quote"></q>
+            <span id="source-ask-page" class="source-ask-page"></span>
+          </div>
+          <div class="source-ask-actions">
+            <button type="button" id="source-ask-ask" class="btn-secondary" data-i18n="shell.source_view.ask">Ask about this</button>
+            <button type="button" id="source-ask-compile" class="btn-secondary" data-i18n="shell.source_view.compile">Compile this selection</button>
+            <button type="button" id="source-ask-fields" class="btn-tertiary" data-i18n="shell.source_view.extract_fields" hidden>Extract fields here</button>
+            <button type="button" id="source-ask-dismiss" class="btn-tertiary source-ask-dismiss" aria-label="Dismiss" data-i18n-aria="shell.dialog.close">×</button>
+          </div>
+          <p id="source-ask-note" class="source-ask-note" hidden></p>
+        </div>
+      </section>
+
       <footer class="dock" aria-label="Prompt input">
         <div class="dock-input" id="dock-input-wrap">
+          <!-- The source selection "Ask about this" attached to the next draft;
+               click removes it. Painted by shell.js. -->
+          <button type="button" id="dock-selection-chip" class="dock-selection-chip" hidden></button>
           <input type="text"
                  class="dock-text"
                  id="dock-text"
@@ -571,6 +617,7 @@
               <nav class="fields-links" id="fields-links" aria-label="Extracted data">
                 <a class="btn-tertiary fields-link" id="fields-link-record" href="/parsing" data-i18n="shell.fields.full_record">Full record</a>
                 <a class="btn-tertiary fields-link" id="fields-link-data" href="/parsing#data" data-i18n="shell.fields.all_data">All data</a>
+                <button type="button" class="btn-tertiary fields-link" id="fields-link-source" data-i18n="shell.source_view.title" hidden>Source</button>
               </nav>
             </div>
             <div class="fields-type" id="fields-type">
@@ -641,6 +688,16 @@
 
   </div>
 
+  <!-- jdf.js 0.2.5 (MIT, ./vendor/jdfjs, see VERSION) is an ES module; the
+       shell is a classic script. Module and deferred scripts run in document
+       order after parsing, so the API is on window before source-view.js and
+       shell.js run; source-view.js also waits for "jdfjs-ready" in case it is not. -->
+  <script type="module">
+    import { embed, render, JDFViewer, jdf } from "./vendor/jdfjs/jdfjs.js";
+    window.JDFjs = { embed: embed, render: render, JDFViewer: JDFViewer, jdf: jdf };
+    window.dispatchEvent(new Event("jdfjs-ready"));
+  </script>
+  <script src="./source-view.js" defer></script>
   <script src="./shell.js" defer></script>
   <script src="./wow_effects.js" defer></script>
 </body>

@@ -161,6 +161,8 @@ def main() -> int:
     gate = verified.get("gate_status")
     expected_gate = "pass" if (summary.get("verified") == summary.get("total") and not summary.get("flagged")) else "review"
     check("gate follows the verdicts", gate in ("pass", "review", "blocked") and (gate == expected_gate or gate == "blocked"), {"gate": gate, "verified": summary.get("verified"), "total": summary.get("total"), "contradicted": summary.get("contradicted")})
+    sj = (doc.get("meta") or {}).get("source_jdf") or {}
+    check("Assure tree names its source JDF", None if not sj else bool(sj.get("url")), sj.get("url") or "meta.source_jdf absent (Sources-path compile; the report carries it)")
     rh = (events.get("redhat") or [{}])[-1]
     check("Red-Hat scheduled after compile", rh.get("status") in ("scheduled", "ran", "complete", "pending"), {k: rh.get(k) for k in ("status", "skip_reason", "task_id")})
     t0 = time.time(); rstat = {}

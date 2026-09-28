@@ -1017,6 +1017,18 @@
       view.textContent = _t("shell.source.result.view", "View");
       view.addEventListener("click", function () { _viewReport(String(summary.report_id)); });
       line.appendChild(view);
+      // The document itself (jdf.js, 2026-09-28) — only when a source JDF is recorded.
+      var rowSrc = _sourceJdfOfReport(summary)
+        || (String(summary.report_id) === String(__parsureReportId || "") ? _sourceJdfOfReport(__parsure) : null);
+      if (rowSrc) {
+        var srcBtn = document.createElement("button");
+        srcBtn.type = "button";
+        srcBtn.className = "btn-tertiary source-open-source";
+        srcBtn.textContent = _t("shell.source_view.title", "Source");
+        srcBtn.title = _t("shell.source_view.open", "Show the uploaded document");
+        srcBtn.addEventListener("click", function () { _openSourceSheet(rowSrc); });
+        line.appendChild(srcBtn);
+      }
     }
     // The report list and the source list arrive in either order: whichever
     // lands second paints the lines.
@@ -2623,6 +2635,12 @@
         el.appendChild(span);
         wrapper.appendChild(el);
       }
+      // A node compiled from a source selection (meta.selection_anchor,
+      // 2026-09-28) says where: the chip opens the source view on the anchor.
+      if (node.meta && node.meta.selection_anchor && typeof _selectionAnchorChip === "function") {
+        var anchorChip = _selectionAnchorChip(node.meta.selection_anchor);
+        if (anchorChip) wrapper.appendChild(anchorChip);
+      }
       return wrapper;
     }
 
@@ -3301,6 +3319,10 @@
       // Clear existing children, then prepend the confidence legend.
       while (draft.firstChild) draft.removeChild(draft.firstChild);
       draft.appendChild(renderConfidenceLegend());
+      if (doc.meta && doc.meta.selection_anchor && typeof _selectionAnchorChip === "function") {
+        var docAnchor = _selectionAnchorChip(doc.meta.selection_anchor);
+        if (docAnchor) { docAnchor.classList.add("is-document"); draft.appendChild(docAnchor); }
+      }
       for (var i = 0; i < doc.body.length; i++) {
         var nodeEl = renderJdfNode(doc.body[i]);
         if (nodeEl) draft.appendChild(nodeEl);
@@ -5770,7 +5792,15 @@
       _syncExportEnabled();
     }
 
-    function runDraft(intent) {
+    function runDraft(intent, extra) {
+      // The body beyond the intent: a selection compile passes compileType
+      // "selection" + content + selection + source_ids; an ask with a source
+      // selection attached (dock chip) passes `selection`. Consumed here so a
+      // later plain ask does not carry a stale selection.
+      var bodyExtra = Object.assign({}, extra || {});
+      if (__draftSelection && !bodyExtra.selection) bodyExtra.selection = __draftSelection;
+      __draftSelection = null;
+      if (typeof _paintDockSelectionChip === "function") _paintDockSelectionChip();
       // Abort any previous center draft stream, then start a fresh one.
       if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
       setShell("streams.draft", new AbortController());
@@ -5847,7 +5877,7 @@
               "Content-Type": "application/json",
               "Accept": "text/event-stream, application/json",
             },
-            body: JSON.stringify({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: SHELL.sources }),
+            body: JSON.stringify(Object.assign({ intent: intent, compileType: DRAFT_TYPE, substrate_file_ids: SHELL.sources }, bodyExtra)),
             signal: SHELL.streams.draft.signal,
           });
         })
@@ -6037,12 +6067,12 @@
       runDraft(raw); // ORIGINAL raw ask, NOT the compiled prompt
     }
 
-    function runAnyIntent(raw) {
+    function runAnyIntent(raw, extra) {
       if (!raw) return;
       intentPanelOpen = false;
       clearIntentSlot();
       _setRunInProgress(true);
-      runDraft(raw);
+      runDraft(raw, extra);
     }
 
     function cancelIntent() {
@@ -7041,6 +7071,8 @@
         if (claim.quote_verbatim !== true) bits.push(_t("shell.claim.not_verbatim", "not verbatim"));
         where.textContent = bits.join(" \u00b7 ");
         box.appendChild(where);
+        var claimChip = _claimShowInSource(claim);
+        if (claimChip) box.appendChild(claimChip);
       } else {
         var noq = document.createElement("p");
         noq.className = "claim-where";
@@ -7098,6 +7130,8 @@
           whereBits.push(_claimPageWords(u.page));
           if (u.quote && u.quote_verbatim !== true) whereBits.push(_t("shell.claim.not_verbatim", "not verbatim"));
           li.appendChild(_el("p", "claim-where", whereBits.join(" \u00b7 ")));
+          var uChip = _claimShowInSource(u);
+          if (uChip) li.appendChild(uChip);
           var un = _claimNumericWords(u.checks && u.checks.numeric);
           if (un) li.appendChild(_el("p", "claim-numeric", un));
           var uflags = Array.isArray(u.flags) ? u.flags : [];
@@ -7320,6 +7354,13 @@
             fq.textContent = "\u201C" + String(r.quote) + "\u201D";
             if (r.quote_verbatim !== true) fq.setAttribute("data-not-verbatim", "1");
             li.appendChild(fq);
+            var nodeClaim = _claimOf(node);
+            var rhPage = r.page != null ? r.page : (nodeClaim && nodeClaim.page != null ? nodeClaim.page : null);
+            var rhChip = _showInSourceChip({ page: rhPage, text: String(r.quote) }, "assure");
+            if (rhChip) {
+              rhChip.addEventListener("click", function (ev) { ev.stopPropagation(); });   // not the row's Apply
+              li.appendChild(rhChip);
+            }
           }
           // A finding a revision answered says so, on the finding, and the
           // paragraph it was raised on no longer shows it any other way: that
@@ -9412,6 +9453,8 @@
       if (g.span.table_id) where.push(_tf("shell.fields.grounding_table", "table {id}", { id: String(g.span.table_id) }) + (g.span.row != null ? " r" + g.span.row : "") + (g.span.col != null ? " c" + g.span.col : ""));
       if (g.model) where.push(g.model);
       if (where.length) box.appendChild(_el("span", "field-grounding-where", where.join(" \u00b7 ")));
+      var gChip = _showInSourceChip({ page: g.span.page, bbox: g.span.bbox, text: g.quote }, "parsure");
+      if (gChip) box.appendChild(gChip);
       return box;
     }
     // The range mark. A paragraph is markdown-rendered and wrapped in
@@ -9516,6 +9559,8 @@
         show.addEventListener("click", function (e) { e.stopPropagation(); _locateNode(String(nodeId)); });
         row.appendChild(show);
       }
+      var srcShow = _showInSourceChip({ page: page, bbox: f.source_span && f.source_span.bbox, text: quote }, "parsure");
+      if (srcShow) row.appendChild(srcShow);
       if (_originalAvailable()) {
         var a = document.createElement("a");
         a.className = "btn-tertiary field-source-original";
@@ -9553,6 +9598,374 @@
       }).catch(function () {});
     }
 
+    // =================================================================
+    // Source view (jdf.js 0.2.5, 2026-09-28). The uploaded document itself,
+    // rendered from the jdf-cli JDF the backend stores per document
+    // (GET …/documents/<id>/source.jdf). A Parsure report carries
+    // `report.source_jdf {key, url, pages, elements}`; an Assure tree carries
+    // `meta.source_jdf`. Without either, nothing here shows and every surface
+    // behaves as before. prototype/source-view.js owns the pages, the nav and
+    // the overlay box; this block owns the sheet, the ask bar and every
+    // request. Element ids come only from `…/source.json?text=&page=` — an
+    // empty list is posted as [] and never filled in here.
+    // =================================================================
+    var OCR_PARSERS = ["jdf-cli+tesseract", "textract"];
+    var __sv = { source: null, selection: null };   // source: {url,key,pages,elements,document_id,source_id,filename,parser_name,kind}
+    var __draftSelection = null;                     // "Ask about this": attached to the next draft/stream
+    var __fieldsFilter = null;                       // "Extract fields here": {report_id, page, bbox}
+    var sourceSheetEl = document.getElementById("source-sheet");
+
+    function _docIdFromSourceUrl(url) {
+      var m = /\/documents\/([^/?#]+)\/source\.jdf/.exec(String(url || ""));
+      return m ? decodeURIComponent(m[1]) : "";
+    }
+    // routers/substrate.py writes the vault row's id as the report's document_id;
+    // the row on screen is the first place to read it back.
+    function _sourceIdForReport(reportId, documentId) {
+      var row = reportId ? document.querySelector('#source-list .source-item[data-report-id="' + reportId + '"]') : null;
+      if (row && row.getAttribute("data-source-id")) return row.getAttribute("data-source-id");
+      var did = String(documentId || "");
+      return did && (SHELL.sources || []).indexOf(did) !== -1 ? did : "";
+    }
+    function _sourceJdfOfReport(rep) {
+      var src = rep && rep.source_jdf && typeof rep.source_jdf === "object" ? rep.source_jdf : null;
+      if (!src || !src.url) return null;
+      return {
+        url: String(src.url), key: src.key || "", pages: src.pages, elements: src.elements,
+        document_id: String(rep.document_id || _docIdFromSourceUrl(src.url) || ""),
+        source_id: _sourceIdForReport(String(rep.report_id || ""), rep.document_id),
+        filename: String(rep.filename || ""), parser_name: String(rep.parser_name || ""), kind: "parsure",
+      };
+    }
+    function _sourceJdfOfTree(doc) {
+      var src = doc && doc.meta && doc.meta.source_jdf && typeof doc.meta.source_jdf === "object" ? doc.meta.source_jdf : null;
+      if (!src || !src.url) return null;
+      return {
+        url: String(src.url), key: src.key || "", pages: src.pages, elements: src.elements,
+        document_id: String(src.document_id || _docIdFromSourceUrl(src.url) || ""),
+        source_id: String(src.source_id || (SHELL.sources || [])[0] || ""),
+        filename: String(src.filename || doc.meta.source_name || ""), parser_name: String(src.parser_name || doc.meta.parser_name || ""), kind: "assure",
+      };
+    }
+    // The source an action refers to: Parsure surfaces prefer the open report's,
+    // Assure claims the tree's; each falls back to the other (one project, one
+    // document at a time on these surfaces).
+    function _sourceJdfFor(prefer) {
+      var fromReport = _sourceJdfOfReport(__parsure);
+      var fromTree = _sourceJdfOfTree(SHELL.document.current);
+      return prefer === "assure" ? (fromTree || fromReport) : (fromReport || fromTree);
+    }
+    function _isOcrSource(src) { return Boolean(src && OCR_PARSERS.indexOf(String(src.parser_name || "")) !== -1); }
+    function _sourceOf(anchor) {
+      var src = anchor && anchor.source_jdf && typeof anchor.source_jdf === "object" && anchor.source_jdf.url ? anchor.source_jdf : null;
+      if (!src) return null;
+      return {
+        url: String(src.url), key: src.key || "", pages: src.pages, elements: src.elements,
+        document_id: String(anchor.document_id || src.document_id || _docIdFromSourceUrl(src.url) || ""),
+        source_id: "", filename: String(src.filename || ""), parser_name: String(src.parser_name || ""), kind: "anchor",
+      };
+    }
+
+    // ---- the sheet ---------------------------------------------------------
+    function _setSourceStatus(text, transient) {
+      var el = document.getElementById("source-sheet-status");
+      if (!el) return;
+      el.textContent = text || "";
+      el.hidden = !text;
+      if (text && transient) setTimeout(function () { if (el.textContent === text) { el.textContent = ""; el.hidden = true; } }, 4000);
+    }
+    function _paintSourceHead(src) {
+      var name = document.getElementById("source-sheet-name");
+      if (name) name.textContent = src ? (src.filename || src.document_id || "") : "";
+      var ocr = document.getElementById("source-sheet-ocr");
+      if (ocr) ocr.hidden = !_isOcrSource(src);
+    }
+    function _openSourceSheet(src) {
+      if (!src || !src.url || !sourceSheetEl || !window.SourceView) return Promise.resolve(false);
+      var same = Boolean(__sv.source && __sv.source.url === src.url && window.SourceView.isOpen());
+      // The row's summary (the list response) has no parser_name; the open
+      // report for the same document does — the OCR note reads it from there.
+      if (!src.parser_name && __parsure && String(__parsure.document_id || "") === String(src.document_id || "")) {
+        src.parser_name = String(__parsure.parser_name || "");
+      }
+      __sv.source = src;
+      sourceSheetEl.hidden = false;
+      document.body.classList.add("source-open");
+      _paintSourceHead(src);
+      if (same) return Promise.resolve(true);
+      __sv.selection = null;
+      _hideAskBar();
+      _setSourceStatus(_t("shell.source_view.loading", "Loading the source…"));
+      var body = document.getElementById("source-sheet-body");
+      return window.SourceView.open(body, src.url, { t: _t })
+        .then(function (v) { if (!v) return false; _setSourceStatus(""); return true; })
+        .catch(function (err) {
+          _setSourceStatus(_t("shell.source_view.failed", "The source could not be rendered."));
+          try { console.warn("[shell] source view:", err && err.message ? err.message : err); } catch (_) {}
+          return false;
+        });
+    }
+    function _closeSourceSheet() {
+      if (!sourceSheetEl || sourceSheetEl.hidden) return;
+      sourceSheetEl.hidden = true;
+      document.body.classList.remove("source-open");
+      _hideAskBar();
+      if (window.SourceView) window.SourceView.destroy();
+      __sv.source = null; __sv.selection = null;
+      _setSourceStatus("");
+    }
+    var sourceCloseBtn = document.getElementById("source-sheet-close");
+    if (sourceCloseBtn) sourceCloseBtn.addEventListener("click", _closeSourceSheet);
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || !sourceSheetEl || sourceSheetEl.hidden || SHELL.ui.modal) return;
+      var bar = document.getElementById("source-ask-bar");
+      if (bar && !bar.hidden) { _hideAskBar(); return; }
+      _closeSourceSheet();
+    });
+
+    // ---- "Show in source" --------------------------------------------------
+    // GET …/documents/<id>/source.json?text=&page= → {ok, element_ids, page, bbox_rel}.
+    // Anything but a good answer is "not found": [] and no box.
+    function _lookupSelection(src, text, page) {
+      var none = { element_ids: [], page: page, bbox_rel: null };
+      var pid = _activeProjectId();
+      if (!pid || !src || !src.document_id || !text) return Promise.resolve(none);
+      var url = "/api/projects/" + encodeURIComponent(pid) + "/documents/" + encodeURIComponent(src.document_id)
+        + "/source.json?text=" + encodeURIComponent(String(text)) + (page != null ? "&page=" + encodeURIComponent(String(page)) : "");
+      return fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || typeof j !== "object" || j.ok === false) return none;
+          return {
+            element_ids: Array.isArray(j.element_ids) ? j.element_ids.map(String) : [],
+            page: j.page != null ? j.page : page,
+            bbox_rel: Array.isArray(j.bbox_rel) && j.bbox_rel.length === 4 ? j.bbox_rel : null,
+          };
+        })
+        .catch(function () { return none; });
+    }
+    // spec: {page, bbox, text, source}. A bbox is boxed; a quote alone is looked
+    // up; a page alone is shown. No page → nothing is shown (never page 1).
+    function _showInSource(spec, prefer) {
+      var src = (spec && spec.source) || _sourceJdfFor(prefer);
+      if (!src || !spec) return Promise.resolve(false);
+      var page = spec.page != null && spec.page !== "" ? Number(spec.page) : null;
+      return _openSourceSheet(src).then(function (ok) {
+        if (!ok || !window.SourceView) return false;
+        if (page == null || !isFinite(page)) {
+          _setSourceStatus(_t("shell.claim.page_unrecorded", "page not recorded"), true);
+          return false;
+        }
+        if (spec.bbox) { window.SourceView.highlight({ page: page, bbox: spec.bbox }); return true; }
+        if (spec.text) {
+          return _lookupSelection(src, spec.text, page).then(function (hit) {
+            if (hit.bbox_rel) { window.SourceView.highlight({ page: hit.page != null ? hit.page : page, bbox: hit.bbox_rel }); return true; }
+            window.SourceView.goToPage(page);
+            _setSourceStatus(_tf("shell.source_view.not_located", "Not located on page {n} — showing the page", { n: page }), true);
+            return false;
+          });
+        }
+        window.SourceView.goToPage(page);
+        return true;
+      });
+    }
+    function _showInSourceChip(spec, prefer) {
+      if (!spec || spec.page == null || spec.page === "") return null;
+      if (!(spec.source || _sourceJdfFor(prefer))) return null;
+      var b = _btn("btn-tertiary show-in-source", _t("shell.source_view.show", "Show in source"));
+      b.title = _tf("shell.source_view.show_page", "Show on page {n} of the source", { n: spec.page });
+      b.addEventListener("click", function (e) { e.stopPropagation(); _showInSource(spec, prefer); });
+      return b;
+    }
+    // A claim (or a sentence row): grounding_span.page/bbox when written, else
+    // the claim's page and its verbatim quote for the lookup.
+    function _claimShowInSource(claim) {
+      if (!claim) return null;
+      var gs = claim.grounding_span && typeof claim.grounding_span === "object" ? claim.grounding_span : null;
+      var page = gs && gs.page != null ? gs.page : claim.page;
+      var bbox = (gs && gs.bbox) || (claim.source_span && claim.source_span.bbox) || null;
+      return _showInSourceChip({ page: page, bbox: bbox, text: claim.quote ? String(claim.quote) : "" }, "assure");
+    }
+    // The chip on a node compiled from a selection (meta.selection_anchor).
+    function _selectionAnchorChip(anchor) {
+      if (!anchor || typeof anchor !== "object") return null;
+      var page = anchor.page != null ? anchor.page : (anchor.source_span && anchor.source_span.page);
+      var chip = _showInSourceChip({
+        page: page,
+        bbox: anchor.bbox || (anchor.source_span && anchor.source_span.bbox) || null,
+        // `verbatim` is the flag ("the text is the source's own words") when a
+        // boolean, the quoted text itself when a string; the quote is looked up.
+        text: String(typeof anchor.verbatim === "string" ? anchor.verbatim : (anchor.text || "")),
+        source: _sourceOf(anchor) || _sourceJdfFor("assure"),
+      }, "assure");
+      if (!chip) return null;
+      chip.classList.add("selection-anchor-chip");
+      return chip;
+    }
+
+    // ---- selection → ask bar -----------------------------------------------
+    function _shortQuote(text, n) {
+      var max = n ? n : 140;
+      var t = String(text || "").replace(/\s+/g, " ").trim();
+      return t.length > max ? t.slice(0, max - 1) + "…" : t;
+    }
+    function _hideAskBar() {
+      var bar = document.getElementById("source-ask-bar");
+      if (bar) bar.hidden = true;
+    }
+    function _showAskBar(sel) {
+      var bar = document.getElementById("source-ask-bar");
+      if (!bar || !sel || !__sv.source) return;
+      var q = document.getElementById("source-ask-quote");
+      if (q) q.textContent = _shortQuote(sel.text);
+      var pg = document.getElementById("source-ask-page");
+      if (pg) pg.textContent = _tf("shell.fields.page", "Page {n}", { n: sel.page });
+      var may = _can("compile.run");
+      var note = document.getElementById("source-ask-note");
+      var notes = [];
+      [document.getElementById("source-ask-ask"), document.getElementById("source-ask-compile")].forEach(function (b) {
+        if (!b) return;
+        b.disabled = !may;
+        b.classList.toggle("is-denied", !may);
+        b.title = may ? "" : _permReason("compile.run");
+      });
+      if (!may) notes.push(_permReason("compile.run"));
+      if (_isOcrSource(__sv.source)) notes.push(_t("shell.source_view.ocr_note", "OCR text — check against the page"));
+      if (note) { note.textContent = notes.join(" · "); note.hidden = !notes.length; }
+      var fieldsBtn = document.getElementById("source-ask-fields");
+      if (fieldsBtn) fieldsBtn.hidden = !(__parsure && __parsureReportId);
+      bar.hidden = false;
+    }
+    // The contract shape, exactly: {text, page, element_ids, document_id,
+    // source_jdf}. services/source_jdf.SelectionAnchor is strict: `page` an
+    // integer, `element_ids` strings, `source_jdf` a *string* — the stored
+    // document's key (the url when no key is known), not the report's block.
+    function _buildSelection(sel, src) {
+      return _lookupSelection(src, sel.text, sel.page).then(function (hit) {
+        return {
+          text: sel.text,
+          page: sel.page,
+          element_ids: hit.element_ids,
+          document_id: src.document_id || "",
+          source_jdf: String(src.key || src.url || ""),
+        };
+      });
+    }
+    function _isNarrow() { try { return window.matchMedia("(max-width: 640px)").matches; } catch (_) { return false; } }
+    function _paintDockSelectionChip() {
+      var chip = document.getElementById("dock-selection-chip");
+      if (!chip) return;
+      var sel = __draftSelection;
+      chip.hidden = !sel;
+      if (!sel) return;
+      chip.textContent = _tf("shell.source_view.attached", "Page {n} selection ×", { n: sel.page });
+      chip.title = _t("shell.source_view.attached_title", "Selected source text goes with this ask — click to remove");
+    }
+    var dockSelectionChip = document.getElementById("dock-selection-chip");
+    if (dockSelectionChip) dockSelectionChip.addEventListener("click", function () { __draftSelection = null; _paintDockSelectionChip(); });
+    function _askAboutSelection() {
+      var sel = __sv.selection, src = __sv.source;
+      if (!sel || !src || !_can("compile.run")) return;
+      _buildSelection(sel, src).then(function (selection) {
+        __draftSelection = selection;
+        _paintDockSelectionChip();
+        var dock = document.getElementById("dock-text");
+        if (dock) {
+          dock.value = _tf("shell.source_view.ask_prefill", "About “{quote}” (page {page}): ", { quote: _shortQuote(sel.text, 120), page: sel.page });
+          if (typeof _syncDockSubmitFn === "function") _syncDockSubmitFn();
+          dock.focus();
+          try { dock.setSelectionRange(dock.value.length, dock.value.length); } catch (_) {}
+        }
+        _hideAskBar();
+        if (_isNarrow()) _closeSourceSheet();   // the sheet covers the dock at 390px
+      });
+    }
+    function _compileSelection() {
+      var sel = __sv.selection, src = __sv.source;
+      if (!sel || !src || !_can("compile.run")) return;
+      _buildSelection(sel, src).then(function (selection) {
+        var srcId = src.source_id || "";
+        __draftSelection = null;
+        _paintDockSelectionChip();
+        _hideAskBar();
+        // The answer streams into the document column the sheet covers: close
+        // it so the draft is seen; the node's anchor chip reopens the source.
+        _closeSourceSheet();
+        if (SHELL.streams.draft) { try { SHELL.streams.draft.abort(); } catch (_) {} }
+        setShell("streams.draft", null);
+        runAnyIntent(sel.text, {
+          compileType: "selection",
+          content: sel.text,
+          selection: selection,
+          source_ids: srcId ? [srcId] : [],
+        });
+      });
+    }
+    function _extractFieldsHere() {
+      var sel = __sv.selection;
+      if (!sel || !__parsure || !__parsureReportId) return;
+      __fieldsFilter = { report_id: __parsureReportId, page: sel.page, bbox: sel.bbox_rel || null };
+      _hideAskBar();
+      if (_isNarrow()) _closeSourceSheet();
+      _showFieldsPanel(null);
+      _renderFieldsPanel();
+    }
+    function _rectsIntersect(a, b) {
+      return !(a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1]);
+    }
+    // A field is "at the selection" when it is on the page and its bbox
+    // meets the selection's; a field with a page but no bbox counts by page.
+    function _fieldAtFilter(f, filter) {
+      var page = _fieldPage(f);
+      if (page == null || Number(page) !== Number(filter.page)) return false;
+      var bbox = f.source_span && Array.isArray(f.source_span.bbox) && f.source_span.bbox.length === 4 ? f.source_span.bbox : null;
+      if (!bbox || !filter.bbox) return true;
+      return _rectsIntersect(bbox, filter.bbox);
+    }
+    function _applyFieldsFilter(list, fields) {
+      if (!list) return;
+      if (__fieldsFilter && __fieldsFilter.report_id !== __parsureReportId) __fieldsFilter = null;
+      if (!__fieldsFilter) return;
+      var filter = __fieldsFilter;
+      var kept = 0;
+      list.querySelectorAll(".field-row").forEach(function (li) {
+        var name = li.getAttribute("data-field");
+        var f = fields.filter(function (x) { return x && x.name === name; })[0];
+        var hit = f ? _fieldAtFilter(f, filter) : false;
+        li.hidden = !hit;
+        if (hit) kept++;
+      });
+      list.querySelectorAll(".fields-section").forEach(function (head) {
+        var key = head.getAttribute("data-section");
+        var any = list.querySelector('.field-row[data-section="' + key + '"]:not([hidden])');
+        head.hidden = !any;
+      });
+      var note = _el("li", "fields-filter-note");
+      note.setAttribute("role", "presentation");
+      note.appendChild(_el("span", null, kept
+        ? _tf("shell.source_view.fields_at", "{n} fields at the selection on page {page}", { n: kept, page: filter.page })
+        : _tf("shell.source_view.fields_none", "No fields were read at the selection on page {page}", { page: filter.page })));
+      var clear = _btn("btn-tertiary fields-filter-clear", _t("shell.source_view.fields_clear", "Show all"));
+      clear.addEventListener("click", function () { __fieldsFilter = null; _renderFieldsPanel(); });
+      note.appendChild(clear);
+      list.insertBefore(note, list.firstChild);
+    }
+    var askBtn = document.getElementById("source-ask-ask");
+    if (askBtn) askBtn.addEventListener("click", _askAboutSelection);
+    var compileSelBtn = document.getElementById("source-ask-compile");
+    if (compileSelBtn) compileSelBtn.addEventListener("click", _compileSelection);
+    var fieldsHereBtn = document.getElementById("source-ask-fields");
+    if (fieldsHereBtn) fieldsHereBtn.addEventListener("click", _extractFieldsHere);
+    var dismissBtn = document.getElementById("source-ask-dismiss");
+    if (dismissBtn) dismissBtn.addEventListener("click", _hideAskBar);
+    if (window.SourceView && typeof window.SourceView.onSelection === "function") {
+      window.SourceView.onSelection(function (sel) {
+        if (!sourceSheetEl || sourceSheetEl.hidden) return;
+        __sv.selection = sel;
+        _showAskBar(sel);
+      });
+    }
+
     // ---- the head: which document, what type ------------------------------
     function _renderFieldsHead(rep) {
       var head = document.getElementById("fields-head");
@@ -9586,6 +9999,12 @@
       if (recordLink) recordLink.href = "/parsing/" + encodeURIComponent(__parsureReportId || rep.report_id || "");
       var dataLink = document.getElementById("fields-link-data");
       if (dataLink) dataLink.href = "/parsing?project_id=" + encodeURIComponent(pid || "") + "#data";
+      var srcLink = document.getElementById("fields-link-source");
+      if (srcLink) {
+        var headSrc = _sourceJdfOfReport(rep);
+        srcLink.hidden = !headSrc;
+        srcLink.onclick = headSrc ? function () { _openSourceSheet(headSrc); } : null;
+      }
       // With several reports the selector names the document; the meta line
       // (modality · quality) stays under it either way.
       var nameEl = document.getElementById("fields-doc-name");
@@ -9836,6 +10255,8 @@
         } else {
           facts.appendChild(_el("span", "field-page field-page-static", pageWords));
         }
+        var srcChip = _showInSourceChip({ page: page, bbox: f.source_span.bbox, text: f.raw }, "parsure");
+        if (srcChip) { srcChip.classList.add("field-page"); facts.appendChild(srcChip); }
       }
       if (facts.firstChild) detail.appendChild(facts);
       var grounding = _groundingOf(f);
@@ -10053,6 +10474,7 @@
         list.appendChild(head);
         rows.forEach(function (f) { list.appendChild(_renderFieldRow(f, key)); });
       });
+      _applyFieldsFilter(list, fields);
     }
     function _sectionWords(key) {
       if (key === "review") return _t("shell.fields.section.review", "Needs review");

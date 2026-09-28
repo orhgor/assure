@@ -1429,6 +1429,11 @@ def build_report(
                 intake=intake, completion=completion, tree=tree, timings=timings, t_start=t_start,
             )
         _tables.annotate_report(report, scope)
+        # The stored source JDF (services/source_jdf, 2026-09-28): the pipeline
+        # that stored it puts the descriptor on ``intake``; the report carries
+        # it so the shell can render the page behind the fields. None when
+        # nothing was stored — never a guessed URL.
+        report["source_jdf"] = intake.get("source_jdf") if isinstance(intake, dict) else None
         report["intake_extra"] = intake_extra(intake)
         return report
     finally:
@@ -1442,7 +1447,7 @@ def build_report(
 #: (plan Part 4.3) — an audit trail for parameters the pipeline does not use
 #: yet (``claim_context``, ``adjuster_notes`` …) so they are neither lost nor
 #: silently ignored.
-CONSUMED_INTAKE_KEYS = frozenset({"parser", "parser_name", "material_type", "modality", "source_kind", "visual_pages", "laya"})
+CONSUMED_INTAKE_KEYS = frozenset({"parser", "parser_name", "material_type", "modality", "source_kind", "visual_pages", "laya", "source_jdf"})
 
 
 def intake_extra(intake: dict | None) -> dict[str, Any] | None:

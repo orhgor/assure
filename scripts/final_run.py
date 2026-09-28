@@ -146,6 +146,14 @@ def main() -> int:
     check("field graph whole (no orphans)", gi.get("orphans") == 0 and gi.get("integrity_score") == 1.0, {k: gi.get(k) for k in ("fields", "anchored", "orphans", "integrity_score", "negative_evidence")})
     check("document_id stable and named", bool(r.get("document_id")) and r.get("document_id_source") in ("ingest", "content_hash"), (r.get("document_id"), r.get("document_id_source")))
     check("snapshot stamped and intact", bool((r.get("snapshot") or {}).get("content_hash")) and (full.get("integrity") or {}).get("ok") is True, (r.get("snapshot") or {}).get("content_hash", "")[:16])
+    sj = r.get("source_jdf") or {}
+    if sj.get("url"):
+        sr = requests.get(f"{base}{sj['url']}", timeout=30)
+        body = sr.json() if sr.ok and sr.headers.get("content-type", "").startswith("application/json") else {}
+        check("source JDF stored and served (jdf.js source view)", sr.status_code == 200 and isinstance(body.get("pages"), list) and len(body["pages"]) == int(r.get("page_count") or 0),
+              {"url": sj.get("url"), "status": sr.status_code, "pages": len(body.get("pages") or [])})
+    else:
+        check("source JDF stored and served (jdf.js source view)", False, "report carries no source_jdf")
     replay = r.get("replay") or {}
     check("rerun ledger present", isinstance(replay.get("history"), list) and "passes" in replay and "attempts" in replay, {k: replay.get(k) for k in ("passes", "attempts", "max_attempts", "stop_rule")})
     rp = requests.post(f"{base}/api/projects/{pid}/parsure/{rid}/replay", json={}, timeout=120)

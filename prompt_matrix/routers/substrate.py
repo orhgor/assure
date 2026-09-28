@@ -36,6 +36,7 @@ try:
         build_omp_artifact_from_parse,
     )
     from ..services.omp_memory import remember_vault_file
+    from ..services.source_jdf import content_revision, is_source_jdf, persist_source_jdf
     from ..services.verification import run_verification_after_parse
     from ..upload_limits import UploadRejectedError, validate_upload_bytes
 except ImportError:
@@ -61,6 +62,7 @@ except ImportError:
         build_omp_artifact_from_parse,
     )
     from services.omp_memory import remember_vault_file
+    from services.source_jdf import content_revision, is_source_jdf, persist_source_jdf
     from services.verification import run_verification_after_parse
     from upload_limits import UploadRejectedError, validate_upload_bytes
 
@@ -455,6 +457,25 @@ def ingest_substrate_file(
         extracted, filename=filename, text=extracted_text, substrate_file_id=str(entry["id"])
     )
 
+    # The raw jdf-cli document as a stored artifact (services/source_jdf,
+    # 2026-09-28), under the vault row's id — the ``document_id`` the intake
+    # report carries for this path — so the Sources panel can render the page
+    # a field came from. The revision segment is the job id when the upload
+    # was queued and the content hash on the synchronous path, which creates
+    # no job row. Only a jdf-cli parse has such a document; Textract, Docling
+    # and text uploads leave ``source_jdf`` None and the route answers 404.
+    source_jdf = None
+    if is_source_jdf(extracted.get("jdf")):
+        source_jdf = persist_source_jdf(
+            project_id,
+            str(entry["id"]),
+            job_id or content_revision(file_bytes),
+            extracted["jdf"],
+            chunks=extracted.get("chunks") or [],
+            job_id=job_id,
+            filename=filename,
+        )
+
     _job_advance(
         job_id,
         "verifying",
@@ -592,6 +613,8 @@ def ingest_substrate_file(
         except Exception:
             log.exception("parsure: route_intake failed for %s; report without visual probe", filename)
             intake = None
+        if source_jdf and isinstance(intake, dict):
+            intake["source_jdf"] = source_jdf
         parsure_bundle = {
             **{k: v for k, v in extracted.items() if k not in ("jdf", "chunks")},
             "jdf": index_jdf,
@@ -640,6 +663,7 @@ def ingest_substrate_file(
         "z3_status": (verification or {}).get("z3_status"),
         "redhat_status": (verification or {}).get("redhat_status"),
         "search_index": search_index,
+        "source_jdf": source_jdf,
         **flag_response(flag),
     }
 

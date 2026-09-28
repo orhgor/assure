@@ -61,8 +61,8 @@ def test_style_keeps_workbench_usable_on_mobile() -> None:
 
 
 def test_ui_cache_bumped_for_safeguards() -> None:
-    assert APP_CSS == "assure-113"
-    assert APP_JS == "assure-113"
+    assert APP_CSS == "assure-114"
+    assert APP_JS == "assure-114"
 
 
 # ---------------------------------------------------------------------------
@@ -255,3 +255,77 @@ def test_form_refusal_and_note_strings_in_every_locale() -> None:
     assert "form_source" in js and "parsure_report_id" in js and "shell.refusal.open_report" in js
     assert '_isMetaClaim' in js and 'return "meta"' in js and "claim-meta-caption" in js
     assert "form_template" in js and "shell.source.result.form" in js
+
+
+# ---------------------------------------------------------------------------
+# Source view (jdf.js 0.2.5, 2026-09-28): the uploaded document rendered from
+# its jdf-cli JDF, "Show in source" overlays, selection → ask bar.
+# ---------------------------------------------------------------------------
+
+SOURCE_VIEW_KEYS = (
+    "shell.source_view.title", "shell.source_view.open", "shell.source_view.show", "shell.source_view.show_page",
+    "shell.source_view.loading", "shell.source_view.failed", "shell.source_view.not_located", "shell.source_view.ocr_note",
+    "shell.source_view.nav", "shell.source_view.page_of", "shell.source_view.prev", "shell.source_view.next",
+    "shell.source_view.zoom_in", "shell.source_view.zoom_out", "shell.source_view.bar_label", "shell.source_view.ask",
+    "shell.source_view.compile", "shell.source_view.extract_fields", "shell.source_view.ask_prefill",
+    "shell.source_view.attached", "shell.source_view.attached_title", "shell.source_view.fields_at",
+    "shell.source_view.fields_none", "shell.source_view.fields_clear",
+)
+
+
+def test_jdfjs_is_vendored_with_licence_and_version() -> None:
+    vendor = ROOT / "prototype" / "vendor" / "jdfjs"
+    for name in ("jdfjs.js", "jdfjs.css", "LICENSE", "VERSION"):
+        assert (vendor / name).is_file(), name
+    assert "0.2.5" in (vendor / "VERSION").read_text(encoding="utf-8")
+    assert "MIT" in (vendor / "LICENSE").read_text(encoding="utf-8")
+    js = (vendor / "jdfjs.js").read_text(encoding="utf-8")
+    assert "JDFjsAutoInit" in js and "data-page-index" in js and "export{" in js
+
+
+def test_shell_loads_jdfjs_as_a_module_with_auto_init_off() -> None:
+    html = (ROOT / "prototype" / "index.html").read_text(encoding="utf-8")
+    # The flag precedes the module, the module precedes the classic scripts that use it.
+    flag = html.index("window.JDFjsAutoInit = false")
+    css = html.index('href="./vendor/jdfjs/jdfjs.css"')
+    module = html.index('<script type="module">')
+    assert flag < module and css < module
+    assert 'from "./vendor/jdfjs/jdfjs.js"' in html and "window.JDFjs = {" in html and 'new Event("jdfjs-ready")' in html
+    sv = html.index('<script src="./source-view.js" defer>')
+    shell = html.index('<script src="./shell.js" defer>')
+    assert module < sv < shell
+    # The sheet, its nav host and the ask bar with its three actions.
+    for needle in ('id="source-sheet"', 'id="source-sheet-body"', 'id="source-sheet-ocr"', 'id="source-ask-bar"',
+                   'id="source-ask-ask"', 'id="source-ask-compile"', 'id="source-ask-fields"', 'id="source-ask-dismiss"',
+                   'id="fields-link-source"', 'id="dock-selection-chip"', 'role="toolbar"'):
+        assert needle in html, needle
+
+
+def test_source_view_module_and_shell_wiring() -> None:
+    sv = (ROOT / "prototype" / "source-view.js").read_text(encoding="utf-8")
+    for needle in ("function bboxToPx(", "window.SourceView = {", "onSelection:", "highlight:", "clear:", "ResizeObserver",
+                   'fit: "manual"', "zoom: 3,", "toolbar: false", "sidebar: false", "data-page-index", "FLASH_MS = 2400"):
+        assert needle in sv, needle
+    js = (ROOT / "prototype" / "shell.js").read_text(encoding="utf-8")
+    # The routes of the contract, and nothing invented: element ids only from the lookup.
+    assert "/source.json?text=" in js and "element_ids: Array.isArray(j.element_ids)" in js
+    assert 'compileType: "selection"' in js and "selection: selection" in js and "source_ids:" in js
+    assert "meta.selection_anchor" in js and "_selectionAnchorChip" in js
+    assert "source_jdf" in js and '_can("compile.run")' in js
+    assert '"jdf-cli+tesseract", "textract"' in js
+    assert "grounding_span" in js and "_claimShowInSource" in js
+    css = (ROOT / "prototype" / "shell.css").read_text(encoding="utf-8")
+    assert ".source-sheet {" in css and ".sv-mark" in css and ".sv-overlay" in css and ".source-ask-bar" in css
+    assert ".sv-stage .jdfjs-page-wrapper { position: relative; }" in css
+    # 390px: a full-width sheet.
+    mobile = css.split(".source-sheet { position: fixed; inset: 0;", 1)
+    assert len(mobile) == 2
+
+
+def test_source_view_strings_in_every_locale() -> None:
+    for locale in LOCALES:
+        cat = CATALOGS[locale]
+        for key in SOURCE_VIEW_KEYS:
+            assert key in cat, f"missing {locale} {key}"
+            assert str(cat[key]).strip(), f"empty {locale} {key}"
+    assert "{n}" in CATALOGS["en"]["shell.source_view.page_of"] and "{total}" in CATALOGS["en"]["shell.source_view.page_of"]

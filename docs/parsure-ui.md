@@ -497,3 +497,110 @@ and the state's `claim_summary` carries `paragraphs` and `meta`. The shell's
 evidence pane lists the sentences under the claim block (verdict chip, text,
 reason, quote, page, numeric line, flags) and its summary counts sentences,
 naming the paragraph count when it differs ("… in N paragraphs").
+
+## Source view (jdf.js) (2026-09-28)
+
+The uploaded document itself, rendered in the shell from the jdf-cli JDF the
+backend keeps per document — not a PDF viewer, not an image. Vendored:
+`prototype/vendor/jdfjs/` (`@uurtech/jdf` 0.2.5, MIT; `VERSION` names the
+version, `LICENSE` travels with it). `index.html` sets `window.JDFjsAutoInit
+= false` before the module tag, imports `{ embed, render, JDFViewer, jdf }`
+and exposes them as `window.JDFjs` for the classic scripts; `prototype/
+source-view.js` (`window.SourceView`) is the only file that talks to jdf.js.
+
+**Where it comes from.** A Parsure report carries `report.source_jdf {key,
+url, pages, elements}`; an Assure tree carries `meta.source_jdf`. `url` is
+`GET /api/projects/<pid>/documents/<document_id>/source.jdf` (the raw
+`{$jdf, meta, pages[]}`; 404 when none). Without a `source_jdf` no "Source"
+button and no "Show in source" chip is rendered anywhere and every surface
+behaves exactly as before — nothing is inferred from a filename.
+
+**What it renders.** `#source-sheet` is a drawer over the document column
+(`.center`, leaving the dock), a full-width fixed sheet at ≤ 640 px. Head:
+filename, an "OCR text — check against the page" line when the report's
+`parser_name` is `jdf-cli+tesseract` or `textract`, Close (Escape too). Body:
+jdf.js pages (toolbar and sidebar off) under our own quiet nav — "Page n of
+N", ‹ ›, − +. Fit-width on open and on host resize; the reader's −/+ then
+sticks (`fit: "manual"` with a requested zoom above any fit — jdf.js's own
+`fit-width` recomputes on every resize tick and undid a user zoom, measured
+in the smoke). Opened from: the Sources row ("Source" beside "View"), the
+Fields head ("Source" beside Full record / All data), and every "Show in
+source".
+
+**The overlay and its maths.** `SourceView.highlight({page, bbox})` puts an
+absolutely positioned box in an `.sv-overlay` layer inside that page's
+`.jdfjs-page-wrapper[data-page-index]` (position: relative, `shell.css`).
+`bbox` is relative 0–1 of the page, `[x0, y0, x1, y1]`, `page` 1-based:
+
+    left = x0·w   top = y0·h   width = (x1−x0)·w   height = (y1−y0)·h
+
+with `w, h` the page's *nominal* size (`.jdfjs-page` inline width /
+min-height, what `jdf convert` wrote) times the zoom the wrapper shows
+(`wrapper.clientWidth / nominalWidth`) — never the wrapper's offsetHeight,
+which grows when elements overflow a page. `SourceView.bboxToPx(bbox, rect)`
+is that formula as a pure function (clamps to the page, orders swapped
+corners, returns null for anything not four finite numbers) and
+`tests/test_source_view_bbox.py` runs the shipped function in node. A
+ResizeObserver on the wrapper re-places the box on zoom and host resize
+(jdf.js resizes the wrapper itself). The box flashes 2.4 s, then keeps a thin
+outline until `clear()`; one highlight at a time. This is temporary by
+design: jdf.js 0.2.5 has no `highlight()` and no `data-jdf-id` on rendered
+elements; when it does, only `source-view.js` changes — the shell asks for
+`{page, bbox}` and knows nothing about page wrappers.
+
+**Where "Show in source" appears and what it sends.** Parsure field rows
+and the correction/dispute source block (`source_span.bbox` + `page`; the
+`raw` quote for the lookup when no bbox), the evidence pane's grounding
+block, Assure claim quotes and each sentence row of the claim ledger
+(`grounding_span.page`/`bbox` when written, else the claim's `page` and its
+verbatim quote), Red-Hat quoted findings (the finding's `page`, else the
+node's claim page; the quote), and the `meta.selection_anchor` chip on a
+node compiled from a selection. A bbox is boxed directly; a quote alone goes
+through `GET …/source.json?text=<quote>&page=<n>` → `{ok, element_ids,
+page, bbox_rel}` and is boxed from `bbox_rel`; when the lookup finds nothing
+the page is shown and the status line says "Not located on page n — showing
+the page". No page recorded → nothing is shown and the status says "page not
+recorded" (never page 1; `tests/test_workbench_safeguards.py` still forbids a
+page default in `shell.js`).
+
+**Selection → ask.** `SourceView.onSelection(cb)` fires `{text, page,
+bbox_rel}` on mouseup / touchend / selectionchange when a non-empty
+selection starts and ends inside one page wrapper. The shell shows
+`#source-ask-bar` (toolbar, keyboard reachable, Escape hides): the quote,
+"Page n", and
+
+* **Ask about this** — pre-fills the dock ("About “…” (page n): "), attaches
+  the selection to the next `POST …/draft/stream` (a dock chip "Page n
+  selection ×" shows it; click removes; `runDraft` consumes it so a later
+  plain ask carries nothing stale);
+* **Compile this selection** — posts `draft/stream` with `{compileType:
+  "selection", content: text, intent: text, selection, source_ids: [the
+  vault row the report belongs to], substrate_file_ids}`;
+* **Extract fields here** — only when a Parsure report is open: the Fields
+  tab filtered to fields whose `source_span.page` is the selection's page and
+  whose bbox meets the selection's (a field with a page but no bbox counts by
+  page), with "N fields at the selection on page n · Show all", or "No fields
+  were read at the selection on page n".
+
+`selection` is exactly the contract: `{text, page, element_ids, document_id,
+source_jdf}`. `element_ids` come **only** from the `source.json?text=&page=`
+lookup — `[]` when it answers none, fails, or the document id is unknown;
+they are never derived from the DOM or the JDF in the browser. The OCR note
+is repeated in the bar for OCR'd sources. Ask and Compile are gated by
+`compile.run` (disabled, the role's reason in the title and the note); on a
+narrow screen the sheet closes first so the dock is reachable. A node the
+compile answers with `meta.selection_anchor {…, verbatim}` renders a "Show
+in source" chip (`_selectionAnchorChip`) → `SourceView.highlight` on the
+anchor (its `source_jdf` when present, else the current one).
+
+**Strings.** `shell.source_view.*` (24 keys) in all seven catalogs; `ui_cache`
+`assure-114`. **Tests.** `tests/test_workbench_safeguards.py` (vendor files
+and VERSION, module tag order and the auto-init flag, sheet/bar markup,
+shell wiring and the contract routes, mobile sheet rule, strings, cache),
+`tests/test_source_view_bbox.py` (node, the shipped `bboxToPx`). Headless
+smoke at 1280 / 390 px against a mocked API with a two-page JDF: render,
+"Page 1 of 2" → next, overlay within 2 px of the expected box before and
+after a zoom, outline after the flash, selection bar, the posted `selection`
+shape and `element_ids` from the lookup, the anchor chip, "Ask" prefill and
+attached selection on the next draft, the field filter, Escape; zero
+console errors.

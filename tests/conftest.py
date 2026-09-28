@@ -47,6 +47,11 @@ def pytest_configure(config):
     # to start without REDIS_URL); the suite runs as development unless a test
     # says otherwise. load_dotenv fills only missing keys, so set it here.
     os.environ.setdefault("ENVIRONMENT", "development")
+    # The suite must never touch the real bucket: cloud_billing's load_dotenv
+    # (override=False) restores a delenv'd ASSURE_S3_BUCKET from .env, and one
+    # test wrote an object to S3 before this pin (2026-09-28). An empty value is
+    # present, so dotenv leaves it alone; a test that wants S3 sets it itself.
+    os.environ["ASSURE_S3_BUCKET"] = ""
     # Redis is optional under test: without REDIS_URL the process-local
     # fallbacks run (memory rate limits, eager Celery).
     os.environ.pop("REDIS_URL", None) if os.environ.get("ASSURE_TEST_NO_REDIS") else None

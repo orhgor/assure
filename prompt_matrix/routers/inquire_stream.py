@@ -45,6 +45,7 @@ try:
     )
     from ..services.entailment import attach_entailment_to_tree
     from ..services.provenance_meta import build_node_provenance_meta
+    from ..services.source_jdf import SelectionAnchor, selection_anchor_meta
     from ..services.redhat_verbatim import (
         anchored_quotes,
         anchored_source_texts,
@@ -78,6 +79,7 @@ except ImportError:
     )
     from services.entailment import attach_entailment_to_tree
     from services.provenance_meta import build_node_provenance_meta
+    from services.source_jdf import SelectionAnchor, selection_anchor_meta
     from services.redhat_verbatim import (
         anchored_quotes,
         anchored_source_texts,
@@ -98,6 +100,9 @@ class InquiryPayload(BaseModel):
     run_redhat: bool = True
     document: dict[str, Any] | None = None
     incoming_metrics: list[list[Any]] = Field(default_factory=list)
+    #: A text selection made on the rendered source JDF (services/source_jdf,
+    #: 2026-09-28), recorded on the rewritten node as ``meta.selection_anchor``.
+    selection: SelectionAnchor | None = None
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
@@ -556,6 +561,7 @@ def run_inquire_pipeline(
     ledger: TruthLedgerEngine | None = None,
     request_id: str | None = None,
     entailment_checker: Callable[..., dict[str, Any]] | None = None,
+    selection: dict[str, Any] | None = None,
 ) -> Iterator[str]:
     """Yield SSE frames for the inquire pipeline. No blocking sleep.
 
@@ -808,6 +814,19 @@ def run_inquire_pipeline(
         )
         yield _sse("anchoring", {"node_id": node_id, **anchor_info})
 
+    # The selection this rewrite was asked from, as the browser sent it, plus
+    # ``verbatim`` — re-found in the project's Sources or not. Set before the
+    # persist so the node written is the node shown; the verdicts above and
+    # the critique below do not read it.
+    if selection:
+        node = dict(node)
+        node["meta"] = {
+            **(node.get("meta") or {}),
+            "selection_anchor": selection_anchor_meta(
+                selection, [str(r.get("extracted_text") or "") for r in _substrate_rows(project_id)]
+            ),
+        }
+
     if run_redhat and result.ok:
         yield _sse("status", _status_payload("redhat"))
         quotes = anchored_quotes(node)
@@ -991,6 +1010,7 @@ def register_inquire_routes(app) -> None:
                     "run_redhat": data.get("run_redhat", True),
                     "document": data.get("document"),
                     "incoming_metrics": data.get("incoming_metrics") or [],
+                    "selection": data.get("selection"),
                 }
             )
         except Exception as exc:
@@ -1020,6 +1040,7 @@ def register_inquire_routes(app) -> None:
                         incoming_metrics=payload.incoming_metrics,
                         ledger=ledger,
                         request_id=request_id,
+                        selection=payload.selection.model_dump() if payload.selection else None,
                     )
             except (BudgetExhaustedError, QuotaExceededError) as exc:
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
