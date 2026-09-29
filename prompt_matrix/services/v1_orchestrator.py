@@ -80,12 +80,14 @@ from typing import Any
 
 try:
     from ..services import field_discovery as _discovery
+    from ..services import model_calls as _mc
     from ..services import field_extractor as fx
     from ..services import llm_extraction as lx
     from ..services import raw_candidates as _raw
     from ..services import table_extraction as _tables
 except ImportError:
     from services import field_discovery as _discovery  # type: ignore
+    from services import model_calls as _mc  # type: ignore
     from services import field_extractor as fx  # type: ignore
     from services import llm_extraction as lx  # type: ignore
     from services import raw_candidates as _raw  # type: ignore
@@ -825,6 +827,10 @@ def latency_class(material_type: Any, modality: Any, document_type: Any, n_docum
     return "policy_form"
 
 
+#: ``<ExceptionClass>: message`` — how ``extract_missing_fields`` words a raised model failure.
+_EXCEPTION_REASON_RE = re.compile(r"^[A-Z][A-Za-z0-9_]*(Error|Exception|Unavailable|Timeout|Interrupt)\b")
+
+
 def llm_fill_missing(
     document_type: str,
     texts: list[str],
@@ -874,7 +880,10 @@ def llm_fill_missing(
     before_notes = len(notes)
     started = perf_counter()
     try:
-        with _timed("llm_extract"):
+        # Ledger stage for this call whichever callable answers (an injected
+        # completion never passes through ``default_completion``): the ambient
+        # stage when a caller set one (the targeted pass), else the field pass.
+        with _timed("llm_extract"), _mc.stage_context(_mc.current_context().get("stage") or "llm_grounding", project_id=project_id):
             filled = lx.extract_missing_fields(
                 document_type, texts, missing, completion=completion, notes=notes, parser_name=parser_name,
                 parse_confidence=parse_confidence, ocr_confidence=ocr_confidence, page_quality=page_quality,
@@ -896,8 +905,17 @@ def llm_fill_missing(
         (lx.current_model_id() if lx.llm_extraction_enabled() else None) if lx.is_app_completion(completion) else "injected")
     stats["model_path"] = lx.model_path_for(completion, stats["model"])
     if skipped:
-        stats["status"] = "disabled" if "PARSURE_LLM_EXTRACTION is off" in skipped else "skipped"
-        stats["reason"] = skipped.split(":", 1)[1].strip() if ":" in skipped else skipped
+        reason = skipped.split(":", 1)[1].strip() if ":" in skipped else skipped
+        # ``extract_missing_fields`` folds a model failure into the same note
+        # as a configuration skip; the ledger tells them apart (plan V5 B1,
+        # 2026-09-29): a raised exception is ``failed``, never ``skipped``.
+        if "PARSURE_LLM_EXTRACTION is off" in skipped:
+            stats["status"] = "disabled"
+        elif _EXCEPTION_REASON_RE.match(reason):
+            stats["status"] = "failed"
+        else:
+            stats["status"] = "skipped"
+        stats["reason"] = reason
     else:
         stats["status"] = "ran"
     return [by_name.get(f["name"], f) for f in fields]
@@ -976,7 +994,10 @@ def classify_with_model_if_uncertain(texts: list[str], *, completion: Any, proje
     if not lx.llm_extraction_enabled():
         return None
     try:
-        out = lx.classify_with_model(texts, completion=completion, project_id=project_id)
+        # The type suggestion is the intake stage's one model call (ledger
+        # stage ``intake``; plan V5 B3: ≤1 call per stage per document).
+        with _mc.stage_context("intake", project_id=project_id):
+            out = lx.classify_with_model(texts, completion=completion, project_id=project_id)
     except Exception as exc:  # noqa: BLE001 — advisory
         log.exception("classify_with_model failed")
         notes.append(f"model type suggestion skipped: {type(exc).__name__}: {exc}")
@@ -1265,6 +1286,12 @@ def promote_with_grounded_pass(seg: dict[str, Any], texts: list[str], *, layout,
         notes.append(f"grounded pass over {target}: {len(found)}/{total} field(s) found ({len(specific)} type-specific); below the evidence bar, type stays {doc_type}")
         return False
     detected = {k: seg.get(k) for k in ("document_type", "confidence", "basis", "matched_keywords")}
+    # The grounded pass that promoted the segment IS its grounding call: the
+    # extraction step reuses these records instead of asking the model again
+    # (plan V5 B3 — one call per stage; before 2026-09-29 a promoted page made
+    # two grounding calls, the second offering the same missing fields).
+    seg["grounded_fields"] = fields
+    seg["grounded_stats"] = stats.get("llm_grounding")
     seg.update({
         "document_type": target,
         "confidence": round(min(fx.CLASSIFICATION_CAP, len(found) / total), 3),
@@ -1298,6 +1325,8 @@ def extract_segment_fields(
     completion: Any = None,
     project_id: str | None = None,
     llm: bool = True,
+    grounded: list[dict[str, Any]] | None = None,
+    grounded_stats: dict[str, Any] | None = None,
     schema_mismatch: bool = False,
     execution: dict | None = None,
     candidates: list[dict] | None = None,
@@ -1353,9 +1382,21 @@ def extract_segment_fields(
                   "no schema for this type" if document_type not in fx.FIELD_TAXONOMY else "empty candidate pool for this segment")
         projection = {"status": "not_run", "document_type": document_type, "reason": reason, "candidates": len(candidates or []),
                       "counts": {}, "fields": {}, "candidates_log": {}, "conflicts": []}
+    if grounded is not None:
+        # The promotion's grounded pass already answered for this schema: its
+        # records stand in for the label pass's empties and no second model
+        # call is made (plan V5 B3).
+        by_name = {f.get("name"): f for f in grounded if isinstance(f, dict) and f.get("value") is not None}
+        fields = [by_name.get(f.get("name"), f) for f in fields]
+        if execution is not None:
+            execution["llm_grounding"] = {**(grounded_stats or {}), "status": (grounded_stats or {}).get("status") or "ran",
+                                          "reason": "answered by the grounded promotion pass over this schema (one call per stage)"}
+        notes.append(f"llm extraction: the grounded promotion pass over {document_type} supplied {len(by_name)} value(s); no second call")
     if schema_mismatch:
         if fields:
             notes.append(f"llm extraction skipped: schema mismatch — {document_type} fields are not applicable to this page")
+    elif grounded is not None:
+        pass
     elif llm:
         fields = llm_fill_missing(
             document_type, texts, fields, completion=completion, notes=notes, parser_name=parser_name,
@@ -1653,6 +1694,7 @@ def _build_report_timed(
                 verification=verification, notes=notes, completion=completion, project_id=project_id,
                 schema_mismatch=bool(seg.get("schema_mismatch")), execution=execution,
                 candidates=_raw.candidates_for_pages(raw_pool, seg["pages"]),
+                grounded=seg.pop("grounded_fields", None), grounded_stats=seg.pop("grounded_stats", None),
             )
         for f in seg_fields:
             f["segment"] = seg["index"]
@@ -2141,11 +2183,12 @@ def redhat_targeted_pass(report: dict[str, Any], *, tree: dict | None, completio
     before = field_facts(fields)
     before_found = fields_found_count(fields)
     # Suspects hold ``value None`` already; the pass offers exactly the hinted names.
-    new_fields = llm_fill_missing(
-        doc_type, texts, fields, completion=completion, notes=notes, parser_name=report.get("parser_name"), parse_confidence=None,
-        ocr_confidence=None, page_quality=list(report.get("_page_quality") or []), visual_pages=[p.get("visual") for p in report.get("pages") or []],
-        layout=layout, project_id=report.get("project_id"), execution=stats, hints=hints, only=sorted(hints),
-    )
+    with _mc.stage_context("redhat_targeted", project_id=report.get("project_id")):
+        new_fields = llm_fill_missing(
+            doc_type, texts, fields, completion=completion, notes=notes, parser_name=report.get("parser_name"), parse_confidence=None,
+            ocr_confidence=None, page_quality=list(report.get("_page_quality") or []), visual_pages=[p.get("visual") for p in report.get("pages") or []],
+            layout=layout, project_id=report.get("project_id"), execution=stats, hints=hints, only=sorted(hints),
+        )
     changed = [n for n, f in ((f.get("name"), f) for f in new_fields) if n in hints and (f.get("value"), f.get("element_id")) != (before.get(n, (None, None, None))[0], before.get(n, (None, None, None))[1])]
     exe["redhat_targeted"] = {**(stats.get("llm_grounding") or {}), "fields": sorted(hints), "changed": sorted(changed), "hints": hints}
     if not changed:
@@ -2171,11 +2214,16 @@ def redhat_targeted_pass(report: dict[str, Any], *, tree: dict | None, completio
     report["tree_nodes_addressed"] = attach_tree_node_ids(report["fields"], tree if tree is not None else load_tree_for_report(report))
     refresh_report(report)
     previous_counts = dict(block.get("counts") or {})
-    critique = rg.critique_report(report, tree=tree, completion=None, llm=model_check)
+    # The re-critique over the changed graph is rules-only: the critique's one
+    # model call per document was spent on the first pass (plan V5 B3), and the
+    # replaced values came in with a verbatim quote the rules re-check.
+    critique = rg.critique_report(report, tree=tree, completion=None, llm=False)
     rg.attach_findings(report, critique)
     report["redhat"]["previous_counts"] = previous_counts
-    report["redhat"]["targeted_pass"] = {"fields": sorted(hints), "changed": sorted(changed)}
-    exe["redhat_graph"] = redhat_graph_summary(report, critique)
+    report["redhat"]["targeted_pass"] = {"fields": sorted(hints), "changed": sorted(changed),
+                                         "recheck": "rules only (the critique's model check was spent on the first pass)"}
+    exe["redhat_graph"] = {**redhat_graph_summary(report, critique), "recheck": "rules_only_after_targeted_pass",
+                           "model_check_first_pass": bool(model_check)}
     entry = record_pipeline_pass(report, trigger="pipeline:redhat_targeted", fields_changed=changed, before_found=before_found,
                                  after_found=fields_found_count(report["fields"]),
                                  basis=f"critique named {len(hints)} field(s); the hinted grounded pass replaced {len(changed)}")
@@ -2305,6 +2353,8 @@ def run_after_parse(
         # Automated Red-Hat over the intake evidence graph (plan P0, 2026-09-26):
         # rules first, a grounded model check second, never a manual label.
         # Runs on every report; a failure is a note, not a missing pass.
+        rg = None
+        model_check = False
         try:
             try:
                 from ..services import redhat_graph as rg
@@ -2326,18 +2376,34 @@ def run_after_parse(
             critique = rg.critique_report(report, tree=tree, completion=None, llm=model_check)
             rg.attach_findings(report, critique)
             report.setdefault("execution", {})["redhat_graph"] = redhat_graph_summary(report, critique)
-            # Red-Hat-targeted second look (plan Part 2.4 / 2.8, 2026-09-27):
-            # the fields the critique names as suspect or unsupported are
-            # offered once more to the grounded model pass with the finding as
-            # the hint; a grounded answer replaces the debris, the critique
-            # runs again over the changed graph, and the ledger records both.
-            redhat_targeted_pass(report, tree=tree, completion=completion, llm=_llm_on(), rg=rg, model_check=model_check)
         except Exception as exc:
             log.exception("parsure: red-hat graph critique failed for %s", filename)
             report.setdefault("redhat", {"policy": "rh-graph-v1", "findings": [], "counts": {}, "classes": {},
                                          "notes": [f"critique failed: {exc.__class__.__name__}"]})
             report.setdefault("execution", {})["redhat_graph"] = {"status": "failed", "policy": "rh-graph-v1", "findings": 0, "high": 0,
                                                                   "reason": f"{exc.__class__.__name__}: {exc}"[:200]}
+            rg = None
+        # Red-Hat-targeted second look (plan Part 2.4 / 2.8, 2026-09-27): the
+        # fields the critique names as suspect or unsupported are offered once
+        # more to the grounded model pass with the finding as the hint; a
+        # grounded answer replaces the debris, the critique runs again over the
+        # changed graph, and the ledger records both. Its failure is its own
+        # (plan V5 B1/B2, 2026-09-29): until now it sat in the critique's
+        # try, so a timeout in the hinted pass replaced an already-complete
+        # ``report["redhat"]`` with empty findings and the reason read
+        # "critique failed" — real evidence erased, the failure misattributed.
+        if rg is not None:
+            try:
+                redhat_targeted_pass(report, tree=tree, completion=completion, llm=_llm_on(), rg=rg, model_check=model_check)
+            except Exception as exc:
+                log.exception("parsure: red-hat targeted pass failed for %s", filename)
+                report.setdefault("execution", {})["redhat_targeted"] = {
+                    "status": "failed", "reason": f"{exc.__class__.__name__}: {exc}"[:200],
+                    "fields": sorted(((report.get("execution") or {}).get("redhat_targeted") or {}).get("fields") or []),
+                }
+        else:
+            report.setdefault("execution", {})["redhat_targeted"] = {"status": "skipped", "fields": [],
+                                                                     "reason": "the critique failed; nothing to target"}
         report.setdefault("execution", {})["rerun"] = rerun_summary(report)
         stamp_field_uids(report)
         # Pictures (plan Part 5, 2026-09-27): services/vision decides whether a

@@ -59,3 +59,21 @@ no evidence reads *no record*; only `ran` is green.
 Measured on the compose stack (2026-09-28, `final_run_assure.py`): 34 rows for
 one proof project — compile 1, entailment 22, Red-Hat audit 10, Red-Hat graph 1
 — all attributed by context, 0 unattributed.
+
+## Per-stage model budget (plan V5 B3, 2026-09-29)
+
+One ingest may legitimately ask a model up to five times, each once and each
+under its own stage in the ledger: `intake` (the type suggestion on an
+uncertain page), `discovery`, `llm_grounding` (the grounded field pass — a
+segment promoted by its grounded pass reuses those records, it does not ask
+again), `redhat_targeted` (the hinted re-read) and `redhat_graph` (the
+critique's model check; the re-critique after the targeted pass is rules-only).
+Vision is a sixth stage on picture pages. `tests/test_model_budget.py` counts
+the calls of an uncertain page and of a typed debris page by ledger stage.
+
+A failure in the hinted pass is the hinted pass's own
+(`execution.redhat_targeted = {status: failed, reason: "<Class>: …"}`); the
+critique block it followed stays exactly as the first pass left it — until
+2026-09-29 both sat in one `try` and a timeout in the second erased the
+first's findings under the reason "critique failed" (plan V5 B1/B2). A raised
+model failure in the grounded pass reads `failed`, never `skipped`.
