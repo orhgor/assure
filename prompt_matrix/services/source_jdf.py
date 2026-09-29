@@ -90,7 +90,7 @@ RASTER_LONG_SIDE_PX = 1600
 RASTER_MAX_PAGES = 200
 #: Substrings of a parser name that mean the text is an OCR reading
 #: (``jdf_converter`` names the OCR path ``jdf-cli+<engine>``; Textract is OCR).
-OCR_PARSER_MARKERS = ("tesseract", "textract", "openai")
+OCR_PARSER_MARKERS = ("tesseract", "textract", "openai", "llm:")
 #: Modalities (``quality_probe.detect_material``) and source kinds whose page is
 #: a picture, whatever the parser name says.
 PICTURE_MODALITIES = ("scanned_pdf", "phone_photo", "screenshot")

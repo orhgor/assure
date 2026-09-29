@@ -93,11 +93,11 @@ def select_parser(
         ext = filename.lower().split(".")[-1]
         if ext in _TEXT_LIKE_EXTENSIONS:
             return "jdf"  # text-like: caller wraps content as JDF, no probe
-        if parser_backend() == "textract":
-            return "textract"  # every document (user decision 2026-09-29)
+        if parser_backend() in HOSTED_READERS:
+            return "textract"  # the hosted-reader branch: Textract, or the model (user decision 2026-09-29)
         if ext in _IMAGE_EXTENSIONS:
             return scan_backend()
-    elif parser_backend() == "textract":
+    elif parser_backend() in HOSTED_READERS:
         return "textract"
 
     # 3. PDF probe (only for .pdf files).
@@ -171,14 +171,23 @@ def route_intake(
     }
 
 
+#: Backends that read every page remotely and write the reading as a JDF
+#: document (``services/textract_jdf`` / ``services/llm_parse``). Callers see
+#: one routing answer, ``"textract"``, for both: the bundle builder dispatches.
+HOSTED_READERS = ("textract", "openrouter")
+
+
 def parser_backend() -> str:
     """``PARSER_BACKEND``: ``auto`` (default — text layer → jdf-cli, scans →
-    ``scan_backend``) or ``textract`` (every PDF and image goes to Amazon
-    Textract, digital or scanned; the reading is written as a JDF document by
-    ``services/textract_jdf``). User decision 2026-09-29: "send the PDF straight
-    to Textract, save the output as JDF and continue as JDF". Text-like files
-    are still wrapped as JDF without any parser."""
+    ``scan_backend``), ``textract`` (every PDF and image to Amazon Textract) or
+    ``openrouter`` (every page rendered and read by the parse-stage model on
+    OpenRouter, ``ASSURE_OPENROUTER_MODEL_PARSE``; user decision 2026-09-29:
+    "PARSER_BACKEND openrouter olacak"). Either hosted reader's output is
+    written as a JDF document and the pipeline continues on it. Text-like
+    files are still wrapped as JDF without any parser."""
     raw = (os.environ.get("PARSER_BACKEND") or "").strip().lower()
+    if raw in ("openrouter", "llm", "model"):
+        return "openrouter"
     return "textract" if raw == "textract" else "auto"
 
 

@@ -122,8 +122,8 @@ ask MODEL_EVIDENCE   "Evidence model (claims validation)" "$M_EVIDENCE"
 ask MODEL_COMPARE    "Compare model (policy comparison, 2nd column)" "$M_COMPARE"
 MODEL_A="$MODEL_DRAFT"; MODEL_B="$MODEL_COMPARE"
 PARSER_DEFAULT="auto"; [[ -n "$AWS_KEY_ID" ]] && PARSER_DEFAULT="textract"
-ask PARSER_BACKEND   "Parser: textract (every PDF/image to Amazon Textract, saved as JDF) or auto (jdf-cli, Textract only for scans that fail)" "$PARSER_DEFAULT"
-case "$PARSER_BACKEND" in t|textract|T|TEXTRACT) PARSER_BACKEND="textract" ;; *) PARSER_BACKEND="auto" ;; esac
+ask PARSER_BACKEND   "Parser: openrouter (every page read by the parse-stage model, saved as JDF), textract (Amazon Textract, saved as JDF) or auto (jdf-cli)" "$PARSER_DEFAULT"
+case "$PARSER_BACKEND" in t|textract|T|TEXTRACT) PARSER_BACKEND="textract" ;; o|openrouter|O|OPENROUTER|llm|model) PARSER_BACKEND="openrouter" ;; *) PARSER_BACKEND="auto" ;; esac
 TEXTRACT_MODE_DEFAULT="detect"; [[ "$PARSER_BACKEND" == "textract" ]] && TEXTRACT_MODE_DEFAULT="analyze"
 ask TEXTRACT_MODE    "Textract API: analyze (text + tables + forms, 0.065 USD/page) or detect (text only, 0.0015 USD/page)" "$TEXTRACT_MODE_DEFAULT"
 case "$TEXTRACT_MODE" in a|analyze|A|ANALYZE) TEXTRACT_MODE="analyze" ;; *) TEXTRACT_MODE="detect" ;; esac
