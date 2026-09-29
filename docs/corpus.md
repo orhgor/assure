@@ -17,6 +17,7 @@ benchmark set that exercises these families is `bench/manifest.json`
 | Input | Decision | Then |
 |---|---|---|
 | extension in `txt md json csv rst yaml yml`, or `source_kind="text"` | `jdf` | the caller wraps the text as a JDF document; no binary parse |
+| `PARSER_BACKEND=textract` (any PDF or image) | `textract` | every document to Amazon Textract, digital or scanned (user decision 2026-09-29); `services/textract_jdf` writes the reading as a JDF document — one `image` element per page with `ocr.blocks` (LINE text, confidence, bbox), `table` elements from TABLE blocks, KEY_VALUE_SET pairs on `bundle.forms` — so layout, table pass, source view and page rasters run unchanged. `ASSURE_TEXTRACT_MODE=analyze` for tables/forms (0.065 USD/page), `detect` for text only |
 | extension in `png jpg jpeg tif tiff bmp` | `scan_backend()` | `jdf_converter.pdf_to_parse_bundle` wraps the image in a one-page PDF for jdf-cli itself (magic bytes or image file name; OCR forced; `bundle.wrapped_image`), so the Sources upload and `/jdf/ingest` take photos too — until 2026-09-28 only `pdf_ingest` wrapped and the other two routes failed with "Invalid PDF structure" (BMP → PNG for Textract) |
 | `.pdf` | probe the first 3 pages for a text layer (`_probe_pdf_for_parser`) | text → `jdf`; none → `scan_backend()`; probe error → `jdf` |
 | `source_kind="scanned"` | `scan_backend()` | client says the file is image-only |

@@ -93,8 +93,12 @@ def select_parser(
         ext = filename.lower().split(".")[-1]
         if ext in _TEXT_LIKE_EXTENSIONS:
             return "jdf"  # text-like: caller wraps content as JDF, no probe
+        if parser_backend() == "textract":
+            return "textract"  # every document (user decision 2026-09-29)
         if ext in _IMAGE_EXTENSIONS:
             return scan_backend()
+    elif parser_backend() == "textract":
+        return "textract"
 
     # 3. PDF probe (only for .pdf files).
     if filename and filename.lower().endswith(".pdf"):
@@ -165,6 +169,17 @@ def route_intake(
         "visual_pages": visual_pages,
         "laya": triage,
     }
+
+
+def parser_backend() -> str:
+    """``PARSER_BACKEND``: ``auto`` (default — text layer → jdf-cli, scans →
+    ``scan_backend``) or ``textract`` (every PDF and image goes to Amazon
+    Textract, digital or scanned; the reading is written as a JDF document by
+    ``services/textract_jdf``). User decision 2026-09-29: "send the PDF straight
+    to Textract, save the output as JDF and continue as JDF". Text-like files
+    are still wrapped as JDF without any parser."""
+    raw = (os.environ.get("PARSER_BACKEND") or "").strip().lower()
+    return "textract" if raw == "textract" else "auto"
 
 
 def scan_backend() -> ParserName:

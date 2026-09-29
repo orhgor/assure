@@ -965,3 +965,21 @@ line of the current tree after `ruff check prompt_matrix/ --select F821`,
 Review output is a field-level before/after diff naming the fix that produced each change.
 Table cells derive `provenance_confidence` from `PROVENANCE_BY_SHAPE` like every other builder
 (V5 R1); a non-valid cell is a located suspect (span kept, value withheld).
+
+### Textract as the parser (2026-09-29)
+
+`PARSER_BACKEND=textract` sends every PDF and image to Amazon Textract (one request per
+page, `DetectDocumentText` or, with `ASSURE_TEXTRACT_MODE=analyze`, `AnalyzeDocument`
+TABLES+FORMS; each page charged against `ASSURE_TEXTRACT_MONTHLY_USD_CAP` first).
+`services/textract_jdf.textract_parse_bundle` writes the reading as a JDF document in the
+shape jdf-cli emits for a scan — `pages[].elements[]` = one full-page `image` element
+(`id scan-<n>`, `ocr.blocks` = LINE blocks with `text`, `confidence` 0–1, normalised
+`bbox`) plus `table` elements (headers = first row) — and returns the same bundle keys as
+`pdf_to_parse_bundle` (`parser_name textract`, `ocr_engine textract:<api>`,
+`ocr_confidence` = mean line confidence, `forms` = KEY_VALUE_SET pairs with page and
+bboxes, `textract.pages[]` timings). The import route, the Sources upload and the legacy
+`/jdf/ingest` all take it; the source JDF and the page rasters are stored as for any OCR
+document, so the workbench shows the page as a JDF source with bbox highlights.
+Measured on the customer's site-report JPEG (analyze, us-east-1): 5.0 s, 25 lines, mean
+confidence 0.9465, 13 key/value pairs (`REPORT ID → RPT-260708-E7BE23`, `GENERATED →
+8 JULY 2026`, `PROGRESS → Vehicle sustained…`).

@@ -121,7 +121,13 @@ ask MODEL_REDHAT     "Red-Hat model (critique / compliance)" "$M_REDHAT"
 ask MODEL_EVIDENCE   "Evidence model (claims validation)" "$M_EVIDENCE"
 ask MODEL_COMPARE    "Compare model (policy comparison, 2nd column)" "$M_COMPARE"
 MODEL_A="$MODEL_DRAFT"; MODEL_B="$MODEL_COMPARE"
-ask TEXTRACT_CAP     "Textract monthly cap in USD (fallback OCR; 0 = never call Textract)" "100"
+PARSER_DEFAULT="auto"; [[ -n "$AWS_KEY_ID" ]] && PARSER_DEFAULT="textract"
+ask PARSER_BACKEND   "Parser: textract (every PDF/image to Amazon Textract, saved as JDF) or auto (jdf-cli, Textract only for scans that fail)" "$PARSER_DEFAULT"
+case "$PARSER_BACKEND" in t|textract|T|TEXTRACT) PARSER_BACKEND="textract" ;; *) PARSER_BACKEND="auto" ;; esac
+TEXTRACT_MODE_DEFAULT="detect"; [[ "$PARSER_BACKEND" == "textract" ]] && TEXTRACT_MODE_DEFAULT="analyze"
+ask TEXTRACT_MODE    "Textract API: analyze (text + tables + forms, 0.065 USD/page) or detect (text only, 0.0015 USD/page)" "$TEXTRACT_MODE_DEFAULT"
+case "$TEXTRACT_MODE" in a|analyze|A|ANALYZE) TEXTRACT_MODE="analyze" ;; *) TEXTRACT_MODE="detect" ;; esac
+ask TEXTRACT_CAP     "Textract monthly cap in USD (0 = never call Textract)" "100"
 
 POSTGRES_PASSWORD="$(rand 24)"
 PEM_SECRET_KEY="$(rand 32)"
@@ -205,7 +211,7 @@ AWS_DEFAULT_REGION=${AWS_REGION}
 AWS_ACCESS_KEY_ID=${AWS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET}
 ASSURE_TEXTRACT_MONTHLY_USD_CAP=${TEXTRACT_CAP}
-ASSURE_TEXTRACT_MODE=detect
+ASSURE_TEXTRACT_MODE=${TEXTRACT_MODE}
 
 # ---- generated secrets ----------------------------------------------------------
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -221,7 +227,8 @@ ASSURE_CLERK_ONLY=0
 WTF_CSRF_ENABLED=0
 PARSE_ASYNC=1
 SUBSTRATE_ASYNC_UPLOAD=1
-PARSER_SCAN_BACKEND=jdf-ocr
+PARSER_BACKEND=${PARSER_BACKEND}
+PARSER_SCAN_BACKEND=$([[ "$PARSER_BACKEND" == "textract" ]] && echo textract || echo jdf-ocr)
 JDF_OCR=tesseract
 ASSURE_MAX_PAGES=200
 MAX_UPLOAD_SIZE_MB=25

@@ -53,44 +53,17 @@ MAX_UPLOAD_BYTES = int(os.environ.get("ASSURE_MAX_UPLOAD_BYTES", str(25 * 1024 *
 
 
 def _textract_bundle_for_ingest(pdf_bytes: bytes, filename: str) -> dict:
-    """Bundle shape for the router's "textract" decision in the memory ingest.
+    """Bundle shape for the router's "textract" decision in the memory ingest:
+    Textract's reading as a JDF document (``services/textract_jdf``), the same
+    shape a jdf-cli parse produces, so the vault row, OMP staging, chunk
+    indexing and the source view all run unchanged (2026-09-29). The client is
+    this module's ``TextractClient`` so a test's stand-in is honoured."""
+    try:
+        from ..services.textract_jdf import textract_parse_bundle
+    except ImportError:  # pragma: no cover - flat-import fallback
+        from services.textract_jdf import textract_parse_bundle  # type: ignore
 
-    The router decided this PDF is a scan, so Textract reads it and the text
-    is wrapped as a minimal JDF (one chunk per paragraph) so the downstream
-    vault row, OMP staging, and chunk indexing all run on the same shape a
-    JDF CI parse produces. Parse/OCR confidence stays None — Textract reports
-    none we trust, and None is the honest unknown, never a fabricated score.
-    """
-    extracted = TextractClient().extract_text(pdf_bytes, filename)
-    text = str(extracted.get("text") or "").strip()
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
-    chunks = [
-        {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
-        for idx, para in enumerate(paragraphs)
-    ]
-    page_count = int(extracted.get("page_count") or 1)
-    return {
-        "jdf": {"$jdf": "1.0", "meta": {}, "pages": [{} for _ in range(page_count)]},
-        "chunks": chunks,
-        "text": text,
-        "page_count": page_count,
-        "parser_name": "textract",
-        "source_kind": "pdf",
-        "parse_confidence": None,
-        "ocr_confidence": None,
-        "tables": extracted.get("tables") or [],
-        "images": [],
-        "figures": [],
-        "table_count": len(extracted.get("tables") or []),
-        "image_count": 0,
-        "figure_count": 0,
-        "asset_summary": {
-            "tables": len(extracted.get("tables") or []),
-            "images": 0,
-            "figures": 0,
-        },
-        "filename": filename,
-    }
+    return textract_parse_bundle(pdf_bytes, filename, client=TextractClient())
 
 
 def _is_text_like_content(file_bytes: bytes, filename: str) -> bool:

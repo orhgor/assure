@@ -157,12 +157,15 @@ def test_substrate_upload_accepts_multi_page_pdf(app_client):
         instance = MagicMock()
         mock_cls.return_value = instance
         instance._get_page_count.return_value = 2
+        # Real page texts: the JDF path (services/textract_jdf, 2026-09-29)
+        # carries what Textract read, not "--- Page N ---" markers, so the
+        # readable-text threshold sees the pages' own words.
         instance.extract_text.return_value = {
-            "text": "--- Page 1 ---\nA\n\n--- Page 2 ---\nB",
+            "text": "Net income grew 12%.\n\nOperating margin held at 31%.",
             "tables": [],
             "forms": [],
             "page_count": 2,
-            "pages": [{"page": 1, "text": "A"}, {"page": 2, "text": "B"}],
+            "pages": [{"page": 1, "text": "Net income grew 12%."}, {"page": 2, "text": "Operating margin held at 31%."}],
             "filename": "report.pdf",
         }
         data = {"file": (io.BytesIO(_multi_page_pdf(2)), "report.pdf")}
@@ -173,7 +176,8 @@ def test_substrate_upload_accepts_multi_page_pdf(app_client):
         )
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload["ok"] is True
+    assert payload["ok"] is True and payload["page_count"] == 2
+    assert "Operating margin held at 31%." in payload["text"]
 
 
 def test_substrate_upload_single_page_success(app_client):

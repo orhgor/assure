@@ -294,7 +294,14 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
                 page_count=page_count,
             )
         try:
-            extracted = client.extract_text(file_bytes, filename)
+            # Textract's reading as a JDF document (services/textract_jdf,
+            # 2026-09-29): the same bundle shape the jdf-cli path produces, so
+            # the source JDF and page rasters are stored for this path too.
+            try:
+                from ..services.textract_jdf import textract_parse_bundle
+            except ImportError:  # pragma: no cover - flat-import fallback
+                from services.textract_jdf import textract_parse_bundle  # type: ignore
+            extracted = textract_parse_bundle(file_bytes, filename, client=client)
         except TextractError:
             if ocr_empty:
                 raise SubstrateIngestError(
@@ -305,8 +312,9 @@ def extract_document_text(filename: str, file_bytes: bytes) -> dict:
                 )
             raise
         page_count = int(extracted.get("page_count") or page_count)
-        # The Textract path has no structured-asset channel yet: empty lists,
-        # unknown confidence — never fabricated scores or asset counts.
+        # The bundle already carries the JDF, chunks, tables, images and the
+        # measured OCR confidence; the defaults below only cover an injected
+        # stand-in that answered less.
         extracted.setdefault("images", [])
         extracted.setdefault("figures", [])
         extracted.setdefault("parser_name", "textract")

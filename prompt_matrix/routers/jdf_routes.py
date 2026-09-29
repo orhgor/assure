@@ -240,51 +240,23 @@ def guess_upload_content_type(filename: str) -> str:
 def _textract_parse_bundle(file_bytes: bytes, filename: str) -> dict[str, Any]:
     """Parse-bundle shape for the router's "textract" decision.
 
-    The router decided this document is a scan (no text layer), so Textract
-    reads it. The result is shaped exactly like a ``pdf_to_parse_bundle`` so
-    the route's downstream tree-building and OMP staging need no second code
-    path: chunks carry one paragraph each so ``jdf_to_document_tree`` renders
-    the text as real body paragraphs. Parse/OCR confidence is None — Textract
-    reports no confidence figure we trust, and None is the honest unknown.
-    """
+    Textract's reading is written as a JDF document (``services/textract_jdf``,
+    2026-09-29): one ``image`` element per page whose ``ocr.blocks`` are the
+    LINE blocks with confidence and bbox, ``table`` elements from TABLE blocks,
+    KEY_VALUE_SET pairs on ``forms`` — the same shape jdf-cli emits for a scan,
+    so the tree, the layout, the table pass, the source view and the page
+    rasters all continue unchanged. Until then this path returned a stub JDF
+    (``pages: [{}]``) and one chunk per paragraph, and nothing downstream had
+    geometry to work with. The client is this module's ``TextractClient`` so a
+    test's stand-in is honoured."""
     try:
         from ..lib.textract import TextractClient
+        from ..services.textract_jdf import textract_parse_bundle
     except ImportError:  # pragma: no cover - flat-import fallback
-        from lib.textract import TextractClient
+        from lib.textract import TextractClient  # type: ignore
+        from services.textract_jdf import textract_parse_bundle  # type: ignore
 
-    extracted = TextractClient().extract_text(file_bytes, filename)
-    text = str(extracted.get("text") or "").strip()
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
-    chunks = [
-        {"id": f"c{idx}", "text": para, "types": ["text"], "page": 1}
-        for idx, para in enumerate(paragraphs)
-    ]
-    page_count = int(extracted.get("page_count") or 1)
-    return {
-        "jdf": {"$jdf": "1.0", "meta": {}, "pages": [{} for _ in range(page_count)]},
-        "chunks": chunks,
-        "text": text,
-        "page_count": page_count,
-        "parser_name": "textract",
-        "source_kind": "pdf",
-        "parse_confidence": None,
-        "ocr_confidence": None,
-        "tables": extracted.get("tables") or [],
-        # Textract's KEY_VALUE_SET pairs (``analyze`` mode): a source of raw
-        # candidates (services/raw_candidates, ``textract``), 2026-09-28.
-        "forms": extracted.get("forms") or [],
-        "images": [],
-        "figures": [],
-        "table_count": len(extracted.get("tables") or []),
-        "image_count": 0,
-        "figure_count": 0,
-        "asset_summary": {
-            "tables": len(extracted.get("tables") or []),
-            "images": 0,
-            "figures": 0,
-        },
-        "filename": filename,
-    }
+    return textract_parse_bundle(file_bytes, filename, client=TextractClient())
 
 
 def register_jdf_routes(app) -> None:

@@ -43,7 +43,9 @@ x-app-env: &app-env
   WTF_CSRF_ENABLED: ${WTF_CSRF_ENABLED:-0}
   PARSE_ASYNC: ${PARSE_ASYNC:-1}
   SUBSTRATE_ASYNC_UPLOAD: ${SUBSTRATE_ASYNC_UPLOAD:-1}
+  PARSER_BACKEND: ${PARSER_BACKEND:-auto}
   PARSER_SCAN_BACKEND: ${PARSER_SCAN_BACKEND:-jdf-ocr}
+  ASSURE_TEXTRACT_MODE: ${ASSURE_TEXTRACT_MODE:-detect}
   JDF_OCR: ${JDF_OCR:-tesseract}
   # Real S3 (leave empty for local disk). Credentials: .env keys, the Sources
   # panel form, or the machine IAM role — in that order.

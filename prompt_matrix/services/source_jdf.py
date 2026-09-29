@@ -234,6 +234,13 @@ def element_index(jdf: dict, chunks: list[dict] | None = None) -> dict[str, dict
             "chunk_id": seg.get("chunk_id"),
             "start": seg.get("start"),
             "end": seg.get("end"),
+            # OCR lines of a scanned page (jdf-cli tesseract, Textract): the
+            # element is the whole page image, the lines carry the boxes a
+            # text selection can be narrowed to (2026-09-29).
+            "ocr_lines": [
+                {"bbox": e.get("bbox"), "start_char": int(e.get("start_char") or 0), "end_char": int(e.get("end_char") or 0)}
+                for e in (seg.get("elements") or []) if isinstance(e, dict) and e.get("kind") == "ocr_block" and e.get("bbox")
+            ],
         }
     return out
 
@@ -396,10 +403,23 @@ def find_elements_for_text(
         ]
         if not hits:
             continue
+        # A scanned page is one image element whose box is the page; the OCR
+        # lines the match falls on give the box the reader actually wants
+        # (Textract / tesseract output, 2026-09-29). Text-layer elements have
+        # no lines and keep their own boxes.
+        line_boxes: list[list[float] | None] = []
+        for _eid, info in hits:
+            base = int(info.get("start") or 0)
+            for line in info.get("ocr_lines") or []:
+                if base + line["start_char"] < end and base + line["end_char"] > start:
+                    line_boxes.append(line.get("bbox"))
+        bbox = _union_bbox(line_boxes) if line_boxes else _union_bbox([info.get("bbox_rel") for _eid, info in hits])
         return {
             "element_ids": [eid for eid, _info in hits],
             "page": page_no,
-            "bbox_rel": _union_bbox([info.get("bbox_rel") for _eid, info in hits]),
+            "bbox_rel": bbox,
+            "bbox_source": "ocr_lines" if line_boxes else "elements",
+            "ocr_lines": len(line_boxes),
             "found": True,
             "matched_by": matched_by,
         }
