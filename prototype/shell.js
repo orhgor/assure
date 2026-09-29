@@ -10504,6 +10504,7 @@
       }
       _renderFieldsBreakdown(rep);
       _renderFieldsExecution(rep);
+      _renderFieldsRawCandidates(rep);
       var form = document.getElementById("fields-type-form");
       var typeRow = document.getElementById("fields-type");
       var editing = Boolean(__fieldsEditor && __fieldsEditor.kind === "type");
@@ -10623,6 +10624,143 @@
           if (bits.length) li.appendChild(_el("span", "exec-counts", bits.join(" \u00b7 ")));
           var reason = block.reason || (Array.isArray(block.reasons) && block.reasons.length ? block.reasons.join("; ") : "");
           if (reason) li.appendChild(_el("span", "exec-reason", String(reason)));
+        }
+        list.appendChild(li);
+      });
+    }
+    // What the page says (customer finding 2026-09-29, V-B): the schema-agnostic
+    // pool `report.raw_candidates` (services/raw_candidates.py), listed verbatim
+    // with the projection outcome `report.projection.candidates_log` gave each
+    // candidate. The pool exists so a reviewer can see the page's own facts when
+    // the schema layer is empty — so an empty pool says so, and a pool with no
+    // projection log says "no projection" per row rather than guessing.
+    // Candidates carry provenance only: no confidence is read or drawn here.
+    var RAW_SOURCE_KINDS = ["layout_text", "table_cell", "image_vision", "textract", "discovery"];
+    function _rawSourceWords(kind) {
+      var k = String(kind || "").toLowerCase();
+      if (!k) return _t("shell.fields.raw.source.unknown", "unknown source");
+      return _t("shell.fields.raw.source." + k, k.replace(/_/g, " "));
+    }
+    function _rawOutcomeChip(entry) {
+      var outcome = entry && typeof entry === "object" ? String(entry.outcome || "").toLowerCase() : "";
+      var chip = _el("span", "field-chip raw-outcome");
+      var tone = "none";
+      if (outcome === "mapped") {
+        tone = "verified";
+        chip.textContent = entry.field ? _tf("shell.fields.raw.outcome.mapped", "mapped → {field}", { field: String(entry.field) })
+                                       : _t("shell.fields.raw.outcome.mapped_nofield", "mapped");
+      } else if (outcome === "conflicting") { tone = "contradicted"; chip.textContent = _t("shell.fields.raw.outcome.conflicting", "conflicting"); }
+      else if (outcome === "review_needed") { tone = "partial"; chip.textContent = _t("shell.fields.raw.outcome.review_needed", "review needed"); }
+      else if (outcome === "unmapped") { chip.textContent = _t("shell.fields.raw.outcome.unmapped", "unmapped"); }
+      else { outcome = "none"; chip.textContent = _t("shell.fields.raw.outcome.none", "no projection"); }
+      chip.setAttribute("data-tone", tone);
+      chip.setAttribute("data-outcome", outcome);
+      return chip;
+    }
+    // The stats line is `execution.raw_candidates` as written by the pipeline
+    // (status, candidates, by_source, failed_sources); absent → "not recorded".
+    function _rawStatsWords(ex) {
+      var block = ex && ex.raw_candidates && typeof ex.raw_candidates === "object" ? ex.raw_candidates : null;
+      if (!block) return _t("shell.fields.raw.no_stats", "pool statistics not recorded");
+      var bits = [];
+      if (block.status) bits.push(_execStatusWords(block.status));
+      if (typeof block.candidates === "number") bits.push(_tf("shell.fields.raw.count", "{n} candidates", { n: block.candidates }));
+      var by = block.by_source && typeof block.by_source === "object" ? block.by_source : null;
+      if (by) {
+        var kinds = RAW_SOURCE_KINDS.concat(Object.keys(by).filter(function (k) { return RAW_SOURCE_KINDS.indexOf(k) === -1; }));
+        kinds.forEach(function (k) {
+          if (typeof by[k] === "number" && by[k] > 0) bits.push(_rawSourceWords(k) + " " + by[k]);
+        });
+      }
+      var failed = block.failed_sources && typeof block.failed_sources === "object" ? Object.keys(block.failed_sources) : [];
+      if (failed.length) bits.push(_tf("shell.fields.raw.failed_sources", "source failed: {list}", { list: failed.map(_rawSourceWords).join(", ") }));
+      if (block.reason) bits.push(String(block.reason));
+      return bits.join(" · ");
+    }
+    // A row is located the way a field row is: the saved paragraph (node_id →
+    // data-node-id in the column) first, else the source sheet by page + span
+    // bbox / verbatim text when a source JDF is known. Neither → the row is
+    // static; nothing is faked.
+    function _rawLocator(c) {
+      var nodeId = c.node_id != null ? String(c.node_id) : "";
+      if (nodeId && _nodeWrapper(nodeId)) return function () { _locateNode(nodeId); };
+      var page = c.page != null ? c.page : (c.source_span && c.source_span.page);
+      if (page != null && page !== "" && _sourceJdfFor("parsure")) {
+        var bbox = c.source_span && Array.isArray(c.source_span.bbox) && c.source_span.bbox.length === 4 ? c.source_span.bbox : null;
+        return function () { _showInSource({ page: page, bbox: bbox, text: String(c.raw_text || "") }, "parsure"); };
+      }
+      return null;
+    }
+    function _renderFieldsRawCandidates(rep) {
+      var host = document.getElementById("fields-raw");
+      var list = document.getElementById("fields-raw-list");
+      if (!host || !list) return;
+      host.hidden = !rep;
+      if (!rep) return;
+      var pool = Array.isArray(rep.raw_candidates) ? rep.raw_candidates.filter(function (c) { return c && typeof c === "object"; }) : [];
+      var ex = rep.execution && typeof rep.execution === "object" ? rep.execution : null;
+      var proj = rep.projection && typeof rep.projection === "object" ? rep.projection
+               : (ex && ex.projection && typeof ex.projection === "object" ? ex.projection : null);
+      var log = proj && proj.candidates_log && typeof proj.candidates_log === "object" ? proj.candidates_log : {};
+      host.setAttribute("data-count", String(pool.length));
+      var countEl = document.getElementById("fields-raw-count");
+      if (countEl) countEl.textContent = _tf("shell.fields.raw.count", "{n} candidates", { n: pool.length });
+      var stats = document.getElementById("fields-raw-stats");
+      if (stats) stats.textContent = _rawStatsWords(ex);
+      var empty = document.getElementById("fields-raw-empty");
+      if (empty) { empty.hidden = pool.length > 0; empty.textContent = _t("shell.fields.raw.empty", "No raw candidates recorded."); }
+      while (list.firstChild) list.removeChild(list.firstChild);
+      list.hidden = !pool.length;
+      if (!pool.length) return;
+      // `preferred` is true on every candidate until an overlap demotes the
+      // other read to false (raw_candidates.merge_new); the "preferred" mark
+      // only means something when the pool holds such a pair.
+      var hasOverlap = pool.some(function (c) { return c.preferred === false; });
+      pool.forEach(function (c) {
+        var li = _el("li", "raw-row");
+        if (c.candidate_id) li.setAttribute("data-candidate-id", String(c.candidate_id));
+        li.setAttribute("data-source", String(c.source_kind || ""));
+        li.setAttribute("data-preferred", c.preferred === false ? "0" : "1");
+        if (typeof c.corroborated === "boolean") li.setAttribute("data-corroborated", c.corroborated ? "1" : "0");
+        var head = _el("div", "raw-head");
+        head.appendChild(_el("span", "raw-label", String(c.label_anchor || c.name_hint || "—")));
+        var entry = log[c.candidate_id];
+        var chip = _rawOutcomeChip(entry);
+        li.setAttribute("data-outcome", chip.getAttribute("data-outcome"));
+        head.appendChild(chip);
+        li.appendChild(head);
+        li.appendChild(_el("blockquote", "raw-text", String(c.raw_text == null ? "" : c.raw_text)));
+        var meta = _el("div", "raw-meta");
+        var page = c.page != null ? c.page : (c.source_span && c.source_span.page);
+        if (page != null && page !== "") meta.appendChild(_el("span", "raw-page", _tf("shell.fields.page", "Page {n}", { n: page })));
+        var src = _el("span", "field-chip raw-source", _rawSourceWords(c.source_kind));
+        src.setAttribute("data-tone", "none");
+        meta.appendChild(src);
+        if (c.preferred === false) {
+          var np = _el("span", "field-chip raw-flag", _t("shell.fields.raw.not_preferred", "not preferred"));
+          np.setAttribute("data-tone", "partial"); np.setAttribute("data-flag", "not_preferred");
+          meta.appendChild(np);
+        } else if (hasOverlap && c.preferred === true) {
+          var pf = _el("span", "field-chip raw-flag", _t("shell.fields.raw.preferred", "preferred"));
+          pf.setAttribute("data-tone", "none"); pf.setAttribute("data-flag", "preferred");
+          meta.appendChild(pf);
+        }
+        if (String(c.source_kind) === "image_vision" && c.corroborated === false) {
+          var uc = _el("span", "field-chip raw-flag", _t("shell.fields.raw.uncorroborated", "not corroborated on the page"));
+          uc.setAttribute("data-tone", "contradicted"); uc.setAttribute("data-flag", "uncorroborated");
+          meta.appendChild(uc);
+        }
+        li.appendChild(meta);
+        var locate = _rawLocator(c);
+        if (locate) {
+          li.classList.add("is-locatable");
+          li.setAttribute("role", "button");
+          li.setAttribute("tabindex", "0");
+          li.title = _t("shell.fields.page_open", "Show in the document");
+          li.addEventListener("click", function (e) { e.stopPropagation(); locate(); });
+          li.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); locate(); }
+          });
         }
         list.appendChild(li);
       });

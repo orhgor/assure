@@ -383,7 +383,88 @@ def execution_view(report: dict[str, Any]) -> dict[str, Any]:
         reason = block.get("reason") or ("; ".join(str(r) for r in reasons) if reasons else None)
         steps.append({"key": key, "label": label, "recorded": True, "status": status, "status_key": status_key,
                       "counts": count_words, "meta": meta_words, "reason": str(reason) if reason else None})
-    return {"recorded": ex is not None, "ran_at": str(ran_at) if ran_at else None, "steps": steps}
+    # The raw pool rides on the execution view so ``/parsing/<id>`` renders it
+    # without a new key in the record ``web.py`` assembles (V-B, 2026-09-29).
+    return {"recorded": ex is not None, "ran_at": str(ran_at) if ran_at else None, "steps": steps,
+            "raw_candidates": raw_candidates_view(report)}
+
+
+#: ``source_kind`` in words, the same five ``raw_candidates.SOURCE_KINDS``.
+RAW_SOURCE_WORDS = {
+    "layout_text": "layout text", "table_cell": "table cell", "image_vision": "image vision",
+    "textract": "Textract", "discovery": "discovery",
+}
+RAW_OUTCOME_WORDS = {"mapped": "mapped", "unmapped": "unmapped", "conflicting": "conflicting", "review_needed": "review needed"}
+
+
+def raw_candidates_view(report: dict[str, Any]) -> dict[str, Any]:
+    """``report.raw_candidates`` for the record page (customer finding V-B,
+    2026-09-29: the pool existed since plan V4 but no page showed it, so a
+    reviewer could not see what the page says when the schema layer was empty).
+
+    ``{count, recorded, status, stats: [str], rows: [{candidate_id, label,
+    raw_text, page, source_kind, source_words, preferred, corroborated,
+    outcome, outcome_words, field, node_id, element_id}]}``. ``label`` is
+    ``label_anchor`` else ``name_hint``; ``raw_text`` is verbatim. The outcome
+    is ``projection.candidates_log[candidate_id]`` (``execution.projection``
+    when the report block is absent) and ``none`` when no log names the
+    candidate — never inferred from the fields. ``stats`` is
+    ``execution.raw_candidates`` in words (status, count, non-zero by-source
+    counts, failed sources); ``recorded`` False when that block is missing.
+    Candidates carry no confidence and none is derived here."""
+    pool = [c for c in (report.get("raw_candidates") or []) if isinstance(c, dict)] if isinstance(report.get("raw_candidates"), list) else []
+    ex = report.get("execution") if isinstance(report.get("execution"), dict) else {}
+    proj = report.get("projection") if isinstance(report.get("projection"), dict) else (ex.get("projection") if isinstance(ex.get("projection"), dict) else {})
+    log = proj.get("candidates_log") if isinstance(proj.get("candidates_log"), dict) else {}
+    has_overlap = any(c.get("preferred") is False for c in pool)
+    rows = []
+    for c in pool:
+        entry = log.get(c.get("candidate_id")) if c.get("candidate_id") is not None else None
+        outcome = str((entry or {}).get("outcome") or "").lower() if isinstance(entry, dict) else ""
+        if outcome not in RAW_OUTCOME_WORDS:
+            outcome = "none"
+        field = (entry or {}).get("field") if isinstance(entry, dict) else None
+        kind = str(c.get("source_kind") or "")
+        page = c.get("page")
+        if page is None and isinstance(c.get("source_span"), dict):
+            page = c["source_span"].get("page")
+        rows.append({
+            "candidate_id": c.get("candidate_id"),
+            "label": str(c.get("label_anchor") or c.get("name_hint") or "—"),
+            "raw_text": "" if c.get("raw_text") is None else str(c.get("raw_text")),
+            "page": page,
+            "source_kind": kind,
+            "source_words": RAW_SOURCE_WORDS.get(kind, kind.replace("_", " ") or "unknown source"),
+            "preferred": c.get("preferred") is not False,
+            "show_preferred": has_overlap and c.get("preferred") is True,
+            "corroborated": c.get("corroborated") if isinstance(c.get("corroborated"), bool) else None,
+            "uncorroborated": kind == "image_vision" and c.get("corroborated") is False,
+            "outcome": outcome,
+            "outcome_words": (f"mapped → {field}" if outcome == "mapped" and field else RAW_OUTCOME_WORDS.get(outcome, "no projection")),
+            "field": field,
+            "node_id": c.get("node_id"),
+            "element_id": c.get("element_id"),
+        })
+    block = ex.get("raw_candidates") if isinstance(ex.get("raw_candidates"), dict) else None
+    stats: list[str] = []
+    if block:
+        status_raw = str(block.get("status") or "").lower()
+        if status_raw:
+            stats.append(STATUS_WORDS.get(status_raw, status_raw.replace("_", " ")))
+        if isinstance(block.get("candidates"), (int, float)):
+            stats.append(f"{int(block['candidates'])} candidates")
+        by = block.get("by_source") if isinstance(block.get("by_source"), dict) else {}
+        for kind in list(RAW_SOURCE_WORDS) + [k for k in by if k not in RAW_SOURCE_WORDS]:
+            n = by.get(kind)
+            if isinstance(n, (int, float)) and n > 0:
+                stats.append(f"{RAW_SOURCE_WORDS.get(kind, str(kind).replace('_', ' '))} {int(n)}")
+        failed = block.get("failed_sources") if isinstance(block.get("failed_sources"), dict) else {}
+        if failed:
+            stats.append("source failed: " + ", ".join(RAW_SOURCE_WORDS.get(k, str(k)) for k in failed))
+        if block.get("reason"):
+            stats.append(str(block["reason"]))
+    return {"count": len(rows), "recorded": block is not None, "status": str(block.get("status") or "") if block else None,
+            "stats": stats, "rows": rows}
 
 
 def summary_breakdown(fields: list[dict[str, Any]]) -> dict[str, int]:

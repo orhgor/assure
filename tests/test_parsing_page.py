@@ -1254,6 +1254,86 @@ def test_record_page_says_not_recorded_for_a_report_without_execution_blocks(cli
     assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
 
 
+def _raw_pool_report(project, report_id="rep-raw-1"):
+    """A report whose schema layer found one field while the raw pool holds four
+    reads (customer finding V-B, 2026-09-29): the record page must list all four."""
+    from prompt_matrix.db import parsure_repository as repo
+    from prompt_matrix.db.jdf_repository import ensure_project
+
+    ensure_project(project)
+
+    def cand(cid, label, text, page=1, kind="layout_text", **extra):
+        c = {"candidate_id": cid, "name_hint": label.lower().replace(" ", "_"), "raw_text": text, "normalized_value": None,
+             "label_anchor": label, "page": page, "node_id": None, "element_id": None,
+             "source_span": {"span_type": "text_range", "start_char": 0, "end_char": len(text)},
+             "source_kind": kind, "source_priority": 50, "corroborated": True, "preferred": True, "trace": "test"}
+        c.update(extra)
+        return c
+
+    report = {
+        "report_id": report_id, "document_id": f"doc-{report_id}", "filename": "site-report-photo.jpg", "modality": "photo", "material_type": "image",
+        "parser_name": "jdf-cli+tesseract", "page_count": 1, "document_quality_score": 0.6,
+        "pages": [{"page": 1, "quality_score": 0.6, "flags": []}],
+        "classification": {"document_type": "site_report", "confidence": 0.7, "basis": "keyword match"},
+        "fields": [_data_field("report_id", "Report ID", "RPT-260708-E7BE23", evidence_state="found_verified")],
+        "conflicts": [],
+        "review_summary": {"fields_total": 1, "fields_found": 1, "fields_review": 0, "fields_not_found": 0, "fields_suspect": 0},
+        "raw_candidates": [
+            cand("c1", "REPORT ID", "RPT-260708-E7BE23", node_id="n-1", element_id="e-7"),
+            cand("c2", "Inspector", "J. Doe", kind="image_vision", corroborated=False),
+            cand("c3", "REPORT ID", "+ RPT-260708-E7BE23", preferred=False),
+            cand("c4", "Weather", "Overcast, 14°C"),
+        ],
+        "projection": {"status": "completed", "document_type": "site_report", "candidates": 4,
+                       "candidates_log": {"c1": {"outcome": "mapped", "field": "report_id"}, "c2": {"outcome": "review_needed", "field": "inspector"},
+                                          "c3": {"outcome": "conflicting", "field": "report_id"}, "c4": {"outcome": "unmapped", "field": None}}},
+        "execution": {
+            "ran_at": "2026-09-29 09:00:00",
+            "raw_candidates": {"status": "completed", "candidates": 4, "collected": 5,
+                               "by_source": {"layout_text": 3, "table_cell": 0, "image_vision": 1, "textract": 0, "discovery": 0}},
+            "projection": {"status": "completed", "document_type": "site_report", "counts": {"mapped": 1, "conflicting": 1, "review_needed": 1, "unmapped": 1}},
+        },
+        "created_at": "2026-09-29 08:59:00", "_page_texts": ["REPORT ID RPT-260708-E7BE23 Weather Overcast, 14°C"],
+    }
+    return repo.save_report(project, report)
+
+
+def test_record_page_lists_what_the_page_says_with_each_candidates_projection_outcome(client):
+    _raw_pool_report("p-raw")
+    html = client.get("/parsing/rep-raw-1?project_id=p-raw").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="raw-candidates" data-count="4" data-recorded="1"' in html
+    assert "What the page says (raw candidates)" in text
+    assert "completed · 4 candidates · layout text 3 · image vision 1" in text
+    rows = re.findall(r'<tr class="raw-row" data-candidate-id="([^"]+)" data-source="([^"]+)" data-outcome="([^"]+)" data-preferred="([01])"', html)
+    assert rows == [("c1", "layout_text", "mapped", "1"), ("c2", "image_vision", "review_needed", "1"),
+                    ("c3", "layout_text", "conflicting", "0"), ("c4", "layout_text", "unmapped", "1")]
+    c1 = re.search(r'<tr class="raw-row" data-candidate-id="c1".*?</tr>', html, re.S).group(0)
+    assert 'data-node-id="n-1"' in c1 and 'data-element-id="e-7"' in c1
+    assert 'class="raw-quote" href="#page-1"' in c1 and "RPT-260708-E7BE23" in _visible_text(c1)
+    assert 'badge badge--mapped">mapped → report_id<' in c1 and 'data-flag="preferred"' in c1
+    c2 = re.search(r'<tr class="raw-row" data-candidate-id="c2".*?</tr>', html, re.S).group(0)
+    assert 'data-corroborated="0"' in c2 and "not corroborated on the page" in _visible_text(c2) and "review needed" in _visible_text(c2)
+    c3 = re.search(r'<tr class="raw-row" data-candidate-id="c3".*?</tr>', html, re.S).group(0)
+    assert "+ RPT-260708-E7BE23" in _visible_text(c3) and "not preferred" in _visible_text(c3) and 'badge badge--conflicting">conflicting<' in c3
+    c4 = re.search(r'<tr class="raw-row" data-candidate-id="c4".*?</tr>', html, re.S).group(0)
+    assert "Overcast, 14°C" in _visible_text(c4) and 'badge badge--unmapped">unmapped<' in c4
+    # Candidates carry no confidence: the table has no such column and no bar.
+    raw_section = re.search(r'<section class="section raw-candidates".*?</section>', html, re.S).group(0)
+    assert "onfidence" not in raw_section and "conf-bar" not in raw_section
+    assert not FORBIDDEN_WORDS.search(text), FORBIDDEN_WORDS.search(text)
+
+
+def test_record_page_says_no_raw_candidates_when_the_pool_is_empty(client):
+    _execution_report("p-exec-raw")
+    html = client.get("/parsing/rep-x1?project_id=p-exec-raw").get_data(as_text=True)
+    text = _visible_text(html)
+    assert 'id="raw-candidates" data-count="0" data-recorded="0"' in html
+    assert 'id="raw-candidates-empty"' in html and "No raw candidates recorded." in text
+    assert "pool statistics not recorded" in text
+    assert 'class="raw-row"' not in html
+
+
 # ---------------------------------------------------------------------------
 # Accounts (2026-09-27): the header identity and the controls a role may not
 # use, read from the local-accounts middleware's g.assure_user.

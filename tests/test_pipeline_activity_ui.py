@@ -181,8 +181,8 @@ def test_style_covers_the_panel_with_the_shell_tones() -> None:
 
 
 def test_ui_cache_bumped_for_the_pipeline_panel() -> None:
-    assert APP_CSS == "assure-115"
-    assert APP_JS == "assure-115"
+    assert APP_CSS == "assure-116"
+    assert APP_JS == "assure-116"
 
 
 # ---------------------------------------------------------------------------

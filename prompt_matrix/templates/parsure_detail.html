@@ -286,6 +286,16 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
 .badge--review, .badge--suspect, .badge--disputed { color: var(--partial); border-color: color-mix(in srgb, var(--partial) 45%, var(--rule)); }
 .badge--rejected { color: var(--contradicted); border-color: color-mix(in srgb, var(--contradicted) 45%, var(--rule)); }
 .badge--not_found { color: var(--muted); background: var(--paper); }
+/* raw candidates (V-B, 2026-09-29): outcome tones follow the document's four; verbatim text in mono. */
+.badge--mapped { color: var(--verified); border-color: color-mix(in srgb, var(--verified) 40%, var(--rule)); }
+.badge--conflicting { color: var(--contradicted); border-color: color-mix(in srgb, var(--contradicted) 45%, var(--rule)); }
+.badge--review_needed { color: var(--partial); border-color: color-mix(in srgb, var(--partial) 45%, var(--rule)); }
+.badge--unmapped, .badge--none, .badge--source { color: var(--muted); background: var(--paper); }
+.raw-candidates .c-raw-text { font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-sm); white-space: pre-wrap; }
+.raw-candidates .raw-quote { color: var(--ink); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+.raw-candidates .raw-quote:hover { text-decoration-color: var(--ink); }
+.raw-candidates .c-source { white-space: normal; }
+.raw-candidates .c-source .badge { margin: 0 4px 4px 0; }
 .fields .c-state .status { display: block; margin-top: 3px; font-size: var(--fs-xs); font-weight: 400; }
 .conf-bar { display: block; width: 64px; height: 3px; margin-top: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
 .conf-bar-fill { display: block; height: 100%; background: var(--ink); border-radius: 2px; }
@@ -612,6 +622,38 @@ details.tech dd { margin: 0; font-family: var(--mono); font-size: var(--fs-xs); 
         </li>
         {% endfor %}
       </ul>
+    </section>
+
+    {# What the page says (V-B, 2026-09-29): report.raw_candidates verbatim with each
+       candidate's projection outcome. Candidates carry no confidence — no column for it. #}
+    {% set raw = record.execution.raw_candidates %}
+    <section class="section raw-candidates" id="raw-candidates" data-count="{{ raw.count }}" data-recorded="{{ 1 if raw.recorded else 0 }}">
+      <div class="section-head">
+        <h2>{{ strings.get("parsing.raw.title", "What the page says (raw candidates)") }}</h2>
+        <span class="section-meta" id="raw-candidates-stats">{% if raw.stats %}{{ raw.stats|join(" · ") }}{% else %}{{ strings.get("parsing.raw.no_stats", "pool statistics not recorded") }}{% endif %}</span>
+      </div>
+      {% if not raw.rows %}<p class="section-empty" id="raw-candidates-empty">{{ strings.get("parsing.raw.empty", "No raw candidates recorded.") }}</p>
+      {% else %}
+      <div class="frame">
+        <table class="fields raw">
+          <thead><tr><th>{{ strings.get("parsing.raw.col.label", "Label") }}</th><th>{{ strings.get("parsing.raw.col.text", "Text on the page") }}</th><th class="c-page">{{ strings.get("parsing.raw.col.page", "Page") }}</th><th>{{ strings.get("parsing.raw.col.source", "Source") }}</th><th>{{ strings.get("parsing.raw.col.outcome", "Projection") }}</th></tr></thead>
+          <tbody>
+          {% for c in raw.rows %}
+            <tr class="raw-row" data-candidate-id="{{ c.candidate_id or '' }}" data-source="{{ c.source_kind }}" data-outcome="{{ c.outcome }}" data-preferred="{{ 1 if c.preferred else 0 }}"{% if c.corroborated is not none %} data-corroborated="{{ 1 if c.corroborated else 0 }}"{% endif %}{% if c.node_id %} data-node-id="{{ c.node_id }}"{% endif %}{% if c.element_id %} data-element-id="{{ c.element_id }}"{% endif %}>
+              <td class="c-label">{{ c.label }}</td>
+              <td class="c-value c-raw-text">{% if c.page is not none %}<a class="raw-quote" href="#page-{{ c.page }}" title="{{ strings.get("parsing.grounding.open", "Show the page this was read from") }}">{{ c.raw_text }}</a>{% else %}{{ c.raw_text }}{% endif %}</td>
+              <td class="c-page">{{ c.page if c.page is not none else "—" }}</td>
+              <td class="c-source"><span class="badge badge--source">{{ strings.get("shell.fields.raw.source." ~ c.source_kind, c.source_words) }}</span>
+                {%- if not c.preferred %} <span class="badge badge--review raw-flag" data-flag="not_preferred">{{ strings.get("shell.fields.raw.not_preferred", "not preferred") }}</span>
+                {%- elif c.show_preferred %} <span class="badge raw-flag" data-flag="preferred">{{ strings.get("shell.fields.raw.preferred", "preferred") }}</span>{% endif %}
+                {%- if c.uncorroborated %} <span class="badge badge--rejected raw-flag" data-flag="uncorroborated">{{ strings.get("shell.fields.raw.uncorroborated", "not corroborated on the page") }}</span>{% endif %}</td>
+              <td class="c-state"><span class="badge badge--{{ c.outcome }}">{% if c.outcome == "mapped" and c.field %}{{ strings.get("shell.fields.raw.outcome.mapped", "mapped → {field}").replace("{field}", c.field) }}{% else %}{{ strings.get("shell.fields.raw.outcome." ~ c.outcome, c.outcome_words) }}{% endif %}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </section>
 
     {% if record.tables %}

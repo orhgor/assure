@@ -4098,6 +4098,28 @@ body.collapsed.right-hidden #resize-right { display: none; }
 .exec-counts { grid-column: 1 / -1; color: var(--ink); font-variant-numeric: tabular-nums; word-break: break-word; }
 .exec-reason { grid-column: 1 / -1; color: var(--muted); }
 
+/* What the page says (2026-09-29, V-B): the raw-candidates pool under the
+   execution panel. Verbatim text in a quote block, the projection outcome
+   as a field chip; a located row reads as a button. No confidence bar: the
+   candidates carry none. */
+.fields-raw-stats { margin: var(--space-2) 0 0; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; word-break: break-word; }
+.fields-raw-empty { margin: var(--space-2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.fields-raw-empty[hidden] { display: none; }
+.raw-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.raw-list[hidden] { display: none; }
+.raw-row { display: flex; flex-direction: column; gap: 4px; padding: var(--space-2) 0; border-bottom: 1px solid var(--rule); font-size: var(--fs-sm); min-width: 0; }
+.raw-row:last-child { border-bottom: none; }
+.raw-row.is-locatable { cursor: pointer; }
+.raw-row.is-locatable:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.raw-row.is-locatable:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.raw-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.raw-label { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.raw-text { margin: 0; padding: 0 0 0 var(--space-2); border-left: 2px solid var(--rule); color: var(--ink); font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+.raw-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); color: var(--muted); }
+.raw-page { font-variant-numeric: tabular-nums; }
+.raw-row[data-preferred="0"] .raw-text { border-left-color: color-mix(in srgb, var(--partial) 60%, var(--rule)); }
+.raw-row[data-corroborated="0"] .raw-text { border-left-color: color-mix(in srgb, var(--contradicted) 60%, var(--rule)); }
+
 /* Pipeline activity (2026-09-28): the record of what ran, painted into the
    compiler pane, the Inspector and the Fields pane from one state. The tones
    are the document's four; "no record" is muted, never green. */

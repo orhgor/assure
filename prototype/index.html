@@ -677,6 +677,16 @@
               <summary><span data-i18n="shell.fields.exec.title">Execution</span> <span class="fields-execution-when" id="fields-execution-when"></span></summary>
               <ul class="exec-list" id="fields-execution-list" role="list"></ul>
             </details>
+            <!-- What the page says (2026-09-29, V-B): the schema-agnostic pool
+                 report.raw_candidates, verbatim, with each candidate's
+                 projection outcome. Collapsed; the count is in the summary.
+                 Candidates carry no confidence and none is drawn here. -->
+            <details class="fields-execution fields-raw" id="fields-raw" data-count="0" hidden>
+              <summary><span data-i18n="shell.fields.raw.title">What the page says (raw candidates)</span> <span class="fields-execution-when fields-raw-count" id="fields-raw-count"></span></summary>
+              <p class="fields-raw-stats" id="fields-raw-stats"></p>
+              <p class="fields-raw-empty" id="fields-raw-empty" hidden></p>
+              <ul class="raw-list" id="fields-raw-list" role="list"></ul>
+            </details>
           </header>
           <!-- Pipeline activity (2026-09-28): the sibling of the execution
                panel above, outside the header so it shows with no report too —
